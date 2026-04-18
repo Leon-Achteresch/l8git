@@ -58,6 +58,7 @@ pub fn run() {
             git::delete_branch,
             git::delete_remote_branch,
             git::repo_status,
+            git::repo_upstream_sync_counts,
             git::repo_file_diff,
             git::stage_files,
             git::unstage_files,

@@ -8,6 +8,7 @@ interface ToolbarButtonProps {
   label?: string;
   icon: ReactNode;
   isActive?: boolean;
+  badge?: number;
 }
 
 export function ToolbarButton({
@@ -17,7 +18,9 @@ export function ToolbarButton({
   label,
   icon,
   isActive,
+  badge,
 }: ToolbarButtonProps) {
+  const showBadge = typeof badge === "number" && badge > 0;
   return (
     <Button
       type="button"
@@ -33,6 +36,11 @@ export function ToolbarButton({
     >
       {icon}
       {label && <span>{label}</span>}
+      {showBadge && (
+        <span className="inline-flex min-h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary/25 px-1 text-[10px] font-semibold tabular-nums leading-none text-primary">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Button>
   );
 }

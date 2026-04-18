@@ -30,6 +30,12 @@ pub struct RepoInfo {
     branches: Vec<Branch>,
 }
 
+#[derive(Serialize)]
+pub struct UpstreamSyncCounts {
+    pub ahead: u32,
+    pub behind: u32,
+}
+
 fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
@@ -158,6 +164,26 @@ pub fn git_pull(path: String) -> Result<String, String> {
 pub fn git_push(path: String) -> Result<String, String> {
     let repo = PathBuf::from(path.trim());
     run_git_merged_output(&repo, &["push"])
+}
+
+#[tauri::command]
+pub fn repo_upstream_sync_counts(path: String) -> Result<UpstreamSyncCounts, String> {
+    let repo = PathBuf::from(path.trim());
+    let Ok(out) = run_git(
+        &repo,
+        &[
+            "rev-list",
+            "--left-right",
+            "--count",
+            "@{upstream}...HEAD",
+        ],
+    ) else {
+        return Ok(UpstreamSyncCounts { ahead: 0, behind: 0 });
+    };
+    let mut parts = out.split_whitespace();
+    let behind = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let ahead = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    Ok(UpstreamSyncCounts { ahead, behind })
 }
 
 #[tauri::command]

@@ -23,6 +23,9 @@ const SPINNER_DELAY_MS = 200;
 
 export function RepoRemoteToolbar({ path }: { path: string }) {
   const reload = useRepoStore((s) => s.reload);
+  const reloadStatus = useRepoStore((s) => s.reloadStatus);
+  const pullCount = useRepoStore((s) => s.upstreamSync[path]?.behind ?? 0);
+  const pushCount = useRepoStore((s) => s.upstreamSync[path]?.ahead ?? 0);
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
   const [busy, setBusy] = useState<RemoteOp | null>(null);
   const [showSpinner, setShowSpinner] = useState(false);
@@ -47,7 +50,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             : "git_push";
       try {
         const out = await invoke<string>(cmd, { path });
-        await reload(path);
+        await Promise.all([reload(path), reloadStatus(path)]);
         toast.success(out.trim() || "Aktion erfolgreich abgeschlossen.");
       } catch (e) {
         toastError(String(e));
@@ -55,7 +58,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
         setBusy(null);
       }
     },
-    [path, reload],
+    [path, reload, reloadStatus],
   );
 
   const remoteDisabled = busy !== null;
@@ -109,8 +112,13 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             }
           />
           <ToolbarButton
-            title="Änderungen herunterladen"
+            title={
+              pullCount > 0
+                ? `Änderungen herunterladen (${pullCount} ausstehend)`
+                : "Änderungen herunterladen"
+            }
             label="Pull"
+            badge={pullCount}
             disabled={remoteDisabled}
             isActive={busy === "pull"}
             onClick={() => void run("pull")}
@@ -123,8 +131,13 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             }
           />
           <ToolbarButton
-            title="Änderungen hochladen"
+            title={
+              pushCount > 0
+                ? `Änderungen hochladen (${pushCount} ausstehend)`
+                : "Änderungen hochladen"
+            }
             label="Push"
+            badge={pushCount}
             disabled={remoteDisabled}
             isActive={busy === "push"}
             onClick={() => void run("push")}

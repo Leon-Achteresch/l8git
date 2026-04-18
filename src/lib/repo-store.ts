@@ -41,6 +41,11 @@ export type StatusEntry = {
   binary: boolean;
 };
 
+export type UpstreamSyncCounts = {
+  ahead: number;
+  behind: number;
+};
+
 type RepoState = {
   paths: string[];
   activePath: string | null;
@@ -48,6 +53,7 @@ type RepoState = {
   favicons: Record<string, string | null>;
   loading: Record<string, boolean>;
   status: Record<string, StatusEntry[]>;
+  upstreamSync: Record<string, UpstreamSyncCounts>;
   statusLoading: Record<string, boolean>;
   addRepo: (path: string) => Promise<string | null>;
   removeRepo: (path: string) => void;
@@ -98,6 +104,7 @@ export const useRepoStore = create<RepoState>()(
       favicons: {},
       loading: {},
       status: {},
+      upstreamSync: {},
       statusLoading: {},
 
       async addRepo(path) {
@@ -194,9 +201,13 @@ export const useRepoStore = create<RepoState>()(
       async reloadStatus(path) {
         set((s) => ({ statusLoading: { ...s.statusLoading, [path]: true } }));
         try {
-          const entries = await invoke<StatusEntry[]>("repo_status", { path });
+          const [entries, sync] = await Promise.all([
+            invoke<StatusEntry[]>("repo_status", { path }),
+            invoke<UpstreamSyncCounts>("repo_upstream_sync_counts", { path }),
+          ]);
           set((s) => ({
             status: { ...s.status, [path]: entries },
+            upstreamSync: { ...s.upstreamSync, [path]: sync },
             statusLoading: { ...s.statusLoading, [path]: false },
           }));
         } catch (e) {
