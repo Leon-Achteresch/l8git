@@ -1,5 +1,3 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -7,7 +5,6 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { toastError } from "@/lib/error-toast";
-import { initials, formatDate } from "@/lib/format";
 import { useGravatarUrl } from "@/lib/gravatar";
 import {
   compareBranchesDisplay,
@@ -23,6 +20,10 @@ import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
 import { CommitGraphCell } from "./commit-graph-cell";
 import { CommitTagDialog } from "./commit-tag-dialog";
+import { CommitAvatar } from "./commit-avatar";
+import { CommitAuthorDate } from "./commit-author-date";
+import { CommitHashBadge } from "./commit-hash-badge";
+import { CommitTags } from "./commit-tags";
 
 export function CommitRow({
   path,
@@ -52,26 +53,20 @@ export function CommitRow({
   const inner = (
     <div
       onClick={() => onSelect()}
-      className={`flex cursor-pointer items-stretch outline-none focus-visible:outline-none focus-visible:ring-0 hover:bg-muted/50 ${
-        selected ? "bg-muted/60" : ""
+      className={`group flex cursor-pointer items-stretch outline-none focus-visible:outline-none focus-visible:ring-0 transition-all duration-200 hover:bg-muted/40 ${
+        selected ? "bg-muted/60 shadow-sm" : ""
       }`}
     >
       <div className="flex shrink-0 self-stretch">
         <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
       </div>
-      <div className="flex flex-1 items-start gap-3 px-4 py-3 min-w-0">
-        <Avatar className="h-8 w-8">
-          {avatarUrl && <AvatarImage src={avatarUrl} alt={commit.author} />}
-          <AvatarFallback className="text-xs">
-            {initials(commit.author)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <CommitConventionalIcons
-              subject={commit.subject}
-              body={commit.body}
-            />
+      <div className="flex flex-1 items-center gap-4 px-4 py-3 min-w-0">
+        <CommitAvatar url={avatarUrl} name={commit.author} />
+        
+        <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <CommitConventionalIcons subject={commit.subject} body={commit.body} />
+            
             {branchesAtCommit.map((b) => (
               <CommitBranchBadge
                 key={b.name}
@@ -79,27 +74,20 @@ export function CommitRow({
                 accentColor={laneColor(b.name)}
               />
             ))}
-            <span className="min-w-0 truncate font-medium">{commit.subject}</span>
-            {commit.tags.map((t) => (
-              <Badge
-                key={t}
-                variant="secondary"
-                className="max-w-full shrink-0 truncate font-mono text-[10px]"
-                title={t}
-              >
-                {t}
-              </Badge>
-            ))}
+            
+            <span className="min-w-0 truncate font-semibold text-foreground/90 group-hover:text-foreground transition-colors text-[14px]">
+              {commit.subject}
+            </span>
+
+            <CommitTags tags={commit.tags} />
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{commit.author}</span>
-            <span>·</span>
-            <span>{formatDate(commit.date)}</span>
-          </div>
+          
+          <CommitAuthorDate author={commit.author} date={commit.date} />
         </div>
-        <Badge variant="outline" className="font-mono text-xs text-git-hash">
-          {commit.short_hash}
-        </Badge>
+
+        <div className="shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+          <CommitHashBadge hash={commit.short_hash} />
+        </div>
       </div>
     </div>
   );
@@ -108,14 +96,15 @@ export function CommitRow({
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
-        <ContextMenuContent>
+        <ContextMenuContent className="w-48">
           <ContextMenuItem
             onSelect={() => {
               window.requestAnimationFrame(() => setTagOpen(true));
             }}
+            className="gap-2 cursor-pointer"
           >
-            <Tag className="h-3.5 w-3.5" />
-            Tag hinzufügen
+            <Tag className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">Tag hinzufügen</span>
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => {
@@ -132,9 +121,10 @@ export function CommitRow({
                 }
               })();
             }}
+            className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
           >
-            <Undo2 className="h-3.5 w-3.5" />
-            Commit revertieren
+            <Undo2 className="h-4 w-4" />
+            <span className="font-medium">Commit revertieren</span>
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
