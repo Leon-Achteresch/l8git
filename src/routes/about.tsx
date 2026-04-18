@@ -1,4 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export const Route = createFileRoute("/about")({
   component: About,
@@ -6,9 +12,16 @@ export const Route = createFileRoute("/about")({
 
 function About() {
   return (
-    <main className="container">
-      <h1>About</h1>
-      <p>This app is powered by Tauri, React and TanStack Router.</p>
+    <main className="mx-auto max-w-2xl px-6 py-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>About</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          gitit — ein einfacher Git-Frontend-Client, gebaut mit Tauri, React,
+          TanStack Router und shadcn/ui.
+        </CardContent>
+      </Card>
     </main>
   );
 }

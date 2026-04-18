@@ -1,52 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import reactLogo from "../assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+
+import { useRepoStore } from "@/lib/repo-store";
+import { useRepoRehydrate } from "@/lib/use-repo-rehydrate";
+import { RepoTabBar } from "@/components/repo/repo-tab-bar";
+import { RepoDetails } from "@/components/repo/repo-details";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
 function Home() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  useRepoRehydrate();
+  const hasRepos = useRepoStore((s) => s.paths.length > 0);
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+    <main>
+      <RepoTabBar />
+      <RepoDetails />
+      {!hasRepos && (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Klicke auf + um ein Git-Repository hinzuzufügen.
+        </p>
+      )}
     </main>
   );
 }
