@@ -1,5 +1,3 @@
-import { GitBranch } from "lucide-react";
-
 export function CommitBranchBadge({
   name,
   accentColor,
@@ -9,16 +7,15 @@ export function CommitBranchBadge({
 }) {
   return (
     <span
-      className="inline-flex h-6 max-w-[min(100%,14rem)] shrink-0 items-stretch overflow-hidden rounded-md border border-border bg-background text-xs font-medium text-foreground"
+      className="inline-flex max-w-[14rem] shrink-0 items-center gap-1.5 rounded-sm border border-border/80 bg-background px-2 py-0.5 text-xs font-medium text-foreground/90"
       title={name}
     >
       <span
-        className="flex w-6 shrink-0 items-center justify-center"
+        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
         style={{ backgroundColor: accentColor }}
-      >
-        <GitBranch className="h-3.5 w-3.5 text-white" />
-      </span>
-      <span className="flex min-w-0 items-center truncate px-2">{name}</span>
+        aria-hidden="true"
+      />
+      <span className="min-w-0 truncate">{name}</span>
     </span>
   );
 }

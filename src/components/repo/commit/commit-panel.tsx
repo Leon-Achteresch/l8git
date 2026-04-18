@@ -65,23 +65,23 @@ function StatusIcon({
   sector: ChangeSector;
 }) {
   if (sector === "unstaged" && entry.untracked) {
-    return <FilePlus className="h-3.5 w-3.5 text-emerald-500" />;
+    return <FilePlus className="h-4 w-4 text-emerald-500" />;
   }
   const code = sector === "staged" ? entry.index_status : entry.worktree_status;
   switch (code.trim()) {
     case "M":
-      return <FileDiff className="h-3.5 w-3.5 text-amber-500" />;
+      return <FileDiff className="h-4 w-4 text-amber-500" />;
     case "A":
-      return <FilePlus className="h-3.5 w-3.5 text-emerald-500" />;
+      return <FilePlus className="h-4 w-4 text-emerald-500" />;
     case "D":
-      return <FileMinus className="h-3.5 w-3.5 text-destructive" />;
+      return <FileMinus className="h-4 w-4 text-destructive" />;
     case "R":
     case "C":
-      return <FileCode2 className="h-3.5 w-3.5 text-sky-500" />;
+      return <FileCode2 className="h-4 w-4 text-sky-500" />;
     case "U":
-      return <FileDiff className="h-3.5 w-3.5 text-destructive" />;
+      return <FileDiff className="h-4 w-4 text-destructive" />;
     default:
-      return <FileCode2 className="h-3.5 w-3.5 text-muted-foreground" />;
+      return <FileCode2 className="h-4 w-4 text-muted-foreground" />;
   }
 }
 
@@ -143,10 +143,10 @@ function FileRow({
   const inner = (
     <div
       onClick={onSelect}
-      className={`group flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-1.5 text-sm transition-all duration-200 ${
+      className={`group relative flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors ${
         selected
-          ? "bg-primary/10 text-primary shadow-sm"
-          : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+          ? "bg-accent/40 text-foreground before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary"
+          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
       }`}
     >
       <div
@@ -157,28 +157,28 @@ function FileRow({
         }}
       >
         {state === "checked" ? (
-          <CheckSquare className="h-4 w-4 text-primary transition-transform group-hover:scale-110" />
+          <CheckSquare className="h-[18px] w-[18px] text-primary" />
         ) : state === "indeterminate" ? (
-          <MinusSquare className="h-4 w-4 text-primary/70 transition-transform group-hover:scale-110" />
+          <MinusSquare className="h-[18px] w-[18px] text-primary/70" />
         ) : (
-          <Square className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:scale-110 group-hover:text-muted-foreground" />
+          <Square className="h-[18px] w-[18px] text-muted-foreground/40 group-hover:text-muted-foreground" />
         )}
       </div>
       <StatusIcon entry={row.entry} sector={row.sector} />
-      <span className="min-w-0 flex-1 truncate font-medium text-[13px]">
-        {row.path.split("/").pop()}
-        <span className="ml-2 text-[10px] font-normal opacity-50 truncate">
+      <span className="min-w-0 flex-1 truncate text-sm">
+        <span className="font-medium">{row.path.split("/").pop()}</span>
+        <span className="ml-2 truncate text-[11px] opacity-50">
           {row.path.split("/").slice(0, -1).join("/")}
         </span>
       </span>
-      <div className="flex items-center gap-2 text-[10px] font-mono opacity-80">
+      <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] tabular-nums">
         {!row.entry.binary && (
           <>
             {additions > 0 && (
               <span className="text-git-added">+{additions}</span>
             )}
             {deletions > 0 && (
-              <span className="text-git-removed">-{deletions}</span>
+              <span className="text-git-removed">−{deletions}</span>
             )}
           </>
         )}
@@ -247,24 +247,24 @@ function DiffViewer({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background/50">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-muted/20 backdrop-blur-sm">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           <StatusIcon entry={selectedRow.entry} sector={selectedRow.sector} />
-          <span className="truncate font-medium text-sm">
+          <span className="truncate text-sm font-medium">
             {selectedRow.path}
           </span>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wider">
+          <span className="shrink-0 rounded-sm border border-border/80 bg-muted/40 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {selectedRow.sector === "staged" ? "Gestaged" : "Nicht gestaged"}
           </span>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 rounded-full hover:bg-muted/50"
+          className="h-8 w-8 rounded-md"
           onClick={onReload}
         >
-          <RefreshCw className="h-3.5 w-3.5" />
+          <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
 
@@ -505,31 +505,29 @@ export function CommitPanel() {
   });
 
   return (
-    <div className="flex h-full flex-col gap-4 p-4 bg-background/50">
+    <div className="flex h-full flex-col gap-3 p-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm">
-            <Check className="h-4 w-4" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold tracking-tight">Änderungen</h2>
-            <p className="text-[11px] text-muted-foreground font-medium">
-              {changeRows.length} Dateien
-            </p>
-          </div>
+        <div className="flex items-baseline gap-2.5">
+          <Check className="h-[18px] w-[18px] self-center text-muted-foreground" />
+          <h2 className="text-base font-semibold tracking-tight">Änderungen</h2>
+          <span className="text-xs text-muted-foreground">
+            · {changeRows.length} {changeRows.length === 1 ? "Datei" : "Dateien"}
+          </span>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full hover:bg-muted/60 transition-colors"
+          className="h-8 w-8 rounded-md"
           onClick={() => void reloadStatus(activePath)}
           disabled={loading}
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-[18px] w-[18px] ${loading ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden rounded-2xl bg-card shadow-sm">
+      <div className="flex-1 overflow-hidden rounded-md border border-border/60">
         <ResizablePanelGroup
           orientation="horizontal"
           id="commit-panel-layout"
@@ -543,32 +541,33 @@ export function CommitPanel() {
             defaultSize="32%"
             minSize="16%"
             maxSize="78%"
-            className="flex flex-col bg-muted/10"
+            className="flex flex-col"
           >
-            <div className="flex items-center gap-3 px-4 py-3 bg-background/50 backdrop-blur-sm">
+            <div className="flex items-center gap-3 border-b border-border/60 px-4 py-2.5">
               <div
-                className="flex cursor-pointer items-center justify-center hover:scale-110 transition-transform"
+                className="flex cursor-pointer items-center justify-center"
                 onClick={() => void toggleAll()}
               >
                 {allState === "checked" ? (
-                  <CheckSquare className="h-4 w-4 text-primary" />
+                  <CheckSquare className="h-[18px] w-[18px] text-primary" />
                 ) : allState === "indeterminate" ? (
-                  <MinusSquare className="h-4 w-4 text-primary/70" />
+                  <MinusSquare className="h-[18px] w-[18px] text-primary/70" />
                 ) : (
-                  <Square className="h-4 w-4 text-muted-foreground/50" />
+                  <Square className="h-[18px] w-[18px] text-muted-foreground/40" />
                 )}
               </div>
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Alle Dateien
               </span>
             </div>
 
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-4">
+              <div className="py-1">
                 {stagedRows.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary/60">
-                      Gestaged
+                  <div>
+                    <div className="flex items-center justify-between px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span>Gestaged</span>
+                      <span className="tabular-nums">{stagedRows.length}</span>
                     </div>
                     {stagedRows.map((row) => (
                       <FileRow
@@ -584,9 +583,10 @@ export function CommitPanel() {
                 )}
 
                 {unstagedRows.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                      Nicht gestaged
+                  <div className={stagedRows.length > 0 ? "mt-2" : undefined}>
+                    <div className="flex items-center justify-between px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span>Nicht gestaged</span>
+                      <span className="tabular-nums">{unstagedRows.length}</span>
                     </div>
                     {unstagedRows.map((row) => (
                       <FileRow
@@ -602,9 +602,9 @@ export function CommitPanel() {
                 )}
 
                 {changeRows.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50">
-                    <Check className="h-8 w-8 mb-2 opacity-20" />
-                    <p className="text-sm font-medium">Alles sauber</p>
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/60">
+                    <Check className="mb-2 h-6 w-6 opacity-40" />
+                    <p className="text-xs">Keine Änderungen</p>
                   </div>
                 )}
               </div>
@@ -613,7 +613,7 @@ export function CommitPanel() {
 
           <ResizableHandle
             withHandle
-            className="bg-border/50 hover:bg-primary/20 transition-colors"
+            className="bg-border/50 transition-colors hover:bg-primary/20"
           />
 
           <ResizablePanel
@@ -633,32 +633,30 @@ export function CommitPanel() {
         </ResizablePanelGroup>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl bg-card p-3 shadow-sm">
-        <div className="flex items-center gap-4 px-2">
-          <div className="flex flex-1 items-center gap-2">
-            <div className="flex h-6 items-center rounded-full bg-primary/10 px-2.5 text-[11px] font-semibold text-primary">
+      <div className="flex flex-col gap-2.5 rounded-md border border-border/60 p-3">
+        <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+          <span>
+            <span className="tabular-nums font-medium text-foreground">
               {totals.stagedFiles}
-            </div>
-            <div className="flex items-center gap-1.5 font-mono text-[11px]">
-              <span className="text-git-added font-medium">
-                +{totals.additionsStaged}
-              </span>
-              <span className="text-git-removed font-medium">
-                -{totals.deletionsStaged}
-              </span>
-            </div>
-          </div>
+            </span>{" "}
+            {totals.stagedFiles === 1 ? "Datei" : "Dateien"} gestaged
+          </span>
+          <span className="font-mono tabular-nums">
+            <span className="text-git-added">+{totals.additionsStaged}</span>
+            <span className="mx-1 opacity-40">·</span>
+            <span className="text-git-removed">−{totals.deletionsStaged}</span>
+          </span>
         </div>
 
-        <div className="relative group">
+        <div className="relative">
           <Textarea
             placeholder="Commit-Nachricht eingeben..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            rows={2}
-            className="resize-none border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0 rounded-xl transition-all group-hover:bg-muted/50"
+            rows={3}
+            className="resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
-          <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+          <div className="absolute bottom-2 right-2 flex items-center gap-2">
             <Button
               type="button"
               size="icon"
@@ -667,24 +665,24 @@ export function CommitPanel() {
               aria-label="Stashen"
               disabled={!canStash}
               onClick={() => setStashOpen(true)}
-              className="h-8 w-8 rounded-lg border-border/60 bg-background/80 shadow-sm"
+              className="h-9 w-9 rounded-md border-border/60 bg-background/80"
             >
-              <Archive className="h-4 w-4" />
+              <Archive className="h-[18px] w-[18px]" />
             </Button>
             <Button
               size="icon"
               onClick={onCommit}
               disabled={!canCommit || committing}
-              className={`h-8 w-8 rounded-lg transition-all duration-300 ${
+              className={`h-9 w-9 rounded-md ${
                 canCommit
-                  ? "bg-primary text-primary-foreground shadow-md hover:scale-105"
+                  ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground"
               }`}
             >
               {committing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-[18px] w-[18px] animate-spin" />
               ) : (
-                <Send className="h-4 w-4" />
+                <Send className="h-[18px] w-[18px]" />
               )}
             </Button>
           </div>

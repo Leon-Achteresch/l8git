@@ -1,24 +1,36 @@
-import { Calendar, User } from "lucide-react";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatRelative } from "@/lib/format";
+import { CommitAvatar } from "./commit-avatar";
 
 export function CommitAuthorDate({
   author,
+  email,
+  avatarUrl,
   date,
 }: {
   author: string;
+  email?: string;
+  avatarUrl: string | null | undefined;
   date: string;
 }) {
   return (
-    <div className="flex items-center gap-3 text-xs text-muted-foreground/80 font-medium">
-      <div className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-        <User className="h-3.5 w-3.5" />
-        <span className="truncate max-w-[120px]">{author}</span>
-      </div>
-      <div className="h-3 w-px bg-border" />
-      <div className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-        <Calendar className="h-3.5 w-3.5" />
-        <span>{formatDate(date)}</span>
-      </div>
+    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+      <CommitAvatar url={avatarUrl} name={author} size="sm" />
+      <span
+        className="min-w-0 truncate"
+        title={email ? `${author} <${email}>` : author}
+      >
+        {author}
+      </span>
+      <span aria-hidden="true" className="opacity-40">
+        ·
+      </span>
+      <time
+        dateTime={date}
+        title={formatDate(date)}
+        className="shrink-0 tabular-nums"
+      >
+        {formatRelative(date)}
+      </time>
     </div>
   );
 }

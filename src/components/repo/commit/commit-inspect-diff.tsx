@@ -1,5 +1,5 @@
-import { UnifiedDiffBody } from "./unified-diff-body";
 import { FileCode2 } from "lucide-react";
+import { UnifiedDiffBody } from "./unified-diff-body";
 
 export type FileDiffPayload = { diff: string | null; is_binary: boolean };
 

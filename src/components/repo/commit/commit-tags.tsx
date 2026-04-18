@@ -6,14 +6,14 @@ export function CommitTags({ tags }: { tags: string[] }) {
   return (
     <>
       {tags.map((t) => (
-        <div
+        <span
           key={t}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-git-tag/10 text-git-tag text-[10px] font-mono font-medium tracking-wide"
+          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-git-tag/30 bg-git-tag/10 px-2 py-0.5 font-mono text-[11px] font-medium text-git-tag"
           title={t}
         >
-          <TagIcon className="h-2.5 w-2.5" />
-          <span className="truncate max-w-[100px]">{t}</span>
-        </div>
+          <TagIcon className="h-3.5 w-3.5" />
+          <span className="max-w-[140px] truncate">{t}</span>
+        </span>
       ))}
     </>
   );

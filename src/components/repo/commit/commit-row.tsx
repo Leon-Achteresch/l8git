@@ -13,16 +13,16 @@ import {
   type GraphRow,
 } from "@/lib/graph";
 import { useRepoStore } from "@/lib/repo-store";
+import { cn } from "@/lib/utils";
 import { Tag, Undo2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { CommitAuthorDate } from "./commit-author-date";
 import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
 import { CommitGraphCell } from "./commit-graph-cell";
-import { CommitTagDialog } from "./commit-tag-dialog";
-import { CommitAvatar } from "./commit-avatar";
-import { CommitAuthorDate } from "./commit-author-date";
 import { CommitHashBadge } from "./commit-hash-badge";
+import { CommitTagDialog } from "./commit-tag-dialog";
 import { CommitTags } from "./commit-tags";
 
 export function CommitRow({
@@ -53,41 +53,46 @@ export function CommitRow({
   const inner = (
     <div
       onClick={() => onSelect()}
-      className={`group flex cursor-pointer items-stretch outline-none focus-visible:outline-none focus-visible:ring-0 transition-all duration-200 hover:bg-muted/40 ${
-        selected ? "bg-muted/60 shadow-sm" : ""
-      }`}
+      className={cn(
+        "group relative flex cursor-pointer items-stretch border-b border-border/40 outline-none transition-colors focus-visible:outline-none",
+        selected
+          ? "bg-accent/40 before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary"
+          : "hover:bg-muted/30",
+      )}
     >
       <div className="flex shrink-0 self-stretch">
         <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
       </div>
-      <div className="flex flex-1 items-center gap-4 px-4 py-3 min-w-0">
-        <CommitAvatar url={avatarUrl} name={commit.author} />
-        
-        <div className="min-w-0 flex-1 flex flex-col gap-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <CommitConventionalIcons subject={commit.subject} body={commit.body} />
-            
-            {branchesAtCommit.map((b) => (
-              <CommitBranchBadge
-                key={b.name}
-                name={b.name}
-                accentColor={laneColor(b.name)}
-              />
-            ))}
-            
-            <span className="min-w-0 truncate font-semibold text-foreground/90 group-hover:text-foreground transition-colors text-[14px]">
-              {commit.subject}
-            </span>
-
-            <CommitTags tags={commit.tags} />
-          </div>
-          
-          <CommitAuthorDate author={commit.author} date={commit.date} />
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <CommitConventionalIcons
+            subject={commit.subject}
+            body={commit.body}
+          />
+          {branchesAtCommit.map((b) => (
+            <CommitBranchBadge
+              key={b.name}
+              name={b.name}
+              accentColor={laneColor(b.name)}
+            />
+          ))}
+          <span
+            className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
+            title={commit.subject}
+          >
+            {commit.subject}
+          </span>
+          <CommitTags tags={commit.tags} />
         </div>
-
-        <div className="shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-          <CommitHashBadge hash={commit.short_hash} />
-        </div>
+        <CommitAuthorDate
+          author={commit.author}
+          email={commit.email}
+          avatarUrl={avatarUrl}
+          date={commit.date}
+        />
+      </div>
+      <div className="flex shrink-0 items-center pr-4">
+        <CommitHashBadge hash={commit.short_hash} />
       </div>
     </div>
   );
