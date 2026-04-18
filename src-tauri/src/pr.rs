@@ -980,6 +980,105 @@ fn repo_path(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
+fn encode_uri_component(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for &b in s.as_bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            _ => out.push_str(&format!("%{:02X}", b)),
+        }
+    }
+    out
+}
+
+fn origin_default_branch(repo: &PathBuf) -> Result<String, String> {
+    if let Ok(raw) = run_git(
+        repo,
+        &["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
+    ) {
+        let raw = raw.trim();
+        if let Some(rest) = raw.strip_prefix("refs/remotes/") {
+            if let Some(i) = rest.find('/') {
+                let tail = rest[i + 1..].trim();
+                if !tail.is_empty() {
+                    return Ok(tail.to_string());
+                }
+            }
+        }
+    }
+    for candidate in ["main", "master", "develop"] {
+        if run_git(
+            repo,
+            &[
+                "rev-parse",
+                "--verify",
+                &format!("refs/remotes/origin/{candidate}"),
+            ],
+        )
+        .is_ok()
+        {
+            return Ok(candidate.to_string());
+        }
+    }
+    Ok("main".to_string())
+}
+
+fn strip_remote_prefix(repo: &PathBuf, name: &str) -> Result<String, String> {
+    let n = name.trim();
+    if n.is_empty() {
+        return Ok(String::new());
+    }
+    let remotes = run_git(repo, &["remote"])?;
+    let names: HashSet<&str> = remotes
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+    if let Some((first, rest)) = n.split_once('/') {
+        if names.contains(first) {
+            return Ok(rest.to_string());
+        }
+    }
+    Ok(n.to_string())
+}
+
+#[tauri::command]
+pub fn pr_create_web_url(path: String, branch: String) -> Result<String, String> {
+    let p = repo_path(&path);
+    if !p.is_dir() {
+        return Err("Pfad ist kein Verzeichnis.".into());
+    }
+    let h = parse_origin_url(&p)?;
+    let base = origin_default_branch(&p)?;
+    let head = strip_remote_prefix(&p, &branch)?;
+    if head.is_empty() {
+        return Err("Branch-Name leer.".into());
+    }
+    if head == base {
+        return Err("Für den Standard-Branch gibt es keinen sinnvollen PR-Vergleich.".into());
+    }
+    let enc_base = encode_uri_component(&base);
+    let enc_head = encode_uri_component(&head);
+    match h.provider {
+        Provider::GitHub => Ok(format!(
+            "https://{}/{}/{}/compare/{}...{}",
+            h.host, h.owner, h.repo, enc_base, enc_head
+        )),
+        Provider::Bitbucket => {
+            let source_val = format!("{}/{}:{}", h.owner, h.repo, head);
+            let dest_val = format!("{}/{}:{}", h.owner, h.repo, base);
+            Ok(format!(
+                "https://bitbucket.org/{}/{}/pull-requests/new?source={}&dest={}",
+                h.owner,
+                h.repo,
+                encode_uri_component(&source_val),
+                encode_uri_component(&dest_val),
+            ))
+        }
+        Provider::Unsupported => Err(unsupported_provider_err(&h.host)),
+    }
+}
+
 #[tauri::command]
 pub async fn resolve_repo_commit_avatars(
     path: String,

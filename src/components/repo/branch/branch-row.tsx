@@ -10,7 +10,9 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Check, GitBranch, GitMerge, Trash2 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { Check, GitBranch, GitMerge, GitPullRequest, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { MergeDialog } from "./merge-dialog";
 import { RemoteCheckoutDialog } from "./remote-checkout-dialog";
@@ -109,21 +111,40 @@ export function BranchRow({
     window.requestAnimationFrame(() => setDeleteRemoteRef(branch.name));
   }
 
-  if (
-    !path ||
-    (!showRemoteCheckout &&
-      !showRemoteDelete &&
-      !showLocalSwitch &&
-      !(showDelete && onDelete))
-  ) {
+  if (!path) {
     return row;
   }
+
+  const hasLegacyItems =
+    showLocalSwitch ||
+    showRemoteCheckout ||
+    showRemoteDelete ||
+    !!(showDelete && onDelete);
 
   return (
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
         <ContextMenuContent>
+          <ContextMenuItem
+            onSelect={() => {
+              void (async () => {
+                try {
+                  const url = await invoke<string>("pr_create_web_url", {
+                    path,
+                    branch: branch.name,
+                  });
+                  await openUrl(url);
+                } catch (e) {
+                  toastError(String(e));
+                }
+              })();
+            }}
+          >
+            <GitPullRequest className="h-3.5 w-3.5" />
+            Pull Request erstellen …
+          </ContextMenuItem>
+          {hasLegacyItems ? <ContextMenuSeparator /> : null}
           {showLocalSwitch ? (
             <>
               <ContextMenuItem

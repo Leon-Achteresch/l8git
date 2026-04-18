@@ -86,6 +86,7 @@ pub fn run() {
             providers::list_remote_repos,
             pr::resolve_repo_commit_avatars,
             pr::pr_list,
+            pr::pr_create_web_url,
             pr::pr_detail,
             pr::pr_commits,
             pr::pr_files,
