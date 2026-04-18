@@ -2,12 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
+  FolderOpen,
   Monitor,
   Moon,
   Plus,
   RefreshCw,
   Sun,
 } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import { AddGitAccount } from "@/components/repo/add-git-account";
 import { GitAccountRow } from "@/components/repo/git-account-row";
@@ -76,6 +78,16 @@ function Settings() {
   }, [ideLaunchCommand]);
 
   const ideDirty = ideDraft !== ideLaunchCommand;
+
+  async function pickIdeExecutable() {
+    const selected = await open({
+      directory: false,
+      multiple: false,
+      title: "IDE-Programm auswählen",
+    });
+    if (!selected || typeof selected !== "string") return;
+    setIdeDraft(selected);
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8 space-y-6">
@@ -164,15 +176,26 @@ function Settings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Input
-            value={ideDraft}
-            onChange={(e) => setIdeDraft(e.target.value)}
-            placeholder="cursor"
-            className="font-mono text-sm"
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
+          <div className="flex gap-2">
+            <Input
+              value={ideDraft}
+              onChange={(e) => setIdeDraft(e.target.value)}
+              placeholder="cursor"
+              className="min-w-0 flex-1 font-mono text-sm"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0 gap-2"
+              onClick={() => void pickIdeExecutable()}
+            >
+              <FolderOpen className="size-4" />
+              Auswählen
+            </Button>
+          </div>
           <div className="flex justify-end">
             <Button
               type="button"

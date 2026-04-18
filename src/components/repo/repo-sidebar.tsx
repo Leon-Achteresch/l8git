@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +22,11 @@ export function RepoSidebar() {
   const setSidebarWidth = useUiStore((s) => s.setSidebarWidth);
   const sidebarTab = useUiStore((s) => s.sidebarTab);
   const setSidebarTab = useUiStore((s) => s.setSidebarTab);
+  const pendingCommitCount = useRepoStore((s) => {
+    const p = s.activePath;
+    if (!p) return 0;
+    return s.status[p]?.length ?? 0;
+  });
 
   const asideRef = useRef<HTMLElement | null>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -89,9 +95,24 @@ export function RepoSidebar() {
             onValueChange={(v) => setSidebarTab(v as SidebarTab)}
           >
             <TabsList variant="line" className="w-full">
-              <TabsTrigger value="commit">
+              <TabsTrigger
+                value="commit"
+                title={
+                  pendingCommitCount > 0
+                    ? `${pendingCommitCount} ausstehende Änderungen`
+                    : undefined
+                }
+              >
                 <GitCommitHorizontal />
-                Commit
+                <span className="min-w-0 flex-1 text-left">Commit</span>
+                {pendingCommitCount > 0 ? (
+                  <Badge
+                    variant="secondary"
+                    className="ml-auto h-5 min-w-5 justify-center px-1.5 text-[10px] tabular-nums"
+                  >
+                    {pendingCommitCount}
+                  </Badge>
+                ) : null}
               </TabsTrigger>
               <TabsTrigger value="history">
                 <History />
