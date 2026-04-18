@@ -3,7 +3,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useRepoStore } from "@/lib/repo-store";
+import { useRepoStore, type StashEntry } from "@/lib/repo-store";
 import { useEffect, useState } from "react";
 import { StashBranchDialog } from "./stash-branch-dialog";
 import { StashCreateDialog } from "./stash-create-dialog";
@@ -12,8 +12,10 @@ import { StashList } from "./stash-list";
 
 const layoutStorageKey = "gitit.stash-split.layout.v1";
 
+const EMPTY_STASHES: StashEntry[] = [];
+
 export function StashPanel({ path }: { path: string }) {
-  const stashes = useRepoStore((s) => s.stashes[path] ?? []);
+  const stashes = useRepoStore((s) => s.stashes[path] ?? EMPTY_STASHES);
   const loading = useRepoStore((s) => !!s.stashesLoading[path]);
   const reloadStashes = useRepoStore((s) => s.reloadStashes);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
