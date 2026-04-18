@@ -1,8 +1,9 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { buildGraph } from "@/lib/graph";
+import { buildGraph, normalizeGitOid } from "@/lib/graph";
 import type { Commit } from "@/lib/repo-store";
-import { useMemo } from "react";
+import { useUiStore } from "@/lib/ui-store";
+import { useEffect, useMemo, useRef } from "react";
 import { CommitRow } from "./commit-row";
 
 export function CommitList({
@@ -13,17 +14,60 @@ export function CommitList({
   commits: Commit[];
 }) {
   const { rows, maxLanes } = useMemo(() => buildGraph(commits), [commits]);
+  const scopeRef = useRef<HTMLDivElement>(null);
+  const commitFocusRequest = useUiStore((s) => s.commitFocusRequest);
+  const clearCommitFocusRequest = useUiStore((s) => s.clearCommitFocusRequest);
+
+  useEffect(() => {
+    const req = commitFocusRequest;
+    if (!req || req.path !== path) return;
+    const want = normalizeGitOid(req.hash);
+    const found = rows.find((r) => normalizeGitOid(r.commit.hash) === want);
+    if (!found) {
+      clearCommitFocusRequest();
+      return;
+    }
+    let timeoutId = 0;
+    const run = () => {
+      const el = scopeRef.current?.querySelector<HTMLElement>(
+        `[data-commit-hash="${CSS.escape(found.commit.hash)}"]`,
+      );
+      if (!el) {
+        clearCommitFocusRequest();
+        return;
+      }
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.focus({ preventScroll: true });
+      timeoutId = window.setTimeout(() => clearCommitFocusRequest(), 450);
+    };
+    let rafInner = 0;
+    const rafOuter = window.requestAnimationFrame(() => {
+      rafInner = window.requestAnimationFrame(run);
+    });
+    return () => {
+      window.cancelAnimationFrame(rafOuter);
+      window.cancelAnimationFrame(rafInner);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [path, rows, commitFocusRequest, clearCommitFocusRequest]);
 
   return (
-    <ScrollArea className="h-full min-h-0">
-      <ul>
-        {rows.map((row, i) => (
-          <li key={row.commit.hash}>
-            {i > 0 && <Separator />}
-            <CommitRow path={path} row={row} maxLanes={maxLanes} />
-          </li>
-        ))}
-      </ul>
-    </ScrollArea>
+    <div ref={scopeRef} className="h-full min-h-0">
+      <ScrollArea className="h-full min-h-0">
+        <ul>
+          {rows.map((row, i) => (
+            <li
+              key={row.commit.hash}
+              data-commit-hash={row.commit.hash}
+              tabIndex={-1}
+              className="outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+            >
+              {i > 0 && <Separator />}
+              <CommitRow path={path} row={row} maxLanes={maxLanes} />
+            </li>
+          ))}
+        </ul>
+      </ScrollArea>
+    </div>
   );
 }

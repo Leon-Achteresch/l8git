@@ -1,6 +1,7 @@
 import { toastError } from "@/lib/error-toast";
 import type { Branch } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
+import { useUiStore } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
 import {
   ContextMenu,
@@ -30,6 +31,7 @@ export function BranchRow({
 }) {
   const checkoutBranch = useRepoStore((s) => s.checkoutBranch);
   const mergeBranch = useRepoStore((s) => s.mergeBranch);
+  const focusCommitFromBranchTip = useUiStore((s) => s.focusCommitFromBranchTip);
   const [checkoutDraft, setCheckoutDraft] = useState<CheckoutDraft | null>(null);
   const [deleteRemoteRef, setDeleteRemoteRef] = useState<string | null>(null);
 
@@ -57,12 +59,16 @@ export function BranchRow({
 
   const row = (
     <li
+      onClick={(e) => {
+        if (e.button !== 0) return;
+        focusCommitFromBranchTip(path, branch.tip);
+      }}
       onDoubleClick={(e) => {
         e.preventDefault();
         performCheckout();
       }}
       className={cn(
-        "flex cursor-default items-center gap-2 rounded px-2 py-1 text-sm",
+        "flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm",
         branch.is_current
           ? "bg-accent font-medium text-accent-foreground"
           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
