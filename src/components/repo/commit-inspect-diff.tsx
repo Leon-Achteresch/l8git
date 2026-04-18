@@ -16,12 +16,6 @@ export function CommitInspectDiff({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <div className="flex items-center gap-3 bg-muted/10 px-5 py-3 shadow-sm backdrop-blur-md">
-        <FileCode2 className="h-4 w-4 text-primary/70" />
-        <span className="min-w-0 truncate font-mono text-sm font-semibold tracking-tight text-foreground/90">
-          {selectedFile ?? "Keine Datei gewählt"}
-        </span>
-      </div>
       <div className="min-h-0 flex-1 overflow-hidden p-2">
         {!selectedFile ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">

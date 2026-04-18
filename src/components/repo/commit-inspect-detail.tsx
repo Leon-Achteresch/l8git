@@ -10,12 +10,29 @@ import { useCallback, useEffect, useState } from "react";
 import { CommitInspectHeader } from "./commit-inspect-header";
 import { CommitInspectMessage } from "./commit-inspect-message";
 import { CommitInspectFileList } from "./commit-inspect-file-list";
+import { CommitInspectSplitHeader } from "./commit-inspect-split-header";
 import { CommitInspectDiff, FileDiffPayload } from "./commit-inspect-diff";
 import { CommitChangedFile } from "./commit-inspect-file-item";
 
 type InspectPayload = { header: string; files: CommitChangedFile[] };
 
 const innerLayoutKey = "gitit.commit-inspect-inner.v3";
+
+function readSplitFlexFromStorage(): { files: number; diff: number } {
+  const raw = localStorage.getItem(innerLayoutKey);
+  if (!raw) return { files: 34, diff: 66 };
+  try {
+    const p = JSON.parse(raw) as Record<string, number>;
+    const f = p.cifiles;
+    const d = p.cidiff;
+    if (typeof f === "number" && typeof d === "number" && f > 0 && d > 0) {
+      return { files: f, diff: d };
+    }
+  } catch {
+    return { files: 34, diff: 66 };
+  }
+  return { files: 34, diff: 66 };
+}
 
 export function CommitInspectDetail({
   path,
@@ -31,6 +48,7 @@ export function CommitInspectDetail({
   const [fileDiff, setFileDiff] = useState<FileDiffPayload | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffFailed, setDiffFailed] = useState(false);
+  const [splitFlex, setSplitFlex] = useState(readSplitFlexFromStorage);
   const [defaultInnerLayout] = useState<Record<string, number> | undefined>(
     () => {
       const raw = localStorage.getItem(innerLayoutKey);
@@ -138,14 +156,25 @@ export function CommitInspectDetail({
             {payload?.header ? (
               <CommitInspectMessage message={payload.header} />
             ) : null}
-            <div className="min-h-0 flex-1 bg-muted/5">
+            <div className="flex min-h-0 flex-1 flex-col bg-muted/5">
+              <CommitInspectSplitHeader
+                selectedFile={selectedFile}
+                filesFlex={splitFlex.files}
+                diffFlex={splitFlex.diff}
+              />
               <ResizablePanelGroup
                 orientation="horizontal"
                 id="commit-inspect-inner-v3"
+                className="min-h-0 flex-1"
                 defaultLayout={defaultInnerLayout}
-                onLayoutChanged={(layout) =>
-                  localStorage.setItem(innerLayoutKey, JSON.stringify(layout))
-                }
+                onLayoutChanged={(layout) => {
+                  localStorage.setItem(innerLayoutKey, JSON.stringify(layout));
+                  const f = layout.cifiles;
+                  const d = layout.cidiff;
+                  if (typeof f === "number" && typeof d === "number") {
+                    setSplitFlex({ files: f, diff: d });
+                  }
+                }}
               >
                 <ResizablePanel
                   id="cifiles"

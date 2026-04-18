@@ -15,9 +15,6 @@ export function CommitInspectFileList({
 }) {
   return (
     <div className="flex min-h-0 flex-col bg-muted/5">
-      <div className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-muted-foreground/80 shadow-sm">
-        Geänderte Dateien
-      </div>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1.5 p-3">
           {files.map((file) => (

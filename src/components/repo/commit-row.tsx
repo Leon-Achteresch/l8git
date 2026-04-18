@@ -52,7 +52,7 @@ export function CommitRow({
     <div
       onClick={() => onSelect()}
       className={`flex cursor-pointer items-stretch hover:bg-muted/50 ${
-        selected ? "bg-muted/60 ring-1 ring-inset ring-primary/25" : ""
+        selected ? "bg-muted/60" : ""
       }`}
     >
       <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
