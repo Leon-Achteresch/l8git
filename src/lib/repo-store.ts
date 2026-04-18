@@ -11,10 +11,17 @@ export type Commit = {
   subject: string;
 };
 
+export type Branch = {
+  name: string;
+  is_current: boolean;
+  is_remote: boolean;
+};
+
 export type RepoInfo = {
   path: string;
   branch: string;
   commits: Commit[];
+  branches: Branch[];
 };
 
 type RepoState = {
@@ -28,6 +35,7 @@ type RepoState = {
   setActive: (path: string) => void;
   reload: (path: string) => Promise<void>;
   reloadAll: () => Promise<void>;
+  deleteBranch: (path: string, name: string, force?: boolean) => Promise<void>;
 };
 
 export const useRepoStore = create<RepoState>()(
@@ -79,6 +87,7 @@ export const useRepoStore = create<RepoState>()(
 
       setActive(path) {
         set({ activePath: path });
+        void get().reload(path);
       },
 
       async reload(path) {
@@ -105,6 +114,11 @@ export const useRepoStore = create<RepoState>()(
       async reloadAll() {
         const { paths, reload } = get();
         await Promise.all(paths.map((p) => reload(p)));
+      },
+
+      async deleteBranch(path, name, force = false) {
+        await invoke("delete_branch", { path, name, force });
+        await get().reload(path);
       },
     }),
     {

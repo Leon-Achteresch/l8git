@@ -14,10 +14,18 @@ struct Commit {
 }
 
 #[derive(Serialize)]
+struct Branch {
+    name: String,
+    is_current: bool,
+    is_remote: bool,
+}
+
+#[derive(Serialize)]
 struct RepoInfo {
     path: String,
     branch: String,
     commits: Vec<Commit>,
+    branches: Vec<Branch>,
 }
 
 fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
@@ -73,11 +81,66 @@ fn open_repo(path: String) -> Result<RepoInfo, String> {
         })
         .collect();
 
+    let branches = list_branches(&repo).unwrap_or_default();
+
     Ok(RepoInfo {
         path: repo.to_string_lossy().to_string(),
         branch,
         commits,
+        branches,
     })
+}
+
+#[tauri::command]
+fn delete_branch(path: String, name: String, force: bool) -> Result<(), String> {
+    let repo = PathBuf::from(&path);
+    let flag = if force { "-D" } else { "-d" };
+    run_git(&repo, &["branch", flag, &name])?;
+    Ok(())
+}
+
+fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
+    let sep = "\x1f";
+    let format = format!("%(HEAD){sep}%(refname)");
+    let out = run_git(
+        repo,
+        &[
+            "for-each-ref",
+            "--sort=-committerdate",
+            &format!("--format={format}"),
+            "refs/heads",
+            "refs/remotes",
+        ],
+    )?;
+
+    let branches = out
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.splitn(2, sep);
+            let head = parts.next()?;
+            let refname = parts.next()?;
+            let is_current = head.trim() == "*";
+
+            let (name, is_remote) = if let Some(rest) = refname.strip_prefix("refs/heads/") {
+                (rest.to_string(), false)
+            } else if let Some(rest) = refname.strip_prefix("refs/remotes/") {
+                if rest.ends_with("/HEAD") {
+                    return None;
+                }
+                (rest.to_string(), true)
+            } else {
+                return None;
+            };
+
+            Some(Branch {
+                name,
+                is_current,
+                is_remote,
+            })
+        })
+        .collect();
+
+    Ok(branches)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -85,7 +148,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![open_repo])
+        .invoke_handler(tauri::generate_handler![open_repo, delete_branch])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
