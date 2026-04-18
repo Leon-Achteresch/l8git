@@ -34,21 +34,46 @@ export function CommitHistoryPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border/50">
-      <ResizablePanelGroup
-        orientation="horizontal"
-        id="history-split"
-        defaultLayout={defaultLayout}
-        onLayoutChanged={(layout) =>
-          localStorage.setItem(layoutStorageKey, JSON.stringify(layout))
-        }
-      >
-        <ResizablePanel
-          id="commits"
-          defaultSize="52%"
-          minSize="24%"
-          maxSize="78%"
-          className="min-h-0 flex flex-col"
+      {selectedHash ? (
+        <ResizablePanelGroup
+          orientation="horizontal"
+          id="history-split"
+          defaultLayout={defaultLayout}
+          onLayoutChanged={(layout) =>
+            localStorage.setItem(layoutStorageKey, JSON.stringify(layout))
+          }
         >
+          <ResizablePanel
+            id="commits"
+            defaultSize="52%"
+            minSize="24%"
+            maxSize="78%"
+            className="min-h-0 flex flex-col"
+          >
+            <CommitList
+              path={path}
+              commits={commits}
+              selectedHash={selectedHash}
+              onSelectCommit={(hash) =>
+                setSelectedHash((h) => (h === hash ? null : hash))
+              }
+            />
+          </ResizablePanel>
+          <ResizableHandle
+            withHandle
+            className="bg-border/50 transition-colors hover:bg-primary/20"
+          />
+          <ResizablePanel
+            id="inspect"
+            defaultSize="48%"
+            minSize="22%"
+            className="flex min-h-0 flex-col"
+          >
+            <CommitInspectDetail path={path} commitHash={selectedHash} />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        <div className="flex h-full min-h-0 flex-col">
           <CommitList
             path={path}
             commits={commits}
@@ -57,20 +82,8 @@ export function CommitHistoryPanel({
               setSelectedHash((h) => (h === hash ? null : hash))
             }
           />
-        </ResizablePanel>
-        <ResizableHandle
-          withHandle
-          className="bg-border/50 transition-colors hover:bg-primary/20"
-        />
-        <ResizablePanel
-          id="inspect"
-          defaultSize="48%"
-          minSize="22%"
-          className="flex min-h-0 flex-col"
-        >
-          <CommitInspectDetail path={path} commitHash={selectedHash} />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </div>
+      )}
     </div>
   );
 }
