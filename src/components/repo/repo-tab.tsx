@@ -1,4 +1,3 @@
-import { GitBranch, Loader2, RefreshCw, X } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -6,12 +5,15 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
+import { GitBranch, Loader2, RefreshCw, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 type RepoTabProps = {
   path: string;
   label: string;
   active: boolean;
   loading: boolean;
+  favicon?: string | null;
   onSelect: () => void;
   onClose: () => void;
   onReload: () => void;
@@ -22,10 +24,16 @@ export function RepoTab({
   label,
   active,
   loading,
+  favicon,
   onSelect,
   onClose,
   onReload,
 }: RepoTabProps) {
+  const [iconBroken, setIconBroken] = useState(false);
+  useEffect(() => {
+    setIconBroken(false);
+  }, [favicon]);
+  const showFavicon = !!favicon && !iconBroken;
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -45,6 +53,13 @@ export function RepoTab({
         >
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+          ) : showFavicon ? (
+            <img
+              src={favicon ?? undefined}
+              alt=""
+              onError={() => setIconBroken(true)}
+              className="h-3.5 w-3.5 shrink-0 rounded-sm object-contain"
+            />
           ) : (
             <GitBranch className="h-3.5 w-3.5 shrink-0" />
           )}

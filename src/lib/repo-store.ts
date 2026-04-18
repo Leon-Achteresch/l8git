@@ -1,6 +1,6 @@
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 export type Commit = {
   hash: string;
@@ -29,6 +29,7 @@ type RepoState = {
   paths: string[];
   activePath: string | null;
   repos: Record<string, RepoInfo>;
+  favicons: Record<string, string | null>;
   loading: Record<string, boolean>;
   errors: Record<string, string>;
   addRepo: (path: string) => Promise<void>;
@@ -39,12 +40,22 @@ type RepoState = {
   deleteBranch: (path: string, name: string, force?: boolean) => Promise<void>;
 };
 
+async function loadFavicon(path: string): Promise<string | null> {
+  try {
+    const icon = await invoke<string | null>("read_repo_favicon", { path });
+    return icon ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const useRepoStore = create<RepoState>()(
   persist(
     (set, get) => ({
       paths: [],
       activePath: null,
       repos: {},
+      favicons: {},
       loading: {},
       errors: {},
 
@@ -66,6 +77,9 @@ export const useRepoStore = create<RepoState>()(
               loading: restLoad,
             };
           });
+          void loadFavicon(info.path).then((icon) => {
+            set((s) => ({ favicons: { ...s.favicons, [info.path]: icon } }));
+          });
         } catch (e) {
           set((s) => ({
             errors: { ...s.errors, [path]: String(e) },
@@ -80,9 +94,10 @@ export const useRepoStore = create<RepoState>()(
           const { [path]: _r, ...repos } = s.repos;
           const { [path]: _e, ...errors } = s.errors;
           const { [path]: _l, ...loading } = s.loading;
+          const { [path]: _f, ...favicons } = s.favicons;
           const activePath =
             s.activePath === path ? (paths[0] ?? null) : s.activePath;
-          return { paths, repos, errors, loading, activePath };
+          return { paths, repos, favicons, errors, loading, activePath };
         });
       },
 
@@ -104,6 +119,11 @@ export const useRepoStore = create<RepoState>()(
               loading: restLoad,
             };
           });
+          if (!(path in get().favicons)) {
+            void loadFavicon(path).then((icon) => {
+              set((s) => ({ favicons: { ...s.favicons, [path]: icon } }));
+            });
+          }
         } catch (e) {
           set((s) => ({
             errors: { ...s.errors, [path]: String(e) },

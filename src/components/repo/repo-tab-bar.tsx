@@ -6,6 +6,7 @@ export function RepoTabBar() {
   const paths = useRepoStore((s) => s.paths);
   const activePath = useRepoStore((s) => s.activePath);
   const loading = useRepoStore((s) => s.loading);
+  const favicons = useRepoStore((s) => s.favicons);
   const setActive = useRepoStore((s) => s.setActive);
   const removeRepo = useRepoStore((s) => s.removeRepo);
   const reload = useRepoStore((s) => s.reload);
@@ -19,6 +20,7 @@ export function RepoTabBar() {
           label={repoLabel(p)}
           active={p === activePath}
           loading={!!loading[p]}
+          favicon={favicons[p]}
           onSelect={() => setActive(p)}
           onClose={() => removeRepo(p)}
           onReload={() => void reload(p)}
