@@ -1,4 +1,4 @@
-import type { Commit } from "./repo-store";
+import type { Branch, Commit } from "./repo-store";
 
 const PALETTE = [
   "#e53935",
@@ -13,12 +13,17 @@ const PALETTE = [
   "#d81b60",
 ];
 
-function colorFor(hash: string): string {
-  let sum = 0;
-  for (let i = 0; i < hash.length; i++) {
-    sum = (sum * 31 + hash.charCodeAt(i)) >>> 0;
+function fnv1a32(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
   }
-  return PALETTE[sum % PALETTE.length];
+  return h >>> 0;
+}
+
+function colorFor(key: string): string {
+  return PALETTE[fnv1a32(key) % PALETTE.length];
 }
 
 export type GraphRow = {
@@ -130,4 +135,28 @@ export function buildGraph(commits: Commit[]): {
 
 export function laneColor(origin: string | null | undefined): string {
   return origin ? colorFor(origin) : "#888";
+}
+
+export function normalizeGitOid(oid: string | null | undefined): string {
+  return (oid ?? "").trim().toLowerCase();
+}
+
+export function compareBranchesDisplay(a: Branch, b: Branch): number {
+  if (a.is_current !== b.is_current) return a.is_current ? -1 : 1;
+  if (a.is_remote !== b.is_remote) return a.is_remote ? 1 : -1;
+  return a.name.localeCompare(b.name);
+}
+
+export function branchLaneColorAtTip(
+  branches: Branch[],
+  oid: string | null | undefined,
+): string | null {
+  const t = normalizeGitOid(oid);
+  if (!t) return null;
+  const matches = branches.filter(
+    (b) => normalizeGitOid(b.tip) === t,
+  );
+  if (matches.length === 0) return null;
+  matches.sort(compareBranchesDisplay);
+  return laneColor(matches[0].name);
 }

@@ -1,4 +1,9 @@
-import { laneColor, type GraphRow } from "@/lib/graph";
+import {
+  branchLaneColorAtTip,
+  laneColor,
+  type GraphRow,
+} from "@/lib/graph";
+import type { Branch } from "@/lib/repo-store";
 
 const LANE_WIDTH = 14;
 const ROW_HEIGHT = 56;
@@ -7,9 +12,11 @@ const DOT_RADIUS = 4;
 export function CommitGraphCell({
   row,
   maxLanes,
+  branches,
 }: {
   row: GraphRow;
   maxLanes: number;
+  branches: Branch[];
 }) {
   const width = Math.max(1, maxLanes) * LANE_WIDTH;
   const midY = ROW_HEIGHT / 2;
@@ -22,7 +29,9 @@ export function CommitGraphCell({
 
   row.lanesBefore.forEach((hash, i) => {
     if (hash === null) return;
-    const originColor = laneColor(row.laneOriginsBefore[i]);
+    const originColor =
+      branchLaneColorAtTip(branches, row.laneOriginsBefore[i]) ??
+      laneColor(row.laneOriginsBefore[i]);
     const x0 = laneX(i);
     if (i === row.lane && hash === row.commit.hash) {
       segments.push({ d: `M ${x0} 0 L ${x0} ${midY}`, color: originColor });
@@ -39,7 +48,9 @@ export function CommitGraphCell({
 
   row.lanesAfter.forEach((hash, i) => {
     if (hash === null) return;
-    const originColor = laneColor(row.laneOriginsAfter[i]);
+    const originColor =
+      branchLaneColorAtTip(branches, row.laneOriginsAfter[i]) ??
+      laneColor(row.laneOriginsAfter[i]);
     const x1 = laneX(i);
     const before = row.lanesBefore[i];
     const wasContinuing =
@@ -65,6 +76,8 @@ export function CommitGraphCell({
   });
 
   const dotX = laneX(row.lane);
+  const dotStroke =
+    branchLaneColorAtTip(branches, row.commit.hash) ?? row.color;
 
   return (
     <svg
@@ -87,7 +100,7 @@ export function CommitGraphCell({
         cy={midY}
         r={DOT_RADIUS}
         fill="var(--background)"
-        stroke={row.color}
+        stroke={dotStroke}
         strokeWidth={1.5}
       />
     </svg>

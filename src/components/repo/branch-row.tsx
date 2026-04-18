@@ -20,10 +20,12 @@ type CheckoutDraft = { remoteRef: string; defaultLocalName: string };
 export function BranchRow({
   path,
   branch,
+  laneColor,
   onDelete,
 }: {
   path: string;
   branch: Branch;
+  laneColor: string;
   onDelete?: (b: Branch, force: boolean) => void;
 }) {
   const checkoutBranch = useRepoStore((s) => s.checkoutBranch);
@@ -66,6 +68,11 @@ export function BranchRow({
           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
       )}
     >
+      <span
+        className="h-4 w-1 shrink-0 rounded-full"
+        style={{ backgroundColor: laneColor }}
+        aria-hidden
+      />
       {branch.is_current ? (
         <Check className="h-3.5 w-3.5 shrink-0" />
       ) : (

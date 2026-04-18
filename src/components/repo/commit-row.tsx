@@ -9,11 +9,17 @@ import {
 import { toastError } from "@/lib/error-toast";
 import { initials, formatDate } from "@/lib/format";
 import { useGravatarUrl } from "@/lib/gravatar";
-import type { GraphRow } from "@/lib/graph";
+import {
+  compareBranchesDisplay,
+  laneColor,
+  normalizeGitOid,
+  type GraphRow,
+} from "@/lib/graph";
 import { useRepoStore } from "@/lib/repo-store";
 import { Tag, Undo2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitGraphCell } from "./commit-graph-cell";
 import { CommitTagDialog } from "./commit-tag-dialog";
 
@@ -29,11 +35,18 @@ export function CommitRow({
   const { commit } = row;
   const avatarUrl = useGravatarUrl(commit.email);
   const revertCommit = useRepoStore((s) => s.revertCommit);
+  const branches = useRepoStore((s) => s.repos[path]?.branches ?? []);
+  const branchesAtCommit = useMemo(() => {
+    const h = normalizeGitOid(commit.hash);
+    return branches
+      .filter((b) => normalizeGitOid(b.tip) === h)
+      .sort(compareBranchesDisplay);
+  }, [branches, commit.hash]);
   const [tagOpen, setTagOpen] = useState(false);
 
   const inner = (
     <div className="flex items-stretch hover:bg-muted/50 cursor-default">
-      <CommitGraphCell row={row} maxLanes={maxLanes} />
+      <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
       <div className="flex flex-1 items-start gap-3 px-4 py-3 min-w-0">
         <Avatar className="h-8 w-8">
           {avatarUrl && <AvatarImage src={avatarUrl} alt={commit.author} />}
@@ -43,6 +56,13 @@ export function CommitRow({
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            {branchesAtCommit.map((b) => (
+              <CommitBranchBadge
+                key={b.name}
+                name={b.name}
+                accentColor={laneColor(b.name)}
+              />
+            ))}
             <span className="min-w-0 truncate font-medium">{commit.subject}</span>
             {commit.tags.map((t) => (
               <Badge

@@ -19,6 +19,7 @@ export type Branch = {
   name: string;
   is_current: boolean;
   is_remote: boolean;
+  tip: string;
 };
 
 export type RepoInfo = {

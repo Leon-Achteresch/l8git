@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { laneColor } from "@/lib/graph";
 import type { Branch } from "@/lib/repo-store";
 import { Plus } from "lucide-react";
 import { BranchRow } from "./branch-row";
@@ -45,7 +46,13 @@ export function BranchSection({
       </div>
       <ul className="space-y-0.5">
         {branches.map((b) => (
-          <BranchRow key={b.name} path={path} branch={b} onDelete={onDelete} />
+          <BranchRow
+            key={b.name}
+            path={path}
+            branch={b}
+            laneColor={laneColor(b.name)}
+            onDelete={onDelete}
+          />
         ))}
       </ul>
     </div>

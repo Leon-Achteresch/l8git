@@ -21,6 +21,7 @@ pub struct Branch {
     name: String,
     is_current: bool,
     is_remote: bool,
+    tip: String,
 }
 
 #[derive(Serialize)]
@@ -658,7 +659,7 @@ pub fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<Fil
 
 fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
     let sep = "\x1f";
-    let format = format!("%(HEAD){sep}%(refname)");
+    let format = format!("%(HEAD){sep}%(refname){sep}%(objectname)");
     let out = run_git(
         repo,
         &[
@@ -673,9 +674,13 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
     let branches = out
         .lines()
         .filter_map(|line| {
-            let mut parts = line.splitn(2, sep);
+            let mut parts = line.splitn(3, sep);
             let head = parts.next()?;
             let refname = parts.next()?;
+            let tip = parts.next()?.trim().to_string();
+            if tip.is_empty() {
+                return None;
+            }
             let is_current = head.trim() == "*";
 
             let (name, is_remote) = if let Some(rest) = refname.strip_prefix("refs/heads/") {
@@ -693,6 +698,7 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
                 name,
                 is_current,
                 is_remote,
+                tip,
             })
         })
         .collect();
