@@ -206,9 +206,32 @@ pub fn git_pull(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn git_push(path: String) -> Result<String, String> {
+pub fn git_push(path: String, set_upstream: bool) -> Result<String, String> {
     let repo = PathBuf::from(path.trim());
-    run_git_merged_output(&repo, &["push"])
+    if set_upstream {
+        let branch = run_git(&repo, &["symbolic-ref", "--short", "HEAD"])
+            .map(|s| s.trim().to_string())?;
+        run_git_merged_output(&repo, &["push", "-u", "origin", &branch])
+    } else {
+        run_git_merged_output(&repo, &["push"])
+    }
+}
+
+#[tauri::command]
+pub fn branch_has_upstream(path: String) -> Result<bool, String> {
+    let repo = PathBuf::from(path.trim());
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(&repo)
+        .args([
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ])
+        .output()
+        .map_err(|e| format!("failed to run git: {e}"))?;
+    Ok(output.status.success())
 }
 
 #[tauri::command]

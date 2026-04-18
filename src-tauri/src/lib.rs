@@ -50,6 +50,7 @@ pub fn run() {
             git::git_fetch,
             git::git_pull,
             git::git_push,
+            git::branch_has_upstream,
             git::git_clone,
             git::git_checkout,
             git::git_create_branch,

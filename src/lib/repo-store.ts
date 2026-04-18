@@ -66,6 +66,7 @@ type RepoState = {
   loading: Record<string, boolean>;
   status: Record<string, StatusEntry[]>;
   upstreamSync: Record<string, UpstreamSyncCounts>;
+  hasUpstream: Record<string, boolean>;
   statusLoading: Record<string, boolean>;
   stashes: Record<string, StashEntry[]>;
   stashesLoading: Record<string, boolean>;
@@ -135,6 +136,7 @@ export const useRepoStore = create<RepoState>()(
       loading: {},
       status: {},
       upstreamSync: {},
+      hasUpstream: {},
       statusLoading: {},
       stashes: {},
       stashesLoading: {},
@@ -178,6 +180,7 @@ export const useRepoStore = create<RepoState>()(
           const { [path]: _f, ...favicons } = s.favicons;
           const { [path]: _st, ...stashes } = s.stashes;
           const { [path]: _stl, ...stashesLoading } = s.stashesLoading;
+          const { [path]: _hu, ...hasUpstream } = s.hasUpstream;
           const activePath =
             s.activePath === path ? (paths[0] ?? null) : s.activePath;
           return {
@@ -188,6 +191,7 @@ export const useRepoStore = create<RepoState>()(
             activePath,
             stashes,
             stashesLoading,
+            hasUpstream,
           };
         });
       },
@@ -245,13 +249,15 @@ export const useRepoStore = create<RepoState>()(
       async reloadStatus(path) {
         set((s) => ({ statusLoading: { ...s.statusLoading, [path]: true } }));
         try {
-          const [entries, sync] = await Promise.all([
+          const [entries, sync, upstream] = await Promise.all([
             invoke<StatusEntry[]>("repo_status", { path }),
             invoke<UpstreamSyncCounts>("repo_upstream_sync_counts", { path }),
+            invoke<boolean>("branch_has_upstream", { path }),
           ]);
           set((s) => ({
             status: { ...s.status, [path]: entries },
             upstreamSync: { ...s.upstreamSync, [path]: sync },
+            hasUpstream: { ...s.hasUpstream, [path]: upstream },
             statusLoading: { ...s.statusLoading, [path]: false },
           }));
         } catch (e) {

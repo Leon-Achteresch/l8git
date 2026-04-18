@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { PushUpstreamDialog } from "./push-upstream-dialog";
 import { ToolbarButton } from "./toolbar-button";
 import { ToolbarDivider } from "./toolbar-divider";
 import { ToolbarGroup } from "./toolbar-group";
@@ -26,9 +27,12 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const reloadStatus = useRepoStore((s) => s.reloadStatus);
   const pullCount = useRepoStore((s) => s.upstreamSync[path]?.behind ?? 0);
   const pushCount = useRepoStore((s) => s.upstreamSync[path]?.ahead ?? 0);
+  const lackUpstream = useRepoStore((s) => s.hasUpstream[path] === false);
+  const branch = useRepoStore((s) => s.repos[path]?.branch ?? "");
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
   const [busy, setBusy] = useState<RemoteOp | null>(null);
   const [showSpinner, setShowSpinner] = useState(false);
+  const [pushDialogOpen, setPushDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!busy) return;
@@ -42,14 +46,13 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const run = useCallback(
     async (op: RemoteOp) => {
       setBusy(op);
-      const cmd =
-        op === "fetch"
-          ? "git_fetch"
-          : op === "pull"
-            ? "git_pull"
-            : "git_push";
       try {
-        const out = await invoke<string>(cmd, { path });
+        const out =
+          op === "fetch"
+            ? await invoke<string>("git_fetch", { path })
+            : op === "pull"
+              ? await invoke<string>("git_pull", { path })
+              : await invoke<string>("git_push", { path, setUpstream: false });
         await Promise.all([reload(path), reloadStatus(path)]);
         toast.success(out.trim() || "Aktion erfolgreich abgeschlossen.");
       } catch (e) {
@@ -60,6 +63,14 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     },
     [path, reload, reloadStatus],
   );
+
+  const runPush = useCallback(() => {
+    if (lackUpstream) {
+      setPushDialogOpen(true);
+      return;
+    }
+    void run("push");
+  }, [lackUpstream, run]);
 
   const remoteDisabled = busy !== null;
   const ideConfigured = ideLaunchCommand.trim().length > 0;
@@ -94,6 +105,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   }
 
   return (
+    <>
     <div className="flex w-full items-center justify-between pb-2 pt-1">
       <div className="flex items-center">
         <ToolbarGroup>
@@ -140,7 +152,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             badge={pushCount}
             disabled={remoteDisabled}
             isActive={busy === "push"}
-            onClick={() => void run("push")}
+            onClick={() => void runPush()}
             icon={
               busy === "push" && showSpinner ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -180,5 +192,12 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
         </ToolbarGroup>
       </div>
     </div>
+    <PushUpstreamDialog
+      open={pushDialogOpen}
+      onClose={() => setPushDialogOpen(false)}
+      path={path}
+      branch={branch}
+    />
+    </>
   );
 }
