@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { CommitPanel } from "@/components/repo/commit/commit-panel";
 import { RepoCiPanel } from "@/components/repo/ci/repo-ci-panel";
+import { CommitPanel } from "@/components/repo/commit/commit-panel";
 import { RepoDetails } from "@/components/repo/layout/repo-details";
 import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
 import { PullRequestPanel } from "@/components/repo/pr/pull-request-panel";
-import { RepoRemoteToolbar } from "@/components/repo/remote/repo-remote-toolbar";
 import { StashPanel } from "@/components/repo/stash/stash-panel";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { useRepoStore } from "@/lib/repo-store";
@@ -46,7 +45,6 @@ function Home() {
                 sidebarTab === "pr" ||
                 sidebarTab === "ci") ? (
                 <>
-                  <RepoRemoteToolbar path={repo.path} />
                   <div className="min-h-0 flex-1 overflow-hidden">
                     {sidebarTab === "stash" ? (
                       <StashPanel path={repo.path} />
