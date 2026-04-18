@@ -6,7 +6,7 @@ const STATUS_POLL_MS_HIDDEN = 20000;
 
 export function useRepoStatusPoll() {
   const activePath = useRepoStore((s) => s.activePath);
-  const reloadStatus = useRepoStore((s) => s.reloadStatus);
+  const reloadLocalStatus = useRepoStore((s) => s.reloadLocalStatus);
   const reloadStashes = useRepoStore((s) => s.reloadStashes);
 
   const inFlightRef = useRef(false);
@@ -27,7 +27,7 @@ export function useRepoStatusPoll() {
       inFlightRef.current = true;
       try {
         await Promise.all([
-          reloadStatus(activePath),
+          reloadLocalStatus(activePath),
           reloadStashes(activePath),
         ]);
       } finally {
@@ -67,5 +67,5 @@ export function useRepoStatusPoll() {
       if (timer != null) clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [activePath, reloadStatus, reloadStashes]);
+  }, [activePath, reloadLocalStatus, reloadStashes]);
 }

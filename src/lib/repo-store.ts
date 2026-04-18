@@ -107,6 +107,7 @@ type RepoState = {
   deleteBranch: (path: string, name: string, force?: boolean) => Promise<void>;
   deleteRemoteBranch: (path: string, remoteRef: string) => Promise<string>;
   reloadStatus: (path: string) => Promise<void>;
+  reloadLocalStatus: (path: string) => Promise<void>;
   stageFiles: (path: string, files: string[]) => Promise<void>;
   unstageFiles: (path: string, files: string[]) => Promise<void>;
   commitChanges: (path: string, message: string) => Promise<void>;
@@ -344,6 +345,23 @@ export const useRepoStore = create<RepoState>()(
             status: { ...s.status, [path]: entries },
             upstreamSync: { ...s.upstreamSync, [path]: sync },
             hasUpstream: { ...s.hasUpstream, [path]: upstream },
+            statusLoading: { ...s.statusLoading, [path]: false },
+          }));
+        } catch (e) {
+          const msg = String(e);
+          toastError(msg);
+          set((s) => ({
+            statusLoading: { ...s.statusLoading, [path]: false },
+          }));
+        }
+      },
+
+      async reloadLocalStatus(path) {
+        set((s) => ({ statusLoading: { ...s.statusLoading, [path]: true } }));
+        try {
+          const entries = await invoke<StatusEntry[]>("repo_status", { path });
+          set((s) => ({
+            status: { ...s.status, [path]: entries },
             statusLoading: { ...s.statusLoading, [path]: false },
           }));
         } catch (e) {
