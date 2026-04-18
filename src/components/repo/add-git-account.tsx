@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { toastError } from "@/lib/error-toast";
 import { cn } from "@/lib/utils";
 
 type Provider = { id: string; name: string; host: string; builtin: boolean };
@@ -40,7 +41,6 @@ export function AddGitAccount({
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -50,7 +50,6 @@ export function AddGitAccount({
     setCustomHost("");
     setUsername("");
     setToken("");
-    setError(null);
   }
 
   function finish() {
@@ -68,11 +67,10 @@ export function AddGitAccount({
     if (!provider) return;
     const host = provider.builtin ? provider.host : customHost.trim();
     if (!host) {
-      setError("Host darf nicht leer sein");
+      toastError("Host darf nicht leer sein");
       return;
     }
     setBusy(true);
-    setError(null);
     try {
       if (!provider.builtin) {
         onAddCustomHost(customName || host, host);
@@ -80,7 +78,7 @@ export function AddGitAccount({
       await onSignIn(host, username.trim(), token);
       finish();
     } catch (err) {
-      setError(String(err));
+      toastError(String(err));
     } finally {
       setBusy(false);
     }
@@ -90,11 +88,10 @@ export function AddGitAccount({
     if (!provider) return;
     const host = provider.builtin ? provider.host : customHost.trim();
     if (!host) {
-      setError("Bitte zuerst den Host angeben.");
+      toastError("Bitte zuerst den Host angeben.");
       return;
     }
     setBusy(true);
-    setError(null);
     try {
       if (!provider.builtin) {
         onAddCustomHost(customName || host, host);
@@ -102,7 +99,7 @@ export function AddGitAccount({
       await onSignInViaCredentialManager(host);
       finish();
     } catch (err) {
-      setError(String(err));
+      toastError(String(err));
     } finally {
       setBusy(false);
     }
@@ -130,7 +127,6 @@ export function AddGitAccount({
                 disabled={busy}
                 onClick={() => {
                   setProvider(null);
-                  setError(null);
                 }}
                 aria-label="Zurück"
               >
@@ -270,11 +266,6 @@ export function AddGitAccount({
                 Der Token wird im Git Credential Helper gespeichert.
               </p>
             </div>
-            {error && (
-              <p className="text-xs text-destructive" role="alert">
-                {error}
-              </p>
-            )}
             <div className="flex justify-end gap-2">
               <Button
                 type="button"

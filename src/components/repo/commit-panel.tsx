@@ -7,6 +7,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
+import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -245,13 +246,13 @@ function DiffViewer({
   selectedRow,
   diffPayload,
   loading,
-  error,
+  diffFailed,
   onReload,
 }: {
   selectedRow: ChangeRow | null;
   diffPayload: FileDiffResponse | null;
   loading: boolean;
-  error: string | null;
+  diffFailed: boolean;
   onReload: () => void;
 }) {
   const displayedDiffLines = useMemo(() => {
@@ -306,9 +307,9 @@ function DiffViewer({
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
           </div>
-        ) : error ? (
-          <div className="flex h-full items-center justify-center text-destructive text-sm px-6 text-center">
-            {error}
+        ) : diffFailed ? (
+          <div className="flex h-full items-center justify-center text-muted-foreground text-sm px-6 text-center">
+            Diff konnte nicht geladen werden.
           </div>
         ) : diffPayload?.is_binary ? (
           <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
@@ -347,11 +348,10 @@ export function CommitPanel() {
 
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [diffPayload, setDiffPayload] = useState<FileDiffResponse | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
-  const [diffError, setDiffError] = useState<string | null>(null);
+  const [diffFailed, setDiffFailed] = useState(false);
 
   const seedMessageFromTemplate = useCallback(() => {
     const raw = getCommitMessageTemplate();
@@ -421,11 +421,11 @@ export function CommitPanel() {
         untracked_plain: null,
         is_binary: true,
       });
-      setDiffError(null);
+      setDiffFailed(false);
       return;
     }
     setDiffLoading(true);
-    setDiffError(null);
+    setDiffFailed(false);
     try {
       const r = await invoke<FileDiffResponse>("repo_file_diff", {
         path: activePath,
@@ -434,7 +434,8 @@ export function CommitPanel() {
       });
       setDiffPayload(r);
     } catch (e) {
-      setDiffError(String(e));
+      toastError(String(e));
+      setDiffFailed(true);
       setDiffPayload(null);
     } finally {
       setDiffLoading(false);
@@ -485,7 +486,7 @@ export function CommitPanel() {
         await stageFiles(activePath, [entry.path]);
       }
     } catch (e) {
-      setError(String(e));
+      toastError(String(e));
     }
   };
 
@@ -504,20 +505,19 @@ export function CommitPanel() {
         );
       }
     } catch (e) {
-      setError(String(e));
+      toastError(String(e));
     }
   };
 
   const onCommit = async () => {
     if (!canCommit || !activePath) return;
     setCommitting(true);
-    setError(null);
     try {
       await commitChanges(activePath, message.trim());
       const next = getCommitMessageTemplate();
       setMessage(next.trim() ? next : "");
     } catch (e) {
-      setError(String(e));
+      toastError(String(e));
     } finally {
       setCommitting(false);
     }
@@ -657,7 +657,7 @@ export function CommitPanel() {
               selectedRow={selectedRow}
               diffPayload={diffPayload}
               loading={diffLoading}
-              error={diffError}
+              diffFailed={diffFailed}
               onReload={() => void loadDiff()}
             />
           </ResizablePanel>
@@ -706,9 +706,6 @@ export function CommitPanel() {
             )}
           </Button>
         </div>
-        {error && (
-          <p className="px-2 text-xs font-medium text-destructive">{error}</p>
-        )}
       </div>
     </div>
   );

@@ -46,7 +46,6 @@ function Settings() {
     helper,
     loading,
     refreshing,
-    error,
     refresh,
     signIn,
     signInViaCredentialManager,
@@ -236,12 +235,6 @@ function Settings() {
             <p className="text-xs text-muted-foreground">
               Credential Helper:{" "}
               <code className="rounded bg-muted px-1 py-0.5">{helper}</code>
-            </p>
-          )}
-
-          {error && (
-            <p className="text-xs text-destructive" role="alert">
-              {error}
             </p>
           )}
 

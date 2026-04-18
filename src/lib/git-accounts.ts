@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { toastError } from "@/lib/error-toast";
+
 export type GitAccount = {
   id: string;
   name: string;
@@ -74,13 +76,11 @@ export function useGitAccounts() {
   const [helper, setHelper] = useState<string | null>(() => boot?.helper ?? null);
   const [loading, setLoading] = useState(() => !boot);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? true;
     if (silent) setRefreshing(true);
     else setLoading(true);
-    setError(null);
     try {
       const customHosts = loadCustomHosts();
       const customInvokes = customHosts.map((c) =>
@@ -100,7 +100,7 @@ export function useGitAccounts() {
       setHelper(h);
       writeSessionCache(merged, h);
     } catch (e) {
-      setError(String(e));
+      toastError(String(e));
     } finally {
       if (silent) setRefreshing(false);
       else setLoading(false);
@@ -166,7 +166,6 @@ export function useGitAccounts() {
     helper,
     loading,
     refreshing,
-    error,
     refresh,
     signIn,
     signInViaCredentialManager,

@@ -1,6 +1,7 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type Branch } from "@/lib/repo-store";
 import {
   SIDEBAR_MAX_WIDTH,
@@ -70,7 +71,7 @@ export function RepoSidebar() {
         if (ok) await onDelete(b, true);
         return;
       }
-      window.alert(`Löschen fehlgeschlagen: ${msg}`);
+      toastError(`Löschen fehlgeschlagen: ${msg}`);
     }
   };
 

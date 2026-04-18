@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CheckCircle2, LogOut, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { toastError } from "@/lib/error-toast";
 import type { GitAccount } from "@/lib/git-accounts";
 import { cn } from "@/lib/utils";
 
@@ -13,15 +14,13 @@ type Props = {
 
 export function GitAccountRow({ account, onSignOut, onRemoveCustom }: Props) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleSignOut() {
     setBusy(true);
-    setError(null);
     try {
       await onSignOut(account.host, account.username);
     } catch (err) {
-      setError(String(err));
+      toastError(String(err));
     } finally {
       setBusy(false);
     }
@@ -81,11 +80,6 @@ export function GitAccountRow({ account, onSignOut, onRemoveCustom }: Props) {
           )}
         </div>
       </div>
-      {error && (
-        <p className="mt-2 text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
     </div>
   );
 }

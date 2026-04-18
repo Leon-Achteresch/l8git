@@ -1,4 +1,3 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { useRepoStore } from "@/lib/repo-store";
 import { Loader2 } from "lucide-react";
 import { CommitList } from "./commit-list";
@@ -7,20 +6,9 @@ import { RepoRemoteToolbar } from "./repo-remote-toolbar";
 export function RepoDetails() {
   const activePath = useRepoStore((s) => s.activePath);
   const repo = useRepoStore((s) => (activePath ? s.repos[activePath] : null));
-  const error = useRepoStore((s) => (activePath ? s.errors[activePath] : null));
   const loading = useRepoStore((s) =>
     activePath ? !!s.loading[activePath] : false,
   );
-
-  if (error) {
-    return (
-      <Card className="mt-4 border-destructive/50">
-        <CardContent className="pt-6 text-sm text-destructive">
-          {error}
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (repo) {
     return (

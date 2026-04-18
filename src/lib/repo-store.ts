@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { toastError } from "@/lib/error-toast";
+
 export type Commit = {
   hash: string;
   short_hash: string;
@@ -45,7 +47,6 @@ type RepoState = {
   repos: Record<string, RepoInfo>;
   favicons: Record<string, string | null>;
   loading: Record<string, boolean>;
-  errors: Record<string, string>;
   status: Record<string, StatusEntry[]>;
   statusLoading: Record<string, boolean>;
   addRepo: (path: string) => Promise<void>;
@@ -77,7 +78,6 @@ export const useRepoStore = create<RepoState>()(
       repos: {},
       favicons: {},
       loading: {},
-      errors: {},
       status: {},
       statusLoading: {},
 
@@ -89,13 +89,11 @@ export const useRepoStore = create<RepoState>()(
             const paths = s.paths.includes(info.path)
               ? s.paths
               : [...s.paths, info.path];
-            const { [path]: _, ...restErr } = s.errors;
             const { [path]: __, ...restLoad } = s.loading;
             return {
               paths,
               activePath: info.path,
               repos: { ...s.repos, [info.path]: info },
-              errors: restErr,
               loading: restLoad,
             };
           });
@@ -103,8 +101,9 @@ export const useRepoStore = create<RepoState>()(
             set((s) => ({ favicons: { ...s.favicons, [info.path]: icon } }));
           });
         } catch (e) {
+          const msg = String(e);
+          toastError(msg);
           set((s) => ({
-            errors: { ...s.errors, [path]: String(e) },
             loading: { ...s.loading, [path]: false },
           }));
         }
@@ -114,12 +113,11 @@ export const useRepoStore = create<RepoState>()(
         set((s) => {
           const paths = s.paths.filter((p) => p !== path);
           const { [path]: _r, ...repos } = s.repos;
-          const { [path]: _e, ...errors } = s.errors;
           const { [path]: _l, ...loading } = s.loading;
           const { [path]: _f, ...favicons } = s.favicons;
           const activePath =
             s.activePath === path ? (paths[0] ?? null) : s.activePath;
-          return { paths, repos, favicons, errors, loading, activePath };
+          return { paths, repos, favicons, loading, activePath };
         });
       },
 
@@ -133,11 +131,9 @@ export const useRepoStore = create<RepoState>()(
         try {
           const info = await invoke<RepoInfo>("open_repo", { path });
           set((s) => {
-            const { [path]: _, ...restErr } = s.errors;
             const { [path]: __, ...restLoad } = s.loading;
             return {
               repos: { ...s.repos, [path]: info },
-              errors: restErr,
               loading: restLoad,
             };
           });
@@ -147,8 +143,9 @@ export const useRepoStore = create<RepoState>()(
             });
           }
         } catch (e) {
+          const msg = String(e);
+          toastError(msg);
           set((s) => ({
-            errors: { ...s.errors, [path]: String(e) },
             loading: { ...s.loading, [path]: false },
           }));
         }
@@ -173,8 +170,9 @@ export const useRepoStore = create<RepoState>()(
             statusLoading: { ...s.statusLoading, [path]: false },
           }));
         } catch (e) {
+          const msg = String(e);
+          toastError(msg);
           set((s) => ({
-            errors: { ...s.errors, [path]: String(e) },
             statusLoading: { ...s.statusLoading, [path]: false },
           }));
         }

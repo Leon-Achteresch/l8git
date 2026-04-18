@@ -1,3 +1,4 @@
+import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { invoke } from "@tauri-apps/api/core";
@@ -10,7 +11,8 @@ import {
   Loader2,
   SquareTerminal,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { ToolbarButton } from "./toolbar-button";
 import { ToolbarDivider } from "./toolbar-divider";
 import { ToolbarGroup } from "./toolbar-group";
@@ -21,17 +23,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const reload = useRepoStore((s) => s.reload);
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
   const [busy, setBusy] = useState<RemoteOp | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!hint) return;
-    const t = window.setTimeout(() => setHint(null), 5000);
-    return () => window.clearTimeout(t);
-  }, [hint]);
 
   async function run(op: RemoteOp) {
     setBusy(op);
-    setHint(null);
     const cmd =
       op === "fetch"
         ? "git_fetch"
@@ -41,9 +35,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     try {
       const out = await invoke<string>(cmd, { path });
       await reload(path);
-      setHint(out.trim() || "Aktion erfolgreich abgeschlossen.");
+      toast.success(out.trim() || "Aktion erfolgreich abgeschlossen.");
     } catch (e) {
-      setHint(`Fehler: ${String(e)}`);
+      toastError(String(e));
     } finally {
       setBusy(null);
     }
@@ -56,7 +50,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     try {
       await invoke("reveal_repo_folder", { path });
     } catch (e) {
-      setHint(`Fehler: ${String(e)}`);
+      toastError(String(e));
     }
   }
 
@@ -64,20 +58,20 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     try {
       await invoke("open_repo_terminal", { path });
     } catch (e) {
-      setHint(`Fehler: ${String(e)}`);
+      toastError(String(e));
     }
   }
 
   async function openIdeHere() {
     const ide = ideLaunchCommand.trim();
     if (!ide) {
-      setHint("Kein IDE-Befehl konfiguriert.");
+      toastError("Kein IDE-Befehl konfiguriert.");
       return;
     }
     try {
       await invoke("open_repo_in_ide", { path, ide_launch: ide });
     } catch (e) {
-      setHint(`Fehler: ${String(e)}`);
+      toastError(String(e));
     }
   }
 
@@ -157,12 +151,6 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
           />
         </ToolbarGroup>
       </div>
-
-      {hint && (
-        <div className="animate-in fade-in slide-in-from-right-4 ml-4 max-w-sm truncate rounded-lg bg-primary/10 px-3 py-1 text-xs font-medium text-primary shadow-sm">
-          {hint}
-        </div>
-      )}
     </div>
   );
 }
