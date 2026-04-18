@@ -1,5 +1,4 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { buildGraph, normalizeGitOid } from "@/lib/graph";
 import type { Commit } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -59,14 +58,13 @@ export function CommitList({
     <div ref={scopeRef} className="h-full min-h-0">
       <ScrollArea className="h-full min-h-0">
         <ul>
-          {rows.map((row, i) => (
+          {rows.map((row) => (
             <li
               key={row.commit.hash}
               data-commit-hash={row.commit.hash}
               tabIndex={-1}
-              className="outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+              className="outline-none focus:outline-none"
             >
-              {i > 0 && <Separator />}
               <CommitRow
                 path={path}
                 row={row}

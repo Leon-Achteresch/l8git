@@ -82,8 +82,10 @@ export function CommitGraphCell({
   return (
     <svg
       width={width}
-      height={ROW_HEIGHT}
-      className="shrink-0"
+      height="100%"
+      viewBox={`0 0 ${width} ${ROW_HEIGHT}`}
+      preserveAspectRatio="none"
+      className="shrink-0 self-stretch min-h-14"
       aria-hidden="true"
     >
       {segments.map((s, i) => (

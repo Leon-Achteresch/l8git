@@ -37,9 +37,11 @@ function readSplitFlexFromStorage(): { files: number; diff: number } {
 export function CommitInspectDetail({
   path,
   commitHash,
+  onClose,
 }: {
   path: string;
   commitHash: string | null;
+  onClose: () => void;
 }) {
   const [payload, setPayload] = useState<InspectPayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -122,6 +124,15 @@ export function CommitInspectDetail({
     void loadFileDiff();
   }, [loadFileDiff]);
 
+  useEffect(() => {
+    if (!commitHash) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [commitHash, onClose]);
+
   const refreshAll = useCallback(() => {
     void loadInspect();
     void loadFileDiff();
@@ -133,7 +144,11 @@ export function CommitInspectDetail({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-3xl">
-      <CommitInspectHeader onRefresh={refreshAll} loading={loading} />
+      <CommitInspectHeader
+        onRefresh={refreshAll}
+        onClose={onClose}
+        loading={loading}
+      />
       <div className="min-h-0 flex-1">
         {loading ? (
           <div className="flex h-full flex-col items-center justify-center gap-4">

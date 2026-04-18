@@ -69,7 +69,11 @@ export function CommitHistoryPanel({
             minSize="22%"
             className="flex min-h-0 flex-col"
           >
-            <CommitInspectDetail path={path} commitHash={selectedHash} />
+            <CommitInspectDetail
+              path={path}
+              commitHash={selectedHash}
+              onClose={() => setSelectedHash(null)}
+            />
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (

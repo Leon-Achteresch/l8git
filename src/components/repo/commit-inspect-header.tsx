@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 
 export function CommitInspectHeader({
   onRefresh,
+  onClose,
   loading,
 }: {
   onRefresh: () => void;
+  onClose: () => void;
   loading: boolean;
 }) {
   return (
@@ -13,17 +15,28 @@ export function CommitInspectHeader({
       <span className="text-sm font-semibold tracking-tight text-foreground/80">
         Commit-Details
       </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 rounded-full transition-colors hover:bg-primary/10 hover:text-primary"
-        onClick={onRefresh}
-        disabled={loading}
-      >
-        <RefreshCw
-          className={`h-4 w-4 ${loading ? "animate-spin text-primary" : ""}`}
-        />
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-full transition-colors hover:bg-primary/10 hover:text-primary"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${loading ? "animate-spin text-primary" : ""}`}
+          />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-full transition-colors hover:bg-muted hover:text-foreground"
+          onClick={onClose}
+          aria-label="Schließen"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }

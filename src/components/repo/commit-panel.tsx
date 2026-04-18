@@ -525,7 +525,7 @@ export function CommitPanel() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border/50">
+      <div className="flex-1 overflow-hidden rounded-2xl bg-card shadow-sm">
         <ResizablePanelGroup
           orientation="horizontal"
           id="commit-panel-layout"
@@ -541,7 +541,7 @@ export function CommitPanel() {
             maxSize="78%"
             className="flex flex-col bg-muted/10"
           >
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-background/50 backdrop-blur-sm">
+            <div className="flex items-center gap-3 px-4 py-3 bg-background/50 backdrop-blur-sm">
               <div
                 className="flex cursor-pointer items-center justify-center hover:scale-110 transition-transform"
                 onClick={() => void toggleAll()}
@@ -629,7 +629,7 @@ export function CommitPanel() {
         </ResizablePanelGroup>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl bg-card p-3 shadow-sm ring-1 ring-border/50">
+      <div className="flex flex-col gap-3 rounded-2xl bg-card p-3 shadow-sm">
         <div className="flex items-center gap-4 px-2">
           <div className="flex flex-1 items-center gap-2">
             <div className="flex h-6 items-center rounded-full bg-primary/10 px-2.5 text-[11px] font-semibold text-primary">
@@ -652,7 +652,7 @@ export function CommitPanel() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             rows={2}
-            className="resize-none border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30 rounded-xl transition-all group-hover:bg-muted/50"
+            className="resize-none border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0 rounded-xl transition-all group-hover:bg-muted/50"
           />
           <Button
             size="icon"

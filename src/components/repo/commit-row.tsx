@@ -51,11 +51,13 @@ export function CommitRow({
   const inner = (
     <div
       onClick={() => onSelect()}
-      className={`flex cursor-pointer items-stretch hover:bg-muted/50 ${
+      className={`flex cursor-pointer items-stretch outline-none focus-visible:outline-none focus-visible:ring-0 hover:bg-muted/50 ${
         selected ? "bg-muted/60" : ""
       }`}
     >
-      <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
+      <div className="flex shrink-0 self-stretch">
+        <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
+      </div>
       <div className="flex flex-1 items-start gap-3 px-4 py-3 min-w-0">
         <Avatar className="h-8 w-8">
           {avatarUrl && <AvatarImage src={avatarUrl} alt={commit.author} />}
