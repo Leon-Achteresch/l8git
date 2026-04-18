@@ -69,7 +69,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       return;
     }
     try {
-      await invoke("open_repo_in_ide", { path, ide_launch: ide });
+      await invoke("open_repo_in_ide", { path, ideLaunch: ide });
     } catch (e) {
       toastError(String(e));
     }
