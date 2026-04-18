@@ -11,7 +11,7 @@ import {
   Loader2,
   SquareTerminal,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ToolbarButton } from "./toolbar-button";
 import { ToolbarDivider } from "./toolbar-divider";
@@ -19,29 +19,44 @@ import { ToolbarGroup } from "./toolbar-group";
 
 type RemoteOp = "fetch" | "pull" | "push";
 
+const SPINNER_DELAY_MS = 200;
+
 export function RepoRemoteToolbar({ path }: { path: string }) {
   const reload = useRepoStore((s) => s.reload);
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
   const [busy, setBusy] = useState<RemoteOp | null>(null);
+  const [showSpinner, setShowSpinner] = useState(false);
 
-  async function run(op: RemoteOp) {
-    setBusy(op);
-    const cmd =
-      op === "fetch"
-        ? "git_fetch"
-        : op === "pull"
-          ? "git_pull"
-          : "git_push";
-    try {
-      const out = await invoke<string>(cmd, { path });
-      await reload(path);
-      toast.success(out.trim() || "Aktion erfolgreich abgeschlossen.");
-    } catch (e) {
-      toastError(String(e));
-    } finally {
-      setBusy(null);
-    }
-  }
+  useEffect(() => {
+    if (!busy) return;
+    const id = window.setTimeout(() => setShowSpinner(true), SPINNER_DELAY_MS);
+    return () => {
+      window.clearTimeout(id);
+      setShowSpinner(false);
+    };
+  }, [busy]);
+
+  const run = useCallback(
+    async (op: RemoteOp) => {
+      setBusy(op);
+      const cmd =
+        op === "fetch"
+          ? "git_fetch"
+          : op === "pull"
+            ? "git_pull"
+            : "git_push";
+      try {
+        const out = await invoke<string>(cmd, { path });
+        await reload(path);
+        toast.success(out.trim() || "Aktion erfolgreich abgeschlossen.");
+      } catch (e) {
+        toastError(String(e));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [path, reload],
+  );
 
   const remoteDisabled = busy !== null;
   const ideConfigured = ideLaunchCommand.trim().length > 0;
@@ -86,7 +101,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             isActive={busy === "fetch"}
             onClick={() => void run("fetch")}
             icon={
-              busy === "fetch" ? (
+              busy === "fetch" && showSpinner ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <CloudDownload className="h-3.5 w-3.5" />
@@ -100,7 +115,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             isActive={busy === "pull"}
             onClick={() => void run("pull")}
             icon={
-              busy === "pull" ? (
+              busy === "pull" && showSpinner ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <ArrowDownToLine className="h-3.5 w-3.5" />
@@ -114,7 +129,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             isActive={busy === "push"}
             onClick={() => void run("push")}
             icon={
-              busy === "push" ? (
+              busy === "push" && showSpinner ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <ArrowUpToLine className="h-3.5 w-3.5" />
