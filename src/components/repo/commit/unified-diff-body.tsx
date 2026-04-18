@@ -1,4 +1,3 @@
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   linesFromUntracked,
   parseUnifiedDiff,
@@ -7,12 +6,15 @@ import {
 import { Loader2 } from "lucide-react";
 import { useMemo } from "react";
 
+const lineWrap =
+  "box-border block w-max min-w-full whitespace-pre px-4 py-0.5 font-mono text-[11px]";
+
 function diffLineNode(line: DiffLine, i: number) {
   if (line.kind === "meta" || line.kind === "hunk") {
     return (
       <div
         key={i}
-        className="whitespace-pre break-all bg-muted/5 px-4 py-0.5 font-mono text-[11px] text-muted-foreground/70"
+        className={`${lineWrap} bg-muted/5 text-muted-foreground/70`}
       >
         {line.text}
       </div>
@@ -22,7 +24,7 @@ function diffLineNode(line: DiffLine, i: number) {
     return (
       <div
         key={i}
-        className="whitespace-pre break-all px-4 py-0.5 font-mono text-[11px] text-foreground/80 transition-colors hover:bg-muted/10"
+        className={`${lineWrap} text-foreground/80 transition-colors hover:bg-muted/10`}
       >
         {line.text}
       </div>
@@ -32,7 +34,7 @@ function diffLineNode(line: DiffLine, i: number) {
     return (
       <div
         key={i}
-        className="whitespace-pre break-all border-l-[3px] border-git-added bg-git-added-subtle/40 px-4 py-0.5 font-mono text-[11px] text-git-added transition-colors hover:bg-git-added-subtle/60"
+        className={`${lineWrap} border-l-[3px] border-git-added bg-git-added-subtle/40 text-git-added transition-colors hover:bg-git-added-subtle/60`}
       >
         {line.text}
       </div>
@@ -41,7 +43,7 @@ function diffLineNode(line: DiffLine, i: number) {
   return (
     <div
       key={i}
-      className="whitespace-pre break-all border-l-[3px] border-git-removed bg-git-removed-subtle/40 px-4 py-0.5 font-mono text-[11px] text-git-removed transition-colors hover:bg-git-removed-subtle/60"
+      className={`${lineWrap} border-l-[3px] border-git-removed bg-git-removed-subtle/40 text-git-removed transition-colors hover:bg-git-removed-subtle/60`}
     >
       {line.text}
     </div>
@@ -99,11 +101,11 @@ export function UnifiedDiffBody({
   }
   if (displayedDiffLines.length > 0) {
     return (
-      <ScrollArea className="h-full">
+      <div className="h-full min-h-0 min-w-0 overflow-auto">
         <div className="py-2">
           {displayedDiffLines.map((line, i) => diffLineNode(line, i))}
         </div>
-      </ScrollArea>
+      </div>
     );
   }
   return (

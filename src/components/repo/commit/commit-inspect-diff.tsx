@@ -16,7 +16,7 @@ export function CommitInspectDiff({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <div className="min-h-0 flex-1 overflow-hidden p-2">
+      <div className="min-h-0 flex-1 overflow-hidden p-2 min-w-0">
         {!selectedFile ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
             <div className="rounded-full bg-muted/30 p-4 ring-1 ring-border/50">
@@ -27,7 +27,7 @@ export function CommitInspectDiff({
             </span>
           </div>
         ) : (
-          <div className="h-full rounded-lg bg-card shadow-sm ring-1 ring-border/30">
+          <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-lg bg-card shadow-sm ring-1 ring-border/30">
             <UnifiedDiffBody
               loading={loading}
               failed={failed}
