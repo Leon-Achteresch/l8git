@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Check, GitBranch, GitMerge, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
-import { toast } from "sonner";
+import { MergeDialog } from "./merge-dialog";
 import { RemoteCheckoutDialog } from "./remote-checkout-dialog";
 import { RemoteDeleteConfirmDialog } from "./remote-delete-confirm-dialog";
 
@@ -30,10 +30,10 @@ export function BranchRow({
   onDelete?: (b: Branch, force: boolean) => void;
 }) {
   const checkoutBranch = useRepoStore((s) => s.checkoutBranch);
-  const mergeBranch = useRepoStore((s) => s.mergeBranch);
   const focusCommitFromBranchTip = useUiStore((s) => s.focusCommitFromBranchTip);
   const [checkoutDraft, setCheckoutDraft] = useState<CheckoutDraft | null>(null);
   const [deleteRemoteRef, setDeleteRemoteRef] = useState<string | null>(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   function defaultLocalFromRemote(remoteRef: string) {
     const slash = remoteRef.indexOf("/");
@@ -142,18 +142,11 @@ export function BranchRow({
               </ContextMenuItem>
               <ContextMenuItem
                 onSelect={() => {
-                  void (async () => {
-                    try {
-                      const out = await mergeBranch(path, branch.name);
-                      toast.success(out.trim() || "Merge abgeschlossen.");
-                    } catch (e) {
-                      toastError(String(e));
-                    }
-                  })();
+                  window.requestAnimationFrame(() => setMergeOpen(true));
                 }}
               >
                 <GitMerge className="h-3.5 w-3.5" />
-                In aktuellen Branch mergen
+                In aktuellen Branch mergen …
               </ContextMenuItem>
             </>
           ) : null}
@@ -210,6 +203,12 @@ export function BranchRow({
         onClose={() => setDeleteRemoteRef(null)}
         path={path}
         remoteRef={deleteRemoteRef ?? ""}
+      />
+      <MergeDialog
+        open={mergeOpen}
+        onClose={() => setMergeOpen(false)}
+        path={path}
+        sourceBranch={branch.name}
       />
     </>
   );

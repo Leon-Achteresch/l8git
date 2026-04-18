@@ -49,6 +49,8 @@ export type UpstreamSyncCounts = {
   behind: number;
 };
 
+export type MergeStrategy = "ff" | "ff-only" | "no-ff" | "squash";
+
 export type StashEntry = {
   index: number;
   refname: string;
@@ -98,7 +100,11 @@ type RepoState = {
     base?: string,
     checkout?: boolean,
   ) => Promise<void>;
-  mergeBranch: (path: string, branch: string, noFf?: boolean) => Promise<string>;
+  mergeBranch: (
+    path: string,
+    branch: string,
+    opts?: { strategy?: MergeStrategy; message?: string },
+  ) => Promise<string>;
   revertCommit: (
     path: string,
     commit: string,
@@ -319,11 +325,12 @@ export const useRepoStore = create<RepoState>()(
         await Promise.all([get().reload(path), get().reloadStatus(path)]);
       },
 
-      async mergeBranch(path, branch, noFf = false) {
+      async mergeBranch(path, branch, opts) {
         const out = await invoke<string>("git_merge", {
           path,
           branch,
-          noFf,
+          strategy: opts?.strategy ?? "ff",
+          message: opts?.message ?? null,
         });
         await Promise.all([get().reload(path), get().reloadStatus(path)]);
         return out;

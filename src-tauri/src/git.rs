@@ -337,16 +337,86 @@ pub fn git_create_branch(
 }
 
 #[tauri::command]
-pub fn git_merge(path: String, branch: String, no_ff: bool) -> Result<String, String> {
+pub fn git_merge(
+    path: String,
+    branch: String,
+    strategy: Option<String>,
+    message: Option<String>,
+) -> Result<String, String> {
     let repo = PathBuf::from(path.trim());
     let b = branch.trim();
     if b.is_empty() {
         return Err("Branch-Name darf nicht leer sein".into());
     }
-    if no_ff {
-        run_git_merged_output(&repo, &["merge", "--no-ff", b])
+
+    let strat = strategy
+        .as_deref()
+        .map(|s| s.trim())
+        .unwrap_or("ff")
+        .to_lowercase();
+
+    let trimmed_msg = message
+        .as_deref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    match strat.as_str() {
+        "ff" => {
+            let mut args: Vec<String> = vec!["merge".into(), "--ff".into()];
+            if let Some(msg) = trimmed_msg.as_ref() {
+                args.push("-m".into());
+                args.push(msg.clone());
+            }
+            args.push(b.to_string());
+            let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+            run_git_merged_output(&repo, &refs)
+        }
+        "ff-only" => run_git_merged_output(&repo, &["merge", "--ff-only", b]),
+        "no-ff" => {
+            let current = current_branch_name(&repo).unwrap_or_default();
+            let msg = trimmed_msg.unwrap_or_else(|| default_merge_message(b, &current));
+            run_git_merged_output(
+                &repo,
+                &["merge", "--no-ff", "--no-edit", "-m", msg.as_str(), b],
+            )
+        }
+        "squash" => {
+            let current = current_branch_name(&repo).unwrap_or_default();
+            let squash_out = run_git_merged_output(&repo, &["merge", "--squash", b])?;
+            let msg = trimmed_msg.unwrap_or_else(|| default_squash_message(b, &current));
+            let commit_out = run_git_merged_output(&repo, &["commit", "-m", msg.as_str()])?;
+            let combined = match (squash_out.is_empty(), commit_out.is_empty()) {
+                (false, false) => format!("{squash_out}\n{commit_out}"),
+                (false, true) => squash_out,
+                (true, false) => commit_out,
+                (true, true) => String::new(),
+            };
+            Ok(combined)
+        }
+        other => Err(format!("Unbekannte Merge-Strategie: {other}")),
+    }
+}
+
+fn current_branch_name(repo: &PathBuf) -> Option<String> {
+    run_git(repo, &["rev-parse", "--abbrev-ref", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty() && s != "HEAD")
+}
+
+fn default_merge_message(source: &str, target: &str) -> String {
+    if target.is_empty() {
+        format!("Merge branch '{source}'")
     } else {
-        run_git_merged_output(&repo, &["merge", b])
+        format!("Merge branch '{source}' into {target}")
+    }
+}
+
+fn default_squash_message(source: &str, target: &str) -> String {
+    if target.is_empty() {
+        format!("Squashed commit from '{source}'")
+    } else {
+        format!("Squashed commit from '{source}' into {target}")
     }
 }
 
