@@ -13,6 +13,7 @@ pub struct Commit {
     date: String,
     subject: String,
     parents: Vec<String>,
+    tags: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -86,6 +87,45 @@ fn run_git_merged_output(repo: &PathBuf, args: &[&str]) -> Result<String, String
     run_git_merged_output_at(Some(repo), args)
 }
 
+fn tags_by_target(repo: &PathBuf) -> HashMap<String, Vec<String>> {
+    const FMT: &str = "%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end)\u{001f}%(refname:strip=2)";
+    let Ok(out) = run_git(
+        repo,
+        &[
+            "for-each-ref",
+            "refs/tags",
+            &format!("--format={FMT}"),
+        ],
+    ) else {
+        return HashMap::new();
+    };
+    let mut map: HashMap<String, Vec<String>> = HashMap::new();
+    for line in out.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.splitn(2, '\x1f');
+        let Some(oid) = parts.next() else {
+            continue;
+        };
+        let Some(name) = parts.next() else {
+            continue;
+        };
+        let oid = oid.trim();
+        let name = name.trim();
+        if oid.is_empty() || name.is_empty() {
+            continue;
+        }
+        map.entry(oid.to_string())
+            .or_default()
+            .push(name.to_string());
+    }
+    for names in map.values_mut() {
+        names.sort();
+    }
+    map
+}
+
 #[tauri::command]
 pub fn open_repo(path: String) -> Result<RepoInfo, String> {
     let repo = PathBuf::from(&path);
@@ -96,6 +136,8 @@ pub fn open_repo(path: String) -> Result<RepoInfo, String> {
     let branch = run_git(&repo, &["rev-parse", "--abbrev-ref", "HEAD"])
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|_| "HEAD".into());
+
+    let tag_map = tags_by_target(&repo);
 
     let sep = "\x1f";
     let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s");
@@ -126,6 +168,7 @@ pub fn open_repo(path: String) -> Result<RepoInfo, String> {
                 .split_whitespace()
                 .map(|s| s.to_string())
                 .collect();
+            let tags = tag_map.get(&hash).cloned().unwrap_or_default();
             Some(Commit {
                 hash,
                 short_hash,
@@ -134,6 +177,7 @@ pub fn open_repo(path: String) -> Result<RepoInfo, String> {
                 date,
                 subject,
                 parents,
+                tags,
             })
         })
         .collect();
@@ -299,6 +343,23 @@ pub fn git_revert_commit(
     parts.push(c.to_string());
     let args: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
     run_git_merged_output(&repo, &args)
+}
+
+#[tauri::command]
+pub fn git_tag_commit(path: String, name: String, commit: String) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let tag = name.trim();
+    if tag.is_empty() {
+        return Err("Tag-Name darf nicht leer sein".into());
+    }
+    let c = commit.trim();
+    if c.is_empty() {
+        return Err("Commit-Hash darf nicht leer sein".into());
+    }
+    let parts = vec!["tag".to_string(), tag.to_string(), c.to_string()];
+    let args: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
+    run_git(&repo, &args)?;
+    Ok(())
 }
 
 #[tauri::command]

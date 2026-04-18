@@ -12,6 +12,7 @@ export type Commit = {
   date: string;
   subject: string;
   parents: string[];
+  tags: string[];
 };
 
 export type Branch = {
@@ -88,6 +89,7 @@ type RepoState = {
     commit: string,
     isMerge: boolean,
   ) => Promise<string>;
+  tagCommit: (path: string, name: string, commit: string) => Promise<void>;
   discardFiles: (path: string, files: string[]) => Promise<void>;
 };
 
@@ -287,6 +289,11 @@ export const useRepoStore = create<RepoState>()(
         });
         await Promise.all([get().reload(path), get().reloadStatus(path)]);
         return out;
+      },
+
+      async tagCommit(path, name, commit) {
+        await invoke("git_tag_commit", { path, name, commit });
+        await get().reload(path);
       },
 
       async discardFiles(path, files) {

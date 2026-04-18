@@ -55,6 +55,7 @@ pub fn run() {
             git::git_create_branch,
             git::git_merge,
             git::git_revert_commit,
+            git::git_tag_commit,
             git::git_discard_files,
             git::delete_branch,
             git::delete_remote_branch,
