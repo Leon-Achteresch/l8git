@@ -440,6 +440,12 @@ pub struct StatusEntry {
     binary: bool,
 }
 
+fn diff_reports_binary(diff: &str) -> bool {
+    diff.lines().any(|line| {
+        line.starts_with("Binary files ") && line.ends_with(" differ")
+    })
+}
+
 fn parse_numstat(out: &str) -> HashMap<String, (u32, u32, bool)> {
     let mut map = HashMap::new();
     let mut iter = out.split('\0').filter(|s| !s.is_empty());
@@ -632,15 +638,10 @@ pub fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<Fil
     let unstaged = run_git(&repo, &["diff", "--no-color", "--", &file]).unwrap_or_default();
     let staged_nonempty = (!staged.trim().is_empty()).then_some(staged);
     let unstaged_nonempty = (!unstaged.trim().is_empty()).then_some(unstaged);
-    fn git_reports_binary_diff(diff: &str) -> bool {
-        diff.lines().any(|line| {
-            line.starts_with("Binary files ") && line.ends_with(" differ")
-        })
-    }
     let is_binary = [staged_nonempty.as_deref(), unstaged_nonempty.as_deref()]
         .into_iter()
         .flatten()
-        .any(git_reports_binary_diff);
+        .any(diff_reports_binary);
     if is_binary {
         return Ok(FileDiffResponse {
             staged: None,
@@ -653,6 +654,134 @@ pub fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<Fil
         staged: staged_nonempty,
         unstaged: unstaged_nonempty,
         untracked_plain: None,
+        is_binary: false,
+    })
+}
+
+#[derive(Serialize)]
+pub struct CommitChangedFile {
+    pub path: String,
+    pub additions: u32,
+    pub deletions: u32,
+    pub binary: bool,
+}
+
+#[derive(Serialize)]
+pub struct CommitInspectResponse {
+    pub header: String,
+    pub files: Vec<CommitChangedFile>,
+}
+
+fn commit_changed_files(repo: &PathBuf, commit: &str) -> Result<Vec<CommitChangedFile>, String> {
+    let line = run_git(
+        repo,
+        &["rev-list", "--parents", "-n", "1", commit],
+    )?;
+    let line = line.lines().next().unwrap_or("").trim();
+    let mut toks = line.split_whitespace();
+    let _self_oid = toks.next();
+    let parents: Vec<&str> = toks.collect();
+    let numstat = if parents.is_empty() {
+        run_git(
+            repo,
+            &[
+                "diff-tree",
+                "--root",
+                "-r",
+                "--no-commit-id",
+                "--numstat",
+                "-z",
+                "-M",
+                commit,
+            ],
+        )?
+    } else {
+        let p = parents[0];
+        run_git(
+            repo,
+            &[
+                "diff-tree",
+                "-r",
+                "--no-commit-id",
+                "--numstat",
+                "-z",
+                "-M",
+                p,
+                commit,
+            ],
+        )?
+    };
+    let map = parse_numstat(&numstat);
+    let mut files: Vec<CommitChangedFile> = map
+        .into_iter()
+        .map(|(path, (adds, dels, binary))| CommitChangedFile {
+            path,
+            additions: adds,
+            deletions: dels,
+            binary,
+        })
+        .collect();
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(files)
+}
+
+#[tauri::command]
+pub fn repo_commit_inspect(path: String, commit: String) -> Result<CommitInspectResponse, String> {
+    let repo = PathBuf::from(path.trim());
+    let c = commit.trim();
+    if c.is_empty() {
+        return Err("Commit-Referenz fehlt".into());
+    }
+    let header = run_git(
+        &repo,
+        &[
+            "show",
+            "--no-color",
+            "--no-patch",
+            "--stat=200",
+            "--format=fuller",
+            c,
+        ],
+    )?;
+    let files = commit_changed_files(&repo, c)?;
+    Ok(CommitInspectResponse {
+        header: header.trim().to_string(),
+        files,
+    })
+}
+
+#[derive(Serialize)]
+pub struct CommitFileDiffResponse {
+    pub diff: Option<String>,
+    pub is_binary: bool,
+}
+
+#[tauri::command]
+pub fn repo_commit_file_diff(
+    path: String,
+    commit: String,
+    file: String,
+) -> Result<CommitFileDiffResponse, String> {
+    let repo = PathBuf::from(path.trim());
+    let c = commit.trim();
+    let f = file.trim();
+    if c.is_empty() || f.is_empty() {
+        return Err("Commit oder Dateipfad fehlt".into());
+    }
+    let diff = run_git(
+        &repo,
+        &["show", "--no-color", "--format=", c, "--", f],
+    )
+    .unwrap_or_default();
+    let trimmed = diff.trim();
+    if diff_reports_binary(&diff) {
+        return Ok(CommitFileDiffResponse {
+            diff: None,
+            is_binary: true,
+        });
+    }
+    Ok(CommitFileDiffResponse {
+        diff: (!trimmed.is_empty()).then_some(diff),
         is_binary: false,
     })
 }

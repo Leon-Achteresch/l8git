@@ -1,6 +1,6 @@
 import { useRepoStore } from "@/lib/repo-store";
 import { Loader2 } from "lucide-react";
-import { CommitList } from "./commit-list";
+import { CommitHistoryPanel } from "./commit-history-panel";
 import { RepoRemoteToolbar } from "./repo-remote-toolbar";
 
 export function RepoDetails() {
@@ -15,7 +15,7 @@ export function RepoDetails() {
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
         <RepoRemoteToolbar path={repo.path} />
         <div className="min-h-0 flex-1 overflow-hidden">
-          <CommitList path={repo.path} commits={repo.commits} />
+          <CommitHistoryPanel path={repo.path} commits={repo.commits} />
         </div>
       </div>
     );

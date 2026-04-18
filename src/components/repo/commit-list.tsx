@@ -9,9 +9,13 @@ import { CommitRow } from "./commit-row";
 export function CommitList({
   path,
   commits,
+  selectedHash,
+  onSelectCommit,
 }: {
   path: string;
   commits: Commit[];
+  selectedHash: string | null;
+  onSelectCommit: (hash: string) => void;
 }) {
   const { rows, maxLanes } = useMemo(() => buildGraph(commits), [commits]);
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -63,7 +67,17 @@ export function CommitList({
               className="outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
             >
               {i > 0 && <Separator />}
-              <CommitRow path={path} row={row} maxLanes={maxLanes} />
+              <CommitRow
+                path={path}
+                row={row}
+                maxLanes={maxLanes}
+                selected={
+                  !!selectedHash &&
+                  normalizeGitOid(selectedHash) ===
+                    normalizeGitOid(row.commit.hash)
+                }
+                onSelect={() => onSelectCommit(row.commit.hash)}
+              />
             </li>
           ))}
         </ul>

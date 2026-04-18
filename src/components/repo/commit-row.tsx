@@ -27,10 +27,14 @@ export function CommitRow({
   path,
   row,
   maxLanes,
+  selected,
+  onSelect,
 }: {
   path: string;
   row: GraphRow;
   maxLanes: number;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const { commit } = row;
   const avatarUrl = useGravatarUrl(commit.email);
@@ -45,7 +49,12 @@ export function CommitRow({
   const [tagOpen, setTagOpen] = useState(false);
 
   const inner = (
-    <div className="flex items-stretch hover:bg-muted/50 cursor-default">
+    <div
+      onClick={() => onSelect()}
+      className={`flex cursor-pointer items-stretch hover:bg-muted/50 ${
+        selected ? "bg-muted/60 ring-1 ring-inset ring-primary/25" : ""
+      }`}
+    >
       <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
       <div className="flex flex-1 items-start gap-3 px-4 py-3 min-w-0">
         <Avatar className="h-8 w-8">

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { UnifiedDiffBody } from "@/components/repo/unified-diff-body";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
@@ -40,73 +41,6 @@ type FileDiffResponse = {
   untracked_plain: string | null;
   is_binary: boolean;
 };
-
-type DiffLineKind = "hunk" | "add" | "del" | "ctx" | "meta";
-
-type DiffLine = { kind: DiffLineKind; text: string };
-
-function parseUnifiedDiff(text: string): DiffLine[] {
-  const lines = text.split("\n");
-  const out: DiffLine[] = [];
-  for (const line of lines) {
-    if (line.startsWith("@@")) {
-      out.push({ kind: "hunk", text: line });
-    } else if (
-      line.startsWith("+++ ") ||
-      line.startsWith("--- ") ||
-      line.startsWith("diff ") ||
-      line.startsWith("index ") ||
-      line.startsWith("similarity ") ||
-      line.startsWith("rename ")
-    ) {
-      out.push({ kind: "meta", text: line });
-    } else if (line.startsWith("+")) {
-      out.push({ kind: "add", text: line.slice(1) });
-    } else if (line.startsWith("-")) {
-      out.push({ kind: "del", text: line.slice(1) });
-    } else if (line.startsWith("\\")) {
-      out.push({ kind: "meta", text: line });
-    } else if (line.startsWith(" ")) {
-      out.push({ kind: "ctx", text: line.slice(1) });
-    } else {
-      out.push({ kind: "ctx", text: line });
-    }
-  }
-  return out;
-}
-
-function linesFromUntracked(content: string): DiffLine[] {
-  return content.split("\n").map((text) => ({ kind: "add" as const, text }));
-}
-
-function DiffLineRow({ line }: { line: DiffLine }) {
-  if (line.kind === "meta" || line.kind === "hunk") {
-    return (
-      <div className="whitespace-pre break-all px-4 py-0.5 font-mono text-[11px] text-muted-foreground/70 bg-muted/5">
-        {line.text}
-      </div>
-    );
-  }
-  if (line.kind === "ctx") {
-    return (
-      <div className="whitespace-pre break-all px-4 py-0.5 font-mono text-[11px] text-foreground/80 hover:bg-muted/10 transition-colors">
-        {line.text}
-      </div>
-    );
-  }
-  if (line.kind === "add") {
-    return (
-      <div className="whitespace-pre break-all border-l-[3px] border-git-added bg-git-added-subtle/40 px-4 py-0.5 font-mono text-[11px] text-git-added hover:bg-git-added-subtle/60 transition-colors">
-        {line.text}
-      </div>
-    );
-  }
-  return (
-    <div className="whitespace-pre break-all border-l-[3px] border-git-removed bg-git-removed-subtle/40 px-4 py-0.5 font-mono text-[11px] text-git-removed hover:bg-git-removed-subtle/60 transition-colors">
-      {line.text}
-    </div>
-  );
-}
 
 type ChangeSector = "staged" | "unstaged";
 
@@ -279,21 +213,27 @@ function DiffViewer({
   diffFailed: boolean;
   onReload: () => void;
 }) {
-  const displayedDiffLines = useMemo(() => {
-    if (!diffPayload || diffPayload.is_binary || !selectedRow) return [];
-    if (
-      selectedRow.sector === "unstaged" &&
-      diffPayload.untracked_plain != null
-    ) {
-      return linesFromUntracked(diffPayload.untracked_plain);
-    }
+  const unifiedText = useMemo(() => {
+    if (!diffPayload || !selectedRow) return null;
     if (selectedRow.sector === "staged" && diffPayload.staged?.trim()) {
-      return parseUnifiedDiff(diffPayload.staged);
+      return diffPayload.staged;
     }
     if (selectedRow.sector === "unstaged" && diffPayload.unstaged?.trim()) {
-      return parseUnifiedDiff(diffPayload.unstaged);
+      return diffPayload.unstaged;
     }
-    return [];
+    return null;
+  }, [diffPayload, selectedRow]);
+
+  const untrackedPlain = useMemo(() => {
+    if (
+      !diffPayload ||
+      !selectedRow ||
+      selectedRow.sector !== "unstaged" ||
+      diffPayload.untracked_plain == null
+    ) {
+      return null;
+    }
+    return diffPayload.untracked_plain;
   }, [diffPayload, selectedRow]);
 
   if (!selectedRow) {
@@ -327,31 +267,15 @@ function DiffViewer({
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {loading ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
-          </div>
-        ) : diffFailed ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground text-sm px-6 text-center">
-            Diff konnte nicht geladen werden.
-          </div>
-        ) : diffPayload?.is_binary ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-            Binärdatei
-          </div>
-        ) : displayedDiffLines.length > 0 ? (
-          <ScrollArea className="h-full">
-            <div className="py-2">
-              {displayedDiffLines.map((line, i) => (
-                <DiffLineRow key={i} line={line} />
-              ))}
-            </div>
-          </ScrollArea>
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-            Keine Textänderungen
-          </div>
-        )}
+        <UnifiedDiffBody
+          loading={loading}
+          failed={diffFailed}
+          isBinary={!!diffPayload?.is_binary}
+          unifiedText={unifiedText}
+          untrackedPlain={untrackedPlain}
+          emptyHint="Keine Textänderungen"
+          failedHint="Diff konnte nicht geladen werden."
+        />
       </div>
     </div>
   );
