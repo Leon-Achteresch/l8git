@@ -25,6 +25,20 @@ export type RepoInfo = {
   branches: Branch[];
 };
 
+export type StatusEntry = {
+  path: string;
+  index_status: string;
+  worktree_status: string;
+  staged: boolean;
+  unstaged: boolean;
+  untracked: boolean;
+  additions_staged: number;
+  deletions_staged: number;
+  additions_unstaged: number;
+  deletions_unstaged: number;
+  binary: boolean;
+};
+
 type RepoState = {
   paths: string[];
   activePath: string | null;
@@ -32,12 +46,18 @@ type RepoState = {
   favicons: Record<string, string | null>;
   loading: Record<string, boolean>;
   errors: Record<string, string>;
+  status: Record<string, StatusEntry[]>;
+  statusLoading: Record<string, boolean>;
   addRepo: (path: string) => Promise<void>;
   removeRepo: (path: string) => void;
   setActive: (path: string) => void;
   reload: (path: string) => Promise<void>;
   reloadAll: () => Promise<void>;
   deleteBranch: (path: string, name: string, force?: boolean) => Promise<void>;
+  reloadStatus: (path: string) => Promise<void>;
+  stageFiles: (path: string, files: string[]) => Promise<void>;
+  unstageFiles: (path: string, files: string[]) => Promise<void>;
+  commitChanges: (path: string, message: string) => Promise<void>;
 };
 
 async function loadFavicon(path: string): Promise<string | null> {
@@ -58,6 +78,8 @@ export const useRepoStore = create<RepoState>()(
       favicons: {},
       loading: {},
       errors: {},
+      status: {},
+      statusLoading: {},
 
       async addRepo(path) {
         set((s) => ({ loading: { ...s.loading, [path]: true } }));
@@ -140,6 +162,37 @@ export const useRepoStore = create<RepoState>()(
       async deleteBranch(path, name, force = false) {
         await invoke("delete_branch", { path, name, force });
         await get().reload(path);
+      },
+
+      async reloadStatus(path) {
+        set((s) => ({ statusLoading: { ...s.statusLoading, [path]: true } }));
+        try {
+          const entries = await invoke<StatusEntry[]>("repo_status", { path });
+          set((s) => ({
+            status: { ...s.status, [path]: entries },
+            statusLoading: { ...s.statusLoading, [path]: false },
+          }));
+        } catch (e) {
+          set((s) => ({
+            errors: { ...s.errors, [path]: String(e) },
+            statusLoading: { ...s.statusLoading, [path]: false },
+          }));
+        }
+      },
+
+      async stageFiles(path, files) {
+        await invoke("stage_files", { path, files });
+        await get().reloadStatus(path);
+      },
+
+      async unstageFiles(path, files) {
+        await invoke("unstage_files", { path, files });
+        await get().reloadStatus(path);
+      },
+
+      async commitChanges(path, message) {
+        await invoke("commit_changes", { path, message });
+        await Promise.all([get().reload(path), get().reloadStatus(path)]);
       },
     }),
     {

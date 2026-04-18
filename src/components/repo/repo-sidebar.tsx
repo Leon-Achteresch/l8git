@@ -1,12 +1,14 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRepoStore, type Branch } from "@/lib/repo-store";
 import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
   useUiStore,
+  type SidebarTab,
 } from "@/lib/ui-store";
-import { Cloud, GitBranch } from "lucide-react";
+import { Cloud, GitBranch, GitCommitHorizontal, History } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BranchSection } from "./branch-section";
 
@@ -16,6 +18,8 @@ export function RepoSidebar() {
   const deleteBranch = useRepoStore((s) => s.deleteBranch);
   const sidebarWidth = useUiStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUiStore((s) => s.setSidebarWidth);
+  const sidebarTab = useUiStore((s) => s.sidebarTab);
+  const setSidebarTab = useUiStore((s) => s.setSidebarTab);
 
   const asideRef = useRef<HTMLElement | null>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -73,29 +77,50 @@ export function RepoSidebar() {
   return (
     <aside
       ref={asideRef}
-      className="relative shrink-0 border-r"
+      className="relative flex min-h-0 shrink-0 flex-col border-r"
       style={{ width: sidebarWidth }}
     >
-      <ScrollArea className="h-[calc(100vh-8rem)]">
+      <div className="flex min-h-0 flex-1 flex-col">
         <div className="p-3">
-          <BranchSection
-            title="Lokal"
-            icon={<GitBranch className="h-4 w-4" />}
-            branches={local}
-            onDelete={onDelete}
-          />
-          {remote.length > 0 && (
-            <>
-              <Separator className="my-3" />
-              <BranchSection
-                title="Remote"
-                icon={<Cloud className="h-4 w-4" />}
-                branches={remote}
-              />
-            </>
-          )}
+          <Tabs
+            orientation="vertical"
+            value={sidebarTab}
+            onValueChange={(v) => setSidebarTab(v as SidebarTab)}
+          >
+            <TabsList variant="line" className="w-full">
+              <TabsTrigger value="commit">
+                <GitCommitHorizontal />
+                Commit
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <History />
+                History
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
-      </ScrollArea>
+        <Separator />
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="p-3">
+            <BranchSection
+              title="Lokal"
+              icon={<GitBranch className="h-4 w-4" />}
+              branches={local}
+              onDelete={onDelete}
+            />
+            {remote.length > 0 && (
+              <>
+                <Separator className="my-3" />
+                <BranchSection
+                  title="Remote"
+                  icon={<Cloud className="h-4 w-4" />}
+                  branches={remote}
+                />
+              </>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
       <div
         role="separator"
         aria-orientation="vertical"

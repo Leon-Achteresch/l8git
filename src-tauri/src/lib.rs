@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -501,6 +502,238 @@ fn delete_branch(path: String, name: String, force: bool) -> Result<(), String> 
     Ok(())
 }
 
+#[derive(Serialize)]
+struct StatusEntry {
+    path: String,
+    index_status: String,
+    worktree_status: String,
+    staged: bool,
+    unstaged: bool,
+    untracked: bool,
+    additions_staged: u32,
+    deletions_staged: u32,
+    additions_unstaged: u32,
+    deletions_unstaged: u32,
+    binary: bool,
+}
+
+fn parse_numstat(out: &str) -> HashMap<String, (u32, u32, bool)> {
+    let mut map = HashMap::new();
+    let mut iter = out.split('\0').filter(|s| !s.is_empty());
+    while let Some(part) = iter.next() {
+        let mut fields = part.splitn(3, '\t');
+        let adds_s = fields.next().unwrap_or("");
+        let dels_s = fields.next().unwrap_or("");
+        let path_part = fields.next().unwrap_or("");
+        let binary = adds_s == "-" || dels_s == "-";
+        let adds: u32 = adds_s.parse().unwrap_or(0);
+        let dels: u32 = dels_s.parse().unwrap_or(0);
+        let path = if path_part.is_empty() {
+            let _old = iter.next();
+            iter.next().unwrap_or("").to_string()
+        } else {
+            path_part.to_string()
+        };
+        if !path.is_empty() {
+            map.insert(path, (adds, dels, binary));
+        }
+    }
+    map
+}
+
+fn count_lines(content: &[u8]) -> u32 {
+    if content.is_empty() {
+        return 0;
+    }
+    let mut count = content.iter().filter(|&&b| b == b'\n').count() as u32;
+    if !content.ends_with(b"\n") {
+        count += 1;
+    }
+    count
+}
+
+fn looks_binary(content: &[u8]) -> bool {
+    content.iter().take(8000).any(|&b| b == 0)
+}
+
+#[tauri::command]
+fn repo_status(path: String) -> Result<Vec<StatusEntry>, String> {
+    let repo = PathBuf::from(&path);
+    let out = run_git(&repo, &["status", "--porcelain=v1", "-z", "--untracked-files=all"])?;
+
+    let staged_numstat = run_git(&repo, &["diff", "--cached", "--numstat", "-z"])
+        .map(|s| parse_numstat(&s))
+        .unwrap_or_default();
+    let unstaged_numstat = run_git(&repo, &["diff", "--numstat", "-z"])
+        .map(|s| parse_numstat(&s))
+        .unwrap_or_default();
+
+    let mut entries = Vec::new();
+    let mut iter = out.split('\0').peekable();
+    while let Some(raw) = iter.next() {
+        if raw.is_empty() {
+            continue;
+        }
+        if raw.len() < 3 {
+            continue;
+        }
+        let bytes = raw.as_bytes();
+        let index_status = (bytes[0] as char).to_string();
+        let worktree_status = (bytes[1] as char).to_string();
+        let file_path = raw[3..].to_string();
+
+        if index_status == "R" || index_status == "C" {
+            let _ = iter.next();
+        }
+
+        let untracked = index_status == "?" && worktree_status == "?";
+        let staged = !untracked && index_status != " " && index_status != "?";
+        let unstaged = !untracked && worktree_status != " " && worktree_status != "?";
+
+        let (additions_staged, deletions_staged, staged_binary) = staged_numstat
+            .get(&file_path)
+            .copied()
+            .unwrap_or((0, 0, false));
+        let (mut additions_unstaged, mut deletions_unstaged, unstaged_binary) = unstaged_numstat
+            .get(&file_path)
+            .copied()
+            .unwrap_or((0, 0, false));
+
+        let mut binary = staged_binary || unstaged_binary;
+
+        if untracked {
+            let abs = repo.join(&file_path);
+            if let Ok(content) = std::fs::read(&abs) {
+                if looks_binary(&content) {
+                    binary = true;
+                } else {
+                    additions_unstaged = count_lines(&content);
+                    deletions_unstaged = 0;
+                }
+            }
+        }
+
+        entries.push(StatusEntry {
+            path: file_path,
+            index_status,
+            worktree_status,
+            staged,
+            unstaged,
+            untracked,
+            additions_staged,
+            deletions_staged,
+            additions_unstaged,
+            deletions_unstaged,
+            binary,
+        });
+    }
+
+    Ok(entries)
+}
+
+#[tauri::command]
+fn stage_files(path: String, files: Vec<String>) -> Result<(), String> {
+    if files.is_empty() {
+        return Ok(());
+    }
+    let repo = PathBuf::from(&path);
+    let mut args: Vec<&str> = vec!["add", "--"];
+    args.extend(files.iter().map(|s| s.as_str()));
+    run_git(&repo, &args)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn unstage_files(path: String, files: Vec<String>) -> Result<(), String> {
+    if files.is_empty() {
+        return Ok(());
+    }
+    let repo = PathBuf::from(&path);
+    let has_head = run_git(&repo, &["rev-parse", "--verify", "HEAD"]).is_ok();
+    let mut args: Vec<&str> = if has_head {
+        vec!["reset", "HEAD", "--"]
+    } else {
+        vec!["rm", "--cached", "--"]
+    };
+    args.extend(files.iter().map(|s| s.as_str()));
+    run_git(&repo, &args)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn commit_changes(path: String, message: String) -> Result<(), String> {
+    let repo = PathBuf::from(&path);
+    let trimmed = message.trim();
+    if trimmed.is_empty() {
+        return Err("Commit-Nachricht darf nicht leer sein".into());
+    }
+    run_git(&repo, &["commit", "-m", trimmed])?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct FileDiffResponse {
+    staged: Option<String>,
+    unstaged: Option<String>,
+    untracked_plain: Option<String>,
+    is_binary: bool,
+}
+
+#[tauri::command]
+fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<FileDiffResponse, String> {
+    let repo = PathBuf::from(&path);
+    if untracked {
+        let abs = repo.join(&file);
+        let bytes =
+            std::fs::read(&abs).map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))?;
+        if looks_binary(&bytes) {
+            return Ok(FileDiffResponse {
+                staged: None,
+                unstaged: None,
+                untracked_plain: None,
+                is_binary: true,
+            });
+        }
+        return Ok(FileDiffResponse {
+            staged: None,
+            unstaged: None,
+            untracked_plain: Some(String::from_utf8_lossy(&bytes).to_string()),
+            is_binary: false,
+        });
+    }
+    let staged = run_git(
+        &repo,
+        &["diff", "--cached", "--no-color", "--", &file],
+    )
+    .unwrap_or_default();
+    let unstaged = run_git(&repo, &["diff", "--no-color", "--", &file]).unwrap_or_default();
+    let staged_nonempty = (!staged.trim().is_empty()).then_some(staged);
+    let unstaged_nonempty = (!unstaged.trim().is_empty()).then_some(unstaged);
+    fn git_reports_binary_diff(diff: &str) -> bool {
+        diff.lines().any(|line| {
+            line.starts_with("Binary files ") && line.ends_with(" differ")
+        })
+    }
+    let is_binary = [staged_nonempty.as_deref(), unstaged_nonempty.as_deref()]
+        .into_iter()
+        .flatten()
+        .any(git_reports_binary_diff);
+    if is_binary {
+        return Ok(FileDiffResponse {
+            staged: None,
+            unstaged: None,
+            untracked_plain: None,
+            is_binary: true,
+        });
+    }
+    Ok(FileDiffResponse {
+        staged: staged_nonempty,
+        unstaged: unstaged_nonempty,
+        untracked_plain: None,
+        is_binary: false,
+    })
+}
+
 fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
     let sep = "\x1f";
     let format = format!("%(HEAD){sep}%(refname)");
@@ -586,6 +819,11 @@ pub fn run() {
             open_repo,
             read_repo_favicon,
             delete_branch,
+            repo_status,
+            repo_file_diff,
+            stage_files,
+            unstage_files,
+            commit_changes,
             list_git_accounts,
             probe_git_account,
             git_sign_in,
