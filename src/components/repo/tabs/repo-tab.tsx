@@ -1,3 +1,4 @@
+import { MagicPill } from "@/components/motion/magic-pill";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -45,12 +46,18 @@ export function RepoTab({
           }}
           title={path}
           className={cn(
-            "group inline-flex h-9 max-w-[200px] items-center gap-2 rounded-t-md border-b-2 px-3 text-sm transition-colors",
+            "group relative inline-flex h-9 max-w-[200px] items-center gap-2 rounded-t-md px-3 text-sm transition-colors",
             active
-              ? "border-primary bg-muted text-foreground"
-              : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
           )}
         >
+          {active && (
+            <MagicPill
+              layoutId="repo-tab-underline"
+              className="pointer-events-none absolute inset-x-1.5 bottom-0 h-0.5 rounded-full bg-primary"
+            />
+          )}
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
           ) : showFavicon ? (

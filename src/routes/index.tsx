@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { PanelSwap } from "@/components/motion/panel-swap";
 import { RepoCiPanel } from "@/components/repo/ci/repo-ci-panel";
 import { CommitPanel } from "@/components/repo/commit/commit-panel";
 import { RepoDetails } from "@/components/repo/layout/repo-details";
@@ -34,31 +35,36 @@ function Home() {
         <div
           className={`min-w-0 flex-1 px-4 pb-3 ${activePath ? "flex min-h-0 flex-col overflow-hidden" : "overflow-y-auto"}`}
         >
-          {!activePath ? (
-            <RepoDetails />
-          ) : sidebarTab === "commit" ? (
-            <CommitPanel />
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              {repo &&
-              (sidebarTab === "stash" ||
-                sidebarTab === "pr" ||
-                sidebarTab === "ci") ? (
-                <>
-                  <div className="min-h-0 flex-1 overflow-hidden">
-                    {sidebarTab === "stash" ? (
-                      <StashPanel path={repo.path} />
-                    ) : sidebarTab === "pr" ? (
-                      <PullRequestPanel path={repo.path} />
-                    ) : (
-                      <RepoCiPanel path={repo.path} />
-                    )}
-                  </div>
-                </>
+          {activePath ? (
+            <PanelSwap
+              panelKey={`${activePath}::${sidebarTab}`}
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              {sidebarTab === "commit" ? (
+                <CommitPanel />
               ) : (
-                <RepoDetails />
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  {repo &&
+                  (sidebarTab === "stash" ||
+                    sidebarTab === "pr" ||
+                    sidebarTab === "ci") ? (
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      {sidebarTab === "stash" ? (
+                        <StashPanel path={repo.path} />
+                      ) : sidebarTab === "pr" ? (
+                        <PullRequestPanel path={repo.path} />
+                      ) : (
+                        <RepoCiPanel path={repo.path} />
+                      )}
+                    </div>
+                  ) : (
+                    <RepoDetails />
+                  )}
+                </div>
               )}
-            </div>
+            </PanelSwap>
+          ) : (
+            <RepoDetails />
           )}
           {!hasRepos && (
             <p className="mt-6 text-center text-sm text-muted-foreground">
