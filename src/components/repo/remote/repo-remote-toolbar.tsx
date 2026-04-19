@@ -46,6 +46,10 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     };
   }, [busy]);
 
+  useEffect(() => {
+    void reloadStatus(path);
+  }, [path, reloadStatus]);
+
   const run = useCallback(
     async (op: RemoteOp) => {
       setBusy(op);
