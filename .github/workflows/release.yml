@@ -1,4 +1,4 @@
-name: Release
+name: Build
 
 on:
   push:
@@ -6,39 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  create-release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      release_id: ${{ steps.create-release.outputs.result }}
-      version: ${{ steps.version.outputs.version }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Read version from package.json
-        id: version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: Create draft release
-        id: create-release
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: `v${{ steps.version.outputs.version }}`,
-              name: `gitdesk v${{ steps.version.outputs.version }}`,
-              body: 'See the assets below to download and install.',
-              draft: true,
-              prerelease: false,
-            })
-            return data.id
-
-  build-tauri:
-    needs: create-release
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -49,8 +17,6 @@ jobs:
             args: ""
 
     runs-on: ${{ matrix.platform }}
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -72,29 +38,25 @@ jobs:
       - name: Install frontend dependencies
         run: bun install
 
-      - name: Build & upload Tauri app
+      - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
 
-  publish-release:
-    needs: [create-release, build-tauri]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Publish release
-        uses: actions/github-script@v7
+      - name: Upload macOS artifacts
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
         with:
-          script: |
-            await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: ${{ needs.create-release.outputs.release_id }},
-              draft: false,
-              prerelease: false,
-            })
+          name: macos-build
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+
+      - name: Upload Windows artifacts
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
