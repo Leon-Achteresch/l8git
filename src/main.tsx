@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 
 import { checkForAppUpdate } from "@/lib/app-updater";
 
@@ -26,6 +27,12 @@ if (isTauri()) {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <HotkeysProvider
+      defaultOptions={{
+        hotkey: { preventDefault: true, conflictBehavior: "warn" },
+      }}
+    >
+      <RouterProvider router={router} />
+    </HotkeysProvider>
   </React.StrictMode>,
 );

@@ -3,6 +3,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "sonner";
 
 import { MotionProvider } from "@/components/motion/motion-provider";
+import { useAppHotkeys } from "@/lib/use-app-hotkeys";
 import { resolveTheme } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
 
@@ -11,6 +12,7 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
+  useAppHotkeys();
   const { theme } = useTheme();
   return (
     <MotionProvider>

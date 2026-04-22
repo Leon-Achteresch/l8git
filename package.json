@@ -16,6 +16,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/geist": "^5.2.8",
     "@tailwindcss/vite": "^4.2.2",
+    "@tanstack/react-hotkeys": "^0.9.1",
     "@tanstack/react-router": "^1.168.22",
     "@tanstack/react-virtual": "^3.13.24",
     "@tauri-apps/api": "^2",

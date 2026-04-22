@@ -114,6 +114,7 @@ type RepoState = {
   reorderRepos: (fromIndex: number, toIndex: number) => void;
   setActive: (path: string) => void;
   reload: (path: string) => Promise<void>;
+  refreshOpenRepo: (path: string) => Promise<void>;
   reloadAll: () => Promise<void>;
   deleteBranch: (path: string, name: string, force?: boolean) => Promise<void>;
   deleteRemoteBranch: (path: string, remoteRef: string) => Promise<string>;
@@ -359,6 +360,10 @@ export const useRepoStore = create<RepoState>()(
         });
         reloadInFlight.set(path, promise);
         return promise;
+      },
+
+      async refreshOpenRepo(path) {
+        await Promise.all([get().reload(path), get().reloadStatus(path)]);
       },
 
       async reloadAll() {

@@ -19,6 +19,7 @@ pub fn run() {
 
             let app_menu = SubmenuBuilder::new(app, "l8git")
                 .text("nav-repo", "Repository")
+                .text("nav-info", "Info")
                 .text("nav-about", "About")
                 .text("nav-settings", "Einstellungen");
 
@@ -37,6 +38,7 @@ pub fn run() {
 
             let path = match event.id().as_ref() {
                 "nav-repo" => Some("/"),
+                "nav-info" => Some("/info"),
                 "nav-about" => Some("/about"),
                 "nav-settings" => Some("/settings"),
                 _ => None,
