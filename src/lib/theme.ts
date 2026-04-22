@@ -1,6 +1,6 @@
 export type Theme = "light" | "dark" | "system";
 
-const STORAGE_KEY = "gitdesk.theme";
+const STORAGE_KEY = "l8git.theme";
 
 export function getStoredTheme(): Theme {
   const raw = localStorage.getItem(STORAGE_KEY);

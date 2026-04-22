@@ -1,6 +1,7 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use reqwest::StatusCode;
 use serde::Serialize;
@@ -69,7 +70,10 @@ pub struct PrFile {
     status: String,
     additions: u64,
     deletions: u64,
-    patch: String,
+    // Patches are loaded lazily via `pr_file_patch` to keep the list
+    // payload small (large PRs can carry 10+ MB of embedded diffs).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    patch: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -258,7 +262,7 @@ async fn github_request(
     let mut req = client
         .request(method, url)
         .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "gitdesk")
+        .header("User-Agent", "l8git")
         .header("Authorization", format!("Bearer {}", cred.password));
     if let Some(b) = body {
         req = req.json(&b);
@@ -311,7 +315,7 @@ async fn bb_post_json(
         });
     let mut req = client
         .post(url)
-        .header("User-Agent", "gitdesk")
+        .header("User-Agent", "l8git")
         .header("Content-Type", "application/json");
     req = if let Some(ref b) = basic_b64 {
         req.header("Authorization", format!("Basic {b}"))
@@ -496,12 +500,14 @@ async fn gh_files(
         let arr = v.as_array().cloned().unwrap_or_default();
         let count = arr.len();
         for f in arr {
+            // Deliberately drop the `patch` field here — it is fetched
+            // lazily when the user opens a file.
             out.push(PrFile {
                 path: str_or_empty(&f["filename"]),
                 status: str_or_empty(&f["status"]),
                 additions: f["additions"].as_u64().unwrap_or(0),
                 deletions: f["deletions"].as_u64().unwrap_or(0),
-                patch: f["patch"].as_str().unwrap_or("").to_string(),
+                patch: None,
             });
         }
         if count < 100 {
@@ -509,6 +515,36 @@ async fn gh_files(
         }
     }
     Ok(out)
+}
+
+async fn gh_file_patch(
+    client: &reqwest::Client,
+    cred: &HttpsCredential,
+    h: &RemoteHandle,
+    number: u64,
+    target_path: &str,
+) -> Result<Option<String>, String> {
+    for page in 1..=20 {
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/pulls/{number}/files?per_page=100&page={page}",
+            h.owner, h.repo
+        );
+        let res = github_request(client, cred, reqwest::Method::GET, &url, None).await?;
+        let v = github_read_json(res, &h.host).await?;
+        let arr = v.as_array().cloned().unwrap_or_default();
+        let count = arr.len();
+        for f in &arr {
+            let name = str_or_empty(&f["filename"]);
+            if name == target_path {
+                let patch = f["patch"].as_str().unwrap_or("").to_string();
+                return Ok(Some(patch));
+            }
+        }
+        if count < 100 {
+            break;
+        }
+    }
+    Ok(None)
 }
 
 async fn gh_conversation(
@@ -881,27 +917,8 @@ async fn bb_files(
     );
     let stats = bitbucket_collect_paginated_values(client, cred, &diffstat_url, &h.host).await?;
 
-    let diff_url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/diff",
-        h.owner, h.repo
-    );
-    let diff_res = bitbucket_send_authed(client, &diff_url, cred, &h.host).await?;
-    if diff_res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "Bitbucket: 401. Bitte unter Einstellungen bei {} anmelden.",
-            h.host
-        ));
-    }
-    if !diff_res.status().is_success() {
-        let body = diff_res.text().await.unwrap_or_default();
-        return Err(format!("Bitbucket: {}", body.trim()));
-    }
-    let diff_text = diff_res
-        .text()
-        .await
-        .map_err(|e| format!("Bitbucket: {e}"))?;
-    let per_file = split_unified_diff_by_file(&diff_text);
-
+    // Patches are fetched lazily via `pr_file_patch`; only metadata is
+    // needed in the list response.
     let mut out: Vec<PrFile> = Vec::new();
     for s in stats {
         let path = s["new"]["path"]
@@ -912,17 +929,12 @@ async fn bb_files(
         let status = str_or_empty(&s["status"]);
         let additions = s["lines_added"].as_u64().unwrap_or(0);
         let deletions = s["lines_removed"].as_u64().unwrap_or(0);
-        let patch = per_file
-            .iter()
-            .find(|(p, _)| p == &path)
-            .map(|(_, d)| d.clone())
-            .unwrap_or_default();
         out.push(PrFile {
             path,
             status,
             additions,
             deletions,
-            patch,
+            patch: None,
         });
     }
     Ok(out)
@@ -1304,6 +1316,22 @@ pub fn pr_create_web_url(path: String, branch: String) -> Result<String, String>
     }
 }
 
+// Per-session avatar cache. Keys are `(repo_path, commit_hash)`; entries
+// expire after 24h so long-running instances re-verify occasionally.
+// `Option<String>` preserves "known to have no avatar" so we don't retry the
+// API for those hashes every reload.
+struct AvatarCacheEntry {
+    url: Option<String>,
+    fetched_at: Instant,
+}
+
+fn avatar_cache() -> &'static Mutex<HashMap<(String, String), AvatarCacheEntry>> {
+    static CACHE: OnceLock<Mutex<HashMap<(String, String), AvatarCacheEntry>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+const AVATAR_CACHE_TTL: Duration = Duration::from_secs(60 * 60 * 24);
+
 #[tauri::command]
 pub async fn resolve_repo_commit_avatars(
     path: String,
@@ -1313,18 +1341,8 @@ pub async fn resolve_repo_commit_avatars(
     if !p.is_dir() {
         return Err("Pfad ist kein Verzeichnis.".into());
     }
-    let remote = match parse_origin_url(&p) {
-        Ok(h) => h,
-        Err(_) => return Ok(vec![]),
-    };
-    let cred = match read_https_credential(&remote.host) {
-        Ok(c) => c,
-        Err(_) => return Ok(vec![]),
-    };
-    let client = match http_client() {
-        Ok(c) => c,
-        Err(_) => return Ok(vec![]),
-    };
+
+    // Dedup hashes while partitioning into cached/missing.
     let mut seen = HashSet::new();
     let mut unique: Vec<String> = Vec::new();
     for raw in hashes {
@@ -1339,16 +1357,86 @@ pub async fn resolve_repo_commit_avatars(
             break;
         }
     }
-    let entries = match remote.provider {
+
+    let mut cached: Vec<CommitAvatarEntry> = Vec::new();
+    let mut missing: Vec<String> = Vec::new();
+    let now = Instant::now();
+    {
+        let mut cache = avatar_cache().lock().map_err(|e| e.to_string())?;
+        for h in &unique {
+            let key = (path.clone(), h.clone());
+            if let Some(entry) = cache.get(&key) {
+                if now.duration_since(entry.fetched_at) < AVATAR_CACHE_TTL {
+                    cached.push(CommitAvatarEntry {
+                        hash: h.clone(),
+                        author_avatar: entry.url.clone(),
+                    });
+                    continue;
+                }
+            }
+            missing.push(h.clone());
+        }
+        // Drop expired entries opportunistically to cap memory growth.
+        cache.retain(|_, v| now.duration_since(v.fetched_at) < AVATAR_CACHE_TTL);
+    }
+
+    if missing.is_empty() {
+        return Ok(cached);
+    }
+
+    let remote = match parse_origin_url(&p) {
+        Ok(h) => h,
+        Err(_) => return Ok(cached),
+    };
+    let cred = match read_https_credential(&remote.host) {
+        Ok(c) => c,
+        Err(_) => return Ok(cached),
+    };
+    let client = match http_client() {
+        Ok(c) => c,
+        Err(_) => return Ok(cached),
+    };
+
+    let fetched = match remote.provider {
         Provider::GitHub => {
-            resolve_unique_commit_avatars_github(&client, &cred, &remote, unique).await
+            resolve_unique_commit_avatars_github(&client, &cred, &remote, missing.clone()).await
         }
         Provider::Bitbucket => {
-            resolve_unique_commit_avatars_bitbucket(&client, &cred, &remote, unique).await
+            resolve_unique_commit_avatars_bitbucket(&client, &cred, &remote, missing.clone()).await
         }
         Provider::Unsupported => vec![],
     };
-    Ok(entries)
+
+    // Record every hash we attempted (even those without an avatar) so we
+    // don't spam the API on subsequent reloads.
+    {
+        let mut cache = avatar_cache().lock().map_err(|e| e.to_string())?;
+        let answered: HashSet<&str> = fetched.iter().map(|e| e.hash.as_str()).collect();
+        for entry in &fetched {
+            cache.insert(
+                (path.clone(), entry.hash.clone()),
+                AvatarCacheEntry {
+                    url: entry.author_avatar.clone(),
+                    fetched_at: now,
+                },
+            );
+        }
+        for h in &missing {
+            if !answered.contains(h.as_str()) {
+                cache.insert(
+                    (path.clone(), h.clone()),
+                    AvatarCacheEntry {
+                        url: None,
+                        fetched_at: now,
+                    },
+                );
+            }
+        }
+    }
+
+    let mut out = cached;
+    out.extend(fetched);
+    Ok(out)
 }
 
 #[tauri::command]

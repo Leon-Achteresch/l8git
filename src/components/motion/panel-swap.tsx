@@ -1,4 +1,3 @@
-import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
 export function PanelSwap({
@@ -11,15 +10,15 @@ export function PanelSwap({
   className?: string;
 }) {
   return (
-    <motion.div
+    <div
       key={panelKey}
-      initial={{ opacity: 0, x: 22, scale: 0.985 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      style={{ willChange: "transform, opacity" }}
       className={className}
+      style={{
+        animation:
+          "l8git-panel-swap 280ms cubic-bezier(0.22, 1, 0.36, 1) both",
+      }}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

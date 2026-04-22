@@ -13,7 +13,7 @@ export const useAnimationPrefs = create<AnimationPrefs>()(
       setAnimationsEnabled: (animationsEnabled) => set({ animationsEnabled }),
     }),
     {
-      name: "gitdesk-animation-prefs",
+      name: "l8git-animation-prefs",
       storage: createJSONStorage(() => localStorage),
     },
   ),

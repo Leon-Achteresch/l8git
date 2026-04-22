@@ -17,6 +17,7 @@ import { UnifiedDiffBody } from "./unified-diff-body";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
+import { writeLocalStorageDebounced } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Archive,
@@ -33,7 +34,7 @@ import {
   Square,
   Undo2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 
@@ -117,7 +118,9 @@ function checkState(entry: StatusEntry): CheckState {
   return "unchecked";
 }
 
-function FileRow({
+const FileRow = memo(FileRowInner);
+
+function FileRowInner({
   row,
   selected,
   onSelect,
@@ -126,8 +129,8 @@ function FileRow({
 }: {
   row: ChangeRow;
   selected: boolean;
-  onSelect: () => void;
-  onToggle: () => void;
+  onSelect: (id: string) => void;
+  onToggle: (entry: StatusEntry) => void;
   onDiscard: (path: string) => void;
 }) {
   const state = checkState(row.entry);
@@ -142,7 +145,7 @@ function FileRow({
 
   const inner = (
     <div
-      onClick={onSelect}
+      onClick={() => onSelect(row.id)}
       className={`group relative flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors ${
         selected
           ? "bg-accent/40 text-foreground before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary"
@@ -153,7 +156,7 @@ function FileRow({
         className="flex items-center justify-center"
         onClick={(e) => {
           e.stopPropagation();
-          onToggle();
+          onToggle(row.entry);
         }}
       >
         {state === "checked" ? (
@@ -439,6 +442,18 @@ export function CommitPanel() {
     }
   };
 
+  // Stabilise FileRow callbacks so memo()'d rows don't invalidate on every
+  // parent render. The refs track the latest handlers so we don't need to
+  // re-create the stable wrapper when closed-over state changes.
+  const toggleEntryRef = useRef(toggleEntry);
+  toggleEntryRef.current = toggleEntry;
+  const stableOnSelectRow = useCallback((id: string) => {
+    setSelectedRowId(id);
+  }, []);
+  const stableOnToggleRow = useCallback((entry: StatusEntry) => {
+    void toggleEntryRef.current(entry);
+  }, []);
+
   const toggleAll = async () => {
     if (!activePath || entries.length === 0) return;
     try {
@@ -490,7 +505,7 @@ export function CommitPanel() {
     }
   };
 
-  const layoutStorageKey = "gitdesk.commit-panel.layout.v2";
+  const layoutStorageKey = "l8git.commit-panel.layout.v2";
 
   const [defaultLayout] = useState(() => {
     const saved = localStorage.getItem(layoutStorageKey);
@@ -533,7 +548,7 @@ export function CommitPanel() {
           id="commit-panel-layout"
           defaultLayout={defaultLayout}
           onLayoutChanged={(layout) =>
-            localStorage.setItem(layoutStorageKey, JSON.stringify(layout))
+            writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout))
           }
         >
           <ResizablePanel
@@ -574,8 +589,8 @@ export function CommitPanel() {
                         key={row.id}
                         row={row}
                         selected={row.id === selectedRowId}
-                        onSelect={() => setSelectedRowId(row.id)}
-                        onToggle={() => void toggleEntry(row.entry)}
+                        onSelect={stableOnSelectRow}
+                        onToggle={stableOnToggleRow}
                         onDiscard={discardOne}
                       />
                     ))}
@@ -593,8 +608,8 @@ export function CommitPanel() {
                         key={row.id}
                         row={row}
                         selected={row.id === selectedRowId}
-                        onSelect={() => setSelectedRowId(row.id)}
-                        onToggle={() => void toggleEntry(row.entry)}
+                        onSelect={stableOnSelectRow}
+                        onToggle={stableOnToggleRow}
                         onDiscard={discardOne}
                       />
                     ))}

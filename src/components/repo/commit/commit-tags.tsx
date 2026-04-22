@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { Tag as TagIcon } from "lucide-react";
 
-export function CommitTags({ tags }: { tags: string[] }) {
+function CommitTagsInner({ tags }: { tags: string[] }) {
   if (tags.length === 0) return null;
 
   return (
@@ -18,3 +19,14 @@ export function CommitTags({ tags }: { tags: string[] }) {
     </>
   );
 }
+
+// Custom comparator: tag arrays from backend are fresh on every reload but
+// rarely change value — compare by content to avoid spurious re-renders.
+export const CommitTags = memo(CommitTagsInner, (a, b) => {
+  if (a.tags === b.tags) return true;
+  if (a.tags.length !== b.tags.length) return false;
+  for (let i = 0; i < a.tags.length; i++) {
+    if (a.tags[i] !== b.tags[i]) return false;
+  }
+  return true;
+});

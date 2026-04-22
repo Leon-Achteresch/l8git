@@ -46,7 +46,7 @@ export const useUiStore = create<UiState>()(
       clearCommitFocusRequest: () => set({ commitFocusRequest: null }),
     }),
     {
-      name: "gitdesk-ui",
+      name: "l8git-ui",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         sidebarWidth: s.sidebarWidth,

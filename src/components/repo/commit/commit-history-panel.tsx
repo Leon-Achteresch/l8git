@@ -7,8 +7,9 @@ import type { Commit } from "@/lib/repo-store";
 import { useEffect, useState } from "react";
 import { CommitInspectDetail } from "./commit-inspect-detail";
 import { CommitList } from "./commit-list";
+import { writeLocalStorageDebounced } from "@/lib/utils";
 
-const layoutStorageKey = "gitdesk.history-split.layout.v1";
+const layoutStorageKey = "l8git.history-split.layout.v1";
 
 export function CommitHistoryPanel({
   path,
@@ -40,7 +41,7 @@ export function CommitHistoryPanel({
           id="history-split"
           defaultLayout={defaultLayout}
           onLayoutChanged={(layout) =>
-            localStorage.setItem(layoutStorageKey, JSON.stringify(layout))
+            writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout))
           }
         >
           <ResizablePanel

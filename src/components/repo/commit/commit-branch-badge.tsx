@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { PopIn } from "@/components/motion/pop-in";
 
-export function CommitBranchBadge({
+function CommitBranchBadgeInner({
   name,
   accentColor,
 }: {
@@ -21,3 +22,5 @@ export function CommitBranchBadge({
     </PopIn>
   );
 }
+
+export const CommitBranchBadge = memo(CommitBranchBadgeInner);

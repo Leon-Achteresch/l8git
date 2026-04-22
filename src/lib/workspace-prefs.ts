@@ -13,7 +13,7 @@ export const useWorkspacePrefs = create<WorkspacePrefs>()(
       setIdeLaunchCommand: (ideLaunchCommand) => set({ ideLaunchCommand }),
     }),
     {
-      name: "gitdesk-workspace-prefs",
+      name: "l8git-workspace-prefs",
       storage: createJSONStorage(() => localStorage),
     },
   ),

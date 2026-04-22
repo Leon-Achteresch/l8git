@@ -1,8 +1,13 @@
 import { useRepoStore } from "@/lib/repo-store";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef } from "react";
 
-const STATUS_POLL_MS_VISIBLE = 5000;
-const STATUS_POLL_MS_HIDDEN = 20000;
+// Fallback poll interval once the file-system watcher is attached. A watcher
+// is authoritative for real changes; this interval is only a safety net for
+// missed events on exotic filesystems (network mounts, FUSE layers).
+const FALLBACK_POLL_MS_VISIBLE = 60_000;
+const FALLBACK_POLL_MS_HIDDEN = 180_000;
 
 export function useRepoStatusPoll() {
   const activePath = useRepoStore((s) => s.activePath);
@@ -16,11 +21,12 @@ export function useRepoStatusPoll() {
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let unlistenFn: (() => void) | null = null;
 
     const pollIntervalMs = () =>
       document.visibilityState === "visible"
-        ? STATUS_POLL_MS_VISIBLE
-        : STATUS_POLL_MS_HIDDEN;
+        ? FALLBACK_POLL_MS_VISIBLE
+        : FALLBACK_POLL_MS_HIDDEN;
 
     const tick = async () => {
       if (cancelled || inFlightRef.current) return;
@@ -51,6 +57,25 @@ export function useRepoStatusPoll() {
     void tick();
     scheduleAfter(pollIntervalMs());
 
+    // Attach the native file-system watcher; on change events we reload
+    // status immediately instead of waiting for the next fallback tick.
+    invoke("watch_repo", { path: activePath }).catch(() => {
+      // Silently fall back to polling if the watcher cannot attach
+      // (e.g. unsupported filesystem).
+    });
+
+    void listen<string>("repo-changed", (event) => {
+      if (cancelled) return;
+      if (event.payload !== activePath) return;
+      void tick();
+    }).then((un) => {
+      if (cancelled) {
+        un();
+      } else {
+        unlistenFn = un;
+      }
+    });
+
     const onVisibility = () => {
       if (cancelled) return;
       if (timer != null) clearTimeout(timer);
@@ -66,6 +91,10 @@ export function useRepoStatusPoll() {
       cancelled = true;
       if (timer != null) clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      if (unlistenFn) unlistenFn();
+      invoke("unwatch_repo", { path: activePath }).catch(() => {
+        // ignore: window is closing or watcher already gone
+      });
     };
   }, [activePath, reloadLocalStatus, reloadStashes]);
 }

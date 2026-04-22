@@ -7,8 +7,9 @@ import { useRepoStore } from "@/lib/repo-store";
 import { useEffect, useState } from "react";
 import { PullRequestInspectDetail } from "./pull-request-inspect-detail";
 import { PullRequestList } from "./pull-request-list";
+import { writeLocalStorageDebounced } from "@/lib/utils";
 
-const layoutStorageKey = "gitdesk.pr-split.layout.v1";
+const layoutStorageKey = "l8git.pr-split.layout.v1";
 
 export function PullRequestPanel({ path }: { path: string }) {
   const prs = useRepoStore((s) => s.prs[path]);
@@ -40,7 +41,7 @@ export function PullRequestPanel({ path }: { path: string }) {
           id="pr-split"
           defaultLayout={defaultLayout}
           onLayoutChanged={(layout) =>
-            localStorage.setItem(layoutStorageKey, JSON.stringify(layout))
+            writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout))
           }
         >
           <ResizablePanel

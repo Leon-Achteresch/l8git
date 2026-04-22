@@ -21,7 +21,7 @@ const STATE_OPTIONS: { value: string; label: string }[] = [
   { value: "closed", label: "Closed" },
 ];
 
-const FILTER_STORAGE_KEY = "gitdesk.pr-filter.v1";
+const FILTER_STORAGE_KEY = "l8git.pr-filter.v1";
 
 type StoredFilter = {
   states: string[];

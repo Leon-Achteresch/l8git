@@ -13,14 +13,14 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, GitBranch, GitMerge, GitPullRequest, Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { MergeDialog } from "./merge-dialog";
 import { RemoteCheckoutDialog } from "./remote-checkout-dialog";
 import { RemoteDeleteConfirmDialog } from "./remote-delete-confirm-dialog";
 
 type CheckoutDraft = { remoteRef: string; defaultLocalName: string };
 
-export function BranchRow({
+function BranchRowInner({
   path,
   branch,
   laneColor,
@@ -234,3 +234,20 @@ export function BranchRow({
     </>
   );
 }
+
+// Branch objects are re-created on every repo reload even when their
+// content didn't change; compare by value to skip those reloads.
+export const BranchRow = memo(BranchRowInner, (a, b) => {
+  if (a.path !== b.path) return false;
+  if (a.laneColor !== b.laneColor) return false;
+  if (a.onDelete !== b.onDelete) return false;
+  const ab = a.branch;
+  const bb = b.branch;
+  return (
+    ab === bb ||
+    (ab.name === bb.name &&
+      ab.is_current === bb.is_current &&
+      ab.is_remote === bb.is_remote &&
+      ab.tip === bb.tip)
+  );
+});

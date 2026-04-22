@@ -1,7 +1,8 @@
+import { memo } from "react";
 import { formatDate, formatRelative } from "@/lib/format";
 import { CommitAvatar } from "./commit-avatar";
 
-export function CommitAuthorDate({
+function CommitAuthorDateInner({
   author,
   email,
   avatarUrl,
@@ -41,3 +42,5 @@ export function CommitAuthorDate({
     </div>
   );
 }
+
+export const CommitAuthorDate = memo(CommitAuthorDateInner);
