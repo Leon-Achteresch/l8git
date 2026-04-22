@@ -29,6 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { checkForAppUpdate } from "@/lib/app-updater";
 import { useCommitPrefs } from "@/lib/commit-prefs";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { useGitAccounts } from "@/lib/git-accounts";
@@ -62,6 +63,7 @@ function Settings() {
     removeCustomHost,
   } = useGitAccounts();
   const [addOpen, setAddOpen] = useState(false);
+  const [checkingForUpdates, setCheckingForUpdates] = useState(false);
   const messageTemplate = useCommitPrefs((s) => s.messageTemplate);
   const setMessageTemplate = useCommitPrefs((s) => s.setMessageTemplate);
   const showConventionalCommitIcons = useCommitPrefs(
@@ -99,6 +101,15 @@ function Settings() {
     });
     if (!selected || typeof selected !== "string") return;
     setIdeDraft(selected);
+  }
+
+  async function handleUpdateCheck() {
+    setCheckingForUpdates(true);
+    try {
+      await checkForAppUpdate({ manual: true });
+    } finally {
+      setCheckingForUpdates(false);
+    }
   }
 
   return (
@@ -163,6 +174,33 @@ function Settings() {
       <StaggerCard index={2}>
         <Card>
           <CardHeader>
+            <CardTitle>App-Updates</CardTitle>
+            <CardDescription>
+              Releases werden automatisch ueber GitHub bereitgestellt. Neue
+              Versionen koennen direkt aus der App heruntergeladen und
+              installiert werden.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              disabled={checkingForUpdates}
+              onClick={() => void handleUpdateCheck()}
+            >
+              <RefreshCw
+                className={cn("size-4", checkingForUpdates && "animate-spin")}
+              />
+              Nach Updates suchen
+            </Button>
+          </CardContent>
+        </Card>
+      </StaggerCard>
+
+      <StaggerCard index={3}>
+        <Card>
+          <CardHeader>
             <CardTitle>Commit-Historie</CardTitle>
             <CardDescription>
               Optionale Kennzeichnung nach Conventional Commits (Typ-Icons,
@@ -200,7 +238,7 @@ function Settings() {
         </Card>
       </StaggerCard>
 
-      <StaggerCard index={3}>
+      <StaggerCard index={4}>
         <Card>
           <CardHeader>
             <CardTitle>Commit-Nachricht</CardTitle>
@@ -230,7 +268,7 @@ function Settings() {
         </Card>
       </StaggerCard>
 
-      <StaggerCard index={4}>
+      <StaggerCard index={5}>
         <Card>
           <CardHeader>
             <CardTitle>IDE & Workspace</CardTitle>
@@ -286,7 +324,7 @@ function Settings() {
         </Card>
       </StaggerCard>
 
-      <StaggerCard index={5}>
+      <StaggerCard index={6}>
         <Card>
           <CardHeader>
             <CardTitle>Git-Konten</CardTitle>
