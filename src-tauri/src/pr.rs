@@ -399,22 +399,38 @@ fn gh_map_pr(v: &Value) -> PullRequest {
 }
 
 async fn gh_list(client: &reqwest::Client, cred: &HttpsCredential, h: &RemoteHandle) -> Result<Vec<PullRequest>, String> {
-    let mut out = Vec::new();
-    for page in 1..=10 {
+    // Fetch pages concurrently in batches of three. The common case (single
+    // page of PRs) still costs a single round-trip; deep histories finish in
+    // ceil(N/3) sequential waits instead of N.
+    let fetch = |page: u64| async move {
         let url = format!(
             "https://api.github.com/repos/{}/{}/pulls?state=all&per_page=50&page={page}&sort=updated&direction=desc",
             h.owner, h.repo
         );
         let res = github_request(client, cred, reqwest::Method::GET, &url, None).await?;
         let val = github_read_json(res, &h.host).await?;
-        let arr = val.as_array().cloned().unwrap_or_default();
-        let count = arr.len();
-        for v in arr {
-            out.push(gh_map_pr(&v));
+        Ok::<Vec<Value>, String>(val.as_array().cloned().unwrap_or_default())
+    };
+    let mut out = Vec::new();
+    const MAX_PAGES: u64 = 10;
+    let mut start: u64 = 1;
+    'outer: while start <= MAX_PAGES {
+        let (r1, r2, r3) = tokio::join!(fetch(start), fetch(start + 1), fetch(start + 2));
+        let pages = [(start, r1), (start + 1, r2), (start + 2, r3)];
+        for (page, r) in pages {
+            if page > MAX_PAGES {
+                break;
+            }
+            let arr = r?;
+            let count = arr.len();
+            for v in arr {
+                out.push(gh_map_pr(&v));
+            }
+            if count < 50 {
+                break 'outer;
+            }
         }
-        if count < 50 {
-            break;
-        }
+        start += 3;
     }
     Ok(out)
 }
@@ -447,38 +463,51 @@ async fn gh_commits(
     h: &RemoteHandle,
     number: u64,
 ) -> Result<Vec<PrCommit>, String> {
-    let mut out = Vec::new();
-    for page in 1..=20 {
+    let fetch = |page: u64| async move {
         let url = format!(
             "https://api.github.com/repos/{}/{}/pulls/{number}/commits?per_page=100&page={page}",
             h.owner, h.repo
         );
         let res = github_request(client, cred, reqwest::Method::GET, &url, None).await?;
         let v = github_read_json(res, &h.host).await?;
-        let arr = v.as_array().cloned().unwrap_or_default();
-        let count = arr.len();
-        for c in arr {
-            let hash = str_or_empty(&c["sha"]);
-            let short_hash = hash.chars().take(7).collect();
-            out.push(PrCommit {
-                short_hash,
-                hash,
-                author: str_or_empty(&c["commit"]["author"]["name"]),
-                email: str_or_empty(&c["commit"]["author"]["email"]),
-                date: str_or_empty(&c["commit"]["author"]["date"]),
-                subject: c["commit"]["message"]
-                    .as_str()
-                    .unwrap_or("")
-                    .lines()
-                    .next()
-                    .unwrap_or("")
-                    .to_string(),
-                author_avatar: c["author"]["avatar_url"].as_str().map(|s| s.to_string()),
-            });
+        Ok::<Vec<Value>, String>(v.as_array().cloned().unwrap_or_default())
+    };
+    let mut out = Vec::new();
+    const MAX_PAGES: u64 = 20;
+    let mut start: u64 = 1;
+    'outer: while start <= MAX_PAGES {
+        let (r1, r2, r3) = tokio::join!(fetch(start), fetch(start + 1), fetch(start + 2));
+        let pages = [(start, r1), (start + 1, r2), (start + 2, r3)];
+        for (page, r) in pages {
+            if page > MAX_PAGES {
+                break;
+            }
+            let arr = r?;
+            let count = arr.len();
+            for c in arr {
+                let hash = str_or_empty(&c["sha"]);
+                let short_hash = hash.chars().take(7).collect();
+                out.push(PrCommit {
+                    short_hash,
+                    hash,
+                    author: str_or_empty(&c["commit"]["author"]["name"]),
+                    email: str_or_empty(&c["commit"]["author"]["email"]),
+                    date: str_or_empty(&c["commit"]["author"]["date"]),
+                    subject: c["commit"]["message"]
+                        .as_str()
+                        .unwrap_or("")
+                        .lines()
+                        .next()
+                        .unwrap_or("")
+                        .to_string(),
+                    author_avatar: c["author"]["avatar_url"].as_str().map(|s| s.to_string()),
+                });
+            }
+            if count < 100 {
+                break 'outer;
+            }
         }
-        if count < 100 {
-            break;
-        }
+        start += 3;
     }
     Ok(out)
 }
@@ -489,30 +518,42 @@ async fn gh_files(
     h: &RemoteHandle,
     number: u64,
 ) -> Result<Vec<PrFile>, String> {
-    let mut out = Vec::new();
-    for page in 1..=20 {
+    let fetch = |page: u64| async move {
         let url = format!(
             "https://api.github.com/repos/{}/{}/pulls/{number}/files?per_page=100&page={page}",
             h.owner, h.repo
         );
         let res = github_request(client, cred, reqwest::Method::GET, &url, None).await?;
         let v = github_read_json(res, &h.host).await?;
-        let arr = v.as_array().cloned().unwrap_or_default();
-        let count = arr.len();
-        for f in arr {
-            // Deliberately drop the `patch` field here — it is fetched
-            // lazily when the user opens a file.
-            out.push(PrFile {
-                path: str_or_empty(&f["filename"]),
-                status: str_or_empty(&f["status"]),
-                additions: f["additions"].as_u64().unwrap_or(0),
-                deletions: f["deletions"].as_u64().unwrap_or(0),
-                patch: None,
-            });
+        Ok::<Vec<Value>, String>(v.as_array().cloned().unwrap_or_default())
+    };
+    let mut out = Vec::new();
+    const MAX_PAGES: u64 = 20;
+    let mut start: u64 = 1;
+    'outer: while start <= MAX_PAGES {
+        let (r1, r2, r3) = tokio::join!(fetch(start), fetch(start + 1), fetch(start + 2));
+        let pages = [(start, r1), (start + 1, r2), (start + 2, r3)];
+        for (page, r) in pages {
+            if page > MAX_PAGES {
+                break;
+            }
+            let arr = r?;
+            let count = arr.len();
+            for f in arr {
+                // Patch payload intentionally omitted — fetched on demand.
+                out.push(PrFile {
+                    path: str_or_empty(&f["filename"]),
+                    status: str_or_empty(&f["status"]),
+                    additions: f["additions"].as_u64().unwrap_or(0),
+                    deletions: f["deletions"].as_u64().unwrap_or(0),
+                    patch: None,
+                });
+            }
+            if count < 100 {
+                break 'outer;
+            }
         }
-        if count < 100 {
-            break;
-        }
+        start += 3;
     }
     Ok(out)
 }
@@ -938,6 +979,39 @@ async fn bb_files(
         });
     }
     Ok(out)
+}
+
+async fn bb_file_patch(
+    client: &reqwest::Client,
+    cred: &HttpsCredential,
+    h: &RemoteHandle,
+    number: u64,
+    target_path: &str,
+) -> Result<Option<String>, String> {
+    let diff_url = format!(
+        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/diff",
+        h.owner, h.repo
+    );
+    let diff_res = bitbucket_send_authed(client, &diff_url, cred, &h.host).await?;
+    if diff_res.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err(format!(
+            "Bitbucket: 401. Bitte unter Einstellungen bei {} anmelden.",
+            h.host
+        ));
+    }
+    if !diff_res.status().is_success() {
+        let body = diff_res.text().await.unwrap_or_default();
+        return Err(format!("Bitbucket: {}", body.trim()));
+    }
+    let diff_text = diff_res
+        .text()
+        .await
+        .map_err(|e| format!("Bitbucket: {e}"))?;
+    let per_file = split_unified_diff_by_file(&diff_text);
+    Ok(per_file
+        .into_iter()
+        .find(|(p, _)| p == target_path)
+        .map(|(_, d)| d))
 }
 
 async fn bb_conversation(
@@ -1487,6 +1561,27 @@ pub async fn pr_files(path: String, number: u64) -> Result<Vec<PrFile>, String> 
     match h.provider {
         Provider::GitHub => gh_files(&client, &cred, &h, number).await,
         Provider::Bitbucket => bb_files(&client, &cred, &h, number).await,
+        Provider::Unsupported => Err(unsupported_provider_err(&h.host)),
+    }
+}
+
+/// Load the patch for a single PR file on demand. Combined with the
+/// slimmed-down `pr_files` response (no embedded patches) this keeps the
+/// initial PR open cheap — a 100-file PR previously shipped ~5-10 MB across
+/// IPC, now it ships under 200 KB and the patch arrives only when needed.
+#[tauri::command]
+pub async fn pr_file_patch(
+    path: String,
+    number: u64,
+    file: String,
+) -> Result<Option<String>, String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    match h.provider {
+        Provider::GitHub => gh_file_patch(&client, &cred, &h, number, &file).await,
+        Provider::Bitbucket => bb_file_patch(&client, &cred, &h, number, &file).await,
         Provider::Unsupported => Err(unsupported_provider_err(&h.host)),
     }
 }

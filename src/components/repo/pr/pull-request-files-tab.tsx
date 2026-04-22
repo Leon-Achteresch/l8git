@@ -8,14 +8,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type PrFile = {
   path: string;
   status: string;
   additions: number;
   deletions: number;
-  patch: string;
+  // Backend no longer ships the patch in the list payload; it's fetched
+  // lazily via `pr_file_patch` when the user opens a file.
+  patch?: string;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -36,10 +38,17 @@ export function PullRequestFilesTab({
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
 
+  const patchCache = useRef<Map<string, string>>(new Map());
+  const [patch, setPatch] = useState<string | null>(null);
+  const [patchLoading, setPatchLoading] = useState(false);
+  const [patchFailed, setPatchFailed] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setSelected(null);
+    patchCache.current.clear();
+    setPatch(null);
     invoke<PrFile[]>("pr_files", { path, number })
       .then((res) => {
         if (!cancelled) {
@@ -60,6 +69,47 @@ export function PullRequestFilesTab({
       cancelled = true;
     };
   }, [path, number]);
+
+  useEffect(() => {
+    if (!selected) {
+      setPatch(null);
+      setPatchFailed(false);
+      return;
+    }
+    const cached = patchCache.current.get(selected);
+    if (cached !== undefined) {
+      setPatch(cached);
+      setPatchFailed(false);
+      setPatchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPatchLoading(true);
+    setPatchFailed(false);
+    invoke<string | null>("pr_file_patch", {
+      path,
+      number,
+      file: selected,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const value = res ?? "";
+        patchCache.current.set(selected, value);
+        setPatch(value);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        toastError(String(e));
+        setPatchFailed(true);
+        setPatch(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPatchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path, number, selected]);
 
   if (loading && !files) {
     return (
@@ -130,13 +180,13 @@ export function PullRequestFilesTab({
         className="min-h-0 flex flex-col"
       >
         <UnifiedDiffBody
-          loading={false}
-          failed={false}
+          loading={patchLoading}
+          failed={patchFailed}
           isBinary={false}
-          unifiedText={current.patch || ""}
+          unifiedText={patch ?? ""}
           untrackedPlain={null}
           emptyHint={
-            current.patch
+            patch
               ? ""
               : "Kein Diff verfügbar (evtl. Binärdatei oder zu groß)."
           }

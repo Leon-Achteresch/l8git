@@ -7,23 +7,6 @@ use serde::Serialize;
 
 use crate::cmd::git_command;
 
-#[derive(Serialize)]
-pub struct GitAccount {
-    id: String,
-    name: String,
-    host: String,
-    username: Option<String>,
-    signed_in: bool,
-    builtin: bool,
-}
-
-const BUILTIN_PROVIDERS: &[(&str, &str, &str)] = &[
-    ("github", "GitHub", "github.com"),
-    ("gitlab", "GitLab", "gitlab.com"),
-    ("bitbucket", "Bitbucket", "bitbucket.org"),
-    ("azure", "Azure DevOps", "dev.azure.com"),
-];
-
 fn git_credential(
     action: &str,
     input: &str,
@@ -126,72 +109,6 @@ pub fn read_https_credential(host: &str) -> Result<HttpsCredential, String> {
     Ok(HttpsCredential { username, password })
 }
 
-fn credential_lookup(host: &str) -> Option<String> {
-    let input = format!("protocol=https\nhost={host}\n\n");
-    let out = git_credential("fill", &input, true, Duration::from_secs(25))
-        .ok()?;
-    let mut username = None;
-    let mut has_password = false;
-    for line in out.lines() {
-        if let Some(u) = line.strip_prefix("username=") {
-            username = Some(u.to_string());
-        } else if line.starts_with("password=") {
-            has_password = true;
-        }
-    }
-    if has_password {
-        Some(username.unwrap_or_default())
-    } else {
-        None
-    }
-}
-
-#[tauri::command]
-pub fn list_git_accounts() -> Vec<GitAccount> {
-    let handles: Vec<_> = BUILTIN_PROVIDERS
-        .iter()
-        .enumerate()
-        .map(|(i, (id, name, host))| {
-            let id = id.to_string();
-            let name = name.to_string();
-            let host = host.to_string();
-            thread::spawn(move || {
-                let username = credential_lookup(&host);
-                (
-                    i,
-                    GitAccount {
-                        id,
-                        name,
-                        host,
-                        signed_in: username.is_some(),
-                        username,
-                        builtin: true,
-                    },
-                )
-            })
-        })
-        .collect();
-    let mut pairs: Vec<(usize, GitAccount)> = handles
-        .into_iter()
-        .map(|h| h.join().expect("credential lookup thread"))
-        .collect();
-    pairs.sort_by_key(|(i, _)| *i);
-    pairs.into_iter().map(|(_, a)| a).collect()
-}
-
-#[tauri::command]
-pub fn probe_git_account(id: String, name: String, host: String) -> GitAccount {
-    let username = credential_lookup(&host);
-    GitAccount {
-        id,
-        name,
-        host,
-        signed_in: username.is_some(),
-        username,
-        builtin: false,
-    }
-}
-
 #[tauri::command]
 pub fn git_sign_in(host: String, username: String, token: String) -> Result<(), String> {
     let host = host.trim();
@@ -209,8 +126,15 @@ pub fn git_sign_in(host: String, username: String, token: String) -> Result<(), 
     Ok(())
 }
 
+#[derive(Serialize)]
+pub struct CredentialManagerSignIn {
+    username: Option<String>,
+}
+
 #[tauri::command]
-pub fn git_sign_in_via_credential_manager(host: String) -> Result<(), String> {
+pub fn git_sign_in_via_credential_manager(
+    host: String,
+) -> Result<CredentialManagerSignIn, String> {
     let host = host.trim();
     if host.is_empty() {
         return Err("Host darf nicht leer sein".into());
@@ -223,10 +147,14 @@ pub fn git_sign_in_via_credential_manager(host: String) -> Result<(), String> {
         Duration::from_secs(180),
     )?;
     let mut has_password = false;
+    let mut username = None;
     for line in filled.lines() {
-        if line.starts_with("password=") && line.len() > "password=".len() {
+        if let Some(u) = line.strip_prefix("username=") {
+            if !u.is_empty() {
+                username = Some(u.to_string());
+            }
+        } else if line.starts_with("password=") && line.len() > "password=".len() {
             has_password = true;
-            break;
         }
     }
     if !has_password {
@@ -236,7 +164,7 @@ pub fn git_sign_in_via_credential_manager(host: String) -> Result<(), String> {
         );
     }
     git_credential("approve", &filled, true, Duration::from_secs(45))?;
-    Ok(())
+    Ok(CredentialManagerSignIn { username })
 }
 
 #[tauri::command]

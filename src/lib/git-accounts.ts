@@ -12,127 +12,187 @@ export type GitAccount = {
   builtin: boolean;
 };
 
-type CustomHost = { id: string; name: string; host: string };
-
-const CUSTOM_KEY = "l8git-custom-git-hosts";
-const SESSION_CACHE_KEY = "l8git.git-accounts.v1";
-
-type SessionCache = {
-  accounts: GitAccount[];
-  helper: string | null;
+type StoredAccount = {
+  id: string;
+  name: string;
+  host: string;
+  username: string | null;
+  builtin: boolean;
 };
 
-function loadCustomHosts(): CustomHost[] {
+type BuiltinProvider = { id: string; name: string; host: string };
+
+const BUILTIN_PROVIDERS: BuiltinProvider[] = [
+  { id: "github", name: "GitHub", host: "github.com" },
+  { id: "gitlab", name: "GitLab", host: "gitlab.com" },
+  { id: "bitbucket", name: "Bitbucket", host: "bitbucket.org" },
+  { id: "azure", name: "Azure DevOps", host: "dev.azure.com" },
+];
+
+const ACCOUNTS_KEY = "l8git.git-accounts.v2";
+const HELPER_CACHE_KEY = "l8git.git-credential-helper.v1";
+
+function loadStoredAccounts(): StoredAccount[] {
   try {
-    const raw = localStorage.getItem(CUSTOM_KEY);
+    const raw = localStorage.getItem(ACCOUNTS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (a): a is StoredAccount =>
+        typeof a === "object" &&
+        a !== null &&
+        typeof a.host === "string" &&
+        typeof a.name === "string" &&
+        typeof a.id === "string" &&
+        typeof a.builtin === "boolean",
+    );
   } catch {
     return [];
   }
 }
 
-function saveCustomHosts(hosts: CustomHost[]) {
-  localStorage.setItem(CUSTOM_KEY, JSON.stringify(hosts));
+function saveStoredAccounts(accounts: StoredAccount[]) {
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
 }
 
-function readSessionCache(): SessionCache | null {
+function upsertAccount(
+  accounts: StoredAccount[],
+  entry: StoredAccount,
+): StoredAccount[] {
+  const filtered = accounts.filter((a) => a.host !== entry.host);
+  return [...filtered, entry];
+}
+
+function builtinFor(host: string): BuiltinProvider | undefined {
+  return BUILTIN_PROVIDERS.find((p) => p.host === host);
+}
+
+function toGitAccount(stored: StoredAccount): GitAccount {
+  return {
+    id: stored.id,
+    name: stored.name,
+    host: stored.host,
+    username: stored.username,
+    signed_in: true,
+    builtin: stored.builtin,
+  };
+}
+
+function readHelperCache(): string | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
-    if (!raw) return null;
-    const o = JSON.parse(raw) as SessionCache;
-    if (!Array.isArray(o.accounts)) return null;
-    return { accounts: o.accounts, helper: o.helper ?? null };
+    const raw = sessionStorage.getItem(HELPER_CACHE_KEY);
+    return raw ?? null;
   } catch {
     return null;
   }
 }
 
-function writeSessionCache(accounts: GitAccount[], helper: string | null) {
+function writeHelperCache(helper: string | null) {
   try {
-    sessionStorage.setItem(
-      SESSION_CACHE_KEY,
-      JSON.stringify({ accounts, helper } satisfies SessionCache),
-    );
+    if (helper === null) sessionStorage.removeItem(HELPER_CACHE_KEY);
+    else sessionStorage.setItem(HELPER_CACHE_KEY, helper);
   } catch {
     /* ignore */
   }
 }
 
-function sessionCachePrimed(): boolean {
-  try {
-    return !!sessionStorage.getItem(SESSION_CACHE_KEY);
-  } catch {
-    return false;
-  }
-}
-
 export function useGitAccounts() {
-  const boot = useMemo(() => readSessionCache(), []);
-  const [accounts, setAccounts] = useState<GitAccount[]>(
-    () => boot?.accounts ?? [],
+  const initial = useMemo(() => loadStoredAccounts(), []);
+  const [accounts, setAccounts] = useState<GitAccount[]>(() =>
+    initial.map(toGitAccount),
   );
-  const [helper, setHelper] = useState<string | null>(() => boot?.helper ?? null);
-  const [loading, setLoading] = useState(() => !boot);
+  const [helper, setHelper] = useState<string | null>(() => readHelperCache());
+  const [loading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const refresh = useCallback(async (options?: { silent?: boolean }) => {
-    const silent = options?.silent ?? true;
-    if (silent) setRefreshing(true);
-    else setLoading(true);
+  const refreshHelper = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const customHosts = loadCustomHosts();
-      const customInvokes = customHosts.map((c) =>
-        invoke<GitAccount>("probe_git_account", {
-          id: c.id,
-          name: c.name,
-          host: c.host,
-        }),
-      );
-      const [builtin, h, ...customProbes] = await Promise.all([
-        invoke<GitAccount[]>("list_git_accounts"),
-        invoke<string | null>("git_credential_helper"),
-        ...customInvokes,
-      ]);
-      const merged = [...builtin, ...customProbes];
-      setAccounts(merged);
+      const h = await invoke<string | null>("git_credential_helper");
       setHelper(h);
-      writeSessionCache(merged, h);
+      writeHelperCache(h);
     } catch (e) {
       toastError(String(e));
     } finally {
-      if (silent) setRefreshing(false);
-      else setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
+  const refresh = useCallback(
+    async (_options?: { silent?: boolean }) => {
+      setAccounts(loadStoredAccounts().map(toGitAccount));
+      await refreshHelper();
+    },
+    [refreshHelper],
+  );
+
   useEffect(() => {
-    void refresh({ silent: sessionCachePrimed() });
-  }, [refresh]);
+    if (readHelperCache() === null) {
+      void refreshHelper();
+    }
+  }, [refreshHelper]);
+
+  const persistAndSet = useCallback((next: StoredAccount[]) => {
+    saveStoredAccounts(next);
+    setAccounts(next.map(toGitAccount));
+  }, []);
 
   const signIn = useCallback(
     async (host: string, username: string, token: string) => {
       await invoke("git_sign_in", { host, username, token });
-      void refresh({ silent: true });
+      const trimmedHost = host.trim();
+      const trimmedUser = username.trim();
+      const builtin = builtinFor(trimmedHost);
+      const current = loadStoredAccounts();
+      const existing = current.find((a) => a.host === trimmedHost);
+      const entry: StoredAccount = {
+        id:
+          existing?.id ??
+          builtin?.id ??
+          `custom-${trimmedHost}`,
+        name: existing?.name ?? builtin?.name ?? trimmedHost,
+        host: trimmedHost,
+        username: trimmedUser || null,
+        builtin: existing?.builtin ?? !!builtin,
+      };
+      persistAndSet(upsertAccount(current, entry));
     },
-    [refresh],
+    [persistAndSet],
   );
 
   const signInViaCredentialManager = useCallback(
     async (host: string) => {
-      await invoke("git_sign_in_via_credential_manager", { host });
-      void refresh({ silent: true });
+      const result = await invoke<{ username: string | null }>(
+        "git_sign_in_via_credential_manager",
+        { host },
+      );
+      const trimmedHost = host.trim();
+      const builtin = builtinFor(trimmedHost);
+      const current = loadStoredAccounts();
+      const existing = current.find((a) => a.host === trimmedHost);
+      const entry: StoredAccount = {
+        id:
+          existing?.id ??
+          builtin?.id ??
+          `custom-${trimmedHost}`,
+        name: existing?.name ?? builtin?.name ?? trimmedHost,
+        host: trimmedHost,
+        username: result.username ?? existing?.username ?? null,
+        builtin: existing?.builtin ?? !!builtin,
+      };
+      persistAndSet(upsertAccount(current, entry));
     },
-    [refresh],
+    [persistAndSet],
   );
 
   const signOut = useCallback(
     async (host: string, username: string | null) => {
       await invoke("git_sign_out", { host, username });
-      void refresh({ silent: true });
+      const current = loadStoredAccounts();
+      persistAndSet(current.filter((a) => a.host !== host));
     },
-    [refresh],
+    [persistAndSet],
   );
 
   const addCustomHost = useCallback(
@@ -140,25 +200,26 @@ export function useGitAccounts() {
       const trimmedHost = host.trim();
       const trimmedName = name.trim() || trimmedHost;
       if (!trimmedHost) return;
-      const existing = loadCustomHosts();
-      if (existing.some((h) => h.host === trimmedHost)) return;
-      const next: CustomHost[] = [
-        ...existing,
-        { id: `custom-${trimmedHost}`, name: trimmedName, host: trimmedHost },
-      ];
-      saveCustomHosts(next);
-      void refresh({ silent: true });
+      const current = loadStoredAccounts();
+      if (current.some((a) => a.host === trimmedHost)) return;
+      const entry: StoredAccount = {
+        id: `custom-${trimmedHost}`,
+        name: trimmedName,
+        host: trimmedHost,
+        username: null,
+        builtin: false,
+      };
+      persistAndSet([...current, entry]);
     },
-    [refresh],
+    [persistAndSet],
   );
 
   const removeCustomHost = useCallback(
     (host: string) => {
-      const next = loadCustomHosts().filter((h) => h.host !== host);
-      saveCustomHosts(next);
-      void refresh({ silent: true });
+      const current = loadStoredAccounts();
+      persistAndSet(current.filter((a) => a.host !== host));
     },
-    [refresh],
+    [persistAndSet],
   );
 
   return {
