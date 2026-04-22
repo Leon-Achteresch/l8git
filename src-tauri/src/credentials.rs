@@ -1,9 +1,11 @@
 use std::io::{Read, Write};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+
+use crate::cmd::git_command;
 
 #[derive(Serialize)]
 pub struct GitAccount {
@@ -28,11 +30,13 @@ fn git_credential(
     forbid_interactive: bool,
     max_wait: Duration,
 ) -> Result<String, String> {
-    let mut cmd = Command::new("git");
+    let mut cmd = git_command();
     if forbid_interactive {
         cmd.arg("-c")
-            .arg("credential.interactive=false")
-            .env("GCM_INTERACTIVE", "false");
+            .arg("credential.interactive=never")
+            .env("GCM_INTERACTIVE", "Never")
+            .env("GIT_ASKPASS", "echo")
+            .env("SSH_ASKPASS", "echo");
     }
     let mut child = cmd
         .args(["credential", action])
@@ -248,7 +252,7 @@ pub fn git_sign_out(host: String, username: Option<String>) -> Result<(), String
 
 #[tauri::command]
 pub fn git_credential_helper() -> Option<String> {
-    let out = Command::new("git")
+    let out = git_command()
         .args(["config", "--get", "credential.helper"])
         .output()
         .ok()?;

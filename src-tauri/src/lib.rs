@@ -1,3 +1,4 @@
+mod cmd;
 mod credentials;
 mod favicon;
 mod git;

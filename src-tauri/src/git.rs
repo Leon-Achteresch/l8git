@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::process::Command;
 
 use serde::Serialize;
+
+use crate::cmd::git_command;
 
 #[derive(Serialize)]
 pub struct Commit {
@@ -47,7 +48,7 @@ pub struct GitRemote {
 }
 
 pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
+    let output = git_command()
         .arg("-C")
         .arg(repo)
         .args(args)
@@ -61,7 +62,7 @@ pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
 }
 
 fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<String, String> {
-    let mut cmd = Command::new("git");
+    let mut cmd = git_command();
     if let Some(dir) = cwd {
         cmd.arg("-C").arg(dir);
     }
@@ -282,7 +283,7 @@ pub fn add_git_remote(path: String, name: String, url: String) -> Result<String,
 #[tauri::command]
 pub fn branch_has_upstream(path: String) -> Result<bool, String> {
     let repo = PathBuf::from(path.trim());
-    let output = Command::new("git")
+    let output = git_command()
         .arg("-C")
         .arg(&repo)
         .args([
