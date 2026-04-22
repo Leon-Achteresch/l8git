@@ -16,7 +16,7 @@ export function EmptyState() {
               </div>
             </>
           }
-          title="Willkommen bei GitDesk"
+          title="Willkommen bei l8git"
           description="Dein lokaler Workspace für nahtlose Git-Workflows."
         />
 

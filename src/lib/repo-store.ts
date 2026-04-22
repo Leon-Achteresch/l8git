@@ -4,6 +4,16 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import { toastError } from "@/lib/error-toast";
 
+// Coalesce concurrent reload() calls per path so that back-to-back operations
+// (e.g. commit + reloadStatus + reloadStashes running in parallel) share the
+// same in-flight request instead of triggering N identical 200-commit
+// round-trips. A small trailing debounce swallows rapid follow-ups.
+const reloadInFlight = new Map<string, Promise<void>>();
+const reloadPending = new Map<string, number>();
+const statusInFlight = new Map<string, Promise<void>>();
+const loadMoreInFlight = new Map<string, boolean>();
+const RELOAD_COALESCE_MS = 150;
+
 export type Commit = {
   hash: string;
   short_hash: string;
@@ -140,6 +150,7 @@ type RepoState = {
   tagCommit: (path: string, name: string, commit: string) => Promise<void>;
   discardFiles: (path: string, files: string[]) => Promise<void>;
   reloadStashes: (path: string) => Promise<void>;
+  loadMoreCommits: (path: string, count?: number) => Promise<number>;
   stashPush: (
     path: string,
     message: string | undefined,
@@ -288,30 +299,47 @@ export const useRepoStore = create<RepoState>()(
       },
 
       async reload(path) {
-        set((s) => ({ loading: { ...s.loading, [path]: true } }));
-        try {
-          const opened = await invoke<RepoInfo>("open_repo", { path });
-          set((s) => {
-            const { [path]: __, ...restLoad } = s.loading;
-            return {
-              repos: { ...s.repos, [path]: opened },
-              loading: restLoad,
-            };
-          });
-          scheduleRemoteCommitAvatars(opened.path, opened.commits);
-          if (!(path in get().favicons)) {
-            void loadFavicon(path).then((icon) => {
-              set((s) => ({ favicons: { ...s.favicons, [path]: icon } }));
-            });
-          }
-          await get().reloadStashes(path);
-        } catch (e) {
-          const msg = String(e);
-          toastError(msg);
-          set((s) => ({
-            loading: { ...s.loading, [path]: false },
-          }));
-        }
+        const existing = reloadInFlight.get(path);
+        if (existing) return existing;
+
+        const pending = reloadPending.get(path);
+        if (pending !== undefined) window.clearTimeout(pending);
+
+        const promise = new Promise<void>((resolve) => {
+          const handle = window.setTimeout(async () => {
+            reloadPending.delete(path);
+            set((s) => ({ loading: { ...s.loading, [path]: true } }));
+            try {
+              const opened = await invoke<RepoInfo>("open_repo", { path });
+              set((s) => {
+                const { [path]: __, ...restLoad } = s.loading;
+                return {
+                  repos: { ...s.repos, [path]: opened },
+                  loading: restLoad,
+                };
+              });
+              scheduleRemoteCommitAvatars(opened.path, opened.commits);
+              if (!(path in get().favicons)) {
+                void loadFavicon(path).then((icon) => {
+                  set((s) => ({ favicons: { ...s.favicons, [path]: icon } }));
+                });
+              }
+              await get().reloadStashes(path);
+            } catch (e) {
+              const msg = String(e);
+              toastError(msg);
+              set((s) => ({
+                loading: { ...s.loading, [path]: false },
+              }));
+            } finally {
+              reloadInFlight.delete(path);
+              resolve();
+            }
+          }, RELOAD_COALESCE_MS);
+          reloadPending.set(path, handle);
+        });
+        reloadInFlight.set(path, promise);
+        return promise;
       },
 
       async reloadAll() {
@@ -334,26 +362,34 @@ export const useRepoStore = create<RepoState>()(
       },
 
       async reloadStatus(path) {
-        set((s) => ({ statusLoading: { ...s.statusLoading, [path]: true } }));
-        try {
-          const [entries, sync, upstream] = await Promise.all([
-            invoke<StatusEntry[]>("repo_status", { path }),
-            invoke<UpstreamSyncCounts>("repo_upstream_sync_counts", { path }),
-            invoke<boolean>("branch_has_upstream", { path }),
-          ]);
-          set((s) => ({
-            status: { ...s.status, [path]: entries },
-            upstreamSync: { ...s.upstreamSync, [path]: sync },
-            hasUpstream: { ...s.hasUpstream, [path]: upstream },
-            statusLoading: { ...s.statusLoading, [path]: false },
-          }));
-        } catch (e) {
-          const msg = String(e);
-          toastError(msg);
-          set((s) => ({
-            statusLoading: { ...s.statusLoading, [path]: false },
-          }));
-        }
+        const inflight = statusInFlight.get(path);
+        if (inflight) return inflight;
+        const promise = (async () => {
+          set((s) => ({ statusLoading: { ...s.statusLoading, [path]: true } }));
+          try {
+            const full = await invoke<{
+              entries: StatusEntry[];
+              upstream_sync: UpstreamSyncCounts;
+              has_upstream: boolean;
+            }>("repo_full_status", { path });
+            set((s) => ({
+              status: { ...s.status, [path]: full.entries },
+              upstreamSync: { ...s.upstreamSync, [path]: full.upstream_sync },
+              hasUpstream: { ...s.hasUpstream, [path]: full.has_upstream },
+              statusLoading: { ...s.statusLoading, [path]: false },
+            }));
+          } catch (e) {
+            const msg = String(e);
+            toastError(msg);
+            set((s) => ({
+              statusLoading: { ...s.statusLoading, [path]: false },
+            }));
+          } finally {
+            statusInFlight.delete(path);
+          }
+        })();
+        statusInFlight.set(path, promise);
+        return promise;
       },
 
       async reloadLocalStatus(path) {
@@ -532,9 +568,50 @@ export const useRepoStore = create<RepoState>()(
         ]);
         return out.trim();
       },
+
+      async loadMoreCommits(path, count = 80) {
+        const repo = get().repos[path];
+        if (!repo) return 0;
+        const skip = repo.commits.length;
+        if (loadMoreInFlight.get(path)) return 0;
+        loadMoreInFlight.set(path, true);
+        try {
+          const more = await invoke<Commit[]>("repo_log_page", {
+            path,
+            skip,
+            limit: count,
+          });
+          if (more.length === 0) return 0;
+          // Dedup against commits we already have (virtualiser-triggered
+          // calls can occasionally race after a reload replaces the list).
+          set((s) => {
+            const existing = s.repos[path];
+            if (!existing) return s;
+            const known = new Set(existing.commits.map((c) => c.hash));
+            const appended = more.filter((c) => !known.has(c.hash));
+            if (appended.length === 0) return s;
+            return {
+              repos: {
+                ...s.repos,
+                [path]: {
+                  ...existing,
+                  commits: [...existing.commits, ...appended],
+                },
+              },
+            };
+          });
+          scheduleRemoteCommitAvatars(path, more);
+          return more.length;
+        } catch (e) {
+          toastError(String(e));
+          return 0;
+        } finally {
+          loadMoreInFlight.delete(path);
+        }
+      },
     }),
     {
-      name: "gitdesk-repo",
+      name: "l8git-repo",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         paths: state.paths,

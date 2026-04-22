@@ -9,8 +9,9 @@ import { StashBranchDialog } from "./stash-branch-dialog";
 import { StashCreateDialog } from "./stash-create-dialog";
 import { StashInspectDetail } from "./stash-inspect-detail";
 import { StashList } from "./stash-list";
+import { writeLocalStorageDebounced } from "@/lib/utils";
 
-const layoutStorageKey = "gitdesk.stash-split.layout.v1";
+const layoutStorageKey = "l8git.stash-split.layout.v1";
 
 const EMPTY_STASHES: StashEntry[] = [];
 
@@ -57,7 +58,7 @@ export function StashPanel({ path }: { path: string }) {
           id="stash-split"
           defaultLayout={defaultLayout}
           onLayoutChanged={(layout) =>
-            localStorage.setItem(layoutStorageKey, JSON.stringify(layout))
+            writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout))
           }
         >
           <ResizablePanel

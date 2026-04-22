@@ -132,7 +132,7 @@ function Settings() {
           <CardHeader>
             <CardTitle>Darstellung</CardTitle>
             <CardDescription>
-              Wähle, wie gitdesk aussieht. „System“ folgt deiner OS-Einstellung.
+              Wähle, wie l8git aussieht. „System“ folgt deiner OS-Einstellung.
             </CardDescription>
           </CardHeader>
           <CardContent>

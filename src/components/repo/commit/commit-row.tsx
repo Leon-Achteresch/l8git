@@ -15,7 +15,7 @@ import { useGravatarUrl } from "@/lib/gravatar";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { Tag, Undo2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CommitAuthorDate } from "./commit-author-date";
 import { CommitBranchBadge } from "./commit-branch-badge";
@@ -25,18 +25,18 @@ import { CommitHashBadge } from "./commit-hash-badge";
 import { CommitTagDialog } from "./commit-tag-dialog";
 import { CommitTags } from "./commit-tags";
 
-export function CommitRow({
+function CommitRowInner({
   path,
   row,
   maxLanes,
   selected,
-  onSelect,
+  onSelectHash,
 }: {
   path: string;
   row: GraphRow;
   maxLanes: number;
   selected: boolean;
-  onSelect: () => void;
+  onSelectHash: (hash: string) => void;
 }) {
   const { commit } = row;
   const gravatarUrl = useGravatarUrl(commit.email);
@@ -55,7 +55,7 @@ export function CommitRow({
 
   const inner = (
     <div
-      onClick={() => onSelect()}
+      onClick={() => onSelectHash(commit.hash)}
       className={cn(
         "group relative flex cursor-pointer items-stretch border-b border-border/40 outline-none transition-colors focus-visible:outline-none",
         selected
@@ -147,3 +147,5 @@ export function CommitRow({
     </>
   );
 }
+
+export const CommitRow = memo(CommitRowInner);

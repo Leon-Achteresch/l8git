@@ -3,19 +3,23 @@ import {
   parseUnifiedDiff,
   type DiffLine,
 } from "@/lib/unified-diff";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 const lineWrap =
   "box-border block w-max min-w-full whitespace-pre px-4 py-0.5 font-mono text-[11px]";
 
-function diffLineNode(line: DiffLine, i: number) {
+// Fixed per-line height in px. Each line renders as a single text row with
+// py-0.5 + text-[11px] leading-normal ≈ 18px. Using a constant keeps the
+// virtualizer O(1) even for 100k-line diffs; wrap-off via whitespace-pre
+// ensures every line really is one visual row.
+const LINE_HEIGHT_PX = 18;
+
+function diffLineNode(line: DiffLine) {
   if (line.kind === "meta" || line.kind === "hunk") {
     return (
-      <div
-        key={i}
-        className={`${lineWrap} bg-muted/5 text-muted-foreground/70`}
-      >
+      <div className={`${lineWrap} bg-muted/5 text-muted-foreground/70`}>
         {line.text}
       </div>
     );
@@ -23,7 +27,6 @@ function diffLineNode(line: DiffLine, i: number) {
   if (line.kind === "ctx") {
     return (
       <div
-        key={i}
         className={`${lineWrap} text-foreground/80 transition-colors hover:bg-muted/10`}
       >
         {line.text}
@@ -33,7 +36,6 @@ function diffLineNode(line: DiffLine, i: number) {
   if (line.kind === "add") {
     return (
       <div
-        key={i}
         className={`${lineWrap} border-l-[3px] border-git-added bg-git-added-subtle/40 text-git-added transition-colors hover:bg-git-added-subtle/60`}
       >
         {line.text}
@@ -42,10 +44,56 @@ function diffLineNode(line: DiffLine, i: number) {
   }
   return (
     <div
-      key={i}
       className={`${lineWrap} border-l-[3px] border-git-removed bg-git-removed-subtle/40 text-git-removed transition-colors hover:bg-git-removed-subtle/60`}
     >
       {line.text}
+    </div>
+  );
+}
+
+function VirtualDiffList({ lines }: { lines: DiffLine[] }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: lines.length,
+    getScrollElement: () => scrollerRef.current,
+    estimateSize: () => LINE_HEIGHT_PX,
+    overscan: 20,
+  });
+
+  const items = virtualizer.getVirtualItems();
+
+  return (
+    <div
+      ref={scrollerRef}
+      className="h-full min-h-0 min-w-0 overflow-auto"
+    >
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          position: "relative",
+        }}
+        className="py-2"
+      >
+        {items.map((vi) => {
+          const line = lines[vi.index];
+          if (!line) return null;
+          return (
+            <div
+              key={vi.key}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                transform: `translateY(${vi.start}px)`,
+                height: LINE_HEIGHT_PX,
+              }}
+            >
+              {diffLineNode(line)}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -100,13 +148,7 @@ export function UnifiedDiffBody({
     );
   }
   if (displayedDiffLines.length > 0) {
-    return (
-      <div className="h-full min-h-0 min-w-0 overflow-auto">
-        <div className="py-2">
-          {displayedDiffLines.map((line, i) => diffLineNode(line, i))}
-        </div>
-      </div>
-    );
+    return <VirtualDiffList lines={displayedDiffLines} />;
   }
   return (
     <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

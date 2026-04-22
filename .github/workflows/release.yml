@@ -87,7 +87,7 @@ jobs:
         with:
           tauriScript: bun run tauri
           tagName: v__VERSION__
-          releaseName: gitdesk v__VERSION__
+          releaseName: l8git v__VERSION__
           releaseBody: Automatisches Release fuer ${{ github.sha }}
           releaseDraft: false
           prerelease: false

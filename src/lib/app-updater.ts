@@ -93,7 +93,7 @@ async function runUpdateCheck(manual: boolean) {
     });
 
     const shouldRestart = await ask(
-      "Das Update wurde installiert. Soll gitdesk jetzt neu starten?",
+      "Das Update wurde installiert. Soll l8git jetzt neu starten?",
       {
         title: "Neustart erforderlich",
         kind: "info",

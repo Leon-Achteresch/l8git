@@ -13,10 +13,11 @@ import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { writeLocalStorageDebounced } from "@/lib/utils";
 
 type InspectPayload = { header: string; files: CommitChangedFile[] };
 
-const innerLayoutKey = "gitdesk.stash-inspect-inner.v1";
+const innerLayoutKey = "l8git.stash-inspect-inner.v1";
 
 function readSplitFlexFromStorage(): { files: number; diff: number } {
   const raw = localStorage.getItem(innerLayoutKey);
@@ -147,7 +148,7 @@ export function StashInspectDetail({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-3xl">
+    <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-sm">
       <CommitInspectHeader
         title="Stash-Details"
         onRefresh={refreshAll}
@@ -188,7 +189,10 @@ export function StashInspectDetail({
                 className="min-h-0 flex-1"
                 defaultLayout={defaultInnerLayout}
                 onLayoutChanged={(layout) => {
-                  localStorage.setItem(innerLayoutKey, JSON.stringify(layout));
+                  writeLocalStorageDebounced(
+                    innerLayoutKey,
+                    JSON.stringify(layout),
+                  );
                   const f = layout.sifiles;
                   const d = layout.sidiff;
                   if (typeof f === "number" && typeof d === "number") {

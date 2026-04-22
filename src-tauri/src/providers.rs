@@ -46,7 +46,7 @@ pub(crate) async fn bitbucket_send_authed(
     let mut res = if let Some(ref b64) = basic_b64 {
         client
             .get(url)
-            .header("User-Agent", "gitdesk")
+            .header("User-Agent", "l8git")
             .header("Authorization", format!("Basic {b64}"))
             .send()
             .await
@@ -54,7 +54,7 @@ pub(crate) async fn bitbucket_send_authed(
     } else if bitbucket_secret_likely_jwt(&cred.password) {
         client
             .get(url)
-            .header("User-Agent", "gitdesk")
+            .header("User-Agent", "l8git")
             .header("Authorization", format!("Bearer {}", cred.password))
             .send()
             .await
@@ -67,7 +67,7 @@ pub(crate) async fn bitbucket_send_authed(
     if res.status() == reqwest::StatusCode::UNAUTHORIZED && basic_b64.is_some() {
         res = client
             .get(url)
-            .header("User-Agent", "gitdesk")
+            .header("User-Agent", "l8git")
             .header("Authorization", format!("Bearer {}", cred.password))
             .send()
             .await
@@ -160,7 +160,7 @@ async fn github_list(host: &str) -> Result<Vec<RemoteRepo>, String> {
     let res = client
         .get(url)
         .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "gitdesk")
+        .header("User-Agent", "l8git")
         .header(
             "Authorization",
             format!("Bearer {}", cred.password),
@@ -211,7 +211,7 @@ async fn gitlab_list(host: &str) -> Result<Vec<RemoteRepo>, String> {
     );
     let res = client
         .get(&url)
-        .header("User-Agent", "gitdesk")
+        .header("User-Agent", "l8git")
         .header("PRIVATE-TOKEN", cred.password)
         .send()
         .await

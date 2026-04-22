@@ -5,6 +5,7 @@ mod git;
 mod pr;
 mod providers;
 mod shell;
+mod watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,7 +17,7 @@ pub fn run() {
         .setup(|app| {
             use tauri::menu::{MenuBuilder, SubmenuBuilder};
 
-            let app_menu = SubmenuBuilder::new(app, "gitdesk")
+            let app_menu = SubmenuBuilder::new(app, "l8git")
                 .text("nav-repo", "Repository")
                 .text("nav-about", "About")
                 .text("nav-settings", "Einstellungen");
@@ -47,6 +48,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             git::open_repo,
+            git::repo_log_page,
             favicon::read_repo_favicon,
             shell::reveal_repo_folder,
             shell::open_repo_terminal,
@@ -68,6 +70,7 @@ pub fn run() {
             git::delete_branch,
             git::delete_remote_branch,
             git::repo_status,
+            git::repo_full_status,
             git::repo_upstream_sync_counts,
             git::repo_file_diff,
             git::repo_commit_inspect,
@@ -102,7 +105,9 @@ pub fn run() {
             pr::pr_add_comment,
             pr::pr_submit_review,
             pr::pr_merge,
-            pr::pr_checkout
+            pr::pr_checkout,
+            watcher::watch_repo,
+            watcher::unwatch_repo
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

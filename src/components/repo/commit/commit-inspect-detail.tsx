@@ -13,10 +13,11 @@ import { CommitInspectFileList } from "./commit-inspect-file-list";
 import { CommitInspectSplitHeader } from "./commit-inspect-split-header";
 import { CommitInspectDiff, FileDiffPayload } from "./commit-inspect-diff";
 import { CommitChangedFile } from "./commit-inspect-file-item";
+import { writeLocalStorageDebounced } from "@/lib/utils";
 
 type InspectPayload = { header: string; files: CommitChangedFile[] };
 
-const innerLayoutKey = "gitdesk.commit-inspect-inner.v3";
+const innerLayoutKey = "l8git.commit-inspect-inner.v3";
 
 function readSplitFlexFromStorage(): { files: number; diff: number } {
   const raw = localStorage.getItem(innerLayoutKey);
@@ -143,7 +144,7 @@ export function CommitInspectDetail({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-3xl">
+    <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-sm">
       <CommitInspectHeader
         onRefresh={refreshAll}
         onClose={onClose}
@@ -183,7 +184,10 @@ export function CommitInspectDetail({
                 className="min-h-0 flex-1"
                 defaultLayout={defaultInnerLayout}
                 onLayoutChanged={(layout) => {
-                  localStorage.setItem(innerLayoutKey, JSON.stringify(layout));
+                  writeLocalStorageDebounced(
+                    innerLayoutKey,
+                    JSON.stringify(layout),
+                  );
                   const f = layout.cifiles;
                   const d = layout.cidiff;
                   if (typeof f === "number" && typeof d === "number") {

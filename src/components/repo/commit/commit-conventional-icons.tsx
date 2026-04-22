@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { memo } from "react";
 import { useCommitPrefs } from "@/lib/commit-prefs";
 import { parseConventionalCommit } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,7 @@ const TYPE_LABELS: Record<string, string> = {
   revert: "Revert",
 };
 
-export function CommitConventionalIcons({
+function CommitConventionalIconsInner({
   subject,
   body,
 }: {
@@ -84,3 +85,5 @@ export function CommitConventionalIcons({
     </span>
   );
 }
+
+export const CommitConventionalIcons = memo(CommitConventionalIconsInner);
