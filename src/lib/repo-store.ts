@@ -11,6 +11,11 @@ import { toastError } from "@/lib/error-toast";
 const reloadInFlight = new Map<string, Promise<void>>();
 const reloadPending = new Map<string, number>();
 const statusInFlight = new Map<string, Promise<void>>();
+const statusPending = new Map<string, number>();
+const localStatusInFlight = new Map<string, Promise<void>>();
+const localStatusPending = new Map<string, number>();
+const stashesInFlight = new Map<string, Promise<void>>();
+const stashesPending = new Map<string, number>();
 const loadMoreInFlight = new Map<string, boolean>();
 const loadMoreSearchInFlight = new Map<string, boolean>();
 const RELOAD_COALESCE_MS = 150;
@@ -579,51 +584,86 @@ export const useRepoStore = create<RepoState>()(
       },
 
       async reloadStatus(path) {
-        const inflight = statusInFlight.get(path);
-        if (inflight) return inflight;
-        const promise = (async () => {
-          set((s) => ({ statusLoading: { ...s.statusLoading, [path]: true } }));
-          try {
-            const full = await invoke<{
-              entries: StatusEntry[];
-              upstream_sync: UpstreamSyncCounts;
-              has_upstream: boolean;
-            }>("repo_full_status", { path });
+        const existing = statusInFlight.get(path);
+        if (existing) return existing;
+
+        const pending = statusPending.get(path);
+        if (pending !== undefined) window.clearTimeout(pending);
+
+        const promise = new Promise<void>((resolve) => {
+          const handle = window.setTimeout(async () => {
+            statusPending.delete(path);
             set((s) => ({
-              status: { ...s.status, [path]: full.entries },
-              upstreamSync: { ...s.upstreamSync, [path]: full.upstream_sync },
-              hasUpstream: { ...s.hasUpstream, [path]: full.has_upstream },
-              statusLoading: { ...s.statusLoading, [path]: false },
+              statusLoading: { ...s.statusLoading, [path]: true },
             }));
-          } catch (e) {
-            const msg = String(e);
-            toastError(msg);
-            set((s) => ({
-              statusLoading: { ...s.statusLoading, [path]: false },
-            }));
-          } finally {
-            statusInFlight.delete(path);
-          }
-        })();
+            try {
+              const full = await invoke<{
+                entries: StatusEntry[];
+                upstream_sync: UpstreamSyncCounts;
+                has_upstream: boolean;
+              }>("repo_full_status", { path });
+              set((s) => ({
+                status: { ...s.status, [path]: full.entries },
+                upstreamSync: {
+                  ...s.upstreamSync,
+                  [path]: full.upstream_sync,
+                },
+                hasUpstream: { ...s.hasUpstream, [path]: full.has_upstream },
+                statusLoading: { ...s.statusLoading, [path]: false },
+              }));
+            } catch (e) {
+              const msg = String(e);
+              toastError(msg);
+              set((s) => ({
+                statusLoading: { ...s.statusLoading, [path]: false },
+              }));
+            } finally {
+              statusInFlight.delete(path);
+              resolve();
+            }
+          }, RELOAD_COALESCE_MS);
+          statusPending.set(path, handle);
+        });
         statusInFlight.set(path, promise);
         return promise;
       },
 
       async reloadLocalStatus(path) {
-        set((s) => ({ statusLoading: { ...s.statusLoading, [path]: true } }));
-        try {
-          const entries = await invoke<StatusEntry[]>("repo_status", { path });
-          set((s) => ({
-            status: { ...s.status, [path]: entries },
-            statusLoading: { ...s.statusLoading, [path]: false },
-          }));
-        } catch (e) {
-          const msg = String(e);
-          toastError(msg);
-          set((s) => ({
-            statusLoading: { ...s.statusLoading, [path]: false },
-          }));
-        }
+        const existing = localStatusInFlight.get(path);
+        if (existing) return existing;
+
+        const pending = localStatusPending.get(path);
+        if (pending !== undefined) window.clearTimeout(pending);
+
+        const promise = new Promise<void>((resolve) => {
+          const handle = window.setTimeout(async () => {
+            localStatusPending.delete(path);
+            set((s) => ({
+              statusLoading: { ...s.statusLoading, [path]: true },
+            }));
+            try {
+              const entries = await invoke<StatusEntry[]>("repo_status", {
+                path,
+              });
+              set((s) => ({
+                status: { ...s.status, [path]: entries },
+                statusLoading: { ...s.statusLoading, [path]: false },
+              }));
+            } catch (e) {
+              const msg = String(e);
+              toastError(msg);
+              set((s) => ({
+                statusLoading: { ...s.statusLoading, [path]: false },
+              }));
+            } finally {
+              localStatusInFlight.delete(path);
+              resolve();
+            }
+          }, RELOAD_COALESCE_MS);
+          localStatusPending.set(path, handle);
+        });
+        localStatusInFlight.set(path, promise);
+        return promise;
       },
 
       async stageFiles(path, files) {
@@ -710,22 +750,41 @@ export const useRepoStore = create<RepoState>()(
       },
 
       async reloadStashes(path) {
-        set((s) => ({
-          stashesLoading: { ...s.stashesLoading, [path]: true },
-        }));
-        try {
-          const list = await invoke<StashEntry[]>("list_stashes", { path });
-          set((s) => ({
-            stashes: { ...s.stashes, [path]: list },
-            stashesLoading: { ...s.stashesLoading, [path]: false },
-          }));
-        } catch (e) {
-          const msg = String(e);
-          toastError(msg);
-          set((s) => ({
-            stashesLoading: { ...s.stashesLoading, [path]: false },
-          }));
-        }
+        const existing = stashesInFlight.get(path);
+        if (existing) return existing;
+
+        const pending = stashesPending.get(path);
+        if (pending !== undefined) window.clearTimeout(pending);
+
+        const promise = new Promise<void>((resolve) => {
+          const handle = window.setTimeout(async () => {
+            stashesPending.delete(path);
+            set((s) => ({
+              stashesLoading: { ...s.stashesLoading, [path]: true },
+            }));
+            try {
+              const list = await invoke<StashEntry[]>("list_stashes", {
+                path,
+              });
+              set((s) => ({
+                stashes: { ...s.stashes, [path]: list },
+                stashesLoading: { ...s.stashesLoading, [path]: false },
+              }));
+            } catch (e) {
+              const msg = String(e);
+              toastError(msg);
+              set((s) => ({
+                stashesLoading: { ...s.stashesLoading, [path]: false },
+              }));
+            } finally {
+              stashesInFlight.delete(path);
+              resolve();
+            }
+          }, RELOAD_COALESCE_MS);
+          stashesPending.set(path, handle);
+        });
+        stashesInFlight.set(path, promise);
+        return promise;
       },
 
       async stashPush(path, message, opts) {
