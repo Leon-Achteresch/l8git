@@ -22,6 +22,7 @@ export function BranchSection({
   onDelete,
   showNewBranch,
   onNewBranch,
+  hideHeader,
 }: {
   path: string;
   title: string;
@@ -31,6 +32,7 @@ export function BranchSection({
   onDelete?: (b: Branch, force: boolean) => void;
   showNewBranch?: boolean;
   onNewBranch?: () => void;
+  hideHeader?: boolean;
 }) {
   const grouping = useMemo(() => groupBranchesByKind(branches), [branches]);
   const sig = groupSignature(grouping);
@@ -40,42 +42,44 @@ export function BranchSection({
 
   return (
     <section className='flex w-full min-w-0 max-w-full flex-col overflow-x-hidden'>
-      <header
-        className={cn(
-          'mb-1 grid w-full min-w-0 items-center gap-2 px-2',
-          icon != null
-            ? 'grid-cols-[auto_minmax(0,1fr)_auto]'
-            : 'grid-cols-[minmax(0,1fr)_auto]'
-        )}
-      >
-        <h3 className='min-w-0 justify-self-stretch truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'>
-          {title}
-        </h3>
-        <span className='flex shrink-0 items-center justify-end gap-0.5'>
-          <span
-            className='flex h-[18px] min-w-[20px] items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground'
-            aria-label={`${branches.length} Branches`}
-          >
-            {branches.length}
-          </span>
-          {showNewBranch && onNewBranch ? (
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon-xs'
-              className='h-5 w-5 text-muted-foreground hover:text-foreground'
-              title='Neuer Branch'
-              aria-label='Neuer Branch'
-              onClick={() => onNewBranch()}
+      {!hideHeader && (
+        <header
+          className={cn(
+            'mb-1 grid w-full min-w-0 items-center gap-2 px-2',
+            icon != null
+              ? 'grid-cols-[auto_minmax(0,1fr)_auto]'
+              : 'grid-cols-[minmax(0,1fr)_auto]'
+          )}
+        >
+          <h3 className='min-w-0 justify-self-stretch truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'>
+            {title}
+          </h3>
+          <span className='flex shrink-0 items-center justify-end gap-0.5'>
+            <span
+              className='flex h-[18px] min-w-[20px] items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground'
+              aria-label={`${branches.length} Branches`}
             >
-              <Plus className='h-3 w-3' />
-            </Button>
-          ) : null}
-        </span>
-      </header>
+              {branches.length}
+            </span>
+            {showNewBranch && onNewBranch ? (
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon-xs'
+                className='h-5 w-5 text-muted-foreground hover:text-foreground'
+                title='Neuer Branch'
+                aria-label='Neuer Branch'
+                onClick={() => onNewBranch()}
+              >
+                <Plus className='h-3 w-3' />
+              </Button>
+            ) : null}
+          </span>
+        </header>
+      )}
 
       {isEmpty ? (
-        <p className='px-2 pb-1 text-[11px] text-muted-foreground/70'>
+        <p className={cn('px-2 pb-1 text-[11px] text-muted-foreground/70', hideHeader && 'pt-1')}>
           {emptyLabel ?? 'Keine Branches'}
         </p>
       ) : (

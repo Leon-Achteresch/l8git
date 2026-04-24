@@ -2,6 +2,13 @@ import { BranchSection } from "@/components/repo/branch/branch-section";
 import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
 import { SidebarNavItem } from "@/components/repo/layout/sidebar-nav-item";
 import { TagSection } from "@/components/repo/tag/tag-section";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type Branch, type TagRef } from "@/lib/repo-store";
@@ -18,6 +25,7 @@ import {
   GitPullRequest,
   History,
   ListChecks,
+  Plus,
   Search,
   X,
 } from "lucide-react";
@@ -96,8 +104,7 @@ export function RepoSidebar() {
   const { localBranches, remoteBranches } = useMemo(() => {
     const all = branches ?? [];
     const q = branchQuery.trim().toLowerCase();
-    const match = (b: Branch) =>
-      !q || b.name.toLowerCase().includes(q);
+    const match = (b: Branch) => !q || b.name.toLowerCase().includes(q);
     return {
       localBranches: all.filter((b) => !b.is_remote && match(b)),
       remoteBranches: all.filter((b) => b.is_remote && match(b)),
@@ -110,6 +117,12 @@ export function RepoSidebar() {
     const match = (t: TagRef) => !q || t.name.toLowerCase().includes(q);
     return all.filter(match);
   }, [tags, branchQuery]);
+
+  const totalRemoteBranches = useMemo(
+    () => (branches ?? []).filter((b) => b.is_remote).length,
+    [branches],
+  );
+  const totalTags = tags?.length ?? 0;
 
   if (!repo || !activePath) return null;
 
@@ -242,54 +255,100 @@ export function RepoSidebar() {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <ScrollArea className="min-h-0 min-w-0 flex-1">
-            <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-2">
-              <BranchSection
-                path={activePath}
-                title="Lokal"
-                
-                branches={localBranches}
-                emptyLabel={
-                  hasQuery
-                    ? "Keine Treffer"
-                    : "Keine lokalen Branches"
-                }
-                onDelete={onDelete}
-                showNewBranch={!hasQuery}
-                onNewBranch={() => setNewBranchOpen(true)}
-              />
-              {remoteBranches.length > 0 && (
-                <>
-                  <div
-                    aria-hidden
-                    className="mx-1 my-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent"
-                  />
-                  <BranchSection
-                    path={activePath}
-                    title="Remote"
-                    branches={remoteBranches}
-                    emptyLabel="Keine Remote-Branches"
-                  />
-                </>
-              )}
-              {filteredTags.length > 0 && (
-                <>
-                  <div
-                    aria-hidden
-                    className="mx-1 my-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent"
-                  />
-                  <TagSection
-                    path={activePath}
-                    title="Tags"
-                    tags={filteredTags}
-                    emptyLabel={hasQuery ? "Keine Treffer" : "Keine Tags"}
-                  />
-                </>
-              )}
+            <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-1">
+              <Accordion
+                type="multiple"
+                defaultValue={["local", "remote", "tags"]}
+                className="w-full min-w-0"
+              >
+                <AccordionItem value="local" className="min-w-0 border-0">
+                  <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
+                    <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
+                      Lokal
+                    </span>
+                    <span className="flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                      {localBranches.length}
+                    </span>
+                    {!hasQuery && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+                        title="Neuer Branch"
+                        aria-label="Neuer Branch"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNewBranchOpen(true);
+                        }}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
+                    <BranchSection
+                      path={activePath}
+                      title="Lokal"
+                      branches={localBranches}
+                      emptyLabel={hasQuery ? "Keine Treffer" : "Keine lokalen Branches"}
+                      onDelete={onDelete}
+                      hideHeader
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {totalRemoteBranches > 0 && (
+                  <AccordionItem value="remote" className="min-w-0 border-0">
+                    <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
+                      <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
+                        Remote
+                      </span>
+                      <span className="flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                        {remoteBranches.length}
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
+                      <BranchSection
+                        path={activePath}
+                        title="Remote"
+                        branches={remoteBranches}
+                        emptyLabel="Keine Treffer"
+                        hideHeader
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {totalTags > 0 && (
+                  <AccordionItem value="tags" className="min-w-0 border-0">
+                    <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
+                      <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
+                        Tags
+                      </span>
+                      <span className="flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                        {filteredTags.length}
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
+                      <TagSection
+                        path={activePath}
+                        title="Tags"
+                        tags={filteredTags}
+                        emptyLabel={hasQuery ? "Keine Treffer" : "Keine Tags"}
+                        hideHeader
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+              </Accordion>
+
               {hasQuery && !hasAnyMatch && (
                 <div className="mx-1 rounded-md border border-dashed border-sidebar-border/70 px-3 py-4 text-center text-xs text-muted-foreground">
-                  Keine Branches für „{branchQuery.trim()}“
+                  Keine Branches für „{branchQuery.trim()}"
                 </div>
               )}
+
               <NewBranchDialog
                 open={newBranchOpen}
                 onClose={() => setNewBranchOpen(false)}
