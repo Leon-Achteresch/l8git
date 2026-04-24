@@ -1,3 +1,11 @@
+import {
+  ContextMenu,
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
@@ -37,6 +45,12 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const searchSlice = useRepoStore((s) => s.commitSearchByPath[path]);
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs((s) => s.repoTerminalKind);
+  const fetchPruneBranches = useWorkspacePrefs((s) => s.fetchPruneBranches);
+  const setFetchPruneBranches = useWorkspacePrefs(
+    (s) => s.setFetchPruneBranches,
+  );
+  const fetchPruneTags = useWorkspacePrefs((s) => s.fetchPruneTags);
+  const setFetchPruneTags = useWorkspacePrefs((s) => s.setFetchPruneTags);
   const [busy, setBusy] = useState<RemoteOp | null>(null);
   const [showSpinner, setShowSpinner] = useState(false);
   const [pushDialogOpen, setPushDialogOpen] = useState(false);
@@ -74,7 +88,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       try {
         const out =
           op === "fetch"
-            ? await invoke<string>("git_fetch", { path })
+            ? await invoke<string>("git_fetch", {
+                path,
+                pruneBranches: fetchPruneBranches,
+                pruneTags: fetchPruneTags,
+              })
             : op === "pull"
               ? await invoke<string>("git_pull", { path })
               : await invoke<string>("git_push", { path, setUpstream: false });
@@ -86,7 +104,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
         setBusy(null);
       }
     },
-    [path, reload, reloadStatus],
+    [path, reload, reloadStatus, fetchPruneBranches, fetchPruneTags],
   );
 
   const runPush = useCallback(() => {
@@ -137,20 +155,44 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2 pb-2 pt-1">
       <div className="flex min-w-0 flex-1 flex-wrap items-center">
         <ToolbarGroup>
-          <ToolbarButton
-            title="Änderungen abrufen"
-            label="Fetch"
-            disabled={remoteDisabled}
-            isActive={busy === "fetch"}
-            onClick={() => void run("fetch")}
-            icon={
-              busy === "fetch" && showSpinner ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CloudDownload className="h-3.5 w-3.5" />
-              )
-            }
-          />
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <span className="inline-flex">
+                <ToolbarButton
+                  title="Änderungen abrufen (Rechtsklick für Optionen)"
+                  label="Fetch"
+                  disabled={remoteDisabled}
+                  isActive={busy === "fetch"}
+                  onClick={() => void run("fetch")}
+                  icon={
+                    busy === "fetch" && showSpinner ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CloudDownload className="h-3.5 w-3.5" />
+                    )
+                  }
+                />
+              </span>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuLabel>Beim Fetch löschen</ContextMenuLabel>
+              <ContextMenuSeparator />
+              <ContextMenuCheckboxItem
+                checked={fetchPruneBranches}
+                onCheckedChange={(v) => setFetchPruneBranches(!!v)}
+                onSelect={(e) => e.preventDefault()}
+              >
+                Entfernte Zweige löschen
+              </ContextMenuCheckboxItem>
+              <ContextMenuCheckboxItem
+                checked={fetchPruneTags}
+                onCheckedChange={(v) => setFetchPruneTags(!!v)}
+                onSelect={(e) => e.preventDefault()}
+              >
+                Entfernte Tags löschen
+              </ContextMenuCheckboxItem>
+            </ContextMenuContent>
+          </ContextMenu>
           <ToolbarButton
             title={
               pullCount > 0

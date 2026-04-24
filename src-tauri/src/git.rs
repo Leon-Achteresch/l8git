@@ -390,9 +390,22 @@ pub fn repo_log_page(
 }
 
 #[tauri::command]
-pub fn git_fetch(path: String) -> Result<String, String> {
+pub fn git_fetch(
+    path: String,
+    prune_branches: Option<bool>,
+    prune_tags: Option<bool>,
+) -> Result<String, String> {
     let repo = PathBuf::from(path.trim());
-    run_git_merged_output(&repo, &["fetch", "--prune"])
+    let prune_branches = prune_branches.unwrap_or(true);
+    let prune_tags = prune_tags.unwrap_or(false);
+    let mut args: Vec<&str> = vec!["fetch"];
+    if prune_branches || prune_tags {
+        args.push("--prune");
+    }
+    if prune_tags {
+        args.push("--prune-tags");
+    }
+    run_git_merged_output(&repo, &args)
 }
 
 #[tauri::command]
