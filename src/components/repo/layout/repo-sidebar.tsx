@@ -172,7 +172,7 @@ export function RepoSidebar() {
   return (
     <aside
       ref={asideRef}
-      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm"
       style={{ width: sidebarWidth }}
     >
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">

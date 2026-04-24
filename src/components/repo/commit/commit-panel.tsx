@@ -560,7 +560,7 @@ export function CommitPanel() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden rounded-md border border-border/60">
+      <div className="flex-1 overflow-hidden rounded-2xl border border-border/60 shadow-sm">
         <ResizablePanelGroup
           orientation="horizontal"
           id="commit-panel-layout"
@@ -666,7 +666,7 @@ export function CommitPanel() {
         </ResizablePanelGroup>
       </div>
 
-      <div className="flex flex-col gap-2.5 rounded-md border border-border/60 p-3">
+      <div className="flex flex-col gap-2.5 rounded-2xl border border-border/60 p-3 shadow-sm">
         <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
           <span>
             <span className="tabular-nums font-medium text-foreground">

@@ -89,10 +89,10 @@ function BranchRowInner({
       }}
       title={branch.name}
       className={cn(
-        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] transition-colors',
+        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] transition-all',
         branch.is_current
-          ? 'bg-sidebar-accent/70 font-medium text-sidebar-accent-foreground'
-          : 'text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground'
+          ? 'bg-sidebar-accent/70 font-medium text-sidebar-accent-foreground shadow-2xs'
+          : 'text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground hover:shadow-2xs'
       )}
     >
       <span

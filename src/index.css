@@ -100,23 +100,23 @@
     --l8-shadow-2xs: 0 1px 1px oklch(0.35 0.02 265 / 0.05);
     --l8-shadow-xs: 0 1px 1px oklch(0.35 0.02 265 / 0.07);
     --l8-shadow-sm:
-        0 1px 2px oklch(0.35 0.02 265 / 0.11), 0 1px 1px oklch(0.38 0.02 265 / 0.06);
+        0 1px 3px oklch(0.35 0.02 265 / 0.15), 0 1px 2px oklch(0.38 0.02 265 / 0.08);
     --l8-shadow-md:
-        0 4px 6px -1px oklch(0.32 0.02 265 / 0.11), 0 2px 4px -2px oklch(0.34 0.02 265 / 0.08);
+        0 4px 6px -1px oklch(0.32 0.02 265 / 0.15), 0 2px 4px -2px oklch(0.34 0.02 265 / 0.1);
     --l8-shadow-lg:
         0 10px 15px -3px oklch(0.28 0.02 265 / 0.12), 0 4px 6px -4px oklch(0.3 0.02 265 / 0.08);
     --l8-shadow-xl:
         0 20px 25px -5px oklch(0.24 0.02 265 / 0.14), 0 8px 10px -6px oklch(0.28 0.02 265 / 0.1);
     --l8-shadow-2xl: 0 25px 50px -12px oklch(0.2 0.02 265 / 0.16);
 
-    --background: oklch(0.97 0.004 265);
-    --foreground: oklch(0.14 0.012 265);
+    --background: oklch(0.995 0.002 265);
+    --foreground: oklch(0.1 0.01 265);
 
-    --card: oklch(0.999 0.001 265);
-    --card-foreground: oklch(0.14 0.012 265);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.1 0.01 265);
 
-    --popover: oklch(0.999 0.001 265);
-    --popover-foreground: oklch(0.14 0.012 265);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.1 0.01 265);
 
     --primary: oklch(0.52 0.19 275);
     --primary-foreground: oklch(0.99 0.005 275);
@@ -125,7 +125,7 @@
     --secondary-foreground: oklch(0.2 0.02 265);
 
     --muted: oklch(0.955 0.006 265);
-    --muted-foreground: oklch(0.44 0.018 265);
+    --muted-foreground: oklch(0.35 0.018 265);
 
     --accent: oklch(0.93 0.018 275);
     --accent-foreground: oklch(0.26 0.08 275);
@@ -154,8 +154,8 @@
     --git-tag: oklch(0.65 0.14 95);
     --git-hash: oklch(0.55 0.015 265);
 
-    --sidebar: oklch(0.965 0.006 265);
-    --sidebar-foreground: oklch(0.18 0.012 265);
+    --sidebar: oklch(0.985 0.004 265);
+    --sidebar-foreground: oklch(0.1 0.01 265);
     --sidebar-primary: oklch(0.52 0.19 275);
     --sidebar-primary-foreground: oklch(0.99 0.005 275);
     --sidebar-accent: oklch(0.92 0.02 275);
@@ -172,32 +172,32 @@
 .dark {
     --l8-shadow-2xs: 0 1px 1px oklch(0 0 0 / 0.4);
     --l8-shadow-xs: 0 1px 1px oklch(0 0 0 / 0.45);
-    --l8-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.5), 0 1px 1px oklch(0 0 0 / 0.32);
-    --l8-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.42), 0 2px 4px -2px oklch(0 0 0 / 0.32);
+    --l8-shadow-sm: 0 1px 3px oklch(0 0 0 / 0.6), 0 1px 2px oklch(0 0 0 / 0.4);
+    --l8-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.5), 0 2px 4px -2px oklch(0 0 0 / 0.4);
     --l8-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.45), 0 4px 6px -4px oklch(0 0 0 / 0.3);
     --l8-shadow-xl: 0 20px 25px -5px oklch(0 0 0 / 0.5), 0 8px 10px -6px oklch(0 0 0 / 0.35);
     --l8-shadow-2xl: 0 25px 50px -12px oklch(0 0 0 / 0.55);
 
-    --background: oklch(0.15 0.012 265);
-    --foreground: oklch(0.95 0.006 265);
+    --background: oklch(0.12 0.01 265);
+    --foreground: oklch(0.98 0.005 265);
 
-    --card: oklch(0.2 0.014 265);
-    --card-foreground: oklch(0.95 0.006 265);
+    --card: oklch(0.16 0.012 265);
+    --card-foreground: oklch(0.98 0.005 265);
 
-    --popover: oklch(0.2 0.014 265);
-    --popover-foreground: oklch(0.95 0.006 265);
+    --popover: oklch(0.16 0.012 265);
+    --popover-foreground: oklch(0.98 0.005 265);
 
     --primary: oklch(0.72 0.16 275);
     --primary-foreground: oklch(0.15 0.02 275);
 
     --secondary: oklch(0.25 0.014 265);
-    --secondary-foreground: oklch(0.95 0.006 265);
+    --secondary-foreground: oklch(0.98 0.005 265);
 
-    --muted: oklch(0.22 0.012 265);
-    --muted-foreground: oklch(0.75 0.012 265);
+    --muted: oklch(0.18 0.01 265);
+    --muted-foreground: oklch(0.85 0.01 265);
 
     --accent: oklch(0.3 0.055 275);
-    --accent-foreground: oklch(0.95 0.02 275);
+    --accent-foreground: oklch(0.98 0.02 275);
 
     --destructive: oklch(0.68 0.2 25);
     --border: oklch(1 0 0 / 14%);
@@ -222,12 +222,12 @@
     --git-tag: oklch(0.82 0.14 95);
     --git-hash: oklch(0.7 0.015 265);
 
-    --sidebar: oklch(0.17 0.013 265);
-    --sidebar-foreground: oklch(0.95 0.006 265);
+    --sidebar: oklch(0.14 0.01 265);
+    --sidebar-foreground: oklch(0.98 0.005 265);
     --sidebar-primary: oklch(0.72 0.16 275);
     --sidebar-primary-foreground: oklch(0.15 0.02 275);
     --sidebar-accent: oklch(0.28 0.04 275);
-    --sidebar-accent-foreground: oklch(0.95 0.02 275);
+    --sidebar-accent-foreground: oklch(0.98 0.02 275);
     --sidebar-border: oklch(1 0 0 / 14%);
     --sidebar-ring: oklch(0.72 0.16 275);
 }
