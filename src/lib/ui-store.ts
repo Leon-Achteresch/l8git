@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-export const SIDEBAR_MIN_WIDTH = 180;
+export const SIDEBAR_MIN_WIDTH = 240;
 export const SIDEBAR_MAX_WIDTH = 560;
 export const SIDEBAR_DEFAULT_WIDTH = 256;
 
@@ -52,6 +52,16 @@ export const useUiStore = create<UiState>()(
         sidebarWidth: s.sidebarWidth,
         sidebarTab: s.sidebarTab,
       }),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<
+          Pick<UiState, "sidebarWidth" | "sidebarTab">
+        >;
+        return {
+          ...current,
+          sidebarTab: p.sidebarTab ?? current.sidebarTab,
+          sidebarWidth: clamp(p.sidebarWidth ?? current.sidebarWidth),
+        };
+      },
     },
   ),
 );

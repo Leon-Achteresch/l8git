@@ -12,13 +12,26 @@ import {
 } from "@/components/ui/context-menu";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Check, GitBranch, GitMerge, GitPullRequest, Trash2 } from "lucide-react";
+import {
+  Check,
+  Cloud,
+  GitBranch,
+  GitMerge,
+  GitPullRequest,
+  Trash2,
+} from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { MergeDialog } from "./merge-dialog";
 import { RemoteCheckoutDialog } from "./remote-checkout-dialog";
 import { RemoteDeleteConfirmDialog } from "./remote-delete-confirm-dialog";
 
 type CheckoutDraft = { remoteRef: string; defaultLocalName: string };
+
+function splitRemote(name: string): { prefix: string; rest: string } {
+  const i = name.indexOf("/");
+  if (i < 0) return { prefix: "", rest: name };
+  return { prefix: name.slice(0, i), rest: name.slice(i + 1) };
+}
 
 function BranchRowInner({
   path,
@@ -59,6 +72,11 @@ function BranchRowInner({
     })();
   }, [path, branch, checkoutBranch]);
 
+  const { prefix: remotePrefix, rest: remoteRest } = branch.is_remote
+    ? splitRemote(branch.name)
+    : { prefix: "", rest: branch.name };
+  const displayName = branch.is_remote ? remoteRest : branch.name;
+
   const row = (
     <li
       onClick={(e) => {
@@ -69,25 +87,56 @@ function BranchRowInner({
         e.preventDefault();
         performCheckout();
       }}
+      title={branch.name}
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm",
+        "group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] transition-colors",
         branch.is_current
-          ? "bg-accent font-medium text-accent-foreground"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+          ? "bg-sidebar-accent/70 font-medium text-sidebar-accent-foreground"
+          : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground",
       )}
     >
       <span
-        className="h-4 w-1 shrink-0 rounded-full"
-        style={{ backgroundColor: laneColor }}
         aria-hidden
+        className={cn(
+          "absolute top-1/2 left-0.5 h-4 w-[2px] -translate-y-1/2 rounded-full transition-opacity",
+          branch.is_current ? "opacity-100" : "opacity-60 group-hover/row:opacity-90",
+        )}
+        style={{ backgroundColor: laneColor }}
       />
-      {branch.is_current ? (
-        <Check className="h-3.5 w-3.5 shrink-0" />
-      ) : (
-        <span className="h-3.5 w-3.5 shrink-0" />
-      )}
-      <span className="truncate" title={branch.name}>
-        {branch.name}
+
+      <span className="relative z-0 flex shrink-0 items-center justify-center">
+        {branch.is_current ? (
+          <Check
+            className="h-3.5 w-3.5 text-primary"
+            aria-label="Aktueller Branch"
+          />
+        ) : branch.is_remote ? (
+          <Cloud
+            className="h-3.5 w-3.5 text-muted-foreground/70"
+            aria-hidden
+          />
+        ) : (
+          <GitBranch
+            className="h-3.5 w-3.5 text-muted-foreground/60"
+            aria-hidden
+          />
+        )}
+      </span>
+
+      <span className="flex min-w-0 flex-1 items-baseline gap-1">
+        {branch.is_remote && remotePrefix && (
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+            {remotePrefix}
+          </span>
+        )}
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate font-mono text-[12px]",
+            branch.is_current ? "text-foreground" : "text-foreground/90",
+          )}
+        >
+          {displayName}
+        </span>
       </span>
     </li>
   );

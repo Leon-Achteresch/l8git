@@ -6,7 +6,6 @@ interface SidebarNavItemProps {
   icon: React.ReactNode;
   label: string;
   count?: number;
-  compact: boolean;
   onClick: () => void;
 }
 
@@ -15,7 +14,6 @@ export function SidebarNavItem({
   icon,
   label,
   count,
-  compact,
   onClick,
 }: SidebarNavItemProps) {
   const hasCount = count != null && count > 0;
@@ -28,38 +26,40 @@ export function SidebarNavItem({
       title={label}
       onClick={onClick}
       className={cn(
-        "group relative flex w-full items-center rounded-md text-sm transition-colors duration-150",
-        compact ? "justify-center px-2 py-2" : "gap-2.5 px-2.5 py-1.5",
+        "group relative flex h-8 w-full items-center gap-2 overflow-hidden rounded-md pl-2.5 pr-2 text-[13px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/60",
         isActive
-          ? "bg-accent text-accent-foreground font-medium"
-          : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+          ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-medium"
+          : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground",
       )}
     >
       {isActive && (
         <MagicPill
           layoutId="sidebar-tab-pill"
-          className="pointer-events-none absolute inset-y-1.5 right-0 w-[3px] rounded-full bg-primary"
+          className="pointer-events-none absolute inset-y-[18%] left-0 w-[2px] rounded-full bg-primary"
         />
       )}
 
-      <span className="relative shrink-0">
-        {icon}
-        {compact && hasCount && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-[3px] text-[9px] font-bold leading-none tabular-nums text-primary-foreground">
-            {count! > 9 ? "9+" : count}
-          </span>
+      <span
+        className={cn(
+          "relative shrink-0 transition-colors",
+          isActive ? "text-foreground" : "text-muted-foreground",
         )}
+      >
+        {icon}
       </span>
 
-      {!compact && (
-        <>
-          <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-          {hasCount && (
-            <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold tabular-nums text-primary">
-              {count! > 99 ? "99+" : count}
-            </span>
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      {hasCount && (
+        <span
+          className={cn(
+            "ml-auto flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-md px-1 text-[10px] font-semibold tabular-nums transition-colors",
+            isActive
+              ? "bg-primary/20 text-primary"
+              : "bg-muted/70 text-muted-foreground group-hover:bg-primary/15 group-hover:text-primary",
           )}
-        </>
+        >
+          {count! > 99 ? "99+" : count}
+        </span>
       )}
     </button>
   );

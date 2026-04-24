@@ -36,11 +36,11 @@ function AccordionTrigger({
   ...props
 }: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {
   return (
-    <AccordionPrimitive.Header className="flex">
+    <AccordionPrimitive.Header className="flex w-full min-w-0">
       <AccordionPrimitive.Trigger
         data-slot="accordion-trigger"
         className={cn(
-          "group flex flex-1 items-center justify-between gap-3 rounded-md py-3 pr-1 text-left text-sm font-medium outline-none transition-all hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
+          "group flex min-h-0 min-w-0 flex-1 items-center justify-between gap-3 rounded-md py-3 pr-1 text-left text-sm font-medium outline-none transition-all hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
           className
         )}
         {...props}

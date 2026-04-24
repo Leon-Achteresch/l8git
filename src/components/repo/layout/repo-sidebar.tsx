@@ -19,10 +19,10 @@ import {
   GitPullRequest,
   History,
   ListChecks,
+  Search,
+  X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-
-const COMPACT_THRESHOLD = 210;
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export function RepoSidebar() {
   const activePath = useRepoStore((s) => s.activePath);
@@ -55,8 +55,7 @@ export function RepoSidebar() {
   const asideRef = useRef<HTMLElement | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [newBranchOpen, setNewBranchOpen] = useState(false);
-
-  const compact = sidebarWidth < COMPACT_THRESHOLD;
+  const [branchQuery, setBranchQuery] = useState("");
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -90,10 +89,20 @@ export function RepoSidebar() {
     };
   }, [isResizing, setSidebarWidth]);
 
-  if (!repo || !activePath) return null;
+  const branches = repo?.branches ?? null;
 
-  const local = repo.branches.filter((b) => !b.is_remote);
-  const remote = repo.branches.filter((b) => b.is_remote);
+  const { localBranches, remoteBranches } = useMemo(() => {
+    const all = branches ?? [];
+    const q = branchQuery.trim().toLowerCase();
+    const match = (b: Branch) =>
+      !q || b.name.toLowerCase().includes(q);
+    return {
+      localBranches: all.filter((b) => !b.is_remote && match(b)),
+      remoteBranches: all.filter((b) => b.is_remote && match(b)),
+    };
+  }, [branches, branchQuery]);
+
+  if (!repo || !activePath) return null;
 
   const onDelete = async (b: Branch, force: boolean) => {
     try {
@@ -147,10 +156,13 @@ export function RepoSidebar() {
     },
   ];
 
+  const hasQuery = branchQuery.trim().length > 0;
+  const hasAnyMatch = localBranches.length + remoteBranches.length > 0;
+
   return (
     <aside
       ref={asideRef}
-      className="relative flex min-h-0 shrink-0 flex-col bg-sidebar"
+      className="relative flex min-h-0 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
       style={{ width: sidebarWidth }}
     >
       <div className="flex min-h-0 flex-1 flex-col">
@@ -159,47 +171,93 @@ export function RepoSidebar() {
           role="tablist"
           aria-label="Sidebar Navigation"
         >
-          <div className="space-y-0.5">
+          <ul className="space-y-0.5">
             {tabs.map((tab) => (
-              <SidebarNavItem
-                key={tab.value}
-                isActive={sidebarTab === tab.value}
-                icon={tab.icon}
-                label={tab.label}
-                count={tab.count}
-                compact={compact}
-                onClick={() => setSidebarTab(tab.value)}
-              />
+              <li key={tab.value}>
+                <SidebarNavItem
+                  isActive={sidebarTab === tab.value}
+                  icon={tab.icon}
+                  label={tab.label}
+                  count={tab.count}
+                  onClick={() => setSidebarTab(tab.value)}
+                />
+              </li>
             ))}
-          </div>
+          </ul>
         </nav>
 
-        <div className="mx-3 h-px shrink-0 bg-gradient-to-r from-transparent via-border to-transparent" />
+        <div className="mx-3 h-px shrink-0 bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
-        <div className="relative min-h-0 flex-1">
-          <ScrollArea className="absolute inset-0">
-            <div className="px-2 pb-3 pt-2">
+        <div className="shrink-0 px-2 pt-2 pb-1">
+          <label className="group relative flex items-center">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-focus-within:text-foreground"
+            />
+            <input
+              type="search"
+              value={branchQuery}
+              onChange={(e) => setBranchQuery(e.target.value)}
+              placeholder="Branches filtern …"
+              aria-label="Branches filtern"
+              className="h-7 w-full rounded-md border border-transparent bg-muted/50 pl-7 pr-7 text-xs text-foreground placeholder:text-muted-foreground/80 outline-none transition-[background,border-color] focus:border-ring focus:bg-background [&::-webkit-search-cancel-button]:hidden"
+            />
+            {hasQuery && (
+              <button
+                type="button"
+                onClick={() => setBranchQuery("")}
+                aria-label="Filter zurücksetzen"
+                className="absolute right-1 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </label>
+        </div>
+
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <ScrollArea className="absolute inset-0 min-w-0">
+            <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-2">
               <BranchSection
                 path={activePath}
                 title="Lokal"
                 icon={
-                  <GitBranch className="h-4 w-4" style={{ color: "var(--color-git-branch)" }} />
+                  <GitBranch
+                    className="h-3.5 w-3.5"
+                    style={{ color: "var(--color-git-branch)" }}
+                  />
                 }
-                branches={local}
+                branches={localBranches}
+                emptyLabel={
+                  hasQuery
+                    ? "Keine Treffer"
+                    : "Keine lokalen Branches"
+                }
                 onDelete={onDelete}
-                showNewBranch
+                showNewBranch={!hasQuery}
                 onNewBranch={() => setNewBranchOpen(true)}
               />
-              {remote.length > 0 && (
+              {remoteBranches.length > 0 && (
                 <>
-                  <div className="mx-1 my-2.5 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+                  <div
+                    aria-hidden
+                    className="mx-1 my-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent"
+                  />
                   <BranchSection
                     path={activePath}
                     title="Remote"
-                    icon={<Cloud className="h-4 w-4 text-muted-foreground" />}
-                    branches={remote}
+                    icon={
+                      <Cloud className="h-3.5 w-3.5 text-muted-foreground" />
+                    }
+                    branches={remoteBranches}
+                    emptyLabel="Keine Remote-Branches"
                   />
                 </>
+              )}
+              {hasQuery && !hasAnyMatch && (
+                <div className="mx-1 rounded-md border border-dashed border-sidebar-border/70 px-3 py-4 text-center text-xs text-muted-foreground">
+                  Keine Branches für „{branchQuery.trim()}“
+                </div>
               )}
               <NewBranchDialog
                 open={newBranchOpen}
@@ -224,7 +282,9 @@ export function RepoSidebar() {
         <div
           className={cn(
             "absolute inset-y-0 left-1/2 w-px -translate-x-1/2 rounded-full transition-colors duration-150",
-            isResizing ? "bg-primary" : "bg-transparent group-hover:bg-border",
+            isResizing
+              ? "bg-primary"
+              : "bg-transparent group-hover:bg-primary/60",
           )}
         />
       </div>
