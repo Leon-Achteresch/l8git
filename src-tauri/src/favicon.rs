@@ -1,5 +1,16 @@
 use std::path::{Path, PathBuf};
 
+/// Produces a data URL containing the provided bytes encoded as base64 with the given MIME type.
+///
+/// The returned string has the form `data:{mime};base64,{encoded}`.
+///
+/// # Examples
+///
+/// ```
+/// let bytes = b"\x89PNG\r\n\x1a\n";
+/// let url = encode_image_data_url(bytes, "image/png");
+/// assert!(url.starts_with("data:image/png;base64,"));
+/// ```
 fn encode_image_data_url(bytes: &[u8], mime: &str) -> String {
     use base64::Engine;
     let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
@@ -35,6 +46,46 @@ fn parse_size_value(s: &str) -> u32 {
         .unwrap_or(0)
 }
 
+/// Selects the largest icon entry from a web manifest and encodes it as a base64 data URL.
+///
+/// The function reads and parses the JSON manifest at `manifest_path`, expects an `icons` array,
+/// and picks the icon entry with the highest parsed size (from the `sizes` field). The chosen
+/// icon `src` is resolved relative to the manifest's parent directory (leading `/` is trimmed),
+/// the icon file is read and its MIME type is determined (preferring the file extension unless it
+/// is `image/x-icon`, in which case the manifest `type` is used if present). The icon bytes are
+/// returned as a `data:` URL produced by `encode_image_data_url`.
+///
+/// # Parameters
+///
+/// - `manifest_path` — path to the web manifest JSON file; `src` values inside the manifest are
+///   resolved relative to `manifest_path`'s parent directory.
+///
+/// # Returns
+///
+/// `Some(data_url)` containing the selected icon encoded as a base64 data URL, or `None` if the
+/// manifest cannot be read/parsed, contains no usable icons, the selected icon file cannot be
+/// read, or the icon file is empty.
+///
+/// # Examples
+///
+/// ```
+/// use std::path::Path;
+/// use serde_json::json;
+///
+/// // prepare a temporary directory and files
+/// let dir = std::env::temp_dir().join("favicon_manifest_example");
+/// let _ = std::fs::create_dir_all(&dir);
+/// let icon_path = dir.join("icon.png");
+/// std::fs::write(&icon_path, b"\x89PNG\r\n\x1a\n").unwrap(); // minimal PNG header bytes
+/// let manifest = json!({
+///     "icons": [ { "src": "icon.png", "sizes": "32x32", "type": "image/png" } ]
+/// });
+/// let manifest_path = dir.join("manifest.json");
+/// std::fs::write(&manifest_path, manifest.to_string()).unwrap();
+///
+/// let data_url = super::favicon_from_manifest(Path::new(&manifest_path)).unwrap();
+/// assert!(data_url.starts_with("data:image/png;base64,"));
+/// ```
 fn favicon_from_manifest(manifest_path: &std::path::Path) -> Option<String> {
     let bytes = std::fs::read(manifest_path).ok()?;
     let json: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
@@ -96,12 +147,51 @@ const ICO_SEARCH_SKIP_DIR_NAMES: &[&str] = &[
     "venv",
 ];
 
+/// Checks whether the given path has an `ico` extension (case-insensitive).
+///
+/// # Returns
+///
+/// `true` if the path's extension is `ico` (case-insensitive), `false` otherwise.
+///
+/// # Examples
+///
+/// ```
+/// use std::path::Path;
+/// assert!(is_ico_file(Path::new("favicon.ico")));
+/// assert!(is_ico_file(Path::new("ICON.IcO")));
+/// assert!(!is_ico_file(Path::new("image.png")));
+/// ```
 fn is_ico_file(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case("ico"))
 }
 
+/// Recursively collects `.ico` file paths beneath `dir` into `out`, bounded by `max_depth`.
+///
+/// Traversal stops when `rel_depth` exceeds `max_depth`. Unreadable directories are skipped. Directories
+/// whose names appear in `ICO_SEARCH_SKIP_DIR_NAMES` (case-insensitive) or that start with `.` are not
+/// traversed. Found files with an `ico` extension (case-insensitive) are pushed to `out`.
+///
+/// # Parameters
+///
+/// - `dir`: root directory to scan.
+/// - `rel_depth`: current relative depth (use `0` for the initial call).
+/// - `max_depth`: maximum allowed relative depth to traverse (inclusive).
+/// - `out`: vector to receive matching `PathBuf` entries.
+///
+/// # Examples
+///
+/// ```
+/// use std::fs;
+/// use std::path::PathBuf;
+/// let tmp = tempfile::tempdir().unwrap();
+/// let ico = tmp.path().join("favicon.ico");
+/// fs::write(&ico, b"ico").unwrap();
+/// let mut found = Vec::new();
+/// collect_ico_files(tmp.path(), 0, 2, &mut found);
+/// assert!(found.iter().any(|p: &PathBuf| p.ends_with("favicon.ico")));
+/// ```
 fn collect_ico_files(
     dir: &Path,
     rel_depth: usize,
@@ -137,6 +227,26 @@ fn collect_ico_files(
     }
 }
 
+/// Finds the best `.ico` file under a repository root.
+///
+/// Searches the directory tree under `root` (using collect_ico_files) up to
+/// `ICO_SEARCH_MAX_DEPTH` and returns the best candidate if any are found.
+/// Candidates are ordered by shallower paths (fewer path components) first,
+/// then by deterministic lexicographic ordering of the path string.
+///
+/// # Returns
+///
+/// `Some(PathBuf)` with the chosen `.ico` file path, `None` if no `.ico` file was found.
+///
+/// # Examples
+///
+/// ```no_run
+/// use std::path::Path;
+/// // Search the current repository root for an .ico file
+/// if let Some(path) = any_ico_under_repo(Path::new(".")) {
+///     println!("Found icon: {}", path.display());
+/// }
+/// ```
 fn any_ico_under_repo(root: &Path) -> Option<PathBuf> {
     let mut matches: Vec<PathBuf> = Vec::new();
     collect_ico_files(root, 0, ICO_SEARCH_MAX_DEPTH, &mut matches);
@@ -155,6 +265,30 @@ fn any_ico_under_repo(root: &Path) -> Option<PathBuf> {
     matches.into_iter().next()
 }
 
+/// Locates and returns a repository favicon as a base64-encoded data URL.
+///
+/// Attempts the following resolution steps in order and returns the first successful result:
+/// 1. Common direct favicon file paths (e.g., `favicon.ico`, `public/favicon.ico`).
+/// 2. Icons declared in web manifests (e.g., `manifest.json`, `manifest.webmanifest`).
+/// 3. Icons referenced by Expo config files (`app.json`, `app.config.json`).
+/// 4. A repository-wide search for any `.ico` file (bounded depth and skipping common large directories).
+///
+/// # Arguments
+///
+/// * `path` - Filesystem path to the repository root to search.
+///
+/// # Returns
+///
+/// `Some(String)` containing a `data:{mime};base64,...` URL for the first found non-empty icon, `None` if no usable favicon is found.
+///
+/// # Examples
+///
+/// ```no_run
+/// let favicon = read_repo_favicon("/path/to/repo".to_string());
+/// if let Some(data_url) = favicon {
+///     println!("Found favicon: {}", data_url);
+/// }
+/// ```
 #[tauri::command]
 pub fn read_repo_favicon(path: String) -> Option<String> {
     let root = PathBuf::from(&path);
