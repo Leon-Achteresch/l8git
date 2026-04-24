@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn encode_image_data_url(bytes: &[u8], mime: &str) -> String {
     use base64::Engine;
@@ -76,6 +76,85 @@ fn favicon_from_manifest(manifest_path: &std::path::Path) -> Option<String> {
     Some(encode_image_data_url(&icon_bytes, &mime))
 }
 
+const ICO_SEARCH_MAX_DEPTH: usize = 12;
+
+const ICO_SEARCH_SKIP_DIR_NAMES: &[&str] = &[
+    ".git",
+    "node_modules",
+    "target",
+    "dist",
+    "build",
+    ".next",
+    "out",
+    "vendor",
+    ".turbo",
+    "coverage",
+    ".nuxt",
+    ".cache",
+    "__pycache__",
+    ".venv",
+    "venv",
+];
+
+fn is_ico_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("ico"))
+}
+
+fn collect_ico_files(
+    dir: &Path,
+    rel_depth: usize,
+    max_depth: usize,
+    out: &mut Vec<PathBuf>,
+) {
+    if rel_depth > max_depth {
+        return;
+    }
+    let Ok(read) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in read.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("");
+            if ICO_SEARCH_SKIP_DIR_NAMES
+                .iter()
+                .any(|s| s.eq_ignore_ascii_case(name))
+            {
+                continue;
+            }
+            if name.starts_with('.') {
+                continue;
+            }
+            collect_ico_files(&path, rel_depth + 1, max_depth, out);
+        } else if is_ico_file(&path) {
+            out.push(path);
+        }
+    }
+}
+
+fn any_ico_under_repo(root: &Path) -> Option<PathBuf> {
+    let mut matches: Vec<PathBuf> = Vec::new();
+    collect_ico_files(root, 0, ICO_SEARCH_MAX_DEPTH, &mut matches);
+    if matches.is_empty() {
+        return None;
+    }
+    matches.sort_by(|a, b| {
+        let da = a.components().count();
+        let db = b.components().count();
+        da.cmp(&db).then_with(|| {
+            a.to_string_lossy()
+                .as_ref()
+                .cmp(b.to_string_lossy().as_ref())
+        })
+    });
+    matches.into_iter().next()
+}
+
 #[tauri::command]
 pub fn read_repo_favicon(path: String) -> Option<String> {
     let root = PathBuf::from(&path);
@@ -124,6 +203,14 @@ pub fn read_repo_favicon(path: String) -> Option<String> {
         let p = root.join(rel);
         if let Some(icon) = favicon_from_expo_config(&p) {
             return Some(icon);
+        }
+    }
+
+    if let Some(ico) = any_ico_under_repo(&root) {
+        if let Ok(bytes) = std::fs::read(&ico) {
+            if !bytes.is_empty() {
+                return Some(encode_image_data_url(&bytes, "image/x-icon"));
+            }
         }
     }
 
