@@ -1,3 +1,8 @@
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
 import { ReactNode } from "react";
 
@@ -9,6 +14,7 @@ interface ToolbarButtonProps {
   icon: ReactNode;
   isActive?: boolean;
   badge?: number;
+  contextMenuContent?: ReactNode;
 }
 
 export function ToolbarButton({
@@ -19,9 +25,10 @@ export function ToolbarButton({
   icon,
   isActive,
   badge,
+  contextMenuContent,
 }: ToolbarButtonProps) {
   const showBadge = typeof badge === "number" && badge > 0;
-  return (
+  const button = (
     <Button
       type="button"
       variant="ghost"
@@ -42,5 +49,16 @@ export function ToolbarButton({
         </span>
       )}
     </Button>
+  );
+
+  if (!contextMenuContent) return button;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <span className="inline-flex">{button}</span>
+      </ContextMenuTrigger>
+      <ContextMenuContent>{contextMenuContent}</ContextMenuContent>
+    </ContextMenu>
   );
 }

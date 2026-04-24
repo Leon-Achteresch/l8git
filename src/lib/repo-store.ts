@@ -53,11 +53,17 @@ export type Branch = {
   tip: string;
 };
 
+export type TagRef = {
+  name: string;
+  commit: string;
+};
+
 export type RepoInfo = {
   path: string;
   branch: string;
   commits: Commit[];
   branches: Branch[];
+  tags: TagRef[];
 };
 
 export type StatusEntry = {

@@ -1,9 +1,10 @@
 import { BranchSection } from "@/components/repo/branch/branch-section";
 import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
 import { SidebarNavItem } from "@/components/repo/layout/sidebar-nav-item";
+import { TagSection } from "@/components/repo/tag/tag-section";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toastError } from "@/lib/error-toast";
-import { useRepoStore, type Branch } from "@/lib/repo-store";
+import { useRepoStore, type Branch, type TagRef } from "@/lib/repo-store";
 import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -90,6 +91,7 @@ export function RepoSidebar() {
   }, [isResizing, setSidebarWidth]);
 
   const branches = repo?.branches ?? null;
+  const tags = repo?.tags ?? null;
 
   const { localBranches, remoteBranches } = useMemo(() => {
     const all = branches ?? [];
@@ -101,6 +103,13 @@ export function RepoSidebar() {
       remoteBranches: all.filter((b) => b.is_remote && match(b)),
     };
   }, [branches, branchQuery]);
+
+  const filteredTags = useMemo(() => {
+    const all = tags ?? [];
+    const q = branchQuery.trim().toLowerCase();
+    const match = (t: TagRef) => !q || t.name.toLowerCase().includes(q);
+    return all.filter(match);
+  }, [tags, branchQuery]);
 
   if (!repo || !activePath) return null;
 
@@ -167,7 +176,8 @@ export function RepoSidebar() {
   ];
 
   const hasQuery = branchQuery.trim().length > 0;
-  const hasAnyMatch = localBranches.length + remoteBranches.length > 0;
+  const hasAnyMatch =
+    localBranches.length + remoteBranches.length + filteredTags.length > 0;
 
   return (
     <aside
@@ -258,6 +268,20 @@ export function RepoSidebar() {
                     title="Remote"
                     branches={remoteBranches}
                     emptyLabel="Keine Remote-Branches"
+                  />
+                </>
+              )}
+              {filteredTags.length > 0 && (
+                <>
+                  <div
+                    aria-hidden
+                    className="mx-1 my-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent"
+                  />
+                  <TagSection
+                    path={activePath}
+                    title="Tags"
+                    tags={filteredTags}
+                    emptyLabel={hasQuery ? "Keine Treffer" : "Keine Tags"}
                   />
                 </>
               )}

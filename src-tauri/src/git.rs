@@ -34,11 +34,18 @@ pub struct Branch {
 }
 
 #[derive(Serialize)]
+pub struct TagRef {
+    name: String,
+    commit: String,
+}
+
+#[derive(Serialize)]
 pub struct RepoInfo {
     path: String,
     branch: String,
     commits: Vec<Commit>,
     branches: Vec<Branch>,
+    tags: Vec<TagRef>,
 }
 
 #[derive(Serialize)]
@@ -366,13 +373,29 @@ pub fn open_repo(path: String) -> Result<RepoInfo, String> {
     let tag_map = tags_by_target(&repo);
     let commits = fetch_commits(&repo, 0, DEFAULT_INITIAL_COMMITS, &tag_map)?;
     let branches = list_branches(&repo).unwrap_or_default();
+    let tags = tags_from_map(&tag_map);
 
     Ok(RepoInfo {
         path: repo.to_string_lossy().to_string(),
         branch,
         commits,
         branches,
+        tags,
     })
+}
+
+fn tags_from_map(tag_map: &HashMap<String, Vec<String>>) -> Vec<TagRef> {
+    let mut tags: Vec<TagRef> = tag_map
+        .iter()
+        .flat_map(|(commit, names)| {
+            names.iter().map(move |name| TagRef {
+                name: name.clone(),
+                commit: commit.clone(),
+            })
+        })
+        .collect();
+    tags.sort_by(|a, b| a.name.cmp(&b.name));
+    tags
 }
 
 /// Load additional commits beyond what `open_repo` returned. Used by the
@@ -415,15 +438,51 @@ pub fn git_pull(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn git_push(path: String, set_upstream: bool) -> Result<String, String> {
+pub fn git_push(
+    path: String,
+    set_upstream: bool,
+    force_mode: Option<String>,
+    tags_mode: Option<String>,
+    atomic: Option<bool>,
+    no_verify: Option<bool>,
+    dry_run: Option<bool>,
+) -> Result<String, String> {
     let repo = PathBuf::from(path.trim());
+
+    let mut args: Vec<String> = vec!["push".to_string()];
+
+    match force_mode.as_deref() {
+        Some("lease") => args.push("--force-with-lease".to_string()),
+        Some("force") => args.push("--force".to_string()),
+        _ => {}
+    }
+
+    match tags_mode.as_deref() {
+        Some("all") => args.push("--tags".to_string()),
+        Some("follow") => args.push("--follow-tags".to_string()),
+        _ => {}
+    }
+
+    if atomic.unwrap_or(false) {
+        args.push("--atomic".to_string());
+    }
+    if no_verify.unwrap_or(false) {
+        args.push("--no-verify".to_string());
+    }
+    if dry_run.unwrap_or(false) {
+        args.push("--dry-run".to_string());
+    }
+
     if set_upstream {
         let branch = run_git(&repo, &["symbolic-ref", "--short", "HEAD"])
             .map(|s| s.trim().to_string())?;
-        run_git_merged_output(&repo, &["push", "-u", "origin", &branch])
-    } else {
-        run_git_merged_output(&repo, &["push"])
+        args.push("-u".to_string());
+        args.push("origin".to_string());
+        args.push(branch);
     }
+
+    let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    run_git_merged_output(&repo, &arg_refs)
 }
 
 #[tauri::command]
