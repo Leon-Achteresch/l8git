@@ -13,7 +13,6 @@ import {
 import { cn } from "@/lib/utils";
 import {
   Archive,
-  Cloud,
   GitBranch,
   GitCommitHorizontal,
   GitPullRequest,
@@ -23,6 +22,8 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+export const REPO_SIDEBAR_ICONS_ENABLED = false;
 
 export function RepoSidebar() {
   const activePath = useRepoStore((s) => s.activePath);
@@ -122,35 +123,45 @@ export function RepoSidebar() {
 
   const tabs: Array<{
     value: SidebarTab;
-    icon: React.ReactNode;
+    icon?: React.ReactNode;
     label: string;
     count?: number;
   }> = [
     {
       value: "commit",
-      icon: <GitCommitHorizontal className="h-4 w-4" />,
+      ...(REPO_SIDEBAR_ICONS_ENABLED
+        ? { icon: <GitCommitHorizontal className="h-4 w-4" /> }
+        : {}),
       label: "Commit",
       count: pendingCommitCount > 0 ? pendingCommitCount : undefined,
     },
     {
       value: "history",
-      icon: <History className="h-4 w-4" />,
+      ...(REPO_SIDEBAR_ICONS_ENABLED
+        ? { icon: <History className="h-4 w-4" /> }
+        : {}),
       label: "History",
     },
     {
       value: "pr",
-      icon: <GitPullRequest className="h-4 w-4" />,
+      ...(REPO_SIDEBAR_ICONS_ENABLED
+        ? { icon: <GitPullRequest className="h-4 w-4" /> }
+        : {}),
       label: "Pull Requests",
       count: prCount > 0 ? prCount : undefined,
     },
     {
       value: "ci",
-      icon: <ListChecks className="h-4 w-4" />,
+      ...(REPO_SIDEBAR_ICONS_ENABLED
+        ? { icon: <ListChecks className="h-4 w-4" /> }
+        : {}),
       label: "CI",
     },
     {
       value: "stash",
-      icon: <Archive className="h-4 w-4" />,
+      ...(REPO_SIDEBAR_ICONS_ENABLED
+        ? { icon: <Archive className="h-4 w-4" /> }
+        : {}),
       label: "Stash",
       count: stashCount > 0 ? stashCount : undefined,
     },
@@ -162,10 +173,10 @@ export function RepoSidebar() {
   return (
     <aside
       ref={asideRef}
-      className="relative flex min-h-0 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
       style={{ width: sidebarWidth }}
     >
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <nav
           className="shrink-0 p-2"
           role="tablist"
@@ -190,17 +201,22 @@ export function RepoSidebar() {
 
         <div className="shrink-0 px-2 pt-2 pb-1">
           <label className="group relative flex items-center">
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-focus-within:text-foreground"
-            />
+            {REPO_SIDEBAR_ICONS_ENABLED ? (
+              <Search
+                aria-hidden
+                className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-focus-within:text-foreground"
+              />
+            ) : null}
             <input
               type="search"
               value={branchQuery}
               onChange={(e) => setBranchQuery(e.target.value)}
               placeholder="Branches filtern …"
               aria-label="Branches filtern"
-              className="h-7 w-full rounded-md border border-transparent bg-muted/50 pl-7 pr-7 text-xs text-foreground placeholder:text-muted-foreground/80 outline-none transition-[background,border-color] focus:border-ring focus:bg-background [&::-webkit-search-cancel-button]:hidden"
+              className={cn(
+                "h-7 w-full rounded-md border border-transparent bg-muted/50 pr-7 text-xs text-foreground placeholder:text-muted-foreground/80 outline-none transition-[background,border-color] focus:border-ring focus:bg-background [&::-webkit-search-cancel-button]:hidden",
+                REPO_SIDEBAR_ICONS_ENABLED ? "pl-7" : "pl-2",
+              )}
             />
             {hasQuery && (
               <button
@@ -215,17 +231,19 @@ export function RepoSidebar() {
           </label>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          <ScrollArea className="absolute inset-0 min-w-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <ScrollArea className="min-h-0 min-w-0 flex-1">
             <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-2">
               <BranchSection
                 path={activePath}
                 title="Lokal"
                 icon={
-                  <GitBranch
-                    className="h-3.5 w-3.5"
-                    style={{ color: "var(--color-git-branch)" }}
-                  />
+                  REPO_SIDEBAR_ICONS_ENABLED ? (
+                    <GitBranch
+                      className="h-3.5 w-3.5"
+                      style={{ color: "var(--color-git-branch)" }}
+                    />
+                  ) : undefined
                 }
                 branches={localBranches}
                 emptyLabel={
@@ -246,9 +264,6 @@ export function RepoSidebar() {
                   <BranchSection
                     path={activePath}
                     title="Remote"
-                    icon={
-                      <Cloud className="h-3.5 w-3.5 text-muted-foreground" />
-                    }
                     branches={remoteBranches}
                     emptyLabel="Keine Remote-Branches"
                   />

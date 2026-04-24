@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 interface SidebarNavItemProps {
   isActive: boolean;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   label: string;
   count?: number;
   onClick: () => void;
@@ -39,14 +39,16 @@ export function SidebarNavItem({
         />
       )}
 
-      <span
-        className={cn(
-          "relative shrink-0 transition-colors",
-          isActive ? "text-foreground" : "text-muted-foreground",
-        )}
-      >
-        {icon}
-      </span>
+      {icon != null ? (
+        <span
+          className={cn(
+            "relative shrink-0 transition-colors",
+            isActive ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          {icon}
+        </span>
+      ) : null}
 
       <span className="min-w-0 flex-1 truncate text-left">{label}</span>
       {hasCount && (
