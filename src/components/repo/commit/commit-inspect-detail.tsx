@@ -3,6 +3,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
@@ -52,6 +53,7 @@ export function CommitInspectDetail({
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffFailed, setDiffFailed] = useState(false);
   const [splitFlex, setSplitFlex] = useState(readSplitFlexFromStorage);
+  const [blameActive, setBlameActive] = useState(false);
   const [defaultInnerLayout] = useState<Record<string, number> | undefined>(
     () => {
       const raw = localStorage.getItem(innerLayoutKey);
@@ -119,6 +121,7 @@ export function CommitInspectDetail({
     setSelectedFile(null);
     setFileDiff(null);
     setDiffFailed(false);
+    setBlameActive(false);
   }, [commitHash]);
 
   useEffect(() => {
@@ -174,7 +177,7 @@ export function CommitInspectDetail({
             ) : null}
             <div className="flex min-h-0 flex-1 flex-col bg-muted/5">
               <CommitInspectSplitHeader
-                selectedFile={selectedFile}
+                selectedFile={blameActive ? null : selectedFile}
                 filesFlex={splitFlex.files}
                 diffFlex={splitFlex.diff}
               />
@@ -205,7 +208,14 @@ export function CommitInspectDetail({
                   <CommitInspectFileList
                     files={payload?.files ?? []}
                     selectedFile={selectedFile}
-                    onSelectFile={setSelectedFile}
+                    onSelectFile={(f) => {
+                      setSelectedFile(f);
+                      setBlameActive(false);
+                    }}
+                    onBlame={(f) => {
+                      setSelectedFile(f);
+                      setBlameActive(true);
+                    }}
                   />
                 </ResizablePanel>
                 <ResizableHandle
@@ -218,12 +228,21 @@ export function CommitInspectDetail({
                   minSize="22%"
                   className="flex min-h-0 flex-col"
                 >
-                  <CommitInspectDiff
-                    selectedFile={selectedFile}
-                    fileDiff={fileDiff}
-                    loading={diffLoading}
-                    failed={diffFailed}
-                  />
+                  {blameActive && selectedFile ? (
+                    <GitBlameSheet
+                      path={path}
+                      file={selectedFile}
+                      commit={commitHash ?? undefined}
+                      onClose={() => setBlameActive(false)}
+                    />
+                  ) : (
+                    <CommitInspectDiff
+                      selectedFile={selectedFile}
+                      fileDiff={fileDiff}
+                      loading={diffLoading}
+                      failed={diffFailed}
+                    />
+                  )}
                 </ResizablePanel>
               </ResizablePanelGroup>
             </div>

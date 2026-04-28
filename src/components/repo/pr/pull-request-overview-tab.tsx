@@ -11,6 +11,8 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { PullRequestDetail } from "./pull-request-inspect-detail";
 
 type MergeStrategy = "merge" | "squash" | "rebase";
@@ -92,8 +94,10 @@ export function PullRequestOverviewTab({
             Beschreibung
           </h3>
           {detail.body_markdown.trim() ? (
-            <div className="whitespace-pre-wrap rounded border bg-muted/20 px-3 py-2 text-sm leading-relaxed">
-              {detail.body_markdown}
+            <div className="rounded border bg-muted/20 px-3 py-2 text-sm leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded-md [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h3]:text-base [&_h3]:font-semibold [&_hr]:border-border [&_li]:ml-5 [&_li]:pl-1 [&_ol]:list-decimal [&_p+p]:mt-2 [&_p_code]:text-foreground [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border/70 [&_pre]:bg-muted/70 [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:list-disc">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {detail.body_markdown}
+              </ReactMarkdown>
             </div>
           ) : (
             <div className="rounded border bg-muted/10 px-3 py-2 text-sm italic text-muted-foreground">

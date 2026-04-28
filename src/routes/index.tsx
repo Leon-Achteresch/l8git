@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/repo/layout/empty-state";
 import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
 import { PullRequestPanel } from "@/components/repo/pr/pull-request-panel";
 import { StashPanel } from "@/components/repo/stash/stash-panel";
+import { SubmodulesPanel } from "@/components/repo/submodules/submodules-panel";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -48,12 +49,15 @@ function Home() {
                   {repo &&
                   (sidebarTab === "stash" ||
                     sidebarTab === "pr" ||
-                    sidebarTab === "ci") ? (
+                    sidebarTab === "ci" ||
+                    sidebarTab === "submodules") ? (
                     <div className="min-h-0 flex-1 overflow-hidden">
                       {sidebarTab === "stash" ? (
                         <StashPanel path={repo.path} />
                       ) : sidebarTab === "pr" ? (
                         <PullRequestPanel path={repo.path} />
+                      ) : sidebarTab === "submodules" ? (
+                        <SubmodulesPanel path={repo.path} />
                       ) : (
                         <RepoCiPanel path={repo.path} />
                       )}

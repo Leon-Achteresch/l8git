@@ -1707,3 +1707,1641 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
 
     Ok(branches)
 }
+
+#[derive(Serialize)]
+pub struct LanguageStat {
+    pub language: String,
+    pub color: String,
+    pub bytes: u64,
+    pub percent: f64,
+}
+
+fn ext_to_language(ext: &str) -> Option<(&'static str, &'static str)> {
+match ext {
+        "1" => Some(("Roff", "#ecdebe")),
+        "1in" => Some(("Roff", "#ecdebe")),
+        "1m" => Some(("Roff", "#ecdebe")),
+        "1x" => Some(("Roff", "#ecdebe")),
+        "2" => Some(("Roff", "#ecdebe")),
+        "2da" => Some(("2-Dimensional Array", "#38761D")),
+        "3" => Some(("Roff", "#ecdebe")),
+        "3in" => Some(("Roff", "#ecdebe")),
+        "3m" => Some(("Roff", "#ecdebe")),
+        "3p" => Some(("Roff", "#ecdebe")),
+        "3pm" => Some(("Roff", "#ecdebe")),
+        "3qt" => Some(("Roff", "#ecdebe")),
+        "3x" => Some(("Roff", "#ecdebe")),
+        "4" => Some(("Roff", "#ecdebe")),
+        "4dform" => Some(("JSON", "#292929")),
+        "4dm" => Some(("4D", "#004289")),
+        "4dproject" => Some(("JSON", "#292929")),
+        "4gl" => Some(("Genero 4gl", "#63408e")),
+        "4th" => Some(("Forth", "#341708")),
+        "5" => Some(("Roff", "#ecdebe")),
+        "6" => Some(("Roff", "#ecdebe")),
+        "6pl" => Some(("Raku", "#0000fb")),
+        "6pm" => Some(("Raku", "#0000fb")),
+        "7" => Some(("Roff", "#ecdebe")),
+        "8" => Some(("Roff", "#ecdebe")),
+        "8xp" => Some(("TI Program", "#A0AA87")),
+        "9" => Some(("Roff", "#ecdebe")),
+        "_coffee" => Some(("CoffeeScript", "#244776")),
+        "_js" => Some(("JavaScript", "#f1e05a")),
+        "_ls" => Some(("LiveScript", "#499886")),
+        "a51" => Some(("Assembly", "#6E4C13")),
+        "abap" => Some(("ABAP", "#E8274B")),
+        "action" => Some(("ROS Interface", "#22314e")),
+        "ada" => Some(("Ada", "#02f88c")),
+        "adb" => Some(("Ada", "#02f88c")),
+        "adml" => Some(("XML", "#0060ac")),
+        "admx" => Some(("XML", "#0060ac")),
+        "ado" => Some(("Stata", "#1a5f91")),
+        "adp" => Some(("Tcl", "#e4cc98")),
+        "ads" => Some(("Ada", "#02f88c")),
+        "afm" => Some(("Adobe Font Metrics", "#fa0f00")),
+        "agc" => Some(("Apollo Guidance Computer", "#0B3D91")),
+        "agda" => Some(("Agda", "#315665")),
+        "ahk" => Some(("AutoHotkey", "#6594b9")),
+        "ahkl" => Some(("AutoHotkey", "#6594b9")),
+        "aidl" => Some(("AIDL", "#34EB6B")),
+        "aj" => Some(("AspectJ", "#a957b0")),
+        "ak" => Some(("Aiken", "#640ff8")),
+        "al" => Some(("AL", "#3AA2B5")),
+        "alg" => Some(("ALGOL", "#D1E0DB")),
+        "als" => Some(("Alloy", "#64C800")),
+        "ampl" => Some(("AMPL", "#E6EFBB")),
+        "angelscript" => Some(("AngelScript", "#C7D7DC")),
+        "anim" => Some(("Unity3D Asset", "#222c37")),
+        "ant" => Some(("XML", "#0060ac")),
+        "apacheconf" => Some(("ApacheConf", "#d12127")),
+        "apex" => Some(("Apex", "#1797c0")),
+        "apib" => Some(("API Blueprint", "#2ACCA8")),
+        "apl" => Some(("APL", "#5A8164")),
+        "app" => Some(("Erlang", "#B83998")),
+        "applescript" => Some(("AppleScript", "#101F1F")),
+        "arc" => Some(("Arc", "#aa2afe")),
+        "arr" => Some(("Pyret", "#ee1e10")),
+        "as" => Some(("ActionScript", "#882B0F")),
+        "asax" => Some(("ASP.NET", "#9400ff")),
+        "asc" => Some(("AGS Script", "#B9D9FF")),
+        "ascx" => Some(("ASP.NET", "#9400ff")),
+        "asd" => Some(("Common Lisp", "#3fb68b")),
+        "asddls" => Some(("ABAP CDS", "#555e25")),
+        "ash" => Some(("AGS Script", "#B9D9FF")),
+        "ashx" => Some(("ASP.NET", "#9400ff")),
+        "asm" => Some(("Assembly", "#6E4C13")),
+        "asmx" => Some(("ASP.NET", "#9400ff")),
+        "asp" => Some(("Classic ASP", "#6a40fd")),
+        "aspx" => Some(("ASP.NET", "#9400ff")),
+        "asset" => Some(("Unity3D Asset", "#222c37")),
+        "astro" => Some(("Astro", "#ff5a03")),
+        "asy" => Some(("Asymptote", "#ff0000")),
+        "au3" => Some(("AutoIt", "#1C3552")),
+        "aug" => Some(("Augeas", "#9CC134")),
+        "auk" => Some(("Awk", "#c30e9b")),
+        "aux" => Some(("TeX", "#3D6117")),
+        "avdl" => Some(("Avro IDL", "#0040FF")),
+        "avsc" => Some(("JSON", "#292929")),
+        "aw" => Some(("PHP", "#4F5D95")),
+        "awk" => Some(("Awk", "#c30e9b")),
+        "axaml" => Some(("XML", "#0060ac")),
+        "axd" => Some(("ASP.NET", "#9400ff")),
+        "axi" => Some(("NetLinx", "#0aa0ff")),
+        "axml" => Some(("XML", "#0060ac")),
+        "axs" => Some(("NetLinx", "#0aa0ff")),
+        "b" => Some(("Brainfuck", "#2F2530")),
+        "bal" => Some(("Ballerina", "#FF5000")),
+        "bas" => Some(("BASIC", "#ff0000")),
+        "bash" => Some(("Shell", "#89e051")),
+        "bat" => Some(("Batchfile", "#C1F12E")),
+        "bats" => Some(("Shell", "#89e051")),
+        "bb" => Some(("BlitzBasic", "#00FFAE")),
+        "bbappend" => Some(("BitBake", "#00bce4")),
+        "bbclass" => Some(("BitBake", "#00bce4")),
+        "bbx" => Some(("TeX", "#3D6117")),
+        "bdy" => Some(("PLSQL", "#dad8d8")),
+        "be" => Some(("Berry", "#15A13C")),
+        "bf" => Some(("Beef", "#a52f4e")),
+        "bi" => Some(("FreeBASIC", "#141AC9")),
+        "bib" => Some(("BibTeX", "#778899")),
+        "bibtex" => Some(("BibTeX", "#778899")),
+        "bicep" => Some(("Bicep", "#519aba")),
+        "bicepparam" => Some(("Bicep", "#519aba")),
+        "bison" => Some(("Bison", "#6A463F")),
+        "blade" => Some(("Blade", "#f7523f")),
+        "bmx" => Some(("BlitzMax", "#cd6400")),
+        "bones" => Some(("JavaScript", "#f1e05a")),
+        "boo" => Some(("Boo", "#d4bec1")),
+        "boot" => Some(("Clojure", "#db5855")),
+        "bpl" => Some(("Boogie", "#c80fa0")),
+        "bqn" => Some(("BQN", "#2b7067")),
+        "brd" => Some(("KiCad Legacy Layout", "#2f4aab")),
+        "brs" => Some(("Brightscript", "#662D91")),
+        "bru" => Some(("Bru", "#F4AA41")),
+        "bs" => Some(("Bluespec BH", "#12223c")),
+        "bsl" => Some(("1C Enterprise", "#814CCC")),
+        "bst" => Some(("BuildStream", "#006bff")),
+        "bsv" => Some(("Bluespec", "#12223c")),
+        "builder" => Some(("Ruby", "#701516")),
+        "builds" => Some(("XML", "#0060ac")),
+        "bzl" => Some(("Starlark", "#76d275")),
+        "c" => Some(("C", "#555555")),
+        "c++" => Some(("C++", "#f34b7d")),
+        "c3" => Some(("C3", "#2563eb")),
+        "cabal" => Some(("Cabal Config", "#483465")),
+        "caddyfile" => Some(("Caddyfile", "#22b638")),
+        "cairo" => Some(("Cairo", "#ff4a48")),
+        "cake" => Some(("C#", "#178600")),
+        "capnp" => Some(("Cap'n Proto", "#c42727")),
+        "carbon" => Some(("Carbon", "#222222")),
+        "cats" => Some(("C", "#555555")),
+        "cbx" => Some(("TeX", "#3D6117")),
+        "cc" => Some(("C++", "#f34b7d")),
+        "ccproj" => Some(("XML", "#0060ac")),
+        "ccxml" => Some(("XML", "#0060ac")),
+        "cdc" => Some(("Cadence", "#00ef8b")),
+        "cdf" => Some(("Wolfram Language", "#dd1100")),
+        "cds" => Some(("CAP CDS", "#0092d1")),
+        "ceylon" => Some(("Ceylon", "#dfa535")),
+        "cfc" => Some(("ColdFusion CFC", "#ed2cd6")),
+        "cfg" => Some(("HAProxy", "#106da9")),
+        "cfm" => Some(("ColdFusion", "#ed2cd6")),
+        "cfml" => Some(("ColdFusion", "#ed2cd6")),
+        "cgi" => Some(("Perl", "#0298c3")),
+        "cginc" => Some(("HLSL", "#aace60")),
+        "ch" => Some(("xBase", "#403a40")),
+        "chpl" => Some(("Chapel", "#8dc63f")),
+        "circom" => Some(("Circom", "#707575")),
+        "cirru" => Some(("Cirru", "#ccccff")),
+        "cj" => Some(("Cangjie", "#00868B")),
+        "cjs" => Some(("JavaScript", "#f1e05a")),
+        "cjsx" => Some(("CoffeeScript", "#244776")),
+        "ck" => Some(("ChucK", "#3f8000")),
+        "cl" => Some(("Common Lisp", "#3fb68b")),
+        "cl2" => Some(("Clojure", "#db5855")),
+        "clar" => Some(("Clarity", "#5546ff")),
+        "click" => Some(("Click", "#E4E6F3")),
+        "clixml" => Some(("XML", "#0060ac")),
+        "clj" => Some(("Clojure", "#db5855")),
+        "cljc" => Some(("Clojure", "#db5855")),
+        "cljs" => Some(("Clojure", "#db5855")),
+        "cljscm" => Some(("Clojure", "#db5855")),
+        "cljx" => Some(("Clojure", "#db5855")),
+        "clp" => Some(("CLIPS", "#00A300")),
+        "cls" => Some(("TeX", "#3D6117")),
+        "clue" => Some(("Clue", "#0009b5")),
+        "clw" => Some(("Clarion", "#db901e")),
+        "cmake" => Some(("CMake", "#DA3434")),
+        "cmd" => Some(("Batchfile", "#C1F12E")),
+        "cmp" => Some(("Gerber Image", "#d20b00")),
+        "cnc" => Some(("G-code", "#D08CF2")),
+        "cnf" => Some(("INI", "#d1dbe0")),
+        "cocci" => Some(("SmPL", "#c94949")),
+        "code-snippets" => Some(("JSON with Comments", "#292929")),
+        "code-workspace" => Some(("JSON with Comments", "#292929")),
+        "coffee" => Some(("CoffeeScript", "#244776")),
+        "command" => Some(("Shell", "#89e051")),
+        "containerfile" => Some(("Dockerfile", "#384d54")),
+        "cook" => Some(("Cooklang", "#E15A29")),
+        "coq" => Some(("Rocq Prover", "#d0b68c")),
+        "cp" => Some(("C++", "#f34b7d")),
+        "cpp" => Some(("C++", "#f34b7d")),
+        "cppm" => Some(("C++", "#f34b7d")),
+        "cproject" => Some(("XML", "#0060ac")),
+        "cps" => Some(("Component Pascal", "#B0CE4E")),
+        "cql" => Some(("CQL", "#006091")),
+        "cr" => Some(("Crystal", "#000100")),
+        "cs" => Some(("C#", "#178600")),
+        "csc" => Some(("GSC", "#FF6800")),
+        "cscfg" => Some(("XML", "#0060ac")),
+        "csd" => Some(("Csound Document", "#1a1a1a")),
+        "csdef" => Some(("XML", "#0060ac")),
+        "cshtml" => Some(("HTML+Razor", "#512be4")),
+        "csl" => Some(("XML", "#0060ac")),
+        "cson" => Some(("CSON", "#244776")),
+        "csproj" => Some(("XML", "#0060ac")),
+        "css" => Some(("CSS", "#663399")),
+        "csv" => Some(("CSV", "#237346")),
+        "csx" => Some(("C#", "#178600")),
+        "ct" => Some(("XML", "#0060ac")),
+        "ctl" => Some(("Visual Basic 6.0", "#2c6353")),
+        "ctp" => Some(("PHP", "#4F5D95")),
+        "cts" => Some(("TypeScript", "#3178c6")),
+        "cu" => Some(("Cuda", "#3A4E3A")),
+        "cue" => Some(("CUE", "#5886E1")),
+        "cuh" => Some(("Cuda", "#3A4E3A")),
+        "curry" => Some(("Curry", "#531242")),
+        "cwl" => Some(("Common Workflow Language", "#B5314C")),
+        "cxx" => Some(("C++", "#f34b7d")),
+        "cylc" => Some(("Cylc", "#00b3fd")),
+        "cyp" => Some(("Cypher", "#34c0eb")),
+        "cypher" => Some(("Cypher", "#34c0eb")),
+        "d" => Some(("D", "#ba595e")),
+        "d2" => Some(("D2", "#526ee8")),
+        "dae" => Some(("COLLADA", "#F1A42B")),
+        "darcspatch" => Some(("Darcs Patch", "#8eff23")),
+        "dart" => Some(("Dart", "#00B4AB")),
+        "das" => Some(("Daslang", "#d3d3d3")),
+        "dats" => Some(("ATS", "#1ac620")),
+        "db2" => Some(("SQLPL", "#e38c00")),
+        "dcl" => Some(("Clean", "#3F85AF")),
+        "ddl" => Some(("PLSQL", "#dad8d8")),
+        "decls" => Some(("BlitzBasic", "#00FFAE")),
+        "depproj" => Some(("XML", "#0060ac")),
+        "dfm" => Some(("Pascal", "#E3F171")),
+        "dfy" => Some(("Dafny", "#FFEC25")),
+        "dhall" => Some(("Dhall", "#dfafff")),
+        "di" => Some(("D", "#ba595e")),
+        "dita" => Some(("XML", "#0060ac")),
+        "ditamap" => Some(("XML", "#0060ac")),
+        "ditaval" => Some(("XML", "#0060ac")),
+        "djs" => Some(("Dogescript", "#cca760")),
+        "dlm" => Some(("IDL", "#a3522f")),
+        "dm" => Some(("DM", "#447265")),
+        "do" => Some(("Stata", "#1a5f91")),
+        "dockerfile" => Some(("Dockerfile", "#384d54")),
+        "dof" => Some(("INI", "#d1dbe0")),
+        "doh" => Some(("Stata", "#1a5f91")),
+        "dot" => Some(("Graphviz (DOT)", "#2596be")),
+        "dotsettings" => Some(("XML", "#0060ac")),
+        "dpatch" => Some(("Darcs Patch", "#8eff23")),
+        "dpr" => Some(("Pascal", "#E3F171")),
+        "druby" => Some(("Mirah", "#c7a938")),
+        "dsc" => Some(("DenizenScript", "#FBEE96")),
+        "dsp" => Some(("Faust", "#c37240")),
+        "dsr" => Some(("Visual Basic 6.0", "#2c6353")),
+        "dtx" => Some(("TeX", "#3D6117")),
+        "duby" => Some(("Mirah", "#c7a938")),
+        "dwl" => Some(("DataWeave", "#003a52")),
+        "dyalog" => Some(("APL", "#5A8164")),
+        "dyl" => Some(("Dylan", "#6c616e")),
+        "dylan" => Some(("Dylan", "#6c616e")),
+        "e" => Some(("Eiffel", "#4d6977")),
+        "eb" => Some(("Easybuild", "#069406")),
+        "ebuild" => Some(("Gentoo Ebuild", "#9400ff")),
+        "ec" => Some(("eC", "#913960")),
+        "ecl" => Some(("ECL", "#8a1267")),
+        "eclass" => Some(("Gentoo Eclass", "#9400ff")),
+        "eclxml" => Some(("ECL", "#8a1267")),
+        "ecr" => Some(("HTML+ECR", "#2e1052")),
+        "ect" => Some(("EJS", "#a91e50")),
+        "edge" => Some(("Edge", "#0dffe0")),
+        "edgeql" => Some(("EdgeQL", "#31A7FF")),
+        "editorconfig" => Some(("EditorConfig", "#fff1f2")),
+        "eh" => Some(("eC", "#913960")),
+        "ejs" => Some(("EJS", "#a91e50")),
+        "el" => Some(("Emacs Lisp", "#c065db")),
+        "eliom" => Some(("OCaml", "#ef7a08")),
+        "eliomi" => Some(("OCaml", "#ef7a08")),
+        "elm" => Some(("Elm", "#60B5CC")),
+        "elv" => Some(("Elvish", "#55BB55")),
+        "em" => Some(("EmberScript", "#FFF4F3")),
+        "emacs" => Some(("Emacs Lisp", "#c065db")),
+        "emberscript" => Some(("EmberScript", "#FFF4F3")),
+        "env" => Some(("Dotenv", "#e5d559")),
+        "epj" => Some(("Ecere Projects", "#913960")),
+        "eps" => Some(("PostScript", "#da291c")),
+        "epsi" => Some(("PostScript", "#da291c")),
+        "eq" => Some(("EQ", "#a78649")),
+        "erb" => Some(("HTML+ERB", "#701516")),
+        "erl" => Some(("Erlang", "#B83998")),
+        "es" => Some(("Erlang", "#B83998")),
+        "es6" => Some(("JavaScript", "#f1e05a")),
+        "escript" => Some(("Erlang", "#B83998")),
+        "esdl" => Some(("EdgeQL", "#31A7FF")),
+        "ex" => Some(("Elixir", "#6e4a7e")),
+        "exs" => Some(("Elixir", "#6e4a7e")),
+        "eye" => Some(("Ruby", "#701516")),
+        "f" => Some(("Fortran", "#4d41b1")),
+        "f03" => Some(("Fortran Free Form", "#4d41b1")),
+        "f08" => Some(("Fortran Free Form", "#4d41b1")),
+        "f77" => Some(("Fortran", "#4d41b1")),
+        "f90" => Some(("Fortran Free Form", "#4d41b1")),
+        "f95" => Some(("Fortran Free Form", "#4d41b1")),
+        "factor" => Some(("Factor", "#636746")),
+        "fan" => Some(("Fantom", "#14253c")),
+        "fancypack" => Some(("Fancy", "#7b9db4")),
+        "fbs" => Some(("FlatBuffers", "#ed284a")),
+        "fcgi" => Some(("Lua", "#000080")),
+        "feature" => Some(("Gherkin", "#5B2063")),
+        "filters" => Some(("XML", "#0060ac")),
+        "fir" => Some(("FIRRTL", "#2f632f")),
+        "fish" => Some(("fish", "#4aae47")),
+        "flex" => Some(("JFlex", "#DBCA00")),
+        "flf" => Some(("FIGlet Font", "#FFDDBB")),
+        "flix" => Some(("Flix", "#d44a45")),
+        "flux" => Some(("FLUX", "#88ccff")),
+        "fnc" => Some(("PLSQL", "#dad8d8")),
+        "fnl" => Some(("Fennel", "#fff3d7")),
+        "for" => Some(("Forth", "#341708")),
+        "forth" => Some(("Forth", "#341708")),
+        "fp" => Some(("GLSL", "#5686a5")),
+        "fpp" => Some(("Fortran", "#4d41b1")),
+        "fr" => Some(("Forth", "#341708")),
+        "frag" => Some(("GLSL", "#5686a5")),
+        "frg" => Some(("GLSL", "#5686a5")),
+        "frm" => Some(("VBA", "#867db1")),
+        "frt" => Some(("Forth", "#341708")),
+        "fs" => Some(("F#", "#b845fc")),
+        "fsh" => Some(("GLSL", "#5686a5")),
+        "fshader" => Some(("GLSL", "#5686a5")),
+        "fsi" => Some(("F#", "#b845fc")),
+        "fsproj" => Some(("XML", "#0060ac")),
+        "fst" => Some(("F*", "#572e30")),
+        "fsti" => Some(("F*", "#572e30")),
+        "fsx" => Some(("F#", "#b845fc")),
+        "fth" => Some(("Forth", "#341708")),
+        "ftl" => Some(("Fluent", "#ffcc33")),
+        "ftlh" => Some(("FreeMarker", "#0050b2")),
+        "fun" => Some(("Standard ML", "#dc566d")),
+        "fut" => Some(("Futhark", "#5f021f")),
+        "fx" => Some(("FLUX", "#88ccff")),
+        "fxh" => Some(("HLSL", "#aace60")),
+        "fxml" => Some(("XML", "#0060ac")),
+        "fy" => Some(("Fancy", "#7b9db4")),
+        "g" => Some(("G-code", "#D08CF2")),
+        "g4" => Some(("ANTLR", "#9DC3FF")),
+        "gaml" => Some(("GAML", "#FFC766")),
+        "gap" => Some(("GAP", "#0000cc")),
+        "gawk" => Some(("Awk", "#c30e9b")),
+        "gbl" => Some(("Gerber Image", "#d20b00")),
+        "gbo" => Some(("Gerber Image", "#d20b00")),
+        "gbp" => Some(("Gerber Image", "#d20b00")),
+        "gbr" => Some(("Gerber Image", "#d20b00")),
+        "gbs" => Some(("Gerber Image", "#d20b00")),
+        "gco" => Some(("G-code", "#D08CF2")),
+        "gcode" => Some(("G-code", "#D08CF2")),
+        "gd" => Some(("GAP", "#0000cc")),
+        "gdnlib" => Some(("Godot Resource", "#355570")),
+        "gdns" => Some(("Godot Resource", "#355570")),
+        "gdshader" => Some(("GDShader", "#478CBF")),
+        "gdshaderinc" => Some(("GDShader", "#478CBF")),
+        "ged" => Some(("GEDCOM", "#003058")),
+        "gemspec" => Some(("Ruby", "#701516")),
+        "geo" => Some(("GLSL", "#5686a5")),
+        "geojson" => Some(("JSON", "#292929")),
+        "geom" => Some(("GLSL", "#5686a5")),
+        "gf" => Some(("Grammatical Framework", "#ff0000")),
+        "gi" => Some(("GAP", "#0000cc")),
+        "gitconfig" => Some(("Git Config", "#F44D27")),
+        "gitignore" => Some(("Ignore List", "#000000")),
+        "gjs" => Some(("Glimmer JS", "#F5835F")),
+        "gko" => Some(("Gerber Image", "#d20b00")),
+        "glade" => Some(("XML", "#0060ac")),
+        "gleam" => Some(("Gleam", "#ffaff3")),
+        "glf" => Some(("Glyph", "#c1ac7f")),
+        "glsl" => Some(("GLSL", "#5686a5")),
+        "glslf" => Some(("GLSL", "#5686a5")),
+        "glslv" => Some(("GLSL", "#5686a5")),
+        "gltf" => Some(("JSON", "#292929")),
+        "gml" => Some(("Game Maker Language", "#71b417")),
+        "gms" => Some(("GAMS", "#f49a22")),
+        "gmx" => Some(("XML", "#0060ac")),
+        "gnu" => Some(("Gnuplot", "#f0a9f0")),
+        "gnuplot" => Some(("Gnuplot", "#f0a9f0")),
+        "go" => Some(("Go", "#00ADD8")),
+        "god" => Some(("Ruby", "#701516")),
+        "gohtml" => Some(("Go Template", "#00ADD8")),
+        "golo" => Some(("Golo", "#88562A")),
+        "gotmpl" => Some(("Go Template", "#00ADD8")),
+        "gp" => Some(("Gnuplot", "#f0a9f0")),
+        "gpb" => Some(("Gerber Image", "#d20b00")),
+        "gpt" => Some(("Gerber Image", "#d20b00")),
+        "gpx" => Some(("XML", "#0060ac")),
+        "gql" => Some(("GraphQL", "#e10098")),
+        "grace" => Some(("Grace", "#615f8b")),
+        "gradle" => Some(("Gradle", "#02303a")),
+        "graphql" => Some(("GraphQL", "#e10098")),
+        "graphqls" => Some(("GraphQL", "#e10098")),
+        "groovy" => Some(("Groovy", "#4298b8")),
+        "grt" => Some(("Groovy", "#4298b8")),
+        "grxml" => Some(("XML", "#0060ac")),
+        "gs" => Some(("GDScript", "#355570")),
+        "gsc" => Some(("GSC", "#FF6800")),
+        "gsh" => Some(("GSC", "#FF6800")),
+        "gshader" => Some(("GLSL", "#5686a5")),
+        "gsp" => Some(("Groovy Server Pages", "#4298b8")),
+        "gst" => Some(("Gosu", "#82937f")),
+        "gsx" => Some(("Gosu", "#82937f")),
+        "gtl" => Some(("Gerber Image", "#d20b00")),
+        "gto" => Some(("Gerber Image", "#d20b00")),
+        "gtp" => Some(("Gerber Image", "#d20b00")),
+        "gtpl" => Some(("Groovy", "#4298b8")),
+        "gts" => Some(("Glimmer TS", "#3178c6")),
+        "gv" => Some(("Graphviz (DOT)", "#2596be")),
+        "gvy" => Some(("Groovy", "#4298b8")),
+        "gyp" => Some(("Python", "#3572A5")),
+        "gypi" => Some(("Python", "#3572A5")),
+        "h" => Some(("C", "#555555")),
+        "h++" => Some(("C++", "#f34b7d")),
+        "ha" => Some(("Hare", "#9d7424")),
+        "hack" => Some(("Hack", "#878787")),
+        "haml" => Some(("Haml", "#ece2a9")),
+        "handlebars" => Some(("Handlebars", "#f7931e")),
+        "har" => Some(("JSON", "#292929")),
+        "hats" => Some(("ATS", "#1ac620")),
+        "hb" => Some(("Harbour", "#0e60e3")),
+        "hbs" => Some(("Handlebars", "#f7931e")),
+        "hc" => Some(("HolyC", "#ffefaf")),
+        "hcl" => Some(("HCL", "#844FBA")),
+        "heex" => Some(("HTML+EEX", "#6e4a7e")),
+        "hh" => Some(("C++", "#f34b7d")),
+        "hhi" => Some(("Hack", "#878787")),
+        "hic" => Some(("Clojure", "#db5855")),
+        "hip" => Some(("HIP", "#4F3A4F")),
+        "hlsl" => Some(("HLSL", "#aace60")),
+        "hlsli" => Some(("HLSL", "#aace60")),
+        "hocon" => Some(("HOCON", "#9ff8ee")),
+        "hoon" => Some(("hoon", "#00b171")),
+        "hpp" => Some(("C++", "#f34b7d")),
+        "hqf" => Some(("SQF", "#3F3F3F")),
+        "hql" => Some(("HiveQL", "#dce200")),
+        "hrl" => Some(("Erlang", "#B83998")),
+        "hs" => Some(("Haskell", "#5e5086")),
+        "hs-boot" => Some(("Haskell", "#5e5086")),
+        "hsc" => Some(("Haskell", "#5e5086")),
+        "hta" => Some(("HTML", "#e34c26")),
+        "htm" => Some(("HTML", "#e34c26")),
+        "html" => Some(("HTML", "#e34c26")),
+        "http" => Some(("HTTP", "#005C9C")),
+        "hurl" => Some(("Hurl", "#FF0288")),
+        "hx" => Some(("Haxe", "#df7900")),
+        "hxml" => Some(("HXML", "#f68712")),
+        "hxsl" => Some(("Haxe", "#df7900")),
+        "hxx" => Some(("C++", "#f34b7d")),
+        "hy" => Some(("Hy", "#7790B2")),
+        "hzp" => Some(("XML", "#0060ac")),
+        "i" => Some(("Assembly", "#6E4C13")),
+        "i3" => Some(("Modula-3", "#223388")),
+        "ical" => Some(("iCalendar", "#ec564c")),
+        "ice" => Some(("Slice", "#003fa2")),
+        "iced" => Some(("CoffeeScript", "#244776")),
+        "icl" => Some(("Clean", "#3F85AF")),
+        "icls" => Some(("XML", "#0060ac")),
+        "ics" => Some(("iCalendar", "#ec564c")),
+        "idc" => Some(("C", "#555555")),
+        "idr" => Some(("Idris", "#b30000")),
+        "ig" => Some(("Modula-3", "#223388")),
+        "ihlp" => Some(("Stata", "#1a5f91")),
+        "ijm" => Some(("ImageJ Macro", "#99AAFF")),
+        "ijs" => Some(("J", "#9EEDFF")),
+        "ik" => Some(("Ioke", "#078193")),
+        "ily" => Some(("LilyPond", "#9ccc7c")),
+        "imba" => Some(("Imba", "#16cec6")),
+        "iml" => Some(("XML", "#0060ac")),
+        "inc" => Some(("PHP", "#4F5D95")),
+        "ini" => Some(("INI", "#d1dbe0")),
+        "inl" => Some(("C++", "#f34b7d")),
+        "ino" => Some(("C++", "#f34b7d")),
+        "ins" => Some(("TeX", "#3D6117")),
+        "intr" => Some(("Dylan", "#6c616e")),
+        "io" => Some(("Io", "#a9188d")),
+        "iol" => Some(("Jolie", "#843179")),
+        "ipf" => Some(("IGOR Pro", "#0000cc")),
+        "ipp" => Some(("C++", "#f34b7d")),
+        "ipynb" => Some(("Jupyter Notebook", "#DA5B0B")),
+        "isl" => Some(("Inno Setup", "#264b99")),
+        "ispc" => Some(("ISPC", "#2D68B1")),
+        "iss" => Some(("Inno Setup", "#264b99")),
+        "iuml" => Some(("PlantUML", "#fbbd16")),
+        "ivy" => Some(("XML", "#0060ac")),
+        "ixx" => Some(("C++", "#f34b7d")),
+        "j" => Some(("Jasmin", "#d03600")),
+        "j2" => Some(("Jinja", "#a52a22")),
+        "jac" => Some(("Jac", "#FC792D")),
+        "jade" => Some(("Pug", "#a86454")),
+        "jai" => Some(("Jai", "#ab8b4b")),
+        "jake" => Some(("JavaScript", "#f1e05a")),
+        "janet" => Some(("Janet", "#0886a5")),
+        "jav" => Some(("Java", "#b07219")),
+        "java" => Some(("Java", "#b07219")),
+        "javascript" => Some(("JavaScript", "#f1e05a")),
+        "jbuilder" => Some(("Ruby", "#701516")),
+        "jcl" => Some(("JCL", "#d90e09")),
+        "jelly" => Some(("XML", "#0060ac")),
+        "jflex" => Some(("JFlex", "#DBCA00")),
+        "jinja" => Some(("Jinja", "#a52a22")),
+        "jinja2" => Some(("Jinja", "#a52a22")),
+        "jison" => Some(("Jison", "#56b3cb")),
+        "jisonlex" => Some(("Jison Lex", "#56b3cb")),
+        "jl" => Some(("Julia", "#a270ba")),
+        "jq" => Some(("JSONiq", "#40d47e")),
+        "js" => Some(("JavaScript", "#f1e05a")),
+        "jsb" => Some(("JavaScript", "#f1e05a")),
+        "jscad" => Some(("JavaScript", "#f1e05a")),
+        "jsfl" => Some(("JavaScript", "#f1e05a")),
+        "jsh" => Some(("Java", "#b07219")),
+        "jslib" => Some(("JavaScript", "#f1e05a")),
+        "jsm" => Some(("JavaScript", "#f1e05a")),
+        "json" => Some(("JSON", "#292929")),
+        "json-tmlanguage" => Some(("JSON", "#292929")),
+        "json5" => Some(("JSON5", "#267CB9")),
+        "jsonc" => Some(("JSON with Comments", "#292929")),
+        "jsonl" => Some(("JSON", "#292929")),
+        "jsonld" => Some(("JSONLD", "#0c479c")),
+        "jsonnet" => Some(("Jsonnet", "#0064bd")),
+        "jsp" => Some(("Java Server Pages", "#2A6277")),
+        "jspre" => Some(("JavaScript", "#f1e05a")),
+        "jsproj" => Some(("XML", "#0060ac")),
+        "jss" => Some(("JavaScript", "#f1e05a")),
+        "jst" => Some(("EJS", "#a91e50")),
+        "jsx" => Some(("JavaScript", "#f1e05a")),
+        "jte" => Some(("Java Template Engine", "#2A6277")),
+        "just" => Some(("Just", "#384d54")),
+        "k" => Some(("KCL", "#7ABABF")),
+        "kak" => Some(("KakouneScript", "#6f8042")),
+        "kdl" => Some(("KDL", "#ffb3b3")),
+        "kicad_mod" => Some(("KiCad Layout", "#2f4aab")),
+        "kicad_pcb" => Some(("KiCad Layout", "#2f4aab")),
+        "kicad_sch" => Some(("KiCad Schematic", "#2f4aab")),
+        "kicad_sym" => Some(("KiCad Schematic", "#2f4aab")),
+        "kicad_wks" => Some(("KiCad Layout", "#2f4aab")),
+        "kid" => Some(("Genshi", "#951531")),
+        "kk" => Some(("Koka", "#215166")),
+        "kml" => Some(("XML", "#0060ac")),
+        "kojo" => Some(("Scala", "#c22d40")),
+        "krl" => Some(("KRL", "#28430A")),
+        "ks" => Some(("KerboScript", "#41adf0")),
+        "ksh" => Some(("Shell", "#89e051")),
+        "ksy" => Some(("Kaitai Struct", "#773b37")),
+        "kt" => Some(("Kotlin", "#A97BFF")),
+        "ktm" => Some(("Kotlin", "#A97BFF")),
+        "kts" => Some(("Kotlin", "#A97BFF")),
+        "kv" => Some(("kvlang", "#1da6e0")),
+        "l" => Some(("Lex", "#DBCA00")),
+        "lagda" => Some(("Literate Agda", "#315665")),
+        "langium" => Some(("Langium", "#2c8c87")),
+        "lark" => Some(("Lark", "#2980B9")),
+        "las" => Some(("Lasso", "#999999")),
+        "lasso" => Some(("Lasso", "#999999")),
+        "lasso8" => Some(("Lasso", "#999999")),
+        "lasso9" => Some(("Lasso", "#999999")),
+        "latte" => Some(("Latte", "#f2a542")),
+        "launch" => Some(("XML", "#0060ac")),
+        "lbx" => Some(("TeX", "#3D6117")),
+        "leex" => Some(("HTML+EEX", "#6e4a7e")),
+        "lektorproject" => Some(("INI", "#d1dbe0")),
+        "leo" => Some(("Leo", "#C4FFC2")),
+        "less" => Some(("Less", "#1d365d")),
+        "lex" => Some(("Lex", "#DBCA00")),
+        "lfe" => Some(("LFE", "#4C3023")),
+        "lgt" => Some(("Logtalk", "#295b9a")),
+        "lhs" => Some(("Literate Haskell", "#5e5086")),
+        "libsonnet" => Some(("Jsonnet", "#0064bd")),
+        "lid" => Some(("Dylan", "#6c616e")),
+        "lidr" => Some(("Idris", "#b30000")),
+        "ligo" => Some(("LigoLANG", "#0e74ff")),
+        "linq" => Some(("C#", "#178600")),
+        "liq" => Some(("Liquidsoap", "#990066")),
+        "liquid" => Some(("Liquid", "#67b8de")),
+        "lisp" => Some(("Common Lisp", "#3fb68b")),
+        "litcoffee" => Some(("Literate CoffeeScript", "#244776")),
+        "livecodescript" => Some(("LiveCode Script", "#0c5ba5")),
+        "lkml" => Some(("LookML", "#652B81")),
+        "ll" => Some(("LLVM", "#185619")),
+        "lmi" => Some(("Python", "#3572A5")),
+        "logtalk" => Some(("Logtalk", "#295b9a")),
+        "lol" => Some(("LOLCODE", "#cc9900")),
+        "lookml" => Some(("LookML", "#652B81")),
+        "lp" => Some(("Answer Set Programming", "#A9CC29")),
+        "lpr" => Some(("Pascal", "#E3F171")),
+        "ls" => Some(("LiveScript", "#499886")),
+        "lsl" => Some(("LSL", "#3d9970")),
+        "lslp" => Some(("LSL", "#3d9970")),
+        "lsp" => Some(("Common Lisp", "#3fb68b")),
+        "ltx" => Some(("TeX", "#3D6117")),
+        "lua" => Some(("Lua", "#000080")),
+        "luau" => Some(("Luau", "#00A2FF")),
+        "lvclass" => Some(("LabVIEW", "#fede06")),
+        "lvlib" => Some(("LabVIEW", "#fede06")),
+        "lvproj" => Some(("LabVIEW", "#fede06")),
+        "ly" => Some(("LilyPond", "#9ccc7c")),
+        "m" => Some(("Objective-C", "#438eff")),
+        "m2" => Some(("Macaulay2", "#d8ffff")),
+        "m3" => Some(("Modula-3", "#223388")),
+        "m3u" => Some(("M3U", "#179C7D")),
+        "m3u8" => Some(("M3U", "#179C7D")),
+        "ma" => Some(("Wolfram Language", "#dd1100")),
+        "mak" => Some(("Makefile", "#427819")),
+        "make" => Some(("Makefile", "#427819")),
+        "makefile" => Some(("Makefile", "#427819")),
+        "mako" => Some(("Mako", "#7e858d")),
+        "man" => Some(("Roff", "#ecdebe")),
+        "mao" => Some(("Mako", "#7e858d")),
+        "marko" => Some(("Marko", "#42bff2")),
+        "mask" => Some(("Mask", "#f97732")),
+        "mat" => Some(("Unity3D Asset", "#222c37")),
+        "mata" => Some(("Stata", "#1a5f91")),
+        "matah" => Some(("Stata", "#1a5f91")),
+        "mathematica" => Some(("Wolfram Language", "#dd1100")),
+        "matlab" => Some(("MATLAB", "#e16737")),
+        "mawk" => Some(("Awk", "#c30e9b")),
+        "maxhelp" => Some(("Max", "#c4a79c")),
+        "maxpat" => Some(("Max", "#c4a79c")),
+        "maxproj" => Some(("Max", "#c4a79c")),
+        "mbt" => Some(("MoonBit", "#b92381")),
+        "mc" => Some(("Monkey C", "#8D6747")),
+        "mcfunction" => Some(("mcfunction", "#E22837")),
+        "mch" => Some(("B (Formal Method)", "#8aa8c5")),
+        "mcmeta" => Some(("JSON", "#292929")),
+        "mcr" => Some(("MAXScript", "#00a6a6")),
+        "md" => Some(("GCC Machine Description", "#FFCFAB")),
+        "mdoc" => Some(("Roff", "#ecdebe")),
+        "mdpolicy" => Some(("XML", "#0060ac")),
+        "mdx" => Some(("MDX", "#fcb32c")),
+        "me" => Some(("Roff", "#ecdebe")),
+        "mermaid" => Some(("Mermaid", "#ff3670")),
+        "meta" => Some(("Unity3D Asset", "#222c37")),
+        "metal" => Some(("Metal", "#8f14e9")),
+        "metta" => Some(("MeTTa", "#6a5acd")),
+        "mg" => Some(("Modula-3", "#223388")),
+        "mint" => Some(("Mint", "#02b046")),
+        "mir" => Some(("YAML", "#cb171e")),
+        "mirah" => Some(("Mirah", "#c7a938")),
+        "mjml" => Some(("XML", "#0060ac")),
+        "mjs" => Some(("JavaScript", "#f1e05a")),
+        "mk" => Some(("Makefile", "#427819")),
+        "mkfile" => Some(("Makefile", "#427819")),
+        "mkii" => Some(("TeX", "#3D6117")),
+        "mkiv" => Some(("TeX", "#3D6117")),
+        "mkvi" => Some(("TeX", "#3D6117")),
+        "ml" => Some(("OCaml", "#ef7a08")),
+        "ml4" => Some(("OCaml", "#ef7a08")),
+        "mli" => Some(("OCaml", "#ef7a08")),
+        "mligo" => Some(("CameLIGO", "#3be133")),
+        "mlir" => Some(("MLIR", "#5EC8DB")),
+        "mll" => Some(("OCaml", "#ef7a08")),
+        "mly" => Some(("OCaml", "#ef7a08")),
+        "mm" => Some(("Objective-C++", "#6866fb")),
+        "mmd" => Some(("Mermaid", "#ff3670")),
+        "mo" => Some(("Modelica", "#de1d31")),
+        "mod" => Some(("Modula-2", "#10253f")),
+        "mojo" => Some(("Mojo", "#ff4c1f")),
+        "moo" => Some(("Mercury", "#ff2b2b")),
+        "moon" => Some(("MoonScript", "#ff4585")),
+        "move" => Some(("Move", "#4a137a")),
+        "mpl" => Some(("JetBrains MPS", "#21D789")),
+        "mps" => Some(("JetBrains MPS", "#21D789")),
+        "mq4" => Some(("MQL4", "#62A8D6")),
+        "mq5" => Some(("MQL5", "#4A76B8")),
+        "mqh" => Some(("MQL4", "#62A8D6")),
+        "mrc" => Some(("mIRC Script", "#3d57c3")),
+        "ms" => Some(("MAXScript", "#00a6a6")),
+        "msd" => Some(("JetBrains MPS", "#21D789")),
+        "msg" => Some(("OMNeT++ MSG", "#a0e0a0")),
+        "mspec" => Some(("Ruby", "#701516")),
+        "mt" => Some(("Wolfram Language", "#dd1100")),
+        "mtml" => Some(("MTML", "#b7e1f4")),
+        "mts" => Some(("TypeScript", "#3178c6")),
+        "mu" => Some(("mupad", "#244963")),
+        "mud" => Some(("ZIL", "#dc75e5")),
+        "mustache" => Some(("Mustache", "#724b3b")),
+        "mxml" => Some(("XML", "#0060ac")),
+        "mxt" => Some(("Max", "#c4a79c")),
+        "mysql" => Some(("SQL", "#e38c00")),
+        "mzn" => Some(("MiniZinc", "#06a9e6")),
+        "n" => Some(("Nemerle", "#3d3c6e")),
+        "nanorc" => Some(("nanorc", "#2d004d")),
+        "nas" => Some(("Assembly", "#6E4C13")),
+        "nasm" => Some(("Assembly", "#6E4C13")),
+        "natvis" => Some(("XML", "#0060ac")),
+        "nawk" => Some(("Awk", "#c30e9b")),
+        "nb" => Some(("Wolfram Language", "#dd1100")),
+        "nbp" => Some(("Wolfram Language", "#dd1100")),
+        "nc" => Some(("nesC", "#94B0C7")),
+        "ncl" => Some(("NCL", "#28431f")),
+        "ndproj" => Some(("XML", "#0060ac")),
+        "ne" => Some(("Nearley", "#990000")),
+        "nearley" => Some(("Nearley", "#990000")),
+        "ned" => Some(("OMNeT++ NED", "#08607c")),
+        "nf" => Some(("Nextflow", "#3ac486")),
+        "nginx" => Some(("Nginx", "#009639")),
+        "nginxconf" => Some(("Nginx", "#009639")),
+        "nim" => Some(("Nim", "#ffc200")),
+        "nimble" => Some(("Nim", "#ffc200")),
+        "nimrod" => Some(("Nim", "#ffc200")),
+        "nims" => Some(("Nim", "#ffc200")),
+        "nit" => Some(("Nit", "#009917")),
+        "nix" => Some(("Nix", "#7e7eff")),
+        "njk" => Some(("Nunjucks", "#3d8137")),
+        "njs" => Some(("JavaScript", "#f1e05a")),
+        "nl" => Some(("NewLisp", "#87AED7")),
+        "nlogo" => Some(("NetLogo", "#ff6375")),
+        "nomad" => Some(("HCL", "#844FBA")),
+        "nproj" => Some(("XML", "#0060ac")),
+        "nqp" => Some(("Raku", "#0000fb")),
+        "nr" => Some(("Noir", "#2f1f49")),
+        "nse" => Some(("Lua", "#000080")),
+        "nss" => Some(("NWScript", "#111522")),
+        "nu" => Some(("Nushell", "#4E9906")),
+        "numpy" => Some(("NumPy", "#9C8AF9")),
+        "numpyw" => Some(("NumPy", "#9C8AF9")),
+        "numsc" => Some(("NumPy", "#9C8AF9")),
+        "nuspec" => Some(("XML", "#0060ac")),
+        "nut" => Some(("Squirrel", "#800000")),
+        "ny" => Some(("Common Lisp", "#3fb68b")),
+        "odd" => Some(("XML", "#0060ac")),
+        "odin" => Some(("Odin", "#60AFFE")),
+        "ol" => Some(("Jolie", "#843179")),
+        "omgrofl" => Some(("Omgrofl", "#cabbff")),
+        "ooc" => Some(("ooc", "#b0b77e")),
+        "opal" => Some(("Opal", "#f7ede0")),
+        "opencl" => Some(("OpenCL", "#ed2e2d")),
+        "orc" => Some(("Csound", "#1a1a1a")),
+        "os" => Some(("1C Enterprise", "#814CCC")),
+        "osm" => Some(("XML", "#0060ac")),
+        "outjob" => Some(("Altium Designer", "#A89663")),
+        "overpassql" => Some(("OverpassQL", "#cce2aa")),
+        "owl" => Some(("Web Ontology Language", "#5b70bd")),
+        "oxygene" => Some(("Oxygene", "#cdd0e3")),
+        "oz" => Some(("Oz", "#fab738")),
+        "p" => Some(("OpenEdge ABL", "#5ce600")),
+        "p4" => Some(("P4", "#7055b5")),
+        "p6" => Some(("Raku", "#0000fb")),
+        "p6l" => Some(("Raku", "#0000fb")),
+        "p6m" => Some(("Raku", "#0000fb")),
+        "p8" => Some(("Lua", "#000080")),
+        "pac" => Some(("JavaScript", "#f1e05a")),
+        "pact" => Some(("Pact", "#F7A8B8")),
+        "pan" => Some(("Pan", "#cc0000")),
+        "parrot" => Some(("Parrot", "#f3ca0a")),
+        "pas" => Some(("Pascal", "#E3F171")),
+        "pascal" => Some(("Pascal", "#E3F171")),
+        "pat" => Some(("Max", "#c4a79c")),
+        "pb" => Some(("PureBasic", "#5a6986")),
+        "pbi" => Some(("PureBasic", "#5a6986")),
+        "pbt" => Some(("PowerBuilder", "#8f0f8d")),
+        "pcbdoc" => Some(("Altium Designer", "#A89663")),
+        "pck" => Some(("PLSQL", "#dad8d8")),
+        "pcss" => Some(("PostCSS", "#dc3a0c")),
+        "pd_lua" => Some(("Lua", "#000080")),
+        "pddl" => Some(("PDDL", "#0d00ff")),
+        "pde" => Some(("Processing", "#0096D8")),
+        "peggy" => Some(("PEG.js", "#234d6b")),
+        "pegjs" => Some(("PEG.js", "#234d6b")),
+        "pep" => Some(("Pep8", "#C76F5B")),
+        "per" => Some(("Genero per", "#d8df39")),
+        "perl" => Some(("Perl", "#0298c3")),
+        "pfa" => Some(("PostScript", "#da291c")),
+        "pgsql" => Some(("PLpgSQL", "#336790")),
+        "ph" => Some(("Perl", "#0298c3")),
+        "php" => Some(("Hack", "#878787")),
+        "php3" => Some(("PHP", "#4F5D95")),
+        "php4" => Some(("PHP", "#4F5D95")),
+        "php5" => Some(("PHP", "#4F5D95")),
+        "phps" => Some(("PHP", "#4F5D95")),
+        "phpt" => Some(("PHP", "#4F5D95")),
+        "phtml" => Some(("HTML+PHP", "#4f5d95")),
+        "pig" => Some(("PigLatin", "#fcd7de")),
+        "pike" => Some(("Pike", "#005390")),
+        "pkb" => Some(("PLSQL", "#dad8d8")),
+        "pkgproj" => Some(("XML", "#0060ac")),
+        "pkl" => Some(("Pkl", "#6b9543")),
+        "pks" => Some(("PLSQL", "#dad8d8")),
+        "pl" => Some(("Perl", "#0298c3")),
+        "pl6" => Some(("Raku", "#0000fb")),
+        "plantuml" => Some(("PlantUML", "#fbbd16")),
+        "plb" => Some(("PLSQL", "#dad8d8")),
+        "plist" => Some(("XML Property List", "#0060ac")),
+        "plot" => Some(("Gnuplot", "#f0a9f0")),
+        "pls" => Some(("PLSQL", "#dad8d8")),
+        "plsql" => Some(("PLSQL", "#dad8d8")),
+        "plt" => Some(("Gnuplot", "#f0a9f0")),
+        "pluginspec" => Some(("Ruby", "#701516")),
+        "plx" => Some(("Perl", "#0298c3")),
+        "pm" => Some(("Perl", "#0298c3")),
+        "pm6" => Some(("Raku", "#0000fb")),
+        "pml" => Some(("Promela", "#de0000")),
+        "pmod" => Some(("Pike", "#005390")),
+        "podsl" => Some(("Common Lisp", "#3fb68b")),
+        "podspec" => Some(("Ruby", "#701516")),
+        "pogo" => Some(("PogoScript", "#d80074")),
+        "polar" => Some(("Polar", "#ae81ff")),
+        "por" => Some(("Portugol", "#f8bd00")),
+        "postcss" => Some(("PostCSS", "#dc3a0c")),
+        "pov" => Some(("POV-Ray SDL", "#6bac65")),
+        "pp" => Some(("Puppet", "#302B6D")),
+        "pprx" => Some(("REXX", "#d90e09")),
+        "praat" => Some(("Praat", "#c8506d")),
+        "prawn" => Some(("Ruby", "#701516")),
+        "prc" => Some(("PLSQL", "#dad8d8")),
+        "prefab" => Some(("Unity3D Asset", "#222c37")),
+        "prefs" => Some(("INI", "#d1dbe0")),
+        "prg" => Some(("xBase", "#403a40")),
+        "prisma" => Some(("Prisma", "#0c344b")),
+        "prjpcb" => Some(("Altium Designer", "#A89663")),
+        "pro" => Some(("Prolog", "#74283c")),
+        "proj" => Some(("XML", "#0060ac")),
+        "prolog" => Some(("Prolog", "#74283c")),
+        "properties" => Some(("INI", "#d1dbe0")),
+        "props" => Some(("XML", "#0060ac")),
+        "prw" => Some(("xBase", "#403a40")),
+        "ps" => Some(("PostScript", "#da291c")),
+        "ps1" => Some(("PowerShell", "#012456")),
+        "ps1xml" => Some(("XML", "#0060ac")),
+        "psc" => Some(("Papyrus", "#6600cc")),
+        "psc1" => Some(("XML", "#0060ac")),
+        "psd1" => Some(("PowerShell", "#012456")),
+        "psgi" => Some(("Perl", "#0298c3")),
+        "psm1" => Some(("PowerShell", "#012456")),
+        "pt" => Some(("XML", "#0060ac")),
+        "pubxml" => Some(("XML", "#0060ac")),
+        "pug" => Some(("Pug", "#a86454")),
+        "puml" => Some(("PlantUML", "#fbbd16")),
+        "purs" => Some(("PureScript", "#1D222D")),
+        "pwn" => Some(("Pawn", "#dbb284")),
+        "pxd" => Some(("Cython", "#fedf5b")),
+        "pxi" => Some(("Cython", "#fedf5b")),
+        "py" => Some(("Python", "#3572A5")),
+        "py3" => Some(("Python", "#3572A5")),
+        "pyde" => Some(("Python", "#3572A5")),
+        "pyi" => Some(("Python", "#3572A5")),
+        "pyp" => Some(("Python", "#3572A5")),
+        "pyt" => Some(("Python", "#3572A5")),
+        "pytb" => Some(("Python traceback", "#3572A5")),
+        "pyw" => Some(("Python", "#3572A5")),
+        "pyx" => Some(("Cython", "#fedf5b")),
+        "q" => Some(("HiveQL", "#dce200")),
+        "qasm" => Some(("OpenQASM", "#AA70FF")),
+        "qbs" => Some(("QML", "#44a51c")),
+        "qc" => Some(("QuakeC", "#975777")),
+        "qhelp" => Some(("XML", "#0060ac")),
+        "ql" => Some(("CodeQL", "#140f46")),
+        "qll" => Some(("CodeQL", "#140f46")),
+        "qml" => Some(("QML", "#44a51c")),
+        "qs" => Some(("Q#", "#fed659")),
+        "r" => Some(("R", "#198CE7")),
+        "r2" => Some(("Rebol", "#358a5b")),
+        "r3" => Some(("Rebol", "#358a5b")),
+        "rabl" => Some(("Ruby", "#701516")),
+        "rake" => Some(("Ruby", "#701516")),
+        "raku" => Some(("Raku", "#0000fb")),
+        "rakumod" => Some(("Raku", "#0000fb")),
+        "raml" => Some(("RAML", "#77d9fb")),
+        "rascript" => Some(("RAScript", "#2C97FA")),
+        "razor" => Some(("HTML+Razor", "#512be4")),
+        "rb" => Some(("Ruby", "#701516")),
+        "rbi" => Some(("Ruby", "#701516")),
+        "rbs" => Some(("RBS", "#701516")),
+        "rbuild" => Some(("Ruby", "#701516")),
+        "rbw" => Some(("Ruby", "#701516")),
+        "rbx" => Some(("Ruby", "#701516")),
+        "rbxs" => Some(("Lua", "#000080")),
+        "rchit" => Some(("GLSL", "#5686a5")),
+        "rd" => Some(("R", "#198CE7")),
+        "rdf" => Some(("XML", "#0060ac")),
+        "re" => Some(("C++", "#f34b7d")),
+        "reb" => Some(("Rebol", "#358a5b")),
+        "rebol" => Some(("Rebol", "#358a5b")),
+        "red" => Some(("Red", "#f50000")),
+        "reds" => Some(("Red", "#f50000")),
+        "reek" => Some(("YAML", "#cb171e")),
+        "reg" => Some(("Windows Registry Entries", "#52d5ff")),
+        "regex" => Some(("Regular Expression", "#009a00")),
+        "regexp" => Some(("Regular Expression", "#009a00")),
+        "rego" => Some(("Open Policy Agent", "#7d9199")),
+        "rei" => Some(("Reason", "#ff5847")),
+        "religo" => Some(("ReasonLIGO", "#ff5847")),
+        "res" => Some(("ReScript", "#ed5051")),
+        "resi" => Some(("ReScript", "#ed5051")),
+        "resource" => Some(("RobotFramework", "#00c0b5")),
+        "resx" => Some(("XML", "#0060ac")),
+        "rex" => Some(("REXX", "#d90e09")),
+        "rexx" => Some(("REXX", "#d90e09")),
+        "rg" => Some(("Rouge", "#cc0088")),
+        "rhtml" => Some(("HTML+ERB", "#701516")),
+        "ring" => Some(("Ring", "#2D54CB")),
+        "riot" => Some(("Riot", "#A71E49")),
+        "rkt" => Some(("Racket", "#3c5caa")),
+        "rktd" => Some(("Racket", "#3c5caa")),
+        "rktl" => Some(("Racket", "#3c5caa")),
+        "rl" => Some(("Ragel", "#9d5200")),
+        "rmiss" => Some(("GLSL", "#5686a5")),
+        "rnh" => Some(("RUNOFF", "#665a4e")),
+        "rno" => Some(("RUNOFF", "#665a4e")),
+        "robot" => Some(("RobotFramework", "#00c0b5")),
+        "roc" => Some(("Roc", "#7c38f5")),
+        "rockspec" => Some(("Lua", "#000080")),
+        "roff" => Some(("Roff", "#ecdebe")),
+        "ron" => Some(("RON", "#a62c00")),
+        "rpgle" => Some(("RPGLE", "#2BDE21")),
+        "rpy" => Some(("Python", "#3572A5")),
+        "rq" => Some(("SPARQL", "#0C4597")),
+        "rs" => Some(("Rust", "#dea584")),
+        "rsc" => Some(("Rascal", "#fffaa0")),
+        "rss" => Some(("XML", "#0060ac")),
+        "rsx" => Some(("R", "#198CE7")),
+        "ru" => Some(("Ruby", "#701516")),
+        "ruby" => Some(("Ruby", "#701516")),
+        "rviz" => Some(("YAML", "#cb171e")),
+        "s" => Some(("Assembly", "#6E4C13")),
+        "sail" => Some(("Sail", "#259dd5")),
+        "sarif" => Some(("JSON", "#292929")),
+        "sas" => Some(("SAS", "#B34936")),
+        "sass" => Some(("Sass", "#a53b70")),
+        "sats" => Some(("ATS", "#1ac620")),
+        "sbatch" => Some(("Shell", "#89e051")),
+        "sbt" => Some(("Scala", "#c22d40")),
+        "sc" => Some(("Scala", "#c22d40")),
+        "scad" => Some(("OpenSCAD", "#e5cd45")),
+        "scala" => Some(("Scala", "#c22d40")),
+        "scaml" => Some(("Scaml", "#bd181a")),
+        "scd" => Some(("SuperCollider", "#46390b")),
+        "sce" => Some(("Scilab", "#ca0f21")),
+        "scenic" => Some(("Scenic", "#fdc700")),
+        "sch" => Some(("Scheme", "#1e4aec")),
+        "schdoc" => Some(("Altium Designer", "#A89663")),
+        "sci" => Some(("Scilab", "#ca0f21")),
+        "scm" => Some(("Scheme", "#1e4aec")),
+        "sco" => Some(("Csound Score", "#1a1a1a")),
+        "scpt" => Some(("AppleScript", "#101F1F")),
+        "scrbl" => Some(("Racket", "#3c5caa")),
+        "scss" => Some(("SCSS", "#c6538c")),
+        "scxml" => Some(("XML", "#0060ac")),
+        "sdc" => Some(("Tcl", "#e4cc98")),
+        "sed" => Some(("sed", "#64b970")),
+        "self" => Some(("Self", "#0579aa")),
+        "sexp" => Some(("Common Lisp", "#3fb68b")),
+        "sfproj" => Some(("XML", "#0060ac")),
+        "sfv" => Some(("Simple File Verification", "#C9BFED")),
+        "sh" => Some(("Shell", "#89e051")),
+        "shader" => Some(("GLSL", "#5686a5")),
+        "shen" => Some(("Shen", "#120F14")),
+        "shproj" => Some(("XML", "#0060ac")),
+        "sig" => Some(("Standard ML", "#dc566d")),
+        "sj" => Some(("Objective-J", "#ff0c5a")),
+        "sjs" => Some(("JavaScript", "#f1e05a")),
+        "sl" => Some(("Slash", "#007eff")),
+        "slang" => Some(("Slang", "#1fbec9")),
+        "sld" => Some(("Scheme", "#1e4aec")),
+        "slim" => Some(("Slim", "#2b2b2b")),
+        "slint" => Some(("Slint", "#2379F4")),
+        "slnx" => Some(("XML", "#0060ac")),
+        "sls" => Some(("SaltStack", "#646464")),
+        "slurm" => Some(("Shell", "#89e051")),
+        "sma" => Some(("Pawn", "#dbb284")),
+        "smithy" => Some(("Smithy", "#c44536")),
+        "smk" => Some(("Snakemake", "#419179")),
+        "sml" => Some(("Standard ML", "#dc566d")),
+        "snakefile" => Some(("Snakemake", "#419179")),
+        "snap" => Some(("Jest Snapshot", "#15c213")),
+        "snip" => Some(("Vim Snippet", "#199f4b")),
+        "snippet" => Some(("Vim Snippet", "#199f4b")),
+        "snippets" => Some(("Vim Snippet", "#199f4b")),
+        "sol" => Some(("Solidity", "#AA6746")),
+        "soy" => Some(("Closure Templates", "#0d948f")),
+        "sp" => Some(("SourcePawn", "#f69e1d")),
+        "sparql" => Some(("SPARQL", "#0C4597")),
+        "spc" => Some(("PLSQL", "#dad8d8")),
+        "spec" => Some(("Python", "#3572A5")),
+        "spin" => Some(("Propeller Spin", "#7fa2a7")),
+        "sps" => Some(("Scheme", "#1e4aec")),
+        "sqf" => Some(("SQF", "#3F3F3F")),
+        "sql" => Some(("SQL", "#e38c00")),
+        "sqlrpgle" => Some(("RPGLE", "#2BDE21")),
+        "sra" => Some(("PowerBuilder", "#8f0f8d")),
+        "srdf" => Some(("XML", "#0060ac")),
+        "srt" => Some(("SRecode Template", "#348a34")),
+        "sru" => Some(("PowerBuilder", "#8f0f8d")),
+        "srv" => Some(("ROS Interface", "#22314e")),
+        "srw" => Some(("PowerBuilder", "#8f0f8d")),
+        "ss" => Some(("Scheme", "#1e4aec")),
+        "ssjs" => Some(("JavaScript", "#f1e05a")),
+        "sss" => Some(("SugarSS", "#2fcc9f")),
+        "st" => Some(("Smalltalk", "#596706")),
+        "stan" => Some(("Stan", "#b2011d")),
+        "star" => Some(("Starlark", "#76d275")),
+        "sthlp" => Some(("Stata", "#1a5f91")),
+        "stl" => Some(("STL", "#373b5e")),
+        "story" => Some(("Gherkin", "#5B2063")),
+        "storyboard" => Some(("XML", "#0060ac")),
+        "sttheme" => Some(("XML Property List", "#0060ac")),
+        "sty" => Some(("TeX", "#3D6117")),
+        "styl" => Some(("Stylus", "#ff6347")),
+        "sublime-build" => Some(("JSON with Comments", "#292929")),
+        "sublime-color-scheme" => Some(("JSON with Comments", "#292929")),
+        "sublime-commands" => Some(("JSON with Comments", "#292929")),
+        "sublime-completions" => Some(("JSON with Comments", "#292929")),
+        "sublime-keymap" => Some(("JSON with Comments", "#292929")),
+        "sublime-macro" => Some(("JSON with Comments", "#292929")),
+        "sublime-menu" => Some(("JSON with Comments", "#292929")),
+        "sublime-mousemap" => Some(("JSON with Comments", "#292929")),
+        "sublime-project" => Some(("JSON with Comments", "#292929")),
+        "sublime-settings" => Some(("JSON with Comments", "#292929")),
+        "sublime-snippet" => Some(("XML", "#0060ac")),
+        "sublime-syntax" => Some(("YAML", "#cb171e")),
+        "sublime-theme" => Some(("JSON with Comments", "#292929")),
+        "sublime-workspace" => Some(("JSON with Comments", "#292929")),
+        "sublime_metrics" => Some(("JSON with Comments", "#292929")),
+        "sublime_session" => Some(("JSON with Comments", "#292929")),
+        "surql" => Some(("SurrealQL", "#ff00a0")),
+        "sv" => Some(("SystemVerilog", "#DAE1C2")),
+        "svelte" => Some(("Svelte", "#ff3e00")),
+        "svg" => Some(("SVG", "#ff9900")),
+        "svh" => Some(("SystemVerilog", "#DAE1C2")),
+        "svx" => Some(("mdsvex", "#5f9ea0")),
+        "sw" => Some(("Sway", "#00F58C")),
+        "swift" => Some(("Swift", "#F05138")),
+        "syntax" => Some(("YAML", "#cb171e")),
+        "t" => Some(("Perl", "#0298c3")),
+        "tab" => Some(("SQL", "#e38c00")),
+        "tac" => Some(("Python", "#3572A5")),
+        "tact" => Some(("Tact", "#48b5ff")),
+        "tag" => Some(("Java Server Pages", "#2A6277")),
+        "talon" => Some(("Talon", "#333333")),
+        "targets" => Some(("XML", "#0060ac")),
+        "tcc" => Some(("C++", "#f34b7d")),
+        "tcl" => Some(("Tcl", "#e4cc98")),
+        "templ" => Some(("templ", "#66D0DD")),
+        "tesc" => Some(("GLSL", "#5686a5")),
+        "tese" => Some(("GLSL", "#5686a5")),
+        "tex" => Some(("TeX", "#3D6117")),
+        "textgrid" => Some(("TextGrid", "#c8506d")),
+        "tf" => Some(("HCL", "#844FBA")),
+        "tfstate" => Some(("JSON", "#292929")),
+        "tftpl" => Some(("Terraform Template", "#7b42bb")),
+        "tfvars" => Some(("HCL", "#844FBA")),
+        "thor" => Some(("Ruby", "#701516")),
+        "thrift" => Some(("Thrift", "#D12127")),
+        "thy" => Some(("Isabelle", "#FEFE00")),
+        "tl" => Some(("Teal", "#00B1BC")),
+        "tla" => Some(("TLA", "#4b0079")),
+        "tlv" => Some(("TL-Verilog", "#C40023")),
+        "tm" => Some(("Tcl", "#e4cc98")),
+        "tmac" => Some(("Roff", "#ecdebe")),
+        "tmcommand" => Some(("XML Property List", "#0060ac")),
+        "tmdl" => Some(("TMDL", "#f0c913")),
+        "tml" => Some(("XML", "#0060ac")),
+        "tmlanguage" => Some(("XML Property List", "#0060ac")),
+        "tmpl" => Some(("Go Template", "#00ADD8")),
+        "tmpreferences" => Some(("XML Property List", "#0060ac")),
+        "tmsnippet" => Some(("XML Property List", "#0060ac")),
+        "tmtheme" => Some(("XML Property List", "#0060ac")),
+        "tmux" => Some(("Shell", "#89e051")),
+        "toc" => Some(("TeX", "#3D6117")),
+        "tofu" => Some(("HCL", "#844FBA")),
+        "toit" => Some(("Toit", "#c2c9fb")),
+        "toml" => Some(("TOML", "#9c4221")),
+        "tool" => Some(("Shell", "#89e051")),
+        "topojson" => Some(("JSON", "#292929")),
+        "tpb" => Some(("PLSQL", "#dad8d8")),
+        "tpl" => Some(("Smarty", "#f0c040")),
+        "tpp" => Some(("C++", "#f34b7d")),
+        "tps" => Some(("PLSQL", "#dad8d8")),
+        "tres" => Some(("Godot Resource", "#355570")),
+        "trg" => Some(("PLSQL", "#dad8d8")),
+        "trigger" => Some(("Apex", "#1797c0")),
+        "ts" => Some(("TypeScript", "#3178c6")),
+        "tscn" => Some(("Godot Resource", "#355570")),
+        "tsp" => Some(("TypeSpec", "#4A3665")),
+        "tst" => Some(("GAP", "#0000cc")),
+        "tsv" => Some(("TSV", "#237346")),
+        "tsx" => Some(("TSX", "#3178c6")),
+        "tu" => Some(("Turing", "#cf142b")),
+        "twig" => Some(("Twig", "#c1d026")),
+        "txl" => Some(("TXL", "#0178b8")),
+        "txx" => Some(("C++", "#f34b7d")),
+        "typ" => Some(("Typst", "#239dad")),
+        "uc" => Some(("UnrealScript", "#a54c4d")),
+        "udf" => Some(("SQL", "#e38c00")),
+        "udo" => Some(("Csound", "#1a1a1a")),
+        "ui" => Some(("XML", "#0060ac")),
+        "unity" => Some(("Unity3D Asset", "#222c37")),
+        "uno" => Some(("Uno", "#9933cc")),
+        "upc" => Some(("Unified Parallel C", "#4e3617")),
+        "uplc" => Some(("Untyped Plutus Core", "#36adbd")),
+        "ur" => Some(("UrWeb", "#ccccee")),
+        "urdf" => Some(("XML", "#0060ac")),
+        "url" => Some(("INI", "#d1dbe0")),
+        "urs" => Some(("UrWeb", "#ccccee")),
+        "ux" => Some(("XML", "#0060ac")),
+        "v" => Some(("Verilog", "#b2b7f8")),
+        "vala" => Some(("Vala", "#a56de2")),
+        "vapi" => Some(("Vala", "#a56de2")),
+        "vark" => Some(("Gosu", "#82937f")),
+        "vb" => Some(("Visual Basic .NET", "#945db7")),
+        "vba" => Some(("VBA", "#867db1")),
+        "vbhtml" => Some(("Visual Basic .NET", "#945db7")),
+        "vbproj" => Some(("XML", "#0060ac")),
+        "vbs" => Some(("VBScript", "#15dcdc")),
+        "vcf" => Some(("TSV", "#237346")),
+        "vcl" => Some(("VCL", "#148AA8")),
+        "vcxproj" => Some(("XML", "#0060ac")),
+        "vdf" => Some(("Valve Data Format", "#f26025")),
+        "veo" => Some(("Verilog", "#b2b7f8")),
+        "vert" => Some(("GLSL", "#5686a5")),
+        "vh" => Some(("SystemVerilog", "#DAE1C2")),
+        "vhd" => Some(("VHDL", "#adb2cb")),
+        "vhdl" => Some(("VHDL", "#adb2cb")),
+        "vhf" => Some(("VHDL", "#adb2cb")),
+        "vhi" => Some(("VHDL", "#adb2cb")),
+        "vho" => Some(("VHDL", "#adb2cb")),
+        "vhost" => Some(("ApacheConf", "#d12127")),
+        "vhs" => Some(("VHDL", "#adb2cb")),
+        "vht" => Some(("VHDL", "#adb2cb")),
+        "vhw" => Some(("VHDL", "#adb2cb")),
+        "vim" => Some(("Vim Script", "#199f4b")),
+        "vimrc" => Some(("Vim Script", "#199f4b")),
+        "viw" => Some(("SQL", "#e38c00")),
+        "vmb" => Some(("Vim Script", "#199f4b")),
+        "volt" => Some(("Volt", "#1F1F1F")),
+        "vrx" => Some(("GLSL", "#5686a5")),
+        "vs" => Some(("GLSL", "#5686a5")),
+        "vsh" => Some(("GLSL", "#5686a5")),
+        "vshader" => Some(("GLSL", "#5686a5")),
+        "vsixmanifest" => Some(("XML", "#0060ac")),
+        "vssettings" => Some(("XML", "#0060ac")),
+        "vstemplate" => Some(("XML", "#0060ac")),
+        "vtl" => Some(("Velocity Template Language", "#507cff")),
+        "vto" => Some(("Vento", "#ff0080")),
+        "vue" => Some(("Vue", "#41b883")),
+        "vw" => Some(("PLSQL", "#dad8d8")),
+        "vxml" => Some(("XML", "#0060ac")),
+        "vy" => Some(("Vyper", "#9F4CF2")),
+        "w" => Some(("CWeb", "#00007a")),
+        "wast" => Some(("WebAssembly", "#04133b")),
+        "wat" => Some(("WebAssembly", "#04133b")),
+        "watchr" => Some(("Ruby", "#701516")),
+        "wdl" => Some(("WDL", "#42f1f4")),
+        "webapp" => Some(("JSON", "#292929")),
+        "webmanifest" => Some(("JSON", "#292929")),
+        "wgsl" => Some(("WGSL", "#1a5e9a")),
+        "whiley" => Some(("Whiley", "#d5c397")),
+        "wisp" => Some(("wisp", "#7582D1")),
+        "wit" => Some(("WebAssembly Interface Type", "#6250e7")),
+        "wixproj" => Some(("XML", "#0060ac")),
+        "wl" => Some(("Wolfram Language", "#dd1100")),
+        "wlk" => Some(("Wollok", "#a23738")),
+        "wls" => Some(("Wolfram Language", "#dd1100")),
+        "wlt" => Some(("Wolfram Language", "#dd1100")),
+        "wlua" => Some(("Lua", "#000080")),
+        "workflow" => Some(("HCL", "#844FBA")),
+        "wren" => Some(("Wren", "#383838")),
+        "ws" => Some(("Witcher Script", "#ff0000")),
+        "wsdl" => Some(("XML", "#0060ac")),
+        "wsf" => Some(("XML", "#0060ac")),
+        "wsgi" => Some(("Python", "#3572A5")),
+        "wxi" => Some(("XML", "#0060ac")),
+        "wxl" => Some(("XML", "#0060ac")),
+        "wxs" => Some(("XML", "#0060ac")),
+        "x" => Some(("DirectX 3D File", "#aace60")),
+        "x10" => Some(("X10", "#4B6BEF")),
+        "x3d" => Some(("XML", "#0060ac")),
+        "x68" => Some(("Motorola 68K Assembly", "#005daa")),
+        "xacro" => Some(("XML", "#0060ac")),
+        "xaml" => Some(("XML", "#0060ac")),
+        "xc" => Some(("XC", "#99DA07")),
+        "xdc" => Some(("Tcl", "#e4cc98")),
+        "xht" => Some(("HTML", "#e34c26")),
+        "xhtml" => Some(("HTML", "#e34c26")),
+        "xib" => Some(("XML", "#0060ac")),
+        "xlf" => Some(("XML", "#0060ac")),
+        "xliff" => Some(("XML", "#0060ac")),
+        "xmi" => Some(("XML", "#0060ac")),
+        "xml" => Some(("XML", "#0060ac")),
+        "xmp" => Some(("XML", "#0060ac")),
+        "xojo_code" => Some(("Xojo", "#81bd41")),
+        "xojo_menu" => Some(("Xojo", "#81bd41")),
+        "xojo_report" => Some(("Xojo", "#81bd41")),
+        "xojo_script" => Some(("Xojo", "#81bd41")),
+        "xojo_toolbar" => Some(("Xojo", "#81bd41")),
+        "xojo_window" => Some(("Xojo", "#81bd41")),
+        "xproj" => Some(("XML", "#0060ac")),
+        "xpy" => Some(("Python", "#3572A5")),
+        "xq" => Some(("XQuery", "#5232e7")),
+        "xql" => Some(("XQuery", "#5232e7")),
+        "xqm" => Some(("XQuery", "#5232e7")),
+        "xquery" => Some(("XQuery", "#5232e7")),
+        "xqy" => Some(("XQuery", "#5232e7")),
+        "xrl" => Some(("Erlang", "#B83998")),
+        "xsd" => Some(("XML", "#0060ac")),
+        "xsh" => Some(("Xonsh", "#285EEF")),
+        "xsjs" => Some(("JavaScript", "#f1e05a")),
+        "xsjslib" => Some(("JavaScript", "#f1e05a")),
+        "xsl" => Some(("XSLT", "#EB8CEB")),
+        "xslt" => Some(("XSLT", "#EB8CEB")),
+        "xspec" => Some(("XML", "#0060ac")),
+        "xtend" => Some(("Xtend", "#24255d")),
+        "xul" => Some(("XML", "#0060ac")),
+        "xzap" => Some(("ZAP", "#0d665e")),
+        "y" => Some(("Yacc", "#4B6C4B")),
+        "yacc" => Some(("Yacc", "#4B6C4B")),
+        "yaml" => Some(("MiniYAML", "#ff1111")),
+        "yaml-tmlanguage" => Some(("YAML", "#cb171e")),
+        "yap" => Some(("Prolog", "#74283c")),
+        "yar" => Some(("YARA", "#220000")),
+        "yara" => Some(("YARA", "#220000")),
+        "yasnippet" => Some(("YASnippet", "#32AB90")),
+        "yml" => Some(("MiniYAML", "#ff1111")),
+        "yrl" => Some(("Erlang", "#B83998")),
+        "yul" => Some(("Yul", "#794932")),
+        "yy" => Some(("Yacc", "#4B6C4B")),
+        "yyp" => Some(("JSON", "#292929")),
+        "zap" => Some(("ZAP", "#0d665e")),
+        "zcml" => Some(("XML", "#0060ac")),
+        "zep" => Some(("Zephir", "#118f9e")),
+        "zig" => Some(("Zig", "#ec915c")),
+        "zil" => Some(("ZIL", "#dc75e5")),
+        "zimpl" => Some(("Zimpl", "#d67711")),
+        "zmodel" => Some(("Zmodel", "#ff7100")),
+        "zmpl" => Some(("Zimpl", "#d67711")),
+        "zpl" => Some(("Zimpl", "#d67711")),
+        "zs" => Some(("ZenScript", "#00BCD1")),
+        "zsh" => Some(("Shell", "#89e051")),
+        "zsh-theme" => Some(("Shell", "#89e051")),
+        _ => None,
+    }
+}
+
+#[derive(Serialize)]
+pub struct BlameEntry {
+    pub commit_hash: String,
+    pub short_hash: String,
+    pub author: String,
+    pub date: String,
+    pub timestamp: i64,
+    pub summary: String,
+    pub line_no: u32,
+    pub content: String,
+}
+
+fn format_blame_date(ts: i64) -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let diff = now - ts;
+    if diff < 60 {
+        "gerade eben".to_string()
+    } else if diff < 3600 {
+        format!("vor {} Min.", diff / 60)
+    } else if diff < 86400 {
+        format!("vor {} Std.", diff / 3600)
+    } else if diff < 86400 * 30 {
+        format!("vor {} Tagen", diff / 86400)
+    } else if diff < 86400 * 365 {
+        format!("vor {} Mon.", diff / (86400 * 30))
+    } else {
+        format!("vor {} J.", diff / (86400 * 365))
+    }
+}
+
+fn parse_blame_porcelain(output: &str) -> Vec<BlameEntry> {
+    let mut entries = Vec::new();
+    let mut commit_cache: HashMap<String, (String, String, i64, String)> = HashMap::new();
+    let mut iter = output.lines().peekable();
+
+    while let Some(header) = iter.next() {
+        let parts: Vec<&str> = header.splitn(4, ' ').collect();
+        if parts.len() < 3 || parts[0].len() != 40 {
+            continue;
+        }
+
+        let commit_hash = parts[0].to_string();
+        let line_no: u32 = parts[2].parse().unwrap_or(0);
+
+        let mut author_buf: Option<String> = None;
+        let mut ts_buf: Option<i64> = None;
+        let mut summary_buf: Option<String> = None;
+        let mut content = String::new();
+
+        loop {
+            match iter.next() {
+                Some(l) if l.starts_with('\t') => {
+                    content = l[1..].to_string();
+                    break;
+                }
+                Some(l) if l.starts_with("author ") && !l.starts_with("author-") => {
+                    author_buf = Some(l[7..].to_string());
+                }
+                Some(l) if l.starts_with("author-time ") => {
+                    if let Ok(ts) = l[12..].trim().parse::<i64>() {
+                        ts_buf = Some(ts);
+                    }
+                }
+                Some(l) if l.starts_with("summary ") => {
+                    summary_buf = Some(l[8..].to_string());
+                }
+                Some(_) => {}
+                None => break,
+            }
+        }
+
+        let (author, date, timestamp, summary) =
+            if let (Some(a), Some(ts), Some(s)) = (author_buf, ts_buf, summary_buf) {
+                let d = format_blame_date(ts);
+                commit_cache.insert(commit_hash.clone(), (a.clone(), d.clone(), ts, s.clone()));
+                (a, d, ts, s)
+            } else {
+                commit_cache
+                    .get(&commit_hash)
+                    .cloned()
+                    .map(|(a, d, ts, s)| (a, d, ts, s))
+                    .unwrap_or_default()
+            };
+
+        entries.push(BlameEntry {
+            short_hash: commit_hash[..8.min(commit_hash.len())].to_string(),
+            commit_hash,
+            author,
+            date,
+            timestamp,
+            summary,
+            line_no,
+            content,
+        });
+    }
+
+    entries
+}
+
+#[tauri::command]
+pub fn repo_blame(
+    path: String,
+    file: String,
+    commit: Option<String>,
+) -> Result<Vec<BlameEntry>, String> {
+    let repo = PathBuf::from(&path);
+    let mut args = vec!["blame", "--porcelain"];
+    if let Some(ref c) = commit {
+        args.push(c.as_str());
+    }
+    args.push("--");
+    args.push(file.as_str());
+    let output = run_git(&repo, &args)?;
+    Ok(parse_blame_porcelain(&output))
+}
+
+#[tauri::command]
+pub fn repo_language_stats(path: String) -> Result<Vec<LanguageStat>, String> {
+    let repo = PathBuf::from(path.trim());
+    let out = run_git(&repo, &["ls-tree", "-r", "-l", "HEAD"])?;
+
+    let mut byte_map: HashMap<&'static str, (u64, &'static str)> = HashMap::new();
+    let mut total_bytes: u64 = 0;
+
+    for line in out.lines() {
+        let parts: Vec<&str> = line.splitn(5, '\t').collect();
+        if parts.len() < 2 {
+            continue;
+        }
+        let meta_parts: Vec<&str> = parts[0].split_whitespace().collect();
+        if meta_parts.len() < 4 {
+            continue;
+        }
+        let size_str = meta_parts[3];
+        let Ok(size) = size_str.parse::<u64>() else {
+            continue;
+        };
+        let file_path = parts[1].trim();
+        let ext = file_path
+            .rsplit('.')
+            .next()
+            .map(|e| e.to_lowercase())
+            .unwrap_or_default();
+        let Some((lang, color)) = ext_to_language(&ext) else {
+            continue;
+        };
+        let entry = byte_map.entry(lang).or_insert((0, color));
+        entry.0 += size;
+        total_bytes += size;
+    }
+
+    if total_bytes == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut stats: Vec<LanguageStat> = byte_map
+        .into_iter()
+        .map(|(language, (bytes, color))| LanguageStat {
+            language: language.to_string(),
+            color: color.to_string(),
+            bytes,
+            percent: (bytes as f64 / total_bytes as f64) * 100.0,
+        })
+        .collect();
+
+    stats.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    Ok(stats)
+}
+
+// ── Submodules ──────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Clone)]
+pub struct SubmoduleEntry {
+    pub name: String,
+    pub path: String,
+    pub url: String,
+    pub commit: String,
+    pub status: String,
+    pub description: Option<String>,
+    pub branch: Option<String>,
+}
+
+fn parse_gitmodules(content: &str) -> Vec<(String, String, Option<String>, Option<String>)> {
+    let mut entries: Vec<(String, String, Option<String>, Option<String>)> = Vec::new();
+    let mut current_name: Option<String> = None;
+    let mut current_path: Option<String> = None;
+    let mut current_url: Option<String> = None;
+    let mut current_branch: Option<String> = None;
+
+    let flush = |name: Option<String>,
+                 path: Option<String>,
+                 url: Option<String>,
+                 branch: Option<String>,
+                 entries: &mut Vec<_>| {
+        if let Some(n) = name {
+            entries.push((n, path.unwrap_or_default(), url, branch));
+        }
+    };
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("[submodule") {
+            flush(current_name.take(), current_path.take(), current_url.take(), current_branch.take(), &mut entries);
+            if let (Some(s), Some(e)) = (line.find('"'), line.rfind('"')) {
+                if s < e {
+                    current_name = Some(line[s + 1..e].to_string());
+                }
+            }
+        } else if let Some((k, v)) = line.split_once('=') {
+            match k.trim() {
+                "path" => current_path = Some(v.trim().to_string()),
+                "url" => current_url = Some(v.trim().to_string()),
+                "branch" => current_branch = Some(v.trim().to_string()),
+                _ => {}
+            }
+        }
+    }
+    flush(current_name, current_path, current_url, current_branch, &mut entries);
+    entries
+}
+
+#[tauri::command]
+pub fn list_submodules(path: String) -> Result<Vec<SubmoduleEntry>, String> {
+    let repo = PathBuf::from(path.trim());
+
+    let gitmodules_content = std::fs::read_to_string(repo.join(".gitmodules")).unwrap_or_default();
+    let defs = parse_gitmodules(&gitmodules_content);
+
+    let mut by_path: HashMap<String, (String, Option<String>, Option<String>)> = HashMap::new();
+    for (name, mod_path, url, branch) in &defs {
+        by_path.insert(mod_path.clone(), (name.clone(), url.clone(), branch.clone()));
+    }
+
+    let status_out = run_git(&repo, &["submodule", "status"]).unwrap_or_default();
+
+    let mut entries: Vec<SubmoduleEntry> = Vec::new();
+    for line in status_out.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let prefix = &line[..1];
+        let rest = &line[1..];
+        let mut parts = rest.splitn(3, ' ');
+        let Some(commit) = parts.next() else { continue };
+        let Some(sub_path) = parts.next() else { continue };
+        let description = parts.next().map(|d| {
+            let d = d.trim();
+            if d.starts_with('(') && d.ends_with(')') {
+                d[1..d.len() - 1].to_string()
+            } else {
+                d.to_string()
+            }
+        });
+
+        let status = match prefix {
+            "+" => "modified",
+            "-" => "uninitialized",
+            "U" => "conflict",
+            _ => "initialized",
+        }
+        .to_string();
+
+        let (name, url, branch) = by_path
+            .get(sub_path)
+            .cloned()
+            .unwrap_or_else(|| (sub_path.to_string(), None, None));
+
+        entries.push(SubmoduleEntry {
+            name,
+            path: sub_path.to_string(),
+            url: url.unwrap_or_default(),
+            commit: commit.to_string(),
+            status,
+            description,
+            branch,
+        });
+    }
+
+    if entries.is_empty() && !defs.is_empty() {
+        for (name, mod_path, url, branch) in defs {
+            entries.push(SubmoduleEntry {
+                name,
+                path: mod_path,
+                url: url.unwrap_or_default(),
+                commit: String::new(),
+                status: "uninitialized".to_string(),
+                description: None,
+                branch,
+            });
+        }
+    }
+
+    Ok(entries)
+}
+
+#[tauri::command]
+pub fn git_submodule_init(path: String, submodule_path: Option<String>) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    let mut args = vec!["submodule", "init"];
+    let sub = submodule_path.unwrap_or_default();
+    if !sub.is_empty() {
+        args.push("--");
+        args.push(sub.as_str());
+    }
+    run_git_merged_output(&repo, &args)
+}
+
+#[tauri::command]
+pub fn git_submodule_update(
+    path: String,
+    submodule_path: Option<String>,
+    init: bool,
+    recursive: bool,
+) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    let mut args = vec!["submodule", "update"];
+    if init {
+        args.push("--init");
+    }
+    if recursive {
+        args.push("--recursive");
+    }
+    let sub = submodule_path.unwrap_or_default();
+    if !sub.is_empty() {
+        args.push("--");
+        args.push(sub.as_str());
+    }
+    run_git_merged_output(&repo, &args)
+}
+
+#[tauri::command]
+pub fn git_submodule_sync(
+    path: String,
+    submodule_path: Option<String>,
+) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    let mut args = vec!["submodule", "sync"];
+    let sub = submodule_path.unwrap_or_default();
+    if !sub.is_empty() {
+        args.push("--");
+        args.push(sub.as_str());
+    }
+    run_git_merged_output(&repo, &args)
+}
+
+#[tauri::command]
+pub fn git_submodule_add(
+    path: String,
+    url: String,
+    subpath: String,
+    name: Option<String>,
+    branch: Option<String>,
+) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    let mut args: Vec<String> = vec!["submodule".into(), "add".into()];
+    if let Some(b) = branch {
+        if !b.is_empty() {
+            args.push("-b".into());
+            args.push(b);
+        }
+    }
+    if let Some(n) = name {
+        if !n.is_empty() {
+            args.push("--name".into());
+            args.push(n);
+        }
+    }
+    args.push(url);
+    args.push(subpath);
+    let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    run_git_merged_output(&repo, &arg_refs)
+}
+
+#[tauri::command]
+pub fn git_submodule_deinit(
+    path: String,
+    submodule_path: String,
+    force: bool,
+) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    let mut args = vec!["submodule", "deinit"];
+    if force {
+        args.push("--force");
+    }
+    args.push("--");
+    args.push(submodule_path.as_str());
+    run_git_merged_output(&repo, &args)
+}

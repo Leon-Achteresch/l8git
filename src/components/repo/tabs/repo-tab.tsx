@@ -6,11 +6,12 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { RepoLanguageStats } from "./repo-language-stats";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GitBranch, Loader2, RefreshCw, X } from "lucide-react";
+import { ChartPie, GitBranch, Loader2, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type RepoTabProps = {
@@ -35,6 +36,7 @@ export function RepoTab({
   onReload,
 }: RepoTabProps) {
   const [iconBroken, setIconBroken] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   useEffect(() => {
     setIconBroken(false);
   }, [favicon]);
@@ -56,6 +58,7 @@ export function RepoTab({
   };
 
   return (
+    <>
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <button
@@ -121,11 +124,21 @@ export function RepoTab({
             {formatForDisplay("F5")} · {formatForDisplay("Mod+R")}
           </ContextMenuShortcut>
         </ContextMenuItem>
+        <ContextMenuItem onSelect={() => setLangOpen(true)}>
+          <ChartPie className="h-3.5 w-3.5" />
+          Sprachen anzeigen
+        </ContextMenuItem>
         <ContextMenuItem variant="destructive" onSelect={onClose}>
           <X className="h-3.5 w-3.5" />
           Schließen
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
+    <RepoLanguageStats
+      open={langOpen}
+      path={path}
+      onClose={() => setLangOpen(false)}
+    />
+    </>
   );
 }

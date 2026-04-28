@@ -8,10 +8,12 @@ export function CommitInspectFileList({
   files,
   selectedFile,
   onSelectFile,
+  onBlame,
 }: {
   files: CommitChangedFile[];
   selectedFile: string | null;
   onSelectFile: (path: string | null) => void;
+  onBlame?: (path: string) => void;
 }) {
   return (
     <div className="flex min-h-0 flex-col bg-muted/5">
@@ -25,6 +27,7 @@ export function CommitInspectFileList({
               onSelect={() =>
                 onSelectFile(selectedFile === file.path ? null : file.path)
               }
+              onBlame={onBlame ? () => onBlame(file.path) : undefined}
             />
           ))}
           {files.length === 0 ? (

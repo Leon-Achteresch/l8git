@@ -125,6 +125,22 @@ export type PullRequest = {
   provider: string;
 };
 
+export type SubmoduleStatus =
+  | "initialized"
+  | "modified"
+  | "uninitialized"
+  | "conflict";
+
+export type SubmoduleEntry = {
+  name: string;
+  path: string;
+  url: string;
+  commit: string;
+  status: SubmoduleStatus;
+  description: string | null;
+  branch: string | null;
+};
+
 type RepoState = {
   paths: string[];
   activePath: string | null;
@@ -140,6 +156,8 @@ type RepoState = {
   prs: Record<string, PullRequest[]>;
   prsLoading: Record<string, boolean>;
   cherryPickState: Record<string, CherryPickState>;
+  submodules: Record<string, SubmoduleEntry[]>;
+  submodulesLoading: Record<string, boolean>;
   loadPRs: (path: string) => Promise<void>;
   addRepo: (path: string) => Promise<string | null>;
   removeRepo: (path: string) => void;
@@ -213,6 +231,27 @@ type RepoState = {
   stashApply: (path: string, index: number) => Promise<string>;
   stashDrop: (path: string, index: number) => Promise<void>;
   stashBranch: (path: string, index: number, name: string) => Promise<string>;
+  reloadSubmodules: (path: string) => Promise<void>;
+  submoduleInit: (path: string, submodulePath?: string) => Promise<string>;
+  submoduleUpdate: (
+    path: string,
+    submodulePath?: string,
+    init?: boolean,
+    recursive?: boolean,
+  ) => Promise<string>;
+  submoduleSync: (path: string, submodulePath?: string) => Promise<string>;
+  submoduleAdd: (
+    path: string,
+    url: string,
+    subpath: string,
+    name?: string,
+    branch?: string,
+  ) => Promise<string>;
+  submoduleDeinit: (
+    path: string,
+    submodulePath: string,
+    force?: boolean,
+  ) => Promise<string>;
 };
 
 async function loadFavicon(path: string): Promise<string | null> {
@@ -274,6 +313,8 @@ export const useRepoStore = create<RepoState>()(
       prs: {},
       prsLoading: {},
       cherryPickState: {},
+      submodules: {},
+      submodulesLoading: {},
       commitSearchByPath: {},
 
       clearCommitSearch(path) {
@@ -972,6 +1013,71 @@ export const useRepoStore = create<RepoState>()(
           get().reloadStatus(path),
           get().reloadStashes(path),
         ]);
+        return out.trim();
+      },
+
+      async reloadSubmodules(path) {
+        set((s) => ({ submodulesLoading: { ...s.submodulesLoading, [path]: true } }));
+        try {
+          const list = await invoke<SubmoduleEntry[]>("list_submodules", { path });
+          set((s) => ({
+            submodules: { ...s.submodules, [path]: list },
+            submodulesLoading: { ...s.submodulesLoading, [path]: false },
+          }));
+        } catch (e) {
+          toastError(String(e));
+          set((s) => ({ submodulesLoading: { ...s.submodulesLoading, [path]: false } }));
+        }
+      },
+
+      async submoduleInit(path, submodulePath) {
+        const out = await invoke<string>("git_submodule_init", {
+          path,
+          submodulePath: submodulePath ?? null,
+        });
+        await get().reloadSubmodules(path);
+        return out.trim();
+      },
+
+      async submoduleUpdate(path, submodulePath, init = false, recursive = false) {
+        const out = await invoke<string>("git_submodule_update", {
+          path,
+          submodulePath: submodulePath ?? null,
+          init,
+          recursive,
+        });
+        await get().reloadSubmodules(path);
+        return out.trim();
+      },
+
+      async submoduleSync(path, submodulePath) {
+        const out = await invoke<string>("git_submodule_sync", {
+          path,
+          submodulePath: submodulePath ?? null,
+        });
+        await get().reloadSubmodules(path);
+        return out.trim();
+      },
+
+      async submoduleAdd(path, url, subpath, name, branch) {
+        const out = await invoke<string>("git_submodule_add", {
+          path,
+          url,
+          subpath,
+          name: name ?? null,
+          branch: branch ?? null,
+        });
+        await get().reloadSubmodules(path);
+        return out.trim();
+      },
+
+      async submoduleDeinit(path, submodulePath, force = false) {
+        const out = await invoke<string>("git_submodule_deinit", {
+          path,
+          submodulePath,
+          force,
+        });
+        await get().reloadSubmodules(path);
         return out.trim();
       },
 

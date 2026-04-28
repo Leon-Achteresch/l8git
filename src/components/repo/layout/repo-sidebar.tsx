@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   Archive,
+  FolderGit2,
   GitCommitHorizontal,
   GitPullRequest,
   History,
@@ -185,6 +186,13 @@ export function RepoSidebar() {
         : {}),
       label: "Stash",
       count: stashCount > 0 ? stashCount : undefined,
+    },
+    {
+      value: "submodules",
+      ...(REPO_SIDEBAR_ICONS_ENABLED
+        ? { icon: <FolderGit2 className="h-4 w-4" /> }
+        : {}),
+      label: "Submodule",
     },
   ];
 

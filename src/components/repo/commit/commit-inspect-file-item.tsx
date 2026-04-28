@@ -1,4 +1,10 @@
-import { FileCode2, Plus, Minus } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { FileCode2, GitCommitHorizontal, Minus, Plus } from "lucide-react";
 
 export type CommitChangedFile = {
   path: string;
@@ -11,15 +17,17 @@ export function CommitInspectFileItem({
   file,
   isSelected,
   onSelect,
+  onBlame,
 }: {
   file: CommitChangedFile;
   isSelected: boolean;
   onSelect: () => void;
+  onBlame?: () => void;
 }) {
   const baseName = file.path.split("/").pop() ?? file.path;
   const directory = file.path.split("/").slice(0, -1).join("/");
 
-  return (
+  const inner = (
     <div
       onClick={onSelect}
       className={`group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 ease-in-out ${
@@ -30,7 +38,9 @@ export function CommitInspectFileItem({
     >
       <FileCode2
         className={`h-4 w-4 shrink-0 transition-transform ${
-          isSelected ? "scale-110 text-primary" : "opacity-60 group-hover:opacity-100"
+          isSelected
+            ? "scale-110 text-primary"
+            : "opacity-60 group-hover:opacity-100"
         }`}
       />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -69,5 +79,17 @@ export function CommitInspectFileItem({
         )}
       </div>
     </div>
+  );
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={onBlame} disabled={!onBlame}>
+          <GitCommitHorizontal className="h-3.5 w-3.5" />
+          Git Blame anzeigen
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
