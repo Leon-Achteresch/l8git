@@ -13,6 +13,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { StashCreateDialog } from "@/components/repo/stash/stash-create-dialog";
+import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { UnifiedDiffBody } from "./unified-diff-body";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
 import { toastError } from "@/lib/error-toast";
@@ -27,6 +28,7 @@ import {
   FileDiff,
   FileMinus,
   FilePlus,
+  GitCommitHorizontal,
   Loader2,
   MinusSquare,
   RefreshCw,
@@ -126,12 +128,14 @@ function FileRowInner({
   onSelect,
   onToggle,
   onDiscard,
+  onBlame,
 }: {
   row: ChangeRow;
   selected: boolean;
   onSelect: (id: string) => void;
   onToggle: (entry: StatusEntry) => void;
   onDiscard: (path: string) => void;
+  onBlame: (path: string) => void;
 }) {
   const state = checkState(row.entry);
   const additions =
@@ -193,6 +197,10 @@ function FileRowInner({
     <ContextMenu>
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem onSelect={() => onBlame(row.path)}>
+          <GitCommitHorizontal className="h-3.5 w-3.5" />
+          Git Blame anzeigen
+        </ContextMenuItem>
         <ContextMenuItem
           variant="destructive"
           onSelect={() => onDiscard(row.path)}
@@ -307,6 +315,7 @@ export function CommitPanel() {
   const [diffPayload, setDiffPayload] = useState<FileDiffResponse | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffFailed, setDiffFailed] = useState(false);
+  const [blameTarget, setBlameTarget] = useState<string | null>(null);
 
   const seedMessageFromTemplate = useCallback(() => {
     const raw = getCommitMessageTemplate();
@@ -471,6 +480,9 @@ export function CommitPanel() {
   const stableOnToggleRow = useCallback((entry: StatusEntry) => {
     void toggleEntryRef.current(entry);
   }, []);
+  const stableOnBlame = useCallback((path: string) => {
+    setBlameTarget(path);
+  }, []);
 
   const toggleAll = async () => {
     if (!activePath || entries.length === 0) return;
@@ -538,7 +550,16 @@ export function CommitPanel() {
   });
 
   return (
-    <div className="flex h-full flex-col gap-3 p-3">
+    <div className="relative flex h-full flex-col gap-3 p-3">
+      {blameTarget && activePath && (
+        <div className="absolute inset-0 z-50 overflow-hidden rounded-xl">
+          <GitBlameSheet
+            path={activePath}
+            file={blameTarget}
+            onClose={() => setBlameTarget(null)}
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-2.5">
           <Check className="h-[18px] w-[18px] self-center text-muted-foreground" />
@@ -610,6 +631,7 @@ export function CommitPanel() {
                         onSelect={stableOnSelectRow}
                         onToggle={stableOnToggleRow}
                         onDiscard={discardOne}
+                        onBlame={stableOnBlame}
                       />
                     ))}
                   </div>
@@ -629,6 +651,7 @@ export function CommitPanel() {
                         onSelect={stableOnSelectRow}
                         onToggle={stableOnToggleRow}
                         onDiscard={discardOne}
+                        onBlame={stableOnBlame}
                       />
                     ))}
                   </div>

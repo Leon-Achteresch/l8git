@@ -117,7 +117,9 @@ pub fn run() {
             pr::pr_merge,
             pr::pr_checkout,
             watcher::watch_repo,
-            watcher::unwatch_repo
+            watcher::unwatch_repo,
+            git::repo_language_stats,
+            git::repo_blame
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
