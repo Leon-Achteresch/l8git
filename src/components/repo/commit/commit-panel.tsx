@@ -18,6 +18,7 @@ import {
   Loader2,
   RefreshCw,
   Send,
+  Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
@@ -27,6 +28,7 @@ import {
   checkState,
   type FileDiffResponse,
 } from "./commit-panel-types";
+import { generateAiCommitMessage, type DiffEntry } from "@/lib/ai-commit";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 
@@ -43,6 +45,7 @@ export function CommitPanel() {
 
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [diffPayload, setDiffPayload] = useState<FileDiffResponse | null>(null);
@@ -240,6 +243,36 @@ export function CommitPanel() {
     [activePath, discardFiles],
   );
 
+  const onGenerateAiMessage = useCallback(async () => {
+    if (!activePath || stagedRows.length === 0) return;
+    setAiGenerating(true);
+    try {
+      const diffs: DiffEntry[] = [];
+      for (const row of stagedRows) {
+        if (row.entry.binary) continue;
+        try {
+          const r = await invoke<FileDiffResponse>("repo_file_diff", {
+            path: activePath,
+            file: row.path,
+            untracked: row.entry.untracked,
+          });
+          const diff = r.staged ?? r.untracked_plain ?? "";
+          if (diff.trim()) {
+            diffs.push({ path: row.path, content: diff });
+          }
+        } catch {
+          // Einzelne Datei überspringen
+        }
+      }
+      const msg = await generateAiCommitMessage(diffs);
+      setMessage(msg);
+    } catch (e) {
+      toastError(String(e));
+    } finally {
+      setAiGenerating(false);
+    }
+  }, [activePath, stagedRows]);
+
   const onCommit = async () => {
     if (!canCommit || !activePath) return;
     setCommitting(true);
@@ -366,6 +399,22 @@ export function CommitPanel() {
             className="resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
           <div className="absolute bottom-2 right-2 flex items-center gap-2">
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              title="Commit-Nachricht mit AI generieren"
+              aria-label="AI generieren"
+              disabled={stagedRows.length === 0 || aiGenerating}
+              onClick={() => void onGenerateAiMessage()}
+              className="h-9 w-9 rounded-md border-border/60 bg-background/80"
+            >
+              {aiGenerating ? (
+                <Loader2 className="h-[18px] w-[18px] animate-spin" />
+              ) : (
+                <Sparkles className="h-[18px] w-[18px]" />
+              )}
+            </Button>
             <Button
               type="button"
               size="icon"

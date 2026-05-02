@@ -11,6 +11,7 @@ import {
   Palette,
   Plus,
   RefreshCw,
+  Sparkles,
   Sun,
   Terminal,
   Users,
@@ -37,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { checkForAppUpdate } from "@/lib/app-updater";
 import { useCommitPrefs } from "@/lib/commit-prefs";
+import { DEFAULT_AI_PROMPT_TEMPLATE } from "@/lib/ai-commit";
 import { useGitAccounts } from "@/lib/git-accounts";
 import type { Theme } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
@@ -95,15 +97,31 @@ function Settings() {
   const setShowConventionalCommitIcons = useCommitPrefs(
     (s) => s.setShowConventionalCommitIcons,
   );
+  const aiPromptTemplate = useCommitPrefs((s) => s.aiPromptTemplate);
+  const setAiPromptTemplate = useCommitPrefs((s) => s.setAiPromptTemplate);
+  const aiOutputLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
+  const setAiOutputLanguage = useCommitPrefs((s) => s.setAiOutputLanguage);
+
   const [commitTemplateDraft, setCommitTemplateDraft] =
     useState(messageTemplate);
+  const [aiPromptDraft, setAiPromptDraft] = useState(aiPromptTemplate);
+  const [aiLanguageDraft, setAiLanguageDraft] = useState(aiOutputLanguage);
 
   useEffect(() => {
     setCommitTemplateDraft(messageTemplate);
   }, [messageTemplate]);
 
+  useEffect(() => {
+    setAiPromptDraft(aiPromptTemplate);
+  }, [aiPromptTemplate]);
+
+  useEffect(() => {
+    setAiLanguageDraft(aiOutputLanguage);
+  }, [aiOutputLanguage]);
+
   const signedInAccounts = accounts.filter((a) => a.signed_in);
   const commitTemplateDirty = commitTemplateDraft !== messageTemplate;
+  const aiPromptDirty = aiPromptDraft !== aiPromptTemplate || aiLanguageDraft !== aiOutputLanguage;
 
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
   const setIdeLaunchCommand = useWorkspacePrefs((s) => s.setIdeLaunchCommand);
@@ -396,6 +414,71 @@ function Settings() {
                         type="button"
                         disabled={!commitTemplateDirty}
                         onClick={() => setMessageTemplate(commitTemplateDraft)}
+                      >
+                        Speichern
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={4}>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="size-4 text-muted-foreground" />
+                      <CardTitle>AI Commit-Nachricht</CardTitle>
+                    </div>
+                    <CardDescription>
+                      Anweisungen und Ausgabesprache für die automatische
+                      Commit-Generierung. Leer lassen, um die Standard-Vorlage
+                      zu verwenden.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-language" className="text-sm font-medium">
+                        Ausgabesprache
+                      </Label>
+                      <Input
+                        id="ai-language"
+                        value={aiLanguageDraft}
+                        onChange={(e) => setAiLanguageDraft(e.target.value)}
+                        placeholder="English"
+                        className="font-mono text-sm"
+                        spellCheck={false}
+                        autoCorrect="off"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        z. B. „German", „Deutsch", „French", „English" (Standard)
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-prompt" className="text-sm font-medium">
+                        System-Prompt
+                      </Label>
+                      <Textarea
+                        id="ai-prompt"
+                        value={aiPromptDraft}
+                        onChange={(e) => setAiPromptDraft(e.target.value)}
+                        rows={8}
+                        placeholder={DEFAULT_AI_PROMPT_TEMPLATE}
+                        className="font-mono text-sm min-h-[180px]"
+                        spellCheck={false}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Leer lassen, um den Standard-Prompt zu verwenden. Die
+                        Ausgabesprache wird immer automatisch ergänzt.
+                      </p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        disabled={!aiPromptDirty}
+                        onClick={() => {
+                          setAiPromptTemplate(aiPromptDraft);
+                          setAiOutputLanguage(aiLanguageDraft);
+                        }}
                       >
                         Speichern
                       </Button>

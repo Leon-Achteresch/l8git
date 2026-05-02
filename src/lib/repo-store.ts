@@ -1141,21 +1141,19 @@ function scheduleRemoteCommitAvatars(repoPath: string, commits: Commit[]) {
       if (commitAvatarGeneration.get(repoPath) !== gen) return s;
       const r = s.repos[repoPath];
       if (!r) return s;
-      const avatarByHash = new Map(
-        merged.map((c) => [c.hash, c.author_avatar ?? null] as const),
+      const newAvatars = new Map<string, string | null>(
+        merged
+          .filter((c) => c.author_avatar != null)
+          .map((c) => [c.hash, c.author_avatar!] as const),
+      );
+      if (newAvatars.size === 0) return s;
+      const updatedCommits = r.commits.map((c) =>
+        newAvatars.has(c.hash) ? { ...c, author_avatar: newAvatars.get(c.hash) } : c,
       );
       return {
         repos: {
           ...s.repos,
-          [repoPath]: {
-            ...r,
-            commits: r.commits.map((c) => ({
-              ...c,
-              author_avatar: avatarByHash.has(c.hash)
-                ? (avatarByHash.get(c.hash) ?? c.author_avatar)
-                : c.author_avatar,
-            })),
-          },
+          [repoPath]: { ...r, commits: updatedCommits },
         },
       };
     });

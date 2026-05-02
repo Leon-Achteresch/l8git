@@ -8,33 +8,32 @@ import {
 } from "@/components/ui/context-menu";
 import { RepoLanguageStats } from "./repo-language-stats";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
+import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChartPie, GitBranch, Loader2, RefreshCw, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 
 type RepoTabProps = {
   path: string;
   label: string;
   active: boolean;
-  loading: boolean;
-  favicon?: string | null;
   onSelect: () => void;
   onClose: () => void;
   onReload: () => void;
 };
 
-export function RepoTab({
+function RepoTabInner({
   path,
   label,
   active,
-  loading,
-  favicon,
   onSelect,
   onClose,
   onReload,
 }: RepoTabProps) {
+  const loading = useRepoStore((s) => !!s.loading[path]);
+  const favicon = useRepoStore((s) => s.favicons[path] ?? null);
   const [iconBroken, setIconBroken] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   useEffect(() => {
@@ -142,3 +141,5 @@ export function RepoTab({
     </>
   );
 }
+
+export const RepoTab = memo(RepoTabInner);

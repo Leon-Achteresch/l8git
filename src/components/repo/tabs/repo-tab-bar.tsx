@@ -13,12 +13,11 @@ import {
 import { useRepoStore, repoLabel } from "@/lib/repo-store";
 import { RepoTab } from "./repo-tab";
 import { AddRepoButton } from "./add-repo-button";
+import { useCallback, useMemo } from "react";
 
 export function RepoTabBar() {
   const paths = useRepoStore((s) => s.paths);
   const activePath = useRepoStore((s) => s.activePath);
-  const loading = useRepoStore((s) => s.loading);
-  const favicons = useRepoStore((s) => s.favicons);
   const setActive = useRepoStore((s) => s.setActive);
   const removeRepo = useRepoStore((s) => s.removeRepo);
   const reload = useRepoStore((s) => s.reload);
@@ -28,14 +27,32 @@ export function RepoTabBar() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const from = paths.indexOf(String(active.id));
-    const to = paths.indexOf(String(over.id));
-    if (from < 0 || to < 0) return;
-    reorderRepos(from, to);
-  }
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const from = paths.indexOf(String(active.id));
+      const to = paths.indexOf(String(over.id));
+      if (from < 0 || to < 0) return;
+      reorderRepos(from, to);
+    },
+    [paths, reorderRepos],
+  );
+
+  const tabHandlers = useMemo(
+    () =>
+      new Map(
+        paths.map((p) => [
+          p,
+          {
+            onSelect: () => setActive(p),
+            onClose: () => removeRepo(p),
+            onReload: () => void reload(p),
+          },
+        ]),
+      ),
+    [paths, setActive, removeRepo, reload],
+  );
 
   return (
     <div className="relative flex min-h-0 min-w-0 items-stretch border-b bg-muted/30">
@@ -50,19 +67,20 @@ export function RepoTabBar() {
               items={paths}
               strategy={horizontalListSortingStrategy}
             >
-              {paths.map((p) => (
-                <RepoTab
-                  key={p}
-                  path={p}
-                  label={repoLabel(p)}
-                  active={p === activePath}
-                  loading={!!loading[p]}
-                  favicon={favicons[p]}
-                  onSelect={() => setActive(p)}
-                  onClose={() => removeRepo(p)}
-                  onReload={() => void reload(p)}
-                />
-              ))}
+              {paths.map((p) => {
+                const handlers = tabHandlers.get(p)!;
+                return (
+                  <RepoTab
+                    key={p}
+                    path={p}
+                    label={repoLabel(p)}
+                    active={p === activePath}
+                    onSelect={handlers.onSelect}
+                    onClose={handlers.onClose}
+                    onReload={handlers.onReload}
+                  />
+                );
+              })}
             </SortableContext>
           </DndContext>
         </div>

@@ -34,6 +34,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export const REPO_SIDEBAR_ICONS_ENABLED = true;
 
+const ICON_COMMIT = <GitCommitHorizontal className="h-4 w-4" />;
+const ICON_HISTORY = <History className="h-4 w-4" />;
+const ICON_PR = <GitPullRequest className="h-4 w-4" />;
+const ICON_CI = <ListChecks className="h-4 w-4" />;
+const ICON_STASH = <Archive className="h-4 w-4" />;
+const ICON_SUBMODULES = <FolderGit2 className="h-4 w-4" />;
+
 export function RepoSidebar() {
   const activePath = useRepoStore((s) => s.activePath);
   const repo = useRepoStore((s) => (activePath ? s.repos[activePath] : null));
@@ -66,6 +73,32 @@ export function RepoSidebar() {
   const [isResizing, setIsResizing] = useState(false);
   const [newBranchOpen, setNewBranchOpen] = useState(false);
   const [branchQuery, setBranchQuery] = useState("");
+
+  const onDelete = useCallback(
+    async (b: Branch, force: boolean) => {
+      if (!activePath) return;
+      try {
+        await deleteBranch(activePath, b.name, force);
+      } catch (e) {
+        const msg = String(e);
+        if (!force && /not fully merged/i.test(msg)) {
+          const ok = window.confirm(
+            `Branch "${b.name}" ist nicht gemerged. Trotzdem löschen?`,
+          );
+          if (ok) {
+            try {
+              await deleteBranch(activePath, b.name, true);
+            } catch (e2) {
+              toastError(`Löschen fehlgeschlagen: ${String(e2)}`);
+            }
+          }
+          return;
+        }
+        toastError(`Löschen fehlgeschlagen: ${msg}`);
+      }
+    },
+    [activePath, deleteBranch],
+  );
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -125,76 +158,56 @@ export function RepoSidebar() {
   );
   const totalTags = tags?.length ?? 0;
 
+  const tabClickHandlers = useMemo(
+    () =>
+      new Map<SidebarTab, () => void>(
+        (
+          ["commit", "history", "pr", "ci", "stash", "submodules"] as SidebarTab[]
+        ).map((v) => [v, () => setSidebarTab(v)]),
+      ),
+    [setSidebarTab],
+  );
+
+  const tabs = useMemo(
+    () => [
+      {
+        value: "commit" as SidebarTab,
+        icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_COMMIT : undefined,
+        label: "Commit",
+        count: pendingCommitCount > 0 ? pendingCommitCount : undefined,
+      },
+      {
+        value: "history" as SidebarTab,
+        icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_HISTORY : undefined,
+        label: "History",
+      },
+      {
+        value: "pr" as SidebarTab,
+        icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_PR : undefined,
+        label: "Pull Requests",
+        count: prCount > 0 ? prCount : undefined,
+      },
+      {
+        value: "ci" as SidebarTab,
+        icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_CI : undefined,
+        label: "CI",
+      },
+      {
+        value: "stash" as SidebarTab,
+        icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_STASH : undefined,
+        label: "Stash",
+        count: stashCount > 0 ? stashCount : undefined,
+      },
+      {
+        value: "submodules" as SidebarTab,
+        icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_SUBMODULES : undefined,
+        label: "Submodule",
+      },
+    ],
+    [pendingCommitCount, prCount, stashCount],
+  );
+
   if (!repo || !activePath) return null;
-
-  const onDelete = async (b: Branch, force: boolean) => {
-    try {
-      await deleteBranch(activePath, b.name, force);
-    } catch (e) {
-      const msg = String(e);
-      if (!force && /not fully merged/i.test(msg)) {
-        const ok = window.confirm(
-          `Branch "${b.name}" ist nicht gemerged. Trotzdem löschen?`,
-        );
-        if (ok) await onDelete(b, true);
-        return;
-      }
-      toastError(`Löschen fehlgeschlagen: ${msg}`);
-    }
-  };
-
-  const tabs: Array<{
-    value: SidebarTab;
-    icon?: React.ReactNode;
-    label: string;
-    count?: number;
-  }> = [
-    {
-      value: "commit",
-      ...(REPO_SIDEBAR_ICONS_ENABLED
-        ? { icon: <GitCommitHorizontal className="h-4 w-4" /> }
-        : {}),
-      label: "Commit",
-      count: pendingCommitCount > 0 ? pendingCommitCount : undefined,
-    },
-    {
-      value: "history",
-      ...(REPO_SIDEBAR_ICONS_ENABLED
-        ? { icon: <History className="h-4 w-4" /> }
-        : {}),
-      label: "History",
-    },
-    {
-      value: "pr",
-      ...(REPO_SIDEBAR_ICONS_ENABLED
-        ? { icon: <GitPullRequest className="h-4 w-4" /> }
-        : {}),
-      label: "Pull Requests",
-      count: prCount > 0 ? prCount : undefined,
-    },
-    {
-      value: "ci",
-      ...(REPO_SIDEBAR_ICONS_ENABLED
-        ? { icon: <ListChecks className="h-4 w-4" /> }
-        : {}),
-      label: "CI",
-    },
-    {
-      value: "stash",
-      ...(REPO_SIDEBAR_ICONS_ENABLED
-        ? { icon: <Archive className="h-4 w-4" /> }
-        : {}),
-      label: "Stash",
-      count: stashCount > 0 ? stashCount : undefined,
-    },
-    {
-      value: "submodules",
-      ...(REPO_SIDEBAR_ICONS_ENABLED
-        ? { icon: <FolderGit2 className="h-4 w-4" /> }
-        : {}),
-      label: "Submodule",
-    },
-  ];
 
   const hasQuery = branchQuery.trim().length > 0;
   const hasAnyMatch =
@@ -220,7 +233,7 @@ export function RepoSidebar() {
                   icon={tab.icon}
                   label={tab.label}
                   count={tab.count}
-                  onClick={() => setSidebarTab(tab.value)}
+                  onClick={tabClickHandlers.get(tab.value)!}
                 />
               </li>
             ))}
