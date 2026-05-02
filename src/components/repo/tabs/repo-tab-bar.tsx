@@ -38,34 +38,39 @@ export function RepoTabBar() {
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 items-center gap-1 border-b">
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={paths}
-            strategy={horizontalListSortingStrategy}
+    <div className="relative flex min-h-0 min-w-0 items-stretch border-b bg-muted/30">
+      <div className="relative flex min-w-0 flex-1 items-end overflow-x-auto [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-end gap-0.5 px-1 pt-1">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            {paths.map((p) => (
-              <RepoTab
-                key={p}
-                path={p}
-                label={repoLabel(p)}
-                active={p === activePath}
-                loading={!!loading[p]}
-                favicon={favicons[p]}
-                onSelect={() => setActive(p)}
-                onClose={() => removeRepo(p)}
-                onReload={() => void reload(p)}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+            <SortableContext
+              items={paths}
+              strategy={horizontalListSortingStrategy}
+            >
+              {paths.map((p) => (
+                <RepoTab
+                  key={p}
+                  path={p}
+                  label={repoLabel(p)}
+                  active={p === activePath}
+                  loading={!!loading[p]}
+                  favicon={favicons[p]}
+                  onSelect={() => setActive(p)}
+                  onClose={() => removeRepo(p)}
+                  onReload={() => void reload(p)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-muted/60 to-transparent" />
       </div>
-      <AddRepoButton />
+      <div className="flex shrink-0 items-center px-1">
+        <AddRepoButton />
+      </div>
     </div>
   );
 }
