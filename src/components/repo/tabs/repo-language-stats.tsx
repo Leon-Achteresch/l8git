@@ -40,21 +40,33 @@ export function RepoLanguageStats({
   if (!open) return null;
 
   const top = stats.slice(0, 10);
+  const totalBytes = top.reduce((s, x) => s + x.bytes, 0);
+
+  function formatBytes(b: number): string {
+    if (b >= 1_000_000) return `${(b / 1_000_000).toFixed(1)} MB`;
+    if (b >= 1_000) return `${(b / 1_000).toFixed(1)} KB`;
+    return `${b} B`;
+  }
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Sprachverteilung"
-      className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4"
+      className="fixed inset-0 z-[100] grid place-items-center bg-black/50 p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-border bg-card p-4 shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-border bg-card p-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-4 flex items-center justify-between gap-2">
-          <h2 className="font-heading text-base font-medium">Sprachen</h2>
+          <div>
+            <h2 className="text-sm font-semibold">Sprachen</h2>
+            {totalBytes > 0 && !loading && (
+              <p className="text-xs text-muted-foreground">{formatBytes(totalBytes)} gesamt</p>
+            )}
+          </div>
           <Button
             type="button"
             variant="ghost"
@@ -84,25 +96,26 @@ export function RepoLanguageStats({
 
         {!loading && top.length > 0 && (
           <div className="space-y-3">
-            <div className="flex h-2.5 w-full overflow-hidden rounded-full">
+            <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-md">
               {top.map((s) => (
                 <div
                   key={s.language}
                   style={{ width: `${s.percent}%`, backgroundColor: s.color }}
                   title={`${s.language}: ${s.percent.toFixed(1)}%`}
+                  className="first:rounded-l-md last:rounded-r-md"
                 />
               ))}
             </div>
 
-            <ul className="space-y-1.5">
+            <ul className="space-y-2">
               {top.map((s) => (
-                <li key={s.language} className="flex items-center gap-2 text-sm">
+                <li key={s.language} className="flex items-center gap-2.5 text-sm">
                   <span
-                    className="h-3 w-3 shrink-0 rounded-full"
+                    className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10"
                     style={{ backgroundColor: s.color }}
                   />
-                  <span className="min-w-0 flex-1 truncate">{s.language}</span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate text-[13px]">{s.language}</span>
+                  <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
                     {s.percent.toFixed(1)}%
                   </span>
                 </li>

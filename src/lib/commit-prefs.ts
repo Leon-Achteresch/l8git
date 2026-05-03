@@ -6,6 +6,10 @@ type CommitPrefs = {
   setMessageTemplate: (value: string) => void;
   showConventionalCommitIcons: boolean;
   setShowConventionalCommitIcons: (value: boolean) => void;
+  aiPromptTemplate: string;
+  setAiPromptTemplate: (value: string) => void;
+  aiOutputLanguage: string;
+  setAiOutputLanguage: (value: string) => void;
 };
 
 export const useCommitPrefs = create<CommitPrefs>()(
@@ -16,6 +20,10 @@ export const useCommitPrefs = create<CommitPrefs>()(
       showConventionalCommitIcons: true,
       setShowConventionalCommitIcons: (showConventionalCommitIcons) =>
         set({ showConventionalCommitIcons }),
+      aiPromptTemplate: "",
+      setAiPromptTemplate: (value) => set({ aiPromptTemplate: value }),
+      aiOutputLanguage: "English",
+      setAiOutputLanguage: (value) => set({ aiOutputLanguage: value }),
     }),
     {
       name: "l8git-commit-prefs",

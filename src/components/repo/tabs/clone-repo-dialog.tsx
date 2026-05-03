@@ -9,10 +9,26 @@ import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
 import { open as pickDirectory } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, Loader2, X } from "lucide-react";
+import { ChevronLeft, FolderOpen, Link2, Loader2, Server, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CloneRemoteRepoList } from "./clone-remote-repo-list";
+
+function GithubIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z" />
+    </svg>
+  );
+}
+
+function GitlabIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="m21.94 13.11-1.02-3.15-2.07-6.38a.5.5 0 0 0-.96.01L15.8 9.15H8.21L6.1 3.59a.5.5 0 0 0-.96-.01L3.07 9.97l-1.02 3.15a1.01 1.01 0 0 0 .37 1.13L12 21l9.58-6.75a1 1 0 0 0 .36-1.14" />
+    </svg>
+  );
+}
 
 const SPINNER_DELAY_MS = 200;
 
@@ -33,6 +49,38 @@ const API_HOSTS = {
 } as const;
 
 const BUILTIN_API_HOSTS = new Set<string>(Object.values(API_HOSTS));
+
+type PlatformCardProps = {
+  icon: React.ReactNode;
+  label: string;
+  sublabel?: string;
+  disabled?: boolean;
+  onClick: () => void;
+};
+
+function PlatformCard({ icon, label, sublabel, disabled, onClick }: PlatformCardProps) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-border/80 hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-40"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground transition-colors group-hover:bg-muted/80">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium leading-tight">{label}</span>
+        {sublabel && (
+          <span className="block truncate text-xs text-muted-foreground">{sublabel}</span>
+        )}
+      </span>
+      {disabled && (
+        <span className="shrink-0 text-xs text-muted-foreground">nicht angemeldet</span>
+      )}
+    </button>
+  );
+}
 
 export function CloneRepoDialog({
   open,
@@ -166,17 +214,15 @@ export function CloneRepoDialog({
       role="dialog"
       aria-modal="true"
       aria-label="Repository klonen"
-      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-[2px]"
       onClick={dismiss}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl border border-border bg-card shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-md flex-col rounded-xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex shrink-0 items-center justify-between gap-2 border-b p-3">
-          <h2 className="font-heading text-base font-medium">
-            Repository klonen
-          </h2>
+        <header className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
+          <h2 className="text-sm font-semibold">Repository klonen</h2>
           <Button
             type="button"
             variant="ghost"
@@ -192,101 +238,71 @@ export function CloneRepoDialog({
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {mode === "pick" && (
             <div className="grid gap-2">
-              <p className="text-xs text-muted-foreground">
-                Quelle wählen. Für Git-Host-Listen bitte zuerst unter Einstellungen
-                anmelden.
+              <p className="mb-1 text-xs text-muted-foreground">
+                Quelle wählen — für Git-Host-Listen zuerst unter Einstellungen anmelden.
               </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-auto justify-start py-2.5"
+              <PlatformCard
+                icon={<Link2 className="h-4 w-4" />}
+                label="Per URL"
+                sublabel="Beliebige Git-Remote-URL"
                 onClick={() => setMode("url")}
-              >
-                <span className="text-left font-medium">Per URL</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-auto justify-start py-2.5"
+              />
+              <PlatformCard
+                icon={<GithubIcon className="h-4 w-4" />}
+                label="GitHub"
+                sublabel="github.com"
                 disabled={!signed(API_HOSTS.github)}
                 onClick={() => {
                   setApiHost(API_HOSTS.github);
                   setMode("remote");
                 }}
-              >
-                <span className="text-left font-medium">GitHub</span>
-                {!signed(API_HOSTS.github) ? (
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    nicht angemeldet
-                  </span>
-                ) : null}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-auto justify-start py-2.5"
+              />
+              <PlatformCard
+                icon={<GitlabIcon className="h-4 w-4" />}
+                label="GitLab"
+                sublabel="gitlab.com"
                 disabled={!signed(API_HOSTS.gitlab)}
                 onClick={() => {
                   setApiHost(API_HOSTS.gitlab);
                   setMode("remote");
                 }}
-              >
-                <span className="text-left font-medium">GitLab</span>
-                {!signed(API_HOSTS.gitlab) ? (
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    nicht angemeldet
-                  </span>
-                ) : null}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-auto justify-start py-2.5"
+              />
+              <PlatformCard
+                icon={<Server className="h-4 w-4" />}
+                label="Bitbucket"
+                sublabel="bitbucket.org"
                 disabled={!signed(API_HOSTS.bitbucket)}
                 onClick={() => {
                   setApiHost(API_HOSTS.bitbucket);
                   setMode("remote");
                 }}
-              >
-                <span className="text-left font-medium">Bitbucket</span>
-                {!signed(API_HOSTS.bitbucket) ? (
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    nicht angemeldet
-                  </span>
-                ) : null}
-              </Button>
+              />
               {customRemoteAccounts.map((account) => (
-                <Button
+                <PlatformCard
                   key={account.host}
-                  type="button"
-                  variant="outline"
-                  className="h-auto justify-start py-2.5"
+                  icon={<Server className="h-4 w-4" />}
+                  label={account.name}
+                  sublabel={account.host}
                   onClick={() => {
                     setApiHost(account.host);
                     setMode("remote");
                   }}
-                >
-                  <span className="text-left font-medium">{account.name}</span>
-                  <span className="ml-auto truncate text-xs text-muted-foreground">
-                    {account.host}
-                  </span>
-                </Button>
+                />
               ))}
             </div>
           )}
 
           {mode === "url" && (
-            <div className="grid gap-3">
-              <Button
+            <div className="grid gap-4">
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="w-fit"
                 onClick={() => setMode("pick")}
+                className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
+                <ChevronLeft className="h-3 w-3" />
                 Zurück
-              </Button>
-              <div className="grid gap-1">
+              </button>
+              <div className="grid gap-1.5">
                 <Label htmlFor="clone-url">Remote-URL</Label>
                 <Input
                   id="clone-url"
@@ -298,9 +314,9 @@ export function CloneRepoDialog({
                 />
               </div>
               <Separator />
-              <div className="grid gap-1">
-                <Label>Ziel</Label>
-                <div className="flex flex-wrap gap-2">
+              <div className="grid gap-1.5">
+                <Label>Zielordner</Label>
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -308,16 +324,16 @@ export function CloneRepoDialog({
                     onClick={() => void pickParent()}
                   >
                     <FolderOpen className="h-3.5 w-3.5" />
-                    Übergeordneten Ordner
+                    Ordner wählen
                   </Button>
                 </div>
-                {parentDir ? (
+                {parentDir && (
                   <p className="truncate text-xs text-muted-foreground" title={parentDir}>
                     {parentDir}
                   </p>
-                ) : null}
+                )}
               </div>
-              <div className="grid gap-1">
+              <div className="grid gap-1.5">
                 <Label htmlFor="clone-folder">Ordnername</Label>
                 <Input
                   id="clone-folder"
@@ -327,7 +343,7 @@ export function CloneRepoDialog({
                   autoComplete="off"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" variant="ghost" onClick={dismiss} disabled={busy}>
                   Abbrechen
                 </Button>
@@ -344,22 +360,22 @@ export function CloneRepoDialog({
 
           {mode === "remote" && (
             <div className="grid gap-3">
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="w-fit"
                 onClick={() => {
                   setMode("pick");
                   setApiHost(null);
                   setRepos([]);
                 }}
+                className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
+                <ChevronLeft className="h-3 w-3" />
                 Zurück
-              </Button>
+              </button>
               {reposLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="text-xs">Repositories laden…</span>
                 </div>
               ) : (
                 <CloneRemoteRepoList
@@ -376,25 +392,24 @@ export function CloneRepoDialog({
           )}
 
           {mode === "dest" && (
-            <div className="grid gap-3">
-              <Button
+            <div className="grid gap-4">
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="w-fit"
                 onClick={() => {
                   setPickedRepo(null);
                   setMode("remote");
                 }}
+                className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
+                <ChevronLeft className="h-3 w-3" />
                 Zurück
-              </Button>
-              <div className="grid gap-1">
-                <Label>Repository</Label>
-                <p className="truncate text-sm">{pickedRepo?.full_name}</p>
+              </button>
+              <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                <p className="text-xs text-muted-foreground">Repository</p>
+                <p className="truncate text-sm font-medium">{pickedRepo?.full_name}</p>
               </div>
-              <div className="grid gap-1">
-                <Label>Ziel</Label>
+              <div className="grid gap-1.5">
+                <Label>Zielordner</Label>
                 <Button
                   type="button"
                   variant="outline"
@@ -403,15 +418,15 @@ export function CloneRepoDialog({
                   onClick={() => void pickParent()}
                 >
                   <FolderOpen className="h-3.5 w-3.5" />
-                  Übergeordneten Ordner
+                  Ordner wählen
                 </Button>
-                {parentDir ? (
+                {parentDir && (
                   <p className="truncate text-xs text-muted-foreground" title={parentDir}>
                     {parentDir}
                   </p>
-                ) : null}
+                )}
               </div>
-              <div className="grid gap-1">
+              <div className="grid gap-1.5">
                 <Label htmlFor="dest-folder">Ordnername</Label>
                 <Input
                   id="dest-folder"
@@ -421,7 +436,7 @@ export function CloneRepoDialog({
                   autoComplete="off"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" variant="ghost" onClick={dismiss} disabled={busy}>
                   Abbrechen
                 </Button>
