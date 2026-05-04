@@ -197,7 +197,7 @@ function Settings() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-full overflow-hidden bg-background">
       <aside className="w-56 shrink-0 border-r border-border flex flex-col">
         <div className="px-3 py-3 border-b border-border">
           <Button

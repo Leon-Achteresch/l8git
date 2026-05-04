@@ -31,6 +31,7 @@ function CommitRowInner({
   row,
   maxLanes,
   matchedPaths,
+  searchHit,
   selected,
   multiSelected,
   selectedHashes,
@@ -41,6 +42,7 @@ function CommitRowInner({
   row: GraphRow;
   maxLanes: number;
   matchedPaths?: string[];
+  searchHit: boolean;
   selected: boolean;
   multiSelected: boolean;
   selectedHashes: ReadonlySet<string>;
@@ -83,7 +85,8 @@ function CommitRowInner({
     <div
       onClick={handleClick}
       className={cn(
-        "group relative flex cursor-pointer items-stretch border-b border-border/40 outline-none transition-colors focus-visible:outline-none",
+        "group relative flex min-h-20 cursor-pointer items-stretch border-b border-border/40 outline-none transition-colors focus-visible:outline-none",
+        searchHit && !selected && !multiSelected && "bg-primary/[0.08]",
         selected
           ? "bg-accent/40 before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary"
           : multiSelected
