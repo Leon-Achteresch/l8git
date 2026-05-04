@@ -2,7 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { isTauri } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 
 import { AppUpdateDialog } from "@/components/app/app-update-dialog";
@@ -20,9 +19,6 @@ declare module "@tanstack/react-router" {
 }
 
 if (isTauri()) {
-  void listen<string>("menu-navigate", (e) => {
-    void router.navigate({ to: e.payload });
-  });
   void checkForAppUpdate();
 }
 
