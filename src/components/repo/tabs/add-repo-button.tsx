@@ -31,9 +31,9 @@ export function AddRepoButton() {
         aria-label="Repository hinzufügen"
         aria-expanded={menuOpen}
         aria-haspopup="menu"
-        className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus className="h-4 w-4" />
       </button>
       <AnimatePresence>
         {menuOpen && (
