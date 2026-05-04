@@ -1,11 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Info, Settings, User } from "lucide-react";
+import { GitFork, Info, Settings, User } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { RepoSwitcher } from "./repo-switcher";
-import { AddRepoButton } from "@/components/repo/tabs/add-repo-button";
 
 const NAV_ITEMS = [
+  { to: "/", label: "Repository", icon: GitFork },
   { to: "/info", label: "Info", icon: Info },
   { to: "/about", label: "About", icon: User },
 ] as const;
@@ -25,12 +24,10 @@ export function AppHeader() {
         IS_MAC && "pl-[78px]",
       )}
     >
-      <nav className="flex items-center gap-1">
-        <RepoSwitcher />
-        <AddRepoButton />
-        <div className="w-px h-4 bg-border mx-1" />
+      <nav className="flex items-center gap-0.5">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
-          const active = pathname.startsWith(to);
+          const active =
+            to === "/" ? pathname === "/" : pathname.startsWith(to);
           return (
             <Link
               key={to}

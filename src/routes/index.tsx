@@ -9,6 +9,7 @@ import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
 import { PullRequestPanel } from "@/components/repo/pr/pull-request-panel";
 import { StashPanel } from "@/components/repo/stash/stash-panel";
 import { SubmodulesPanel } from "@/components/repo/submodules/submodules-panel";
+import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { useRepoRehydrate } from "@/lib/use-repo-rehydrate";
@@ -30,6 +31,7 @@ function Home() {
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
+      <RepoTabBar />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {activePath && <RepoSidebar />}
         <div
