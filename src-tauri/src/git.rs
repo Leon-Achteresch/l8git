@@ -1265,6 +1265,12 @@ pub struct FileDiffResponse {
 }
 
 #[tauri::command]
+pub fn repo_staged_diff(path: String) -> Result<String, String> {
+    let repo = PathBuf::from(&path);
+    run_git(&repo, &["diff", "--cached", "--no-color"])
+}
+
+#[tauri::command]
 pub fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<FileDiffResponse, String> {
     let repo = PathBuf::from(&path);
     if untracked {

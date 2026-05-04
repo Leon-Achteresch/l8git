@@ -49,6 +49,7 @@ pub fn run() {
             git::repo_status,
             git::repo_full_status,
             git::repo_upstream_sync_counts,
+            git::repo_staged_diff,
             git::repo_file_diff,
             git::repo_commit_inspect,
             git::repo_commit_file_diff,
