@@ -17,6 +17,7 @@ import {
 } from "@/lib/workspace-prefs";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  ChartPie,
   ArrowDownToLine,
   ArrowUpToLine,
   ChevronDown,
@@ -35,6 +36,7 @@ import { PushUpstreamDialog } from "./push-upstream-dialog";
 import { ToolbarButton } from "./toolbar-button";
 import { ToolbarDivider } from "./toolbar-divider";
 import { ToolbarGroup } from "./toolbar-group";
+import { RepoLanguageStats } from "@/components/repo/tabs/repo-language-stats";
 
 type RemoteOp = "fetch" | "pull" | "push";
 
@@ -77,6 +79,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const [showSpinner, setShowSpinner] = useState(false);
   const [pushDialogOpen, setPushDialogOpen] = useState(false);
   const [remoteDialogOpen, setRemoteDialogOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const [draftQuery, setDraftQuery] = useState("");
 
   useEffect(() => {
@@ -366,6 +369,12 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
 
         <ToolbarGroup>
           <ToolbarButton
+            title="Sprachen anzeigen"
+            label="Sprachen"
+            onClick={() => setLangOpen(true)}
+            icon={<ChartPie className="h-3.5 w-3.5" />}
+          />
+          <ToolbarButton
             title="Im Dateimanager öffnen"
             label="Dateien"
             onClick={() => void revealFolder()}
@@ -456,6 +465,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       open={remoteDialogOpen}
       onClose={() => setRemoteDialogOpen(false)}
       path={path}
+    />
+    <RepoLanguageStats
+      open={langOpen}
+      path={path}
+      onClose={() => setLangOpen(false)}
     />
     </>
   );
