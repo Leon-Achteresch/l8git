@@ -6,7 +6,7 @@ import {
 import type { Branch } from "@/lib/repo-store";
 
 const LANE_WIDTH = 14;
-const ROW_HEIGHT = 56;
+const ROW_HEIGHT = 80;
 const DOT_RADIUS = 4;
 
 export function CommitGraphCell({
@@ -85,7 +85,7 @@ export function CommitGraphCell({
       height="100%"
       viewBox={`0 0 ${width} ${ROW_HEIGHT}`}
       preserveAspectRatio="none"
-      className="shrink-0 self-stretch min-h-14"
+      className="shrink-0 self-stretch min-h-20"
       aria-hidden="true"
     >
       {segments.map((s, i) => (

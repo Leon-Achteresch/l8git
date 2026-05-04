@@ -13,6 +13,14 @@ export type CommitFocusRequest = {
   id: number;
 };
 
+export type CommitSearchMatchStepDirection = "prev" | "next";
+
+export type CommitSearchMatchStepRequest = {
+  path: string;
+  direction: CommitSearchMatchStepDirection;
+  id: number;
+};
+
 export type PrCreateRequest = {
   path: string;
   head: string;
@@ -25,8 +33,15 @@ type UiState = {
   sidebarTab: SidebarTab;
   setSidebarTab: (tab: SidebarTab) => void;
   commitFocusRequest: CommitFocusRequest | null;
+  requestCommitHistoryFocus: (path: string, hash: string) => void;
   focusCommitFromBranchTip: (path: string, tipHash: string) => void;
   clearCommitFocusRequest: () => void;
+  commitSearchMatchStepRequest: CommitSearchMatchStepRequest | null;
+  requestCommitSearchMatchStep: (
+    path: string,
+    direction: CommitSearchMatchStepDirection,
+  ) => void;
+  clearCommitSearchMatchStepRequest: () => void;
   prCreateRequest: PrCreateRequest | null;
   requestPrCreate: (path: string, head: string) => void;
   clearPrCreateRequest: () => void;
@@ -43,6 +58,14 @@ export const useUiStore = create<UiState>()(
       sidebarTab: "history",
       setSidebarTab: (tab) => set({ sidebarTab: tab }),
       commitFocusRequest: null,
+      requestCommitHistoryFocus: (path, hash) =>
+        set((s) => ({
+          commitFocusRequest: {
+            path,
+            hash,
+            id: (s.commitFocusRequest?.id ?? 0) + 1,
+          },
+        })),
       focusCommitFromBranchTip: (path, tipHash) =>
         set((s) => ({
           sidebarTab: "history",
@@ -53,6 +76,17 @@ export const useUiStore = create<UiState>()(
           },
         })),
       clearCommitFocusRequest: () => set({ commitFocusRequest: null }),
+      commitSearchMatchStepRequest: null,
+      requestCommitSearchMatchStep: (path, direction) =>
+        set((s) => ({
+          commitSearchMatchStepRequest: {
+            path,
+            direction,
+            id: (s.commitSearchMatchStepRequest?.id ?? 0) + 1,
+          },
+        })),
+      clearCommitSearchMatchStepRequest: () =>
+        set({ commitSearchMatchStepRequest: null }),
       prCreateRequest: null,
       requestPrCreate: (path, head) =>
         set((s) => ({

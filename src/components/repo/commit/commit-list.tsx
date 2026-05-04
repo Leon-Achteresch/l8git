@@ -1,4 +1,8 @@
-import { buildGraph, normalizeGitOid } from "@/lib/graph";
+import {
+  buildGraph,
+  normalizeGitOid,
+  type GraphRow,
+} from "@/lib/graph";
 import type { Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -7,13 +11,60 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { CommitSelectMode } from "./commit-history-panel";
 import { CommitRow } from "./commit-row";
 
-const ROW_ESTIMATE_PX = 56;
+const ROW_ESTIMATE_BASE_PX = 80;
+const ROW_ESTIMATE_SEARCH_EXTRA_PX = 22;
+
+function arrowNavBlocked(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  return !!el.closest(
+    'input, textarea, select, [contenteditable="true"], [role="combobox"]',
+  );
+}
+
+function resolveNextSearchMatchRowIndex(
+  direction: "prev" | "next",
+  rows: GraphRow[],
+  matchIndices: number[],
+  navHash: string | null,
+  selectedHash: string | null,
+): number | undefined {
+  if (matchIndices.length === 0) return undefined;
+  let curRow = -1;
+  if (navHash) {
+    curRow = rows.findIndex(
+      (r) => normalizeGitOid(r.commit.hash) === normalizeGitOid(navHash),
+    );
+  }
+  if (curRow < 0 && selectedHash) {
+    curRow = rows.findIndex(
+      (r) =>
+        normalizeGitOid(r.commit.hash) === normalizeGitOid(selectedHash),
+    );
+  }
+  const down = direction === "next";
+  if (curRow < 0) {
+    return down
+      ? matchIndices[0]
+      : matchIndices[matchIndices.length - 1];
+  }
+  if (down) {
+    return matchIndices.find((idx) => idx > curRow) ?? matchIndices[0];
+  }
+  const rev = [...matchIndices].reverse();
+  return (
+    rev.find((idx) => idx < curRow) ??
+    matchIndices[matchIndices.length - 1]
+  );
+}
 
 export function CommitList({
   path,
   commits,
-  listMode,
   matchPathsByHash,
+  searchActive,
+  searchHitsExhausted,
+  searchEpoch,
   selectedHash,
   selectedHashes,
   onToggleSelect,
@@ -21,8 +72,10 @@ export function CommitList({
 }: {
   path: string;
   commits: Commit[];
-  listMode: "history" | "search";
   matchPathsByHash: ReadonlyMap<string, string[]>;
+  searchActive: boolean;
+  searchHitsExhausted: boolean;
+  searchEpoch: number;
   selectedHash: string | null;
   selectedHashes: ReadonlySet<string>;
   onToggleSelect: (hash: string, mode: CommitSelectMode) => void;
@@ -31,18 +84,41 @@ export function CommitList({
     opts?: { mainline?: number },
   ) => Promise<void>;
 }) {
-  // Graph topology is a pure function of commit IDs + parent links; metadata
-  // mutations like avatar merges should not invalidate the memo.
   const graphKey = useMemo(() => commits.map((c) => c.hash).join("|"), [commits]);
   const { rows, maxLanes } = useMemo(
     () => buildGraph(commits),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [graphKey],
   );
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const commitFocusRequest = useUiStore((s) => s.commitFocusRequest);
   const clearCommitFocusRequest = useUiStore((s) => s.clearCommitFocusRequest);
+  const requestCommitHistoryFocus = useUiStore((s) => s.requestCommitHistoryFocus);
+  const commitSearchMatchStepRequest = useUiStore(
+    (s) => s.commitSearchMatchStepRequest,
+  );
+  const clearCommitSearchMatchStepRequest = useUiStore(
+    (s) => s.clearCommitSearchMatchStepRequest,
+  );
+  const sidebarTab = useUiStore((s) => s.sidebarTab);
+  const activePath = useRepoStore((s) => s.activePath);
+  const lastSearchNavHashRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastSearchNavHashRef.current = null;
+  }, [path, searchEpoch]);
+
+  useEffect(() => {
+    lastSearchNavHashRef.current = null;
+  }, [selectedHash]);
+
+  const matchIndices = useMemo(() => {
+    const idxs: number[] = [];
+    rows.forEach((r, i) => {
+      if (matchPathsByHash.has(normalizeGitOid(r.commit.hash))) idxs.push(i);
+    });
+    return idxs;
+  }, [rows, matchPathsByHash]);
 
   const onCherryPickCb = useCallback(
     (hashes: string[], opts?: { mainline?: number }) => {
@@ -54,12 +130,19 @@ export function CommitList({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollerRef.current,
-    estimateSize: () => ROW_ESTIMATE_PX,
+    estimateSize: (index) => {
+      const row = rows[index];
+      if (!row) return ROW_ESTIMATE_BASE_PX;
+      const oid = normalizeGitOid(row.commit.hash);
+      return matchPathsByHash.has(oid)
+        ? ROW_ESTIMATE_BASE_PX + ROW_ESTIMATE_SEARCH_EXTRA_PX
+        : ROW_ESTIMATE_BASE_PX;
+    },
     overscan: 8,
+    useAnimationFrameWithResizeObserver: true,
     getItemKey: (index) => rows[index]?.commit.hash ?? index,
   });
 
-  // Trigger an incremental load once we're within ~20 rows of the bottom.
   const loadMoreCommits = useRepoStore((s) => s.loadMoreCommits);
   const loadMoreSearchCommits = useRepoStore((s) => s.loadMoreSearchCommits);
   const lastLoadedAt = useRef(0);
@@ -73,10 +156,9 @@ export function CommitList({
     const now = performance.now();
     if (now - lastLoadedAt.current < 250) return;
     lastLoadedAt.current = now;
-    if (listMode === "search") {
+    void loadMoreCommits(path, 80);
+    if (searchActive && !searchHitsExhausted) {
       void loadMoreSearchCommits(path, 80);
-    } else {
-      void loadMoreCommits(path, 80);
     }
   }, [
     lastVirtualIndex,
@@ -84,7 +166,8 @@ export function CommitList({
     path,
     loadMoreCommits,
     loadMoreSearchCommits,
-    listMode,
+    searchActive,
+    searchHitsExhausted,
   ]);
 
   useEffect(() => {
@@ -115,6 +198,79 @@ export function CommitList({
     };
   }, [path, rows, commitFocusRequest, clearCommitFocusRequest, virtualizer]);
 
+  useEffect(() => {
+    const req = commitSearchMatchStepRequest;
+    if (!req || req.path !== path) return;
+    clearCommitSearchMatchStepRequest();
+    const enabled =
+      searchActive &&
+      sidebarTab === "history" &&
+      activePath === path &&
+      matchIndices.length > 0;
+    if (!enabled) return;
+    const nextRowIdx = resolveNextSearchMatchRowIndex(
+      req.direction,
+      rows,
+      matchIndices,
+      lastSearchNavHashRef.current,
+      selectedHash,
+    );
+    if (nextRowIdx === undefined) return;
+    const row = rows[nextRowIdx];
+    if (!row) return;
+    lastSearchNavHashRef.current = row.commit.hash;
+    requestCommitHistoryFocus(path, row.commit.hash);
+  }, [
+    commitSearchMatchStepRequest,
+    path,
+    searchActive,
+    sidebarTab,
+    activePath,
+    matchIndices,
+    rows,
+    selectedHash,
+    requestCommitHistoryFocus,
+    clearCommitSearchMatchStepRequest,
+  ]);
+
+  useEffect(() => {
+    const enabled =
+      searchActive &&
+      sidebarTab === "history" &&
+      activePath === path &&
+      matchIndices.length > 0;
+    if (!enabled) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (arrowNavBlocked(e.target)) return;
+      e.preventDefault();
+      const direction = e.key === "ArrowDown" ? "next" : "prev";
+      const nextRowIdx = resolveNextSearchMatchRowIndex(
+        direction,
+        rows,
+        matchIndices,
+        lastSearchNavHashRef.current,
+        selectedHash,
+      );
+      if (nextRowIdx === undefined) return;
+      const row = rows[nextRowIdx];
+      if (!row) return;
+      lastSearchNavHashRef.current = row.commit.hash;
+      requestCommitHistoryFocus(path, row.commit.hash);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    searchActive,
+    sidebarTab,
+    activePath,
+    path,
+    matchIndices,
+    rows,
+    selectedHash,
+    requestCommitHistoryFocus,
+  ]);
+
   return (
     <div
       ref={scrollerRef}
@@ -129,6 +285,9 @@ export function CommitList({
         {virtualItems.map((vi) => {
           const row = rows[vi.index];
           if (!row) return null;
+          const oid = normalizeGitOid(row.commit.hash);
+          const matchedPaths = matchPathsByHash.get(oid);
+          const searchHit = searchActive && matchedPaths !== undefined;
           return (
             <li
               key={vi.key}
@@ -149,7 +308,8 @@ export function CommitList({
                 path={path}
                 row={row}
                 maxLanes={maxLanes}
-                matchedPaths={matchPathsByHash.get(row.commit.hash)}
+                matchedPaths={matchedPaths}
+                searchHit={searchHit}
                 selected={
                   !!selectedHash &&
                   normalizeGitOid(selectedHash) ===

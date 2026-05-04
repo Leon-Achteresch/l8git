@@ -4,6 +4,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { toastError } from "@/lib/error-toast";
+import { normalizeGitOid } from "@/lib/graph";
 import type { Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
@@ -48,15 +49,10 @@ export function CommitHistoryPanel({
   }, [path]);
 
   const isSearch = !!searchSlice?.query?.trim();
-  const listCommits = isSearch
-    ? (searchSlice?.hits.map((h) => h.commit) ?? [])
-    : commits;
   const matchPathsByHash = useMemo(() => {
     const m = new Map<string, string[]>();
-    const hits = searchSlice?.hits;
-    if (!hits) return m;
-    for (const h of hits) {
-      if (h.matched_paths.length > 0) m.set(h.commit.hash, h.matched_paths);
+    for (const h of searchSlice?.hits ?? []) {
+      m.set(normalizeGitOid(h.commit.hash), h.matched_paths);
     }
     return m;
   }, [searchSlice?.hits]);
@@ -82,7 +78,7 @@ export function CommitHistoryPanel({
       // range
       setSelectedHashes((prev) => {
         const anchor = anchorHash ?? hash;
-        const hashes = listCommits.map((c) => c.hash);
+        const hashes = commits.map((c) => c.hash);
         const a = hashes.indexOf(anchor);
         const b = hashes.indexOf(hash);
         if (a < 0 || b < 0) {
@@ -96,14 +92,14 @@ export function CommitHistoryPanel({
         return next;
       });
     },
-    [anchorHash, listCommits],
+    [anchorHash, commits],
   );
 
   const onCherryPick = useCallback(
     async (hashes: string[], opts?: { mainline?: number }) => {
       if (hashes.length === 0) return;
       // Sort oldest-first based on display order (listCommits is newest-first).
-      const order = new Map(listCommits.map((c, i) => [c.hash, i] as const));
+      const order = new Map(commits.map((c, i) => [c.hash, i] as const));
       const ordered = [...hashes].sort(
         (a, b) => (order.get(b) ?? 0) - (order.get(a) ?? 0),
       );
@@ -125,15 +121,17 @@ export function CommitHistoryPanel({
         }
       }
     },
-    [listCommits, path],
+    [commits, path],
   );
 
   const list = (
     <CommitList
       path={path}
-      commits={listCommits}
-      listMode={isSearch ? "search" : "history"}
+      commits={commits}
       matchPathsByHash={matchPathsByHash}
+      searchActive={isSearch}
+      searchHitsExhausted={searchSlice?.exhausted ?? true}
+      searchEpoch={searchSlice?.epoch ?? 0}
       selectedHash={selectedHash}
       selectedHashes={selectedHashes}
       onToggleSelect={onToggleSelect}

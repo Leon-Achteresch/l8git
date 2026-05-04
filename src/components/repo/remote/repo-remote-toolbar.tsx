@@ -5,9 +5,11 @@ import {
   ContextMenuRadioItem,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
+import { useUiStore } from "@/lib/ui-store";
 import {
   useWorkspacePrefs,
   type PushForceMode,
@@ -17,6 +19,8 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowDownToLine,
   ArrowUpToLine,
+  ChevronDown,
+  ChevronUp,
   CloudDownload,
   Code2,
   FolderOpen,
@@ -46,6 +50,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const searchCommits = useRepoStore((s) => s.searchCommits);
   const clearCommitSearch = useRepoStore((s) => s.clearCommitSearch);
   const searchSlice = useRepoStore((s) => s.commitSearchByPath[path]);
+  const activePath = useRepoStore((s) => s.activePath);
+  const sidebarTab = useUiStore((s) => s.sidebarTab);
+  const requestCommitSearchMatchStep = useUiStore(
+    (s) => s.requestCommitSearchMatchStep,
+  );
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs((s) => s.repoTerminalKind);
   const fetchPruneBranches = useWorkspacePrefs((s) => s.fetchPruneBranches);
@@ -283,6 +292,13 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       ? `Änderungen hochladen (${pushTitleParts.join(", ")})`
       : "Änderungen hochladen";
 
+  const hasSearchHits = (searchSlice?.hits?.length ?? 0) > 0;
+  const canStepSearchMatches =
+    !!draftQuery.trim() &&
+    hasSearchHits &&
+    sidebarTab === "history" &&
+    activePath === path;
+
   return (
     <>
     <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2 pb-2 pt-1">
@@ -374,28 +390,59 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
           />
         </ToolbarGroup>
       </div>
-      <div className="flex w-full max-w-sm shrink-0 flex-col gap-1 sm:w-auto sm:min-w-[12rem]">
-        <Input
-          value={draftQuery}
-          onChange={(e) => setDraftQuery(e.target.value)}
-          placeholder="Commits durchsuchen …"
-          spellCheck={false}
-          autoComplete="off"
-          aria-label="Commit-Suche"
-          className="h-8"
-        />
-        {searchSlice?.loading &&
-        searchSlice.query.trim() &&
-        searchSlice.hits.length === 0 ? (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-            Suche …
-          </span>
-        ) : null}
-        {!searchSlice?.loading &&
-        searchSlice?.query?.trim() &&
-        searchSlice.hits.length === 0 ? (
-          <span className="text-xs text-muted-foreground">Keine Treffer.</span>
+      <div className="flex w-full max-w-sm shrink-0 items-start gap-1 sm:w-auto sm:min-w-[12rem]">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <Input
+            value={draftQuery}
+            onChange={(e) => setDraftQuery(e.target.value)}
+            placeholder="Commits durchsuchen …"
+            spellCheck={false}
+            autoComplete="off"
+            aria-label="Commit-Suche"
+            className="h-8"
+          />
+          {searchSlice?.loading &&
+          searchSlice.query.trim() &&
+          searchSlice.hits.length === 0 ? (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+              Suche …
+            </span>
+          ) : null}
+          {!searchSlice?.loading &&
+          searchSlice?.query?.trim() &&
+          searchSlice.hits.length === 0 ? (
+            <span className="text-xs text-muted-foreground">
+              Keine Treffer.
+            </span>
+          ) : null}
+        </div>
+        {draftQuery.trim() ? (
+          <div className="flex h-8 w-[1.375rem] shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-xs">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-0 min-h-0 flex-1 rounded-none border-0 p-0 shadow-none hover:bg-muted/80"
+              disabled={!canStepSearchMatches}
+              title="Vorheriger Treffer"
+              aria-label="Vorheriger Suchtreffer"
+              onClick={() => requestCommitSearchMatchStep(path, "prev")}
+            >
+              <ChevronUp className="size-2.5" strokeWidth={2.25} />
+            </Button>
+            <div className="h-px shrink-0 bg-border" aria-hidden />
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-0 min-h-0 flex-1 rounded-none border-0 p-0 shadow-none hover:bg-muted/80"
+              disabled={!canStepSearchMatches}
+              title="Nächster Treffer"
+              aria-label="Nächster Suchtreffer"
+              onClick={() => requestCommitSearchMatchStep(path, "next")}
+            >
+              <ChevronDown className="size-2.5" strokeWidth={2.25} />
+            </Button>
+          </div>
         ) : null}
       </div>
     </div>
