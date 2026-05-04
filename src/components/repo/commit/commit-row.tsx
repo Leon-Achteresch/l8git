@@ -15,6 +15,7 @@ import { useGravatarUrl } from "@/lib/gravatar";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { GitBranchPlus, Tag, Undo2 } from "lucide-react";
+import { motion } from "motion/react";
 import { memo, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CommitAuthorDate } from "./commit-author-date";
@@ -32,6 +33,7 @@ function CommitRowInner({
   maxLanes,
   matchedPaths,
   searchHit,
+  focusPulseToken,
   selected,
   multiSelected,
   selectedHashes,
@@ -43,6 +45,7 @@ function CommitRowInner({
   maxLanes: number;
   matchedPaths?: string[];
   searchHit: boolean;
+  focusPulseToken?: number;
   selected: boolean;
   multiSelected: boolean;
   selectedHashes: ReadonlySet<string>;
@@ -82,8 +85,28 @@ function CommitRowInner({
   };
 
   const inner = (
-    <div
+    <motion.div
+      key={focusPulseToken != null ? `pulse-${focusPulseToken}` : "row"}
       onClick={handleClick}
+      initial={false}
+      animate={
+        focusPulseToken != null
+          ? {
+              boxShadow: [
+                "0 0 0 0px transparent",
+                "0 0 0 2px var(--primary)",
+                "0 0 0 0px transparent",
+                "0 0 0 2px var(--primary)",
+                "0 0 0 0px transparent",
+              ],
+            }
+          : { boxShadow: "0 0 0 0px transparent" }
+      }
+      transition={
+        focusPulseToken != null
+          ? { duration: 0.85, times: [0, 0.18, 0.36, 0.58, 1], ease: "easeInOut" }
+          : { duration: 0.2 }
+      }
       className={cn(
         "group relative flex min-h-20 cursor-pointer items-stretch border-b border-border/40 outline-none transition-colors focus-visible:outline-none",
         searchHit && !selected && !multiSelected && "bg-primary/[0.08]",
@@ -139,7 +162,7 @@ function CommitRowInner({
       <div className="flex shrink-0 items-center pr-4">
         <CommitHashBadge hash={commit.short_hash} />
       </div>
-    </div>
+    </motion.div>
   );
 
   return (

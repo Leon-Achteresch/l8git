@@ -20,7 +20,7 @@ export function AppHeader() {
     <header
       data-tauri-drag-region
       className={cn(
-        "flex h-10 shrink-0 select-none items-center gap-1 border-b bg-background/80 px-2 backdrop-blur",
+        "flex h-14 shrink-0 select-none items-center gap-2 border-b bg-background/80 px-3 backdrop-blur",
         IS_MAC && "pl-[78px]",
       )}
     >
@@ -33,13 +33,13 @@ export function AppHeader() {
               key={to}
               to={to}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 active
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
               )}
             >
-              <Icon className="size-3.5" />
+              <Icon className="size-4 shrink-0" />
               {label}
             </Link>
           );
@@ -51,11 +51,11 @@ export function AppHeader() {
         aria-label="Einstellungen"
         title="Einstellungen"
         className={cn(
-          "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+          "inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
           pathname.startsWith("/settings") && "bg-muted text-foreground",
         )}
       >
-        <Settings className="size-4" />
+        <Settings className="size-[1.125rem]" />
       </Link>
     </header>
   );

@@ -28,7 +28,7 @@ import {
   checkState,
   type FileDiffResponse,
 } from "./commit-panel-types";
-import { generateAiCommitMessage, type DiffEntry } from "@/lib/ai-commit";
+import { generateAiCommitMessage } from "@/lib/ai-commit";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 
@@ -247,31 +247,15 @@ export function CommitPanel() {
     if (!activePath || stagedRows.length === 0) return;
     setAiGenerating(true);
     try {
-      const diffs: DiffEntry[] = [];
-      for (const row of stagedRows) {
-        if (row.entry.binary) continue;
-        try {
-          const r = await invoke<FileDiffResponse>("repo_file_diff", {
-            path: activePath,
-            file: row.path,
-            untracked: row.entry.untracked,
-          });
-          const diff = r.staged ?? r.untracked_plain ?? "";
-          if (diff.trim()) {
-            diffs.push({ path: row.path, content: diff });
-          }
-        } catch {
-          // Einzelne Datei überspringen
-        }
-      }
-      const msg = await generateAiCommitMessage(diffs);
+      const stagedDiff = await invoke<string>("repo_staged_diff", { path: activePath });
+      const msg = await generateAiCommitMessage(stagedDiff);
       setMessage(msg);
     } catch (e) {
       toastError(String(e));
     } finally {
       setAiGenerating(false);
     }
-  }, [activePath, stagedRows]);
+  }, [activePath, stagedRows.length]);
 
   const onCommit = async () => {
     if (!canCommit || !activePath) return;

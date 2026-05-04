@@ -397,8 +397,9 @@ function Settings() {
                     <CardTitle>Commit-Nachricht</CardTitle>
                     <CardDescription>
                       Standardvorlage für das Commit-Feld in allen
-                      Repositories. Leer lassen, wenn keine Vorlage verwendet
-                      werden soll.
+                      Repositories. Die KI übernimmt dieselbe Struktur bei der
+                      automatischen Commit-Nachricht, wenn gesetzt. Leer lassen,
+                      wenn keine Vorlage verwendet werden soll.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -467,8 +468,9 @@ function Settings() {
                         spellCheck={false}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Leer lassen, um den Standard-Prompt zu verwenden. Die
-                        Ausgabesprache wird immer automatisch ergänzt.
+                        Leer lassen, um den Standard-Prompt zu verwenden.
+                        Ausgabesprache und Commit-Vorlage werden zusätzlich als
+                        feste Vorgaben ergänzt.
                       </p>
                     </div>
                     <div className="flex justify-end">

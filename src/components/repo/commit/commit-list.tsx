@@ -7,7 +7,7 @@ import type { Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommitSelectMode } from "./commit-history-panel";
 import { CommitRow } from "./commit-row";
 
@@ -103,9 +103,14 @@ export function CommitList({
   const sidebarTab = useUiStore((s) => s.sidebarTab);
   const activePath = useRepoStore((s) => s.activePath);
   const lastSearchNavHashRef = useRef<string | null>(null);
+  const [focusRingPulse, setFocusRingPulse] = useState<{
+    hash: string;
+    token: number;
+  } | null>(null);
 
   useEffect(() => {
     lastSearchNavHashRef.current = null;
+    setFocusRingPulse(null);
   }, [path, searchEpoch]);
 
   useEffect(() => {
@@ -181,8 +186,10 @@ export function CommitList({
       clearCommitFocusRequest();
       return;
     }
+    setFocusRingPulse({ hash: want, token: req.id });
     virtualizer.scrollToIndex(index, { align: "center", behavior: "smooth" });
     let timeoutId = 0;
+    let pulseClearId = 0;
     const raf = window.requestAnimationFrame(() => {
       const el = scrollerRef.current?.querySelector<HTMLElement>(
         `[data-commit-hash="${CSS.escape(rows[index].commit.hash)}"]`,
@@ -192,9 +199,13 @@ export function CommitList({
       }
       timeoutId = window.setTimeout(() => clearCommitFocusRequest(), 450);
     });
+    pulseClearId = window.setTimeout(() => {
+      setFocusRingPulse((p) => (p?.token === req.id ? null : p));
+    }, 1000);
     return () => {
       window.cancelAnimationFrame(raf);
       if (timeoutId) window.clearTimeout(timeoutId);
+      if (pulseClearId) window.clearTimeout(pulseClearId);
     };
   }, [path, rows, commitFocusRequest, clearCommitFocusRequest, virtualizer]);
 
@@ -288,6 +299,10 @@ export function CommitList({
           const oid = normalizeGitOid(row.commit.hash);
           const matchedPaths = matchPathsByHash.get(oid);
           const searchHit = searchActive && matchedPaths !== undefined;
+          const focusPulseToken =
+            focusRingPulse && focusRingPulse.hash === oid
+              ? focusRingPulse.token
+              : undefined;
           return (
             <li
               key={vi.key}
@@ -310,6 +325,7 @@ export function CommitList({
                 maxLanes={maxLanes}
                 matchedPaths={matchedPaths}
                 searchHit={searchHit}
+                focusPulseToken={focusPulseToken}
                 selected={
                   !!selectedHash &&
                   normalizeGitOid(selectedHash) ===
