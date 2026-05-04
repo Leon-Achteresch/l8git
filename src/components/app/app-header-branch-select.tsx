@@ -28,11 +28,7 @@ function cmpBranches(a: Branch, b: Branch) {
   });
 }
 
-export function AppHeaderBranchSelect({
-  layout = "compact",
-}: {
-  layout?: "compact" | "teams";
-}) {
+export function AppHeaderBranchSelect() {
   const { activePath, repo, repoLoading } = useRepoStore(
     useShallow((s) => {
       const p = s.activePath;
@@ -75,46 +71,10 @@ export function AppHeaderBranchSelect({
     [activePath, checkoutBranch],
   );
 
-  const triggerTeams = cn(
-    "flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-neutral-400/35 bg-white px-3 text-sm font-normal text-foreground shadow-sm outline-none transition-[box-shadow,border-color] hover:border-neutral-400/55 hover:bg-neutral-50/80 dark:border-border dark:bg-card dark:shadow-none dark:hover:bg-muted/60",
-  );
-  const triggerCompact = cn(
-    "mr-1 inline-flex max-w-[min(13rem,calc(100vw-360px))] shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-medium shadow-none transition-colors",
-  );
-
-  if (!activePath || !repo) {
-    if (layout === "teams") {
-      return (
-        <div
-          role="status"
-          className={cn(
-            triggerTeams,
-            "pointer-events-none text-muted-foreground",
-          )}
-          aria-live="polite"
-        >
-          <GitBranch className="size-4 shrink-0 opacity-70" />
-          <span className="min-w-0 flex-1 truncate text-left text-sm">
-            Branch
-          </span>
-          <ChevronDown className="size-4 shrink-0 opacity-40" aria-hidden />
-        </div>
-      );
-    }
-    return null;
-  }
+  if (!activePath || !repo) return null;
 
   const disabled = repoLoading || repo.branches.length === 0;
   const shown = repo.branch || "…";
-  const interactive = cn(
-    layout === "teams" ? triggerTeams : triggerCompact,
-    disabled
-      ? "cursor-default opacity-50"
-      : "cursor-pointer",
-    layout !== "teams" &&
-      !disabled &&
-      "hover:bg-muted/60",
-  );
 
   return (
     <DropdownMenu>
@@ -125,24 +85,21 @@ export function AppHeaderBranchSelect({
           title="Branch wechseln"
           aria-label="Branch auswählen"
           style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
-          className={interactive}
+          className={cn(
+            "mr-1 inline-flex max-w-[min(13rem,calc(100vw-360px))] shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-medium text-foreground shadow-none transition-colors",
+            disabled
+              ? "cursor-default opacity-50"
+              : "cursor-pointer hover:bg-muted/60",
+          )}
         >
           <GitBranch className="size-4 shrink-0 text-muted-foreground" />
-          <span
-            className={cn(
-              "min-w-0 flex-1 truncate text-left",
-              layout === "teams" ? "font-normal text-foreground" : "",
-            )}
-          >
+          <span className="min-w-0 flex-1 truncate text-left">
             {shown}
           </span>
           <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align={layout === "teams" ? "center" : "start"}
-        className="max-h-72 min-w-52"
-      >
+      <DropdownMenuContent align="start" className="max-h-72 min-w-52">
         {locals.length > 0 ? (
           <>
             <DropdownMenuLabel>Lokal</DropdownMenuLabel>
