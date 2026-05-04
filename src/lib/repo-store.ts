@@ -583,7 +583,13 @@ export const useRepoStore = create<RepoState>()(
       },
 
       setActive(path) {
-        set({ activePath: path });
+        const was = get().activePath;
+        if (was !== path) {
+          set((s) => ({
+            activePath: path,
+            loading: { ...s.loading, [path]: true },
+          }));
+        }
         void get().reload(path);
       },
 
