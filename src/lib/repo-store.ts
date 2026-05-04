@@ -180,6 +180,7 @@ type RepoState = {
   unstageFiles: (path: string, files: string[]) => Promise<void>;
   commitChanges: (path: string, message: string) => Promise<void>;
   cloneRepo: (url: string, dest: string) => Promise<string>;
+  initRepo: (path: string) => Promise<string | null>;
   checkoutBranch: (
     path: string,
     refName: string,
@@ -777,6 +778,11 @@ export const useRepoStore = create<RepoState>()(
           throw new Error("Geklontes Repository konnte nicht geöffnet werden.");
         }
         return out;
+      },
+
+      async initRepo(path) {
+        await invoke<string>("git_init_repo", { path });
+        return get().addRepo(path);
       },
 
       async checkoutBranch(path, refName, opts) {

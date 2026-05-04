@@ -16,6 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             git::open_repo,
+            git::git_init_repo,
             git::repo_log_page,
             git::repo_search_commits,
             favicon::read_repo_favicon,

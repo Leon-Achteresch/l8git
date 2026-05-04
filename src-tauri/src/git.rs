@@ -167,6 +167,9 @@ fn fetch_commits(
     limit: usize,
     tag_map: &HashMap<String, Vec<String>>,
 ) -> Result<Vec<Commit>, String> {
+    if run_git(repo, &["rev-parse", "-q", "--verify", "HEAD"]).is_err() {
+        return Ok(vec![]);
+    }
     let sep = "\x1f";
     let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
     let max_count = format!("--max-count={limit}");
@@ -382,6 +385,25 @@ pub fn open_repo(path: String) -> Result<RepoInfo, String> {
         branches,
         tags,
     })
+}
+
+#[tauri::command]
+pub fn git_init_repo(path: String) -> Result<String, String> {
+    let path = path.trim();
+    if path.is_empty() {
+        return Err("Pfad fehlt.".into());
+    }
+    let repo = PathBuf::from(path);
+    if repo.exists() {
+        let meta = std::fs::metadata(&repo).map_err(|e| e.to_string())?;
+        if !meta.is_dir() {
+            return Err(format!("'{path}' ist kein Ordner."));
+        }
+    } else {
+        std::fs::create_dir_all(&repo).map_err(|e| format!("Ordner anlegen: {e}"))?;
+    }
+    run_git_merged_output(&repo, &["init"])?;
+    Ok(repo.to_string_lossy().to_string())
 }
 
 fn tags_from_map(tag_map: &HashMap<String, Vec<String>>) -> Vec<TagRef> {

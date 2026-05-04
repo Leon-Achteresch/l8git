@@ -1,13 +1,15 @@
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { AnimatePresence, motion } from "motion/react";
-import { Download, FolderGit2, Plus } from "lucide-react";
+import { Download, FolderGit2, FolderPlus, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { CloneRepoDialog } from "./clone-repo-dialog";
+import { InitRepoDialog } from "./init-repo-dialog";
 
 export function AddRepoButton() {
   const pickRepo = usePickRepo();
   const [menuOpen, setMenuOpen] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
+  const [initOpen, setInitOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,6 +63,18 @@ export function AddRepoButton() {
               className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
               onClick={() => {
                 setMenuOpen(false);
+                setInitOpen(true);
+              }}
+            >
+              <FolderPlus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span>Leeres Repo anlegen…</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+              onClick={() => {
+                setMenuOpen(false);
                 setCloneOpen(true);
               }}
             >
@@ -71,6 +85,7 @@ export function AddRepoButton() {
         )}
       </AnimatePresence>
       <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />
+      <InitRepoDialog open={initOpen} onClose={() => setInitOpen(false)} />
     </div>
   );
 }
