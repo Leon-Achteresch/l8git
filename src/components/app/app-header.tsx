@@ -1,7 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { GitFork, Info, Settings, User } from "lucide-react";
 
-import { AppHeaderBranchSelect } from "@/components/app/app-header-branch-select";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -46,7 +45,6 @@ export function AppHeader() {
           );
         })}
       </nav>
-      {/* <AppHeaderBranchSelect /> */}
       <div data-tauri-drag-region className="flex-1" />
       <Link
         to="/settings"
