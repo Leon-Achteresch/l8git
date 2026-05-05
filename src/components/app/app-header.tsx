@@ -20,11 +20,11 @@ export function AppHeader() {
     <header
       data-tauri-drag-region
       className={cn(
-        "flex h-14 shrink-0 select-none items-center gap-2 border-b bg-background/80 px-3 backdrop-blur",
+        "flex h-14 shrink-0 select-none items-center gap-2 border-b bg-background/80 px-2 backdrop-blur",
         IS_MAC && "pl-[78px]",
       )}
     >
-      <nav className="flex items-center gap-0.5">
+      <nav className="flex items-center gap-0.5 ml-4">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
           const active =
             to === "/" ? pathname === "/" : pathname.startsWith(to);
@@ -33,7 +33,7 @@ export function AppHeader() {
               key={to}
               to={to}
               className={cn(
-                "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                "inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
                 active
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
