@@ -1,17 +1,11 @@
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 export const SIDEBAR_MIN_WIDTH = 240;
 export const SIDEBAR_MAX_WIDTH = 560;
 export const SIDEBAR_DEFAULT_WIDTH = 256;
 
-export type SidebarTab =
-  | 'commit'
-  | 'history'
-  | 'stash'
-  | 'pr'
-  | 'ci'
-  | 'submodules';
+export type SidebarTab = "commit" | "history" | "stash" | "pr" | "ci" | "submodules";
 
 export type CommitFocusRequest = {
   path: string;
@@ -19,7 +13,7 @@ export type CommitFocusRequest = {
   id: number;
 };
 
-export type CommitSearchMatchStepDirection = 'prev' | 'next';
+export type CommitSearchMatchStepDirection = "prev" | "next";
 
 export type CommitSearchMatchStepRequest = {
   path: string;
@@ -45,7 +39,7 @@ type UiState = {
   commitSearchMatchStepRequest: CommitSearchMatchStepRequest | null;
   requestCommitSearchMatchStep: (
     path: string,
-    direction: CommitSearchMatchStepDirection
+    direction: CommitSearchMatchStepDirection,
   ) => void;
   clearCommitSearchMatchStepRequest: () => void;
   prCreateRequest: PrCreateRequest | null;
@@ -61,14 +55,14 @@ const clamp = (v: number) =>
 
 export const useUiStore = create<UiState>()(
   persist(
-    set => ({
+    (set) => ({
       sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
-      setSidebarWidth: width => set({ sidebarWidth: clamp(width) }),
-      sidebarTab: 'history',
-      setSidebarTab: tab => set({ sidebarTab: tab }),
+      setSidebarWidth: (width) => set({ sidebarWidth: clamp(width) }),
+      sidebarTab: "history",
+      setSidebarTab: (tab) => set({ sidebarTab: tab }),
       commitFocusRequest: null,
       requestCommitHistoryFocus: (path, hash) =>
-        set(s => ({
+        set((s) => ({
           commitFocusRequest: {
             path,
             hash,
@@ -76,8 +70,8 @@ export const useUiStore = create<UiState>()(
           },
         })),
       focusCommitFromBranchTip: (path, tipHash) =>
-        set(s => ({
-          sidebarTab: 'history',
+        set((s) => ({
+          sidebarTab: "history",
           commitFocusRequest: {
             path,
             hash: tipHash,
@@ -87,7 +81,7 @@ export const useUiStore = create<UiState>()(
       clearCommitFocusRequest: () => set({ commitFocusRequest: null }),
       commitSearchMatchStepRequest: null,
       requestCommitSearchMatchStep: (path, direction) =>
-        set(s => ({
+        set((s) => ({
           commitSearchMatchStepRequest: {
             path,
             direction,
@@ -98,8 +92,8 @@ export const useUiStore = create<UiState>()(
         set({ commitSearchMatchStepRequest: null }),
       prCreateRequest: null,
       requestPrCreate: (path, head) =>
-        set(s => ({
-          sidebarTab: 'pr',
+        set((s) => ({
+          sidebarTab: "pr",
           prCreateRequest: {
             path,
             head,
@@ -109,25 +103,25 @@ export const useUiStore = create<UiState>()(
       clearPrCreateRequest: () => set({ prCreateRequest: null }),
       branchFilterByPath: {},
       setBranchFilter: (path, names) =>
-        set(s => ({
+        set((s) => ({
           branchFilterByPath: { ...s.branchFilterByPath, [path]: names },
         })),
-      clearBranchFilter: path =>
-        set(s => {
+      clearBranchFilter: (path) =>
+        set((s) => {
           const { [path]: _removed, ...rest } = s.branchFilterByPath;
           return { branchFilterByPath: rest };
         }),
     }),
     {
-      name: 'l8git-ui',
+      name: "l8git-ui",
       storage: createJSONStorage(() => localStorage),
-      partialize: s => ({
+      partialize: (s) => ({
         sidebarWidth: s.sidebarWidth,
         sidebarTab: s.sidebarTab,
       }),
       merge: (persisted, current) => {
         const p = persisted as Partial<
-          Pick<UiState, 'sidebarWidth' | 'sidebarTab'>
+          Pick<UiState, "sidebarWidth" | "sidebarTab">
         >;
         return {
           ...current,
@@ -135,6 +129,6 @@ export const useUiStore = create<UiState>()(
           sidebarWidth: clamp(p.sidebarWidth ?? current.sidebarWidth),
         };
       },
-    }
-  )
+    },
+  ),
 );

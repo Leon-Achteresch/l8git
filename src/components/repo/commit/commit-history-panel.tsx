@@ -2,24 +2,24 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@/components/ui/resizable';
-import { toastError } from '@/lib/error-toast';
-import { computeReachableHashes, normalizeGitOid } from '@/lib/graph';
-import type { Commit } from '@/lib/repo-store';
-import { useRepoStore } from '@/lib/repo-store';
-import { useUiStore } from '@/lib/ui-store';
-import { writeLocalStorageDebounced } from '@/lib/utils';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { CherryPickStatusBanner } from './cherry-pick-status-banner';
-import { CommitInspectDetail } from './commit-inspect-detail';
-import { CommitList } from './commit-list';
+} from "@/components/ui/resizable";
+import { toastError } from "@/lib/error-toast";
+import { computeReachableHashes, normalizeGitOid } from "@/lib/graph";
+import type { Commit } from "@/lib/repo-store";
+import { useRepoStore } from "@/lib/repo-store";
+import { useUiStore } from "@/lib/ui-store";
+import { writeLocalStorageDebounced } from "@/lib/utils";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { CherryPickStatusBanner } from "./cherry-pick-status-banner";
+import { CommitInspectDetail } from "./commit-inspect-detail";
+import { CommitList } from "./commit-list";
 
-const layoutStorageKey = 'l8git.history-split.layout.v1';
+const layoutStorageKey = "l8git.history-split.layout.v1";
 const EMPTY_HASH_SET: ReadonlySet<string> = new Set();
 const EMPTY_BRANCH_SET: ReadonlySet<string> = new Set();
 
-export type CommitSelectMode = 'single' | 'toggle' | 'range';
+export type CommitSelectMode = "single" | "toggle" | "range";
 
 export function CommitHistoryPanel({
   path,
@@ -28,14 +28,15 @@ export function CommitHistoryPanel({
   path: string;
   commits: Commit[];
 }) {
-  const branches = useRepoStore(s => s.repos[path]?.branches ?? []);
+  const branches = useRepoStore((s) => s.repos[path]?.branches ?? []);
   const selectedBranchNames =
-    useUiStore(s => s.branchFilterByPath[path]) ?? EMPTY_BRANCH_SET;
+    useUiStore((s) => s.branchFilterByPath[path]) ?? EMPTY_BRANCH_SET;
   const [selectedHash, setSelectedHash] = useState<string | null>(null);
-  const [selectedHashes, setSelectedHashes] =
-    useState<ReadonlySet<string>>(EMPTY_HASH_SET);
+  const [selectedHashes, setSelectedHashes] = useState<ReadonlySet<string>>(
+    EMPTY_HASH_SET,
+  );
   const [anchorHash, setAnchorHash] = useState<string | null>(null);
-  const searchSlice = useRepoStore(s => s.commitSearchByPath[path]);
+  const searchSlice = useRepoStore((s) => s.commitSearchByPath[path]);
   const [defaultLayout] = useState<Record<string, number> | undefined>(() => {
     const raw = localStorage.getItem(layoutStorageKey);
     if (!raw) return undefined;
@@ -48,18 +49,20 @@ export function CommitHistoryPanel({
 
   useEffect(() => {
     setSelectedHash(null);
-    setSelectedHashes(prev => (prev.size === 0 ? prev : EMPTY_HASH_SET));
+    setSelectedHashes((prev) => (prev.size === 0 ? prev : EMPTY_HASH_SET));
     setAnchorHash(null);
   }, [path]);
 
   const filteredCommits = useMemo(() => {
     if (selectedBranchNames.size === 0) return commits;
     const tipHashes = branches
-      .filter(b => selectedBranchNames.has(b.name))
-      .map(b => b.tip);
+      .filter((b) => selectedBranchNames.has(b.name))
+      .map((b) => b.tip);
     if (tipHashes.length === 0) return commits;
     const reachable = computeReachableHashes(commits, tipHashes);
-    return commits.filter(c => reachable.has(normalizeGitOid(c.hash)));
+    return commits.filter((c) =>
+      reachable.has(normalizeGitOid(c.hash)),
+    );
   }, [commits, branches, selectedBranchNames]);
 
   const isSearch = !!searchSlice?.query?.trim();
@@ -73,14 +76,14 @@ export function CommitHistoryPanel({
 
   const onToggleSelect = useCallback(
     (hash: string, mode: CommitSelectMode) => {
-      if (mode === 'single') {
-        setSelectedHash(h => (h === hash ? null : hash));
+      if (mode === "single") {
+        setSelectedHash((h) => (h === hash ? null : hash));
         setSelectedHashes(new Set([hash]));
         setAnchorHash(hash);
         return;
       }
-      if (mode === 'toggle') {
-        setSelectedHashes(prev => {
+      if (mode === "toggle") {
+        setSelectedHashes((prev) => {
           const next = new Set(prev);
           if (next.has(hash)) next.delete(hash);
           else next.add(hash);
@@ -90,9 +93,9 @@ export function CommitHistoryPanel({
         return;
       }
       // range
-      setSelectedHashes(prev => {
+      setSelectedHashes((prev) => {
         const anchor = anchorHash ?? hash;
-        const hashes = filteredCommits.map(c => c.hash);
+        const hashes = filteredCommits.map((c) => c.hash);
         const a = hashes.indexOf(anchor);
         const b = hashes.indexOf(hash);
         if (a < 0 || b < 0) {
@@ -106,18 +109,16 @@ export function CommitHistoryPanel({
         return next;
       });
     },
-    [anchorHash, filteredCommits]
+    [anchorHash, filteredCommits],
   );
 
   const onCherryPick = useCallback(
     async (hashes: string[], opts?: { mainline?: number }) => {
       if (hashes.length === 0) return;
       // Sort oldest-first based on display order (listCommits is newest-first).
-      const order = new Map(
-        filteredCommits.map((c, i) => [c.hash, i] as const)
-      );
+      const order = new Map(filteredCommits.map((c, i) => [c.hash, i] as const));
       const ordered = [...hashes].sort(
-        (a, b) => (order.get(b) ?? 0) - (order.get(a) ?? 0)
+        (a, b) => (order.get(b) ?? 0) - (order.get(a) ?? 0),
       );
       try {
         const out = await useRepoStore
@@ -126,8 +127,8 @@ export function CommitHistoryPanel({
         toast.success(
           out.trim() ||
             (ordered.length === 1
-              ? 'Commit cherry-gepickt.'
-              : `${ordered.length} Commits cherry-gepickt.`)
+              ? "Commit cherry-gepickt."
+              : `${ordered.length} Commits cherry-gepickt.`),
         );
         setSelectedHashes(EMPTY_HASH_SET);
       } catch (err) {
@@ -137,7 +138,7 @@ export function CommitHistoryPanel({
         }
       }
     },
-    [filteredCommits, path]
+    [filteredCommits, path],
   );
 
   const list = (
@@ -156,36 +157,36 @@ export function CommitHistoryPanel({
   );
 
   return (
-    <div className='flex h-full min-h-0 flex-col overflow-hidden shadow-sm ring-1 ring-border/50'>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden shadow-sm ring-1 ring-border/50">
       <CherryPickStatusBanner path={path} />
       {selectedHash ? (
         <ResizablePanelGroup
-          orientation='horizontal'
-          id='history-split'
-          className='min-h-0 flex-1'
+          orientation="horizontal"
+          id="history-split"
+          className="min-h-0 flex-1"
           defaultLayout={defaultLayout}
-          onLayoutChanged={layout =>
+          onLayoutChanged={(layout) =>
             writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout))
           }
         >
           <ResizablePanel
-            id='commits'
-            defaultSize='52%'
-            minSize='24%'
-            maxSize='78%'
-            className='min-h-0 flex flex-col'
+            id="commits"
+            defaultSize="52%"
+            minSize="24%"
+            maxSize="78%"
+            className="min-h-0 flex flex-col"
           >
             {list}
           </ResizablePanel>
           <ResizableHandle
             withHandle
-            className='bg-border/50 transition-colors hover:bg-primary/20'
+            className="bg-border/50 transition-colors hover:bg-primary/20"
           />
           <ResizablePanel
-            id='inspect'
-            defaultSize='48%'
-            minSize='22%'
-            className='flex min-h-0 flex-col'
+            id="inspect"
+            defaultSize="48%"
+            minSize="22%"
+            className="flex min-h-0 flex-col"
           >
             <CommitInspectDetail
               path={path}
@@ -195,7 +196,7 @@ export function CommitHistoryPanel({
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
-        <div className='flex min-h-0 flex-1 flex-col'>{list}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{list}</div>
       )}
     </div>
   );
