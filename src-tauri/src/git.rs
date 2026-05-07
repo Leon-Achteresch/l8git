@@ -912,6 +912,31 @@ pub fn git_discard_files(
 }
 
 #[tauri::command]
+pub fn git_restore_files_at_commit(
+    path: String,
+    commit: String,
+    files: Vec<String>,
+) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let c = commit.trim();
+    if c.is_empty() {
+        return Err("Commit-Hash darf nicht leer sein".into());
+    }
+    let clean: Vec<&str> = files
+        .iter()
+        .map(|f| f.as_str())
+        .filter(|f| !f.trim().is_empty())
+        .collect();
+    if clean.is_empty() {
+        return Ok(());
+    }
+    let mut args = vec!["checkout", c, "--"];
+    args.extend(clean.iter().copied());
+    run_git(&repo, &args)?;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn delete_branch(path: String, name: String, force: bool) -> Result<(), String> {
     let repo = PathBuf::from(&path);
     let flag = if force { "-D" } else { "-d" };
