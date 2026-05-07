@@ -33,7 +33,7 @@ export function AppHeader() {
               key={to}
               to={to}
               className={cn(
-                "inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+                "inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors",
                 active
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
