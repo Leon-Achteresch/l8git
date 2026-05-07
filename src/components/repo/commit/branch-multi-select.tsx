@@ -61,7 +61,7 @@ export function BranchMultiSelect({
           variant="outline"
           size="sm"
           className={cn(
-            "h-7 gap-1.5 text-xs font-normal",
+            "h-8 gap-1.5 text-xs font-normal",
             count > 0 && "border-primary/40 bg-primary/5",
           )}
         >
@@ -143,7 +143,7 @@ function BranchCommandItem({
         }}
       />
       <span className="flex-1 truncate">{branch.name}</span>
- 
+
     </CommandItem>
   );
 }
