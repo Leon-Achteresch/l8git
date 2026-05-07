@@ -42,6 +42,7 @@ pub fn run() {
             git::cherry_pick_state,
             git::git_tag_commit,
             git::git_discard_files,
+            git::git_restore_files_at_commit,
             git::delete_branch,
             git::delete_remote_branch,
             git::delete_tag,

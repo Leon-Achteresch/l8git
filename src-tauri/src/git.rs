@@ -912,6 +912,31 @@ pub fn git_discard_files(
 }
 
 #[tauri::command]
+pub fn git_restore_files_at_commit(
+    path: String,
+    commit: String,
+    files: Vec<String>,
+) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let c = commit.trim();
+    if c.is_empty() {
+        return Err("Commit-Hash darf nicht leer sein".into());
+    }
+    let clean: Vec<&str> = files
+        .iter()
+        .map(|f| f.as_str())
+        .filter(|f| !f.trim().is_empty())
+        .collect();
+    if clean.is_empty() {
+        return Ok(());
+    }
+    let mut args = vec!["checkout", c, "--"];
+    args.extend(clean.iter().copied());
+    run_git(&repo, &args)?;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn delete_branch(path: String, name: String, force: bool) -> Result<(), String> {
     let repo = PathBuf::from(&path);
     let flag = if force { "-D" } else { "-d" };
@@ -997,9 +1022,9 @@ fn parse_numstat(out: &str) -> HashMap<String, (u32, u32, bool)> {
         let dels: u32 = dels_s.parse().unwrap_or(0);
         let path = if path_part.is_empty() {
             let _old = iter.next();
-            iter.next().unwrap_or("").to_string()
+            iter.next().unwrap_or("").trim_end_matches('\r').to_string()
         } else {
-            path_part.to_string()
+            path_part.trim_end_matches('\r').to_string()
         };
         if !path.is_empty() {
             map.insert(path, (adds, dels, binary));
@@ -1099,7 +1124,7 @@ fn compute_status_entries(repo: &PathBuf) -> Result<Vec<StatusEntry>, String> {
         let bytes = raw.as_bytes();
         let index_status = (bytes[0] as char).to_string();
         let worktree_status = (bytes[1] as char).to_string();
-        let file_path = raw[3..].to_string();
+        let file_path = raw[3..].trim_end_matches('\r').to_string();
 
         if index_status == "R" || index_status == "C" {
             let _ = iter.next();
@@ -1273,6 +1298,7 @@ pub fn repo_staged_diff(path: String) -> Result<String, String> {
 #[tauri::command]
 pub fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<FileDiffResponse, String> {
     let repo = PathBuf::from(&path);
+    let file = file.trim().to_string();
     if untracked {
         let abs = repo.join(&file);
         let bytes =
@@ -1430,11 +1456,33 @@ pub fn repo_commit_file_diff(
     if c.is_empty() || f.is_empty() {
         return Err("Commit oder Dateipfad fehlt".into());
     }
-    let diff = run_git(
-        &repo,
-        &["show", "--no-color", "--format=", c, "--", f],
-    )
-    .unwrap_or_default();
+
+    // Determine the first parent of this commit so we can use the reliable
+    // plumbing command `git diff-tree -p` instead of `git show --format=`.
+    // On Windows, the empty --format= argument can behave inconsistently
+    // across git versions, producing no output even for valid diffs.
+    let parents_line = run_git(&repo, &["rev-list", "--parents", "-n", "1", c])
+        .unwrap_or_default();
+    let mut parent_tokens = parents_line.trim().split_whitespace();
+    let _self_hash = parent_tokens.next();
+    let first_parent = parent_tokens.next();
+
+    let diff = if let Some(parent) = first_parent {
+        // Regular commit: diff against its first parent.
+        run_git(
+            &repo,
+            &["diff-tree", "-p", "--no-commit-id", "--no-color", parent, c, "--", f],
+        )
+        .unwrap_or_default()
+    } else {
+        // Initial commit (no parent): compare against the empty tree.
+        run_git(
+            &repo,
+            &["diff-tree", "-p", "--root", "--no-commit-id", "--no-color", c, "--", f],
+        )
+        .unwrap_or_default()
+    };
+
     let trimmed = diff.trim();
     if diff_reports_binary(&diff) {
         return Ok(CommitFileDiffResponse {

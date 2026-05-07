@@ -1,16 +1,16 @@
-import type { Branch, Commit } from "./repo-store";
+import type { Branch, Commit } from './repo-store';
 
 const PALETTE = [
-  "#e53935",
-  "#fb8c00",
-  "#fdd835",
-  "#43a047",
-  "#00acc1",
-  "#1e88e5",
-  "#8e24aa",
-  "#6d4c41",
-  "#546e7a",
-  "#d81b60",
+  '#e53935',
+  '#fb8c00',
+  '#fdd835',
+  '#43a047',
+  '#00acc1',
+  '#1e88e5',
+  '#8e24aa',
+  '#6d4c41',
+  '#546e7a',
+  '#d81b60',
 ];
 
 function fnv1a32(s: string): number {
@@ -47,7 +47,7 @@ export function buildGraph(commits: Commit[]): {
   let maxLanes = 0;
 
   const findEmpty = () => {
-    const idx = lanes.findIndex((h) => h === null);
+    const idx = lanes.findIndex(h => h === null);
     return idx;
   };
 
@@ -95,7 +95,7 @@ export function buildGraph(commits: Commit[]): {
 
     for (let p = 1; p < parents.length; p++) {
       const parent = parents[p];
-      const existing = lanes.findIndex((h) => h === parent);
+      const existing = lanes.findIndex(h => h === parent);
       if (existing !== -1) continue;
       let idx = findEmpty();
       if (idx === -1) {
@@ -124,7 +124,7 @@ export function buildGraph(commits: Commit[]): {
       color: colorFor(myOrigin),
       lanesBefore,
       lanesAfter,
-      mergedLanes: matching.filter((i) => i !== myLane),
+      mergedLanes: matching.filter(i => i !== myLane),
       laneOriginsBefore,
       laneOriginsAfter,
     });
@@ -134,11 +134,11 @@ export function buildGraph(commits: Commit[]): {
 }
 
 export function laneColor(origin: string | null | undefined): string {
-  return origin ? colorFor(origin) : "#888";
+  return origin ? colorFor(origin) : '#888';
 }
 
 export function normalizeGitOid(oid: string | null | undefined): string {
-  return (oid ?? "").trim().toLowerCase();
+  return (oid ?? '').trim().toLowerCase();
 }
 
 export function compareBranchesDisplay(a: Branch, b: Branch): number {
@@ -147,15 +147,35 @@ export function compareBranchesDisplay(a: Branch, b: Branch): number {
   return a.name.localeCompare(b.name);
 }
 
+export function computeReachableHashes(
+  commits: Commit[],
+  startHashes: string[]
+): Set<string> {
+  const commitMap = new Map(commits.map(c => [normalizeGitOid(c.hash), c]));
+  const visited = new Set<string>();
+  const queue = startHashes.map(h => normalizeGitOid(h));
+  while (queue.length > 0) {
+    const hash = queue.pop()!;
+    if (visited.has(hash)) continue;
+    visited.add(hash);
+    const commit = commitMap.get(hash);
+    if (commit) {
+      for (const parent of commit.parents) {
+        const p = normalizeGitOid(parent);
+        if (!visited.has(p)) queue.push(p);
+      }
+    }
+  }
+  return visited;
+}
+
 export function branchLaneColorAtTip(
   branches: Branch[],
-  oid: string | null | undefined,
+  oid: string | null | undefined
 ): string | null {
   const t = normalizeGitOid(oid);
   if (!t) return null;
-  const matches = branches.filter(
-    (b) => normalizeGitOid(b.tip) === t,
-  );
+  const matches = branches.filter(b => normalizeGitOid(b.tip) === t);
   if (matches.length === 0) return null;
   matches.sort(compareBranchesDisplay);
   return laneColor(matches[0].name);

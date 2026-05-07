@@ -86,7 +86,7 @@ export function AppHeaderBranchSelect() {
           aria-label="Branch auswählen"
           style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
           className={cn(
-            "mr-1 inline-flex max-w-[min(13rem,calc(100vw-360px))] shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-medium text-foreground shadow-none transition-colors",
+            "mr-1 inline-flex h-9 max-w-[min(13rem,calc(100vw-360px))] shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm font-medium text-foreground shadow-none transition-colors",
             disabled
               ? "cursor-default opacity-50"
               : "cursor-pointer hover:bg-muted/60",

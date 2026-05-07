@@ -5,6 +5,7 @@ import {
 } from "@/components/ui/resizable";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { toastError } from "@/lib/error-toast";
+import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -49,6 +50,7 @@ export function CommitInspectDetail({
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [checkedFiles, setCheckedFiles] = useState<ReadonlySet<string>>(new Set());
   const [fileDiff, setFileDiff] = useState<FileDiffPayload | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffFailed, setDiffFailed] = useState(false);
@@ -119,6 +121,7 @@ export function CommitInspectDetail({
 
   useEffect(() => {
     setSelectedFile(null);
+    setCheckedFiles(new Set());
     setFileDiff(null);
     setDiffFailed(false);
     setBlameActive(false);
@@ -136,6 +139,52 @@ export function CommitInspectDetail({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [commitHash, onClose]);
+
+  const restoreFilesAtCommit = useRepoStore((s) => s.restoreFilesAtCommit);
+
+  const discardFile = useCallback(
+    (filePath: string) => {
+      if (!commitHash) return;
+      const ok = window.confirm(
+        `„${filePath}" auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.`,
+      );
+      if (!ok) return;
+      void (async () => {
+        try {
+          await restoreFilesAtCommit(path, commitHash, [filePath]);
+        } catch (e) {
+          toastError(String(e));
+        }
+      })();
+    },
+    [commitHash, path, restoreFilesAtCommit],
+  );
+
+  const discardChecked = useCallback(() => {
+    if (!commitHash || checkedFiles.size === 0) return;
+    const files = [...checkedFiles];
+    const ok = window.confirm(
+      `${files.length} Datei${files.length === 1 ? "" : "en"} auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.`,
+    );
+    if (!ok) return;
+    void (async () => {
+      try {
+        await restoreFilesAtCommit(path, commitHash, files);
+        setCheckedFiles(new Set());
+      } catch (e) {
+        toastError(String(e));
+      }
+    })();
+  }, [commitHash, checkedFiles, path, restoreFilesAtCommit]);
+
+  const handleCheckedChange = useCallback((filePath: string, checked: boolean) => {
+    setCheckedFiles((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(filePath);
+      else next.delete(filePath);
+      return next;
+    });
+  }, []);
 
   const refreshAll = useCallback(() => {
     void loadInspect();
@@ -208,6 +257,7 @@ export function CommitInspectDetail({
                   <CommitInspectFileList
                     files={payload?.files ?? []}
                     selectedFile={selectedFile}
+                    checkedFiles={checkedFiles}
                     onSelectFile={(f) => {
                       setSelectedFile(f);
                       setBlameActive(false);
@@ -216,6 +266,9 @@ export function CommitInspectDetail({
                       setSelectedFile(f);
                       setBlameActive(true);
                     }}
+                    onDiscardFile={discardFile}
+                    onCheckedChange={handleCheckedChange}
+                    onDiscardChecked={discardChecked}
                   />
                 </ResizablePanel>
                 <ResizableHandle
