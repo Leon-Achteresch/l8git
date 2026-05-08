@@ -16,7 +16,7 @@ import {
 import { compareBranchesDisplay } from "@/lib/graph";
 import type { Branch } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
-import { Check, ChevronDown, GitBranch, X } from "lucide-react";
+import { ChevronDown, GitBranch, X } from "lucide-react";
 import { useState } from "react";
 
 export function BranchMultiSelect({
