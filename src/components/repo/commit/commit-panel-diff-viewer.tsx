@@ -11,12 +11,16 @@ export function DiffViewer({
   loading,
   diffFailed,
   onReload,
+  onStageHunk,
+  onUnstageHunk,
 }: {
   selectedRow: ChangeRow | null;
   diffPayload: FileDiffResponse | null;
   loading: boolean;
   diffFailed: boolean;
   onReload: () => void;
+  onStageHunk?: (patch: string) => void;
+  onUnstageHunk?: (patch: string) => void;
 }) {
   const unifiedText = useMemo(() => {
     if (!diffPayload || !selectedRow) return null;
@@ -78,6 +82,9 @@ export function DiffViewer({
           untrackedPlain={untrackedPlain}
           emptyHint="Keine Textänderungen"
           failedHint="Diff konnte nicht geladen werden."
+          sector={selectedRow.sector}
+          onStageHunk={onStageHunk}
+          onUnstageHunk={onUnstageHunk}
         />
       </div>
     </div>

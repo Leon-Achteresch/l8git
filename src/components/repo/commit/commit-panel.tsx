@@ -227,6 +227,34 @@ export function CommitPanel() {
   };
   const stableOnToggleAll = useCallback(() => void toggleAllRef.current(), []);
 
+  const stageHunk = useCallback(
+    async (patch: string) => {
+      if (!activePath) return;
+      try {
+        await invoke("stage_hunk", { path: activePath, patch });
+        void reloadStatus(activePath);
+        void loadDiff();
+      } catch (e) {
+        toastError(String(e));
+      }
+    },
+    [activePath, reloadStatus, loadDiff],
+  );
+
+  const unstageHunk = useCallback(
+    async (patch: string) => {
+      if (!activePath) return;
+      try {
+        await invoke("unstage_hunk", { path: activePath, patch });
+        void reloadStatus(activePath);
+        void loadDiff();
+      } catch (e) {
+        toastError(String(e));
+      }
+    },
+    [activePath, reloadStatus, loadDiff],
+  );
+
   const discardOne = useCallback(
     (filePath: string) => {
       if (!activePath) return;
@@ -356,6 +384,8 @@ export function CommitPanel() {
               loading={diffLoading}
               diffFailed={diffFailed}
               onReload={stableOnReload}
+              onStageHunk={stageHunk}
+              onUnstageHunk={unstageHunk}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
