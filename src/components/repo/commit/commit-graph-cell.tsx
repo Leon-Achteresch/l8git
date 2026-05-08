@@ -1,9 +1,11 @@
 import {
   branchLaneColorAtTip,
   laneColor,
+  normalizeGitOid,
   type GraphRow,
 } from "@/lib/graph";
 import type { Branch } from "@/lib/repo-store";
+import type { ReactNode } from "react";
 
 const LANE_WIDTH = 14;
 const ROW_HEIGHT = 80;
@@ -13,10 +15,12 @@ export function CommitGraphCell({
   row,
   maxLanes,
   branches,
+  showRefs = true,
 }: {
   row: GraphRow;
   maxLanes: number;
   branches: Branch[];
+  showRefs?: boolean;
 }) {
   const width = Math.max(1, maxLanes) * LANE_WIDTH;
   const midY = ROW_HEIGHT / 2;
@@ -79,6 +83,62 @@ export function CommitGraphCell({
   const dotStroke =
     branchLaneColorAtTip(branches, row.commit.hash) ?? row.color;
 
+  const commitHash = normalizeGitOid(row.commit.hash);
+  const isBranchTip = showRefs && branches.some(
+    (b) => normalizeGitOid(b.tip) === commitHash,
+  );
+  const hasTag = showRefs && row.commit.tags.length > 0;
+
+  // Diamond shape for tagged commits (industry standard)
+  const DIAMOND_R = 5.5;
+  const diamondPoints = [
+    `${dotX},${midY - DIAMOND_R}`,
+    `${dotX + DIAMOND_R},${midY}`,
+    `${dotX},${midY + DIAMOND_R}`,
+    `${dotX - DIAMOND_R},${midY}`,
+  ].join(" ");
+
+  let dotEl: ReactNode;
+  if (hasTag) {
+    // Diamond: branch color if also a branch tip, otherwise tag color
+    const fill = isBranchTip ? dotStroke : "var(--color-git-tag)";
+    dotEl = (
+      <polygon
+        points={diamondPoints}
+        fill={fill}
+        stroke="var(--background)"
+        strokeWidth={1.5}
+      />
+    );
+  } else if (isBranchTip) {
+    // Ring: larger filled circle with small white inner dot
+    dotEl = (
+      <>
+        <circle
+          cx={dotX}
+          cy={midY}
+          r={5.5}
+          fill={dotStroke}
+          stroke="var(--background)"
+          strokeWidth={1.5}
+        />
+        <circle cx={dotX} cy={midY} r={2} fill="var(--background)" />
+      </>
+    );
+  } else {
+    // Regular commit: small open circle
+    dotEl = (
+      <circle
+        cx={dotX}
+        cy={midY}
+        r={DOT_RADIUS}
+        fill="var(--background)"
+        stroke={dotStroke}
+        strokeWidth={1.5}
+      />
+    );
+  }
+
   return (
     <svg
       width={width}
@@ -97,14 +157,7 @@ export function CommitGraphCell({
           fill="none"
         />
       ))}
-      <circle
-        cx={dotX}
-        cy={midY}
-        r={DOT_RADIUS}
-        fill="var(--background)"
-        stroke={dotStroke}
-        strokeWidth={1.5}
-      />
+      {dotEl}
     </svg>
   );
 }

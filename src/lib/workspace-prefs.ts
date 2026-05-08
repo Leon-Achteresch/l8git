@@ -25,6 +25,8 @@ type WorkspacePrefs = {
   setPushNoVerify: (value: boolean) => void;
   pushDryRun: boolean;
   setPushDryRun: (value: boolean) => void;
+  hideT3Checkpoints: boolean;
+  setHideT3Checkpoints: (value: boolean) => void;
 };
 
 export const useWorkspacePrefs = create<WorkspacePrefs>()(
@@ -48,6 +50,8 @@ export const useWorkspacePrefs = create<WorkspacePrefs>()(
       setPushNoVerify: (pushNoVerify) => set({ pushNoVerify }),
       pushDryRun: false,
       setPushDryRun: (pushDryRun) => set({ pushDryRun }),
+      hideT3Checkpoints: true,
+      setHideT3Checkpoints: (hideT3Checkpoints) => set({ hideT3Checkpoints }),
     }),
     {
       name: "l8git-workspace-prefs",

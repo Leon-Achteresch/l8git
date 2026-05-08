@@ -56,6 +56,8 @@ pub fn run() {
             git::repo_commit_file_diff,
             git::stage_files,
             git::unstage_files,
+            git::stage_hunk,
+            git::unstage_hunk,
             git::commit_changes,
             git::list_stashes,
             git::git_stash_push,

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::PathBuf;
+use std::process::Stdio;
 
 use serde::Serialize;
 
@@ -166,6 +168,7 @@ fn fetch_commits(
     skip: usize,
     limit: usize,
     tag_map: &HashMap<String, Vec<String>>,
+    hide_t3_checkpoints: bool,
 ) -> Result<Vec<Commit>, String> {
     if run_git(repo, &["rev-parse", "-q", "--verify", "HEAD"]).is_err() {
         return Ok(vec![]);
@@ -177,10 +180,13 @@ fn fetch_commits(
         "log".into(),
         "-z".into(),
         max_count,
-        "--all".into(),
-        "--date-order".into(),
-        format!("--pretty=format:{format}"),
     ];
+    if hide_t3_checkpoints {
+        args.push("--exclude=refs/t3/*".into());
+    }
+    args.push("--all".into());
+    args.push("--date-order".into());
+    args.push(format!("--pretty=format:{format}"));
     if skip > 0 {
         args.insert(3, format!("--skip={skip}"));
     }
@@ -271,6 +277,7 @@ pub fn repo_search_commits(
     query: String,
     skip: usize,
     limit: usize,
+    hide_t3_checkpoints: Option<bool>,
 ) -> Result<Vec<CommitSearchResult>, String> {
     let repo = PathBuf::from(&path);
     run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
@@ -279,20 +286,20 @@ pub fn repo_search_commits(
     if needle.is_empty() {
         return Ok(Vec::new());
     }
+    let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
     let tag_map = tags_by_target(&repo);
     let sep = "\x1f";
     let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
     let pretty = format!("--pretty=format:{format}");
+    let mut search_args: Vec<&str> = vec!["log", "-z"];
+    let exclude_arg = "--exclude=refs/t3/*".to_string();
+    if hide_t3 {
+        search_args.push(&exclude_arg);
+    }
+    search_args.extend_from_slice(&["--all", "--date-order", "--name-only", pretty.as_str()]);
     let out = run_git(
         &repo,
-        &[
-            "log",
-            "-z",
-            "--all",
-            "--date-order",
-            "--name-only",
-            pretty.as_str(),
-        ],
+        &search_args,
     )?;
     let tokens: Vec<&str> = out.split('\0').filter(|t| !t.is_empty()).collect();
     let capped = limit.min(500).max(1);
@@ -363,8 +370,9 @@ pub fn repo_search_commits(
 }
 
 #[tauri::command]
-pub fn open_repo(path: String) -> Result<RepoInfo, String> {
+pub fn open_repo(path: String, hide_t3_checkpoints: Option<bool>) -> Result<RepoInfo, String> {
     let repo = PathBuf::from(&path);
+    let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
 
     run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
         .map_err(|_| format!("'{path}' is not a git repository"))?;
@@ -374,7 +382,7 @@ pub fn open_repo(path: String) -> Result<RepoInfo, String> {
         .unwrap_or_else(|_| "HEAD".into());
 
     let tag_map = tags_by_target(&repo);
-    let commits = fetch_commits(&repo, 0, DEFAULT_INITIAL_COMMITS, &tag_map)?;
+    let commits = fetch_commits(&repo, 0, DEFAULT_INITIAL_COMMITS, &tag_map, hide_t3)?;
     let branches = list_branches(&repo).unwrap_or_default();
     let tags = tags_from_map(&tag_map);
 
@@ -427,11 +435,13 @@ pub fn repo_log_page(
     path: String,
     skip: usize,
     limit: usize,
+    hide_t3_checkpoints: Option<bool>,
 ) -> Result<Vec<Commit>, String> {
     let repo = PathBuf::from(&path);
     let tag_map = tags_by_target(&repo);
     let capped = limit.min(500).max(1);
-    fetch_commits(&repo, skip, capped, &tag_map)
+    let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
+    fetch_commits(&repo, skip, capped, &tag_map, hide_t3)
 }
 
 #[tauri::command]
@@ -1344,6 +1354,59 @@ pub fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<Fil
         untracked_plain: None,
         is_binary: false,
     })
+}
+
+/// Apply a unified-diff patch to the git index (staging individual hunks/lines).
+fn apply_patch_to_index(repo: &PathBuf, patch: &str, reverse: bool) -> Result<(), String> {
+    let mut cmd = git_command();
+    cmd.arg("-C").arg(repo);
+    cmd.arg("apply");
+    cmd.arg("--cached");
+    cmd.arg("--whitespace=nowarn");
+    if reverse {
+        cmd.arg("--reverse");
+    }
+    cmd.stdin(Stdio::piped());
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Fehler beim Starten von git: {e}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(patch.as_bytes())
+            .map_err(|e| format!("Fehler beim Schreiben des Patches: {e}"))?;
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Fehler beim Warten auf git: {e}"))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if err.is_empty() {
+            "git apply fehlgeschlagen".to_string()
+        } else {
+            err
+        });
+    }
+    Ok(())
+}
+
+/// Stage individual lines/hunks from the working tree into the index.
+/// `patch` is a unified diff patch string (subset of `git diff` output).
+#[tauri::command]
+pub fn stage_hunk(path: String, patch: String) -> Result<(), String> {
+    apply_patch_to_index(&PathBuf::from(&path), &patch, false)
+}
+
+/// Unstage individual lines/hunks from the index (revert to HEAD).
+/// `patch` is a unified diff patch string (subset of `git diff --cached` output).
+#[tauri::command]
+pub fn unstage_hunk(path: String, patch: String) -> Result<(), String> {
+    apply_patch_to_index(&PathBuf::from(&path), &patch, true)
 }
 
 #[derive(Serialize)]

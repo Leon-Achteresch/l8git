@@ -45,6 +45,7 @@ function VirtualFileListInner({
   stagedRows,
   unstagedRows,
   selectedRowId,
+  multiSelectedIds,
   allState,
   onToggleAll,
   onSelect,
@@ -55,10 +56,12 @@ function VirtualFileListInner({
   stagedRows: ChangeRow[];
   unstagedRows: ChangeRow[];
   selectedRowId: string | null;
+  /** Set of row IDs highlighted as part of a Shift range selection. */
+  multiSelectedIds: ReadonlySet<string>;
   allState: CheckState;
   onToggleAll: () => void;
-  onSelect: (id: string) => void;
-  onToggle: (entry: StatusEntry) => void;
+  onSelect: (id: string, shiftKey: boolean) => void;
+  onToggle: (entry: StatusEntry, rowId: string) => void;
   onDiscard: (path: string) => void;
   onBlame: (path: string) => void;
 }) {
@@ -102,6 +105,11 @@ function VirtualFileListInner({
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Alle Dateien
         </span>
+        {multiSelectedIds.size > 1 && (
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            <span className="font-semibold text-foreground">{multiSelectedIds.size}</span> ausgewählt
+          </span>
+        )}
       </div>
 
       {isEmpty ? (
@@ -147,6 +155,7 @@ function VirtualFileListInner({
                   <FileRow
                     row={item.row}
                     selected={item.row.id === selectedRowId}
+                    inMultiSelection={multiSelectedIds.has(item.row.id)}
                     onSelect={onSelect}
                     onToggle={onToggle}
                     onDiscard={onDiscard}

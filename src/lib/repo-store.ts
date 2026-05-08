@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { toastError } from '@/lib/error-toast';
+import { useWorkspacePrefs } from '@/lib/workspace-prefs';
 
 // Coalesce concurrent reload() calls per path so that back-to-back operations
 // (e.g. commit + reloadStatus + reloadStashes running in parallel) share the
@@ -359,6 +360,7 @@ export const useRepoStore = create<RepoState>()(
             query: q,
             skip: 0,
             limit: 80,
+            hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
           });
           set(s => {
             const cur = s.commitSearchByPath[path];
@@ -426,6 +428,7 @@ export const useRepoStore = create<RepoState>()(
             query: q,
             skip,
             limit: count,
+            hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
           });
           if (more.length === 0) {
             set(s => {
@@ -513,7 +516,10 @@ export const useRepoStore = create<RepoState>()(
       async addRepo(path) {
         set(s => ({ loading: { ...s.loading, [path]: true } }));
         try {
-          const opened = await invoke<RepoInfo>('open_repo', { path });
+          const opened = await invoke<RepoInfo>('open_repo', {
+            path,
+            hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
+          });
           set(s => {
             const paths = s.paths.includes(opened.path)
               ? s.paths
@@ -610,7 +616,10 @@ export const useRepoStore = create<RepoState>()(
             reloadPending.delete(path);
             set(s => ({ loading: { ...s.loading, [path]: true } }));
             try {
-              const opened = await invoke<RepoInfo>('open_repo', { path });
+              const opened = await invoke<RepoInfo>('open_repo', {
+                path,
+                hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
+              });
               set(s => {
                 const { [path]: __, ...restLoad } = s.loading;
                 return {
@@ -1123,6 +1132,7 @@ export const useRepoStore = create<RepoState>()(
             path,
             skip,
             limit: count,
+            hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
           });
           if (more.length === 0) return 0;
           // Dedup against commits we already have (virtualiser-triggered

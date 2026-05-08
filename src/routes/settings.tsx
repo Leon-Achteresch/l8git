@@ -127,6 +127,8 @@ function Settings() {
   const setIdeLaunchCommand = useWorkspacePrefs((s) => s.setIdeLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs((s) => s.repoTerminalKind);
   const setRepoTerminalKind = useWorkspacePrefs((s) => s.setRepoTerminalKind);
+  const hideT3Checkpoints = useWorkspacePrefs((s) => s.hideT3Checkpoints);
+  const setHideT3Checkpoints = useWorkspacePrefs((s) => s.setHideT3Checkpoints);
   const [ideDraft, setIdeDraft] = useState(ideLaunchCommand);
 
   useEffect(() => {
@@ -394,6 +396,45 @@ function Settings() {
               <StaggerCard index={3}>
                 <Card>
                   <CardHeader>
+                    <CardTitle>Commit-Graph</CardTitle>
+                    <CardDescription>
+                      Steuert, welche Commits im Verlauf angezeigt werden.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="hide-t3-checkpoints"
+                        checked={hideT3Checkpoints}
+                        onCheckedChange={(v) => setHideT3Checkpoints(v === true)}
+                        className="mt-0.5"
+                      />
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="hide-t3-checkpoints"
+                          className="cursor-pointer text-sm font-medium text-foreground"
+                        >
+                          T3-Checkpoint-Commits ausblenden
+                        </Label>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          T3 Code speichert Arbeitsstand-Snapshots als separate
+                          Commits unter{" "}
+                          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                            refs/t3/checkpoints/*
+                          </code>
+                          . Diese erscheinen nicht in einem Branch und können
+                          den Graphen unübersichtlich machen. Änderung wirkt
+                          beim nächsten Laden des Repositories.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={4}>
+                <Card>
+                  <CardHeader>
                     <CardTitle>Commit-Nachricht</CardTitle>
                     <CardDescription>
                       Standardvorlage für das Commit-Feld in allen
@@ -423,7 +464,7 @@ function Settings() {
                 </Card>
               </StaggerCard>
 
-              <StaggerCard index={4}>
+              <StaggerCard index={5}>
                 <Card>
                   <CardHeader>
                     <div className="flex items-center gap-2">
