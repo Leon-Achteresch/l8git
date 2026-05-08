@@ -3,6 +3,7 @@ import { FileDiff, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
 import { StatusIcon } from "./commit-panel-status-icon";
 import type { ChangeRow, FileDiffResponse } from "./commit-panel-types";
+import type { ParsedDiff } from "@/lib/unified-diff";
 import { UnifiedDiffBody } from "./unified-diff-body";
 
 export function DiffViewer({
@@ -13,6 +14,12 @@ export function DiffViewer({
   onReload,
   onStageHunk,
   onUnstageHunk,
+  // Lifted interactive state
+  parsedDiff,
+  focusedHunkIdx,
+  selectedLines,
+  onToggleLine,
+  onClearSelection,
 }: {
   selectedRow: ChangeRow | null;
   diffPayload: FileDiffResponse | null;
@@ -21,6 +28,11 @@ export function DiffViewer({
   onReload: () => void;
   onStageHunk?: (patch: string) => void;
   onUnstageHunk?: (patch: string) => void;
+  parsedDiff?: ParsedDiff | null;
+  focusedHunkIdx?: number;
+  selectedLines?: ReadonlySet<string>;
+  onToggleLine?: (key: string) => void;
+  onClearSelection?: () => void;
 }) {
   const unifiedText = useMemo(() => {
     if (!diffPayload || !selectedRow) return null;
@@ -85,6 +97,11 @@ export function DiffViewer({
           sector={selectedRow.sector}
           onStageHunk={onStageHunk}
           onUnstageHunk={onUnstageHunk}
+          parsedDiff={parsedDiff}
+          focusedHunkIdx={focusedHunkIdx}
+          selectedLines={selectedLines}
+          onToggleLine={onToggleLine}
+          onClearSelection={onClearSelection}
         />
       </div>
     </div>

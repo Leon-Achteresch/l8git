@@ -29,14 +29,18 @@ export function checkState(entry: StatusEntry): CheckState {
 }
 
 export function buildChangeRows(entries: StatusEntry[]): ChangeRow[] {
-  const rows: ChangeRow[] = [];
+  // Visual order: ALL staged rows first, then ALL unstaged rows.
+  // This must match the order in commit-panel-file-list (buildListItems),
+  // so that Shift-range selection indexes align with what the user sees.
+  const staged: ChangeRow[] = [];
+  const unstaged: ChangeRow[] = [];
   for (const e of entries) {
     if (e.staged) {
-      rows.push({ id: rowId(e.path, "staged"), path: e.path, sector: "staged", entry: e });
+      staged.push({ id: rowId(e.path, "staged"), path: e.path, sector: "staged", entry: e });
     }
     if (e.unstaged || e.untracked) {
-      rows.push({ id: rowId(e.path, "unstaged"), path: e.path, sector: "unstaged", entry: e });
+      unstaged.push({ id: rowId(e.path, "unstaged"), path: e.path, sector: "unstaged", entry: e });
     }
   }
-  return rows;
+  return [...staged, ...unstaged];
 }

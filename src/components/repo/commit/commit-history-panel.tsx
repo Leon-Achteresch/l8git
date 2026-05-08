@@ -21,6 +21,13 @@ const EMPTY_BRANCH_SET: ReadonlySet<string> = new Set();
 
 export type CommitSelectMode = 'single' | 'toggle' | 'range';
 
+function isInputFocused(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return !!el?.closest(
+    'input, textarea, select, [contenteditable], [role="combobox"]',
+  );
+}
+
 export function CommitHistoryPanel({
   path,
   commits,
@@ -35,6 +42,16 @@ export function CommitHistoryPanel({
   const [selectedHashes, setSelectedHashes] =
     useState<ReadonlySet<string>>(EMPTY_HASH_SET);
   const [anchorHash, setAnchorHash] = useState<string | null>(null);
+  // cursorHash tracks the "moving end" of a range for keyboard navigation,
+  // i.e. the last hash the user explicitly navigated to (click, arrow, etc.).
+  const [cursorHash, setCursorHash] = useState<string | null>(null);
+
+  const sidebarTab = useUiStore(s => s.sidebarTab);
+  const activePath = useRepoStore(s => s.activePath);
+  const requestCommitHistoryFocus = useUiStore(
+    s => s.requestCommitHistoryFocus,
+  );
+
   const searchSlice = useRepoStore(s => s.commitSearchByPath[path]);
   const [defaultLayout] = useState<Record<string, number> | undefined>(() => {
     const raw = localStorage.getItem(layoutStorageKey);
@@ -46,10 +63,12 @@ export function CommitHistoryPanel({
     }
   });
 
+  // Reset selection when the active repo changes.
   useEffect(() => {
     setSelectedHash(null);
     setSelectedHashes(prev => (prev.size === 0 ? prev : EMPTY_HASH_SET));
     setAnchorHash(null);
+    setCursorHash(null);
   }, [path]);
 
   const filteredCommits = useMemo(() => {
@@ -71,15 +90,25 @@ export function CommitHistoryPanel({
     return m;
   }, [searchSlice?.hits]);
 
+  // ── Helper: build the hash list for the currently visible commits ──────────
+  const hashList = useMemo(
+    () => filteredCommits.map(c => c.hash),
+    [filteredCommits],
+  );
+
+  // ── Core selection handler ────────────────────────────────────────────────
   const onToggleSelect = useCallback(
     (hash: string, mode: CommitSelectMode) => {
       if (mode === 'single') {
         setSelectedHash(h => (h === hash ? null : hash));
         setSelectedHashes(new Set([hash]));
         setAnchorHash(hash);
+        setCursorHash(hash);
         return;
       }
+
       if (mode === 'toggle') {
+        // Ctrl+Click: toggle the item; anchor and cursor move to it.
         setSelectedHashes(prev => {
           const next = new Set(prev);
           if (next.has(hash)) next.delete(hash);
@@ -87,37 +116,125 @@ export function CommitHistoryPanel({
           return next;
         });
         setAnchorHash(hash);
+        setCursorHash(hash);
         return;
       }
-      // range
-      setSelectedHashes(prev => {
-        const anchor = anchorHash ?? hash;
-        const hashes = filteredCommits.map(c => c.hash);
-        const a = hashes.indexOf(anchor);
-        const b = hashes.indexOf(hash);
-        if (a < 0 || b < 0) {
-          const next = new Set(prev);
-          next.add(hash);
-          return next;
-        }
-        const [lo, hi] = a <= b ? [a, b] : [b, a];
-        const next = new Set(prev);
-        for (let i = lo; i <= hi; i++) next.add(hashes[i]);
-        return next;
-      });
+
+      // Shift+Click (range): REPLACE the selection with the range between
+      // the current anchor and the clicked commit — matching Explorer behaviour.
+      const anchor = anchorHash ?? hash;
+      const a = hashList.indexOf(anchor);
+      const b = hashList.indexOf(hash);
+      if (a < 0 || b < 0) {
+        setSelectedHashes(new Set([hash]));
+        setCursorHash(hash);
+        return;
+      }
+      const [lo, hi] = a <= b ? [a, b] : [b, a];
+      const next = new Set<string>();
+      for (let i = lo; i <= hi; i++) next.add(hashList[i]);
+      setSelectedHashes(next);
+      setCursorHash(hash); // cursor = the end the user just clicked
     },
-    [anchorHash, filteredCommits]
+    [anchorHash, hashList],
   );
+
+  // ── Keyboard shortcuts (Ctrl+A, Escape, Arrow ± Shift) ───────────────────
+  useEffect(() => {
+    if (sidebarTab !== 'history' || activePath !== path) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isInputFocused(e.target)) return;
+
+      // Ctrl+A – select all visible commits
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'a') {
+        e.preventDefault();
+        if (hashList.length === 0) return;
+        setSelectedHashes(new Set(hashList));
+        setAnchorHash(hashList[0]);
+        setCursorHash(hashList[hashList.length - 1]);
+        return;
+      }
+
+      // Escape – collapse multi-selection back to single
+      if (e.key === 'Escape' && selectedHashes.size > 1) {
+        e.preventDefault();
+        const keep = selectedHash ?? [...selectedHashes][0] ?? null;
+        setSelectedHash(keep);
+        setSelectedHashes(keep ? new Set([keep]) : EMPTY_HASH_SET);
+        setAnchorHash(keep);
+        setCursorHash(keep);
+        return;
+      }
+
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      if (hashList.length === 0) return;
+
+      const dir = e.key === 'ArrowDown' ? 1 : -1;
+
+      if (e.shiftKey) {
+        // Shift+Arrow: extend the range from anchor to (cursor ± 1)
+        const anchor = anchorHash ?? selectedHash ?? hashList[0];
+        const cur = cursorHash ?? anchor;
+        const curIdx = hashList.indexOf(cur);
+        const nextIdx = Math.max(
+          0,
+          Math.min(hashList.length - 1, (curIdx < 0 ? 0 : curIdx) + dir),
+        );
+        const nextHash = hashList[nextIdx];
+        if (!nextHash) return;
+
+        const a = hashList.indexOf(anchor);
+        const b = nextIdx;
+        const [lo, hi] = a <= b ? [a, b] : [b, a];
+        const next = new Set<string>();
+        for (let i = lo; i <= hi; i++) next.add(hashList[i]);
+        setSelectedHashes(next);
+        setCursorHash(nextHash);
+        requestCommitHistoryFocus(path, nextHash);
+      } else {
+        // Plain Arrow: move to next/prev commit (like a single click)
+        const cur = cursorHash ?? selectedHash ?? anchorHash;
+        const curIdx = cur ? hashList.indexOf(cur) : -1;
+        const nextIdx = Math.max(
+          0,
+          Math.min(hashList.length - 1, (curIdx < 0 ? 0 : curIdx) + dir),
+        );
+        const nextHash = hashList[nextIdx];
+        if (!nextHash) return;
+
+        setSelectedHash(nextHash);
+        setSelectedHashes(new Set([nextHash]));
+        setAnchorHash(nextHash);
+        setCursorHash(nextHash);
+        requestCommitHistoryFocus(path, nextHash);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    sidebarTab,
+    activePath,
+    path,
+    hashList,
+    selectedHash,
+    selectedHashes,
+    anchorHash,
+    cursorHash,
+    requestCommitHistoryFocus,
+  ]);
 
   const onCherryPick = useCallback(
     async (hashes: string[], opts?: { mainline?: number }) => {
       if (hashes.length === 0) return;
-      // Sort oldest-first based on display order (listCommits is newest-first).
+      // Sort oldest-first (list is newest-first).
       const order = new Map(
-        filteredCommits.map((c, i) => [c.hash, i] as const)
+        filteredCommits.map((c, i) => [c.hash, i] as const),
       );
       const ordered = [...hashes].sort(
-        (a, b) => (order.get(b) ?? 0) - (order.get(a) ?? 0)
+        (a, b) => (order.get(b) ?? 0) - (order.get(a) ?? 0),
       );
       try {
         const out = await useRepoStore
@@ -127,7 +244,7 @@ export function CommitHistoryPanel({
           out.trim() ||
             (ordered.length === 1
               ? 'Commit cherry-gepickt.'
-              : `${ordered.length} Commits cherry-gepickt.`)
+              : `${ordered.length} Commits cherry-gepickt.`),
         );
         setSelectedHashes(EMPTY_HASH_SET);
       } catch (err) {
@@ -137,7 +254,7 @@ export function CommitHistoryPanel({
         }
       }
     },
-    [filteredCommits, path]
+    [filteredCommits, path],
   );
 
   const list = (

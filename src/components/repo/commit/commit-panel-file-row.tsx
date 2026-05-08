@@ -19,15 +19,19 @@ import { checkState, type ChangeRow } from "./commit-panel-types";
 function FileRowInner({
   row,
   selected,
+  inMultiSelection,
   onSelect,
   onToggle,
   onDiscard,
   onBlame,
 }: {
   row: ChangeRow;
+  /** True when this row is the active diff-preview row. */
   selected: boolean;
-  onSelect: (id: string) => void;
-  onToggle: (entry: StatusEntry) => void;
+  /** True when this row is part of a Shift-range selection. */
+  inMultiSelection: boolean;
+  onSelect: (id: string, shiftKey: boolean) => void;
+  onToggle: (entry: StatusEntry, rowId: string) => void;
   onDiscard: (path: string) => void;
   onBlame: (path: string) => void;
 }) {
@@ -37,20 +41,33 @@ function FileRowInner({
   const deletions =
     row.sector === "staged" ? row.entry.deletions_staged : row.entry.deletions_unstaged;
 
+  // Visual state priority:
+  //  selected + inMultiSelection → accent with left bar (stronger)
+  //  selected only              → accent with left bar (normal)
+  //  inMultiSelection only      → soft accent (range highlight)
+  //  none                       → hover only
+  const rowClass =
+    "group relative flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors " +
+    (selected
+      ? "bg-accent/40 text-foreground before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary"
+      : inMultiSelection
+        ? "bg-accent/20 text-foreground"
+        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground");
+
   const inner = (
     <div
-      onClick={() => onSelect(row.id)}
-      className={`group relative flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors ${
-        selected
-          ? "bg-accent/40 text-foreground before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary"
-          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-      }`}
+      onClick={(e) => {
+        // Prevent the browser from extending the text selection on Shift+Click.
+        if (e.shiftKey) e.preventDefault();
+        onSelect(row.id, e.shiftKey);
+      }}
+      className={rowClass + " select-none"}
     >
       <div
         className="flex items-center justify-center"
         onClick={(e) => {
           e.stopPropagation();
-          onToggle(row.entry);
+          onToggle(row.entry, row.id);
         }}
       >
         {state === "checked" ? (

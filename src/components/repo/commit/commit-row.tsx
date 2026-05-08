@@ -113,7 +113,7 @@ function CommitRowInner({
         selected
           ? "bg-accent/40 before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary"
           : multiSelected
-            ? "bg-accent/40"
+            ? "bg-accent/30 before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary/40"
             : "hover:bg-muted/30",
       )}
     >
@@ -139,7 +139,7 @@ function CommitRowInner({
           >
             {commit.subject}
           </span>
-          <CommitTags tags={commit.tags} />
+          {<CommitTags tags={commit.tags} />}
         </div>
         <CommitAuthorDate
           author={commit.author}

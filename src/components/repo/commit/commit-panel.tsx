@@ -11,6 +11,8 @@ import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
+import { parseDiffWithHunks, type ParsedDiff } from "@/lib/unified-diff";
+import { useCommitPanelHotkeys } from "@/lib/use-commit-panel-hotkeys";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Archive,
@@ -31,8 +33,10 @@ import {
 import { generateAiCommitMessage } from "@/lib/ai-commit";
 
 const EMPTY_STATUS: StatusEntry[] = [];
+const EMPTY_LINES: ReadonlySet<string> = new Set();
 
 export function CommitPanel() {
+  // ─── Store ─────────────────────────────────────────────────────────────────
   const activePath = useRepoStore((s) => s.activePath);
   const entries =
     useRepoStore((s) => (activePath ? s.status[activePath] : undefined)) ?? EMPTY_STATUS;
@@ -43,6 +47,7 @@ export function CommitPanel() {
   const commitChanges = useRepoStore((s) => s.commitChanges);
   const discardFiles = useRepoStore((s) => s.discardFiles);
 
+  // ─── Local state ───────────────────────────────────────────────────────────
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -52,7 +57,29 @@ export function CommitPanel() {
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffFailed, setDiffFailed] = useState(false);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
+  // Interactive staging state (lifted from diff viewer)
+  const [focusedHunkIdx, setFocusedHunkIdx] = useState(-1);
+  const [selectedLines, setSelectedLines] = useState<ReadonlySet<string>>(EMPTY_LINES);
 
+  // Multi-file selection (Shift-range, like a file explorer)
+  const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
+  const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
+
+  // Layout persistence (useState must be unconditional)
+  const layoutStorageKey = "l8git.commit-panel.layout.v2";
+  const [defaultLayout] = useState(() => {
+    const saved = localStorage.getItem(layoutStorageKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved) as Record<string, number>;
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  });
+
+  // ─── Commit message template ───────────────────────────────────────────────
   const seedMessageFromTemplate = useCallback(() => {
     const raw = getCommitMessageTemplate();
     if (!raw.trim()) return;
@@ -79,6 +106,7 @@ export function CommitPanel() {
     });
   }, []);
 
+  // ─── Derived data ──────────────────────────────────────────────────────────
   const changeRows = useMemo(() => buildChangeRows(entries), [entries]);
   const stagedRows = useMemo(() => changeRows.filter((r) => r.sector === "staged"), [changeRows]);
   const unstagedRows = useMemo(
@@ -91,9 +119,32 @@ export function CommitPanel() {
       setSelectedRowId(null);
       return;
     }
+    // Keep current selection when valid; otherwise fall back to the first row.
     setSelectedRowId((prev) =>
       prev && changeRows.some((r) => r.id === prev) ? prev : changeRows[0].id,
     );
+    // Mirror anchor + multi-selection so Shift-click works immediately on first render
+    // and after staging operations that invalidate the previous anchor.
+    setAnchorRowId((prev) =>
+      prev && changeRows.some((r) => r.id === prev) ? prev : changeRows[0].id,
+    );
+    setMultiSelectedIds((prev) => {
+      // If the existing selection is empty, seed it with the first row.
+      // The cleanup effect below will remove any IDs that are no longer valid.
+      if (prev.size === 0) return new Set([changeRows[0].id]);
+      return prev;
+    });
+  }, [changeRows]);
+
+  // Keep multi-selection valid after stage/unstage operations change the file list.
+  useEffect(() => {
+    const validIds = new Set(changeRows.map((r) => r.id));
+    setMultiSelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      // Avoid unnecessary re-renders when nothing actually changed.
+      return next.size === prev.size ? prev : next;
+    });
+    setAnchorRowId((prev) => (prev && validIds.has(prev) ? prev : null));
   }, [changeRows]);
 
   const selectedRow = useMemo(
@@ -116,6 +167,7 @@ export function CommitPanel() {
       ].join("|")
     : "";
 
+  // ─── Diff loading ──────────────────────────────────────────────────────────
   const loadDiff = useCallback(async () => {
     if (!activePath || !selectedPath) {
       setDiffPayload(null);
@@ -148,6 +200,135 @@ export function CommitPanel() {
     void loadDiff();
   }, [loadDiff]);
 
+  // ─── Parsed diff (lifted to enable hotkeys access) ─────────────────────────
+  const parsedDiff = useMemo<ParsedDiff | null>(() => {
+    if (!selectedRow || !diffPayload) return null;
+    const text =
+      selectedRow.sector === "staged" ? diffPayload.staged : diffPayload.unstaged;
+    if (!text?.trim()) return null;
+    const result = parseDiffWithHunks(text);
+    console.log(
+      "[commit-panel] parsedDiff:",
+      result.hunks.length,
+      "hunks for",
+      selectedRow.path,
+      selectedRow.sector,
+    );
+    return result;
+  }, [diffPayload, selectedRow]);
+
+  // Reset interactive state when the selected file/sector changes
+  useEffect(() => {
+    console.log("[commit-panel] reset interactive state, selectedRowId:", selectedRowId);
+    setFocusedHunkIdx(-1);
+    setSelectedLines(EMPTY_LINES);
+  }, [selectedRowId]);
+
+  // ─── Hunk navigation ───────────────────────────────────────────────────────
+  const hunkCount = parsedDiff?.hunks.length ?? 0;
+
+  const onFocusPrevHunk = useCallback(() => {
+    setFocusedHunkIdx((i) => {
+      if (hunkCount === 0) return -1;
+      const next = i <= 0 ? hunkCount - 1 : i - 1;
+      console.log("[commit-panel] focusPrevHunk:", i, "→", next);
+      return next;
+    });
+  }, [hunkCount]);
+
+  const onFocusNextHunk = useCallback(() => {
+    setFocusedHunkIdx((i) => {
+      if (hunkCount === 0) return -1;
+      const next = i >= hunkCount - 1 ? 0 : i + 1;
+      console.log("[commit-panel] focusNextHunk:", i, "→", next);
+      return next;
+    });
+  }, [hunkCount]);
+
+  // ─── Line selection ────────────────────────────────────────────────────────
+  const onToggleLine = useCallback((key: string) => {
+    setSelectedLines((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      console.log("[commit-panel] toggleLine", key, "→", next.size, "selected");
+      return next;
+    });
+  }, []);
+
+  const onClearSelection = useCallback(() => {
+    console.log("[commit-panel] clearSelection");
+    setSelectedLines(EMPTY_LINES);
+  }, []);
+
+  // ─── Hunk-level staging ────────────────────────────────────────────────────
+  const stageHunk = useCallback(
+    async (patch: string) => {
+      if (!activePath) return;
+      console.log("[commit-panel] stageHunk, patch length:", patch.length);
+      try {
+        await invoke("stage_hunk", { path: activePath, patch });
+        void reloadStatus(activePath);
+        void loadDiff();
+      } catch (e) {
+        toastError(String(e));
+      }
+    },
+    [activePath, reloadStatus, loadDiff],
+  );
+
+  const unstageHunk = useCallback(
+    async (patch: string) => {
+      if (!activePath) return;
+      console.log("[commit-panel] unstageHunk, patch length:", patch.length);
+      try {
+        await invoke("unstage_hunk", { path: activePath, patch });
+        void reloadStatus(activePath);
+        void loadDiff();
+      } catch (e) {
+        toastError(String(e));
+      }
+    },
+    [activePath, reloadStatus, loadDiff],
+  );
+
+  // ─── File-level staging (fallback for 's' hotkey) ──────────────────────────
+  // Use a ref so the stable callback always has the latest selectedRow.
+  const latestSelectedRowRef = useRef(selectedRow);
+  latestSelectedRowRef.current = selectedRow;
+
+  const stableOnToggleFile = useCallback(async () => {
+    const row = latestSelectedRowRef.current;
+    if (!activePath || !row) return;
+    console.log("[commit-panel] toggleFile", row.path, row.sector);
+    const state = checkState(row.entry);
+    try {
+      if (state === "checked") {
+        await unstageFiles(activePath, [row.path]);
+      } else {
+        await stageFiles(activePath, [row.path]);
+      }
+    } catch (e) {
+      toastError(String(e));
+    }
+  }, [activePath, unstageFiles, stageFiles]);
+
+  // ─── Hotkeys ───────────────────────────────────────────────────────────────
+  useCommitPanelHotkeys({
+    parsedDiff,
+    focusedHunkIdx,
+    selectedLines,
+    sector: selectedRow?.sector ?? null,
+    enabled: !!selectedRow && !diffLoading,
+    onClearSelection,
+    onFocusPrevHunk,
+    onFocusNextHunk,
+    onStage: stageHunk,
+    onUnstage: unstageHunk,
+    onToggleFile: stableOnToggleFile,
+  });
+
+  // ─── Totals & allState ─────────────────────────────────────────────────────
   const totals = useMemo(() => {
     let additionsStaged = 0;
     let deletionsStaged = 0;
@@ -171,89 +352,81 @@ export function CommitPanel() {
     return "indeterminate" as const;
   }, [entries]);
 
-  if (!activePath) return null;
+  // ─── Stable callbacks for child components ─────────────────────────────────
 
-  const canCommit = totals.stagedFiles > 0 && message.trim().length > 0;
-  const canStash = changeRows.length > 0;
+  // Refs so stable callbacks always see the latest values without recreating.
+  const latestChangeRowsRef = useRef(changeRows);
+  latestChangeRowsRef.current = changeRows;
+  const latestAnchorRowIdRef = useRef(anchorRowId);
+  latestAnchorRowIdRef.current = anchorRowId;
+  const latestMultiSelectedIdsRef = useRef(multiSelectedIds);
+  latestMultiSelectedIdsRef.current = multiSelectedIds;
 
-  const toggleEntry = async (entry: StatusEntry) => {
-    if (!activePath) return;
-    const state = checkState(entry);
-    try {
-      if (state === "checked") {
-        await unstageFiles(activePath, [entry.path]);
-      } else {
-        await stageFiles(activePath, [entry.path]);
+  /**
+   * Row click handler.
+   * - Plain click  → set as new anchor, single-selection, update diff preview.
+   * - Shift+click  → extend range from anchor to clicked row.
+   */
+  const handleRowSelect = useCallback((id: string, shiftKey: boolean) => {
+    setSelectedRowId(id); // always update the diff preview
+    if (shiftKey) {
+      const anchor = latestAnchorRowIdRef.current;
+      const rows = latestChangeRowsRef.current;
+      if (anchor && anchor !== id) {
+        const anchorIdx = rows.findIndex((r) => r.id === anchor);
+        const targetIdx = rows.findIndex((r) => r.id === id);
+        if (anchorIdx >= 0 && targetIdx >= 0) {
+          const [from, to] =
+            anchorIdx < targetIdx ? [anchorIdx, targetIdx] : [targetIdx, anchorIdx];
+          setMultiSelectedIds(new Set(rows.slice(from, to + 1).map((r) => r.id)));
+          return;
+        }
       }
-    } catch (e) {
-      toastError(String(e));
     }
-  };
+    // Normal click: reset range, set new anchor.
+    setAnchorRowId(id);
+    setMultiSelectedIds(new Set([id]));
+  }, []);
 
-  const toggleEntryRef = useRef(toggleEntry);
-  toggleEntryRef.current = toggleEntry;
-
-  const stableOnSelectRow = useCallback((id: string) => setSelectedRowId(id), []);
+  /**
+   * Checkbox click handler.
+   * When multiple rows are selected, stage/unstage all rows of the same sector.
+   */
+  const toggleEntryRef = useRef<(entry: StatusEntry) => void>(() => {});
   const stableOnToggleRow = useCallback(
-    (entry: StatusEntry) => void toggleEntryRef.current(entry),
-    [],
+    async (entry: StatusEntry, rowId: string) => {
+      if (!activePath) return;
+      const multiIds = latestMultiSelectedIdsRef.current;
+      const rows = latestChangeRowsRef.current;
+      if (multiIds.size > 1 && multiIds.has(rowId)) {
+        const clickedRow = rows.find((r) => r.id === rowId);
+        if (!clickedRow) return;
+        const state = checkState(entry);
+        const sectorRows = rows.filter(
+          (r) => multiIds.has(r.id) && r.sector === clickedRow.sector,
+        );
+        const paths = sectorRows.map((r) => r.path);
+        try {
+          if (state === "checked") {
+            await unstageFiles(activePath, paths);
+          } else {
+            await stageFiles(activePath, paths);
+          }
+        } catch (e) {
+          toastError(String(e));
+        }
+      } else {
+        void toggleEntryRef.current(entry);
+      }
+    },
+    [activePath, unstageFiles, stageFiles],
   );
+
   const stableOnBlame = useCallback((path: string) => setBlameTarget(path), []);
   const stableOnReload = useCallback(() => void loadDiff(), [loadDiff]);
 
-  const toggleAllRef = useRef(async () => {
-    if (!activePath || entries.length === 0) return;
-    try {
-      if (allState === "checked") {
-        await unstageFiles(activePath, entries.map((e) => e.path));
-      } else {
-        await stageFiles(activePath, entries.map((e) => e.path));
-      }
-    } catch (e) {
-      toastError(String(e));
-    }
-  });
-  toggleAllRef.current = async () => {
-    if (!activePath || entries.length === 0) return;
-    try {
-      if (allState === "checked") {
-        await unstageFiles(activePath, entries.map((e) => e.path));
-      } else {
-        await stageFiles(activePath, entries.map((e) => e.path));
-      }
-    } catch (e) {
-      toastError(String(e));
-    }
-  };
+  const toggleAllRef = useRef<() => Promise<void>>(async () => {});
   const stableOnToggleAll = useCallback(() => void toggleAllRef.current(), []);
-
-  const stageHunk = useCallback(
-    async (patch: string) => {
-      if (!activePath) return;
-      try {
-        await invoke("stage_hunk", { path: activePath, patch });
-        void reloadStatus(activePath);
-        void loadDiff();
-      } catch (e) {
-        toastError(String(e));
-      }
-    },
-    [activePath, reloadStatus, loadDiff],
-  );
-
-  const unstageHunk = useCallback(
-    async (patch: string) => {
-      if (!activePath) return;
-      try {
-        await invoke("unstage_hunk", { path: activePath, patch });
-        void reloadStatus(activePath);
-        void loadDiff();
-      } catch (e) {
-        toastError(String(e));
-      }
-    },
-    [activePath, reloadStatus, loadDiff],
-  );
 
   const discardOne = useCallback(
     (filePath: string) => {
@@ -285,8 +458,43 @@ export function CommitPanel() {
     }
   }, [activePath, stagedRows.length]);
 
+  // ─── Early return (guard only – all hooks are above) ──────────────────────
+  if (!activePath) return null;
+
+  // ─── Non-hook event handlers ───────────────────────────────────────────────
+  const canCommit = totals.stagedFiles > 0 && message.trim().length > 0;
+  const canStash = changeRows.length > 0;
+
+  const toggleEntry = async (entry: StatusEntry) => {
+    const state = checkState(entry);
+    try {
+      if (state === "checked") {
+        await unstageFiles(activePath, [entry.path]);
+      } else {
+        await stageFiles(activePath, [entry.path]);
+      }
+    } catch (e) {
+      toastError(String(e));
+    }
+  };
+  // Keep the ref in sync so stableOnToggleRow always calls the latest closure.
+  toggleEntryRef.current = toggleEntry;
+
+  toggleAllRef.current = async () => {
+    if (entries.length === 0) return;
+    try {
+      if (allState === "checked") {
+        await unstageFiles(activePath, entries.map((e) => e.path));
+      } else {
+        await stageFiles(activePath, entries.map((e) => e.path));
+      }
+    } catch (e) {
+      toastError(String(e));
+    }
+  };
+
   const onCommit = async () => {
-    if (!canCommit || !activePath) return;
+    if (!canCommit) return;
     setCommitting(true);
     try {
       await commitChanges(activePath, message.trim());
@@ -299,20 +507,7 @@ export function CommitPanel() {
     }
   };
 
-  const layoutStorageKey = "l8git.commit-panel.layout.v2";
-
-  const [defaultLayout] = useState(() => {
-    const saved = localStorage.getItem(layoutStorageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved) as Record<string, number>;
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
-  });
-
+  // ─── JSX ───────────────────────────────────────────────────────────────────
   return (
     <div className="relative flex h-full flex-col gap-3 p-3">
       {blameTarget && activePath && (
@@ -363,9 +558,10 @@ export function CommitPanel() {
               stagedRows={stagedRows}
               unstagedRows={unstagedRows}
               selectedRowId={selectedRowId}
+              multiSelectedIds={multiSelectedIds}
               allState={allState}
               onToggleAll={stableOnToggleAll}
-              onSelect={stableOnSelectRow}
+              onSelect={handleRowSelect}
               onToggle={stableOnToggleRow}
               onDiscard={discardOne}
               onBlame={stableOnBlame}
@@ -386,6 +582,11 @@ export function CommitPanel() {
               onReload={stableOnReload}
               onStageHunk={stageHunk}
               onUnstageHunk={unstageHunk}
+              parsedDiff={parsedDiff}
+              focusedHunkIdx={focusedHunkIdx}
+              selectedLines={selectedLines}
+              onToggleLine={onToggleLine}
+              onClearSelection={onClearSelection}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
