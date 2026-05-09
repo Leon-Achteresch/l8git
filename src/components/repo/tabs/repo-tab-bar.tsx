@@ -43,15 +43,20 @@ export function RepoTabBar() {
   );
 
   return (
-    <div className="relative flex min-h-0 min-w-0 items-stretch border-b bg-muted/30">
-      {activePath && activeLoading ? (
+    <div className="relative flex min-h-0 min-w-0 items-stretch border-b border-border/60 bg-muted/20">
+      {/* Loading progress bar */}
+      {activePath && activeLoading && (
         <div
-          className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-0.5 bg-primary/25 animate-pulse"
+          className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-[2px] overflow-hidden"
           aria-hidden
-        />
-      ) : null}
-      <div className="relative flex min-w-0 flex-1 items-end overflow-x-auto [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-0 flex-1 items-end gap-0">
+        >
+          <div className="h-full w-full animate-[shimmer_1.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+        </div>
+      )}
+
+      {/* Scrollable tab list */}
+      <div className="relative flex min-w-0 flex-1 items-center overflow-x-auto [&::-webkit-scrollbar]:hidden">
+        <div className="flex min-w-0 items-center gap-1 px-2 py-1.5">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -73,7 +78,14 @@ export function RepoTabBar() {
           </DndContext>
         </div>
       </div>
-      <div className="flex shrink-0 items-center">
+
+      {/* Trailing fade + add button */}
+      <div className="relative flex shrink-0 items-center">
+        {/* Left fade overlay to hint scroll */}
+        <div
+          className="pointer-events-none absolute -left-6 top-0 bottom-0 w-6 bg-gradient-to-r from-transparent to-muted/20"
+          aria-hidden
+        />
         <AddRepoButton />
       </div>
     </div>
