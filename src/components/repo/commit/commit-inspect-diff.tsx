@@ -1,5 +1,10 @@
 import { FileCode2 } from "lucide-react";
-import { UnifiedDiffBody } from "./unified-diff-body";
+import { Loader2 } from "lucide-react";
+import { Suspense, lazy } from "react";
+
+const MonacoDiffViewer = lazy(() =>
+  import("./monaco-diff-viewer").then((m) => ({ default: m.MonacoDiffViewer })),
+);
 
 export type FileDiffPayload = { diff: string | null; is_binary: boolean };
 
@@ -26,17 +31,36 @@ export function CommitInspectDiff({
               Klicke links auf eine Datei, um den Diff zu sehen.
             </span>
           </div>
+        ) : loading ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+          </div>
+        ) : failed ? (
+          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+            Diff konnte nicht geladen werden.
+          </div>
+        ) : fileDiff?.is_binary ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Binärdatei
+          </div>
+        ) : fileDiff?.diff ? (
+          <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-lg shadow-sm ring-1 ring-border/30">
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+                </div>
+              }
+            >
+              <MonacoDiffViewer
+                unifiedText={fileDiff.diff}
+                filename={selectedFile}
+              />
+            </Suspense>
+          </div>
         ) : (
-          <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-lg bg-card shadow-sm ring-1 ring-border/30">
-            <UnifiedDiffBody
-              loading={loading}
-              failed={failed}
-              isBinary={!!fileDiff?.is_binary}
-              unifiedText={fileDiff?.diff ?? null}
-              untrackedPlain={null}
-              emptyHint="Keine Textänderungen"
-              failedHint="Diff konnte nicht geladen werden."
-            />
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Keine Textänderungen
           </div>
         )}
       </div>

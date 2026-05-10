@@ -130,10 +130,25 @@ export function MergeDialog({
         payload.message = msg;
       }
       const out = await mergeBranch(path, sourceBranch, payload);
-      toast.success(out.trim() || "Merge abgeschlossen.");
-      onClose();
+      if (out.toLowerCase().includes("conflict")) {
+        toast.warning("Merge mit Konflikten. Bitte Konflikte im Editor auflösen.", {
+          duration: 6000,
+        });
+        onClose();
+      } else {
+        toast.success(out.trim() || "Merge abgeschlossen.");
+        onClose();
+      }
     } catch (err) {
-      toastError(String(err));
+      const msg = String(err);
+      if (msg.toLowerCase().includes("conflict")) {
+        toast.warning("Merge mit Konflikten. Bitte Konflikte im Editor auflösen.", {
+          duration: 6000,
+        });
+        onClose();
+      } else {
+        toastError(msg);
+      }
     } finally {
       setBusy(false);
     }

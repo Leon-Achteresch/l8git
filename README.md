@@ -18,11 +18,11 @@ Auf dem Rechner sollte ein funktionierendes `git` im `PATH` liegen; die App spri
 
 ### Repository-Struktur
 
-| Pfad | Inhalt |
-|------|--------|
-| `src/` | React-UI, TanStack Router (`routes/`), Zustand-State, UI-Komponenten (`components/`) |
-| `src-tauri/` | Rust-Backend: Git-Operationen, PR/CI-Anbindung, Tauri-Commands, Menü |
-| `public/` | Statische Assets |
+| Pfad         | Inhalt                                                                               |
+| ------------ | ------------------------------------------------------------------------------------ |
+| `src/`       | React-UI, TanStack Router (`routes/`), Zustand-State, UI-Komponenten (`components/`) |
+| `src-tauri/` | Rust-Backend: Git-Operationen, PR/CI-Anbindung, Tauri-Commands, Menü                 |
+| `public/`    | Statische Assets                                                                     |
 
 TypeScript-Alias: `@/*` → `./src/*` (siehe `tsconfig.json`).
 
@@ -67,11 +67,11 @@ bun run tauri:icon
 
 ### Tech-Stack (Kurz)
 
-| Bereich | Technologie |
-|---------|-------------|
-| UI | Vite 7, React 19, Tailwind CSS 4, shadcn/ui, Radix, Motion |
-| Routing / State | TanStack Router, Zustand |
-| Desktop | Tauri 2, Rust-Backend (`reqwest`, Datei-Watcher, Git über Prozesse/Commands) |
+| Bereich         | Technologie                                                                  |
+| --------------- | ---------------------------------------------------------------------------- |
+| UI              | Vite 7, React 19, Tailwind CSS 4, shadcn/ui, Radix, Motion                   |
+| Routing / State | TanStack Router, Zustand                                                     |
+| Desktop         | Tauri 2, Rust-Backend (`reqwest`, Datei-Watcher, Git über Prozesse/Commands) |
 
 ---
 

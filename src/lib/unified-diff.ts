@@ -4,13 +4,30 @@
 
 export type DiffLineKind = 'hunk' | 'add' | 'del' | 'ctx' | 'meta';
 
-export type DiffLine = { kind: DiffLineKind; text: string };
+export type DiffLine = {
+  kind: DiffLineKind;
+  text: string;
+  /** Line number in the old file (undefined for meta/hunk lines or new-only adds) */
+  oldLineNo?: number;
+  /** Line number in the new file (undefined for meta/hunk lines or old-only dels) */
+  newLineNo?: number;
+};
 
 export function parseUnifiedDiff(text: string): DiffLine[] {
   const lines = text.replace(/\r\n/g, '\n').split('\n');
   const out: DiffLine[] = [];
+
+  let oldLine = 0;
+  let newLine = 0;
+
   for (const line of lines) {
     if (line.startsWith('@@')) {
+      // Parse hunk header: @@ -oldStart[,oldCount] +newStart[,newCount] @@
+      const m = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (m) {
+        oldLine = parseInt(m[1], 10);
+        newLine = parseInt(m[2], 10);
+      }
       out.push({ kind: 'hunk', text: line });
     } else if (
       line.startsWith('+++ ') ||
@@ -22,13 +39,17 @@ export function parseUnifiedDiff(text: string): DiffLine[] {
     ) {
       out.push({ kind: 'meta', text: line });
     } else if (line.startsWith('+')) {
-      out.push({ kind: 'add', text: line.slice(1) });
+      out.push({ kind: 'add', text: line.slice(1), newLineNo: newLine });
+      newLine++;
     } else if (line.startsWith('-')) {
-      out.push({ kind: 'del', text: line.slice(1) });
+      out.push({ kind: 'del', text: line.slice(1), oldLineNo: oldLine });
+      oldLine++;
     } else if (line.startsWith('\\')) {
       out.push({ kind: 'meta', text: line });
     } else if (line.startsWith(' ')) {
-      out.push({ kind: 'ctx', text: line.slice(1) });
+      out.push({ kind: 'ctx', text: line.slice(1), oldLineNo: oldLine, newLineNo: newLine });
+      oldLine++;
+      newLine++;
     } else {
       out.push({ kind: 'ctx', text: line });
     }

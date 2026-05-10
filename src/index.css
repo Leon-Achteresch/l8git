@@ -300,6 +300,26 @@
   }
 }
 
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.monaco-diff-viewer-root .monaco-scrollable-element > .scrollbar.vertical {
+  width: 3px !important;
+}
+.monaco-diff-viewer-root .monaco-scrollable-element > .scrollbar.vertical > .slider {
+  left: 0 !important;
+  width: 3px !important;
+}
+.monaco-diff-viewer-root .monaco-scrollable-element > .scrollbar.horizontal {
+  height: 3px !important;
+}
+.monaco-diff-viewer-root .monaco-scrollable-element > .scrollbar.horizontal > .slider {
+  top: 0 !important;
+  height: 3px !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

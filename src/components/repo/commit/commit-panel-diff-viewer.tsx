@@ -94,7 +94,7 @@ export function DiffViewer({
           untrackedPlain={untrackedPlain}
           emptyHint="Keine Textänderungen"
           failedHint="Diff konnte nicht geladen werden."
-          sector={selectedRow.sector}
+          sector={selectedRow.sector as "staged" | "unstaged"}
           onStageHunk={onStageHunk}
           onUnstageHunk={onUnstageHunk}
           parsedDiff={parsedDiff}

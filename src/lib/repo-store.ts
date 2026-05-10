@@ -94,6 +94,19 @@ export type CherryPickState = {
   conflicted_paths: string[];
 };
 
+export type MergeState = {
+  in_progress: boolean;
+  merge_head: string | null;
+  conflicted_paths: string[];
+};
+
+export type ConflictVersions = {
+  base: string;
+  ours: string;
+  theirs: string;
+  current: string;
+};
+
 export type StashEntry = {
   index: number;
   refname: string;
@@ -157,6 +170,7 @@ type RepoState = {
   prs: Record<string, PullRequest[]>;
   prsLoading: Record<string, boolean>;
   cherryPickState: Record<string, CherryPickState>;
+  mergeState: Record<string, MergeState>;
   submodules: Record<string, SubmoduleEntry[]>;
   submodulesLoading: Record<string, boolean>;
   loadPRs: (path: string) => Promise<void>;
@@ -216,6 +230,11 @@ type RepoState = {
   cherryPickSkip: (path: string) => Promise<string>;
   cherryPickAbort: (path: string) => Promise<string>;
   reloadCherryPickState: (path: string) => Promise<CherryPickState>;
+  reloadMergeState: (path: string) => Promise<MergeState>;
+  mergeAbort: (path: string) => Promise<string>;
+  mergeCommit: (path: string) => Promise<string>;
+  mergeGetConflictVersions: (path: string, file: string) => Promise<ConflictVersions>;
+  mergeSaveResolved: (path: string, file: string, content: string) => Promise<void>;
   tagCommit: (path: string, name: string, commit: string) => Promise<void>;
   discardFiles: (path: string, files: string[]) => Promise<void>;
   restoreFilesAtCommit: (
@@ -320,6 +339,7 @@ export const useRepoStore = create<RepoState>()(
       prs: {},
       prsLoading: {},
       cherryPickState: {},
+      mergeState: {},
       submodules: {},
       submodulesLoading: {},
       commitSearchByPath: {},
@@ -827,14 +847,19 @@ export const useRepoStore = create<RepoState>()(
       },
 
       async mergeBranch(path, branch, opts) {
-        const out = await invoke<string>('git_merge', {
-          path,
-          branch,
-          strategy: opts?.strategy ?? 'ff',
-          message: opts?.message ?? null,
-        });
-        await Promise.all([get().reload(path), get().reloadStatus(path)]);
-        return out;
+        try {
+          const out = await invoke<string>('git_merge', {
+            path,
+            branch,
+            strategy: opts?.strategy ?? 'ff',
+            message: opts?.message ?? null,
+          });
+          await Promise.all([get().reload(path), get().reloadStatus(path), get().reloadMergeState(path)]);
+          return out;
+        } catch (err) {
+          await Promise.all([get().reload(path), get().reloadStatus(path), get().reloadMergeState(path)]);
+          throw err;
+        }
       },
 
       async revertCommit(path, commit, isMerge) {
@@ -929,6 +954,61 @@ export const useRepoStore = create<RepoState>()(
             conflicted_paths: [],
           });
         }
+      },
+
+      async reloadMergeState(path) {
+        const apply = (next: MergeState): MergeState => {
+          const cur = get().mergeState[path];
+          if (
+            cur &&
+            cur.in_progress === next.in_progress &&
+            cur.merge_head === next.merge_head &&
+            cur.conflicted_paths.length === next.conflicted_paths.length &&
+            cur.conflicted_paths.every((p, i) => p === next.conflicted_paths[i])
+          ) {
+            return cur;
+          }
+          set(s => ({
+            mergeState: { ...s.mergeState, [path]: next },
+          }));
+          return next;
+        };
+        try {
+          const next = await invoke<MergeState>('merge_state', { path });
+          return apply(next);
+        } catch {
+          return apply({ in_progress: false, merge_head: null, conflicted_paths: [] });
+        }
+      },
+
+      async mergeAbort(path) {
+        const out = await invoke<string>('git_merge_abort', { path });
+        await Promise.all([
+          get().reload(path),
+          get().reloadStatus(path),
+          get().reloadMergeState(path),
+        ]);
+        return out;
+      },
+
+      async mergeCommit(path) {
+        const out = await invoke<string>('git_merge_commit', { path });
+        await Promise.all([
+          get().reload(path),
+          get().reloadStatus(path),
+          get().reloadMergeState(path),
+        ]);
+        return out;
+      },
+
+      async mergeGetConflictVersions(path, file) {
+        return invoke<ConflictVersions>('git_get_conflict_versions', { path, file });
+      },
+
+      async mergeSaveResolved(path, file, content) {
+        await invoke('git_save_resolved_file', { path, file, content });
+        await get().reloadStatus(path);
+        await get().reloadMergeState(path);
       },
 
       async tagCommit(path, name, commit) {

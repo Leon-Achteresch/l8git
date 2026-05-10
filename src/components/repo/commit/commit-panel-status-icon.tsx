@@ -1,4 +1,4 @@
-import { FileCode2, FileDiff, FileMinus, FilePlus } from "lucide-react";
+import { AlertTriangle, FileCode2, FileDiff, FileMinus, FilePlus } from "lucide-react";
 import type { StatusEntry } from "@/lib/repo-store";
 import type { ChangeSector } from "./commit-panel-types";
 
@@ -24,7 +24,7 @@ export function StatusIcon({
     case "C":
       return <FileCode2 className="h-4 w-4 text-sky-500" />;
     case "U":
-      return <FileDiff className="h-4 w-4 text-destructive" />;
+      return <AlertTriangle className="h-4 w-4 text-amber-500" />;
     default:
       return <FileCode2 className="h-4 w-4 text-muted-foreground" />;
   }
