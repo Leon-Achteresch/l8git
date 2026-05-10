@@ -13,7 +13,7 @@
  *   - dark-first: looks great dark, still works light
  *   - semantic git tokens: added / removed / modified / branch / merge / tag
  *   - mono font for hashes, refs and diffs; sans-serif for UI chrome
- *   - one accent (indigo-violet) — everything else is neutral or semantic
+ *   - one accent (graphite ink) — everything else is neutral or semantic
  */
 
 @theme inline {
@@ -91,145 +91,139 @@
 }
 
 /*
- * Light theme — paper-like, quiet, high legibility.
- * Accent: indigo-violet (--primary). Borders: soft neutral.
+ * Light theme — warm parchment surfaces, ink text, graphite accent (mock parity).
  */
 :root {
     --radius: 0.5rem;
 
-    --l8-shadow-2xs: 0 1px 1px oklch(0.35 0.02 265 / 0.05);
-    --l8-shadow-xs: 0 1px 1px oklch(0.35 0.02 265 / 0.07);
+    --l8-shadow-2xs: 0 1px 1px rgb(17 17 17 / 0.05);
+    --l8-shadow-xs: 0 1px 1px rgb(17 17 17 / 0.07);
     --l8-shadow-sm:
-        0 1px 3px oklch(0.35 0.02 265 / 0.15), 0 1px 2px oklch(0.38 0.02 265 / 0.08);
+        0 1px 3px rgb(17 17 17 / 0.08), 0 1px 2px rgb(17 17 17 / 0.04);
     --l8-shadow-md:
-        0 4px 6px -1px oklch(0.32 0.02 265 / 0.15), 0 2px 4px -2px oklch(0.34 0.02 265 / 0.1);
+        0 4px 6px -1px rgb(17 17 17 / 0.1), 0 2px 4px -2px rgb(17 17 17 / 0.06);
     --l8-shadow-lg:
-        0 10px 15px -3px oklch(0.28 0.02 265 / 0.12), 0 4px 6px -4px oklch(0.3 0.02 265 / 0.08);
+        0 10px 15px -3px rgb(17 17 17 / 0.1), 0 4px 6px -4px rgb(17 17 17 / 0.05);
     --l8-shadow-xl:
-        0 20px 25px -5px oklch(0.24 0.02 265 / 0.14), 0 8px 10px -6px oklch(0.28 0.02 265 / 0.1);
-    --l8-shadow-2xl: 0 25px 50px -12px oklch(0.2 0.02 265 / 0.16);
+        0 20px 25px -5px rgb(17 17 17 / 0.12), 0 8px 10px -6px rgb(17 17 17 / 0.06);
+    --l8-shadow-2xl: 0 25px 50px -12px rgb(17 17 17 / 0.14);
 
-    --background: oklch(0.995 0.002 265);
-    --foreground: oklch(0.1 0.01 265);
+    --background: #f4f1ec;
+    --foreground: #1a1814;
 
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.1 0.01 265);
+    --card: #ffffff;
+    --card-foreground: #1a1814;
 
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.1 0.01 265);
+    --popover: #ffffff;
+    --popover-foreground: #1a1814;
 
-    --primary: oklch(0.52 0.19 275);
-    --primary-foreground: oklch(0.99 0.005 275);
+    --primary: #1f2937;
+    --primary-foreground: #ffffff;
 
-    --secondary: oklch(0.955 0.006 265);
-    --secondary-foreground: oklch(0.2 0.02 265);
+    --secondary: #f5f3ef;
+    --secondary-foreground: #1a1814;
 
-    --muted: oklch(0.955 0.006 265);
-    --muted-foreground: oklch(0.35 0.018 265);
+    --muted: #ebe7e1;
+    --muted-foreground: #6b6660;
 
-    --accent: oklch(0.93 0.018 275);
-    --accent-foreground: oklch(0.26 0.08 275);
+    --accent: #eef2f7;
+    --accent-foreground: #1f2937;
 
-    --destructive: oklch(0.58 0.22 25);
-    --border: oklch(0.86 0.01 265);
-    --input: oklch(0.86 0.01 265);
-    --ring: oklch(0.52 0.19 275);
+    --destructive: oklch(0.62 0.14 25);
+    --border: rgb(17 17 17 / 0.16);
+    --input: rgb(17 17 17 / 0.2);
+    --ring: rgb(17 17 17 / 0.32);
 
-    /* chart palette — neutral-to-accent, readable at small sizes */
-    --chart-1: oklch(0.52 0.19 275);
-    --chart-2: oklch(0.65 0.16 200);
-    --chart-3: oklch(0.65 0.17 155);
-    --chart-4: oklch(0.72 0.16 70);
-    --chart-5: oklch(0.62 0.22 15);
+    --chart-1: oklch(0.65 0.14 250);
+    --chart-2: oklch(0.7 0.15 295);
+    --chart-3: oklch(0.7 0.15 25);
+    --chart-4: oklch(0.7 0.14 175);
+    --chart-5: oklch(0.7 0.15 90);
 
-    /* git semantics — tuned for light bg, still readable on hover states */
-    --git-added: oklch(0.55 0.16 150);
-    --git-added-subtle: oklch(0.94 0.04 150);
-    --git-removed: oklch(0.58 0.22 25);
-    --git-removed-subtle: oklch(0.94 0.035 25);
-    --git-modified: oklch(0.68 0.15 70);
-    --git-modified-subtle: oklch(0.95 0.05 80);
-    --git-branch: oklch(0.55 0.16 200);
-    --git-merge: oklch(0.58 0.18 310);
-    --git-tag: oklch(0.65 0.14 95);
-    --git-hash: oklch(0.55 0.015 265);
+    --git-added: oklch(0.62 0.14 145);
+    --git-added-subtle: oklch(0.96 0.04 145);
+    --git-removed: oklch(0.62 0.14 25);
+    --git-removed-subtle: oklch(0.96 0.04 25);
+    --git-modified: oklch(0.68 0.14 75);
+    --git-modified-subtle: oklch(0.96 0.04 75);
+    --git-branch: oklch(0.65 0.14 250);
+    --git-merge: oklch(0.7 0.15 295);
+    --git-tag: oklch(0.7 0.15 90);
+    --git-hash: oklch(0.45 0.02 50);
 
-    --sidebar: oklch(0.985 0.004 265);
-    --sidebar-foreground: oklch(0.1 0.01 265);
-    --sidebar-primary: oklch(0.52 0.19 275);
-    --sidebar-primary-foreground: oklch(0.99 0.005 275);
-    --sidebar-accent: oklch(0.92 0.02 275);
-    --sidebar-accent-foreground: oklch(0.26 0.08 275);
-    --sidebar-border: oklch(0.86 0.01 265);
-    --sidebar-ring: oklch(0.52 0.19 275);
+    --sidebar: #f5f3ef;
+    --sidebar-foreground: #1a1814;
+    --sidebar-primary: #1f2937;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #eef2f7;
+    --sidebar-accent-foreground: #1f2937;
+    --sidebar-border: rgb(17 17 17 / 0.16);
+    --sidebar-ring: rgb(17 17 17 / 0.32);
 }
 
 /*
- * Dark theme — the default working mode for most devs.
- * Not pure black: a cool near-black (oklch ~0.16) so panels can step down
- * to deeper values without looking like dead pixels.
+ * Dark theme — near-black canvas, raised panels, warm gray text (mock parity).
  */
 .dark {
-    --l8-shadow-2xs: 0 1px 1px oklch(0 0 0 / 0.4);
-    --l8-shadow-xs: 0 1px 1px oklch(0 0 0 / 0.45);
-    --l8-shadow-sm: 0 1px 3px oklch(0 0 0 / 0.6), 0 1px 2px oklch(0 0 0 / 0.4);
-    --l8-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.5), 0 2px 4px -2px oklch(0 0 0 / 0.4);
-    --l8-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.45), 0 4px 6px -4px oklch(0 0 0 / 0.3);
-    --l8-shadow-xl: 0 20px 25px -5px oklch(0 0 0 / 0.5), 0 8px 10px -6px oklch(0 0 0 / 0.35);
-    --l8-shadow-2xl: 0 25px 50px -12px oklch(0 0 0 / 0.55);
+    --l8-shadow-2xs: 0 1px 1px rgb(0 0 0 / 0.4);
+    --l8-shadow-xs: 0 1px 1px rgb(0 0 0 / 0.45);
+    --l8-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.55), 0 1px 2px rgb(0 0 0 / 0.4);
+    --l8-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.38);
+    --l8-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.45), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+    --l8-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.35);
+    --l8-shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.55);
 
-    --background: oklch(0.12 0.01 265);
-    --foreground: oklch(0.98 0.005 265);
+    --background: #0a0a0a;
+    --foreground: #e5e3df;
 
-    --card: oklch(0.16 0.012 265);
-    --card-foreground: oklch(0.98 0.005 265);
+    --card: #1b1b1f;
+    --card-foreground: #e5e3df;
 
-    --popover: oklch(0.16 0.012 265);
-    --popover-foreground: oklch(0.98 0.005 265);
+    --popover: #1b1b1f;
+    --popover-foreground: #e5e3df;
 
-    --primary: oklch(0.72 0.16 275);
-    --primary-foreground: oklch(0.15 0.02 275);
+    --primary: #ffffff;
+    --primary-foreground: #0c0b09;
 
-    --secondary: oklch(0.25 0.014 265);
-    --secondary-foreground: oklch(0.98 0.005 265);
+    --secondary: #1b1b1f;
+    --secondary-foreground: #e5e3df;
 
-    --muted: oklch(0.18 0.01 265);
-    --muted-foreground: oklch(0.85 0.01 265);
+    --muted: #111114;
+    --muted-foreground: #9b958e;
 
-    --accent: oklch(0.3 0.055 275);
-    --accent-foreground: oklch(0.98 0.02 275);
+    --accent: rgb(255 255 255 / 0.08);
+    --accent-foreground: #e5e3df;
 
-    --destructive: oklch(0.68 0.2 25);
-    --border: oklch(1 0 0 / 14%);
-    --input: oklch(1 0 0 / 18%);
-    --ring: oklch(0.72 0.16 275);
+    --destructive: oklch(0.72 0.16 25);
+    --border: rgb(255 255 255 / 0.07);
+    --input: rgb(255 255 255 / 0.1);
+    --ring: rgb(255 255 255 / 0.22);
 
-    --chart-1: oklch(0.72 0.16 275);
-    --chart-2: oklch(0.72 0.14 200);
-    --chart-3: oklch(0.72 0.15 155);
-    --chart-4: oklch(0.78 0.14 70);
-    --chart-5: oklch(0.72 0.2 15);
+    --chart-1: oklch(0.72 0.14 250);
+    --chart-2: oklch(0.75 0.15 295);
+    --chart-3: oklch(0.75 0.15 25);
+    --chart-4: oklch(0.75 0.14 175);
+    --chart-5: oklch(0.78 0.15 90);
 
-    /* git semantics — brighter on dark bg; *-subtle backs diff rows/blocks */
-    --git-added: oklch(0.75 0.17 150);
-    --git-added-subtle: oklch(0.35 0.07 150 / 35%);
-    --git-removed: oklch(0.72 0.2 25);
-    --git-removed-subtle: oklch(0.4 0.1 25 / 35%);
-    --git-modified: oklch(0.8 0.15 75);
-    --git-modified-subtle: oklch(0.4 0.08 75 / 30%);
-    --git-branch: oklch(0.75 0.14 200);
-    --git-merge: oklch(0.75 0.16 310);
-    --git-tag: oklch(0.82 0.14 95);
-    --git-hash: oklch(0.7 0.015 265);
+    --git-added: oklch(0.72 0.14 145);
+    --git-added-subtle: oklch(0.25 0.06 145);
+    --git-removed: oklch(0.72 0.14 25);
+    --git-removed-subtle: oklch(0.25 0.06 25);
+    --git-modified: oklch(0.78 0.14 75);
+    --git-modified-subtle: oklch(0.28 0.06 75);
+    --git-branch: oklch(0.72 0.14 250);
+    --git-merge: oklch(0.75 0.15 295);
+    --git-tag: oklch(0.78 0.15 90);
+    --git-hash: oklch(0.72 0.02 50);
 
-    --sidebar: oklch(0.14 0.01 265);
-    --sidebar-foreground: oklch(0.98 0.005 265);
-    --sidebar-primary: oklch(0.72 0.16 275);
-    --sidebar-primary-foreground: oklch(0.15 0.02 275);
-    --sidebar-accent: oklch(0.28 0.04 275);
-    --sidebar-accent-foreground: oklch(0.98 0.02 275);
-    --sidebar-border: oklch(1 0 0 / 14%);
-    --sidebar-ring: oklch(0.72 0.16 275);
+    --sidebar: #111114;
+    --sidebar-foreground: #e5e3df;
+    --sidebar-primary: #ffffff;
+    --sidebar-primary-foreground: #0c0b09;
+    --sidebar-accent: rgb(255 255 255 / 0.08);
+    --sidebar-accent-foreground: #e5e3df;
+    --sidebar-border: rgb(255 255 255 / 0.07);
+    --sidebar-ring: rgb(255 255 255 / 0.22);
 }
 
 @layer base {
