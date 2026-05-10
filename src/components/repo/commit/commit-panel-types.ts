@@ -28,8 +28,11 @@ export function checkState(entry: StatusEntry): CheckState {
   return "unchecked";
 }
 
+// All unmerged XY pairs from git porcelain v1: UU, AA, DD, AU, UA, DU, UD
+const CONFLICT_PAIRS = new Set(["UU", "AA", "DD", "AU", "UA", "DU", "UD"]);
+
 export function isConflict(entry: StatusEntry): boolean {
-  return entry.index_status === "U" || entry.worktree_status === "U";
+  return CONFLICT_PAIRS.has(entry.index_status + entry.worktree_status);
 }
 
 export function buildChangeRows(entries: StatusEntry[]): ChangeRow[] {

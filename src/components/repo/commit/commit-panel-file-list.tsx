@@ -264,7 +264,7 @@ function ConflictRowWithPath({
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          openMergeEditor(activePath);
+          openMergeEditor(activePath, row.path);
         }}
         className="ml-auto flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-amber-600 ring-1 ring-amber-500/40 hover:bg-amber-500/20 dark:text-amber-400"
         title="Merge-Konflikt-Editor öffnen"

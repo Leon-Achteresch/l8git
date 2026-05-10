@@ -28,6 +28,7 @@ import { useUiStore } from "@/lib/ui-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
 import { VirtualFileList } from "./commit-panel-file-list";
+import { MergeStatusBanner } from "@/components/repo/merge/merge-status-banner";
 import {
   buildChangeRows,
   checkState,
@@ -551,6 +552,8 @@ export function CommitPanel() {
         </Button>
       </div>
 
+      <MergeStatusBanner path={activePath} />
+
       <div className="flex-1 overflow-hidden rounded-2xl border border-border/60 shadow-sm">
         <ResizablePanelGroup
           orientation="horizontal"
@@ -707,7 +710,7 @@ function ConflictPlaceholder({ filePath, repoPath }: { filePath: string; repoPat
       </div>
       <button
         type="button"
-        onClick={() => openMergeEditor(repoPath)}
+        onClick={() => openMergeEditor(repoPath, filePath || undefined)}
         className="flex items-center gap-2 rounded-lg bg-amber-500/15 px-4 py-2 text-sm font-medium text-amber-600 hover:bg-amber-500/25 dark:text-amber-400"
       >
         <GitMerge className="h-4 w-4" />

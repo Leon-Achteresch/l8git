@@ -55,7 +55,8 @@ type UiState = {
   setBranchFilter: (path: string, names: ReadonlySet<string>) => void;
   clearBranchFilter: (path: string) => void;
   mergeEditorPath: string | null;
-  openMergeEditor: (path: string) => void;
+  mergeEditorInitialFile: string | null;
+  openMergeEditor: (path: string, file?: string) => void;
   closeMergeEditor: () => void;
 };
 
@@ -121,8 +122,9 @@ export const useUiStore = create<UiState>()(
           return { branchFilterByPath: rest };
         }),
       mergeEditorPath: null,
-      openMergeEditor: path => set({ mergeEditorPath: path }),
-      closeMergeEditor: () => set({ mergeEditorPath: null }),
+      mergeEditorInitialFile: null,
+      openMergeEditor: (path, file) => set({ mergeEditorPath: path, mergeEditorInitialFile: file ?? null }),
+      closeMergeEditor: () => set({ mergeEditorPath: null, mergeEditorInitialFile: null }),
     }),
     {
       name: 'l8git-ui',

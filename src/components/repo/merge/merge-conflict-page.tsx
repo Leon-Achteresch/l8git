@@ -4,6 +4,7 @@ import { toastError } from "@/lib/error-toast";
 import { hasUnresolvedConflicts } from "@/lib/conflict-parser";
 import type { ConflictVersions } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
+import { useUiStore } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -55,6 +56,7 @@ export function MergeConflictPage({
 }) {
   const mergeState = useRepoStore((s) => s.mergeState[path]);
   const conflictedFiles = mergeState?.conflicted_paths ?? [];
+  const initialFile = useUiStore((s) => s.mergeEditorInitialFile);
 
   const [mode, setMode] = useState<Mode>("3way");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -68,12 +70,13 @@ export function MergeConflictPage({
     void useRepoStore.getState().reloadMergeState(path);
   }, [path]);
 
-  // Auto-select the first conflicted file once the list becomes available.
+  // Auto-select: prefer the file hint from openMergeEditor, fall back to first.
   useEffect(() => {
     if (selectedFile === null && conflictedFiles.length > 0) {
-      setSelectedFile(conflictedFiles[0] ?? null);
+      const hint = initialFile && conflictedFiles.includes(initialFile) ? initialFile : null;
+      setSelectedFile(hint ?? conflictedFiles[0] ?? null);
     }
-  }, [conflictedFiles, selectedFile]);
+  }, [conflictedFiles, selectedFile, initialFile]);
 
   // Load versions when file changes
   useEffect(() => {

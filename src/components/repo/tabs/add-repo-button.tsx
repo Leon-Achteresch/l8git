@@ -121,7 +121,7 @@ export function AddRepoButton() {
   }, [menuOpen]);
 
   return (
-    <div className="relative shrink-0 mr-2" ref={wrapRef}>
+    <div className="relative shrink-0" ref={wrapRef}>
       <LayoutGroup>
         <motion.button
           type="button"
@@ -139,8 +139,8 @@ export function AddRepoButton() {
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground bg-popover transition-colors hover:bg-muted hover:text-foreground",
-            menuOpen && "rounded-b-none",
+            "flex h-9 w-9 items-center justify-center rounded-[9px] border border-dashed border-border text-muted-foreground transition-colors hover:border-solid hover:bg-muted/50 hover:text-foreground",
+            menuOpen && "rounded-b-none border-solid",
           )}
         >
           <Plus className="h-4 w-4" />
