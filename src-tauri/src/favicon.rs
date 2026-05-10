@@ -28,7 +28,7 @@ fn parse_size_value(s: &str) -> u32 {
             if token.eq_ignore_ascii_case("any") {
                 return Some(u32::MAX);
             }
-            let (w, _) = token.split_once(|c: char| c == 'x' || c == 'X')?;
+            let (w, _) = token.split_once(['x', 'X'])?;
             w.parse::<u32>().ok()
         })
         .max()

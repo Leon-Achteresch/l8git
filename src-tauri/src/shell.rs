@@ -33,7 +33,7 @@ pub fn reveal_repo_folder(path: String) -> Result<(), String> {
         if !st.success() {
             return Err("Ordner konnte nicht geöffnet werden.".into());
         }
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "windows")]
@@ -109,7 +109,7 @@ pub fn open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String
         if !st.success() {
             return Err("Terminal konnte nicht geöffnet werden.".into());
         }
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "windows")]

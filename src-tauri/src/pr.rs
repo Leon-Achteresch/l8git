@@ -1122,7 +1122,7 @@ async fn bb_checks(
         h.owner, h.repo
     );
     let values = bitbucket_collect_paginated_values(client, cred, &url, &h.host).await?;
-    Ok(values.iter().map(|v| bb_commit_status_to_pr_check(v)).collect())
+    Ok(values.iter().map(bb_commit_status_to_pr_check).collect())
 }
 
 async fn bb_checks_for_commit(
@@ -1137,7 +1137,7 @@ async fn bb_checks_for_commit(
         h.owner, h.repo
     );
     let values = bitbucket_collect_paginated_values(client, cred, &url, &h.host).await?;
-    Ok(values.iter().map(|v| bb_commit_status_to_pr_check(v)).collect())
+    Ok(values.iter().map(bb_commit_status_to_pr_check).collect())
 }
 
 async fn github_commit_author_avatar_for_sha(

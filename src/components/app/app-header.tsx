@@ -3,7 +3,6 @@ import { GitFork, Info, Settings, User } from "lucide-react";
 import { type CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
-import { AppHeaderBranchSelect } from "./app-header-branch-select";
 
 const NAV_ITEMS = [
   { to: "/", label: "Repository", icon: GitFork },
@@ -26,20 +25,13 @@ export function AppHeader() {
       data-tauri-drag-region
       style={{ WebkitAppRegion: "drag" } as CSSProperties}
       className={cn(
-        "relative flex shrink-0 select-none items-center gap-0 py-1",
+        "relative flex shrink-0 select-none items-center gap-0 py-2",
         "border-b border-border/50",
         "bg-background/70 backdrop-blur-xl backdrop-saturate-150",
         IS_MAC && "pl-[72px]",
         IS_WINDOWS && "pr-[140px]",
       )}
     >
-      <div
-        className="flex shrink-0 items-center pl-2 pr-0.5"
-        style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
-      >
-        <AppHeaderBranchSelect />
-      </div>
-
       <div
         data-tauri-drag-region
         style={{ WebkitAppRegion: "drag" } as CSSProperties}
