@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use serde::Serialize;
@@ -302,7 +302,7 @@ pub fn repo_search_commits(
         &search_args,
     )?;
     let tokens: Vec<&str> = out.split('\0').filter(|t| !t.is_empty()).collect();
-    let capped = limit.min(500).max(1);
+    let capped = limit.clamp(1, 500);
     let mut matched_seen = 0usize;
     let mut out_results: Vec<CommitSearchResult> = Vec::new();
     let mut i = 0usize;
@@ -439,7 +439,7 @@ pub fn repo_log_page(
 ) -> Result<Vec<Commit>, String> {
     let repo = PathBuf::from(&path);
     let tag_map = tags_by_target(&repo);
-    let capped = limit.min(500).max(1);
+    let capped = limit.clamp(1, 500);
     let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
     fetch_commits(&repo, skip, capped, &tag_map, hide_t3)
 }
@@ -967,7 +967,7 @@ pub fn git_tag_commit(path: String, name: String, commit: String) -> Result<(), 
     if c.is_empty() {
         return Err("Commit-Hash darf nicht leer sein".into());
     }
-    let parts = vec!["tag".to_string(), tag.to_string(), c.to_string()];
+    let parts = ["tag".to_string(), tag.to_string(), c.to_string()];
     let args: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
     run_git(&repo, &args)?;
     Ok(())
@@ -1148,7 +1148,7 @@ fn sniff_untracked(path: &std::path::Path) -> Option<(bool, u32)> {
     let n = file.read(&mut head).ok()?;
     let head = &head[..n];
 
-    if head.iter().any(|&b| b == 0) {
+    if head.contains(&0) {
         return Some((true, 0));
     }
 
@@ -1177,13 +1177,13 @@ fn sniff_untracked(path: &std::path::Path) -> Option<(bool, u32)> {
     Some((false, lines))
 }
 
-fn compute_status_entries(repo: &PathBuf) -> Result<Vec<StatusEntry>, String> {
+fn compute_status_entries(repo: &Path) -> Result<Vec<StatusEntry>, String> {
     // Run the three git invocations in parallel on worker threads so their
     // wait-times overlap. On Windows and weak CPUs this is ~2-3x faster than
     // sequential spawning.
-    let repo_a = repo.clone();
-    let repo_b = repo.clone();
-    let repo_c = repo.clone();
+    let repo_a = repo.to_path_buf();
+    let repo_b = repo.to_path_buf();
+    let repo_c = repo.to_path_buf();
     let status_handle = std::thread::spawn(move || {
         run_git(
             &repo_a,
@@ -1623,7 +1623,7 @@ pub fn repo_commit_file_diff(
     // across git versions, producing no output even for valid diffs.
     let parents_line = run_git(&repo, &["rev-list", "--parents", "-n", "1", c])
         .unwrap_or_default();
-    let mut parent_tokens = parents_line.trim().split_whitespace();
+    let mut parent_tokens = parents_line.split_whitespace();
     let _self_hash = parent_tokens.next();
     let first_parent = parent_tokens.next();
 
@@ -3273,7 +3273,6 @@ fn parse_blame_porcelain(output: &str) -> Vec<BlameEntry> {
                 commit_cache
                     .get(&commit_hash)
                     .cloned()
-                    .map(|(a, d, ts, s)| (a, d, ts, s))
                     .unwrap_or_default()
             };
 
@@ -3358,7 +3357,7 @@ pub fn repo_language_stats(path: String) -> Result<Vec<LanguageStat>, String> {
         })
         .collect();
 
-    stats.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    stats.sort_by_key(|s| std::cmp::Reverse(s.bytes));
     Ok(stats)
 }
 

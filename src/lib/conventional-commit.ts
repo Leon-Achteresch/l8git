@@ -22,6 +22,18 @@ export type ConventionalParse = {
   isRecognizedType: boolean;
 };
 
+export function splitConventionalSubjectDisplay(
+  subject: string,
+): { lead: string; body: string } | null {
+  const m = subject.match(HEAD);
+  if (!m) return null;
+  const typeKey = m[1].toLowerCase();
+  if (!KNOWN.has(typeKey)) return null;
+  const lead = `${m[1]}${m[2] ?? ""}${m[3] ?? ""}:`;
+  const body = (m[4] ?? "").replace(/^\s+/, "");
+  return { lead, body };
+}
+
 export function parseConventionalCommit(
   subject: string,
   body: string,

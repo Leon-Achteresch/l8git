@@ -7,9 +7,10 @@ import {
 import type { Branch } from "@/lib/repo-store";
 import type { ReactNode } from "react";
 
-const LANE_WIDTH = 14;
+const COL_W = 88;
+const PAD = 4;
 const ROW_HEIGHT = 80;
-const DOT_RADIUS = 4;
+const STROKE = 2;
 
 export function CommitGraphCell({
   row,
@@ -22,14 +23,13 @@ export function CommitGraphCell({
   branches: Branch[];
   showRefs?: boolean;
 }) {
-  const width = Math.max(1, maxLanes) * LANE_WIDTH;
+  const lanes = Math.max(1, maxLanes);
+  const usable = COL_W - PAD * 2;
+  const laneW = usable / lanes;
   const midY = ROW_HEIGHT / 2;
-  const laneX = (i: number) => i * LANE_WIDTH + LANE_WIDTH / 2;
+  const laneX = (i: number) => PAD + i * laneW + laneW / 2;
 
-  const segments: {
-    d: string;
-    color: string;
-  }[] = [];
+  const segments: { d: string; color: string }[] = [];
 
   row.lanesBefore.forEach((hash, i) => {
     if (hash === null) return;
@@ -41,8 +41,10 @@ export function CommitGraphCell({
       segments.push({ d: `M ${x0} 0 L ${x0} ${midY}`, color: originColor });
     } else if (row.mergedLanes.includes(i)) {
       const x1 = laneX(row.lane);
+      const c1y = midY * 0.32;
+      const c2y = midY * 0.68;
       segments.push({
-        d: `M ${x0} 0 C ${x0} ${midY / 2}, ${x1} ${midY / 2}, ${x1} ${midY}`,
+        d: `M ${x0} 0 C ${x0} ${c1y}, ${x1} ${c2y}, ${x1} ${midY}`,
         color: originColor,
       });
     } else {
@@ -72,8 +74,10 @@ export function CommitGraphCell({
       });
     } else {
       const x0 = laneX(row.lane);
+      const c1y = midY + (ROW_HEIGHT - midY) * 0.32;
+      const c2y = midY + (ROW_HEIGHT - midY) * 0.68;
       segments.push({
-        d: `M ${x0} ${midY} C ${x0} ${midY + midY / 2}, ${x1} ${midY + midY / 2}, ${x1} ${ROW_HEIGHT}`,
+        d: `M ${x0} ${midY} C ${x0} ${c1y}, ${x1} ${c2y}, ${x1} ${ROW_HEIGHT}`,
         color: originColor,
       });
     }
@@ -88,8 +92,8 @@ export function CommitGraphCell({
     (b) => normalizeGitOid(b.tip) === commitHash,
   );
   const hasTag = showRefs && row.commit.tags.length > 0;
+  const isMerge = row.commit.parents.length > 1;
 
-  // Diamond shape for tagged commits (industry standard)
   const DIAMOND_R = 5.5;
   const diamondPoints = [
     `${dotX},${midY - DIAMOND_R}`,
@@ -100,52 +104,78 @@ export function CommitGraphCell({
 
   let dotEl: ReactNode;
   if (hasTag) {
-    // Diamond: branch color if also a branch tip, otherwise tag color
     const fill = isBranchTip ? dotStroke : "var(--color-git-tag)";
     dotEl = (
       <polygon
         points={diamondPoints}
-        fill={fill}
-        stroke="var(--background)"
-        strokeWidth={1.5}
+        fill="var(--background)"
+        stroke={fill}
+        strokeWidth={2.5}
+        strokeLinejoin="round"
       />
     );
-  } else if (isBranchTip) {
-    // Ring: larger filled circle with small white inner dot
+  } else if (isMerge) {
     dotEl = (
       <>
         <circle
           cx={dotX}
           cy={midY}
-          r={5.5}
+          r={9}
+          fill={dotStroke}
+          opacity={0.16}
+          className="dark:opacity-25"
+        />
+        <circle
+          cx={dotX}
+          cy={midY}
+          r={7}
           fill={dotStroke}
           stroke="var(--background)"
-          strokeWidth={1.5}
+          strokeWidth={2}
         />
-        <circle cx={dotX} cy={midY} r={2} fill="var(--background)" />
+      </>
+    );
+  } else if (isBranchTip) {
+    dotEl = (
+      <>
+        <circle
+          cx={dotX}
+          cy={midY}
+          r={8}
+          fill={dotStroke}
+          opacity={0.14}
+          className="dark:opacity-[0.22]"
+        />
+        <circle
+          cx={dotX}
+          cy={midY}
+          r={5.5}
+          fill="var(--background)"
+          stroke={dotStroke}
+          strokeWidth={2.5}
+        />
       </>
     );
   } else {
-    // Regular commit: small open circle
     dotEl = (
       <circle
         cx={dotX}
         cy={midY}
-        r={DOT_RADIUS}
+        r={5}
         fill="var(--background)"
         stroke={dotStroke}
-        strokeWidth={1.5}
+        strokeWidth={2.5}
       />
     );
   }
 
   return (
     <svg
-      width={width}
+      width={COL_W}
       height="100%"
-      viewBox={`0 0 ${width} ${ROW_HEIGHT}`}
+      viewBox={`0 0 ${COL_W} ${ROW_HEIGHT}`}
       preserveAspectRatio="none"
-      className="shrink-0 self-stretch min-h-20"
+      className="shrink-0 self-stretch min-h-[4.5rem] text-foreground"
       aria-hidden="true"
     >
       {segments.map((s, i) => (
@@ -153,7 +183,9 @@ export function CommitGraphCell({
           key={i}
           d={s.d}
           stroke={s.color}
-          strokeWidth={1.5}
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          strokeLinejoin="round"
           fill="none"
         />
       ))}
