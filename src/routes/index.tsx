@@ -6,6 +6,7 @@ import { CommitPanel } from "@/components/repo/commit/commit-panel";
 import { RepoDetails } from "@/components/repo/layout/repo-details";
 import { EmptyState } from "@/components/repo/layout/empty-state";
 import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
+import { MergeConflictPage } from "@/components/repo/merge/merge-conflict-page";
 import { PullRequestPanel } from "@/components/repo/pr/pull-request-panel";
 import { StashPanel } from "@/components/repo/stash/stash-panel";
 import { SubmodulesPanel } from "@/components/repo/submodules/submodules-panel";
@@ -28,9 +29,14 @@ function Home() {
     s.activePath ? s.repos[s.activePath] : null,
   );
   const sidebarTab = useUiStore((s) => s.sidebarTab);
+  const mergeEditorPath = useUiStore((s) => s.mergeEditorPath);
+  const closeMergeEditor = useUiStore((s) => s.closeMergeEditor);
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
+      {mergeEditorPath && (
+        <MergeConflictPage path={mergeEditorPath} onClose={closeMergeEditor} />
+      )}
       <RepoTabBar />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {activePath && <RepoSidebar />}

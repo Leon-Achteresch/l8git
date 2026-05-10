@@ -867,6 +867,95 @@ pub fn cherry_pick_state(path: String) -> Result<CherryPickState, String> {
     })
 }
 
+#[derive(serde::Serialize)]
+pub struct MergeState {
+    pub in_progress: bool,
+    pub merge_head: Option<String>,
+    pub conflicted_paths: Vec<String>,
+}
+
+#[tauri::command]
+pub fn merge_state(path: String) -> Result<MergeState, String> {
+    let repo = PathBuf::from(path.trim());
+    let head_path_raw = run_git(&repo, &["rev-parse", "--git-path", "MERGE_HEAD"])?;
+    let head_path = head_path_raw.trim();
+    let abs_head = if std::path::Path::new(head_path).is_absolute() {
+        PathBuf::from(head_path)
+    } else {
+        repo.join(head_path)
+    };
+    let merge_head = std::fs::read_to_string(&abs_head)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let in_progress = merge_head.is_some();
+    let conflicted_paths = if in_progress {
+        let out = run_git(&repo, &["diff", "--name-only", "--diff-filter=U"]).unwrap_or_default();
+        out.lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect()
+    } else {
+        Vec::new()
+    };
+    Ok(MergeState {
+        in_progress,
+        merge_head,
+        conflicted_paths,
+    })
+}
+
+#[tauri::command]
+pub fn git_merge_abort(path: String) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    run_git_merged_output(&repo, &["merge", "--abort"])
+}
+
+#[derive(serde::Serialize)]
+pub struct ConflictVersions {
+    pub base: String,
+    pub ours: String,
+    pub theirs: String,
+    pub current: String,
+}
+
+#[tauri::command]
+pub fn git_get_conflict_versions(path: String, file: String) -> Result<ConflictVersions, String> {
+    let repo = PathBuf::from(path.trim());
+    let f = file.trim();
+
+    let stage = |n: &str| -> String {
+        run_git(&repo, &["show", &format!(":{n}:{f}")])
+            .unwrap_or_default()
+    };
+
+    let current = std::fs::read_to_string(repo.join(f))
+        .unwrap_or_default();
+
+    Ok(ConflictVersions {
+        base: stage("1"),
+        ours: stage("2"),
+        theirs: stage("3"),
+        current,
+    })
+}
+
+#[tauri::command]
+pub fn git_save_resolved_file(path: String, file: String, content: String) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let f = file.trim();
+    std::fs::write(repo.join(f), content)
+        .map_err(|e| format!("Fehler beim Schreiben der Datei: {e}"))?;
+    run_git_merged_output(&repo, &["add", f])?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn git_merge_commit(path: String) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    run_git_merged_output(&repo, &["commit", "--no-edit"])
+}
+
 #[tauri::command]
 pub fn git_tag_commit(path: String, name: String, commit: String) -> Result<(), String> {
     let repo = PathBuf::from(path.trim());
@@ -1311,6 +1400,14 @@ pub fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<Fil
     let file = file.trim().to_string();
     if untracked {
         let abs = repo.join(&file);
+        if abs.is_dir() {
+            return Ok(FileDiffResponse {
+                staged: None,
+                unstaged: None,
+                untracked_plain: None,
+                is_binary: true,
+            });
+        }
         let bytes =
             std::fs::read(&abs).map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))?;
         if looks_binary(&bytes) {

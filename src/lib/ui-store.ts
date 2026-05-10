@@ -54,6 +54,9 @@ type UiState = {
   branchFilterByPath: Record<string, ReadonlySet<string>>;
   setBranchFilter: (path: string, names: ReadonlySet<string>) => void;
   clearBranchFilter: (path: string) => void;
+  mergeEditorPath: string | null;
+  openMergeEditor: (path: string) => void;
+  closeMergeEditor: () => void;
 };
 
 const clamp = (v: number) =>
@@ -117,6 +120,9 @@ export const useUiStore = create<UiState>()(
           const { [path]: _removed, ...rest } = s.branchFilterByPath;
           return { branchFilterByPath: rest };
         }),
+      mergeEditorPath: null,
+      openMergeEditor: path => set({ mergeEditorPath: path }),
+      closeMergeEditor: () => set({ mergeEditorPath: null }),
     }),
     {
       name: 'l8git-ui',

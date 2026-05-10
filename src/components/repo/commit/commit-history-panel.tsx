@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { CherryPickStatusBanner } from './cherry-pick-status-banner';
 import { CommitInspectDetail } from './commit-inspect-detail';
 import { CommitList } from './commit-list';
+import { MergeStatusBanner } from '../merge/merge-status-banner';
 
 const layoutStorageKey = 'l8git.history-split.layout.v1';
 const EMPTY_HASH_SET: ReadonlySet<string> = new Set();
@@ -275,6 +276,7 @@ export function CommitHistoryPanel({
   return (
     <div className='flex h-full min-h-0 flex-col overflow-hidden shadow-sm ring-1 ring-border/50'>
       <CherryPickStatusBanner path={path} />
+      <MergeStatusBanner path={path} />
       {selectedHash ? (
         <ResizablePanelGroup
           orientation='horizontal'
