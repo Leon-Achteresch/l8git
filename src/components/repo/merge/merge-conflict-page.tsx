@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { AppHeader } from "@/components/app/app-header";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { hasUnresolvedConflicts } from "@/lib/conflict-parser";
@@ -152,7 +153,7 @@ export function MergeConflictPage({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* Header */}
+      <AppHeader />
       <header className="flex items-center gap-3 border-b border-border bg-card px-4 py-2.5">
         <Button
           type="button"
@@ -168,7 +169,6 @@ export function MergeConflictPage({
           {conflictedFiles.length} Datei{conflictedFiles.length !== 1 ? "en" : ""}
         </span>
 
-        {/* Mode toggle */}
         <div className="ml-4 flex rounded-md border border-border text-xs font-medium">
           <button
             type="button"
@@ -209,9 +209,7 @@ export function MergeConflictPage({
         </Button>
       </header>
 
-      {/* Body */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* File sidebar */}
         <aside className="flex w-56 flex-shrink-0 flex-col border-r border-border bg-card">
           <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
             Konfliktdateien
@@ -246,7 +244,6 @@ export function MergeConflictPage({
           </ul>
         </aside>
 
-        {/* Editor area */}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           {!selectedFile ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
