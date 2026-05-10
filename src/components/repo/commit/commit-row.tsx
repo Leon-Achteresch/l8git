@@ -95,18 +95,23 @@ function CommitRowInner({
       key={focusPulseToken != null ? `pulse-${focusPulseToken}` : "row"}
       onClick={handleClick}
       initial={false}
-      animate={
+          animate={
         focusPulseToken != null
           ? {
               boxShadow: [
-                "0 0 0 0px transparent",
+                "0 1px 3px rgba(15,23,42,0.08)",
                 "0 0 0 2px var(--primary)",
-                "0 0 0 0px transparent",
+                "0 1px 3px rgba(15,23,42,0.08)",
                 "0 0 0 2px var(--primary)",
-                "0 0 0 0px transparent",
+                "0 1px 3px rgba(15,23,42,0.08)",
               ],
             }
-          : { boxShadow: "0 0 0 0px transparent" }
+          : selected
+            ? {
+                boxShadow:
+                  "0 1px 3px rgba(15,23,42,0.09), 0 1px 2px rgba(15,23,42,0.05)",
+              }
+            : { boxShadow: "0 0 0 0px transparent" }
       }
       transition={
         focusPulseToken != null
@@ -114,22 +119,26 @@ function CommitRowInner({
           : { duration: 0.2 }
       }
       className={cn(
-        "group relative flex min-h-[4.5rem] cursor-pointer items-stretch border-b border-zinc-100/90 outline-none transition-colors focus-visible:outline-none dark:border-zinc-800/80",
-        searchHit && !selected && !multiSelected && "bg-sky-50/70 dark:bg-sky-950/25",
-        selected &&
-          "border-l-4 border-l-blue-600 bg-blue-50 dark:border-l-blue-500 dark:bg-blue-950/35",
-        multiSelected &&
-          !selected &&
-          "border-l-4 border-l-blue-400/90 bg-blue-50/80 dark:border-l-blue-400 dark:bg-blue-950/25",
+        "relative mx-2 my-0.5 flex min-h-[4.5rem] cursor-pointer items-stretch rounded-[10px] outline-none transition-[background-color,box-shadow] duration-150 focus-visible:outline-none",
+        "bg-white dark:bg-zinc-950",
         !selected &&
           !multiSelected &&
-          "border-l-4 border-l-transparent hover:bg-zinc-50/90 dark:hover:bg-zinc-900/50",
+          "hover:bg-blue-50/35 dark:hover:bg-zinc-900/90",
+        searchHit &&
+          !selected &&
+          !multiSelected &&
+          "bg-sky-50/85 dark:bg-sky-950/30",
+        selected &&
+          "bg-slate-100 dark:bg-blue-950/50 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-blue-700 before:content-[''] dark:before:bg-blue-500",
+        multiSelected &&
+          !selected &&
+          "bg-blue-50/95 dark:bg-blue-950/35 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-blue-400/95 before:content-['']",
       )}
     >
-      <div className="flex shrink-0 self-stretch">
+      <div className="flex w-[88px] shrink-0 justify-center self-stretch pl-0.5 pr-1">
         <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2.5 sm:px-4">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2.5 pl-2 sm:px-[14px] sm:py-2.5 sm:pl-1.5">
         <div className="flex min-w-0 items-center gap-2">
           <CommitConventionalIcons
             subject={commit.subject}

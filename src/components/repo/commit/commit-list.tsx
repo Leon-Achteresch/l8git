@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommitSelectMode } from "./commit-history-panel";
 import { CommitRow } from "./commit-row";
 
-const ROW_ESTIMATE_BASE_PX = 76;
+const ROW_ESTIMATE_BASE_PX = 84;
 const ROW_ESTIMATE_SEARCH_EXTRA_PX = 22;
 const SECTION_HEADER_ESTIMATE_PX = 28;
 
@@ -352,7 +352,7 @@ export function CommitList({
                   transform: `translateY(${vi.start}px)`,
                 }}
               >
-                <div className="bg-white px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:bg-zinc-950 dark:text-zinc-500">
+                <div className="mx-2 bg-white px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:bg-zinc-950 dark:text-zinc-500">
                   {item.label}
                 </div>
               </li>
