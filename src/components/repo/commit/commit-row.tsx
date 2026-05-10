@@ -13,6 +13,7 @@ import {
 } from "@/lib/graph";
 import { useGravatarUrl } from "@/lib/gravatar";
 import { useRepoStore } from "@/lib/repo-store";
+import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
 import { GitBranchPlus, Tag, Undo2 } from "lucide-react";
 import { motion } from "motion/react";
@@ -67,6 +68,11 @@ function CommitRowInner({
   }, [branches, commit.hash]);
   const [tagOpen, setTagOpen] = useState(false);
 
+  const subjectParts = useMemo(
+    () => splitConventionalSubjectDisplay(commit.subject),
+    [commit.subject],
+  );
+
   const isMergeCommit = commit.parents.length > 1;
   const isPartOfMulti = multiSelected && selectedHashes.size > 1;
   const cherryPickLabel = isPartOfMulti
@@ -108,36 +114,62 @@ function CommitRowInner({
           : { duration: 0.2 }
       }
       className={cn(
-        "group relative flex min-h-20 cursor-pointer items-stretch border-b border-border/40 outline-none transition-colors focus-visible:outline-none",
-        searchHit && !selected && !multiSelected && "bg-primary/[0.08]",
-        selected
-          ? "bg-accent/40 before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary"
-          : multiSelected
-            ? "bg-accent/30 before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-primary/40"
-            : "hover:bg-muted/30",
+        "group relative flex min-h-[4.5rem] cursor-pointer items-stretch border-b border-zinc-100/90 outline-none transition-colors focus-visible:outline-none dark:border-zinc-800/80",
+        searchHit && !selected && !multiSelected && "bg-sky-50/70 dark:bg-sky-950/25",
+        selected &&
+          "border-l-4 border-l-blue-600 bg-blue-50 dark:border-l-blue-500 dark:bg-blue-950/35",
+        multiSelected &&
+          !selected &&
+          "border-l-4 border-l-blue-400/90 bg-blue-50/80 dark:border-l-blue-400 dark:bg-blue-950/25",
+        !selected &&
+          !multiSelected &&
+          "border-l-4 border-l-transparent hover:bg-zinc-50/90 dark:hover:bg-zinc-900/50",
       )}
     >
       <div className="flex shrink-0 self-stretch">
         <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2.5 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
           <CommitConventionalIcons
             subject={commit.subject}
             body={commit.body}
           />
-          {branchesAtCommit.map((b) => (
-            <CommitBranchBadge
-              key={b.name}
-              name={b.name}
-              accentColor={laneColor(b.name)}
-            />
-          ))}
+          {branchesAtCommit.map((b, i) => {
+            const tail =
+              b.name.replace(/^refs\/heads\//, "").split("/").pop() ?? b.name;
+            const primary =
+              i === 0 &&
+              (b.is_current ||
+                /^(main|master|develop|development)$/i.test(tail));
+            const tone = primary
+              ? "dark"
+              : i % 2 === 0
+                ? "blue"
+                : "rose";
+            return (
+              <CommitBranchBadge
+                key={b.name}
+                name={b.name}
+                accentColor={laneColor(b.name)}
+                tone={tone}
+              />
+            );
+          })}
           <span
-            className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
+            className="min-w-0 flex-1 truncate text-sm text-zinc-900 dark:text-zinc-100"
             title={commit.subject}
           >
-            {commit.subject}
+            {subjectParts ? (
+              <>
+                <span className="font-semibold">{subjectParts.lead}</span>
+                {subjectParts.body ? (
+                  <span className="font-normal"> {subjectParts.body}</span>
+                ) : null}
+              </>
+            ) : (
+              commit.subject
+            )}
           </span>
           {<CommitTags tags={commit.tags} />}
         </div>
@@ -159,7 +191,7 @@ function CommitRowInner({
           </span>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center pr-4">
+      <div className="flex shrink-0 items-center pr-3 sm:pr-4">
         <CommitHashBadge hash={commit.short_hash} />
       </div>
     </motion.div>

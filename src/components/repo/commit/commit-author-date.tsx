@@ -16,12 +16,12 @@ function CommitAuthorDateInner({
   date: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex min-w-0 items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
       <CommitAvatar
         url={avatarUrl}
         fallbackUrl={avatarFallbackUrl}
         name={author}
-        size="sm"
+        size="xs"
       />
       <span
         className="min-w-0 truncate"

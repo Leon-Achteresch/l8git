@@ -3,14 +3,16 @@ import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 
-type Size = "sm" | "md";
+type Size = "xs" | "sm" | "md";
 
 const SIZE_CLASSES: Record<Size, string> = {
+  xs: "h-5 w-5",
   sm: "h-6 w-6",
   md: "h-8 w-8",
 };
 
 const FALLBACK_CLASSES: Record<Size, string> = {
+  xs: "text-[9px]",
   sm: "text-[10px]",
   md: "text-xs",
 };

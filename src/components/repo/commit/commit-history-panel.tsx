@@ -274,7 +274,7 @@ export function CommitHistoryPanel({
   );
 
   return (
-    <div className='flex h-full min-h-0 flex-col overflow-hidden shadow-sm ring-1 ring-border/50'>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-white shadow-sm dark:bg-zinc-950">
       <CherryPickStatusBanner path={path} />
       <MergeStatusBanner path={path} />
       {selectedHash ? (

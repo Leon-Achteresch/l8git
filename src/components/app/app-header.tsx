@@ -59,8 +59,7 @@ export function AppHeader() {
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
-              <Icon className="size-2.5 shrink-0" strokeWidth={2} />
-              <span className="hidden sm:inline">{label}</span>
+              <Icon className="size-4 shrink-0" strokeWidth={2} />
               {active && (
                 <span
                   className="pointer-events-none absolute bottom-0 left-1 right-1 h-[1.5px] rounded-full bg-primary/70"
@@ -71,7 +70,7 @@ export function AppHeader() {
           );
         })}
 
-        <div className="mx-0.5 h-2.5 w-px bg-border/60" aria-hidden />
+        <div className="mx-0.5 h-4 w-px bg-border/60" aria-hidden />
 
         <Link
           to="/settings"
@@ -83,7 +82,7 @@ export function AppHeader() {
             pathname.startsWith("/settings") && "bg-muted text-foreground",
           )}
         >
-          <Settings className="size-2.5" strokeWidth={2} />
+          <Settings className="size-4" strokeWidth={2} />
         </Link>
       </nav>
     </header>

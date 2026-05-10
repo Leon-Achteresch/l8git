@@ -5,6 +5,7 @@ import {
   FlaskConical,
   Gauge,
   GitBranch,
+  GitCommit,
   OctagonAlert,
   Package,
   Paintbrush,
@@ -55,33 +56,46 @@ function CommitConventionalIconsInner({
   body: string;
 }) {
   const enabled = useCommitPrefs((s) => s.showConventionalCommitIcons);
-  if (!enabled) return null;
+  if (!enabled) {
+    return (
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center self-center rounded border border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300">
+        <GitCommit className="size-3.5 text-zinc-400" strokeWidth={2} />
+      </span>
+    );
+  }
 
   const { typeKey, breaking, isRecognizedType } = parseConventionalCommit(
     subject,
     body,
   );
   const TypeIcon = typeKey && isRecognizedType ? TYPE_ICONS[typeKey] : null;
-  if (!breaking && !TypeIcon) return null;
+  const inner =
+    breaking || TypeIcon ? (
+      <span className="inline-flex shrink-0 items-center gap-0.5">
+        {breaking && (
+          <span
+            className={cn("inline-flex rounded-sm p-0.5 text-destructive")}
+            title="BREAKING CHANGE"
+          >
+            <OctagonAlert className="size-3.5" strokeWidth={2.25} />
+          </span>
+        )}
+        {TypeIcon && typeKey && (
+          <span
+            className="inline-flex rounded-sm p-0.5 text-zinc-500"
+            title={TYPE_LABELS[typeKey] ?? typeKey}
+          >
+            <TypeIcon className="size-3.5" strokeWidth={2} />
+          </span>
+        )}
+      </span>
+    ) : (
+      <GitCommit className="size-3.5 text-zinc-400" strokeWidth={2} />
+    );
 
   return (
-    <span className="inline-flex shrink-0 items-center gap-0.5 self-center">
-      {breaking && (
-        <span
-          className={cn("inline-flex rounded-sm p-0.5 text-destructive")}
-          title="BREAKING CHANGE"
-        >
-          <OctagonAlert className="size-3.5" strokeWidth={2.25} />
-        </span>
-      )}
-      {TypeIcon && typeKey && (
-        <span
-          className="inline-flex rounded-sm p-0.5 text-muted-foreground"
-          title={TYPE_LABELS[typeKey] ?? typeKey}
-        >
-          <TypeIcon className="size-3.5" strokeWidth={2} />
-        </span>
-      )}
+    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center self-center rounded border border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300">
+      {inner}
     </span>
   );
 }

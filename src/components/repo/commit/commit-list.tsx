@@ -1,3 +1,4 @@
+import { historySectionTitle } from "@/lib/commit-history-sections";
 import {
   buildGraph,
   normalizeGitOid,
@@ -11,8 +12,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommitSelectMode } from "./commit-history-panel";
 import { CommitRow } from "./commit-row";
 
-const ROW_ESTIMATE_BASE_PX = 80;
+const ROW_ESTIMATE_BASE_PX = 76;
 const ROW_ESTIMATE_SEARCH_EXTRA_PX = 22;
+const SECTION_HEADER_ESTIMATE_PX = 28;
+
+type FlatItem =
+  | { kind: "header"; key: string; label: string }
+  | { kind: "commit"; rowIndex: number };
 
 function arrowNavBlocked(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -90,6 +96,20 @@ export function CommitList({
     [graphKey],
   );
 
+  const flatItems = useMemo((): FlatItem[] => {
+    const out: FlatItem[] = [];
+    let last = "";
+    for (let i = 0; i < rows.length; i++) {
+      const sec = historySectionTitle(rows[i].commit.date);
+      if (sec !== last) {
+        out.push({ kind: "header", key: `${sec}-${i}`, label: sec });
+        last = sec;
+      }
+      out.push({ kind: "commit", rowIndex: i });
+    }
+    return out;
+  }, [rows]);
+
   const scrollerRef = useRef<HTMLDivElement>(null);
   const commitFocusRequest = useUiStore((s) => s.commitFocusRequest);
   const clearCommitFocusRequest = useUiStore((s) => s.clearCommitFocusRequest);
@@ -125,6 +145,14 @@ export function CommitList({
     return idxs;
   }, [rows, matchPathsByHash]);
 
+  const rowIndexFromFlatIndex = useCallback(
+    (flatIndex: number) => {
+      const it = flatItems[flatIndex];
+      return it?.kind === "commit" ? it.rowIndex : -1;
+    },
+    [flatItems],
+  );
+
   const onCherryPickCb = useCallback(
     (hashes: string[], opts?: { mainline?: number }) => {
       void onCherryPick(hashes, opts);
@@ -133,10 +161,12 @@ export function CommitList({
   );
 
   const virtualizer = useVirtualizer({
-    count: rows.length,
+    count: flatItems.length,
     getScrollElement: () => scrollerRef.current,
     estimateSize: (index) => {
-      const row = rows[index];
+      const it = flatItems[index];
+      if (!it || it.kind === "header") return SECTION_HEADER_ESTIMATE_PX;
+      const row = rows[it.rowIndex];
       if (!row) return ROW_ESTIMATE_BASE_PX;
       const oid = normalizeGitOid(row.commit.hash);
       return matchPathsByHash.has(oid)
@@ -145,19 +175,29 @@ export function CommitList({
     },
     overscan: 8,
     useAnimationFrameWithResizeObserver: true,
-    getItemKey: (index) => rows[index]?.commit.hash ?? index,
+    getItemKey: (index) => {
+      const it = flatItems[index];
+      if (!it) return index;
+      if (it.kind === "header") return it.key;
+      return rows[it.rowIndex]?.commit.hash ?? index;
+    },
   });
 
   const loadMoreCommits = useRepoStore((s) => s.loadMoreCommits);
   const loadMoreSearchCommits = useRepoStore((s) => s.loadMoreSearchCommits);
   const lastLoadedAt = useRef(0);
   const virtualItems = virtualizer.getVirtualItems();
-  const lastVirtualIndex = virtualItems.length
-    ? virtualItems[virtualItems.length - 1].index
-    : 0;
+  const maxVisibleRowIndex = useMemo(() => {
+    let m = 0;
+    for (const vi of virtualItems) {
+      const ri = rowIndexFromFlatIndex(vi.index);
+      if (ri >= 0) m = Math.max(m, ri);
+    }
+    return m;
+  }, [virtualItems, rowIndexFromFlatIndex]);
   useEffect(() => {
     if (rows.length === 0) return;
-    if (lastVirtualIndex < rows.length - 20) return;
+    if (maxVisibleRowIndex < rows.length - 20) return;
     const now = performance.now();
     if (now - lastLoadedAt.current < 250) return;
     lastLoadedAt.current = now;
@@ -166,7 +206,7 @@ export function CommitList({
       void loadMoreSearchCommits(path, 80);
     }
   }, [
-    lastVirtualIndex,
+    maxVisibleRowIndex,
     rows.length,
     path,
     loadMoreCommits,
@@ -285,7 +325,7 @@ export function CommitList({
   return (
     <div
       ref={scrollerRef}
-      className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden"
+      className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden bg-white dark:bg-zinc-950"
     >
       <ul
         style={{
@@ -294,7 +334,31 @@ export function CommitList({
         }}
       >
         {virtualItems.map((vi) => {
-          const row = rows[vi.index];
+          const item = flatItems[vi.index];
+          if (!item) return null;
+          if (item.kind === "header") {
+            return (
+              <li
+                key={vi.key}
+                data-index={vi.index}
+                ref={virtualizer.measureElement}
+                tabIndex={-1}
+                className="outline-none focus:outline-none"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  transform: `translateY(${vi.start}px)`,
+                }}
+              >
+                <div className="bg-white px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:bg-zinc-950 dark:text-zinc-500">
+                  {item.label}
+                </div>
+              </li>
+            );
+          }
+          const row = rows[item.rowIndex];
           if (!row) return null;
           const oid = normalizeGitOid(row.commit.hash);
           const matchedPaths = matchPathsByHash.get(oid);
