@@ -11,10 +11,11 @@ import {
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useRepoStore, repoLabel } from "@/lib/repo-store";
+import { useWorkspaceStore } from "@/lib/workspace-store";
 import { RepoTab } from "./repo-tab";
 import { AddRepoButton } from "./add-repo-button";
 import { RepoWorkspaceSwitch } from "./repo-workspace-switch";
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 export function RepoTabBar() {
@@ -26,6 +27,43 @@ export function RepoTabBar() {
     })),
   );
   const reorderRepos = useRepoStore((s) => s.reorderRepos);
+
+  const { workspaces, activeWorkspaceId } = useWorkspaceStore(
+    useShallow((s) => ({
+      workspaces: s.workspaces,
+      activeWorkspaceId: s.activeWorkspaceId,
+    })),
+  );
+
+  // Track previous paths in a ref so the effect can diff without subscribing to the store directly.
+  // Using useEffect([paths]) instead of store.subscribe() ensures state updates happen after render,
+  // avoiding the "maximum update depth exceeded" that occurs when Zustand's synchronous subscriber
+  // calls set() on another store during React's useSyncExternalStore snapshot check.
+  const prevPathsRef = useRef<string[] | null>(null);
+  useEffect(() => {
+    const {
+      initDefaultWorkspace,
+      addRepoToActiveWorkspace,
+      removeRepoFromAllWorkspaces,
+    } = useWorkspaceStore.getState();
+
+    if (prevPathsRef.current === null) {
+      initDefaultWorkspace(paths);
+      prevPathsRef.current = paths;
+      return;
+    }
+
+    const prevPaths = prevPathsRef.current;
+    prevPathsRef.current = paths;
+    paths.filter((p) => !prevPaths.includes(p)).forEach(addRepoToActiveWorkspace);
+    prevPaths.filter((p) => !paths.includes(p)).forEach(removeRepoFromAllWorkspaces);
+  }, [paths]);
+
+  const filteredPaths = useMemo(() => {
+    const activeRepoPaths =
+      workspaces.find((w) => w.id === activeWorkspaceId)?.repoPaths ?? [];
+    return paths.filter((p) => activeRepoPaths.includes(p));
+  }, [paths, workspaces, activeWorkspaceId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -64,10 +102,10 @@ export function RepoTabBar() {
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={paths}
+                items={filteredPaths}
                 strategy={horizontalListSortingStrategy}
               >
-                {paths.map((p) => (
+                {filteredPaths.map((p) => (
                   <RepoTab
                     key={p}
                     path={p}
