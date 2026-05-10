@@ -1,9 +1,5 @@
 import { historySectionTitle } from "@/lib/commit-history-sections";
-import {
-  buildGraph,
-  normalizeGitOid,
-  type GraphRow,
-} from "@/lib/graph";
+import { buildGraph, normalizeGitOid, type GraphRow } from "@/lib/graph";
 import type { Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -44,23 +40,19 @@ function resolveNextSearchMatchRowIndex(
   }
   if (curRow < 0 && selectedHash) {
     curRow = rows.findIndex(
-      (r) =>
-        normalizeGitOid(r.commit.hash) === normalizeGitOid(selectedHash),
+      (r) => normalizeGitOid(r.commit.hash) === normalizeGitOid(selectedHash),
     );
   }
   const down = direction === "next";
   if (curRow < 0) {
-    return down
-      ? matchIndices[0]
-      : matchIndices[matchIndices.length - 1];
+    return down ? matchIndices[0] : matchIndices[matchIndices.length - 1];
   }
   if (down) {
     return matchIndices.find((idx) => idx > curRow) ?? matchIndices[0];
   }
   const rev = [...matchIndices].reverse();
   return (
-    rev.find((idx) => idx < curRow) ??
-    matchIndices[matchIndices.length - 1]
+    rev.find((idx) => idx < curRow) ?? matchIndices[matchIndices.length - 1]
   );
 }
 
@@ -90,11 +82,11 @@ export function CommitList({
     opts?: { mainline?: number },
   ) => Promise<void>;
 }) {
-  const graphKey = useMemo(() => commits.map((c) => c.hash).join("|"), [commits]);
-  const { rows, maxLanes } = useMemo(
-    () => buildGraph(commits),
-    [graphKey],
+  const graphKey = useMemo(
+    () => commits.map((c) => c.hash).join("|"),
+    [commits],
   );
+  const { rows, maxLanes } = useMemo(() => buildGraph(commits), [graphKey]);
 
   const flatItems = useMemo((): FlatItem[] => {
     const out: FlatItem[] = [];
@@ -113,7 +105,9 @@ export function CommitList({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const commitFocusRequest = useUiStore((s) => s.commitFocusRequest);
   const clearCommitFocusRequest = useUiStore((s) => s.clearCommitFocusRequest);
-  const requestCommitHistoryFocus = useUiStore((s) => s.requestCommitHistoryFocus);
+  const requestCommitHistoryFocus = useUiStore(
+    (s) => s.requestCommitHistoryFocus,
+  );
   const commitSearchMatchStepRequest = useUiStore(
     (s) => s.commitSearchMatchStepRequest,
   );
@@ -352,7 +346,7 @@ export function CommitList({
                   transform: `translateY(${vi.start}px)`,
                 }}
               >
-                <div className="mx-2 bg-white px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:bg-zinc-950 dark:text-zinc-500">
+                <div className="bg-background px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {item.label}
                 </div>
               </li>

@@ -20,6 +20,7 @@ import {
   Check,
   GitMerge,
   Loader2,
+  Pencil,
   RefreshCw,
   Send,
   Sparkles,
@@ -49,12 +50,15 @@ export function CommitPanel() {
   const stageFiles = useRepoStore((s) => s.stageFiles);
   const unstageFiles = useRepoStore((s) => s.unstageFiles);
   const commitChanges = useRepoStore((s) => s.commitChanges);
+  const amendCommit = useRepoStore((s) => s.amendCommit);
+  const latestCommit = useRepoStore((s) => (activePath ? s.repos[activePath]?.commits[0] : undefined));
   const discardFiles = useRepoStore((s) => s.discardFiles);
 
   // ─── Local state ───────────────────────────────────────────────────────────
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [diffPayload, setDiffPayload] = useState<FileDiffResponse | null>(null);
@@ -476,7 +480,7 @@ export function CommitPanel() {
   if (!activePath) return null;
 
   // ─── Non-hook event handlers ───────────────────────────────────────────────
-  const canCommit = totals.stagedFiles > 0 && message.trim().length > 0;
+  const canCommit = message.trim().length > 0 && (amendMode || totals.stagedFiles > 0);
   const canStash = changeRows.length > 0;
 
   const toggleEntry = async (entry: StatusEntry) => {
@@ -511,7 +515,12 @@ export function CommitPanel() {
     if (!canCommit) return;
     setCommitting(true);
     try {
-      await commitChanges(activePath, message.trim());
+      if (amendMode) {
+        await amendCommit(activePath, message.trim());
+        setAmendMode(false);
+      } else {
+        await commitChanges(activePath, message.trim());
+      }
       const next = getCommitMessageTemplate();
       setMessage(next.trim() ? next : "");
     } catch (e) {
@@ -623,11 +632,27 @@ export function CommitPanel() {
             <span className="tabular-nums font-medium text-foreground">{totals.stagedFiles}</span>{" "}
             {totals.stagedFiles === 1 ? "Datei" : "Dateien"} gestaged
           </span>
-          <span className="font-mono tabular-nums">
-            <span className="text-git-added">+{totals.additionsStaged}</span>
-            <span className="mx-1 opacity-40">·</span>
-            <span className="text-git-removed">−{totals.deletionsStaged}</span>
-          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !amendMode;
+              setAmendMode(next);
+              if (next && latestCommit) {
+                const full = latestCommit.body.trim()
+                  ? `${latestCommit.subject}\n\n${latestCommit.body}`
+                  : latestCommit.subject;
+                setMessage(full);
+              }
+            }}
+            className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+              amendMode
+                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <Pencil className="h-3 w-3" />
+            Amend
+          </button>
         </div>
 
         <div className="relative">
@@ -671,12 +696,19 @@ export function CommitPanel() {
               size="icon"
               onClick={onCommit}
               disabled={!canCommit || committing}
+              title={amendMode ? "Letzten Commit ändern (--amend)" : "Committen"}
               className={`h-9 w-9 rounded-md ${
-                canCommit ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                canCommit
+                  ? amendMode
+                    ? "bg-amber-500 text-white hover:bg-amber-600"
+                    : "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               {committing ? (
                 <Loader2 className="h-[18px] w-[18px] animate-spin" />
+              ) : amendMode ? (
+                <Pencil className="h-[18px] w-[18px]" />
               ) : (
                 <Send className="h-[18px] w-[18px]" />
               )}

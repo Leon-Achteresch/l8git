@@ -194,6 +194,7 @@ type RepoState = {
   stageFiles: (path: string, files: string[]) => Promise<void>;
   unstageFiles: (path: string, files: string[]) => Promise<void>;
   commitChanges: (path: string, message: string) => Promise<void>;
+  amendCommit: (path: string, message: string) => Promise<void>;
   cloneRepo: (url: string, dest: string) => Promise<string>;
   initRepo: (path: string) => Promise<string | null>;
   checkoutBranch: (
@@ -804,6 +805,15 @@ export const useRepoStore = create<RepoState>()(
 
       async commitChanges(path, message) {
         await invoke('commit_changes', { path, message });
+        await Promise.all([
+          get().reload(path),
+          get().reloadStatus(path),
+          get().reloadStashes(path),
+        ]);
+      },
+
+      async amendCommit(path, message) {
+        await invoke('commit_amend', { path, message });
         await Promise.all([
           get().reload(path),
           get().reloadStatus(path),
