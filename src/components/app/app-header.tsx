@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { GitFork, Info, Settings, User } from "lucide-react";
 import { type CSSProperties } from "react";
 
+import { AppHeaderSearch } from "@/components/app/app-header-search";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -37,6 +38,13 @@ export function AppHeader() {
         style={{ WebkitAppRegion: "drag" } as CSSProperties}
         className="flex-1 self-stretch"
       />
+
+      {/* Centered search bar */}
+      <div className="pointer-events-none absolute inset-x-0 flex justify-center px-4">
+        <div className="pointer-events-auto w-full max-w-[460px]">
+          <AppHeaderSearch />
+        </div>
+      </div>
 
       <nav
         className="flex items-center gap-px px-1"
