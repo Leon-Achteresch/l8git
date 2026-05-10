@@ -1,1 +1,1 @@
-Gemeinsame Basiszeile für den Merge-Konflikt-Demo.
+Variante A (Branch merge-conflict-demo).
