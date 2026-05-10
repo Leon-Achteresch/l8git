@@ -1380,6 +1380,17 @@ pub fn commit_changes(path: String, message: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub fn commit_amend(path: String, message: String) -> Result<(), String> {
+    let repo = PathBuf::from(&path);
+    let trimmed = message.trim();
+    if trimmed.is_empty() {
+        return Err("Commit-Nachricht darf nicht leer sein".into());
+    }
+    run_git(&repo, &["commit", "--amend", "-m", trimmed])?;
+    Ok(())
+}
+
 #[derive(Serialize)]
 pub struct FileDiffResponse {
     staged: Option<String>,

@@ -1,7 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { AppHeader } from "@/components/app/app-header";
 import { Button } from "@/components/ui/button";
-import { toastError } from "@/lib/error-toast";
 import { hasUnresolvedConflicts } from "@/lib/conflict-parser";
+import { toastError } from "@/lib/error-toast";
 import type { ConflictVersions } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -14,6 +14,7 @@ import {
   Loader2,
   X,
 } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const MergeEditor3Way = lazy(() =>
@@ -25,13 +26,39 @@ const MergeEditor2Way = lazy(() =>
 
 // Language detection (subset, mirrors monaco-diff-viewer.tsx)
 const EXT_MAP: Record<string, string> = {
-  ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
-  rs: "rust", py: "python", go: "go", java: "java", kt: "kotlin",
-  swift: "swift", c: "c", cpp: "cpp", cs: "csharp", css: "css",
-  scss: "scss", html: "html", xml: "xml", json: "json", yaml: "yaml",
-  yml: "yaml", toml: "toml", md: "markdown", sh: "shell", sql: "sql",
-  graphql: "graphql", proto: "protobuf", dart: "dart", lua: "lua",
-  vue: "html", svelte: "html", php: "php", tf: "hcl", rb: "ruby",
+  ts: "typescript",
+  tsx: "typescript",
+  js: "javascript",
+  jsx: "javascript",
+  rs: "rust",
+  py: "python",
+  go: "go",
+  java: "java",
+  kt: "kotlin",
+  swift: "swift",
+  c: "c",
+  cpp: "cpp",
+  cs: "csharp",
+  css: "css",
+  scss: "scss",
+  html: "html",
+  xml: "xml",
+  json: "json",
+  yaml: "yaml",
+  yml: "yaml",
+  toml: "toml",
+  md: "markdown",
+  sh: "shell",
+  sql: "sql",
+  graphql: "graphql",
+  proto: "protobuf",
+  dart: "dart",
+  lua: "lua",
+  vue: "html",
+  svelte: "html",
+  php: "php",
+  tf: "hcl",
+  rb: "ruby",
 };
 
 function detectLanguage(filename: string): string {
@@ -58,14 +85,12 @@ export function MergeConflictPage({
   const conflictedFiles = mergeState?.conflicted_paths ?? [];
   const initialFile = useUiStore((s) => s.mergeEditorInitialFile);
 
-  const [mode, setMode] = useState<Mode>("3way");
+  const [mode] = useState<Mode>("3way");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileStates, setFileStates] = useState<Record<string, FileState>>({});
   const [saving, setSaving] = useState(false);
   const [committing, setCommitting] = useState(false);
 
-  // Ensure merge state is loaded (e.g. when opened directly from commit panel
-  // before the history-panel banner has had a chance to call reloadMergeState).
   useEffect(() => {
     void useRepoStore.getState().reloadMergeState(path);
   }, [path]);
@@ -73,7 +98,10 @@ export function MergeConflictPage({
   // Auto-select: prefer the file hint from openMergeEditor, fall back to first.
   useEffect(() => {
     if (selectedFile === null && conflictedFiles.length > 0) {
-      const hint = initialFile && conflictedFiles.includes(initialFile) ? initialFile : null;
+      const hint =
+        initialFile && conflictedFiles.includes(initialFile)
+          ? initialFile
+          : null;
       setSelectedFile(hint ?? conflictedFiles[0] ?? null);
     }
   }, [conflictedFiles, selectedFile, initialFile]);
@@ -113,7 +141,9 @@ export function MergeConflictPage({
       if (!selectedFile) return;
       setSaving(true);
       try {
-        await useRepoStore.getState().mergeSaveResolved(path, selectedFile, content);
+        await useRepoStore
+          .getState()
+          .mergeSaveResolved(path, selectedFile, content);
         toast.success("Datei gespeichert und gestaged.");
         setFileStates((prev) => ({
           ...prev,
@@ -152,7 +182,7 @@ export function MergeConflictPage({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* Header */}
+      <AppHeader />
       <header className="flex items-center gap-3 border-b border-border bg-card px-4 py-2.5">
         <Button
           type="button"
@@ -165,36 +195,9 @@ export function MergeConflictPage({
         </Button>
         <span className="font-medium">Merge-Konflikte auflösen</span>
         <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-          {conflictedFiles.length} Datei{conflictedFiles.length !== 1 ? "en" : ""}
+          {conflictedFiles.length} Datei
+          {conflictedFiles.length !== 1 ? "en" : ""}
         </span>
-
-        {/* Mode toggle */}
-        <div className="ml-4 flex rounded-md border border-border text-xs font-medium">
-          <button
-            type="button"
-            onClick={() => setMode("3way")}
-            className={cn(
-              "rounded-l-md px-3 py-1 transition-colors",
-              mode === "3way"
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent/50",
-            )}
-          >
-            3-Weg
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("2way")}
-            className={cn(
-              "rounded-r-md border-l border-border px-3 py-1 transition-colors",
-              mode === "2way"
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent/50",
-            )}
-          >
-            2-Weg
-          </button>
-        </div>
 
         <Button
           type="button"
@@ -202,16 +205,18 @@ export function MergeConflictPage({
           className="ml-auto"
           disabled={!allResolved || committing}
           onClick={() => void handleCommit()}
-          title={!allResolved ? "Alle Konflikte zuerst auflösen und speichern" : undefined}
+          title={
+            !allResolved
+              ? "Alle Konflikte zuerst auflösen und speichern"
+              : undefined
+          }
         >
           <GitCommit className="mr-1 h-3.5 w-3.5" />
           {committing ? "…" : "Merge-Commit erstellen"}
         </Button>
       </header>
 
-      {/* Body */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* File sidebar */}
         <aside className="flex w-56 flex-shrink-0 flex-col border-r border-border bg-card">
           <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
             Konfliktdateien
@@ -238,7 +243,9 @@ export function MergeConflictPage({
                     ) : (
                       <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
                     )}
-                    <span className="truncate font-mono">{file.split("/").pop()}</span>
+                    <span className="truncate font-mono">
+                      {file.split("/").pop()}
+                    </span>
                   </button>
                 </li>
               );
@@ -246,7 +253,6 @@ export function MergeConflictPage({
           </ul>
         </aside>
 
-        {/* Editor area */}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           {!selectedFile ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
