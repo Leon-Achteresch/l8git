@@ -28,7 +28,7 @@ export function AppHeader() {
       className={cn(
         "relative flex shrink-0 select-none items-center gap-0 py-2",
         "border-b border-border/50",
-        "bg-background/70 backdrop-blur-xl backdrop-saturate-150",
+        "bg-card/85 backdrop-blur-xl backdrop-saturate-150 dark:bg-background/70",
         IS_MAC && "pl-[72px]",
         IS_WINDOWS && "pr-[140px]",
       )}
