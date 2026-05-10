@@ -43,8 +43,6 @@ export function CommitHistoryPanel({
   const [selectedHashes, setSelectedHashes] =
     useState<ReadonlySet<string>>(EMPTY_HASH_SET);
   const [anchorHash, setAnchorHash] = useState<string | null>(null);
-  // cursorHash tracks the "moving end" of a range for keyboard navigation,
-  // i.e. the last hash the user explicitly navigated to (click, arrow, etc.).
   const [cursorHash, setCursorHash] = useState<string | null>(null);
 
   const sidebarTab = useUiStore(s => s.sidebarTab);
@@ -64,7 +62,6 @@ export function CommitHistoryPanel({
     }
   });
 
-  // Reset selection when the active repo changes.
   useEffect(() => {
     setSelectedHash(null);
     setSelectedHashes(prev => (prev.size === 0 ? prev : EMPTY_HASH_SET));
@@ -91,13 +88,11 @@ export function CommitHistoryPanel({
     return m;
   }, [searchSlice?.hits]);
 
-  // ── Helper: build the hash list for the currently visible commits ──────────
   const hashList = useMemo(
     () => filteredCommits.map(c => c.hash),
     [filteredCommits],
   );
 
-  // ── Core selection handler ────────────────────────────────────────────────
   const onToggleSelect = useCallback(
     (hash: string, mode: CommitSelectMode) => {
       if (mode === 'single') {
@@ -109,7 +104,6 @@ export function CommitHistoryPanel({
       }
 
       if (mode === 'toggle') {
-        // Ctrl+Click: toggle the item; anchor and cursor move to it.
         setSelectedHashes(prev => {
           const next = new Set(prev);
           if (next.has(hash)) next.delete(hash);
@@ -121,8 +115,6 @@ export function CommitHistoryPanel({
         return;
       }
 
-      // Shift+Click (range): REPLACE the selection with the range between
-      // the current anchor and the clicked commit — matching Explorer behaviour.
       const anchor = anchorHash ?? hash;
       const a = hashList.indexOf(anchor);
       const b = hashList.indexOf(hash);
@@ -135,19 +127,17 @@ export function CommitHistoryPanel({
       const next = new Set<string>();
       for (let i = lo; i <= hi; i++) next.add(hashList[i]);
       setSelectedHashes(next);
-      setCursorHash(hash); // cursor = the end the user just clicked
+      setCursorHash(hash);
     },
     [anchorHash, hashList],
   );
 
-  // ── Keyboard shortcuts (Ctrl+A, Escape, Arrow ± Shift) ───────────────────
   useEffect(() => {
     if (sidebarTab !== 'history' || activePath !== path) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (isInputFocused(e.target)) return;
 
-      // Ctrl+A – select all visible commits
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'a') {
         e.preventDefault();
         if (hashList.length === 0) return;
@@ -157,7 +147,6 @@ export function CommitHistoryPanel({
         return;
       }
 
-      // Escape – collapse multi-selection back to single
       if (e.key === 'Escape' && selectedHashes.size > 1) {
         e.preventDefault();
         const keep = selectedHash ?? [...selectedHashes][0] ?? null;
@@ -175,7 +164,6 @@ export function CommitHistoryPanel({
       const dir = e.key === 'ArrowDown' ? 1 : -1;
 
       if (e.shiftKey) {
-        // Shift+Arrow: extend the range from anchor to (cursor ± 1)
         const anchor = anchorHash ?? selectedHash ?? hashList[0];
         const cur = cursorHash ?? anchor;
         const curIdx = hashList.indexOf(cur);
@@ -195,7 +183,6 @@ export function CommitHistoryPanel({
         setCursorHash(nextHash);
         requestCommitHistoryFocus(path, nextHash);
       } else {
-        // Plain Arrow: move to next/prev commit (like a single click)
         const cur = cursorHash ?? selectedHash ?? anchorHash;
         const curIdx = cur ? hashList.indexOf(cur) : -1;
         const nextIdx = Math.max(
@@ -230,7 +217,6 @@ export function CommitHistoryPanel({
   const onCherryPick = useCallback(
     async (hashes: string[], opts?: { mainline?: number }) => {
       if (hashes.length === 0) return;
-      // Sort oldest-first (list is newest-first).
       const order = new Map(
         filteredCommits.map((c, i) => [c.hash, i] as const),
       );

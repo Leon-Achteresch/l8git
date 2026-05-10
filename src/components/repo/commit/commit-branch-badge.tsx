@@ -14,7 +14,7 @@ function CommitBranchBadgeInner({
   const shell = cn(
     "max-w-[14rem] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
     tone === "dark" &&
-      "border border-zinc-800 bg-zinc-900 text-white dark:border-zinc-700",
+      "border border-slate-200/90 bg-slate-100 text-slate-900 dark:border-zinc-600/80 dark:bg-zinc-800 dark:text-zinc-100",
     tone === "soft" && "border border-border/70 bg-background text-foreground/90",
     tone === "blue" &&
       "border border-blue-200/80 bg-blue-100 text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/60 dark:text-blue-100",
