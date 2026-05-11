@@ -14,7 +14,7 @@ export function RepoDetails() {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
         <RepoRemoteToolbar path={repo.path} />
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden px-4 rounded-4xl">
           <CommitHistoryPanel path={repo.path} commits={repo.commits} />
         </div>
       </div>

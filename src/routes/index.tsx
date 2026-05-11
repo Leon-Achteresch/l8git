@@ -10,6 +10,7 @@ import { MergeConflictPage } from "@/components/repo/merge/merge-conflict-page";
 import { PullRequestPanel } from "@/components/repo/pr/pull-request-panel";
 import { StashPanel } from "@/components/repo/stash/stash-panel";
 import { SubmodulesPanel } from "@/components/repo/submodules/submodules-panel";
+import { WorktreePanel } from "@/components/repo/worktree/worktree-panel";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -41,7 +42,7 @@ function Home() {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {activePath && <RepoSidebar />}
         <div
-          className={`min-w-0 flex-1 px-4 pb-3 ${activePath ? "flex min-h-0 flex-col overflow-hidden" : "overflow-y-auto"}`}
+          className={`min-w-0 flex-1  pb-3 ${activePath ? "flex min-h-0 flex-col overflow-hidden" : "overflow-y-auto"}`}
         >
           {activePath ? (
             <PanelSwap
@@ -56,7 +57,8 @@ function Home() {
                   (sidebarTab === "stash" ||
                     sidebarTab === "pr" ||
                     sidebarTab === "ci" ||
-                    sidebarTab === "submodules") ? (
+                    sidebarTab === "submodules" ||
+                    sidebarTab === "worktrees") ? (
                     <div className="min-h-0 flex-1 overflow-hidden">
                       {sidebarTab === "stash" ? (
                         <StashPanel path={repo.path} />
@@ -64,6 +66,8 @@ function Home() {
                         <PullRequestPanel path={repo.path} />
                       ) : sidebarTab === "submodules" ? (
                         <SubmodulesPanel path={repo.path} />
+                      ) : sidebarTab === "worktrees" ? (
+                        <WorktreePanel path={repo.path} />
                       ) : (
                         <RepoCiPanel path={repo.path} />
                       )}

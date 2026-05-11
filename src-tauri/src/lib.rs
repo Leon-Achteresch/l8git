@@ -102,7 +102,14 @@ pub fn run() {
             git::git_submodule_update,
             git::git_submodule_sync,
             git::git_submodule_add,
-            git::git_submodule_deinit
+            git::git_submodule_deinit,
+            git::list_worktrees,
+            git::git_worktree_add,
+            git::git_worktree_remove,
+            git::git_worktree_lock,
+            git::git_worktree_unlock,
+            git::git_worktree_prune,
+            git::git_worktree_move
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

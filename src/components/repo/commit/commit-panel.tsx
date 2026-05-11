@@ -41,7 +41,6 @@ const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
 
 export function CommitPanel() {
-  // ─── Store ─────────────────────────────────────────────────────────────────
   const activePath = useRepoStore((s) => s.activePath);
   const entries =
     useRepoStore((s) => (activePath ? s.status[activePath] : undefined)) ?? EMPTY_STATUS;
@@ -54,7 +53,6 @@ export function CommitPanel() {
   const latestCommit = useRepoStore((s) => (activePath ? s.repos[activePath]?.commits[0] : undefined));
   const discardFiles = useRepoStore((s) => s.discardFiles);
 
-  // ─── Local state ───────────────────────────────────────────────────────────
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -65,15 +63,12 @@ export function CommitPanel() {
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffFailed, setDiffFailed] = useState(false);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
-  // Interactive staging state (lifted from diff viewer)
   const [focusedHunkIdx, setFocusedHunkIdx] = useState(-1);
   const [selectedLines, setSelectedLines] = useState<ReadonlySet<string>>(EMPTY_LINES);
 
-  // Multi-file selection (Shift-range, like a file explorer)
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
 
-  // Layout persistence (useState must be unconditional)
   const layoutStorageKey = "l8git.commit-panel.layout.v2";
   const [defaultLayout] = useState(() => {
     const saved = localStorage.getItem(layoutStorageKey);
@@ -87,7 +82,6 @@ export function CommitPanel() {
     return undefined;
   });
 
-  // ─── Commit message template ───────────────────────────────────────────────
   const seedMessageFromTemplate = useCallback(() => {
     const raw = getCommitMessageTemplate();
     if (!raw.trim()) return;
@@ -114,7 +108,6 @@ export function CommitPanel() {
     });
   }, []);
 
-  // ─── Derived data ──────────────────────────────────────────────────────────
   const changeRows = useMemo(() => buildChangeRows(entries), [entries]);
   const conflictRows = useMemo(() => changeRows.filter((r) => r.sector === "conflict"), [changeRows]);
   const stagedRows = useMemo(() => changeRows.filter((r) => r.sector === "staged"), [changeRows]);
@@ -128,29 +121,22 @@ export function CommitPanel() {
       setSelectedRowId(null);
       return;
     }
-    // Keep current selection when valid; otherwise fall back to the first row.
     setSelectedRowId((prev) =>
       prev && changeRows.some((r) => r.id === prev) ? prev : changeRows[0].id,
     );
-    // Mirror anchor + multi-selection so Shift-click works immediately on first render
-    // and after staging operations that invalidate the previous anchor.
     setAnchorRowId((prev) =>
       prev && changeRows.some((r) => r.id === prev) ? prev : changeRows[0].id,
     );
     setMultiSelectedIds((prev) => {
-      // If the existing selection is empty, seed it with the first row.
-      // The cleanup effect below will remove any IDs that are no longer valid.
       if (prev.size === 0) return new Set([changeRows[0].id]);
       return prev;
     });
   }, [changeRows]);
 
-  // Keep multi-selection valid after stage/unstage operations change the file list.
   useEffect(() => {
     const validIds = new Set(changeRows.map((r) => r.id));
     setMultiSelectedIds((prev) => {
       const next = new Set([...prev].filter((id) => validIds.has(id)));
-      // Avoid unnecessary re-renders when nothing actually changed.
       return next.size === prev.size ? prev : next;
     });
     setAnchorRowId((prev) => (prev && validIds.has(prev) ? prev : null));
@@ -178,14 +164,12 @@ export function CommitPanel() {
 
   const selectedIsConflict = selectedRow?.sector === "conflict";
 
-  // ─── Diff loading ──────────────────────────────────────────────────────────
   const loadDiff = useCallback(async () => {
     if (!activePath || !selectedPath) {
       setDiffPayload(null);
       return;
     }
     if (selectedIsConflict) {
-      // Don't load a diff for conflict files — show conflict placeholder instead.
       setDiffPayload(null);
       setDiffLoading(false);
       setDiffFailed(false);
@@ -218,7 +202,6 @@ export function CommitPanel() {
     void loadDiff();
   }, [loadDiff]);
 
-  // ─── Parsed diff (lifted to enable hotkeys access) ─────────────────────────
   const parsedDiff = useMemo<ParsedDiff | null>(() => {
     if (!selectedRow || !diffPayload) return null;
     const text =
@@ -235,14 +218,12 @@ export function CommitPanel() {
     return result;
   }, [diffPayload, selectedRow]);
 
-  // Reset interactive state when the selected file/sector changes
   useEffect(() => {
     console.log("[commit-panel] reset interactive state, selectedRowId:", selectedRowId);
     setFocusedHunkIdx(-1);
     setSelectedLines(EMPTY_LINES);
   }, [selectedRowId]);
 
-  // ─── Hunk navigation ───────────────────────────────────────────────────────
   const hunkCount = parsedDiff?.hunks.length ?? 0;
 
   const onFocusPrevHunk = useCallback(() => {
@@ -263,7 +244,6 @@ export function CommitPanel() {
     });
   }, [hunkCount]);
 
-  // ─── Line selection ────────────────────────────────────────────────────────
   const onToggleLine = useCallback((key: string) => {
     setSelectedLines((prev) => {
       const next = new Set(prev);
@@ -279,7 +259,6 @@ export function CommitPanel() {
     setSelectedLines(EMPTY_LINES);
   }, []);
 
-  // ─── Hunk-level staging ────────────────────────────────────────────────────
   const stageHunk = useCallback(
     async (patch: string) => {
       if (!activePath) return;
@@ -310,8 +289,6 @@ export function CommitPanel() {
     [activePath, reloadStatus, loadDiff],
   );
 
-  // ─── File-level staging (fallback for 's' hotkey) ──────────────────────────
-  // Use a ref so the stable callback always has the latest selectedRow.
   const latestSelectedRowRef = useRef(selectedRow);
   latestSelectedRowRef.current = selectedRow;
 
@@ -331,7 +308,6 @@ export function CommitPanel() {
     }
   }, [activePath, unstageFiles, stageFiles]);
 
-  // ─── Hotkeys ───────────────────────────────────────────────────────────────
   useCommitPanelHotkeys({
     parsedDiff,
     focusedHunkIdx,
@@ -346,7 +322,6 @@ export function CommitPanel() {
     onToggleFile: stableOnToggleFile,
   });
 
-  // ─── Totals & allState ─────────────────────────────────────────────────────
   const totals = useMemo(() => {
     let additionsStaged = 0;
     let deletionsStaged = 0;
@@ -370,9 +345,6 @@ export function CommitPanel() {
     return "indeterminate" as const;
   }, [entries]);
 
-  // ─── Stable callbacks for child components ─────────────────────────────────
-
-  // Refs so stable callbacks always see the latest values without recreating.
   const latestChangeRowsRef = useRef(changeRows);
   latestChangeRowsRef.current = changeRows;
   const latestAnchorRowIdRef = useRef(anchorRowId);
@@ -380,11 +352,6 @@ export function CommitPanel() {
   const latestMultiSelectedIdsRef = useRef(multiSelectedIds);
   latestMultiSelectedIdsRef.current = multiSelectedIds;
 
-  /**
-   * Row click handler.
-   * - Plain click  → set as new anchor, single-selection, update diff preview.
-   * - Shift+click  → extend range from anchor to clicked row.
-   */
   const handleRowSelect = useCallback((id: string, shiftKey: boolean) => {
     setSelectedRowId(id); // always update the diff preview
     if (shiftKey) {
@@ -401,15 +368,10 @@ export function CommitPanel() {
         }
       }
     }
-    // Normal click: reset range, set new anchor.
     setAnchorRowId(id);
     setMultiSelectedIds(new Set([id]));
   }, []);
 
-  /**
-   * Checkbox click handler.
-   * When multiple rows are selected, stage/unstage all rows of the same sector.
-   */
   const toggleEntryRef = useRef<(entry: StatusEntry) => void>(() => {});
   const stableOnToggleRow = useCallback(
     async (entry: StatusEntry, rowId: string) => {
@@ -476,10 +438,8 @@ export function CommitPanel() {
     }
   }, [activePath, stagedRows.length]);
 
-  // ─── Early return (guard only – all hooks are above) ──────────────────────
   if (!activePath) return null;
 
-  // ─── Non-hook event handlers ───────────────────────────────────────────────
   const canCommit = message.trim().length > 0 && (amendMode || totals.stagedFiles > 0);
   const canStash = changeRows.length > 0;
 
@@ -495,7 +455,6 @@ export function CommitPanel() {
       toastError(String(e));
     }
   };
-  // Keep the ref in sync so stableOnToggleRow always calls the latest closure.
   toggleEntryRef.current = toggleEntry;
 
   toggleAllRef.current = async () => {
@@ -530,7 +489,6 @@ export function CommitPanel() {
     }
   };
 
-  // ─── JSX ───────────────────────────────────────────────────────────────────
   return (
     <div className="relative flex h-full flex-col gap-3 p-3">
       {blameTarget && activePath && (

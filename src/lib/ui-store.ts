@@ -11,7 +11,8 @@ export type SidebarTab =
   | 'stash'
   | 'pr'
   | 'ci'
-  | 'submodules';
+  | 'submodules'
+  | 'worktrees';
 
 export type CommitFocusRequest = {
   path: string;
