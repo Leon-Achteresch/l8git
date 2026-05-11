@@ -3570,6 +3570,66 @@ pub struct SubmoduleEntry {
     pub status: String,
     pub description: Option<String>,
     pub branch: Option<String>,
+    pub remote_commit: Option<String>,
+    pub behind_count: Option<i32>,
+    pub local_changes: Option<u32>,
+    pub is_detached: bool,
+    pub gitmodules_raw: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct SubmoduleCommit {
+    pub hash: String,
+    pub short_hash: String,
+    pub message: String,
+    pub author: String,
+    pub date: String,
+    pub is_pinned: bool,
+}
+
+fn extract_gitmodules_block(content: &str, name: &str) -> String {
+    let header = format!("[submodule \"{name}\"]");
+    let mut in_block = false;
+    let mut lines: Vec<&str> = Vec::new();
+    for line in content.lines() {
+        if line.trim() == header.as_str() {
+            in_block = true;
+            lines.push(line);
+        } else if in_block {
+            if line.trim().starts_with('[') {
+                break;
+            }
+            lines.push(line);
+        }
+    }
+    lines.join("\n")
+}
+
+fn get_submodule_extra(sub_dir: &PathBuf) -> (bool, Option<String>, Option<i32>, Option<u32>) {
+    if !sub_dir.join(".git").exists() && !sub_dir.join("HEAD").exists() {
+        return (false, None, None, None);
+    }
+
+    let is_detached = run_git(sub_dir, &["symbolic-ref", "HEAD"]).is_err();
+
+    let remote_commit = run_git(sub_dir, &["rev-parse", "--short", "@{u}"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let behind_count = if remote_commit.is_some() {
+        run_git(sub_dir, &["rev-list", "--count", "HEAD..@{u}"])
+            .ok()
+            .and_then(|s| s.trim().parse::<i32>().ok())
+    } else {
+        None
+    };
+
+    let local_changes = run_git(sub_dir, &["status", "--porcelain"])
+        .ok()
+        .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count() as u32);
+
+    (is_detached, remote_commit, behind_count, local_changes)
 }
 
 fn parse_gitmodules(content: &str) -> Vec<(String, String, Option<String>, Option<String>)> {
@@ -3657,6 +3717,16 @@ pub fn list_submodules(path: String) -> Result<Vec<SubmoduleEntry>, String> {
             .cloned()
             .unwrap_or_else(|| (sub_path.to_string(), None, None));
 
+        let sub_dir = repo.join(sub_path);
+        let (is_detached, remote_commit, behind_count, local_changes) =
+            if status != "uninitialized" {
+                get_submodule_extra(&sub_dir)
+            } else {
+                (false, None, None, None)
+            };
+
+        let gitmodules_raw = extract_gitmodules_block(&gitmodules_content, &name);
+
         entries.push(SubmoduleEntry {
             name,
             path: sub_path.to_string(),
@@ -3665,11 +3735,17 @@ pub fn list_submodules(path: String) -> Result<Vec<SubmoduleEntry>, String> {
             status,
             description,
             branch,
+            remote_commit,
+            behind_count,
+            local_changes,
+            is_detached,
+            gitmodules_raw,
         });
     }
 
     if entries.is_empty() && !defs.is_empty() {
         for (name, mod_path, url, branch) in defs {
+            let gitmodules_raw = extract_gitmodules_block(&gitmodules_content, &name);
             entries.push(SubmoduleEntry {
                 name,
                 path: mod_path,
@@ -3678,11 +3754,58 @@ pub fn list_submodules(path: String) -> Result<Vec<SubmoduleEntry>, String> {
                 status: "uninitialized".to_string(),
                 description: None,
                 branch,
+                remote_commit: None,
+                behind_count: None,
+                local_changes: None,
+                is_detached: false,
+                gitmodules_raw,
             });
         }
     }
 
     Ok(entries)
+}
+
+#[tauri::command]
+pub fn get_submodule_commits(
+    path: String,
+    submodule_path: String,
+    pinned_commit: String,
+) -> Result<Vec<SubmoduleCommit>, String> {
+    let repo = PathBuf::from(path.trim());
+    let sub_dir = repo.join(submodule_path.trim());
+
+    let out = run_git(
+        &sub_dir,
+        &["log", "--format=%H|%h|%s|%an|%ar", "-10"],
+    )?;
+
+    let commits = out
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|line| {
+            let parts: Vec<&str> = line.splitn(5, '|').collect();
+            let hash = parts.first().unwrap_or(&"").to_string();
+            let short_hash = parts.get(1).unwrap_or(&"").to_string();
+            let message = parts.get(2).unwrap_or(&"").to_string();
+            let author = parts.get(3).unwrap_or(&"").to_string();
+            let date = parts.get(4).unwrap_or(&"").to_string();
+            let is_pinned = hash.starts_with(&pinned_commit)
+                || pinned_commit.starts_with(&hash)
+                || short_hash == pinned_commit
+                || pinned_commit.starts_with(&short_hash);
+            SubmoduleCommit {
+                hash,
+                short_hash,
+                message,
+                author,
+                date,
+                is_pinned,
+            }
+        })
+        .collect();
+
+    Ok(commits)
 }
 
 #[tauri::command]

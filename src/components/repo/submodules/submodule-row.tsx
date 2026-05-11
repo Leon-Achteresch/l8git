@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -6,21 +5,10 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type SubmoduleEntry } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
-import {
-  Download,
-  ExternalLink,
-  FolderGit2,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { Download, ExternalLink, FolderGit2, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SubmoduleStatusBadge } from "./submodule-status-badge";
@@ -54,168 +42,90 @@ export function SubmoduleRow({
     }
   };
 
-  const shortCommit = entry.commit ? entry.commit.slice(0, 8) : "—";
-  const displayName = entry.name !== entry.path ? entry.name : null;
+  const shortName = entry.path.split("/").pop() ?? entry.path;
+  const parentPath = entry.path.includes("/")
+    ? entry.path.slice(0, entry.path.lastIndexOf("/"))
+    : null;
 
-  const inner = (
+  const shortPinned = entry.commit ? entry.commit.slice(0, 7) : "—";
+  const shortRemote = entry.remote_commit ?? "—";
+
+  const row = (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex w-full cursor-pointer items-start gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm transition-colors",
+        "grid w-full cursor-pointer items-center gap-0 text-left text-sm transition-colors",
+        "grid-cols-[2fr_1fr_1fr_1fr_auto]",
         selected
-          ? "bg-primary/12 text-primary ring-1 ring-primary/25"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+          ? "bg-primary/10 text-primary"
+          : "hover:bg-muted/60",
       )}
+      style={{ minHeight: 48 }}
     >
-      <FolderGit2
-        className={cn(
-          "mt-0.5 h-4 w-4 shrink-0",
-          selected ? "text-primary" : "opacity-60",
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="truncate font-medium text-foreground/90">
-            {entry.path}
-          </span>
-          <SubmoduleStatusBadge status={entry.status} />
-        </div>
-        {displayName && (
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70">
-            Name: {displayName}
+      {/* SUBMODUL */}
+      <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
+        <FolderGit2
+          className={cn(
+            "h-4 w-4 shrink-0",
+            selected ? "text-primary" : "text-muted-foreground/60",
+          )}
+        />
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-medium leading-tight">
+            {shortName}
           </p>
+          {parentPath && (
+            <p className="truncate text-[10px] text-muted-foreground/60 leading-tight">
+              {parentPath}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* BRANCH */}
+      <div className="px-2 py-2.5">
+        {entry.branch ? (
+          <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            {entry.branch}
+          </span>
+        ) : (
+          <span className="text-[11px] text-muted-foreground/40">—</span>
         )}
-        <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70">
-          {entry.url || "—"}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[10px] opacity-60">{shortCommit}</span>
-          {entry.description && (
-            <span className="text-[10px] text-muted-foreground/60">
-              ({entry.description})
-            </span>
-          )}
-          {entry.branch && (
-            <span className="text-[10px] text-muted-foreground/60">
-              branch: {entry.branch}
-            </span>
-          )}
-        </div>
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {entry.status === "uninitialized" && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  disabled={busy}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void run(
-                      () => submoduleInit(path, entry.path),
-                      "Submodule initialisiert.",
-                    );
-                  }}
-                >
-                  Init
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-                Registriert das Submodule in .git/config (kein Checkout).
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {(entry.status === "uninitialized" || entry.status === "modified") && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  disabled={busy}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void run(
-                      () =>
-                        submoduleUpdate(
-                          path,
-                          entry.path,
-                          entry.status === "uninitialized",
-                          false,
-                        ),
-                      "Submodule aktualisiert.",
-                    );
-                  }}
-                >
-                  <Download className="mr-1 h-3 w-3" />
-                  Update
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-                Checkt den registrierten Commit aus.
-                {entry.status === "uninitialized" && " Inkl. Init."}
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {entry.status === "initialized" && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  disabled={busy}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void run(
-                      () => submoduleUpdate(path, entry.path, false, false),
-                      "Submodule aktualisiert.",
-                    );
-                  }}
-                >
-                  <RefreshCw className={cn("mr-1 h-3 w-3", busy && "animate-spin")} />
-                  Update
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-                Checkt erneut den registrierten Commit aus.
-              </TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                disabled={busy}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void run(
-                    () => submoduleSync(path, entry.path),
-                    "URL synchronisiert.",
-                  );
-                }}
-              >
-                Sync
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-              Überträgt die URL aus .gitmodules in .git/config.
-            </TooltipContent>
-          </Tooltip>
-        </div>
+      </div>
+
+      {/* PINNED */}
+      <div className="px-2 py-2.5">
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {shortPinned}
+        </span>
+      </div>
+
+      {/* REMOTE */}
+      <div className="flex items-center gap-1 px-2 py-2.5">
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {shortRemote}
+        </span>
+        {entry.behind_count != null && entry.behind_count > 0 && (
+          <span className="text-[10px] font-medium text-red-500">
+            ↓{entry.behind_count}
+          </span>
+        )}
+      </div>
+
+      {/* STATUS */}
+      <div className="px-3 py-2.5">
+        <SubmoduleStatusBadge entry={entry} />
       </div>
     </button>
   );
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
+      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem
+          disabled={busy}
           onSelect={() =>
             void run(
               () => submoduleInit(path, entry.path),
@@ -226,6 +136,7 @@ export function SubmoduleRow({
           Init
         </ContextMenuItem>
         <ContextMenuItem
+          disabled={busy}
           onSelect={() =>
             void run(
               () =>
@@ -243,10 +154,10 @@ export function SubmoduleRow({
           Update
         </ContextMenuItem>
         <ContextMenuItem
+          disabled={busy}
           onSelect={() =>
             void run(
-              () =>
-                submoduleUpdate(path, entry.path, true, true),
+              () => submoduleUpdate(path, entry.path, true, true),
               "Submodule rekursiv aktualisiert.",
             )
           }
@@ -255,6 +166,7 @@ export function SubmoduleRow({
           Update (rekursiv)
         </ContextMenuItem>
         <ContextMenuItem
+          disabled={busy}
           onSelect={() =>
             void run(
               () => submoduleSync(path, entry.path),
@@ -282,6 +194,7 @@ export function SubmoduleRow({
         <ContextMenuSeparator />
         <ContextMenuItem
           variant="destructive"
+          disabled={busy}
           onSelect={() => {
             const ok = window.confirm(
               `Submodule "${entry.path}" deinitialisieren? Der Checkout wird entfernt, .gitmodules bleibt erhalten.`,

@@ -153,6 +153,20 @@ export type SubmoduleEntry = {
   status: SubmoduleStatus;
   description: string | null;
   branch: string | null;
+  remote_commit: string | null;
+  behind_count: number | null;
+  local_changes: number | null;
+  is_detached: boolean;
+  gitmodules_raw: string;
+};
+
+export type SubmoduleCommit = {
+  hash: string;
+  short_hash: string;
+  message: string;
+  author: string;
+  date: string;
+  is_pinned: boolean;
 };
 
 export type WorktreeEntry = {
@@ -292,6 +306,11 @@ type RepoState = {
     submodulePath: string,
     force?: boolean
   ) => Promise<string>;
+  getSubmoduleCommits: (
+    path: string,
+    submodulePath: string,
+    pinnedCommit: string
+  ) => Promise<SubmoduleCommit[]>;
   reloadWorktrees: (path: string) => Promise<void>;
   worktreeAdd: (
     path: string,
@@ -1247,6 +1266,14 @@ export const useRepoStore = create<RepoState>()(
         });
         await get().reloadSubmodules(path);
         return out.trim();
+      },
+
+      async getSubmoduleCommits(path, submodulePath, pinnedCommit) {
+        return await invoke<SubmoduleCommit[]>('get_submodule_commits', {
+          path,
+          submodulePath,
+          pinnedCommit,
+        });
       },
 
       async reloadWorktrees(path) {

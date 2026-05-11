@@ -98,6 +98,7 @@ pub fn run() {
             git::repo_language_stats,
             git::repo_blame,
             git::list_submodules,
+            git::get_submodule_commits,
             git::git_submodule_init,
             git::git_submodule_update,
             git::git_submodule_sync,
