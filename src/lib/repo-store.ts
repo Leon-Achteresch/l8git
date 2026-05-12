@@ -153,6 +153,31 @@ export type SubmoduleEntry = {
   status: SubmoduleStatus;
   description: string | null;
   branch: string | null;
+  remote_commit: string | null;
+  behind_count: number | null;
+  local_changes: number | null;
+  is_detached: boolean;
+  gitmodules_raw: string;
+};
+
+export type SubmoduleCommit = {
+  hash: string;
+  short_hash: string;
+  message: string;
+  author: string;
+  date: string;
+  is_pinned: boolean;
+};
+
+export type WorktreeEntry = {
+  path: string;
+  head: string;
+  branch: string | null;
+  is_main: boolean;
+  is_locked: boolean;
+  lock_reason: string | null;
+  is_prunable: boolean;
+  prunable_reason: string | null;
 };
 
 type RepoState = {
@@ -173,6 +198,8 @@ type RepoState = {
   mergeState: Record<string, MergeState>;
   submodules: Record<string, SubmoduleEntry[]>;
   submodulesLoading: Record<string, boolean>;
+  worktrees: Record<string, WorktreeEntry[]>;
+  worktreesLoading: Record<string, boolean>;
   loadPRs: (path: string) => Promise<void>;
   addRepo: (path: string) => Promise<string | null>;
   removeRepo: (path: string) => void;
@@ -279,6 +306,34 @@ type RepoState = {
     submodulePath: string,
     force?: boolean
   ) => Promise<string>;
+  getSubmoduleCommits: (
+    path: string,
+    submodulePath: string,
+    pinnedCommit: string
+  ) => Promise<SubmoduleCommit[]>;
+  reloadWorktrees: (path: string) => Promise<void>;
+  worktreeAdd: (
+    path: string,
+    worktreePath: string,
+    opts?: { branch?: string; newBranch?: string }
+  ) => Promise<string>;
+  worktreeRemove: (
+    path: string,
+    worktreePath: string,
+    force?: boolean
+  ) => Promise<void>;
+  worktreeLock: (
+    path: string,
+    worktreePath: string,
+    reason?: string
+  ) => Promise<void>;
+  worktreeUnlock: (path: string, worktreePath: string) => Promise<void>;
+  worktreePrune: (path: string) => Promise<string>;
+  worktreeMove: (
+    path: string,
+    worktreePath: string,
+    newPath: string
+  ) => Promise<void>;
 };
 
 async function loadFavicon(path: string): Promise<string | null> {
@@ -343,6 +398,8 @@ export const useRepoStore = create<RepoState>()(
       mergeState: {},
       submodules: {},
       submodulesLoading: {},
+      worktrees: {},
+      worktreesLoading: {},
       commitSearchByPath: {},
 
       clearCommitSearch(path) {
@@ -1209,6 +1266,73 @@ export const useRepoStore = create<RepoState>()(
         });
         await get().reloadSubmodules(path);
         return out.trim();
+      },
+
+      async getSubmoduleCommits(path, submodulePath, pinnedCommit) {
+        return await invoke<SubmoduleCommit[]>('get_submodule_commits', {
+          path,
+          submodulePath,
+          pinnedCommit,
+        });
+      },
+
+      async reloadWorktrees(path) {
+        set(s => ({
+          worktreesLoading: { ...s.worktreesLoading, [path]: true },
+        }));
+        try {
+          const list = await invoke<WorktreeEntry[]>('list_worktrees', { path });
+          set(s => ({
+            worktrees: { ...s.worktrees, [path]: list },
+            worktreesLoading: { ...s.worktreesLoading, [path]: false },
+          }));
+        } catch (e) {
+          toastError(String(e));
+          set(s => ({
+            worktreesLoading: { ...s.worktreesLoading, [path]: false },
+          }));
+        }
+      },
+
+      async worktreeAdd(path, worktreePath, opts) {
+        const out = await invoke<string>('git_worktree_add', {
+          path,
+          worktreePath,
+          branch: opts?.branch ?? null,
+          newBranch: opts?.newBranch ?? null,
+        });
+        await get().reloadWorktrees(path);
+        return out.trim();
+      },
+
+      async worktreeRemove(path, worktreePath, force = false) {
+        await invoke('git_worktree_remove', { path, worktreePath, force });
+        await get().reloadWorktrees(path);
+      },
+
+      async worktreeLock(path, worktreePath, reason) {
+        await invoke('git_worktree_lock', {
+          path,
+          worktreePath,
+          reason: reason ?? null,
+        });
+        await get().reloadWorktrees(path);
+      },
+
+      async worktreeUnlock(path, worktreePath) {
+        await invoke('git_worktree_unlock', { path, worktreePath });
+        await get().reloadWorktrees(path);
+      },
+
+      async worktreePrune(path) {
+        const out = await invoke<string>('git_worktree_prune', { path });
+        await get().reloadWorktrees(path);
+        return (out as string).trim();
+      },
+
+      async worktreeMove(path, worktreePath, newPath) {
+        await invoke('git_worktree_move', { path, worktreePath, newPath });
+        await get().reloadWorktrees(path);
       },
 
       async loadMoreCommits(path, count = 80) {

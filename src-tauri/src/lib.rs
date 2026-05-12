@@ -98,11 +98,19 @@ pub fn run() {
             git::repo_language_stats,
             git::repo_blame,
             git::list_submodules,
+            git::get_submodule_commits,
             git::git_submodule_init,
             git::git_submodule_update,
             git::git_submodule_sync,
             git::git_submodule_add,
-            git::git_submodule_deinit
+            git::git_submodule_deinit,
+            git::list_worktrees,
+            git::git_worktree_add,
+            git::git_worktree_remove,
+            git::git_worktree_lock,
+            git::git_worktree_unlock,
+            git::git_worktree_prune,
+            git::git_worktree_move
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

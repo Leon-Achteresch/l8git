@@ -23,6 +23,7 @@ import {
   Archive,
   FolderGit2,
   GitCommitHorizontal,
+  GitFork,
   GitPullRequest,
   History,
   ListChecks,
@@ -40,6 +41,7 @@ const ICON_PR = <GitPullRequest className="h-4 w-4" />;
 const ICON_CI = <ListChecks className="h-4 w-4" />;
 const ICON_STASH = <Archive className="h-4 w-4" />;
 const ICON_SUBMODULES = <FolderGit2 className="h-4 w-4" />;
+const ICON_WORKTREES = <GitFork className="h-4 w-4" />;
 
 export function RepoSidebar() {
   const activePath = useRepoStore((s) => s.activePath);
@@ -54,6 +56,13 @@ export function RepoSidebar() {
     const p = s.activePath;
     if (!p) return 0;
     return s.status[p]?.length ?? 0;
+  });
+  const worktreeCount = useRepoStore((s) => {
+    const p = s.activePath;
+    if (!p) return 0;
+    const list = s.worktrees[p];
+    if (!list) return 0;
+    return list.length > 1 ? list.length : 0;
   });
   const stashCount = useRepoStore((s) => {
     const p = s.activePath;
@@ -162,7 +171,7 @@ export function RepoSidebar() {
     () =>
       new Map<SidebarTab, () => void>(
         (
-          ["commit", "history", "pr", "ci", "stash", "submodules"] as SidebarTab[]
+          ["commit", "history", "pr", "ci", "stash", "submodules", "worktrees"] as SidebarTab[]
         ).map((v) => [v, () => setSidebarTab(v)]),
       ),
     [setSidebarTab],
@@ -203,8 +212,14 @@ export function RepoSidebar() {
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_SUBMODULES : undefined,
         label: "Submodule",
       },
+      {
+        value: "worktrees" as SidebarTab,
+        icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_WORKTREES : undefined,
+        label: "Worktrees",
+        count: worktreeCount > 0 ? worktreeCount : undefined,
+      },
     ],
-    [pendingCommitCount, prCount, stashCount],
+    [pendingCommitCount, prCount, stashCount, worktreeCount],
   );
 
   if (!repo || !activePath) return null;

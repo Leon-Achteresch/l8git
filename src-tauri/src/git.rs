@@ -3372,6 +3372,193 @@ pub fn repo_language_stats(path: String) -> Result<Vec<LanguageStat>, String> {
     Ok(stats)
 }
 
+// ── Worktrees ────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Clone)]
+pub struct WorktreeEntry {
+    pub path: String,
+    pub head: String,
+    pub branch: Option<String>,
+    pub is_main: bool,
+    pub is_locked: bool,
+    pub lock_reason: Option<String>,
+    pub is_prunable: bool,
+    pub prunable_reason: Option<String>,
+}
+
+fn parse_worktree_list(output: &str) -> Vec<WorktreeEntry> {
+    let mut entries = Vec::new();
+    let mut is_first = true;
+
+    for block in output.split("\n\n") {
+        let block = block.trim();
+        if block.is_empty() {
+            continue;
+        }
+
+        let mut wt_path = String::new();
+        let mut head = String::new();
+        let mut branch: Option<String> = None;
+        let mut is_locked = false;
+        let mut lock_reason: Option<String> = None;
+        let mut is_prunable = false;
+        let mut prunable_reason: Option<String> = None;
+
+        for line in block.lines() {
+            if let Some(v) = line.strip_prefix("worktree ") {
+                wt_path = v.trim().to_string();
+            } else if let Some(v) = line.strip_prefix("HEAD ") {
+                let h = v.trim();
+                head = h[..h.len().min(7)].to_string();
+            } else if let Some(v) = line.strip_prefix("branch ") {
+                let refname = v.trim();
+                branch = Some(
+                    refname
+                        .strip_prefix("refs/heads/")
+                        .unwrap_or(refname)
+                        .to_string(),
+                );
+            } else if line.trim() == "detached" {
+                branch = None;
+            } else if line.trim() == "locked" {
+                is_locked = true;
+            } else if let Some(v) = line.strip_prefix("locked ") {
+                is_locked = true;
+                let r = v.trim();
+                if !r.is_empty() {
+                    lock_reason = Some(r.to_string());
+                }
+            } else if line.trim() == "prunable" {
+                is_prunable = true;
+            } else if let Some(v) = line.strip_prefix("prunable ") {
+                is_prunable = true;
+                let r = v.trim();
+                if !r.is_empty() {
+                    prunable_reason = Some(r.to_string());
+                }
+            }
+        }
+
+        if wt_path.is_empty() {
+            continue;
+        }
+
+        entries.push(WorktreeEntry {
+            path: wt_path,
+            head,
+            branch,
+            is_main: is_first,
+            is_locked,
+            lock_reason,
+            is_prunable,
+            prunable_reason,
+        });
+        is_first = false;
+    }
+    entries
+}
+
+#[tauri::command]
+pub fn list_worktrees(path: String) -> Result<Vec<WorktreeEntry>, String> {
+    let repo = PathBuf::from(path.trim());
+    let out = run_git(&repo, &["worktree", "list", "--porcelain"])?;
+    Ok(parse_worktree_list(&out))
+}
+
+#[tauri::command]
+pub fn git_worktree_add(
+    path: String,
+    worktree_path: String,
+    branch: Option<String>,
+    new_branch: Option<String>,
+) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    let wt = worktree_path.trim().to_string();
+    if wt.is_empty() {
+        return Err("Worktree-Pfad darf nicht leer sein".into());
+    }
+    let mut args: Vec<String> = vec!["worktree".into(), "add".into()];
+    if let Some(nb) = new_branch.filter(|s| !s.trim().is_empty()) {
+        args.push("-b".into());
+        args.push(nb.trim().to_string());
+    }
+    args.push(wt);
+    if let Some(b) = branch.filter(|s| !s.trim().is_empty()) {
+        args.push(b.trim().to_string());
+    }
+    let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    run_git_merged_output(&repo, &refs)
+}
+
+#[tauri::command]
+pub fn git_worktree_remove(
+    path: String,
+    worktree_path: String,
+    force: bool,
+) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let wt = worktree_path.trim().to_string();
+    if wt.is_empty() {
+        return Err("Worktree-Pfad darf nicht leer sein".into());
+    }
+    let mut args = vec!["worktree", "remove"];
+    if force {
+        args.push("--force");
+    }
+    args.push(wt.as_str());
+    run_git(&repo, &args)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn git_worktree_lock(
+    path: String,
+    worktree_path: String,
+    reason: Option<String>,
+) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let wt = worktree_path.trim().to_string();
+    let mut args: Vec<String> = vec!["worktree".into(), "lock".into()];
+    if let Some(r) = reason.filter(|s| !s.trim().is_empty()) {
+        args.push("--reason".into());
+        args.push(r.trim().to_string());
+    }
+    args.push(wt);
+    let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    run_git(&repo, &refs)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn git_worktree_unlock(path: String, worktree_path: String) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let wt = worktree_path.trim().to_string();
+    run_git(&repo, &["worktree", "unlock", wt.as_str()])?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn git_worktree_prune(path: String) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    run_git_merged_output(&repo, &["worktree", "prune", "--verbose"])
+}
+
+#[tauri::command]
+pub fn git_worktree_move(
+    path: String,
+    worktree_path: String,
+    new_path: String,
+) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let wt = worktree_path.trim().to_string();
+    let np = new_path.trim().to_string();
+    if wt.is_empty() || np.is_empty() {
+        return Err("Worktree-Pfad darf nicht leer sein".into());
+    }
+    run_git(&repo, &["worktree", "move", wt.as_str(), np.as_str()])?;
+    Ok(())
+}
+
 // ── Submodules ──────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Clone)]
@@ -3383,6 +3570,66 @@ pub struct SubmoduleEntry {
     pub status: String,
     pub description: Option<String>,
     pub branch: Option<String>,
+    pub remote_commit: Option<String>,
+    pub behind_count: Option<i32>,
+    pub local_changes: Option<u32>,
+    pub is_detached: bool,
+    pub gitmodules_raw: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct SubmoduleCommit {
+    pub hash: String,
+    pub short_hash: String,
+    pub message: String,
+    pub author: String,
+    pub date: String,
+    pub is_pinned: bool,
+}
+
+fn extract_gitmodules_block(content: &str, name: &str) -> String {
+    let header = format!("[submodule \"{name}\"]");
+    let mut in_block = false;
+    let mut lines: Vec<&str> = Vec::new();
+    for line in content.lines() {
+        if line.trim() == header.as_str() {
+            in_block = true;
+            lines.push(line);
+        } else if in_block {
+            if line.trim().starts_with('[') {
+                break;
+            }
+            lines.push(line);
+        }
+    }
+    lines.join("\n")
+}
+
+fn get_submodule_extra(sub_dir: &PathBuf) -> (bool, Option<String>, Option<i32>, Option<u32>) {
+    if !sub_dir.join(".git").exists() && !sub_dir.join("HEAD").exists() {
+        return (false, None, None, None);
+    }
+
+    let is_detached = run_git(sub_dir, &["symbolic-ref", "HEAD"]).is_err();
+
+    let remote_commit = run_git(sub_dir, &["rev-parse", "--short", "@{u}"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let behind_count = if remote_commit.is_some() {
+        run_git(sub_dir, &["rev-list", "--count", "HEAD..@{u}"])
+            .ok()
+            .and_then(|s| s.trim().parse::<i32>().ok())
+    } else {
+        None
+    };
+
+    let local_changes = run_git(sub_dir, &["status", "--porcelain"])
+        .ok()
+        .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count() as u32);
+
+    (is_detached, remote_commit, behind_count, local_changes)
 }
 
 fn parse_gitmodules(content: &str) -> Vec<(String, String, Option<String>, Option<String>)> {
@@ -3470,6 +3717,16 @@ pub fn list_submodules(path: String) -> Result<Vec<SubmoduleEntry>, String> {
             .cloned()
             .unwrap_or_else(|| (sub_path.to_string(), None, None));
 
+        let sub_dir = repo.join(sub_path);
+        let (is_detached, remote_commit, behind_count, local_changes) =
+            if status != "uninitialized" {
+                get_submodule_extra(&sub_dir)
+            } else {
+                (false, None, None, None)
+            };
+
+        let gitmodules_raw = extract_gitmodules_block(&gitmodules_content, &name);
+
         entries.push(SubmoduleEntry {
             name,
             path: sub_path.to_string(),
@@ -3478,11 +3735,17 @@ pub fn list_submodules(path: String) -> Result<Vec<SubmoduleEntry>, String> {
             status,
             description,
             branch,
+            remote_commit,
+            behind_count,
+            local_changes,
+            is_detached,
+            gitmodules_raw,
         });
     }
 
     if entries.is_empty() && !defs.is_empty() {
         for (name, mod_path, url, branch) in defs {
+            let gitmodules_raw = extract_gitmodules_block(&gitmodules_content, &name);
             entries.push(SubmoduleEntry {
                 name,
                 path: mod_path,
@@ -3491,11 +3754,58 @@ pub fn list_submodules(path: String) -> Result<Vec<SubmoduleEntry>, String> {
                 status: "uninitialized".to_string(),
                 description: None,
                 branch,
+                remote_commit: None,
+                behind_count: None,
+                local_changes: None,
+                is_detached: false,
+                gitmodules_raw,
             });
         }
     }
 
     Ok(entries)
+}
+
+#[tauri::command]
+pub fn get_submodule_commits(
+    path: String,
+    submodule_path: String,
+    pinned_commit: String,
+) -> Result<Vec<SubmoduleCommit>, String> {
+    let repo = PathBuf::from(path.trim());
+    let sub_dir = repo.join(submodule_path.trim());
+
+    let out = run_git(
+        &sub_dir,
+        &["log", "--format=%H|%h|%s|%an|%ar", "-10"],
+    )?;
+
+    let commits = out
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|line| {
+            let parts: Vec<&str> = line.splitn(5, '|').collect();
+            let hash = parts.first().unwrap_or(&"").to_string();
+            let short_hash = parts.get(1).unwrap_or(&"").to_string();
+            let message = parts.get(2).unwrap_or(&"").to_string();
+            let author = parts.get(3).unwrap_or(&"").to_string();
+            let date = parts.get(4).unwrap_or(&"").to_string();
+            let is_pinned = hash.starts_with(&pinned_commit)
+                || pinned_commit.starts_with(&hash)
+                || short_hash == pinned_commit
+                || pinned_commit.starts_with(&short_hash);
+            SubmoduleCommit {
+                hash,
+                short_hash,
+                message,
+                author,
+                date,
+                is_pinned,
+            }
+        })
+        .collect();
+
+    Ok(commits)
 }
 
 #[tauri::command]
