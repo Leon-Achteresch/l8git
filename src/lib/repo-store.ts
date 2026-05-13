@@ -180,6 +180,13 @@ export type WorktreeEntry = {
   prunable_reason: string | null;
 };
 
+export type GitHookEntry = {
+  name: string;
+  exists: boolean;
+  is_enabled: boolean;
+  content_size: number;
+};
+
 type RepoState = {
   paths: string[];
   activePath: string | null;
@@ -200,6 +207,13 @@ type RepoState = {
   submodulesLoading: Record<string, boolean>;
   worktrees: Record<string, WorktreeEntry[]>;
   worktreesLoading: Record<string, boolean>;
+  gitHooks: Record<string, GitHookEntry[]>;
+  gitHooksLoading: Record<string, boolean>;
+  reloadGitHooks: (path: string) => Promise<void>;
+  saveGitHook: (path: string, hookName: string, content: string) => Promise<void>;
+  deleteGitHook: (path: string, hookName: string) => Promise<void>;
+  toggleGitHook: (path: string, hookName: string, enabled: boolean) => Promise<void>;
+  getGitHookContent: (path: string, hookName: string) => Promise<string>;
   loadPRs: (path: string) => Promise<void>;
   addRepo: (path: string) => Promise<string | null>;
   removeRepo: (path: string) => void;
@@ -400,6 +414,8 @@ export const useRepoStore = create<RepoState>()(
       submodulesLoading: {},
       worktrees: {},
       worktreesLoading: {},
+      gitHooks: {},
+      gitHooksLoading: {},
       commitSearchByPath: {},
 
       clearCommitSearch(path) {
@@ -1333,6 +1349,39 @@ export const useRepoStore = create<RepoState>()(
       async worktreeMove(path, worktreePath, newPath) {
         await invoke('git_worktree_move', { path, worktreePath, newPath });
         await get().reloadWorktrees(path);
+      },
+
+      async reloadGitHooks(path) {
+        set(s => ({ gitHooksLoading: { ...s.gitHooksLoading, [path]: true } }));
+        try {
+          const list = await invoke<GitHookEntry[]>('list_git_hooks', { path });
+          set(s => ({
+            gitHooks: { ...s.gitHooks, [path]: list },
+            gitHooksLoading: { ...s.gitHooksLoading, [path]: false },
+          }));
+        } catch (e) {
+          toastError(String(e));
+          set(s => ({ gitHooksLoading: { ...s.gitHooksLoading, [path]: false } }));
+        }
+      },
+
+      async saveGitHook(path, hookName, content) {
+        await invoke('save_git_hook', { path, hookName, content });
+        await get().reloadGitHooks(path);
+      },
+
+      async deleteGitHook(path, hookName) {
+        await invoke('delete_git_hook', { path, hookName });
+        await get().reloadGitHooks(path);
+      },
+
+      async toggleGitHook(path, hookName, enabled) {
+        await invoke('toggle_git_hook', { path, hookName, enabled });
+        await get().reloadGitHooks(path);
+      },
+
+      async getGitHookContent(path, hookName) {
+        return invoke<string>('get_git_hook_content', { path, hookName });
       },
 
       async loadMoreCommits(path, count = 80) {

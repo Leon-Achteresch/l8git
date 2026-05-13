@@ -3901,3 +3901,187 @@ pub fn git_submodule_deinit(
     args.push(submodule_path.as_str());
     run_git_merged_output(&repo, &args)
 }
+
+// ── Git Hooks ────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Clone)]
+pub struct GitHookEntry {
+    pub name: String,
+    pub exists: bool,
+    pub is_enabled: bool,
+    pub content_size: u64,
+}
+
+fn resolve_hooks_dir(repo: &PathBuf) -> Result<PathBuf, String> {
+    let git_dir = run_git(repo, &["rev-parse", "--git-dir"])
+        .map(|s| s.trim().to_string())?;
+
+    let custom = run_git(repo, &["config", "--get", "core.hooksPath"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    if let Some(p) = custom {
+        let abs = if std::path::Path::new(&p).is_absolute() {
+            PathBuf::from(&p)
+        } else {
+            repo.join(&p)
+        };
+        return Ok(abs);
+    }
+
+    let git_dir_path = if std::path::Path::new(&git_dir).is_absolute() {
+        PathBuf::from(&git_dir)
+    } else {
+        repo.join(&git_dir)
+    };
+    Ok(git_dir_path.join("hooks"))
+}
+
+const ALL_HOOKS: &[&str] = &[
+    "pre-commit",
+    "prepare-commit-msg",
+    "commit-msg",
+    "post-commit",
+    "pre-merge-commit",
+    "applypatch-msg",
+    "pre-applypatch",
+    "post-applypatch",
+    "pre-rebase",
+    "post-rewrite",
+    "post-merge",
+    "post-checkout",
+    "reference-transaction",
+    "pre-push",
+    "pre-auto-gc",
+    "post-index-change",
+    "fsmonitor-watchman",
+    "pre-receive",
+    "update",
+    "proc-receive",
+    "post-receive",
+    "post-update",
+    "push-to-checkout",
+];
+
+#[tauri::command]
+pub fn list_git_hooks(path: String) -> Result<Vec<GitHookEntry>, String> {
+    let repo = PathBuf::from(path.trim());
+    let hooks_dir = resolve_hooks_dir(&repo)?;
+    let mut entries = Vec::new();
+    for &name in ALL_HOOKS {
+        let hook_path = hooks_dir.join(name);
+        let exists = hook_path.exists();
+        let content_size = if exists {
+            std::fs::metadata(&hook_path).map(|m| m.len()).unwrap_or(0)
+        } else {
+            0
+        };
+        #[cfg(unix)]
+        let is_enabled = {
+            use std::os::unix::fs::PermissionsExt;
+            if exists {
+                std::fs::metadata(&hook_path)
+                    .map(|m| m.permissions().mode() & 0o111 != 0)
+                    .unwrap_or(false)
+            } else {
+                false
+            }
+        };
+        #[cfg(not(unix))]
+        let is_enabled = exists;
+        entries.push(GitHookEntry {
+            name: name.to_string(),
+            exists,
+            is_enabled,
+            content_size,
+        });
+    }
+    Ok(entries)
+}
+
+#[tauri::command]
+pub fn get_git_hook_content(path: String, hook_name: String) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    let name = hook_name.trim().to_string();
+    if !ALL_HOOKS.contains(&name.as_str()) {
+        return Err(format!("Unbekannter Hook-Name: {name}"));
+    }
+    let hook_path = resolve_hooks_dir(&repo)?.join(&name);
+    if !hook_path.exists() {
+        return Ok(String::new());
+    }
+    std::fs::read_to_string(&hook_path)
+        .map_err(|e| format!("Fehler beim Lesen des Hooks: {e}"))
+}
+
+#[tauri::command]
+pub fn save_git_hook(path: String, hook_name: String, content: String) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let name = hook_name.trim().to_string();
+    if !ALL_HOOKS.contains(&name.as_str()) {
+        return Err(format!("Unbekannter Hook-Name: {name}"));
+    }
+    let hooks_dir = resolve_hooks_dir(&repo)?;
+    std::fs::create_dir_all(&hooks_dir)
+        .map_err(|e| format!("Hooks-Verzeichnis konnte nicht erstellt werden: {e}"))?;
+    let hook_path = hooks_dir.join(&name);
+    std::fs::write(&hook_path, &content)
+        .map_err(|e| format!("Fehler beim Schreiben des Hooks: {e}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&hook_path)
+            .map_err(|e| format!("{e}"))?
+            .permissions();
+        perms.set_mode(perms.mode() | 0o111);
+        std::fs::set_permissions(&hook_path, perms)
+            .map_err(|e| format!("Fehler beim Setzen der Ausführungsrechte: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_git_hook(path: String, hook_name: String) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let name = hook_name.trim().to_string();
+    if !ALL_HOOKS.contains(&name.as_str()) {
+        return Err(format!("Unbekannter Hook-Name: {name}"));
+    }
+    let hook_path = resolve_hooks_dir(&repo)?.join(&name);
+    if !hook_path.exists() {
+        return Ok(());
+    }
+    std::fs::remove_file(&hook_path)
+        .map_err(|e| format!("Fehler beim Löschen des Hooks: {e}"))
+}
+
+#[tauri::command]
+pub fn toggle_git_hook(path: String, hook_name: String, enabled: bool) -> Result<(), String> {
+    let repo = PathBuf::from(path.trim());
+    let name = hook_name.trim().to_string();
+    if !ALL_HOOKS.contains(&name.as_str()) {
+        return Err(format!("Unbekannter Hook-Name: {name}"));
+    }
+    let hook_path = resolve_hooks_dir(&repo)?.join(&name);
+    if !hook_path.exists() {
+        return Err(format!("Hook '{name}' ist nicht installiert."));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&hook_path)
+            .map_err(|e| format!("{e}"))?
+            .permissions();
+        if enabled {
+            perms.set_mode(perms.mode() | 0o111);
+        } else {
+            perms.set_mode(perms.mode() & !0o111);
+        }
+        std::fs::set_permissions(&hook_path, perms)
+            .map_err(|e| format!("Fehler beim Setzen der Berechtigungen: {e}"))?;
+    }
+    #[cfg(not(unix))]
+    let _ = enabled;
+    Ok(())
+}

@@ -12,7 +12,8 @@ export type SidebarTab =
   | 'pr'
   | 'ci'
   | 'submodules'
-  | 'worktrees';
+  | 'worktrees'
+  | 'hooks';
 
 export type CommitFocusRequest = {
   path: string;

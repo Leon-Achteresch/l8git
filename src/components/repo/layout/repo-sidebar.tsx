@@ -29,6 +29,7 @@ import {
   ListChecks,
   Plus,
   Search,
+  Webhook,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -42,6 +43,7 @@ const ICON_CI = <ListChecks className="h-4 w-4" />;
 const ICON_STASH = <Archive className="h-4 w-4" />;
 const ICON_SUBMODULES = <FolderGit2 className="h-4 w-4" />;
 const ICON_WORKTREES = <GitFork className="h-4 w-4" />;
+const ICON_HOOKS = <Webhook className="h-4 w-4" />;
 
 export function RepoSidebar() {
   const activePath = useRepoStore((s) => s.activePath);
@@ -63,6 +65,11 @@ export function RepoSidebar() {
     const list = s.worktrees[p];
     if (!list) return 0;
     return list.length > 1 ? list.length : 0;
+  });
+  const activeHookCount = useRepoStore((s) => {
+    const p = s.activePath;
+    if (!p) return 0;
+    return s.gitHooks[p]?.filter((h) => h.is_enabled).length ?? 0;
   });
   const stashCount = useRepoStore((s) => {
     const p = s.activePath;
@@ -171,7 +178,7 @@ export function RepoSidebar() {
     () =>
       new Map<SidebarTab, () => void>(
         (
-          ["commit", "history", "pr", "ci", "stash", "submodules", "worktrees"] as SidebarTab[]
+          ["commit", "history", "pr", "ci", "stash", "submodules", "worktrees", "hooks"] as SidebarTab[]
         ).map((v) => [v, () => setSidebarTab(v)]),
       ),
     [setSidebarTab],
@@ -218,8 +225,14 @@ export function RepoSidebar() {
         label: "Worktrees",
         count: worktreeCount > 0 ? worktreeCount : undefined,
       },
+      {
+        value: "hooks" as SidebarTab,
+        icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_HOOKS : undefined,
+        label: "Hooks",
+        count: activeHookCount > 0 ? activeHookCount : undefined,
+      },
     ],
-    [pendingCommitCount, prCount, stashCount, worktreeCount],
+    [pendingCommitCount, prCount, stashCount, worktreeCount, activeHookCount],
   );
 
   if (!repo || !activePath) return null;
