@@ -187,6 +187,19 @@ export type GitHookEntry = {
   content_size: number;
 };
 
+export type BisectStatus = {
+  active: boolean;
+  done: boolean;
+  current_hash: string | null;
+  current_subject: string | null;
+  steps_remaining: number | null;
+  log: string;
+  result_hash: string | null;
+  result_subject: string | null;
+  marked_bad: string[];
+  marked_good: string[];
+};
+
 type RepoState = {
   paths: string[];
   activePath: string | null;
@@ -210,6 +223,11 @@ type RepoState = {
   gitHooks: Record<string, GitHookEntry[]>;
   gitHooksLoading: Record<string, boolean>;
   reloadGitHooks: (path: string) => Promise<void>;
+  bisect: Record<string, BisectStatus>;
+  reloadBisect: (path: string) => Promise<void>;
+  bisectStart: (path: string, bad: string, good: string) => Promise<void>;
+  bisectMark: (path: string, verdict: 'good' | 'bad' | 'skip') => Promise<void>;
+  bisectReset: (path: string) => Promise<void>;
   saveGitHook: (path: string, hookName: string, content: string) => Promise<void>;
   deleteGitHook: (path: string, hookName: string) => Promise<void>;
   toggleGitHook: (path: string, hookName: string, enabled: boolean) => Promise<void>;
@@ -416,6 +434,7 @@ export const useRepoStore = create<RepoState>()(
       worktreesLoading: {},
       gitHooks: {},
       gitHooksLoading: {},
+      bisect: {},
       commitSearchByPath: {},
 
       clearCommitSearch(path) {
@@ -1382,6 +1401,51 @@ export const useRepoStore = create<RepoState>()(
 
       async getGitHookContent(path, hookName) {
         return invoke<string>('get_git_hook_content', { path, hookName });
+      },
+
+      async reloadBisect(path) {
+        try {
+          const status = await invoke<BisectStatus>('git_bisect_status', { path });
+          set(s => ({ bisect: { ...s.bisect, [path]: status } }));
+        } catch (e) {
+          toastError(String(e));
+        }
+      },
+
+      async bisectStart(path, bad, good) {
+        try {
+          const status = await invoke<BisectStatus>('git_bisect_start', { path, bad, good });
+          set(s => ({ bisect: { ...s.bisect, [path]: status } }));
+          await get().reload(path);
+        } catch (e) {
+          toastError(String(e));
+          throw e;
+        }
+      },
+
+      async bisectMark(path, verdict) {
+        try {
+          const status = await invoke<BisectStatus>('git_bisect_mark', { path, verdict });
+          set(s => ({ bisect: { ...s.bisect, [path]: status } }));
+          await get().reload(path);
+        } catch (e) {
+          toastError(String(e));
+          throw e;
+        }
+      },
+
+      async bisectReset(path) {
+        try {
+          await invoke('git_bisect_reset', { path });
+          set(s => {
+            const { [path]: _removed, ...rest } = s.bisect;
+            return { bisect: rest };
+          });
+          await get().reload(path);
+        } catch (e) {
+          toastError(String(e));
+          throw e;
+        }
       },
 
       async loadMoreCommits(path, count = 80) {

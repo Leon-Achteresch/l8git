@@ -60,6 +60,12 @@ type UiState = {
   mergeEditorInitialFile: string | null;
   openMergeEditor: (path: string, file?: string) => void;
   closeMergeEditor: () => void;
+  bisectVisible: boolean;
+  setBisectVisible: (v: boolean) => void;
+  bisectPending: Record<string, { bad: string | null; good: string | null }>;
+  setBisectPendingBad: (path: string, hash: string | null) => void;
+  setBisectPendingGood: (path: string, hash: string | null) => void;
+  clearBisectPending: (path: string) => void;
 };
 
 const clamp = (v: number) =>
@@ -127,6 +133,28 @@ export const useUiStore = create<UiState>()(
       mergeEditorInitialFile: null,
       openMergeEditor: (path, file) => set({ mergeEditorPath: path, mergeEditorInitialFile: file ?? null }),
       closeMergeEditor: () => set({ mergeEditorPath: null, mergeEditorInitialFile: null }),
+      bisectVisible: true,
+      setBisectVisible: v => set({ bisectVisible: v }),
+      bisectPending: {},
+      setBisectPendingBad: (path, hash) =>
+        set(s => ({
+          bisectPending: {
+            ...s.bisectPending,
+            [path]: { bad: hash, good: s.bisectPending[path]?.good ?? null },
+          },
+        })),
+      setBisectPendingGood: (path, hash) =>
+        set(s => ({
+          bisectPending: {
+            ...s.bisectPending,
+            [path]: { bad: s.bisectPending[path]?.bad ?? null, good: hash },
+          },
+        })),
+      clearBisectPending: path =>
+        set(s => {
+          const { [path]: _removed, ...rest } = s.bisectPending;
+          return { bisectPending: rest };
+        }),
     }),
     {
       name: 'l8git-ui',
@@ -134,15 +162,17 @@ export const useUiStore = create<UiState>()(
       partialize: s => ({
         sidebarWidth: s.sidebarWidth,
         sidebarTab: s.sidebarTab,
+        bisectVisible: s.bisectVisible,
       }),
       merge: (persisted, current) => {
         const p = persisted as Partial<
-          Pick<UiState, 'sidebarWidth' | 'sidebarTab'>
+          Pick<UiState, 'sidebarWidth' | 'sidebarTab' | 'bisectVisible'>
         >;
         return {
           ...current,
           sidebarTab: p.sidebarTab ?? current.sidebarTab,
           sidebarWidth: clamp(p.sidebarWidth ?? current.sidebarWidth),
+          bisectVisible: p.bisectVisible ?? current.bisectVisible,
         };
       },
     }

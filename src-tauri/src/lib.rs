@@ -115,7 +115,11 @@ pub fn run() {
             git::get_git_hook_content,
             git::save_git_hook,
             git::delete_git_hook,
-            git::toggle_git_hook
+            git::toggle_git_hook,
+            git::git_bisect_status,
+            git::git_bisect_start,
+            git::git_bisect_mark,
+            git::git_bisect_reset
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
