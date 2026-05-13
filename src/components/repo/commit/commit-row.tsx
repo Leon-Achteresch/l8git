@@ -18,7 +18,7 @@ import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, CircleDot, GitBranchPlus, RotateCcw, SkipForward, Tag, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDot, GitBranchPlus, History, RotateCcw, SkipForward, Tag, Undo2, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { memo, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
 import { CommitGraphCell } from "./commit-graph-cell";
 import { CommitHashBadge } from "./commit-hash-badge";
+import { ResetDialog } from "@/components/repo/reset/reset-dialog";
 import { CommitTagDialog } from "./commit-tag-dialog";
 import { CommitTags } from "./commit-tags";
 import type { CommitSelectMode } from "./commit-history-panel";
@@ -80,6 +81,7 @@ function CommitRowInner({
       .sort(compareBranchesDisplay);
   }, [branches, commit.hash]);
   const [tagOpen, setTagOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const subjectParts = useMemo(
     () => splitConventionalSubjectDisplay(commit.subject),
@@ -321,6 +323,16 @@ function CommitRowInner({
             <span className="font-medium">Commit revertieren</span>
           </ContextMenuItem>
 
+          <ContextMenuItem
+            onSelect={() => {
+              window.requestAnimationFrame(() => setResetOpen(true));
+            }}
+            className="gap-2 cursor-pointer"
+          >
+            <History className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">Zurücksetzen auf …</span>
+          </ContextMenuItem>
+
           <ContextMenuSeparator />
           <ContextMenuLabel className="text-xs text-muted-foreground">Bisect</ContextMenuLabel>
 
@@ -387,6 +399,12 @@ function CommitRowInner({
         path={path}
         commitHash={commit.hash}
         shortHash={commit.short_hash}
+      />
+      <ResetDialog
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        path={path}
+        commitHash={commit.hash}
       />
     </>
   );

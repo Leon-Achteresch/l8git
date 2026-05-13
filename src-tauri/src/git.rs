@@ -4237,3 +4237,18 @@ pub fn git_bisect_reset(path: String) -> Result<(), String> {
     run_git_merged_output(&repo, &["bisect", "reset"])?;
     Ok(())
 }
+
+#[tauri::command]
+pub fn git_reset(path: String, target: String, mode: String) -> Result<String, String> {
+    let repo = PathBuf::from(path.trim());
+    let t = target.trim();
+    if t.is_empty() {
+        return Err("Ziel darf nicht leer sein".into());
+    }
+    let flag = match mode.trim() {
+        "soft" => "--soft",
+        "hard" => "--hard",
+        _ => "--mixed",
+    };
+    run_git_merged_output(&repo, &["reset", flag, t])
+}

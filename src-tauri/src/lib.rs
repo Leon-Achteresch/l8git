@@ -119,7 +119,8 @@ pub fn run() {
             git::git_bisect_status,
             git::git_bisect_start,
             git::git_bisect_mark,
-            git::git_bisect_reset
+            git::git_bisect_reset,
+            git::git_reset
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

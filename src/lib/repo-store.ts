@@ -225,6 +225,7 @@ type RepoState = {
   reloadGitHooks: (path: string) => Promise<void>;
   bisect: Record<string, BisectStatus>;
   reloadBisect: (path: string) => Promise<void>;
+  gitReset: (path: string, target: string, mode: 'soft' | 'mixed' | 'hard') => Promise<string>;
   bisectStart: (path: string, bad: string, good: string) => Promise<void>;
   bisectMark: (path: string, verdict: 'good' | 'bad' | 'skip') => Promise<void>;
   bisectReset: (path: string) => Promise<void>;
@@ -1401,6 +1402,12 @@ export const useRepoStore = create<RepoState>()(
 
       async getGitHookContent(path, hookName) {
         return invoke<string>('get_git_hook_content', { path, hookName });
+      },
+
+      async gitReset(path, target, mode) {
+        const out = await invoke<string>('git_reset', { path, target, mode });
+        await Promise.all([get().reload(path), get().reloadStatus(path)]);
+        return out.trim();
       },
 
       async reloadBisect(path) {
