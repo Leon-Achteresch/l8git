@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { RefreshCw, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function CommitInspectHeader({
-  title = "Commit-Details",
+  title,
   onRefresh,
   onClose,
   loading,
@@ -12,10 +13,12 @@ export function CommitInspectHeader({
   onClose: () => void;
   loading: boolean;
 }) {
+  const { t } = useTranslation();
+  const heading = title ?? t("commitInspect.panelTitle");
   return (
     <div className="flex items-center justify-between bg-muted/10 px-4 py-3 backdrop-blur-md">
       <span className="text-sm font-semibold tracking-tight text-foreground/80">
-        {title}
+        {heading}
       </span>
       <div className="flex items-center gap-1">
         <Button
@@ -34,7 +37,7 @@ export function CommitInspectHeader({
           size="icon"
           className="h-8 w-8 rounded-full transition-colors hover:bg-muted hover:text-foreground"
           onClick={onClose}
-          aria-label="Schließen"
+          aria-label={t("dialogs.closeAria")}
         >
           <X className="h-4 w-4" />
         </Button>

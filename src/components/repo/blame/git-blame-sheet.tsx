@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 export type BlameEntry = {
   commit_hash: string;
@@ -58,8 +59,8 @@ function initials(name: string): string {
   return (parts[0][0]! + parts[parts.length - 1][0]!).toUpperCase();
 }
 
-function formatFullDate(ts: number): string {
-  return new Date(ts * 1000).toLocaleDateString("de-DE", {
+function formatFullDate(ts: number, locale: string): string {
+  return new Date(ts * 1000).toLocaleDateString(locale, {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -99,6 +100,7 @@ function CommitInfoCard({
   onClose: () => void;
   onNavigate?: (hash: string) => void;
 }) {
+  const { t, i18n } = useTranslation();
   const color = nameToHsl(info.entry.author);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -127,7 +129,7 @@ function CommitInfoCard({
     >
       <div className="border-b border-border/40 px-4 py-3">
         <p className="text-[13px] font-semibold leading-snug text-foreground">
-          {info.entry.summary || "Kein Commit-Titel"}
+          {info.entry.summary || t("blame.noSubject")}
         </p>
       </div>
       <div className="flex flex-col gap-2 px-4 py-3">
@@ -145,7 +147,7 @@ function CommitInfoCard({
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span className="font-mono">{info.entry.short_hash}</span>
           <span className="opacity-40">·</span>
-          <span>{formatFullDate(info.entry.timestamp)}</span>
+          <span>{formatFullDate(info.entry.timestamp, i18n.language)}</span>
         </div>
       </div>
       {onNavigate && (
@@ -159,7 +161,7 @@ function CommitInfoCard({
             className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/8 transition-colors"
           >
             <GitCommitHorizontal className="h-3.5 w-3.5 shrink-0" />
-            Zum Commit navigieren
+            {t("blame.navigateToCommit")}
           </button>
         </div>
       )}
@@ -282,6 +284,7 @@ export function GitBlameSheet({
   onClose,
   onNavigateToCommit,
 }: GitBlameSheetProps) {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<BlameEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -365,13 +368,13 @@ export function GitBlameSheet({
         </div>
         {!loading && !failed && (
           <span className="shrink-0 text-[11px] text-muted-foreground/50">
-            {entries.length} Zeilen
+            {t("blame.linesCount", { count: entries.length })}
           </span>
         )}
         <button
           type="button"
           onClick={onClose}
-          aria-label="Blame schließen"
+          aria-label={t("blame.closeAria")}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
           <X className="h-4 w-4" />
@@ -382,15 +385,15 @@ export function GitBlameSheet({
         {loading ? (
           <div className="flex h-full items-center justify-center gap-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin text-primary/50" />
-            <span className="text-sm">Lade Blame…</span>
+            <span className="text-sm">{t("blame.loading")}</span>
           </div>
         ) : failed ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground">
-            <span>Blame konnte nicht geladen werden.</span>
+            <span>{t("blame.loadFailed")}</span>
           </div>
         ) : entries.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Keine Blame-Daten vorhanden.
+            {t("blame.noData")}
           </div>
         ) : (
           <BlameLines items={items} onAuthorClick={handleAuthorClick} />

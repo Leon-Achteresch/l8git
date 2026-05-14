@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
 type LanguageStat = {
@@ -19,6 +20,7 @@ export function RepoLanguageStats({
   path: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<LanguageStat[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export function RepoLanguageStats({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Sprachverteilung"
+      aria-label={t("languageStats.dialogAria")}
       className="fixed inset-0 z-[100] grid place-items-center bg-black/50 p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
@@ -62,9 +64,11 @@ export function RepoLanguageStats({
       >
         <header className="mb-4 flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold">Sprachen</h2>
+            <h2 className="text-sm font-semibold">{t("languageStats.title")}</h2>
             {totalBytes > 0 && !loading && (
-              <p className="text-xs text-muted-foreground">{formatBytes(totalBytes)} gesamt</p>
+              <p className="text-xs text-muted-foreground">
+                {formatBytes(totalBytes)} {t("languageStats.totalSuffix")}
+              </p>
             )}
           </div>
           <Button
@@ -72,7 +76,7 @@ export function RepoLanguageStats({
             variant="ghost"
             size="icon-sm"
             onClick={onClose}
-            aria-label="Schließen"
+            aria-label={t("languageStats.closeAria")}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -80,7 +84,7 @@ export function RepoLanguageStats({
 
         {loading && (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Wird analysiert…
+            {t("languageStats.analyzing")}
           </p>
         )}
 
@@ -90,7 +94,7 @@ export function RepoLanguageStats({
 
         {!loading && !error && top.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Keine erkennbaren Sprachen gefunden.
+            {t("languageStats.noLanguages")}
           </p>
         )}
 

@@ -18,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MergeDialog } from './merge-dialog';
 import { RemoteCheckoutDialog } from './remote-checkout-dialog';
 import { RemoteDeleteConfirmDialog } from './remote-delete-confirm-dialog';
@@ -41,6 +42,7 @@ function BranchRowInner({
   laneColor: string;
   onDelete?: (b: Branch, force: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const checkoutBranch = useRepoStore(s => s.checkoutBranch);
   const focusCommitFromBranchTip = useUiStore(s => s.focusCommitFromBranchTip);
   const requestPrCreate = useUiStore(s => s.requestPrCreate);
@@ -109,7 +111,7 @@ function BranchRowInner({
         {branch.is_current ? (
           <Check
             className='h-3.5 w-3.5 text-primary'
-            aria-label='Aktueller Branch'
+            aria-label={t('branch.currentBranchAria')}
           />
         ) : null}
       </span>
@@ -174,7 +176,7 @@ function BranchRowInner({
             }}
           >
             <GitPullRequest className='h-3.5 w-3.5' />
-            Pull Request erstellen …
+            {t('branch.createPullRequest')}
           </ContextMenuItem>
           {hasLegacyItems ? <ContextMenuSeparator /> : null}
           {showLocalSwitch ? (
@@ -191,7 +193,7 @@ function BranchRowInner({
                 }}
               >
                 <GitBranch className='h-3.5 w-3.5' />
-                Auschecken
+                {t('branch.menuCheckout')}
               </ContextMenuItem>
               <ContextMenuItem
                 onSelect={() => {
@@ -199,14 +201,14 @@ function BranchRowInner({
                 }}
               >
                 <GitMerge className='h-3.5 w-3.5' />
-                In aktuellen Branch mergen …
+                {t('branch.menuMergeIntoCurrent')}
               </ContextMenuItem>
             </>
           ) : null}
           {showRemoteCheckout ? (
             <ContextMenuItem onSelect={openRemoteCheckout}>
               <GitBranch className='h-3.5 w-3.5' />
-              Als lokalen Branch auschecken
+              {t('branch.menuCheckoutRemoteLocal')}
             </ContextMenuItem>
           ) : null}
           {showRemoteDelete ? (
@@ -217,7 +219,7 @@ function BranchRowInner({
                 onSelect={openRemoteDeleteConfirm}
               >
                 <Trash2 className='h-3.5 w-3.5' />
-                Remote-Branch löschen
+                {t('branch.menuDeleteRemote')}
               </ContextMenuItem>
             </>
           ) : null}
@@ -232,7 +234,7 @@ function BranchRowInner({
                 onSelect={() => onDelete(branch, false)}
               >
                 <Trash2 className='h-3.5 w-3.5' />
-                Löschen
+                {t('branch.delete')}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
@@ -241,7 +243,7 @@ function BranchRowInner({
                 onSelect={() => onDelete(branch, true)}
               >
                 <Trash2 className='h-3.5 w-3.5' />
-                Erzwingen (−D)
+                {t('branch.menuForceDelete')}
               </ContextMenuItem>
             </>
           ) : null}

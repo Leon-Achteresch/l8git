@@ -7,6 +7,7 @@ import { useCommitPrefs } from "@/lib/commit-prefs";
 import type { BisectRole } from "./commit-row";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CommitSelectMode } from "./commit-history-panel";
 import { CommitRow } from "./commit-row";
 
@@ -84,6 +85,7 @@ export function CommitList({
     opts?: { mainline?: number },
   ) => Promise<void>;
 }) {
+  const { i18n } = useTranslation();
   const bisect = useRepoStore(s => s.bisect[path]);
   const bisectPending = useUiStore(s => s.bisectPending[path]);
   const bisectVisible = useUiStore(s => s.bisectVisible);
@@ -127,7 +129,7 @@ export function CommitList({
       out.push({ kind: "commit", rowIndex: i });
     }
     return out;
-  }, [rows, showCommitDateGroups]);
+  }, [rows, showCommitDateGroups, i18n.language]);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const commitFocusRequest = useUiStore((s) => s.commitFocusRequest);

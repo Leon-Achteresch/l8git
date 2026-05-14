@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { formatForDisplay, useHotkeyRegistrations } from "@tanstack/react-hotkeys";
 import { ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/info")({
 });
 
 function Info() {
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const { hotkeys } = useHotkeyRegistrations();
 
@@ -25,11 +27,12 @@ function Info() {
       [...hotkeys].sort((a, b) => {
         const an = a.options.meta?.name ?? "";
         const bn = b.options.meta?.name ?? "";
+        const loc = i18n.resolvedLanguage ?? undefined;
         return (
-          an.localeCompare(bn, "de") || String(a.hotkey).localeCompare(String(b.hotkey), "de")
+          an.localeCompare(bn, loc) || String(a.hotkey).localeCompare(String(b.hotkey), loc)
         );
       }),
-    [hotkeys],
+    [hotkeys, i18n.resolvedLanguage],
   );
 
   return (
@@ -40,26 +43,23 @@ function Info() {
           variant="ghost"
           size="icon-sm"
           onClick={() => router.history.back()}
-          aria-label="Zurück"
+          aria-label={t("info.backAria")}
         >
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className="text-2xl font-semibold">Info</h1>
+        <h1 className="text-2xl font-semibold">{t("info.title")}</h1>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Tastenkürzel</CardTitle>
-          <CardDescription>
-            Übersicht aller in l8git registrierten Tastaturkürzel. Einige
-            Aktionen sind nur aktiv, solange ein Repository geöffnet ist.
-          </CardDescription>
+          <CardTitle>{t("info.shortcutsTitle")}</CardTitle>
+          <CardDescription>{t("info.shortcutsDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="divide-y rounded-lg border text-sm">
             {rows.length === 0 ? (
               <li className="px-3 py-3 text-muted-foreground">
-                Keine Tastenkürzel registriert.
+                {t("info.noShortcuts")}
               </li>
             ) : (
               rows.map((reg) => {
@@ -86,11 +86,8 @@ function Info() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Weiteres</CardTitle>
-          <CardDescription>
-            Diese Seite ist der zentrale Ort für Infos, Hilfe und Referenzen. Hier
-            können später weitere Inhalte ergänzt werden.
-          </CardDescription>
+          <CardTitle>{t("info.moreTitle")}</CardTitle>
+          <CardDescription>{t("info.moreDesc")}</CardDescription>
         </CardHeader>
       </Card>
     </main>

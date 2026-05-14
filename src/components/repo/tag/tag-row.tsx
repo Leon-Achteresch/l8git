@@ -12,6 +12,7 @@ import { useUiStore } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import { Tag as TagIcon, Trash2 } from 'lucide-react';
 import { memo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RemoteTagDeleteDialog } from './remote-tag-delete-dialog';
 
 function TagRowInner({
@@ -23,6 +24,7 @@ function TagRowInner({
   tag: TagRef;
   laneColor: string;
 }) {
+  const { t } = useTranslation();
   const focusCommitFromBranchTip = useUiStore(s => s.focusCommitFromBranchTip);
   const deleteTag = useRepoStore(s => s.deleteTag);
   const [remoteDeleteOpen, setRemoteDeleteOpen] = useState(false);
@@ -77,14 +79,12 @@ function TagRowInner({
           <ContextMenuItem
             variant='destructive'
             onSelect={() => {
-              const ok = window.confirm(
-                `Tag "${tag.name}" lokal löschen?`
-              );
+              const ok = window.confirm(t('tagRow.confirmLocalDelete', { name: tag.name }));
               if (ok) void performLocalDelete();
             }}
           >
             <Trash2 className='h-3.5 w-3.5' />
-            Lokal löschen
+            {t('tagRow.menuLocalDelete')}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
@@ -94,7 +94,7 @@ function TagRowInner({
             }}
           >
             <Trash2 className='h-3.5 w-3.5' />
-            Remote löschen …
+            {t('tagRow.menuRemoteDelete')}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>

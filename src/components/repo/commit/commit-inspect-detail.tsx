@@ -9,6 +9,7 @@ import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CommitInspectHeader } from "./commit-inspect-header";
 import { CommitInspectMessage } from "./commit-inspect-message";
 import { CommitInspectFileList } from "./commit-inspect-file-list";
@@ -46,6 +47,7 @@ export function CommitInspectDetail({
   commitHash: string | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [payload, setPayload] = useState<InspectPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -145,9 +147,7 @@ export function CommitInspectDetail({
   const discardFile = useCallback(
     (filePath: string) => {
       if (!commitHash) return;
-      const ok = window.confirm(
-        `„${filePath}" auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.`,
-      );
+      const ok = window.confirm(t("commitInspect.resetConfirmOne", { path: filePath }));
       if (!ok) return;
       void (async () => {
         try {
@@ -157,14 +157,14 @@ export function CommitInspectDetail({
         }
       })();
     },
-    [commitHash, path, restoreFilesAtCommit],
+    [commitHash, path, restoreFilesAtCommit, t],
   );
 
   const discardChecked = useCallback(() => {
     if (!commitHash || checkedFiles.size === 0) return;
     const files = [...checkedFiles];
     const ok = window.confirm(
-      `${files.length} Datei${files.length === 1 ? "" : "en"} auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.`,
+      t("commitInspect.resetConfirmMany", { count: files.length }),
     );
     if (!ok) return;
     void (async () => {
@@ -175,7 +175,7 @@ export function CommitInspectDetail({
         toastError(String(e));
       }
     })();
-  }, [commitHash, checkedFiles, path, restoreFilesAtCommit]);
+  }, [commitHash, checkedFiles, path, restoreFilesAtCommit, t]);
 
   const handleCheckedChange = useCallback((filePath: string, checked: boolean) => {
     setCheckedFiles((prev) => {
@@ -198,6 +198,7 @@ export function CommitInspectDetail({
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-sm">
       <CommitInspectHeader
+        title={t("commitInspect.panelTitle")}
         onRefresh={refreshAll}
         onClose={onClose}
         loading={loading}
@@ -207,7 +208,7 @@ export function CommitInspectDetail({
           <div className="flex h-full flex-col items-center justify-center gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <span className="text-sm font-medium tracking-wide text-muted-foreground animate-pulse">
-              Lade Details...
+              {t("commitInspect.loadingDetails")}
             </span>
           </div>
         ) : failed ? (
@@ -216,7 +217,7 @@ export function CommitInspectDetail({
               <Loader2 className="h-6 w-6" />
             </div>
             <span className="text-sm font-semibold text-foreground">
-              Details konnten nicht geladen werden.
+              {t("commitInspect.detailLoadFailed")}
             </span>
           </div>
         ) : (

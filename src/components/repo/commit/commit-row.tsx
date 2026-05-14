@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, CircleDot, GitBranchPlus, History, RotateCcw, SkipForward, Tag, Undo2, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { memo, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CommitAuthorDate } from "./commit-author-date";
 import { CommitBranchBadge } from "./commit-branch-badge";
@@ -63,6 +64,7 @@ function CommitRowInner({
   bisectRole: BisectRole | null;
   bisectActive: boolean;
 }) {
+  const { t } = useTranslation();
   const { commit } = row;
   const gravatarUrl = useGravatarUrl(commit.email);
   const remoteAvatar = commit.author_avatar?.trim() || undefined;
@@ -90,9 +92,13 @@ function CommitRowInner({
 
   const isMergeCommit = commit.parents.length > 1;
   const isPartOfMulti = multiSelected && selectedHashes.size > 1;
-  const cherryPickLabel = isPartOfMulti
-    ? `${selectedHashes.size} Commits cherry-picken`
-    : "Commit cherry-picken";
+  const cherryPickLabel = useMemo(
+    () =>
+      isPartOfMulti
+        ? t("commitRow.cherryPickMany", { count: selectedHashes.size })
+        : t("commitRow.cherryPickOne"),
+    [isPartOfMulti, selectedHashes.size, t],
+  );
 
   const cherryPickTargets = (): string[] => {
     if (isPartOfMulti) return Array.from(selectedHashes);
@@ -119,7 +125,7 @@ function CommitRowInner({
     void (async () => {
       try {
         await bisectReset(path);
-        toast.success("Bisect beendet.");
+        toast.success(t("bisect.ended"));
       } catch (e) {
         toastError(String(e));
       }
@@ -129,10 +135,10 @@ function CommitRowInner({
   const handleSetPending = (kind: 'bad' | 'good') => {
     if (kind === 'bad') {
       setBisectPendingBad(path, commit.hash);
-      toast.info("Bad commit gesetzt — wähle nun einen 'good' commit.");
+      toast.info(t("commitRow.bisectBadToast"));
     } else {
       setBisectPendingGood(path, commit.hash);
-      toast.info("Good commit gesetzt — wähle nun einen 'bad' commit.");
+      toast.info(t("commitRow.bisectGoodToast"));
     }
   };
 
@@ -265,7 +271,7 @@ function CommitRowInner({
         {bisectRole === 'current' && <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-blue-500" />}
         {bisectRole === 'result' && (
           <span className="rounded-sm bg-orange-100 px-1 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
-            Erstes Bad
+            {t("commitRow.firstBadBadge")}
           </span>
         )}
         <CommitHashBadge hash={commit.short_hash} />
@@ -285,7 +291,7 @@ function CommitRowInner({
             className="gap-2 cursor-pointer"
           >
             <Tag className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">Tag hinzufügen</span>
+            <span className="font-medium">{t("commitRow.addTag")}</span>
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => {
@@ -311,7 +317,7 @@ function CommitRowInner({
                     commit.hash,
                     isMergeCommit,
                   );
-                  toast.success(out.trim() || "Revert-Commit erstellt.");
+                  toast.success(out.trim() || t("commitRow.revertToast"));
                 } catch (e) {
                   toastError(String(e));
                 }
@@ -320,7 +326,7 @@ function CommitRowInner({
             className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
           >
             <Undo2 className="h-4 w-4" />
-            <span className="font-medium">Commit revertieren</span>
+            <span className="font-medium">{t("commitRow.revertCommit")}</span>
           </ContextMenuItem>
 
           <ContextMenuItem
@@ -330,11 +336,11 @@ function CommitRowInner({
             className="gap-2 cursor-pointer"
           >
             <History className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">Zurücksetzen auf …</span>
+            <span className="font-medium">{t("commitRow.resetTo")}</span>
           </ContextMenuItem>
 
           <ContextMenuSeparator />
-          <ContextMenuLabel className="text-xs text-muted-foreground">Bisect</ContextMenuLabel>
+          <ContextMenuLabel className="text-xs text-muted-foreground">{t("commitRow.bisectLabel")}</ContextMenuLabel>
 
           {bisectActive ? (
             <>
@@ -343,28 +349,28 @@ function CommitRowInner({
                 className="gap-2 cursor-pointer"
               >
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <span className="font-medium">Als 'good' markieren</span>
+                <span className="font-medium">{t("commitRow.markGood")}</span>
               </ContextMenuItem>
               <ContextMenuItem
                 onSelect={() => handleBisectMark('bad')}
                 className="gap-2 cursor-pointer"
               >
                 <XCircle className="h-4 w-4 text-red-500" />
-                <span className="font-medium">Als 'bad' markieren</span>
+                <span className="font-medium">{t("commitRow.markBad")}</span>
               </ContextMenuItem>
               <ContextMenuItem
                 onSelect={() => handleBisectMark('skip')}
                 className="gap-2 cursor-pointer"
               >
                 <SkipForward className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">Überspringen (skip)</span>
+                <span className="font-medium">{t("commitRow.bisectSkip")}</span>
               </ContextMenuItem>
               <ContextMenuItem
                 onSelect={handleBisectReset}
                 className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
               >
                 <RotateCcw className="h-4 w-4" />
-                <span className="font-medium">Bisect beenden</span>
+                <span className="font-medium">{t("commitRow.endBisect")}</span>
               </ContextMenuItem>
             </>
           ) : (
@@ -374,7 +380,7 @@ function CommitRowInner({
                 className="gap-2 cursor-pointer"
               >
                 <XCircle className="h-4 w-4 text-red-400" />
-                <span className="font-medium">Als 'bad' commit setzen</span>
+                <span className="font-medium">{t("commitRow.setBadCommit")}</span>
                 {bisectRole === 'pending-bad' && (
                   <AlertTriangle className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
                 )}
@@ -384,7 +390,7 @@ function CommitRowInner({
                 className="gap-2 cursor-pointer"
               >
                 <CheckCircle2 className="h-4 w-4 text-green-400" />
-                <span className="font-medium">Als 'good' commit setzen</span>
+                <span className="font-medium">{t("commitRow.setGoodCommit")}</span>
                 {bisectRole === 'pending-good' && (
                   <AlertTriangle className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
                 )}

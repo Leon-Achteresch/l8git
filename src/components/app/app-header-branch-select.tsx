@@ -15,6 +15,7 @@ import { toastError } from "@/lib/error-toast";
 import type { Branch } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 function branchDisplayName(b: Branch) {
   if (!b.is_remote) return b.name;
@@ -30,6 +31,7 @@ function cmpBranches(a: Branch, b: Branch) {
 }
 
 export function AppHeaderBranchSelect() {
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const { activePath, repo, repoLoading } = useRepoStore(
     useShallow((s) => {
@@ -59,8 +61,7 @@ export function AppHeaderBranchSelect() {
       void (async () => {
         try {
           if (b.is_remote) {
-            const local =
-              branchDisplayName(b).trim() || "branch";
+            const local = branchDisplayName(b).trim() || t("branchMenu.fallbackLocalName");
             await checkoutBranch(activePath, local, { fromRemote: b.name });
           } else {
             await checkoutBranch(activePath, b.name);
@@ -70,7 +71,7 @@ export function AppHeaderBranchSelect() {
         }
       })();
     },
-    [activePath, checkoutBranch],
+    [activePath, checkoutBranch, t],
   );
 
   if (!activePath || !repo) return null;
@@ -84,8 +85,8 @@ export function AppHeaderBranchSelect() {
         <motion.button
           type="button"
           disabled={disabled}
-          title="Branch wechseln"
-          aria-label="Branch auswählen"
+          title={t("branchMenu.switchTitle")}
+          aria-label={t("branchMenu.pickAria")}
           style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
           whileHover={disabled ? undefined : { scale: 1.02 }}
           whileTap={disabled ? undefined : { scale: 0.97 }}
@@ -121,7 +122,7 @@ export function AppHeaderBranchSelect() {
         {locals.length > 0 ? (
           <>
             <DropdownMenuLabel className="px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground/90">
-              Lokal
+              {t("branchMenu.sectionLocal")}
             </DropdownMenuLabel>
             {locals.map((b) => {
               const label = branchDisplayName(b);
@@ -149,7 +150,7 @@ export function AppHeaderBranchSelect() {
         {remotes.length > 0 ? (
           <>
             <DropdownMenuLabel className="px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground/90">
-              Remote
+              {t("branchMenu.sectionRemote")}
             </DropdownMenuLabel>
             {remotes.map((b) => {
               const label = branchDisplayName(b);

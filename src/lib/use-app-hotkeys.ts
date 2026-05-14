@@ -19,7 +19,7 @@ const SIDEBAR_SHORTCUTS: [
 ];
 
 export function useAppHotkeys() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const pickRepo = usePickRepo();
   const activePath = useRepoStore((s) => s.activePath);
@@ -102,6 +102,7 @@ export function useAppHotkeys() {
     router,
     setSidebarTab,
     t,
+    i18n.language,
   ]);
 
   useHotkeys(list, { preventDefault: true, conflictBehavior: "warn" });

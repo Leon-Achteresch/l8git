@@ -5,6 +5,7 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function CommitTagDialog({
@@ -20,6 +21,7 @@ export function CommitTagDialog({
   commitHash: string;
   shortHash: string;
 }) {
+  const { t } = useTranslation();
   const tagCommit = useRepoStore((s) => s.tagCommit);
   const [tagName, setTagName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,13 +42,13 @@ export function CommitTagDialog({
     e.preventDefault();
     const n = tagName.trim();
     if (!n) {
-      toastError("Tag-Name darf nicht leer sein.");
+      toastError(t("commitTagDialog.toastEmptyName"));
       return;
     }
     setBusy(true);
     try {
       await tagCommit(path, n, commitHash);
-      toast.success(`Tag „${n}“ wurde gesetzt.`);
+      toast.success(t("commitTagDialog.toastSuccess", { name: n }));
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -61,7 +63,7 @@ export function CommitTagDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Tag auf Commit setzen"
+      aria-label={t("commitTagDialog.dialogAria")}
       className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -70,24 +72,25 @@ export function CommitTagDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="font-heading text-base font-medium">Tag hinzufügen</h2>
+          <h2 className="font-heading text-base font-medium">{t("commitTagDialog.title")}</h2>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             onClick={dismiss}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("commitTagDialog.closeAria")}
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
         <p className="mb-3 truncate text-xs text-muted-foreground" title={commitHash}>
-          Commit: <span className="font-mono text-foreground">{shortHash}</span>
+          {t("commitTagDialog.commitPrefix")}{" "}
+          <span className="font-mono text-foreground">{shortHash}</span>
         </p>
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
           <div className="grid gap-1">
-            <Label htmlFor="commit-tag-name">Tag-Name</Label>
+            <Label htmlFor="commit-tag-name">{t("commitTagDialog.tagNameLabel")}</Label>
             <Input
               id="commit-tag-name"
               value={tagName}
@@ -100,10 +103,10 @@ export function CommitTagDialog({
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
-              Abbrechen
+              {t("commitTagDialog.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "…" : "Tag setzen"}
+              {busy ? t("editRemote.saveBusy") : t("commitTagDialog.submit")}
             </Button>
           </div>
         </form>

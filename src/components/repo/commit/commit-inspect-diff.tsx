@@ -1,6 +1,6 @@
-import { FileCode2 } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { FileCode2, Loader2 } from "lucide-react";
 import { Suspense, lazy } from "react";
+import { useTranslation } from "react-i18next";
 
 const MonacoDiffViewer = lazy(() =>
   import("./monaco-diff-viewer").then((m) => ({ default: m.MonacoDiffViewer })),
@@ -19,6 +19,7 @@ export function CommitInspectDiff({
   loading: boolean;
   failed: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="min-h-0 flex-1 overflow-hidden p-2 min-w-0">
@@ -28,7 +29,7 @@ export function CommitInspectDiff({
               <FileCode2 className="h-8 w-8 opacity-40" />
             </div>
             <span className="text-sm font-medium tracking-wide">
-              Klicke links auf eine Datei, um den Diff zu sehen.
+              {t("commitInspect.pickFileForDiff")}
             </span>
           </div>
         ) : loading ? (
@@ -37,11 +38,11 @@ export function CommitInspectDiff({
           </div>
         ) : failed ? (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-            Diff konnte nicht geladen werden.
+            {t("diff.diffLoadFailedFallback")}
           </div>
         ) : fileDiff?.is_binary ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Binärdatei
+            {t("diff.binaryFile")}
           </div>
         ) : fileDiff?.diff ? (
           <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-lg shadow-sm ring-1 ring-border/30">
@@ -60,7 +61,7 @@ export function CommitInspectDiff({
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Keine Textänderungen
+            {t("commitInspect.noTextChanges")}
           </div>
         )}
       </div>

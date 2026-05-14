@@ -15,7 +15,6 @@ import { parseDiffWithHunks, type ParsedDiff } from "@/lib/unified-diff";
 import { useCommitPanelHotkeys } from "@/lib/use-commit-panel-hotkeys";
 import { invoke } from "@tauri-apps/api/core";
 import {
-  AlertTriangle,
   Archive,
   Check,
   Loader2,
@@ -24,7 +23,6 @@ import {
   Send,
   Sparkles,
 } from "lucide-react";
-import { useUiStore } from "@/lib/ui-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
 import { VirtualFileList } from "./commit-panel-file-list";
@@ -42,6 +40,7 @@ const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
 
 export function CommitPanel() {
+  const { t } = useTranslation();
   const activePath = useRepoStore((s) => s.activePath);
   const entries =
     useRepoStore((s) => (activePath ? s.status[activePath] : undefined)) ?? EMPTY_STATUS;
@@ -412,7 +411,9 @@ export function CommitPanel() {
   const discardOne = useCallback(
     (filePath: string) => {
       if (!activePath) return;
-      const ok = window.confirm(`Änderungen an „${filePath}" unwiderruflich verwerfen?`);
+      const ok = window.confirm(
+        t("commitPanel.discardConfirm", { path: filePath }),
+      );
       if (!ok) return;
       void (async () => {
         try {
@@ -422,7 +423,7 @@ export function CommitPanel() {
         }
       })();
     },
-    [activePath, discardFiles],
+    [activePath, discardFiles, t],
   );
 
   const onGenerateAiMessage = useCallback(async () => {
@@ -504,9 +505,17 @@ export function CommitPanel() {
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-2.5">
           <Check className="h-[18px] w-[18px] self-center text-muted-foreground" />
-          <h2 className="text-base font-semibold tracking-tight">Änderungen</h2>
+          <h2 className="text-base font-semibold tracking-tight">
+            {t("commitPanel.changes")}
+          </h2>
           <span className="text-xs text-muted-foreground">
-            · {changeRows.length} {changeRows.length === 1 ? "Datei" : "Dateien"}
+            {t("commitPanel.filesCount", {
+              count: changeRows.length,
+              unit:
+                changeRows.length === 1
+                  ? t("common.file")
+                  : t("common.files"),
+            })}
           </span>
         </div>
         <Button
@@ -561,7 +570,7 @@ export function CommitPanel() {
 
           <ResizablePanel id="diff" defaultSize="68%" minSize="22%" className="flex flex-col">
             {selectedIsConflict && activePath ? (
-              <ConflictPlaceholder
+              <CommitPanelConflictPlaceholder
                 filePath={selectedPath ?? ""}
                 repoPath={activePath}
               />
@@ -587,10 +596,15 @@ export function CommitPanel() {
 
       <div className="flex flex-col gap-2.5 rounded-2xl border border-border/60 p-3 shadow-sm">
         <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
-          <span>
-            <span className="tabular-nums font-medium text-foreground">{totals.stagedFiles}</span>{" "}
-            {totals.stagedFiles === 1 ? "Datei" : "Dateien"} gestaged
-          </span>
+            <span>
+              {t("commitPanel.stagedSummary", {
+                count: totals.stagedFiles,
+                unit:
+                  totals.stagedFiles === 1
+                    ? t("common.file")
+                    : t("common.files"),
+              })}
+            </span>
           <button
             type="button"
             onClick={() => {
@@ -616,7 +630,7 @@ export function CommitPanel() {
 
         <div className="relative">
           <Textarea
-            placeholder="Commit-Nachricht eingeben..."
+            placeholder={t("commitPanel.messagePlaceholder")}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             rows={3}
@@ -627,8 +641,8 @@ export function CommitPanel() {
               type="button"
               size="icon"
               variant="outline"
-              title="Commit-Nachricht mit AI generieren"
-              aria-label="AI generieren"
+              title={t("commitPanel.aiTitle")}
+              aria-label={t("commitPanel.aiAria")}
               disabled={stagedRows.length === 0 || aiGenerating}
               onClick={() => void onGenerateAiMessage()}
               className="h-9 w-9 rounded-md border-border/60 bg-background/80"
@@ -643,8 +657,8 @@ export function CommitPanel() {
               type="button"
               size="icon"
               variant="outline"
-              title="Änderungen stashen"
-              aria-label="Stashen"
+              title={t("commitPanel.stashTitle")}
+              aria-label={t("commitPanel.stashAria")}
               disabled={!canStash}
               onClick={() => setStashOpen(true)}
               className="h-9 w-9 rounded-md border-border/60 bg-background/80"
@@ -655,7 +669,11 @@ export function CommitPanel() {
               size="icon"
               onClick={onCommit}
               disabled={!canCommit || committing}
-              title={amendMode ? "Letzten Commit ändern (--amend)" : "Committen"}
+              title={
+                amendMode
+                  ? t("commitPanel.amendTitle")
+                  : t("commitPanel.commitTitle")
+              }
               className={`h-9 w-9 rounded-md ${
                 canCommit
                   ? amendMode
@@ -681,32 +699,6 @@ export function CommitPanel() {
         onClose={() => setStashOpen(false)}
         path={activePath}
       />
-    </div>
-  );
-}
-
-function ConflictPlaceholder({ filePath, repoPath }: { filePath: string; repoPath: string }) {
-  const openMergeEditor = useUiStore((s) => s.openMergeEditor);
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-full bg-amber-500/10 p-4 ring-1 ring-amber-500/30">
-        <AlertTriangle className="h-8 w-8 text-amber-500" />
-      </div>
-      <div className="grid gap-1">
-        <p className="text-sm font-medium">Merge-Konflikt</p>
-        <p className="max-w-48 text-xs text-muted-foreground">
-          Diese Datei enthält Konflikte und kann nicht als Diff angezeigt werden.
-        </p>
-        <p className="font-mono text-[11px] text-muted-foreground/60">{filePath.split("/").pop()}</p>
-      </div>
-      <button
-        type="button"
-        onClick={() => openMergeEditor(repoPath, filePath || undefined)}
-        className="flex items-center gap-2 rounded-lg bg-amber-500/15 px-4 py-2 text-sm font-medium text-amber-600 hover:bg-amber-500/25 dark:text-amber-400"
-      >
-        <GitMerge className="h-4 w-4" />
-        Konflikt-Editor öffnen
-      </button>
     </div>
   );
 }

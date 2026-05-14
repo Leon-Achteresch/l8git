@@ -13,6 +13,7 @@ import {
   Search,
   Tag,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -38,6 +39,7 @@ const IS_MAC =
 const MOD_KEY = IS_MAC ? "⌘" : "Ctrl";
 
 export function AppHeaderSearch() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   // cmdk tracks which item is highlighted — we mirror it here so the keydown
@@ -83,9 +85,7 @@ export function AppHeaderSearch() {
 
   const filteredTags = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = q
-      ? tags.filter((t) => t.name.toLowerCase().includes(q))
-      : tags;
+    const list = q ? tags.filter((tag) => tag.name.toLowerCase().includes(q)) : tags;
     return list.slice(0, 5);
   }, [tags, query]);
 
@@ -120,7 +120,7 @@ export function AppHeaderSearch() {
   const onFocusTag = useCallback(
     (tagName: string) => {
       if (!activePath) return;
-      const tag = tags.find((t) => t.name === tagName);
+      const tag = tags.find((x) => x.name === tagName);
       if (!tag) return;
       focusCommitFromBranchTip(activePath, tag.commit);
       setOpen(false);
@@ -206,9 +206,7 @@ export function AppHeaderSearch() {
         <span className="rounded border border-border/40 bg-background/80 px-1.5 py-px text-[10px] font-semibold text-foreground/80">
           gitit
         </span>
-        <span className="min-w-0 flex-1 truncate text-left opacity-50">
-          Springe zu Branch, Commit, Datei ...
-        </span>
+        <span className="min-w-0 flex-1 truncate text-left opacity-50">{t("appSearch.triggerPlaceholder")}</span>
         <kbd className="inline-flex shrink-0 items-center gap-px rounded border border-border/50 bg-background/60 px-1.5 py-px font-sans text-[10px] text-muted-foreground">
           {MOD_KEY}K
         </kbd>
@@ -218,8 +216,8 @@ export function AppHeaderSearch() {
       <CommandDialog
         open={open}
         onOpenChange={handleOpenChange}
-        title="Suchen"
-        description="Branches, Commits und Tags suchen"
+        title={t("appSearch.dialogTitle")}
+        description={t("appSearch.dialogDescription")}
       >
         <Command
           shouldFilter={false}
@@ -229,17 +227,17 @@ export function AppHeaderSearch() {
           onKeyDown={handleCommandKeyDown}
         >
           <CommandInput
-            placeholder="Branch, Commit, Tag suchen..."
+            placeholder={t("appSearch.inputPlaceholder")}
             value={query}
             onValueChange={setQuery}
           />
           <CommandList>
             {!hasResults && (
-              <CommandEmpty>Keine Ergebnisse gefunden.</CommandEmpty>
+              <CommandEmpty>{t("appSearch.empty")}</CommandEmpty>
             )}
 
             {filteredBranches.length > 0 && (
-              <CommandGroup heading="Branches">
+              <CommandGroup heading={t("appSearch.groupBranches")}>
                 {filteredBranches.map((b) => (
                   <CommandItem
                     key={`branch:${b.name}`}
@@ -252,14 +250,14 @@ export function AppHeaderSearch() {
                     </span>
                     {b.is_current ? (
                       <span className="shrink-0 text-[10px] text-muted-foreground">
-                        aktuell
+                        {t("appSearch.badgeCurrent")}
                       </span>
                     ) : b.is_remote ? (
                       <span className="shrink-0 text-[10px] text-muted-foreground">
-                        remote
+                        {t("appSearch.badgeRemote")}
                       </span>
                     ) : (
-                      <CommandShortcut title={`${MOD_KEY}↵ auschecken`}>
+                      <CommandShortcut title={t("appSearch.checkoutShortcutTitle", { mod: MOD_KEY })}>
                         {MOD_KEY}↵
                       </CommandShortcut>
                     )}
@@ -273,19 +271,19 @@ export function AppHeaderSearch() {
             )}
 
             {filteredTags.length > 0 && (
-              <CommandGroup heading="Tags">
-                {filteredTags.map((t) => (
+              <CommandGroup heading={t("appSearch.groupTags")}>
+                {filteredTags.map((tag) => (
                   <CommandItem
-                    key={`tag:${t.name}`}
-                    value={`tag:${t.name}`}
-                    onSelect={() => onFocusTag(t.name)}
+                    key={`tag:${tag.name}`}
+                    value={`tag:${tag.name}`}
+                    onSelect={() => onFocusTag(tag.name)}
                   >
                     <Tag className="size-3.5 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate font-mono text-xs">
-                      {t.name}
+                      {tag.name}
                     </span>
                     <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                      {t.commit.slice(0, 7)}
+                      {tag.commit.slice(0, 7)}
                     </span>
                   </CommandItem>
                 ))}
@@ -296,7 +294,7 @@ export function AppHeaderSearch() {
               filteredCommits.length > 0 && <CommandSeparator />}
 
             {filteredCommits.length > 0 && (
-              <CommandGroup heading="Commits">
+              <CommandGroup heading={t("appSearch.groupCommits")}>
                 {filteredCommits.map((c) => (
                   <CommandItem
                     key={`commit:${c.hash}`}
@@ -319,10 +317,10 @@ export function AppHeaderSearch() {
           {/* Footer hint */}
           <div className="flex items-center gap-3 border-t border-border/40 px-3 py-1.5 text-[10px] text-muted-foreground/60">
             <span>
-              <kbd className="font-sans">↵</kbd> In Verlauf springen
+              <kbd className="font-sans">↵</kbd> {t("appSearch.footerJumpHistory")}
             </span>
             <span>
-              <kbd className="font-sans">{MOD_KEY}↵</kbd> Branch auschecken
+              <kbd className="font-sans">{MOD_KEY}↵</kbd> {t("appSearch.footerCheckout")}
             </span>
           </div>
         </Command>

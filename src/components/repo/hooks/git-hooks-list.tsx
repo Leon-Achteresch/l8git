@@ -8,15 +8,24 @@ import {
 import { useRepoStore } from "@/lib/repo-store";
 import { RefreshCw, Webhook } from "lucide-react";
 import { AnimatePresence } from "motion/react";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { GitHooksCard } from "./git-hooks-card";
 
-const HOOK_CATEGORIES: {
-  label: string;
+const HOOK_CATEGORY_DEFS: {
+  labelKey:
+    | "hooks.categoryCommit"
+    | "hooks.categoryEmailPatches"
+    | "hooks.categoryMergeRebase"
+    | "hooks.categoryBranchCheckout"
+    | "hooks.categoryPush"
+    | "hooks.categoryOther"
+    | "hooks.categoryServer";
   hooks: string[];
   isServer?: boolean;
 }[] = [
   {
-    label: "Commit",
+    labelKey: "hooks.categoryCommit",
     hooks: [
       "pre-commit",
       "prepare-commit-msg",
@@ -26,24 +35,24 @@ const HOOK_CATEGORIES: {
     ],
   },
   {
-    label: "E-Mail-Patches",
+    labelKey: "hooks.categoryEmailPatches",
     hooks: ["applypatch-msg", "pre-applypatch", "post-applypatch"],
   },
   {
-    label: "Merge & Rebase",
+    labelKey: "hooks.categoryMergeRebase",
     hooks: ["pre-rebase", "post-rewrite", "post-merge"],
   },
   {
-    label: "Branch & Checkout",
+    labelKey: "hooks.categoryBranchCheckout",
     hooks: ["post-checkout", "reference-transaction"],
   },
-  { label: "Push", hooks: ["pre-push"] },
+  { labelKey: "hooks.categoryPush", hooks: ["pre-push"] },
   {
-    label: "Sonstiges",
+    labelKey: "hooks.categoryOther",
     hooks: ["pre-auto-gc", "post-index-change", "fsmonitor-watchman"],
   },
   {
-    label: "Server-seitig",
+    labelKey: "hooks.categoryServer",
     hooks: [
       "pre-receive",
       "update",
@@ -65,10 +74,22 @@ export function GitHooksList({
   selectedHookName: string | null;
   onSelectHook: (name: string | null) => void;
 }) {
+  const { t, i18n } = useTranslation();
   const hooks = useRepoStore((s) => s.gitHooks[path]) ?? [];
   const loading = useRepoStore((s) => !!s.gitHooksLoading[path]);
   const reloadGitHooks = useRepoStore((s) => s.reloadGitHooks);
   const activeCount = hooks.filter((h) => h.is_enabled).length;
+
+  const hookCategories = useMemo(
+    () =>
+      HOOK_CATEGORY_DEFS.map((c) => ({
+        key: c.hooks[0] ?? c.labelKey,
+        label: t(c.labelKey),
+        hooks: c.hooks,
+        isServer: c.isServer,
+      })),
+    [t, i18n.language],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -78,10 +99,10 @@ export function GitHooksList({
             <Webhook className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-sm font-semibold leading-none">Git Hooks</p>
+            <p className="text-sm font-semibold leading-none">{t("hooks.listTitle")}</p>
             {activeCount > 0 && (
               <p className="mt-0.5 text-[10px] text-muted-foreground">
-                {activeCount} aktiv
+                {t("hooks.activeHooks", { count: activeCount })}
               </p>
             )}
           </div>
@@ -94,20 +115,21 @@ export function GitHooksList({
               className="h-7 w-7"
               disabled={loading}
               onClick={() => void reloadGitHooks(path)}
+              aria-label={t("hooks.reloadTooltip")}
             >
               <RefreshCw
                 className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
               />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Aktualisieren</TooltipContent>
+          <TooltipContent side="left">{t("hooks.reloadTooltip")}</TooltipContent>
         </Tooltip>
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-4 p-2 pb-4">
-          {HOOK_CATEGORIES.map((category) => (
-            <div key={category.label}>
+          {hookCategories.map((category) => (
+            <div key={category.key}>
               <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
                 {category.label}
               </p>

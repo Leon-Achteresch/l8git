@@ -1,9 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { FileDiff, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
-import { StatusIcon } from "./commit-panel-status-icon";
-import type { ChangeRow, FileDiffResponse } from "./commit-panel-types";
+import { useTranslation } from "react-i18next";
+
 import type { ParsedDiff } from "@/lib/unified-diff";
+
+import type { ChangeRow, FileDiffResponse } from "./commit-panel-types";
+import { StatusIcon } from "./commit-panel-status-icon";
 import { UnifiedDiffBody } from "./unified-diff-body";
 
 export function DiffViewer({
@@ -14,7 +17,6 @@ export function DiffViewer({
   onReload,
   onStageHunk,
   onUnstageHunk,
-  // Lifted interactive state
   parsedDiff,
   focusedHunkIdx,
   selectedLines,
@@ -34,6 +36,7 @@ export function DiffViewer({
   onToggleLine?: (key: string) => void;
   onClearSelection?: () => void;
 }) {
+  const { t } = useTranslation();
   const unifiedText = useMemo(() => {
     if (!diffPayload || !selectedRow) return null;
     if (selectedRow.sector === "staged" && diffPayload.staged?.trim()) {
@@ -72,7 +75,7 @@ export function DiffViewer({
           <StatusIcon entry={selectedRow.entry} sector={selectedRow.sector} />
           <span className="truncate text-sm font-medium">{selectedRow.path}</span>
           <span className="shrink-0 rounded-sm border border-border/80 bg-muted/40 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {selectedRow.sector === "staged" ? "Gestaged" : "Nicht gestaged"}
+            {selectedRow.sector === "staged" ? t("commitPanel.sectorStaged") : t("commitPanel.sectorUnstaged")}
           </span>
         </div>
         <Button
@@ -92,8 +95,8 @@ export function DiffViewer({
           isBinary={!!diffPayload?.is_binary}
           unifiedText={unifiedText}
           untrackedPlain={untrackedPlain}
-          emptyHint="Keine Textänderungen"
-          failedHint="Diff konnte nicht geladen werden."
+          emptyHint={t("commitInspect.noTextChanges")}
+          failedHint={t("commitPanel.diffLoadFailed")}
           sector={selectedRow.sector as "staged" | "unstaged"}
           onStageHunk={onStageHunk}
           onUnstageHunk={onUnstageHunk}

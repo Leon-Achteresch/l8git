@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
+
 import {
   Card,
   CardContent,
@@ -11,16 +13,14 @@ export const Route = createFileRoute("/about")({
 });
 
 function About() {
+  const { t } = useTranslation();
   return (
     <main className="mx-auto max-w-2xl px-6 py-8">
       <Card>
         <CardHeader>
-          <CardTitle>About</CardTitle>
+          <CardTitle>{t("about.title")}</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          l8git — ein einfacher Git-Frontend-Client, gebaut mit Tauri, React,
-          TanStack Router und shadcn/ui.
-        </CardContent>
+        <CardContent className="text-sm text-muted-foreground">{t("about.body")}</CardContent>
       </Card>
     </main>
   );

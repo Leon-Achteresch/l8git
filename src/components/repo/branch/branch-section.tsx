@@ -3,15 +3,16 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/components/ui/accordion';
-import { Button } from '@/components/ui/button';
-import { groupBranchesByKind, groupSignature } from '@/lib/branch-groups';
-import { laneColor } from '@/lib/graph';
-import type { Branch } from '@/lib/repo-store';
-import { cn } from '@/lib/utils';
-import { Plus } from 'lucide-react';
-import { useMemo } from 'react';
-import { BranchRow } from './branch-row';
+} from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
+import { groupBranchesByKind, groupSignature } from "@/lib/branch-groups";
+import { laneColor } from "@/lib/graph";
+import type { Branch } from "@/lib/repo-store";
+import { cn } from "@/lib/utils";
+import { Plus } from "lucide-react";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { BranchRow } from "./branch-row";
 
 export function BranchSection({
   path,
@@ -34,44 +35,46 @@ export function BranchSection({
   onNewBranch?: () => void;
   hideHeader?: boolean;
 }) {
+  const { t } = useTranslation();
   const grouping = useMemo(() => groupBranchesByKind(branches), [branches]);
   const sig = groupSignature(grouping);
-  const defaultOpen = useMemo(() => grouping.groups.map(g => g.id), [grouping]);
+  const defaultOpen = useMemo(() => grouping.groups.map((g) => g.id), [grouping]);
 
   const isEmpty = grouping.flat.length === 0 && grouping.groups.length === 0;
 
   return (
-    <section className='flex w-full min-w-0 max-w-full flex-col overflow-x-hidden'>
+    <section className="flex w-full min-w-0 max-w-full flex-col overflow-x-hidden">
       {!hideHeader && (
         <header
           className={cn(
-            'mb-1 grid w-full min-w-0 items-center gap-2 px-2',
+            "mb-1 grid w-full min-w-0 items-center gap-2 px-2",
             icon != null
-              ? 'grid-cols-[auto_minmax(0,1fr)_auto]'
-              : 'grid-cols-[minmax(0,1fr)_auto]'
+              ? "grid-cols-[auto_minmax(0,1fr)_auto]"
+              : "grid-cols-[minmax(0,1fr)_auto]",
           )}
         >
-          <h3 className='min-w-0 justify-self-stretch truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'>
+          {icon ? <span className="justify-self-start text-muted-foreground">{icon}</span> : null}
+          <h3 className="min-w-0 justify-self-stretch truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             {title}
           </h3>
-          <span className='flex shrink-0 items-center justify-end gap-0.5'>
+          <span className="flex shrink-0 items-center justify-end gap-0.5">
             <span
-              className='flex h-[18px] min-w-[20px] items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground'
-              aria-label={`${branches.length} Branches`}
+              className="flex h-[18px] min-w-[20px] items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground"
+              aria-label={t("branch.countAria", { count: branches.length })}
             >
               {branches.length}
             </span>
             {showNewBranch && onNewBranch ? (
               <Button
-                type='button'
-                variant='ghost'
-                size='icon-xs'
-                className='h-5 w-5 text-muted-foreground hover:text-foreground'
-                title='Neuer Branch'
-                aria-label='Neuer Branch'
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                title={t("sidebar.newBranchTitle")}
+                aria-label={t("sidebar.newBranchAria")}
                 onClick={() => onNewBranch()}
               >
-                <Plus className='h-3 w-3' />
+                <Plus className="h-3 w-3" />
               </Button>
             ) : null}
           </span>
@@ -79,14 +82,14 @@ export function BranchSection({
       )}
 
       {isEmpty ? (
-        <p className={cn('px-2 pb-1 text-[11px] text-muted-foreground/70', hideHeader && 'pt-1')}>
-          {emptyLabel ?? 'Keine Branches'}
+        <p className={cn("px-2 pb-1 text-[11px] text-muted-foreground/70", hideHeader && "pt-1")}>
+          {emptyLabel ?? t("branch.defaultEmpty")}
         </p>
       ) : (
         <>
           {grouping.flat.length > 0 && (
-            <ul className='mb-0.5 min-w-0 space-y-px'>
-              {grouping.flat.map(b => (
+            <ul className="mb-0.5 min-w-0 space-y-px">
+              {grouping.flat.map((b) => (
                 <BranchRow
                   key={b.name}
                   path={path}
@@ -101,30 +104,26 @@ export function BranchSection({
           {grouping.groups.length > 0 && (
             <Accordion
               key={sig}
-              type='multiple'
+              type="multiple"
               defaultValue={defaultOpen}
-              className='w-full min-w-0 max-w-full'
+              className="w-full min-w-0 max-w-full"
             >
-              {grouping.groups.map(g => (
-                <AccordionItem
-                  key={g.id}
-                  value={g.id}
-                  className='min-w-0 border-0'
-                >
-                  <AccordionTrigger className='group/trigger my-px flex w-full min-w-0 max-w-full items-center justify-start gap-1 rounded-md py-1 pl-2 pr-1.5 text-left text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-sidebar-accent/30 hover:text-foreground hover:no-underline data-[state=open]:text-foreground [&>svg]:shrink-0 [&>svg]:text-muted-foreground/80'>
-                    <span className='min-w-0 flex-1 truncate'>{g.label}</span>
+              {grouping.groups.map((g) => (
+                <AccordionItem key={g.id} value={g.id} className="min-w-0 border-0">
+                  <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 max-w-full items-center justify-start gap-1 rounded-md py-1 pl-2 pr-1.5 text-left text-[11px] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-sidebar-accent/30 hover:text-foreground hover:no-underline data-[state=open]:text-foreground [&>svg]:shrink-0 [&>svg]:text-muted-foreground/80">
+                    <span className="min-w-0 flex-1 truncate">{g.label}</span>
                     <span
                       className={cn(
-                        'flex h-4 min-w-4 shrink-0 items-center justify-center justify-self-end rounded-sm px-1 text-[9px] font-medium tabular-nums transition-colors',
-                        'bg-muted/60 text-muted-foreground group-data-[state=open]/trigger:bg-muted group-data-[state=open]/trigger:text-foreground'
+                        "flex h-4 min-w-4 shrink-0 items-center justify-center justify-self-end rounded-sm px-1 text-[9px] font-medium tabular-nums transition-colors",
+                        "bg-muted/60 text-muted-foreground group-data-[state=open]/trigger:bg-muted group-data-[state=open]/trigger:text-foreground",
                       )}
                     >
                       {g.branches.length}
                     </span>
                   </AccordionTrigger>
-                  <AccordionContent className='pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5'>
-                    <ul className='min-w-0 space-y-px'>
-                      {g.branches.map(b => (
+                  <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
+                    <ul className="min-w-0 space-y-px">
+                      {g.branches.map((b) => (
                         <BranchRow
                           key={b.name}
                           path={path}

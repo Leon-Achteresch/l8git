@@ -5,6 +5,7 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function StashBranchDialog({
@@ -18,6 +19,7 @@ export function StashBranchDialog({
   path: string;
   stashIndex: number;
 }) {
+  const { t } = useTranslation();
   const stashBranch = useRepoStore((s) => s.stashBranch);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,13 +40,13 @@ export function StashBranchDialog({
     e.preventDefault();
     const n = name.trim();
     if (!n) {
-      toastError("Branch-Name darf nicht leer sein.");
+      toastError(t("stash.newBranchEmptyToast"));
       return;
     }
     setBusy(true);
     try {
       const out = await stashBranch(path, stashIndex, n);
-      toast.success(out || "Branch aus Stash erstellt.");
+      toast.success(out || t("stash.toastBranchCreatedFallback"));
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -59,7 +61,7 @@ export function StashBranchDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Branch aus Stash"
+      aria-label={t("stash.branchDialogTitle")}
       className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -69,7 +71,7 @@ export function StashBranchDialog({
       >
         <header className="mb-3 flex items-center justify-between gap-2">
           <h2 className="font-heading text-base font-medium">
-            Branch aus Stash
+            {t("stash.branchDialogTitle")}
           </h2>
           <Button
             type="button"
@@ -77,18 +79,18 @@ export function StashBranchDialog({
             size="icon-sm"
             onClick={dismiss}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("dialogs.closeAria")}
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
         <p className="mb-3 text-xs text-muted-foreground">
-          Neuer Branch von{" "}
+          {t("stash.branchIntro")}{" "}
           <span className="font-mono text-foreground">{`stash@{${stashIndex}}`}</span>
         </p>
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
           <div className="grid gap-1">
-            <Label htmlFor="stash-branch-name">Branch-Name</Label>
+            <Label htmlFor="stash-branch-name">{t("stash.branchNameLabel")}</Label>
             <Input
               id="stash-branch-name"
               value={name}
@@ -108,10 +110,10 @@ export function StashBranchDialog({
               onClick={dismiss}
               disabled={busy}
             >
-              Abbrechen
+              {t("common.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "…" : "Erstellen"}
+              {busy ? t("editRemote.saveBusy") : t("newBranchDialog.create")}
             </Button>
           </div>
         </form>

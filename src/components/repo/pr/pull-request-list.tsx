@@ -10,6 +10,7 @@ import {
   PullRequestCreateTrigger,
 } from "./pull-request-create-panel";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 type Filter = "open" | "merged" | "closed" | "all";
 
@@ -279,6 +280,7 @@ export function PullRequestList({
   onSelect: (n: number) => void;
   onReload: () => void;
 }) {
+  const { t, i18n } = useTranslation();
   const [filter, setFilter] = useState<Filter>(() => {
     try { return (localStorage.getItem(FILTER_STORAGE_KEY) as Filter) ?? "open"; }
     catch { return "open"; }
@@ -313,17 +315,20 @@ export function PullRequestList({
     const drafts = filtered.filter((p) => displayState(p) === "draft");
     const open   = filtered.filter((p) => displayState(p) === "open");
     return [
-      drafts.length > 0 ? { key: "draft", label: "Entwürfe", items: drafts } : null,
-      open.length   > 0 ? { key: "open",  label: "Offen",    items: open   } : null,
+      drafts.length > 0 ? { key: "draft", label: t("pr.draftsSection"), items: drafts } : null,
+      open.length   > 0 ? { key: "open",  label: t("pr.groupSectionOpen"),    items: open   } : null,
     ].filter(Boolean) as { key: string; label: string | null; items: PullRequest[] }[];
-  }, [filtered, filter]);
+  }, [filtered, filter, t, i18n.language]);
 
-  const TABS: { id: Filter; label: string }[] = [
-    { id: "open",   label: "Offen" },
-    { id: "merged", label: "Gemergt" },
-    { id: "closed", label: "Geschlossen" },
-    { id: "all",    label: "Alle" },
-  ];
+  const TABS: { id: Filter; label: string }[] = useMemo(
+    () => [
+      { id: "open",   label: t("pr.filterTabOpen") },
+      { id: "merged", label: t("pr.filterTabMerged") },
+      { id: "closed", label: t("pr.filterTabClosed") },
+      { id: "all",    label: t("pr.filterTabAll") },
+    ],
+    [t, i18n.language],
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -375,7 +380,7 @@ export function PullRequestList({
           onClick={onReload}
           disabled={loading}
           className="h-7 w-7 p-0"
-          title="Aktualisieren"
+          title={t("pr.reloadTitle")}
         >
           <motion.span
             animate={loading ? { rotate: 360 } : { rotate: 0 }}
@@ -413,7 +418,7 @@ export function PullRequestList({
                 className="flex items-center justify-center p-8 text-sm text-muted-foreground"
               >
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Lade Pull Requests …
+                {t("pr.loading")}
               </motion.div>
             ) : !prs || prs.length === 0 ? (
               <EmptyState key="empty-all">
@@ -423,9 +428,9 @@ export function PullRequestList({
                   <circle cx="18" cy="12" r="2" stroke="currentColor" strokeWidth="1.5" />
                   <path d="M6 8v8M8 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
-                <span>Keine Pull Requests gefunden.</span>
+                <span>{t("pr.noneFound")}</span>
                 <span className="text-xs">
-                  Nicht angemeldet? Unter Einstellungen → Git-Konten anmelden.
+                  {t("pr.signInHint")}
                 </span>
               </EmptyState>
             ) : !filtered || filtered.length === 0 ? (
@@ -436,7 +441,7 @@ export function PullRequestList({
                   <circle cx="18" cy="12" r="2" stroke="currentColor" strokeWidth="1.5" />
                   <path d="M6 8v8M8 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
-                <span>Keine PRs in dieser Kategorie.</span>
+                <span>{t("pr.noneInCategory")}</span>
               </EmptyState>
             ) : (
               <motion.div

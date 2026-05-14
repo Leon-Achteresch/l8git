@@ -6,6 +6,7 @@ import type { Branch } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function NewBranchDialog({
   open,
@@ -18,6 +19,7 @@ export function NewBranchDialog({
   path: string;
   branches: Branch[];
 }) {
+  const { t } = useTranslation();
   const createBranch = useRepoStore((s) => s.createBranch);
   const [name, setName] = useState("");
   const [base, setBase] = useState("");
@@ -59,7 +61,7 @@ export function NewBranchDialog({
     e.preventDefault();
     const n = name.trim();
     if (!n) {
-      toastError("Branch-Name darf nicht leer sein.");
+      toastError(t("newBranchDialog.toastEmptyName"));
       return;
     }
     setBusy(true);
@@ -84,7 +86,7 @@ export function NewBranchDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Neuer Branch"
+      aria-label={t("newBranchDialog.dialogAria")}
       className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -93,21 +95,21 @@ export function NewBranchDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="font-heading text-base font-medium">Neuer Branch</h2>
+          <h2 className="font-heading text-base font-medium">{t("newBranchDialog.title")}</h2>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             onClick={dismiss}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("newBranchDialog.closeAria")}
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
           <div className="grid gap-1">
-            <Label htmlFor="nb-name">Name</Label>
+            <Label htmlFor="nb-name">{t("newBranchDialog.nameLabel")}</Label>
             <Input
               id="nb-name"
               value={name}
@@ -120,7 +122,7 @@ export function NewBranchDialog({
             />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="nb-base">Basis (lokal)</Label>
+            <Label htmlFor="nb-base">{t("newBranchDialog.baseLabel")}</Label>
             <select
               id="nb-base"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -141,14 +143,14 @@ export function NewBranchDialog({
               onChange={(e) => setCheckoutAfter(e.target.checked)}
               className="rounded border-input"
             />
-            Nach dem Anlegen auschecken
+            {t("newBranchDialog.checkoutAfter")}
           </label>
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
-              Abbrechen
+              {t("newBranchDialog.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "…" : "Anlegen"}
+              {busy ? "…" : t("newBranchDialog.create")}
             </Button>
           </div>
         </form>

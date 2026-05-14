@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 const MergeEditor3Way = lazy(() =>
@@ -24,7 +25,6 @@ const MergeEditor2Way = lazy(() =>
   import("./merge-editor-2way").then((m) => ({ default: m.MergeEditor2Way })),
 );
 
-// Language detection (subset, mirrors monaco-diff-viewer.tsx)
 const EXT_MAP: Record<string, string> = {
   ts: "typescript",
   tsx: "typescript",
@@ -81,6 +81,7 @@ export function MergeConflictPage({
   path: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const mergeState = useRepoStore((s) => s.mergeState[path]);
   const conflictedFiles = mergeState?.conflicted_paths ?? [];
   const initialFile = useUiStore((s) => s.mergeEditorInitialFile);
@@ -95,7 +96,6 @@ export function MergeConflictPage({
     void useRepoStore.getState().reloadMergeState(path);
   }, [path]);
 
-  // Auto-select: prefer the file hint from openMergeEditor, fall back to first.
   useEffect(() => {
     if (selectedFile === null && conflictedFiles.length > 0) {
       const hint =
@@ -106,7 +106,6 @@ export function MergeConflictPage({
     }
   }, [conflictedFiles, selectedFile, initialFile]);
 
-  // Load versions when file changes
   useEffect(() => {
     if (!selectedFile) return;
     const existing = fileStates[selectedFile];
@@ -144,7 +143,7 @@ export function MergeConflictPage({
         await useRepoStore
           .getState()
           .mergeSaveResolved(path, selectedFile, content);
-        toast.success("Datei gespeichert und gestaged.");
+        toast.success(t("mergeConflictPage.toastFileSaved"));
         setFileStates((prev) => ({
           ...prev,
           [selectedFile]: {
@@ -158,14 +157,14 @@ export function MergeConflictPage({
         setSaving(false);
       }
     },
-    [selectedFile, path],
+    [selectedFile, path, t],
   );
 
   async function handleCommit() {
     setCommitting(true);
     try {
       await useRepoStore.getState().mergeCommit(path);
-      toast.success("Merge-Commit erstellt.");
+      toast.success(t("mergeConflictPage.toastCommitted"));
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -179,6 +178,9 @@ export function MergeConflictPage({
     conflictedFiles.every((f) => fileStates[f]?.resolved);
 
   const current = selectedFile ? fileStates[selectedFile] : null;
+  const filesBadge = t("mergeConflictPage.filesBadge", {
+    count: conflictedFiles.length,
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
@@ -189,14 +191,13 @@ export function MergeConflictPage({
           variant="ghost"
           size="icon-sm"
           onClick={onClose}
-          title="Schließen"
+          title={t("mergeConflictPage.closeTitle")}
         >
           <X className="h-4 w-4" />
         </Button>
-        <span className="font-medium">Merge-Konflikte auflösen</span>
+        <span className="font-medium">{t("mergeConflictPage.headerTitle")}</span>
         <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-          {conflictedFiles.length} Datei
-          {conflictedFiles.length !== 1 ? "en" : ""}
+          {filesBadge}
         </span>
 
         <Button
@@ -206,20 +207,18 @@ export function MergeConflictPage({
           disabled={!allResolved || committing}
           onClick={() => void handleCommit()}
           title={
-            !allResolved
-              ? "Alle Konflikte zuerst auflösen und speichern"
-              : undefined
+            !allResolved ? t("mergeConflictPage.commitDisabledHint") : undefined
           }
         >
           <GitCommit className="mr-1 h-3.5 w-3.5" />
-          {committing ? "…" : "Merge-Commit erstellen"}
+          {committing ? "…" : t("mergeConflictPage.commitButton")}
         </Button>
       </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-56 flex-shrink-0 flex-col border-r border-border bg-card">
           <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
-            Konfliktdateien
+            {t("mergeConflictPage.sidebarHeading")}
           </div>
           <ul className="flex-1 overflow-y-auto py-1">
             {conflictedFiles.map((file) => {
@@ -257,7 +256,7 @@ export function MergeConflictPage({
           {!selectedFile ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
               <FileCode2 className="h-8 w-8 opacity-40" />
-              <span className="text-sm">Wähle links eine Datei aus</span>
+              <span className="text-sm">{t("mergeConflictPage.pickFile")}</span>
             </div>
           ) : current?.loading ? (
             <div className="flex h-full items-center justify-center">
@@ -291,7 +290,7 @@ export function MergeConflictPage({
             </Suspense>
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Datei konnte nicht geladen werden.
+              {t("mergeConflictPage.loadFailed")}
             </div>
           )}
         </main>

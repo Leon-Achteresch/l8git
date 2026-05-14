@@ -7,57 +7,21 @@ import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { GitMerge, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-type StrategyInfo = {
-  id: MergeStrategy;
-  label: string;
-  description: string;
-  createsCommit: boolean;
-};
-
-const STRATEGIES: StrategyInfo[] = [
-  {
-    id: "ff",
-    label: "Fast-Forward (auto)",
-    description:
-      "Falls möglich wird einfach der Branch-Pointer weitergesetzt. Ist ein echter Merge nötig, entsteht ein Merge-Commit.",
-    createsCommit: true,
-  },
-  {
-    id: "ff-only",
-    label: "Nur Fast-Forward",
-    description:
-      "Merge nur, wenn er als reiner Fast-Forward möglich ist. Bricht sonst ab. Es wird kein Commit erzeugt.",
-    createsCommit: false,
-  },
-  {
-    id: "no-ff",
-    label: "Merge-Commit erzwingen (--no-ff)",
-    description:
-      "Erstellt immer einen expliziten Merge-Commit – auch wenn ein Fast-Forward möglich wäre.",
-    createsCommit: true,
-  },
-  {
-    id: "squash",
-    label: "Squash-Merge",
-    description:
-      "Fasst alle Änderungen in einen einzigen neuen Commit zusammen. Es entsteht kein Merge-Commit, sondern ein normaler Commit.",
-    createsCommit: true,
-  },
-];
-
-function defaultMessageFor(
+function defaultMergeMessageFor(
+  t: (key: string, opts?: Record<string, string>) => string,
   strategy: MergeStrategy,
   source: string,
   target: string,
 ) {
   if (strategy === "squash") {
     return target
-      ? `Squashed commit from '${source}' into ${target}`
-      : `Squashed commit from '${source}'`;
+      ? t("merge.squashMessageWithTarget", { source, target })
+      : t("merge.squashMessageNoTarget", { source });
   }
-  return target ? `Merge branch '${source}' into ${target}` : `Merge branch '${source}'`;
+  return target ? t("merge.mergeMessageWithTarget", { source, target }) : t("merge.mergeMessageNoTarget", { source });
 }
 
 export function MergeDialog({
@@ -71,25 +35,55 @@ export function MergeDialog({
   path: string;
   sourceBranch: string;
 }) {
+  const { t } = useTranslation();
   const mergeBranch = useRepoStore((s) => s.mergeBranch);
-  const currentBranch = useRepoStore(
-    (s) => s.repos[path]?.branch ?? "",
-  );
+  const currentBranch = useRepoStore((s) => s.repos[path]?.branch ?? "");
 
   const [strategy, setStrategy] = useState<MergeStrategy>("ff");
   const [useCustomMessage, setUseCustomMessage] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const strategies = useMemo(
+    () =>
+      [
+        {
+          id: "ff" as const,
+          label: t("merge.strategyFfLabel"),
+          description: t("merge.strategyFfDesc"),
+          createsCommit: true,
+        },
+        {
+          id: "ff-only" as const,
+          label: t("merge.strategyFfOnlyLabel"),
+          description: t("merge.strategyFfOnlyDesc"),
+          createsCommit: false,
+        },
+        {
+          id: "no-ff" as const,
+          label: t("merge.strategyNoFfLabel"),
+          description: t("merge.strategyNoFfDesc"),
+          createsCommit: true,
+        },
+        {
+          id: "squash" as const,
+          label: t("merge.strategySquashLabel"),
+          description: t("merge.strategySquashDesc"),
+          createsCommit: true,
+        },
+      ] as const,
+    [t],
+  );
+
   const active = useMemo(
-    () => STRATEGIES.find((s) => s.id === strategy) ?? STRATEGIES[0],
-    [strategy],
+    () => strategies.find((s) => s.id === strategy) ?? strategies[0],
+    [strategy, strategies],
   );
 
   const messageRelevant = strategy === "no-ff" || strategy === "squash";
   const autoMessage = useMemo(
-    () => defaultMessageFor(strategy, sourceBranch, currentBranch),
-    [strategy, sourceBranch, currentBranch],
+    () => defaultMergeMessageFor(t, strategy, sourceBranch, currentBranch),
+    [strategy, sourceBranch, currentBranch, t],
   );
 
   useEffect(() => {
@@ -123,7 +117,7 @@ export function MergeDialog({
       if (messageRelevant) {
         const msg = useCustomMessage ? message.trim() : autoMessage;
         if (!msg) {
-          toastError("Merge-Nachricht darf nicht leer sein.");
+          toastError(t("merge.messageEmptyToast"));
           setBusy(false);
           return;
         }
@@ -131,18 +125,18 @@ export function MergeDialog({
       }
       const out = await mergeBranch(path, sourceBranch, payload);
       if (out.toLowerCase().includes("conflict")) {
-        toast.warning("Merge mit Konflikten. Bitte Konflikte im Editor auflösen.", {
+        toast.warning(t("merge.toastConflict"), {
           duration: 6000,
         });
         onClose();
       } else {
-        toast.success(out.trim() || "Merge abgeschlossen.");
+        toast.success(out.trim() || t("merge.toastSuccess"));
         onClose();
       }
     } catch (err) {
       const msg = String(err);
       if (msg.toLowerCase().includes("conflict")) {
-        toast.warning("Merge mit Konflikten. Bitte Konflikte im Editor auflösen.", {
+        toast.warning(t("merge.toastConflict"), {
           duration: 6000,
         });
         onClose();
@@ -160,7 +154,7 @@ export function MergeDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Branch mergen"
+      aria-label={t("merge.dialogAria")}
       className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -171,16 +165,9 @@ export function MergeDialog({
         <header className="mb-3 flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-heading text-base font-medium">
             <GitMerge className="h-4 w-4" />
-            Branch mergen
+            {t("merge.title")}
           </h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={dismiss}
-            disabled={busy}
-            aria-label="Schließen"
-          >
+          <Button type="button" variant="ghost" size="icon-sm" onClick={dismiss} disabled={busy} aria-label={t("dialogs.closeAria")}>
             <X className="h-4 w-4" />
           </Button>
         </header>
@@ -189,7 +176,8 @@ export function MergeDialog({
           <span className="font-mono text-foreground">{sourceBranch}</span>
           {currentBranch ? (
             <>
-              {" "}→{" "}
+              {" "}
+              →{" "}
               <span className="font-mono text-foreground">{currentBranch}</span>
             </>
           ) : null}
@@ -197,19 +185,15 @@ export function MergeDialog({
 
         <form onSubmit={(e) => void submit(e)} className="grid gap-4">
           <fieldset className="grid gap-2" disabled={busy}>
-            <legend className="mb-1 text-xs font-medium text-muted-foreground">
-              Merge-Strategie
-            </legend>
-            {STRATEGIES.map((s) => {
+            <legend className="mb-1 text-xs font-medium text-muted-foreground">{t("merge.strategyLegend")}</legend>
+            {strategies.map((s) => {
               const checked = s.id === strategy;
               return (
                 <label
                   key={s.id}
                   className={cn(
                     "flex cursor-pointer items-start gap-2 rounded-md border border-border p-2 text-sm transition-colors",
-                    checked
-                      ? "border-primary bg-accent/40"
-                      : "hover:bg-accent/30",
+                    checked ? "border-primary bg-accent/40" : "hover:bg-accent/30",
                   )}
                 >
                   <input
@@ -222,9 +206,7 @@ export function MergeDialog({
                   />
                   <span className="grid gap-0.5">
                     <span className="font-medium">{s.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {s.description}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{s.description}</span>
                   </span>
                 </label>
               );
@@ -234,7 +216,7 @@ export function MergeDialog({
           {messageRelevant ? (
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="merge-msg">Commit-Nachricht</Label>
+                <Label htmlFor="merge-msg">{t("merge.messageLabel")}</Label>
                 <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
@@ -243,7 +225,7 @@ export function MergeDialog({
                     className="h-3.5 w-3.5 accent-primary"
                     disabled={busy}
                   />
-                  Eigene Nachricht
+                  {t("merge.customMessage")}
                 </label>
               </div>
               <Textarea
@@ -253,37 +235,22 @@ export function MergeDialog({
                 readOnly={!useCustomMessage}
                 rows={3}
                 spellCheck={false}
-                className={cn(
-                  "font-mono text-xs",
-                  !useCustomMessage && "bg-muted/40 text-muted-foreground",
-                )}
+                className={cn("font-mono text-xs", !useCustomMessage && "bg-muted/40 text-muted-foreground")}
               />
-              {!useCustomMessage ? (
-                <p className="text-xs text-muted-foreground">
-                  Automatisch generiert. Aktiviere „Eigene Nachricht" für einen individuellen Text.
-                </p>
-              ) : null}
+              {!useCustomMessage ? <p className="text-xs text-muted-foreground">{t("merge.autoMessageHint")}</p> : null}
             </div>
           ) : (
             <p className="rounded-md border border-dashed border-border bg-muted/30 p-2 text-xs text-muted-foreground">
-              {active.id === "ff-only"
-                ? "Bei einem reinen Fast-Forward wird kein Commit erstellt – daher ist keine Merge-Nachricht nötig."
-                : "Falls ein Fast-Forward möglich ist, wird kein Commit erzeugt. Andernfalls verwendet Git die Standard-Merge-Nachricht."}
+              {active.id === "ff-only" ? t("merge.hintFfOnly") : t("merge.hintFfFlexible")}
             </p>
           )}
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={dismiss}
-              disabled={busy}
-            >
-              Abbrechen
+            <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
+              {t("common.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "…" : "Mergen"}
+              {busy ? t("merge.submitBusy") : t("merge.submit")}
             </Button>
           </div>
         </form>

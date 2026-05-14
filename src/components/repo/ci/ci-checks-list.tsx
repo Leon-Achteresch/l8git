@@ -1,5 +1,6 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { CiCheckRow } from "./ci-check-row";
 import { RemoteCiCheck } from "./ci-types";
 
@@ -14,6 +15,7 @@ export function CiChecksList({
   loading: boolean;
   emptyLabel?: string;
 }) {
+  const { t } = useTranslation();
   if (loading && !checks) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -25,7 +27,7 @@ export function CiChecksList({
   if (!checks || checks.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-center text-sm font-medium text-muted-foreground/70">
-        {emptyLabel ?? "Keine CI-Checks gefunden."}
+        {emptyLabel ?? t("ci.noChecks")}
       </div>
     );
   }

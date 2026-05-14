@@ -17,7 +17,8 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { StaggerCard } from "@/components/motion/stagger-card";
 import { AddGitAccount } from "@/components/repo/git-account/add-git-account";
@@ -37,9 +38,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { checkForAppUpdate } from "@/lib/app-updater";
-import { useCommitPrefs } from "@/lib/commit-prefs";
 import { DEFAULT_AI_PROMPT_TEMPLATE } from "@/lib/ai-commit";
+import { useCommitPrefs } from "@/lib/commit-prefs";
 import { useGitAccounts } from "@/lib/git-accounts";
+import { useLocalePrefs } from "@/lib/locale-prefs";
 import type { Theme } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
 import { cn } from "@/lib/utils";
@@ -52,29 +54,45 @@ export const Route = createFileRoute("/settings")({
   component: Settings,
 });
 
-const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "Hell", icon: Sun },
-  { value: "dark", label: "Dunkel", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
-];
-
-const REPO_TERMINAL_OPTIONS: { value: RepoTerminalKind; label: string }[] = [
-  { value: "default", label: "Standard-Terminal" },
-  { value: "git_bash", label: "Git Bash" },
-];
-
-const NAV_ITEMS = [
-  { id: "darstellung", label: "Darstellung", icon: Palette },
-  { id: "animationen", label: "Animationen", icon: Zap },
-  { id: "commits", label: "Commits", icon: FileText },
-  { id: "workspace", label: "Workspace", icon: Terminal },
-  { id: "konten", label: "Git-Konten", icon: Users },
-  { id: "updates", label: "Updates", icon: Download },
-];
-
 function Settings() {
+  const { t } = useTranslation();
+  const locale = useLocalePrefs((s) => s.locale);
+  const setLocale = useLocalePrefs((s) => s.setLocale);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const themeOptions = useMemo(
+    () =>
+      [
+        { value: "light" as const, label: t("settings.themeLight"), icon: Sun },
+        { value: "dark" as const, label: t("settings.themeDark"), icon: Moon },
+        {
+          value: "system" as const,
+          label: t("settings.themeSystem"),
+          icon: Monitor,
+        },
+      ] satisfies { value: Theme; label: string; icon: typeof Sun }[],
+    [t],
+  );
+  const repoTerminalOptions = useMemo(
+    () =>
+      [
+        { value: "default" as const, label: t("settings.terminalDefault") },
+        { value: "git_bash" as const, label: t("settings.terminalGitBash") },
+      ] satisfies { value: RepoTerminalKind; label: string }[],
+    [t],
+  );
+  const navItems = useMemo(
+    () =>
+      [
+        { id: "appearance", label: t("settings.navAppearance"), icon: Palette },
+        { id: "animations", label: t("settings.navAnimations"), icon: Zap },
+        { id: "commits", label: t("settings.navCommits"), icon: FileText },
+        { id: "workspace", label: t("settings.navWorkspace"), icon: Terminal },
+        { id: "accounts", label: t("settings.navAccounts"), icon: Users },
+        { id: "updates", label: t("settings.navUpdates"), icon: Download },
+      ],
+    [t],
+  );
   const {
     accounts,
     helper,
@@ -143,7 +161,7 @@ function Settings() {
 
   const mainRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
-  const [activeSection, setActiveSection] = useState("darstellung");
+  const [activeSection, setActiveSection] = useState("appearance");
 
   useEffect(() => {
     const main = mainRef.current;
@@ -187,7 +205,7 @@ function Settings() {
     const selected = await open({
       directory: false,
       multiple: false,
-      title: "IDE-Programm auswählen",
+      title: t("settings.idePickTitle"),
     });
     if (!selected || typeof selected !== "string") return;
     setIdeDraft(selected);
@@ -214,18 +232,18 @@ function Settings() {
             className="gap-1.5 text-muted-foreground hover:text-foreground -ml-1 h-8"
           >
             <ArrowLeft className="size-3.5" />
-            Zurück
+            {t("settings.back")}
           </Button>
         </div>
 
         <div className="px-4 pt-4 pb-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-            Einstellungen
+            {t("settings.title")}
           </p>
         </div>
 
         <nav className="flex-1 px-2 pb-4 space-y-0.5">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+          {navItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -250,8 +268,8 @@ function Settings() {
       >
         <div className="px-10 py-10 space-y-14 max-w-4xl">
           <section
-            id="darstellung"
-            ref={setRef("darstellung")}
+            id="appearance"
+            ref={setRef("appearance")}
             className="scroll-mt-10"
           >
             <div className="flex items-center gap-3 mb-6">
@@ -260,10 +278,10 @@ function Settings() {
               </div>
               <div>
                 <h2 className="text-base font-semibold leading-none">
-                  Darstellung
+                  {t("settings.appearanceTitle")}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Erscheinungsbild der App anpassen
+                  {t("settings.appearanceSubtitle")}
                 </p>
               </div>
             </div>
@@ -271,18 +289,62 @@ function Settings() {
             <StaggerCard index={0}>
               <Card>
                 <CardHeader>
-                  <CardTitle>Theme</CardTitle>
+                  <CardTitle>{t("settings.languageTitle")}</CardTitle>
                   <CardDescription>
-                    „System" folgt deiner OS-Einstellung.
+                    {t("settings.languageSubtitle")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div
                     role="radiogroup"
-                    aria-label="Theme"
+                    aria-label={t("settings.languageTitle")}
+                    className="grid grid-cols-2 gap-3 sm:max-w-md"
+                  >
+                    {(
+                      [
+                        { value: "de" as const, label: t("settings.languageDe") },
+                        { value: "en" as const, label: t("settings.languageEn") },
+                      ] as const
+                    ).map(({ value, label }) => {
+                      const active = locale === value;
+                      return (
+                        <Button
+                          key={value}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          variant={active ? "default" : "outline"}
+                          onClick={() => setLocale(value)}
+                          className={cn(
+                            "h-auto py-3",
+                            active &&
+                              "ring-2 ring-ring ring-offset-2 ring-offset-background",
+                          )}
+                        >
+                          <span className="text-sm">{label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </StaggerCard>
+
+            <StaggerCard index={1}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("settings.themeTitle")}</CardTitle>
+                  <CardDescription>
+                    {t("settings.themeDesc")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    role="radiogroup"
+                    aria-label={t("settings.themeAria")}
                     className="grid grid-cols-3 gap-3"
                   >
-                    {THEMES.map(({ value, label, icon: Icon }) => {
+                    {themeOptions.map(({ value, label, icon: Icon }) => {
                       const active = theme === value;
                       return (
                         <Button
@@ -312,8 +374,8 @@ function Settings() {
           <div className="border-t border-border/50" />
 
           <section
-            id="animationen"
-            ref={setRef("animationen")}
+            id="animations"
+            ref={setRef("animations")}
             className="scroll-mt-10"
           >
             <div className="flex items-center gap-3 mb-6">
@@ -322,15 +384,15 @@ function Settings() {
               </div>
               <div>
                 <h2 className="text-base font-semibold leading-none">
-                  Animationen
+                  {t("settings.animationsSectionTitle")}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Übergänge und Bewegungseffekte
+                  {t("settings.animationsSectionSubtitle")}
                 </p>
               </div>
             </div>
 
-            <StaggerCard index={1}>
+            <StaggerCard index={2}>
               <AnimationsCard />
             </StaggerCard>
           </section>
@@ -348,26 +410,21 @@ function Settings() {
               </div>
               <div>
                 <h2 className="text-base font-semibold leading-none">
-                  Commits
+                  {t("settings.commitsSectionTitle")}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Commit-Darstellung und Nachrichtenvorlage
+                  {t("settings.commitsSectionSubtitle")}
                 </p>
               </div>
             </div>
 
             <div className="space-y-4">
-              <StaggerCard index={2}>
+              <StaggerCard index={3}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Commit-Historie</CardTitle>
+                    <CardTitle>{t("settings.historyTitle")}</CardTitle>
                     <CardDescription>
-                      Optionale Kennzeichnung nach Conventional Commits
-                      (Typ-Icons, BREAKING CHANGE /{" "}
-                      <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-                        !
-                      </code>{" "}
-                      vor dem Doppelpunkt).
+                      {t("settings.historyDesc")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -385,11 +442,10 @@ function Settings() {
                           htmlFor="conventional-commit-icons"
                           className="cursor-pointer text-sm font-medium text-foreground"
                         >
-                          Conventional-Commit-Symbole anzeigen
+                          {t("settings.conventionalIconsLabel")}
                         </Label>
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Wenn ausgeschaltet, werden in der Commit-Liste keine
-                          Typ- oder Breaking-Hinweise als Symbole gerendert.
+                          {t("settings.conventionalIconsHint")}
                         </p>
                       </div>
                     </div>
@@ -407,11 +463,10 @@ function Settings() {
                           htmlFor="commit-date-groups"
                           className="cursor-pointer text-sm font-medium text-foreground"
                         >
-                          Datumsgruppen anzeigen
+                          {t("settings.dateGroupsLabel")}
                         </Label>
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Zeigt Abschnitts-Überschriften wie „Heute", „Gestern"
-                          oder „Diese Woche" zwischen den Commits an.
+                          {t("settings.dateGroupsHint")}
                         </p>
                       </div>
                     </div>
@@ -419,12 +474,12 @@ function Settings() {
                 </Card>
               </StaggerCard>
 
-              <StaggerCard index={3}>
+              <StaggerCard index={4}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Commit-Graph</CardTitle>
+                    <CardTitle>{t("settings.graphTitle")}</CardTitle>
                     <CardDescription>
-                      Steuert, welche Commits im Verlauf angezeigt werden.
+                      {t("settings.graphDesc")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -440,51 +495,16 @@ function Settings() {
                           htmlFor="hide-t3-checkpoints"
                           className="cursor-pointer text-sm font-medium text-foreground"
                         >
-                          T3-Checkpoint-Commits ausblenden
+                          {t("settings.hideT3Label")}
                         </Label>
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          T3 Code speichert Arbeitsstand-Snapshots als separate
-                          Commits unter{" "}
+                          {t("settings.hideT3HintPart1")}
                           <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
                             refs/t3/checkpoints/*
                           </code>
-                          . Diese erscheinen nicht in einem Branch und können
-                          den Graphen unübersichtlich machen. Änderung wirkt
-                          beim nächsten Laden des Repositories.
+                          {t("settings.hideT3HintPart2")}
                         </p>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </StaggerCard>
-
-              <StaggerCard index={4}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Commit-Nachricht</CardTitle>
-                    <CardDescription>
-                      Standardvorlage für das Commit-Feld in allen
-                      Repositories. Die KI übernimmt dieselbe Struktur bei der
-                      automatischen Commit-Nachricht, wenn gesetzt. Leer lassen,
-                      wenn keine Vorlage verwendet werden soll.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Textarea
-                      value={commitTemplateDraft}
-                      onChange={(e) => setCommitTemplateDraft(e.target.value)}
-                      rows={6}
-                      placeholder={"z. B. kurze Überschrift\n\n- \n"}
-                      className="font-mono text-sm min-h-[140px]"
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        disabled={!commitTemplateDirty}
-                        onClick={() => setMessageTemplate(commitTemplateDraft)}
-                      >
-                        Speichern
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -493,20 +513,47 @@ function Settings() {
               <StaggerCard index={5}>
                 <Card>
                   <CardHeader>
+                    <CardTitle>{t("settings.messageTitle")}</CardTitle>
+                    <CardDescription>
+                      {t("settings.messageDesc")}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Textarea
+                      value={commitTemplateDraft}
+                      onChange={(e) => setCommitTemplateDraft(e.target.value)}
+                      rows={6}
+                      placeholder={t("settings.messagePlaceholder")}
+                      className="font-mono text-sm min-h-[140px]"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        disabled={!commitTemplateDirty}
+                        onClick={() => setMessageTemplate(commitTemplateDraft)}
+                      >
+                        {t("common.save")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={6}>
+                <Card>
+                  <CardHeader>
                     <div className="flex items-center gap-2">
                       <Sparkles className="size-4 text-muted-foreground" />
-                      <CardTitle>AI Commit-Nachricht</CardTitle>
+                      <CardTitle>{t("settings.aiTitle")}</CardTitle>
                     </div>
                     <CardDescription>
-                      Anweisungen und Ausgabesprache für die automatische
-                      Commit-Generierung. Leer lassen, um die Standard-Vorlage
-                      zu verwenden.
+                      {t("settings.aiDesc")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="ai-language" className="text-sm font-medium">
-                        Ausgabesprache
+                        {t("settings.aiOutputLanguage")}
                       </Label>
                       <Input
                         id="ai-language"
@@ -518,12 +565,12 @@ function Settings() {
                         autoCorrect="off"
                       />
                       <p className="text-xs text-muted-foreground">
-                        z. B. „German", „Deutsch", „French", „English" (Standard)
+                        {t("settings.aiOutputHint")}
                       </p>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="ai-prompt" className="text-sm font-medium">
-                        System-Prompt
+                        {t("settings.aiPromptLabel")}
                       </Label>
                       <Textarea
                         id="ai-prompt"
@@ -535,9 +582,7 @@ function Settings() {
                         spellCheck={false}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Leer lassen, um den Standard-Prompt zu verwenden.
-                        Ausgabesprache und Commit-Vorlage werden zusätzlich als
-                        feste Vorgaben ergänzt.
+                        {t("settings.aiPromptHint")}
                       </p>
                     </div>
                     <div className="flex justify-end">
@@ -549,7 +594,7 @@ function Settings() {
                           setAiOutputLanguage(aiLanguageDraft);
                         }}
                       >
-                        Speichern
+                        {t("common.save")}
                       </Button>
                     </div>
                   </CardContent>
@@ -571,34 +616,20 @@ function Settings() {
               </div>
               <div>
                 <h2 className="text-base font-semibold leading-none">
-                  Workspace
+                  {t("settings.workspaceSectionTitle")}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  IDE-Befehl und Terminal-Einstellungen
+                  {t("settings.workspaceSectionSubtitle")}
                 </p>
               </div>
             </div>
 
-            <StaggerCard index={4}>
+            <StaggerCard index={7}>
               <Card>
                 <CardHeader>
-                  <CardTitle>IDE & Workspace</CardTitle>
+                  <CardTitle>{t("settings.ideTitle")}</CardTitle>
                   <CardDescription>
-                    Befehl zum Öffnen des Repository-Ordners in deiner IDE. Der
-                    Repository-Pfad wird automatisch als letztes Argument
-                    angehängt. Beispiele:{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                      cursor
-                    </code>
-                    ,{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                      code
-                    </code>
-                    ,{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                      open -a Cursor
-                    </code>{" "}
-                    (macOS).
+                    {t("settings.ideDesc")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -619,7 +650,7 @@ function Settings() {
                       onClick={() => void pickIdeExecutable()}
                     >
                       <FolderOpen className="size-4" />
-                      Auswählen
+                      {t("common.select")}
                     </Button>
                   </div>
                   <div className="flex justify-end">
@@ -628,27 +659,24 @@ function Settings() {
                       disabled={!ideDirty}
                       onClick={() => setIdeLaunchCommand(ideDraft)}
                     >
-                      Speichern
+                      {t("common.save")}
                     </Button>
                   </div>
                   <div className="space-y-2 border-t border-border pt-3">
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        Terminal im Repository
+                        {t("settings.terminalInRepo")}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Wird von der Schaltfläche „Terminal" in der
-                        Remote-Ansicht verwendet. Git Bash bezieht sich auf die
-                        Installation von Git for Windows; auf macOS und Linux
-                        bleibt es beim Standard-Terminal.
+                        {t("settings.terminalInRepoHint")}
                       </p>
                     </div>
                     <div
                       role="radiogroup"
-                      aria-label="Repository-Terminal"
+                      aria-label={t("settings.terminalAria")}
                       className="grid grid-cols-1 gap-2 sm:grid-cols-2"
                     >
-                      {REPO_TERMINAL_OPTIONS.map(({ value, label }) => {
+                      {repoTerminalOptions.map(({ value, label }) => {
                         const active = repoTerminalKind === value;
                         return (
                           <Button
@@ -678,8 +706,8 @@ function Settings() {
           <div className="border-t border-border/50" />
 
           <section
-            id="konten"
-            ref={setRef("konten")}
+            id="accounts"
+            ref={setRef("accounts")}
             className="scroll-mt-10"
           >
             <div className="flex items-center gap-3 mb-6">
@@ -688,20 +716,20 @@ function Settings() {
               </div>
               <div>
                 <h2 className="text-base font-semibold leading-none">
-                  Git-Konten
+                  {t("settings.accountsSectionTitle")}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Angemeldete Git-Anbieter verwalten
+                  {t("settings.accountsSectionSubtitle")}
                 </p>
               </div>
             </div>
 
-            <StaggerCard index={5}>
+            <StaggerCard index={8}>
               <Card>
                 <CardHeader>
-                  <CardTitle>Verbundene Konten</CardTitle>
+                  <CardTitle>{t("settings.accountsCardTitle")}</CardTitle>
                   <CardDescription>
-                    Übersicht deiner angemeldeten Git-Anbieter.
+                    {t("settings.accountsCardDesc")}
                   </CardDescription>
                   <CardAction>
                     <div className="flex items-center gap-1">
@@ -710,7 +738,7 @@ function Settings() {
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => void refresh()}
-                        aria-label="Aktualisieren"
+                        aria-label={t("settings.refreshAria")}
                         disabled={loading || refreshing}
                       >
                         <RefreshCw
@@ -724,7 +752,7 @@ function Settings() {
                         variant="default"
                         size="icon-sm"
                         onClick={() => setAddOpen(true)}
-                        aria-label="Konto hinzufügen"
+                        aria-label={t("settings.addAccountAria")}
                       >
                         <Plus />
                       </Button>
@@ -736,19 +764,14 @@ function Settings() {
                     <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
                       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                       <div>
-                        Kein Git Credential Helper konfiguriert. Setze z. B.
-                        mit{" "}
-                        <code className="rounded bg-background/60 px-1 py-0.5">
-                          git config --global credential.helper osxkeychain
-                        </code>
-                        , damit Anmeldedaten dauerhaft gespeichert werden.
+                        {t("settings.noCredentialHelper")}
                       </div>
                     </div>
                   )}
 
                   {helper && (
                     <p className="text-xs text-muted-foreground">
-                      Credential Helper:{" "}
+                      {t("settings.credentialHelper")}
                       <code className="rounded bg-muted px-1 py-0.5">
                         {helper}
                       </code>
@@ -759,10 +782,10 @@ function Settings() {
                     <div className="rounded-lg border border-dashed border-border bg-background/40 p-6 text-center">
                       <p className="text-sm text-muted-foreground">
                         {loading
-                          ? "Lade Konten…"
+                          ? t("settings.accountsLoading")
                           : refreshing
-                            ? "Aktualisiere…"
-                            : "Keine angemeldeten Git-Konten. Füge eines über das Plus-Symbol hinzu."}
+                            ? t("settings.accountsRefreshing")
+                            : t("settings.accountsEmpty")}
                       </p>
                     </div>
                   ) : (
@@ -797,22 +820,20 @@ function Settings() {
               </div>
               <div>
                 <h2 className="text-base font-semibold leading-none">
-                  Updates
+                  {t("settings.updatesSectionTitle")}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  App-Versionen prüfen und installieren
+                  {t("settings.updatesSectionSubtitle")}
                 </p>
               </div>
             </div>
 
-            <StaggerCard index={6}>
+            <StaggerCard index={9}>
               <Card>
                 <CardHeader>
-                  <CardTitle>App-Updates</CardTitle>
+                  <CardTitle>{t("settings.updatesCardTitle")}</CardTitle>
                   <CardDescription>
-                    Releases werden automatisch über GitHub bereitgestellt. Neue
-                    Versionen können direkt aus der App heruntergeladen und
-                    installiert werden.
+                    {t("settings.updatesCardDesc")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex justify-end">
@@ -829,7 +850,7 @@ function Settings() {
                         checkingForUpdates && "animate-spin",
                       )}
                     />
-                    Nach Updates suchen
+                    {t("settings.checkUpdates")}
                   </Button>
                 </CardContent>
               </Card>

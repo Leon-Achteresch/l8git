@@ -1,10 +1,12 @@
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CiCheckDetails } from "./ci-check-details";
 import { CiCheckIcon } from "./ci-check-icon";
 import { RemoteCiCheck } from "./ci-types";
 
 export function CiCheckRow({ check }: { check: RemoteCiCheck }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
   const metaParts: string[] = [];
@@ -55,7 +57,7 @@ export function CiCheckRow({ check }: { check: RemoteCiCheck }) {
                 window.open(check.html_url!, "_blank", "noopener,noreferrer");
               }}
               className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-              title="Im Browser öffnen"
+              title={t("ci.openInBrowser")}
             >
               <ExternalLink className="h-4 w-4" />
             </button>

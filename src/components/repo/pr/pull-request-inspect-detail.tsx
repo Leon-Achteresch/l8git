@@ -5,7 +5,8 @@ import type { PrReviewer, PullRequest } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { AlertCircle, CheckCircle2, Download, ExternalLink, GitMerge, Loader2, PanelRightClose, PanelRightOpen, RefreshCw, X } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PullRequestCommitsTab } from "./pull-request-commits-tab";
@@ -25,23 +26,31 @@ type Tab = "conversation" | "commits" | "files" | "checks";
 
 /* ─── Status pill ─────────────────────────────────────────────────────────── */
 
-const STATUS_PILL: Record<string, { label: string; bg: string; dot: string }> = {
-  open:   { label: "Offen",       bg: "bg-[oklch(0.93_0.06_145/0.15)] text-[oklch(0.36_0.13_145)] border-[oklch(0.85_0.08_145)]",   dot: "bg-[oklch(0.55_0.15_145)]" },
-  draft:  { label: "Entwurf",     bg: "bg-muted/50 text-muted-foreground border-border",                                              dot: "bg-muted-foreground" },
-  merged: { label: "Gemergt",     bg: "bg-[oklch(0.93_0.06_290/0.15)] text-[oklch(0.4_0.14_290)] border-[oklch(0.85_0.08_290)]",    dot: "bg-[oklch(0.55_0.14_290)]" },
-  closed: { label: "Geschlossen", bg: "bg-[oklch(0.93_0.05_25/0.15)] text-[oklch(0.4_0.14_25)] border-[oklch(0.85_0.08_25)]",       dot: "bg-[oklch(0.6_0.16_25)]" },
+const STATUS_PILL_STYLES: Record<string, { bg: string; dot: string }> = {
+  open:   { bg: "bg-[oklch(0.93_0.06_145/0.15)] text-[oklch(0.36_0.13_145)] border-[oklch(0.85_0.08_145)]",   dot: "bg-[oklch(0.55_0.15_145)]" },
+  draft:  { bg: "bg-muted/50 text-muted-foreground border-border",                                              dot: "bg-muted-foreground" },
+  merged: { bg: "bg-[oklch(0.93_0.06_290/0.15)] text-[oklch(0.4_0.14_290)] border-[oklch(0.85_0.08_290)]",    dot: "bg-[oklch(0.55_0.14_290)]" },
+  closed: { bg: "bg-[oklch(0.93_0.05_25/0.15)] text-[oklch(0.4_0.14_25)] border-[oklch(0.85_0.08_25)]",       dot: "bg-[oklch(0.6_0.16_25)]" },
 };
 
 function StatusPill({ state, isDraft }: { state: string; isDraft: boolean }) {
+  const { t } = useTranslation();
   const key = state === "open" && isDraft ? "draft" : state;
-  const pill = STATUS_PILL[key] ?? STATUS_PILL["open"];
+  const pill = STATUS_PILL_STYLES[key] ?? STATUS_PILL_STYLES["open"];
+  const labelKeys: Record<string, string> = {
+    open: "prInspect.pillOpen",
+    draft: "prInspect.pillDraft",
+    merged: "prInspect.pillMerged",
+    closed: "prInspect.pillClosed",
+  };
+  const lk = labelKeys[key] ?? "prInspect.pillOpen";
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${pill.bg}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${pill.dot}`} />
-      {pill.label}
-      {isDraft && state === "open" ? " · Entwurf" : ""}
+      {t(lk)}
+      {isDraft && state === "open" ? t("prInspect.pillDraftSuffix") : ""}
     </span>
   );
 }
@@ -114,15 +123,16 @@ function SideCard({ title, action, children }: { title: string; action?: string;
 }
 
 function ReviewerCard({ reviewers }: { reviewers: PrReviewer[] }) {
+  const { t } = useTranslation();
   if (reviewers.length === 0) {
     return (
-      <SideCard title="Reviewer" action="anfragen">
-        <span className="text-[11px] italic text-muted-foreground">Noch keine Reviewer</span>
+      <SideCard title={t("prInspect.reviewerTitle")} action={t("prInspect.requestReview")}>
+        <span className="text-[11px] italic text-muted-foreground">{t("prInspect.reviewerEmpty")}</span>
       </SideCard>
     );
   }
   return (
-    <SideCard title="Reviewer" action="anfragen">
+    <SideCard title={t("prInspect.reviewerTitle")} action={t("prInspect.requestReview")}>
       <ul className="flex flex-col gap-1.5">
         {reviewers.map((r) => (
           <li key={r.login} className="flex items-center gap-2">
@@ -161,6 +171,7 @@ function MergeStateBanner({
   onMerge: () => void;
   onCheckout: () => void;
 }) {
+  const { t } = useTranslation();
   const isActive = detail.state === "open" || detail.state === "draft";
   const isResolved = detail.state === "merged" || detail.state === "closed";
 
@@ -186,15 +197,15 @@ function MergeStateBanner({
           <span className="mt-0.5 text-lg leading-none">{isMerged ? "⮣" : "✕"}</span>
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-semibold">
-              {isMerged ? "Erfolgreich gemergt" : "Geschlossen ohne Merge"}
+              {isMerged ? t("prInspect.mergedBannerTitle") : t("prInspect.closedBannerTitle")}
             </div>
             <div className="mt-0.5 text-[11px] opacity-80">
-              Branch <code className="rounded bg-black/10 px-1 py-0 font-mono">{detail.source_branch}</code> kann gelöscht werden.
+              {t("prInspect.branchMaybeDeleteHint", { branch: detail.source_branch })}
             </div>
           </div>
           <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={onCheckout} disabled={busy !== null}>
             <Download className="mr-1 h-3 w-3" />
-            Auschecken
+            {t("prInspect.checkoutVerb")}
           </Button>
         </div>
       </motion.div>
@@ -208,13 +219,13 @@ function MergeStateBanner({
       <motion.div {...bannerMotion} className="rounded-md border border-[oklch(0.86_0.08_70)] bg-[oklch(0.97_0.03_70/0.15)] p-3 text-[oklch(0.4_0.13_70)]">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[13px] font-semibold">Entwurf — noch nicht reviewfertig</div>
+            <div className="text-[13px] font-semibold">{t("prInspect.draftBlockedTitle")}</div>
             <div className="mt-0.5 text-[11px] opacity-80">
-              Aus dem Entwurf nehmen, um Review & Merge zu aktivieren.
+              {t("prInspect.draftBlockedSubtitle")}
             </div>
           </div>
           <Button size="sm" className="h-7 shrink-0 text-[11px]">
-            Bereit für Review
+            {t("prInspect.readyForReview")}
           </Button>
         </div>
       </motion.div>
@@ -228,17 +239,17 @@ function MergeStateBanner({
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-semibold">
-              Merge-Konflikt mit <code className="rounded bg-black/10 px-1 font-mono">{detail.target_branch}</code>
+              {t("prInspect.mergeConflictLead")}{" "}
+              <code className="rounded bg-black/10 px-1 font-mono">{detail.target_branch}</code>
             </div>
             <div className="mt-0.5 text-[11px] opacity-80">
-              Konflikt lokal lösen oder Rebase auf {detail.target_branch} versuchen.
+              {t("prInspect.mergeConflictResolveHint", { branch: detail.target_branch })}
             </div>
           </div>
           <div className="flex shrink-0 gap-1.5">
             <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={onCheckout} disabled={busy !== null}>
               <Download className="mr-1 h-3 w-3" />
-              Auschecken
-
+              {t("prInspect.checkoutVerb")}
             </Button>
           </div>
         </div>
@@ -252,9 +263,9 @@ function MergeStateBanner({
         <div className="flex items-start gap-2">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold">Bereit zum Mergen</div>
+            <div className="text-[13px] font-semibold">{t("prInspect.mergeReadyTitle")}</div>
             <div className="mt-0.5 text-[11px] opacity-80">
-              Keine Konflikte mit <code className="rounded bg-black/10 px-1 font-mono">{detail.target_branch}</code>.
+              {t("pr.noConflicts", { branch: detail.target_branch })}
             </div>
           </div>
         </div>
@@ -264,23 +275,23 @@ function MergeStateBanner({
             onChange={(e) => onStrategyChange(e.target.value as MergeStrategy)}
             className="h-7 rounded border bg-background px-2 py-0 text-[11px] text-foreground"
           >
-            <option value="squash">Squash &amp; Merge</option>
-            <option value="rebase">Rebase &amp; Merge</option>
-            <option value="merge">Merge Commit</option>
+            <option value="squash">{t("prInspect.strategySquashOpt")}</option>
+            <option value="rebase">{t("prInspect.strategyRebaseOpt")}</option>
+            <option value="merge">{t("prInspect.strategyMergeOpt")}</option>
           </select>
           <input
             value={mergeMessage}
             onChange={(e) => onMergeMessageChange(e.target.value)}
-            placeholder="Optionale Commit-Nachricht …"
+            placeholder={t("prInspect.mergePlaceholder")}
             className="h-7 min-w-0 flex-1 rounded border bg-background px-2 text-[11px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
           />
           <Button size="sm" className="h-7 shrink-0 text-[11px]" onClick={onMerge} disabled={busy !== null}>
             <GitMerge className="mr-1 h-3 w-3" />
-            {busy === "merge" ? "Läuft …" : "Merge"}
+            {busy === "merge" ? t("prInspect.mergeBusy") : t("prInspect.mergeVerb")}
           </Button>
           <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={onCheckout} disabled={busy !== null}>
             <Download className="mr-1 h-3 w-3" />
-            {busy === "checkout" ? "…" : "Auschecken"}
+            {busy === "checkout" ? t("prInspect.checkoutBusy") : t("prInspect.checkoutVerb")}
           </Button>
         </div>
       </motion.div>
@@ -291,10 +302,10 @@ function MergeStateBanner({
   return (
     <motion.div {...bannerMotion} className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      Merge-Fähigkeit wird geprüft …
+      {t("prInspect.checksMergeability")}
       <Button variant="outline" size="sm" className="ml-auto h-6 text-[10px]" onClick={onCheckout} disabled={busy !== null}>
         <Download className="mr-1 h-3 w-3" />
-        Auschecken
+        {t("prInspect.checkoutVerb")}
       </Button>
     </motion.div>
   );
@@ -320,6 +331,7 @@ export function PullRequestInspectDetail({
   const [mergeMessage, setMergeMessage] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { t } = useTranslation();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -341,7 +353,7 @@ export function PullRequestInspectDetail({
   }, [load]);
 
   async function doMerge() {
-    if (!window.confirm(`PR #${number} jetzt mergen (${strategy})?`)) return;
+    if (!window.confirm(t("prInspect.mergeConfirm", { number: String(number), strategy }))) return;
     setBusy("merge");
     try {
       await invoke("pr_merge", {
@@ -364,7 +376,7 @@ export function PullRequestInspectDetail({
     try {
       const res = await invoke<{ branch: string }>("pr_checkout", { path, number });
       onMutated();
-      window.alert(`Auf lokalen Branch '${res.branch}' ausgecheckt.`);
+      window.alert(t("prInspect.checkoutAlert", { branch: res.branch }));
     } catch (e) {
       toastError(String(e));
     } finally {
@@ -372,12 +384,15 @@ export function PullRequestInspectDetail({
     }
   }
 
-  const TABS: { id: Tab; label: string }[] = [
-    { id: "conversation", label: "Konversation" },
-    { id: "commits", label: "Commits" },
-    { id: "files", label: "Dateien" },
-    { id: "checks", label: "Checks" },
-  ];
+  const TABS: { id: Tab; label: string }[] = useMemo(
+    () => [
+      { id: "conversation", label: t("prInspect.tabConversation") },
+      { id: "commits", label: t("prInspect.tabCommits") },
+      { id: "files", label: t("prInspect.tabFiles") },
+      { id: "checks", label: t("prInspect.tabChecks") },
+    ],
+    [t],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
@@ -406,7 +421,7 @@ export function PullRequestInspectDetail({
               size="icon"
               className="h-7 w-7"
               onClick={() => window.open(detail.html_url, "_blank", "noopener,noreferrer")}
-              title="Im Browser öffnen"
+              title={t("prInspect.openBrowser")}
             >
               <ExternalLink className="h-3.5 w-3.5" />
             </Button>
@@ -417,7 +432,7 @@ export function PullRequestInspectDetail({
             className="h-7 w-7"
             onClick={load}
             disabled={loading}
-            title="Aktualisieren"
+            title={t("pr.reloadTitle")}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : ""}`} />
           </Button>
@@ -426,7 +441,7 @@ export function PullRequestInspectDetail({
             size="icon"
             className="h-7 w-7"
             onClick={() => setSidebarOpen((v) => !v)}
-            title={sidebarOpen ? "Sidebar ausblenden" : "Sidebar einblenden"}
+            title={sidebarOpen ? t("prInspect.sidebarHide") : t("prInspect.sidebarShow")}
           >
             {sidebarOpen ? (
               <PanelRightClose className="h-3.5 w-3.5" />
@@ -439,7 +454,7 @@ export function PullRequestInspectDetail({
             size="icon"
             className="h-7 w-7"
             onClick={onClose}
-            title="Schließen"
+            title={t("pr.closeAria")}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -468,7 +483,7 @@ export function PullRequestInspectDetail({
             transition={{ type: "spring", stiffness: 380, damping: 30, delay: 0.08 }}
             className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="font-medium text-foreground">{detail.author}</span>
-            <span>öffnete diesen PR</span>
+            <span>{t("prInspect.openedPR")}</span>
             <time title={formatDate(detail.created_at)}>
               {formatRelative(detail.created_at)}
             </time>
@@ -521,7 +536,7 @@ export function PullRequestInspectDetail({
         </motion.div>
       ) : !detail ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          Keine Daten.
+          {t("pr.noData")}
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -590,35 +605,35 @@ export function PullRequestInspectDetail({
             <ReviewerCard reviewers={detail.reviewers} />
 
             {detail.labels.length > 0 && (
-              <SideCard title="Labels">
+              <SideCard title={t("prInspect.sidebarLabels")}>
                 <div className="flex flex-wrap gap-1">
                   {detail.labels.map((l) => <LabelChip key={l} label={l} />)}
                 </div>
               </SideCard>
             )}
 
-            <SideCard title="Branch">
+            <SideCard title={t("prInspect.sidebarBranch")}>
               <div className="flex flex-col gap-2 text-[11px]">
                 <div className="flex items-center gap-2">
-                  <span className="w-8 font-mono text-[10px] text-muted-foreground">head</span>
+                  <span className="w-8 font-mono text-[10px] text-muted-foreground">{t("prInspect.sidebarHead")}</span>
                   <span className="rounded bg-muted px-1.5 py-0 font-mono text-[10px]">
                     {detail.source_branch}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-8 font-mono text-[10px] text-muted-foreground">base</span>
+                  <span className="w-8 font-mono text-[10px] text-muted-foreground">{t("prInspect.sidebarBase")}</span>
                   <span className="rounded bg-primary/10 px-1.5 py-0 font-mono text-[10px] text-primary">
                     {detail.target_branch}
                   </span>
                 </div>
-                {detail.head_sha && (
+                {detail.head_sha ? (
                   <div className="flex items-center gap-2">
-                    <span className="w-8 font-mono text-[10px] text-muted-foreground">sha</span>
+                    <span className="w-8 font-mono text-[10px] text-muted-foreground">{t("prInspect.sidebarSha")}</span>
                     <code className="font-mono text-[10px] text-muted-foreground">
                       {detail.head_sha.slice(0, 7)}
                     </code>
                   </div>
-                )}
+                ) : null}
                 <Button
                   variant="outline"
                   size="sm"
@@ -627,7 +642,7 @@ export function PullRequestInspectDetail({
                   disabled={busy !== null}
                 >
                   <Download className="mr-1 h-3 w-3" />
-                  Lokal auschecken
+                  {t("prInspect.checkoutLocalButton")}
                 </Button>
               </div>
             </SideCard>

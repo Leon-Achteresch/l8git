@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import i18n from "@/lib/i18n";
+
 export type Workspace = {
   id: string;
   name: string;
@@ -24,7 +26,7 @@ const DEFAULT_WORKSPACE_ID = "default";
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
-      workspaces: [{ id: DEFAULT_WORKSPACE_ID, name: "Persönlich", repoPaths: [] }],
+      workspaces: [{ id: DEFAULT_WORKSPACE_ID, name: i18n.t("repoWorkspaceSwitch.defaultPersonalName"), repoPaths: [] }],
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
 
       addWorkspace: (name) => {

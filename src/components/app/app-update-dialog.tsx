@@ -16,9 +16,13 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+type Phase = ReturnType<typeof useAppUpdateStore.getState>["phase"];
 
 function formatBytes(bytes: number) {
   if (bytes <= 0) return "0 B";
@@ -35,7 +39,7 @@ function formatBytes(bytes: number) {
   return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function formatPublishedAt(value: string | null) {
+function formatPublishedAt(value: string | null, localeTag: string) {
   if (!value) return null;
 
   const date = new Date(value);
@@ -43,7 +47,7 @@ function formatPublishedAt(value: string | null) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("de-DE", {
+  return new Intl.DateTimeFormat(localeTag, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -54,24 +58,33 @@ function progressPercent(downloadedBytes: number, totalBytes: number) {
   return Math.min(100, Math.round((downloadedBytes / totalBytes) * 100));
 }
 
-function titleForPhase(phase: ReturnType<typeof useAppUpdateStore.getState>["phase"], version: string | null) {
+function stripLeadingChangelogHeading(markdown: string): string {
+  return markdown
+    .replace(
+      /^\s*#{1,2}\s+(changelog|\u00e4nderungsprotokoll|\u00c4nderungsprotokoll)\s*(\n+|$)/im,
+      "",
+    )
+    .trim();
+}
+
+function titleForPhase(phase: Phase, version: string | null, t: TFunction) {
   switch (phase) {
     case "idle":
       return "";
     case "available":
-      return version ? `Update ${version} ist verfügbar` : "Update verfügbar";
+      return version ? t("updates.titleAvailable", { version }) : t("updates.titleAvailableShort");
     case "downloading":
-      return version ? `Update ${version} wird geladen` : "Update wird geladen";
+      return version ? t("updates.titleDownloading", { version }) : t("updates.titleDownloadingShort");
     case "installing":
-      return version ? `Update ${version} wird installiert` : "Update wird installiert";
+      return version ? t("updates.titleInstalling", { version }) : t("updates.titleInstallingShort");
     case "installed":
-      return version ? `Update ${version} ist installiert` : "Update installiert";
+      return version ? t("updates.titleInstalled", { version }) : t("updates.titleInstalledShort");
     case "up-to-date":
-      return "l8git ist aktuell";
+      return t("updates.titleUpToDate");
     case "unsupported":
-      return "Updates nur in der Desktop-App";
+      return t("updates.titleUnsupported");
     case "error":
-      return "Update fehlgeschlagen";
+      return t("updates.titleError");
     default: {
       const exhaustiveCheck: never = phase;
       return exhaustiveCheck;
@@ -79,29 +92,26 @@ function titleForPhase(phase: ReturnType<typeof useAppUpdateStore.getState>["pha
   }
 }
 
-function descriptionForPhase(
-  phase: ReturnType<typeof useAppUpdateStore.getState>["phase"],
-  currentVersion: string | null,
-) {
+function descriptionForPhase(phase: Phase, currentVersion: string | null, t: TFunction) {
   switch (phase) {
     case "idle":
       return "";
     case "available":
-      return "Das Update kann direkt in l8git heruntergeladen und installiert werden.";
+      return t("updates.descAvailable");
     case "downloading":
-      return "Die neue Version wird aus dem Release geladen.";
+      return t("updates.descDownloading");
     case "installing":
-      return "Das Paket wurde geladen und wird jetzt installiert.";
+      return t("updates.descInstalling");
     case "installed":
-      return "Der Neustart übernimmt die neue Version sofort.";
+      return t("updates.descInstalled");
     case "up-to-date":
       return currentVersion
-        ? `Du nutzt bereits Version ${currentVersion}.`
-        : "Du nutzt bereits die neueste Version.";
+        ? t("updates.descUpToDateVersion", { version: currentVersion })
+        : t("updates.descUpToDateGeneric");
     case "unsupported":
-      return "Die Update-Funktion steht nur in der Tauri-Desktop-App zur Verfügung.";
+      return t("updates.descUnsupported");
     case "error":
-      return "Beim Prüfen oder Installieren des Updates ist ein Fehler aufgetreten.";
+      return t("updates.descError");
     default: {
       const exhaustiveCheck: never = phase;
       return exhaustiveCheck;
@@ -110,6 +120,7 @@ function descriptionForPhase(
 }
 
 export function AppUpdateDialog() {
+  const { t, i18n } = useTranslation();
   const open = useAppUpdateStore((s) => s.open);
   const phase = useAppUpdateStore((s) => s.phase);
   const version = useAppUpdateStore((s) => s.version);
@@ -123,7 +134,23 @@ export function AppUpdateDialog() {
   const busy = phase === "downloading" || phase === "installing";
   const percent = progressPercent(downloadedBytes, totalBytes);
   const showReleasePane = Boolean(version || notes);
-  const publishedLabel = formatPublishedAt(publishedAt);
+
+  const localeTag = useMemo(() => (i18n.language.startsWith("de") ? "de-DE" : "en-US"), [i18n.language]);
+
+  const publishedLabel = formatPublishedAt(publishedAt, localeTag);
+
+  const releaseNotesMarkdown = useMemo(() => {
+    const raw = notes?.trim() ?? "";
+    if (!raw) return null;
+    const body = stripLeadingChangelogHeading(raw);
+    return body.length > 0 ? body : null;
+  }, [notes]);
+
+  const dialogTitle = useMemo(() => titleForPhase(phase, version, t), [phase, version, t]);
+  const dialogDescription = useMemo(
+    () => descriptionForPhase(phase, currentVersion, t),
+    [phase, currentVersion, t],
+  );
 
   useEffect(() => {
     if (!open || busy) return;
@@ -146,7 +173,7 @@ export function AppUpdateDialog() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={titleForPhase(phase, version)}
+      aria-label={dialogTitle}
       className="fixed inset-0 z-120 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
       onClick={() => {
         if (!busy) {
@@ -176,10 +203,8 @@ export function AppUpdateDialog() {
               )}
             </div>
             <div className="min-w-0 space-y-1.5">
-              <h2 className="text-lg font-semibold tracking-tight">{titleForPhase(phase, version)}</h2>
-              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                {descriptionForPhase(phase, currentVersion)}
-              </p>
+              <h2 className="text-lg font-semibold tracking-tight">{dialogTitle}</h2>
+              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{dialogDescription}</p>
             </div>
           </div>
           <Button
@@ -188,7 +213,7 @@ export function AppUpdateDialog() {
             size="icon-sm"
             onClick={() => dismissAppUpdateDialog()}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("updates.close")}
           >
             <X className="size-4" />
           </Button>
@@ -199,16 +224,16 @@ export function AppUpdateDialog() {
             {version ? (
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center rounded-full border border-border/80 bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground">
-                  Neu: {version}
+                  {t("updates.badgeNew", { version })}
                 </span>
                 {currentVersion ? (
                   <span className="inline-flex items-center rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-xs text-muted-foreground">
-                    Installiert: {currentVersion}
+                    {t("updates.badgeInstalled", { version: currentVersion })}
                   </span>
                 ) : null}
                 {publishedLabel ? (
                   <span className="inline-flex items-center rounded-full border border-border/80 bg-background/60 px-2.5 py-1 text-xs text-muted-foreground">
-                    Veröffentlicht: {publishedLabel}
+                    {t("updates.badgePublished", { label: publishedLabel })}
                   </span>
                 ) : null}
               </div>
@@ -218,10 +243,14 @@ export function AppUpdateDialog() {
               <div className="rounded-2xl border border-border/70 bg-background/70 p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-3 text-sm">
                   <span className="font-medium text-foreground">
-                    {phase === "downloading" ? "Download läuft" : "Installation läuft"}
+                    {phase === "downloading" ? t("updates.downloadRunning") : t("updates.installRunning")}
                   </span>
                   <span className="text-muted-foreground">
-                    {percent !== null ? `${percent}%` : phase === "downloading" ? "Verbinde…" : "Fast fertig"}
+                    {percent !== null
+                      ? `${percent}%`
+                      : phase === "downloading"
+                        ? t("updates.connecting")
+                        : t("updates.almostDone")}
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -236,9 +265,7 @@ export function AppUpdateDialog() {
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                   <span>
-                    {phase === "downloading"
-                      ? "Release wird heruntergeladen"
-                      : "Dateien werden angewendet"}
+                    {phase === "downloading" ? t("updates.releaseDownloading") : t("updates.filesApplying")}
                   </span>
                   <span>
                     {totalBytes > 0
@@ -251,7 +278,7 @@ export function AppUpdateDialog() {
 
             {phase === "installed" ? (
               <div className="rounded-2xl border border-primary/20 bg-primary/8 p-4 text-sm leading-relaxed text-foreground">
-                Die neue Version ist bereits installiert. Ein Neustart schließt den Vorgang ab.
+                {t("updates.installedHint")}
               </div>
             ) : null}
 
@@ -265,11 +292,11 @@ export function AppUpdateDialog() {
               {phase === "available" ? (
                 <>
                   <Button type="button" variant="ghost" onClick={() => dismissAppUpdateDialog()}>
-                    Später
+                    {t("common.later")}
                   </Button>
                   <Button type="button" className="gap-2" onClick={() => void installAppUpdate()}>
                     <ArrowDownToLine className="size-4" />
-                    Installieren
+                    {t("common.install")}
                   </Button>
                 </>
               ) : null}
@@ -277,15 +304,11 @@ export function AppUpdateDialog() {
               {phase === "installed" ? (
                 <>
                   <Button type="button" variant="ghost" onClick={() => dismissAppUpdateDialog()}>
-                    Später
+                    {t("common.later")}
                   </Button>
-                  <Button
-                    type="button"
-                    className="gap-2"
-                    onClick={() => void restartToApplyAppUpdate()}
-                  >
+                  <Button type="button" className="gap-2" onClick={() => void restartToApplyAppUpdate()}>
                     <RefreshCw className="size-4" />
-                    Jetzt neu starten
+                    {t("updates.restartNow")}
                   </Button>
                 </>
               ) : null}
@@ -300,18 +323,18 @@ export function AppUpdateDialog() {
                       onClick={() => void checkForAppUpdate({ manual: true })}
                     >
                       <RefreshCw className="size-4" />
-                      Erneut prüfen
+                      {t("common.retryCheck")}
                     </Button>
                   ) : null}
                   <Button type="button" onClick={() => dismissAppUpdateDialog()}>
-                    Schließen
+                    {t("updates.close")}
                   </Button>
                 </>
               ) : null}
 
               {phase === "downloading" || phase === "installing" ? (
                 <Button type="button" disabled>
-                  Bitte warten…
+                  {t("common.wait")}
                 </Button>
               ) : null}
             </div>
@@ -321,14 +344,25 @@ export function AppUpdateDialog() {
             <div className="border-t border-border/70 bg-background/40 lg:border-l lg:border-t-0">
               <ScrollArea className="h-[min(52vh,34rem)]">
                 <div className="px-6 py-5">
-                  {notes ? (
-                    <div className="space-y-4 text-sm leading-7 text-foreground/90 [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded-md [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h3]:text-base [&_h3]:font-semibold [&_hr]:border-border [&_li]:ml-5 [&_li]:pl-1 [&_ol]:list-decimal [&_p_code]:text-foreground [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border/70 [&_pre]:bg-muted/70 [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:list-disc">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{notes}</ReactMarkdown>
-                    </div>
+                  {notes?.trim() ? (
+                    releaseNotesMarkdown ? (
+                      <>
+                        <h3 className="mb-3 text-sm font-semibold tracking-tight text-foreground">
+                          {t("updates.changelogTitle")}
+                        </h3>
+                        <div className="space-y-4 text-sm leading-7 text-foreground/90 [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded-md [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h3]:text-base [&_h3]:font-semibold [&_hr]:border-border [&_li]:ml-5 [&_li]:pl-1 [&_ol]:list-decimal [&_p_code]:text-foreground [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border/70 [&_pre]:bg-muted/70 [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:list-disc">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {releaseNotesMarkdown}
+                          </ReactMarkdown>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {t("updates.noReleaseNotes")}
+                      </p>
+                    )
                   ) : (
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      Für dieses Release wurden keine Release Notes hinterlegt.
-                    </p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{t("updates.noReleaseNotes")}</p>
                   )}
                 </div>
               </ScrollArea>

@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,7 @@ function BranchDropdown({
   ariaLabel: string;
   excludeName?: string;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -135,7 +137,7 @@ function BranchDropdown({
               value
             ) : (
               <span className="font-sans italic text-muted-foreground">
-                Branch wählen …
+                {t("pr.pickBranch")}
               </span>
             )}
           </span>
@@ -163,8 +165,7 @@ function BranchDropdown({
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Filter …"
-                  // eslint-disable-next-line jsx-a11y/no-autofocus
+                  placeholder={t("pr.branchFilterPlaceholder")}
                   autoFocus
                   className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60"
                 />
@@ -172,18 +173,18 @@ function BranchDropdown({
               <div className="max-h-64 overflow-auto py-1">
                 {grouped.local.length === 0 && grouped.remote.length === 0 ? (
                   <div className="px-3 py-3 text-center text-xs text-muted-foreground">
-                    Keine passenden Branches
+                    {t("pr.noMatchingBranches")}
                   </div>
                 ) : (
                   <>
                     <BranchSection
-                      title="Lokal"
+                      title={t("branchMenu.sectionLocal")}
                       branches={grouped.local}
                       value={value}
                       onPick={pick}
                     />
                     <BranchSection
-                      title="Remote"
+                      title={t("branchMenu.sectionRemote")}
                       branches={grouped.remote}
                       value={value}
                       onPick={pick}
@@ -210,6 +211,7 @@ function BranchSection({
   value: string;
   onPick: (name: string) => void;
 }) {
+  const { t } = useTranslation();
   if (branches.length === 0) return null;
   return (
     <div className="px-1 pb-1">
@@ -243,7 +245,7 @@ function BranchSection({
             <span className="min-w-0 flex-1 truncate">{b.name}</span>
             {b.is_current ? (
               <span className="shrink-0 rounded bg-primary/15 px-1 text-[9px] font-semibold uppercase tracking-wider text-primary">
-                aktiv
+                {t("pr.branchCurrentBadge")}
               </span>
             ) : null}
           </button>
@@ -254,6 +256,7 @@ function BranchSection({
 }
 
 export function PullRequestCreateTrigger({ onOpen }: { onOpen: () => void }) {
+  const { t } = useTranslation();
   return (
     <motion.button
       layoutId={SHELL_LAYOUT_ID}
@@ -267,7 +270,7 @@ export function PullRequestCreateTrigger({ onOpen }: { onOpen: () => void }) {
         className="inline-flex items-center gap-1"
       >
         <Plus className="h-3.5 w-3.5" />
-        <span>Neu</span>
+        <span>{t("pr.createNewButton")}</span>
       </motion.span>
     </motion.button>
   );
@@ -288,6 +291,7 @@ export function PullRequestCreatePanel({
   onClose: () => void;
   onCreated?: (pr: PullRequest) => void;
 }) {
+  const { t } = useTranslation();
   const defaultBase = useMemo(() => pickDefaultBase(branches), [branches]);
   const initialHeadValue = (initialHead || currentBranch).trim();
   const [head, setHead] = useState(initialHeadValue);
@@ -312,34 +316,34 @@ export function PullRequestCreatePanel({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const t = title.trim();
-    if (!t) {
-      toastError("Titel darf nicht leer sein.");
+    const titleValue = title.trim();
+    if (!titleValue) {
+      toastError(t("pr.titleRequiredToast"));
       return;
     }
     if (!head.trim()) {
-      toastError("Compare-Branch wählen.");
+      toastError(t("pr.pickCompareToast"));
       return;
     }
     if (!base.trim()) {
-      toastError("Base-Branch wählen.");
+      toastError(t("pr.pickBaseToast"));
       return;
     }
     if (head.trim() === base.trim()) {
-      toastError("Compare- und Base-Branch müssen unterschiedlich sein.");
+      toastError(t("pr.branchesDistinctToast"));
       return;
     }
     setBusy(true);
     try {
       const pr = await invoke<PullRequest>("pr_create", {
         path,
-        title: t,
+        title: titleValue,
         body,
         head: head.trim(),
         base: base.trim(),
         draft,
       });
-      toast.success(`Pull Request #${pr.number} erstellt.`);
+      toast.success(t("pr.createdToast", { number: pr.number }));
       onCreated?.(pr);
       onClose();
     } catch (err) {
@@ -369,7 +373,7 @@ export function PullRequestCreatePanel({
         <header className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-medium">
             <GitPullRequest className="h-4 w-4 text-primary" />
-            Neuer Pull Request
+            {t("pr.createTitle")}
           </h3>
           <Button
             type="button"
@@ -377,7 +381,7 @@ export function PullRequestCreatePanel({
             size="icon-xs"
             onClick={dismiss}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("pr.closeAria")}
           >
             <X />
           </Button>
@@ -385,8 +389,8 @@ export function PullRequestCreatePanel({
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
           <BranchDropdown
-            label="Compare (Quelle)"
-            ariaLabel="Compare-Branch wählen"
+            label={t("pr.compareLabel")}
+            ariaLabel={t("pr.chooseCompareAria")}
             value={head}
             onChange={setHead}
             branches={branches}
@@ -397,8 +401,8 @@ export function PullRequestCreatePanel({
             →
           </div>
           <BranchDropdown
-            label="Base (Ziel)"
-            ariaLabel="Base-Branch wählen"
+            label={t("pr.baseLabel")}
+            ariaLabel={t("pr.chooseBaseAria")}
             value={base}
             onChange={setBase}
             branches={branches}
@@ -412,7 +416,7 @@ export function PullRequestCreatePanel({
             htmlFor="pr-create-title"
             className="text-xs text-muted-foreground"
           >
-            Titel
+            {t("pr.titleLabel")}
           </Label>
           <Input
             id="pr-create-title"
@@ -429,7 +433,7 @@ export function PullRequestCreatePanel({
             htmlFor="pr-create-body"
             className="text-xs text-muted-foreground"
           >
-            Beschreibung
+            {t("pr.descriptionLabel")}
           </Label>
           <Textarea
             id="pr-create-body"
@@ -437,7 +441,7 @@ export function PullRequestCreatePanel({
             onChange={(e) => setBody(e.target.value)}
             rows={5}
             spellCheck
-            placeholder="Was ändert dieser Pull Request?"
+            placeholder={t("pr.bodyPlaceholder")}
             disabled={busy}
           />
         </div>
@@ -451,7 +455,7 @@ export function PullRequestCreatePanel({
               className="h-3.5 w-3.5 accent-primary"
               disabled={busy}
             />
-            Als Draft erstellen
+            {t("pr.draftLabel")}
           </label>
           <div className="flex items-center gap-1.5">
             <Button
@@ -461,10 +465,10 @@ export function PullRequestCreatePanel({
               onClick={dismiss}
               disabled={busy}
             >
-              Abbrechen
+              {t("common.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "…" : "Erstellen"}
+              {busy ? t("pr.createSubmitBusy") : t("pr.submit")}
             </Button>
           </div>
         </div>

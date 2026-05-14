@@ -30,7 +30,8 @@ import {
   ScanSearch,
   SquareTerminal,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { EditRemoteDialog } from './edit-remote-dialog';
 import { PushUpstreamDialog } from './push-upstream-dialog';
@@ -44,6 +45,7 @@ const SPINNER_DELAY_MS = 200;
 const EMPTY_BRANCH_FILTER: ReadonlySet<string> = new Set();
 
 export function RepoRemoteToolbar({ path }: { path: string }) {
+  const { t } = useTranslation();
   const reload = useRepoStore(s => s.reload);
   const reloadStatus = useRepoStore(s => s.reloadStatus);
   const pullCount = useRepoStore(s => s.upstreamSync[path]?.behind ?? 0);
@@ -93,10 +95,10 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   }, [path, clearCommitSearch]);
 
   useEffect(() => {
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       void searchCommits(path, draftQuery);
     }, 320);
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, [draftQuery, path, searchCommits]);
 
   useEffect(() => {
@@ -135,7 +137,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                   dryRun: pushDryRun,
                 });
         await Promise.all([reload(path), reloadStatus(path)]);
-        toast.success(out.trim() || 'Aktion erfolgreich abgeschlossen.');
+        toast.success(out.trim() || t("toolbar.actionSuccess"));
       } catch (e) {
         toastError(String(e));
       } finally {
@@ -153,6 +155,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       pushAtomic,
       pushNoVerify,
       pushDryRun,
+      t,
     ]
   );
 
@@ -189,7 +192,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   async function openIdeHere() {
     const ide = ideLaunchCommand.trim();
     if (!ide) {
-      toastError('Kein IDE-Befehl konfiguriert.');
+      toastError(t("toolbar.noIdeCommand"));
       return;
     }
     try {
@@ -199,97 +202,121 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     }
   }
 
-  const fetchMenu = (
-    <>
-      <ContextMenuLabel>Beim Fetch löschen</ContextMenuLabel>
-      <ContextMenuSeparator />
-      <ContextMenuCheckboxItem
-        checked={fetchPruneBranches}
-        onCheckedChange={v => setFetchPruneBranches(!!v)}
-        onSelect={e => e.preventDefault()}
-      >
-        Entfernte Zweige löschen
-      </ContextMenuCheckboxItem>
-      <ContextMenuCheckboxItem
-        checked={fetchPruneTags}
-        onCheckedChange={v => setFetchPruneTags(!!v)}
-        onSelect={e => e.preventDefault()}
-      >
-        Entfernte Tags löschen
-      </ContextMenuCheckboxItem>
-    </>
+  const fetchMenu = useMemo(
+    () => (
+      <>
+        <ContextMenuLabel>{t("toolbar.fetchPruneSection")}</ContextMenuLabel>
+        <ContextMenuSeparator />
+        <ContextMenuCheckboxItem
+          checked={fetchPruneBranches}
+          onCheckedChange={(v) => setFetchPruneBranches(!!v)}
+          onSelect={(e) => e.preventDefault()}
+        >
+          {t("toolbar.fetchPruneBranches")}
+        </ContextMenuCheckboxItem>
+        <ContextMenuCheckboxItem
+          checked={fetchPruneTags}
+          onCheckedChange={(v) => setFetchPruneTags(!!v)}
+          onSelect={(e) => e.preventDefault()}
+        >
+          {t("toolbar.fetchPruneTags")}
+        </ContextMenuCheckboxItem>
+      </>
+    ),
+    [fetchPruneBranches, fetchPruneTags, setFetchPruneBranches, setFetchPruneTags, t],
   );
 
-  const pushMenu = (
-    <>
-      <ContextMenuLabel>Force</ContextMenuLabel>
-      <ContextMenuRadioGroup
-        value={pushForceMode}
-        onValueChange={v => setPushForceMode(v as PushForceMode)}
-      >
-        <ContextMenuRadioItem value='none' onSelect={e => e.preventDefault()}>
-          Kein Force
-        </ContextMenuRadioItem>
-        <ContextMenuRadioItem value='lease' onSelect={e => e.preventDefault()}>
-          Mit Lease erzwingen (--force-with-lease)
-        </ContextMenuRadioItem>
-        <ContextMenuRadioItem value='force' onSelect={e => e.preventDefault()}>
-          Hart erzwingen (--force)
-        </ContextMenuRadioItem>
-      </ContextMenuRadioGroup>
-      <ContextMenuSeparator />
-      <ContextMenuLabel>Tags</ContextMenuLabel>
-      <ContextMenuRadioGroup
-        value={pushTagsMode}
-        onValueChange={v => setPushTagsMode(v as PushTagsMode)}
-      >
-        <ContextMenuRadioItem value='none' onSelect={e => e.preventDefault()}>
-          Keine Tags pushen
-        </ContextMenuRadioItem>
-        <ContextMenuRadioItem value='follow' onSelect={e => e.preventDefault()}>
-          Erreichbare Tags (--follow-tags)
-        </ContextMenuRadioItem>
-        <ContextMenuRadioItem value='all' onSelect={e => e.preventDefault()}>
-          Alle Tags (--tags)
-        </ContextMenuRadioItem>
-      </ContextMenuRadioGroup>
-      <ContextMenuSeparator />
-      <ContextMenuLabel>Optionen</ContextMenuLabel>
-      <ContextMenuCheckboxItem
-        checked={pushAtomic}
-        onCheckedChange={v => setPushAtomic(!!v)}
-        onSelect={e => e.preventDefault()}
-      >
-        Atomar (--atomic)
-      </ContextMenuCheckboxItem>
-      <ContextMenuCheckboxItem
-        checked={pushNoVerify}
-        onCheckedChange={v => setPushNoVerify(!!v)}
-        onSelect={e => e.preventDefault()}
-      >
-        Pre-Push-Hooks überspringen (--no-verify)
-      </ContextMenuCheckboxItem>
-      <ContextMenuCheckboxItem
-        checked={pushDryRun}
-        onCheckedChange={v => setPushDryRun(!!v)}
-        onSelect={e => e.preventDefault()}
-      >
-        Testlauf (--dry-run)
-      </ContextMenuCheckboxItem>
-    </>
+  const pushMenu = useMemo(
+    () => (
+      <>
+        <ContextMenuLabel>{t("toolbar.pushForceSection")}</ContextMenuLabel>
+        <ContextMenuRadioGroup value={pushForceMode} onValueChange={(v) => setPushForceMode(v as PushForceMode)}>
+          <ContextMenuRadioItem value="none" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.noForcePush")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="lease" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.forceLeaseOption")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="force" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.forceHardOption")}
+          </ContextMenuRadioItem>
+        </ContextMenuRadioGroup>
+        <ContextMenuSeparator />
+        <ContextMenuLabel>{t("toolbar.pushTagsSection")}</ContextMenuLabel>
+        <ContextMenuRadioGroup value={pushTagsMode} onValueChange={(v) => setPushTagsMode(v as PushTagsMode)}>
+          <ContextMenuRadioItem value="none" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.noTagsPush")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="follow" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.pushTagsReachable")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="all" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.pushTagsAllOption")}
+          </ContextMenuRadioItem>
+        </ContextMenuRadioGroup>
+        <ContextMenuSeparator />
+        <ContextMenuLabel>{t("toolbar.pushOptionsSection")}</ContextMenuLabel>
+        <ContextMenuCheckboxItem
+          checked={pushAtomic}
+          onCheckedChange={(v) => setPushAtomic(!!v)}
+          onSelect={(e) => e.preventDefault()}
+        >
+          {t("toolbar.atomicOption")}
+        </ContextMenuCheckboxItem>
+        <ContextMenuCheckboxItem
+          checked={pushNoVerify}
+          onCheckedChange={(v) => setPushNoVerify(!!v)}
+          onSelect={(e) => e.preventDefault()}
+        >
+          {t("toolbar.skipPrePushHooks")}
+        </ContextMenuCheckboxItem>
+        <ContextMenuCheckboxItem
+          checked={pushDryRun}
+          onCheckedChange={(v) => setPushDryRun(!!v)}
+          onSelect={(e) => e.preventDefault()}
+        >
+          {t("toolbar.dryRunOption")}
+        </ContextMenuCheckboxItem>
+      </>
+    ),
+    [
+      pushAtomic,
+      pushDryRun,
+      pushForceMode,
+      pushNoVerify,
+      pushTagsMode,
+      setPushAtomic,
+      setPushDryRun,
+      setPushForceMode,
+      setPushNoVerify,
+      setPushTagsMode,
+      t,
+    ],
   );
 
-  const pushTitleParts: string[] = [];
-  if (pushCount > 0) pushTitleParts.push(`${pushCount} ausstehend`);
-  if (pushForceMode === 'lease') pushTitleParts.push('Force-with-lease');
-  else if (pushForceMode === 'force') pushTitleParts.push('Force');
-  if (pushTagsMode === 'follow') pushTitleParts.push('follow-tags');
-  else if (pushTagsMode === 'all') pushTitleParts.push('--tags');
-  if (pushDryRun) pushTitleParts.push('Dry-Run');
-  const pushTitle =
-    pushTitleParts.length > 0
-      ? `Änderungen hochladen (${pushTitleParts.join(', ')})`
-      : 'Änderungen hochladen';
+  const pushTitle = useMemo(() => {
+    const parts: string[] = [];
+    if (pushCount > 0) parts.push(t("toolbar.pendingSuffix", { count: pushCount }));
+    if (pushForceMode === "lease") parts.push(t("toolbar.forceWithLease"));
+    else if (pushForceMode === "force") parts.push(t("toolbar.force"));
+    if (pushTagsMode === "follow") parts.push(t("toolbar.followTags"));
+    else if (pushTagsMode === "all") parts.push(t("toolbar.allTags"));
+    if (pushDryRun) parts.push(t("toolbar.dryRun"));
+    return parts.length > 0 ? t("toolbar.pushWithOptions", { parts: parts.join(", ") }) : t("toolbar.pushNormal");
+  }, [
+    pushCount,
+    pushDryRun,
+    pushForceMode,
+    pushTagsMode,
+    t,
+  ]);
+
+  const bisectToolbarTitle = useMemo(() => {
+    if (!bisect?.active) return t("toolbar.bisectToggleTitle");
+    const stepsPart =
+      bisect.steps_remaining != null ? t("toolbar.bisectSteps", { count: bisect.steps_remaining }) : "";
+    return t("toolbar.bisectRunningTitle", { steps: stepsPart });
+  }, [bisect?.active, bisect?.steps_remaining, t]);
 
   const hasSearchHits = (searchSlice?.hits?.length ?? 0) > 0;
   const canStepSearchMatches =
@@ -304,8 +331,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
         <div className='flex min-w-0 flex-1 flex-wrap items-center'>
           <ToolbarGroup>
             <ToolbarButton
-              title='Änderungen abrufen (Rechtsklick für Optionen)'
-              label='Fetch'
+              title={t("toolbar.fetchTitle")}
+              label={t("toolbar.fetchLabel")}
               disabled={remoteDisabled}
               isActive={busy === 'fetch'}
               onClick={() => void run('fetch')}
@@ -320,11 +347,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             />
             <ToolbarButton
               title={
-                pullCount > 0
-                  ? `Änderungen herunterladen (${pullCount} ausstehend)`
-                  : 'Änderungen herunterladen'
+                pullCount > 0 ? t("toolbar.pullTitlePending", { count: pullCount }) : t("toolbar.pullTitle")
               }
-              label='Pull'
+              label={t("toolbar.pullLabel")}
               badge={pullCount}
               disabled={remoteDisabled}
               isActive={busy === 'pull'}
@@ -338,8 +363,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               }
             />
             <ToolbarButton
-              title={`${pushTitle} (Rechtsklick für Optionen)`}
-              label='Push'
+              title={t("toolbar.pushTitle", { title: pushTitle })}
+              label={t("toolbar.pushLabel")}
               badge={pushCount}
               disabled={remoteDisabled}
               isActive={busy === 'push'}
@@ -354,8 +379,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               contextMenuContent={pushMenu}
             />
             <ToolbarButton
-              title='Remote-URL bearbeiten'
-              label='Remote'
+              title={t("toolbar.editRemoteTitle")}
+              label={t("toolbar.editRemoteLabel")}
               onClick={() => setRemoteDialogOpen(true)}
               icon={<Link className='h-3.5 w-3.5' />}
             />
@@ -365,24 +390,20 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
 
           <ToolbarGroup>
             <ToolbarButton
-              title='Im Dateimanager öffnen'
-              label='Dateien'
+              title={t("toolbar.revealTitle")}
+              label={t("toolbar.revealLabel")}
               onClick={() => void revealFolder()}
               icon={<FolderOpen className='h-3.5 w-3.5' />}
             />
             <ToolbarButton
-              title='Terminal hier öffnen'
-              label='Terminal'
+              title={t("toolbar.terminalTitle")}
+              label={t("toolbar.terminalLabel")}
               onClick={() => void openTerminalHere()}
               icon={<SquareTerminal className='h-3.5 w-3.5' />}
             />
             <ToolbarButton
-              title={
-                ideConfigured
-                  ? 'In der IDE öffnen'
-                  : 'IDE in den Einstellungen konfigurieren'
-              }
-              label='IDE'
+              title={ideConfigured ? t("toolbar.ideOpenTitle") : t("toolbar.ideConfigureTitle")}
+              label={t("toolbar.ideLabel")}
               disabled={!ideConfigured}
               onClick={() => void openIdeHere()}
               icon={<Code2 className='h-3.5 w-3.5' />}
@@ -393,12 +414,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
 
           <ToolbarGroup>
             <ToolbarButton
-              title={
-                bisect?.active
-                  ? `Bisect läuft${bisect.steps_remaining != null ? ` (~${bisect.steps_remaining} Schritte)` : ''} — Klicken zum Ein-/Ausblenden`
-                  : 'Bisect-Annotierungen ein-/ausblenden'
-              }
-              label='Bisect'
+              title={bisectToolbarTitle}
+              label={t("toolbar.bisectLabel")}
               isActive={bisectVisible}
               badge={bisect?.active && !bisect?.done ? (bisect.steps_remaining ?? undefined) : undefined}
               onClick={() => setBisectVisible(!bisectVisible)}
@@ -417,11 +434,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
           <div className='flex min-w-0 flex-1 flex-col gap-1'>
             <Input
               value={draftQuery}
-              onChange={e => setDraftQuery(e.target.value)}
-              placeholder='Commits durchsuchen …'
+              onChange={(e) => setDraftQuery(e.target.value)}
+              placeholder={t("toolbar.commitSearchPlaceholder")}
               spellCheck={false}
-              autoComplete='off'
-              aria-label='Commit-Suche'
+              autoComplete="off"
+              aria-label={t("toolbar.commitSearchAria")}
               className='h-8'
             />
             {searchSlice?.loading &&
@@ -429,14 +446,14 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             searchSlice.hits.length === 0 ? (
               <span className='flex items-center gap-1.5 text-xs text-muted-foreground'>
                 <Loader2 className='h-3 w-3 shrink-0 animate-spin' />
-                Suche …
+                {t("toolbar.searchSearching")}
               </span>
             ) : null}
             {!searchSlice?.loading &&
             searchSlice?.query?.trim() &&
             searchSlice.hits.length === 0 ? (
               <span className='text-xs text-muted-foreground'>
-                Keine Treffer.
+                {t("toolbar.noMatches")}
               </span>
             ) : null}
           </div>
@@ -447,8 +464,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                 variant='ghost'
                 className='h-0 min-h-0 flex-1 rounded-none border-0 p-0 shadow-none hover:bg-muted/80'
                 disabled={!canStepSearchMatches}
-                title='Vorheriger Treffer'
-                aria-label='Vorheriger Suchtreffer'
+                title={t("toolbar.searchPrevTitle")}
+                aria-label={t("toolbar.searchPrevAria")}
                 onClick={() => requestCommitSearchMatchStep(path, 'prev')}
               >
                 <ChevronUp className='size-2.5' strokeWidth={2.25} />
@@ -459,8 +476,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                 variant='ghost'
                 className='h-0 min-h-0 flex-1 rounded-none border-0 p-0 shadow-none hover:bg-muted/80'
                 disabled={!canStepSearchMatches}
-                title='Nächster Treffer'
-                aria-label='Nächster Suchtreffer'
+                title={t("toolbar.searchNextTitle")}
+                aria-label={t("toolbar.searchNextAria")}
                 onClick={() => requestCommitSearchMatchStep(path, 'next')}
               >
                 <ChevronDown className='size-2.5' strokeWidth={2.25} />

@@ -7,6 +7,7 @@ import { formatRelative } from "@/lib/format";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 type PrComment = {
   id: string;
@@ -37,13 +38,6 @@ type Entry =
   | { kind: "comment"; at: string; data: PrComment }
   | { kind: "review"; at: string; data: PrReview };
 
-const REVIEW_LABEL: Record<string, string> = {
-  APPROVED: "hat zugestimmt",
-  CHANGES_REQUESTED: "hat Änderungen angefragt",
-  COMMENTED: "hat kommentiert",
-  DISMISSED: "Review verworfen",
-};
-
 export function PullRequestConversationTab({
   path,
   number,
@@ -53,10 +47,24 @@ export function PullRequestConversationTab({
   number: number;
   onCommented: () => void;
 }) {
+  const { t } = useTranslation();
   const [data, setData] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+
+  const reviewLabel = useCallback(
+    (state: string) => {
+      const map: Record<string, string> = {
+        APPROVED: t("pr.reviewApproved"),
+        CHANGES_REQUESTED: t("pr.reviewRequestedChanges"),
+        COMMENTED: t("pr.reviewCommented"),
+        DISMISSED: t("pr.reviewDismissed"),
+      };
+      return map[state] ?? state;
+    },
+    [t],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,7 +119,7 @@ export function PullRequestConversationTab({
             </div>
           ) : entries.length === 0 ? (
             <div className="py-8 text-center text-sm italic text-muted-foreground">
-              Noch keine Kommentare.
+              {t("pr.conversationEmpty")}
             </div>
           ) : (
             entries.map((e, i) => {
@@ -129,7 +137,7 @@ export function PullRequestConversationTab({
                       />
                       <span className="font-medium">{e.data.author}</span>
                       <span className="text-muted-foreground">
-                        {REVIEW_LABEL[e.data.state] ?? e.data.state}
+                        {reviewLabel(e.data.state)}
                       </span>
                       <span className="ml-auto text-muted-foreground tabular-nums">
                         {formatRelative(e.data.submitted_at)}
@@ -182,7 +190,7 @@ export function PullRequestConversationTab({
         <Textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Kommentar schreiben …"
+          placeholder={t("pr.conversationPlaceholder")}
           className="min-h-[70px] text-sm"
         />
         <div className="mt-2 flex justify-end">
@@ -191,7 +199,7 @@ export function PullRequestConversationTab({
             onClick={send}
             disabled={sending || !body.trim()}
           >
-            {sending ? "Sende …" : "Kommentieren"}
+            {sending ? t("pr.conversationSending") : t("pr.conversationSubmit")}
           </Button>
         </div>
       </div>

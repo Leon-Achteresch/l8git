@@ -6,6 +6,7 @@ import { useRepoStore, type WorktreeEntry } from "@/lib/repo-store";
 import { open as pickDirectory } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function WorktreeMoveDialog({
@@ -19,6 +20,7 @@ export function WorktreeMoveDialog({
   path: string;
   entry: WorktreeEntry | null;
 }) {
+  const { t } = useTranslation();
   const worktreeMove = useRepoStore((s) => s.worktreeMove);
   const [newPath, setNewPath] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,7 +51,7 @@ export function WorktreeMoveDialog({
     setBusy(true);
     try {
       await worktreeMove(path, entry.path, np);
-      toast.success("Worktree verschoben.");
+      toast.success(t("worktreeMove.toastMoved"));
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -65,75 +67,47 @@ export function WorktreeMoveDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Worktree verschieben"
+      aria-label={t("worktreeMove.aria")}
       className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
-      <div
-        className="w-full max-w-md rounded-xl border border-border bg-card p-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <header className="mb-3 flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-base font-semibold">Worktree verschieben</h2>
+            <h2 className="text-base font-semibold">{t("worktreeMove.title")}</h2>
             <p className="text-[11px] text-muted-foreground">{entryName}</p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={dismiss}
-            disabled={busy}
-            aria-label="Schließen"
-          >
+          <Button type="button" variant="ghost" size="icon-sm" onClick={dismiss} disabled={busy} aria-label={t("worktreeMove.closeAria")}>
             <X className="h-4 w-4" />
           </Button>
         </header>
 
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
           <div className="grid gap-1">
-            <Label htmlFor="wt-new-path">Neuer Pfad *</Label>
+            <Label htmlFor="wt-new-path">{t("worktreeMove.newPathLabel")}</Label>
             <div className="flex gap-1.5">
               <Input
                 id="wt-new-path"
                 value={newPath}
                 onChange={(e) => setNewPath(e.target.value)}
-                placeholder="/neuer/pfad"
+                placeholder={t("worktreeMove.pathPlaceholder")}
                 spellCheck={false}
                 required
                 className="flex-1"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => void pickFolder()}
-                aria-label="Ordner wählen"
-              >
+              <Button type="button" variant="outline" size="icon" onClick={() => void pickFolder()} aria-label={t("worktreeMove.pickFolderAria")}>
                 <FolderOpen className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Absoluter Ziel-Pfad für den Worktree
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("worktreeMove.pathHint")}</p>
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={dismiss}
-              disabled={busy}
-            >
-              Abbrechen
+            <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
+              {t("worktreeMove.cancel")}
             </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={busy || !newPath.trim()}
-            >
-              {busy ? "Verschiebe …" : "Verschieben"}
+            <Button type="submit" size="sm" disabled={busy || !newPath.trim()}>
+              {busy ? t("worktreeMove.submitBusy") : t("worktreeMove.submit")}
             </Button>
           </div>
         </form>

@@ -5,6 +5,7 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function StashCreateDialog({
@@ -16,6 +17,7 @@ export function StashCreateDialog({
   onClose: () => void;
   path: string;
 }) {
+  const { t } = useTranslation();
   const stashPush = useRepoStore((s) => s.stashPush);
   const [message, setMessage] = useState("");
   const [includeUntracked, setIncludeUntracked] = useState(false);
@@ -45,7 +47,7 @@ export function StashCreateDialog({
         includeUntracked,
         keepIndex,
       });
-      toast.success(out || "Stash angelegt.");
+      toast.success(out || t("stash.toastCreatedFallback"));
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -60,7 +62,7 @@ export function StashCreateDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Stash anlegen"
+      aria-label={t("stash.createAriaDialog")}
       className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -69,26 +71,26 @@ export function StashCreateDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="font-heading text-base font-medium">Stash anlegen</h2>
+          <h2 className="font-heading text-base font-medium">{t("stash.createTitle")}</h2>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             onClick={dismiss}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("dialogs.closeAria")}
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
           <div className="grid gap-1">
-            <Label htmlFor="stash-msg">Nachricht (optional)</Label>
+            <Label htmlFor="stash-msg">{t("stash.messageOptional")}</Label>
             <Textarea
               id="stash-msg"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Kurz beschreiben, was gestasht wird …"
+              placeholder={t("stash.messagePlaceholder")}
               rows={3}
               spellCheck={false}
               className="resize-none"
@@ -101,7 +103,7 @@ export function StashCreateDialog({
               onChange={(e) => setIncludeUntracked(e.target.checked)}
               className="rounded border-input"
             />
-            Untracked-Dateien einschließen (-u)
+            {t("stash.includeUntracked")}
           </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
@@ -110,7 +112,7 @@ export function StashCreateDialog({
               onChange={(e) => setKeepIndex(e.target.checked)}
               className="rounded border-input"
             />
-            Index behalten (--keep-index)
+            {t("stash.keepIndex")}
           </label>
           <div className="flex justify-end gap-2 pt-1">
             <Button
@@ -120,10 +122,10 @@ export function StashCreateDialog({
               onClick={dismiss}
               disabled={busy}
             >
-              Abbrechen
+              {t("common.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "…" : "Stashen"}
+              {busy ? t("editRemote.saveBusy") : t("stash.stashVerb")}
             </Button>
           </div>
         </form>

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { WorktreeCard } from "./worktree-card";
 
@@ -41,6 +42,7 @@ export function WorktreeList({
   onRequestMove: (entry: WorktreeEntry) => void;
   onRequestLock: (entry: WorktreeEntry) => void;
 }) {
+  const { t } = useTranslation();
   const worktrees = useRepoStore((s) => s.worktrees[path] ?? EMPTY);
   const loading = useRepoStore((s) => !!s.worktreesLoading[path]);
   const reloadWorktrees = useRepoStore((s) => s.reloadWorktrees);
@@ -52,7 +54,7 @@ export function WorktreeList({
     setPruning(true);
     try {
       const out = await worktreePrune(path);
-      toast.success(out || "Bereinigt.");
+      toast.success(out || t("worktree.cardPrunedFallback"));
       onPrune();
     } catch (e) {
       toastError(String(e));
@@ -62,10 +64,15 @@ export function WorktreeList({
   };
 
   const linkedCount = worktrees.length > 1 ? worktrees.length - 1 : 0;
+  const summarySub =
+    worktrees.length === 0
+      ? t("worktree.summaryNone")
+      : worktrees.length === 1
+        ? t("worktree.summaryMainOne")
+        : t("worktree.summaryMany", { count: worktrees.length, linked: linkedCount });
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Header */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.65_0.14_250_/_0.12)] text-[oklch(0.65_0.14_250)]">
@@ -73,15 +80,9 @@ export function WorktreeList({
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold tracking-tight">
-              Worktrees
+              {t("worktree.introTitle")}
             </h2>
-            <p className="text-[11px] text-muted-foreground">
-              {worktrees.length === 0
-                ? "Keine Einträge"
-                : worktrees.length === 1
-                  ? "1 Eintrag (main)"
-                  : `${worktrees.length} Einträge · ${linkedCount} verlinkt`}
-            </p>
+            <p className="text-[11px] text-muted-foreground">{summarySub}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -99,7 +100,7 @@ export function WorktreeList({
               </Button>
             </TooltipTrigger>
             <TooltipContent className="text-xs">
-              Verwaiste Worktrees bereinigen (prune)
+              {t("worktree.pruneStaleTooltip")}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -114,9 +115,7 @@ export function WorktreeList({
                 <Plus className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs">
-              Worktree hinzufügen
-            </TooltipContent>
+            <TooltipContent className="text-xs">{t("worktree.add")}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -133,19 +132,18 @@ export function WorktreeList({
                 />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs">Aktualisieren</TooltipContent>
+            <TooltipContent className="text-xs">{t("worktree.reloadTooltip")}</TooltipContent>
           </Tooltip>
         </div>
       </div>
 
-      {/* Info hint */}
       <button
         type="button"
         onClick={() => setHintOpen((v) => !v)}
         className="flex shrink-0 items-center gap-1.5 border-b border-border/40 bg-muted/30 px-3 py-2 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/60"
       >
         <Info className="h-3.5 w-3.5 shrink-0 text-[oklch(0.65_0.14_250_/_0.7)]" />
-        <span className="font-medium">Was sind Worktrees?</span>
+        <span className="font-medium">{t("worktree.whatAreWorktrees")}</span>
         {hintOpen ? (
           <ChevronDown className="ml-auto h-3.5 w-3.5" />
         ) : (
@@ -154,35 +152,16 @@ export function WorktreeList({
       </button>
       {hintOpen && (
         <div className="shrink-0 border-b border-border/40 bg-muted/20 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-          <p className="mb-1.5">
-            <strong className="font-semibold text-foreground/80">
-              Git Worktrees
-            </strong>{" "}
-            ermöglichen es, mehrere Branches desselben Repositories gleichzeitig in
-            verschiedene Verzeichnisse auszuchecken — ohne Stash oder Branch-Wechsel.
-          </p>
+          <p className="mb-1.5">{t("worktree.helpP1")}</p>
           <ul className="ml-3 list-disc space-y-1">
-            <li>
-              <strong>Main Worktree</strong> — das Hauptverzeichnis des Repositories
-            </li>
-            <li>
-              <strong>Verlinkte Worktrees</strong> — zusätzliche Verzeichnisse mit
-              eigenem Branch und HEAD
-            </li>
-            <li>
-              <strong>Sperren</strong> — verhindert, dass{" "}
-              <code className="rounded bg-muted px-0.5">git worktree prune</code>{" "}
-              den Eintrag entfernt
-            </li>
-            <li>
-              <strong>Prune</strong> — entfernt Metadaten zu nicht mehr existierenden
-              Worktrees
-            </li>
+            <li>{t("worktree.helpLine1")}</li>
+            <li>{t("worktree.helpLine2")}</li>
+            <li>{t("worktree.helpLine3")}</li>
+            <li>{t("worktree.helpLine4")}</li>
           </ul>
         </div>
       )}
 
-      {/* List */}
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-2 p-3">
           {loading && worktrees.length === 0 ? (
@@ -194,10 +173,9 @@ export function WorktreeList({
           ) : worktrees.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
               <GitFork className="h-10 w-10 opacity-20" />
-              <span className="text-sm font-medium">Keine Worktrees</span>
+              <span className="text-sm font-medium">{t("worktree.noneInRepoTitle")}</span>
               <span className="max-w-[220px] text-xs opacity-80">
-                Dieses Repository hat keine verlinkten Worktrees. Erstelle
-                einen über das + Icon oben.
+                {t("worktree.noneInRepoBody")}
               </span>
             </div>
           ) : (

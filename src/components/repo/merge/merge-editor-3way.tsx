@@ -1,6 +1,7 @@
 import { DiffEditor, Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   type ConflictBlock,
   hasUnresolvedConflicts,
@@ -87,12 +88,12 @@ interface MergeEditor3WayProps {
 }
 
 export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEditor3WayProps) {
+  const { t } = useTranslation();
   const theme = useMonacoTheme();
   const [resultText, setResultText] = useState(versions.current);
   const [activeBlockIdx, setActiveBlockIdx] = useState(0);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 
-  // Reset when file changes
   useEffect(() => {
     setResultText(versions.current);
     setActiveBlockIdx(0);
@@ -156,18 +157,17 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasConflicts, activeBlockIdx, resultText]);
+
+  const conflictBadge = t("mergeEditor.conflictsBadge", { count: blocks.length });
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Top row: Ours (vs Base) | Theirs (vs Base) */}
       <div className="flex min-h-0 flex-1 border-b border-border">
-        {/* Ours panel */}
         <div className="flex min-h-0 flex-1 flex-col border-r border-border">
           <div className="flex items-center gap-1.5 border-b border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
             <span className="h-2 w-2 rounded-full bg-green-500" />
-            Ours (HEAD)
+            {t("mergeEditor.oursHead")}
           </div>
           <div className="min-h-0 flex-1">
             <DiffEditor
@@ -179,11 +179,10 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
             />
           </div>
         </div>
-        {/* Theirs panel */}
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-center gap-1.5 border-b border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
             <span className="h-2 w-2 rounded-full bg-blue-500" />
-            Theirs (Incoming)
+            {t("mergeEditor.theirsIncoming")}
           </div>
           <div className="min-h-0 flex-1">
             <DiffEditor
@@ -197,14 +196,13 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
         </div>
       </div>
 
-      {/* Bottom: Result editor */}
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-xs">
-          <span className="font-medium text-muted-foreground">Result</span>
+          <span className="font-medium text-muted-foreground">{t("mergeEditor.result")}</span>
           {hasConflicts ? (
             <>
               <span className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-amber-600 dark:text-amber-400">
-                {blocks.length} Konflikt{blocks.length !== 1 ? "e" : ""}
+                {conflictBadge}
               </span>
               <div className="flex items-center gap-1">
                 <Button
@@ -213,7 +211,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
                   size="icon-sm"
                   onClick={prevBlock}
                   disabled={activeBlockIdx === 0}
-                  title="Vorheriger Konflikt (←)"
+                  title={t("mergeEditor.prevConflictKeys")}
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
@@ -226,20 +224,23 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
                   size="icon-sm"
                   onClick={nextBlock}
                   disabled={activeBlockIdx >= blocks.length - 1}
-                  title="Nächster Konflikt (→)"
+                  title={t("mergeEditor.nextConflictKeys")}
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
               <div className="flex items-center gap-1">
-                <Button type="button" size="sm" variant="outline" onClick={() => accept("ours")} title="Unsere Änderung übernehmen (1)">
-                  Ours<Kbd>1</Kbd>
+                <Button type="button" size="sm" variant="outline" onClick={() => accept("ours")} title={t("mergeEditor.takeOursHint")}>
+                  {t("mergeEditor.ours")}
+                  <Kbd>1</Kbd>
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => accept("theirs")} title="Eingehende Änderung übernehmen (2)">
-                  Theirs<Kbd>2</Kbd>
+                <Button type="button" size="sm" variant="outline" onClick={() => accept("theirs")} title={t("mergeEditor.takeTheirsHint")}>
+                  {t("mergeEditor.theirs")}
+                  <Kbd>2</Kbd>
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => accept("both")} title="Beide Änderungen behalten (3)">
-                  Beide<Kbd>3</Kbd>
+                <Button type="button" size="sm" variant="outline" onClick={() => accept("both")} title={t("mergeEditor.keepBothHint")}>
+                  {t("mergeEditor.both")}
+                  <Kbd>3</Kbd>
                 </Button>
               </div>
               <div className="flex items-center gap-1 border-l border-border pl-2">
@@ -249,10 +250,10 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
                   variant="ghost"
                   className="gap-1 text-green-600 hover:bg-green-500/10 hover:text-green-600 dark:text-green-400"
                   onClick={() => acceptAll("ours")}
-                  title="Alle Konflikte mit unserer Version lösen"
+                  title={t("mergeEditor.acceptAllOursHint")}
                 >
                   <ChevronsLeft className="h-3.5 w-3.5" />
-                  Alle Ours
+                  {t("mergeEditor.allOurs")}
                 </Button>
                 <Button
                   type="button"
@@ -260,16 +261,16 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
                   variant="ghost"
                   className="gap-1 text-blue-600 hover:bg-blue-500/10 hover:text-blue-600 dark:text-blue-400"
                   onClick={() => acceptAll("theirs")}
-                  title="Alle Konflikte mit der eingehenden Version lösen"
+                  title={t("mergeEditor.acceptAllTheirsHint")}
                 >
-                  Alle Theirs
+                  {t("mergeEditor.allTheirs")}
                   <ChevronsRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </>
           ) : (
             <span className="ml-1 rounded bg-green-500/20 px-1.5 py-0.5 text-green-600 dark:text-green-400">
-              Alle Konflikte aufgelöst
+              {t("mergeEditor.allResolved")}
             </span>
           )}
           <Button
@@ -280,7 +281,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
             onClick={() => onSave(resultText)}
           >
             <Save className="mr-1 h-3.5 w-3.5" />
-            {saving ? "…" : "Speichern & Stagen"}
+            {saving ? "…" : t("mergeEditor.saveStage")}
           </Button>
         </div>
         <div className="min-h-0 flex-1">

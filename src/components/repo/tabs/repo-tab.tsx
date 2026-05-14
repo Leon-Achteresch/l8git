@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { memo, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { RepoLanguageStats } from "./repo-language-stats";
 
@@ -47,6 +48,7 @@ export const RepoTab = memo(function RepoTab({
   label,
   active,
 }: RepoTabProps) {
+  const { t } = useTranslation();
   const {
     loading,
     favicon,
@@ -189,7 +191,7 @@ export const RepoTab = memo(function RepoTab({
             <span
               role="button"
               tabIndex={-1}
-              aria-label="Tab schließen"
+              aria-label={t("repoTab.closeTabAria")}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -211,21 +213,21 @@ export const RepoTab = memo(function RepoTab({
             onSelect={() => void useRepoStore.getState().reload(path)}
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            Neu laden
+            {t("repoTab.reload")}
             <ContextMenuShortcut>
               {formatForDisplay("F5")} · {formatForDisplay("Mod+R")}
             </ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => setLangOpen(true)}>
             <ChartPie className="h-3.5 w-3.5" />
-            Sprachen anzeigen
+            {t("repoTab.showLanguages")}
           </ContextMenuItem>
           <ContextMenuItem
             variant="destructive"
             onSelect={() => useRepoStore.getState().removeRepo(path)}
           >
             <X className="h-3.5 w-3.5" />
-            Schließen
+            {t("repoTab.close")}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>

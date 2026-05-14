@@ -1,9 +1,12 @@
+import { useTranslation } from "react-i18next";
+import { Loader2 } from "lucide-react";
+
 import { CommitHistoryPanel } from "@/components/repo/commit/commit-history-panel";
 import { RepoRemoteToolbar } from "@/components/repo/remote/repo-remote-toolbar";
 import { useRepoStore } from "@/lib/repo-store";
-import { Loader2 } from "lucide-react";
 
 export function RepoDetails() {
+  const { t } = useTranslation();
   const activePath = useRepoStore((s) => s.activePath);
   const repo = useRepoStore((s) => (activePath ? s.repos[activePath] : null));
   const loading = useRepoStore((s) =>
@@ -25,7 +28,7 @@ export function RepoDetails() {
     return (
       <p className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Lade …
+        {t("repoDetails.loading")}
       </p>
     );
   }

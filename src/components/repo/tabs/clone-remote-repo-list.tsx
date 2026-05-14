@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input";
 import type { RemoteRepo } from "@/lib/remote-repo";
 import { GitBranch, Globe, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function CloneRemoteRepoList({
   repos,
@@ -10,6 +11,7 @@ export function CloneRemoteRepoList({
   repos: RemoteRepo[];
   onPick: (r: RemoteRepo) => void;
 }) {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -26,7 +28,7 @@ export function CloneRemoteRepoList({
       <Input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Filtern…"
+        placeholder={t("clone.filterPlaceholder")}
         spellCheck={false}
         autoComplete="off"
       />
@@ -34,7 +36,7 @@ export function CloneRemoteRepoList({
         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
           <GitBranch className="h-8 w-8 opacity-20" />
           <span className="text-sm">
-            {q ? "Keine Treffer" : "Keine Repositories gefunden"}
+            {q ? t("clone.noMatchesSearch") : t("clone.noMatchesRepos")}
           </span>
         </div>
       ) : (

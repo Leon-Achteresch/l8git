@@ -6,15 +6,17 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { WorktreeEntry } from "@/lib/repo-store";
+import { useTranslation } from "react-i18next";
 
 export function WorktreeStatusBadge({ entry }: { entry: WorktreeEntry }) {
+  const { t } = useTranslation();
   const badges: React.ReactNode[] = [];
 
   if (entry.is_main) {
     badges.push(
       <PopIn key="main" delay={0}>
         <span className="inline-flex items-center rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-          Main
+          {t("worktree.badgeMain")}
         </span>
       </PopIn>,
     );
@@ -23,7 +25,7 @@ export function WorktreeStatusBadge({ entry }: { entry: WorktreeEntry }) {
   if (entry.is_locked) {
     const badge = (
       <span className="inline-flex items-center rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-        Gesperrt
+        {t("worktree.badgeLocked")}
       </span>
     );
     badges.push(
@@ -50,7 +52,7 @@ export function WorktreeStatusBadge({ entry }: { entry: WorktreeEntry }) {
           "bg-destructive/15 text-destructive",
         )}
       >
-        Prunable
+        {t("worktree.badgePrunable")}
       </span>
     );
     badges.push(

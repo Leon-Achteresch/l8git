@@ -3,6 +3,7 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function RemoteDeleteConfirmDialog({
@@ -16,6 +17,7 @@ export function RemoteDeleteConfirmDialog({
   path: string;
   remoteRef: string;
 }) {
+  const { t } = useTranslation();
   const deleteRemoteBranch = useRepoStore((s) => s.deleteRemoteBranch);
   const [busy, setBusy] = useState(false);
 
@@ -32,7 +34,7 @@ export function RemoteDeleteConfirmDialog({
     setBusy(true);
     try {
       const out = await deleteRemoteBranch(path, remoteRef);
-      toast.success(out || "Remote-Branch gelöscht.");
+      toast.success(out || t("remoteDelete.toastSuccessFallback"));
       onClose();
     } catch (e) {
       toastError(String(e));
@@ -47,7 +49,7 @@ export function RemoteDeleteConfirmDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Remote-Branch löschen"
+      aria-label={t("remoteDelete.title")}
       className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -56,26 +58,26 @@ export function RemoteDeleteConfirmDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="font-heading text-base font-medium">Remote-Branch löschen</h2>
+          <h2 className="font-heading text-base font-medium">{t("remoteDelete.title")}</h2>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             onClick={dismiss}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("remoteDelete.closeAria")}
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
         <p className="mb-4 text-sm text-muted-foreground">
-          Remote-Branch{" "}
-          <span className="font-mono font-medium text-foreground">{remoteRef}</span>{" "}
-          auf dem Server unwiderruflich löschen?
+          {t("remoteDelete.bodyPart1")}
+          <span className="font-mono font-medium text-foreground">{remoteRef}</span>
+          {t("remoteDelete.bodyPart2")}
         </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
-            Abbrechen
+            {t("remoteDelete.cancel")}
           </Button>
           <Button
             type="button"
@@ -84,7 +86,7 @@ export function RemoteDeleteConfirmDialog({
             disabled={busy}
             onClick={() => void confirmDelete()}
           >
-            {busy ? "…" : "Löschen"}
+            {busy ? t("remoteDelete.deleteBusy") : t("common.delete")}
           </Button>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type WorktreeEntry } from "@/lib/repo-store";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function WorktreeLockDialog({
@@ -17,6 +18,7 @@ export function WorktreeLockDialog({
   path: string;
   entry: WorktreeEntry | null;
 }) {
+  const { t } = useTranslation();
   const worktreeLock = useRepoStore((s) => s.worktreeLock);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -43,7 +45,7 @@ export function WorktreeLockDialog({
     setBusy(true);
     try {
       await worktreeLock(path, entry.path, reason.trim() || undefined);
-      toast.success("Worktree gesperrt.");
+      toast.success(t("worktreeLock.toastLocked"));
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -56,7 +58,7 @@ export function WorktreeLockDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Worktree sperren"
+      aria-label={t("worktreeLock.dialogAria")}
       className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -66,53 +68,36 @@ export function WorktreeLockDialog({
       >
         <header className="mb-3 flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-base font-semibold">Worktree sperren</h2>
+            <h2 className="text-base font-semibold">{t("worktreeLock.title")}</h2>
             <p className="text-[11px] text-muted-foreground">{entryName}</p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={dismiss}
-            disabled={busy}
-            aria-label="Schließen"
-          >
+          <Button type="button" variant="ghost" size="icon-sm" onClick={dismiss} disabled={busy} aria-label={t("worktreeLock.closeAria")}>
             <X className="h-4 w-4" />
           </Button>
         </header>
 
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
-          <p className="text-[12px] text-muted-foreground">
-            Ein gesperrter Worktree wird nicht durch <code className="rounded bg-muted px-0.5 text-[11px]">git worktree prune</code> entfernt.
-          </p>
+          <p className="text-[12px] text-muted-foreground">{t("worktreeLock.intro")}</p>
 
           <div className="grid gap-1">
-            <Label htmlFor="wt-lock-reason">Grund (optional)</Label>
+            <Label htmlFor="wt-lock-reason">{t("worktreeLock.reasonLabel")}</Label>
             <textarea
               id="wt-lock-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="z.B. Wird für CI-Pipeline benötigt"
+              placeholder={t("worktree.lockReasonPlaceholder")}
               rows={3}
               className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none resize-none focus:ring-2 focus:ring-ring/50"
             />
-            <p className="text-[11px] text-muted-foreground">
-              Wird als Metadaten gespeichert und bei <code className="rounded bg-muted px-0.5">git worktree list</code> angezeigt.
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("worktree.lockReasonHint")}</p>
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={dismiss}
-              disabled={busy}
-            >
-              Abbrechen
+            <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
+              {t("worktreeLock.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "Sperrt …" : "Sperren"}
+              {busy ? t("worktreeLock.submitBusy") : t("worktreeLock.submit")}
             </Button>
           </div>
         </form>

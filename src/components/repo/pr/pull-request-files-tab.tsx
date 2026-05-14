@@ -9,14 +9,13 @@ import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 type PrFile = {
   path: string;
   status: string;
   additions: number;
   deletions: number;
-  // Backend no longer ships the patch in the list payload; it's fetched
-  // lazily via `pr_file_patch` when the user opens a file.
   patch?: string;
 };
 
@@ -34,6 +33,7 @@ export function PullRequestFilesTab({
   path: string;
   number: number;
 }) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<PrFile[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export function PullRequestFilesTab({
   if (!files || files.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Keine geänderten Dateien.
+        {t("pr.noFiles")}
       </div>
     );
   }
@@ -188,9 +188,9 @@ export function PullRequestFilesTab({
           emptyHint={
             patch
               ? ""
-              : "Kein Diff verfügbar (evtl. Binärdatei oder zu groß)."
+              : t("pr.noDiffLarge")
           }
-          failedHint="Diff konnte nicht geladen werden."
+          failedHint={t("diff.diffLoadFailedFallback")}
         />
       </ResizablePanel>
     </ResizablePanelGroup>
