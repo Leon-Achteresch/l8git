@@ -110,20 +110,24 @@ pub fn read_https_credential(host: &str) -> Result<HttpsCredential, String> {
 }
 
 #[tauri::command]
-pub fn git_sign_in(host: String, username: String, token: String) -> Result<(), String> {
-    let host = host.trim();
-    if host.is_empty() {
-        return Err("Host darf nicht leer sein".into());
-    }
-    if username.trim().is_empty() {
-        return Err("Benutzername darf nicht leer sein".into());
-    }
-    if token.is_empty() {
-        return Err("Token darf nicht leer sein".into());
-    }
-    let input = format!("protocol=https\nhost={host}\nusername={username}\npassword={token}\n\n");
-    git_credential("approve", &input, true, Duration::from_secs(45))?;
-    Ok(())
+pub async fn git_sign_in(host: String, username: String, token: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let host = host.trim().to_string();
+        if host.is_empty() {
+            return Err("Host darf nicht leer sein".into());
+        }
+        if username.trim().is_empty() {
+            return Err("Benutzername darf nicht leer sein".into());
+        }
+        if token.is_empty() {
+            return Err("Token darf nicht leer sein".into());
+        }
+        let input = format!("protocol=https\nhost={host}\nusername={username}\npassword={token}\n\n");
+        git_credential("approve", &input, true, Duration::from_secs(45))?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[derive(Serialize)]
@@ -132,65 +136,68 @@ pub struct CredentialManagerSignIn {
 }
 
 #[tauri::command]
-pub fn git_sign_in_via_credential_manager(
+pub async fn git_sign_in_via_credential_manager(
     host: String,
 ) -> Result<CredentialManagerSignIn, String> {
-    let host = host.trim();
-    if host.is_empty() {
-        return Err("Host darf nicht leer sein".into());
-    }
-    let input = format!("protocol=https\nhost={host}\n\n");
-    let filled = git_credential(
-        "fill",
-        &input,
-        false,
-        Duration::from_secs(180),
-    )?;
-    let mut has_password = false;
-    let mut username = None;
-    for line in filled.lines() {
-        if let Some(u) = line.strip_prefix("username=") {
-            if !u.is_empty() {
-                username = Some(u.to_string());
-            }
-        } else if line.starts_with("password=") && line.len() > "password=".len() {
-            has_password = true;
+    tokio::task::spawn_blocking(move || {
+        let host = host.trim().to_string();
+        if host.is_empty() {
+            return Err("Host darf nicht leer sein".into());
         }
-    }
-    if !has_password {
-        return Err(
-            "Keine Zugangsdaten erhalten. Bitte Anmeldung im Credential Manager abschließen oder abbrechen."
-                .into(),
-        );
-    }
-    git_credential("approve", &filled, true, Duration::from_secs(45))?;
-    Ok(CredentialManagerSignIn { username })
+        let input = format!("protocol=https\nhost={host}\n\n");
+        let filled = git_credential("fill", &input, false, Duration::from_secs(180))?;
+        let mut has_password = false;
+        let mut username = None;
+        for line in filled.lines() {
+            if let Some(u) = line.strip_prefix("username=") {
+                if !u.is_empty() {
+                    username = Some(u.to_string());
+                }
+            } else if line.starts_with("password=") && line.len() > "password=".len() {
+                has_password = true;
+            }
+        }
+        if !has_password {
+            return Err(
+                "Keine Zugangsdaten erhalten. Bitte Anmeldung im Credential Manager abschließen oder abbrechen."
+                    .into(),
+            );
+        }
+        git_credential("approve", &filled, true, Duration::from_secs(45))?;
+        Ok(CredentialManagerSignIn { username })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn git_sign_out(host: String, username: Option<String>) -> Result<(), String> {
-    let mut input = format!("protocol=https\nhost={host}\n");
-    if let Some(u) = username.filter(|u| !u.is_empty()) {
-        input.push_str(&format!("username={u}\n"));
-    }
-    input.push('\n');
-    git_credential("reject", &input, true, Duration::from_secs(45))?;
-    Ok(())
+pub async fn git_sign_out(host: String, username: Option<String>) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let mut input = format!("protocol=https\nhost={host}\n");
+        if let Some(u) = username.filter(|u| !u.is_empty()) {
+            input.push_str(&format!("username={u}\n"));
+        }
+        input.push('\n');
+        git_credential("reject", &input, true, Duration::from_secs(45))?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn git_credential_helper() -> Option<String> {
-    let out = git_command()
-        .args(["config", "--get", "credential.helper"])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if s.is_empty() {
-        None
-    } else {
-        Some(s)
-    }
+pub async fn git_credential_helper() -> Option<String> {
+    tokio::task::spawn_blocking(|| {
+        let out = git_command()
+            .args(["config", "--get", "credential.helper"])
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if s.is_empty() { None } else { Some(s) }
+    })
+    .await
+    .unwrap_or(None)
 }

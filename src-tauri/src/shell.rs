@@ -18,7 +18,13 @@ fn escape_applescript_string(s: &str) -> String {
 }
 
 #[tauri::command]
-pub fn reveal_repo_folder(path: String) -> Result<(), String> {
+pub async fn reveal_repo_folder(path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || _reveal_repo_folder(path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn _reveal_repo_folder(path: String) -> Result<(), String> {
     let p = PathBuf::from(path.trim());
     if !p.is_dir() {
         return Err("Pfad ist kein Ordner.".into());
@@ -85,7 +91,13 @@ fn windows_git_bash_path() -> Option<PathBuf> {
 }
 
 #[tauri::command]
-pub fn open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
+pub async fn open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || _open_repo_terminal(path, use_git_bash))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
     let p = PathBuf::from(path.trim());
     if !p.is_dir() {
         return Err("Pfad ist kein Ordner.".into());
@@ -207,7 +219,13 @@ pub fn open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String
 }
 
 #[tauri::command]
-pub fn open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
+pub async fn open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || _open_repo_in_ide(path, ide_launch))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn _open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
     let raw = ide_launch.trim();
     if raw.is_empty() {
         return Err("Keine IDE konfiguriert (Einstellungen).".into());
