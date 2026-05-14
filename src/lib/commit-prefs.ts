@@ -6,6 +6,8 @@ type CommitPrefs = {
   setMessageTemplate: (value: string) => void;
   showConventionalCommitIcons: boolean;
   setShowConventionalCommitIcons: (value: boolean) => void;
+  showCommitDateGroups: boolean;
+  setShowCommitDateGroups: (value: boolean) => void;
   aiPromptTemplate: string;
   setAiPromptTemplate: (value: string) => void;
   aiOutputLanguage: string;
@@ -20,6 +22,9 @@ export const useCommitPrefs = create<CommitPrefs>()(
       showConventionalCommitIcons: true,
       setShowConventionalCommitIcons: (showConventionalCommitIcons) =>
         set({ showConventionalCommitIcons }),
+      showCommitDateGroups: true,
+      setShowCommitDateGroups: (showCommitDateGroups) =>
+        set({ showCommitDateGroups }),
       aiPromptTemplate: "",
       setAiPromptTemplate: (value) => set({ aiPromptTemplate: value }),
       aiOutputLanguage: "English",

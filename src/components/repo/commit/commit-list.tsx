@@ -3,6 +3,7 @@ import { buildGraph, normalizeGitOid, type GraphRow } from "@/lib/graph";
 import type { Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
+import { useCommitPrefs } from "@/lib/commit-prefs";
 import type { BisectRole } from "./commit-row";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -86,6 +87,7 @@ export function CommitList({
   const bisect = useRepoStore(s => s.bisect[path]);
   const bisectPending = useUiStore(s => s.bisectPending[path]);
   const bisectVisible = useUiStore(s => s.bisectVisible);
+  const showCommitDateGroups = useCommitPrefs(s => s.showCommitDateGroups);
 
   const graphKey = useMemo(
     () => commits.map((c) => c.hash).join("|"),
@@ -115,15 +117,17 @@ export function CommitList({
     const out: FlatItem[] = [];
     let last = "";
     for (let i = 0; i < rows.length; i++) {
-      const sec = historySectionTitle(rows[i].commit.date);
-      if (sec !== last) {
-        out.push({ kind: "header", key: `${sec}-${i}`, label: sec });
-        last = sec;
+      if (showCommitDateGroups) {
+        const sec = historySectionTitle(rows[i].commit.date);
+        if (sec !== last) {
+          out.push({ kind: "header", key: `${sec}-${i}`, label: sec });
+          last = sec;
+        }
       }
       out.push({ kind: "commit", rowIndex: i });
     }
     return out;
-  }, [rows]);
+  }, [rows, showCommitDateGroups]);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const commitFocusRequest = useUiStore((s) => s.commitFocusRequest);
