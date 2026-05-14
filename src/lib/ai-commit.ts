@@ -1,5 +1,6 @@
 import { OpenRouter } from "@openrouter/sdk";
 import { useCommitPrefs } from "@/lib/commit-prefs";
+import i18n from "@/lib/i18n";
 
 const MAX_STAGED_DIFF_CHARS = 48_000;
 const MODEL = "deepseek/deepseek-v4-flash";
@@ -97,6 +98,7 @@ export async function generateAiCommitMessage(stagedDiff: string): Promise<strin
   });
 
   const content = completion.choices[0]?.message?.content;
-  if (typeof content !== "string" || !content) throw new Error("Keine Antwort vom AI-Modell erhalten");
+  if (typeof content !== "string" || !content)
+    throw new Error(i18n.t("errors.aiNoResponse"));
   return normalizeCommitMessageText(content);
 }

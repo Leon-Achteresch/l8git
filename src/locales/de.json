@@ -1,0 +1,411 @@
+{
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "delete": "Löschen",
+    "add": "Hinzufügen",
+    "remove": "Entfernen",
+    "loading": "Lade …",
+    "copy": "Kopieren",
+    "back": "Zurück",
+    "settings": "Einstellungen",
+    "noResults": "Keine Treffer",
+    "select": "Auswählen",
+    "install": "Installieren",
+    "later": "Später",
+    "retryCheck": "Erneut prüfen",
+    "wait": "Bitte warten…",
+    "file": "Datei",
+    "files": "Dateien",
+    "amend": "Amend",
+    "search": "Suchen",
+    "yes": "Ja",
+    "no": "Nein"
+  },
+  "header": {
+    "repo": "Repository",
+    "info": "Info",
+    "about": "About",
+    "mainNav": "Hauptnavigation",
+    "settingsAria": "Einstellungen"
+  },
+  "emptyState": {
+    "cardCommitsCaption": "Alle Änderungen",
+    "cardCommitsLabel": "Commits",
+    "cardBranchesCaption": "Übersichtlich",
+    "cardBranchesLabel": "Branches",
+    "cardMergesCaption": "Einfach",
+    "cardMergesLabel": "Merges",
+    "cardPrCaption": "Integriert",
+    "cardPrLabel": "Pull Requests",
+    "titleBefore": "Dein",
+    "titleAfter": "Workflow.",
+    "titleTagline": "Einfach. Lokal. Schnell.",
+    "subtitleLine1": "l8git gibt dir alle Werkzeuge, um effizient zu arbeiten –",
+    "subtitleLine2": "ohne Ablenkung, ohne Cloud, ohne Kompromisse.",
+    "hint": "Klicke oben auf das Plus, um zu starten"
+  },
+  "info": {
+    "title": "Info",
+    "backAria": "Zurück",
+    "shortcutsTitle": "Tastenkürzel",
+    "shortcutsDesc": "Übersicht aller in l8git registrierten Tastaturkürzel. Einige Aktionen sind nur aktiv, solange ein Repository geöffnet ist.",
+    "noShortcuts": "Keine Tastenkürzel registriert.",
+    "moreTitle": "Weiteres",
+    "moreDesc": "Diese Seite ist der zentrale Ort für Infos, Hilfe und Referenzen. Hier können später weitere Inhalte ergänzt werden."
+  },
+  "about": {
+    "title": "About",
+    "body": "l8git — ein einfacher Git-Frontend-Client, gebaut mit Tauri, React, TanStack Router und shadcn/ui."
+  },
+  "commitHistory": {
+    "today": "HEUTE",
+    "yesterday": "GESTERN",
+    "thisWeek": "DIESE WOCHE",
+    "earlier": "FRÜHER"
+  },
+  "time": {
+    "justNow": "gerade eben",
+    "minutesAgo": "vor {{count}}m",
+    "hoursAgo": "vor {{count}}h",
+    "daysAgo": "vor {{count}}d"
+  },
+  "errors": {
+    "copyAction": "Kopieren",
+    "updateCheckFailed": "Update fehlgeschlagen: {{error}}",
+    "updateInstallFailed": "Update fehlgeschlagen: {{error}}",
+    "restartFailed": "Neustart fehlgeschlagen: {{error}}",
+    "aiNoResponse": "Keine Antwort vom AI-Modell erhalten"
+  },
+  "hotkeys": {
+    "reloadActive": "Aktives Repo neu laden",
+    "reloadAll": "Alle Repos neu laden",
+    "openRepo": "Lokales Repository öffnen",
+    "settings": "Einstellungen",
+    "sidebarCommit": "Sidebar: Commit",
+    "sidebarHistory": "Sidebar: History",
+    "sidebarPr": "Sidebar: Pull Requests",
+    "sidebarCi": "Sidebar: CI",
+    "sidebarStash": "Sidebar: Stash",
+    "commitStageUnstageStaged": "Auswahl / Hunk / Datei unstagen",
+    "commitStageUnstageUnstaged": "Auswahl / Hunk / Datei stagen",
+    "commitPrevHunk": "Vorheriger Hunk",
+    "commitNextHunk": "Nächster Hunk",
+    "commitClearSelection": "Zeilenauswahl aufheben"
+  },
+  "settings": {
+    "back": "Zurück",
+    "title": "Einstellungen",
+    "navAppearance": "Darstellung",
+    "navAnimations": "Animationen",
+    "navCommits": "Commits",
+    "navWorkspace": "Workspace",
+    "navAccounts": "Git-Konten",
+    "navUpdates": "Updates",
+    "appearanceTitle": "Darstellung",
+    "appearanceSubtitle": "Erscheinungsbild der App anpassen",
+    "languageTitle": "Sprache",
+    "languageSubtitle": "Oberflächensprache der App",
+    "languageDe": "Deutsch",
+    "languageEn": "English",
+    "themeTitle": "Theme",
+    "themeDesc": "„System“ folgt deiner OS-Einstellung.",
+    "themeLight": "Hell",
+    "themeDark": "Dunkel",
+    "themeSystem": "System",
+    "themeAria": "Theme",
+    "animationsSectionTitle": "Animationen",
+    "animationsSectionSubtitle": "Übergänge und Bewegungseffekte",
+    "commitsSectionTitle": "Commits",
+    "commitsSectionSubtitle": "Commit-Darstellung und Nachrichtenvorlage",
+    "historyTitle": "Commit-Historie",
+    "historyDesc": "Optionale Kennzeichnung nach Conventional Commits (Typ-Icons, BREAKING CHANGE oder „!“ vor dem Doppelpunkt).",
+    "conventionalIconsLabel": "Conventional-Commit-Symbole anzeigen",
+    "conventionalIconsHint": "Wenn ausgeschaltet, werden in der Commit-Liste keine Typ- oder Breaking-Hinweise als Symbole gerendert.",
+    "dateGroupsLabel": "Datumsgruppen anzeigen",
+    "dateGroupsHint": "Zeigt Abschnitts-Überschriften wie „Heute“, „Gestern“ oder „Diese Woche“ zwischen den Commits an.",
+    "graphTitle": "Commit-Graph",
+    "graphDesc": "Steuert, welche Commits im Verlauf angezeigt werden.",
+    "hideT3Label": "T3-Checkpoint-Commits ausblenden",
+    "hideT3Hint": "T3 Code speichert Arbeitsstand-Snapshots als separate Commits unter refs/t3/checkpoints/*. Diese erscheinen nicht in einem Branch und können den Graphen unübersichtlich machen. Änderung wirkt beim nächsten Laden des Repositories.",
+    "messageTitle": "Commit-Nachricht",
+    "messageDesc": "Standardvorlage für das Commit-Feld in allen Repositories. Die KI übernimmt dieselbe Struktur bei der automatischen Commit-Nachricht, wenn gesetzt. Leer lassen, wenn keine Vorlage verwendet werden soll.",
+    "messagePlaceholder": "z. B. kurze Überschrift\n\n- \n",
+    "aiTitle": "AI Commit-Nachricht",
+    "aiDesc": "Anweisungen und Ausgabesprache für die automatische Commit-Generierung. Leer lassen, um die Standard-Vorlage zu verwenden.",
+    "aiOutputLanguage": "Ausgabesprache",
+    "aiOutputHint": "z. B. „German“, „Deutsch“, „French“, „English“ (Standard)",
+    "aiPromptLabel": "System-Prompt",
+    "aiPromptHint": "Leer lassen, um den Standard-Prompt zu verwenden. Ausgabesprache und Commit-Vorlage werden zusätzlich als feste Vorgaben ergänzt.",
+    "workspaceSectionTitle": "Workspace",
+    "workspaceSectionSubtitle": "IDE-Befehl und Terminal-Einstellungen",
+    "ideTitle": "IDE & Workspace",
+    "ideDesc": "Befehl zum Öffnen des Repository-Ordners in deiner IDE. Der Repository-Pfad wird automatisch als letztes Argument angehängt. Beispiele: cursor, code, open -a Cursor (macOS).",
+    "idePickTitle": "IDE-Programm auswählen",
+    "terminalInRepo": "Terminal im Repository",
+    "terminalInRepoHint": "Wird von der Schaltfläche „Terminal“ in der Remote-Ansicht verwendet. Git Bash bezieht sich auf die Installation von Git for Windows; auf macOS und Linux bleibt es beim Standard-Terminal.",
+    "terminalDefault": "Standard-Terminal",
+    "terminalGitBash": "Git Bash",
+    "terminalAria": "Repository-Terminal",
+    "accountsSectionTitle": "Git-Konten",
+    "accountsSectionSubtitle": "Angemeldete Git-Anbieter verwalten",
+    "accountsCardTitle": "Verbundene Konten",
+    "accountsCardDesc": "Übersicht deiner angemeldeten Git-Anbieter.",
+    "refreshAria": "Aktualisieren",
+    "addAccountAria": "Konto hinzufügen",
+    "noCredentialHelper": "Kein Git Credential Helper konfiguriert. Setze z. B. mit git config --global credential.helper osxkeychain, damit Anmeldedaten dauerhaft gespeichert werden.",
+    "credentialHelper": "Credential Helper:",
+    "accountsLoading": "Lade Konten…",
+    "accountsRefreshing": "Aktualisiere…",
+    "accountsEmpty": "Keine angemeldeten Git-Konten. Füge eines über das Plus-Symbol hinzu.",
+    "updatesSectionTitle": "Updates",
+    "updatesSectionSubtitle": "App-Versionen prüfen und installieren",
+    "updatesCardTitle": "App-Updates",
+    "updatesCardDesc": "Releases werden automatisch über GitHub bereitgestellt. Neue Versionen können direkt aus der App heruntergeladen und installiert werden.",
+    "checkUpdates": "Nach Updates suchen"
+  },
+  "animations": {
+    "title": "Bewegung & Animationen",
+    "desc": "Dezent choreografierte Übergänge – Magic-Pill, Tape-Reveal und Pop-Bloom. Unterbrechen dich nie: du kannst jederzeit weiterklicken, während Elemente noch animieren. Respektiert automatisch die System-Einstellung „Reduzierte Bewegung“.",
+    "enableLabel": "Bewegungen aktivieren",
+    "enableHint": "Wenn ausgeschaltet, erscheinen alle Inhalte sofort ohne Übergangseffekte."
+  },
+  "gitAccount": {
+    "signedIn": "Angemeldet",
+    "signedInAs": " als {{user}}",
+    "signOut": "Abmelden",
+    "removeHostAria": "Host entfernen"
+  },
+  "repoDetails": {
+    "loading": "Lade …"
+  },
+  "updates": {
+    "titleIdle": "",
+    "titleAvailable": "Update {{version}} ist verfügbar",
+    "titleAvailableShort": "Update verfügbar",
+    "titleDownloading": "Update {{version}} wird geladen",
+    "titleDownloadingShort": "Update wird geladen",
+    "titleInstalling": "Update {{version}} wird installiert",
+    "titleInstallingShort": "Update wird installiert",
+    "titleInstalled": "Update {{version}} ist installiert",
+    "titleInstalledShort": "Update installiert",
+    "titleUpToDate": "l8git ist aktuell",
+    "titleUnsupported": "Updates nur in der Desktop-App",
+    "titleError": "Update fehlgeschlagen",
+    "descAvailable": "Das Update kann direkt in l8git heruntergeladen und installiert werden.",
+    "descDownloading": "Die neue Version wird aus dem Release geladen.",
+    "descInstalling": "Das Paket wurde geladen und wird jetzt installiert.",
+    "descInstalled": "Der Neustart übernimmt die neue Version sofort.",
+    "descUpToDateVersion": "Du nutzt bereits Version {{version}}.",
+    "descUpToDateGeneric": "Du nutzt bereits die neueste Version.",
+    "descUnsupported": "Die Update-Funktion steht nur in der Tauri-Desktop-App zur Verfügung.",
+    "descError": "Beim Prüfen oder Installieren des Updates ist ein Fehler aufgetreten.",
+    "badgeNew": "Neu: {{version}}",
+    "badgeInstalled": "Installiert: {{version}}",
+    "badgePublished": "Veröffentlicht: {{label}}",
+    "downloadRunning": "Download läuft",
+    "installRunning": "Installation läuft",
+    "connecting": "Verbinde…",
+    "almostDone": "Fast fertig",
+    "releaseDownloading": "Release wird heruntergeladen",
+    "filesApplying": "Dateien werden angewendet",
+    "installedHint": "Die neue Version ist bereits installiert. Ein Neustart schließt den Vorgang ab.",
+    "noReleaseNotes": "Für dieses Release wurden keine Release Notes hinterlegt.",
+    "restartNow": "Jetzt neu starten",
+    "close": "Schließen"
+  },
+  "sidebar": {
+    "tabCommit": "Commit",
+    "tabHistory": "History",
+    "tabPr": "Pull Requests",
+    "tabCi": "CI",
+    "tabStash": "Stash",
+    "tabSubmodules": "Submodule",
+    "tabWorktrees": "Worktrees",
+    "tabHooks": "Hooks",
+    "navAria": "Sidebar Navigation",
+    "filterPlaceholder": "Branches filtern …",
+    "filterAria": "Branches filtern",
+    "resetFilterAria": "Filter zurücksetzen",
+    "newBranchTitle": "Neuer Branch",
+    "newBranchAria": "Neuer Branch",
+    "local": "Lokal",
+    "remote": "Remote",
+    "tags": "Tags",
+    "noLocalBranches": "Keine lokalen Branches",
+    "noTags": "Keine Tags",
+    "noBranchesForQuery": "Keine Branches für „{{query}}“",
+    "branchDeleteConfirm": "Branch \"{{name}}\" ist nicht gemerged. Trotzdem löschen?",
+    "branchDeleteFailed": "Löschen fehlgeschlagen: {{error}}"
+  },
+  "toolbar": {
+    "actionSuccess": "Aktion erfolgreich abgeschlossen.",
+    "noIdeCommand": "Kein IDE-Befehl konfiguriert.",
+    "pushNormal": "Änderungen hochladen",
+    "pushWithOptions": "Änderungen hochladen ({{parts}})",
+    "pendingSuffix": "{{count}} ausstehend",
+    "forceWithLease": "Force-with-lease",
+    "force": "Force",
+    "followTags": "follow-tags",
+    "allTags": "--tags",
+    "dryRun": "Dry-Run",
+    "fetchTitle": "Änderungen abrufen (Rechtsklick für Optionen)",
+    "fetchLabel": "Fetch",
+    "pullTitle": "Änderungen herunterladen",
+    "pullTitlePending": "Änderungen herunterladen ({{count}} ausstehend)",
+    "pullLabel": "Pull",
+    "pushTitle": "{{title}} (Rechtsklick für Optionen)",
+    "pushLabel": "Push",
+    "noForcePush": "Kein Force-Push",
+    "forceWithLeaseMenu": "Force-with-lease",
+    "forcePushMenu": "Force-Push",
+    "noTagsPush": "Keine Tags pushen",
+    "pushTagsFollow": "Tags folgen",
+    "pushTagsAll": "Alle Tags",
+    "editRemoteTitle": "Remote-URL bearbeiten",
+    "editRemoteLabel": "Remote",
+    "revealTitle": "Im Dateimanager öffnen",
+    "revealLabel": "Dateien",
+    "terminalTitle": "Terminal hier öffnen",
+    "terminalLabel": "Terminal",
+    "ideOpenTitle": "In der IDE öffnen",
+    "ideConfigureTitle": "IDE in den Einstellungen konfigurieren",
+    "ideLabel": "IDE",
+    "bisectRunningTitle": "Bisect läuft{{steps}} — Klicken zum Ein-/Ausblenden",
+    "bisectSteps": " (~{{count}} Schritte)",
+    "bisectToggleTitle": "Bisect-Annotierungen ein-/ausblenden",
+    "bisectLabel": "Bisect",
+    "commitSearchPlaceholder": "Commits durchsuchen …",
+    "commitSearchAria": "Commit-Suche",
+    "searchSearching": "Suche läuft …",
+    "searchExhausted": "Alle Treffer durchlaufen",
+    "searchPrevTitle": "Vorheriger Treffer",
+    "searchPrevAria": "Vorheriger Suchtreffer",
+    "searchNextTitle": "Nächster Treffer",
+    "searchNextAria": "Nächster Suchtreffer",
+    "noMatches": "Keine Treffer."
+  },
+  "commitPanel": {
+    "changes": "Änderungen",
+    "filesCount": "· {{count}} {{unit}}",
+    "stagedSummary": "{{count}} {{unit}} gestaged",
+    "messagePlaceholder": "Commit-Nachricht eingeben...",
+    "aiTitle": "Commit-Nachricht mit AI generieren",
+    "aiAria": "AI generieren",
+    "stashTitle": "Änderungen stashen",
+    "stashAria": "Stashen",
+    "commitTitle": "Committen",
+    "amendTitle": "Letzten Commit ändern (--amend)",
+    "mergeConflict": "Merge-Konflikt",
+    "mergeConflictHint": "Diese Datei enthält Konflikte und kann nicht als Diff angezeigt werden.",
+    "openConflictEditor": "Konflikt-Editor öffnen"
+  },
+  "bisect": {
+    "ended": "Bisect beendet.",
+    "foundBad": "Erstes fehlerhaftes Commit gefunden:",
+    "finish": "Beenden",
+    "running": "Bisect läuft",
+    "stepsOne": "· ~{{count}} Schritt verbleibend",
+    "stepsOther": "· ~{{count}} Schritte verbleibend",
+    "pendingBad": "'Bad' commit gesetzt — Rechtsklick auf einen älteren Commit um 'Good' zu markieren.",
+    "pendingGood": "'Good' commit gesetzt — Rechtsklick auf einen neueren Commit um 'Bad' zu markieren.",
+    "pendingPrefix": "Bisect:"
+  },
+  "appSearch": {
+    "empty": "Keine Ergebnisse gefunden."
+  },
+  "repoTab": {
+    "close": "Schließen"
+  },
+  "dialogs": {
+    "closeAria": "Schließen"
+  },
+  "stash": {
+    "none": "Keine Stashes",
+    "remove": "Entfernen"
+  },
+  "worktree": {
+    "none": "Keine Worktrees",
+    "noneShort": "Keine Einträge",
+    "remove": "Entfernen"
+  },
+  "submodule": {
+    "none": "Keine Submodule",
+    "noCommits": "Keine Commits verfügbar",
+    "lastCommits": "Letzte Commits im Submodul"
+  },
+  "pr": {
+    "noneFound": "Keine Pull Requests gefunden.",
+    "noneInCategory": "Keine PRs in dieser Kategorie.",
+    "noConflicts": "Keine Konflikte mit {{branch}}.",
+    "noData": "Keine Daten.",
+    "noFiles": "Keine geänderten Dateien.",
+    "noCommits": "Keine Commits.",
+    "noDescription": "Keine Beschreibung.",
+    "prStateReadOnly": "PR ist {{state}}. Keine schreibenden Aktionen verfügbar.",
+    "noMatchingBranches": "Keine passenden Branches"
+  },
+  "ci": {
+    "noPipelines": "Keine Pipelines gefunden",
+    "noChecks": "Keine CI-Checks gefunden."
+  },
+  "merge": {
+    "noConflictsBanner": "Keine offenen Konflikte",
+    "saveStage": "Speichern & Stagen",
+    "saving": "…",
+    "closeTitle": "Schließen"
+  },
+  "cherryPick": {
+    "noConflicts": "Keine offenen Konflikte"
+  },
+  "commitInspect": {
+    "noFileSelected": "Keine Datei gewählt",
+    "noFilesInCommit": "Keine Dateien in diesem Commit.",
+    "noTextChanges": "Keine Textänderungen",
+    "noChangesInPanel": "Keine Änderungen",
+    "emptyDiffHint": "Keine Textänderungen"
+  },
+  "blame": {
+    "noData": "Keine Blame-Daten vorhanden."
+  },
+  "tag": {
+    "defaultEmpty": "Keine Tags",
+    "noRemotes": "Keine Remotes konfiguriert."
+  },
+  "branch": {
+    "defaultEmpty": "Keine Branches",
+    "delete": "Löschen"
+  },
+  "clone": {
+    "noRepos": "Keine Repositories gefunden"
+  },
+  "languageStats": {
+    "noLanguages": "Keine erkennbaren Sprachen gefunden."
+  },
+  "hooks": {
+    "closeTooltip": "Schließen",
+    "delete": "Löschen",
+    "save": "Speichern"
+  },
+  "workspaceDialogs": {
+    "lastWorkspaceDeleteTitle": "Letzter Workspace kann nicht gelöscht werden",
+    "delete": "Löschen"
+  },
+  "diff": {
+    "cancel": "Abbrechen"
+  },
+  "addSubmodule": {
+    "addBusy": "Lädt …",
+    "add": "Hinzufügen"
+  },
+  "remoteTagDelete": {
+    "deleteBusy": "…"
+  },
+  "remoteDelete": {
+    "deleteBusy": "…"
+  },
+  "editRemote": {
+    "saveBusy": "…"
+  }
+}

@@ -8,6 +8,7 @@ import { AppUpdateDialog } from "@/components/app/app-update-dialog";
 import { checkForAppUpdate } from "@/lib/app-updater";
 
 import { routeTree } from "./routeTree.gen";
+import "./lib/i18n";
 import "./index.css";
 
 const router = createRouter({ routeTree });

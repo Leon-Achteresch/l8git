@@ -1,6 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { useRepoStore } from "@/lib/repo-store";
@@ -18,6 +19,7 @@ const SIDEBAR_SHORTCUTS: [
 ];
 
 export function useAppHotkeys() {
+  const { t } = useTranslation();
   const router = useRouter();
   const pickRepo = usePickRepo();
   const activePath = useRepoStore((s) => s.activePath);
@@ -36,7 +38,7 @@ export function useAppHotkeys() {
         callback: refreshActive,
         options: {
           enabled: !!activePath,
-          meta: { name: "Aktives Repo neu laden" },
+          meta: { name: t("hotkeys.reloadActive") },
         },
       },
       {
@@ -44,7 +46,7 @@ export function useAppHotkeys() {
         callback: refreshActive,
         options: {
           enabled: !!activePath,
-          meta: { name: "Aktives Repo neu laden" },
+          meta: { name: t("hotkeys.reloadActive") },
         },
       },
       {
@@ -55,14 +57,25 @@ export function useAppHotkeys() {
             if (activePath) await reloadStatus(activePath);
           })();
         },
-        options: { meta: { name: "Alle Repos neu laden" } },
+        options: { meta: { name: t("hotkeys.reloadAll") } },
       },
       ...SIDEBAR_SHORTCUTS.map(([hotkey, tab]) => ({
         hotkey,
         callback: () => setSidebarTab(tab),
         options: {
           enabled: !!activePath,
-          meta: { name: `Sidebar: ${tab}` },
+          meta: {
+            name:
+              tab === "commit"
+                ? t("hotkeys.sidebarCommit")
+                : tab === "history"
+                  ? t("hotkeys.sidebarHistory")
+                  : tab === "pr"
+                    ? t("hotkeys.sidebarPr")
+                    : tab === "ci"
+                      ? t("hotkeys.sidebarCi")
+                      : t("hotkeys.sidebarStash"),
+          },
         },
       })),
       {
@@ -70,14 +83,14 @@ export function useAppHotkeys() {
         callback: () => {
           void pickRepo();
         },
-        options: { meta: { name: "Lokales Repository öffnen" } },
+        options: { meta: { name: t("hotkeys.openRepo") } },
       },
       {
         hotkey: "Mod+,",
         callback: () => {
           void router.navigate({ to: "/settings" });
         },
-        options: { meta: { name: "Einstellungen" } },
+        options: { meta: { name: t("hotkeys.settings") } },
       },
     ];
   }, [
@@ -88,6 +101,7 @@ export function useAppHotkeys() {
     reloadStatus,
     router,
     setSidebarTab,
+    t,
   ]);
 
   useHotkeys(list, { preventDefault: true, conflictBehavior: "warn" });

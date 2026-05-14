@@ -1,11 +1,13 @@
 import { toast } from "sonner";
 
+import i18n from "@/lib/i18n";
+
 export function toastError(message: string) {
   const devCopy =
     import.meta.env.DEV
       ? {
           action: {
-            label: "Kopieren",
+            label: i18n.t("errors.copyAction"),
             onClick: () => {
               void navigator.clipboard.writeText(message);
             },

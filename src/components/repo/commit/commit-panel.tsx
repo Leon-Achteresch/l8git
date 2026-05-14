@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   Archive,
   Check,
-  GitMerge,
   Loader2,
   Pencil,
   RefreshCw,
@@ -30,12 +29,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
 import { VirtualFileList } from "./commit-panel-file-list";
 import { MergeStatusBanner } from "@/components/repo/merge/merge-status-banner";
+import { CommitPanelConflictPlaceholder } from "@/components/repo/commit/commit-panel-conflict-placeholder";
 import {
   buildChangeRows,
   checkState,
   type FileDiffResponse,
 } from "./commit-panel-types";
 import { generateAiCommitMessage } from "@/lib/ai-commit";
+import { useTranslation } from "react-i18next";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
