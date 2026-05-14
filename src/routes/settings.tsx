@@ -97,6 +97,10 @@ function Settings() {
   const setShowConventionalCommitIcons = useCommitPrefs(
     (s) => s.setShowConventionalCommitIcons,
   );
+  const showCommitDateGroups = useCommitPrefs((s) => s.showCommitDateGroups);
+  const setShowCommitDateGroups = useCommitPrefs(
+    (s) => s.setShowCommitDateGroups,
+  );
   const aiPromptTemplate = useCommitPrefs((s) => s.aiPromptTemplate);
   const setAiPromptTemplate = useCommitPrefs((s) => s.setAiPromptTemplate);
   const aiOutputLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
@@ -366,7 +370,7 @@ function Settings() {
                       vor dem Doppelpunkt).
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     <div className="flex items-start gap-3">
                       <Checkbox
                         id="conventional-commit-icons"
@@ -386,6 +390,28 @@ function Settings() {
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           Wenn ausgeschaltet, werden in der Commit-Liste keine
                           Typ- oder Breaking-Hinweise als Symbole gerendert.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="commit-date-groups"
+                        checked={showCommitDateGroups}
+                        onCheckedChange={(v) =>
+                          setShowCommitDateGroups(v === true)
+                        }
+                        className="mt-0.5"
+                      />
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="commit-date-groups"
+                          className="cursor-pointer text-sm font-medium text-foreground"
+                        >
+                          Datumsgruppen anzeigen
+                        </Label>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Zeigt Abschnitts-Überschriften wie „Heute", „Gestern"
+                          oder „Diese Woche" zwischen den Commits an.
                         </p>
                       </div>
                     </div>

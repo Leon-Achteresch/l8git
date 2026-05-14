@@ -11,6 +11,7 @@ import { useUiStore } from '@/lib/ui-store';
 import { writeLocalStorageDebounced } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { BisectStatusBanner } from '../bisect/bisect-status-banner';
 import { CherryPickStatusBanner } from './cherry-pick-status-banner';
 import { CommitInspectDetail } from './commit-inspect-detail';
 import { CommitList } from './commit-list';
@@ -47,6 +48,26 @@ export function CommitHistoryPanel({
 
   const sidebarTab = useUiStore(s => s.sidebarTab);
   const activePath = useRepoStore(s => s.activePath);
+
+  const bisect = useRepoStore(s => s.bisect[path]);
+  const bisectStart = useRepoStore(s => s.bisectStart);
+  const reloadBisect = useRepoStore(s => s.reloadBisect);
+  const bisectPending = useUiStore(s => s.bisectPending[path]);
+  const clearBisectPending = useUiStore(s => s.clearBisectPending);
+
+  // Load bisect state when the panel mounts or path changes
+  useEffect(() => {
+    void reloadBisect(path);
+  }, [path, reloadBisect]);
+
+  // Auto-start bisect when both pending bad + good are set
+  useEffect(() => {
+    if (!bisectPending?.bad || !bisectPending?.good) return;
+    if (bisect?.active) return;
+    const { bad, good } = bisectPending;
+    clearBisectPending(path);
+    void bisectStart(path, bad, good);
+  }, [bisectPending?.bad, bisectPending?.good, bisect?.active, path, bisectStart, clearBisectPending]);
   const requestCommitHistoryFocus = useUiStore(
     s => s.requestCommitHistoryFocus,
   );
@@ -261,6 +282,7 @@ export function CommitHistoryPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-white shadow-sm dark:bg-zinc-950">
+      <BisectStatusBanner path={path} />
       <CherryPickStatusBanner path={path} />
       <MergeStatusBanner path={path} />
       {selectedHash ? (

@@ -10,6 +10,7 @@ import { MergeConflictPage } from "@/components/repo/merge/merge-conflict-page";
 import { PullRequestPanel } from "@/components/repo/pr/pull-request-panel";
 import { StashPanel } from "@/components/repo/stash/stash-panel";
 import { SubmodulesPanel } from "@/components/repo/submodules/submodules-panel";
+import { GitHooksPanel } from "@/components/repo/hooks/git-hooks-panel";
 import { WorktreePanel } from "@/components/repo/worktree/worktree-panel";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { useRepoStore } from "@/lib/repo-store";
@@ -58,7 +59,8 @@ function Home() {
                     sidebarTab === "pr" ||
                     sidebarTab === "ci" ||
                     sidebarTab === "submodules" ||
-                    sidebarTab === "worktrees") ? (
+                    sidebarTab === "worktrees" ||
+                    sidebarTab === "hooks") ? (
                     <div className="min-h-0 flex-1 overflow-hidden">
                       {sidebarTab === "stash" ? (
                         <StashPanel path={repo.path} />
@@ -68,6 +70,8 @@ function Home() {
                         <SubmodulesPanel path={repo.path} />
                       ) : sidebarTab === "worktrees" ? (
                         <WorktreePanel path={repo.path} />
+                      ) : sidebarTab === "hooks" ? (
+                        <GitHooksPanel path={repo.path} />
                       ) : (
                         <RepoCiPanel path={repo.path} />
                       )}

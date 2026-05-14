@@ -27,6 +27,7 @@ import {
   FolderOpen,
   Link,
   Loader2,
+  ScanSearch,
   SquareTerminal,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -61,6 +62,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const branchFilter =
     useUiStore(s => s.branchFilterByPath[path]) ?? EMPTY_BRANCH_FILTER;
   const setBranchFilter = useUiStore(s => s.setBranchFilter);
+  const bisect = useRepoStore(s => s.bisect[path]);
+  const bisectVisible = useUiStore(s => s.bisectVisible);
+  const setBisectVisible = useUiStore(s => s.setBisectVisible);
   const ideLaunchCommand = useWorkspacePrefs(s => s.ideLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs(s => s.repoTerminalKind);
   const fetchPruneBranches = useWorkspacePrefs(s => s.fetchPruneBranches);
@@ -382,6 +386,23 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               disabled={!ideConfigured}
               onClick={() => void openIdeHere()}
               icon={<Code2 className='h-3.5 w-3.5' />}
+            />
+          </ToolbarGroup>
+
+          <ToolbarDivider />
+
+          <ToolbarGroup>
+            <ToolbarButton
+              title={
+                bisect?.active
+                  ? `Bisect läuft${bisect.steps_remaining != null ? ` (~${bisect.steps_remaining} Schritte)` : ''} — Klicken zum Ein-/Ausblenden`
+                  : 'Bisect-Annotierungen ein-/ausblenden'
+              }
+              label='Bisect'
+              isActive={bisectVisible}
+              badge={bisect?.active && !bisect?.done ? (bisect.steps_remaining ?? undefined) : undefined}
+              onClick={() => setBisectVisible(!bisectVisible)}
+              icon={<ScanSearch className='h-3.5 w-3.5' />}
             />
           </ToolbarGroup>
         </div>

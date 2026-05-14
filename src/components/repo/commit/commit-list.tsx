@@ -3,6 +3,8 @@ import { buildGraph, normalizeGitOid, type GraphRow } from "@/lib/graph";
 import type { Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
+import { useCommitPrefs } from "@/lib/commit-prefs";
+import type { BisectRole } from "./commit-row";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommitSelectMode } from "./commit-history-panel";
@@ -82,25 +84,50 @@ export function CommitList({
     opts?: { mainline?: number },
   ) => Promise<void>;
 }) {
+  const bisect = useRepoStore(s => s.bisect[path]);
+  const bisectPending = useUiStore(s => s.bisectPending[path]);
+  const bisectVisible = useUiStore(s => s.bisectVisible);
+  const showCommitDateGroups = useCommitPrefs(s => s.showCommitDateGroups);
+
   const graphKey = useMemo(
     () => commits.map((c) => c.hash).join("|"),
     [commits],
   );
   const { rows, maxLanes } = useMemo(() => buildGraph(commits), [graphKey]);
 
+  const bisectRoleMap = useMemo((): Map<string, BisectRole> => {
+    const m = new Map<string, BisectRole>();
+    if (!bisectVisible) return m;
+    if (bisect?.active) {
+      for (const h of bisect.marked_bad) m.set(normalizeGitOid(h), 'bad');
+      for (const h of bisect.marked_good) m.set(normalizeGitOid(h), 'good');
+      if (bisect.done && bisect.result_hash) {
+        m.set(normalizeGitOid(bisect.result_hash), 'result');
+      } else if (bisect.current_hash) {
+        m.set(normalizeGitOid(bisect.current_hash), 'current');
+      }
+    } else if (bisectPending) {
+      if (bisectPending.bad) m.set(normalizeGitOid(bisectPending.bad), 'pending-bad');
+      if (bisectPending.good) m.set(normalizeGitOid(bisectPending.good), 'pending-good');
+    }
+    return m;
+  }, [bisect, bisectPending, bisectVisible]);
+
   const flatItems = useMemo((): FlatItem[] => {
     const out: FlatItem[] = [];
     let last = "";
     for (let i = 0; i < rows.length; i++) {
-      const sec = historySectionTitle(rows[i].commit.date);
-      if (sec !== last) {
-        out.push({ kind: "header", key: `${sec}-${i}`, label: sec });
-        last = sec;
+      if (showCommitDateGroups) {
+        const sec = historySectionTitle(rows[i].commit.date);
+        if (sec !== last) {
+          out.push({ kind: "header", key: `${sec}-${i}`, label: sec });
+          last = sec;
+        }
       }
       out.push({ kind: "commit", rowIndex: i });
     }
     return out;
-  }, [rows]);
+  }, [rows, showCommitDateGroups]);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const commitFocusRequest = useUiStore((s) => s.commitFocusRequest);
@@ -393,6 +420,8 @@ export function CommitList({
                 selectedHashes={selectedHashes}
                 onSelectHash={onToggleSelect}
                 onCherryPick={onCherryPickCb}
+                bisectRole={bisectRoleMap.get(normalizeGitOid(row.commit.hash)) ?? null}
+                bisectActive={bisect?.active ?? false}
               />
             </li>
           );

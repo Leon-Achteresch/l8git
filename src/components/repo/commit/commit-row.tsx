@@ -2,6 +2,8 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { toastError } from "@/lib/error-toast";
@@ -13,9 +15,10 @@ import {
 } from "@/lib/graph";
 import { useGravatarUrl } from "@/lib/gravatar";
 import { useRepoStore } from "@/lib/repo-store";
+import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
-import { GitBranchPlus, Tag, Undo2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDot, GitBranchPlus, History, RotateCcw, SkipForward, Tag, Undo2, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { memo, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -24,9 +27,12 @@ import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
 import { CommitGraphCell } from "./commit-graph-cell";
 import { CommitHashBadge } from "./commit-hash-badge";
+import { ResetDialog } from "@/components/repo/reset/reset-dialog";
 import { CommitTagDialog } from "./commit-tag-dialog";
 import { CommitTags } from "./commit-tags";
 import type { CommitSelectMode } from "./commit-history-panel";
+
+export type BisectRole = 'bad' | 'good' | 'current' | 'result' | 'pending-bad' | 'pending-good';
 
 function CommitRowInner({
   path,
@@ -40,6 +46,8 @@ function CommitRowInner({
   selectedHashes,
   onSelectHash,
   onCherryPick,
+  bisectRole,
+  bisectActive,
 }: {
   path: string;
   row: GraphRow;
@@ -52,6 +60,8 @@ function CommitRowInner({
   selectedHashes: ReadonlySet<string>;
   onSelectHash: (hash: string, mode: CommitSelectMode) => void;
   onCherryPick: (hashes: string[], opts?: { mainline?: number }) => void;
+  bisectRole: BisectRole | null;
+  bisectActive: boolean;
 }) {
   const { commit } = row;
   const gravatarUrl = useGravatarUrl(commit.email);
@@ -59,6 +69,10 @@ function CommitRowInner({
   const avatarUrl = remoteAvatar ?? gravatarUrl;
   const avatarFallbackUrl = remoteAvatar ? (gravatarUrl ?? null) : undefined;
   const revertCommit = useRepoStore((s) => s.revertCommit);
+  const bisectMark = useRepoStore((s) => s.bisectMark);
+  const bisectReset = useRepoStore((s) => s.bisectReset);
+  const setBisectPendingBad = useUiStore((s) => s.setBisectPendingBad);
+  const setBisectPendingGood = useUiStore((s) => s.setBisectPendingGood);
   const branches = useRepoStore((s) => s.repos[path]?.branches ?? []);
   const branchesAtCommit = useMemo(() => {
     const h = normalizeGitOid(commit.hash);
@@ -67,6 +81,7 @@ function CommitRowInner({
       .sort(compareBranchesDisplay);
   }, [branches, commit.hash]);
   const [tagOpen, setTagOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const subjectParts = useMemo(
     () => splitConventionalSubjectDisplay(commit.subject),
@@ -88,6 +103,37 @@ function CommitRowInner({
     const mode: CommitSelectMode =
       e.shiftKey ? "range" : e.metaKey || e.ctrlKey ? "toggle" : "single";
     onSelectHash(commit.hash, mode);
+  };
+
+  const handleBisectMark = (verdict: 'good' | 'bad' | 'skip') => {
+    void (async () => {
+      try {
+        await bisectMark(path, verdict);
+      } catch (e) {
+        toastError(String(e));
+      }
+    })();
+  };
+
+  const handleBisectReset = () => {
+    void (async () => {
+      try {
+        await bisectReset(path);
+        toast.success("Bisect beendet.");
+      } catch (e) {
+        toastError(String(e));
+      }
+    })();
+  };
+
+  const handleSetPending = (kind: 'bad' | 'good') => {
+    if (kind === 'bad') {
+      setBisectPendingBad(path, commit.hash);
+      toast.info("Bad commit gesetzt — wähle nun einen 'good' commit.");
+    } else {
+      setBisectPendingGood(path, commit.hash);
+      toast.info("Good commit gesetzt — wähle nun einen 'bad' commit.");
+    }
   };
 
   const inner = (
@@ -133,6 +179,19 @@ function CommitRowInner({
         multiSelected &&
           !selected &&
           "bg-blue-50/95 dark:bg-blue-950/35 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-blue-400/95 before:content-['']",
+        // Bisect role styles (only when not selected to avoid clashing)
+        !selected && bisectRole === 'bad' &&
+          "bg-red-50/60 dark:bg-red-950/20 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-red-500 before:content-['']",
+        !selected && bisectRole === 'good' &&
+          "bg-green-50/60 dark:bg-green-950/20 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-green-500 before:content-['']",
+        !selected && bisectRole === 'current' &&
+          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-blue-400 before:content-[''] before:animate-pulse",
+        !selected && bisectRole === 'result' &&
+          "bg-orange-50/60 dark:bg-orange-950/20 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-orange-500 before:content-['']",
+        !selected && bisectRole === 'pending-bad' &&
+          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-red-300 before:content-['']",
+        !selected && bisectRole === 'pending-good' &&
+          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-green-300 before:content-['']",
       )}
     >
       <div className="flex w-[88px] shrink-0 justify-center self-stretch pl-0.5 pr-1">
@@ -200,7 +259,15 @@ function CommitRowInner({
           </span>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center pr-3 sm:pr-4">
+      <div className="flex shrink-0 items-center gap-1.5 pr-3 sm:pr-4">
+        {bisectRole === 'bad' && <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />}
+        {bisectRole === 'good' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />}
+        {bisectRole === 'current' && <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-blue-500" />}
+        {bisectRole === 'result' && (
+          <span className="rounded-sm bg-orange-100 px-1 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+            Erstes Bad
+          </span>
+        )}
         <CommitHashBadge hash={commit.short_hash} />
       </div>
     </motion.div>
@@ -255,6 +322,75 @@ function CommitRowInner({
             <Undo2 className="h-4 w-4" />
             <span className="font-medium">Commit revertieren</span>
           </ContextMenuItem>
+
+          <ContextMenuItem
+            onSelect={() => {
+              window.requestAnimationFrame(() => setResetOpen(true));
+            }}
+            className="gap-2 cursor-pointer"
+          >
+            <History className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">Zurücksetzen auf …</span>
+          </ContextMenuItem>
+
+          <ContextMenuSeparator />
+          <ContextMenuLabel className="text-xs text-muted-foreground">Bisect</ContextMenuLabel>
+
+          {bisectActive ? (
+            <>
+              <ContextMenuItem
+                onSelect={() => handleBisectMark('good')}
+                className="gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span className="font-medium">Als 'good' markieren</span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => handleBisectMark('bad')}
+                className="gap-2 cursor-pointer"
+              >
+                <XCircle className="h-4 w-4 text-red-500" />
+                <span className="font-medium">Als 'bad' markieren</span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => handleBisectMark('skip')}
+                className="gap-2 cursor-pointer"
+              >
+                <SkipForward className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Überspringen (skip)</span>
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={handleBisectReset}
+                className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span className="font-medium">Bisect beenden</span>
+              </ContextMenuItem>
+            </>
+          ) : (
+            <>
+              <ContextMenuItem
+                onSelect={() => handleSetPending('bad')}
+                className="gap-2 cursor-pointer"
+              >
+                <XCircle className="h-4 w-4 text-red-400" />
+                <span className="font-medium">Als 'bad' commit setzen</span>
+                {bisectRole === 'pending-bad' && (
+                  <AlertTriangle className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => handleSetPending('good')}
+                className="gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="h-4 w-4 text-green-400" />
+                <span className="font-medium">Als 'good' commit setzen</span>
+                {bisectRole === 'pending-good' && (
+                  <AlertTriangle className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </ContextMenuItem>
+            </>
+          )}
         </ContextMenuContent>
       </ContextMenu>
       <CommitTagDialog
@@ -263,6 +399,12 @@ function CommitRowInner({
         path={path}
         commitHash={commit.hash}
         shortHash={commit.short_hash}
+      />
+      <ResetDialog
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        path={path}
+        commitHash={commit.hash}
       />
     </>
   );

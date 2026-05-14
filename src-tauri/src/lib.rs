@@ -110,7 +110,17 @@ pub fn run() {
             git::git_worktree_lock,
             git::git_worktree_unlock,
             git::git_worktree_prune,
-            git::git_worktree_move
+            git::git_worktree_move,
+            git::list_git_hooks,
+            git::get_git_hook_content,
+            git::save_git_hook,
+            git::delete_git_hook,
+            git::toggle_git_hook,
+            git::git_bisect_status,
+            git::git_bisect_start,
+            git::git_bisect_mark,
+            git::git_bisect_reset,
+            git::git_reset
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
