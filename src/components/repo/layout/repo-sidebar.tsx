@@ -33,6 +33,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export const REPO_SIDEBAR_ICONS_ENABLED = true;
 
@@ -46,6 +47,7 @@ const ICON_WORKTREES = <GitFork className="h-4 w-4" />;
 const ICON_HOOKS = <Webhook className="h-4 w-4" />;
 
 export function RepoSidebar() {
+  const { t, i18n } = useTranslation();
   const activePath = useRepoStore((s) => s.activePath);
   const repo = useRepoStore((s) => (activePath ? s.repos[activePath] : null));
   const deleteBranch = useRepoStore((s) => s.deleteBranch);
@@ -98,22 +100,20 @@ export function RepoSidebar() {
       } catch (e) {
         const msg = String(e);
         if (!force && /not fully merged/i.test(msg)) {
-          const ok = window.confirm(
-            `Branch "${b.name}" ist nicht gemerged. Trotzdem löschen?`,
-          );
+          const ok = window.confirm(t("sidebar.branchDeleteConfirm", { name: b.name }));
           if (ok) {
             try {
               await deleteBranch(activePath, b.name, true);
             } catch (e2) {
-              toastError(`Löschen fehlgeschlagen: ${String(e2)}`);
+              toastError(t("sidebar.branchDeleteFailed", { error: String(e2) }));
             }
           }
           return;
         }
-        toastError(`Löschen fehlgeschlagen: ${msg}`);
+        toastError(t("sidebar.branchDeleteFailed", { error: msg }));
       }
     },
-    [activePath, deleteBranch],
+    [activePath, deleteBranch, t],
   );
 
   const onPointerDown = useCallback(
@@ -189,50 +189,50 @@ export function RepoSidebar() {
       {
         value: "commit" as SidebarTab,
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_COMMIT : undefined,
-        label: "Commit",
+        label: t("sidebar.tabCommit"),
         count: pendingCommitCount > 0 ? pendingCommitCount : undefined,
       },
       {
         value: "history" as SidebarTab,
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_HISTORY : undefined,
-        label: "History",
+        label: t("sidebar.tabHistory"),
       },
       {
         value: "pr" as SidebarTab,
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_PR : undefined,
-        label: "Pull Requests",
+        label: t("sidebar.tabPr"),
         count: prCount > 0 ? prCount : undefined,
       },
       {
         value: "ci" as SidebarTab,
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_CI : undefined,
-        label: "CI",
+        label: t("sidebar.tabCi"),
       },
       {
         value: "stash" as SidebarTab,
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_STASH : undefined,
-        label: "Stash",
+        label: t("sidebar.tabStash"),
         count: stashCount > 0 ? stashCount : undefined,
       },
       {
         value: "submodules" as SidebarTab,
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_SUBMODULES : undefined,
-        label: "Submodule",
+        label: t("sidebar.tabSubmodules"),
       },
       {
         value: "worktrees" as SidebarTab,
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_WORKTREES : undefined,
-        label: "Worktrees",
+        label: t("sidebar.tabWorktrees"),
         count: worktreeCount > 0 ? worktreeCount : undefined,
       },
       {
         value: "hooks" as SidebarTab,
         icon: REPO_SIDEBAR_ICONS_ENABLED ? ICON_HOOKS : undefined,
-        label: "Hooks",
+        label: t("sidebar.tabHooks"),
         count: activeHookCount > 0 ? activeHookCount : undefined,
       },
     ],
-    [pendingCommitCount, prCount, stashCount, worktreeCount, activeHookCount],
+    [pendingCommitCount, prCount, stashCount, worktreeCount, activeHookCount, t, i18n.language],
   );
 
   if (!repo || !activePath) return null;
@@ -251,7 +251,7 @@ export function RepoSidebar() {
         <nav
           className="shrink-0 p-2"
           role="tablist"
-          aria-label="Sidebar Navigation"
+          aria-label={t("sidebar.navAria")}
         >
           <ul className="space-y-0.5">
             {tabs.map((tab) => (
@@ -282,8 +282,8 @@ export function RepoSidebar() {
               type="search"
               value={branchQuery}
               onChange={(e) => setBranchQuery(e.target.value)}
-              placeholder="Branches filtern …"
-              aria-label="Branches filtern"
+              placeholder={t("sidebar.filterPlaceholder")}
+              aria-label={t("sidebar.filterAria")}
               className={cn(
                 "h-7 w-full rounded-md border border-transparent bg-muted/50 pr-7 text-xs text-foreground placeholder:text-muted-foreground/80 outline-none transition-[background,border-color] focus:border-ring focus:bg-background [&::-webkit-search-cancel-button]:hidden",
                 REPO_SIDEBAR_ICONS_ENABLED ? "pl-7" : "pl-2",
@@ -293,7 +293,7 @@ export function RepoSidebar() {
               <button
                 type="button"
                 onClick={() => setBranchQuery("")}
-                aria-label="Filter zurücksetzen"
+                aria-label={t("sidebar.resetFilterAria")}
                 className="absolute right-1 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <X className="h-3 w-3" />
@@ -313,7 +313,7 @@ export function RepoSidebar() {
                 <AccordionItem value="local" className="min-w-0 border-0">
                   <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
                     <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
-                      Lokal
+                      {t("sidebar.local")}
                     </span>
                     <span className="flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
                       {localBranches.length}
@@ -324,8 +324,8 @@ export function RepoSidebar() {
                         variant="ghost"
                         size="icon-xs"
                         className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
-                        title="Neuer Branch"
-                        aria-label="Neuer Branch"
+                        title={t("sidebar.newBranchTitle")}
+                        aria-label={t("sidebar.newBranchAria")}
                         onClick={(e) => {
                           e.stopPropagation();
                           setNewBranchOpen(true);
@@ -338,9 +338,9 @@ export function RepoSidebar() {
                   <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
                     <BranchSection
                       path={activePath}
-                      title="Lokal"
+                      title={t("sidebar.local")}
                       branches={localBranches}
-                      emptyLabel={hasQuery ? "Keine Treffer" : "Keine lokalen Branches"}
+                      emptyLabel={hasQuery ? t("common.noResults") : t("sidebar.noLocalBranches")}
                       onDelete={onDelete}
                       hideHeader
                     />
@@ -351,7 +351,7 @@ export function RepoSidebar() {
                   <AccordionItem value="remote" className="min-w-0 border-0">
                     <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
                       <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
-                        Remote
+                        {t("sidebar.remote")}
                       </span>
                       <span className="flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
                         {remoteBranches.length}
@@ -360,9 +360,9 @@ export function RepoSidebar() {
                     <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
                       <BranchSection
                         path={activePath}
-                        title="Remote"
+                        title={t("sidebar.remote")}
                         branches={remoteBranches}
-                        emptyLabel="Keine Treffer"
+                        emptyLabel={t("common.noResults")}
                         hideHeader
                       />
                     </AccordionContent>
@@ -373,7 +373,7 @@ export function RepoSidebar() {
                   <AccordionItem value="tags" className="min-w-0 border-0">
                     <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
                       <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
-                        Tags
+                        {t("sidebar.tags")}
                       </span>
                       <span className="flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
                         {filteredTags.length}
@@ -382,9 +382,9 @@ export function RepoSidebar() {
                     <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
                       <TagSection
                         path={activePath}
-                        title="Tags"
+                        title={t("sidebar.tags")}
                         tags={filteredTags}
-                        emptyLabel={hasQuery ? "Keine Treffer" : "Keine Tags"}
+                        emptyLabel={hasQuery ? t("common.noResults") : t("sidebar.noTags")}
                         hideHeader
                       />
                     </AccordionContent>
@@ -394,7 +394,7 @@ export function RepoSidebar() {
 
               {hasQuery && !hasAnyMatch && (
                 <div className="mx-1 rounded-md border border-dashed border-sidebar-border/70 px-3 py-4 text-center text-xs text-muted-foreground">
-                  Keine Branches für „{branchQuery.trim()}"
+                  {t("sidebar.noBranchesForQuery", { query: branchQuery.trim() })}
                 </div>
               )}
 

@@ -13,6 +13,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { StatusIcon } from "./commit-panel-status-icon";
 import { checkState, type ChangeRow } from "./commit-panel-types";
 
@@ -26,26 +27,20 @@ function FileRowInner({
   onBlame,
 }: {
   row: ChangeRow;
-  /** True when this row is the active diff-preview row. */
   selected: boolean;
-  /** True when this row is part of a Shift-range selection. */
   inMultiSelection: boolean;
   onSelect: (id: string, shiftKey: boolean) => void;
   onToggle: (entry: StatusEntry, rowId: string) => void;
   onDiscard: (path: string) => void;
   onBlame: (path: string) => void;
 }) {
+  const { t } = useTranslation();
   const state = checkState(row.entry);
   const additions =
     row.sector === "staged" ? row.entry.additions_staged : row.entry.additions_unstaged;
   const deletions =
     row.sector === "staged" ? row.entry.deletions_staged : row.entry.deletions_unstaged;
 
-  // Visual state priority:
-  //  selected + inMultiSelection → accent with left bar (stronger)
-  //  selected only              → accent with left bar (normal)
-  //  inMultiSelection only      → soft accent (range highlight)
-  //  none                       → hover only
   const rowClass =
     "group relative flex cursor-pointer items-center gap-3 px-4 py-2 text-sm transition-colors " +
     (selected
@@ -57,7 +52,6 @@ function FileRowInner({
   const inner = (
     <div
       onClick={(e) => {
-        // Prevent the browser from extending the text selection on Shift+Click.
         if (e.shiftKey) e.preventDefault();
         onSelect(row.id, e.shiftKey);
       }}
@@ -102,11 +96,11 @@ function FileRowInner({
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => onBlame(row.path)}>
           <GitCommitHorizontal className="h-3.5 w-3.5" />
-          Git Blame anzeigen
+          {t("commitPanel.fileRowBlame")}
         </ContextMenuItem>
         <ContextMenuItem variant="destructive" onSelect={() => onDiscard(row.path)}>
           <Undo2 className="h-3.5 w-3.5" />
-          Änderungen verwerfen
+          {t("commitPanel.fileRowDiscard")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

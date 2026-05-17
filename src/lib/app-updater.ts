@@ -1,3 +1,4 @@
+import i18n from "@/lib/i18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
@@ -130,7 +131,10 @@ async function runUpdateCheck(manual: boolean) {
     setAvailableUpdate(update);
   } catch (error) {
     if (manual) {
-      setManualStatusDialog("error", `Update fehlgeschlagen: ${String(error)}`);
+      setManualStatusDialog(
+        "error",
+        i18n.t("errors.updateCheckFailed", { error: String(error) }),
+      );
     }
   }
 }
@@ -204,7 +208,9 @@ export async function installAppUpdate() {
       open: true,
       phase: "error",
       pendingUpdate: null,
-      errorMessage: `Update fehlgeschlagen: ${String(error)}`,
+      errorMessage: i18n.t("errors.updateInstallFailed", {
+        error: String(error),
+      }),
     });
   }
 }
@@ -231,7 +237,7 @@ export async function restartToApplyAppUpdate() {
       open: true,
       phase: "error",
       pendingUpdate: null,
-      errorMessage: `Neustart fehlgeschlagen: ${String(error)}`,
+      errorMessage: i18n.t("errors.restartFailed", { error: String(error) }),
     });
   }
 }

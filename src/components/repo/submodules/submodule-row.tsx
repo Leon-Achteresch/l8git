@@ -10,6 +10,7 @@ import { useRepoStore, type SubmoduleEntry } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { Download, ExternalLink, FolderGit2, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { SubmoduleStatusBadge } from "./submodule-status-badge";
 
@@ -24,6 +25,7 @@ export function SubmoduleRow({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useTranslation();
   const submoduleInit = useRepoStore((s) => s.submoduleInit);
   const submoduleUpdate = useRepoStore((s) => s.submoduleUpdate);
   const submoduleSync = useRepoStore((s) => s.submoduleSync);
@@ -34,7 +36,7 @@ export function SubmoduleRow({
     setBusy(true);
     try {
       const out = await fn();
-      toast.success(successMsg ?? (out || "Fertig."));
+      toast.success(successMsg ?? (out || t("submodule.rowToastDefault")));
     } catch (e) {
       toastError(String(e));
     } finally {
@@ -129,11 +131,11 @@ export function SubmoduleRow({
           onSelect={() =>
             void run(
               () => submoduleInit(path, entry.path),
-              "Submodule initialisiert.",
+              t("submodule.rowToastInit"),
             )
           }
         >
-          Init
+          {t("submodule.rowMenuInit")}
         </ContextMenuItem>
         <ContextMenuItem
           disabled={busy}
@@ -146,36 +148,36 @@ export function SubmoduleRow({
                   entry.status === "uninitialized",
                   false,
                 ),
-              "Submodule aktualisiert.",
+              t("submodule.rowToastUpdate"),
             )
           }
         >
           <Download className="h-3.5 w-3.5" />
-          Update
+          {t("submodule.rowMenuUpdate")}
         </ContextMenuItem>
         <ContextMenuItem
           disabled={busy}
           onSelect={() =>
             void run(
               () => submoduleUpdate(path, entry.path, true, true),
-              "Submodule rekursiv aktualisiert.",
+              t("submodule.rowToastUpdateRecursive"),
             )
           }
         >
           <Download className="h-3.5 w-3.5" />
-          Update (rekursiv)
+          {t("submodule.rowMenuUpdateRecursive")}
         </ContextMenuItem>
         <ContextMenuItem
           disabled={busy}
           onSelect={() =>
             void run(
               () => submoduleSync(path, entry.path),
-              "URL synchronisiert.",
+              t("submodule.rowToastSyncUrl"),
             )
           }
         >
           <RefreshCw className="h-3.5 w-3.5" />
-          Sync URL
+          {t("submodule.rowMenuSyncUrl")}
         </ContextMenuItem>
         {entry.url && (
           <>
@@ -183,11 +185,11 @@ export function SubmoduleRow({
             <ContextMenuItem
               onSelect={() => {
                 navigator.clipboard.writeText(entry.url).catch(() => {});
-                toast.success("URL kopiert.");
+                toast.success(t("submodule.rowToastUrlCopied"));
               }}
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              URL kopieren
+              {t("submodule.rowMenuCopyUrl")}
             </ContextMenuItem>
           </>
         )}
@@ -196,18 +198,16 @@ export function SubmoduleRow({
           variant="destructive"
           disabled={busy}
           onSelect={() => {
-            const ok = window.confirm(
-              `Submodule "${entry.path}" deinitialisieren? Der Checkout wird entfernt, .gitmodules bleibt erhalten.`,
-            );
+            const ok = window.confirm(t("submodule.confirmDeinit", { path: entry.path }));
             if (!ok) return;
             void run(
               () => submoduleDeinit(path, entry.path, false),
-              "Submodule deinitialisiert.",
+              t("submodule.rowToastDeinit"),
             );
           }}
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Deinit
+          {t("submodule.rowMenuDeinit")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

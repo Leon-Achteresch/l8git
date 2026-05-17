@@ -2,33 +2,8 @@ import type { GitHookEntry } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { Webhook } from "lucide-react";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { GitHookStatusBadge } from "./git-hooks-status-badge";
-
-export const HOOK_DESCRIPTIONS: Record<string, string> = {
-  "pre-commit": "Läuft vor dem Commit — Abbruch möglich",
-  "prepare-commit-msg": "Bearbeitet die Standard-Commit-Nachricht",
-  "commit-msg": "Validiert die Commit-Nachricht — Abbruch möglich",
-  "post-commit": "Benachrichtigung nach dem Commit",
-  "pre-merge-commit": "Wie pre-commit, aber für Merges — Abbruch möglich",
-  "applypatch-msg": "Wie commit-msg für git am — Abbruch möglich",
-  "pre-applypatch": "Nach Patch, vor Commit — Abbruch möglich",
-  "post-applypatch": "Nach git am",
-  "pre-rebase": "Vor dem Rebase — Abbruch möglich",
-  "post-rewrite": "Nach amend/rebase",
-  "post-merge": "Nach dem Merge",
-  "post-checkout": "Nach checkout/switch",
-  "reference-transaction": "Bei Referenz-Updates",
-  "pre-push": "Vor dem Push — Abbruch möglich",
-  "pre-auto-gc": "Vor automatischer Garbage Collection",
-  "post-index-change": "Nach Index-Schreibvorgang",
-  "fsmonitor-watchman": "Für fsmonitor-Integration",
-  "pre-receive": "Server: vor Empfang — Abbruch möglich",
-  update: "Server: pro Branch — Abbruch möglich",
-  "proc-receive": "Server: verarbeitet Push-Refs",
-  "post-receive": "Server: nach Empfang",
-  "post-update": "Server: nach Update",
-  "push-to-checkout": "Server: Branch-Checkout nach Push",
-};
 
 export function GitHooksCard({
   entry,
@@ -43,6 +18,9 @@ export function GitHooksCard({
   isServer?: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useTranslation();
+  const desc = t(`hooks.kindDesc.${entry.name}`, { defaultValue: t("hooks.kindFallback") });
+
   return (
     <motion.div
       layout
@@ -92,7 +70,7 @@ export function GitHooksCard({
               <GitHookStatusBadge entry={entry} isServer={isServer} />
             </div>
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground/60">
-              {HOOK_DESCRIPTIONS[entry.name] ?? "Git-Hook"}
+              {desc}
             </p>
           </div>
         </div>

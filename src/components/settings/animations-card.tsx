@@ -8,21 +8,18 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useAnimationPrefs } from "@/lib/animation-prefs";
+import { useTranslation } from "react-i18next";
 
 export function AnimationsCard() {
+  const { t } = useTranslation();
   const enabled = useAnimationPrefs((s) => s.animationsEnabled);
   const setEnabled = useAnimationPrefs((s) => s.setAnimationsEnabled);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Bewegung & Animationen</CardTitle>
-        <CardDescription>
-          Dezent choreografierte Übergänge – Magic-Pill, Tape-Reveal und
-          Pop-Bloom. Unterbrechen dich nie: du kannst jederzeit weiterklicken,
-          während Elemente noch animieren. Respektiert automatisch die
-          System-Einstellung „Reduzierte Bewegung“.
-        </CardDescription>
+        <CardTitle>{t("animations.title")}</CardTitle>
+        <CardDescription>{t("animations.desc")}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-start gap-3">
@@ -37,11 +34,10 @@ export function AnimationsCard() {
               htmlFor="animations-enabled"
               className="cursor-pointer text-sm font-medium text-foreground"
             >
-              Bewegungen aktivieren
+              {t("animations.enableLabel")}
             </Label>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Wenn ausgeschaltet, erscheinen alle Inhalte sofort ohne
-              Übergangseffekte.
+              {t("animations.enableHint")}
             </p>
           </div>
         </div>

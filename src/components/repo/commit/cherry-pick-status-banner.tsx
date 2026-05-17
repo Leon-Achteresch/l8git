@@ -4,9 +4,11 @@ import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, FastForward, SkipForward, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function CherryPickStatusBanner({ path }: { path: string }) {
+  const { t } = useTranslation();
   const state = useRepoStore((s) => s.cherryPickState[path]);
   const statusEntries = useRepoStore((s) => s.status[path]);
 
@@ -46,6 +48,10 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
   }
 
   const store = useRepoStore.getState();
+  const conflictLabel =
+    conflicts.length === 1
+      ? t("cherryPick.conflict_one", { count: conflicts.length })
+      : t("cherryPick.conflict_other", { count: conflicts.length });
 
   return (
     <div
@@ -58,7 +64,7 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-amber-500" />
         <span className="font-medium">
-          Cherry-Pick unterbrochen bei{" "}
+          {t("cherryPick.pausedAt")}{" "}
           <code className="rounded bg-amber-500/20 px-1 py-0.5 font-mono text-xs">
             {headShort}
           </code>
@@ -69,14 +75,10 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
             onClick={() => setExpanded((v) => !v)}
             className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
           >
-            {conflicts.length === 1
-              ? "1 Konflikt"
-              : `${conflicts.length} Konflikte`}
+            {conflictLabel}
           </button>
         ) : (
-          <span className="text-xs text-muted-foreground">
-            Keine offenen Konflikte
-          </span>
+          <span className="text-xs text-muted-foreground">{t("cherryPick.noConflicts")}</span>
         )}
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -86,18 +88,16 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
               void run(
                 "continue",
                 () => store.cherryPickContinue(path),
-                "Cherry-Pick fortgesetzt.",
+                t("cherryPick.continueToast"),
               )
             }
             disabled={continueDisabled}
             title={
-              continueDisabled && conflicts.length > 0
-                ? "Konflikte zuerst auflösen und stagen (git add)."
-                : undefined
+              continueDisabled && conflicts.length > 0 ? t("cherryPick.stashHint") : undefined
             }
           >
             <FastForward className="h-3.5 w-3.5" />
-            {busy === "continue" ? "…" : "Continue"}
+            {busy === "continue" ? t("editRemote.saveBusy") : t("cherryPick.continueVerb")}
           </Button>
           <Button
             type="button"
@@ -107,13 +107,13 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
               void run(
                 "skip",
                 () => store.cherryPickSkip(path),
-                "Commit übersprungen.",
+                t("cherryPick.skipToast"),
               )
             }
             disabled={busy !== null}
           >
             <SkipForward className="h-3.5 w-3.5" />
-            {busy === "skip" ? "…" : "Skip"}
+            {busy === "skip" ? t("editRemote.saveBusy") : t("cherryPick.skipVerb")}
           </Button>
           {abortArmed ? (
             <Button
@@ -124,13 +124,13 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
                 void run(
                   "abort",
                   () => store.cherryPickAbort(path),
-                  "Cherry-Pick abgebrochen.",
+                  t("cherryPick.abortToast"),
                 )
               }
               disabled={busy !== null}
             >
               <X className="h-3.5 w-3.5" />
-              {busy === "abort" ? "…" : "Wirklich abbrechen"}
+              {busy === "abort" ? t("editRemote.saveBusy") : t("cherryPick.abortConfirm")}
             </Button>
           ) : (
             <Button
@@ -142,7 +142,7 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
               className="text-destructive hover:text-destructive"
             >
               <X className="h-3.5 w-3.5" />
-              Abort
+              {t("cherryPick.abortVerb")}
             </Button>
           )}
         </div>

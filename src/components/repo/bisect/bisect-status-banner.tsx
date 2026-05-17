@@ -2,9 +2,11 @@ import { Button } from "@/components/ui/button";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { AlertTriangle, CheckCircle2, CircleDot, RotateCcw, XCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function BisectStatusBanner({ path }: { path: string }) {
+  const { t } = useTranslation();
   const bisect = useRepoStore(s => s.bisect[path]);
   const bisectReset = useRepoStore(s => s.bisectReset);
   const bisectVisible = useUiStore(s => s.bisectVisible);
@@ -21,19 +23,15 @@ export function BisectStatusBanner({ path }: { path: string }) {
   async function handleReset() {
     try {
       await bisectReset(path);
-      toast.success("Bisect beendet.");
-    } catch {
-      // error handled in store
-    }
+      toast.success(t("bisect.ended"));
+    } catch {}
   }
 
   if (bisect?.done) {
     return (
       <div className="flex items-center gap-2 border-b border-orange-200 bg-orange-50 px-3 py-2 text-xs dark:border-orange-900/40 dark:bg-orange-950/30">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
-        <span className="font-medium text-orange-800 dark:text-orange-300">
-          Erstes fehlerhaftes Commit gefunden:
-        </span>
+        <span className="font-medium text-orange-800 dark:text-orange-300">{t("bisect.foundBad")}</span>
         <code className="font-mono text-orange-700 dark:text-orange-400">
           {bisect.result_hash?.slice(0, 8)}
         </code>
@@ -49,22 +47,27 @@ export function BisectStatusBanner({ path }: { path: string }) {
           onClick={() => void handleReset()}
         >
           <RotateCcw className="h-3 w-3" />
-          Beenden
+          {t("bisect.finish")}
         </Button>
       </div>
     );
   }
 
   if (bisect?.active) {
+    const n = bisect.steps_remaining ?? 0;
+    const stepsHint =
+      bisect.steps_remaining != null
+        ? n === 1
+          ? t("bisect.stepsOne", { count: n })
+          : t("bisect.stepsOther", { count: n })
+        : "";
     return (
       <div className="flex items-center gap-2 border-b border-blue-200 bg-blue-50 px-3 py-2 text-xs dark:border-blue-900/40 dark:bg-blue-950/30">
         <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-blue-500" />
-        <span className="font-medium text-blue-800 dark:text-blue-300">Bisect läuft</span>
-        {bisect.steps_remaining != null && (
-          <span className="text-blue-700/70 dark:text-blue-400/70">
-            · ~{bisect.steps_remaining} {bisect.steps_remaining === 1 ? "Schritt" : "Schritte"} verbleibend
-          </span>
-        )}
+        <span className="font-medium text-blue-800 dark:text-blue-300">{t("bisect.running")}</span>
+        {stepsHint !== "" ? (
+          <span className="text-blue-700/70 dark:text-blue-400/70">{stepsHint}</span>
+        ) : null}
         {bisect.current_subject && (
           <span className="min-w-0 flex-1 truncate text-blue-700/70 dark:text-blue-400/70">
             · {bisect.current_subject}
@@ -77,13 +80,12 @@ export function BisectStatusBanner({ path }: { path: string }) {
           onClick={() => void handleReset()}
         >
           <RotateCcw className="h-3 w-3" />
-          Beenden
+          {t("bisect.finish")}
         </Button>
       </div>
     );
   }
 
-  // Pending state (bisect not started yet, waiting for second commit)
   return (
     <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900/50">
       {hasPendingBad ? (
@@ -92,10 +94,8 @@ export function BisectStatusBanner({ path }: { path: string }) {
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
       )}
       <span className="text-muted-foreground">
-        Bisect:{" "}
-        {hasPendingBad && !hasPendingGood
-          ? "'Bad' commit gesetzt — Rechtsklick auf einen älteren Commit um 'Good' zu markieren."
-          : "'Good' commit gesetzt — Rechtsklick auf einen neueren Commit um 'Bad' zu markieren."}
+        {t("bisect.pendingPrefix")}{" "}
+        {hasPendingBad && !hasPendingGood ? t("bisect.pendingBad") : t("bisect.pendingGood")}
       </span>
     </div>
   );

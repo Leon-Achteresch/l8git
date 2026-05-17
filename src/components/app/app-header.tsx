@@ -1,15 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { GitFork, Info, Settings, User } from "lucide-react";
 import { type CSSProperties } from "react";
+import { useTranslation } from "react-i18next";
 
 import { AppHeaderSearch } from "@/components/app/app-header-search";
 import { cn } from "@/lib/utils";
-
-const NAV_ITEMS = [
-  { to: "/", label: "Repository", icon: GitFork },
-  { to: "/info", label: "Info", icon: Info },
-  { to: "/about", label: "About", icon: User },
-] as const;
 
 const IS_MAC =
   typeof navigator !== "undefined" &&
@@ -19,7 +14,14 @@ const IS_WINDOWS =
   typeof navigator !== "undefined" && /Win/i.test(navigator.platform);
 
 export function AppHeader() {
+  const { t } = useTranslation();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const navItems = [
+    { to: "/" as const, label: t("header.repo"), icon: GitFork },
+    { to: "/info" as const, label: t("header.info"), icon: Info },
+    { to: "/about" as const, label: t("header.about"), icon: User },
+  ] as const;
 
   return (
     <header
@@ -49,9 +51,9 @@ export function AppHeader() {
       <nav
         className="flex items-center gap-px px-1"
         style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
-        aria-label="Hauptnavigation"
+        aria-label={t("header.mainNav")}
       >
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+        {navItems.map(({ to, label, icon: Icon }) => {
           const active =
             to === "/" ? pathname === "/" : pathname.startsWith(to);
           return (
@@ -82,8 +84,8 @@ export function AppHeader() {
 
         <Link
           to="/settings"
-          aria-label="Einstellungen"
-          title="Einstellungen"
+          aria-label={t("header.settingsAria")}
+          title={t("header.settingsAria")}
           className={cn(
             "inline-flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-all duration-150",
             "hover:bg-muted hover:text-foreground",

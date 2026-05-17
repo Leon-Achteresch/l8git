@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 function pathParts(fullPath: string) {
@@ -40,6 +41,7 @@ export function WorktreeDetail({
   onRequestMove: () => void;
   onRequestLock: () => void;
 }) {
+  const { t } = useTranslation();
   const worktreeRemove = useRepoStore((s) => s.worktreeRemove);
   const worktreeUnlock = useRepoStore((s) => s.worktreeUnlock);
   const [busy, setBusy] = useState(false);
@@ -47,23 +49,23 @@ export function WorktreeDetail({
   const { name, parent } = pathParts(entry.path);
 
   const handleRemove = async () => {
-    const ok = window.confirm(`Worktree „${name}" entfernen?\n\n${entry.path}`);
+    const ok = window.confirm(
+      t("worktree.cardConfirmRemove", { name, path: entry.path }),
+    );
     if (!ok) return;
     setBusy(true);
     try {
       await worktreeRemove(path, entry.path, false);
-      toast.success("Worktree entfernt.");
+      toast.success(t("worktree.cardToastRemoved"));
       onClose();
     } catch (e) {
       const msg = String(e);
       if (/dirty|modified|changes/i.test(msg)) {
-        const force = window.confirm(
-          `Der Worktree enthält Änderungen. Trotzdem entfernen (force)?`,
-        );
+        const force = window.confirm(t("worktree.cardConfirmForceRemove"));
         if (force) {
           try {
             await worktreeRemove(path, entry.path, true);
-            toast.success("Worktree entfernt (force).");
+            toast.success(t("worktree.cardToastRemovedForce"));
             onClose();
           } catch (e2) {
             toastError(String(e2));
@@ -78,12 +80,12 @@ export function WorktreeDetail({
   };
 
   const handleUnlock = async () => {
-    const ok = window.confirm(`Worktree „${name}" entsperren?`);
+    const ok = window.confirm(t("worktree.cardConfirmUnlock", { name }));
     if (!ok) return;
     setBusy(true);
     try {
       await worktreeUnlock(path, entry.path);
-      toast.success("Worktree entsperrt.");
+      toast.success(t("worktree.cardToastUnlocked"));
     } catch (e) {
       toastError(String(e));
     } finally {
@@ -98,7 +100,6 @@ export function WorktreeDetail({
       transition={{ type: "spring", stiffness: 380, damping: 32 }}
       className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border/50 bg-card"
     >
-      {/* Header */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <div
@@ -123,16 +124,15 @@ export function WorktreeDetail({
           variant="ghost"
           size="icon-sm"
           onClick={onClose}
-          aria-label="Schließen"
+          aria-label={t("dialogs.closeAria")}
           className="shrink-0"
         >
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Info block */}
       <div className="shrink-0 space-y-3 p-3">
-        <InfoRow label="Pfad">
+        <InfoRow label={t("worktree.detailPathShort")}>
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
               {entry.path}
@@ -141,10 +141,10 @@ export function WorktreeDetail({
               type="button"
               onClick={() => {
                 navigator.clipboard.writeText(entry.path).catch(() => {});
-                toast.success("Pfad kopiert.");
+                toast.success(t("worktree.cardPathCopied"));
               }}
               className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-              aria-label="Pfad kopieren"
+              aria-label={t("worktree.detailAriaCopyPath")}
             >
               <Copy className="h-3 w-3" />
             </button>
@@ -152,7 +152,7 @@ export function WorktreeDetail({
         </InfoRow>
 
         {entry.branch && (
-          <InfoRow label="Branch">
+          <InfoRow label={t("worktree.detailBranchShort")}>
             <span className="flex items-center gap-1 text-[11px] font-medium text-[oklch(0.65_0.14_250)]">
               <GitBranch className="h-3 w-3" />
               {entry.branch}
@@ -161,7 +161,7 @@ export function WorktreeDetail({
         )}
 
         {entry.head && (
-          <InfoRow label="HEAD">
+          <InfoRow label={t("worktree.detailHeadShort")}>
             <span className="font-mono text-[11px] text-muted-foreground">
               {entry.head}
             </span>
@@ -171,7 +171,7 @@ export function WorktreeDetail({
         {entry.is_locked && (
           <div className="rounded-lg border border-amber-500/25 bg-amber-500/8 px-2.5 py-2 text-[11px]">
             <p className="font-semibold text-amber-600 dark:text-amber-400">
-              Gesperrt
+              {t("worktree.detailLockedHeading")}
             </p>
             {entry.lock_reason && (
               <p className="mt-0.5 text-muted-foreground">
@@ -185,7 +185,7 @@ export function WorktreeDetail({
           <div className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/8 px-2.5 py-2 text-[11px]">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
             <div>
-              <p className="font-semibold text-destructive">Prunable</p>
+              <p className="font-semibold text-destructive">{t("worktree.detailPrunableHeading")}</p>
               {entry.prunable_reason && (
                 <p className="mt-0.5 text-muted-foreground">
                   {entry.prunable_reason}
@@ -197,15 +197,14 @@ export function WorktreeDetail({
 
         {entry.is_main && (
           <div className="rounded-lg border border-primary/20 bg-primary/6 px-2.5 py-2 text-[11px] text-primary">
-            Haupt-Worktree — kann nicht entfernt werden.
+            {t("worktree.detailMainNoRemove")}
           </div>
         )}
       </div>
 
-      {/* Actions */}
       <div className="shrink-0 space-y-1.5 px-3 pb-3">
         <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Aktionen
+          {t("worktree.detailActionsHeading")}
         </p>
 
         <Button
@@ -218,7 +217,7 @@ export function WorktreeDetail({
           }
         >
           <FolderOpen className="h-3.5 w-3.5" />
-          Im Finder öffnen
+          {t("worktree.revealFinder")}
         </Button>
 
         <Button
@@ -234,7 +233,7 @@ export function WorktreeDetail({
           }
         >
           <Terminal className="h-3.5 w-3.5" />
-          In Terminal öffnen
+          {t("worktree.openTerminal")}
         </Button>
 
         {!entry.is_main && (
@@ -249,7 +248,7 @@ export function WorktreeDetail({
                 onClick={onRequestMove}
               >
                 <Move className="h-3.5 w-3.5" />
-                Verschieben …
+                {t("worktree.cardMoveEllipsis")}
               </Button>
             )}
 
@@ -263,7 +262,7 @@ export function WorktreeDetail({
                 onClick={() => void handleUnlock()}
               >
                 <LockOpen className="h-3.5 w-3.5" />
-                Entsperren
+                {t("worktree.cardUnlock")}
               </Button>
             ) : (
               <Button
@@ -275,7 +274,7 @@ export function WorktreeDetail({
                 onClick={onRequestLock}
               >
                 <Lock className="h-3.5 w-3.5" />
-                Sperren …
+                {t("worktree.cardLockEllipsis")}
               </Button>
             )}
 
@@ -288,7 +287,7 @@ export function WorktreeDetail({
               onClick={() => void handleRemove()}
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Entfernen
+              {t("worktree.remove")}
             </Button>
           </>
         )}

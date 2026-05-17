@@ -6,6 +6,7 @@ import { useRepoStore, type Branch } from "@/lib/repo-store";
 import { open as pickDirectory } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function WorktreeAddDialog({
@@ -19,6 +20,7 @@ export function WorktreeAddDialog({
   path: string;
   branches: Branch[];
 }) {
+  const { t } = useTranslation();
   const worktreeAdd = useRepoStore((s) => s.worktreeAdd);
   const [worktreePath, setWorktreePath] = useState("");
   const [mode, setMode] = useState<"existing" | "new">("existing");
@@ -60,22 +62,24 @@ export function WorktreeAddDialog({
       if (mode === "existing") {
         const b = existingBranch.trim();
         if (!b) {
-          toastError("Bitte einen Branch auswählen.");
+          toastError(t("worktreeAdd.toastSelectBranch"));
+          setBusy(false);
           return;
         }
         const out = await worktreeAdd(path, trimPath, { branch: b });
-        toast.success(out || "Worktree erstellt.");
+        toast.success(out || t("worktreeAdd.toastCreatedFallback"));
       } else {
         const nb = newBranch.trim();
         if (!nb) {
-          toastError("Branch-Name darf nicht leer sein.");
+          toastError(t("worktreeAdd.toastNewBranchRequired"));
+          setBusy(false);
           return;
         }
         const out = await worktreeAdd(path, trimPath, {
           newBranch: nb,
           branch: baseBranch.trim() || undefined,
         });
-        toast.success(out || "Worktree erstellt.");
+        toast.success(out || t("worktreeAdd.toastCreatedFallback"));
       }
       onClose();
     } catch (err) {
@@ -88,92 +92,62 @@ export function WorktreeAddDialog({
   if (!open) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Worktree hinzufügen"
-      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
-      onClick={dismiss}
-    >
-      <div
-        className="w-full max-w-md rounded-xl border border-border bg-card p-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div role="dialog" aria-modal="true" aria-label={t("worktreeAdd.aria")} className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={dismiss}>
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">Worktree hinzufügen</h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={dismiss}
-            disabled={busy}
-            aria-label="Schließen"
-          >
+          <h2 className="text-base font-semibold">{t("worktreeAdd.title")}</h2>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={dismiss} disabled={busy} aria-label={t("worktreeAdd.closeAria")}>
             <X className="h-4 w-4" />
           </Button>
         </header>
 
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
-          {/* Worktree path */}
           <div className="grid gap-1">
-            <Label htmlFor="wt-path">Worktree-Pfad *</Label>
+            <Label htmlFor="wt-path">{t("worktreeAdd.pathLabel")}</Label>
             <div className="flex gap-1.5">
               <Input
                 id="wt-path"
                 value={worktreePath}
                 onChange={(e) => setWorktreePath(e.target.value)}
-                placeholder="/pfad/zum/worktree"
+                placeholder={t("worktreeAdd.pathPlaceholder")}
                 spellCheck={false}
                 required
                 className="flex-1"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => void pickFolder()}
-                aria-label="Ordner wählen"
-              >
+              <Button type="button" variant="outline" size="icon" onClick={() => void pickFolder()} aria-label={t("worktreeAdd.pickFolderAria")}>
                 <FolderOpen className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Absoluter Pfad für das neue Arbeitsverzeichnis
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("worktreeAdd.pathHint")}</p>
           </div>
 
-          {/* Mode toggle */}
           <div className="grid gap-1">
-            <Label>Modus</Label>
+            <Label>{t("worktreeAdd.modeLabel")}</Label>
             <div className="flex rounded-lg border border-border overflow-hidden text-sm">
               <button
                 type="button"
                 onClick={() => setMode("existing")}
                 className={`flex-1 px-3 py-1.5 text-center transition-colors ${
-                  mode === "existing"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-transparent text-muted-foreground hover:bg-muted"
+                  mode === "existing" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted"
                 }`}
               >
-                Bestehender Branch
+                {t("worktreeAdd.modeExistingBranch")}
               </button>
               <button
                 type="button"
                 onClick={() => setMode("new")}
                 className={`flex-1 px-3 py-1.5 text-center transition-colors ${
-                  mode === "new"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-transparent text-muted-foreground hover:bg-muted"
+                  mode === "new" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted"
                 }`}
               >
-                Neuer Branch
+                {t("worktreeAdd.modeNewBranch")}
               </button>
             </div>
           </div>
 
           {mode === "existing" ? (
             <div className="grid gap-1">
-              <Label htmlFor="wt-existing-branch">Branch *</Label>
+              <Label htmlFor="wt-existing-branch">{t("worktreeAdd.branchLabel")}</Label>
               <select
                 id="wt-existing-branch"
                 value={existingBranch}
@@ -181,76 +155,50 @@ export function WorktreeAddDialog({
                 className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/50"
                 required
               >
-                <option value="">— Branch auswählen —</option>
+                <option value="">{t("worktreeAdd.branchUnset")}</option>
                 {localBranches.map((b) => (
                   <option key={b.name} value={b.name}>
                     {b.name}
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-muted-foreground">
-                Branch wird in den neuen Worktree ausgecheckt
-              </p>
+              <p className="text-[11px] text-muted-foreground">{t("worktreeAdd.existingBranchHint")}</p>
             </div>
           ) : (
             <>
               <div className="grid gap-1">
-                <Label htmlFor="wt-new-branch">Neuer Branch-Name *</Label>
-                <Input
-                  id="wt-new-branch"
-                  value={newBranch}
-                  onChange={(e) => setNewBranch(e.target.value)}
-                  placeholder="feature/my-feature"
-                  spellCheck={false}
-                  required
-                />
+                <Label htmlFor="wt-new-branch">{t("worktreeAdd.newBranchLabel")}</Label>
+                <Input id="wt-new-branch" value={newBranch} onChange={(e) => setNewBranch(e.target.value)} placeholder={t("worktreeAdd.newBranchPlaceholder")} spellCheck={false} required />
               </div>
               <div className="grid gap-1">
-                <Label htmlFor="wt-base-branch">Basis-Branch (optional)</Label>
+                <Label htmlFor="wt-base-branch">{t("worktreeAdd.baseBranchLabel")}</Label>
                 <select
                   id="wt-base-branch"
                   value={baseBranch}
                   onChange={(e) => setBaseBranch(e.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/50"
                 >
-                  <option value="">— Von HEAD (Standard) —</option>
+                  <option value="">{t("worktreeAdd.baseFromHead")}</option>
                   {branches
                     .filter((b) => !b.is_remote)
                     .map((b) => (
                       <option key={b.name} value={b.name}>
                         {b.name}
-                        {b.is_current ? " (current)" : ""}
+                        {b.is_current ? ` (${t("pr.branchCurrentBadge")})` : ""}
                       </option>
                     ))}
                 </select>
-                <p className="text-[11px] text-muted-foreground">
-                  Ausgangspunkt für den neuen Branch
-                </p>
+                <p className="text-[11px] text-muted-foreground">{t("worktreeAdd.basisHint")}</p>
               </div>
             </>
           )}
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={dismiss}
-              disabled={busy}
-            >
-              Abbrechen
+            <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
+              {t("worktreeAdd.cancel")}
             </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={
-                busy ||
-                !worktreePath.trim() ||
-                (mode === "existing" && !existingBranch) ||
-                (mode === "new" && !newBranch.trim())
-              }
-            >
-              {busy ? "Erstelle …" : "Erstellen"}
+            <Button type="submit" size="sm" disabled={busy || !worktreePath.trim() || (mode === "existing" && !existingBranch) || (mode === "new" && !newBranch.trim())}>
+              {busy ? t("worktreeAdd.submitBusy") : t("worktreeAdd.submitCreate")}
             </Button>
           </div>
         </form>

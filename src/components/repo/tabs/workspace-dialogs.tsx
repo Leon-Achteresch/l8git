@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { type Workspace, useWorkspaceStore } from "@/lib/workspace-store";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
 function DialogBackdrop({
@@ -37,6 +38,7 @@ export function WorkspaceCreateDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const addWorkspace = useWorkspaceStore((s) => s.addWorkspace);
   const [name, setName] = useState("");
 
@@ -56,29 +58,29 @@ export function WorkspaceCreateDialog({
   return (
     <DialogBackdrop onDismiss={onClose}>
       <header className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">Workspace hinzufügen</h2>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Schließen">
+        <h2 className="text-sm font-semibold">{t("workspaceDialogs.addWorkspaceTitle")}</h2>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label={t("dialogs.closeAria")}>
           <X className="h-4 w-4" />
         </Button>
       </header>
       <div className="grid gap-4 p-4">
         <div className="grid gap-1.5">
-          <Label htmlFor="workspace-name">Name</Label>
+          <Label htmlFor="workspace-name">{t("workspaceDialogs.nameLabel")}</Label>
           <Input
             id="workspace-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="z. B. Arbeit"
+            placeholder={t("workspaceDialogs.namePlaceholderExample")}
             autoFocus
             onKeyDown={(e) => e.key === "Enter" && submit()}
           />
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>
-            Abbrechen
+            {t("common.cancel")}
           </Button>
           <Button type="button" onClick={submit} disabled={!name.trim()}>
-            Anlegen
+            {t("workspaceDialogs.create")}
           </Button>
         </div>
       </div>
@@ -95,6 +97,7 @@ export function WorkspaceEditDialog({
   onClose: () => void;
   workspace: Workspace;
 }) {
+  const { t } = useTranslation();
   const { renameWorkspace, removeWorkspace, workspaces } = useWorkspaceStore(
     useShallow((s) => ({
       renameWorkspace: s.renameWorkspace,
@@ -127,14 +130,14 @@ export function WorkspaceEditDialog({
   return (
     <DialogBackdrop onDismiss={onClose}>
       <header className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">Workspace bearbeiten</h2>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Schließen">
+        <h2 className="text-sm font-semibold">{t("workspaceDialogs.editTitle")}</h2>
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label={t("dialogs.closeAria")}>
           <X className="h-4 w-4" />
         </Button>
       </header>
       <div className="grid gap-4 p-4">
         <div className="grid gap-1.5">
-          <Label htmlFor="workspace-edit-name">Name</Label>
+          <Label htmlFor="workspace-edit-name">{t("workspaceDialogs.nameLabel")}</Label>
           <Input
             id="workspace-edit-name"
             value={name}
@@ -150,16 +153,16 @@ export function WorkspaceEditDialog({
             className="text-destructive hover:text-destructive"
             onClick={handleDelete}
             disabled={isLast}
-            title={isLast ? "Letzter Workspace kann nicht gelöscht werden" : undefined}
+            title={isLast ? t("workspaceDialogs.lastWorkspaceDeleteTitle") : undefined}
           >
-            Löschen
+            {t("workspaceDialogs.delete")}
           </Button>
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
-              Abbrechen
+              {t("common.cancel")}
             </Button>
             <Button type="button" onClick={save} disabled={!name.trim()}>
-              Speichern
+              {t("common.save")}
             </Button>
           </div>
         </div>

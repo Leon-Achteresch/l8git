@@ -12,6 +12,7 @@ import type { StashEntry } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { Archive, GitBranch, Inbox, Layers, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function StashRow({
@@ -27,6 +28,7 @@ export function StashRow({
   onSelect: () => void;
   onOpenBranch: () => void;
 }) {
+  const { t } = useTranslation();
   const stashApply = useRepoStore((s) => s.stashApply);
   const stashPop = useRepoStore((s) => s.stashPop);
   const stashDrop = useRepoStore((s) => s.stashDrop);
@@ -70,7 +72,7 @@ export function StashRow({
             void (async () => {
               try {
                 const out = await stashApply(path, entry.index);
-                toast.success(out || "Stash angewendet.");
+                toast.success(out || t("stash.toastApplyFallback"));
               } catch (e) {
                 toastError(String(e));
               }
@@ -78,18 +80,16 @@ export function StashRow({
           }}
         >
           <Layers className="h-3.5 w-3.5" />
-          Anwenden
+          {t("stash.menuApply")}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={() => {
-            const ok = window.confirm(
-              "Stash anwenden und aus der Liste entfernen (Pop)?",
-            );
+            const ok = window.confirm(t("stash.confirmPop"));
             if (!ok) return;
             void (async () => {
               try {
                 const out = await stashPop(path, entry.index);
-                toast.success(out || "Stash gepoppt.");
+                toast.success(out || t("stash.toastPopFallback"));
               } catch (e) {
                 toastError(String(e));
               }
@@ -97,24 +97,22 @@ export function StashRow({
           }}
         >
           <Inbox className="h-3.5 w-3.5" />
-          Pop
+          {t("stash.menuPop")}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => onOpenBranch()}>
           <GitBranch className="h-3.5 w-3.5" />
-          Branch erstellen …
+          {t("stash.menuCreateBranch")}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           variant="destructive"
           onSelect={() => {
-            const ok = window.confirm(
-              `Stash stash@{${entry.index}} unwiderruflich entfernen?`,
-            );
+            const ok = window.confirm(t("stash.confirmDrop", { ref: `stash@{${entry.index}}` }));
             if (!ok) return;
             void (async () => {
               try {
                 await stashDrop(path, entry.index);
-                toast.success("Stash entfernt.");
+                toast.success(t("stash.toastDropSuccess"));
               } catch (e) {
                 toastError(String(e));
               }
@@ -122,7 +120,7 @@ export function StashRow({
           }}
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Entfernen
+          {t("common.remove")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

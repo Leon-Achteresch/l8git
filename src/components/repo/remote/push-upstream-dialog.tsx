@@ -4,6 +4,7 @@ import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function PushUpstreamDialog({
@@ -17,6 +18,7 @@ export function PushUpstreamDialog({
   path: string;
   branch: string;
 }) {
+  const { t } = useTranslation();
   const reload = useRepoStore((s) => s.reload);
   const reloadStatus = useRepoStore((s) => s.reloadStatus);
   const [busy, setBusy] = useState(false);
@@ -38,7 +40,7 @@ export function PushUpstreamDialog({
         setUpstream: true,
       });
       await Promise.all([reload(path), reloadStatus(path)]);
-      toast.success(out.trim() || "Aktion erfolgreich abgeschlossen.");
+      toast.success(out.trim() || t("pushUpstream.successFallback"));
       onClose();
     } catch (e) {
       toastError(String(e));
@@ -53,7 +55,7 @@ export function PushUpstreamDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Branch veröffentlichen"
+      aria-label={t("pushUpstream.aria")}
       className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -62,27 +64,24 @@ export function PushUpstreamDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="font-heading text-base font-medium">Branch veröffentlichen</h2>
+          <h2 className="font-heading text-base font-medium">{t("pushUpstream.title")}</h2>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             onClick={dismiss}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("pushUpstream.closeAria")}
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
         <p className="mb-4 text-sm text-muted-foreground">
-          Branch{" "}
-          <span className="font-mono font-medium text-foreground">{branch}</span> existiert nur
-          lokal. Soll er auf <span className="font-mono text-foreground">origin</span>{" "}
-          veröffentlicht werden?
+          {t("pushUpstream.body", { branch })}
         </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
-            Abbrechen
+            {t("pushUpstream.cancel")}
           </Button>
           <Button
             type="button"
@@ -90,7 +89,7 @@ export function PushUpstreamDialog({
             disabled={busy}
             onClick={() => void confirmPublish()}
           >
-            {busy ? "…" : "Veröffentlichen"}
+            {busy ? t("editRemote.saveBusy") : t("pushUpstream.publish")}
           </Button>
         </div>
       </div>

@@ -9,10 +9,12 @@ import {
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import { Check, ChevronDown, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { WorkspaceCreateDialog, WorkspaceEditDialog } from "./workspace-dialogs";
 
 export function RepoWorkspaceSwitch() {
+  const { t } = useTranslation();
   const { workspaces, activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore(
     useShallow((s) => ({
       workspaces: s.workspaces,
@@ -42,7 +44,7 @@ export function RepoWorkspaceSwitch() {
             </span>
             <span className="flex min-w-0 flex-col leading-tight">
               <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
-                WORKSPACE
+                {t("repoWorkspaceSwitch.badge")}
               </span>
               <span className="max-w-[100px] truncate text-xs font-semibold text-foreground">
                 {activeWorkspace?.name ?? "—"}
@@ -53,7 +55,7 @@ export function RepoWorkspaceSwitch() {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" sideOffset={6} className="min-w-[180px]">
-          <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("repoWorkspaceSwitch.menuTitle")}</DropdownMenuLabel>
 
           {workspaces.map((ws) => (
             <DropdownMenuItem
@@ -73,13 +75,15 @@ export function RepoWorkspaceSwitch() {
 
           <DropdownMenuItem onClick={() => setCreateOpen(true)} className="gap-2">
             <Plus className="size-3.5 shrink-0 text-muted-foreground" />
-            <span>Workspace hinzufügen…</span>
+            <span>{t("repoWorkspaceSwitch.add")}</span>
           </DropdownMenuItem>
 
           {activeWorkspace && (
             <DropdownMenuItem onClick={() => setEditOpen(true)} className="gap-2">
               <Pencil className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">„{activeWorkspace.name}" bearbeiten…</span>
+              <span className="truncate">
+                {t("repoWorkspaceSwitch.edit", { name: activeWorkspace.name })}
+              </span>
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

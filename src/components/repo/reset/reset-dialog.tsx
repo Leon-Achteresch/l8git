@@ -3,31 +3,11 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 type ResetMode = "soft" | "mixed" | "hard";
-
-const MODES: { value: ResetMode; label: string; description: string; danger: boolean }[] = [
-  {
-    value: "soft",
-    label: "Soft",
-    description: "Commits zurückgesetzt · Index und Working Tree unverändert",
-    danger: false,
-  },
-  {
-    value: "mixed",
-    label: "Mixed",
-    description: "Commits und Index zurückgesetzt · Working Tree unverändert",
-    danger: false,
-  },
-  {
-    value: "hard",
-    label: "Hard",
-    description: "Commits, Index und Working Tree vollständig zurückgesetzt",
-    danger: true,
-  },
-];
 
 export function ResetDialog({
   open,
@@ -40,10 +20,26 @@ export function ResetDialog({
   path: string;
   commitHash: string;
 }) {
+  const { t } = useTranslation();
   const gitReset = useRepoStore((s) => s.gitReset);
   const [mode, setMode] = useState<ResetMode>("mixed");
   const [target, setTarget] = useState(commitHash);
   const [busy, setBusy] = useState(false);
+
+  const modes = useMemo(
+    () =>
+      ([
+        { value: "soft" as const, label: "Soft", description: t("reset.modeSoftDesc"), danger: false },
+        { value: "mixed" as const, label: "Mixed", description: t("reset.modeMixedDesc"), danger: false },
+        { value: "hard" as const, label: "Hard", description: t("reset.modeHardDesc"), danger: true },
+      ]) satisfies Array<{
+        value: ResetMode;
+        label: string;
+        description: string;
+        danger: boolean;
+      }>,
+    [t],
+  );
 
   useEffect(() => {
     if (open) {
@@ -60,15 +56,15 @@ export function ResetDialog({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const t = target.trim();
-    if (!t) {
-      toastError("Ziel darf nicht leer sein.");
+    const hash = target.trim();
+    if (!hash) {
+      toastError(t("reset.toastEmptyTarget"));
       return;
     }
     setBusy(true);
     try {
-      await gitReset(path, t, mode);
-      toast.success(`Reset (${mode}) auf ${t} erfolgreich.`);
+      await gitReset(path, hash, mode);
+      toast.success(t("reset.toastSuccess", { mode, hash }));
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -83,7 +79,7 @@ export function ResetDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Branch zurücksetzen"
+      aria-label={t("reset.dialogAriaLabel")}
       className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -92,15 +88,8 @@ export function ResetDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="font-heading text-base font-medium">Branch zurücksetzen</h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={dismiss}
-            disabled={busy}
-            aria-label="Schließen"
-          >
+          <h2 className="font-heading text-base font-medium">{t("reset.title")}</h2>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={dismiss} disabled={busy} aria-label={t("dialogs.closeAria")}>
             <X className="h-4 w-4" />
           </Button>
         </header>
@@ -108,7 +97,7 @@ export function ResetDialog({
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
           <div className="grid gap-1">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="reset-target">
-              Ziel
+              {t("reset.targetLabel")}
             </label>
             <input
               id="reset-target"
@@ -117,17 +106,14 @@ export function ResetDialog({
               onChange={(e) => setTarget(e.target.value)}
               spellCheck={false}
               autoComplete="off"
-              placeholder="Hash, HEAD~1, ORIG_HEAD …"
+              placeholder={t("reset.targetPlaceholder")}
             />
-            <p className="text-[11px] text-muted-foreground">
-              Commit-Hash, <code className="font-mono">HEAD~n</code>,{" "}
-              <code className="font-mono">ORIG_HEAD</code>, Branch- oder Tag-Name
-            </p>
+            <p className="text-[11px] text-muted-foreground">{t("reset.targetHint")}</p>
           </div>
 
           <div className="grid gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Modus</span>
-            {MODES.map((m) => (
+            <span className="text-xs font-medium text-muted-foreground">{t("reset.modeLabel")}</span>
+            {modes.map((m) => (
               <button
                 key={m.value}
                 type="button"
@@ -185,13 +171,13 @@ export function ResetDialog({
 
           {mode === "hard" && (
             <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-              <strong>Achtung:</strong> Nicht committete Änderungen werden unwiderruflich gelöscht.
+              <strong>{t("reset.hardWarnStrong")}</strong> {t("reset.hardWarnRest")}
             </p>
           )}
 
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
-              Abbrechen
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
@@ -199,7 +185,7 @@ export function ResetDialog({
               variant={mode === "hard" ? "destructive" : "default"}
               disabled={busy || !target.trim()}
             >
-              {busy ? "…" : `Reset (${mode})`}
+              {busy ? t("reset.submitBusy") : t("reset.submitIdle", { mode })}
             </Button>
           </div>
         </form>

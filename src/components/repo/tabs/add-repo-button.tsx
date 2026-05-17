@@ -3,6 +3,7 @@ import { usePickRepo } from "@/lib/use-pick-repo";
 import { Download, FolderGit2, FolderPlus, Plus, type LucideIcon } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion, type Variants } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CloneRepoDialog } from "./clone-repo-dialog";
 import { InitRepoDialog } from "./init-repo-dialog";
 
@@ -69,6 +70,7 @@ const menuItemVariants: Variants = {
 };
 
 export function AddRepoButton() {
+  const { t } = useTranslation();
   const pickRepo = usePickRepo();
   const [menuOpen, setMenuOpen] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
@@ -79,35 +81,34 @@ export function AddRepoButton() {
     () =>
       [
         {
-          Icon: FolderGit2,
-          label: "Lokales Repo öffnen",
+          Icon: FolderGit2 as LucideIcon,
+          label: t("addRepo.openLocal"),
+          key: "open",
           action: () => {
             setMenuOpen(false);
             void pickRepo();
           },
         },
         {
-          Icon: FolderPlus,
-          label: "Leeres Repo anlegen…",
+          Icon: FolderPlus as LucideIcon,
+          label: t("addRepo.createEmpty"),
+          key: "init",
           action: () => {
             setMenuOpen(false);
             setInitOpen(true);
           },
         },
         {
-          Icon: Download,
-          label: "Repository klonen…",
+          Icon: Download as LucideIcon,
+          label: t("addRepo.clone"),
+          key: "clone",
           action: () => {
             setMenuOpen(false);
             setCloneOpen(true);
           },
         },
-      ] as const satisfies ReadonlyArray<{
-        Icon: LucideIcon;
-        label: string;
-        action: () => void;
-      }>,
-    [pickRepo],
+      ] as const,
+    [pickRepo, t],
   );
 
   useEffect(() => {
@@ -134,8 +135,8 @@ export function AddRepoButton() {
             mass: 0.35,
           }}
           onClick={() => setMenuOpen((o) => !o)}
-          title="Repository hinzufügen"
-          aria-label="Repository hinzufügen"
+          title={t("addRepo.buttonTitle")}
+          aria-label={t("addRepo.buttonAria")}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           className={cn(
@@ -147,7 +148,7 @@ export function AddRepoButton() {
         </motion.button>
 
         <AnimatePresence>
-          {menuOpen && (
+          {menuOpen ? (
             <motion.div
               role="menu"
               variants={menuPanelVariants}
@@ -157,9 +158,9 @@ export function AddRepoButton() {
               style={{ transformOrigin: "top right" }}
               className="absolute right-0 top-full z-50 min-w-[200px] overflow-hidden rounded-b-lg rounded-t-none bg-popover py-1 shadow-lg"
             >
-              {menuEntries.map(({ Icon, label, action }) => (
+              {menuEntries.map(({ Icon, label, action, key }) => (
                 <motion.button
-                  key={label}
+                  key={key}
                   type="button"
                   role="menuitem"
                   variants={menuItemVariants}
@@ -172,7 +173,7 @@ export function AddRepoButton() {
                 </motion.button>
               ))}
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
         <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />
         <InitRepoDialog open={initOpen} onClose={() => setInitOpen(false)} />

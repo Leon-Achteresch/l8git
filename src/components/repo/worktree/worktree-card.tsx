@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { WorktreeStatusBadge } from "./worktree-status-badge";
 
@@ -50,6 +51,7 @@ export function WorktreeCard({
   onRequestMove: () => void;
   onRequestLock: () => void;
 }) {
+  const { t } = useTranslation();
   const worktreeRemove = useRepoStore((s) => s.worktreeRemove);
   const worktreeUnlock = useRepoStore((s) => s.worktreeUnlock);
   const worktreePrune = useRepoStore((s) => s.worktreePrune);
@@ -59,23 +61,21 @@ export function WorktreeCard({
 
   const handleRemove = async () => {
     const ok = window.confirm(
-      `Worktree „${name}" entfernen?\n\n${entry.path}`,
+      t("worktree.cardConfirmRemove", { name, path: entry.path }),
     );
     if (!ok) return;
     setBusy(true);
     try {
       await worktreeRemove(path, entry.path, false);
-      toast.success("Worktree entfernt.");
+      toast.success(t("worktree.cardToastRemoved"));
     } catch (e) {
       const msg = String(e);
       if (/dirty|modified|changes/i.test(msg)) {
-        const force = window.confirm(
-          `Der Worktree enthält Änderungen. Trotzdem entfernen (force)?`,
-        );
+        const force = window.confirm(t("worktree.cardConfirmForceRemove"));
         if (force) {
           try {
             await worktreeRemove(path, entry.path, true);
-            toast.success("Worktree entfernt (force).");
+            toast.success(t("worktree.cardToastRemovedForce"));
           } catch (e2) {
             toastError(String(e2));
           }
@@ -89,12 +89,12 @@ export function WorktreeCard({
   };
 
   const handleUnlock = async () => {
-    const ok = window.confirm(`Worktree „${name}" entsperren?`);
+    const ok = window.confirm(t("worktree.cardConfirmUnlock", { name }));
     if (!ok) return;
     setBusy(true);
     try {
       await worktreeUnlock(path, entry.path);
-      toast.success("Worktree entsperrt.");
+      toast.success(t("worktree.cardToastUnlocked"));
     } catch (e) {
       toastError(String(e));
     } finally {
@@ -106,7 +106,7 @@ export function WorktreeCard({
     setBusy(true);
     try {
       const out = await worktreePrune(path);
-      toast.success(out || "Bereinigt.");
+      toast.success(out || t("worktree.cardPrunedFallback"));
     } catch (e) {
       toastError(String(e));
     } finally {
@@ -180,7 +180,7 @@ export function WorktreeCard({
                 </span>
               ) : (
                 <span className="text-[11px] italic text-muted-foreground/60">
-                  detached HEAD
+                  {t("worktree.detachedHead")}
                 </span>
               )}
               {entry.head && (
@@ -203,7 +203,7 @@ export function WorktreeCard({
           onSelect={() => void invoke("reveal_repo_folder", { path: entry.path })}
         >
           <FolderOpen className="h-3.5 w-3.5" />
-          Im Finder öffnen
+          {t("worktree.revealFinder")}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={() =>
@@ -214,16 +214,16 @@ export function WorktreeCard({
           }
         >
           <Terminal className="h-3.5 w-3.5" />
-          In Terminal öffnen
+          {t("worktree.openTerminal")}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={() => {
             navigator.clipboard.writeText(entry.path).catch(() => {});
-            toast.success("Pfad kopiert.");
+            toast.success(t("worktree.cardPathCopied"));
           }}
         >
           <Copy className="h-3.5 w-3.5" />
-          Pfad kopieren
+          {t("worktree.cardCopyPath")}
         </ContextMenuItem>
 
         {!entry.is_main && (
@@ -232,24 +232,24 @@ export function WorktreeCard({
             {!entry.is_locked && (
               <ContextMenuItem onSelect={onRequestMove}>
                 <Move className="h-3.5 w-3.5" />
-                Verschieben …
+                {t("worktree.cardMoveEllipsis")}
               </ContextMenuItem>
             )}
             {entry.is_locked ? (
               <ContextMenuItem onSelect={() => void handleUnlock()}>
                 <LockOpen className="h-3.5 w-3.5" />
-                Entsperren
+                {t("worktree.cardUnlock")}
               </ContextMenuItem>
             ) : (
               <ContextMenuItem onSelect={onRequestLock}>
                 <Lock className="h-3.5 w-3.5" />
-                Sperren …
+                {t("worktree.cardLockEllipsis")}
               </ContextMenuItem>
             )}
             {entry.is_prunable && (
               <ContextMenuItem onSelect={() => void handlePrune()}>
                 <Scissors className="h-3.5 w-3.5" />
-                Bereinigen (prune)
+                {t("worktree.cardPrune")}
               </ContextMenuItem>
             )}
             <ContextMenuSeparator />
@@ -259,7 +259,7 @@ export function WorktreeCard({
               onSelect={() => void handleRemove()}
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Entfernen
+              {t("worktree.remove")}
             </ContextMenuItem>
           </>
         )}

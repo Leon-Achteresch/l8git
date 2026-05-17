@@ -12,13 +12,10 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2, Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const LINE_HEIGHT_PX = 18;
 const EMPTY_SET: ReadonlySet<string> = new Set();
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Non-interactive diff renderer (original behaviour)
-// ──────────────────────────────────────────────────────────────────────────────
 
 const lineWrap =
   "box-border block w-max min-w-full whitespace-pre px-4 py-0.5 font-mono text-[11px]";
@@ -97,18 +94,12 @@ function VirtualDiffList({ lines }: { lines: DiffLine[] }) {
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Interactive diff renderer
-// ──────────────────────────────────────────────────────────────────────────────
-
-/** Key format: "<hunkIdx>:<hunkLineIdx>" */
 type SelectionKey = string;
 
 function makeKey(hunkIdx: number, hunkLineIdx: number): SelectionKey {
   return `${hunkIdx}:${hunkLineIdx}`;
 }
 
-/** Visual indicator for staged/unstaged action on hunk headers. */
 function HunkActionButton({
   sector,
   onClick,
@@ -116,12 +107,13 @@ function HunkActionButton({
   sector: "staged" | "unstaged";
   onClick: (e: React.MouseEvent) => void;
 }) {
+  const { t } = useTranslation();
   const isStaged = sector === "staged";
   return (
     <button
       type="button"
       onClick={onClick}
-      title={isStaged ? "Hunk unstagen" : "Hunk stagen"}
+      title={isStaged ? t("commitPanel.hunkUnstageTitle") : t("commitPanel.hunkStageTitle")}
       className={
         "flex h-[14px] shrink-0 items-center gap-0.5 rounded px-1 text-[9px] font-semibold uppercase tracking-wider transition-opacity " +
         (isStaged
@@ -130,12 +122,11 @@ function HunkActionButton({
       }
     >
       {isStaged ? <Minus className="h-2 w-2" /> : <Plus className="h-2 w-2" />}
-      {isStaged ? "unstage" : "stage"}
+      {isStaged ? t("commitPanel.hunkUnstageVerb") : t("commitPanel.hunkStageVerb")}
     </button>
   );
 }
 
-/** Checkbox indicator for change-line selection. */
 function LineCheckbox({
   checked,
   kind,
@@ -145,12 +136,13 @@ function LineCheckbox({
   kind: "add" | "del";
   onToggle: () => void;
 }) {
+  const { t } = useTranslation();
   const color = kind === "add" ? "border-git-added" : "border-git-removed";
   const bg = kind === "add" ? "bg-git-added" : "bg-git-removed";
   return (
     <button
       type="button"
-      title={checked ? "Zeile abwählen" : "Zeile auswählen"}
+      title={checked ? t("diff.lineDeselectTitle") : t("diff.lineSelectTitle")}
       onClick={onToggle}
       className="flex h-full w-5 shrink-0 cursor-pointer items-center justify-center"
     >
@@ -211,7 +203,6 @@ function interactiveLineNode(
     );
   }
 
-  // add / del
   const key = makeKey(line.hunkIdx, line.hunkLineIdx);
   const checked = selection.has(key);
   const isAdd = line.kind === "add";
@@ -239,19 +230,13 @@ function interactiveLineNode(
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Controlled interactive virtualised diff list
-// ──────────────────────────────────────────────────────────────────────────────
-
 function InteractiveVirtualDiffList({
   parsed,
   sector,
-  // Lifted state from CommitPanel
   focusedHunkIdx,
   selectedLines,
   onToggleLine,
   onClearSelection,
-  // Patch application
   onStageHunk,
   onUnstageHunk,
 }: {
@@ -264,10 +249,9 @@ function InteractiveVirtualDiffList({
   onStageHunk: (patch: string) => void;
   onUnstageHunk: (patch: string) => void;
 }) {
-  // ── Flat lines for virtualizer ───────────────────────────────────────────
+  const { t } = useTranslation();
   const flatLines = useMemo(() => flattenParsedDiff(parsed), [parsed]);
 
-  // ── Indices of stageable (add/del) lines ─────────────────────────────────
   const stageableIndices = useMemo(
     () =>
       flatLines.reduce<number[]>((acc, line, i) => {
@@ -277,15 +261,12 @@ function InteractiveVirtualDiffList({
     [flatLines],
   );
 
-  // ── Keyboard cursor within stageable lines ───────────────────────────────
   const [lineNavIdx, setLineNavIdx] = useState(-1);
 
-  // Reset cursor when diff changes
   useEffect(() => {
     setLineNavIdx(-1);
   }, [parsed]);
 
-  // ── Virtualizer ──────────────────────────────────────────────────────────
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: flatLines.length,
@@ -294,31 +275,25 @@ function InteractiveVirtualDiffList({
     overscan: 20,
   });
 
-  // ── Scroll to focused hunk (triggered by [ / ] hotkeys) ─────────────────
   useEffect(() => {
     if (focusedHunkIdx < 0) return;
     const idx = flatLines.findIndex(
       (l) => l.kind === "hunk" && l.hunkIdx === focusedHunkIdx,
     );
-    console.log("[interactive-diff] scroll to hunk", focusedHunkIdx, "flatIdx:", idx);
     if (idx >= 0) virtualizer.scrollToIndex(idx, { align: "start" });
   }, [focusedHunkIdx, flatLines, virtualizer]);
 
-  // ── Scroll to navigated line (arrow key navigation) ──────────────────────
   useEffect(() => {
     if (lineNavIdx < 0) return;
     const flatIdx = stageableIndices[lineNavIdx];
     if (flatIdx !== undefined) {
-      console.log("[interactive-diff] scroll to nav line", lineNavIdx, "flatIdx:", flatIdx);
       virtualizer.scrollToIndex(flatIdx, { align: "auto" });
     }
   }, [lineNavIdx, stageableIndices, virtualizer]);
 
-  // ── Hunk patch helpers ───────────────────────────────────────────────────
   const handleStageHunk = useCallback(
     (hunkIdx: number) => {
       const patch = buildHunkPatch(parsed, hunkIdx);
-      console.log("[interactive-diff] stageHunk", hunkIdx, "patch len:", patch.length);
       if (patch) onStageHunk(patch);
     },
     [parsed, onStageHunk],
@@ -327,23 +302,19 @@ function InteractiveVirtualDiffList({
   const handleUnstageHunk = useCallback(
     (hunkIdx: number) => {
       const patch = buildHunkPatch(parsed, hunkIdx);
-      console.log("[interactive-diff] unstageHunk", hunkIdx, "patch len:", patch.length);
       if (patch) onUnstageHunk(patch);
     },
     [parsed, onUnstageHunk],
   );
 
-  // ── Selection bar "Apply" button ─────────────────────────────────────────
   const handleApplySelectionButton = useCallback(() => {
     if (!selectedLines.size) return;
     const patches = buildPatchesForSelection(parsed, selectedLines);
-    console.log("[interactive-diff] applySelection patches:", patches.length);
     const applyPatch = sector === "unstaged" ? onStageHunk : onUnstageHunk;
     for (const patch of patches) applyPatch(patch);
     onClearSelection();
   }, [parsed, selectedLines, sector, onStageHunk, onUnstageHunk, onClearSelection]);
 
-  // ── Selection count (only add/del lines count) ───────────────────────────
   const selectionCount = useMemo(() => {
     let n = 0;
     for (const key of selectedLines) {
@@ -354,7 +325,6 @@ function InteractiveVirtualDiffList({
     return n;
   }, [selectedLines, parsed]);
 
-  // ── Arrow-key / Space navigation (local to scroll container) ─────────────
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -373,7 +343,6 @@ function InteractiveVirtualDiffList({
         const line = flatLines[flatIdx];
         if (!line || (line.kind !== "add" && line.kind !== "del")) return;
         const key = makeKey(line.hunkIdx, line.hunkLineIdx);
-        console.log("[interactive-diff] Space → toggle line", key);
         onToggleLine(key);
       }
     },
@@ -383,14 +352,19 @@ function InteractiveVirtualDiffList({
   const items = virtualizer.getVirtualItems();
   const navFlatIdx = lineNavIdx >= 0 ? (stageableIndices[lineNavIdx] ?? -1) : -1;
 
+  const linesSelectedLabel = t("diff.linesSelected", { count: selectionCount });
+
+  const applyLabel =
+    sector === "unstaged"
+      ? t("commitPanel.stageSelectionLines", { count: selectionCount })
+      : t("commitPanel.unstageSelectionLines", { count: selectionCount });
+
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
-      {/* Selection action bar */}
       {selectionCount > 0 && (
         <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-muted/30 px-3 py-1.5">
           <span className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">{selectionCount}</span>{" "}
-            {selectionCount === 1 ? "Zeile" : "Zeilen"} ausgewählt
+            <span className="font-semibold text-foreground">{linesSelectedLabel}</span>
           </span>
           <div className="flex gap-2">
             <button
@@ -398,7 +372,7 @@ function InteractiveVirtualDiffList({
               onClick={onClearSelection}
               className="rounded px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/60"
             >
-              Abbrechen
+              {t("diff.cancel")}
             </button>
             <button
               type="button"
@@ -415,15 +389,12 @@ function InteractiveVirtualDiffList({
               ) : (
                 <Minus className="h-3 w-3" />
               )}
-              {sector === "unstaged"
-                ? `${selectionCount} ${selectionCount === 1 ? "Zeile" : "Zeilen"} stagen`
-                : `${selectionCount} ${selectionCount === 1 ? "Zeile" : "Zeilen"} unstagen`}
+              {applyLabel}
             </button>
           </div>
         </div>
       )}
 
-      {/* Virtualised diff lines – tabIndex enables arrow-key / Space navigation */}
       <div
         ref={scrollerRef}
         className="min-h-0 flex-1 overflow-auto outline-none"
@@ -438,7 +409,6 @@ function InteractiveVirtualDiffList({
             const line = flatLines[vi.index];
             if (!line) return null;
 
-            // Visual highlights
             const isFocusedHunk =
               line.kind === "hunk" && line.hunkIdx === focusedHunkIdx;
             const isNavLine = vi.index === navFlatIdx;
@@ -479,10 +449,6 @@ function InteractiveVirtualDiffList({
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Public component
-// ──────────────────────────────────────────────────────────────────────────────
-
 export function UnifiedDiffBody({
   loading,
   failed,
@@ -491,11 +457,9 @@ export function UnifiedDiffBody({
   untrackedPlain,
   emptyHint,
   failedHint,
-  // Interactive staging props (optional – enables interactive mode)
   sector,
   onStageHunk,
   onUnstageHunk,
-  // Lifted interactive state (pre-computed by CommitPanel to avoid double parsing)
   parsedDiff: parsedDiffProp,
   focusedHunkIdx = -1,
   selectedLines = EMPTY_SET,
@@ -512,23 +476,21 @@ export function UnifiedDiffBody({
   sector?: "staged" | "unstaged";
   onStageHunk?: (patch: string) => void;
   onUnstageHunk?: (patch: string) => void;
-  // Lifted state (all optional – non-interactive callers don't need these)
   parsedDiff?: ParsedDiff | null;
   focusedHunkIdx?: number;
   selectedLines?: ReadonlySet<string>;
   onToggleLine?: (key: string) => void;
   onClearSelection?: () => void;
 }) {
+  const { t } = useTranslation();
   const interactive = !!(sector && (onStageHunk ?? onUnstageHunk));
 
-  // If a pre-computed parsedDiff is provided use it; otherwise parse unifiedText.
   const resolvedParsedDiff = useMemo(() => {
     if (parsedDiffProp != null) return parsedDiffProp;
     if (!interactive || !unifiedText?.trim()) return null;
     return parseDiffWithHunks(unifiedText);
   }, [parsedDiffProp, interactive, unifiedText]);
 
-  // Flat diff lines (non-interactive mode)
   const displayedDiffLines = useMemo(() => {
     if (interactive) return [];
     if (isBinary) return [];
@@ -538,29 +500,23 @@ export function UnifiedDiffBody({
     return [];
   }, [interactive, isBinary, unifiedText, untrackedPlain]);
 
-  // Stable callbacks for child
   const stableOnStageHunk = useCallback(
     (patch: string) => onStageHunk?.(patch),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onStageHunk],
   );
   const stableOnUnstageHunk = useCallback(
     (patch: string) => onUnstageHunk?.(patch),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onUnstageHunk],
   );
   const stableOnToggleLine = useCallback(
     (key: string) => onToggleLine?.(key),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onToggleLine],
   );
   const stableOnClearSelection = useCallback(
     () => onClearSelection?.(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onClearSelection],
   );
 
-  // ─── Status overlays ─────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -578,13 +534,17 @@ export function UnifiedDiffBody({
   if (isBinary) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Binärdatei
+        {t("diff.binaryFile")}
       </div>
     );
   }
 
-  // ─── Interactive mode ─────────────────────────────────────────────────────
-  if (interactive && resolvedParsedDiff && resolvedParsedDiff.hunks.length > 0 && sector) {
+  if (
+    interactive &&
+    resolvedParsedDiff &&
+    resolvedParsedDiff.hunks.length > 0 &&
+    sector
+  ) {
     return (
       <InteractiveVirtualDiffList
         parsed={resolvedParsedDiff}
@@ -599,7 +559,6 @@ export function UnifiedDiffBody({
     );
   }
 
-  // ─── Non-interactive / untracked / empty fallback ─────────────────────────
   if (
     (!interactive && displayedDiffLines.length > 0) ||
     (untrackedPlain != null && untrackedPlain.length > 0)

@@ -8,6 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Download, Terminal } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { SubmoduleStatusBadge } from "./submodule-status-badge";
 
@@ -33,6 +34,7 @@ export function SubmoduleDetail({
   entry: SubmoduleEntry;
   onPull: () => void;
 }) {
+  const { t } = useTranslation();
   const getSubmoduleCommits = useRepoStore((s) => s.getSubmoduleCommits);
   const [commits, setCommits] = useState<SubmoduleCommit[]>([]);
   const [loadingCommits, setLoadingCommits] = useState(false);
@@ -56,7 +58,6 @@ export function SubmoduleDetail({
   return (
     <ScrollArea className="h-full">
       <div className="space-y-4 p-4">
-        {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -69,13 +70,11 @@ export function SubmoduleDetail({
           </div>
         </div>
 
-        {/* Pinned vs Remote comparison */}
         <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
-            {/* Pinned */}
             <div className="min-w-0 space-y-1">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Pinned im Super-Repo
+                {t("submodule.detailPinnedSuperRepo")}
               </p>
               <p className="font-mono text-sm font-semibold">{shortPinned}</p>
               {entry.branch && (
@@ -85,23 +84,22 @@ export function SubmoduleDetail({
               )}
             </div>
 
-            {/* = */}
             <span className="text-lg font-light text-muted-foreground">=</span>
 
-            {/* Remote */}
             <div className="min-w-0 space-y-1">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Remote Head
+                {t("submodule.detailRemoteHead")}
               </p>
               <p className="font-mono text-sm font-semibold">{shortRemote}</p>
               {entry.behind_count != null && entry.behind_count > 0 && (
                 <span className="text-[10px] text-red-500">
-                  ↓{entry.behind_count} commits
+                  {t("submodule.commitsBehindShort", {
+                    count: entry.behind_count,
+                  })}
                 </span>
               )}
             </div>
 
-            {/* Actions */}
             <div className="flex flex-col gap-1.5">
               <Button
                 type="button"
@@ -111,7 +109,7 @@ export function SubmoduleDetail({
                 onClick={onPull}
               >
                 <Download className="h-3 w-3" />
-                Pull
+                {t("submodule.detailPull")}
               </Button>
               <Button
                 type="button"
@@ -123,17 +121,16 @@ export function SubmoduleDetail({
                 }
               >
                 <Terminal className="h-3 w-3" />
-                Terminal
+                {t("submodule.detailTerminal")}
               </Button>
             </div>
           </div>
         </div>
 
-        {/* .GITMODULES */}
         {entry.gitmodules_raw && (
           <div className="space-y-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              .Gitmodules
+              {t("submodule.detailGitmodules")}
             </p>
             <pre className="overflow-x-auto rounded-lg border border-border/60 bg-muted/30 p-3 font-mono text-[11px] leading-relaxed text-foreground/80">
               {entry.gitmodules_raw}
@@ -141,18 +138,17 @@ export function SubmoduleDetail({
           </div>
         )}
 
-        {/* Recent commits */}
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Letzte Commits im Submodul
+            {t("submodule.lastCommits")}
           </p>
           {loadingCommits ? (
             <div className="py-4 text-center text-[11px] text-muted-foreground">
-              Lade Commits …
+              {t("submodule.loadingCommits")}
             </div>
           ) : commits.length === 0 ? (
             <div className="py-4 text-center text-[11px] text-muted-foreground">
-              Keine Commits verfügbar
+              {t("submodule.noCommits")}
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border/60">
@@ -176,7 +172,7 @@ export function SubmoduleDetail({
                       </span>
                       {c.is_pinned && (
                         <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-                          pinned
+                          {t("submodule.pinnedBadge")}
                         </span>
                       )}
                     </div>

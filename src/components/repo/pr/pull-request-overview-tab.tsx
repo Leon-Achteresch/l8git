@@ -11,6 +11,7 @@ import {
   ThumbsDown,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { PullRequestDetail } from "./pull-request-inspect-detail";
@@ -26,6 +27,7 @@ export function PullRequestOverviewTab({
   detail: PullRequestDetail;
   onMutated: () => void;
 }) {
+  const { t } = useTranslation();
   const [strategy, setStrategy] = useState<MergeStrategy>("merge");
   const [mergeMessage, setMergeMessage] = useState("");
   const [reviewBody, setReviewBody] = useState("");
@@ -33,8 +35,21 @@ export function PullRequestOverviewTab({
 
   const canAct = detail.state === "open" || detail.state === "draft";
 
+  function mergeStrategyDisplay(s: MergeStrategy) {
+    if (s === "squash") return t("pr.strategySquashOption");
+    if (s === "rebase") return t("pr.strategyRebaseOption");
+    return t("pr.strategyMergeCommit");
+  }
+
   async function doMerge() {
-    if (!window.confirm(`PR #${detail.number} jetzt mergen (${strategy})?`))
+    if (
+      !window.confirm(
+        t("pr.mergeConfirmNow", {
+          number: detail.number,
+          strategy: mergeStrategyDisplay(strategy),
+        }),
+      )
+    )
       return;
     setBusy("merge");
     try {
@@ -52,7 +67,7 @@ export function PullRequestOverviewTab({
     }
   }
 
-  async function submitReview(event: "APPROVE" | "REQUEST_CHANGES") {
+  async function submitReview(event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT") {
     setBusy(event);
     try {
       await invoke("pr_submit_review", {
@@ -78,7 +93,7 @@ export function PullRequestOverviewTab({
         number: detail.number,
       });
       onMutated();
-      window.alert(`Auf lokalen Branch '${res.branch}' ausgecheckt.`);
+      window.alert(t("pr.checkoutAlertLocalized", { branch: res.branch }));
     } catch (e) {
       toastError(String(e));
     } finally {
@@ -91,7 +106,7 @@ export function PullRequestOverviewTab({
       <div className="flex flex-col gap-6 p-4">
         <section className="flex flex-col gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Beschreibung
+            {t("pr.overviewHeadingDescription")}
           </h3>
           {detail.body_markdown.trim() ? (
             <div className="rounded border bg-muted/20 px-3 py-2 text-sm leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded-md [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h3]:text-base [&_h3]:font-semibold [&_hr]:border-border [&_li]:ml-5 [&_li]:pl-1 [&_ol]:list-decimal [&_p+p]:mt-2 [&_p_code]:text-foreground [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border/70 [&_pre]:bg-muted/70 [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:list-disc">
@@ -101,7 +116,7 @@ export function PullRequestOverviewTab({
             </div>
           ) : (
             <div className="rounded border bg-muted/10 px-3 py-2 text-sm italic text-muted-foreground">
-              Keine Beschreibung.
+              {t("pr.noDescription")}
             </div>
           )}
         </section>
@@ -109,7 +124,7 @@ export function PullRequestOverviewTab({
         {detail.labels.length > 0 ? (
           <section className="flex flex-col gap-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Labels
+              {t("pr.overviewHeadingLabels")}
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {detail.labels.map((l) => (
@@ -127,7 +142,7 @@ export function PullRequestOverviewTab({
         {detail.reviewers.length > 0 ? (
           <section className="flex flex-col gap-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Reviewer
+              {t("pr.overviewHeadingReviewers")}
             </h3>
             <ul className="flex flex-wrap gap-1.5 text-xs">
               {detail.reviewers.map((r) => (
@@ -144,7 +159,7 @@ export function PullRequestOverviewTab({
 
         <section className="flex flex-col gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Aktionen
+            {t("pr.overviewHeadingActions")}
           </h3>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -154,55 +169,59 @@ export function PullRequestOverviewTab({
               disabled={busy !== null}
             >
               <Download className="mr-1 h-4 w-4" />
-              {busy === "checkout" ? "Checke aus …" : "Lokal auschecken"}
+              {busy === "checkout"
+                ? t("pr.checkoutLocalBusy")
+                : t("pr.checkoutLocalButton")}
             </Button>
           </div>
 
           {canAct ? (
             <>
               <div className="mt-2 flex flex-col gap-2 rounded border bg-background p-3">
-                <span className="text-xs font-medium">Review</span>
+                <span className="text-xs font-medium">{t("pr.reviewHeading")}</span>
                 <Textarea
                   value={reviewBody}
                   onChange={(e) => setReviewBody(e.target.value)}
-                  placeholder="Optionaler Kommentar …"
+                  placeholder={t("pr.reviewCommentPlaceholder")}
                   className="min-h-[70px] text-sm"
                 />
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    onClick={() => submitReview("APPROVE")}
+                    onClick={() => void submitReview("APPROVE")}
                     disabled={busy !== null}
                   >
                     <CheckCheck className="mr-1 h-4 w-4" />
-                    {busy === "APPROVE" ? "…" : "Approve"}
+                    {busy === "APPROVE" ? t("pr.createSubmitBusy") : t("pr.approveButton")}
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => submitReview("REQUEST_CHANGES")}
+                    onClick={() => void submitReview("REQUEST_CHANGES")}
                     disabled={busy !== null}
                   >
                     <ThumbsDown className="mr-1 h-4 w-4" />
-                    {busy === "REQUEST_CHANGES" ? "…" : "Request changes"}
+                    {busy === "REQUEST_CHANGES"
+                      ? t("pr.createSubmitBusy")
+                      : t("pr.requestChangesButton")}
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => submitReview("COMMENT" as "APPROVE")}
+                    onClick={() => void submitReview("COMMENT")}
                     disabled={busy !== null || !reviewBody.trim()}
                   >
                     <MessageSquarePlus className="mr-1 h-4 w-4" />
-                    Nur Kommentar
+                    {t("pr.commentReviewButton")}
                   </Button>
                 </div>
               </div>
 
               <div className="mt-2 flex flex-col gap-2 rounded border bg-background p-3">
-                <span className="text-xs font-medium">Merge</span>
+                <span className="text-xs font-medium">{t("pr.mergeHeading")}</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="text-xs text-muted-foreground">
-                    Strategie:
+                    {t("pr.mergeStrategyLabel")}
                   </label>
                   <select
                     value={strategy}
@@ -211,17 +230,17 @@ export function PullRequestOverviewTab({
                     }
                     className="rounded border bg-background px-2 py-1 text-xs"
                   >
-                    <option value="merge">Merge commit</option>
-                    <option value="squash">Squash</option>
+                    <option value="merge">{t("pr.strategyMergeCommit")}</option>
+                    <option value="squash">{t("pr.strategySquashOption")}</option>
                     <option value="rebase">
-                      Rebase / Fast-forward
+                      {t("pr.strategyRebaseOption")}
                     </option>
                   </select>
                 </div>
                 <Textarea
                   value={mergeMessage}
                   onChange={(e) => setMergeMessage(e.target.value)}
-                  placeholder="Optionale Merge-Commit-Nachricht …"
+                  placeholder={t("pr.mergeMessagePlaceholder")}
                   className="min-h-[60px] text-sm"
                 />
                 <div>
@@ -231,14 +250,14 @@ export function PullRequestOverviewTab({
                     disabled={busy !== null}
                   >
                     <GitMerge className="mr-1 h-4 w-4" />
-                    {busy === "merge" ? "Merge läuft …" : "PR mergen"}
+                    {busy === "merge" ? t("pr.mergeRunningShort") : t("pr.mergeButton")}
                   </Button>
                 </div>
               </div>
             </>
           ) : (
             <p className="text-xs italic text-muted-foreground">
-              PR ist {detail.state}. Keine schreibenden Aktionen verfügbar.
+              {t("pr.prStateReadOnly", { state: detail.state })}
             </p>
           )}
         </section>

@@ -1,4 +1,5 @@
 import { useHotkeys } from "@tanstack/react-hotkeys";
+import { useTranslation } from "react-i18next";
 import {
   buildHunkPatch,
   buildPatchesForSelection,
@@ -43,6 +44,7 @@ export function useCommitPanelHotkeys({
   onUnstage: (patch: string) => void;
   onToggleFile: () => void;
 }) {
+  const { t } = useTranslation();
   const hunkCount = parsedDiff?.hunks.length ?? 0;
 
   // NOTE: TanStack Hotkeys syncs callbacks + options on every render –
@@ -95,8 +97,8 @@ export function useCommitPanelHotkeys({
         meta: {
           name:
             sector === "staged"
-              ? "Auswahl / Hunk / Datei unstagen"
-              : "Auswahl / Hunk / Datei stagen",
+              ? t("hotkeys.commitStageUnstageStaged")
+              : t("hotkeys.commitStageUnstageUnstaged"),
         },
       },
     },
@@ -108,7 +110,7 @@ export function useCommitPanelHotkeys({
       },
       options: {
         enabled: enabled && hunkCount > 0,
-        meta: { name: "Vorheriger Hunk" },
+        meta: { name: t("hotkeys.commitPrevHunk") },
       },
     },
     {
@@ -119,7 +121,7 @@ export function useCommitPanelHotkeys({
       },
       options: {
         enabled: enabled && hunkCount > 0,
-        meta: { name: "Nächster Hunk" },
+        meta: { name: t("hotkeys.commitNextHunk") },
       },
     },
     {
@@ -130,7 +132,7 @@ export function useCommitPanelHotkeys({
       },
       options: {
         enabled: enabled && selectedLines.size > 0,
-        meta: { name: "Zeilenauswahl aufheben" },
+        meta: { name: t("hotkeys.commitClearSelection") },
       },
     },
   ]);

@@ -11,9 +11,10 @@ import { CommitInspectMessage } from "@/components/repo/commit/commit-inspect-me
 import { CommitInspectSplitHeader } from "@/components/repo/commit/commit-inspect-split-header";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
+import { writeLocalStorageDebounced } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { writeLocalStorageDebounced } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 type InspectPayload = { header: string; files: CommitChangedFile[] };
 
@@ -44,6 +45,7 @@ export function StashInspectDetail({
   stashIndex: number | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [payload, setPayload] = useState<InspectPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -142,7 +144,7 @@ export function StashInspectDetail({
   if (stashIndex == null) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 bg-background/40 text-center text-sm text-muted-foreground">
-        <span>Wähle einen Stash in der Liste.</span>
+        <span>{t("stash.pickHint")}</span>
       </div>
     );
   }
@@ -150,7 +152,7 @@ export function StashInspectDetail({
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-sm">
       <CommitInspectHeader
-        title="Stash-Details"
+        title={t("stash.inspectHeaderTitle")}
         onRefresh={refreshAll}
         onClose={onClose}
         loading={loading}
@@ -160,7 +162,7 @@ export function StashInspectDetail({
           <div className="flex h-full flex-col items-center justify-center gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <span className="animate-pulse text-sm font-medium tracking-wide text-muted-foreground">
-              Lade Details…
+              {t("stash.inspectLoading")}
             </span>
           </div>
         ) : failed ? (
@@ -169,7 +171,7 @@ export function StashInspectDetail({
               <Loader2 className="h-6 w-6" />
             </div>
             <span className="text-sm font-semibold text-foreground">
-              Details konnten nicht geladen werden.
+              {t("stash.detailLoadFailed")}
             </span>
           </div>
         ) : (

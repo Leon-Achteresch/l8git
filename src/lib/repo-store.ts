@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { toastError } from '@/lib/error-toast';
+import i18n from '@/lib/i18n';
 import { useWorkspacePrefs } from '@/lib/workspace-prefs';
 
 // Coalesce concurrent reload() calls per path so that back-to-back operations
@@ -918,7 +919,7 @@ export const useRepoStore = create<RepoState>()(
         const out = await invoke<string>('git_clone', { url, dest });
         const opened = await get().addRepo(dest);
         if (!opened) {
-          throw new Error('Geklontes Repository konnte nicht geöffnet werden.');
+          throw new Error(i18n.t('errors.cloneOpenFailed'));
         }
         return out;
       },

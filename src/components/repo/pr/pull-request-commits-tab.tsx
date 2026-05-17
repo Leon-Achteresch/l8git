@@ -5,6 +5,7 @@ import { formatDate, formatRelative } from "@/lib/format";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 type PrCommit = {
   hash: string;
@@ -23,6 +24,7 @@ export function PullRequestCommitsTab({
   path: string;
   number: number;
 }) {
+  const { t } = useTranslation();
   const [commits, setCommits] = useState<PrCommit[] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +59,7 @@ export function PullRequestCommitsTab({
   if (!commits || commits.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Keine Commits.
+        {t("pr.noCommits")}
       </div>
     );
   }

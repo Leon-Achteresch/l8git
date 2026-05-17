@@ -9,8 +9,8 @@ import { useRepoStore, type GitHookEntry } from "@/lib/repo-store";
 import { Eye, EyeOff, Loader2, Save, Trash2, Webhook, X } from "lucide-react";
 import { motion } from "motion/react";
 import { Suspense, lazy, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { HOOK_DESCRIPTIONS } from "./git-hooks-card";
 import { GitHookStatusBadge } from "./git-hooks-status-badge";
 
 const LazyGitHookEditor = lazy(() =>
@@ -51,6 +51,7 @@ export function GitHooksDetail({
   onEditorChange: (val: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const saveGitHook = useRepoStore((s) => s.saveGitHook);
   const deleteGitHook = useRepoStore((s) => s.deleteGitHook);
   const toggleGitHook = useRepoStore((s) => s.toggleGitHook);
@@ -66,7 +67,7 @@ export function GitHooksDetail({
     setSaving(true);
     try {
       await saveGitHook(path, entry.name, editorContent);
-      toast.success(`Hook "${entry.name}" gespeichert.`);
+      toast.success(t("hooks.saveToast", { name: entry.name }));
     } catch (e) {
       toastError(String(e));
     } finally {
@@ -75,14 +76,12 @@ export function GitHooksDetail({
   };
 
   const handleDelete = async () => {
-    const ok = window.confirm(
-      `Hook "${entry.name}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`,
-    );
+    const ok = window.confirm(t("hooks.deleteConfirm", { name: entry.name }));
     if (!ok) return;
     setDeleting(true);
     try {
       await deleteGitHook(path, entry.name);
-      toast.success(`Hook "${entry.name}" gelöscht.`);
+      toast.success(t("hooks.deleteToast", { name: entry.name }));
       onClose();
     } catch (e) {
       toastError(String(e));
@@ -96,9 +95,7 @@ export function GitHooksDetail({
     try {
       await toggleGitHook(path, entry.name, !entry.is_enabled);
       toast.success(
-        entry.is_enabled
-          ? `Hook "${entry.name}" deaktiviert.`
-          : `Hook "${entry.name}" aktiviert.`,
+        entry.is_enabled ? t("hooks.toggleOffToast", { name: entry.name }) : t("hooks.toggleOnToast", { name: entry.name }),
       );
     } catch (e) {
       toastError(String(e));
@@ -125,7 +122,7 @@ export function GitHooksDetail({
               {entry.name}
             </p>
             <p className="mt-0.5 truncate text-[10px] text-muted-foreground/60">
-              {HOOK_DESCRIPTIONS[entry.name] ?? "Git-Hook"}
+              {t(`hooks.kindDesc.${entry.name}`, { defaultValue: t("hooks.kindFallback") })}
             </p>
           </div>
         </div>
@@ -140,7 +137,7 @@ export function GitHooksDetail({
               <X className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Schließen</TooltipContent>
+          <TooltipContent side="left">{t("hooks.closeTooltip")}</TooltipContent>
         </Tooltip>
       </div>
 
@@ -149,7 +146,7 @@ export function GitHooksDetail({
         <GitHookStatusBadge entry={entry} isServer={isServer} />
         {canAbort && (
           <span className="inline-flex items-center rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
-            Kann abbrechen
+            {t("hooks.canAbort")}
           </span>
         )}
         {entry.exists && !isServer && (
@@ -163,12 +160,12 @@ export function GitHooksDetail({
             {entry.is_enabled ? (
               <>
                 <EyeOff className="h-3 w-3" />
-                Deaktivieren
+                {t("hooks.disable")}
               </>
             ) : (
               <>
                 <Eye className="h-3 w-3" />
-                Aktivieren
+                {t("hooks.enable")}
               </>
             )}
           </Button>
@@ -204,7 +201,7 @@ export function GitHooksDetail({
               onClick={() => void handleDelete()}
             >
               <Trash2 className="h-3 w-3" />
-              Löschen
+              {t("hooks.delete")}
             </Button>
           )}
           <Button
@@ -218,7 +215,7 @@ export function GitHooksDetail({
             ) : (
               <Save className="h-3 w-3" />
             )}
-            Speichern
+            {t("hooks.save")}
           </Button>
         </div>
       )}

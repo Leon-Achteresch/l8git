@@ -1,5 +1,6 @@
-import { useState } from "react";
 import { CheckCircle2, LogOut, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export function GitAccountRow({ account, onSignOut, onRemoveCustom }: Props) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
   async function handleSignOut() {
@@ -50,8 +52,9 @@ export function GitAccountRow({ account, onSignOut, onRemoveCustom }: Props) {
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <CheckCircle2 className="size-3.5 text-emerald-500" />
             <span>
-              Angemeldet
-              {account.username ? ` als ${account.username}` : ""}
+              {account.username
+                ? t("gitAccount.signedInWithUser", { user: account.username })
+                : t("gitAccount.signedIn")}
             </span>
           </div>
         </div>
@@ -64,7 +67,7 @@ export function GitAccountRow({ account, onSignOut, onRemoveCustom }: Props) {
             disabled={busy}
           >
             <LogOut />
-            Abmelden
+            {t("gitAccount.signOut")}
           </Button>
           {!account.builtin && onRemoveCustom && (
             <Button
@@ -72,7 +75,7 @@ export function GitAccountRow({ account, onSignOut, onRemoveCustom }: Props) {
               variant="ghost"
               size="icon-sm"
               onClick={() => onRemoveCustom(account.host)}
-              aria-label="Host entfernen"
+              aria-label={t("gitAccount.removeHostAria")}
               disabled={busy}
             >
               <Trash2 />

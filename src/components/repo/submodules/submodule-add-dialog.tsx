@@ -5,6 +5,7 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export function SubmoduleAddDialog({
@@ -16,6 +17,7 @@ export function SubmoduleAddDialog({
   onClose: () => void;
   path: string;
 }) {
+  const { t } = useTranslation();
   const submoduleAdd = useRepoStore((s) => s.submoduleAdd);
   const [url, setUrl] = useState("");
   const [subpath, setSubpath] = useState("");
@@ -48,7 +50,6 @@ export function SubmoduleAddDialog({
         .pop();
       if (lastSegment) setSubpath(lastSegment);
     } catch {
-      // ignore
     }
   };
 
@@ -66,7 +67,7 @@ export function SubmoduleAddDialog({
         name.trim() || undefined,
         branch.trim() || undefined,
       );
-      toast.success(out || "Submodule hinzugefügt.");
+      toast.success(out || t("submoduleAdd.successFallback"));
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -81,7 +82,7 @@ export function SubmoduleAddDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Submodule hinzufügen"
+      aria-label={t("submoduleAdd.aria")}
       className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
       onClick={dismiss}
     >
@@ -91,7 +92,7 @@ export function SubmoduleAddDialog({
       >
         <header className="mb-3 flex items-center justify-between gap-2">
           <h2 className="font-heading text-base font-medium">
-            Submodule hinzufügen
+            {t("submoduleAdd.title")}
           </h2>
           <Button
             type="button"
@@ -99,59 +100,59 @@ export function SubmoduleAddDialog({
             size="icon-sm"
             onClick={dismiss}
             disabled={busy}
-            aria-label="Schließen"
+            aria-label={t("submoduleAdd.closeAria")}
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
         <form onSubmit={(e) => void submit(e)} className="grid gap-3">
           <div className="grid gap-1">
-            <Label htmlFor="sub-url">Repository-URL *</Label>
+            <Label htmlFor="sub-url">{t("submoduleAdd.urlLabel")}</Label>
             <Input
               id="sub-url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onBlur={(e) => autoFillPath(e.target.value)}
-              placeholder="https://github.com/user/repo.git"
+              placeholder={t("submoduleAdd.urlPlaceholder")}
               spellCheck={false}
               required
             />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="sub-path">Lokaler Pfad *</Label>
+            <Label htmlFor="sub-path">{t("submoduleAdd.localPathLabel")}</Label>
             <Input
               id="sub-path"
               value={subpath}
               onChange={(e) => setSubpath(e.target.value)}
-              placeholder="vendor/lib"
+              placeholder={t("submoduleAdd.localPathPlaceholder")}
               spellCheck={false}
               required
             />
             <p className="text-[11px] text-muted-foreground">
-              Relativer Pfad innerhalb des Repositories
+              {t("submoduleAdd.localPathHint")}
             </p>
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="sub-name">Name (optional)</Label>
+            <Label htmlFor="sub-name">{t("submoduleAdd.nameOptionalLabel")}</Label>
             <Input
               id="sub-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Wird aus URL abgeleitet"
+              placeholder={t("submoduleAdd.pathDerivedPlaceholder")}
               spellCheck={false}
             />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="sub-branch">Branch verfolgen (optional)</Label>
+            <Label htmlFor="sub-branch">{t("submoduleAdd.branchOptionalLabel")}</Label>
             <Input
               id="sub-branch"
               value={branch}
               onChange={(e) => setBranch(e.target.value)}
-              placeholder="main"
+              placeholder={t("submoduleAdd.branchPlaceholder")}
               spellCheck={false}
             />
             <p className="text-[11px] text-muted-foreground">
-              Setzt -b in .gitmodules. Leer = Standard-Branch.
+              {t("submoduleAdd.branchHint")}
             </p>
           </div>
           <div className="flex justify-end gap-2 pt-1">
@@ -162,10 +163,10 @@ export function SubmoduleAddDialog({
               onClick={dismiss}
               disabled={busy}
             >
-              Abbrechen
+              {t("submoduleAdd.cancel")}
             </Button>
             <Button type="submit" size="sm" disabled={busy || !url.trim() || !subpath.trim()}>
-              {busy ? "Lädt …" : "Hinzufügen"}
+              {busy ? t("submoduleAdd.adding") : t("submoduleAdd.add")}
             </Button>
           </div>
         </form>

@@ -18,6 +18,7 @@ import type { Branch } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { ChevronDown, GitBranch, X } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function BranchMultiSelect({
   branches,
@@ -28,6 +29,7 @@ export function BranchMultiSelect({
   selectedBranches: ReadonlySet<string>;
   onSelectionChange: (names: ReadonlySet<string>) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const sorted = [...branches].sort(compareBranchesDisplay);
@@ -50,9 +52,12 @@ export function BranchMultiSelect({
   };
 
   const count = selectedBranches.size;
-  let label = "Alle Branches";
-  if (count === 1) label = "1 Branch";
-  else if (count > 1) label = `${count} Branches`;
+  const label =
+    count === 0
+      ? t("toolbar.branchMultiAll")
+      : count === 1
+        ? t("toolbar.branchMultiOne")
+        : t("toolbar.branchMultiMany", { count });
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -83,11 +88,11 @@ export function BranchMultiSelect({
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <Command>
-          <CommandInput placeholder="Branch suchen …" />
+          <CommandInput placeholder={t("toolbar.branchMultiFilterPlaceholder")} />
           <CommandList>
-            <CommandEmpty>Keine Branches gefunden.</CommandEmpty>
+            <CommandEmpty>{t("toolbar.branchMultiEmpty")}</CommandEmpty>
             {local.length > 0 && (
-              <CommandGroup heading="Lokal">
+              <CommandGroup heading={t("sidebar.local")}>
                 {local.map((b) => (
                   <BranchCommandItem
                     key={b.name}
@@ -100,7 +105,7 @@ export function BranchMultiSelect({
             )}
             {local.length > 0 && remote.length > 0 && <CommandSeparator />}
             {remote.length > 0 && (
-              <CommandGroup heading="Remote">
+              <CommandGroup heading={t("sidebar.remote")}>
                 {remote.map((b) => (
                   <BranchCommandItem
                     key={b.name}

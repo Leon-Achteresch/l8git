@@ -2,6 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Undo2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   CommitChangedFile,
   CommitInspectFileItem,
@@ -26,6 +27,7 @@ export function CommitInspectFileList({
   onCheckedChange?: (path: string, checked: boolean) => void;
   onDiscardChecked?: () => void;
 }) {
+  const { t } = useTranslation();
   const checkedCount = checkedFiles?.size ?? 0;
 
   const allChecked = files.length > 0 && checkedCount === files.length;
@@ -49,7 +51,9 @@ export function CommitInspectFileList({
               className="h-4 w-4"
             />
             <span className="text-xs text-muted-foreground">
-              {checkedCount > 0 ? `${checkedCount} ausgewählt` : "Alle auswählen"}
+              {checkedCount > 0
+                ? t("commitInspect.partialSelected", { count: checkedCount })
+                : t("commitInspect.selectAll")}
             </span>
           </div>
           {checkedCount > 0 && onDiscardChecked && (
@@ -60,7 +64,7 @@ export function CommitInspectFileList({
               onClick={onDiscardChecked}
             >
               <Undo2 className="h-3 w-3" />
-              Verwerfen
+              {t("commitInspect.discardVerb")}
             </Button>
           )}
         </div>
@@ -88,7 +92,7 @@ export function CommitInspectFileList({
           {files.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
               <span className="text-sm font-medium">
-                Keine Dateien in diesem Commit.
+                {t("commitInspect.noFilesInCommit")}
               </span>
             </div>
           ) : null}

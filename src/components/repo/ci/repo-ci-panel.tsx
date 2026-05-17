@@ -2,6 +2,7 @@ import { CiChecksList, type RemoteCiCheck } from "@/components/repo/ci/ci-checks
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { RepoCiHeader } from "./repo-ci-header";
 import { RepoCiSummary } from "./repo-ci-summary";
 
@@ -11,6 +12,7 @@ type RepoCommitChecksPayload = {
 };
 
 export function RepoCiPanel({ path }: { path: string }) {
+  const { t } = useTranslation();
   const [checks, setChecks] = useState<RemoteCiCheck[] | null>(null);
   const [headSha, setHeadSha] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export function RepoCiPanel({ path }: { path: string }) {
         <CiChecksList
           checks={checks}
           loading={loading}
-          emptyLabel="Keine Pipelines gefunden"
+          emptyLabel={t("ci.noPipelines")}
         />
       </div>
     </div>
