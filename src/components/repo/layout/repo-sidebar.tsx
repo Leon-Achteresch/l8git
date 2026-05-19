@@ -276,7 +276,7 @@ export function RepoSidebar() {
 
   // Branches/Tags im Popover wenn die Sidebar zu schmal ist
   const useBranchPopover =
-    displayMode === "icons_only" ||
+    (tabLayout === "list" && sidebarWidth < BRANCH_INLINE_MIN_WIDTH) ||
     (tabLayout === "grid" && gridSidebarWidth < BRANCH_INLINE_MIN_WIDTH);
 
   return (
@@ -287,9 +287,7 @@ export function RepoSidebar() {
         width:
           tabLayout === "grid"
             ? gridSidebarWidth
-            : tabLayout === "list" && displayMode === "icons_only"
-              ? Math.min(sidebarWidth, 56)
-              : sidebarWidth,
+            : sidebarWidth,
       }}
     >
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -327,7 +325,7 @@ export function RepoSidebar() {
         </nav>
 
         {/* Branch/Tag tree — popover in icons-only mode, inline otherwise */}
-        {displayMode === "icons_only" ? (
+        {useBranchPopover ? (
           <>
             <div className="mx-3 h-px shrink-0 bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
             <div className="shrink-0 px-2 py-1">
