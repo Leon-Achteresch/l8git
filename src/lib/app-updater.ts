@@ -215,6 +215,11 @@ export async function installAppUpdate() {
   }
 }
 
+/** Hides the update toast without wiping the stored release data (notes, version, …). */
+export function hideAppUpdateToast() {
+  useAppUpdateStore.getState().setDialogState({ open: false });
+}
+
 export function dismissAppUpdateDialog() {
   const state = useAppUpdateStore.getState();
 
