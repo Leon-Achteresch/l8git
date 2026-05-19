@@ -5,6 +5,10 @@ export const SIDEBAR_MIN_WIDTH = 240;
 export const SIDEBAR_MAX_WIDTH = 560;
 export const SIDEBAR_DEFAULT_WIDTH = 256;
 
+export const GRID_SIDEBAR_MIN_WIDTH = 160;
+export const GRID_SIDEBAR_MAX_WIDTH = 480;
+export const GRID_SIDEBAR_DEFAULT_WIDTH = 200;
+
 export type SidebarTab =
   | 'commit'
   | 'history'
@@ -38,6 +42,8 @@ export type PrCreateRequest = {
 type UiState = {
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
+  gridSidebarWidth: number;
+  setGridSidebarWidth: (width: number) => void;
   sidebarTab: SidebarTab;
   setSidebarTab: (tab: SidebarTab) => void;
   commitFocusRequest: CommitFocusRequest | null;
@@ -71,11 +77,16 @@ type UiState = {
 const clamp = (v: number) =>
   Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, v));
 
+const clampGrid = (v: number) =>
+  Math.min(GRID_SIDEBAR_MAX_WIDTH, Math.max(GRID_SIDEBAR_MIN_WIDTH, v));
+
 export const useUiStore = create<UiState>()(
   persist(
     set => ({
       sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
       setSidebarWidth: width => set({ sidebarWidth: clamp(width) }),
+      gridSidebarWidth: GRID_SIDEBAR_DEFAULT_WIDTH,
+      setGridSidebarWidth: width => set({ gridSidebarWidth: clampGrid(width) }),
       sidebarTab: 'history',
       setSidebarTab: tab => set({ sidebarTab: tab }),
       commitFocusRequest: null,
@@ -161,17 +172,19 @@ export const useUiStore = create<UiState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: s => ({
         sidebarWidth: s.sidebarWidth,
+        gridSidebarWidth: s.gridSidebarWidth,
         sidebarTab: s.sidebarTab,
         bisectVisible: s.bisectVisible,
       }),
       merge: (persisted, current) => {
         const p = persisted as Partial<
-          Pick<UiState, 'sidebarWidth' | 'sidebarTab' | 'bisectVisible'>
+          Pick<UiState, 'sidebarWidth' | 'gridSidebarWidth' | 'sidebarTab' | 'bisectVisible'>
         >;
         return {
           ...current,
           sidebarTab: p.sidebarTab ?? current.sidebarTab,
           sidebarWidth: clamp(p.sidebarWidth ?? current.sidebarWidth),
+          gridSidebarWidth: clampGrid(p.gridSidebarWidth ?? current.gridSidebarWidth),
           bisectVisible: p.bisectVisible ?? current.bisectVisible,
         };
       },

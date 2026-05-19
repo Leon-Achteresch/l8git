@@ -4,7 +4,6 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { isTauri } from "@tauri-apps/api/core";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 
-import { AppUpdateDialog } from "@/components/app/app-update-dialog";
 import { checkForAppUpdate } from "@/lib/app-updater";
 
 import { routeTree } from "./routeTree.gen";
@@ -31,7 +30,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       }}
     >
       <RouterProvider router={router} />
-      <AppUpdateDialog />
     </HotkeysProvider>
   </React.StrictMode>,
 );
