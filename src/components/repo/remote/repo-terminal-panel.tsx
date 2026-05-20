@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { repoDefaultTabTitle } from "@/lib/terminal-tab-title";
+import { useRepoStore } from "@/lib/repo-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { Plus, SquareTerminal, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -18,8 +20,11 @@ export function RepoTerminalPanel({ path }: Props) {
   const openTab = useTerminalStore((s) => s.openTab);
   const closeTab = useTerminalStore((s) => s.closeTab);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
+  const renameTab = useTerminalStore((s) => s.renameTab);
+  const branch = useRepoStore((s) => s.repos[path]?.branch ?? "");
 
   const [isDark, setIsDark] = useState(() => isDarkMode());
+  const defaultTitle = repoDefaultTabTitle(path, branch);
 
   useEffect(() => {
     const update = () => setIsDark(isDarkMode());
@@ -33,9 +38,9 @@ export function RepoTerminalPanel({ path }: Props) {
 
   useEffect(() => {
     if (tabs.length === 0) {
-      openTab(path);
+      openTab(path, defaultTitle);
     }
-  }, [path, tabs.length, openTab]);
+  }, [path, tabs.length, openTab, defaultTitle]);
 
   const bg = isDark ? "#0b0b0d" : "#ffffff";
 
@@ -60,7 +65,7 @@ export function RepoTerminalPanel({ path }: Props) {
             variant="ghost"
             size="icon-sm"
             title={t("embeddedTerminal.newTab")}
-            onClick={() => openTab(path)}
+            onClick={() => openTab(path, defaultTitle)}
           >
             <Plus className="size-3.5" />
           </Button>
@@ -84,6 +89,7 @@ export function RepoTerminalPanel({ path }: Props) {
               tabId={tab.id}
               active={tab.id === activeId}
               isDark={isDark}
+              onTitleChange={(title) => renameTab(path, tab.id, title)}
             />
           ))}
         </div>

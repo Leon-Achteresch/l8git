@@ -1,3 +1,7 @@
+import {
+  TerminalInputTracker,
+  titleFromTerminalOutput,
+} from "@/lib/terminal-tab-title";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -91,6 +95,7 @@ interface SessionProps {
   isDark: boolean;
   onExit?: (code: number | null) => void;
   onStatusChange?: (status: SessionStatus, message: string) => void;
+  onTitleChange?: (title: string) => void;
 }
 
 export type SessionStatus = "starting" | "ready" | "exited" | "error";
@@ -102,6 +107,7 @@ export function RepoTerminalSession({
   isDark,
   onExit,
   onStatusChange,
+  onTitleChange,
 }: SessionProps) {
   const { t } = useTranslation();
   const embeddedTerminalCommand = useWorkspacePrefs(
@@ -113,6 +119,12 @@ export function RepoTerminalSession({
   const fitRef = useRef<FitAddon | null>(null);
   const sessionRef = useRef<number | null>(null);
   const resizeObsRef = useRef<ResizeObserver | null>(null);
+  const inputTrackerRef = useRef(new TerminalInputTracker());
+  const outputBufRef = useRef("");
+  const lastTitleRef = useRef<string | null>(null);
+  const awaitingPromptRef = useRef(false);
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
   const [status, setStatus] = useState<SessionStatus>("starting");
   const [statusMsg, setStatusMsg] = useState<string>("");
   const [reopenTick, setReopenTick] = useState(0);
@@ -120,6 +132,25 @@ export function RepoTerminalSession({
   useEffect(() => {
     onStatusChange?.(status, statusMsg);
   }, [status, statusMsg, onStatusChange]);
+
+  const pushTitle = (title: string | null) => {
+    if (!title || title === lastTitleRef.current) return;
+    lastTitleRef.current = title;
+    onTitleChangeRef.current?.(title);
+  };
+
+  const appendOutput = (chunk: string) => {
+    const cap = 4096;
+    const next = outputBufRef.current + chunk;
+    outputBufRef.current =
+      next.length > cap ? next.slice(next.length - cap) : next;
+    if (!awaitingPromptRef.current) return;
+    const cwd = titleFromTerminalOutput(outputBufRef.current);
+    if (cwd) {
+      awaitingPromptRef.current = false;
+      pushTitle(cwd);
+    }
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -146,6 +177,11 @@ export function RepoTerminalSession({
     } catch {
       /* size may not be ready */
     }
+
+    inputTrackerRef.current = new TerminalInputTracker();
+    outputBufRef.current = "";
+    lastTitleRef.current = null;
+    awaitingPromptRef.current = true;
 
     let disposed = false;
     let unlistenData: UnlistenFn | null = null;
@@ -174,6 +210,8 @@ export function RepoTerminalSession({
           (event) => {
             if (event.payload.session !== id) return;
             const bytes = decodeBase64ToBytes(event.payload.data);
+            const text = new TextDecoder().decode(bytes);
+            appendOutput(text);
             term.write(bytes);
           },
         );
@@ -200,6 +238,11 @@ export function RepoTerminalSession({
     const onData = term.onData((data) => {
       const id = sessionRef.current;
       if (id == null) return;
+      const cmdTitle = inputTrackerRef.current.feed(data);
+      if (cmdTitle) {
+        awaitingPromptRef.current = true;
+        pushTitle(cmdTitle);
+      }
       const bytes = new TextEncoder().encode(data);
       const encoded = encodeBytesToBase64(bytes);
       void invoke("terminal_write", { session: id, data: encoded }).catch(

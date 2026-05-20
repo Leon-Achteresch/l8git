@@ -35,11 +35,6 @@ function nextTabId(): string {
   return id;
 }
 
-function defaultTitle(tabs: TerminalTab[]): string {
-  const n = tabs.length + 1;
-  return `Terminal ${n}`;
-}
-
 export const useTerminalStore = create<TerminalState>()(
   persist(
     (set, get) => ({
@@ -48,26 +43,9 @@ export const useTerminalStore = create<TerminalState>()(
       activeByPath: {},
       panelHeight: TERMINAL_DEFAULT_HEIGHT,
       setVisible: (path, visible) =>
-        set((s) => {
-          const tabs = s.tabsByPath[path] ?? [];
-          let nextTabs = s.tabsByPath;
-          let nextActive = s.activeByPath;
-          if (visible && tabs.length === 0) {
-            const id = nextTabId();
-            const tab: TerminalTab = {
-              id,
-              title: defaultTitle(tabs),
-              createdAt: Date.now(),
-            };
-            nextTabs = { ...s.tabsByPath, [path]: [tab] };
-            nextActive = { ...s.activeByPath, [path]: id };
-          }
-          return {
-            visibleByPath: { ...s.visibleByPath, [path]: visible },
-            tabsByPath: nextTabs,
-            activeByPath: nextActive,
-          };
-        }),
+        set((s) => ({
+          visibleByPath: { ...s.visibleByPath, [path]: visible },
+        })),
       toggleVisible: (path) => {
         const cur = !!get().visibleByPath[path];
         get().setVisible(path, !cur);
@@ -80,7 +58,7 @@ export const useTerminalStore = create<TerminalState>()(
           const tabs = s.tabsByPath[path] ?? [];
           const tab: TerminalTab = {
             id,
-            title: title ?? defaultTitle(tabs),
+            title: title?.trim() || "Terminal",
             createdAt: Date.now(),
           };
           return {
