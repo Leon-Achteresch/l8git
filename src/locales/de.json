@@ -764,7 +764,8 @@
     "acceptAllOursHint": "Alle Konflikte mit unserer Version lösen",
     "acceptAllTheirsHint": "Alle Konflikte mit der eingehenden Version lösen",
     "allOurs": "Alle Ours",
-    "allTheirs": "Alle Theirs"
+    "allTheirs": "Alle Theirs",
+    "lineLabel": "Zeile {{line}}"
   },
   "cherryPick": {
     "noConflicts": "Keine offenen Konflikte",

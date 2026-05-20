@@ -764,7 +764,8 @@
     "acceptAllOursHint": "Resolve all conflicts with ours",
     "acceptAllTheirsHint": "Resolve all conflicts with theirs",
     "allOurs": "All ours",
-    "allTheirs": "All theirs"
+    "allTheirs": "All theirs",
+    "lineLabel": "Line {{line}}"
   },
   "cherryPick": {
     "noConflicts": "No open conflicts",
