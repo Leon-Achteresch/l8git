@@ -265,11 +265,28 @@ function Settings() {
   const setRepoTerminalKind = useWorkspacePrefs((s) => s.setRepoTerminalKind);
   const hideT3Checkpoints = useWorkspacePrefs((s) => s.hideT3Checkpoints);
   const setHideT3Checkpoints = useWorkspacePrefs((s) => s.setHideT3Checkpoints);
+  const embeddedTerminalCommand = useWorkspacePrefs(
+    (s) => s.embeddedTerminalCommand,
+  );
+  const setEmbeddedTerminalCommand = useWorkspacePrefs(
+    (s) => s.setEmbeddedTerminalCommand,
+  );
+  const terminalButtonMode = useWorkspacePrefs((s) => s.terminalButtonMode);
+  const setTerminalButtonMode = useWorkspacePrefs(
+    (s) => s.setTerminalButtonMode,
+  );
   const [ideDraft, setIdeDraft] = useState(ideLaunchCommand);
+  const [embeddedShellDraft, setEmbeddedShellDraft] = useState(
+    embeddedTerminalCommand,
+  );
 
   useEffect(() => { setIdeDraft(ideLaunchCommand); }, [ideLaunchCommand]);
+  useEffect(() => {
+    setEmbeddedShellDraft(embeddedTerminalCommand);
+  }, [embeddedTerminalCommand]);
 
   const ideDirty = ideDraft !== ideLaunchCommand;
+  const embeddedShellDirty = embeddedShellDraft !== embeddedTerminalCommand;
 
   const mainRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -765,6 +782,97 @@ function Settings() {
                 </CardContent>
               </Card>
             </StaggerCard>
+
+            <StaggerCard index={8}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("settings.embeddedTerminalTitle")}</CardTitle>
+                  <CardDescription>
+                    {t("settings.embeddedTerminalDesc")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="embedded-shell"
+                      className="text-sm font-medium"
+                    >
+                      {t("settings.embeddedTerminalCommandLabel")}
+                    </Label>
+                    <Input
+                      id="embedded-shell"
+                      value={embeddedShellDraft}
+                      onChange={(e) => setEmbeddedShellDraft(e.target.value)}
+                      placeholder="/bin/zsh -l"
+                      className="font-mono text-sm"
+                      spellCheck={false}
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("settings.embeddedTerminalCommandHint")}
+                    </p>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        disabled={!embeddedShellDirty}
+                        onClick={() =>
+                          setEmbeddedTerminalCommand(embeddedShellDraft)
+                        }
+                      >
+                        {t("common.save")}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2 border-t border-border pt-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {t("settings.terminalButtonModeLabel")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("settings.terminalButtonModeHint")}
+                      </p>
+                    </div>
+                    <div
+                      role="radiogroup"
+                      className="grid grid-cols-2 gap-2"
+                    >
+                      {(
+                        [
+                          {
+                            value: "embedded" as const,
+                            label: t("settings.terminalButtonModeEmbedded"),
+                          },
+                          {
+                            value: "external" as const,
+                            label: t("settings.terminalButtonModeExternal"),
+                          },
+                        ] as const
+                      ).map(({ value, label }) => {
+                        const active = terminalButtonMode === value;
+                        return (
+                          <Button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            variant={active ? "default" : "outline"}
+                            onClick={() => setTerminalButtonMode(value)}
+                            className={cn(
+                              "h-auto justify-center py-3",
+                              active &&
+                                "ring-2 ring-ring ring-offset-2 ring-offset-background",
+                            )}
+                          >
+                            <span className="text-sm">{label}</span>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </StaggerCard>
           </section>
 
           <SectionDivider />
@@ -779,7 +887,7 @@ function Settings() {
               iconColor="text-teal-500"
             />
 
-            <StaggerCard index={8}>
+            <StaggerCard index={9}>
               <Card>
                 <CardHeader>
                   <CardTitle>{t("settings.accountsCardTitle")}</CardTitle>
@@ -862,7 +970,7 @@ function Settings() {
               iconColor="text-sky-500"
             />
 
-            <StaggerCard index={9}>
+            <StaggerCard index={10}>
               <Card>
                 <CardHeader>
                   <CardTitle>{t("settings.updatesCardTitle")}</CardTitle>

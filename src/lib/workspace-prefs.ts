@@ -30,6 +30,10 @@ type WorkspacePrefs = {
   setPullStrategy: (value: PullStrategy) => void;
   hideT3Checkpoints: boolean;
   setHideT3Checkpoints: (value: boolean) => void;
+  embeddedTerminalCommand: string;
+  setEmbeddedTerminalCommand: (value: string) => void;
+  terminalButtonMode: "embedded" | "external";
+  setTerminalButtonMode: (value: "embedded" | "external") => void;
 };
 
 export const useWorkspacePrefs = create<WorkspacePrefs>()(
@@ -57,6 +61,11 @@ export const useWorkspacePrefs = create<WorkspacePrefs>()(
       setPullStrategy: (pullStrategy) => set({ pullStrategy }),
       hideT3Checkpoints: true,
       setHideT3Checkpoints: (hideT3Checkpoints) => set({ hideT3Checkpoints }),
+      embeddedTerminalCommand: "",
+      setEmbeddedTerminalCommand: (embeddedTerminalCommand) =>
+        set({ embeddedTerminalCommand }),
+      terminalButtonMode: "embedded" as const,
+      setTerminalButtonMode: (terminalButtonMode) => set({ terminalButtonMode }),
     }),
     {
       name: "l8git-workspace-prefs",

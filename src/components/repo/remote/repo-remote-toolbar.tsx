@@ -2,11 +2,13 @@ import { BranchMultiSelect } from '@/components/repo/commit/branch-multi-select'
 import { Button } from '@/components/ui/button';
 import {
   ContextMenuCheckboxItem,
+  ContextMenuItem,
   ContextMenuLabel,
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
   ContextMenuSeparator,
 } from '@/components/ui/context-menu';
+import { useTerminalStore } from '@/lib/terminal-store';
 import { Input } from '@/components/ui/input';
 import { toastError } from '@/lib/error-toast';
 import { useRepoStore, type Branch } from '@/lib/repo-store';
@@ -71,6 +73,10 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const setBisectVisible = useUiStore(s => s.setBisectVisible);
   const ideLaunchCommand = useWorkspacePrefs(s => s.ideLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs(s => s.repoTerminalKind);
+  const terminalButtonMode = useWorkspacePrefs(s => s.terminalButtonMode);
+  const setTerminalButtonMode = useWorkspacePrefs(s => s.setTerminalButtonMode);
+  const terminalVisible = useTerminalStore(s => !!s.visibleByPath[path]);
+  const toggleTerminal = useTerminalStore(s => s.toggleVisible);
   const fetchPruneBranches = useWorkspacePrefs(s => s.fetchPruneBranches);
   const setFetchPruneBranches = useWorkspacePrefs(s => s.setFetchPruneBranches);
   const fetchPruneTags = useWorkspacePrefs(s => s.fetchPruneTags);
@@ -346,6 +352,35 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     return t("toolbar.bisectRunningTitle", { steps: stepsPart });
   }, [bisect?.active, bisect?.steps_remaining, t]);
 
+  const terminalMenu = useMemo(
+    () => (
+      <>
+        <ContextMenuLabel>{t("toolbar.terminalSection")}</ContextMenuLabel>
+        <ContextMenuRadioGroup
+          value={terminalButtonMode}
+          onValueChange={(v) =>
+            setTerminalButtonMode(v === "external" ? "external" : "embedded")
+          }
+        >
+          <ContextMenuRadioItem value="embedded" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.terminalModeEmbedded")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="external" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.terminalModeExternal")}
+          </ContextMenuRadioItem>
+        </ContextMenuRadioGroup>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={() => toggleTerminal(path)}>
+          {t("toolbar.terminalToggleInApp")}
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => void openTerminalHere()}>
+          {t("toolbar.terminalOpenExternal")}
+        </ContextMenuItem>
+      </>
+    ),
+    [path, terminalButtonMode, setTerminalButtonMode, toggleTerminal, t],
+  );
+
   const hasSearchHits = (searchSlice?.hits?.length ?? 0) > 0;
   const canStepSearchMatches =
     !!draftQuery.trim() &&
@@ -427,8 +462,16 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             <ToolbarButton
               title={t("toolbar.terminalTitle")}
               label={t("toolbar.terminalLabel")}
-              onClick={() => void openTerminalHere()}
+              isActive={terminalButtonMode === 'embedded' && terminalVisible}
+              onClick={() => {
+                if (terminalButtonMode === 'embedded') {
+                  toggleTerminal(path);
+                } else {
+                  void openTerminalHere();
+                }
+              }}
               icon={<SquareTerminal className='h-3.5 w-3.5' />}
+              contextMenuContent={terminalMenu}
             />
             <ToolbarButton
               title={ideConfigured ? t("toolbar.ideOpenTitle") : t("toolbar.ideConfigureTitle")}
