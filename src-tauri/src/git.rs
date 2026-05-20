@@ -103,7 +103,19 @@ fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<Stri
             (true, false) => stdout,
             (true, true) => "git: Befehl fehlgeschlagen".into(),
         };
-        return Err(msg.trim().to_string());
+        let trimmed = msg.trim().to_string();
+        if trimmed.contains("Your local changes to the following files would be overwritten")
+            || trimmed.contains("would be overwritten by merge")
+            || trimmed.contains("Please commit your changes or stash them before you")
+        {
+            let files: Vec<&str> = trimmed
+                .lines()
+                .filter(|l| l.starts_with('\t'))
+                .map(|l| l.trim())
+                .collect();
+            return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", files.join(",")));
+        }
+        return Err(trimmed);
     }
 
     let ok = match (stdout.is_empty(), stderr.is_empty()) {
@@ -479,11 +491,41 @@ pub async fn git_fetch(
     }).await
 }
 
+fn dirty_tracked_files(repo: &PathBuf) -> Vec<String> {
+    let out = run_git(repo, &["status", "--porcelain=v1", "--untracked-files=no"]).unwrap_or_default();
+    let mut files: Vec<String> = Vec::new();
+    for line in out.lines() {
+        if line.len() < 3 {
+            continue;
+        }
+        let xy = &line[..2];
+        let rest = &line[3..];
+        if xy == "??" || xy == "!!" {
+            continue;
+        }
+        let name = rest.split(" -> ").last().unwrap_or(rest).trim().to_string();
+        if !name.is_empty() {
+            files.push(name);
+        }
+    }
+    files
+}
+
 #[tauri::command]
-pub async fn git_pull(path: String) -> Result<String, String> {
+pub async fn git_pull(path: String, strategy: Option<String>) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
-        run_git_merged_output(&repo, &["pull"])
+        let dirty = dirty_tracked_files(&repo);
+        if !dirty.is_empty() {
+            return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
+        }
+        let mut args: Vec<&str> = vec!["pull"];
+        match strategy.as_deref() {
+            Some("rebase") => args.push("--rebase"),
+            Some("ff-only") => args.push("--ff-only"),
+            _ => args.push("--no-rebase"),
+        }
+        run_git_merged_output(&repo, &args)
     }).await
 }
 
@@ -718,6 +760,11 @@ pub async fn git_merge(
         let b = branch.trim();
         if b.is_empty() {
             return Err("Branch-Name darf nicht leer sein".into());
+        }
+
+        let dirty = dirty_tracked_files(&repo);
+        if !dirty.is_empty() {
+            return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
         }
 
         let strat = strategy

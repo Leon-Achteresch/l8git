@@ -77,7 +77,8 @@
     "updateInstallFailed": "Update fehlgeschlagen: {{error}}",
     "restartFailed": "Neustart fehlgeschlagen: {{error}}",
     "aiNoResponse": "Keine Antwort vom AI-Modell erhalten",
-    "cloneOpenFailed": "Geklontes Repository konnte nicht geöffnet werden."
+    "cloneOpenFailed": "Geklontes Repository konnte nicht geöffnet werden.",
+    "localChangesBlockPull": "Bitte zuerst die aktuellen Änderungen committen, danach erneut pullen und Konflikte manuell auflösen. Betroffen: {{files}}"
   },
   "hotkeys": {
     "reloadActive": "Aktives Repo neu laden",
@@ -275,9 +276,13 @@
     "dryRun": "Dry-Run",
     "fetchTitle": "Änderungen abrufen (Rechtsklick für Optionen)",
     "fetchLabel": "Fetch",
-    "pullTitle": "Änderungen herunterladen",
-    "pullTitlePending": "Änderungen herunterladen ({{count}} ausstehend)",
+    "pullTitle": "Änderungen herunterladen (Rechtsklick für Optionen)",
+    "pullTitlePending": "Änderungen herunterladen ({{count}} ausstehend, Rechtsklick für Optionen)",
     "pullLabel": "Pull",
+    "pullStrategySection": "Pull-Strategie",
+    "pullStrategyMerge": "Mergen (Konflikte selbst lösen)",
+    "pullStrategyRebase": "Rebase (--rebase)",
+    "pullStrategyFfOnly": "Nur Fast-Forward (--ff-only)",
     "pushTitle": "{{title}} (Rechtsklick für Optionen)",
     "pushLabel": "Push",
     "noForcePush": "Kein Force-Push",

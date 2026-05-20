@@ -5,6 +5,7 @@ export type RepoTerminalKind = "default" | "git_bash";
 
 export type PushForceMode = "none" | "lease" | "force";
 export type PushTagsMode = "none" | "follow" | "all";
+export type PullStrategy = "merge" | "rebase" | "ff-only";
 
 type WorkspacePrefs = {
   ideLaunchCommand: string;
@@ -25,6 +26,8 @@ type WorkspacePrefs = {
   setPushNoVerify: (value: boolean) => void;
   pushDryRun: boolean;
   setPushDryRun: (value: boolean) => void;
+  pullStrategy: PullStrategy;
+  setPullStrategy: (value: PullStrategy) => void;
   hideT3Checkpoints: boolean;
   setHideT3Checkpoints: (value: boolean) => void;
 };
@@ -50,6 +53,8 @@ export const useWorkspacePrefs = create<WorkspacePrefs>()(
       setPushNoVerify: (pushNoVerify) => set({ pushNoVerify }),
       pushDryRun: false,
       setPushDryRun: (pushDryRun) => set({ pushDryRun }),
+      pullStrategy: "merge" as PullStrategy,
+      setPullStrategy: (pullStrategy) => set({ pullStrategy }),
       hideT3Checkpoints: true,
       setHideT3Checkpoints: (hideT3Checkpoints) => set({ hideT3Checkpoints }),
     }),

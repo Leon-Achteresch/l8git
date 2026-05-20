@@ -320,18 +320,30 @@ export function RepoSidebar() {
                     </span>
                     {!hasQuery && (
                       <Button
-                        type="button"
+                        asChild
                         variant="ghost"
                         size="icon-xs"
                         className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
-                        title={t("sidebar.newBranchTitle")}
-                        aria-label={t("sidebar.newBranchAria")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setNewBranchOpen(true);
-                        }}
                       >
-                        <Plus className="h-3 w-3" />
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          title={t("sidebar.newBranchTitle")}
+                          aria-label={t("sidebar.newBranchAria")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewBranchOpen(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setNewBranchOpen(true);
+                            }
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </span>
                       </Button>
                     )}
                   </AccordionTrigger>
