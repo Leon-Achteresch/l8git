@@ -2,6 +2,11 @@ export type ConflictBlock = {
   index: number;
   startLine: number;
   endLine: number;
+  separatorLine: number;
+  oursStartLine: number;
+  oursEndLine: number;
+  theirsStartLine: number;
+  theirsEndLine: number;
   oursLines: string[];
   theirsLines: string[];
   oursLabel: string;
@@ -20,12 +25,21 @@ export function parseConflictBlocks(text: string): ConflictBlock[] {
       const oursLabel = lines[i].slice(8).trim();
       const oursLines: string[] = [];
       const theirsLines: string[] = [];
+      const oursStartLine = i + 1;
+      let oursEndLine = i;
+      let theirsStartLine = i;
+      let separatorLine = i;
       let inOurs = true;
       let endLine = i;
       i++;
 
       while (i < lines.length) {
         if (lines[i].startsWith("=======")) {
+          if (inOurs) {
+            oursEndLine = i - 1;
+          }
+          separatorLine = i;
+          theirsStartLine = i + 1;
           inOurs = false;
           i++;
           continue;
@@ -35,7 +49,7 @@ export function parseConflictBlocks(text: string): ConflictBlock[] {
           break;
         }
         if (lines[i].startsWith("|||||||")) {
-          // diff3 base section — skip it
+          oursEndLine = i - 1;
           inOurs = false;
           i++;
           while (i < lines.length && !lines[i].startsWith("=======")) {
@@ -52,11 +66,17 @@ export function parseConflictBlocks(text: string): ConflictBlock[] {
         i++;
       }
 
+      const theirsEndLine = endLine - 1;
       const theirsLabel = lines[endLine]?.slice(8).trim() ?? "";
       blocks.push({
         index: blockIndex++,
         startLine,
         endLine,
+        separatorLine,
+        oursStartLine,
+        oursEndLine,
+        theirsStartLine,
+        theirsEndLine,
         oursLines,
         theirsLines,
         oursLabel,

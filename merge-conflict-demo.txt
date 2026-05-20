@@ -1,5 +1,0 @@
-<<<<<<< HEAD
-Variante B (Branch development).
-=======
-Variante A (Branch merge-conflict-demo).
->>>>>>> merge-conflict-demo

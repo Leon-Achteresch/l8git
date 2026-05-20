@@ -5,6 +5,7 @@ mod git;
 mod pr;
 mod providers;
 mod shell;
+mod terminal;
 mod watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -63,6 +64,7 @@ pub fn run() {
             git::unstage_files,
             git::stage_hunk,
             git::unstage_hunk,
+            git::discard_hunk,
             git::commit_changes,
             git::commit_amend,
             git::list_stashes,
@@ -120,7 +122,11 @@ pub fn run() {
             git::git_bisect_start,
             git::git_bisect_mark,
             git::git_bisect_reset,
-            git::git_reset
+            git::git_reset,
+            terminal::terminal_open,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::terminal_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

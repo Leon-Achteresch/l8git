@@ -77,7 +77,8 @@
     "updateInstallFailed": "Update failed: {{error}}",
     "restartFailed": "Restart failed: {{error}}",
     "aiNoResponse": "No response from the AI model",
-    "cloneOpenFailed": "The cloned repository could not be opened."
+    "cloneOpenFailed": "The cloned repository could not be opened.",
+    "localChangesBlockPull": "Please commit the current changes first, then pull again and resolve any conflicts manually. Affected: {{files}}"
   },
   "hotkeys": {
     "reloadActive": "Reload active repository",
@@ -150,6 +151,14 @@
     "terminalDefault": "Default terminal",
     "terminalGitBash": "Git Bash",
     "terminalAria": "Repository terminal",
+    "embeddedTerminalTitle": "Embedded terminal",
+    "embeddedTerminalDesc": "Configure the terminal that opens inside the app, below the commit history.",
+    "embeddedTerminalCommandLabel": "Shell command",
+    "embeddedTerminalCommandHint": "Leave empty to use $SHELL (Linux/macOS) or PowerShell/cmd (Windows). Arguments are split by whitespace.",
+    "terminalButtonModeLabel": "Terminal button click action",
+    "terminalButtonModeHint": "What the toolbar “Terminal” button does on click. The other mode is always available via right-click.",
+    "terminalButtonModeEmbedded": "Toggle in-app terminal",
+    "terminalButtonModeExternal": "Open external terminal",
     "accountsSectionTitle": "Git accounts",
     "accountsSectionSubtitle": "Manage signed-in Git providers",
     "accountsCardTitle": "Connected accounts",
@@ -327,9 +336,13 @@
     "dryRun": "Dry run",
     "fetchTitle": "Fetch changes (right-click for options)",
     "fetchLabel": "Fetch",
-    "pullTitle": "Pull changes",
-    "pullTitlePending": "Pull changes ({{count}} pending)",
+    "pullTitle": "Pull changes (right-click for options)",
+    "pullTitlePending": "Pull changes ({{count}} pending, right-click for options)",
     "pullLabel": "Pull",
+    "pullStrategySection": "Pull strategy",
+    "pullStrategyMerge": "Merge (resolve conflicts yourself)",
+    "pullStrategyRebase": "Rebase (--rebase)",
+    "pullStrategyFfOnly": "Fast-forward only (--ff-only)",
     "pushTitle": "{{title}} (right-click for options)",
     "pushLabel": "Push",
     "noForcePush": "No force push",
@@ -377,7 +390,27 @@
     "pushTagsAllOption": "Push all tags (--tags)",
     "atomicOption": "Atomic (--atomic)",
     "skipPrePushHooks": "Skip pre-push hooks (--no-verify)",
-    "dryRunOption": "Dry run (--dry-run)"
+    "dryRunOption": "Dry run (--dry-run)",
+    "terminalToggleInApp": "Toggle in-app terminal",
+    "terminalOpenExternal": "Open external terminal",
+    "terminalSection": "Terminal",
+    "terminalModeEmbedded": "Use in-app terminal",
+    "terminalModeExternal": "Use external terminal",
+    "terminalClickHint": "Click toggles the configured mode"
+  },
+  "embeddedTerminal": {
+    "title": "Terminal",
+    "close": "Hide terminal panel",
+    "reopen": "Restart shell",
+    "starting": "Starting shell…",
+    "failed": "Unable to start shell: {{error}}",
+    "exited": "Shell exited (code {{code}})",
+    "newTab": "New terminal tab",
+    "closeTab": "Close tab",
+    "tabsSection": "Tabs",
+    "tabsAria": "Terminal tabs",
+    "tabsCount_one": "{{count}} tab",
+    "tabsCount_other": "{{count}} tabs"
   },
   "commitPanel": {
     "changes": "Changes",
@@ -413,6 +446,9 @@
     "stageSelectionLines_other": "Stage {{count}} lines",
     "unstageSelectionLines_one": "Unstage {{count}} line",
     "unstageSelectionLines_other": "Unstage {{count}} lines",
+    "discardSelectionLines_one": "Discard {{count}} line",
+    "discardSelectionLines_other": "Discard {{count}} lines",
+    "discardLinesConfirm": "Permanently discard {{count}} selected line(s)? This cannot be undone.",
     "fileRowBlame": "Show Git blame",
     "fileRowDiscard": "Discard changes"
   },
@@ -756,7 +792,8 @@
     "acceptAllOursHint": "Resolve all conflicts with ours",
     "acceptAllTheirsHint": "Resolve all conflicts with theirs",
     "allOurs": "All ours",
-    "allTheirs": "All theirs"
+    "allTheirs": "All theirs",
+    "lineLabel": "Line {{line}}"
   },
   "cherryPick": {
     "noConflicts": "No open conflicts",

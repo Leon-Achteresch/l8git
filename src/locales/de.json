@@ -77,7 +77,8 @@
     "updateInstallFailed": "Update fehlgeschlagen: {{error}}",
     "restartFailed": "Neustart fehlgeschlagen: {{error}}",
     "aiNoResponse": "Keine Antwort vom AI-Modell erhalten",
-    "cloneOpenFailed": "Geklontes Repository konnte nicht geöffnet werden."
+    "cloneOpenFailed": "Geklontes Repository konnte nicht geöffnet werden.",
+    "localChangesBlockPull": "Bitte zuerst die aktuellen Änderungen committen, danach erneut pullen und Konflikte manuell auflösen. Betroffen: {{files}}"
   },
   "hotkeys": {
     "reloadActive": "Aktives Repo neu laden",
@@ -150,6 +151,14 @@
     "terminalDefault": "Standard-Terminal",
     "terminalGitBash": "Git Bash",
     "terminalAria": "Repository-Terminal",
+    "embeddedTerminalTitle": "Eingebettetes Terminal",
+    "embeddedTerminalDesc": "Konfiguriert das Terminal, das in der App unter der Commit-Historie geöffnet wird.",
+    "embeddedTerminalCommandLabel": "Shell-Befehl",
+    "embeddedTerminalCommandHint": "Leer lassen, um $SHELL (Linux/macOS) bzw. PowerShell/cmd (Windows) zu verwenden. Argumente werden per Leerzeichen getrennt.",
+    "terminalButtonModeLabel": "Aktion beim Klick auf den Terminal-Button",
+    "terminalButtonModeHint": "Verhalten der Terminal-Schaltfläche in der Toolbar bei Linksklick. Die jeweils andere Variante ist per Rechtsklick verfügbar.",
+    "terminalButtonModeEmbedded": "In-App-Terminal umschalten",
+    "terminalButtonModeExternal": "Externes Terminal öffnen",
     "accountsSectionTitle": "Git-Konten",
     "accountsSectionSubtitle": "Angemeldete Git-Anbieter verwalten",
     "accountsCardTitle": "Verbundene Konten",
@@ -327,9 +336,13 @@
     "dryRun": "Dry-Run",
     "fetchTitle": "Änderungen abrufen (Rechtsklick für Optionen)",
     "fetchLabel": "Fetch",
-    "pullTitle": "Änderungen herunterladen",
-    "pullTitlePending": "Änderungen herunterladen ({{count}} ausstehend)",
+    "pullTitle": "Änderungen herunterladen (Rechtsklick für Optionen)",
+    "pullTitlePending": "Änderungen herunterladen ({{count}} ausstehend, Rechtsklick für Optionen)",
     "pullLabel": "Pull",
+    "pullStrategySection": "Pull-Strategie",
+    "pullStrategyMerge": "Mergen (Konflikte selbst lösen)",
+    "pullStrategyRebase": "Rebase (--rebase)",
+    "pullStrategyFfOnly": "Nur Fast-Forward (--ff-only)",
     "pushTitle": "{{title}} (Rechtsklick für Optionen)",
     "pushLabel": "Push",
     "noForcePush": "Kein Force-Push",
@@ -377,7 +390,27 @@
     "pushTagsAllOption": "Alle Tags (--tags)",
     "atomicOption": "Atomar (--atomic)",
     "skipPrePushHooks": "Pre-Push-Hooks überspringen (--no-verify)",
-    "dryRunOption": "Testlauf (--dry-run)"
+    "dryRunOption": "Testlauf (--dry-run)",
+    "terminalToggleInApp": "In-App-Terminal umschalten",
+    "terminalOpenExternal": "Externes Terminal öffnen",
+    "terminalSection": "Terminal",
+    "terminalModeEmbedded": "In-App-Terminal verwenden",
+    "terminalModeExternal": "Externes Terminal verwenden",
+    "terminalClickHint": "Klick schaltet den eingestellten Modus"
+  },
+  "embeddedTerminal": {
+    "title": "Terminal",
+    "close": "Terminal-Panel ausblenden",
+    "reopen": "Shell neu starten",
+    "starting": "Shell wird gestartet…",
+    "failed": "Shell konnte nicht gestartet werden: {{error}}",
+    "exited": "Shell beendet (Code {{code}})",
+    "newTab": "Neuen Tab öffnen",
+    "closeTab": "Tab schließen",
+    "tabsSection": "Tabs",
+    "tabsAria": "Terminal-Tabs",
+    "tabsCount_one": "{{count}} Tab",
+    "tabsCount_other": "{{count}} Tabs"
   },
   "commitPanel": {
     "changes": "Änderungen",
@@ -413,6 +446,9 @@
     "stageSelectionLines_other": "{{count}} Zeilen stagen",
     "unstageSelectionLines_one": "{{count}} Zeile unstagen",
     "unstageSelectionLines_other": "{{count}} Zeilen unstagen",
+    "discardSelectionLines_one": "{{count}} Zeile verwerfen",
+    "discardSelectionLines_other": "{{count}} Zeilen verwerfen",
+    "discardLinesConfirm": "{{count}} ausgewählte Zeile(n) dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
     "fileRowBlame": "Git-Blame anzeigen",
     "fileRowDiscard": "Änderungen verwerfen"
   },
@@ -756,7 +792,8 @@
     "acceptAllOursHint": "Alle Konflikte mit unserer Version lösen",
     "acceptAllTheirsHint": "Alle Konflikte mit der eingehenden Version lösen",
     "allOurs": "Alle Ours",
-    "allTheirs": "Alle Theirs"
+    "allTheirs": "Alle Theirs",
+    "lineLabel": "Zeile {{line}}"
   },
   "cherryPick": {
     "noConflicts": "Keine offenen Konflikte",

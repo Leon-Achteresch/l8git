@@ -17,6 +17,7 @@ export function DiffViewer({
   onReload,
   onStageHunk,
   onUnstageHunk,
+  onDiscardHunk,
   parsedDiff,
   focusedHunkIdx,
   selectedLines,
@@ -30,6 +31,7 @@ export function DiffViewer({
   onReload: () => void;
   onStageHunk?: (patch: string) => void;
   onUnstageHunk?: (patch: string) => void;
+  onDiscardHunk?: (patch: string, count: number) => void;
   parsedDiff?: ParsedDiff | null;
   focusedHunkIdx?: number;
   selectedLines?: ReadonlySet<string>;
@@ -100,6 +102,7 @@ export function DiffViewer({
           sector={selectedRow.sector as "staged" | "unstaged"}
           onStageHunk={onStageHunk}
           onUnstageHunk={onUnstageHunk}
+          onDiscardHunk={onDiscardHunk}
           parsedDiff={parsedDiff}
           focusedHunkIdx={focusedHunkIdx}
           selectedLines={selectedLines}

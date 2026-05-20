@@ -31,10 +31,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          major="$(node -p "require('./package.json').version.split('.')[0]")"
-          minor="$(node -p "require('./package.json').version.split('.')[1]")"
-          patch="$(git rev-list --count HEAD)"
-          version="${major}.${minor}.${patch}"
+          version="$(node .github/scripts/compute-release-version.mjs)"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Erzeuge Changelog

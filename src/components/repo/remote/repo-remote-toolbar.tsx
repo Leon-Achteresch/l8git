@@ -2,17 +2,20 @@ import { BranchMultiSelect } from '@/components/repo/commit/branch-multi-select'
 import { Button } from '@/components/ui/button';
 import {
   ContextMenuCheckboxItem,
+  ContextMenuItem,
   ContextMenuLabel,
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
   ContextMenuSeparator,
 } from '@/components/ui/context-menu';
+import { useTerminalStore } from '@/lib/terminal-store';
 import { Input } from '@/components/ui/input';
 import { toastError } from '@/lib/error-toast';
-import { useRepoStore } from '@/lib/repo-store';
+import { useRepoStore, type Branch } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import {
   useWorkspacePrefs,
+  type PullStrategy,
   type PushForceMode,
   type PushTagsMode,
 } from '@/lib/workspace-prefs';
@@ -43,6 +46,7 @@ type RemoteOp = 'fetch' | 'pull' | 'push';
 
 const SPINNER_DELAY_MS = 200;
 const EMPTY_BRANCH_FILTER: ReadonlySet<string> = new Set();
+const EMPTY_BRANCHES: readonly Branch[] = [];
 
 export function RepoRemoteToolbar({ path }: { path: string }) {
   const { t } = useTranslation();
@@ -52,7 +56,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const pushCount = useRepoStore(s => s.upstreamSync[path]?.ahead ?? 0);
   const lackUpstream = useRepoStore(s => s.hasUpstream[path] === false);
   const branch = useRepoStore(s => s.repos[path]?.branch ?? '');
-  const branches = useRepoStore(s => s.repos[path]?.branches ?? []);
+  const branches = useRepoStore(s => s.repos[path]?.branches ?? EMPTY_BRANCHES);
   const searchCommits = useRepoStore(s => s.searchCommits);
   const clearCommitSearch = useRepoStore(s => s.clearCommitSearch);
   const searchSlice = useRepoStore(s => s.commitSearchByPath[path]);
@@ -69,6 +73,10 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const setBisectVisible = useUiStore(s => s.setBisectVisible);
   const ideLaunchCommand = useWorkspacePrefs(s => s.ideLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs(s => s.repoTerminalKind);
+  const terminalButtonMode = useWorkspacePrefs(s => s.terminalButtonMode);
+  const setTerminalButtonMode = useWorkspacePrefs(s => s.setTerminalButtonMode);
+  const terminalVisible = useTerminalStore(s => !!s.visibleByPath[path]);
+  const toggleTerminal = useTerminalStore(s => s.toggleVisible);
   const fetchPruneBranches = useWorkspacePrefs(s => s.fetchPruneBranches);
   const setFetchPruneBranches = useWorkspacePrefs(s => s.setFetchPruneBranches);
   const fetchPruneTags = useWorkspacePrefs(s => s.fetchPruneTags);
@@ -83,6 +91,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const setPushNoVerify = useWorkspacePrefs(s => s.setPushNoVerify);
   const pushDryRun = useWorkspacePrefs(s => s.pushDryRun);
   const setPushDryRun = useWorkspacePrefs(s => s.setPushDryRun);
+  const pullStrategy = useWorkspacePrefs(s => s.pullStrategy);
+  const setPullStrategy = useWorkspacePrefs(s => s.setPullStrategy);
   const [busy, setBusy] = useState<RemoteOp | null>(null);
   const [showSpinner, setShowSpinner] = useState(false);
   const [pushDialogOpen, setPushDialogOpen] = useState(false);
@@ -126,7 +136,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                 pruneTags: fetchPruneTags,
               })
             : op === 'pull'
-              ? await invoke<string>('git_pull', { path })
+              ? await invoke<string>('git_pull', { path, strategy: pullStrategy })
               : await invoke<string>('git_push', {
                   path,
                   setUpstream: false,
@@ -150,6 +160,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       reloadStatus,
       fetchPruneBranches,
       fetchPruneTags,
+      pullStrategy,
       pushForceMode,
       pushTagsMode,
       pushAtomic,
@@ -224,6 +235,29 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       </>
     ),
     [fetchPruneBranches, fetchPruneTags, setFetchPruneBranches, setFetchPruneTags, t],
+  );
+
+  const pullMenu = useMemo(
+    () => (
+      <>
+        <ContextMenuLabel>{t("toolbar.pullStrategySection")}</ContextMenuLabel>
+        <ContextMenuRadioGroup
+          value={pullStrategy}
+          onValueChange={(v) => setPullStrategy(v as PullStrategy)}
+        >
+          <ContextMenuRadioItem value="merge" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.pullStrategyMerge")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="rebase" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.pullStrategyRebase")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="ff-only" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.pullStrategyFfOnly")}
+          </ContextMenuRadioItem>
+        </ContextMenuRadioGroup>
+      </>
+    ),
+    [pullStrategy, setPullStrategy, t],
   );
 
   const pushMenu = useMemo(
@@ -318,6 +352,35 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     return t("toolbar.bisectRunningTitle", { steps: stepsPart });
   }, [bisect?.active, bisect?.steps_remaining, t]);
 
+  const terminalMenu = useMemo(
+    () => (
+      <>
+        <ContextMenuLabel>{t("toolbar.terminalSection")}</ContextMenuLabel>
+        <ContextMenuRadioGroup
+          value={terminalButtonMode}
+          onValueChange={(v) =>
+            setTerminalButtonMode(v === "external" ? "external" : "embedded")
+          }
+        >
+          <ContextMenuRadioItem value="embedded" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.terminalModeEmbedded")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="external" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.terminalModeExternal")}
+          </ContextMenuRadioItem>
+        </ContextMenuRadioGroup>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={() => toggleTerminal(path)}>
+          {t("toolbar.terminalToggleInApp")}
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => void openTerminalHere()}>
+          {t("toolbar.terminalOpenExternal")}
+        </ContextMenuItem>
+      </>
+    ),
+    [path, terminalButtonMode, setTerminalButtonMode, toggleTerminal, t],
+  );
+
   const hasSearchHits = (searchSlice?.hits?.length ?? 0) > 0;
   const canStepSearchMatches =
     !!draftQuery.trim() &&
@@ -361,6 +424,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                   <ArrowDownToLine className='h-3.5 w-3.5' />
                 )
               }
+              contextMenuContent={pullMenu}
             />
             <ToolbarButton
               title={t("toolbar.pushTitle", { title: pushTitle })}
@@ -398,8 +462,16 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             <ToolbarButton
               title={t("toolbar.terminalTitle")}
               label={t("toolbar.terminalLabel")}
-              onClick={() => void openTerminalHere()}
+              isActive={terminalButtonMode === 'embedded' && terminalVisible}
+              onClick={() => {
+                if (terminalButtonMode === 'embedded') {
+                  toggleTerminal(path);
+                } else {
+                  void openTerminalHere();
+                }
+              }}
               icon={<SquareTerminal className='h-3.5 w-3.5' />}
+              contextMenuContent={terminalMenu}
             />
             <ToolbarButton
               title={ideConfigured ? t("toolbar.ideOpenTitle") : t("toolbar.ideConfigureTitle")}

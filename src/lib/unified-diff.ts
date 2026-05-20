@@ -309,7 +309,6 @@ export function buildPatchesForSelection(
   parsed: ParsedDiff,
   selectedKeys: ReadonlySet<string>,
 ): string[] {
-  // Group keys by hunk index
   const byHunk = new Map<number, Set<number>>();
   for (const key of selectedKeys) {
     const [h, l] = key.split(':').map(Number);
@@ -318,9 +317,101 @@ export function buildPatchesForSelection(
   }
 
   const patches: string[] = [];
-  // Process in ascending hunk order so line-number context stays valid
   for (const [hunkIdx, lineIndices] of [...byHunk.entries()].sort(([a], [b]) => a - b)) {
     const patch = buildPartialHunkPatch(parsed, hunkIdx, lineIndices);
+    if (patch) patches.push(patch);
+  }
+  return patches;
+}
+
+/**
+ * Build a patch for discarding selected lines from the working tree.
+ *
+ * The input diff is an unstaged diff (index → working tree):
+ *   - `del` lines exist in the index but NOT in the working tree
+ *   - `add` lines exist in the working tree but NOT in the index
+ *
+ * The resulting patch targets the working tree directly (no --cached, no --reverse):
+ *   - Selected `del` lines → `+line` (restore from index into working tree)
+ *   - Unselected `del` lines → skipped (not present in working tree)
+ *   - Selected `add` lines → `-line` (remove from working tree)
+ *   - Unselected `add` lines → context (stay in working tree)
+ *   - `ctx` lines → context
+ *
+ * The hunk header uses `newStart` (working tree position) as the anchor.
+ */
+function buildPartialHunkPatchForDiscard(
+  parsed: ParsedDiff,
+  hunkIdx: number,
+  selectedLineIndices: ReadonlySet<number>,
+): string | null {
+  const hunk = parsed.hunks[hunkIdx];
+  if (!hunk) return null;
+
+  const hasChange = [...selectedLineIndices].some(i => {
+    const l = hunk.lines[i];
+    return l && (l.kind === 'add' || l.kind === 'del');
+  });
+  if (!hasChange) return null;
+
+  const bodyLines: string[] = [];
+  let oldCount = 0;
+  let newCount = 0;
+
+  for (let i = 0; i < hunk.lines.length; i++) {
+    const line = hunk.lines[i];
+    const selected = selectedLineIndices.has(i);
+
+    if (line.kind === 'ctx') {
+      bodyLines.push(line.raw);
+      oldCount++;
+      newCount++;
+    } else if (line.kind === 'del') {
+      if (selected) {
+        bodyLines.push('+' + line.text);
+        newCount++;
+      }
+      // Unselected del lines don't exist in working tree — skip entirely
+    } else if (line.kind === 'add') {
+      if (selected) {
+        bodyLines.push('-' + line.text);
+        oldCount++;
+      } else {
+        bodyLines.push(' ' + line.text);
+        oldCount++;
+        newCount++;
+      }
+    }
+  }
+
+  const newHeader = `@@ -${hunk.newStart},${oldCount} +${hunk.newStart},${newCount} @@`;
+
+  return [
+    ...extractFileHeaders(parsed.metaLines),
+    newHeader,
+    ...bodyLines,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Build discard patches for all hunks that have at least one selected line.
+ * The patches target the working tree (apply without --cached or --reverse).
+ */
+export function buildPatchesForDiscard(
+  parsed: ParsedDiff,
+  selectedKeys: ReadonlySet<string>,
+): string[] {
+  const byHunk = new Map<number, Set<number>>();
+  for (const key of selectedKeys) {
+    const [h, l] = key.split(':').map(Number);
+    if (!byHunk.has(h)) byHunk.set(h, new Set());
+    byHunk.get(h)!.add(l);
+  }
+
+  const patches: string[] = [];
+  for (const [hunkIdx, lineIndices] of [...byHunk.entries()].sort(([a], [b]) => a - b)) {
+    const patch = buildPartialHunkPatchForDiscard(parsed, hunkIdx, lineIndices);
     if (patch) patches.push(patch);
   }
   return patches;

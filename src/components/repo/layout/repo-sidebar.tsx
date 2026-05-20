@@ -539,50 +539,50 @@ export function RepoSidebar() {
               </div>
             )}
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-              <ScrollArea className="min-h-0 min-w-0 flex-1">
-                <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-1">
-                  <Accordion
-                    type="multiple"
-                    defaultValue={defaultOpenSections}
-                    className="w-full min-w-0"
-                  >
-                    <AccordionItem value="local" className="min-w-0 border-0">
-                      <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
-                        <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
-                          {t("sidebar.local")}
-                        </span>
-                        <span className="flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
-                          {localBranches.length}
-                        </span>
-                        {!hasQuery && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
-                            title={t("sidebar.newBranchTitle")}
-                            aria-label={t("sidebar.newBranchAria")}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNewBranchOpen(true);
-                            }}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
-                        <BranchSection
-                          path={activePath}
-                          title={t("sidebar.local")}
-                          branches={localBranches}
-                          emptyLabel={hasQuery ? t("common.noResults") : t("sidebar.noLocalBranches")}
-                          onDelete={onDelete}
-                          hideHeader
-                        />
-                      </AccordionContent>
-                    </AccordionItem>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <ScrollArea className="min-h-0 min-w-0 flex-1">
+            <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-1">
+              <Accordion
+                type="multiple"
+                defaultValue={["local", "remote", "tags"]}
+                className="w-full min-w-0"
+              >
+                <AccordionItem value="local" className="min-w-0 border-0">
+                  <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
+                    <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
+                      {t("sidebar.local")}
+                    </span>
+                    <span className="flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md bg-muted/60 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                      {localBranches.length}
+                    </span>
+                    {!hasQuery && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+                        title={t("sidebar.newBranchTitle")}
+                        aria-label={t("sidebar.newBranchAria")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNewBranchOpen(true);
+                        }}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
+                    <BranchSection
+                      path={activePath}
+                      title={t("sidebar.local")}
+                      branches={localBranches}
+                      emptyLabel={hasQuery ? t("common.noResults") : t("sidebar.noLocalBranches")}
+                      onDelete={onDelete}
+                      hideHeader
+                    />
+                  </AccordionContent>
+                </AccordionItem>
 
                     {totalRemoteBranches > 0 && (
                       <AccordionItem value="remote" className="min-w-0 border-0">

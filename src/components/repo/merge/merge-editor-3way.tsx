@@ -12,6 +12,7 @@ import type { ConflictVersions } from "@/lib/repo-store";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Save } from "lucide-react";
+import { useMergeDecorations } from "./use-merge-decorations";
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
@@ -71,10 +72,10 @@ const RESULT_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions = {
   renderLineHighlight: "line",
   overviewRulerBorder: false,
   folding: false,
-  glyphMargin: false,
+  glyphMargin: true,
   lineNumbers: "on",
-  lineDecorationsWidth: 4,
-  scrollbar: { vertical: "auto", horizontal: "auto", useShadows: false, verticalScrollbarSize: 3, horizontalScrollbarSize: 3 },
+  lineDecorationsWidth: 10,
+  scrollbar: { vertical: "auto", horizontal: "auto", useShadows: false, verticalScrollbarSize: 6, horizontalScrollbarSize: 3 },
   wordWrap: "off",
   contextmenu: true,
   automaticLayout: true,
@@ -93,6 +94,10 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
   const [resultText, setResultText] = useState(versions.current);
   const [activeBlockIdx, setActiveBlockIdx] = useState(0);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const [editorInstance, setEditorInstance] = useState<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const [monacoApi, setMonacoApi] = useState<typeof Monaco | null>(null);
+
+  useMergeDecorations(editorInstance, monacoApi, resultText, activeBlockIdx);
 
   useEffect(() => {
     setResultText(versions.current);
@@ -218,6 +223,11 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
                 <span className="text-muted-foreground">
                   {activeBlockIdx + 1}/{blocks.length}
                 </span>
+                {activeBlock ? (
+                  <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400">
+                    {t("mergeEditor.lineLabel", { line: activeBlock.startLine + 1 })}
+                  </span>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
@@ -291,8 +301,10 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
             theme={theme}
             options={RESULT_OPTIONS}
             onChange={(val) => setResultText(val ?? "")}
-            onMount={(editor) => {
+            onMount={(editor, monaco) => {
               editorRef.current = editor;
+              setEditorInstance(editor);
+              setMonacoApi(monaco);
             }}
           />
         </div>
