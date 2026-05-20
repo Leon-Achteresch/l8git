@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "save": "Speichern",
     "cancel": "Abbrechen",
@@ -166,7 +166,47 @@
     "updatesSectionSubtitle": "App-Versionen prüfen und installieren",
     "updatesCardTitle": "App-Updates",
     "updatesCardDesc": "Releases werden automatisch über GitHub bereitgestellt. Neue Versionen können direkt aus der App heruntergeladen und installiert werden.",
-    "checkUpdates": "Nach Updates suchen"
+    "checkUpdates": "Nach Updates suchen",
+    "navSidebar": "Sidebar",
+    "navGroupInterface": "Oberfläche",
+    "navGroupCommits": "Commits",
+    "navGroupWorkspace": "Workspace",
+    "navGroupAccount": "Konto & App",
+    "sidebarSectionTitle": "Sidebar",
+    "sidebarSectionSubtitle": "Sidebarstruktur, Tab-Reihenfolge und Anzeige anpassen",
+    "sidebarTabOrderTitle": "Tab-Reihenfolge",
+    "sidebarTabOrderDesc": "Tabs ziehen, um sie neu anzuordnen. Augensymbol zum Ein- oder Ausblenden einzelner Tabs.",
+    "sidebarDisplayTitle": "Anzeigeoptionen",
+    "sidebarDisplayDesc": "Steuert die Darstellung der Tabs in der Sidebar.",
+    "sidebarDisplayModeLabel": "Anzeigemodus",
+    "sidebarDisplayFull": "Symbole & Labels",
+    "sidebarDisplayFullDesc": "Symbol und Label",
+    "sidebarDisplayIcons": "Nur Symbole",
+    "sidebarDisplayIconsDesc": "Nur Symbol",
+    "sidebarDisplayLabels": "Nur Labels",
+    "sidebarDisplayLabelsDesc": "Nur Text",
+    "sidebarTabSizeTitle": "Tab-Größe",
+    "sidebarTabSizeCompact": "Kompakt",
+    "sidebarTabSizeNormal": "Normal",
+    "sidebarTabSizeLarge": "Groß",
+    "sidebarBranchSectionsTitle": "Branch-Abschnitte",
+    "sidebarBranchSectionsDesc": "Konfiguriert den Branch- und Tag-Baum unterhalb der Navigationstabs.",
+    "sidebarShowBranchFilter": "Branch-Filter anzeigen",
+    "sidebarShowBranchFilterHint": "Zeigt ein Suchfeld zum Filtern von Branches und Tags.",
+    "sidebarDefaultOpenSections": "Standardmäßig geöffnete Abschnitte",
+    "sidebarResetTitle": "Sidebar zurücksetzen",
+    "sidebarResetDesc": "Alle Sidebar-Einstellungen auf Werksstandard zurücksetzen.",
+    "sidebarResetButton": "Auf Standard zurücksetzen",
+    "sidebarResetOrder": "Reihenfolge zurücksetzen",
+    "sidebarDragHint": "Anfasser ziehen zum Umsortieren",
+    "sidebarTabLayoutTitle": "Tab-Layout",
+    "sidebarTabLayoutDesc": "Wähle, ob Tabs als Liste oder Raster angeordnet werden.",
+    "sidebarTabLayoutList": "Liste",
+    "sidebarTabLayoutListDesc": "Vertikale Liste",
+    "sidebarTabLayoutGrid": "Raster",
+    "sidebarTabLayoutGridDesc": "Mehrspaltiges Raster",
+    "sidebarGridColumns": "Spalten",
+    "sidebarGridWidth": "Raster-Breite"
   },
   "animations": {
     "title": "Bewegung & Animationen",
@@ -237,7 +277,18 @@
     "noReleaseNotes": "Für dieses Release wurden keine Release Notes hinterlegt.",
     "changelogTitle": "Änderungsprotokoll",
     "restartNow": "Jetzt neu starten",
-    "close": "Schließen"
+    "close": "Schließen",
+    "toastAria": "Update-Hinweis",
+    "toastSubAvailable": "Per Klick herunterladen und installieren.",
+    "toastSubProgress": "Bitte warten…",
+    "toastSubInstalled": "Neustart erforderlich, um das Update anzuwenden.",
+    "toastDownloading": "Wird geladen… {{percent}}",
+    "toastInfo": "Release Notes",
+    "toastInstallNow": "Jetzt installieren"
+  },
+  "changelog": {
+    "title": "Release Notes",
+    "noNotesHint": "Details findest du auf der GitHub-Releases-Seite."
   },
   "sidebar": {
     "tabCommit": "Commit",
@@ -261,7 +312,8 @@
     "noTags": "Keine Tags",
     "noBranchesForQuery": "Keine Branches für „{{query}}“",
     "branchDeleteConfirm": "Branch \"{{name}}\" ist nicht gemerged. Trotzdem löschen?",
-    "branchDeleteFailed": "Löschen fehlgeschlagen: {{error}}"
+    "branchDeleteFailed": "Löschen fehlgeschlagen: {{error}}",
+    "branchPopoverTitle": "Branches & Tags"
   },
   "toolbar": {
     "actionSuccess": "Aktion erfolgreich abgeschlossen.",

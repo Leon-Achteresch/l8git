@@ -3,6 +3,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "sonner";
 
 import { AppHeader } from "@/components/app/app-header";
+import { AppUpdateToast } from "@/components/app/app-update-toast";
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
@@ -28,6 +29,7 @@ function RootLayout() {
           position="top-right"
           theme={resolveTheme(theme)}
         />
+        <AppUpdateToast />
         <TanStackRouterDevtools position="bottom-right" />
       </div>
     </MotionProvider>
