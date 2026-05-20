@@ -91,21 +91,8 @@ export function RepoTerminalPanel({ path }: Props) {
           className="flex w-44 shrink-0 flex-col border-l border-border/60 bg-muted/30"
           aria-label={t("embeddedTerminal.tabsAria")}
         >
-          <div className="flex items-center justify-between px-2 py-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-              {t("embeddedTerminal.tabsSection")}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              title={t("embeddedTerminal.newTab")}
-              onClick={() => openTab(path)}
-            >
-              <Plus className="size-3" />
-            </Button>
-          </div>
-          <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1 pb-1">
+
+          <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-1">
             {tabs.map((tab) => {
               const active = tab.id === activeId;
               return (
