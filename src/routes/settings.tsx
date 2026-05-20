@@ -95,16 +95,6 @@ function SectionHeader({
   );
 }
 
-function SectionDivider() {
-  return (
-    <div className="relative">
-      <div className="absolute inset-0 flex items-center" aria-hidden>
-        <div className="w-full border-t border-border/40" />
-      </div>
-    </div>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
 /*  Nav item                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -410,8 +400,6 @@ function Settings() {
             <SidebarCustomizeSection />
           </section>
 
-          <SectionDivider />
-
           {/* ── APPEARANCE ────────────────────────────────────────────── */}
           <section id="appearance" ref={setRef("appearance")} className="scroll-mt-10">
             <SectionHeader
@@ -503,8 +491,6 @@ function Settings() {
             </div>
           </section>
 
-          <SectionDivider />
-
           {/* ── ANIMATIONS ────────────────────────────────────────────── */}
           <section id="animations" ref={setRef("animations")} className="scroll-mt-10">
             <SectionHeader
@@ -518,8 +504,6 @@ function Settings() {
               <AnimationsCard />
             </StaggerCard>
           </section>
-
-          <SectionDivider />
 
           {/* ── COMMITS ───────────────────────────────────────────────── */}
           <section id="commits" ref={setRef("commits")} className="scroll-mt-10">
@@ -700,8 +684,6 @@ function Settings() {
             </div>
           </section>
 
-          <SectionDivider />
-
           {/* ── WORKSPACE ─────────────────────────────────────────────── */}
           <section id="workspace" ref={setRef("workspace")} className="scroll-mt-10">
             <SectionHeader
@@ -748,7 +730,7 @@ function Settings() {
                       {t("common.save")}
                     </Button>
                   </div>
-                  <div className="space-y-2 border-t border-border pt-3">
+                  <div className="space-y-2 mt-4">
                     <div>
                       <p className="text-sm font-medium text-foreground">{t("settings.terminalInRepo")}</p>
                       <p className="text-xs text-muted-foreground">{t("settings.terminalInRepoHint")}</p>
@@ -824,7 +806,7 @@ function Settings() {
                       </Button>
                     </div>
                   </div>
-                  <div className="space-y-2 border-t border-border pt-3">
+                  <div className="space-y-2 mt-4">
                     <div>
                       <p className="text-sm font-medium text-foreground">
                         {t("settings.terminalButtonModeLabel")}
@@ -874,8 +856,6 @@ function Settings() {
               </Card>
             </StaggerCard>
           </section>
-
-          <SectionDivider />
 
           {/* ── ACCOUNTS ──────────────────────────────────────────────── */}
           <section id="accounts" ref={setRef("accounts")} className="scroll-mt-10">
@@ -957,8 +937,6 @@ function Settings() {
               </Card>
             </StaggerCard>
           </section>
-
-          <SectionDivider />
 
           {/* ── UPDATES ───────────────────────────────────────────────── */}
           <section id="updates" ref={setRef("updates")} className="scroll-mt-10 pb-10">
