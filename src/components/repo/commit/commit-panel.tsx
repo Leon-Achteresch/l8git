@@ -289,6 +289,23 @@ export function CommitPanel() {
     [activePath, reloadStatus, loadDiff],
   );
 
+  const discardHunk = useCallback(
+    async (patch: string, count: number) => {
+      if (!activePath) return;
+      const ok = window.confirm(t("commitPanel.discardLinesConfirm", { count }));
+      if (!ok) return;
+      console.log("[commit-panel] discardHunk, patch length:", patch.length);
+      try {
+        await invoke("discard_hunk", { path: activePath, patch });
+        void reloadStatus(activePath);
+        void loadDiff();
+      } catch (e) {
+        toastError(String(e));
+      }
+    },
+    [activePath, reloadStatus, loadDiff, t],
+  );
+
   const latestSelectedRowRef = useRef(selectedRow);
   latestSelectedRowRef.current = selectedRow;
 
@@ -583,6 +600,7 @@ export function CommitPanel() {
                 onReload={stableOnReload}
                 onStageHunk={stageHunk}
                 onUnstageHunk={unstageHunk}
+                onDiscardHunk={discardHunk}
                 parsedDiff={parsedDiff}
                 focusedHunkIdx={focusedHunkIdx}
                 selectedLines={selectedLines}

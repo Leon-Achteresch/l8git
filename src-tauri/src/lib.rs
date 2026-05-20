@@ -63,6 +63,7 @@ pub fn run() {
             git::unstage_files,
             git::stage_hunk,
             git::unstage_hunk,
+            git::discard_hunk,
             git::commit_changes,
             git::commit_amend,
             git::list_stashes,

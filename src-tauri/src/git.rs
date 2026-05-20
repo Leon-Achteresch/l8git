@@ -1611,6 +1611,53 @@ pub async fn unstage_hunk(path: String, patch: String) -> Result<(), String> {
     }).await
 }
 
+fn apply_patch_to_worktree(repo: &PathBuf, patch: &str, reverse: bool) -> Result<(), String> {
+    let mut cmd = git_command();
+    cmd.arg("-C").arg(repo);
+    cmd.arg("apply");
+    cmd.arg("--whitespace=nowarn");
+    if reverse {
+        cmd.arg("--reverse");
+    }
+    cmd.stdin(Stdio::piped());
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Fehler beim Starten von git: {e}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(patch.as_bytes())
+            .map_err(|e| format!("Fehler beim Schreiben des Patches: {e}"))?;
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Fehler beim Warten auf git: {e}"))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if err.is_empty() {
+            "git apply fehlgeschlagen".to_string()
+        } else {
+            err
+        });
+    }
+    Ok(())
+}
+
+/// Discard individual lines/hunks from the working tree (revert to index state).
+/// The frontend builds a discard-specific patch (not a reversed staging patch),
+/// so this applies it normally (no --reverse) directly to the working tree.
+#[tauri::command]
+pub async fn discard_hunk(path: String, patch: String) -> Result<(), String> {
+    spawn_git(move || {
+        apply_patch_to_worktree(&PathBuf::from(&path), &patch, false)
+    }).await
+}
+
 #[derive(Serialize)]
 pub struct CommitChangedFile {
     pub path: String,

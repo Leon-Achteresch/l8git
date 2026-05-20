@@ -1,6 +1,7 @@
 import {
   buildHunkPatch,
   buildPatchesForSelection,
+  buildPatchesForDiscard,
   flattenParsedDiff,
   linesFromUntracked,
   parseUnifiedDiff,
@@ -10,7 +11,7 @@ import {
   type ParsedDiff,
 } from "@/lib/unified-diff";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Loader2, Minus, Plus } from "lucide-react";
+import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -239,6 +240,7 @@ function InteractiveVirtualDiffList({
   onClearSelection,
   onStageHunk,
   onUnstageHunk,
+  onDiscardHunk,
 }: {
   parsed: ParsedDiff;
   sector: "staged" | "unstaged";
@@ -248,6 +250,7 @@ function InteractiveVirtualDiffList({
   onClearSelection: () => void;
   onStageHunk: (patch: string) => void;
   onUnstageHunk: (patch: string) => void;
+  onDiscardHunk?: (patch: string, count: number) => void;
 }) {
   const { t } = useTranslation();
   const flatLines = useMemo(() => flattenParsedDiff(parsed), [parsed]);
@@ -307,14 +310,6 @@ function InteractiveVirtualDiffList({
     [parsed, onUnstageHunk],
   );
 
-  const handleApplySelectionButton = useCallback(() => {
-    if (!selectedLines.size) return;
-    const patches = buildPatchesForSelection(parsed, selectedLines);
-    const applyPatch = sector === "unstaged" ? onStageHunk : onUnstageHunk;
-    for (const patch of patches) applyPatch(patch);
-    onClearSelection();
-  }, [parsed, selectedLines, sector, onStageHunk, onUnstageHunk, onClearSelection]);
-
   const selectionCount = useMemo(() => {
     let n = 0;
     for (const key of selectedLines) {
@@ -324,6 +319,21 @@ function InteractiveVirtualDiffList({
     }
     return n;
   }, [selectedLines, parsed]);
+
+  const handleApplySelectionButton = useCallback(() => {
+    if (!selectedLines.size) return;
+    const patches = buildPatchesForSelection(parsed, selectedLines);
+    const applyPatch = sector === "unstaged" ? onStageHunk : onUnstageHunk;
+    for (const patch of patches) applyPatch(patch);
+    onClearSelection();
+  }, [parsed, selectedLines, sector, onStageHunk, onUnstageHunk, onClearSelection]);
+
+  const handleDiscardSelectionButton = useCallback(() => {
+    if (!selectedLines.size || !onDiscardHunk) return;
+    const patches = buildPatchesForDiscard(parsed, selectedLines);
+    for (const patch of patches) onDiscardHunk(patch, selectionCount);
+    onClearSelection();
+  }, [parsed, selectedLines, onDiscardHunk, onClearSelection, selectionCount]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -359,6 +369,8 @@ function InteractiveVirtualDiffList({
       ? t("commitPanel.stageSelectionLines", { count: selectionCount })
       : t("commitPanel.unstageSelectionLines", { count: selectionCount });
 
+  const discardLabel = t("commitPanel.discardSelectionLines", { count: selectionCount });
+
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
       {selectionCount > 0 && (
@@ -374,6 +386,16 @@ function InteractiveVirtualDiffList({
             >
               {t("diff.cancel")}
             </button>
+            {sector === "unstaged" && onDiscardHunk && (
+              <button
+                type="button"
+                onClick={handleDiscardSelectionButton}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <Trash2 className="h-3 w-3" />
+                {discardLabel}
+              </button>
+            )}
             <button
               type="button"
               onClick={handleApplySelectionButton}
@@ -460,6 +482,7 @@ export function UnifiedDiffBody({
   sector,
   onStageHunk,
   onUnstageHunk,
+  onDiscardHunk,
   parsedDiff: parsedDiffProp,
   focusedHunkIdx = -1,
   selectedLines = EMPTY_SET,
@@ -476,6 +499,7 @@ export function UnifiedDiffBody({
   sector?: "staged" | "unstaged";
   onStageHunk?: (patch: string) => void;
   onUnstageHunk?: (patch: string) => void;
+  onDiscardHunk?: (patch: string, count: number) => void;
   parsedDiff?: ParsedDiff | null;
   focusedHunkIdx?: number;
   selectedLines?: ReadonlySet<string>;
@@ -507,6 +531,10 @@ export function UnifiedDiffBody({
   const stableOnUnstageHunk = useCallback(
     (patch: string) => onUnstageHunk?.(patch),
     [onUnstageHunk],
+  );
+  const stableOnDiscardHunk = useCallback(
+    (patch: string, count: number) => onDiscardHunk?.(patch, count),
+    [onDiscardHunk],
   );
   const stableOnToggleLine = useCallback(
     (key: string) => onToggleLine?.(key),
@@ -555,6 +583,7 @@ export function UnifiedDiffBody({
         onClearSelection={stableOnClearSelection}
         onStageHunk={stableOnStageHunk}
         onUnstageHunk={stableOnUnstageHunk}
+        onDiscardHunk={stableOnDiscardHunk}
       />
     );
   }

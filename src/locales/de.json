@@ -361,6 +361,9 @@
     "stageSelectionLines_other": "{{count}} Zeilen stagen",
     "unstageSelectionLines_one": "{{count}} Zeile unstagen",
     "unstageSelectionLines_other": "{{count}} Zeilen unstagen",
+    "discardSelectionLines_one": "{{count}} Zeile verwerfen",
+    "discardSelectionLines_other": "{{count}} Zeilen verwerfen",
+    "discardLinesConfirm": "{{count}} ausgewählte Zeile(n) dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
     "fileRowBlame": "Git-Blame anzeigen",
     "fileRowDiscard": "Änderungen verwerfen"
   },

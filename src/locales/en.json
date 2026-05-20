@@ -361,6 +361,9 @@
     "stageSelectionLines_other": "Stage {{count}} lines",
     "unstageSelectionLines_one": "Unstage {{count}} line",
     "unstageSelectionLines_other": "Unstage {{count}} lines",
+    "discardSelectionLines_one": "Discard {{count}} line",
+    "discardSelectionLines_other": "Discard {{count}} lines",
+    "discardLinesConfirm": "Permanently discard {{count}} selected line(s)? This cannot be undone.",
     "fileRowBlame": "Show Git blame",
     "fileRowDiscard": "Discard changes"
   },
