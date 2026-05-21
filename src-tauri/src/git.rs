@@ -260,6 +260,8 @@ fn is_commit_meta_token(s: &str) -> bool {
 
 fn match_commit_record(
     needle: &str,
+    hash: &str,
+    short_hash: &str,
     author: &str,
     email: &str,
     subject: &str,
@@ -267,7 +269,9 @@ fn match_commit_record(
     paths: &[String],
 ) -> Option<Vec<String>> {
     let mut matched_paths: Vec<String> = Vec::new();
-    let mut matched = author.to_lowercase().contains(needle)
+    let mut matched = hash.to_lowercase().contains(needle)
+        || short_hash.to_lowercase().contains(needle)
+        || author.to_lowercase().contains(needle)
         || email.to_lowercase().contains(needle)
         || subject.to_lowercase().contains(needle)
         || body.to_lowercase().contains(needle);
@@ -348,6 +352,8 @@ pub async fn repo_search_commits(
             }
             let Some(matched_paths) = match_commit_record(
                 needle.as_str(),
+                hash.as_str(),
+                short_hash.as_str(),
                 author.as_str(),
                 email.as_str(),
                 subject.as_str(),
