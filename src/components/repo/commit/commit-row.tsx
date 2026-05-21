@@ -39,6 +39,7 @@ function CommitRowInner({
   path,
   row,
   maxLanes,
+  originColors,
   matchedPaths,
   searchHit,
   focusPulseToken,
@@ -53,6 +54,7 @@ function CommitRowInner({
   path: string;
   row: GraphRow;
   maxLanes: number;
+  originColors: ReadonlyMap<string, string>;
   matchedPaths?: string[];
   searchHit: boolean;
   focusPulseToken?: number;
@@ -201,7 +203,7 @@ function CommitRowInner({
       )}
     >
       <div className="flex w-[88px] shrink-0 justify-center self-stretch pl-0.5 pr-1">
-        <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} />
+        <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} originColors={originColors} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2.5 pl-2 sm:px-[14px] sm:py-2.5 sm:pl-1.5">
         <div className="flex min-w-0 items-center gap-2">

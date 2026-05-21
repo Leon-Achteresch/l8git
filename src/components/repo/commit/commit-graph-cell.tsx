@@ -1,5 +1,4 @@
 import {
-  branchLaneColorAtTip,
   laneColor,
   normalizeGitOid,
   type GraphRow,
@@ -17,11 +16,13 @@ export function CommitGraphCell({
   maxLanes,
   branches,
   showRefs = true,
+  originColors,
 }: {
   row: GraphRow;
   maxLanes: number;
   branches: Branch[];
   showRefs?: boolean;
+  originColors: ReadonlyMap<string, string>;
 }) {
   const lanes = Math.max(1, maxLanes);
   const usable = COL_W - PAD * 2;
@@ -29,13 +30,18 @@ export function CommitGraphCell({
   const midY = ROW_HEIGHT / 2;
   const laneX = (i: number) => PAD + i * laneW + laneW / 2;
 
+  /** Resolves a colour for an origin key using the graph-build map first,
+   *  then falling back to the deterministic name-hash helper. */
+  const colorOf = (origin: string | null | undefined): string =>
+    origin
+      ? (originColors.get(origin) ?? laneColor(origin))
+      : '#888';
+
   const segments: { d: string; color: string }[] = [];
 
   row.lanesBefore.forEach((hash, i) => {
     if (hash === null) return;
-    const originColor =
-      branchLaneColorAtTip(branches, row.laneOriginsBefore[i]) ??
-      laneColor(row.laneOriginsBefore[i]);
+    const originColor = colorOf(row.laneOriginsBefore[i]);
     const x0 = laneX(i);
     if (i === row.lane && hash === row.commit.hash) {
       segments.push({ d: `M ${x0} 0 L ${x0} ${midY}`, color: originColor });
@@ -54,9 +60,7 @@ export function CommitGraphCell({
 
   row.lanesAfter.forEach((hash, i) => {
     if (hash === null) return;
-    const originColor =
-      branchLaneColorAtTip(branches, row.laneOriginsAfter[i]) ??
-      laneColor(row.laneOriginsAfter[i]);
+    const originColor = colorOf(row.laneOriginsAfter[i]);
     const x1 = laneX(i);
     const before = row.lanesBefore[i];
     const wasContinuing =
@@ -84,13 +88,14 @@ export function CommitGraphCell({
   });
 
   const dotX = laneX(row.lane);
-  const dotStroke =
-    branchLaneColorAtTip(branches, row.commit.hash) ?? row.color;
+  // Use the row's own colour directly – it was assigned by the graph builder
+  // and is already consistent with the lane segments above/below.
+  const dotStroke = row.color;
 
   const commitHash = normalizeGitOid(row.commit.hash);
-  const isBranchTip = showRefs && branches.some(
-    (b) => normalizeGitOid(b.tip) === commitHash,
-  );
+  const isBranchTip =
+    showRefs &&
+    branches.some((b) => normalizeGitOid(b.tip) === commitHash);
   const hasTag = showRefs && row.commit.tags.length > 0;
   const isMerge = row.commit.parents.length > 1;
 
