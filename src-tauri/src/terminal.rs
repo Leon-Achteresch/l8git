@@ -83,6 +83,31 @@ fn resolve_shell(preferred: Option<&str>) -> (String, Vec<String>) {
     }
 }
 
+const DEFAULT_CELL_WIDTH_PX: u16 = 9;
+const DEFAULT_CELL_HEIGHT_PX: u16 = 17;
+
+fn compute_pty_size(
+    cols: Option<u16>,
+    rows: Option<u16>,
+    pixel_width: Option<u16>,
+    pixel_height: Option<u16>,
+) -> PtySize {
+    let cols = cols.unwrap_or(80).max(1);
+    let rows = rows.unwrap_or(24).max(1);
+    let pixel_width = pixel_width
+        .filter(|v| *v > 0)
+        .unwrap_or_else(|| cols.saturating_mul(DEFAULT_CELL_WIDTH_PX));
+    let pixel_height = pixel_height
+        .filter(|v| *v > 0)
+        .unwrap_or_else(|| rows.saturating_mul(DEFAULT_CELL_HEIGHT_PX));
+    PtySize {
+        rows,
+        cols,
+        pixel_width,
+        pixel_height,
+    }
+}
+
 #[tauri::command]
 pub async fn terminal_open(
     app: AppHandle,
@@ -90,6 +115,8 @@ pub async fn terminal_open(
     shell: Option<String>,
     cols: Option<u16>,
     rows: Option<u16>,
+    pixel_width: Option<u16>,
+    pixel_height: Option<u16>,
 ) -> Result<u64, String> {
     let cwd = PathBuf::from(path.trim());
     if !cwd.is_dir() {
@@ -97,12 +124,7 @@ pub async fn terminal_open(
     }
 
     let pty_system = native_pty_system();
-    let size = PtySize {
-        rows: rows.unwrap_or(24),
-        cols: cols.unwrap_or(80),
-        pixel_width: 0,
-        pixel_height: 0,
-    };
+    let size = compute_pty_size(cols, rows, pixel_width, pixel_height);
     let pair = pty_system.openpty(size).map_err(|e| e.to_string())?;
 
     let (prog, args) = resolve_shell(shell.as_deref());
@@ -193,19 +215,38 @@ pub async fn terminal_write(session: u64, data: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn terminal_resize(session: u64, cols: u16, rows: u16) -> Result<(), String> {
+pub async fn terminal_resize(
+    session: u64,
+    cols: u16,
+    rows: u16,
+    pixel_width: Option<u16>,
+    pixel_height: Option<u16>,
+) -> Result<(), String> {
     let sessions = SESSIONS.lock().unwrap();
     let s = sessions
         .get(&session)
         .ok_or_else(|| "Unbekannte Terminal-Sitzung.".to_string())?;
     s.master
-        .resize(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
+        .resize(compute_pty_size(
+            Some(cols),
+            Some(rows),
+            pixel_width,
+            pixel_height,
+        ))
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn terminal_repaint(session: u64) -> Result<(), String> {
+    let mut sessions = SESSIONS.lock().unwrap();
+    let s = sessions
+        .get_mut(&session)
+        .ok_or_else(|| "Unbekannte Terminal-Sitzung.".to_string())?;
+    // Form feed (Ctrl+L) — Bubbletea/Lipgloss-TUIs interpretieren das als Force-Redraw,
+    // Shells als clear. Pragmatisch der einzige portable Repaint-Trigger.
+    s.writer.write_all(b"\x0c").map_err(|e| e.to_string())?;
+    s.writer.flush().map_err(|e| e.to_string())?;
     Ok(())
 }
 

@@ -1,19 +1,23 @@
-import {
-  TerminalInputTracker,
-  titleFromTerminalOutput,
-} from "@/lib/terminal-tab-title";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { FitAddon } from "@xterm/addon-fit";
-import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal as Xterm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-type TerminalDataEvent = { session: number; data: string };
-type TerminalExitEvent = { session: number; code: number | null };
+import {
+  type CachedSession,
+  type SessionStatus,
+  attachSession,
+  detachSession,
+  getOrCreateSession,
+  reopenSession,
+  repaintSession,
+  subscribeStatus,
+  subscribeTitle,
+  syncResize,
+  updateSessionShell,
+  updateSessionTheme,
+} from "@/lib/terminal-session-cache";
 
 type XtermTheme = NonNullable<ConstructorParameters<typeof Xterm>[0]>["theme"];
 
@@ -73,40 +77,21 @@ function currentXtermTheme(): XtermTheme {
   return isDarkMode() ? DARK_THEME : LIGHT_THEME;
 }
 
-function decodeBase64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-function encodeBytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++)
-    binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
+export type { SessionStatus };
 
 interface SessionProps {
   path: string;
   tabId: string;
   active: boolean;
   isDark: boolean;
-  onExit?: (code: number | null) => void;
-  onStatusChange?: (status: SessionStatus, message: string) => void;
   onTitleChange?: (title: string) => void;
 }
-
-export type SessionStatus = "starting" | "ready" | "exited" | "error";
 
 export function RepoTerminalSession({
   path,
   tabId,
   active,
   isDark,
-  onExit,
-  onStatusChange,
   onTitleChange,
 }: SessionProps) {
   const { t } = useTranslation();
@@ -115,205 +100,102 @@ export function RepoTerminalSession({
   );
 
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const termRef = useRef<Xterm | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const sessionRef = useRef<number | null>(null);
-  const resizeObsRef = useRef<ResizeObserver | null>(null);
-  const inputTrackerRef = useRef(new TerminalInputTracker());
-  const outputBufRef = useRef("");
-  const lastTitleRef = useRef<string | null>(null);
-  const awaitingPromptRef = useRef(false);
-  const onTitleChangeRef = useRef(onTitleChange);
-  onTitleChangeRef.current = onTitleChange;
+  const recordRef = useRef<CachedSession | null>(null);
+  const shellRef = useRef(embeddedTerminalCommand);
+  shellRef.current = embeddedTerminalCommand;
+
   const [status, setStatus] = useState<SessionStatus>("starting");
   const [statusMsg, setStatusMsg] = useState<string>("");
-  const [reopenTick, setReopenTick] = useState(0);
+
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
 
   useEffect(() => {
-    onStatusChange?.(status, statusMsg);
-  }, [status, statusMsg, onStatusChange]);
+    const container = containerRef.current;
+    if (!container) return;
 
-  const pushTitle = (title: string | null) => {
-    if (!title || title === lastTitleRef.current) return;
-    lastTitleRef.current = title;
-    onTitleChangeRef.current?.(title);
-  };
-
-  const appendOutput = (chunk: string) => {
-    const cap = 4096;
-    const next = outputBufRef.current + chunk;
-    outputBufRef.current =
-      next.length > cap ? next.slice(next.length - cap) : next;
-    if (!awaitingPromptRef.current) return;
-    const cwd = titleFromTerminalOutput(outputBufRef.current);
-    if (cwd) {
-      awaitingPromptRef.current = false;
-      pushTitle(cwd);
-    }
-  };
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const term = new Xterm({
-      cursorBlink: true,
-      fontFamily:
-        '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-      fontSize: 13,
+    const { record } = getOrCreateSession({
+      path,
+      tabId,
       theme: currentXtermTheme(),
-      allowProposedApi: true,
-      scrollback: 5000,
+      shell: shellRef.current,
+    });
+    recordRef.current = record;
+
+    attachSession(record, container);
+
+    setStatus(record.status);
+    setStatusMsg(record.statusMsg);
+    if (record.lastTitle) onTitleChangeRef.current?.(record.lastTitle);
+
+    const unsubStatus = subscribeStatus(record, (s, m) => {
+      setStatus(s);
+      setStatusMsg(m);
+    });
+    const unsubTitle = subscribeTitle(record, (title) => {
+      onTitleChangeRef.current?.(title);
     });
 
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.loadAddon(new WebLinksAddon());
-    term.open(containerRef.current);
-    termRef.current = term;
-    fitRef.current = fit;
-
-    try {
-      fit.fit();
-    } catch {
-      /* size may not be ready */
-    }
-
-    inputTrackerRef.current = new TerminalInputTracker();
-    outputBufRef.current = "";
-    lastTitleRef.current = null;
-    awaitingPromptRef.current = true;
-
-    let disposed = false;
-    let unlistenData: UnlistenFn | null = null;
-    let unlistenExit: UnlistenFn | null = null;
-
-    const openSession = async () => {
-      setStatus("starting");
-      setStatusMsg("");
-      try {
-        const dims = { cols: term.cols, rows: term.rows };
-        const id = await invoke<number>("terminal_open", {
-          path,
-          shell: embeddedTerminalCommand.trim() || null,
-          cols: dims.cols,
-          rows: dims.rows,
-        });
-        if (disposed) {
-          void invoke("terminal_close", { session: id });
+    let resizeRaf: number | null = null;
+    const ro = new ResizeObserver(() => {
+      if (resizeRaf != null) return;
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = null;
+        try {
+          record.fit.fit();
+        } catch {
           return;
         }
-        sessionRef.current = id;
-        setStatus("ready");
-
-        unlistenData = await listen<TerminalDataEvent>(
-          "terminal:data",
-          (event) => {
-            if (event.payload.session !== id) return;
-            const bytes = decodeBase64ToBytes(event.payload.data);
-            const text = new TextDecoder().decode(bytes);
-            appendOutput(text);
-            term.write(bytes);
-          },
-        );
-
-        unlistenExit = await listen<TerminalExitEvent>(
-          "terminal:exit",
-          (event) => {
-            if (event.payload.session !== id) return;
-            setStatus("exited");
-            setStatusMsg(String(event.payload.code ?? 0));
-            sessionRef.current = null;
-            onExit?.(event.payload.code);
-          },
-        );
-      } catch (e) {
-        if (disposed) return;
-        setStatus("error");
-        setStatusMsg(String(e));
-      }
-    };
-
-    void openSession();
-
-    const onData = term.onData((data) => {
-      const id = sessionRef.current;
-      if (id == null) return;
-      const cmdTitle = inputTrackerRef.current.feed(data);
-      if (cmdTitle) {
-        awaitingPromptRef.current = true;
-        pushTitle(cmdTitle);
-      }
-      const bytes = new TextEncoder().encode(data);
-      const encoded = encodeBytesToBase64(bytes);
-      void invoke("terminal_write", { session: id, data: encoded }).catch(
-        () => {},
-      );
+        const changed = syncResize(record);
+        // If the running program is a TUI it may have rendered the initial
+        // layout against a stale size — nudge it to redraw fully.
+        if (changed) repaintSession(record);
+      });
     });
-
-    const applyResize = () => {
-      if (!fitRef.current || !termRef.current) return;
-      try {
-        fitRef.current.fit();
-      } catch {
-        return;
-      }
-      const id = sessionRef.current;
-      if (id != null) {
-        void invoke("terminal_resize", {
-          session: id,
-          cols: termRef.current.cols,
-          rows: termRef.current.rows,
-        }).catch(() => {});
-      }
-    };
-
-    const ro = new ResizeObserver(() => applyResize());
-    ro.observe(containerRef.current);
-    resizeObsRef.current = ro;
+    ro.observe(container);
 
     return () => {
-      disposed = true;
-      onData.dispose();
-      resizeObsRef.current?.disconnect();
-      resizeObsRef.current = null;
-      unlistenData?.();
-      unlistenExit?.();
-      const id = sessionRef.current;
-      sessionRef.current = null;
-      if (id != null) {
-        void invoke("terminal_close", { session: id }).catch(() => {});
-      }
-      term.dispose();
-      termRef.current = null;
-      fitRef.current = null;
+      if (resizeRaf != null) cancelAnimationFrame(resizeRaf);
+      ro.disconnect();
+      unsubStatus();
+      unsubTitle();
+      detachSession(record, container);
     };
-  }, [path, embeddedTerminalCommand, reopenTick, tabId]);
+  }, [path, tabId]);
 
   useEffect(() => {
-    if (termRef.current) {
-      termRef.current.options.theme = currentXtermTheme();
-    }
+    const rec = recordRef.current;
+    if (!rec) return;
+    updateSessionShell(rec, embeddedTerminalCommand);
+  }, [embeddedTerminalCommand]);
+
+  useEffect(() => {
+    const rec = recordRef.current;
+    if (rec) updateSessionTheme(rec, currentXtermTheme());
   }, [isDark]);
 
   useEffect(() => {
     if (!active) return;
-    requestAnimationFrame(() => {
+    const rec = recordRef.current;
+    if (!rec) return;
+    const raf = requestAnimationFrame(() => {
       try {
-        fitRef.current?.fit();
+        rec.fit.fit();
       } catch {
         /* noop */
       }
-      termRef.current?.focus();
-      const id = sessionRef.current;
-      if (id != null && termRef.current) {
-        void invoke("terminal_resize", {
-          session: id,
-          cols: termRef.current.cols,
-          rows: termRef.current.rows,
-        }).catch(() => {});
-      }
+      rec.term.focus();
+      const changed = syncResize(rec);
+      if (changed) repaintSession(rec);
     });
+    return () => cancelAnimationFrame(raf);
   }, [active]);
+
+  const handleReopen = () => {
+    const rec = recordRef.current;
+    if (!rec) return;
+    reopenSession(rec, shellRef.current);
+  };
 
   const bg = isDark ? "#0b0b0d" : "#ffffff";
 
@@ -328,7 +210,7 @@ export function RepoTerminalSession({
           <button
             type="button"
             className="ml-2 underline"
-            onClick={() => setReopenTick((n) => n + 1)}
+            onClick={handleReopen}
           >
             {t("embeddedTerminal.reopen")}
           </button>
@@ -340,7 +222,7 @@ export function RepoTerminalSession({
           <button
             type="button"
             className="ml-2 underline"
-            onClick={() => setReopenTick((n) => n + 1)}
+            onClick={handleReopen}
           >
             {t("embeddedTerminal.reopen")}
           </button>
@@ -349,7 +231,7 @@ export function RepoTerminalSession({
       <div
         ref={containerRef}
         className="min-h-0 flex-1 overflow-hidden px-2 py-1"
-        onClick={() => termRef.current?.focus()}
+        onClick={() => recordRef.current?.term.focus()}
       />
     </div>
   );

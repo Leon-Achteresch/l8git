@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { toastError } from '@/lib/error-toast';
 import i18n from '@/lib/i18n';
+import { useTerminalStore } from '@/lib/terminal-store';
 import { useWorkspacePrefs } from '@/lib/workspace-prefs';
 
 // Coalesce concurrent reload() calls per path so that back-to-back operations
@@ -665,6 +666,11 @@ export const useRepoStore = create<RepoState>()(
 
       removeRepo(path) {
         nextCommitAvatarGeneration(path);
+        try {
+          useTerminalStore.getState().closeAllForPath(path);
+        } catch {
+          /* terminal store not yet initialized */
+        }
         set(s => {
           const paths = s.paths.filter(p => p !== path);
           const { [path]: _r, ...repos } = s.repos;
