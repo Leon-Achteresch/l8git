@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import {
+  destroySession,
+  destroySessionsForPath,
+} from '@/lib/terminal-session-cache';
+
 export const TERMINAL_MIN_HEIGHT = 120;
 export const TERMINAL_MAX_HEIGHT = 720;
 export const TERMINAL_DEFAULT_HEIGHT = 260;
@@ -22,6 +27,7 @@ type TerminalState = {
   setPanelHeight: (height: number) => void;
   openTab: (path: string, title?: string) => string;
   closeTab: (path: string, id: string) => void;
+  closeAllForPath: (path: string) => void;
   setActiveTab: (path: string, id: string) => void;
   renameTab: (path: string, id: string, title: string) => void;
 };
@@ -69,7 +75,8 @@ export const useTerminalStore = create<TerminalState>()(
         });
         return id;
       },
-      closeTab: (path, id) =>
+      closeTab: (path, id) => {
+        destroySession(path, id);
         set((s) => {
           const tabs = s.tabsByPath[path] ?? [];
           const idx = tabs.findIndex((t) => t.id === id);
@@ -87,7 +94,17 @@ export const useTerminalStore = create<TerminalState>()(
             activeByPath: { ...s.activeByPath, [path]: nextActiveId },
             visibleByPath: { ...s.visibleByPath, [path]: visible },
           };
-        }),
+        });
+      },
+      closeAllForPath: (path) => {
+        destroySessionsForPath(path);
+        set((s) => {
+          const { [path]: _tabs, ...tabsByPath } = s.tabsByPath;
+          const { [path]: _active, ...activeByPath } = s.activeByPath;
+          const { [path]: _visible, ...visibleByPath } = s.visibleByPath;
+          return { tabsByPath, activeByPath, visibleByPath };
+        });
+      },
       setActiveTab: (path, id) =>
         set((s) => ({ activeByPath: { ...s.activeByPath, [path]: id } })),
       renameTab: (path, id, title) =>

@@ -126,6 +126,7 @@ pub fn run() {
             terminal::terminal_open,
             terminal::terminal_write,
             terminal::terminal_resize,
+            terminal::terminal_repaint,
             terminal::terminal_close
         ])
         .run(tauri::generate_context!())
