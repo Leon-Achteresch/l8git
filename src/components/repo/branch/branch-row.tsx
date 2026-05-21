@@ -11,6 +11,7 @@ import { useRepoStore } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import {
+  ArrowDown,
   Check,
   GitBranch,
   GitMerge,
@@ -115,6 +116,13 @@ function BranchRowInner({
           />
         ) : null}
       </span>
+
+      {branch.behind != null && branch.behind > 0 && (
+        <span className='flex shrink-0 items-center gap-px rounded bg-red-500/10 px-1 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-400/10 dark:text-red-400'>
+          <ArrowDown className='size-3' aria-hidden />
+          {branch.behind}
+        </span>
+      )}
 
       <span className='flex min-w-0 flex-1 items-baseline gap-1'>
         {branch.is_remote && remotePrefix && (
@@ -283,6 +291,7 @@ export const BranchRow = memo(BranchRowInner, (a, b) => {
     (ab.name === bb.name &&
       ab.is_current === bb.is_current &&
       ab.is_remote === bb.is_remote &&
-      ab.tip === bb.tip)
+      ab.tip === bb.tip &&
+      ab.behind === bb.behind)
   );
 });

@@ -54,6 +54,7 @@ export type Branch = {
   is_current: boolean;
   is_remote: boolean;
   tip: string;
+  behind?: number;
 };
 
 export type TagRef = {

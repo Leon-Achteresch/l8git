@@ -33,6 +33,7 @@ pub struct Branch {
     is_current: bool,
     is_remote: bool,
     tip: String,
+    behind: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -2120,9 +2121,17 @@ pub async fn git_stash_branch(path: String, index: u32, name: String) -> Result<
     }).await
 }
 
+fn parse_behind_from_track(track: &str) -> Option<u32> {
+    // %(upstream:track) yields strings like "[ahead 2, behind 3]", "[behind 1]", "[gone]" or ""
+    let idx = track.find("behind ")?;
+    let rest = &track[idx + "behind ".len()..];
+    let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    rest[..end].parse::<u32>().ok()
+}
+
 fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
     let sep = "\x1f";
-    let format = format!("%(HEAD){sep}%(refname){sep}%(objectname)");
+    let format = format!("%(HEAD){sep}%(refname){sep}%(objectname){sep}%(upstream:track)");
     let out = run_git(
         repo,
         &[
@@ -2137,13 +2146,15 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
     let branches = out
         .lines()
         .filter_map(|line| {
-            let mut parts = line.splitn(3, sep);
+            let mut parts = line.splitn(4, sep);
             let head = parts.next()?;
             let refname = parts.next()?;
             let tip = parts.next()?.trim().to_string();
             if tip.is_empty() {
                 return None;
             }
+            let track = parts.next().unwrap_or("").trim();
+            let behind = parse_behind_from_track(track);
             let is_current = head.trim() == "*";
 
             let (name, is_remote) = if let Some(rest) = refname.strip_prefix("refs/heads/") {
@@ -2162,6 +2173,7 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
                 is_current,
                 is_remote,
                 tip,
+                behind,
             })
         })
         .collect();
@@ -3532,6 +3544,15 @@ pub async fn repo_blame(
         args.push(file.as_str());
         let output = run_git(&repo, &args)?;
         Ok(parse_blame_porcelain(&output))
+    }).await
+}
+
+#[tauri::command]
+pub async fn repo_list_files(path: String) -> Result<Vec<String>, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(&path);
+        let out = run_git(&repo, &["ls-files"])?;
+        Ok(out.lines().filter(|l| !l.is_empty()).map(|l| l.to_string()).collect())
     }).await
 }
 
