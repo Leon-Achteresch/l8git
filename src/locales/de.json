@@ -450,7 +450,12 @@
     "discardSelectionLines_other": "{{count}} Zeilen verwerfen",
     "discardLinesConfirm": "{{count}} ausgewählte Zeile(n) dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
     "fileRowBlame": "Git-Blame anzeigen",
-    "fileRowDiscard": "Änderungen verwerfen"
+    "fileRowDiscard": "Änderungen verwerfen",
+    "fileRowDiscardMultiple": "{{count}} Dateien verwerfen",
+    "discardDialogTitle": "Änderungen verwerfen?",
+    "discardManyConfirm_one": "Änderungen an {{count}} Datei dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
+    "discardManyConfirm_other": "Änderungen an {{count}} Dateien dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
+    "discardVerb": "Verwerfen"
   },
   "bisect": {
     "ended": "Bisect beendet.",

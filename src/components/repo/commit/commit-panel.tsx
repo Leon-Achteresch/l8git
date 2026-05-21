@@ -1,5 +1,15 @@
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -68,6 +78,7 @@ export function CommitPanel() {
 
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
+  const [discardDialog, setDiscardDialog] = useState<{ files: string[] } | null>(null);
 
   const layoutStorageKey = "l8git.commit-panel.layout.v2";
   const [defaultLayout] = useState(() => {
@@ -428,20 +439,33 @@ export function CommitPanel() {
   const discardOne = useCallback(
     (filePath: string) => {
       if (!activePath) return;
-      const ok = window.confirm(
-        t("commitPanel.discardConfirm", { path: filePath }),
-      );
-      if (!ok) return;
-      void (async () => {
-        try {
-          await discardFiles(activePath, [filePath]);
-        } catch (e) {
-          toastError(String(e));
-        }
-      })();
+      const multiIds = latestMultiSelectedIdsRef.current;
+      const rows = latestChangeRowsRef.current;
+
+      // If multiple files are selected and the right-clicked file is part of the selection,
+      // open a dialog to discard all selected files.
+      const clickedRow = rows.find((r) => r.path === filePath && multiIds.has(r.id));
+      if (multiIds.size > 1 && clickedRow) {
+        const selectedPaths = [...new Set(rows.filter((r) => multiIds.has(r.id)).map((r) => r.path))];
+        setDiscardDialog({ files: selectedPaths });
+        return;
+      }
+
+      setDiscardDialog({ files: [filePath] });
     },
-    [activePath, discardFiles, t],
+    [activePath],
   );
+
+  const confirmDiscard = useCallback(async () => {
+    if (!activePath || !discardDialog) return;
+    const { files } = discardDialog;
+    setDiscardDialog(null);
+    try {
+      await discardFiles(activePath, files);
+    } catch (e) {
+      toastError(String(e));
+    }
+  }, [activePath, discardFiles, discardDialog]);
 
   const onGenerateAiMessage = useCallback(async () => {
     if (!activePath || stagedRows.length === 0) return;
@@ -717,6 +741,32 @@ export function CommitPanel() {
         onClose={() => setStashOpen(false)}
         path={activePath}
       />
+
+      <AlertDialog
+        open={discardDialog !== null}
+        onOpenChange={(open) => { if (!open) setDiscardDialog(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("commitPanel.discardDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {discardDialog?.files.length === 1
+                ? t("commitPanel.discardConfirm", { path: discardDialog.files[0] })
+                : t("commitPanel.discardManyConfirm", { count: discardDialog?.files.length ?? 0 })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              size="sm"
+              onClick={() => void confirmDiscard()}
+            >
+              {t("commitPanel.discardVerb")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

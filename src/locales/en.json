@@ -450,7 +450,12 @@
     "discardSelectionLines_other": "Discard {{count}} lines",
     "discardLinesConfirm": "Permanently discard {{count}} selected line(s)? This cannot be undone.",
     "fileRowBlame": "Show Git blame",
-    "fileRowDiscard": "Discard changes"
+    "fileRowDiscard": "Discard changes",
+    "fileRowDiscardMultiple": "Discard {{count}} files",
+    "discardDialogTitle": "Discard changes?",
+    "discardManyConfirm_one": "Permanently discard changes to {{count}} file? This cannot be undone.",
+    "discardManyConfirm_other": "Permanently discard changes to {{count}} files? This cannot be undone.",
+    "discardVerb": "Discard"
   },
   "bisect": {
     "ended": "Bisect finished.",

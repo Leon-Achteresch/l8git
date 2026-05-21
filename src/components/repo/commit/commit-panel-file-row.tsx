@@ -21,6 +21,7 @@ function FileRowInner({
   row,
   selected,
   inMultiSelection,
+  multiSelectedCount,
   onSelect,
   onToggle,
   onDiscard,
@@ -29,6 +30,7 @@ function FileRowInner({
   row: ChangeRow;
   selected: boolean;
   inMultiSelection: boolean;
+  multiSelectedCount: number;
   onSelect: (id: string, shiftKey: boolean) => void;
   onToggle: (entry: StatusEntry, rowId: string) => void;
   onDiscard: (path: string) => void;
@@ -100,7 +102,9 @@ function FileRowInner({
         </ContextMenuItem>
         <ContextMenuItem variant="destructive" onSelect={() => onDiscard(row.path)}>
           <Undo2 className="h-3.5 w-3.5" />
-          {t("commitPanel.fileRowDiscard")}
+          {inMultiSelection && multiSelectedCount > 1
+            ? t("commitPanel.fileRowDiscardMultiple", { count: multiSelectedCount })
+            : t("commitPanel.fileRowDiscard")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

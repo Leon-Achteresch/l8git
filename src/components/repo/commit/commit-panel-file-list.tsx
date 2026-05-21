@@ -225,6 +225,7 @@ function VirtualFileListInner({
                     row={item.row}
                     selected={item.row.id === selectedRowId}
                     inMultiSelection={multiSelectedIds.has(item.row.id)}
+                    multiSelectedCount={multiSelectedIds.size}
                     onSelect={onSelect}
                     onToggle={onToggle}
                     onDiscard={onDiscard}
