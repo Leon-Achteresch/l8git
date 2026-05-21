@@ -1,5 +1,23 @@
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -8,11 +26,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { StashCreateDialog } from "@/components/repo/stash/stash-create-dialog";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
+import { useRepoPrefs } from "@/lib/repo-prefs";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
-import { parseDiffWithHunks, type ParsedDiff } from "@/lib/unified-diff";
-import { useCommitPanelHotkeys } from "@/lib/use-commit-panel-hotkeys";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Archive,
@@ -31,13 +48,27 @@ import { CommitPanelConflictPlaceholder } from "@/components/repo/commit/commit-
 import {
   buildChangeRows,
   checkState,
-  type FileDiffResponse,
 } from "./commit-panel-types";
 import { generateAiCommitMessage } from "@/lib/ai-commit";
 import { useTranslation } from "react-i18next";
 
 const EMPTY_STATUS: StatusEntry[] = [];
-const EMPTY_LINES: ReadonlySet<string> = new Set();
+
+const AI_LANGUAGES = [
+  { label: "English", short: "EN" },
+  { label: "Deutsch", short: "DE" },
+  { label: "Français", short: "FR" },
+  { label: "Español", short: "ES" },
+  { label: "Italiano", short: "IT" },
+  { label: "Português", short: "PT" },
+  { label: "中文", short: "ZH" },
+  { label: "日本語", short: "JA" },
+] as const;
+
+function languageShort(lang: string): string {
+  return AI_LANGUAGES.find((l) => l.label.toLowerCase() === lang.toLowerCase())?.short
+    ?? lang.slice(0, 2).toUpperCase();
+}
 
 export function CommitPanel() {
   const { t } = useTranslation();
@@ -52,6 +83,12 @@ export function CommitPanel() {
   const amendCommit = useRepoStore((s) => s.amendCommit);
   const latestCommit = useRepoStore((s) => (activePath ? s.repos[activePath]?.commits[0] : undefined));
   const discardFiles = useRepoStore((s) => s.discardFiles);
+  const discardWorktreeChanges = useRepoStore((s) => s.discardWorktreeChanges);
+
+  const globalAiLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
+  const repoAiLanguage = useRepoPrefs((s) => activePath ? s.getAiOutputLanguage(activePath) : undefined);
+  const setRepoAiLanguage = useRepoPrefs((s) => s.setAiOutputLanguage);
+  const effectiveLanguage = repoAiLanguage ?? globalAiLanguage;
 
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
@@ -59,15 +96,11 @@ export function CommitPanel() {
   const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [diffPayload, setDiffPayload] = useState<FileDiffResponse | null>(null);
-  const [diffLoading, setDiffLoading] = useState(false);
-  const [diffFailed, setDiffFailed] = useState(false);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
-  const [focusedHunkIdx, setFocusedHunkIdx] = useState(-1);
-  const [selectedLines, setSelectedLines] = useState<ReadonlySet<string>>(EMPTY_LINES);
 
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
+  const [discardDialog, setDiscardDialog] = useState<{ files: string[]; worktreeOnly: boolean } | null>(null);
 
   const layoutStorageKey = "l8git.commit-panel.layout.v2";
   const [defaultLayout] = useState(() => {
@@ -148,196 +181,12 @@ export function CommitPanel() {
   );
 
   const selectedPath = selectedRow?.path ?? null;
-  const selectedSector = selectedRow?.sector ?? null;
   const selectedBinary = !!selectedRow?.entry.binary;
-  const selectedUntracked = !!selectedRow?.entry.untracked;
-  const selectedSignature = selectedRow
-    ? [
-        selectedRow.entry.index_status,
-        selectedRow.entry.worktree_status,
-        selectedRow.entry.additions_staged,
-        selectedRow.entry.deletions_staged,
-        selectedRow.entry.additions_unstaged,
-        selectedRow.entry.deletions_unstaged,
-      ].join("|")
-    : "";
-
   const selectedIsConflict = selectedRow?.sector === "conflict";
 
-  const loadDiff = useCallback(async () => {
-    if (!activePath || !selectedPath) {
-      setDiffPayload(null);
-      return;
-    }
-    if (selectedIsConflict) {
-      setDiffPayload(null);
-      setDiffLoading(false);
-      setDiffFailed(false);
-      return;
-    }
-    if (selectedBinary) {
-      setDiffPayload({ staged: null, unstaged: null, untracked_plain: null, is_binary: true });
-      setDiffFailed(false);
-      return;
-    }
-    setDiffLoading(true);
-    setDiffFailed(false);
-    try {
-      const r = await invoke<FileDiffResponse>("repo_file_diff", {
-        path: activePath,
-        file: selectedPath,
-        untracked: selectedUntracked,
-      });
-      setDiffPayload(r);
-    } catch (e) {
-      toastError(String(e));
-      setDiffFailed(true);
-      setDiffPayload(null);
-    } finally {
-      setDiffLoading(false);
-    }
-  }, [activePath, selectedPath, selectedSector, selectedIsConflict, selectedBinary, selectedUntracked, selectedSignature]);
-
-  useEffect(() => {
-    void loadDiff();
-  }, [loadDiff]);
-
-  const parsedDiff = useMemo<ParsedDiff | null>(() => {
-    if (!selectedRow || !diffPayload) return null;
-    const text =
-      selectedRow.sector === "staged" ? diffPayload.staged : diffPayload.unstaged;
-    if (!text?.trim()) return null;
-    const result = parseDiffWithHunks(text);
-    console.log(
-      "[commit-panel] parsedDiff:",
-      result.hunks.length,
-      "hunks for",
-      selectedRow.path,
-      selectedRow.sector,
-    );
-    return result;
-  }, [diffPayload, selectedRow]);
-
-  useEffect(() => {
-    console.log("[commit-panel] reset interactive state, selectedRowId:", selectedRowId);
-    setFocusedHunkIdx(-1);
-    setSelectedLines(EMPTY_LINES);
-  }, [selectedRowId]);
-
-  const hunkCount = parsedDiff?.hunks.length ?? 0;
-
-  const onFocusPrevHunk = useCallback(() => {
-    setFocusedHunkIdx((i) => {
-      if (hunkCount === 0) return -1;
-      const next = i <= 0 ? hunkCount - 1 : i - 1;
-      console.log("[commit-panel] focusPrevHunk:", i, "→", next);
-      return next;
-    });
-  }, [hunkCount]);
-
-  const onFocusNextHunk = useCallback(() => {
-    setFocusedHunkIdx((i) => {
-      if (hunkCount === 0) return -1;
-      const next = i >= hunkCount - 1 ? 0 : i + 1;
-      console.log("[commit-panel] focusNextHunk:", i, "→", next);
-      return next;
-    });
-  }, [hunkCount]);
-
-  const onToggleLine = useCallback((key: string) => {
-    setSelectedLines((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      console.log("[commit-panel] toggleLine", key, "→", next.size, "selected");
-      return next;
-    });
-  }, []);
-
-  const onClearSelection = useCallback(() => {
-    console.log("[commit-panel] clearSelection");
-    setSelectedLines(EMPTY_LINES);
-  }, []);
-
-  const stageHunk = useCallback(
-    async (patch: string) => {
-      if (!activePath) return;
-      console.log("[commit-panel] stageHunk, patch length:", patch.length);
-      try {
-        await invoke("stage_hunk", { path: activePath, patch });
-        void reloadStatus(activePath);
-        void loadDiff();
-      } catch (e) {
-        toastError(String(e));
-      }
-    },
-    [activePath, reloadStatus, loadDiff],
-  );
-
-  const unstageHunk = useCallback(
-    async (patch: string) => {
-      if (!activePath) return;
-      console.log("[commit-panel] unstageHunk, patch length:", patch.length);
-      try {
-        await invoke("unstage_hunk", { path: activePath, patch });
-        void reloadStatus(activePath);
-        void loadDiff();
-      } catch (e) {
-        toastError(String(e));
-      }
-    },
-    [activePath, reloadStatus, loadDiff],
-  );
-
-  const discardHunk = useCallback(
-    async (patch: string, count: number) => {
-      if (!activePath) return;
-      const ok = window.confirm(t("commitPanel.discardLinesConfirm", { count }));
-      if (!ok) return;
-      console.log("[commit-panel] discardHunk, patch length:", patch.length);
-      try {
-        await invoke("discard_hunk", { path: activePath, patch });
-        void reloadStatus(activePath);
-        void loadDiff();
-      } catch (e) {
-        toastError(String(e));
-      }
-    },
-    [activePath, reloadStatus, loadDiff, t],
-  );
-
-  const latestSelectedRowRef = useRef(selectedRow);
-  latestSelectedRowRef.current = selectedRow;
-
-  const stableOnToggleFile = useCallback(async () => {
-    const row = latestSelectedRowRef.current;
-    if (!activePath || !row) return;
-    console.log("[commit-panel] toggleFile", row.path, row.sector);
-    const state = checkState(row.entry);
-    try {
-      if (state === "checked") {
-        await unstageFiles(activePath, [row.path]);
-      } else {
-        await stageFiles(activePath, [row.path]);
-      }
-    } catch (e) {
-      toastError(String(e));
-    }
-  }, [activePath, unstageFiles, stageFiles]);
-
-  useCommitPanelHotkeys({
-    parsedDiff,
-    focusedHunkIdx,
-    selectedLines,
-    sector: (selectedRow?.sector === "staged" || selectedRow?.sector === "unstaged") ? selectedRow.sector : null,
-    enabled: !!selectedRow && !diffLoading,
-    onClearSelection,
-    onFocusPrevHunk,
-    onFocusNextHunk,
-    onStage: stageHunk,
-    onUnstage: unstageHunk,
-    onToggleFile: stableOnToggleFile,
-  });
+  const stableOnReload = useCallback(() => {
+    if (activePath) void reloadStatus(activePath);
+  }, [activePath, reloadStatus]);
 
   const totals = useMemo(() => {
     let additionsStaged = 0;
@@ -420,35 +269,53 @@ export function CommitPanel() {
   );
 
   const stableOnBlame = useCallback((path: string) => setBlameTarget(path), []);
-  const stableOnReload = useCallback(() => void loadDiff(), [loadDiff]);
 
   const toggleAllRef = useRef<() => Promise<void>>(async () => {});
   const stableOnToggleAll = useCallback(() => void toggleAllRef.current(), []);
 
   const discardOne = useCallback(
-    (filePath: string) => {
+    (rowId: string) => {
       if (!activePath) return;
-      const ok = window.confirm(
-        t("commitPanel.discardConfirm", { path: filePath }),
-      );
-      if (!ok) return;
-      void (async () => {
-        try {
-          await discardFiles(activePath, [filePath]);
-        } catch (e) {
-          toastError(String(e));
-        }
-      })();
+      const multiIds = latestMultiSelectedIdsRef.current;
+      const rows = latestChangeRowsRef.current;
+
+      const clickedRow = rows.find((r) => r.id === rowId);
+      if (!clickedRow) return;
+
+      if (multiIds.size > 1 && multiIds.has(rowId)) {
+        const selectedRows = rows.filter((r) => multiIds.has(r.id));
+        const allUnstaged = selectedRows.every((r) => r.sector === "unstaged");
+        const files = [...new Set(selectedRows.map((r) => r.path))];
+        setDiscardDialog({ files, worktreeOnly: allUnstaged });
+        return;
+      }
+
+      setDiscardDialog({ files: [clickedRow.path], worktreeOnly: clickedRow.sector === "unstaged" });
     },
-    [activePath, discardFiles, t],
+    [activePath],
   );
+
+  const confirmDiscard = useCallback(async () => {
+    if (!activePath || !discardDialog) return;
+    const { files, worktreeOnly } = discardDialog;
+    setDiscardDialog(null);
+    try {
+      if (worktreeOnly) {
+        await discardWorktreeChanges(activePath, files);
+      } else {
+        await discardFiles(activePath, files);
+      }
+    } catch (e) {
+      toastError(String(e));
+    }
+  }, [activePath, discardFiles, discardWorktreeChanges, discardDialog]);
 
   const onGenerateAiMessage = useCallback(async () => {
     if (!activePath || stagedRows.length === 0) return;
     setAiGenerating(true);
     try {
       const stagedDiff = await invoke<string>("repo_staged_diff", { path: activePath });
-      const msg = await generateAiCommitMessage(stagedDiff);
+      const msg = await generateAiCommitMessage(stagedDiff, activePath);
       setMessage(msg);
     } catch (e) {
       toastError(String(e));
@@ -593,19 +460,10 @@ export function CommitPanel() {
               />
             ) : (
               <DiffViewer
+                repoPath={activePath}
                 selectedRow={selectedRow}
-                diffPayload={diffPayload}
-                loading={diffLoading}
-                diffFailed={diffFailed}
+                isBinary={selectedBinary}
                 onReload={stableOnReload}
-                onStageHunk={stageHunk}
-                onUnstageHunk={unstageHunk}
-                onDiscardHunk={discardHunk}
-                parsedDiff={parsedDiff}
-                focusedHunkIdx={focusedHunkIdx}
-                selectedLines={selectedLines}
-                onToggleLine={onToggleLine}
-                onClearSelection={onClearSelection}
               />
             )}
           </ResizablePanel>
@@ -655,6 +513,44 @@ export function CommitPanel() {
             className="resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
           <div className="absolute bottom-2 right-2 flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  title={t("commitPanel.aiLanguageTitle")}
+                  className={`h-9 rounded-md px-2 text-xs font-medium tabular-nums ${
+                    repoAiLanguage
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {languageShort(effectiveLanguage)}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top">
+                <DropdownMenuLabel>{t("commitPanel.aiLanguageLabel")}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => activePath && setRepoAiLanguage(activePath, undefined)}
+                  className={!repoAiLanguage ? "font-medium" : ""}
+                >
+                  {t("commitPanel.aiLanguageDefault", { lang: languageShort(globalAiLanguage) })}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {AI_LANGUAGES.map(({ label, short }) => (
+                  <DropdownMenuItem
+                    key={label}
+                    onClick={() => activePath && setRepoAiLanguage(activePath, label)}
+                    className={repoAiLanguage === label ? "font-medium" : ""}
+                  >
+                    <span className="w-7 text-muted-foreground">{short}</span>
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               type="button"
               size="icon"
@@ -717,6 +613,32 @@ export function CommitPanel() {
         onClose={() => setStashOpen(false)}
         path={activePath}
       />
+
+      <AlertDialog
+        open={discardDialog !== null}
+        onOpenChange={(open) => { if (!open) setDiscardDialog(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("commitPanel.discardDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {discardDialog?.files.length === 1
+                ? t("commitPanel.discardConfirm", { path: discardDialog.files[0] })
+                : t("commitPanel.discardManyConfirm", { count: discardDialog?.files.length ?? 0 })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              size="sm"
+              onClick={() => void confirmDiscard()}
+            >
+              {t("commitPanel.discardVerb")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

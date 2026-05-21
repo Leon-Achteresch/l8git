@@ -66,6 +66,10 @@ type UiState = {
   mergeEditorInitialFile: string | null;
   openMergeEditor: (path: string, file?: string) => void;
   closeMergeEditor: () => void;
+  blameEditorPath: string | null;
+  blameEditorFile: string | null;
+  openBlameEditor: (path: string, file?: string) => void;
+  closeBlameEditor: () => void;
   bisectVisible: boolean;
   setBisectVisible: (v: boolean) => void;
   bisectPending: Record<string, { bad: string | null; good: string | null }>;
@@ -144,6 +148,10 @@ export const useUiStore = create<UiState>()(
       mergeEditorInitialFile: null,
       openMergeEditor: (path, file) => set({ mergeEditorPath: path, mergeEditorInitialFile: file ?? null }),
       closeMergeEditor: () => set({ mergeEditorPath: null, mergeEditorInitialFile: null }),
+      blameEditorPath: null,
+      blameEditorFile: null,
+      openBlameEditor: (path, file) => set({ blameEditorPath: path, blameEditorFile: file ?? null }),
+      closeBlameEditor: () => set({ blameEditorPath: null, blameEditorFile: null }),
       bisectVisible: true,
       setBisectVisible: v => set({ bisectVisible: v }),
       bisectPending: {},

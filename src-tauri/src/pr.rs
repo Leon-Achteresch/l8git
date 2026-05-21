@@ -29,6 +29,9 @@ pub struct PullRequest {
     labels: Vec<String>,
     reviewers: Vec<Reviewer>,
     provider: String,
+    /// GraphQL global node ID — required for auto-merge mutations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    node_id: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -45,6 +48,10 @@ pub struct PullRequestDetail {
     mergeable: Option<bool>,
     merge_commit_sha: Option<String>,
     head_sha: String,
+    /// Auto-merge method if currently enabled ("merge", "squash", "rebase"),
+    /// or `None` if auto-merge is not set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    auto_merge_method: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -201,7 +208,15 @@ fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
     }
 
     let (host, path_part) = if let Some(rest) = url.strip_prefix("git@") {
+        // Standard SCP-SSH: git@host:org/repo.git
         let mut split = rest.splitn(2, ':');
+        let host = split.next().unwrap_or("").to_string();
+        let path_part = split.next().unwrap_or("").to_string();
+        (host, path_part)
+    } else if url.contains('@') && !url.starts_with("http") && url.contains(':') && !url.contains("://") {
+        // Generisches SCP-SSH: user@host:org/repo.git  (z. B. storelogix@storelogix.ghe.com:...)
+        let after_at = url.splitn(2, '@').nth(1).unwrap_or("");
+        let mut split = after_at.splitn(2, ':');
         let host = split.next().unwrap_or("").to_string();
         let path_part = split.next().unwrap_or("").to_string();
         (host, path_part)
@@ -297,6 +312,18 @@ async fn github_read_json(res: reqwest::Response, host: &str) -> Result<Value, S
     if !res.status().is_success() {
         let status = res.status();
         let body = res.text().await.unwrap_or_default();
+        // Detect SAML SSO enforcement (GitHub Enterprise + github.com orgs with SAML)
+        if status == reqwest::StatusCode::FORBIDDEN
+            && (body.contains("SAML enforcement")
+                || body.contains("saml_enforcement")
+                || body.contains("organization SAML"))
+        {
+            return Err(format!(
+                "GitHub 403: Das Personal Access Token ist nicht für SAML Single Sign-On autorisiert. \
+                Bitte das Token unter {host} → Settings → Applications → Authorized OAuth Apps \
+                für die Organisation freischalten."
+            ));
+        }
         return Err(format!("GitHub {status}: {}", body.trim()));
     }
     res.json::<Value>().await.map_err(|e| format!("GitHub: {e}"))
@@ -415,6 +442,7 @@ fn gh_map_pr(v: &Value) -> PullRequest {
         labels,
         reviewers,
         provider: Provider::GitHub.as_str().to_string(),
+        node_id: v["node_id"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string()),
     }
 }
 
@@ -470,6 +498,10 @@ async fn gh_detail(
         mergeable: v["mergeable"].as_bool(),
         merge_commit_sha: v["merge_commit_sha"].as_str().map(|s| s.to_string()),
         head_sha: str_or_empty(&v["head"]["sha"]),
+        auto_merge_method: v["auto_merge"]["merge_method"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
         base,
     })
 }
@@ -850,6 +882,7 @@ fn bb_map_pr(v: &Value) -> PullRequest {
         labels: Vec::new(),
         reviewers,
         provider: Provider::Bitbucket.as_str().to_string(),
+        node_id: None,
     }
 }
 
@@ -890,6 +923,7 @@ async fn bb_detail(
         mergeable: None,
         merge_commit_sha: v["merge_commit"]["hash"].as_str().map(|s| s.to_string()),
         head_sha,
+        auto_merge_method: None,
         base,
     })
 }
@@ -1744,11 +1778,18 @@ pub async fn repo_commit_checks(path: String) -> Result<RepoCommitChecks, String
         return Err("Kein HEAD-Commit.".into());
     }
     let checks = match h.provider {
-        Provider::GitHub => gh_checks(&client, &cred, &h, &head_sha).await?,
+        Provider::GitHub => {
+            match gh_checks(&client, &cred, &h, &head_sha).await {
+                Ok(c) => c,
+                // 422 = commit not yet pushed; return empty without error
+                Err(e) if e.contains("422") || e.contains("No commit found") => vec![],
+                Err(e) => return Err(e),
+            }
+        }
         Provider::Bitbucket => bb_checks_for_commit(&client, &cred, &h, &head_sha).await?,
         Provider::Unsupported => {
             return Err(format!(
-                "CI-Checks für den Host {} werden nicht unterstützt (nur github.com / bitbucket.org).",
+                "CI-Checks für den Host {} werden nicht unterstützt. GitHub (auch Enterprise) und Bitbucket sind verfügbar. GitLab ist aktuell noch nicht integriert.",
                 h.host
             ));
         }
@@ -1968,4 +2009,553 @@ pub async fn pr_checkout(path: String, number: u64) -> Result<PrCheckoutResult, 
     Ok(PrCheckoutResult {
         branch: local_branch,
     })
+}
+
+// ========= GitHub Actions – Workflow Runs =========
+
+#[derive(Serialize)]
+pub struct WorkflowRun {
+    id: u64,
+    name: String,
+    status: String,
+    conclusion: Option<String>,
+    workflow_id: u64,
+    head_branch: Option<String>,
+    head_sha: String,
+    run_number: u64,
+    event: String,
+    created_at: String,
+    updated_at: String,
+    html_url: String,
+    run_started_at: Option<String>,
+    actor_login: Option<String>,
+    actor_avatar: Option<String>,
+    display_title: Option<String>,
+    run_attempt: Option<u64>,
+    /// e.g. ".github/workflows/release.yml@refs/heads/main"
+    workflow_path: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct WorkflowStep {
+    name: String,
+    status: String,
+    conclusion: Option<String>,
+    number: u64,
+    started_at: Option<String>,
+    completed_at: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct WorkflowJob {
+    id: u64,
+    run_id: u64,
+    name: String,
+    status: String,
+    conclusion: Option<String>,
+    started_at: Option<String>,
+    completed_at: Option<String>,
+    html_url: Option<String>,
+    steps: Vec<WorkflowStep>,
+}
+
+#[tauri::command]
+pub async fn list_workflow_runs(path: String) -> Result<Vec<WorkflowRun>, String> {
+    let p = repo_path(&path);
+    if !p.is_dir() {
+        return Err("Pfad ist kein Verzeichnis.".into());
+    }
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Workflow Runs sind nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let url = github_repo_api_url(&h, "actions/runs?per_page=30");
+    let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
+    let v = github_read_json(res, &h.host).await?;
+    let runs = v["workflow_runs"].as_array().cloned().unwrap_or_default();
+    let mut out = Vec::with_capacity(runs.len());
+    for r in &runs {
+        out.push(WorkflowRun {
+            id: r["id"].as_u64().unwrap_or(0),
+            name: str_or_empty(&r["name"]),
+            status: str_or_empty(&r["status"]),
+            conclusion: r["conclusion"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+            workflow_id: r["workflow_id"].as_u64().unwrap_or(0),
+            head_branch: r["head_branch"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+            head_sha: str_or_empty(&r["head_sha"]),
+            run_number: r["run_number"].as_u64().unwrap_or(0),
+            event: str_or_empty(&r["event"]),
+            created_at: str_or_empty(&r["created_at"]),
+            updated_at: str_or_empty(&r["updated_at"]),
+            html_url: str_or_empty(&r["html_url"]),
+            run_started_at: r["run_started_at"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+            actor_login: r["actor"]["login"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+            actor_avatar: r["actor"]["avatar_url"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+            display_title: r["display_title"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+            run_attempt: r["run_attempt"].as_u64(),
+            workflow_path: r["path"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+        });
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn get_workflow_jobs(path: String, run_id: u64) -> Result<Vec<WorkflowJob>, String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Workflow Jobs sind nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let url = github_repo_api_url(&h, &format!("actions/runs/{run_id}/jobs?per_page=100"));
+    let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
+    let v = github_read_json(res, &h.host).await?;
+    let jobs = v["jobs"].as_array().cloned().unwrap_or_default();
+    let mut out = Vec::with_capacity(jobs.len());
+    for j in &jobs {
+        let steps: Vec<WorkflowStep> = j["steps"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .map(|s| WorkflowStep {
+                        name: str_or_empty(&s["name"]),
+                        status: str_or_empty(&s["status"]),
+                        conclusion: s["conclusion"]
+                            .as_str()
+                            .filter(|v| !v.is_empty())
+                            .map(|v| v.to_string()),
+                        number: s["number"].as_u64().unwrap_or(0),
+                        started_at: s["started_at"]
+                            .as_str()
+                            .filter(|v| !v.is_empty())
+                            .map(|v| v.to_string()),
+                        completed_at: s["completed_at"]
+                            .as_str()
+                            .filter(|v| !v.is_empty())
+                            .map(|v| v.to_string()),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.push(WorkflowJob {
+            id: j["id"].as_u64().unwrap_or(0),
+            run_id: j["run_id"].as_u64().unwrap_or(0),
+            name: str_or_empty(&j["name"]),
+            status: str_or_empty(&j["status"]),
+            conclusion: j["conclusion"]
+                .as_str()
+                .filter(|v| !v.is_empty())
+                .map(|v| v.to_string()),
+            started_at: j["started_at"]
+                .as_str()
+                .filter(|v| !v.is_empty())
+                .map(|v| v.to_string()),
+            completed_at: j["completed_at"]
+                .as_str()
+                .filter(|v| !v.is_empty())
+                .map(|v| v.to_string()),
+            html_url: j["html_url"]
+                .as_str()
+                .filter(|v| !v.is_empty())
+                .map(|v| v.to_string()),
+            steps,
+        });
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn rerun_workflow(path: String, run_id: u64) -> Result<(), String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Re-run ist nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let url = github_repo_api_url(&h, &format!("actions/runs/{run_id}/rerun"));
+    let res =
+        github_request(&client, &cred, reqwest::Method::POST, &url, Some(json!({}))).await?;
+    if res.status().is_success() {
+        Ok(())
+    } else {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        Err(format!("Re-run fehlgeschlagen ({status}): {}", body.trim()))
+    }
+}
+
+#[tauri::command]
+pub async fn cancel_workflow(path: String, run_id: u64) -> Result<(), String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Abbrechen ist nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let url = github_repo_api_url(&h, &format!("actions/runs/{run_id}/cancel"));
+    let res = github_request(&client, &cred, reqwest::Method::POST, &url, None).await?;
+    if res.status().is_success() {
+        Ok(())
+    } else {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        Err(format!("Abbrechen fehlgeschlagen ({status}): {}", body.trim()))
+    }
+}
+
+// ========= GitHub Enterprise — Check Runs Re-run =========
+
+/// Re-request (re-run) a single Check Run.
+/// Works on github.com and GitHub Enterprise (any host treated as GitHub).
+/// The API requires the "checks:write" permission on the token.
+#[tauri::command]
+pub async fn pr_rerun_check(path: String, check_run_id: String) -> Result<(), String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Check-Run Re-run ist nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let url = github_repo_api_url(&h, &format!("check-runs/{check_run_id}/rerequest"));
+    let res =
+        github_request(&client, &cred, reqwest::Method::POST, &url, Some(json!({}))).await?;
+    let status = res.status();
+    if status.is_success() || status == reqwest::StatusCode::NO_CONTENT {
+        Ok(())
+    } else {
+        let body = res.text().await.unwrap_or_default();
+        Err(format!("Check Re-run fehlgeschlagen ({status}): {}", body.trim()))
+    }
+}
+
+/// Re-request (re-run) all Check Runs belonging to a Check Suite.
+#[tauri::command]
+pub async fn pr_rerun_check_suite(path: String, suite_id: String) -> Result<(), String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Check-Suite Re-run ist nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let url = github_repo_api_url(&h, &format!("check-suites/{suite_id}/rerequest"));
+    let res =
+        github_request(&client, &cred, reqwest::Method::POST, &url, Some(json!({}))).await?;
+    let status = res.status();
+    if status.is_success() || status == reqwest::StatusCode::NO_CONTENT {
+        Ok(())
+    } else {
+        let body = res.text().await.unwrap_or_default();
+        Err(format!("Suite Re-run fehlgeschlagen ({status}): {}", body.trim()))
+    }
+}
+
+// ========= GitHub Enterprise — Check Run Annotations =========
+
+#[derive(Serialize)]
+pub struct CheckAnnotation {
+    path: String,
+    start_line: u64,
+    end_line: u64,
+    annotation_level: String,
+    title: Option<String>,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    raw_details: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    blob_href: Option<String>,
+}
+
+/// Fetch inline annotations for a specific Check Run.
+/// Annotations are file-level comments produced by CI tools (ESLint, TypeScript,
+/// test reporters, etc.) and displayed in the PR diff view on GitHub.
+#[tauri::command]
+pub async fn pr_check_annotations(
+    path: String,
+    check_run_id: String,
+) -> Result<Vec<CheckAnnotation>, String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Annotationen sind nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let mut out = Vec::new();
+    for page in 1..=10u32 {
+        let url = github_repo_api_url(
+            &h,
+            &format!("check-runs/{check_run_id}/annotations?per_page=100&page={page}"),
+        );
+        let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
+        let v = github_read_json(res, &h.host).await?;
+        let arr = v.as_array().cloned().unwrap_or_default();
+        let len = arr.len();
+        for a in arr {
+            out.push(CheckAnnotation {
+                path: str_or_empty(&a["path"]),
+                start_line: a["start_line"].as_u64().unwrap_or(0),
+                end_line: a["end_line"].as_u64().unwrap_or(0),
+                annotation_level: str_or_empty(&a["annotation_level"]),
+                title: a["title"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string()),
+                message: str_or_empty(&a["message"]),
+                raw_details: a["raw_details"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string()),
+                blob_href: a["blob_href"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string()),
+            });
+        }
+        if len < 100 {
+            break;
+        }
+    }
+    Ok(out)
+}
+
+// ========= GitHub Enterprise — Branch Protection =========
+
+#[derive(Serialize)]
+pub struct BranchProtection {
+    required_status_checks: Vec<String>,
+    required_approving_review_count: Option<u64>,
+    dismiss_stale_reviews: bool,
+    require_code_owner_reviews: bool,
+    enforce_admins: bool,
+    allow_force_pushes: bool,
+    allow_deletions: bool,
+}
+
+/// Fetch branch protection rules for the given branch.
+/// Returns an error when no rules are configured (HTTP 404) or the token
+/// lacks sufficient access (HTTP 403).
+#[tauri::command]
+pub async fn pr_branch_protection(
+    path: String,
+    branch: String,
+) -> Result<BranchProtection, String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Branch-Protection ist nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let enc_branch = encode_uri_component(&branch);
+    let url = github_repo_api_url(&h, &format!("branches/{enc_branch}/protection"));
+    let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
+    if res.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err(format!(
+            "Kein Branch-Protection-Regelwerk für '{branch}' konfiguriert."
+        ));
+    }
+    let v = github_read_json(res, &h.host).await?;
+
+    // GHE 2.x uses "contexts" (plain strings); GHE 3.x / github.com use "checks"
+    // (objects with "context" key). We support both.
+    let required_status_checks: Vec<String> = v["required_status_checks"]["checks"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|c| c["context"].as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .or_else(|| {
+            v["required_status_checks"]["contexts"]
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|c| c.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
+        })
+        .unwrap_or_default();
+
+    Ok(BranchProtection {
+        required_status_checks,
+        required_approving_review_count: v["required_pull_request_reviews"]
+            ["required_approving_review_count"]
+            .as_u64(),
+        dismiss_stale_reviews: v["required_pull_request_reviews"]["dismiss_stale_reviews"]
+            .as_bool()
+            .unwrap_or(false),
+        require_code_owner_reviews: v["required_pull_request_reviews"]
+            ["require_code_owner_reviews"]
+            .as_bool()
+            .unwrap_or(false),
+        enforce_admins: v["enforce_admins"]["enabled"].as_bool().unwrap_or(false),
+        allow_force_pushes: v["allow_force_pushes"]["enabled"].as_bool().unwrap_or(false),
+        allow_deletions: v["allow_deletions"]["enabled"].as_bool().unwrap_or(false),
+    })
+}
+
+// ========= GitHub Enterprise — Auto-Merge (GraphQL) =========
+
+fn github_graphql_endpoint(host: &str) -> String {
+    if host.eq_ignore_ascii_case("github.com") {
+        "https://api.github.com/graphql".to_string()
+    } else {
+        format!("https://{}/api/graphql", host.trim_end_matches('/'))
+    }
+}
+
+/// Enable or disable GitHub auto-merge for a pull request.
+///
+/// - `enable = true` + `merge_method` ("merge" | "squash" | "rebase") → enable auto-merge.
+/// - `enable = false` → disable auto-merge.
+///
+/// Requires the PR's `node_id` (GraphQL global ID) returned by `pr_detail`.
+/// Needs the "pull_requests:write" scope on the Personal Access Token.
+/// Available on github.com and GitHub Enterprise 3.1+.
+#[tauri::command]
+pub async fn pr_set_auto_merge(
+    path: String,
+    pr_node_id: String,
+    enable: bool,
+    merge_method: Option<String>,
+) -> Result<(), String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Auto-Merge ist nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let gql_url = github_graphql_endpoint(&h.host);
+
+    let query_body = if enable {
+        let method_str = match merge_method.as_deref().unwrap_or("merge") {
+            "squash" => "SQUASH",
+            "rebase" => "REBASE",
+            _ => "MERGE",
+        };
+        json!({
+            "query": "mutation($id: ID!, $method: PullRequestMergeMethod!) { enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: $method }) { pullRequest { autoMergeRequest { mergeMethod } } } }",
+            "variables": { "id": pr_node_id, "method": method_str }
+        })
+    } else {
+        json!({
+            "query": "mutation($id: ID!) { disablePullRequestAutoMerge(input: { pullRequestId: $id }) { pullRequest { id } } }",
+            "variables": { "id": pr_node_id }
+        })
+    };
+
+    let res = client
+        .post(&gql_url)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "l8git")
+        .header("Authorization", format!("Bearer {}", cred.password))
+        .json(&query_body)
+        .send()
+        .await
+        .map_err(|e| format!("GitHub GraphQL: {e}"))?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        return Err(format!("GitHub GraphQL {status}: {}", body.trim()));
+    }
+
+    let v: Value = res
+        .json()
+        .await
+        .map_err(|e| format!("GitHub GraphQL: {e}"))?;
+    if let Some(errors) = v["errors"].as_array() {
+        if !errors.is_empty() {
+            let msg = errors
+                .iter()
+                .filter_map(|e| e["message"].as_str())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(format!("GitHub GraphQL Fehler: {msg}"));
+        }
+    }
+    Ok(())
+}
+
+// ========= Workflow File I/O =========
+
+/// Returns sorted list of .yml/.yaml filenames inside .github/workflows/
+#[tauri::command]
+pub fn list_workflow_files(path: String) -> Result<Vec<String>, String> {
+    let p = repo_path(&path);
+    let dir = p.join(".github").join("workflows");
+    if !dir.is_dir() {
+        return Ok(vec![]);
+    }
+    let mut files: Vec<String> = std::fs::read_dir(&dir)
+        .map_err(|e| format!("Konnte Workflows-Verzeichnis nicht lesen: {e}"))?
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| n.ends_with(".yml") || n.ends_with(".yaml"))
+        .collect();
+    files.sort();
+    Ok(files)
+}
+
+/// Read a workflow file from .github/workflows/<filename>
+#[tauri::command]
+pub fn read_workflow_file(path: String, filename: String) -> Result<String, String> {
+    let p = repo_path(&path);
+    let safe = std::path::Path::new(&filename)
+        .file_name()
+        .ok_or("Ungültiger Dateiname.")?
+        .to_string_lossy()
+        .to_string();
+    if !safe.ends_with(".yml") && !safe.ends_with(".yaml") {
+        return Err("Nur .yml/.yaml Dateien erlaubt.".into());
+    }
+    let file_path = p.join(".github").join("workflows").join(&safe);
+    std::fs::read_to_string(&file_path)
+        .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))
+}
+
+/// Write a workflow file back to .github/workflows/<filename>
+#[tauri::command]
+pub fn save_workflow_file(path: String, filename: String, content: String) -> Result<(), String> {
+    let p = repo_path(&path);
+    let safe = std::path::Path::new(&filename)
+        .file_name()
+        .ok_or("Ungültiger Dateiname.")?
+        .to_string_lossy()
+        .to_string();
+    if !safe.ends_with(".yml") && !safe.ends_with(".yaml") {
+        return Err("Nur .yml/.yaml Dateien erlaubt.".into());
+    }
+    let file_path = p.join(".github").join("workflows").join(&safe);
+    std::fs::write(&file_path, content)
+        .map_err(|e| format!("Datei konnte nicht gespeichert werden: {e}"))
 }

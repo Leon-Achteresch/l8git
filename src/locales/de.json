@@ -25,10 +25,126 @@
   },
   "header": {
     "repo": "Repository",
+    "dashboard": "Dashboard",
     "info": "Info",
     "about": "Über",
     "mainNav": "Hauptnavigation",
     "settingsAria": "Einstellungen"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Einblicke in deine Repositories",
+    "backAria": "Zurück",
+    "noActiveRepo": "Öffne ein Repository, um das Dashboard zu sehen.",
+    "activeRepoLabel": "Aktives Repository",
+    "tabs": {
+      "active": "Aktives Repo",
+      "all": "Alle Repos"
+    },
+    "cards": {
+      "commits30": "Commits · 30 T",
+      "lineDelta": "Zeilenänderung",
+      "branches": "Branches",
+      "branchesFooter": "{{active}} aktiv · {{stale}} alt",
+      "upstream": "Upstream",
+      "upstreamFooter": "{{ahead}} voraus · {{behind}} zurück",
+      "noUpstream": "Kein Upstream",
+      "openPrs": "Offene PRs",
+      "workingCopy": "Working Copy",
+      "staged": "{{n}} staged",
+      "unstaged": "{{n}} geändert",
+      "untracked": "{{n}} neu"
+    },
+    "activity": {
+      "title": "Commit-Aktivität",
+      "subtitle": "Wie sich das Repo bewegt",
+      "day": "Tag",
+      "week": "Woche",
+      "month": "Monat",
+      "empty": "Keine Commits im gewählten Zeitraum.",
+      "legend": {
+        "commits": "Commits",
+        "insertions": "Hinzugefügt",
+        "deletions": "Entfernt"
+      }
+    },
+    "contributors": {
+      "title": "Top Contributors",
+      "subtitle": "Letzte 90 Tage",
+      "empty": "Noch keine Contributor-Daten.",
+      "commits_one": "{{count}} Commit",
+      "commits_other": "{{count}} Commits"
+    },
+    "languages": {
+      "title": "Sprachen",
+      "empty": "Noch keine Sprachdaten."
+    },
+    "activityFeed": {
+      "title": "Letzte Aktivität",
+      "empty": "Noch nichts zu sehen."
+    },
+    "health": {
+      "title": "Repo-Gesundheit",
+      "workingCopy": {
+        "label": "Working Copy",
+        "ok": "Sauber",
+        "warn": "Offene Änderungen",
+        "error": "Konflikte"
+      },
+      "upstream": {
+        "label": "Upstream",
+        "ok": "Synchron",
+        "warn": "Abgewichen",
+        "error": "Abgewichen"
+      },
+      "conflicts": {
+        "label": "Konflikte",
+        "ok": "Keine",
+        "warn": "Offen",
+        "error": "Offen"
+      },
+      "bisect": {
+        "label": "Bisect",
+        "ok": "Inaktiv",
+        "warn": "Aktiv",
+        "error": "Problem"
+      },
+      "stashes": {
+        "label": "Stashes",
+        "ok": "Keine",
+        "warn": "Vorhanden",
+        "error": "Vorhanden"
+      },
+      "worktrees": {
+        "label": "Worktrees",
+        "ok": "Konfiguriert",
+        "warn": "Prüfen",
+        "error": "Prüfen"
+      }
+    },
+    "all": {
+      "title": "Repositories",
+      "subtitle": "Alle Repos dieses Workspaces auf einen Blick",
+      "refresh": "Aktualisieren",
+      "empty": "Keine Repositories im Workspace.",
+      "totals": {
+        "repos": "Repositories",
+        "ahead": "Σ voraus",
+        "behind": "Σ zurück",
+        "dirty": "Dirty Worktrees",
+        "scanned": "geprüft",
+        "attention": "benötigt Aufmerksamkeit",
+        "allClear": "alles okay"
+      },
+      "cols": {
+        "repo": "Repository",
+        "branch": "Branch",
+        "sync": "Sync",
+        "dirty": "Dirty",
+        "last": "Letzter Commit",
+        "activity": "30-Tage-Aktivität"
+      }
+    }
   },
   "emptyState": {
     "cardCommitsCaption": "Alle Änderungen",
@@ -77,6 +193,7 @@
     "updateInstallFailed": "Update fehlgeschlagen: {{error}}",
     "restartFailed": "Neustart fehlgeschlagen: {{error}}",
     "aiNoResponse": "Keine Antwort vom AI-Modell erhalten",
+    "aiNoApiKey": "Kein API-Key konfiguriert. Gehe zu Einstellungen → AI, um deinen Key einzutragen.",
     "cloneOpenFailed": "Geklontes Repository konnte nicht geöffnet werden.",
     "localChangesBlockPull": "Bitte zuerst die aktuellen Änderungen committen, danach erneut pullen und Konflikte manuell auflösen. Betroffen: {{files}}"
   },
@@ -132,11 +249,37 @@
     "hideT3Label": "T3-Checkpoint-Commits ausblenden",
     "hideT3HintPart1": "T3 Code speichert Arbeitsstand-Snapshots als separate Commits unter ",
     "hideT3HintPart2": ". Diese erscheinen nicht in einem Branch und können den Graphen unübersichtlich machen. Änderung wirkt beim nächsten Laden des Repositories.",
+    "graphLaneWidthTitle": "Swimlane-Breite",
+    "graphLaneWidthDesc": "Steuert, wie viel Platz die Graphspalte links neben den Commits einnimmt.",
+    "graphLaneWidthLabel": "Mindest- und Maximalbreite",
+    "graphLaneWidthHint": "linker Thumb = Min · rechter Thumb = Max",
     "messageTitle": "Commit-Nachricht",
     "messageDesc": "Standardvorlage für das Commit-Feld in allen Repositories. Die KI übernimmt dieselbe Struktur bei der automatischen Commit-Nachricht, wenn gesetzt. Leer lassen, wenn keine Vorlage verwendet werden soll.",
     "messagePlaceholder": "z. B. kurze Überschrift\n\n- \n",
     "aiTitle": "AI Commit-Nachricht",
     "aiDesc": "Anweisungen und Ausgabesprache für die automatische Commit-Generierung. Leer lassen, um die Standard-Vorlage zu verwenden.",
+    "aiSectionTitle": "AI-Commit-Nachrichten",
+    "aiSectionSubtitle": "KI-Anbieter und Generierungsverhalten konfigurieren",
+    "aiProviderTitle": "Anbieter",
+    "aiProviderDesc": "Wähle den KI-Dienst und trage deinen API-Key ein. Keys werden nur lokal auf diesem Gerät gespeichert.",
+    "aiProviderOpenAiDesc": "GPT-4o, o1 und alle OpenAI-Modelle",
+    "aiProviderAnthropicDesc": "Claude 3.5 Haiku, Sonnet, Opus",
+    "aiProviderGoogleDesc": "Gemini 2.0 Flash und Pro-Modelle",
+    "aiProviderOpenRouterDesc": "400+ Modelle mit einem API-Key",
+    "aiProviderOllamaDesc": "Lokale Modelle, kein Key erforderlich",
+    "aiProviderCompatibleLabel": "Kompatibel",
+    "aiProviderCompatibleDesc": "Beliebiger OpenAI-kompatibler Endpunkt",
+    "aiApiKeyLabel": "API-Key",
+    "aiApiKeyPlaceholder": "sk-…",
+    "aiApiKeyShow": "API-Key anzeigen",
+    "aiApiKeyHide": "API-Key verbergen",
+    "aiModelLabel": "Modell",
+    "aiModelHint": "Leer lassen, um den Standard zu verwenden: {{default}}",
+    "aiBaseUrlLabel": "Basis-URL",
+    "aiBaseUrlHint": "Basis-URL des OpenAI-kompatiblen API-Endpunkts.",
+    "aiOutputTitle": "Ausgabe-Einstellungen",
+    "aiOutputDesc": "Sprache und System-Prompt für generierte Commit-Nachrichten.",
+    "navAi": "AI",
     "aiOutputLanguage": "Ausgabesprache",
     "aiOutputHint": "z. B. „German“, „Deutsch“, „French“, „English“ (Standard)",
     "aiPromptLabel": "System-Prompt",
@@ -360,6 +503,8 @@
     "ideOpenTitle": "In der IDE öffnen",
     "ideConfigureTitle": "IDE in den Einstellungen konfigurieren",
     "ideLabel": "IDE",
+    "blameTitle": "Git Blame Editor öffnen",
+    "blameLabel": "Blame",
     "bisectRunningTitle": "Bisect läuft{{steps}} — Klicken zum Ein-/Ausblenden",
     "bisectSteps": " (~{{count}} Schritte)",
     "bisectToggleTitle": "Bisect-Annotierungen ein-/ausblenden",
@@ -419,6 +564,9 @@
     "messagePlaceholder": "Commit-Nachricht eingeben...",
     "aiTitle": "Commit-Nachricht mit AI generieren",
     "aiAria": "AI generieren",
+    "aiLanguageTitle": "Sprache der AI-Commit-Nachricht für dieses Repository",
+    "aiLanguageLabel": "Sprache",
+    "aiLanguageDefault": "Globaler Standard ({{lang}})",
     "stashTitle": "Änderungen stashen",
     "stashAria": "Stashen",
     "commitTitle": "Committen",
@@ -450,7 +598,19 @@
     "discardSelectionLines_other": "{{count}} Zeilen verwerfen",
     "discardLinesConfirm": "{{count}} ausgewählte Zeile(n) dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
     "fileRowBlame": "Git-Blame anzeigen",
-    "fileRowDiscard": "Änderungen verwerfen"
+    "fileRowDiscard": "Änderungen verwerfen",
+    "fileRowDiscardMultiple": "{{count}} Dateien verwerfen",
+    "discardDialogTitle": "Änderungen verwerfen?",
+    "discardManyConfirm_one": "Änderungen an {{count}} Datei dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
+    "discardManyConfirm_other": "Änderungen an {{count}} Dateien dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
+    "discardVerb": "Verwerfen",
+    "editFile": "Datei bearbeiten",
+    "viewDiff": "Diff anzeigen",
+    "editFileSave": "Speichern",
+    "editFileSaving": "Speichert…",
+    "editFileSaved": "Gespeichert",
+    "editFileLoadError": "Dateiinhalt konnte nicht geladen werden.",
+    "editFileSaveError": "Datei konnte nicht gespeichert werden."
   },
   "bisect": {
     "ended": "Bisect beendet.",
@@ -717,9 +877,28 @@
     "noPipelines": "Keine Pipelines gefunden",
     "noChecks": "Keine CI-Checks gefunden.",
     "openInBrowser": "Im Browser öffnen",
-    "headerTitle": "Pipelines",
+    "headerTitle": "CI / CD",
     "headerLoading": "Lädt …",
-    "refreshAria": "CI-Status aktualisieren"
+    "refreshAria": "Aktualisieren",
+    "modeChecks": "HEAD-Checks",
+    "modeRuns": "Workflow-Runs",
+    "filterAll": "Alle",
+    "filterRunning": "Läuft",
+    "filterFailed": "Fehler",
+    "filterSuccess": "Erfolg",
+    "rerun": "Erneut ausführen",
+    "rerunFailed": "Fehlgeschlagene Jobs neu starten",
+    "cancelRun": "Abbrechen",
+    "noRuns": "Keine Workflow-Runs gefunden.",
+    "jobsLoading": "Jobs werden geladen …",
+    "noJobs": "Keine Jobs gefunden.",
+    "rerunSuccess": "Erneuter Durchlauf gestartet",
+    "cancelSuccess": "Run abgebrochen",
+    "attempt": "Versuch {{n}}",
+    "loadAnnotations": "Anmerkungen laden",
+    "annotationsTitle": "Anmerkungen",
+    "annotationsLoading": "Wird geladen …",
+    "noAnnotations": "Keine Anmerkungen"
   },
   "merge": {
     "dialogAria": "Branch mergen",
@@ -832,6 +1011,8 @@
     "loadingDetails": "Lade Details …",
     "resetConfirmOne": "„{{path}}\" auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.",
     "resetConfirmMany": "{{count}} Datei(en) auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.",
+    "resetDialogTitle": "Auf Commit-Stand zurücksetzen",
+    "resetConfirmAction": "Zurücksetzen",
     "noFileSelected": "Keine Datei gewählt",
     "noFilesInCommit": "Keine Dateien in diesem Commit.",
     "noTextChanges": "Keine Textänderungen",
@@ -865,6 +1046,19 @@
     "loadFailed": "Blame konnte nicht geladen werden.",
     "noSubject": "Kein Commit-Titel",
     "navigateToCommit": "Zum Commit navigieren",
+    "linesCount_one": "{{count}} Zeile",
+    "linesCount_other": "{{count}} Zeilen"
+  },
+  "blamePage": {
+    "title": "Git Blame",
+    "closeAria": "Git Blame schließen",
+    "gutterLabel": "Blame",
+    "explorerLabel": "Explorer",
+    "searchPlaceholder": "Dateien filtern …",
+    "pickFile": "Datei im Explorer auswählen",
+    "loading": "Lade Blame …",
+    "noData": "Keine Blame-Daten vorhanden.",
+    "noFiles": "Keine Dateien gefunden.",
     "linesCount_one": "{{count}} Zeile",
     "linesCount_other": "{{count}} Zeilen"
   },
@@ -1236,7 +1430,14 @@
     "reviewerEmpty": "Noch keine Reviewer",
     "requestReview": "anfragen",
     "mergeConflictLead": "Merge-Konflikt mit",
-    "mergeVerb": "Merge"
+    "mergeVerb": "Merge",
+    "requiredChecks": "Erforderliche Checks",
+    "requiredApprovals_one": "{{count}} Reviewer erforderlich",
+    "requiredApprovals_other": "{{count}} Reviewer erforderlich",
+    "autoMergeEnabled": "Auto-Merge aktiv ({{method}})",
+    "autoMergeHint": "Auto-Merge: PR wird automatisch gemergt, wenn alle Checks bestehen.",
+    "autoMergeEnable": "Auto-Merge aktivieren",
+    "autoMergeDisable": "Auto-Merge deaktivieren"
   },
   "worktreeMove": {
     "toastSelectBranch": "Bitte einen Branch auswählen.",

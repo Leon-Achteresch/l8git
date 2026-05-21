@@ -33,6 +33,7 @@ pub struct Branch {
     is_current: bool,
     is_remote: bool,
     tip: String,
+    behind: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -260,6 +261,8 @@ fn is_commit_meta_token(s: &str) -> bool {
 
 fn match_commit_record(
     needle: &str,
+    hash: &str,
+    short_hash: &str,
     author: &str,
     email: &str,
     subject: &str,
@@ -267,7 +270,9 @@ fn match_commit_record(
     paths: &[String],
 ) -> Option<Vec<String>> {
     let mut matched_paths: Vec<String> = Vec::new();
-    let mut matched = author.to_lowercase().contains(needle)
+    let mut matched = hash.to_lowercase().contains(needle)
+        || short_hash.to_lowercase().contains(needle)
+        || author.to_lowercase().contains(needle)
         || email.to_lowercase().contains(needle)
         || subject.to_lowercase().contains(needle)
         || body.to_lowercase().contains(needle);
@@ -348,6 +353,8 @@ pub async fn repo_search_commits(
             }
             let Some(matched_paths) = match_commit_record(
                 needle.as_str(),
+                hash.as_str(),
+                short_hash.as_str(),
                 author.as_str(),
                 email.as_str(),
                 subject.as_str(),
@@ -1122,6 +1129,45 @@ pub async fn git_discard_files(
 }
 
 #[tauri::command]
+pub async fn git_discard_worktree_changes(
+    path: String,
+    files: Vec<String>,
+    untracked: Vec<bool>,
+) -> Result<(), String> {
+    spawn_git(move || {
+        if files.len() != untracked.len() {
+            return Err("untracked muss dieselbe Länge wie files haben".into());
+        }
+        let repo = PathBuf::from(path.trim());
+        let mut tracked: Vec<&str> = Vec::new();
+        for (f, is_untracked) in files.iter().zip(untracked.iter()) {
+            let p = f.trim();
+            if p.is_empty() {
+                continue;
+            }
+            if *is_untracked {
+                let abs = repo.join(p);
+                if abs.is_dir() {
+                    std::fs::remove_dir_all(&abs)
+                        .map_err(|e| format!("Ordner konnte nicht entfernt werden: {e}"))?;
+                } else if abs.exists() {
+                    std::fs::remove_file(&abs)
+                        .map_err(|e| format!("Datei konnte nicht entfernt werden: {e}"))?;
+                }
+            } else {
+                tracked.push(f.as_str());
+            }
+        }
+        if !tracked.is_empty() {
+            let mut args: Vec<&str> = vec!["restore", "--worktree", "--"];
+            args.extend(tracked.iter().copied());
+            run_git(&repo, &args)?;
+        }
+        Ok(())
+    }).await
+}
+
+#[tauri::command]
 pub async fn git_restore_files_at_commit(
     path: String,
     commit: String,
@@ -1640,6 +1686,38 @@ fn apply_patch_to_index(repo: &PathBuf, patch: &str, reverse: bool) -> Result<()
     Ok(())
 }
 
+#[tauri::command]
+pub async fn repo_read_file(path: String, file: String) -> Result<String, String> {
+    spawn_git(move || {
+        let abs = PathBuf::from(path.trim()).join(file.trim());
+        std::fs::read_to_string(&abs)
+            .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))
+    }).await
+}
+
+#[tauri::command]
+pub async fn repo_write_file(path: String, file: String, content: String) -> Result<(), String> {
+    spawn_git(move || {
+        let abs = PathBuf::from(path.trim()).join(file.trim());
+        std::fs::write(&abs, content)
+            .map_err(|e| format!("Datei konnte nicht geschrieben werden: {e}"))
+    }).await
+}
+
+#[tauri::command]
+pub async fn repo_file_content_at(path: String, file: String, treeish: String) -> Result<String, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let f = file.trim().to_string();
+        let t = treeish.trim().to_string();
+        let spec = if t.is_empty() { format!(":{f}") } else { format!("{t}:{f}") };
+        match run_git_merged_output(&repo, &["show", &spec]) {
+            Ok(c) => Ok(c),
+            Err(_) => Ok(String::new()),
+        }
+    }).await
+}
+
 /// Stage individual lines/hunks from the working tree into the index.
 /// `patch` is a unified diff patch string (subset of `git diff` output).
 #[tauri::command]
@@ -2114,9 +2192,17 @@ pub async fn git_stash_branch(path: String, index: u32, name: String) -> Result<
     }).await
 }
 
+fn parse_behind_from_track(track: &str) -> Option<u32> {
+    // %(upstream:track) yields strings like "[ahead 2, behind 3]", "[behind 1]", "[gone]" or ""
+    let idx = track.find("behind ")?;
+    let rest = &track[idx + "behind ".len()..];
+    let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    rest[..end].parse::<u32>().ok()
+}
+
 fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
     let sep = "\x1f";
-    let format = format!("%(HEAD){sep}%(refname){sep}%(objectname)");
+    let format = format!("%(HEAD){sep}%(refname){sep}%(objectname){sep}%(upstream:track)");
     let out = run_git(
         repo,
         &[
@@ -2131,13 +2217,15 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
     let branches = out
         .lines()
         .filter_map(|line| {
-            let mut parts = line.splitn(3, sep);
+            let mut parts = line.splitn(4, sep);
             let head = parts.next()?;
             let refname = parts.next()?;
             let tip = parts.next()?.trim().to_string();
             if tip.is_empty() {
                 return None;
             }
+            let track = parts.next().unwrap_or("").trim();
+            let behind = parse_behind_from_track(track);
             let is_current = head.trim() == "*";
 
             let (name, is_remote) = if let Some(rest) = refname.strip_prefix("refs/heads/") {
@@ -2156,6 +2244,7 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
                 is_current,
                 is_remote,
                 tip,
+                behind,
             })
         })
         .collect();
@@ -3530,6 +3619,15 @@ pub async fn repo_blame(
 }
 
 #[tauri::command]
+pub async fn repo_list_files(path: String) -> Result<Vec<String>, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(&path);
+        let out = run_git(&repo, &["ls-files"])?;
+        Ok(out.lines().filter(|l| !l.is_empty()).map(|l| l.to_string()).collect())
+    }).await
+}
+
+#[tauri::command]
 pub async fn repo_language_stats(path: String) -> Result<Vec<LanguageStat>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
@@ -4511,4 +4609,329 @@ pub async fn git_reset(path: String, target: String, mode: String) -> Result<Str
         };
         run_git_merged_output(&repo, &["reset", flag, t])
     }).await
+}
+
+#[derive(Serialize)]
+pub struct ContributorStat {
+    pub name: String,
+    pub email: String,
+    pub commits: u32,
+    pub insertions: u32,
+    pub deletions: u32,
+}
+
+#[derive(Serialize)]
+pub struct ActivityBucket {
+    pub bucket: String,
+    pub commits: u32,
+    pub insertions: u32,
+    pub deletions: u32,
+}
+
+#[derive(Serialize)]
+pub struct RepoOverview {
+    pub path: String,
+    pub name: String,
+    pub branch: String,
+    pub ahead: u32,
+    pub behind: u32,
+    pub dirty_count: u32,
+    pub last_commit_at: Option<i64>,
+    pub commits_last_30d: Vec<u32>,
+    pub error: Option<String>,
+}
+
+fn since_arg(days: u32) -> String {
+    format!("--since={days}.days.ago")
+}
+
+fn collect_contributor_stats(repo: &PathBuf, days: u32) -> Result<Vec<ContributorStat>, String> {
+    let since = since_arg(days);
+    let out = run_git(
+        repo,
+        &[
+            "log",
+            "--no-merges",
+            &since,
+            "--numstat",
+            "--pretty=format:%x00%aN%x1f%aE",
+        ],
+    )?;
+
+    let mut map: HashMap<(String, String), (u32, u32, u32)> = HashMap::new();
+    let mut current: Option<(String, String)> = None;
+    for raw_line in out.split('\n') {
+        if let Some(rest) = raw_line.strip_prefix('\u{0}') {
+            let mut parts = rest.splitn(2, '\u{001f}');
+            let name = parts.next().unwrap_or("").trim().to_string();
+            let email = parts.next().unwrap_or("").trim().to_string();
+            if name.is_empty() && email.is_empty() {
+                current = None;
+                continue;
+            }
+            let key = (name.clone(), email.clone());
+            map.entry(key.clone()).or_insert((0, 0, 0)).0 += 1;
+            current = Some(key);
+            continue;
+        }
+        let line = raw_line.trim_end_matches('\r');
+        if line.is_empty() {
+            continue;
+        }
+        let Some(key) = current.as_ref() else { continue };
+        let mut fields = line.splitn(3, '\t');
+        let adds_s = fields.next().unwrap_or("");
+        let dels_s = fields.next().unwrap_or("");
+        if adds_s == "-" || dels_s == "-" {
+            continue;
+        }
+        let adds: u32 = adds_s.parse().unwrap_or(0);
+        let dels: u32 = dels_s.parse().unwrap_or(0);
+        let entry = map.entry(key.clone()).or_insert((0, 0, 0));
+        entry.1 += adds;
+        entry.2 += dels;
+    }
+
+    let mut stats: Vec<ContributorStat> = map
+        .into_iter()
+        .map(|((name, email), (commits, insertions, deletions))| ContributorStat {
+            name,
+            email,
+            commits,
+            insertions,
+            deletions,
+        })
+        .collect();
+    stats.sort_by(|a, b| b.commits.cmp(&a.commits).then(b.insertions.cmp(&a.insertions)));
+    Ok(stats)
+}
+
+#[tauri::command]
+pub async fn repo_contributor_stats(
+    path: String,
+    since_days: u32,
+    limit: Option<u32>,
+) -> Result<Vec<ContributorStat>, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let mut stats = collect_contributor_stats(&repo, since_days)?;
+        if let Some(n) = limit {
+            stats.truncate(n as usize);
+        }
+        Ok(stats)
+    })
+    .await
+}
+
+fn days_since_epoch(ts: i64) -> i64 {
+    ts.div_euclid(86_400)
+}
+
+fn ymd_from_days(z: i64) -> (i32, u32, u32) {
+    let z = z + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 }.div_euclid(146_097);
+    let doe = (z - era * 146_097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y as i32, m, d)
+}
+
+fn bucket_key(ts: i64, bucket: &str) -> String {
+    let day = days_since_epoch(ts);
+    match bucket {
+        "month" => {
+            let (y, m, _d) = ymd_from_days(day);
+            format!("{y:04}-{m:02}-01")
+        }
+        "week" => {
+            // epoch day 0 (1970-01-01) was a Thursday; Monday-aligned start.
+            let weekday = (day + 3).rem_euclid(7);
+            let monday = day - weekday;
+            let (y, m, d) = ymd_from_days(monday);
+            format!("{y:04}-{m:02}-{d:02}")
+        }
+        _ => {
+            let (y, m, d) = ymd_from_days(day);
+            format!("{y:04}-{m:02}-{d:02}")
+        }
+    }
+}
+
+fn collect_activity_buckets(
+    repo: &PathBuf,
+    days: u32,
+    bucket: &str,
+) -> Result<Vec<ActivityBucket>, String> {
+    let since = since_arg(days);
+    let out = run_git(
+        repo,
+        &[
+            "log",
+            "--no-merges",
+            &since,
+            "--numstat",
+            "--pretty=format:%x00%ct",
+        ],
+    )?;
+
+    let mut by_key: std::collections::BTreeMap<String, (u32, u32, u32)> =
+        std::collections::BTreeMap::new();
+    let mut current_key: Option<String> = None;
+    for raw_line in out.split('\n') {
+        if let Some(rest) = raw_line.strip_prefix('\u{0}') {
+            let ts: i64 = rest.trim().parse().unwrap_or(0);
+            if ts <= 0 {
+                current_key = None;
+                continue;
+            }
+            let key = bucket_key(ts, bucket);
+            by_key.entry(key.clone()).or_insert((0, 0, 0)).0 += 1;
+            current_key = Some(key);
+            continue;
+        }
+        let line = raw_line.trim_end_matches('\r');
+        if line.is_empty() {
+            continue;
+        }
+        let Some(key) = current_key.as_ref() else { continue };
+        let mut fields = line.splitn(3, '\t');
+        let adds_s = fields.next().unwrap_or("");
+        let dels_s = fields.next().unwrap_or("");
+        if adds_s == "-" || dels_s == "-" {
+            continue;
+        }
+        let adds: u32 = adds_s.parse().unwrap_or(0);
+        let dels: u32 = dels_s.parse().unwrap_or(0);
+        let entry = by_key.entry(key.clone()).or_insert((0, 0, 0));
+        entry.1 += adds;
+        entry.2 += dels;
+    }
+
+    Ok(by_key
+        .into_iter()
+        .map(|(bucket, (commits, insertions, deletions))| ActivityBucket {
+            bucket,
+            commits,
+            insertions,
+            deletions,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn repo_activity_buckets(
+    path: String,
+    since_days: u32,
+    bucket: String,
+) -> Result<Vec<ActivityBucket>, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let kind = match bucket.as_str() {
+            "month" | "week" | "day" => bucket.as_str(),
+            _ => "day",
+        };
+        collect_activity_buckets(&repo, since_days, kind)
+    })
+    .await
+}
+
+fn collect_repo_overview(path: String) -> RepoOverview {
+    let repo = PathBuf::from(path.trim());
+    let name = repo
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    let head_ok = run_git(&repo, &["rev-parse", "--git-dir"]).is_ok();
+    if !head_ok {
+        return RepoOverview {
+            path,
+            name,
+            branch: String::new(),
+            ahead: 0,
+            behind: 0,
+            dirty_count: 0,
+            last_commit_at: None,
+            commits_last_30d: vec![0; 30],
+            error: Some("not a git repository".into()),
+        };
+    }
+
+    let branch = run_git(&repo, &["rev-parse", "--abbrev-ref", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+
+    let sync = compute_upstream_sync(&repo);
+
+    let dirty_count = match run_git(&repo, &["status", "--porcelain=v1", "-z", "--untracked-files=all"]) {
+        Ok(out) => out.split('\0').filter(|s| !s.is_empty()).count() as u32,
+        Err(_) => 0,
+    };
+
+    let last_commit_at = run_git(&repo, &["log", "-1", "--format=%ct"])
+        .ok()
+        .and_then(|s| s.trim().parse::<i64>().ok());
+
+    let mut counts = vec![0u32; 30];
+    if let Ok(out) = run_git(
+        &repo,
+        &[
+            "log",
+            "--no-merges",
+            "--since=30.days.ago",
+            "--pretty=format:%ct",
+        ],
+    ) {
+        let now_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let now_day = days_since_epoch(now_secs);
+        for line in out.lines() {
+            let ts: i64 = match line.trim().parse() {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            let days_ago = now_day - days_since_epoch(ts);
+            if (0..30).contains(&days_ago) {
+                let idx = 29 - days_ago as usize;
+                counts[idx] = counts[idx].saturating_add(1);
+            }
+        }
+    }
+
+    RepoOverview {
+        path,
+        name,
+        branch,
+        ahead: sync.ahead,
+        behind: sync.behind,
+        dirty_count,
+        last_commit_at,
+        commits_last_30d: counts,
+        error: None,
+    }
+}
+
+#[tauri::command]
+pub async fn repos_overview(paths: Vec<String>) -> Result<Vec<RepoOverview>, String> {
+    let mut handles = Vec::with_capacity(paths.len());
+    for p in paths {
+        handles.push(tokio::task::spawn_blocking(move || collect_repo_overview(p)));
+    }
+    let mut out = Vec::with_capacity(handles.len());
+    for h in handles {
+        match h.await {
+            Ok(ov) => out.push(ov),
+            Err(_) => continue,
+        }
+    }
+    Ok(out)
 }

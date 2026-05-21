@@ -1,5 +1,6 @@
 import {
   Activity,
+  AlertTriangle,
   AppWindow,
   Calendar,
   CheckCircle,
@@ -10,12 +11,80 @@ import {
   Hash,
   Info,
   Link,
+  Loader2,
   MessageSquare,
   Tag,
 } from "lucide-react";
-import { RemoteCiCheck } from "./ci-types";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { invoke } from "@tauri-apps/api/core";
+import { toastError } from "@/lib/error-toast";
+import { RemoteCiCheck, CheckAnnotation } from "./ci-types";
 
-export function CiCheckDetails({ check }: { check: RemoteCiCheck }) {
+const LEVEL_STYLE: Record<string, string> = {
+  failure: "text-git-removed",
+  error: "text-git-removed",
+  warning: "text-yellow-500",
+  notice: "text-primary",
+};
+
+function AnnotationRow({ ann }: { ann: CheckAnnotation }) {
+  const levelStyle =
+    LEVEL_STYLE[ann.annotation_level?.toLowerCase() ?? ""] ??
+    "text-muted-foreground";
+  const lineRange =
+    ann.start_line === ann.end_line
+      ? `L${ann.start_line}`
+      : `L${ann.start_line}–${ann.end_line}`;
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${levelStyle}`} />
+        <div className="min-w-0 flex-1">
+          {ann.title && (
+            <div className="font-semibold text-foreground/90">{ann.title}</div>
+          )}
+          <div className="mt-0.5 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-foreground/80">
+            {ann.message}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-muted-foreground">
+            <span className="font-medium text-foreground/60">{ann.path}</span>
+            <span className="opacity-50">{lineRange}</span>
+            {ann.annotation_level && (
+              <span className={`capitalize font-medium ${levelStyle}`}>
+                {ann.annotation_level}
+              </span>
+            )}
+          </div>
+          {ann.raw_details && (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-[10px] text-muted-foreground hover:text-foreground">
+                Details
+              </summary>
+              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words text-[10px] text-foreground/70">
+                {ann.raw_details}
+              </pre>
+            </details>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function CiCheckDetails({
+  check,
+  path,
+}: {
+  check: RemoteCiCheck;
+  path?: string;
+}) {
+  const { t } = useTranslation();
+  const [annotations, setAnnotations] = useState<CheckAnnotation[] | null>(
+    null,
+  );
+  const [loadingAnnotations, setLoadingAnnotations] = useState(false);
+
   const pairs: { icon: React.ReactNode; label: string; value: string }[] = [];
 
   const push = (
@@ -87,6 +156,29 @@ export function CiCheckDetails({ check }: { check: RemoteCiCheck }) {
   );
   push(<FileText className="h-3.5 w-3.5" />, "Ausgabe-Text", check.output_text);
 
+  const hasAnnotations =
+    path &&
+    check.ci_kind === "github_check_run" &&
+    check.check_run_id &&
+    (check.annotations_count ?? 0) > 0;
+
+  async function loadAnnotations() {
+    if (!path || !check.check_run_id) return;
+    setLoadingAnnotations(true);
+    try {
+      const res = await invoke<CheckAnnotation[]>("pr_check_annotations", {
+        path,
+        checkRunId: check.check_run_id,
+      });
+      setAnnotations(res);
+    } catch (e) {
+      toastError(String(e));
+      setAnnotations([]);
+    } finally {
+      setLoadingAnnotations(false);
+    }
+  }
+
   return (
     <div className="mt-2 animate-in fade-in slide-in-from-top-2 rounded-xl bg-muted/20 p-4">
       <div className="grid gap-3">
@@ -109,6 +201,42 @@ export function CiCheckDetails({ check }: { check: RemoteCiCheck }) {
           </div>
         ))}
       </div>
+
+      {/* Annotations — loaded lazily on demand */}
+      {hasAnnotations && annotations === null && (
+        <button
+          type="button"
+          disabled={loadingAnnotations}
+          onClick={() => void loadAnnotations()}
+          className="mt-3 flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:opacity-50"
+        >
+          {loadingAnnotations ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <MessageSquare className="h-3.5 w-3.5" />
+          )}
+          {loadingAnnotations
+            ? t("ci.annotationsLoading")
+            : t("ci.loadAnnotations", { count: check.annotations_count })}
+        </button>
+      )}
+
+      {annotations && annotations.length > 0 && (
+        <div className="mt-3 flex flex-col gap-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("ci.annotationsTitle", { count: annotations.length })}
+          </div>
+          {annotations.map((ann, i) => (
+            <AnnotationRow key={i} ann={ann} />
+          ))}
+        </div>
+      )}
+
+      {annotations && annotations.length === 0 && (
+        <p className="mt-3 text-xs italic text-muted-foreground">
+          {t("ci.noAnnotations")}
+        </p>
+      )}
     </div>
   );
 }

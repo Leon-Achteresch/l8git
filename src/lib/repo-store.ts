@@ -54,6 +54,7 @@ export type Branch = {
   is_current: boolean;
   is_remote: boolean;
   tip: string;
+  behind?: number;
 };
 
 export type TagRef = {
@@ -139,6 +140,7 @@ export type PullRequest = {
   labels: string[];
   reviewers: PrReviewer[];
   provider: string;
+  node_id?: string | null;
 };
 
 export type SubmoduleStatus =
@@ -300,6 +302,7 @@ type RepoState = {
   mergeSaveResolved: (path: string, file: string, content: string) => Promise<void>;
   tagCommit: (path: string, name: string, commit: string) => Promise<void>;
   discardFiles: (path: string, files: string[]) => Promise<void>;
+  discardWorktreeChanges: (path: string, files: string[]) => Promise<void>;
   restoreFilesAtCommit: (
     path: string,
     commit: string,
@@ -1131,6 +1134,14 @@ export const useRepoStore = create<RepoState>()(
         const byPath = new Map(entries.map(e => [e.path, e.untracked]));
         const untracked = files.map(f => byPath.get(f) ?? false);
         await invoke('git_discard_files', { path, files, untracked });
+        await get().reloadStatus(path);
+      },
+
+      async discardWorktreeChanges(path, files) {
+        const entries = get().status[path] ?? [];
+        const byPath = new Map(entries.map(e => [e.path, e.untracked]));
+        const untracked = files.map(f => byPath.get(f) ?? false);
+        await invoke('git_discard_worktree_changes', { path, files, untracked });
         await get().reloadStatus(path);
       },
 

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { GitFork, Info, Settings, User } from "lucide-react";
+import { GitFork, Info, LayoutDashboard, Settings, User } from "lucide-react";
 import { type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +19,7 @@ export function AppHeader() {
 
   const navItems = [
     { to: "/" as const, label: t("header.repo"), icon: GitFork },
+    { to: "/dashboard" as const, label: t("header.dashboard"), icon: LayoutDashboard },
     { to: "/info" as const, label: t("header.info"), icon: Info },
     { to: "/about" as const, label: t("header.about"), icon: User },
   ] as const;

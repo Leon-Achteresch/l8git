@@ -1,6 +1,6 @@
 import { historySectionTitle } from "@/lib/commit-history-sections";
 import { buildGraph, normalizeGitOid, type GraphRow } from "@/lib/graph";
-import type { Commit } from "@/lib/repo-store";
+import type { Branch, Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { useCommitPrefs } from "@/lib/commit-prefs";
@@ -90,12 +90,22 @@ export function CommitList({
   const bisectPending = useUiStore(s => s.bisectPending[path]);
   const bisectVisible = useUiStore(s => s.bisectVisible);
   const showCommitDateGroups = useCommitPrefs(s => s.showCommitDateGroups);
+  const branches = useRepoStore((s) => s.repos[path]?.branches ?? [] as Branch[]);
 
   const graphKey = useMemo(
     () => commits.map((c) => c.hash).join("|"),
     [commits],
   );
-  const { rows, maxLanes } = useMemo(() => buildGraph(commits), [graphKey]);
+  // Stable key for the branches list – rebuild the graph when tips change
+  const branchesKey = useMemo(
+    () => branches.map((b) => `${b.name}:${b.tip}`).join("|"),
+    [branches],
+  );
+  const { rows, maxLanes, originColors } = useMemo(
+    () => buildGraph(commits, branches),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [graphKey, branchesKey],
+  );
 
   const bisectRoleMap = useMemo((): Map<string, BisectRole> => {
     const m = new Map<string, BisectRole>();
@@ -410,6 +420,7 @@ export function CommitList({
                 path={path}
                 row={row}
                 maxLanes={maxLanes}
+                originColors={originColors}
                 matchedPaths={matchedPaths}
                 searchHit={searchHit}
                 focusPulseToken={focusPulseToken}

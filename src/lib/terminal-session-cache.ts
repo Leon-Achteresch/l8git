@@ -5,7 +5,9 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal as Xterm } from "@xterm/xterm";
 
 import {
+  TitleEventSource,
   TerminalInputTracker,
+  processOscTitle,
   titleFromTerminalOutput,
 } from "@/lib/terminal-tab-title";
 
@@ -33,10 +35,22 @@ export type CachedSession = {
   inputTracker: TerminalInputTracker;
   outputBuf: string;
   lastTitle: string | null;
+  /**
+   * Tracks the source of the current title, mirroring VSCode's TitleEventSource.
+   * Priority: Api > Sequence > InputCommand > OutputPrompt
+   */
+  titleSource: TitleEventSource | null;
+  /**
+   * Set to true as soon as the shell emits its first OSC 0/2 title sequence.
+   * Once true, input-tracking and prompt-scanning are skipped because the shell
+   * itself is managing the title — exactly like VSCode's Sequence source.
+   */
+  hasSeenOscTitle: boolean;
   awaitingPrompt: boolean;
   unlistenData: UnlistenFn | null;
   unlistenExit: UnlistenFn | null;
   onDataDispose: { dispose: () => void } | null;
+  onTitleChangeDispose: { dispose: () => void } | null;
   status: SessionStatus;
   statusMsg: string;
   shell: string | null;
@@ -87,9 +101,26 @@ function setStatus(rec: CachedSession, status: SessionStatus, msg: string) {
   for (const cb of rec.subscribers.status) cb(status, msg);
 }
 
-function emitTitle(rec: CachedSession, title: string) {
+function emitTitle(
+  rec: CachedSession,
+  title: string,
+  source: TitleEventSource = TitleEventSource.OutputPrompt,
+) {
   if (!title || rec.lastTitle === title) return;
+  // Respect priority: never overwrite a higher-priority source with a lower one.
+  // Api is set externally and is never overwritten here.
+  // Sequence overwrites everything except Api.
+  // InputCommand / OutputPrompt only fire when no Sequence source is active.
+  if (
+    rec.titleSource === TitleEventSource.Api ||
+    (rec.titleSource === TitleEventSource.Sequence &&
+      source !== TitleEventSource.Sequence &&
+      source !== TitleEventSource.Api)
+  ) {
+    return;
+  }
   rec.lastTitle = title;
+  rec.titleSource = source;
   for (const cb of rec.subscribers.title) cb(title);
 }
 
@@ -98,10 +129,15 @@ function wireOnData(rec: CachedSession) {
   rec.onDataDispose = rec.term.onData((data) => {
     const sid = rec.sessionId;
     if (sid == null) return;
-    const cmdTitle = rec.inputTracker.feed(data);
-    if (cmdTitle) {
-      rec.awaitingPrompt = true;
-      emitTitle(rec, cmdTitle);
+    // Only do keystroke-based title tracking when the shell has NOT started
+    // emitting OSC 0/2 sequences.  Once it does, the shell manages its own
+    // title (like VSCode's Sequence source) and our heuristics become noise.
+    if (!rec.hasSeenOscTitle) {
+      const cmdTitle = rec.inputTracker.feed(data);
+      if (cmdTitle) {
+        rec.awaitingPrompt = true;
+        emitTitle(rec, cmdTitle, TitleEventSource.InputCommand);
+      }
     }
     const bytes = new TextEncoder().encode(data);
     const encoded = encodeBytesToBase64(bytes);
@@ -136,6 +172,26 @@ async function openPty(rec: CachedSession, shell: string | null) {
   rec.ptyStarted = true;
   rec.shell = shell;
   setStatus(rec, "starting", "");
+
+  // ── VSCode-style OSC 0/2 title tracking ──────────────────────────────────
+  // xterm.js fires onTitleChange whenever the running shell/program sends an
+  // OSC 0 (\x1b]0;...\x07) or OSC 2 (\x1b]2;...\x07) sequence.  This is the
+  // primary title mechanism in VSCode (TitleEventSource.Sequence): bash uses
+  // $PROMPT_COMMAND, zsh uses precmd(), fish has built-in support, and any
+  // program (vim, htop, …) can set its own title while running.
+  //
+  // Once we see the first OSC title we know the shell manages its own title
+  // and we stop doing our own heuristic input/prompt tracking — exactly like
+  // VSCode disables lower-priority sources when Sequence is active.
+  rec.onTitleChangeDispose?.dispose();
+  rec.onTitleChangeDispose = rec.term.onTitleChange((rawTitle) => {
+    const title = processOscTitle(rawTitle);
+    if (!title) return;
+    rec.hasSeenOscTitle = true;
+    rec.awaitingPrompt = false;
+    emitTitle(rec, title, TitleEventSource.Sequence);
+  });
+
   try {
     const cols = rec.term.cols || 80;
     const rows = rec.term.rows || 24;
@@ -163,11 +219,14 @@ async function openPty(rec: CachedSession, shell: string | null) {
         const nextBuf = rec.outputBuf + text;
         rec.outputBuf =
           nextBuf.length > cap ? nextBuf.slice(nextBuf.length - cap) : nextBuf;
-        if (rec.awaitingPrompt) {
+        // Only scan for prompt patterns when the shell has NOT started emitting
+        // OSC sequences.  If it does, onTitleChange (above) is already handling
+        // the title with higher fidelity (VSCode's Sequence source wins).
+        if (rec.awaitingPrompt && !rec.hasSeenOscTitle) {
           const cwd = titleFromTerminalOutput(rec.outputBuf);
           if (cwd) {
             rec.awaitingPrompt = false;
-            emitTitle(rec, cwd);
+            emitTitle(rec, cwd, TitleEventSource.OutputPrompt);
           }
         }
         rec.term.write(bytes);
@@ -223,10 +282,13 @@ export function getOrCreateSession(opts: {
     inputTracker: new TerminalInputTracker(),
     outputBuf: "",
     lastTitle: null,
+    titleSource: null,
+    hasSeenOscTitle: false,
     awaitingPrompt: true,
     unlistenData: null,
     unlistenExit: null,
     onDataDispose: null,
+    onTitleChangeDispose: null,
     status: "starting",
     statusMsg: "",
     shell: opts.shell,
@@ -313,6 +375,7 @@ export function destroySession(path: string, tabId: string) {
   rec.unlistenData?.();
   rec.unlistenExit?.();
   rec.onDataDispose?.dispose();
+  rec.onTitleChangeDispose?.dispose();
   const id = rec.sessionId;
   rec.sessionId = null;
   if (id != null) {
@@ -343,13 +406,17 @@ export function reopenSession(rec: CachedSession, shell: string | null) {
   rec.unlistenData?.();
   rec.unlistenExit?.();
   rec.onDataDispose?.dispose();
+  rec.onTitleChangeDispose?.dispose();
   rec.unlistenData = null;
   rec.unlistenExit = null;
   rec.onDataDispose = null;
+  rec.onTitleChangeDispose = null;
   rec.inputTracker = new TerminalInputTracker();
   rec.outputBuf = "";
   rec.awaitingPrompt = true;
   rec.lastTitle = null;
+  rec.titleSource = null;
+  rec.hasSeenOscTitle = false;
   rec.sessionId = null;
   rec.ptyStarted = false;
   rec.lastSentCols = 0;

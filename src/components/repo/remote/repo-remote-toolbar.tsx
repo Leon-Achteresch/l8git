@@ -27,6 +27,7 @@ import {
   ChevronUp,
   CloudDownload,
   Code2,
+  FileClock,
   FolderOpen,
   Link,
   Loader2,
@@ -71,6 +72,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const bisect = useRepoStore(s => s.bisect[path]);
   const bisectVisible = useUiStore(s => s.bisectVisible);
   const setBisectVisible = useUiStore(s => s.setBisectVisible);
+  const openBlameEditor = useUiStore(s => s.openBlameEditor);
   const ideLaunchCommand = useWorkspacePrefs(s => s.ideLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs(s => s.repoTerminalKind);
   const terminalButtonMode = useWorkspacePrefs(s => s.terminalButtonMode);
@@ -479,6 +481,12 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               disabled={!ideConfigured}
               onClick={() => void openIdeHere()}
               icon={<Code2 className='h-3.5 w-3.5' />}
+            />
+            <ToolbarButton
+              title={t("toolbar.blameTitle")}
+              label={t("toolbar.blameLabel")}
+              onClick={() => openBlameEditor(path)}
+              icon={<FileClock className='h-3.5 w-3.5' />}
             />
           </ToolbarGroup>
 

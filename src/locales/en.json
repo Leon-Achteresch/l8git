@@ -25,10 +25,126 @@
   },
   "header": {
     "repo": "Repository",
+    "dashboard": "Dashboard",
     "info": "Info",
     "about": "About",
     "mainNav": "Main navigation",
     "settingsAria": "Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Insights across your repositories",
+    "backAria": "Back",
+    "noActiveRepo": "Open a repository to see its dashboard.",
+    "activeRepoLabel": "Active repository",
+    "tabs": {
+      "active": "Active repo",
+      "all": "All repos"
+    },
+    "cards": {
+      "commits30": "Commits · 30 d",
+      "lineDelta": "Working copy lines",
+      "branches": "Branches",
+      "branchesFooter": "{{active}} active · {{stale}} stale",
+      "upstream": "Upstream",
+      "upstreamFooter": "{{ahead}} ahead · {{behind}} behind",
+      "noUpstream": "No upstream",
+      "openPrs": "Open PRs",
+      "workingCopy": "Working copy",
+      "staged": "{{n}} staged",
+      "unstaged": "{{n}} changed",
+      "untracked": "{{n}} new"
+    },
+    "activity": {
+      "title": "Commit activity",
+      "subtitle": "How the repo has been moving",
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "empty": "No commits in the selected range.",
+      "legend": {
+        "commits": "Commits",
+        "insertions": "Insertions",
+        "deletions": "Deletions"
+      }
+    },
+    "contributors": {
+      "title": "Top contributors",
+      "subtitle": "Last 90 days",
+      "empty": "No contributor data yet.",
+      "commits_one": "{{count}} commit",
+      "commits_other": "{{count}} commits"
+    },
+    "languages": {
+      "title": "Languages",
+      "empty": "No language data yet."
+    },
+    "activityFeed": {
+      "title": "Recent activity",
+      "empty": "Nothing to show yet."
+    },
+    "health": {
+      "title": "Repo health",
+      "workingCopy": {
+        "label": "Working copy",
+        "ok": "Clean",
+        "warn": "Pending changes",
+        "error": "Conflicts"
+      },
+      "upstream": {
+        "label": "Upstream",
+        "ok": "In sync",
+        "warn": "Drifted",
+        "error": "Drifted"
+      },
+      "conflicts": {
+        "label": "Conflicts",
+        "ok": "None",
+        "warn": "Pending",
+        "error": "Pending"
+      },
+      "bisect": {
+        "label": "Bisect",
+        "ok": "Idle",
+        "warn": "In progress",
+        "error": "Issue"
+      },
+      "stashes": {
+        "label": "Stashes",
+        "ok": "None",
+        "warn": "Stored",
+        "error": "Stored"
+      },
+      "worktrees": {
+        "label": "Worktrees",
+        "ok": "Configured",
+        "warn": "Check",
+        "error": "Check"
+      }
+    },
+    "all": {
+      "title": "Repositories",
+      "subtitle": "All repos in this workspace at a glance",
+      "refresh": "Refresh",
+      "empty": "No repositories registered in this workspace.",
+      "totals": {
+        "repos": "Repositories",
+        "ahead": "Σ ahead",
+        "behind": "Σ behind",
+        "dirty": "Dirty worktrees",
+        "scanned": "scanned",
+        "attention": "needs attention",
+        "allClear": "all clear"
+      },
+      "cols": {
+        "repo": "Repository",
+        "branch": "Branch",
+        "sync": "Sync",
+        "dirty": "Dirty",
+        "last": "Last commit",
+        "activity": "30 d activity"
+      }
+    }
   },
   "emptyState": {
     "cardCommitsCaption": "All changes",
@@ -77,6 +193,7 @@
     "updateInstallFailed": "Update failed: {{error}}",
     "restartFailed": "Restart failed: {{error}}",
     "aiNoResponse": "No response from the AI model",
+    "aiNoApiKey": "No API key configured. Go to Settings → AI to add your key.",
     "cloneOpenFailed": "The cloned repository could not be opened.",
     "localChangesBlockPull": "Please commit the current changes first, then pull again and resolve any conflicts manually. Affected: {{files}}"
   },
@@ -132,11 +249,37 @@
     "hideT3Label": "Hide T3 checkpoint commits",
     "hideT3HintPart1": "T3 Code saves work snapshots as separate commits under ",
     "hideT3HintPart2": ". They do not appear on a branch and can clutter the graph. Takes effect the next time the repository loads.",
+    "graphLaneWidthTitle": "Swimlane width",
+    "graphLaneWidthDesc": "Controls how much space the graph column takes up to the left of commits.",
+    "graphLaneWidthLabel": "Min and max width",
+    "graphLaneWidthHint": "left thumb = min · right thumb = max",
     "messageTitle": "Commit message",
     "messageDesc": "Default template for the commit field in all repositories. The AI uses the same structure for auto-generated commit messages when set. Leave empty to use no template.",
     "messagePlaceholder": "e.g. short subject\n\n- \n",
     "aiTitle": "AI commit message",
     "aiDesc": "Instructions and output language for automatic commit generation. Leave empty to use the default template.",
+    "aiSectionTitle": "AI commit messages",
+    "aiSectionSubtitle": "Configure your AI provider and generation behaviour",
+    "aiProviderTitle": "Provider",
+    "aiProviderDesc": "Choose the AI service and enter your API key. Keys are stored locally on this device.",
+    "aiProviderOpenAiDesc": "GPT-4o, o1, and all OpenAI models",
+    "aiProviderAnthropicDesc": "Claude 3.5 Haiku, Sonnet, Opus",
+    "aiProviderGoogleDesc": "Gemini 2.0 Flash and Pro models",
+    "aiProviderOpenRouterDesc": "400+ models via one API key",
+    "aiProviderOllamaDesc": "Local models, no key required",
+    "aiProviderCompatibleLabel": "Compatible",
+    "aiProviderCompatibleDesc": "Any OpenAI-compatible endpoint",
+    "aiApiKeyLabel": "API key",
+    "aiApiKeyPlaceholder": "sk-…",
+    "aiApiKeyShow": "Show API key",
+    "aiApiKeyHide": "Hide API key",
+    "aiModelLabel": "Model",
+    "aiModelHint": "Leave empty to use the default: {{default}}",
+    "aiBaseUrlLabel": "Base URL",
+    "aiBaseUrlHint": "Base URL of the OpenAI-compatible API endpoint.",
+    "aiOutputTitle": "Output settings",
+    "aiOutputDesc": "Language and system prompt for generated commit messages.",
+    "navAi": "AI",
     "aiOutputLanguage": "Output language",
     "aiOutputHint": "e.g. \"German\", \"Deutsch\", \"French\", \"English\" (default)",
     "aiPromptLabel": "System prompt",
@@ -360,6 +503,8 @@
     "ideOpenTitle": "Open in IDE",
     "ideConfigureTitle": "Configure IDE in settings",
     "ideLabel": "IDE",
+    "blameTitle": "Open Git Blame editor",
+    "blameLabel": "Blame",
     "bisectRunningTitle": "Bisect running{{steps}} — click to show or hide",
     "bisectSteps": " (~{{count}} steps)",
     "bisectToggleTitle": "Toggle bisect annotations",
@@ -419,6 +564,9 @@
     "messagePlaceholder": "Enter commit message…",
     "aiTitle": "Generate commit message with AI",
     "aiAria": "Generate with AI",
+    "aiLanguageTitle": "AI commit message language for this repository",
+    "aiLanguageLabel": "Language",
+    "aiLanguageDefault": "Global default ({{lang}})",
     "stashTitle": "Stash changes",
     "stashAria": "Stash",
     "commitTitle": "Commit",
@@ -450,7 +598,19 @@
     "discardSelectionLines_other": "Discard {{count}} lines",
     "discardLinesConfirm": "Permanently discard {{count}} selected line(s)? This cannot be undone.",
     "fileRowBlame": "Show Git blame",
-    "fileRowDiscard": "Discard changes"
+    "fileRowDiscard": "Discard changes",
+    "fileRowDiscardMultiple": "Discard {{count}} files",
+    "discardDialogTitle": "Discard changes?",
+    "discardManyConfirm_one": "Permanently discard changes to {{count}} file? This cannot be undone.",
+    "discardManyConfirm_other": "Permanently discard changes to {{count}} files? This cannot be undone.",
+    "discardVerb": "Discard",
+    "editFile": "Edit file",
+    "viewDiff": "View diff",
+    "editFileSave": "Save",
+    "editFileSaving": "Saving…",
+    "editFileSaved": "Saved",
+    "editFileLoadError": "Could not load file content.",
+    "editFileSaveError": "Could not save file."
   },
   "bisect": {
     "ended": "Bisect finished.",
@@ -717,9 +877,28 @@
     "noPipelines": "No pipelines found",
     "noChecks": "No CI checks found.",
     "openInBrowser": "Open in browser",
-    "headerTitle": "Pipelines",
+    "headerTitle": "CI / CD",
     "headerLoading": "Loading…",
-    "refreshAria": "Refresh CI status"
+    "refreshAria": "Refresh",
+    "modeChecks": "HEAD Checks",
+    "modeRuns": "Workflow Runs",
+    "filterAll": "All",
+    "filterRunning": "Running",
+    "filterFailed": "Failed",
+    "filterSuccess": "Success",
+    "rerun": "Re-run",
+    "rerunFailed": "Re-run failed jobs",
+    "cancelRun": "Cancel run",
+    "noRuns": "No workflow runs found.",
+    "jobsLoading": "Loading jobs…",
+    "noJobs": "No jobs found.",
+    "rerunSuccess": "Re-run triggered",
+    "cancelSuccess": "Run cancelled",
+    "attempt": "Attempt {{n}}",
+    "loadAnnotations": "Load annotations",
+    "annotationsTitle": "Annotations",
+    "annotationsLoading": "Loading…",
+    "noAnnotations": "No annotations"
   },
   "merge": {
     "dialogAria": "Merge branch",
@@ -832,6 +1011,8 @@
     "loadingDetails": "Loading details…",
     "resetConfirmOne": "Reset “{{path}}” to this commit state? Unsaved changes will be lost.",
     "resetConfirmMany": "Reset {{count}} file(s) to this commit state? Unsaved changes will be lost.",
+    "resetDialogTitle": "Reset to commit state",
+    "resetConfirmAction": "Reset",
     "noFileSelected": "No file selected",
     "noFilesInCommit": "No files in this commit.",
     "noTextChanges": "No text changes",
@@ -865,6 +1046,19 @@
     "loadFailed": "Could not load blame.",
     "noSubject": "(no commit subject)",
     "navigateToCommit": "Go to commit",
+    "linesCount_one": "{{count}} line",
+    "linesCount_other": "{{count}} lines"
+  },
+  "blamePage": {
+    "title": "Git Blame",
+    "closeAria": "Close Git Blame",
+    "gutterLabel": "Blame",
+    "explorerLabel": "Explorer",
+    "searchPlaceholder": "Filter files…",
+    "pickFile": "Select a file from the explorer",
+    "loading": "Loading blame…",
+    "noData": "No blame data available.",
+    "noFiles": "No files found.",
     "linesCount_one": "{{count}} line",
     "linesCount_other": "{{count}} lines"
   },
@@ -1236,7 +1430,14 @@
     "reviewerEmpty": "No reviewers yet",
     "requestReview": "Request",
     "mergeConflictLead": "Merge conflict with",
-    "mergeVerb": "Merge"
+    "mergeVerb": "Merge",
+    "requiredChecks": "Required checks",
+    "requiredApprovals_one": "{{count}} reviewer required",
+    "requiredApprovals_other": "{{count}} reviewers required",
+    "autoMergeEnabled": "Auto-merge enabled ({{method}})",
+    "autoMergeHint": "Auto-merge: this PR will be merged automatically once all checks pass.",
+    "autoMergeEnable": "Enable auto-merge",
+    "autoMergeDisable": "Disable auto-merge"
   },
   "worktreeMove": {
     "toastSelectBranch": "Please select a branch.",

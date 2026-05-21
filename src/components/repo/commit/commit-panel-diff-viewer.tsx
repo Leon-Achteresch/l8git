@@ -1,66 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { FileDiff, RefreshCw } from "lucide-react";
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { ParsedDiff } from "@/lib/unified-diff";
-
-import type { ChangeRow, FileDiffResponse } from "./commit-panel-types";
+import type { ChangeRow } from "./commit-panel-types";
 import { StatusIcon } from "./commit-panel-status-icon";
-import { UnifiedDiffBody } from "./unified-diff-body";
+import { MonacoStagingDiff } from "./monaco-staging-diff";
 
 export function DiffViewer({
+  repoPath,
   selectedRow,
-  diffPayload,
-  loading,
-  diffFailed,
+  isBinary,
   onReload,
-  onStageHunk,
-  onUnstageHunk,
-  onDiscardHunk,
-  parsedDiff,
-  focusedHunkIdx,
-  selectedLines,
-  onToggleLine,
-  onClearSelection,
 }: {
+  repoPath: string;
   selectedRow: ChangeRow | null;
-  diffPayload: FileDiffResponse | null;
-  loading: boolean;
-  diffFailed: boolean;
+  isBinary: boolean;
   onReload: () => void;
-  onStageHunk?: (patch: string) => void;
-  onUnstageHunk?: (patch: string) => void;
-  onDiscardHunk?: (patch: string, count: number) => void;
-  parsedDiff?: ParsedDiff | null;
-  focusedHunkIdx?: number;
-  selectedLines?: ReadonlySet<string>;
-  onToggleLine?: (key: string) => void;
-  onClearSelection?: () => void;
 }) {
   const { t } = useTranslation();
-  const unifiedText = useMemo(() => {
-    if (!diffPayload || !selectedRow) return null;
-    if (selectedRow.sector === "staged" && diffPayload.staged?.trim()) {
-      return diffPayload.staged;
-    }
-    if (selectedRow.sector === "unstaged" && diffPayload.unstaged?.trim()) {
-      return diffPayload.unstaged;
-    }
-    return null;
-  }, [diffPayload, selectedRow]);
-
-  const untrackedPlain = useMemo(() => {
-    if (
-      !diffPayload ||
-      !selectedRow ||
-      selectedRow.sector !== "unstaged" ||
-      diffPayload.untracked_plain == null
-    ) {
-      return null;
-    }
-    return diffPayload.untracked_plain;
-  }, [diffPayload, selectedRow]);
 
   if (!selectedRow) {
     return (
@@ -91,24 +48,18 @@ export function DiffViewer({
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <UnifiedDiffBody
-          loading={loading}
-          failed={diffFailed}
-          isBinary={!!diffPayload?.is_binary}
-          unifiedText={unifiedText}
-          untrackedPlain={untrackedPlain}
-          emptyHint={t("commitInspect.noTextChanges")}
-          failedHint={t("commitPanel.diffLoadFailed")}
-          sector={selectedRow.sector as "staged" | "unstaged"}
-          onStageHunk={onStageHunk}
-          onUnstageHunk={onUnstageHunk}
-          onDiscardHunk={onDiscardHunk}
-          parsedDiff={parsedDiff}
-          focusedHunkIdx={focusedHunkIdx}
-          selectedLines={selectedLines}
-          onToggleLine={onToggleLine}
-          onClearSelection={onClearSelection}
-        />
+        {isBinary ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            {t("diff.binaryFile")}
+          </div>
+        ) : (
+          <MonacoStagingDiff
+            key={selectedRow.id}
+            repoPath={repoPath}
+            filePath={selectedRow.path}
+            onSaved={onReload}
+          />
+        )}
       </div>
     </div>
   );
