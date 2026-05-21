@@ -12,6 +12,12 @@ type CommitPrefs = {
   setAiPromptTemplate: (value: string) => void;
   aiOutputLanguage: string;
   setAiOutputLanguage: (value: string) => void;
+  /** Minimum graph-column width in pixels (≥ 20). */
+  graphLanePxMin: number;
+  setGraphLanePxMin: (value: number) => void;
+  /** Maximum graph-column width in pixels (≤ 240). */
+  graphLanePxMax: number;
+  setGraphLanePxMax: (value: number) => void;
 };
 
 export const useCommitPrefs = create<CommitPrefs>()(
@@ -29,6 +35,10 @@ export const useCommitPrefs = create<CommitPrefs>()(
       setAiPromptTemplate: (value) => set({ aiPromptTemplate: value }),
       aiOutputLanguage: "English",
       setAiOutputLanguage: (value) => set({ aiOutputLanguage: value }),
+      graphLanePxMin: 36,
+      setGraphLanePxMin: (graphLanePxMin) => set({ graphLanePxMin }),
+      graphLanePxMax: 160,
+      setGraphLanePxMax: (graphLanePxMax) => set({ graphLanePxMax }),
     }),
     {
       name: "l8git-commit-prefs",

@@ -6,10 +6,27 @@ import {
 import type { Branch } from "@/lib/repo-store";
 import type { ReactNode } from "react";
 
-const COL_W = 88;
-const PAD = 4;
+/** Pixels per lane when the graph has enough room. */
+const LANE_W = 11;
+const PAD = 5;
 const ROW_HEIGHT = 80;
 const STROKE = 2;
+const MIN_COL_W = 36;
+const MAX_COL_W = 160;
+
+/**
+ * Returns the pixel width of the graph column for a given lane count.
+ * `minW` and `maxW` come from user prefs (graphLanePxMin / graphLanePxMax).
+ * Exported so CommitRow can size its wrapper div consistently.
+ */
+export function graphColWidth(
+  maxLanes: number,
+  minW = MIN_COL_W,
+  maxW = MAX_COL_W,
+): number {
+  const lanes = Math.max(1, maxLanes);
+  return Math.min(maxW, Math.max(minW, PAD * 2 + lanes * LANE_W));
+}
 
 export function CommitGraphCell({
   row,
@@ -17,15 +34,19 @@ export function CommitGraphCell({
   branches,
   showRefs = true,
   originColors,
+  colWidth,
 }: {
   row: GraphRow;
   maxLanes: number;
   branches: Branch[];
   showRefs?: boolean;
   originColors: ReadonlyMap<string, string>;
+  /** Pre-computed column width from the parent (avoids duplicate pref reads). */
+  colWidth?: number;
 }) {
   const lanes = Math.max(1, maxLanes);
-  const usable = COL_W - PAD * 2;
+  const colW = colWidth ?? graphColWidth(maxLanes);
+  const usable = colW - PAD * 2;
   const laneW = usable / lanes;
   const midY = ROW_HEIGHT / 2;
   const laneX = (i: number) => PAD + i * laneW + laneW / 2;
@@ -176,9 +197,9 @@ export function CommitGraphCell({
 
   return (
     <svg
-      width={COL_W}
+      width={colW}
       height="100%"
-      viewBox={`0 0 ${COL_W} ${ROW_HEIGHT}`}
+      viewBox={`0 0 ${colW} ${ROW_HEIGHT}`}
       preserveAspectRatio="none"
       className="shrink-0 self-stretch min-h-[4.5rem] text-foreground"
       aria-hidden="true"

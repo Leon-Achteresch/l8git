@@ -26,7 +26,8 @@ import { toast } from "sonner";
 import { CommitAuthorDate } from "./commit-author-date";
 import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
-import { CommitGraphCell } from "./commit-graph-cell";
+import { CommitGraphCell, graphColWidth } from "./commit-graph-cell";
+import { useCommitPrefs } from "@/lib/commit-prefs";
 import { CommitHashBadge } from "./commit-hash-badge";
 import { ResetDialog } from "@/components/repo/reset/reset-dialog";
 import { CommitTagDialog } from "./commit-tag-dialog";
@@ -78,6 +79,9 @@ function CommitRowInner({
   const setBisectPendingBad = useUiStore((s) => s.setBisectPendingBad);
   const setBisectPendingGood = useUiStore((s) => s.setBisectPendingGood);
   const branches = useRepoStore((s) => s.repos[path]?.branches ?? []);
+  const graphLanePxMin = useCommitPrefs((s) => s.graphLanePxMin);
+  const graphLanePxMax = useCommitPrefs((s) => s.graphLanePxMax);
+  const colW = graphColWidth(maxLanes, graphLanePxMin, graphLanePxMax);
   const branchesAtCommit = useMemo(() => {
     const h = normalizeGitOid(commit.hash);
     return branches
@@ -202,8 +206,8 @@ function CommitRowInner({
           "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-green-300 before:content-['']",
       )}
     >
-      <div className="flex w-[88px] shrink-0 justify-center self-stretch pl-0.5 pr-1">
-        <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} originColors={originColors} />
+      <div className="flex shrink-0 justify-center self-stretch pl-0.5 pr-1" style={{ width: colW }}>
+        <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} originColors={originColors} colWidth={colW} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2.5 pl-2 sm:px-[14px] sm:py-2.5 sm:pl-1.5">
         <div className="flex min-w-0 items-center gap-2">
