@@ -92,14 +92,18 @@ function FileRowInner({
     </div>
   );
 
+  const canBlame = !row.entry.untracked && row.entry.index_status !== "A";
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={() => onBlame(row.path)}>
-          <GitCommitHorizontal className="h-3.5 w-3.5" />
-          {t("commitPanel.fileRowBlame")}
-        </ContextMenuItem>
+        {canBlame && (
+          <ContextMenuItem onSelect={() => onBlame(row.path)}>
+            <GitCommitHorizontal className="h-3.5 w-3.5" />
+            {t("commitPanel.fileRowBlame")}
+          </ContextMenuItem>
+        )}
         <ContextMenuItem variant="destructive" onSelect={() => onDiscard(row.id)}>
           <Undo2 className="h-3.5 w-3.5" />
           {inMultiSelection && multiSelectedCount > 1
