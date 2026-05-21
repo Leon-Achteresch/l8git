@@ -3,7 +3,7 @@ import { toastError } from "@/lib/error-toast";
 import { formatDate, formatRelative } from "@/lib/format";
 import type { PrReviewer, PullRequest } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
-import { AlertCircle, CheckCircle2, Download, ExternalLink, GitMerge, Loader2, PanelRightClose, PanelRightOpen, RefreshCw, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, ExternalLink, GitMerge, Loader2, PanelRightClose, PanelRightOpen, RefreshCw, RotateCcw, ShieldCheck, X, Zap } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,10 +19,21 @@ export type PullRequestDetail = PullRequest & {
   mergeable: boolean | null;
   merge_commit_sha: string | null;
   head_sha: string;
+  auto_merge_method?: string | null;
 };
 
 type MergeStrategy = "merge" | "squash" | "rebase";
 type Tab = "conversation" | "commits" | "files" | "checks";
+
+type BranchProtection = {
+  required_status_checks: string[];
+  required_approving_review_count: number | null;
+  dismiss_stale_reviews: boolean;
+  require_code_owner_reviews: boolean;
+  enforce_admins: boolean;
+  allow_force_pushes: boolean;
+  allow_deletions: boolean;
+};
 
 /* ─── Status pill ─────────────────────────────────────────────────────────── */
 
@@ -153,6 +164,7 @@ function ReviewerCard({ reviewers }: { reviewers: PrReviewer[] }) {
 /* ─── Merge state banner ──────────────────────────────────────────────────── */
 
 function MergeStateBanner({
+  path,
   detail,
   busy,
   strategy,
@@ -161,7 +173,9 @@ function MergeStateBanner({
   onMergeMessageChange,
   onMerge,
   onCheckout,
+  onReload,
 }: {
+  path: string;
   detail: PullRequestDetail;
   busy: string | null;
   strategy: MergeStrategy;
@@ -170,10 +184,47 @@ function MergeStateBanner({
   onMergeMessageChange: (m: string) => void;
   onMerge: () => void;
   onCheckout: () => void;
+  onReload: () => void;
 }) {
   const { t } = useTranslation();
+  const [protection, setProtection] = useState<BranchProtection | null>(null);
+  const [protectionLoading, setProtectionLoading] = useState(false);
+  const [autoMergeBusy, setAutoMergeBusy] = useState(false);
   const isActive = detail.state === "open" || detail.state === "draft";
   const isResolved = detail.state === "merged" || detail.state === "closed";
+  const isGitHub = detail.provider === "github";
+
+  // Load branch protection once when the banner first shows for an open PR.
+  useEffect(() => {
+    if (!isActive || !isGitHub || !detail.target_branch) return;
+    setProtectionLoading(true);
+    invoke<BranchProtection>("pr_branch_protection", {
+      path,
+      branch: detail.target_branch,
+    })
+      .then((p) => setProtection(p))
+      .catch(() => setProtection(null)) // 404 = no rules; silently hide
+      .finally(() => setProtectionLoading(false));
+  }, [path, detail.target_branch, isActive, isGitHub]);
+
+  async function toggleAutoMerge() {
+    if (!detail.node_id) return;
+    const enable = !detail.auto_merge_method;
+    setAutoMergeBusy(true);
+    try {
+      await invoke("pr_set_auto_merge", {
+        path,
+        prNodeId: detail.node_id,
+        enable,
+        mergeMethod: enable ? strategy : null,
+      });
+      onReload();
+    } catch (e) {
+      toastError(String(e));
+    } finally {
+      setAutoMergeBusy(false);
+    }
+  }
 
   const bannerMotion = {
     initial: { opacity: 0, y: -6, scale: 0.98 },
@@ -259,7 +310,7 @@ function MergeStateBanner({
 
   if (detail.mergeable === true) {
     return (
-      <motion.div {...bannerMotion} className="rounded-md border border-[oklch(0.85_0.08_145)] bg-[oklch(0.97_0.04_145/0.12)] p-3 text-[oklch(0.32_0.13_145)]">
+      <motion.div {...bannerMotion} className="flex flex-col gap-2.5 rounded-md border border-[oklch(0.85_0.08_145)] bg-[oklch(0.97_0.04_145/0.12)] p-3 text-[oklch(0.32_0.13_145)]">
         <div className="flex items-start gap-2">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -269,7 +320,36 @@ function MergeStateBanner({
             </div>
           </div>
         </div>
-        <div className="mt-2.5 flex items-center gap-2">
+
+        {/* Required status checks */}
+        {!protectionLoading && protection && protection.required_status_checks.length > 0 && (
+          <div className="flex flex-col gap-1 rounded-md border border-[oklch(0.85_0.08_145/0.5)] bg-[oklch(0.97_0.04_145/0.08)] px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[oklch(0.45_0.12_145)]">
+              <ShieldCheck className="h-3 w-3" />
+              {t("prInspect.requiredChecks")}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {protection.required_status_checks.map((ctx) => (
+                <span
+                  key={ctx}
+                  className="rounded bg-[oklch(0.93_0.05_145/0.4)] px-1.5 py-0 font-mono text-[10px] text-[oklch(0.38_0.12_145)]"
+                >
+                  {ctx}
+                </span>
+              ))}
+            </div>
+            {protection.required_approving_review_count != null &&
+              protection.required_approving_review_count > 0 && (
+                <div className="text-[10px] text-[oklch(0.45_0.12_145)]">
+                  {t("prInspect.requiredApprovals", {
+                    count: protection.required_approving_review_count,
+                  })}
+                </div>
+              )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
           <select
             value={strategy}
             onChange={(e) => onStrategyChange(e.target.value as MergeStrategy)}
@@ -294,6 +374,42 @@ function MergeStateBanner({
             {busy === "checkout" ? t("prInspect.checkoutBusy") : t("prInspect.checkoutVerb")}
           </Button>
         </div>
+
+        {/* Auto-merge toggle — only for GitHub PRs with a node_id */}
+        {isGitHub && detail.node_id && (
+          <div className="flex items-center gap-2 border-t border-[oklch(0.85_0.08_145/0.3)] pt-2">
+            {detail.auto_merge_method ? (
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px]">
+                <Zap className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {t("prInspect.autoMergeEnabled", {
+                    method: detail.auto_merge_method,
+                  })}
+                </span>
+              </div>
+            ) : (
+              <span className="min-w-0 flex-1 text-[11px] text-[oklch(0.45_0.12_145)]">
+                {t("prInspect.autoMergeHint")}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 shrink-0 text-[10px]"
+              disabled={autoMergeBusy || busy !== null}
+              onClick={() => void toggleAutoMerge()}
+            >
+              {autoMergeBusy ? (
+                <RotateCcw className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Zap className="mr-1 h-3 w-3" />
+              )}
+              {detail.auto_merge_method
+                ? t("prInspect.autoMergeDisable")
+                : t("prInspect.autoMergeEnable")}
+            </Button>
+          </div>
+        )}
       </motion.div>
     );
   }
@@ -547,6 +663,7 @@ export function PullRequestInspectDetail({
               <AnimatePresence mode="wait" initial={false}>
                 <MergeStateBanner
                   key={`${detail.state}-${String(detail.mergeable)}-${String(detail.is_draft)}`}
+                  path={path}
                   detail={detail}
                   busy={busy}
                   strategy={strategy}
@@ -555,6 +672,7 @@ export function PullRequestInspectDetail({
                   onMergeMessageChange={setMergeMessage}
                   onMerge={doMerge}
                   onCheckout={doCheckout}
+                  onReload={load}
                 />
               </AnimatePresence>
             </div>

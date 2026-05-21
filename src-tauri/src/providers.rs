@@ -164,47 +164,59 @@ fn bitbucket_remote_repo_from_value(v: &Value) -> Option<RemoteRepo> {
 async fn github_list(host: &str) -> Result<Vec<RemoteRepo>, String> {
     let cred = read_https_credential(host)?;
     let client = http_client()?;
-    let url = format!("{}/user/repos?per_page=100&sort=updated", github_api_base(host));
-    let res = client
-        .get(&url)
-        .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "l8git")
-        .header(
-            "Authorization",
-            format!("Bearer {}", cred.password),
-        )
-        .send()
-        .await
-        .map_err(|e| format!("GitHub: {e}"))?;
-    if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "GitHub: 401. Bitte unter Einstellungen bei {host} anmelden."
-        ));
-    }
-    if !res.status().is_success() {
-        let body = res.text().await.unwrap_or_default();
-        return Err(format!("GitHub: {}", body.trim()));
-    }
-    let arr: Vec<Value> = res.json().await.map_err(|e| format!("GitHub: {e}"))?;
-    let mut out = Vec::new();
-    for v in arr {
-        let name = v["name"].as_str().unwrap_or("").to_string();
-        let full_name = v["full_name"].as_str().unwrap_or("").to_string();
-        let clone_url = v["clone_url"].as_str().unwrap_or("").to_string();
-        if clone_url.is_empty() {
-            continue;
+    let mut out: Vec<RemoteRepo> = Vec::new();
+    // Paginate: GitHub returns max 100 per page; large GHE installations can
+    // have thousands of repos. We fetch up to 20 pages (2 000 repos) which
+    // covers virtually all real-world cases.
+    const MAX_PAGES: u32 = 20;
+    for page in 1..=MAX_PAGES {
+        let url = format!(
+            "{}/user/repos?per_page=100&sort=updated&page={page}",
+            github_api_base(host)
+        );
+        let res = client
+            .get(&url)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "l8git")
+            .header("Authorization", format!("Bearer {}", cred.password))
+            .send()
+            .await
+            .map_err(|e| format!("GitHub: {e}"))?;
+        if res.status() == reqwest::StatusCode::UNAUTHORIZED {
+            return Err(format!(
+                "GitHub: 401. Bitte unter Einstellungen bei {host} anmelden."
+            ));
         }
-        let description = v["description"].as_str().map(|s| s.to_string());
-        let private = v["private"].as_bool().unwrap_or(false);
-        let default_branch = v["default_branch"].as_str().map(|s| s.to_string());
-        out.push(RemoteRepo {
-            name,
-            full_name,
-            clone_url,
-            description,
-            private,
-            default_branch,
-        });
+        if !res.status().is_success() {
+            let body = res.text().await.unwrap_or_default();
+            return Err(format!("GitHub: {}", body.trim()));
+        }
+        let arr: Vec<serde_json::Value> =
+            res.json().await.map_err(|e| format!("GitHub: {e}"))?;
+        let page_len = arr.len();
+        for v in arr {
+            let name = v["name"].as_str().unwrap_or("").to_string();
+            let full_name = v["full_name"].as_str().unwrap_or("").to_string();
+            let clone_url = v["clone_url"].as_str().unwrap_or("").to_string();
+            if clone_url.is_empty() {
+                continue;
+            }
+            let description = v["description"].as_str().map(|s| s.to_string());
+            let private = v["private"].as_bool().unwrap_or(false);
+            let default_branch = v["default_branch"].as_str().map(|s| s.to_string());
+            out.push(RemoteRepo {
+                name,
+                full_name,
+                clone_url,
+                description,
+                private,
+                default_branch,
+            });
+        }
+        // GitHub returns fewer than 100 items on the last page.
+        if page_len < 100 {
+            break;
+        }
     }
     Ok(out)
 }

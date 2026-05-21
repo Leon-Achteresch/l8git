@@ -139,6 +139,7 @@ export type PullRequest = {
   labels: string[];
   reviewers: PrReviewer[];
   provider: string;
+  node_id?: string | null;
 };
 
 export type SubmoduleStatus =

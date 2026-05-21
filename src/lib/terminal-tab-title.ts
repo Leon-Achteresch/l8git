@@ -1,6 +1,24 @@
 const OUTPUT_TAIL = 1200;
 const TITLE_MAX = 40;
 
+/**
+ * Mirrors VSCode's TitleEventSource enum
+ * (src/vs/platform/terminal/common/terminal.ts).
+ *
+ * Priority (highest → lowest):
+ *   Api > Sequence > InputCommand/OutputPrompt (Config/Process)
+ */
+export enum TitleEventSource {
+  /** Set explicitly by the user (manual rename). Never overwritten automatically. */
+  Api,
+  /** Set via OSC 0/2 escape sequence sent by the shell or a running program. */
+  Sequence,
+  /** Derived from a typed input command (e.g., "cd foo" → "foo"). */
+  InputCommand,
+  /** Derived from scanning PS1/prompt output patterns. */
+  OutputPrompt,
+}
+
 export function repoDefaultTabTitle(repoPath: string, branch?: string): string {
   const name = repoPath.split(/[/\\]/).filter(Boolean).pop();
   if (branch?.trim()) return branch.trim();
@@ -94,4 +112,33 @@ export class TerminalInputTracker {
     }
     return null;
   }
+}
+
+/**
+ * Converts a raw OSC 0/2 title sequence value into a compact display title.
+ *
+ * Mirrors how VSCode surfaces the terminal's `${sequence}` title variable
+ * (terminal.integrated.tabs.title). Many shells emit these automatically:
+ *   - bash via $PROMPT_COMMAND  →  "user@host: ~/path"
+ *   - zsh via precmd()          →  "user@host: ~/path"
+ *   - PowerShell                →  "PowerShell"  or custom $Host.UI.RawUI.WindowTitle
+ *   - fish                      →  "fish  ~/path"
+ *   - vim / nvim / htop / …     →  "VIM - filename.txt"
+ *
+ * Returns null when the input is empty after stripping ANSI codes.
+ */
+export function processOscTitle(raw: string): string | null {
+  const cleaned = stripAnsi(raw).trim();
+  if (!cleaned) return null;
+
+  // Many shells prefix the title with "user@host: ~/path".
+  // Re-use cwdFromPromptLine to extract just the folder portion from
+  // typical PS1-style strings so tab titles stay compact — exactly as
+  // l8git already does for prompt-scanned output.
+  const fromPrompt = cwdFromPromptLine(cleaned);
+  if (fromPrompt) return fromPrompt;
+
+  // For titles set by running programs (vim, node, htop …) fall back to
+  // the truncated raw string, matching VSCode's ${sequence} behaviour.
+  return truncate(cleaned);
 }

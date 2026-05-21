@@ -10,10 +10,13 @@ export function CiChecksList({
   checks,
   loading,
   emptyLabel,
+  path,
 }: {
   checks: RemoteCiCheck[] | null;
   loading: boolean;
   emptyLabel?: string;
+  /** Repo path forwarded to CiCheckRow for re-run actions. */
+  path?: string;
 }) {
   const { t } = useTranslation();
   if (loading && !checks) {
@@ -37,7 +40,7 @@ export function CiChecksList({
       <div className="flex flex-col gap-1">
         {checks.map((c, i) => {
           const keyId = `${c.check_run_id ?? ""}-${c.external_id ?? ""}-${c.name}-${c.key ?? ""}-${i}`;
-          return <CiCheckRow key={keyId} check={c} />;
+          return <CiCheckRow key={keyId} check={c} path={path} />;
         })}
       </div>
     </ScrollArea>

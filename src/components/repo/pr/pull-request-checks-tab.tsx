@@ -37,5 +37,5 @@ export function PullRequestChecksTab({
     };
   }, [path, number]);
 
-  return <CiChecksList checks={checks} loading={loading} />;
+  return <CiChecksList checks={checks} loading={loading} path={path} />;
 }
