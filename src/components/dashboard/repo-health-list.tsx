@@ -1,0 +1,36 @@
+import { useTranslation } from "react-i18next";
+
+import type { HealthItem } from "@/lib/dashboard-aggregations";
+import { cn } from "@/lib/utils";
+
+export function RepoHealthList({ items }: { items: HealthItem[] }) {
+  const { t } = useTranslation();
+  return (
+    <ul className="space-y-2">
+      {items.map((item) => {
+        const tone =
+          item.severity === "ok"
+            ? "bg-emerald-500"
+            : item.severity === "warn"
+              ? "bg-amber-500"
+              : "bg-rose-500";
+        return (
+          <li
+            key={item.key}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-xs"
+          >
+            <div className="flex items-center gap-2">
+              <span className={cn("size-2 shrink-0 rounded-full", tone)} />
+              <span className="font-medium">{t(`dashboard.health.${item.key}.label`)}</span>
+            </div>
+            <span className="tabular-nums text-muted-foreground">
+              {item.detail !== undefined && item.detail !== ""
+                ? String(item.detail)
+                : t(`dashboard.health.${item.key}.${item.severity}`)}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

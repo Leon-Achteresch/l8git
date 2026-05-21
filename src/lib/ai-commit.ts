@@ -1,10 +1,13 @@
-import { OpenRouter } from "@openrouter/sdk";
-import { useCommitPrefs } from "@/lib/commit-prefs";
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { useCommitPrefs, AI_PROVIDER_DEFAULT_MODELS, type AiProviderType } from "@/lib/commit-prefs";
 import { useRepoPrefs } from "@/lib/repo-prefs";
 import i18n from "@/lib/i18n";
+import type { LanguageModel } from "ai";
 
 const MAX_STAGED_DIFF_CHARS = 48_000;
-const MODEL = "deepseek/deepseek-v4-flash";
 
 export const DEFAULT_AI_PROMPT_TEMPLATE = `You are an expert developer writing git commit messages.
 Subject line: Conventional Commits (type(scope): imperative summary), aim ~72 characters; types include feat, fix, docs, style, refactor, perf, test, build, ci, chore.
@@ -63,18 +66,63 @@ function normalizeCommitMessageText(text: string): string {
   return s.trim();
 }
 
+function buildLanguageModel(
+  type: AiProviderType,
+  apiKey: string,
+  model: string,
+  baseUrl: string,
+): LanguageModel {
+  const resolvedModel = model.trim() || AI_PROVIDER_DEFAULT_MODELS[type];
+
+  switch (type) {
+    case "openai":
+      return createOpenAI({ apiKey })(resolvedModel);
+
+    case "anthropic":
+      return createAnthropic({ apiKey })(resolvedModel);
+
+    case "google":
+      return createGoogleGenerativeAI({ apiKey })(resolvedModel);
+
+    case "openrouter": {
+      const key = apiKey || import.meta.env.VITE_OPENROUTER_API_KEY;
+      return createOpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: key,
+      })(resolvedModel);
+    }
+
+    case "ollama":
+      return createOpenAI({
+        baseURL: baseUrl.trim() || "http://localhost:11434/v1",
+        apiKey: "ollama",
+      })(resolvedModel);
+
+    case "compatible":
+      return createOpenAI({
+        baseURL: baseUrl.trim(),
+        apiKey,
+      })(resolvedModel);
+  }
+}
+
 export async function generateAiCommitMessage(stagedDiff: string, repoPath?: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("VITE_OPENROUTER_API_KEY ist nicht gesetzt");
   const trimmedDiff = stagedDiff.trim();
   if (!trimmedDiff) throw new Error("Kein gestagter Diff vorhanden");
 
-  const { aiPromptTemplate, aiOutputLanguage: globalLanguage, messageTemplate } = useCommitPrefs.getState();
+  const prefs = useCommitPrefs.getState();
   const repoLanguage = repoPath ? useRepoPrefs.getState().getAiOutputLanguage(repoPath) : undefined;
-  const aiOutputLanguage = repoLanguage ?? globalLanguage;
+
+  const { aiProviderType, aiProviderApiKey, aiProviderModel, aiProviderBaseUrl, aiPromptTemplate, aiOutputLanguage, messageTemplate } = prefs;
+
+  if (aiProviderType !== "ollama" && !aiProviderApiKey.trim() && !(aiProviderType === "openrouter" && import.meta.env.VITE_OPENROUTER_API_KEY)) {
+    throw new Error(i18n.t("errors.aiNoApiKey"));
+  }
+
+  const languageModel = buildLanguageModel(aiProviderType, aiProviderApiKey, aiProviderModel, aiProviderBaseUrl);
 
   const basePrompt = aiPromptTemplate.trim() || DEFAULT_AI_PROMPT_TEMPLATE;
-  const language = aiOutputLanguage.trim() || "English";
+  const language = (repoLanguage ?? aiOutputLanguage).trim() || "English";
   const layout = messageTemplate.trim();
 
   const layoutSection = layout
@@ -85,23 +133,12 @@ export async function generateAiCommitMessage(stagedDiff: string, repoPath?: str
 
   const diffBody = trimmedDiff.slice(0, MAX_STAGED_DIFF_CHARS);
 
-  const client = new OpenRouter({ apiKey });
-
-  const completion = await client.chat.send({
-    chatRequest: {
-      model: MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `Write the commit message from this staged diff (all files):\n\n\`\`\`diff\n${diffBody}\n\`\`\``,
-        },
-      ],
-    },
+  const { text } = await generateText({
+    model: languageModel,
+    system: systemPrompt,
+    prompt: `Write the commit message from this staged diff (all files):\n\n\`\`\`diff\n${diffBody}\n\`\`\``,
   });
 
-  const content = completion.choices[0]?.message?.content;
-  if (typeof content !== "string" || !content)
-    throw new Error(i18n.t("errors.aiNoResponse"));
-  return normalizeCommitMessageText(content);
+  if (!text) throw new Error(i18n.t("errors.aiNoResponse"));
+  return normalizeCommitMessageText(text);
 }

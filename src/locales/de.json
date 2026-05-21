@@ -25,10 +25,126 @@
   },
   "header": {
     "repo": "Repository",
+    "dashboard": "Dashboard",
     "info": "Info",
     "about": "Über",
     "mainNav": "Hauptnavigation",
     "settingsAria": "Einstellungen"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Einblicke in deine Repositories",
+    "backAria": "Zurück",
+    "noActiveRepo": "Öffne ein Repository, um das Dashboard zu sehen.",
+    "activeRepoLabel": "Aktives Repository",
+    "tabs": {
+      "active": "Aktives Repo",
+      "all": "Alle Repos"
+    },
+    "cards": {
+      "commits30": "Commits · 30 T",
+      "lineDelta": "Zeilenänderung",
+      "branches": "Branches",
+      "branchesFooter": "{{active}} aktiv · {{stale}} alt",
+      "upstream": "Upstream",
+      "upstreamFooter": "{{ahead}} voraus · {{behind}} zurück",
+      "noUpstream": "Kein Upstream",
+      "openPrs": "Offene PRs",
+      "workingCopy": "Working Copy",
+      "staged": "{{n}} staged",
+      "unstaged": "{{n}} geändert",
+      "untracked": "{{n}} neu"
+    },
+    "activity": {
+      "title": "Commit-Aktivität",
+      "subtitle": "Wie sich das Repo bewegt",
+      "day": "Tag",
+      "week": "Woche",
+      "month": "Monat",
+      "empty": "Keine Commits im gewählten Zeitraum.",
+      "legend": {
+        "commits": "Commits",
+        "insertions": "Hinzugefügt",
+        "deletions": "Entfernt"
+      }
+    },
+    "contributors": {
+      "title": "Top Contributors",
+      "subtitle": "Letzte 90 Tage",
+      "empty": "Noch keine Contributor-Daten.",
+      "commits_one": "{{count}} Commit",
+      "commits_other": "{{count}} Commits"
+    },
+    "languages": {
+      "title": "Sprachen",
+      "empty": "Noch keine Sprachdaten."
+    },
+    "activityFeed": {
+      "title": "Letzte Aktivität",
+      "empty": "Noch nichts zu sehen."
+    },
+    "health": {
+      "title": "Repo-Gesundheit",
+      "workingCopy": {
+        "label": "Working Copy",
+        "ok": "Sauber",
+        "warn": "Offene Änderungen",
+        "error": "Konflikte"
+      },
+      "upstream": {
+        "label": "Upstream",
+        "ok": "Synchron",
+        "warn": "Abgewichen",
+        "error": "Abgewichen"
+      },
+      "conflicts": {
+        "label": "Konflikte",
+        "ok": "Keine",
+        "warn": "Offen",
+        "error": "Offen"
+      },
+      "bisect": {
+        "label": "Bisect",
+        "ok": "Inaktiv",
+        "warn": "Aktiv",
+        "error": "Problem"
+      },
+      "stashes": {
+        "label": "Stashes",
+        "ok": "Keine",
+        "warn": "Vorhanden",
+        "error": "Vorhanden"
+      },
+      "worktrees": {
+        "label": "Worktrees",
+        "ok": "Konfiguriert",
+        "warn": "Prüfen",
+        "error": "Prüfen"
+      }
+    },
+    "all": {
+      "title": "Repositories",
+      "subtitle": "Alle Repos dieses Workspaces auf einen Blick",
+      "refresh": "Aktualisieren",
+      "empty": "Keine Repositories im Workspace.",
+      "totals": {
+        "repos": "Repositories",
+        "ahead": "Σ voraus",
+        "behind": "Σ zurück",
+        "dirty": "Dirty Worktrees",
+        "scanned": "geprüft",
+        "attention": "benötigt Aufmerksamkeit",
+        "allClear": "alles okay"
+      },
+      "cols": {
+        "repo": "Repository",
+        "branch": "Branch",
+        "sync": "Sync",
+        "dirty": "Dirty",
+        "last": "Letzter Commit",
+        "activity": "30-Tage-Aktivität"
+      }
+    }
   },
   "emptyState": {
     "cardCommitsCaption": "Alle Änderungen",
@@ -77,6 +193,7 @@
     "updateInstallFailed": "Update fehlgeschlagen: {{error}}",
     "restartFailed": "Neustart fehlgeschlagen: {{error}}",
     "aiNoResponse": "Keine Antwort vom AI-Modell erhalten",
+    "aiNoApiKey": "Kein API-Key konfiguriert. Gehe zu Einstellungen → AI, um deinen Key einzutragen.",
     "cloneOpenFailed": "Geklontes Repository konnte nicht geöffnet werden.",
     "localChangesBlockPull": "Bitte zuerst die aktuellen Änderungen committen, danach erneut pullen und Konflikte manuell auflösen. Betroffen: {{files}}"
   },
@@ -141,6 +258,28 @@
     "messagePlaceholder": "z. B. kurze Überschrift\n\n- \n",
     "aiTitle": "AI Commit-Nachricht",
     "aiDesc": "Anweisungen und Ausgabesprache für die automatische Commit-Generierung. Leer lassen, um die Standard-Vorlage zu verwenden.",
+    "aiSectionTitle": "AI-Commit-Nachrichten",
+    "aiSectionSubtitle": "KI-Anbieter und Generierungsverhalten konfigurieren",
+    "aiProviderTitle": "Anbieter",
+    "aiProviderDesc": "Wähle den KI-Dienst und trage deinen API-Key ein. Keys werden nur lokal auf diesem Gerät gespeichert.",
+    "aiProviderOpenAiDesc": "GPT-4o, o1 und alle OpenAI-Modelle",
+    "aiProviderAnthropicDesc": "Claude 3.5 Haiku, Sonnet, Opus",
+    "aiProviderGoogleDesc": "Gemini 2.0 Flash und Pro-Modelle",
+    "aiProviderOpenRouterDesc": "400+ Modelle mit einem API-Key",
+    "aiProviderOllamaDesc": "Lokale Modelle, kein Key erforderlich",
+    "aiProviderCompatibleLabel": "Kompatibel",
+    "aiProviderCompatibleDesc": "Beliebiger OpenAI-kompatibler Endpunkt",
+    "aiApiKeyLabel": "API-Key",
+    "aiApiKeyPlaceholder": "sk-…",
+    "aiApiKeyShow": "API-Key anzeigen",
+    "aiApiKeyHide": "API-Key verbergen",
+    "aiModelLabel": "Modell",
+    "aiModelHint": "Leer lassen, um den Standard zu verwenden: {{default}}",
+    "aiBaseUrlLabel": "Basis-URL",
+    "aiBaseUrlHint": "Basis-URL des OpenAI-kompatiblen API-Endpunkts.",
+    "aiOutputTitle": "Ausgabe-Einstellungen",
+    "aiOutputDesc": "Sprache und System-Prompt für generierte Commit-Nachrichten.",
+    "navAi": "AI",
     "aiOutputLanguage": "Ausgabesprache",
     "aiOutputHint": "z. B. „German“, „Deutsch“, „French“, „English“ (Standard)",
     "aiPromptLabel": "System-Prompt",

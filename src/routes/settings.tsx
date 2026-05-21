@@ -3,8 +3,15 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bot,
+  Brain,
+  Eye,
+  EyeOff,
   FolderOpen,
   GitCommitHorizontal,
+  Globe2,
+  HardDrive,
+  Link2,
   Monitor,
   Moon,
   Package,
@@ -42,7 +49,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { checkForAppUpdate } from "@/lib/app-updater";
 import { DEFAULT_AI_PROMPT_TEMPLATE } from "@/lib/ai-commit";
-import { useCommitPrefs } from "@/lib/commit-prefs";
+import { useCommitPrefs, AI_PROVIDER_DEFAULT_MODELS, type AiProviderType } from "@/lib/commit-prefs";
 import { useGitAccounts } from "@/lib/git-accounts";
 import { useLocalePrefs } from "@/lib/locale-prefs";
 import type { Theme } from "@/lib/theme";
@@ -192,6 +199,7 @@ function Settings() {
         label: t("settings.navGroupCommits"),
         items: [
           { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal, accent: "bg-emerald-500" },
+          { id: "ai", label: t("settings.navAi"), icon: Sparkles, accent: "bg-violet-500" },
         ],
       },
       {
@@ -237,6 +245,14 @@ function Settings() {
   const setAiPromptTemplate = useCommitPrefs((s) => s.setAiPromptTemplate);
   const aiOutputLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
   const setAiOutputLanguage = useCommitPrefs((s) => s.setAiOutputLanguage);
+  const aiProviderType = useCommitPrefs((s) => s.aiProviderType);
+  const setAiProviderType = useCommitPrefs((s) => s.setAiProviderType);
+  const aiProviderApiKey = useCommitPrefs((s) => s.aiProviderApiKey);
+  const setAiProviderApiKey = useCommitPrefs((s) => s.setAiProviderApiKey);
+  const aiProviderModel = useCommitPrefs((s) => s.aiProviderModel);
+  const setAiProviderModel = useCommitPrefs((s) => s.setAiProviderModel);
+  const aiProviderBaseUrl = useCommitPrefs((s) => s.aiProviderBaseUrl);
+  const setAiProviderBaseUrl = useCommitPrefs((s) => s.setAiProviderBaseUrl);
   const graphLanePxMin = useCommitPrefs((s) => s.graphLanePxMin);
   const setGraphLanePxMin = useCommitPrefs((s) => s.setGraphLanePxMin);
   const graphLanePxMax = useCommitPrefs((s) => s.graphLanePxMax);
@@ -245,14 +261,22 @@ function Settings() {
   const [commitTemplateDraft, setCommitTemplateDraft] = useState(messageTemplate);
   const [aiPromptDraft, setAiPromptDraft] = useState(aiPromptTemplate);
   const [aiLanguageDraft, setAiLanguageDraft] = useState(aiOutputLanguage);
+  const [aiApiKeyDraft, setAiApiKeyDraft] = useState(aiProviderApiKey);
+  const [aiModelDraft, setAiModelDraft] = useState(aiProviderModel);
+  const [aiBaseUrlDraft, setAiBaseUrlDraft] = useState(aiProviderBaseUrl);
+  const [aiApiKeyVisible, setAiApiKeyVisible] = useState(false);
 
   useEffect(() => { setCommitTemplateDraft(messageTemplate); }, [messageTemplate]);
   useEffect(() => { setAiPromptDraft(aiPromptTemplate); }, [aiPromptTemplate]);
   useEffect(() => { setAiLanguageDraft(aiOutputLanguage); }, [aiOutputLanguage]);
+  useEffect(() => { setAiApiKeyDraft(aiProviderApiKey); }, [aiProviderApiKey]);
+  useEffect(() => { setAiModelDraft(aiProviderModel); }, [aiProviderModel]);
+  useEffect(() => { setAiBaseUrlDraft(aiProviderBaseUrl); }, [aiProviderBaseUrl]);
 
   const signedInAccounts = accounts.filter((a) => a.signed_in);
   const commitTemplateDirty = commitTemplateDraft !== messageTemplate;
   const aiPromptDirty = aiPromptDraft !== aiPromptTemplate || aiLanguageDraft !== aiOutputLanguage;
+  const aiProviderDirty = aiApiKeyDraft !== aiProviderApiKey || aiModelDraft !== aiProviderModel || aiBaseUrlDraft !== aiProviderBaseUrl;
 
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
   const setIdeLaunchCommand = useWorkspacePrefs((s) => s.setIdeLaunchCommand);
@@ -679,6 +703,207 @@ function Settings() {
                       <CardTitle>{t("settings.aiTitle")}</CardTitle>
                     </div>
                     <CardDescription>{t("settings.aiDesc")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-language" className="text-sm font-medium">
+                        {t("settings.aiOutputLanguage")}
+                      </Label>
+                      <Input
+                        id="ai-language"
+                        value={aiLanguageDraft}
+                        onChange={(e) => setAiLanguageDraft(e.target.value)}
+                        placeholder="English"
+                        className="font-mono text-sm"
+                        spellCheck={false}
+                        autoCorrect="off"
+                      />
+                      <p className="text-xs text-muted-foreground">{t("settings.aiOutputHint")}</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-prompt" className="text-sm font-medium">
+                        {t("settings.aiPromptLabel")}
+                      </Label>
+                      <Textarea
+                        id="ai-prompt"
+                        value={aiPromptDraft}
+                        onChange={(e) => setAiPromptDraft(e.target.value)}
+                        rows={8}
+                        placeholder={DEFAULT_AI_PROMPT_TEMPLATE}
+                        className="min-h-[180px] font-mono text-sm"
+                        spellCheck={false}
+                      />
+                      <p className="text-xs text-muted-foreground">{t("settings.aiPromptHint")}</p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        disabled={!aiPromptDirty}
+                        onClick={() => {
+                          setAiPromptTemplate(aiPromptDraft);
+                          setAiOutputLanguage(aiLanguageDraft);
+                        }}
+                      >
+                        {t("common.save")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+            </div>
+          </section>
+
+          {/* ── AI ────────────────────────────────────────────────────── */}
+          <section id="ai" ref={setRef("ai")} className="scroll-mt-10">
+            <SectionHeader
+              icon={Sparkles}
+              title={t("settings.aiSectionTitle")}
+              subtitle={t("settings.aiSectionSubtitle")}
+              gradient="from-violet-500/25 to-purple-500/25"
+              iconColor="text-violet-500"
+            />
+
+            <div className="space-y-4">
+              <StaggerCard index={0}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.aiProviderTitle")}</CardTitle>
+                    <CardDescription>{t("settings.aiProviderDesc")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <div
+                      role="radiogroup"
+                      aria-label={t("settings.aiProviderTitle")}
+                      className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+                    >
+                      {(
+                        [
+                          { id: "openai" as const, label: "OpenAI", desc: t("settings.aiProviderOpenAiDesc"), icon: Bot },
+                          { id: "anthropic" as const, label: "Anthropic", desc: t("settings.aiProviderAnthropicDesc"), icon: Brain },
+                          { id: "google" as const, label: "Google", desc: t("settings.aiProviderGoogleDesc"), icon: Sparkles },
+                          { id: "openrouter" as const, label: "OpenRouter", desc: t("settings.aiProviderOpenRouterDesc"), icon: Globe2 },
+                          { id: "ollama" as const, label: "Ollama", desc: t("settings.aiProviderOllamaDesc"), icon: HardDrive },
+                          { id: "compatible" as const, label: t("settings.aiProviderCompatibleLabel"), desc: t("settings.aiProviderCompatibleDesc"), icon: Link2 },
+                        ] satisfies { id: AiProviderType; label: string; desc: string; icon: typeof Bot }[]
+                      ).map(({ id, label, desc, icon: Icon }) => {
+                        const active = aiProviderType === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            onClick={() => setAiProviderType(id)}
+                            className={cn(
+                              "flex flex-col gap-2.5 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              active
+                                ? "border-primary/40 bg-primary/5 ring-2 ring-ring ring-offset-2 ring-offset-background"
+                                : "border-border/60 hover:border-border hover:bg-muted/30",
+                            )}
+                          >
+                            <Icon className={cn("size-5", active ? "text-primary" : "text-muted-foreground")} />
+                            <div>
+                              <div className="text-sm font-semibold">{label}</div>
+                              <div className="mt-0.5 text-xs text-muted-foreground">{desc}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {aiProviderType !== "ollama" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ai-api-key" className="text-sm font-medium">
+                          {t("settings.aiApiKeyLabel")}
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="ai-api-key"
+                            type={aiApiKeyVisible ? "text" : "password"}
+                            value={aiApiKeyDraft}
+                            onChange={(e) => setAiApiKeyDraft(e.target.value)}
+                            placeholder={t("settings.aiApiKeyPlaceholder")}
+                            className="min-w-0 flex-1 font-mono text-sm"
+                            spellCheck={false}
+                            autoCorrect="off"
+                            autoComplete="off"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setAiApiKeyVisible((v) => !v)}
+                            aria-label={aiApiKeyVisible ? t("settings.aiApiKeyHide") : t("settings.aiApiKeyShow")}
+                            className="shrink-0"
+                          >
+                            {aiApiKeyVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-model" className="text-sm font-medium">
+                        {t("settings.aiModelLabel")}
+                      </Label>
+                      <Input
+                        id="ai-model"
+                        value={aiModelDraft}
+                        onChange={(e) => setAiModelDraft(e.target.value)}
+                        placeholder={AI_PROVIDER_DEFAULT_MODELS[aiProviderType]}
+                        className="font-mono text-sm"
+                        spellCheck={false}
+                        autoCorrect="off"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {t("settings.aiModelHint", { default: AI_PROVIDER_DEFAULT_MODELS[aiProviderType] })}
+                      </p>
+                    </div>
+
+                    {(aiProviderType === "ollama" || aiProviderType === "compatible") && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="ai-base-url" className="text-sm font-medium">
+                          {t("settings.aiBaseUrlLabel")}
+                        </Label>
+                        <Input
+                          id="ai-base-url"
+                          value={aiBaseUrlDraft}
+                          onChange={(e) => setAiBaseUrlDraft(e.target.value)}
+                          placeholder={
+                            aiProviderType === "ollama"
+                              ? "http://localhost:11434/v1"
+                              : "https://api.example.com/v1"
+                          }
+                          className="font-mono text-sm"
+                          spellCheck={false}
+                          autoCorrect="off"
+                        />
+                        <p className="text-xs text-muted-foreground">{t("settings.aiBaseUrlHint")}</p>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        disabled={!aiProviderDirty}
+                        onClick={() => {
+                          setAiProviderApiKey(aiApiKeyDraft.trim());
+                          setAiProviderModel(aiModelDraft.trim());
+                          setAiProviderBaseUrl(aiBaseUrlDraft.trim());
+                        }}
+                      >
+                        {t("common.save")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={1}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.aiOutputTitle")}</CardTitle>
+                    <CardDescription>{t("settings.aiOutputDesc")}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-1.5">

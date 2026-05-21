@@ -1,6 +1,17 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+export type AiProviderType = "openai" | "anthropic" | "google" | "openrouter" | "ollama" | "compatible";
+
+export const AI_PROVIDER_DEFAULT_MODELS: Record<AiProviderType, string> = {
+  openai: "gpt-4o-mini",
+  anthropic: "claude-3-5-haiku-latest",
+  google: "gemini-2.0-flash",
+  openrouter: "deepseek/deepseek-v4-flash",
+  ollama: "llama3.2",
+  compatible: "",
+};
+
 type CommitPrefs = {
   messageTemplate: string;
   setMessageTemplate: (value: string) => void;
@@ -12,10 +23,16 @@ type CommitPrefs = {
   setAiPromptTemplate: (value: string) => void;
   aiOutputLanguage: string;
   setAiOutputLanguage: (value: string) => void;
-  /** Minimum graph-column width in pixels (≥ 20). */
+  aiProviderType: AiProviderType;
+  setAiProviderType: (value: AiProviderType) => void;
+  aiProviderApiKey: string;
+  setAiProviderApiKey: (value: string) => void;
+  aiProviderModel: string;
+  setAiProviderModel: (value: string) => void;
+  aiProviderBaseUrl: string;
+  setAiProviderBaseUrl: (value: string) => void;
   graphLanePxMin: number;
   setGraphLanePxMin: (value: number) => void;
-  /** Maximum graph-column width in pixels (≤ 240). */
   graphLanePxMax: number;
   setGraphLanePxMax: (value: number) => void;
 };
@@ -35,6 +52,14 @@ export const useCommitPrefs = create<CommitPrefs>()(
       setAiPromptTemplate: (value) => set({ aiPromptTemplate: value }),
       aiOutputLanguage: "English",
       setAiOutputLanguage: (value) => set({ aiOutputLanguage: value }),
+      aiProviderType: "openrouter",
+      setAiProviderType: (value) => set({ aiProviderType: value }),
+      aiProviderApiKey: "",
+      setAiProviderApiKey: (value) => set({ aiProviderApiKey: value }),
+      aiProviderModel: "",
+      setAiProviderModel: (value) => set({ aiProviderModel: value }),
+      aiProviderBaseUrl: "",
+      setAiProviderBaseUrl: (value) => set({ aiProviderBaseUrl: value }),
       graphLanePxMin: 36,
       setGraphLanePxMin: (graphLanePxMin) => set({ graphLanePxMin }),
       graphLanePxMax: 160,

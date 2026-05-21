@@ -25,10 +25,126 @@
   },
   "header": {
     "repo": "Repository",
+    "dashboard": "Dashboard",
     "info": "Info",
     "about": "About",
     "mainNav": "Main navigation",
     "settingsAria": "Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Insights across your repositories",
+    "backAria": "Back",
+    "noActiveRepo": "Open a repository to see its dashboard.",
+    "activeRepoLabel": "Active repository",
+    "tabs": {
+      "active": "Active repo",
+      "all": "All repos"
+    },
+    "cards": {
+      "commits30": "Commits · 30 d",
+      "lineDelta": "Working copy lines",
+      "branches": "Branches",
+      "branchesFooter": "{{active}} active · {{stale}} stale",
+      "upstream": "Upstream",
+      "upstreamFooter": "{{ahead}} ahead · {{behind}} behind",
+      "noUpstream": "No upstream",
+      "openPrs": "Open PRs",
+      "workingCopy": "Working copy",
+      "staged": "{{n}} staged",
+      "unstaged": "{{n}} changed",
+      "untracked": "{{n}} new"
+    },
+    "activity": {
+      "title": "Commit activity",
+      "subtitle": "How the repo has been moving",
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "empty": "No commits in the selected range.",
+      "legend": {
+        "commits": "Commits",
+        "insertions": "Insertions",
+        "deletions": "Deletions"
+      }
+    },
+    "contributors": {
+      "title": "Top contributors",
+      "subtitle": "Last 90 days",
+      "empty": "No contributor data yet.",
+      "commits_one": "{{count}} commit",
+      "commits_other": "{{count}} commits"
+    },
+    "languages": {
+      "title": "Languages",
+      "empty": "No language data yet."
+    },
+    "activityFeed": {
+      "title": "Recent activity",
+      "empty": "Nothing to show yet."
+    },
+    "health": {
+      "title": "Repo health",
+      "workingCopy": {
+        "label": "Working copy",
+        "ok": "Clean",
+        "warn": "Pending changes",
+        "error": "Conflicts"
+      },
+      "upstream": {
+        "label": "Upstream",
+        "ok": "In sync",
+        "warn": "Drifted",
+        "error": "Drifted"
+      },
+      "conflicts": {
+        "label": "Conflicts",
+        "ok": "None",
+        "warn": "Pending",
+        "error": "Pending"
+      },
+      "bisect": {
+        "label": "Bisect",
+        "ok": "Idle",
+        "warn": "In progress",
+        "error": "Issue"
+      },
+      "stashes": {
+        "label": "Stashes",
+        "ok": "None",
+        "warn": "Stored",
+        "error": "Stored"
+      },
+      "worktrees": {
+        "label": "Worktrees",
+        "ok": "Configured",
+        "warn": "Check",
+        "error": "Check"
+      }
+    },
+    "all": {
+      "title": "Repositories",
+      "subtitle": "All repos in this workspace at a glance",
+      "refresh": "Refresh",
+      "empty": "No repositories registered in this workspace.",
+      "totals": {
+        "repos": "Repositories",
+        "ahead": "Σ ahead",
+        "behind": "Σ behind",
+        "dirty": "Dirty worktrees",
+        "scanned": "scanned",
+        "attention": "needs attention",
+        "allClear": "all clear"
+      },
+      "cols": {
+        "repo": "Repository",
+        "branch": "Branch",
+        "sync": "Sync",
+        "dirty": "Dirty",
+        "last": "Last commit",
+        "activity": "30 d activity"
+      }
+    }
   },
   "emptyState": {
     "cardCommitsCaption": "All changes",
@@ -77,6 +193,7 @@
     "updateInstallFailed": "Update failed: {{error}}",
     "restartFailed": "Restart failed: {{error}}",
     "aiNoResponse": "No response from the AI model",
+    "aiNoApiKey": "No API key configured. Go to Settings → AI to add your key.",
     "cloneOpenFailed": "The cloned repository could not be opened.",
     "localChangesBlockPull": "Please commit the current changes first, then pull again and resolve any conflicts manually. Affected: {{files}}"
   },
@@ -141,6 +258,28 @@
     "messagePlaceholder": "e.g. short subject\n\n- \n",
     "aiTitle": "AI commit message",
     "aiDesc": "Instructions and output language for automatic commit generation. Leave empty to use the default template.",
+    "aiSectionTitle": "AI commit messages",
+    "aiSectionSubtitle": "Configure your AI provider and generation behaviour",
+    "aiProviderTitle": "Provider",
+    "aiProviderDesc": "Choose the AI service and enter your API key. Keys are stored locally on this device.",
+    "aiProviderOpenAiDesc": "GPT-4o, o1, and all OpenAI models",
+    "aiProviderAnthropicDesc": "Claude 3.5 Haiku, Sonnet, Opus",
+    "aiProviderGoogleDesc": "Gemini 2.0 Flash and Pro models",
+    "aiProviderOpenRouterDesc": "400+ models via one API key",
+    "aiProviderOllamaDesc": "Local models, no key required",
+    "aiProviderCompatibleLabel": "Compatible",
+    "aiProviderCompatibleDesc": "Any OpenAI-compatible endpoint",
+    "aiApiKeyLabel": "API key",
+    "aiApiKeyPlaceholder": "sk-…",
+    "aiApiKeyShow": "Show API key",
+    "aiApiKeyHide": "Hide API key",
+    "aiModelLabel": "Model",
+    "aiModelHint": "Leave empty to use the default: {{default}}",
+    "aiBaseUrlLabel": "Base URL",
+    "aiBaseUrlHint": "Base URL of the OpenAI-compatible API endpoint.",
+    "aiOutputTitle": "Output settings",
+    "aiOutputDesc": "Language and system prompt for generated commit messages.",
+    "navAi": "AI",
     "aiOutputLanguage": "Output language",
     "aiOutputHint": "e.g. \"German\", \"Deutsch\", \"French\", \"English\" (default)",
     "aiPromptLabel": "System prompt",
