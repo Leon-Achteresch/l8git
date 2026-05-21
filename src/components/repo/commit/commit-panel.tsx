@@ -10,6 +10,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -18,10 +26,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { StashCreateDialog } from "@/components/repo/stash/stash-create-dialog";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
+import { useRepoPrefs } from "@/lib/repo-prefs";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
-import { invoke } from "@tauri-apps/api/core";import {
+import { invoke } from "@tauri-apps/api/core";
+import {
   Archive,
   Check,
   Loader2,
@@ -44,6 +54,22 @@ import { useTranslation } from "react-i18next";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 
+const AI_LANGUAGES = [
+  { label: "English", short: "EN" },
+  { label: "Deutsch", short: "DE" },
+  { label: "Français", short: "FR" },
+  { label: "Español", short: "ES" },
+  { label: "Italiano", short: "IT" },
+  { label: "Português", short: "PT" },
+  { label: "中文", short: "ZH" },
+  { label: "日本語", short: "JA" },
+] as const;
+
+function languageShort(lang: string): string {
+  return AI_LANGUAGES.find((l) => l.label.toLowerCase() === lang.toLowerCase())?.short
+    ?? lang.slice(0, 2).toUpperCase();
+}
+
 export function CommitPanel() {
   const { t } = useTranslation();
   const activePath = useRepoStore((s) => s.activePath);
@@ -58,6 +84,11 @@ export function CommitPanel() {
   const latestCommit = useRepoStore((s) => (activePath ? s.repos[activePath]?.commits[0] : undefined));
   const discardFiles = useRepoStore((s) => s.discardFiles);
   const discardWorktreeChanges = useRepoStore((s) => s.discardWorktreeChanges);
+
+  const globalAiLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
+  const repoAiLanguage = useRepoPrefs((s) => activePath ? s.getAiOutputLanguage(activePath) : undefined);
+  const setRepoAiLanguage = useRepoPrefs((s) => s.setAiOutputLanguage);
+  const effectiveLanguage = repoAiLanguage ?? globalAiLanguage;
 
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
@@ -284,7 +315,7 @@ export function CommitPanel() {
     setAiGenerating(true);
     try {
       const stagedDiff = await invoke<string>("repo_staged_diff", { path: activePath });
-      const msg = await generateAiCommitMessage(stagedDiff);
+      const msg = await generateAiCommitMessage(stagedDiff, activePath);
       setMessage(msg);
     } catch (e) {
       toastError(String(e));
@@ -482,6 +513,44 @@ export function CommitPanel() {
             className="resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
           <div className="absolute bottom-2 right-2 flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  title={t("commitPanel.aiLanguageTitle")}
+                  className={`h-9 rounded-md px-2 text-xs font-medium tabular-nums ${
+                    repoAiLanguage
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {languageShort(effectiveLanguage)}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top">
+                <DropdownMenuLabel>{t("commitPanel.aiLanguageLabel")}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => activePath && setRepoAiLanguage(activePath, undefined)}
+                  className={!repoAiLanguage ? "font-medium" : ""}
+                >
+                  {t("commitPanel.aiLanguageDefault", { lang: languageShort(globalAiLanguage) })}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {AI_LANGUAGES.map(({ label, short }) => (
+                  <DropdownMenuItem
+                    key={label}
+                    onClick={() => activePath && setRepoAiLanguage(activePath, label)}
+                    className={repoAiLanguage === label ? "font-medium" : ""}
+                  >
+                    <span className="w-7 text-muted-foreground">{short}</span>
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               type="button"
               size="icon"

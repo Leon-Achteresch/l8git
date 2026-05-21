@@ -1,5 +1,6 @@
 import { OpenRouter } from "@openrouter/sdk";
 import { useCommitPrefs } from "@/lib/commit-prefs";
+import { useRepoPrefs } from "@/lib/repo-prefs";
 import i18n from "@/lib/i18n";
 
 const MAX_STAGED_DIFF_CHARS = 48_000;
@@ -62,13 +63,15 @@ function normalizeCommitMessageText(text: string): string {
   return s.trim();
 }
 
-export async function generateAiCommitMessage(stagedDiff: string): Promise<string> {
+export async function generateAiCommitMessage(stagedDiff: string, repoPath?: string): Promise<string> {
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("VITE_OPENROUTER_API_KEY ist nicht gesetzt");
   const trimmedDiff = stagedDiff.trim();
   if (!trimmedDiff) throw new Error("Kein gestagter Diff vorhanden");
 
-  const { aiPromptTemplate, aiOutputLanguage, messageTemplate } = useCommitPrefs.getState();
+  const { aiPromptTemplate, aiOutputLanguage: globalLanguage, messageTemplate } = useCommitPrefs.getState();
+  const repoLanguage = repoPath ? useRepoPrefs.getState().getAiOutputLanguage(repoPath) : undefined;
+  const aiOutputLanguage = repoLanguage ?? globalLanguage;
 
   const basePrompt = aiPromptTemplate.trim() || DEFAULT_AI_PROMPT_TEMPLATE;
   const language = aiOutputLanguage.trim() || "English";
