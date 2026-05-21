@@ -8,6 +8,7 @@ import { RepoTabLayout } from "@/components/repo/layout/repo-tab-layout";
 import { EmptyState } from "@/components/repo/layout/empty-state";
 import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
 import { MergeConflictPage } from "@/components/repo/merge/merge-conflict-page";
+import { GitBlamePage } from "@/components/repo/blame/git-blame-page";
 import { PullRequestPanel } from "@/components/repo/pr/pull-request-panel";
 import { StashPanel } from "@/components/repo/stash/stash-panel";
 import { SubmodulesPanel } from "@/components/repo/submodules/submodules-panel";
@@ -34,11 +35,21 @@ function Home() {
   const sidebarTab = useUiStore((s) => s.sidebarTab);
   const mergeEditorPath = useUiStore((s) => s.mergeEditorPath);
   const closeMergeEditor = useUiStore((s) => s.closeMergeEditor);
+  const blameEditorPath = useUiStore((s) => s.blameEditorPath);
+  const blameEditorFile = useUiStore((s) => s.blameEditorFile);
+  const closeBlameEditor = useUiStore((s) => s.closeBlameEditor);
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
       {mergeEditorPath && (
         <MergeConflictPage path={mergeEditorPath} onClose={closeMergeEditor} />
+      )}
+      {blameEditorPath && (
+        <GitBlamePage
+          path={blameEditorPath}
+          initialFile={blameEditorFile}
+          onClose={closeBlameEditor}
+        />
       )}
       <RepoTabBar />
       <div className="flex min-h-0 flex-1 overflow-hidden">

@@ -38,6 +38,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { checkForAppUpdate } from "@/lib/app-updater";
 import { DEFAULT_AI_PROMPT_TEMPLATE } from "@/lib/ai-commit";
@@ -236,6 +237,10 @@ function Settings() {
   const setAiPromptTemplate = useCommitPrefs((s) => s.setAiPromptTemplate);
   const aiOutputLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
   const setAiOutputLanguage = useCommitPrefs((s) => s.setAiOutputLanguage);
+  const graphLanePxMin = useCommitPrefs((s) => s.graphLanePxMin);
+  const setGraphLanePxMin = useCommitPrefs((s) => s.setGraphLanePxMin);
+  const graphLanePxMax = useCommitPrefs((s) => s.graphLanePxMax);
+  const setGraphLanePxMax = useCommitPrefs((s) => s.setGraphLanePxMax);
 
   const [commitTemplateDraft, setCommitTemplateDraft] = useState(messageTemplate);
   const [aiPromptDraft, setAiPromptDraft] = useState(aiPromptTemplate);
@@ -600,6 +605,46 @@ function Settings() {
               </StaggerCard>
 
               <StaggerCard index={5}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.graphLaneWidthTitle")}</CardTitle>
+                    <CardDescription>{t("settings.graphLaneWidthDesc")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-foreground">
+                          {t("settings.graphLaneWidthLabel")}
+                        </Label>
+                        <span className="tabular-nums text-sm font-semibold text-foreground">
+                          {graphLanePxMin}&thinsp;–&thinsp;{graphLanePxMax}&thinsp;px
+                        </span>
+                      </div>
+                      <Slider
+                        min={20}
+                        max={240}
+                        step={4}
+                        minStepsBetweenThumbs={2}
+                        value={[graphLanePxMin, graphLanePxMax]}
+                        onValueChange={([min, max]: number[]) => {
+                          setGraphLanePxMin(min);
+                          setGraphLanePxMax(max);
+                        }}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-[11px] text-muted-foreground/60 select-none">
+                        <span>20 px</span>
+                        <span className="text-center text-muted-foreground/50 text-[10px]">
+                          {t("settings.graphLaneWidthHint")}
+                        </span>
+                        <span>240 px</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={6}>
                 <Card>
                   <CardHeader>
                     <CardTitle>{t("settings.messageTitle")}</CardTitle>
