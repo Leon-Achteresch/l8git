@@ -3,6 +3,16 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
@@ -58,6 +68,7 @@ export function CommitInspectDetail({
   const [diffFailed, setDiffFailed] = useState(false);
   const [splitFlex, setSplitFlex] = useState(readSplitFlexFromStorage);
   const [blameActive, setBlameActive] = useState(false);
+  const [restoreDialog, setRestoreDialog] = useState<{ files: string[] } | null>(null);
   const [defaultInnerLayout] = useState<Record<string, number> | undefined>(
     () => {
       const raw = localStorage.getItem(innerLayoutKey);
@@ -147,35 +158,27 @@ export function CommitInspectDetail({
   const discardFile = useCallback(
     (filePath: string) => {
       if (!commitHash) return;
-      const ok = window.confirm(t("commitInspect.resetConfirmOne", { path: filePath }));
-      if (!ok) return;
-      void (async () => {
-        try {
-          await restoreFilesAtCommit(path, commitHash, [filePath]);
-        } catch (e) {
-          toastError(String(e));
-        }
-      })();
+      setRestoreDialog({ files: [filePath] });
     },
-    [commitHash, path, restoreFilesAtCommit, t],
+    [commitHash],
   );
 
   const discardChecked = useCallback(() => {
     if (!commitHash || checkedFiles.size === 0) return;
-    const files = [...checkedFiles];
-    const ok = window.confirm(
-      t("commitInspect.resetConfirmMany", { count: files.length }),
-    );
-    if (!ok) return;
-    void (async () => {
-      try {
-        await restoreFilesAtCommit(path, commitHash, files);
-        setCheckedFiles(new Set());
-      } catch (e) {
-        toastError(String(e));
-      }
-    })();
-  }, [commitHash, checkedFiles, path, restoreFilesAtCommit, t]);
+    setRestoreDialog({ files: [...checkedFiles] });
+  }, [commitHash, checkedFiles]);
+
+  const confirmRestore = useCallback(async () => {
+    if (!commitHash || !restoreDialog) return;
+    const { files } = restoreDialog;
+    setRestoreDialog(null);
+    try {
+      await restoreFilesAtCommit(path, commitHash, files);
+      if (files.length > 1) setCheckedFiles(new Set());
+    } catch (e) {
+      toastError(String(e));
+    }
+  }, [commitHash, restoreDialog, restoreFilesAtCommit, path]);
 
   const handleCheckedChange = useCallback((filePath: string, checked: boolean) => {
     setCheckedFiles((prev) => {
@@ -303,6 +306,24 @@ export function CommitInspectDetail({
           </div>
         )}
       </div>
+      <AlertDialog open={!!restoreDialog} onOpenChange={(open) => { if (!open) setRestoreDialog(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("commitInspect.resetDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {restoreDialog && restoreDialog.files.length === 1
+                ? t("commitInspect.resetConfirmOne", { path: restoreDialog.files[0] })
+                : t("commitInspect.resetConfirmMany", { count: restoreDialog?.files.length ?? 0 })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction size="sm" variant="destructive" onClick={() => void confirmRestore()}>
+              {t("commitInspect.resetConfirmAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

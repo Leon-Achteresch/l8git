@@ -33,7 +33,7 @@ function FileRowInner({
   multiSelectedCount: number;
   onSelect: (id: string, shiftKey: boolean) => void;
   onToggle: (entry: StatusEntry, rowId: string) => void;
-  onDiscard: (path: string) => void;
+  onDiscard: (rowId: string) => void;
   onBlame: (path: string) => void;
 }) {
   const { t } = useTranslation();
@@ -100,7 +100,7 @@ function FileRowInner({
           <GitCommitHorizontal className="h-3.5 w-3.5" />
           {t("commitPanel.fileRowBlame")}
         </ContextMenuItem>
-        <ContextMenuItem variant="destructive" onSelect={() => onDiscard(row.path)}>
+        <ContextMenuItem variant="destructive" onSelect={() => onDiscard(row.id)}>
           <Undo2 className="h-3.5 w-3.5" />
           {inMultiSelection && multiSelectedCount > 1
             ? t("commitPanel.fileRowDiscardMultiple", { count: multiSelectedCount })

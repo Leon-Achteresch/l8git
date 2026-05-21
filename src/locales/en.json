@@ -461,7 +461,14 @@
     "discardDialogTitle": "Discard changes?",
     "discardManyConfirm_one": "Permanently discard changes to {{count}} file? This cannot be undone.",
     "discardManyConfirm_other": "Permanently discard changes to {{count}} files? This cannot be undone.",
-    "discardVerb": "Discard"
+    "discardVerb": "Discard",
+    "editFile": "Edit file",
+    "viewDiff": "View diff",
+    "editFileSave": "Save",
+    "editFileSaving": "Saving…",
+    "editFileSaved": "Saved",
+    "editFileLoadError": "Could not load file content.",
+    "editFileSaveError": "Could not save file."
   },
   "bisect": {
     "ended": "Bisect finished.",
@@ -862,6 +869,8 @@
     "loadingDetails": "Loading details…",
     "resetConfirmOne": "Reset “{{path}}” to this commit state? Unsaved changes will be lost.",
     "resetConfirmMany": "Reset {{count}} file(s) to this commit state? Unsaved changes will be lost.",
+    "resetDialogTitle": "Reset to commit state",
+    "resetConfirmAction": "Reset",
     "noFileSelected": "No file selected",
     "noFilesInCommit": "No files in this commit.",
     "noTextChanges": "No text changes",

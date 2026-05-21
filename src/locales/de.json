@@ -461,7 +461,14 @@
     "discardDialogTitle": "Änderungen verwerfen?",
     "discardManyConfirm_one": "Änderungen an {{count}} Datei dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
     "discardManyConfirm_other": "Änderungen an {{count}} Dateien dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
-    "discardVerb": "Verwerfen"
+    "discardVerb": "Verwerfen",
+    "editFile": "Datei bearbeiten",
+    "viewDiff": "Diff anzeigen",
+    "editFileSave": "Speichern",
+    "editFileSaving": "Speichert…",
+    "editFileSaved": "Gespeichert",
+    "editFileLoadError": "Dateiinhalt konnte nicht geladen werden.",
+    "editFileSaveError": "Datei konnte nicht gespeichert werden."
   },
   "bisect": {
     "ended": "Bisect beendet.",
@@ -862,6 +869,8 @@
     "loadingDetails": "Lade Details …",
     "resetConfirmOne": "„{{path}}\" auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.",
     "resetConfirmMany": "{{count}} Datei(en) auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.",
+    "resetDialogTitle": "Auf Commit-Stand zurücksetzen",
+    "resetConfirmAction": "Zurücksetzen",
     "noFileSelected": "Keine Datei gewählt",
     "noFilesInCommit": "Keine Dateien in diesem Commit.",
     "noTextChanges": "Keine Textänderungen",

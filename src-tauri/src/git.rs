@@ -1129,6 +1129,45 @@ pub async fn git_discard_files(
 }
 
 #[tauri::command]
+pub async fn git_discard_worktree_changes(
+    path: String,
+    files: Vec<String>,
+    untracked: Vec<bool>,
+) -> Result<(), String> {
+    spawn_git(move || {
+        if files.len() != untracked.len() {
+            return Err("untracked muss dieselbe Länge wie files haben".into());
+        }
+        let repo = PathBuf::from(path.trim());
+        let mut tracked: Vec<&str> = Vec::new();
+        for (f, is_untracked) in files.iter().zip(untracked.iter()) {
+            let p = f.trim();
+            if p.is_empty() {
+                continue;
+            }
+            if *is_untracked {
+                let abs = repo.join(p);
+                if abs.is_dir() {
+                    std::fs::remove_dir_all(&abs)
+                        .map_err(|e| format!("Ordner konnte nicht entfernt werden: {e}"))?;
+                } else if abs.exists() {
+                    std::fs::remove_file(&abs)
+                        .map_err(|e| format!("Datei konnte nicht entfernt werden: {e}"))?;
+                }
+            } else {
+                tracked.push(f.as_str());
+            }
+        }
+        if !tracked.is_empty() {
+            let mut args: Vec<&str> = vec!["restore", "--worktree", "--"];
+            args.extend(tracked.iter().copied());
+            run_git(&repo, &args)?;
+        }
+        Ok(())
+    }).await
+}
+
+#[tauri::command]
 pub async fn git_restore_files_at_commit(
     path: String,
     commit: String,
@@ -1645,6 +1684,38 @@ fn apply_patch_to_index(repo: &PathBuf, patch: &str, reverse: bool) -> Result<()
         });
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn repo_read_file(path: String, file: String) -> Result<String, String> {
+    spawn_git(move || {
+        let abs = PathBuf::from(path.trim()).join(file.trim());
+        std::fs::read_to_string(&abs)
+            .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))
+    }).await
+}
+
+#[tauri::command]
+pub async fn repo_write_file(path: String, file: String, content: String) -> Result<(), String> {
+    spawn_git(move || {
+        let abs = PathBuf::from(path.trim()).join(file.trim());
+        std::fs::write(&abs, content)
+            .map_err(|e| format!("Datei konnte nicht geschrieben werden: {e}"))
+    }).await
+}
+
+#[tauri::command]
+pub async fn repo_file_content_at(path: String, file: String, treeish: String) -> Result<String, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let f = file.trim().to_string();
+        let t = treeish.trim().to_string();
+        let spec = if t.is_empty() { format!(":{f}") } else { format!("{t}:{f}") };
+        match run_git_merged_output(&repo, &["show", &spec]) {
+            Ok(c) => Ok(c),
+            Err(_) => Ok(String::new()),
+        }
+    }).await
 }
 
 /// Stage individual lines/hunks from the working tree into the index.

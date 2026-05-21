@@ -92,7 +92,7 @@ function VirtualFileListInner({
   onToggleAll: () => void;
   onSelect: (id: string, shiftKey: boolean) => void;
   onToggle: (entry: StatusEntry, rowId: string) => void;
-  onDiscard: (path: string) => void;
+  onDiscard: (rowId: string) => void;
   onBlame: (path: string) => void;
 }) {
   const { t, i18n } = useTranslation();
