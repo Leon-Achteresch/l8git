@@ -645,6 +645,23 @@
     "reload": "Reload",
     "showLanguages": "Show language stats"
   },
+  "repoGroup": {
+    "createTitle": "Create group",
+    "renameTitle": "Rename group",
+    "subgroupTitle": "Create subgroup",
+    "create": "Create",
+    "nameLabel": "Group name",
+    "namePlaceholder": "e.g. Frontend",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "rename": "Rename…",
+    "newSubgroup": "Create subgroup…",
+    "dissolve": "Dissolve group",
+    "empty": "Empty",
+    "createFromRepo": "New group…",
+    "moveToGroup": "Move to group",
+    "removeFromGroup": "Remove from group"
+  },
   "dialogs": {
     "closeAria": "Close"
   },

@@ -22,7 +22,10 @@ import {
 import { memo, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
+import { useRepoGroupsStore } from "@/lib/repo-groups-store";
+import { RepoGroupDialog } from "./repo-group-dialog";
 import { RepoLanguageStats } from "./repo-language-stats";
+import { RepoTabGroupActions } from "./repo-tab-group-actions";
 
 type RepoTabProps = {
   path: string;
@@ -80,6 +83,7 @@ export const RepoTab = memo(function RepoTab({
   );
   const [iconBroken, setIconBroken] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
   useEffect(() => {
     setIconBroken(false);
   }, [favicon]);
@@ -222,6 +226,10 @@ export const RepoTab = memo(function RepoTab({
             <ChartPie className="h-3.5 w-3.5" />
             {t("repoTab.showLanguages")}
           </ContextMenuItem>
+          <RepoTabGroupActions
+            path={path}
+            onCreateGroup={() => setCreateGroupOpen(true)}
+          />
           <ContextMenuItem
             variant="destructive"
             onSelect={() => useRepoStore.getState().removeRepo(path)}
@@ -235,6 +243,14 @@ export const RepoTab = memo(function RepoTab({
         open={langOpen}
         path={path}
         onClose={() => setLangOpen(false)}
+      />
+      <RepoGroupDialog
+        open={createGroupOpen}
+        mode="create"
+        onSubmit={(name) =>
+          useRepoGroupsStore.getState().createGroup(name, [path])
+        }
+        onClose={() => setCreateGroupOpen(false)}
       />
     </>
   );
