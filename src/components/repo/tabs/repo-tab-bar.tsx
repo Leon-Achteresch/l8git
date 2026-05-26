@@ -10,10 +10,15 @@ import {
   SortableContext,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useRepoStore, repoLabel } from "@/lib/repo-store";
+import { useRepoStore } from "@/lib/repo-store";
+import {
+  filterForest,
+  flattenVisibleKeys,
+  useRepoGroupsStore,
+} from "@/lib/repo-groups-store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
-import { RepoTab } from "./repo-tab";
 import { AddRepoButton } from "./add-repo-button";
+import { ForestNodes } from "./repo-group";
 import { RepoWorkspaceSwitch } from "./repo-workspace-switch";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -26,7 +31,9 @@ export function RepoTabBar() {
       activeLoading: s.activePath ? !!s.loading[s.activePath] : false,
     })),
   );
-  const reorderRepos = useRepoStore((s) => s.reorderRepos);
+
+  const forest = useRepoGroupsStore((s) => s.forest);
+  const moveNodeRelativeTo = useRepoGroupsStore((s) => s.moveNodeRelativeTo);
 
   const { workspaces, activeWorkspaceId } = useWorkspaceStore(
     useShallow((s) => ({
@@ -59,11 +66,21 @@ export function RepoTabBar() {
     prevPaths.filter((p) => !paths.includes(p)).forEach(removeRepoFromAllWorkspaces);
   }, [paths]);
 
-  const filteredPaths = useMemo(() => {
+  useEffect(() => {
+    useRepoGroupsStore.getState().reconcile(paths);
+  }, [paths]);
+
+  const filteredForest = useMemo(() => {
     const activeRepoPaths =
       workspaces.find((w) => w.id === activeWorkspaceId)?.repoPaths ?? [];
-    return paths.filter((p) => activeRepoPaths.includes(p));
-  }, [paths, workspaces, activeWorkspaceId]);
+    const allowed = new Set(paths.filter((p) => activeRepoPaths.includes(p)));
+    return filterForest(forest, allowed);
+  }, [forest, paths, workspaces, activeWorkspaceId]);
+
+  const sortableKeys = useMemo(
+    () => flattenVisibleKeys(filteredForest),
+    [filteredForest],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -73,12 +90,9 @@ export function RepoTabBar() {
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-      const from = paths.indexOf(String(active.id));
-      const to = paths.indexOf(String(over.id));
-      if (from < 0 || to < 0) return;
-      reorderRepos(from, to);
+      moveNodeRelativeTo(String(active.id), String(over.id));
     },
-    [paths, reorderRepos],
+    [moveNodeRelativeTo],
   );
 
   return (
@@ -102,17 +116,10 @@ export function RepoTabBar() {
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={filteredPaths}
+                items={sortableKeys}
                 strategy={horizontalListSortingStrategy}
               >
-                {filteredPaths.map((p) => (
-                  <RepoTab
-                    key={p}
-                    path={p}
-                    label={repoLabel(p)}
-                    active={p === activePath}
-                  />
-                ))}
+                <ForestNodes nodes={filteredForest} activePath={activePath} />
               </SortableContext>
             </DndContext>
           </div>

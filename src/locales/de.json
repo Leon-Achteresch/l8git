@@ -645,6 +645,23 @@
     "reload": "Neu laden",
     "showLanguages": "Sprachen anzeigen"
   },
+  "repoGroup": {
+    "createTitle": "Gruppe erstellen",
+    "renameTitle": "Gruppe umbenennen",
+    "subgroupTitle": "Untergruppe erstellen",
+    "create": "Erstellen",
+    "nameLabel": "Name der Gruppe",
+    "namePlaceholder": "z. B. Frontend",
+    "expand": "Ausklappen",
+    "collapse": "Einklappen",
+    "rename": "Umbenennen…",
+    "newSubgroup": "Untergruppe erstellen…",
+    "dissolve": "Gruppe auflösen",
+    "empty": "Leer",
+    "createFromRepo": "Neue Gruppe…",
+    "moveToGroup": "Zu Gruppe verschieben",
+    "removeFromGroup": "Aus Gruppe entfernen"
+  },
   "dialogs": {
     "closeAria": "Schließen"
   },
