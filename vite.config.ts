@@ -18,7 +18,7 @@ export default defineConfig(async () => ({
     }),
     react(),
     tailwindcss(),
-    monacoPlugin({ languageWorkers: ["editorWorkerService", "typescript", "json", "css", "html"] }),
+    monacoPlugin({ languageWorkers: ["editorWorkerService"] }),
   ],
 
   resolve: {

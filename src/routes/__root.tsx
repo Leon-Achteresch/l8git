@@ -1,6 +1,14 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { lazy, Suspense } from "react";
 import { Toaster } from "sonner";
+
+const RouterDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import("@tanstack/react-router-devtools").then((m) => ({
+        default: m.TanStackRouterDevtools,
+      })),
+    )
+  : null;
 
 import { AppHeader } from "@/components/app/app-header";
 import { AppUpdateToast } from "@/components/app/app-update-toast";
@@ -30,7 +38,11 @@ function RootLayout() {
           theme={resolveTheme(theme)}
         />
         <AppUpdateToast />
-        <TanStackRouterDevtools position="bottom-right" />
+        {RouterDevtools ? (
+          <Suspense fallback={null}>
+            <RouterDevtools position="bottom-right" />
+          </Suspense>
+        ) : null}
       </div>
     </MotionProvider>
   );

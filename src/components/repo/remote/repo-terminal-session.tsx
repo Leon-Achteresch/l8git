@@ -12,6 +12,7 @@ import {
   getOrCreateSession,
   reopenSession,
   repaintSession,
+  setSessionOutputPaused,
   subscribeStatus,
   subscribeTitle,
   syncResize,
@@ -175,14 +176,23 @@ export function RepoTerminalSession({
   }, [isDark]);
 
   useEffect(() => {
-    if (!active) return;
     const rec = recordRef.current;
-    if (!rec) return;
+    const container = containerRef.current;
+    if (!rec || !container) return;
+
+    if (!active) {
+      setSessionOutputPaused(rec, true, container);
+      return;
+    }
+
+    setSessionOutputPaused(rec, false);
+    attachSession(rec, container);
+
     const raf = requestAnimationFrame(() => {
       try {
         rec.fit.fit();
       } catch {
-        /* noop */
+        return;
       }
       rec.term.focus();
       const changed = syncResize(rec);
