@@ -58,6 +58,7 @@ export type CachedSession = {
   ptyStarted: boolean;
   lastSentCols: number;
   lastSentRows: number;
+  outputPaused: boolean;
   subscribers: Subscribers;
 };
 
@@ -229,7 +230,9 @@ async function openPty(rec: CachedSession, shell: string | null) {
             emitTitle(rec, cwd, TitleEventSource.OutputPrompt);
           }
         }
-        rec.term.write(bytes);
+        if (!rec.outputPaused) {
+          rec.term.write(bytes);
+        }
       },
     );
 
@@ -266,7 +269,7 @@ export function getOrCreateSession(opts: {
     fontSize: 13,
     theme: opts.theme,
     allowProposedApi: true,
-    scrollback: 5000,
+    scrollback: 1000,
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
@@ -296,6 +299,7 @@ export function getOrCreateSession(opts: {
     ptyStarted: false,
     lastSentCols: 0,
     lastSentRows: 0,
+    outputPaused: false,
     subscribers: { status: new Set(), title: new Set() },
   };
   cache.set(k, record);
@@ -352,6 +356,23 @@ export function syncResize(rec: CachedSession): boolean {
 export function repaintSession(rec: CachedSession) {
   if (rec.sessionId == null) return;
   void invoke("terminal_repaint", { session: rec.sessionId }).catch(() => {});
+}
+
+export function setSessionOutputPaused(
+  rec: CachedSession,
+  paused: boolean,
+  container?: HTMLElement | null,
+) {
+  if (rec.outputPaused === paused) return;
+  rec.outputPaused = paused;
+  if (paused) {
+    try {
+      rec.term.clear();
+    } catch {
+      /* noop */
+    }
+    if (container) detachSession(rec, container);
+  }
 }
 
 export function detachSession(rec: CachedSession, container: HTMLElement) {
@@ -421,6 +442,7 @@ export function reopenSession(rec: CachedSession, shell: string | null) {
   rec.ptyStarted = false;
   rec.lastSentCols = 0;
   rec.lastSentRows = 0;
+  rec.outputPaused = false;
   void openPty(rec, shell);
 }
 

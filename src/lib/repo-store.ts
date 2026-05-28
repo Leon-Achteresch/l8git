@@ -22,6 +22,19 @@ const stashesPending = new Map<string, number>();
 const loadMoreInFlight = new Map<string, boolean>();
 const loadMoreSearchInFlight = new Map<string, boolean>();
 const RELOAD_COALESCE_MS = 150;
+const INITIAL_COMMIT_CAP = 80;
+
+function trimRepoCommits(
+  repos: Record<string, RepoInfo>,
+  path: string,
+): Record<string, RepoInfo> {
+  const repo = repos[path];
+  if (!repo || repo.commits.length <= INITIAL_COMMIT_CAP) return repos;
+  return {
+    ...repos,
+    [path]: { ...repo, commits: repo.commits.slice(0, INITIAL_COMMIT_CAP) },
+  };
+}
 
 export type Commit = {
   hash: string;
@@ -720,10 +733,21 @@ export const useRepoStore = create<RepoState>()(
       setActive(path) {
         const was = get().activePath;
         if (was !== path) {
-          set(s => ({
-            activePath: path,
-            loading: { ...s.loading, [path]: true },
-          }));
+          set(s => {
+            let repos = s.repos;
+            let commitSearchByPath = s.commitSearchByPath;
+            if (was) {
+              repos = trimRepoCommits(repos, was);
+              const { [was]: _search, ...rest } = s.commitSearchByPath;
+              commitSearchByPath = rest;
+            }
+            return {
+              activePath: path,
+              loading: { ...s.loading, [path]: true },
+              repos,
+              commitSearchByPath,
+            };
+          });
         }
         void get().reload(path);
       },
