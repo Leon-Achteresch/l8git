@@ -96,6 +96,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const [editorInstance, setEditorInstance] = useState<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const [monacoApi, setMonacoApi] = useState<typeof Monaco | null>(null);
+  const initialScrollDone = useRef(false);
 
   useMergeDecorations(editorInstance, monacoApi, resultText, activeBlockIdx);
 
@@ -136,6 +137,12 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
     },
     [],
   );
+
+  useEffect(() => {
+    if (!editorInstance || initialScrollDone.current || blocks.length === 0) return;
+    initialScrollDone.current = true;
+    scrollToBlock(blocks[0]);
+  }, [editorInstance, blocks, scrollToBlock]);
 
   function prevBlock() {
     const idx = Math.max(0, activeBlockIdx - 1);
