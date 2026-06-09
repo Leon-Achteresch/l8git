@@ -1,7 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal as Xterm } from "@xterm/xterm";
 
 import {
@@ -12,9 +12,6 @@ import {
 } from "@/lib/terminal-tab-title";
 
 export type SessionStatus = "starting" | "ready" | "exited" | "error";
-
-type TerminalDataEvent = { session: number; data: string };
-type TerminalExitEvent = { session: number; code: number | null };
 
 export type XtermTheme = NonNullable<
   ConstructorParameters<typeof Xterm>[0]
@@ -28,27 +25,24 @@ type Subscribers = {
 export type CachedSession = {
   path: string;
   tabId: string;
-  term: Xterm;
-  fit: FitAddon;
+  term: Xterm | null;
+  fit: FitAddon | null;
+  webgl: WebglAddon | null;
+  theme: XtermTheme;
   orphan: HTMLDivElement;
   sessionId: number | null;
   inputTracker: TerminalInputTracker;
   outputBuf: string;
   lastTitle: string | null;
-  /**
-   * Tracks the source of the current title, mirroring VSCode's TitleEventSource.
-   * Priority: Api > Sequence > InputCommand > OutputPrompt
-   */
   titleSource: TitleEventSource | null;
-  /**
-   * Set to true as soon as the shell emits its first OSC 0/2 title sequence.
-   * Once true, input-tracking and prompt-scanning are skipped because the shell
-   * itself is managing the title — exactly like VSCode's Sequence source.
-   */
   hasSeenOscTitle: boolean;
   awaitingPrompt: boolean;
-  unlistenData: UnlistenFn | null;
-  unlistenExit: UnlistenFn | null;
+  dataChannel: Channel<ArrayBuffer> | null;
+  exitChannel: Channel<number | null> | null;
+  decoder: TextDecoder;
+  pendingWrites: Uint8Array[];
+  pendingBytes: number;
+  flushHandle: number | null;
   onDataDispose: { dispose: () => void } | null;
   onTitleChangeDispose: { dispose: () => void } | null;
   status: SessionStatus;
@@ -56,31 +50,22 @@ export type CachedSession = {
   shell: string | null;
   opened: boolean;
   ptyStarted: boolean;
+  evicted: boolean;
+  active: boolean;
+  lastActiveAt: number;
   lastSentCols: number;
   lastSentRows: number;
-  outputPaused: boolean;
   subscribers: Subscribers;
 };
 
 const cache = new Map<string, CachedSession>();
 
+const FLUSH_BYTES_CAP = 256 * 1024;
+const SCROLLBACK = 600;
+const MAX_LIVE = 4;
+
 function key(path: string, tabId: string) {
   return `${path}::${tabId}`;
-}
-
-function decodeBase64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-function encodeBytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++)
-    binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
 }
 
 function createOrphan(): HTMLDivElement {
@@ -108,10 +93,6 @@ function emitTitle(
   source: TitleEventSource = TitleEventSource.OutputPrompt,
 ) {
   if (!title || rec.lastTitle === title) return;
-  // Respect priority: never overwrite a higher-priority source with a lower one.
-  // Api is set externally and is never overwritten here.
-  // Sequence overwrites everything except Api.
-  // InputCommand / OutputPrompt only fire when no Sequence source is active.
   if (
     rec.titleSource === TitleEventSource.Api ||
     (rec.titleSource === TitleEventSource.Sequence &&
@@ -125,14 +106,60 @@ function emitTitle(
   for (const cb of rec.subscribers.title) cb(title);
 }
 
+function buildTerm(rec: CachedSession) {
+  const term = new Xterm({
+    cursorBlink: true,
+    fontFamily:
+      '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    fontSize: 13,
+    theme: rec.theme,
+    allowProposedApi: true,
+    scrollback: SCROLLBACK,
+  });
+  const fit = new FitAddon();
+  term.loadAddon(fit);
+  term.loadAddon(new WebLinksAddon());
+  rec.term = term;
+  rec.fit = fit;
+  rec.webgl = null;
+  rec.opened = false;
+}
+
+function enableWebgl(rec: CachedSession) {
+  if (!rec.term || rec.webgl) return;
+  try {
+    const webgl = new WebglAddon();
+    webgl.onContextLoss(() => {
+      try {
+        webgl.dispose();
+      } catch {
+        void 0;
+      }
+      rec.webgl = null;
+    });
+    rec.term.loadAddon(webgl);
+    rec.webgl = webgl;
+  } catch {
+    rec.webgl = null;
+  }
+}
+
+function disableWebgl(rec: CachedSession) {
+  if (!rec.webgl) return;
+  try {
+    rec.webgl.dispose();
+  } catch {
+    void 0;
+  }
+  rec.webgl = null;
+}
+
 function wireOnData(rec: CachedSession) {
+  if (!rec.term) return;
   rec.onDataDispose?.dispose();
   rec.onDataDispose = rec.term.onData((data) => {
     const sid = rec.sessionId;
     if (sid == null) return;
-    // Only do keystroke-based title tracking when the shell has NOT started
-    // emitting OSC 0/2 sequences.  Once it does, the shell manages its own
-    // title (like VSCode's Sequence source) and our heuristics become noise.
     if (!rec.hasSeenOscTitle) {
       const cmdTitle = rec.inputTracker.feed(data);
       if (cmdTitle) {
@@ -140,19 +167,65 @@ function wireOnData(rec: CachedSession) {
         emitTitle(rec, cmdTitle, TitleEventSource.InputCommand);
       }
     }
-    const bytes = new TextEncoder().encode(data);
-    const encoded = encodeBytesToBase64(bytes);
-    void invoke("terminal_write", { session: sid, data: encoded }).catch(
-      () => {},
-    );
+    void invoke("terminal_write", { session: sid, data }).catch(() => {});
   });
+}
+
+function bindTitleTracking(rec: CachedSession) {
+  if (!rec.term) return;
+  rec.onTitleChangeDispose?.dispose();
+  rec.onTitleChangeDispose = rec.term.onTitleChange((rawTitle) => {
+    const title = processOscTitle(rawTitle);
+    if (!title) return;
+    rec.hasSeenOscTitle = true;
+    rec.awaitingPrompt = false;
+    emitTitle(rec, title, TitleEventSource.Sequence);
+  });
+}
+
+function queueWrite(rec: CachedSession, bytes: Uint8Array) {
+  rec.pendingWrites.push(bytes);
+  rec.pendingBytes += bytes.length;
+  if (rec.pendingBytes >= FLUSH_BYTES_CAP) {
+    flushWrites(rec);
+    return;
+  }
+  if (rec.flushHandle == null) {
+    rec.flushHandle = requestAnimationFrame(() => flushWrites(rec));
+  }
+}
+
+function flushWrites(rec: CachedSession) {
+  if (rec.flushHandle != null) {
+    cancelAnimationFrame(rec.flushHandle);
+    rec.flushHandle = null;
+  }
+  const chunks = rec.pendingWrites;
+  if (chunks.length === 0) return;
+  rec.pendingWrites = [];
+  rec.pendingBytes = 0;
+  const term = rec.term;
+  if (!term) return;
+  if (chunks.length === 1) {
+    term.write(chunks[0]);
+    return;
+  }
+  let total = 0;
+  for (const c of chunks) total += c.length;
+  const merged = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    merged.set(c, off);
+    off += c.length;
+  }
+  term.write(merged);
 }
 
 function measurePixelSize(rec: CachedSession): {
   pixelWidth: number;
   pixelHeight: number;
 } {
-  const el = rec.term.element as HTMLElement | null;
+  const el = rec.term?.element as HTMLElement | null;
   if (el) {
     const rect = el.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
@@ -162,36 +235,51 @@ function measurePixelSize(rec: CachedSession): {
       };
     }
   }
-  // Fallback: derive from cell count.
-  const cols = rec.term.cols || 80;
-  const rows = rec.term.rows || 24;
+  const cols = rec.term?.cols || 80;
+  const rows = rec.term?.rows || 24;
   return { pixelWidth: cols * 9, pixelHeight: rows * 17 };
 }
 
+function wireChannels(rec: CachedSession) {
+  const dataChannel = new Channel<ArrayBuffer>();
+  dataChannel.onmessage = (buf) => {
+    const bytes = new Uint8Array(buf);
+    if (!rec.hasSeenOscTitle) {
+      const text = rec.decoder.decode(bytes);
+      const cap = 4096;
+      const nextBuf = rec.outputBuf + text;
+      rec.outputBuf =
+        nextBuf.length > cap ? nextBuf.slice(nextBuf.length - cap) : nextBuf;
+      if (rec.awaitingPrompt) {
+        const cwd = titleFromTerminalOutput(rec.outputBuf);
+        if (cwd) {
+          rec.awaitingPrompt = false;
+          emitTitle(rec, cwd, TitleEventSource.OutputPrompt);
+        }
+      }
+    }
+    queueWrite(rec, bytes);
+  };
+
+  const exitChannel = new Channel<number | null>();
+  exitChannel.onmessage = (code) => {
+    setStatus(rec, "exited", String(code ?? 0));
+    rec.sessionId = null;
+  };
+
+  rec.dataChannel = dataChannel;
+  rec.exitChannel = exitChannel;
+  return { dataChannel, exitChannel };
+}
+
 async function openPty(rec: CachedSession, shell: string | null) {
-  if (rec.ptyStarted) return;
+  if (rec.ptyStarted || !rec.term) return;
   rec.ptyStarted = true;
   rec.shell = shell;
   setStatus(rec, "starting", "");
 
-  // ── VSCode-style OSC 0/2 title tracking ──────────────────────────────────
-  // xterm.js fires onTitleChange whenever the running shell/program sends an
-  // OSC 0 (\x1b]0;...\x07) or OSC 2 (\x1b]2;...\x07) sequence.  This is the
-  // primary title mechanism in VSCode (TitleEventSource.Sequence): bash uses
-  // $PROMPT_COMMAND, zsh uses precmd(), fish has built-in support, and any
-  // program (vim, htop, …) can set its own title while running.
-  //
-  // Once we see the first OSC title we know the shell manages its own title
-  // and we stop doing our own heuristic input/prompt tracking — exactly like
-  // VSCode disables lower-priority sources when Sequence is active.
-  rec.onTitleChangeDispose?.dispose();
-  rec.onTitleChangeDispose = rec.term.onTitleChange((rawTitle) => {
-    const title = processOscTitle(rawTitle);
-    if (!title) return;
-    rec.hasSeenOscTitle = true;
-    rec.awaitingPrompt = false;
-    emitTitle(rec, title, TitleEventSource.Sequence);
-  });
+  bindTitleTracking(rec);
+  const { dataChannel, exitChannel } = wireChannels(rec);
 
   try {
     const cols = rec.term.cols || 80;
@@ -206,48 +294,16 @@ async function openPty(rec: CachedSession, shell: string | null) {
       rows,
       pixelWidth,
       pixelHeight,
+      onData: dataChannel,
+      onExit: exitChannel,
     });
     rec.sessionId = id;
     setStatus(rec, "ready", "");
-
-    rec.unlistenData = await listen<TerminalDataEvent>(
-      "terminal:data",
-      (event) => {
-        if (event.payload.session !== id) return;
-        const bytes = decodeBase64ToBytes(event.payload.data);
-        const text = new TextDecoder().decode(bytes);
-        const cap = 4096;
-        const nextBuf = rec.outputBuf + text;
-        rec.outputBuf =
-          nextBuf.length > cap ? nextBuf.slice(nextBuf.length - cap) : nextBuf;
-        // Only scan for prompt patterns when the shell has NOT started emitting
-        // OSC sequences.  If it does, onTitleChange (above) is already handling
-        // the title with higher fidelity (VSCode's Sequence source wins).
-        if (rec.awaitingPrompt && !rec.hasSeenOscTitle) {
-          const cwd = titleFromTerminalOutput(rec.outputBuf);
-          if (cwd) {
-            rec.awaitingPrompt = false;
-            emitTitle(rec, cwd, TitleEventSource.OutputPrompt);
-          }
-        }
-        if (!rec.outputPaused) {
-          rec.term.write(bytes);
-        }
-      },
-    );
-
-    rec.unlistenExit = await listen<TerminalExitEvent>(
-      "terminal:exit",
-      (event) => {
-        if (event.payload.session !== id) return;
-        setStatus(rec, "exited", String(event.payload.code ?? 0));
-        rec.sessionId = null;
-      },
-    );
-
     wireOnData(rec);
   } catch (e) {
     rec.ptyStarted = false;
+    rec.dataChannel = null;
+    rec.exitChannel = null;
     setStatus(rec, "error", String(e));
   }
 }
@@ -262,24 +318,13 @@ export function getOrCreateSession(opts: {
   const existing = cache.get(k);
   if (existing) return { record: existing, created: false };
 
-  const term = new Xterm({
-    cursorBlink: true,
-    fontFamily:
-      '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-    fontSize: 13,
-    theme: opts.theme,
-    allowProposedApi: true,
-    scrollback: 1000,
-  });
-  const fit = new FitAddon();
-  term.loadAddon(fit);
-  term.loadAddon(new WebLinksAddon());
-
   const record: CachedSession = {
     path: opts.path,
     tabId: opts.tabId,
-    term,
-    fit,
+    term: null,
+    fit: null,
+    webgl: null,
+    theme: opts.theme,
     orphan: createOrphan(),
     sessionId: null,
     inputTracker: new TerminalInputTracker(),
@@ -288,8 +333,12 @@ export function getOrCreateSession(opts: {
     titleSource: null,
     hasSeenOscTitle: false,
     awaitingPrompt: true,
-    unlistenData: null,
-    unlistenExit: null,
+    dataChannel: null,
+    exitChannel: null,
+    decoder: new TextDecoder(),
+    pendingWrites: [],
+    pendingBytes: 0,
+    flushHandle: null,
     onDataDispose: null,
     onTitleChangeDispose: null,
     status: "starting",
@@ -297,45 +346,77 @@ export function getOrCreateSession(opts: {
     shell: opts.shell,
     opened: false,
     ptyStarted: false,
+    evicted: false,
+    active: false,
+    lastActiveAt: 0,
     lastSentCols: 0,
     lastSentRows: 0,
-    outputPaused: false,
     subscribers: { status: new Set(), title: new Set() },
   };
   cache.set(k, record);
-  // Note: PTY is started lazily from attachSession() AFTER fit.fit() has measured
-  // the real terminal size — otherwise TUIs render against the xterm.js default
-  // 80x24 and look fragmented.
   return { record, created: true };
 }
 
+function reviveSession(rec: CachedSession, container: HTMLElement) {
+  buildTerm(rec);
+  rec.term!.open(container);
+  rec.opened = true;
+  rec.evicted = false;
+  bindTitleTracking(rec);
+  wireOnData(rec);
+  try {
+    rec.fit!.fit();
+  } catch {
+    void 0;
+  }
+  if (rec.sessionId != null) {
+    void invoke("terminal_attach", { session: rec.sessionId }).catch(() => {});
+  } else {
+    rec.ptyStarted = false;
+  }
+}
+
 export function attachSession(rec: CachedSession, container: HTMLElement) {
+  const visible = container.clientWidth > 0 && container.clientHeight > 0;
+
+  if (rec.evicted) {
+    if (!visible) return;
+    reviveSession(rec, container);
+    return;
+  }
+
+  if (!rec.term) {
+    if (!visible) return;
+    buildTerm(rec);
+  }
+  const term = rec.term!;
+
   if (!rec.opened) {
-    rec.term.open(container);
+    if (!visible) return;
+    term.open(container);
     rec.opened = true;
-  } else if (rec.term.element && rec.term.element.parentElement !== container) {
-    container.appendChild(rec.term.element);
+  } else if (term.element && term.element.parentElement !== container) {
+    container.appendChild(term.element);
     try {
-      rec.term.refresh(0, Math.max(0, rec.term.rows - 1));
+      term.refresh(0, Math.max(0, term.rows - 1));
     } catch {
-      /* term may not be ready */
+      void 0;
     }
   }
   try {
-    rec.fit.fit();
+    rec.fit?.fit();
   } catch {
-    /* container not yet sized */
+    void 0;
   }
   if (!rec.ptyStarted) {
-    // First attach: now we have a real size — open the PTY against it.
-    void openPty(rec, rec.shell);
+    if (visible) void openPty(rec, rec.shell);
   } else {
     syncResize(rec);
   }
 }
 
 export function syncResize(rec: CachedSession): boolean {
-  if (rec.sessionId == null) return false;
+  if (rec.sessionId == null || !rec.term) return false;
   const cols = rec.term.cols;
   const rows = rec.term.rows;
   if (!cols || !rows) return false;
@@ -353,31 +434,61 @@ export function syncResize(rec: CachedSession): boolean {
   return true;
 }
 
-export function repaintSession(rec: CachedSession) {
-  if (rec.sessionId == null) return;
-  void invoke("terminal_repaint", { session: rec.sessionId }).catch(() => {});
+export function markActive(rec: CachedSession) {
+  rec.active = true;
+  rec.lastActiveAt = Date.now();
+  if (rec.term) enableWebgl(rec);
+  evictLeastRecentlyUsed();
 }
 
-export function setSessionOutputPaused(
-  rec: CachedSession,
-  paused: boolean,
-  container?: HTMLElement | null,
-) {
-  if (rec.outputPaused === paused) return;
-  rec.outputPaused = paused;
-  if (paused) {
-    try {
-      rec.term.clear();
-    } catch {
-      /* noop */
-    }
-    if (container) detachSession(rec, container);
+export function markInactive(rec: CachedSession) {
+  rec.active = false;
+  disableWebgl(rec);
+}
+
+function evictSession(rec: CachedSession) {
+  if (rec.evicted || !rec.term || rec.sessionId == null) return;
+  disableWebgl(rec);
+  if (rec.flushHandle != null) {
+    cancelAnimationFrame(rec.flushHandle);
+    rec.flushHandle = null;
+  }
+  rec.pendingWrites = [];
+  rec.pendingBytes = 0;
+  rec.onDataDispose?.dispose();
+  rec.onTitleChangeDispose?.dispose();
+  rec.onDataDispose = null;
+  rec.onTitleChangeDispose = null;
+  try {
+    rec.term.dispose();
+  } catch {
+    void 0;
+  }
+  rec.term = null;
+  rec.fit = null;
+  rec.opened = false;
+  rec.evicted = true;
+  void invoke("terminal_detach", { session: rec.sessionId }).catch(() => {});
+}
+
+function evictLeastRecentlyUsed() {
+  const isLive = (r: CachedSession) => r.opened && r.term && !r.evicted;
+  const liveCount = [...cache.values()].filter(isLive).length;
+  if (liveCount <= MAX_LIVE) return;
+  const evictable = [...cache.values()]
+    .filter((r) => isLive(r) && !r.active && r.ptyStarted)
+    .sort((a, b) => a.lastActiveAt - b.lastActiveAt);
+  let toEvict = liveCount - MAX_LIVE;
+  for (const r of evictable) {
+    if (toEvict <= 0) break;
+    evictSession(r);
+    toEvict--;
   }
 }
 
 export function detachSession(rec: CachedSession, container: HTMLElement) {
   try {
-    const el = rec.term.element;
+    const el = rec.term?.element;
     if (!el || el.parentElement !== container) return;
     if (rec.orphan.isConnected) {
       rec.orphan.appendChild(el);
@@ -385,7 +496,7 @@ export function detachSession(rec: CachedSession, container: HTMLElement) {
       el.remove();
     }
   } catch {
-    /* term may already be disposed */
+    void 0;
   }
 }
 
@@ -393,8 +504,13 @@ export function destroySession(path: string, tabId: string) {
   const k = key(path, tabId);
   const rec = cache.get(k);
   if (!rec) return;
-  rec.unlistenData?.();
-  rec.unlistenExit?.();
+  if (rec.flushHandle != null) {
+    cancelAnimationFrame(rec.flushHandle);
+    rec.flushHandle = null;
+  }
+  disableWebgl(rec);
+  rec.dataChannel = null;
+  rec.exitChannel = null;
   rec.onDataDispose?.dispose();
   rec.onTitleChangeDispose?.dispose();
   const id = rec.sessionId;
@@ -403,10 +519,12 @@ export function destroySession(path: string, tabId: string) {
     void invoke("terminal_close", { session: id }).catch(() => {});
   }
   try {
-    rec.term.dispose();
+    rec.term?.dispose();
   } catch {
-    /* noop */
+    void 0;
   }
+  rec.term = null;
+  rec.fit = null;
   if (rec.orphan.parentElement) {
     rec.orphan.parentElement.removeChild(rec.orphan);
   }
@@ -424,14 +542,18 @@ export function destroySessionsForPath(path: string) {
 }
 
 export function reopenSession(rec: CachedSession, shell: string | null) {
-  rec.unlistenData?.();
-  rec.unlistenExit?.();
   rec.onDataDispose?.dispose();
   rec.onTitleChangeDispose?.dispose();
-  rec.unlistenData = null;
-  rec.unlistenExit = null;
   rec.onDataDispose = null;
   rec.onTitleChangeDispose = null;
+  rec.dataChannel = null;
+  rec.exitChannel = null;
+  if (rec.flushHandle != null) {
+    cancelAnimationFrame(rec.flushHandle);
+    rec.flushHandle = null;
+  }
+  rec.pendingWrites = [];
+  rec.pendingBytes = 0;
   rec.inputTracker = new TerminalInputTracker();
   rec.outputBuf = "";
   rec.awaitingPrompt = true;
@@ -440,16 +562,16 @@ export function reopenSession(rec: CachedSession, shell: string | null) {
   rec.hasSeenOscTitle = false;
   rec.sessionId = null;
   rec.ptyStarted = false;
+  rec.evicted = false;
   rec.lastSentCols = 0;
   rec.lastSentRows = 0;
-  rec.outputPaused = false;
-  void openPty(rec, shell);
+  rec.shell = shell;
+  if (rec.term) void openPty(rec, shell);
 }
 
 export function updateSessionShell(rec: CachedSession, shell: string | null) {
   const normalize = (v: string | null) => (v?.trim() ? v.trim() : null);
   if (normalize(rec.shell) === normalize(shell)) return;
-  // Close current PTY and start a new one with the new shell.
   if (rec.sessionId != null) {
     void invoke("terminal_close", { session: rec.sessionId }).catch(() => {});
   }
@@ -457,7 +579,8 @@ export function updateSessionShell(rec: CachedSession, shell: string | null) {
 }
 
 export function updateSessionTheme(rec: CachedSession, theme: XtermTheme) {
-  rec.term.options.theme = theme;
+  rec.theme = theme;
+  if (rec.term) rec.term.options.theme = theme;
 }
 
 export function subscribeStatus(

@@ -1,18 +1,29 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use base64::Engine;
 use once_cell::sync::Lazy;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
-use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::ipc::{Channel, InvokeResponseBody};
+
+const REPLAY_CAP: usize = 256 * 1024;
+
+struct SharedInner {
+    buffer: VecDeque<u8>,
+    paused: bool,
+    on_data: Channel<InvokeResponseBody>,
+}
+
+struct Shared {
+    inner: Mutex<SharedInner>,
+}
 
 struct Session {
     writer: Box<dyn Write + Send>,
     master: Box<dyn portable_pty::MasterPty + Send>,
     child: Box<dyn portable_pty::Child + Send + Sync>,
+    shared: Arc<Shared>,
 }
 
 static SESSIONS: Lazy<Mutex<HashMap<u64, Session>>> = Lazy::new(|| Mutex::new(HashMap::new()));
@@ -23,18 +34,6 @@ fn next_session_id() -> u64 {
     let id = *g;
     *g = g.saturating_add(1);
     id
-}
-
-#[derive(Serialize, Clone)]
-struct TerminalDataEvent {
-    session: u64,
-    data: String,
-}
-
-#[derive(Serialize, Clone)]
-struct TerminalExitEvent {
-    session: u64,
-    code: Option<i32>,
 }
 
 fn resolve_shell(preferred: Option<&str>) -> (String, Vec<String>) {
@@ -110,13 +109,14 @@ fn compute_pty_size(
 
 #[tauri::command]
 pub async fn terminal_open(
-    app: AppHandle,
     path: String,
     shell: Option<String>,
     cols: Option<u16>,
     rows: Option<u16>,
     pixel_width: Option<u16>,
     pixel_height: Option<u16>,
+    on_data: Channel<InvokeResponseBody>,
+    on_exit: Channel<InvokeResponseBody>,
 ) -> Result<u64, String> {
     let cwd = PathBuf::from(path.trim());
     if !cwd.is_dir() {
@@ -149,31 +149,44 @@ pub async fn terminal_open(
 
     let session_id = next_session_id();
 
+    let shared = Arc::new(Shared {
+        inner: Mutex::new(SharedInner {
+            buffer: VecDeque::new(),
+            paused: false,
+            on_data,
+        }),
+    });
+
     SESSIONS.lock().unwrap().insert(
         session_id,
         Session {
             writer,
             master: pair.master,
             child,
+            shared: shared.clone(),
         },
     );
 
-    let app_handle = app.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 8192];
-        let engine = base64::engine::general_purpose::STANDARD;
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
-                    let encoded = engine.encode(&buf[..n]);
-                    let _ = app_handle.emit(
-                        "terminal:data",
-                        TerminalDataEvent {
-                            session: session_id,
-                            data: encoded,
-                        },
-                    );
+                    let mut inner = shared.inner.lock().unwrap();
+                    inner.buffer.extend(&buf[..n]);
+                    let overflow = inner.buffer.len().saturating_sub(REPLAY_CAP);
+                    if overflow > 0 {
+                        inner.buffer.drain(..overflow);
+                    }
+                    if !inner.paused
+                        && inner
+                            .on_data
+                            .send(InvokeResponseBody::Raw(buf[..n].to_vec()))
+                            .is_err()
+                    {
+                        break;
+                    }
                 }
                 Err(_) => break,
             }
@@ -189,13 +202,8 @@ pub async fn terminal_open(
 
         SESSIONS.lock().unwrap().remove(&session_id);
 
-        let _ = app_handle.emit(
-            "terminal:exit",
-            TerminalExitEvent {
-                session: session_id,
-                code: exit_code,
-            },
-        );
+        let payload = serde_json::to_string(&exit_code).unwrap_or_else(|_| "null".to_string());
+        let _ = on_exit.send(InvokeResponseBody::Json(payload));
     });
 
     Ok(session_id)
@@ -203,13 +211,11 @@ pub async fn terminal_open(
 
 #[tauri::command]
 pub async fn terminal_write(session: u64, data: String) -> Result<(), String> {
-    let engine = base64::engine::general_purpose::STANDARD;
-    let bytes = engine.decode(data.as_bytes()).map_err(|e| e.to_string())?;
     let mut sessions = SESSIONS.lock().unwrap();
     let s = sessions
         .get_mut(&session)
         .ok_or_else(|| "Unbekannte Terminal-Sitzung.".to_string())?;
-    s.writer.write_all(&bytes).map_err(|e| e.to_string())?;
+    s.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
     s.writer.flush().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -238,23 +244,39 @@ pub async fn terminal_resize(
 }
 
 #[tauri::command]
-pub async fn terminal_repaint(session: u64) -> Result<(), String> {
-    let mut sessions = SESSIONS.lock().unwrap();
-    let s = sessions
-        .get_mut(&session)
-        .ok_or_else(|| "Unbekannte Terminal-Sitzung.".to_string())?;
-    // Form feed (Ctrl+L) — Bubbletea/Lipgloss-TUIs interpretieren das als Force-Redraw,
-    // Shells als clear. Pragmatisch der einzige portable Repaint-Trigger.
-    s.writer.write_all(b"\x0c").map_err(|e| e.to_string())?;
-    s.writer.flush().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn terminal_close(session: u64) -> Result<(), String> {
     let mut sessions = SESSIONS.lock().unwrap();
     if let Some(mut s) = sessions.remove(&session) {
         let _ = s.child.kill();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn terminal_detach(session: u64) -> Result<(), String> {
+    let shared = {
+        let sessions = SESSIONS.lock().unwrap();
+        sessions.get(&session).map(|s| s.shared.clone())
+    };
+    if let Some(shared) = shared {
+        shared.inner.lock().unwrap().paused = true;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn terminal_attach(session: u64) -> Result<(), String> {
+    let shared = {
+        let sessions = SESSIONS.lock().unwrap();
+        sessions.get(&session).map(|s| s.shared.clone())
+    };
+    if let Some(shared) = shared {
+        let mut inner = shared.inner.lock().unwrap();
+        if !inner.buffer.is_empty() {
+            let bytes: Vec<u8> = inner.buffer.iter().copied().collect();
+            let _ = inner.on_data.send(InvokeResponseBody::Raw(bytes));
+        }
+        inner.paused = false;
     }
     Ok(())
 }
