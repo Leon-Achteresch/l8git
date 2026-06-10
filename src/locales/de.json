@@ -583,6 +583,7 @@
     "filesCount": "· {{count}} {{unit}}",
     "stagedSummary": "{{count}} {{unit}} gestaged",
     "messagePlaceholder": "Commit-Nachricht eingeben...",
+    "ccTypeTitle": "{{type}}: dem Betreff voranstellen",
     "aiTitle": "Commit-Nachricht mit AI generieren",
     "aiAria": "AI generieren",
     "aiLanguageTitle": "Sprache der AI-Commit-Nachricht für dieses Repository",

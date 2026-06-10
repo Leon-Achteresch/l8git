@@ -96,6 +96,7 @@ export function CommitPanel() {
 
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
+  const subjectLen = message.split("\n")[0]?.length ?? 0;
   const [aiGenerating, setAiGenerating] = useState(false);
   const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
@@ -522,6 +523,25 @@ export function CommitPanel() {
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-1 px-1">
+          {(["feat", "fix", "docs", "refactor", "chore", "test", "perf", "ci"] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              title={t("commitPanel.ccTypeTitle", { type })}
+              onClick={() => setMessage((m) => {
+                const existing = m.split("\n")[0] ?? "";
+                const withoutType = existing.replace(/^[a-z]+(\([^)]*\))?!?:\s*/i, "");
+                const rest = m.includes("\n") ? "\n" + m.split("\n").slice(1).join("\n") : "";
+                return `${type}: ${withoutType}${rest}`;
+              })}
+              className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground ring-1 ring-border/60 hover:bg-muted hover:text-foreground"
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+
         <div className="relative">
           <Textarea
             placeholder={t("commitPanel.messagePlaceholder")}
@@ -536,6 +556,13 @@ export function CommitPanel() {
             rows={3}
             className="resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
+          <span
+            className={`pointer-events-none absolute bottom-2 left-3 font-mono text-[10px] tabular-nums transition-colors ${
+              subjectLen > 72 ? "text-destructive" : subjectLen > 60 ? "text-amber-500" : "text-muted-foreground/40"
+            }`}
+          >
+            {subjectLen}
+          </span>
           <div className="absolute bottom-2 right-2 flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

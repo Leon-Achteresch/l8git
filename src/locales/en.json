@@ -583,6 +583,7 @@
     "filesCount": "· {{count}} {{unit}}",
     "stagedSummary": "{{count}} {{unit}} staged",
     "messagePlaceholder": "Enter commit message…",
+    "ccTypeTitle": "Prepend {{type}}: to subject",
     "aiTitle": "Generate commit message with AI",
     "aiAria": "Generate with AI",
     "aiLanguageTitle": "AI commit message language for this repository",
