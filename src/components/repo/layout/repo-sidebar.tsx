@@ -8,6 +8,16 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toastError } from "@/lib/error-toast";
@@ -127,6 +137,7 @@ export function RepoSidebar() {
   const [newBranchOpen, setNewBranchOpen] = useState(false);
   const [branchQuery, setBranchQuery] = useState("");
   const [branchPopoverOpen, setBranchPopoverOpen] = useState(false);
+  const [forceDeleteTarget, setForceDeleteTarget] = useState<Branch | null>(null);
 
   const onDelete = useCallback(
     async (b: Branch, force: boolean) => {
@@ -136,14 +147,7 @@ export function RepoSidebar() {
       } catch (e) {
         const msg = String(e);
         if (!force && /not fully merged/i.test(msg)) {
-          const ok = window.confirm(t("sidebar.branchDeleteConfirm", { name: b.name }));
-          if (ok) {
-            try {
-              await deleteBranch(activePath, b.name, true);
-            } catch (e2) {
-              toastError(t("sidebar.branchDeleteFailed", { error: String(e2) }));
-            }
-          }
+          setForceDeleteTarget(b);
           return;
         }
         toastError(t("sidebar.branchDeleteFailed", { error: msg }));
@@ -151,6 +155,17 @@ export function RepoSidebar() {
     },
     [activePath, deleteBranch, t],
   );
+
+  const confirmForceDelete = useCallback(async () => {
+    if (!activePath || !forceDeleteTarget) return;
+    const b = forceDeleteTarget;
+    setForceDeleteTarget(null);
+    try {
+      await deleteBranch(activePath, b.name, true);
+    } catch (e2) {
+      toastError(t("sidebar.branchDeleteFailed", { error: String(e2) }));
+    }
+  }, [activePath, deleteBranch, forceDeleteTarget, t]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -666,6 +681,26 @@ export function RepoSidebar() {
           )}
         />
       </div>
+
+      <AlertDialog open={!!forceDeleteTarget} onOpenChange={(open) => { if (!open) setForceDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("sidebar.branchForceDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("sidebar.branchForceDeleteDesc", { name: forceDeleteTarget?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmForceDelete}
+            >
+              {t("sidebar.branchForceDeleteVerb")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }
