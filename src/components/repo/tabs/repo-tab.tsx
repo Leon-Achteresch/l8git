@@ -258,7 +258,7 @@ export const RepoTab = memo(function RepoTab({
             {active &&
               (isBar ? (
                 <m.span
-                  layoutId="repo-tab-active-indicator"
+                  layoutId="repo-tab-bar-indicator"
                   className="absolute inset-0 -z-10"
                   transition={INDICATOR_SPRING}
                   aria-hidden
@@ -269,7 +269,7 @@ export const RepoTab = memo(function RepoTab({
                 </m.span>
               ) : (
                 <m.span
-                  layoutId="repo-tab-active-indicator"
+                  layoutId="repo-tab-group-indicator"
                   className="absolute inset-0 -z-10 rounded-lg border border-border bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_1px_2px_rgba(0,0,0,0.35)]"
                   transition={INDICATOR_SPRING}
                   aria-hidden
