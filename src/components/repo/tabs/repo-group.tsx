@@ -111,10 +111,14 @@ function RepoGroup({
   const tint = `hsl(${group.hue} 60% 50%)`;
   const containerStyle = {
     transform: CSS.Transform.toString(transform),
-    borderColor: `hsl(${group.hue} 45% 50% / ${hasActive ? 0.55 : 0.28})`,
-    backgroundColor: `hsl(${group.hue} 50% 50% / ${collapsed ? 0.08 : 0.05})`,
+    borderColor: hasActive
+      ? "transparent"
+      : `hsl(${group.hue} 45% 50% / 0.28)`,
+    backgroundColor: hasActive
+      ? "var(--background)"
+      : `hsl(${group.hue} 50% 50% / ${collapsed ? 0.08 : 0.05})`,
     boxShadow: hasActive
-      ? `inset 0 0 0 1px hsl(${group.hue} 55% 50% / 0.45)`
+      ? "-1px -1px 1px 0.1px rgba(0,0,0,0.08), 1px -1px 1px 0.1px rgba(0,0,0,0.08)"
       : undefined,
     WebkitAppRegion: "no-drag",
   } as React.CSSProperties;
@@ -125,10 +129,42 @@ function RepoGroup({
         ref={setNodeRef}
         style={containerStyle}
         className={cn(
-          "inline-flex shrink-0 touch-none select-none items-center self-center rounded-[12px] border p-0.5 transition-shadow duration-150",
+          "relative inline-flex shrink-0 touch-none select-none items-center border p-0.5 transition-colors duration-150",
+          hasActive
+            ? "self-stretch rounded-t-2xl rounded-b-none"
+            : "self-center rounded-[12px]",
           isDragging && "z-10 opacity-40",
         )}
       >
+        {hasActive && (
+          <>
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 15 15"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="pointer-events-none absolute -left-[15px] bottom-0 [filter:drop-shadow(-1.2px_-0.5px_1px_rgba(0,0,0,0.10))]"
+              aria-hidden
+            >
+              <path d="M15 15H0C8.28427 15 15 8.28427 15 0V15Z" fill="var(--background)" />
+            </svg>
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 15 15"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="pointer-events-none absolute -right-[15px] bottom-0 [filter:drop-shadow(1.2px_-0.5px_1px_rgba(0,0,0,0.10))]"
+              aria-hidden
+            >
+              <path
+                d="M0 15L6.5568e-07 0C2.93563e-07 8.28427 6.71573 15 15 15L0 15Z"
+                fill="var(--background)"
+              />
+            </svg>
+          </>
+        )}
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <button
