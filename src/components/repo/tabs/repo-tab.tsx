@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
+import { useRouter } from "@tanstack/react-router";
 import {
   AlertTriangle,
   ArrowDown,
@@ -19,7 +20,8 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
-import { memo, useEffect, useState } from "react";
+import { m } from "motion/react";
+import { memo, useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { useRepoGroupsStore } from "@/lib/repo-groups-store";
@@ -31,7 +33,15 @@ type RepoTabProps = {
   path: string;
   label: string;
   active: boolean;
+  variant?: "bar" | "group";
 };
+
+const INDICATOR_SPRING = {
+  type: "spring",
+  stiffness: 520,
+  damping: 38,
+  mass: 0.55,
+} as const;
 
 function repoInitialChar(name: string): string {
   const m = name.match(/[A-Za-z0-9]/);
@@ -46,16 +56,50 @@ function repoAvatarHue(name: string): number {
   return Math.abs(h) % 360;
 }
 
+function TabCornerLeft() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 15 15"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="absolute -left-[15px] bottom-0 [filter:drop-shadow(-1.2px_-0.5px_1px_rgba(0,0,0,0.10))]"
+    >
+      <path d="M15 15H0C8.28427 15 15 8.28427 15 0V15Z" fill="var(--background)" />
+    </svg>
+  );
+}
+
+function TabCornerRight() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 15 15"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="absolute -right-[15px] bottom-0 [filter:drop-shadow(1.2px_-0.5px_1px_rgba(0,0,0,0.10))]"
+    >
+      <path
+        d="M0 15L6.5568e-07 0C2.93563e-07 8.28427 6.71573 15 15 15L0 15Z"
+        fill="var(--background)"
+      />
+    </svg>
+  );
+}
+
 export const RepoTab = memo(function RepoTab({
   path,
   label,
   active,
+  variant = "bar",
 }: RepoTabProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const {
     loading,
     favicon,
-    branch,
     ahead,
     behind,
     hasUpstream,
@@ -63,7 +107,6 @@ export const RepoTab = memo(function RepoTab({
     cherryConflictCount,
   } = useRepoStore(
     useShallow((s) => {
-      const repo = s.repos[path];
       const sync = s.upstreamSync[path];
       const m = s.mergeState[path];
       const c = s.cherryPickState[path];
@@ -72,7 +115,6 @@ export const RepoTab = memo(function RepoTab({
       return {
         loading: !!s.loading[path],
         favicon: s.favicons[path] ?? null,
-        branch: repo?.branch ?? "…",
         ahead: sync?.ahead ?? 0,
         behind: sync?.behind ?? 0,
         hasUpstream: !!s.hasUpstream[path],
@@ -90,6 +132,7 @@ export const RepoTab = memo(function RepoTab({
   const showFavicon = !!favicon && !iconBroken;
   const hue = repoAvatarHue(label);
   const avatarBg = `hsl(${hue} 42% 36%)`;
+  const isBar = variant === "bar";
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useSortable({
@@ -97,15 +140,92 @@ export const RepoTab = memo(function RepoTab({
       animateLayoutChanges: () => false,
     });
 
-  const style: React.CSSProperties = {
+  const style = {
     transform: CSS.Transform.toString(transform),
-  };
+    WebkitAppRegion: "no-drag",
+  } as CSSProperties;
 
   const conflictCount = Math.max(mergeConflictCount, cherryConflictCount);
   const showConflictBadge = conflictCount > 0;
   const showAhead = hasUpstream && ahead > 0 && !showConflictBadge;
   const showBehind = hasUpstream && behind > 0 && !showConflictBadge;
   const showSyncMini = showConflictBadge || showAhead || showBehind;
+
+  const content = (
+    <>
+      <span
+        className="flex size-[18px] shrink-0 items-center justify-center rounded font-mono text-[9px] font-bold text-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.18)]"
+        style={showFavicon ? undefined : { backgroundColor: avatarBg }}
+      >
+        {loading ? (
+          <Loader2 className="size-3 animate-spin text-white/90" />
+        ) : showFavicon ? (
+          <img
+            src={favicon ?? undefined}
+            alt=""
+            onError={() => setIconBroken(true)}
+            className="size-[18px] rounded object-contain"
+          />
+        ) : (
+          repoInitialChar(label)
+        )}
+      </span>
+
+      <span
+        className={cn(
+          "min-w-[3ch] max-w-[160px] shrink truncate text-xs font-semibold",
+          active ? "text-foreground" : "text-foreground/85",
+        )}
+      >
+        {label}
+      </span>
+
+      {showSyncMini && (
+        <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] text-muted-foreground">
+          {showConflictBadge ? (
+            <span className="inline-flex items-center gap-0.5 font-semibold text-amber-700 dark:text-amber-500">
+              <AlertTriangle className="size-3" aria-hidden />
+              {conflictCount}
+            </span>
+          ) : (
+            <>
+              {showAhead && (
+                <span className="inline-flex items-center gap-px font-semibold text-blue-600 dark:text-blue-400">
+                  <ArrowUp className="size-3" aria-hidden />
+                  {ahead}
+                </span>
+              )}
+              {showBehind && (
+                <span className="inline-flex items-center gap-px font-semibold text-red-700 dark:text-red-400">
+                  <ArrowDown className="size-3" aria-hidden />
+                  {behind}
+                </span>
+              )}
+            </>
+          )}
+        </span>
+      )}
+
+      <span
+        role="button"
+        tabIndex={-1}
+        aria-label={t("repoTab.closeTabAria")}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          useRepoStore.getState().removeRepo(path);
+        }}
+        className={cn(
+          "ms-auto flex size-5 shrink-0 items-center justify-center rounded-full transition-colors duration-100",
+          active
+            ? "text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+            : "text-muted-foreground/70 hover:bg-foreground/10 hover:text-foreground",
+        )}
+      >
+        <X className="size-3" />
+      </span>
+    </>
+  );
 
   return (
     <>
@@ -115,101 +235,58 @@ export const RepoTab = memo(function RepoTab({
             ref={setNodeRef}
             style={style}
             type="button"
-            onClick={() => useRepoStore.getState().setActive(path)}
+            onClick={() => {
+              useRepoStore.getState().setActive(path);
+              void router.navigate({ to: "/" });
+            }}
             onAuxClick={(e) => {
               if (e.button === 1) useRepoStore.getState().removeRepo(path);
             }}
             title={path}
+            data-active={active || undefined}
             {...attributes}
             {...listeners}
             className={cn(
-              "group relative inline-flex h-9 max-w-[200px] min-w-0 shrink-0 touch-none select-none items-center gap-1.5 rounded-[9px] border border-transparent py-0 pl-1.5 pr-2 text-left text-[12.5px] font-medium transition-colors duration-150",
-              active
-                ? "border-border bg-card text-foreground shadow-[0_1px_0_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_1px_2px_rgba(0,0,0,0.35)]"
-                : "text-muted-foreground hover:bg-muted/50",
-              isDragging && "z-10 scale-95 cursor-grabbing opacity-40",
+              "group relative isolate flex min-w-0 touch-none select-none items-center text-left text-xs font-medium transition-colors duration-150",
+              isBar
+                ? "h-full min-w-[64px] max-w-[260px] shrink self-stretch rounded-t-2xl"
+                : "h-7 max-w-[240px] shrink-0 gap-1.5 rounded-lg pl-1.5 pr-1.5",
+              active ? "text-foreground" : "text-muted-foreground",
+              isDragging && "z-10 cursor-grabbing opacity-40",
             )}
           >
-            <span
-              className="flex size-[22px] shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-bold text-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.18)]"
-              style={
-                showFavicon
-                  ? undefined
-                  : { backgroundColor: avatarBg }
-              }
-            >
-              {loading ? (
-                <Loader2 className="size-3.5 animate-spin text-white/90" />
-              ) : showFavicon ? (
-                <img
-                  src={favicon ?? undefined}
-                  alt=""
-                  onError={() => setIconBroken(true)}
-                  className="size-[22px] rounded-md object-contain"
-                />
+            {active &&
+              (isBar ? (
+                <m.span
+                  layoutId="repo-tab-active-indicator"
+                  className="absolute inset-0 -z-10"
+                  transition={INDICATOR_SPRING}
+                  aria-hidden
+                >
+                  <span className="absolute inset-0 rounded-t-2xl bg-background [box-shadow:-1px_-1px_1px_0.1px_rgba(0,0,0,0.08),1px_-1px_1px_0.1px_rgba(0,0,0,0.08)]" />
+                  <TabCornerLeft />
+                  <TabCornerRight />
+                </m.span>
               ) : (
-                repoInitialChar(label)
-              )}
-            </span>
-
-            <span className="flex min-w-0 flex-col items-start leading-[1.15]">
+                <m.span
+                  layoutId="repo-tab-active-indicator"
+                  className="absolute inset-0 -z-10 rounded-lg border border-border bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_1px_2px_rgba(0,0,0,0.35)]"
+                  transition={INDICATOR_SPRING}
+                  aria-hidden
+                />
+              ))}
+            {isBar ? (
               <span
                 className={cn(
-                  "max-w-[100px] truncate text-xs font-semibold",
-                  active ? "text-foreground" : "text-foreground/90",
+                  "flex h-full w-full min-w-0 items-center gap-1.5 rounded-[12px] px-2",
+                  !active && "group-hover:bg-foreground/10",
                 )}
               >
-                {label}
+                {content}
               </span>
-              <span className="max-w-[110px] truncate font-mono text-[10px] text-muted-foreground">
-                {branch}
-              </span>
-            </span>
-
-            {showSyncMini && (
-              <span className="ml-0.5 inline-flex shrink-0 items-center gap-1 font-mono text-[10px] text-muted-foreground">
-                {showConflictBadge ? (
-                  <span className="inline-flex items-center gap-0.5 font-semibold text-amber-700 dark:text-amber-500">
-                    <AlertTriangle className="size-3" aria-hidden />
-                    {conflictCount}
-                  </span>
-                ) : (
-                  <>
-                    {showAhead && (
-                      <span className="inline-flex items-center gap-px font-semibold text-blue-600 dark:text-blue-400">
-                        <ArrowUp className="size-3" aria-hidden />
-                        {ahead}
-                      </span>
-                    )}
-                    {showBehind && (
-                      <span className="inline-flex items-center gap-px font-semibold text-red-700 dark:text-red-400">
-                        <ArrowDown className="size-3" aria-hidden />
-                        {behind}
-                      </span>
-                    )}
-                  </>
-                )}
-              </span>
+            ) : (
+              content
             )}
-
-            <span
-              role="button"
-              tabIndex={-1}
-              aria-label={t("repoTab.closeTabAria")}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                useRepoStore.getState().removeRepo(path);
-              }}
-              className={cn(
-                "ml-auto flex size-4 shrink-0 items-center justify-center rounded transition-all duration-100",
-                "opacity-0 group-hover:opacity-60 hover:!opacity-100",
-                "hover:bg-foreground/12",
-                active && "group-hover:opacity-50",
-              )}
-            >
-              <X className="h-2.5 w-2.5" />
-            </span>
           </button>
         </ContextMenuTrigger>
         <ContextMenuContent>

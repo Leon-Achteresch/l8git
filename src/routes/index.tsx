@@ -7,7 +7,6 @@ import { RepoDetails } from "@/components/repo/layout/repo-details";
 import { RepoTabLayout } from "@/components/repo/layout/repo-tab-layout";
 import { EmptyState } from "@/components/repo/layout/empty-state";
 import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
-import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { useRepoRehydrate } from "@/lib/use-repo-rehydrate";
@@ -94,7 +93,6 @@ function Home() {
           />
         </Suspense>
       )}
-      <RepoTabBar />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {activePath && <RepoSidebar />}
         <div

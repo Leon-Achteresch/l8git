@@ -140,8 +140,8 @@ export function AddRepoButton() {
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-[9px] border border-dashed border-border text-muted-foreground transition-colors hover:border-solid hover:bg-muted/50 hover:text-foreground",
-            menuOpen && "rounded-b-none border-solid",
+            "flex size-7 items-center justify-center rounded-lg text-muted-foreground/70 transition-colors hover:bg-foreground/10 hover:text-foreground",
+            menuOpen && "rounded-b-none bg-foreground/10 text-foreground",
           )}
         >
           <Plus className="h-4 w-4" />

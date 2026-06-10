@@ -19,33 +19,61 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronRight, FolderClosed, FolderOpen, FolderPlus, Pencil, Ungroup } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { RepoGroupDialog } from "./repo-group-dialog";
 import { RepoTab } from "./repo-tab";
 
+function nodeContainsActive(node: ForestNode, activePath: string | null) {
+  if (!activePath) return false;
+  return node.type === "repo"
+    ? node.path === activePath
+    : groupContainsPath(node, activePath);
+}
+
 export function ForestNodes({
   nodes,
   activePath,
+  nested = false,
 }: {
   nodes: ForestNode[];
   activePath: string | null;
+  nested?: boolean;
 }) {
   return (
     <>
-      {nodes.map((node) =>
-        node.type === "repo" ? (
-          <RepoTab
-            key={node.path}
-            path={node.path}
-            label={repoLabel(node.path)}
-            active={node.path === activePath}
-          />
-        ) : (
-          <RepoGroup key={node.id} group={node} activePath={activePath} />
-        ),
-      )}
+      {nodes.map((node, i) => {
+        const key = node.type === "repo" ? node.path : node.id;
+        const prevNode = nodes[i - 1] ?? null;
+        const hideSeparator =
+          nodeContainsActive(node, activePath) ||
+          (prevNode !== null && nodeContainsActive(prevNode, activePath));
+        return (
+          <Fragment key={key}>
+            {i > 0 && !nested && (
+              <span
+                className={cn(
+                  "mb-1 h-4 w-0.5 shrink-0 self-center rounded-full bg-foreground/5 transition-opacity",
+                  "[*:hover+&]:opacity-0 [&:has(+*:hover)]:opacity-0",
+                  hideSeparator && "opacity-0",
+                )}
+                aria-hidden
+              />
+            )}
+            {node.type === "repo" ? (
+              <RepoTab
+                path={node.path}
+                label={repoLabel(node.path)}
+                active={node.path === activePath}
+                variant={nested ? "group" : "bar"}
+              />
+            ) : (
+              <RepoGroup group={node} activePath={activePath} />
+            )}
+          </Fragment>
+        );
+      })}
     </>
   );
 }
@@ -81,14 +109,15 @@ function RepoGroup({
   const collapsed = group.collapsed;
 
   const tint = `hsl(${group.hue} 60% 50%)`;
-  const containerStyle: React.CSSProperties = {
+  const containerStyle = {
     transform: CSS.Transform.toString(transform),
     borderColor: `hsl(${group.hue} 45% 50% / ${hasActive ? 0.55 : 0.28})`,
     backgroundColor: `hsl(${group.hue} 50% 50% / ${collapsed ? 0.08 : 0.05})`,
     boxShadow: hasActive
       ? `inset 0 0 0 1px hsl(${group.hue} 55% 50% / 0.45)`
       : undefined,
-  };
+    WebkitAppRegion: "no-drag",
+  } as React.CSSProperties;
 
   return (
     <>
@@ -96,7 +125,7 @@ function RepoGroup({
         ref={setNodeRef}
         style={containerStyle}
         className={cn(
-          "inline-flex shrink-0 touch-none select-none items-center rounded-[12px] border p-1 transition-shadow duration-150",
+          "inline-flex shrink-0 touch-none select-none items-center self-center rounded-[12px] border p-0.5 transition-shadow duration-150",
           isDragging && "z-10 opacity-40",
         )}
       >
@@ -109,7 +138,7 @@ function RepoGroup({
               {...attributes}
               {...listeners}
               className={cn(
-                "group/header relative inline-flex h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-[9px] px-2 text-left text-[12.5px] font-medium transition-colors duration-150 hover:bg-foreground/[0.06]",
+                "group/header relative inline-flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-left text-xs font-medium transition-colors duration-150 hover:bg-foreground/[0.06]",
               )}
             >
               <m.span
@@ -217,7 +246,11 @@ function RepoGroup({
                 aria-hidden
               />
               <div className="flex items-center gap-1 pr-0.5">
-                <ForestNodes nodes={group.children} activePath={activePath} />
+                <ForestNodes
+                  nodes={group.children}
+                  activePath={activePath}
+                  nested
+                />
                 {group.children.length === 0 && (
                   <span className="px-2 text-[11px] italic text-muted-foreground">
                     {t("repoGroup.empty")}

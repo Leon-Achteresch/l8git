@@ -102,7 +102,7 @@ export function WindowControls() {
 
   return (
     <div
-      className="-my-2 flex self-stretch"
+      className="flex self-stretch"
       style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
     >
       <button
