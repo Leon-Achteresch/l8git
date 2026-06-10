@@ -164,7 +164,10 @@
     "titleTagline": "Einfach. Lokal. Schnell.",
     "subtitleLine1": "l8git gibt dir alle Werkzeuge, um effizient zu arbeiten –",
     "subtitleLine2": "ohne Ablenkung, ohne Cloud, ohne Kompromisse.",
-    "hint": "Klicke oben auf das Plus, um zu starten"
+    "hint": "Klicke oben auf das Plus, um zu starten",
+    "ctaOpen": "Ordner öffnen",
+    "ctaClone": "Repo klonen",
+    "ctaInit": "Neues Repo"
   },
   "info": {
     "title": "Info",

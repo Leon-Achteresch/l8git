@@ -1,10 +1,19 @@
-import { GitBranch, GitCommitHorizontal, GitMerge, GitPullRequest } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { usePickRepo } from "@/lib/use-pick-repo";
+import { Download, FolderGit2, GitBranch, GitCommitHorizontal, GitMerge, GitPullRequest, Plus } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CloneRepoDialog } from "@/components/repo/tabs/clone-repo-dialog";
+import { InitRepoDialog } from "@/components/repo/tabs/init-repo-dialog";
 import { FeatureCard } from "./feature-card";
 
 export function EmptyState() {
   const { t } = useTranslation();
+  const pickRepo = usePickRepo();
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [initOpen, setInitOpen] = useState(false);
+
   return (
     <div className="relative isolate flex h-full w-full flex-col items-center justify-center overflow-hidden bg-background p-8 animate-in fade-in duration-500">
       <div
@@ -21,7 +30,7 @@ export function EmptyState() {
           icon={<GitCommitHorizontal className="size-6 text-orange-500" />}
           caption={t("emptyState.cardCommitsCaption")}
           label={t("emptyState.cardCommitsLabel")}
-          iconWellClassName="bg-orange-50"
+          iconWellClassName="bg-orange-50 dark:bg-orange-950"
           floatingPhase={0}
         />
       </div>
@@ -30,7 +39,7 @@ export function EmptyState() {
           icon={<GitBranch className="size-6 text-teal-500" />}
           caption={t("emptyState.cardBranchesCaption")}
           label={t("emptyState.cardBranchesLabel")}
-          iconWellClassName="bg-teal-50"
+          iconWellClassName="bg-teal-50 dark:bg-teal-950"
           floatingPhase={1}
         />
       </div>
@@ -39,7 +48,7 @@ export function EmptyState() {
           icon={<GitMerge className="size-6 text-rose-500" />}
           caption={t("emptyState.cardMergesCaption")}
           label={t("emptyState.cardMergesLabel")}
-          iconWellClassName="bg-rose-50"
+          iconWellClassName="bg-rose-50 dark:bg-rose-950"
           floatingPhase={2}
         />
       </div>
@@ -48,12 +57,12 @@ export function EmptyState() {
           icon={<GitPullRequest className="size-6 text-violet-500" />}
           caption={t("emptyState.cardPrCaption")}
           label={t("emptyState.cardPrLabel")}
-          iconWellClassName="bg-violet-50"
+          iconWellClassName="bg-violet-50 dark:bg-violet-950"
           floatingPhase={3}
         />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center gap-5 text-center">
+      <div className="relative z-10 flex flex-col items-center gap-6 text-center">
         <h1 className="text-5xl font-bold leading-tight tracking-tight text-foreground">
           {t("emptyState.titleBefore")}{" "}
           <span className="text-indigo-500">Git</span> {t("emptyState.titleAfter")}
@@ -65,14 +74,38 @@ export function EmptyState() {
           <br />
           {t("emptyState.subtitleLine2")}
         </p>
-      </div>
 
-      <div className="absolute bottom-6">
-        <div className="flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-4 py-1.5 text-sm text-muted-foreground shadow-sm">
-          <span>+</span>
-          <span>{t("emptyState.hint")}</span>
+        {/* Primary CTAs */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button
+            variant="default"
+            className="gap-2"
+            onClick={() => void pickRepo()}
+          >
+            <FolderGit2 className="size-4" />
+            {t("emptyState.ctaOpen")}
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setCloneOpen(true)}
+          >
+            <Download className="size-4" />
+            {t("emptyState.ctaClone")}
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setInitOpen(true)}
+          >
+            <Plus className="size-4" />
+            {t("emptyState.ctaInit")}
+          </Button>
         </div>
       </div>
+
+      <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />
+      <InitRepoDialog open={initOpen} onClose={() => setInitOpen(false)} />
     </div>
   );
 }
