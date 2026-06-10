@@ -618,6 +618,7 @@
     "discardSelectionLines_one": "Discard {{count}} line",
     "discardSelectionLines_other": "Discard {{count}} lines",
     "discardLinesConfirm": "Permanently discard {{count}} selected line(s)? This cannot be undone.",
+    "embeddedRepo": "git repo",
     "fileRowBlame": "Show Git blame",
     "fileRowDiscard": "Discard changes",
     "fileRowDiscardMultiple": "Discard {{count}} files",

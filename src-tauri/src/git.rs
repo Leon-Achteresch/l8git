@@ -1271,6 +1271,7 @@ pub struct StatusEntry {
     additions_unstaged: u32,
     deletions_unstaged: u32,
     binary: bool,
+    embedded_repo: bool,
 }
 
 fn diff_reports_binary(diff: &str) -> bool {
@@ -1414,10 +1415,14 @@ fn compute_status_entries(repo: &Path) -> Result<Vec<StatusEntry>, String> {
             .unwrap_or((0, 0, false));
 
         let mut binary = staged_binary || unstaged_binary;
+        let mut embedded_repo = false;
 
         if untracked {
-            let abs = repo.join(&file_path);
-            if let Some((is_binary, lines)) = sniff_untracked(&abs) {
+            let abs = repo.join(file_path.trim_end_matches('/'));
+            // Nested git repo not tracked as submodule — show it distinctly.
+            if abs.is_dir() && (abs.join(".git").exists()) {
+                embedded_repo = true;
+            } else if let Some((is_binary, lines)) = sniff_untracked(&abs) {
                 if is_binary {
                     binary = true;
                 } else {
@@ -1439,6 +1444,7 @@ fn compute_status_entries(repo: &Path) -> Result<Vec<StatusEntry>, String> {
             additions_unstaged,
             deletions_unstaged,
             binary,
+            embedded_repo,
         });
     }
 

@@ -63,7 +63,7 @@ function FileRowInner({
         className="flex items-center justify-center"
         onClick={(e) => {
           e.stopPropagation();
-          onToggle(row.entry, row.id);
+          if (!row.entry.embedded_repo) onToggle(row.entry, row.id);
         }}
       >
         {state === "checked" ? (
@@ -76,7 +76,12 @@ function FileRowInner({
       </div>
       <StatusIcon entry={row.entry} sector={row.sector} />
       <span className="min-w-0 flex-1 truncate text-sm">
-        <span className="font-medium">{row.path.split("/").pop()}</span>
+        <span className="font-medium">{row.path.split("/").pop()?.replace(/\/$/, "")}</span>
+        {row.entry.embedded_repo && (
+          <span className="ml-2 rounded bg-violet-500/15 px-1 py-0.5 text-[10px] font-medium text-violet-500">
+            {t("commitPanel.embeddedRepo")}
+          </span>
+        )}
         <span className="ml-2 truncate text-[11px] opacity-50">
           {row.path.split("/").slice(0, -1).join("/")}
         </span>
