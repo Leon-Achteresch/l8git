@@ -4,6 +4,7 @@ import { type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AppHeaderSearch } from "@/components/app/app-header-search";
+import { WindowControls } from "@/components/app/window-controls";
 import { cn } from "@/lib/utils";
 
 const IS_MAC =
@@ -33,7 +34,6 @@ export function AppHeader() {
         "border-b border-border/50",
         "bg-card/85 backdrop-blur-xl backdrop-saturate-150 dark:bg-background/70",
         IS_MAC && "pl-[72px]",
-        IS_WINDOWS && "pr-[140px]",
       )}
     >
       <div
@@ -96,6 +96,8 @@ export function AppHeader() {
           <Settings className="size-4" strokeWidth={2} />
         </Link>
       </nav>
+
+      {IS_WINDOWS && <WindowControls />}
     </header>
   );
 }

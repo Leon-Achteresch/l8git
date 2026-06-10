@@ -29,7 +29,11 @@
     "info": "Info",
     "about": "About",
     "mainNav": "Main navigation",
-    "settingsAria": "Settings"
+    "settingsAria": "Settings",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
   },
   "dashboard": {
     "title": "Dashboard",
