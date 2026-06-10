@@ -26,3 +26,105 @@ export function toastError(message: string) {
     },
   });
 }
+
+export type GitErrorContext = {
+  /** Repo path, used to open the merge editor on conflict. */
+  repoPath?: string;
+  /** Called when the user clicks "Stash & Pull" on a local-changes-block error. */
+  onStashAndPull?: () => void;
+  /** Called when the user clicks "Pull now" on a non-fast-forward error. */
+  onPull?: () => void;
+};
+
+/**
+ * Like toastError, but recognises common git error patterns and attaches a
+ * relevant Quick-Action button to the toast.
+ */
+export function toastGitError(message: string, ctx?: GitErrorContext) {
+  const display = translateKnownError(message);
+  const raw = message.toLowerCase();
+
+  // Non-fast-forward / fetch first
+  if (
+    /non-fast-forward|fetch first|rejected.*update|updates were rejected/.test(raw) &&
+    ctx?.onPull
+  ) {
+    toast.error(i18n.t("errors.nonFastForward"), {
+      description: display,
+      action: {
+        label: i18n.t("errors.nonFastForwardAction"),
+        onClick: ctx.onPull,
+      },
+    });
+    return;
+  }
+
+  // Merge conflict
+  if (/conflict|merge failed|automatic merge failed/.test(raw) && ctx?.repoPath) {
+    const path = ctx.repoPath;
+    toast.error(i18n.t("errors.mergeConflict"), {
+      description: display,
+      action: {
+        label: i18n.t("errors.mergeConflictAction"),
+        onClick: () => {
+          // Lazy-import avoids a circular dep; this is fire-and-forget.
+          void import("@/lib/ui-store").then(({ useUiStore }) => {
+            useUiStore.getState().openMergeEditor(path);
+          });
+        },
+      },
+    });
+    return;
+  }
+
+  // Auth / credential failure
+  if (
+    /authentication failed|could not read username|invalid credentials|permission denied|403|401/.test(
+      raw,
+    )
+  ) {
+    toast.error(i18n.t("errors.authFailed"), {
+      description: display,
+      action: {
+        label: i18n.t("errors.authFailedAction"),
+        onClick: () => {
+          void import("@tanstack/react-router").then(({ getRouterContext }) => {
+            try {
+              // Best-effort navigation; may not work outside a Router context.
+              (getRouterContext() as { navigate?: (o: object) => void })?.navigate?.({ to: "/settings" });
+            } catch {
+              // ignore
+            }
+          });
+        },
+      },
+    });
+    return;
+  }
+
+  // Local-changes block pull — add Stash & Pull action
+  if (message.includes("__LOCAL_CHANGES_BLOCK__|") && ctx?.onStashAndPull) {
+    toast.error(display, {
+      action: {
+        label: i18n.t("errors.stashAndPullAction"),
+        onClick: ctx.onStashAndPull,
+      },
+    });
+    return;
+  }
+
+  // Detached HEAD
+  if (/detached head|detached at/.test(raw)) {
+    toast.error(i18n.t("errors.detachedHead"), {
+      description: display,
+      action: {
+        label: i18n.t("errors.copyAction"),
+        onClick: () => void navigator.clipboard.writeText(display),
+      },
+    });
+    return;
+  }
+
+  // Default: copy action
+  toastError(message);
+}

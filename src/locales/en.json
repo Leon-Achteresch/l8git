@@ -199,7 +199,15 @@
     "aiNoResponse": "No response from the AI model",
     "aiNoApiKey": "No API key configured. Go to Settings → AI to add your key.",
     "cloneOpenFailed": "The cloned repository could not be opened.",
-    "localChangesBlockPull": "Please commit the current changes first, then pull again and resolve any conflicts manually. Affected: {{files}}"
+    "localChangesBlockPull": "Please commit the current changes first, then pull again and resolve any conflicts manually. Affected: {{files}}",
+    "nonFastForward": "Remote has new commits. Pull first, then push again.",
+    "nonFastForwardAction": "Pull now",
+    "authFailed": "Authentication failed. Check your Git account credentials in Settings.",
+    "authFailedAction": "Open Settings",
+    "mergeConflict": "Merge conflict detected. Resolve it in the merge editor.",
+    "mergeConflictAction": "Open Merge Editor",
+    "stashAndPullAction": "Stash & Pull",
+    "detachedHead": "You are in detached HEAD state. Create a branch to keep your work."
   },
   "hotkeys": {
     "reloadActive": "Reload active repository",

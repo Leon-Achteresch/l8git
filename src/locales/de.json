@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "save": "Speichern",
     "cancel": "Abbrechen",
@@ -199,7 +199,15 @@
     "aiNoResponse": "Keine Antwort vom AI-Modell erhalten",
     "aiNoApiKey": "Kein API-Key konfiguriert. Gehe zu Einstellungen → AI, um deinen Key einzutragen.",
     "cloneOpenFailed": "Geklontes Repository konnte nicht geöffnet werden.",
-    "localChangesBlockPull": "Bitte zuerst die aktuellen Änderungen committen, danach erneut pullen und Konflikte manuell auflösen. Betroffen: {{files}}"
+    "localChangesBlockPull": "Bitte zuerst die aktuellen Änderungen committen, danach erneut pullen und Konflikte manuell auflösen. Betroffen: {{files}}",
+    "nonFastForward": "Remote hat neue Commits. Zuerst pullen, dann erneut pushen.",
+    "nonFastForwardAction": "Jetzt pullen",
+    "authFailed": "Authentifizierung fehlgeschlagen. Git-Konto in den Einstellungen prüfen.",
+    "authFailedAction": "Einstellungen öffnen",
+    "mergeConflict": "Merge-Konflikt erkannt. Im Merge-Editor auflösen.",
+    "mergeConflictAction": "Merge-Editor öffnen",
+    "stashAndPullAction": "Stash & Pull",
+    "detachedHead": "Du befindest dich im Detached-HEAD-Zustand. Branch erstellen, um Änderungen zu sichern."
   },
   "hotkeys": {
     "reloadActive": "Aktives Repo neu laden",
