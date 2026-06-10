@@ -17,7 +17,6 @@ function translateKnownError(message: string): string {
 
 export function toastError(message: string) {
   const display = translateKnownError(message);
-  void navigator.clipboard.writeText(display).catch(() => {});
   toast.error(display, {
     action: {
       label: i18n.t("errors.copyAction"),
