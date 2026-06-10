@@ -10,9 +10,9 @@ import {
   attachSession,
   detachSession,
   getOrCreateSession,
+  markActive,
+  markInactive,
   reopenSession,
-  repaintSession,
-  setSessionOutputPaused,
   subscribeStatus,
   subscribeTitle,
   syncResize,
@@ -142,15 +142,13 @@ export function RepoTerminalSession({
       if (resizeRaf != null) return;
       resizeRaf = requestAnimationFrame(() => {
         resizeRaf = null;
+        if (!record.term || !record.fit) return;
         try {
           record.fit.fit();
         } catch {
           return;
         }
-        const changed = syncResize(record);
-        // If the running program is a TUI it may have rendered the initial
-        // layout against a stale size — nudge it to redraw fully.
-        if (changed) repaintSession(record);
+        syncResize(record);
       });
     });
     ro.observe(container);
@@ -176,29 +174,33 @@ export function RepoTerminalSession({
   }, [isDark]);
 
   useEffect(() => {
+    if (!active) return;
     const rec = recordRef.current;
     const container = containerRef.current;
     if (!rec || !container) return;
 
-    if (!active) {
-      setSessionOutputPaused(rec, true, container);
-      return;
-    }
-
-    setSessionOutputPaused(rec, false);
     attachSession(rec, container);
+    markActive(rec);
 
     const raf = requestAnimationFrame(() => {
+      if (!rec.term || !rec.fit) return;
       try {
         rec.fit.fit();
       } catch {
         return;
       }
       rec.term.focus();
-      const changed = syncResize(rec);
-      if (changed) repaintSession(rec);
+      syncResize(rec);
+      try {
+        rec.term.refresh(0, Math.max(0, rec.term.rows - 1));
+      } catch {
+        return;
+      }
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      markInactive(rec);
+    };
   }, [active]);
 
   const handleReopen = () => {
@@ -241,7 +243,7 @@ export function RepoTerminalSession({
       <div
         ref={containerRef}
         className="min-h-0 flex-1 overflow-hidden px-2 py-1"
-        onClick={() => recordRef.current?.term.focus()}
+        onClick={() => recordRef.current?.term?.focus()}
       />
     </div>
   );

@@ -146,8 +146,9 @@ pub fn run() {
             terminal::terminal_open,
             terminal::terminal_write,
             terminal::terminal_resize,
-            terminal::terminal_repaint,
-            terminal::terminal_close
+            terminal::terminal_close,
+            terminal::terminal_detach,
+            terminal::terminal_attach
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
