@@ -1,20 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { RouterProvider } from "@tanstack/react-router";
 import { isTauri } from "@tauri-apps/api/core";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 
-import { routeTree } from "./routeTree.gen";
 import "./lib/i18n";
 import "./index.css";
-
-const router = createRouter({ routeTree });
-
-declare module "@tanstack/react-router" {
-  interface Register {
-    router: typeof router;
-  }
-}
+import { router } from "./lib/router";
 
 // Defer the update check (network + updater chunk) until the app is idle so
 // it never competes with first paint.
