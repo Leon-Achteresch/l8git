@@ -9,7 +9,7 @@ const grepPattern = `"version": "${major}\\.${minor}\\.`;
 let baseCommit = "";
 try {
   baseCommit = execSync(
-    `git log -1 --format=%H -- package.json -G ${JSON.stringify(grepPattern)}`,
+    `git log -1 --format=%H -G ${JSON.stringify(grepPattern)} -- package.json`,
     { encoding: "utf8" },
   ).trim();
 } catch {

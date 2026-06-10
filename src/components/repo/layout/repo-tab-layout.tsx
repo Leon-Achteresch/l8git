@@ -68,7 +68,7 @@ export function RepoTabLayout({ path, children }: Props) {
         id="tab-content-area"
         defaultSize={`${100 - terminalPct}%`}
         minSize="20%"
-        className="min-h-0"
+        className="flex min-h-0 flex-col overflow-hidden"
       >
         {children}
       </ResizablePanel>

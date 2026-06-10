@@ -222,6 +222,37 @@ function createSlot(): Slot {
     adapter?.resolveLeaf(leafId)?.writeToPty(data);
   });
 
+  host.addEventListener(
+    "paste",
+    (event) => {
+      const clip = event.clipboardData;
+      if (!clip) return;
+      let hasImage = false;
+      for (let i = 0; i < clip.items.length; i++) {
+        const item = clip.items[i];
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          hasImage = true;
+          break;
+        }
+      }
+      if (!hasImage) {
+        for (let i = 0; i < clip.files.length; i++) {
+          if (clip.files[i].type.startsWith("image/")) {
+            hasImage = true;
+            break;
+          }
+        }
+      }
+      if (!hasImage) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const leafId = slot.currentLeafId;
+      if (leafId === null) return;
+      adapter?.resolveLeaf(leafId)?.writeToPty("\x16");
+    },
+    { capture: true },
+  );
+
   slots.push(slot);
   return slot;
 }
