@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatRelative } from "@/lib/format";
 import type { Branch, PrReviewer, PullRequest } from "@/lib/repo-store";
 import { Loader2, RefreshCw } from "lucide-react";
-import { AnimatePresence, LayoutGroup, motion, type Variants } from "motion/react";
+import { AnimatePresence, LayoutGroup, m, type Variants } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   PullRequestCreatePanel,
@@ -145,7 +145,7 @@ function PRRow({
 }) {
   const state = displayState(pr);
   return (
-    <motion.div variants={rowVariants} transition={{ type: "spring", stiffness: 340, damping: 28, mass: 0.7 }}>
+    <m.div variants={rowVariants} transition={{ type: "spring", stiffness: 340, damping: 28, mass: 0.7 }}>
       <button
         type="button"
         onClick={onClick}
@@ -158,7 +158,7 @@ function PRRow({
       >
         <AnimatePresence>
           {selected && (
-            <motion.span
+            <m.span
               layoutId="pr-row-accent"
               className="absolute inset-y-2 left-0 w-0.5 rounded-r bg-primary"
               initial={{ scaleY: 0, opacity: 0 }}
@@ -210,13 +210,13 @@ function PRRow({
           <ReviewerAvatarStack reviewers={pr.reviewers} />
         </div>
       </button>
-    </motion.div>
+    </m.div>
   );
 }
 
 function GroupHeader({ label, count }: { label: string; count: number }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 380, damping: 30 }}
@@ -228,7 +228,7 @@ function GroupHeader({ label, count }: { label: string; count: number }) {
       <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
         {count}
       </span>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -236,14 +236,14 @@ function GroupHeader({ label, count }: { label: string; count: number }) {
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 300, damping: 28 }}
       className="flex flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground"
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -348,7 +348,7 @@ export function PullRequestList({
                   style={{ color: active ? "var(--color-primary)" : undefined }}
                 >
                   {active && (
-                    <motion.span
+                    <m.span
                       layoutId="pr-filter-pill"
                       className="absolute inset-0 rounded bg-primary/10"
                       transition={{ type: "spring", stiffness: 480, damping: 36, mass: 0.6 }}
@@ -357,7 +357,7 @@ export function PullRequestList({
                   <span className={`relative z-10 ${active ? "text-primary" : "text-muted-foreground"}`}>
                     {label}
                   </span>
-                  <motion.span
+                  <m.span
                     layout
                     className={[
                       "relative z-10 inline-flex h-[16px] min-w-[18px] items-center justify-center rounded-full px-1 font-mono text-[10px]",
@@ -366,7 +366,7 @@ export function PullRequestList({
                     transition={{ type: "spring", stiffness: 480, damping: 36 }}
                   >
                     {count}
-                  </motion.span>
+                  </m.span>
                 </button>
               );
             })}
@@ -382,13 +382,13 @@ export function PullRequestList({
           className="h-7 w-7 p-0"
           title={t("pr.reloadTitle")}
         >
-          <motion.span
+          <m.span
             animate={loading ? { rotate: 360 } : { rotate: 0 }}
             transition={loading ? { repeat: Infinity, duration: 1, ease: "linear" } : { duration: 0.3 }}
             className="inline-flex"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-          </motion.span>
+          </m.span>
         </Button>
       </div>
 
@@ -410,7 +410,7 @@ export function PullRequestList({
         <div className="p-2">
           <AnimatePresence mode="wait" initial={false}>
             {loading && !prs ? (
-              <motion.div
+              <m.div
                 key="loading"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -419,7 +419,7 @@ export function PullRequestList({
               >
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {t("pr.loading")}
-              </motion.div>
+              </m.div>
             ) : !prs || prs.length === 0 ? (
               <EmptyState key="empty-all">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="opacity-30">
@@ -444,7 +444,7 @@ export function PullRequestList({
                 <span>{t("pr.noneInCategory")}</span>
               </EmptyState>
             ) : (
-              <motion.div
+              <m.div
                 key={`list-${filter}`}
                 initial="hidden"
                 animate="visible"
@@ -453,7 +453,7 @@ export function PullRequestList({
                 {groups.map((group) => (
                   <div key={group.key}>
                     {group.label && <GroupHeader label={group.label} count={group.items.length} />}
-                    <motion.div
+                    <m.div
                       className="flex flex-col gap-0.5"
                       initial="hidden"
                       animate="visible"
@@ -469,10 +469,10 @@ export function PullRequestList({
                           />
                         ))}
                       </AnimatePresence>
-                    </motion.div>
+                    </m.div>
                   </div>
                 ))}
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>

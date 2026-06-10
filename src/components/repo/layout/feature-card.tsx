@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { ReactNode, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +59,7 @@ export function FeatureCard({
   }, [caption, label, floatingPhase]);
 
   return (
-    <motion.div
+    <m.div
       className={cn(
         "flex flex-row items-center gap-3 rounded-[1.25rem] bg-white p-4 shadow-sm shadow-black/5 ring-1 ring-black/[0.03]",
       )}
@@ -88,6 +88,6 @@ export function FeatureCard({
           {label}
         </span>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

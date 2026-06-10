@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 export function MagicPill({
   layoutId,
@@ -8,7 +8,7 @@ export function MagicPill({
   className?: string;
 }) {
   return (
-    <motion.span
+    <m.span
       layoutId={layoutId}
       aria-hidden
       transition={{ type: "spring", stiffness: 520, damping: 38, mass: 0.7 }}

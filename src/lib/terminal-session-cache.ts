@@ -4,6 +4,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal as Xterm } from "@xterm/xterm";
 
+import { registerTerminalSessionDestroyers } from "@/lib/terminal-session-registry";
 import {
   TitleEventSource,
   TerminalInputTracker,
@@ -602,3 +603,5 @@ export function subscribeTitle(
     rec.subscribers.title.delete(cb);
   };
 }
+
+registerTerminalSessionDestroyers({ destroySession, destroySessionsForPath });

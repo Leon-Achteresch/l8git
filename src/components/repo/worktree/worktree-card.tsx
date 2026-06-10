@@ -21,7 +21,7 @@ import {
   Trash2,
   Move,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -115,7 +115,7 @@ export function WorktreeCard({
   };
 
   const inner = (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
@@ -192,7 +192,7 @@ export function WorktreeCard({
           </div>
         </div>
       </button>
-    </motion.div>
+    </m.div>
   );
 
   return (

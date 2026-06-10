@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import type { ReactNode } from "react";
 
 export function StaggerCard({
@@ -11,7 +11,7 @@ export function StaggerCard({
   className?: string;
 }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 22, rotateX: -14, filter: "blur(10px)" }}
       animate={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
       transition={{
@@ -29,6 +29,6 @@ export function StaggerCard({
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

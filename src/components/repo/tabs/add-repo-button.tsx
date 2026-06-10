@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { Download, FolderGit2, FolderPlus, Plus, type LucideIcon } from "lucide-react";
-import { AnimatePresence, LayoutGroup, motion, type Variants } from "motion/react";
+import { AnimatePresence, LayoutGroup, m, type Variants } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CloneRepoDialog } from "./clone-repo-dialog";
@@ -124,7 +124,7 @@ export function AddRepoButton() {
   return (
     <div className="relative shrink-0" ref={wrapRef}>
       <LayoutGroup>
-        <motion.button
+        <m.button
           type="button"
           layoutId={REPO_ADD_MORPH_ID}
           whileTap={{ scale: 0.92 }}
@@ -145,11 +145,11 @@ export function AddRepoButton() {
           )}
         >
           <Plus className="h-4 w-4" />
-        </motion.button>
+        </m.button>
 
         <AnimatePresence>
           {menuOpen ? (
-            <motion.div
+            <m.div
               role="menu"
               variants={menuPanelVariants}
               initial="hidden"
@@ -159,7 +159,7 @@ export function AddRepoButton() {
               className="absolute right-0 top-full z-50 min-w-[200px] overflow-hidden rounded-b-lg rounded-t-none bg-popover py-1 shadow-lg"
             >
               {menuEntries.map(({ Icon, label, action, key }) => (
-                <motion.button
+                <m.button
                   key={key}
                   type="button"
                   role="menuitem"
@@ -170,9 +170,9 @@ export function AddRepoButton() {
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span>{label}</span>
-                </motion.button>
+                </m.button>
               ))}
-            </motion.div>
+            </m.div>
           ) : null}
         </AnimatePresence>
         <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />

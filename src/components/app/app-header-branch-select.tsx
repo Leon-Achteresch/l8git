@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import { Check, ChevronDown, GitBranch } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -82,7 +82,7 @@ export function AppHeaderBranchSelect() {
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>
-        <motion.button
+        <m.button
           type="button"
           disabled={disabled}
           title={t("branchMenu.switchTitle")}
@@ -102,17 +102,17 @@ export function AppHeaderBranchSelect() {
             className="size-3 shrink-0 text-muted-foreground"
             strokeWidth={2}
           />
-          <motion.span layout className="min-w-0 flex-1 truncate text-left tabular-nums">
+          <m.span layout className="min-w-0 flex-1 truncate text-left tabular-nums">
             {shown}
-          </motion.span>
-          <motion.span
+          </m.span>
+          <m.span
             className="flex size-3 shrink-0 items-center justify-center text-muted-foreground"
             animate={{ rotate: menuOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 420, damping: 28 }}
           >
             <ChevronDown className="size-3" strokeWidth={2} />
-          </motion.span>
-        </motion.button>
+          </m.span>
+        </m.button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"

@@ -19,7 +19,7 @@ import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, CircleDot, GitBranchPlus, History, RotateCcw, SkipForward, Tag, Undo2, XCircle } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -149,7 +149,7 @@ function CommitRowInner({
   };
 
   const inner = (
-    <motion.div
+    <m.div
       key={focusPulseToken != null ? `pulse-${focusPulseToken}` : "row"}
       onClick={handleClick}
       initial={false}
@@ -282,7 +282,7 @@ function CommitRowInner({
         )}
         <CommitHashBadge hash={commit.short_hash} />
       </div>
-    </motion.div>
+    </m.div>
   );
 
   return (

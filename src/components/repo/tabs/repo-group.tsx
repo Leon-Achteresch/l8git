@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronRight, FolderClosed, FolderOpen, FolderPlus, Pencil, Ungroup } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -112,7 +112,7 @@ function RepoGroup({
                 "group/header relative inline-flex h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-[9px] px-2 text-left text-[12.5px] font-medium transition-colors duration-150 hover:bg-foreground/[0.06]",
               )}
             >
-              <motion.span
+              <m.span
                 className="flex shrink-0 items-center justify-center"
                 animate={{ rotate: collapsed ? 0 : 90 }}
                 transition={{ type: "spring", stiffness: 600, damping: 32 }}
@@ -122,12 +122,12 @@ function RepoGroup({
                   style={{ color: tint }}
                   aria-hidden
                 />
-              </motion.span>
+              </m.span>
 
               <span className="flex size-[22px] shrink-0 items-center justify-center">
                 <AnimatePresence mode="wait" initial={false}>
                   {collapsed ? (
-                    <motion.span
+                    <m.span
                       key="closed"
                       initial={{ opacity: 0, scale: 0.6 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -139,9 +139,9 @@ function RepoGroup({
                         style={{ color: tint }}
                         aria-hidden
                       />
-                    </motion.span>
+                    </m.span>
                   ) : (
-                    <motion.span
+                    <m.span
                       key="open"
                       initial={{ opacity: 0, scale: 0.6 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -153,7 +153,7 @@ function RepoGroup({
                         style={{ color: tint }}
                         aria-hidden
                       />
-                    </motion.span>
+                    </m.span>
                   )}
                 </AnimatePresence>
               </span>
@@ -203,7 +203,7 @@ function RepoGroup({
 
         <AnimatePresence initial={false}>
           {!collapsed && (
-            <motion.div
+            <m.div
               key="children"
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: "auto", opacity: 1 }}
@@ -224,7 +224,7 @@ function RepoGroup({
                   </span>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

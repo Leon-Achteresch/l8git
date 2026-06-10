@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -86,14 +86,14 @@ function ChangelogPage() {
   return (
     <main className="mx-auto max-w-4xl px-6 py-8">
       {/* Header */}
-      <motion.div
+      <m.div
         variants={container}
         initial="hidden"
         animate="show"
         className="space-y-6"
       >
         {/* Back + title row */}
-        <motion.div variants={item} className="flex items-center gap-4">
+        <m.div variants={item} className="flex items-center gap-4">
           <Button variant="ghost" size="icon-sm" asChild>
             <Link to="/" aria-label={t("common.back")}>
               <ArrowLeft className="size-4" />
@@ -110,11 +110,11 @@ function ChangelogPage() {
               <p className="text-sm text-muted-foreground">l8git</p>
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         {/* Version badges + action */}
         {(version || currentVersion) && (
-          <motion.div
+          <m.div
             variants={item}
             className="flex flex-wrap items-center gap-2"
           >
@@ -170,14 +170,14 @@ function ChangelogPage() {
                 )}
               </div>
             )}
-          </motion.div>
+          </m.div>
         )}
 
         {/* Divider */}
-        <motion.div variants={item} className="border-t border-border/60" />
+        <m.div variants={item} className="border-t border-border/60" />
 
         {/* Release notes */}
-        <motion.div variants={item}>
+        <m.div variants={item}>
           {releaseNotesMarkdown ? (
             <div className="rounded-xl border border-border/70 bg-card/60 backdrop-blur-sm">
               <div className="border-b border-border/50 px-5 py-3.5">
@@ -204,8 +204,8 @@ function ChangelogPage() {
               </p>
             </div>
           )}
-        </motion.div>
-      </motion.div>
+        </m.div>
+      </m.div>
     </main>
   );
 }

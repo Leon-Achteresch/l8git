@@ -1,7 +1,7 @@
 import type { GitHookEntry } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { Webhook } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { GitHookStatusBadge } from "./git-hooks-status-badge";
 
@@ -22,7 +22,7 @@ export function GitHooksCard({
   const desc = t(`hooks.kindDesc.${entry.name}`, { defaultValue: t("hooks.kindFallback") });
 
   return (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
@@ -75,6 +75,6 @@ export function GitHooksCard({
           </div>
         </div>
       </button>
-    </motion.div>
+    </m.div>
   );
 }

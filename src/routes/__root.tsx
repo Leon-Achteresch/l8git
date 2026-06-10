@@ -10,8 +10,14 @@ const RouterDevtools = import.meta.env.DEV
     )
   : null;
 
+// Loads off the critical path together with the updater plugin code.
+const AppUpdateToast = lazy(() =>
+  import("@/components/app/app-update-toast").then((m) => ({
+    default: m.AppUpdateToast,
+  })),
+);
+
 import { AppHeader } from "@/components/app/app-header";
-import { AppUpdateToast } from "@/components/app/app-update-toast";
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
@@ -37,7 +43,9 @@ function RootLayout() {
           position="top-right"
           theme={resolveTheme(theme)}
         />
-        <AppUpdateToast />
+        <Suspense fallback={null}>
+          <AppUpdateToast />
+        </Suspense>
         {RouterDevtools ? (
           <Suspense fallback={null}>
             <RouterDevtools position="bottom-right" />

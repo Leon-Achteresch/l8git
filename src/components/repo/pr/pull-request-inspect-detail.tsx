@@ -4,7 +4,7 @@ import { formatDate, formatRelative } from "@/lib/format";
 import type { PrReviewer, PullRequest } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { AlertCircle, CheckCircle2, Download, ExternalLink, GitMerge, Loader2, PanelRightClose, PanelRightOpen, RefreshCw, RotateCcw, ShieldCheck, X, Zap } from "lucide-react";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
@@ -236,7 +236,7 @@ function MergeStateBanner({
   if (isResolved) {
     const isMerged = detail.state === "merged";
     return (
-      <motion.div
+      <m.div
         {...bannerMotion}
         className={`rounded-md border p-3 ${
           isMerged
@@ -259,7 +259,7 @@ function MergeStateBanner({
             {t("prInspect.checkoutVerb")}
           </Button>
         </div>
-      </motion.div>
+      </m.div>
     );
   }
 
@@ -267,7 +267,7 @@ function MergeStateBanner({
 
   if (detail.state === "draft" || detail.is_draft) {
     return (
-      <motion.div {...bannerMotion} className="rounded-md border border-[oklch(0.86_0.08_70)] bg-[oklch(0.97_0.03_70/0.15)] p-3 text-[oklch(0.4_0.13_70)]">
+      <m.div {...bannerMotion} className="rounded-md border border-[oklch(0.86_0.08_70)] bg-[oklch(0.97_0.03_70/0.15)] p-3 text-[oklch(0.4_0.13_70)]">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[13px] font-semibold">{t("prInspect.draftBlockedTitle")}</div>
@@ -279,13 +279,13 @@ function MergeStateBanner({
             {t("prInspect.readyForReview")}
           </Button>
         </div>
-      </motion.div>
+      </m.div>
     );
   }
 
   if (detail.mergeable === false) {
     return (
-      <motion.div {...bannerMotion} className="rounded-md border border-[oklch(0.85_0.08_25)] bg-[oklch(0.97_0.03_25/0.12)] p-3 text-[oklch(0.35_0.14_25)]">
+      <m.div {...bannerMotion} className="rounded-md border border-[oklch(0.85_0.08_25)] bg-[oklch(0.97_0.03_25/0.12)] p-3 text-[oklch(0.35_0.14_25)]">
         <div className="flex items-start gap-2">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -304,13 +304,13 @@ function MergeStateBanner({
             </Button>
           </div>
         </div>
-      </motion.div>
+      </m.div>
     );
   }
 
   if (detail.mergeable === true) {
     return (
-      <motion.div {...bannerMotion} className="flex flex-col gap-2.5 rounded-md border border-[oklch(0.85_0.08_145)] bg-[oklch(0.97_0.04_145/0.12)] p-3 text-[oklch(0.32_0.13_145)]">
+      <m.div {...bannerMotion} className="flex flex-col gap-2.5 rounded-md border border-[oklch(0.85_0.08_145)] bg-[oklch(0.97_0.04_145/0.12)] p-3 text-[oklch(0.32_0.13_145)]">
         <div className="flex items-start gap-2">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -410,20 +410,20 @@ function MergeStateBanner({
             </Button>
           </div>
         )}
-      </motion.div>
+      </m.div>
     );
   }
 
   // mergeable === null (unknown)
   return (
-    <motion.div {...bannerMotion} className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+    <m.div {...bannerMotion} className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
       <Loader2 className="h-3.5 w-3.5 animate-spin" />
       {t("prInspect.checksMergeability")}
       <Button variant="outline" size="sm" className="ml-auto h-6 text-[10px]" onClick={onCheckout} disabled={busy !== null}>
         <Download className="mr-1 h-3 w-3" />
         {t("prInspect.checkoutVerb")}
       </Button>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -578,7 +578,7 @@ export function PullRequestInspectDetail({
 
         {/* Title */}
         <AnimatePresence mode="wait" initial={false}>
-          <motion.h1
+          <m.h1
             key={detail?.title ?? "skeleton"}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -588,12 +588,12 @@ export function PullRequestInspectDetail({
             {detail?.title ?? (
               <span className="inline-block h-5 w-64 animate-pulse rounded bg-muted" />
             )}
-          </motion.h1>
+          </m.h1>
         </AnimatePresence>
 
         {/* Byline */}
         {detail && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 30, delay: 0.08 }}
@@ -611,7 +611,7 @@ export function PullRequestInspectDetail({
                 </span>
               </>
             )}
-          </motion.div>
+          </m.div>
         )}
 
         {/* Tab nav — animated underline indicator */}
@@ -629,7 +629,7 @@ export function PullRequestInspectDetail({
               >
                 {label}
                 {tab === id && (
-                  <motion.span
+                  <m.span
                     layoutId="pr-detail-tab-underline"
                     className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-primary"
                     transition={{ type: "spring", stiffness: 480, damping: 36, mass: 0.6 }}
@@ -643,13 +643,13 @@ export function PullRequestInspectDetail({
 
       {/* ── Body ── */}
       {loading && !detail ? (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="flex flex-1 items-center justify-center"
         >
           <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
-        </motion.div>
+        </m.div>
       ) : !detail ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           {t("pr.noData")}
@@ -679,7 +679,7 @@ export function PullRequestInspectDetail({
 
             {/* Tab content — crossfade on switch */}
             <AnimatePresence mode="wait" initial={false}>
-              <motion.div
+              <m.div
                 key={tab}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -704,14 +704,14 @@ export function PullRequestInspectDetail({
                 {tab === "checks" && (
                   <PullRequestChecksTab path={path} number={number} />
                 )}
-              </motion.div>
+              </m.div>
             </AnimatePresence>
           </div>
 
           {/* Sidebar — slides in/out from the right */}
           <AnimatePresence initial={false}>
             {sidebarOpen && (
-              <motion.aside
+              <m.aside
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: 220, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
@@ -765,7 +765,7 @@ export function PullRequestInspectDetail({
               </div>
             </SideCard>
                 </div>
-              </motion.aside>
+              </m.aside>
             )}
           </AnimatePresence>
         </div>
