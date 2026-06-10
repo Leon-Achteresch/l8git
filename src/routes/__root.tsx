@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "sonner";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 const RouterDevtools = import.meta.env.DEV
   ? lazy(() =>
@@ -20,6 +21,7 @@ const AppUpdateToast = lazy(() =>
 import { AppHeader } from "@/components/app/app-header";
 import { HotkeysOverlay } from "@/components/app/hotkeys-overlay";
 import { MotionProvider } from "@/components/motion/motion-provider";
+import { useRepoStore } from "@/lib/repo-store";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
 import { useTheme } from "@/lib/use-theme";
@@ -33,6 +35,22 @@ function RootLayout() {
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
   const { theme } = useTheme();
+  const addRepo = useRepoStore((s) => s.addRepo);
+
+  // Accept folder drops anywhere in the window to open a repository.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (event.payload.type !== "drop") return;
+        const paths: string[] = (event.payload as { paths?: string[] }).paths ?? [];
+        for (const p of paths) {
+          void addRepo(p);
+        }
+      })
+      .then((fn) => { unlisten = fn; });
+    return () => unlisten?.();
+  }, [addRepo]);
   return (
     <MotionProvider>
       <div className="flex h-dvh min-h-0 flex-col bg-background text-foreground">
