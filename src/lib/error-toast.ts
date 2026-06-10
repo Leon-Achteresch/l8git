@@ -88,13 +88,8 @@ export function toastGitError(message: string, ctx?: GitErrorContext) {
       action: {
         label: i18n.t("errors.authFailedAction"),
         onClick: () => {
-          void import("@tanstack/react-router").then(({ getRouterContext }) => {
-            try {
-              // Best-effort navigation; may not work outside a Router context.
-              (getRouterContext() as { navigate?: (o: object) => void })?.navigate?.({ to: "/settings" });
-            } catch {
-              // ignore
-            }
+          void import("./router").then(({ router }) => {
+            void router.navigate({ to: "/settings" });
           });
         },
       },
