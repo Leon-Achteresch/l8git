@@ -509,6 +509,12 @@ export function CommitPanel() {
             placeholder={t("commitPanel.messagePlaceholder")}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
+                e.preventDefault();
+                void onCommit();
+              }
+            }}
             rows={3}
             className="resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
