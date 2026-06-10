@@ -18,11 +18,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupTextarea,
+} from "@/components/ui/input-group";
+import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Textarea } from "@/components/ui/textarea";
 import { StashCreateDialog } from "@/components/repo/stash/stash-create-dialog";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
@@ -34,12 +40,11 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   Archive,
   Check,
+  ChevronDown,
   Loader2,
   Pencil,
-  RefreshCw,
-  Send,
-  Sparkles,
   Undo2,
+  Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
@@ -76,13 +81,13 @@ export function CommitPanel() {
   const activePath = useRepoStore((s) => s.activePath);
   const entries =
     useRepoStore((s) => (activePath ? s.status[activePath] : undefined)) ?? EMPTY_STATUS;
-  const loading = useRepoStore((s) => (activePath ? !!s.statusLoading[activePath] : false));
   const reloadStatus = useRepoStore((s) => s.reloadStatus);
   const stageFiles = useRepoStore((s) => s.stageFiles);
   const unstageFiles = useRepoStore((s) => s.unstageFiles);
   const commitChanges = useRepoStore((s) => s.commitChanges);
   const amendCommit = useRepoStore((s) => s.amendCommit);
   const latestCommit = useRepoStore((s) => (activePath ? s.repos[activePath]?.commits[0] : undefined));
+  const currentBranch = useRepoStore((s) => activePath ? (s.repos[activePath]?.branch ?? null) : null);
   const aheadCount = useRepoStore((s) => activePath ? (s.upstreamSync[activePath]?.ahead ?? 0) : 0);
   const hasUpstream = useRepoStore((s) => activePath ? (s.hasUpstream[activePath] !== false) : false);
   const discardFiles = useRepoStore((s) => s.discardFiles);
@@ -96,7 +101,6 @@ export function CommitPanel() {
 
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
-  const subjectLen = message.split("\n")[0]?.length ?? 0;
   const [aiGenerating, setAiGenerating] = useState(false);
   const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
@@ -107,6 +111,24 @@ export function CommitPanel() {
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
   const [discardDialog, setDiscardDialog] = useState<{ files: string[]; worktreeOnly: boolean } | null>(null);
+
+  const subject = message.split("\n")[0] ?? "";
+  const bodyStart = message.indexOf("\n\n");
+  const body = bodyStart >= 0 ? message.slice(bodyStart + 2) : "";
+  const subjectLen = subject.length;
+
+  const handleSubjectChange = useCallback((val: string) => {
+    const currentBody = (() => {
+      const idx = message.indexOf("\n\n");
+      return idx >= 0 ? message.slice(idx + 2) : "";
+    })();
+    setMessage(currentBody.trim() ? `${val}\n\n${currentBody}` : val);
+  }, [message]);
+
+  const handleBodyChange = useCallback((val: string) => {
+    const currentSubject = message.split("\n")[0] ?? "";
+    setMessage(val.trim() ? `${currentSubject}\n\n${val}` : currentSubject);
+  }, [message]);
 
   const layoutStorageKey = "l8git.commit-panel.layout.v2";
   const [defaultLayout] = useState(() => {
@@ -208,15 +230,6 @@ export function CommitPanel() {
     return { additionsStaged, deletionsStaged, stagedFiles };
   }, [entries]);
 
-  const allState = useMemo(() => {
-    if (entries.length === 0) return "unchecked" as const;
-    const staged = entries.filter((e) => e.staged).length;
-    if (staged === 0) return "unchecked" as const;
-    if (staged === entries.length && entries.every((e) => !e.unstaged && !e.untracked))
-      return "checked" as const;
-    return "indeterminate" as const;
-  }, [entries]);
-
   const latestChangeRowsRef = useRef(changeRows);
   latestChangeRowsRef.current = changeRows;
   const latestAnchorRowIdRef = useRef(anchorRowId);
@@ -225,7 +238,7 @@ export function CommitPanel() {
   latestMultiSelectedIdsRef.current = multiSelectedIds;
 
   const handleRowSelect = useCallback((id: string, shiftKey: boolean) => {
-    setSelectedRowId(id); // always update the diff preview
+    setSelectedRowId(id);
     if (shiftKey) {
       const anchor = latestAnchorRowIdRef.current;
       const rows = latestChangeRowsRef.current;
@@ -276,8 +289,31 @@ export function CommitPanel() {
 
   const stableOnBlame = useCallback((path: string) => setBlameTarget(path), []);
 
+  const allState = useMemo(() => {
+    if (entries.length === 0) return "unchecked" as const;
+    const staged = entries.filter((e) => e.staged).length;
+    if (staged === 0) return "unchecked" as const;
+    if (staged === entries.length && entries.every((e) => !e.unstaged && !e.untracked))
+      return "checked" as const;
+    return "indeterminate" as const;
+  }, [entries]);
+
   const toggleAllRef = useRef<() => Promise<void>>(async () => {});
   const stableOnToggleAll = useCallback(() => void toggleAllRef.current(), []);
+
+  const stableOnStageAll = useCallback(() => {
+    if (!activePath) return;
+    const paths = unstagedRows.map((r) => r.path);
+    if (paths.length === 0) return;
+    void stageFiles(activePath, paths).catch((e) => toastError(String(e)));
+  }, [activePath, unstagedRows, stageFiles]);
+
+  const stableOnUnstageAll = useCallback(() => {
+    if (!activePath) return;
+    const paths = stagedRows.map((r) => r.path);
+    if (paths.length === 0) return;
+    void unstageFiles(activePath, paths).catch((e) => toastError(String(e)));
+  }, [activePath, stagedRows, unstageFiles]);
 
   const discardOne = useCallback(
     (rowId: string) => {
@@ -332,8 +368,22 @@ export function CommitPanel() {
 
   if (!activePath) return null;
 
-  const canCommit = message.trim().length > 0 && (amendMode || totals.stagedFiles > 0);
+  const nothingToCommit = totals.stagedFiles === 0 && !amendMode;
+  const canCommit = subject.trim().length > 0 && (amendMode || totals.stagedFiles > 0);
   const canStash = changeRows.length > 0;
+
+  toggleAllRef.current = async () => {
+    if (entries.length === 0) return;
+    try {
+      if (allState === "checked") {
+        await unstageFiles(activePath, entries.map((e) => e.path));
+      } else {
+        await stageFiles(activePath, entries.map((e) => e.path));
+      }
+    } catch (e) {
+      toastError(String(e));
+    }
+  };
 
   const toggleEntry = async (entry: StatusEntry) => {
     const state = checkState(entry);
@@ -349,28 +399,16 @@ export function CommitPanel() {
   };
   toggleEntryRef.current = toggleEntry;
 
-  toggleAllRef.current = async () => {
-    if (entries.length === 0) return;
-    try {
-      if (allState === "checked") {
-        await unstageFiles(activePath, entries.map((e) => e.path));
-      } else {
-        await stageFiles(activePath, entries.map((e) => e.path));
-      }
-    } catch (e) {
-      toastError(String(e));
-    }
-  };
-
   const onCommit = async () => {
     if (!canCommit) return;
     setCommitting(true);
     try {
+      const fullMessage = body.trim() ? `${subject}\n\n${body}` : subject;
       if (amendMode) {
-        await amendCommit(activePath, message.trim());
+        await amendCommit(activePath, fullMessage.trim());
         setAmendMode(false);
       } else {
-        await commitChanges(activePath, message.trim());
+        await commitChanges(activePath, fullMessage.trim());
       }
       const next = getCommitMessageTemplate();
       setMessage(next.trim() ? next : "");
@@ -382,9 +420,9 @@ export function CommitPanel() {
   };
 
   return (
-    <div className="relative flex h-full flex-col gap-3 p-3">
+    <div className="relative flex h-full flex-col">
       {blameTarget && activePath && (
-        <div className="absolute inset-0 z-50 overflow-hidden rounded-xl">
+        <div className="absolute inset-0 z-50 overflow-hidden">
           <GitBlameSheet
             path={activePath}
             file={blameTarget}
@@ -392,36 +430,10 @@ export function CommitPanel() {
           />
         </div>
       )}
-      <div className="flex items-center justify-between">
-        <div className="flex items-baseline gap-2.5">
-          <Check className="h-[18px] w-[18px] self-center text-muted-foreground" />
-          <h2 className="text-base font-semibold tracking-tight">
-            {t("commitPanel.changes")}
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            {t("commitPanel.filesCount", {
-              count: changeRows.length,
-              unit:
-                changeRows.length === 1
-                  ? t("common.file")
-                  : t("common.files"),
-            })}
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-md"
-          onClick={() => void reloadStatus(activePath)}
-          disabled={loading}
-        >
-          <RefreshCw className={`h-[18px] w-[18px] ${loading ? "animate-spin" : ""}`} />
-        </Button>
-      </div>
 
       <MergeStatusBanner path={activePath} />
 
-      <div className="flex-1 overflow-hidden rounded-2xl border border-border/60 shadow-sm">
+      <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup
           orientation="horizontal"
           id="commit-panel-layout"
@@ -444,8 +456,11 @@ export function CommitPanel() {
               selectedRowId={selectedRowId}
               multiSelectedIds={multiSelectedIds}
               allState={allState}
-              activePath={activePath ?? ""}
+              activePath={activePath}
               onToggleAll={stableOnToggleAll}
+              onReload={stableOnReload}
+              onStageAll={stableOnStageAll}
+              onUnstageAll={stableOnUnstageAll}
               onSelect={handleRowSelect}
               onToggle={stableOnToggleRow}
               onDiscard={discardOne}
@@ -476,109 +491,32 @@ export function CommitPanel() {
         </ResizablePanelGroup>
       </div>
 
-      <div className="flex flex-col gap-2.5 rounded-2xl border border-border/60 p-3 shadow-sm">
-        <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
-            <span>
-              {t("commitPanel.stagedSummary", {
-                count: totals.stagedFiles,
-                unit:
-                  totals.stagedFiles === 1
-                    ? t("common.file")
-                    : t("common.files"),
-              })}
-            </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                const next = !amendMode;
-                setAmendMode(next);
-                if (next && latestCommit) {
-                  const full = latestCommit.body.trim()
-                    ? `${latestCommit.subject}\n\n${latestCommit.body}`
-                    : latestCommit.subject;
-                  setMessage(full);
-                }
-              }}
-              className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                amendMode
-                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <Pencil className="h-3 w-3" />
-              {t("common.amend")}
-            </button>
-            {latestCommit && (!hasUpstream || aheadCount > 0) && (
-              <button
-                type="button"
-                title={t("commitPanel.undoLastCommitTitle")}
-                onClick={() => setUndoDialogOpen(true)}
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <Undo2 className="h-3 w-3" />
-                {t("commitPanel.undoLastCommit")}
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1 px-1">
-          {(["feat", "fix", "docs", "refactor", "chore", "test", "perf", "ci"] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              title={t("commitPanel.ccTypeTitle", { type })}
-              onClick={() => setMessage((m) => {
-                const existing = m.split("\n")[0] ?? "";
-                const withoutType = existing.replace(/^[a-z]+(\([^)]*\))?!?:\s*/i, "");
-                const rest = m.includes("\n") ? "\n" + m.split("\n").slice(1).join("\n") : "";
-                return `${type}: ${withoutType}${rest}`;
-              })}
-              className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground ring-1 ring-border/60 hover:bg-muted hover:text-foreground"
-            >
-              {type}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative">
-          <Textarea
+      <div className="flex flex-col gap-1.5 border-t border-border/60 px-2 py-2">
+        <InputGroup className="border-border/50 bg-muted/20 dark:bg-muted/10">
+          <InputGroupInput
             placeholder={t("commitPanel.messagePlaceholder")}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            value={subject}
+            onChange={(e) => handleSubjectChange(e.target.value)}
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
                 e.preventDefault();
                 void onCommit();
               }
             }}
-            rows={3}
-            className="resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
+            className="text-sm"
           />
-          <span
-            className={`pointer-events-none absolute bottom-2 left-3 font-mono text-[10px] tabular-nums transition-colors ${
-              subjectLen > 72 ? "text-destructive" : subjectLen > 60 ? "text-amber-500" : "text-muted-foreground/40"
-            }`}
-          >
-            {subjectLen}
-          </span>
-          <div className="absolute bottom-2 right-2 flex items-center gap-2">
+          <InputGroupAddon align="inline-end">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
+                <InputGroupButton
                   title={t("commitPanel.aiLanguageTitle")}
-                  className={`h-9 rounded-md px-2 text-xs font-medium tabular-nums ${
-                    repoAiLanguage
-                      ? "text-foreground"
-                      : "text-muted-foreground"
-                  }`}
+                  className={
+                    "font-mono text-[10px] tabular-nums " +
+                    (repoAiLanguage ? "opacity-100" : "opacity-40 hover:opacity-100")
+                  }
                 >
                   {languageShort(effectiveLanguage)}
-                </Button>
+                </InputGroupButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top">
                 <DropdownMenuLabel>{t("commitPanel.aiLanguageLabel")}</DropdownMenuLabel>
@@ -602,60 +540,126 @@ export function CommitPanel() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
+            <InputGroupButton
               title={t("commitPanel.aiTitle")}
               aria-label={t("commitPanel.aiAria")}
               disabled={stagedRows.length === 0 || aiGenerating}
               onClick={() => void onGenerateAiMessage()}
-              className="h-9 w-9 rounded-md border-border/60 bg-background/80"
+              className="opacity-40 hover:opacity-100 disabled:opacity-20"
             >
               {aiGenerating ? (
-                <Loader2 className="h-[18px] w-[18px] animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Sparkles className="h-[18px] w-[18px]" />
+                <Sparkles className="h-3.5 w-3.5" />
               )}
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+
+        <InputGroup className="border-border/50 bg-muted/20 dark:bg-muted/10">
+          <InputGroupTextarea
+            placeholder="Description"
+            value={body}
+            onChange={(e) => handleBodyChange(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
+                e.preventDefault();
+                void onCommit();
+              }
+            }}
+            rows={2}
+            className="text-sm"
+          />
+          <InputGroupAddon align="block-end">
+            <InputGroupButton
               title={t("commitPanel.stashTitle")}
               aria-label={t("commitPanel.stashAria")}
               disabled={!canStash}
               onClick={() => setStashOpen(true)}
-              className="h-9 w-9 rounded-md border-border/60 bg-background/80"
+              className="opacity-40 hover:opacity-100 disabled:opacity-20"
             >
-              <Archive className="h-[18px] w-[18px]" />
-            </Button>
-            <Button
-              size="icon"
-              onClick={onCommit}
-              disabled={!canCommit || committing}
-              title={
-                amendMode
-                  ? t("commitPanel.amendTitle")
-                  : t("commitPanel.commitTitle")
-              }
-              className={`h-9 w-9 rounded-md ${
-                canCommit
-                  ? amendMode
-                    ? "bg-amber-500 text-white hover:bg-amber-600"
-                    : "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
+              <Archive className="h-3.5 w-3.5" />
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+
+        {subjectLen > 0 && (
+          <div className="px-0.5">
+            <span
+              className={`font-mono text-[10px] tabular-nums transition-colors ${
+                subjectLen > 72
+                  ? "text-destructive"
+                  : subjectLen > 60
+                    ? "text-amber-500"
+                    : "text-muted-foreground/40"
               }`}
             >
-              {committing ? (
-                <Loader2 className="h-[18px] w-[18px] animate-spin" />
-              ) : amendMode ? (
-                <Pencil className="h-[18px] w-[18px]" />
-              ) : (
-                <Send className="h-[18px] w-[18px]" />
-              )}
-            </Button>
+              {subjectLen}
+            </span>
           </div>
+        )}
+
+        <div className="flex items-center gap-1.5">
+          <Button
+            onClick={() => void onCommit()}
+            disabled={!canCommit || committing}
+            className={
+              "h-8 flex-1 truncate rounded-lg text-sm " +
+              (amendMode
+                ? "bg-amber-500 text-white hover:bg-amber-600"
+                : canCommit
+                  ? ""
+                  : "bg-muted text-muted-foreground")
+            }
+          >
+            {committing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : null}
+            <span className="truncate">
+              {committing
+                ? (amendMode ? t("commitPanel.amendTitle") : t("commitPanel.commitTitle"))
+                : amendMode
+                  ? t("common.amend")
+                  : nothingToCommit
+                    ? "Add & Commit"
+                    : `Commit to ${currentBranch ?? "..."}`}
+            </span>
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0 rounded-lg border-border/60"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top">
+              <DropdownMenuItem
+                onClick={() => {
+                  const next = !amendMode;
+                  setAmendMode(next);
+                  if (next && latestCommit) {
+                    const full = latestCommit.body.trim()
+                      ? `${latestCommit.subject}\n\n${latestCommit.body}`
+                      : latestCommit.subject;
+                    setMessage(full);
+                  }
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {t("common.amend")}
+                {amendMode && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}
+              </DropdownMenuItem>
+              {latestCommit && (!hasUpstream || aheadCount > 0) && (
+                <DropdownMenuItem onClick={() => setUndoDialogOpen(true)}>
+                  <Undo2 className="h-3.5 w-3.5" />
+                  {t("commitPanel.undoLastCommit")}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

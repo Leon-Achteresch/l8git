@@ -347,27 +347,20 @@ export function AppHeaderSearch() {
 
   return (
     <>
-      {/* ── Trigger bar ──────────────────────────────────────────────────────── */}
+      {/* ── Trigger button ───────────────────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+        aria-label={t("appSearch.triggerPlaceholder")}
+        title={`${t("appSearch.triggerPlaceholder")} (${MOD_KEY}K)`}
         className={cn(
-          "inline-flex h-[26px] w-full max-w-[460px] items-center gap-2 rounded-lg",
-          "border border-border/50 bg-muted/30 px-2.5",
-          "text-xs text-muted-foreground transition-colors",
-          "cursor-pointer select-none",
-          "hover:border-border/70 hover:bg-muted/50",
+          "inline-flex size-7 shrink-0 cursor-pointer select-none items-center justify-center rounded-md",
+          "text-muted-foreground transition-colors",
+          "hover:bg-foreground/10 hover:text-foreground",
         )}
       >
-        <Search className="size-3.5 shrink-0 opacity-50" strokeWidth={2} />
-        <span className="rounded border border-border/40 bg-background/80 px-1.5 py-px text-[10px] font-semibold text-foreground/80">
-          gitit
-        </span>
-        <span className="min-w-0 flex-1 truncate text-left opacity-50">{t("appSearch.triggerPlaceholder")}</span>
-        <kbd className="inline-flex shrink-0 items-center gap-px rounded border border-border/50 bg-background/60 px-1.5 py-px font-sans text-[10px] text-muted-foreground">
-          {MOD_KEY}K
-        </kbd>
+        <Search className="size-4 shrink-0" strokeWidth={2} />
       </button>
 
       {/* ── Command dialog ───────────────────────────────────────────────────── */}

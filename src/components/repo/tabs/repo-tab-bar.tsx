@@ -20,7 +20,7 @@ import { useWorkspaceStore } from "@/lib/workspace-store";
 import { AddRepoButton } from "./add-repo-button";
 import { ForestNodes } from "./repo-group";
 import { RepoWorkspaceSwitch } from "./repo-workspace-switch";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 export function RepoTabBar() {
@@ -96,7 +96,7 @@ export function RepoTabBar() {
   );
 
   return (
-    <div className="relative flex h-14 min-h-0 min-w-0 shrink-0 items-stretch border-b border-border/60 bg-background">
+    <div className="relative flex min-w-0 flex-1 items-stretch self-stretch">
       {activePath && activeLoading && (
         <div
           className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-0.5 overflow-hidden"
@@ -106,25 +106,36 @@ export function RepoTabBar() {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 items-center gap-2.5 px-3">
-        <RepoWorkspaceSwitch />
-        <div className="relative flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex min-w-0 items-center gap-1">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={sortableKeys}
-                strategy={horizontalListSortingStrategy}
-              >
-                <ForestNodes nodes={filteredForest} activePath={activePath} />
-              </SortableContext>
-            </DndContext>
-          </div>
+      <div className="flex min-w-0 flex-1 items-stretch gap-1.5 pr-1">
+        <div
+          className="flex shrink-0 items-center"
+          style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+        >
+          <RepoWorkspaceSwitch />
         </div>
-        <div className="flex shrink-0 items-center">
+        <div
+          data-tauri-drag-region
+          style={{ WebkitAppRegion: "drag" } as CSSProperties}
+          className="relative flex min-w-0 flex-1 items-stretch gap-1 self-stretch overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={sortableKeys}
+              strategy={horizontalListSortingStrategy}
+            >
+              <ForestNodes nodes={filteredForest} activePath={activePath} />
+            </SortableContext>
+          </DndContext>
+        </div>
+        <div
+          className="flex shrink-0 items-center gap-1"
+          style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+        >
+          <div className="h-4 w-0.5 rounded-full bg-foreground/5" aria-hidden />
           <AddRepoButton />
         </div>
       </div>

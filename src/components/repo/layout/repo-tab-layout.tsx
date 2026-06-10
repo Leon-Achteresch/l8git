@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/resizable";
 import { useTerminalStore } from "@/lib/terminal-store";
 
-// xterm + WebGL addon only load once the terminal panel is actually opened.
 const RepoTerminalPanel = lazy(() =>
   import("@/components/repo/remote/repo-terminal-panel").then((m) => ({
     default: m.RepoTerminalPanel,

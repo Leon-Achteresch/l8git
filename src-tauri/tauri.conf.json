@@ -18,8 +18,8 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "trafficLightPosition": {
-          "x": 14,
-          "y": 20
+          "x": 19,
+          "y": 23
         }
       }
     ],

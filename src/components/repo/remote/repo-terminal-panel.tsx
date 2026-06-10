@@ -97,7 +97,6 @@ export function RepoTerminalPanel({ path }: Props) {
           className="flex w-44 shrink-0 flex-col border-l border-border/60 bg-muted/30"
           aria-label={t("embeddedTerminal.tabsAria")}
         >
-
           <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-1">
             {tabs.map((tab) => {
               const active = tab.id === activeId;
