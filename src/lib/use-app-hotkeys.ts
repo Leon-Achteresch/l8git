@@ -18,7 +18,7 @@ const SIDEBAR_SHORTCUTS: [
   ["Mod+5", "stash"],
 ];
 
-export function useAppHotkeys() {
+export function useAppHotkeys({ onShowShortcuts }: { onShowShortcuts?: () => void } = {}) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const pickRepo = usePickRepo();
@@ -92,9 +92,15 @@ export function useAppHotkeys() {
         },
         options: { meta: { name: t("hotkeys.settings") } },
       },
+      {
+        hotkey: "Mod+/",
+        callback: () => onShowShortcuts?.(),
+        options: { meta: { name: t("hotkeys.showShortcuts") } },
+      },
     ];
   }, [
     activePath,
+    onShowShortcuts,
     pickRepo,
     refreshOpenRepo,
     reloadAll,

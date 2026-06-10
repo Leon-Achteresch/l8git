@@ -223,7 +223,8 @@
     "commitStageUnstageUnstaged": "Auswahl / Hunk / Datei stagen",
     "commitPrevHunk": "Vorheriger Hunk",
     "commitNextHunk": "Nächster Hunk",
-    "commitClearSelection": "Zeilenauswahl aufheben"
+    "commitClearSelection": "Zeilenauswahl aufheben",
+    "showShortcuts": "Tastenkürzel anzeigen"
   },
   "settings": {
     "back": "Zurück",
@@ -1497,5 +1498,19 @@
     "cancel": "Abbrechen",
     "submitBusy": "Sperrt …",
     "submit": "Sperren"
+  },
+  "hotkeysOverlay": {
+    "title": "Tastenkürzel",
+    "groupGlobal": "Global",
+    "groupNavigation": "Navigation",
+    "groupCommitDiff": "Commit & Diff",
+    "groupSearch": "Befehlspalette",
+    "commandPalette": "Befehlspalette öffnen",
+    "showShortcuts": "Tastenkürzel anzeigen",
+    "toggleTerminal": "Terminal ein-/ausblenden",
+    "submitCommit": "Commit ausführen",
+    "sidebarSubmodules": "Sidebar: Submodules",
+    "sidebarWorktrees": "Sidebar: Worktrees",
+    "sidebarHooks": "Sidebar: Hooks"
   }
 }

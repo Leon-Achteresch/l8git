@@ -223,7 +223,8 @@
     "commitStageUnstageUnstaged": "Selection / hunk / file stage",
     "commitPrevHunk": "Previous hunk",
     "commitNextHunk": "Next hunk",
-    "commitClearSelection": "Clear line selection"
+    "commitClearSelection": "Clear line selection",
+    "showShortcuts": "Show keyboard shortcuts"
   },
   "settings": {
     "back": "Back",
@@ -1497,5 +1498,19 @@
     "cancel": "Cancel",
     "submitBusy": "Locking…",
     "submit": "Lock"
+  },
+  "hotkeysOverlay": {
+    "title": "Keyboard Shortcuts",
+    "groupGlobal": "Global",
+    "groupNavigation": "Navigation",
+    "groupCommitDiff": "Commit & Diff",
+    "groupSearch": "Command Palette",
+    "commandPalette": "Open command palette",
+    "showShortcuts": "Show keyboard shortcuts",
+    "toggleTerminal": "Toggle embedded terminal",
+    "submitCommit": "Submit commit",
+    "sidebarSubmodules": "Sidebar: Submodules",
+    "sidebarWorktrees": "Sidebar: Worktrees",
+    "sidebarHooks": "Sidebar: Hooks"
   }
 }

@@ -18,17 +18,20 @@ const AppUpdateToast = lazy(() =>
 );
 
 import { AppHeader } from "@/components/app/app-header";
+import { HotkeysOverlay } from "@/components/app/hotkeys-overlay";
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
 import { useTheme } from "@/lib/use-theme";
+import { useState } from "react";
 
 export const Route = createRootRoute({
   component: RootLayout,
 });
 
 function RootLayout() {
-  useAppHotkeys();
+  const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
   const { theme } = useTheme();
   return (
     <MotionProvider>
@@ -43,6 +46,7 @@ function RootLayout() {
           position="top-right"
           theme={resolveTheme(theme)}
         />
+        <HotkeysOverlay open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
         <Suspense fallback={null}>
           <AppUpdateToast />
         </Suspense>
