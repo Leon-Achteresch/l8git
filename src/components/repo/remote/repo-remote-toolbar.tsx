@@ -432,6 +432,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               title={t("toolbar.pushTitle", { title: pushTitle })}
               label={t("toolbar.pushLabel")}
               badge={pushCount}
+              warnDot={pushForceMode !== 'none' || pushNoVerify || pushDryRun}
               disabled={remoteDisabled}
               isActive={busy === 'push'}
               onClick={() => void runPush()}
