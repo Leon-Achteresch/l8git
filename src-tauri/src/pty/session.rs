@@ -1,0 +1,337 @@
+use std::io::{Read, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
+
+use portable_pty::{native_pty_system, ChildKiller, MasterPty, PtySize};
+use tauri::ipc::{Channel, Response};
+
+use super::da_filter::DaFilter;
+use super::shell_init;
+
+const FLUSH_COALESCE: Duration = Duration::from_millis(4);
+const FLUSH_MAX_IDLE: Duration = Duration::from_millis(50);
+const READ_BUF: usize = 16 * 1024;
+const MAX_PENDING: usize = 4 * 1024 * 1024;
+const OVERFLOW_NOTICE: &[u8] =
+    b"\x1bc\x1b[2m[l8git: dropped output due to backpressure]\x1b[0m\r\n";
+
+pub struct Session {
+    #[cfg(windows)]
+    _job: Option<super::job::PtyJob>,
+    pub shell_pid: u32,
+    pub killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
+    pub writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    pub master: Mutex<Box<dyn MasterPty + Send>>,
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        if let Ok(mut k) = self.killer.lock() {
+            let _ = k.kill();
+        }
+    }
+}
+
+#[cfg(windows)]
+static CONPTY_LIFECYCLE_LOCK: Mutex<()> = Mutex::new(());
+
+pub(super) fn drop_session(session: Arc<Session>) {
+    #[cfg(windows)]
+    let _guard = CONPTY_LIFECYCLE_LOCK.lock().unwrap();
+    drop(session);
+}
+
+struct ChildKillGuard {
+    killer: Option<Box<dyn ChildKiller + Send + Sync>>,
+}
+
+impl ChildKillGuard {
+    fn new(killer: Box<dyn ChildKiller + Send + Sync>) -> Self {
+        Self { killer: Some(killer) }
+    }
+
+    fn disarm(&mut self) {
+        self.killer = None;
+    }
+}
+
+impl Drop for ChildKillGuard {
+    fn drop(&mut self) {
+        if let Some(mut k) = self.killer.take() {
+            let _ = k.kill();
+        }
+    }
+}
+
+pub fn spawn(
+    _id: u32,
+    cols: u16,
+    rows: u16,
+    cwd: Option<String>,
+    shell_override: Option<String>,
+    on_data: Channel<Response>,
+    on_exit: Channel<i32>,
+) -> Result<(Arc<Session>, PtySize), String> {
+    #[cfg(windows)]
+    let _spawn_guard = CONPTY_LIFECYCLE_LOCK.lock().unwrap();
+
+    let pty_system = native_pty_system();
+    let size = PtySize {
+        rows,
+        cols,
+        pixel_width: 0,
+        pixel_height: 0,
+    };
+    let pair = pty_system.openpty(size).map_err(|e| e.to_string())?;
+
+    let cmd = shell_init::build_command(cwd, shell_override)?;
+    let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    drop(pair.slave);
+
+    let mut guard = ChildKillGuard::new(child.clone_killer());
+    let killer = child.clone_killer();
+    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    let writer: Arc<Mutex<Box<dyn Write + Send>>> = Arc::new(Mutex::new(
+        pair.master.take_writer().map_err(|e| e.to_string())?,
+    ));
+    guard.disarm();
+
+    let shell_pid = child.process_id().unwrap_or(0);
+
+    #[cfg(windows)]
+    let job = match child.process_id() {
+        Some(pid) => match super::job::PtyJob::create_for(pid) {
+            Ok(j) => Some(j),
+            Err(e) => {
+                log::warn!("pty job-object setup failed for pid={pid}: {e}");
+                None
+            }
+        },
+        None => None,
+    };
+
+    let session = Arc::new(Session {
+        #[cfg(windows)]
+        _job: job,
+        shell_pid,
+        killer: Mutex::new(killer),
+        writer: writer.clone(),
+        master: Mutex::new(pair.master),
+    });
+
+    let pending: Arc<(Mutex<Vec<u8>>, Condvar)> = Arc::new((
+        Mutex::new(Vec::with_capacity(READ_BUF)),
+        Condvar::new(),
+    ));
+    let done = Arc::new(AtomicBool::new(false));
+    let spawn_at = Instant::now();
+
+    let pending_r = pending.clone();
+    let writer_for_da = writer.clone();
+    let reader_thread = thread::Builder::new()
+        .name("l8git-pty-reader".into())
+        .spawn(move || {
+            let mut buf = [0u8; READ_BUF];
+            let mut filtered: Vec<u8> = Vec::with_capacity(READ_BUF);
+            let mut da_filter = DaFilter::new();
+            let mut dropped_bytes: u64 = 0;
+            let mut logged_first = false;
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        if !logged_first {
+                            logged_first = true;
+                            log::debug!("pty first byte after {}ms", spawn_at.elapsed().as_millis());
+                        }
+                        filtered.clear();
+                        da_filter.process(&buf[..n], &mut filtered, |reply| {
+                            if let Ok(mut w) = writer_for_da.lock() {
+                                let _ = w.write_all(reply);
+                            }
+                        });
+                        if filtered.is_empty() {
+                            continue;
+                        }
+                        let (lock, cv) = &*pending_r;
+                        let mut g = lock.lock().unwrap();
+                        if g.len() + filtered.len() > MAX_PENDING {
+                            dropped_bytes += g.len() as u64;
+                            g.clear();
+                            g.extend_from_slice(OVERFLOW_NOTICE);
+                        }
+                        g.extend_from_slice(&filtered);
+                        cv.notify_one();
+                    }
+                    Err(e) => {
+                        log::debug!("pty reader ended: {e}");
+                        break;
+                    }
+                }
+            }
+            pending_r.1.notify_one();
+            if dropped_bytes > 0 {
+                log::warn!("pty backpressure: dropped {dropped_bytes} bytes (cap {MAX_PENDING})");
+            }
+        })
+        .expect("spawn pty reader thread");
+
+    let on_data_flush = on_data.clone();
+    let pending_f = pending.clone();
+    let done_f = done.clone();
+    thread::Builder::new()
+        .name("l8git-pty-flusher".into())
+        .spawn(move || {
+            let (lock, cv) = &*pending_f;
+            loop {
+                {
+                    let mut g = lock.lock().unwrap();
+                    while g.is_empty() {
+                        if done_f.load(Ordering::Acquire) {
+                            return;
+                        }
+                        let (next, _) = cv.wait_timeout(g, FLUSH_MAX_IDLE).unwrap();
+                        g = next;
+                    }
+                }
+                thread::sleep(FLUSH_COALESCE);
+                let chunk = std::mem::take(&mut *lock.lock().unwrap());
+                if chunk.is_empty() {
+                    continue;
+                }
+                if let Err(e) = on_data_flush.send(Response::new(chunk)) {
+                    log::debug!("pty flusher exiting, channel closed: {e}");
+                    break;
+                }
+            }
+        })
+        .expect("spawn pty flusher thread");
+
+    let on_data_exit = on_data;
+    let pending_e = pending;
+    let done_e = done;
+    thread::Builder::new()
+        .name("l8git-pty-waiter".into())
+        .spawn(move || {
+            let code = match child.wait() {
+                Ok(status) => status.exit_code() as i32,
+                Err(e) => {
+                    log::warn!("pty child wait failed: {e}");
+                    -1
+                }
+            };
+            #[cfg(windows)]
+            {
+                let deadline = Instant::now() + Duration::from_millis(50);
+                while Instant::now() < deadline && !reader_thread.is_finished() {
+                    thread::sleep(Duration::from_millis(5));
+                }
+            }
+            #[cfg(not(windows))]
+            if let Err(e) = reader_thread.join() {
+                log::error!("pty reader thread panicked: {e:?}");
+            }
+            let (lock, cv) = &*pending_e;
+            let tail = std::mem::take(&mut *lock.lock().unwrap());
+            if !tail.is_empty() {
+                if let Err(e) = on_data_exit.send(Response::new(tail)) {
+                    log::debug!("pty final-data send failed (channel closed): {e}");
+                }
+            }
+            done_e.store(true, Ordering::Release);
+            cv.notify_all();
+            if let Err(e) = on_exit.send(code) {
+                log::debug!("pty exit send failed (channel closed): {e}");
+            }
+        })
+        .expect("spawn pty waiter thread");
+
+    Ok((session, size))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use portable_pty::CommandBuilder;
+
+    #[test]
+    fn drop_kills_child_process() {
+        let pty_system = native_pty_system();
+        let size = PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        };
+        let pair = pty_system.openpty(size).expect("openpty");
+
+        let mut cmd = CommandBuilder::new("/bin/sh");
+        cmd.arg("-c");
+        cmd.arg("sleep 30");
+        let mut child = pair.slave.spawn_command(cmd).expect("spawn");
+        drop(pair.slave);
+
+        let killer = child.clone_killer();
+        let writer: Arc<Mutex<Box<dyn Write + Send>>> =
+            Arc::new(Mutex::new(pair.master.take_writer().expect("writer")));
+
+        let session = Arc::new(Session {
+            shell_pid: child.process_id().unwrap_or(0),
+            killer: Mutex::new(killer),
+            writer,
+            master: Mutex::new(pair.master),
+        });
+
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "child must be alive before drop",
+        );
+
+        drop(session);
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let mut exited = false;
+        while Instant::now() < deadline {
+            if child.try_wait().unwrap().is_some() {
+                exited = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert!(exited, "child still running 2s after Session drop");
+    }
+
+    #[test]
+    fn drop_session_succeeds_after_child_already_exited() {
+        let pty_system = native_pty_system();
+        let size = PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        };
+        let pair = pty_system.openpty(size).expect("openpty");
+
+        let mut cmd = CommandBuilder::new("/bin/sh");
+        cmd.arg("-c");
+        cmd.arg("exit 0");
+        let mut child = pair.slave.spawn_command(cmd).expect("spawn");
+        drop(pair.slave);
+        let _ = child.wait();
+
+        let killer = child.clone_killer();
+        let writer: Arc<Mutex<Box<dyn Write + Send>>> =
+            Arc::new(Mutex::new(pair.master.take_writer().expect("writer")));
+
+        let session = Arc::new(Session {
+            shell_pid: 0,
+            killer: Mutex::new(killer),
+            writer,
+            master: Mutex::new(pair.master),
+        });
+
+        drop_session(session);
+    }
+}

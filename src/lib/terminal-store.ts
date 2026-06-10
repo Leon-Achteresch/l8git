@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import {
-  destroySession,
-  destroySessionsForPath,
-} from '@/lib/terminal-session-registry';
+  disposeSession,
+  disposeSessionsForPath,
+  terminalLeafId,
+} from '@/lib/terminal/use-terminal-session';
 
 export const TERMINAL_MIN_HEIGHT = 120;
 export const TERMINAL_MAX_HEIGHT = 720;
@@ -76,7 +77,7 @@ export const useTerminalStore = create<TerminalState>()(
         return id;
       },
       closeTab: (path, id) => {
-        destroySession(path, id);
+        disposeSession(terminalLeafId(path, id));
         set((s) => {
           const tabs = s.tabsByPath[path] ?? [];
           const idx = tabs.findIndex((t) => t.id === id);
@@ -97,7 +98,7 @@ export const useTerminalStore = create<TerminalState>()(
         });
       },
       closeAllForPath: (path) => {
-        destroySessionsForPath(path);
+        disposeSessionsForPath(path);
         set((s) => {
           const { [path]: _tabs, ...tabsByPath } = s.tabsByPath;
           const { [path]: _active, ...activeByPath } = s.activeByPath;

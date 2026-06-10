@@ -4,17 +4,15 @@ mod favicon;
 mod git;
 mod pr;
 mod providers;
+mod pty;
 mod secrets;
 mod shell;
-mod terminal;
 mod watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            // Paint the window in the system theme color immediately so the
-            // user never sees a white flash while the webview boots.
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
                 use tauri::Manager;
@@ -30,6 +28,7 @@ pub fn run() {
             }
             Ok(())
         })
+        .manage(pty::PtyState::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -162,12 +161,13 @@ pub fn run() {
             git::repo_contributor_stats,
             git::repo_activity_buckets,
             git::repos_overview,
-            terminal::terminal_open,
-            terminal::terminal_write,
-            terminal::terminal_resize,
-            terminal::terminal_close,
-            terminal::terminal_detach,
-            terminal::terminal_attach,
+            pty::pty_open,
+            pty::pty_write,
+            pty::pty_resize,
+            pty::pty_close,
+            pty::pty_close_all,
+            pty::pty_has_foreground_process,
+            pty::pty_shell_name,
             secrets::secret_set,
             secrets::secret_get,
             secrets::secret_delete
