@@ -60,6 +60,8 @@ import {
   type RepoTerminalKind,
 } from "@/lib/workspace-prefs";
 
+const UI_SCALE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5] as const;
+
 /* -------------------------------------------------------------------------- */
 /*  Section header component                                                   */
 /* -------------------------------------------------------------------------- */
@@ -302,6 +304,8 @@ export function Settings() {
   const setTerminalButtonMode = useWorkspacePrefs(
     (s) => s.setTerminalButtonMode,
   );
+  const uiScale = useWorkspacePrefs((s) => s.uiScale);
+  const setUiScale = useWorkspacePrefs((s) => s.setUiScale);
   const [ideDraft, setIdeDraft] = useState(ideLaunchCommand);
   const [embeddedShellDraft, setEmbeddedShellDraft] = useState(
     embeddedTerminalCommand,
@@ -521,6 +525,46 @@ export function Settings() {
                           </Button>
                         );
                       })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={2}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.uiScaleTitle")}</CardTitle>
+                    <CardDescription>{t("settings.uiScaleDesc")}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-foreground">
+                          {t("settings.uiScaleLabel")}
+                        </Label>
+                        <span className="tabular-nums text-sm font-semibold text-foreground">
+                          {Math.round(uiScale * 100)}&thinsp;%
+                        </span>
+                      </div>
+                      <Slider
+                        min={0}
+                        max={UI_SCALE_STEPS.length - 1}
+                        step={1}
+                        value={[Math.max(0, UI_SCALE_STEPS.indexOf(UI_SCALE_STEPS.reduce((a, b) => Math.abs(b - uiScale) < Math.abs(a - uiScale) ? b : a)))]}
+                        onValueChange={([i]: number[]) => setUiScale(UI_SCALE_STEPS[i])}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-[11px] text-muted-foreground/60 select-none">
+                        <span>70%</span>
+                        <button
+                          type="button"
+                          onClick={() => setUiScale(1.0)}
+                          className="text-muted-foreground/50 hover:text-muted-foreground text-[10px]"
+                        >
+                          {t("settings.uiScaleReset")}
+                        </button>
+                        <span>150%</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

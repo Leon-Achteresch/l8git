@@ -25,6 +25,7 @@ import { useRepoStore } from "@/lib/repo-store";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
 import { useTheme } from "@/lib/use-theme";
+import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { useState } from "react";
 
 export const Route = createRootRoute({
@@ -36,6 +37,11 @@ function RootLayout() {
   useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
   const { theme } = useTheme();
   const addRepo = useRepoStore((s) => s.addRepo);
+  const uiScale = useWorkspacePrefs((s) => s.uiScale);
+
+  useEffect(() => {
+    document.documentElement.style.fontSize = uiScale === 1 ? "" : `${uiScale * 100}%`;
+  }, [uiScale]);
 
   // Accept folder drops anywhere in the window to open a repository.
   useEffect(() => {

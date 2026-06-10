@@ -28,6 +28,8 @@ type WorkspacePrefs = {
   setPushDryRun: (value: boolean) => void;
   pullStrategy: PullStrategy;
   setPullStrategy: (value: PullStrategy) => void;
+  uiScale: number;
+  setUiScale: (value: number) => void;
   hideT3Checkpoints: boolean;
   setHideT3Checkpoints: (value: boolean) => void;
   embeddedTerminalCommand: string;
@@ -59,6 +61,8 @@ export const useWorkspacePrefs = create<WorkspacePrefs>()(
       setPushDryRun: (pushDryRun) => set({ pushDryRun }),
       pullStrategy: "merge" as PullStrategy,
       setPullStrategy: (pullStrategy) => set({ pullStrategy }),
+      uiScale: 1.0,
+      setUiScale: (uiScale) => set({ uiScale: Math.min(1.5, Math.max(0.7, uiScale)) }),
       hideT3Checkpoints: true,
       setHideT3Checkpoints: (hideT3Checkpoints) => set({ hideT3Checkpoints }),
       embeddedTerminalCommand: "",
