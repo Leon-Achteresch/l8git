@@ -481,7 +481,10 @@
     "noBranchesForQuery": "Keine Branches für „{{query}}“",
     "branchDeleteConfirm": "Branch \"{{name}}\" ist nicht gemerged. Trotzdem löschen?",
     "branchDeleteFailed": "Löschen fehlgeschlagen: {{error}}",
-    "branchPopoverTitle": "Branches & Tags"
+    "branchPopoverTitle": "Branches & Tags",
+    "branchForceDeleteTitle": "Nicht gemergten Branch löschen?",
+    "branchForceDeleteDesc": "Branch \"{{name}}\" hat Commits, die noch nicht in einen anderen Branch gemergt wurden. Diese Commits gehen dauerhaft verloren.",
+    "branchForceDeleteVerb": "Trotzdem löschen"
   },
   "toolbar": {
     "actionSuccess": "Aktion erfolgreich abgeschlossen.",
@@ -503,6 +506,7 @@
     "pullStrategyMerge": "Mergen (Konflikte selbst lösen)",
     "pullStrategyRebase": "Rebase (--rebase)",
     "pullStrategyFfOnly": "Nur Fast-Forward (--ff-only)",
+    "pullStrategyAutostash": "Merge + Auto-Stash (--autostash)",
     "pushTitle": "{{title}} (Rechtsklick für Optionen)",
     "pushLabel": "Push",
     "noForcePush": "Kein Force-Push",

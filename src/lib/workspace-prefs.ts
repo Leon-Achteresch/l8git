@@ -5,7 +5,7 @@ export type RepoTerminalKind = "default" | "git_bash";
 
 export type PushForceMode = "none" | "lease" | "force";
 export type PushTagsMode = "none" | "follow" | "all";
-export type PullStrategy = "merge" | "rebase" | "ff-only";
+export type PullStrategy = "merge" | "rebase" | "ff-only" | "autostash";
 
 type WorkspacePrefs = {
   ideLaunchCommand: string;

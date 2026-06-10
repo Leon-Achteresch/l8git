@@ -481,7 +481,10 @@
     "noBranchesForQuery": "No branches for \"{{query}}\"",
     "branchDeleteConfirm": "Branch \"{{name}}\" is not fully merged. Delete anyway?",
     "branchDeleteFailed": "Delete failed: {{error}}",
-    "branchPopoverTitle": "Branches & Tags"
+    "branchPopoverTitle": "Branches & Tags",
+    "branchForceDeleteTitle": "Delete unmerged branch?",
+    "branchForceDeleteDesc": "Branch \"{{name}}\" has commits that are not yet merged into any other branch. These commits will be permanently lost.",
+    "branchForceDeleteVerb": "Delete anyway"
   },
   "toolbar": {
     "actionSuccess": "Action completed successfully.",
@@ -503,6 +506,7 @@
     "pullStrategyMerge": "Merge (resolve conflicts yourself)",
     "pullStrategyRebase": "Rebase (--rebase)",
     "pullStrategyFfOnly": "Fast-forward only (--ff-only)",
+    "pullStrategyAutostash": "Merge + Auto-stash (--autostash)",
     "pushTitle": "{{title}} (right-click for options)",
     "pushLabel": "Push",
     "noForcePush": "No force push",

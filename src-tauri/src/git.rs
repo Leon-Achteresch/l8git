@@ -522,14 +522,18 @@ fn dirty_tracked_files(repo: &PathBuf) -> Vec<String> {
 pub async fn git_pull(path: String, strategy: Option<String>) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
-        let dirty = dirty_tracked_files(&repo);
-        if !dirty.is_empty() {
-            return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
+        let autostash = strategy.as_deref() == Some("autostash");
+        if !autostash {
+            let dirty = dirty_tracked_files(&repo);
+            if !dirty.is_empty() {
+                return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
+            }
         }
         let mut args: Vec<&str> = vec!["pull"];
         match strategy.as_deref() {
             Some("rebase") => args.push("--rebase"),
             Some("ff-only") => args.push("--ff-only"),
+            Some("autostash") => { args.push("--no-rebase"); args.push("--autostash"); }
             _ => args.push("--no-rebase"),
         }
         run_git_merged_output(&repo, &args)

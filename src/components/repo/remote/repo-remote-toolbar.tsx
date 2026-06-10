@@ -269,6 +269,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
           <ContextMenuRadioItem value="ff-only" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.pullStrategyFfOnly")}
           </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="autostash" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.pullStrategyAutostash")}
+          </ContextMenuRadioItem>
         </ContextMenuRadioGroup>
       </>
     ),
