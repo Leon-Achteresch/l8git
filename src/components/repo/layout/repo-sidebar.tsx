@@ -559,7 +559,7 @@ export function RepoSidebar() {
             <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-1">
               <Accordion
                 type="multiple"
-                defaultValue={["local", "remote", "tags"]}
+                defaultValue={defaultOpenSections}
                 className="w-full min-w-0"
               >
                 <AccordionItem value="local" className="min-w-0 border-0">
