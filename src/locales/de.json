@@ -623,7 +623,12 @@
     "editFileSaving": "Speichert…",
     "editFileSaved": "Gespeichert",
     "editFileLoadError": "Dateiinhalt konnte nicht geladen werden.",
-    "editFileSaveError": "Datei konnte nicht gespeichert werden."
+    "editFileSaveError": "Datei konnte nicht gespeichert werden.",
+    "undoLastCommit": "Letzten Commit rückgängig",
+    "undoLastCommitTitle": "Soft-Reset HEAD~1 — Änderungen bleiben gestagt",
+    "undoConfirmTitle": "Letzten Commit rückgängig machen?",
+    "undoConfirmDesc": "Der Commit \"{{subject}}\" wird rückgängig gemacht und seine Änderungen wieder gestagt. Falls der Commit bereits gepusht wurde, kann dies nicht rückgängig gemacht werden.",
+    "undoVerb": "Commit rückgängig"
   },
   "bisect": {
     "ended": "Bisect beendet.",

@@ -39,6 +39,7 @@ import {
   RefreshCw,
   Send,
   Sparkles,
+  Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
@@ -82,8 +83,11 @@ export function CommitPanel() {
   const commitChanges = useRepoStore((s) => s.commitChanges);
   const amendCommit = useRepoStore((s) => s.amendCommit);
   const latestCommit = useRepoStore((s) => (activePath ? s.repos[activePath]?.commits[0] : undefined));
+  const aheadCount = useRepoStore((s) => activePath ? (s.upstreamSync[activePath]?.ahead ?? 0) : 0);
+  const hasUpstream = useRepoStore((s) => activePath ? (s.hasUpstream[activePath] !== false) : false);
   const discardFiles = useRepoStore((s) => s.discardFiles);
   const discardWorktreeChanges = useRepoStore((s) => s.discardWorktreeChanges);
+  const gitReset = useRepoStore((s) => s.gitReset);
 
   const globalAiLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
   const repoAiLanguage = useRepoPrefs((s) => activePath ? s.getAiOutputLanguage(activePath) : undefined);
@@ -97,6 +101,7 @@ export function CommitPanel() {
   const [stashOpen, setStashOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
+  const [undoDialogOpen, setUndoDialogOpen] = useState(false);
 
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
@@ -481,27 +486,40 @@ export function CommitPanel() {
                     : t("common.files"),
               })}
             </span>
-          <button
-            type="button"
-            onClick={() => {
-              const next = !amendMode;
-              setAmendMode(next);
-              if (next && latestCommit) {
-                const full = latestCommit.body.trim()
-                  ? `${latestCommit.subject}\n\n${latestCommit.body}`
-                  : latestCommit.subject;
-                setMessage(full);
-              }
-            }}
-            className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-              amendMode
-                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            <Pencil className="h-3 w-3" />
-            Amend
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const next = !amendMode;
+                setAmendMode(next);
+                if (next && latestCommit) {
+                  const full = latestCommit.body.trim()
+                    ? `${latestCommit.subject}\n\n${latestCommit.body}`
+                    : latestCommit.subject;
+                  setMessage(full);
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                amendMode
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Pencil className="h-3 w-3" />
+              {t("common.amend")}
+            </button>
+            {latestCommit && (!hasUpstream || aheadCount > 0) && (
+              <button
+                type="button"
+                title={t("commitPanel.undoLastCommitTitle")}
+                onClick={() => setUndoDialogOpen(true)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Undo2 className="h-3 w-3" />
+                {t("commitPanel.undoLastCommit")}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="relative">
@@ -641,6 +659,47 @@ export function CommitPanel() {
               onClick={() => void confirmDiscard()}
             >
               {t("commitPanel.discardVerb")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={undoDialogOpen}
+        onOpenChange={(open) => { if (!open) setUndoDialogOpen(false); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("commitPanel.undoConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("commitPanel.undoConfirmDesc", {
+                subject: latestCommit?.subject ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              onClick={() => {
+                setUndoDialogOpen(false);
+                if (!activePath) return;
+                void (async () => {
+                  try {
+                    await gitReset(activePath, "HEAD~1", "soft");
+                    if (latestCommit) {
+                      const full = latestCommit.body.trim()
+                        ? `${latestCommit.subject}\n\n${latestCommit.body}`
+                        : latestCommit.subject;
+                      setMessage(full);
+                    }
+                  } catch (e) {
+                    toastError(String(e));
+                  }
+                })();
+              }}
+            >
+              {t("commitPanel.undoVerb")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

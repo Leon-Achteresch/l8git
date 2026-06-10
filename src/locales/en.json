@@ -623,7 +623,12 @@
     "editFileSaving": "Saving…",
     "editFileSaved": "Saved",
     "editFileLoadError": "Could not load file content.",
-    "editFileSaveError": "Could not save file."
+    "editFileSaveError": "Could not save file.",
+    "undoLastCommit": "Undo last commit",
+    "undoLastCommitTitle": "Soft-reset HEAD~1 — keeps changes staged",
+    "undoConfirmTitle": "Undo last commit?",
+    "undoConfirmDesc": "The commit \"{{subject}}\" will be undone and its changes moved back to staged. This cannot be undone if the commit was already pushed.",
+    "undoVerb": "Undo commit"
   },
   "bisect": {
     "ended": "Bisect finished.",
