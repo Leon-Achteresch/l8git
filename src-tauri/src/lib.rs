@@ -4,6 +4,7 @@ mod favicon;
 mod git;
 mod pr;
 mod providers;
+mod secrets;
 mod shell;
 mod terminal;
 mod watcher;
@@ -166,7 +167,10 @@ pub fn run() {
             terminal::terminal_resize,
             terminal::terminal_close,
             terminal::terminal_detach,
-            terminal::terminal_attach
+            terminal::terminal_attach,
+            secrets::secret_set,
+            secrets::secret_get,
+            secrets::secret_delete
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

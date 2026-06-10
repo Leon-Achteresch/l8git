@@ -270,6 +270,18 @@ function Settings() {
   useEffect(() => { setAiPromptDraft(aiPromptTemplate); }, [aiPromptTemplate]);
   useEffect(() => { setAiLanguageDraft(aiOutputLanguage); }, [aiOutputLanguage]);
   useEffect(() => { setAiApiKeyDraft(aiProviderApiKey); }, [aiProviderApiKey]);
+  // Load the API key from the OS keyring when the settings page mounts.
+  useEffect(() => {
+    void import("@/lib/secure-storage").then(({ secureGet, AI_KEY_KEYRING_KEY }) =>
+      secureGet(AI_KEY_KEYRING_KEY).then((v) => {
+        if (v != null) {
+          setAiProviderApiKey(v);
+          setAiApiKeyDraft(v);
+        }
+      }).catch(() => {}),
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => { setAiModelDraft(aiProviderModel); }, [aiProviderModel]);
   useEffect(() => { setAiBaseUrlDraft(aiProviderBaseUrl); }, [aiProviderBaseUrl]);
 
@@ -887,9 +899,16 @@ function Settings() {
                         type="button"
                         disabled={!aiProviderDirty}
                         onClick={() => {
-                          setAiProviderApiKey(aiApiKeyDraft.trim());
+                          const trimmedKey = aiApiKeyDraft.trim();
+                          setAiProviderApiKey(trimmedKey);
                           setAiProviderModel(aiModelDraft.trim());
                           setAiProviderBaseUrl(aiBaseUrlDraft.trim());
+                          // Persist key to OS keyring instead of localStorage.
+                          void import("@/lib/secure-storage").then(({ secureSet, secureDelete, AI_KEY_KEYRING_KEY }) =>
+                            trimmedKey
+                              ? secureSet(AI_KEY_KEYRING_KEY, trimmedKey)
+                              : secureDelete(AI_KEY_KEYRING_KEY),
+                          );
                         }}
                       >
                         {t("common.save")}

@@ -26,6 +26,20 @@ if (isTauri()) {
   whenIdle(() => {
     void import("@/lib/app-updater").then((m) => m.checkForAppUpdate());
   });
+
+  // Hydrate AI API key from OS keyring into the in-memory store so ai-commit
+  // can use it without re-reading from keyring on every call.
+  void import("@/lib/secure-storage").then(({ secureGet, AI_KEY_KEYRING_KEY }) =>
+    secureGet(AI_KEY_KEYRING_KEY)
+      .then((key) => {
+        if (key) {
+          void import("@/lib/commit-prefs").then(({ useCommitPrefs }) => {
+            useCommitPrefs.getState().setAiProviderApiKey(key);
+          });
+        }
+      })
+      .catch(() => {}),
+  );
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
