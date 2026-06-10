@@ -72,7 +72,7 @@ fn _reveal_repo_folder(path: String) -> Result<(), String> {
         all(unix, not(target_os = "macos"))
     )))]
     {
-        Err("Plattform nicht unterstützt.".into())
+        Err("Platform not supported.".into())
     }
 }
 
@@ -214,7 +214,7 @@ fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
     )))]
     {
         let _ = use_git_bash;
-        Err("Plattform nicht unterstützt.".into())
+        Err("Platform not supported.".into())
     }
 }
 

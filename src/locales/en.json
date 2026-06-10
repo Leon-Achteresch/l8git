@@ -210,7 +210,8 @@
     "mergeConflict": "Merge conflict detected. Resolve it in the merge editor.",
     "mergeConflictAction": "Open Merge Editor",
     "stashAndPullAction": "Stash & Pull",
-    "detachedHead": "You are in detached HEAD state. Create a branch to keep your work."
+    "detachedHead": "You are in detached HEAD state. Create a branch to keep your work.",
+    "aiNoDiff": "No staged diff available"
   },
   "hotkeys": {
     "reloadActive": "Reload active repository",

@@ -210,7 +210,8 @@
     "mergeConflict": "Merge-Konflikt erkannt. Im Merge-Editor auflösen.",
     "mergeConflictAction": "Merge-Editor öffnen",
     "stashAndPullAction": "Stash & Pull",
-    "detachedHead": "Du befindest dich im Detached-HEAD-Zustand. Branch erstellen, um Änderungen zu sichern."
+    "detachedHead": "Du befindest dich im Detached-HEAD-Zustand. Branch erstellen, um Änderungen zu sichern.",
+    "aiNoDiff": "Kein gestagter Diff vorhanden"
   },
   "hotkeys": {
     "reloadActive": "Aktives Repo neu laden",

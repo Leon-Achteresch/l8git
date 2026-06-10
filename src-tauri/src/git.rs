@@ -102,7 +102,7 @@ fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<Stri
             (false, false) => format!("{stderr}\n{stdout}"),
             (false, true) => stderr,
             (true, false) => stdout,
-            (true, true) => "git: Befehl fehlgeschlagen".into(),
+            (true, true) => "git: command failed".into(),
         };
         let trimmed = msg.trim().to_string();
         if trimmed.contains("Your local changes to the following files would be overwritten")
