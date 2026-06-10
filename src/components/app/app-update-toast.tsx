@@ -8,7 +8,7 @@ import {
   useAppUpdateStore,
 } from "@/lib/app-updater";
 import { ArrowDownToLine, Download, ExternalLink, RefreshCw, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -37,7 +37,7 @@ export function AppUpdateToast() {
   return (
     <AnimatePresence>
       {visible && (
-        <motion.div
+        <m.div
           key="update-toast"
           role="status"
           aria-live="polite"
@@ -52,7 +52,7 @@ export function AppUpdateToast() {
           {(phase === "downloading" || phase === "installing") && (
             <div className="h-[2px] w-full bg-muted">
               {percent !== null ? (
-                <motion.div
+                <m.div
                   className="h-full bg-primary"
                   initial={{ width: 0 }}
                   animate={{ width: `${percent}%` }}
@@ -213,7 +213,7 @@ export function AppUpdateToast() {
               </p>
             )}
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

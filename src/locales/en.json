@@ -29,7 +29,11 @@
     "info": "Info",
     "about": "About",
     "mainNav": "Main navigation",
-    "settingsAria": "Settings"
+    "settingsAria": "Settings",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -160,7 +164,10 @@
     "titleTagline": "Simple. Local. Fast.",
     "subtitleLine1": "l8git gives you the tools to work efficiently –",
     "subtitleLine2": "without distraction, without cloud, without compromise.",
-    "hint": "Click the plus button above to get started"
+    "hint": "Click the plus button above to get started",
+    "ctaOpen": "Open folder",
+    "ctaClone": "Clone repo",
+    "ctaInit": "New repo"
   },
   "info": {
     "title": "Info",
@@ -195,7 +202,16 @@
     "aiNoResponse": "No response from the AI model",
     "aiNoApiKey": "No API key configured. Go to Settings → AI to add your key.",
     "cloneOpenFailed": "The cloned repository could not be opened.",
-    "localChangesBlockPull": "Please commit the current changes first, then pull again and resolve any conflicts manually. Affected: {{files}}"
+    "localChangesBlockPull": "Please commit the current changes first, then pull again and resolve any conflicts manually. Affected: {{files}}",
+    "nonFastForward": "Remote has new commits. Pull first, then push again.",
+    "nonFastForwardAction": "Pull now",
+    "authFailed": "Authentication failed. Check your Git account credentials in Settings.",
+    "authFailedAction": "Open Settings",
+    "mergeConflict": "Merge conflict detected. Resolve it in the merge editor.",
+    "mergeConflictAction": "Open Merge Editor",
+    "stashAndPullAction": "Stash & Pull",
+    "detachedHead": "You are in detached HEAD state. Create a branch to keep your work.",
+    "aiNoDiff": "No staged diff available"
   },
   "hotkeys": {
     "reloadActive": "Reload active repository",
@@ -211,7 +227,8 @@
     "commitStageUnstageUnstaged": "Selection / hunk / file stage",
     "commitPrevHunk": "Previous hunk",
     "commitNextHunk": "Next hunk",
-    "commitClearSelection": "Clear line selection"
+    "commitClearSelection": "Clear line selection",
+    "showShortcuts": "Show keyboard shortcuts"
   },
   "settings": {
     "back": "Back",
@@ -233,6 +250,10 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeSystem": "System",
+    "uiScaleTitle": "UI Scale",
+    "uiScaleDesc": "Adjust the overall size of the user interface.",
+    "uiScaleLabel": "Scale",
+    "uiScaleReset": "Reset to 100%",
     "themeAria": "Theme",
     "animationsSectionTitle": "Animations",
     "animationsSectionSubtitle": "Transitions and motion",
@@ -464,7 +485,10 @@
     "noBranchesForQuery": "No branches for \"{{query}}\"",
     "branchDeleteConfirm": "Branch \"{{name}}\" is not fully merged. Delete anyway?",
     "branchDeleteFailed": "Delete failed: {{error}}",
-    "branchPopoverTitle": "Branches & Tags"
+    "branchPopoverTitle": "Branches & Tags",
+    "branchForceDeleteTitle": "Delete unmerged branch?",
+    "branchForceDeleteDesc": "Branch \"{{name}}\" has commits that are not yet merged into any other branch. These commits will be permanently lost.",
+    "branchForceDeleteVerb": "Delete anyway"
   },
   "toolbar": {
     "actionSuccess": "Action completed successfully.",
@@ -486,6 +510,7 @@
     "pullStrategyMerge": "Merge (resolve conflicts yourself)",
     "pullStrategyRebase": "Rebase (--rebase)",
     "pullStrategyFfOnly": "Fast-forward only (--ff-only)",
+    "pullStrategyAutostash": "Merge + Auto-stash (--autostash)",
     "pushTitle": "{{title}} (right-click for options)",
     "pushLabel": "Push",
     "noForcePush": "No force push",
@@ -562,6 +587,7 @@
     "filesCount": "· {{count}} {{unit}}",
     "stagedSummary": "{{count}} {{unit}} staged",
     "messagePlaceholder": "Enter commit message…",
+    "ccTypeTitle": "Prepend {{type}}: to subject",
     "aiTitle": "Generate commit message with AI",
     "aiAria": "Generate with AI",
     "aiLanguageTitle": "AI commit message language for this repository",
@@ -597,6 +623,7 @@
     "discardSelectionLines_one": "Discard {{count}} line",
     "discardSelectionLines_other": "Discard {{count}} lines",
     "discardLinesConfirm": "Permanently discard {{count}} selected line(s)? This cannot be undone.",
+    "embeddedRepo": "git repo",
     "fileRowBlame": "Show Git blame",
     "fileRowDiscard": "Discard changes",
     "fileRowDiscardMultiple": "Discard {{count}} files",
@@ -610,7 +637,12 @@
     "editFileSaving": "Saving…",
     "editFileSaved": "Saved",
     "editFileLoadError": "Could not load file content.",
-    "editFileSaveError": "Could not save file."
+    "editFileSaveError": "Could not save file.",
+    "undoLastCommit": "Undo last commit",
+    "undoLastCommitTitle": "Soft-reset HEAD~1 — keeps changes staged",
+    "undoConfirmTitle": "Undo last commit?",
+    "undoConfirmDesc": "The commit \"{{subject}}\" will be undone and its changes moved back to staged. This cannot be undone if the commit was already pushed.",
+    "undoVerb": "Undo commit"
   },
   "bisect": {
     "ended": "Bisect finished.",
@@ -637,7 +669,24 @@
     "badgeRemote": "remote",
     "checkoutShortcutTitle": "Check out ({{mod}}↵)",
     "footerJumpHistory": "Jump to history",
-    "footerCheckout": "Check out branch"
+    "footerCheckout": "Check out branch",
+    "groupActions": "Actions",
+    "actionPush": "Push",
+    "actionPull": "Pull",
+    "actionFetch": "Fetch",
+    "actionNewBranch": "New Branch…",
+    "actionOpenRepo": "Open Repository…",
+    "actionSettings": "Settings",
+    "actionTabCommit": "Go to: Commit",
+    "actionTabHistory": "Go to: History",
+    "actionTabPr": "Go to: Pull Requests",
+    "actionTabCi": "Go to: CI",
+    "actionTabStash": "Go to: Stash",
+    "actionTabWorktrees": "Go to: Worktrees",
+    "actionTabHooks": "Go to: Hooks",
+    "actionTabSubmodules": "Go to: Submodules",
+    "actionToggleTerminal": "Toggle Terminal",
+    "deepSearchHint": "Full history search in the History toolbar"
   },
   "repoTab": {
     "close": "Close",
@@ -1485,5 +1534,19 @@
     "cancel": "Cancel",
     "submitBusy": "Locking…",
     "submit": "Lock"
+  },
+  "hotkeysOverlay": {
+    "title": "Keyboard Shortcuts",
+    "groupGlobal": "Global",
+    "groupNavigation": "Navigation",
+    "groupCommitDiff": "Commit & Diff",
+    "groupSearch": "Command Palette",
+    "commandPalette": "Open command palette",
+    "showShortcuts": "Show keyboard shortcuts",
+    "toggleTerminal": "Toggle embedded terminal",
+    "submitCommit": "Submit commit",
+    "sidebarSubmodules": "Sidebar: Submodules",
+    "sidebarWorktrees": "Sidebar: Worktrees",
+    "sidebarHooks": "Sidebar: Hooks"
   }
 }

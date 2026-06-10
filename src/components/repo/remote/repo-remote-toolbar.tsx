@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/context-menu';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { Input } from '@/components/ui/input';
-import { toastError } from '@/lib/error-toast';
+import { toastError, toastGitError } from '@/lib/error-toast';
 import { useRepoStore, type Branch } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import {
@@ -151,7 +151,20 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
         await Promise.all([reload(path), reloadStatus(path)]);
         toast.success(out.trim() || t("toolbar.actionSuccess"));
       } catch (e) {
-        toastError(String(e));
+        toastGitError(String(e), {
+          repoPath: path,
+          onPull: () => void run('pull'),
+          onStashAndPull: () => void (async () => {
+            try {
+              await invoke<string>('git_stash_push', { path, message: null, includeUntracked: false });
+              await invoke<string>('git_pull', { path, strategy: pullStrategy });
+              await Promise.all([reload(path), reloadStatus(path)]);
+              toast.success(t("toolbar.actionSuccess"));
+            } catch (e2) {
+              toastError(String(e2));
+            }
+          })(),
+        });
       } finally {
         setBusy(null);
       }
@@ -255,6 +268,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
           </ContextMenuRadioItem>
           <ContextMenuRadioItem value="ff-only" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.pullStrategyFfOnly")}
+          </ContextMenuRadioItem>
+          <ContextMenuRadioItem value="autostash" onSelect={(e) => e.preventDefault()}>
+            {t("toolbar.pullStrategyAutostash")}
           </ContextMenuRadioItem>
         </ContextMenuRadioGroup>
       </>
@@ -432,6 +448,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               title={t("toolbar.pushTitle", { title: pushTitle })}
               label={t("toolbar.pushLabel")}
               badge={pushCount}
+              warnDot={pushForceMode !== 'none' || pushNoVerify || pushDryRun}
               disabled={remoteDisabled}
               isActive={busy === 'push'}
               onClick={() => void runPush()}

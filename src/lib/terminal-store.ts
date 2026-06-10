@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   destroySession,
   destroySessionsForPath,
-} from '@/lib/terminal-session-cache';
+} from '@/lib/terminal-session-registry';
 
 export const TERMINAL_MIN_HEIGHT = 120;
 export const TERMINAL_MAX_HEIGHT = 720;

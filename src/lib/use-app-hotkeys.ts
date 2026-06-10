@@ -5,20 +5,25 @@ import { useTranslation } from "react-i18next";
 
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { useRepoStore } from "@/lib/repo-store";
+import { useSidebarPrefs } from "@/lib/sidebar-prefs";
 import { useUiStore, type SidebarTab } from "@/lib/ui-store";
 
-const SIDEBAR_SHORTCUTS: [
-  "Mod+1" | "Mod+2" | "Mod+3" | "Mod+4" | "Mod+5",
-  SidebarTab,
-][] = [
-  ["Mod+1", "commit"],
-  ["Mod+2", "history"],
-  ["Mod+3", "pr"],
-  ["Mod+4", "ci"],
-  ["Mod+5", "stash"],
-];
+const TAB_HOTKEY_SLOTS = ["Mod+1", "Mod+2", "Mod+3", "Mod+4", "Mod+5", "Mod+6", "Mod+7", "Mod+8"] as const;
 
-export function useAppHotkeys() {
+function tabLabel(tab: SidebarTab, t: (k: string) => string): string {
+  switch (tab) {
+    case "commit": return t("hotkeys.sidebarCommit");
+    case "history": return t("hotkeys.sidebarHistory");
+    case "pr": return t("hotkeys.sidebarPr");
+    case "ci": return t("hotkeys.sidebarCi");
+    case "stash": return t("hotkeys.sidebarStash");
+    case "submodules": return t("hotkeys.sidebarSubmodules");
+    case "worktrees": return t("hotkeys.sidebarWorktrees");
+    case "hooks": return t("hotkeys.sidebarHooks");
+  }
+}
+
+export function useAppHotkeys({ onShowShortcuts }: { onShowShortcuts?: () => void } = {}) {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const pickRepo = usePickRepo();
@@ -27,11 +32,25 @@ export function useAppHotkeys() {
   const reloadAll = useRepoStore((s) => s.reloadAll);
   const reloadStatus = useRepoStore((s) => s.reloadStatus);
   const setSidebarTab = useUiStore((s) => s.setSidebarTab);
+  const tabOrder = useSidebarPrefs((s) => s.tabOrder);
+  const hiddenTabs = useSidebarPrefs((s) => s.hiddenTabs);
 
   const list = useMemo((): Array<UseHotkeyDefinition> => {
     const refreshActive = () => {
       if (activePath) void refreshOpenRepo(activePath);
     };
+    const visibleTabs = tabOrder.filter((tab) => !hiddenTabs.includes(tab));
+    const sidebarHotkeys: UseHotkeyDefinition[] = visibleTabs
+      .slice(0, TAB_HOTKEY_SLOTS.length)
+      .map((tab, i) => ({
+        hotkey: TAB_HOTKEY_SLOTS[i],
+        callback: () => setSidebarTab(tab),
+        options: {
+          enabled: !!activePath,
+          meta: { name: tabLabel(tab, t) },
+        },
+      }));
+
     return [
       {
         hotkey: "F5",
@@ -59,25 +78,7 @@ export function useAppHotkeys() {
         },
         options: { meta: { name: t("hotkeys.reloadAll") } },
       },
-      ...SIDEBAR_SHORTCUTS.map(([hotkey, tab]) => ({
-        hotkey,
-        callback: () => setSidebarTab(tab),
-        options: {
-          enabled: !!activePath,
-          meta: {
-            name:
-              tab === "commit"
-                ? t("hotkeys.sidebarCommit")
-                : tab === "history"
-                  ? t("hotkeys.sidebarHistory")
-                  : tab === "pr"
-                    ? t("hotkeys.sidebarPr")
-                    : tab === "ci"
-                      ? t("hotkeys.sidebarCi")
-                      : t("hotkeys.sidebarStash"),
-          },
-        },
-      })),
+      ...sidebarHotkeys,
       {
         hotkey: "Mod+O",
         callback: () => {
@@ -92,9 +93,16 @@ export function useAppHotkeys() {
         },
         options: { meta: { name: t("hotkeys.settings") } },
       },
+      {
+        hotkey: "Mod+/",
+        callback: () => onShowShortcuts?.(),
+        options: { meta: { name: t("hotkeys.showShortcuts") } },
+      },
     ];
   }, [
     activePath,
+    hiddenTabs,
+    onShowShortcuts,
     pickRepo,
     refreshOpenRepo,
     reloadAll,
@@ -102,6 +110,7 @@ export function useAppHotkeys() {
     router,
     setSidebarTab,
     t,
+    tabOrder,
     i18n.language,
   ]);
 

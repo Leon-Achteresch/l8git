@@ -42,7 +42,7 @@ fn git_credential(
             let _ = child.kill();
             let _ = child.wait();
             return Err(
-                "Git Credential: Zeitüberschreitung oder Fenster geschlossen bevor die Anmeldung fertig war."
+                "Git Credential: timed out or window closed before sign-in completed."
                     .into(),
             );
         }

@@ -7,7 +7,7 @@ import {
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type GitHookEntry } from "@/lib/repo-store";
 import { Eye, EyeOff, Loader2, Save, Trash2, Webhook, X } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -105,7 +105,7 @@ export function GitHooksDetail({
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ x: 20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 380, damping: 32 }}
@@ -219,6 +219,6 @@ export function GitHooksDetail({
           </Button>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }

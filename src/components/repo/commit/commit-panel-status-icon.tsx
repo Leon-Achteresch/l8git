@@ -1,4 +1,4 @@
-import { AlertTriangle, FileCode2, FileDiff, FileMinus, FilePlus } from "lucide-react";
+import { AlertTriangle, FileCode2, FileDiff, FileMinus, FilePlus, FolderGit2 } from "lucide-react";
 import type { StatusEntry } from "@/lib/repo-store";
 import type { ChangeSector } from "./commit-panel-types";
 
@@ -9,6 +9,9 @@ export function StatusIcon({
   entry: StatusEntry;
   sector: ChangeSector;
 }) {
+  if (entry.embedded_repo) {
+    return <FolderGit2 className="h-4 w-4 text-violet-500" />;
+  }
   if (sector === "unstaged" && entry.untracked) {
     return <FilePlus className="h-4 w-4 text-emerald-500" />;
   }

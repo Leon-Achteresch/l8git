@@ -4,6 +4,7 @@ mod favicon;
 mod git;
 mod pr;
 mod providers;
+mod secrets;
 mod shell;
 mod terminal;
 mod watcher;
@@ -11,6 +12,24 @@ mod watcher;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            // Paint the window in the system theme color immediately so the
+            // user never sees a white flash while the webview boots.
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    let dark = matches!(window.theme(), Ok(tauri::Theme::Dark));
+                    let color = if dark {
+                        tauri::webview::Color(10, 10, 10, 255)
+                    } else {
+                        tauri::webview::Color(250, 250, 250, 255)
+                    };
+                    let _ = window.set_background_color(Some(color));
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -148,7 +167,10 @@ pub fn run() {
             terminal::terminal_resize,
             terminal::terminal_close,
             terminal::terminal_detach,
-            terminal::terminal_attach
+            terminal::terminal_attach,
+            secrets::secret_set,
+            secrets::secret_get,
+            secrets::secret_delete
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

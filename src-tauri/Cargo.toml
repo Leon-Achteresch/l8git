@@ -31,6 +31,7 @@ notify-debouncer-full = "0.3"
 tauri-plugin-process = "2"
 portable-pty = "0.8"
 once_cell = "1"
+keyring = { version = "3", features = ["windows-native"] }
 
 [profile.release]
 opt-level = 3

@@ -2225,7 +2225,7 @@ pub async fn cancel_workflow(path: String, run_id: u64) -> Result<(), String> {
     } else {
         let status = res.status();
         let body = res.text().await.unwrap_or_default();
-        Err(format!("Abbrechen fehlgeschlagen ({status}): {}", body.trim()))
+        Err(format!("Cancel failed ({status}): {}", body.trim()))
     }
 }
 

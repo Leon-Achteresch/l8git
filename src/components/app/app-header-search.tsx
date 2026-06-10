@@ -8,13 +8,28 @@ import {
   type KeyboardEvent,
 } from "react";
 import {
+  Archive,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  CloudDownload,
+  Code2,
+  FolderGit2,
+  FolderOpen,
   GitBranch,
   GitCommitHorizontal,
+  GitFork,
+  History,
+  ListChecks,
   Search,
+  Settings,
   Tag,
+  Webhook,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
+import { useRouter } from "@tanstack/react-router";
+import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
 
 import {
   Command,
@@ -29,7 +44,9 @@ import {
 } from "@/components/ui/command";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
-import { useUiStore } from "@/lib/ui-store";
+import { useUiStore, type SidebarTab } from "@/lib/ui-store";
+import { useTerminalStore } from "@/lib/terminal-store";
+import { usePickRepo } from "@/lib/use-pick-repo";
 import { cn } from "@/lib/utils";
 
 const IS_MAC =
@@ -38,13 +55,21 @@ const IS_MAC =
 
 const MOD_KEY = IS_MAC ? "⌘" : "Ctrl";
 
+type ActionItem = {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  onSelect: () => void;
+  keywords?: string;
+};
+
 export function AppHeaderSearch() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  // cmdk tracks which item is highlighted — we mirror it here so the keydown
-  // handler can perform the secondary action on the correct item.
   const highlightedValue = useRef<string>("");
+  const pickRepo = usePickRepo();
 
   // ⌘K / Ctrl+K global shortcut
   useEffect(() => {
@@ -71,6 +96,9 @@ export function AppHeaderSearch() {
   const requestCommitHistoryFocus = useUiStore(
     (s) => s.requestCommitHistoryFocus,
   );
+  const setSidebarTab = useUiStore((s) => s.setSidebarTab);
+  const toggleTerminal = useTerminalStore((s) => s.toggleVisible);
+  const totalCommits = repo?.commits.length ?? 0;
 
   const branches = useMemo(() => repo?.branches ?? [], [repo]);
   const tags = useMemo(() => repo?.tags ?? [], [repo]);
@@ -104,7 +132,134 @@ export function AppHeaderSearch() {
       .slice(0, 15);
   }, [repo, query]);
 
-  // ─── primary action (Enter / single click in sidebar) ───────────────────────
+  // Actions — always shown, filtered by query
+  const allActions = useMemo((): ActionItem[] => {
+    const tabActions: { id: SidebarTab; label: string; icon: React.ReactNode; keywords: string }[] = [
+      { id: "commit", label: t("appSearch.actionTabCommit"), icon: <GitCommitHorizontal className="size-3.5" />, keywords: "commit stage" },
+      { id: "history", label: t("appSearch.actionTabHistory"), icon: <History className="size-3.5" />, keywords: "history log" },
+      { id: "pr", label: t("appSearch.actionTabPr"), icon: <GitBranch className="size-3.5" />, keywords: "pr pull request" },
+      { id: "ci", label: t("appSearch.actionTabCi"), icon: <ListChecks className="size-3.5" />, keywords: "ci pipeline" },
+      { id: "stash", label: t("appSearch.actionTabStash"), icon: <Archive className="size-3.5" />, keywords: "stash" },
+      { id: "worktrees", label: t("appSearch.actionTabWorktrees"), icon: <GitFork className="size-3.5" />, keywords: "worktree" },
+      { id: "hooks", label: t("appSearch.actionTabHooks"), icon: <Webhook className="size-3.5" />, keywords: "hooks git" },
+      { id: "submodules", label: t("appSearch.actionTabSubmodules"), icon: <FolderGit2 className="size-3.5" />, keywords: "submodule" },
+    ];
+
+    const items: ActionItem[] = [
+      ...(activePath ? [
+        {
+          id: "action:push",
+          label: t("appSearch.actionPush"),
+          icon: <ArrowUpToLine className="size-3.5" />,
+          keywords: "push upload",
+          onSelect: () => {
+            setOpen(false);
+            void invoke<string>("git_push", { path: activePath, setUpstream: false, forceMode: null, tagsMode: null, atomic: false, noVerify: false, dryRun: false })
+              .then(() => toast.success(t("toolbar.actionSuccess")))
+              .catch((e) => toastError(String(e)));
+          },
+        },
+        {
+          id: "action:pull",
+          label: t("appSearch.actionPull"),
+          icon: <ArrowDownToLine className="size-3.5" />,
+          keywords: "pull download sync",
+          onSelect: () => {
+            setOpen(false);
+            void invoke<string>("git_pull", { path: activePath, strategy: "merge" })
+              .then(() => toast.success(t("toolbar.actionSuccess")))
+              .catch((e) => toastError(String(e)));
+          },
+        },
+        {
+          id: "action:fetch",
+          label: t("appSearch.actionFetch"),
+          icon: <CloudDownload className="size-3.5" />,
+          keywords: "fetch remote",
+          onSelect: () => {
+            setOpen(false);
+            void invoke<string>("git_fetch", { path: activePath, pruneBranches: true, pruneTags: false })
+              .then(() => toast.success(t("toolbar.actionSuccess")))
+              .catch((e) => toastError(String(e)));
+          },
+        },
+        {
+          id: "action:new-branch",
+          label: t("appSearch.actionNewBranch"),
+          icon: <GitBranch className="size-3.5" />,
+          keywords: "branch new create",
+          onSelect: () => {
+            setOpen(false);
+            setSidebarTab("commit");
+          },
+        },
+        ...tabActions.map((ta) => ({
+          id: `action:tab:${ta.id}`,
+          label: ta.label,
+          icon: ta.icon,
+          keywords: ta.keywords,
+          onSelect: () => {
+            setOpen(false);
+            setSidebarTab(ta.id);
+          },
+        })),
+        {
+          id: "action:terminal",
+          label: t("appSearch.actionToggleTerminal"),
+          icon: <Code2 className="size-3.5" />,
+          keywords: "terminal console",
+          onSelect: () => {
+            setOpen(false);
+            toggleTerminal(activePath);
+          },
+        },
+        {
+          id: "action:reveal",
+          label: t("toolbar.revealLabel"),
+          icon: <FolderOpen className="size-3.5" />,
+          keywords: "folder reveal open finder explorer",
+          onSelect: () => {
+            setOpen(false);
+            void invoke("reveal_repo_folder", { path: activePath }).catch((e) => toastError(String(e)));
+          },
+        },
+      ] : []),
+      {
+        id: "action:open-repo",
+        label: t("appSearch.actionOpenRepo"),
+        icon: <FolderGit2 className="size-3.5" />,
+        keywords: "open repository folder",
+        onSelect: () => {
+          setOpen(false);
+          void pickRepo();
+        },
+      },
+      {
+        id: "action:settings",
+        label: t("appSearch.actionSettings"),
+        icon: <Settings className="size-3.5" />,
+        keywords: "settings preferences config",
+        onSelect: () => {
+          setOpen(false);
+          void router.navigate({ to: "/settings" });
+        },
+      },
+    ];
+
+    return items;
+  }, [activePath, t, setSidebarTab, toggleTerminal, pickRepo, router]);
+
+  const filteredActions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return allActions.slice(0, 6);
+    return allActions.filter(
+      (a) =>
+        a.label.toLowerCase().includes(q) ||
+        a.keywords?.includes(q),
+    );
+  }, [allActions, query]);
+
+  // ─── primary action ───────────────────────────────────────────────────────
 
   const onFocusBranch = useCallback(
     (branchName: string) => {
@@ -137,7 +292,7 @@ export function AppHeaderSearch() {
     [activePath, requestCommitHistoryFocus],
   );
 
-  // ─── secondary action (⌘↵ / double click in sidebar) ────────────────────────
+  // ─── secondary action (⌘↵) ───────────────────────────────────────────────
 
   const performCheckout = useCallback(
     (branchName: string) => {
@@ -162,7 +317,6 @@ export function AppHeaderSearch() {
     [activePath, branches, checkoutBranch],
   );
 
-  // ⌘↵ on the currently highlighted item → secondary action
   const handleCommandKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
       const isModifier = IS_MAC ? e.metaKey : e.ctrlKey;
@@ -172,7 +326,6 @@ export function AppHeaderSearch() {
       if (val.startsWith("branch:")) {
         performCheckout(val.slice("branch:".length));
       }
-      // tags and commits have no secondary action
     },
     [performCheckout],
   );
@@ -185,7 +338,12 @@ export function AppHeaderSearch() {
   const hasResults =
     filteredBranches.length > 0 ||
     filteredTags.length > 0 ||
-    filteredCommits.length > 0;
+    filteredCommits.length > 0 ||
+    filteredActions.length > 0;
+
+  const queryTrimmed = query.trim();
+  const showDeepSearchHint =
+    queryTrimmed.length > 0 && filteredCommits.length === 0 && totalCommits > 0;
 
   return (
     <>
@@ -235,6 +393,26 @@ export function AppHeaderSearch() {
             {!hasResults && (
               <CommandEmpty>{t("appSearch.empty")}</CommandEmpty>
             )}
+
+            {filteredActions.length > 0 && (
+              <CommandGroup heading={t("appSearch.groupActions")}>
+                {filteredActions.map((a) => (
+                  <CommandItem
+                    key={a.id}
+                    value={a.id}
+                    onSelect={a.onSelect}
+                  >
+                    {a.icon}
+                    <span className="min-w-0 flex-1 truncate text-xs">{a.label}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            {filteredActions.length > 0 &&
+              (filteredBranches.length > 0 || filteredTags.length > 0 || filteredCommits.length > 0) && (
+                <CommandSeparator />
+              )}
 
             {filteredBranches.length > 0 && (
               <CommandGroup heading={t("appSearch.groupBranches")}>
@@ -314,14 +492,19 @@ export function AppHeaderSearch() {
             )}
           </CommandList>
 
-          {/* Footer hint */}
-          <div className="flex items-center gap-3 border-t border-border/40 px-3 py-1.5 text-[10px] text-muted-foreground/60">
+          {/* Footer */}
+          <div className="flex flex-wrap items-center gap-3 border-t border-border/40 px-3 py-1.5 text-[10px] text-muted-foreground/60">
             <span>
               <kbd className="font-sans">↵</kbd> {t("appSearch.footerJumpHistory")}
             </span>
             <span>
               <kbd className="font-sans">{MOD_KEY}↵</kbd> {t("appSearch.footerCheckout")}
             </span>
+            {showDeepSearchHint && (
+              <span className="ml-auto text-muted-foreground/50">
+                {t("appSearch.deepSearchHint")}
+              </span>
+            )}
           </div>
         </Command>
       </CommandDialog>

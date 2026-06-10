@@ -39,6 +39,7 @@ import {
   RefreshCw,
   Send,
   Sparkles,
+  Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
@@ -82,8 +83,11 @@ export function CommitPanel() {
   const commitChanges = useRepoStore((s) => s.commitChanges);
   const amendCommit = useRepoStore((s) => s.amendCommit);
   const latestCommit = useRepoStore((s) => (activePath ? s.repos[activePath]?.commits[0] : undefined));
+  const aheadCount = useRepoStore((s) => activePath ? (s.upstreamSync[activePath]?.ahead ?? 0) : 0);
+  const hasUpstream = useRepoStore((s) => activePath ? (s.hasUpstream[activePath] !== false) : false);
   const discardFiles = useRepoStore((s) => s.discardFiles);
   const discardWorktreeChanges = useRepoStore((s) => s.discardWorktreeChanges);
+  const gitReset = useRepoStore((s) => s.gitReset);
 
   const globalAiLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
   const repoAiLanguage = useRepoPrefs((s) => activePath ? s.getAiOutputLanguage(activePath) : undefined);
@@ -92,11 +96,13 @@ export function CommitPanel() {
 
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
+  const subjectLen = message.split("\n")[0]?.length ?? 0;
   const [aiGenerating, setAiGenerating] = useState(false);
   const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
+  const [undoDialogOpen, setUndoDialogOpen] = useState(false);
 
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
@@ -481,27 +487,59 @@ export function CommitPanel() {
                     : t("common.files"),
               })}
             </span>
-          <button
-            type="button"
-            onClick={() => {
-              const next = !amendMode;
-              setAmendMode(next);
-              if (next && latestCommit) {
-                const full = latestCommit.body.trim()
-                  ? `${latestCommit.subject}\n\n${latestCommit.body}`
-                  : latestCommit.subject;
-                setMessage(full);
-              }
-            }}
-            className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-              amendMode
-                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            <Pencil className="h-3 w-3" />
-            Amend
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const next = !amendMode;
+                setAmendMode(next);
+                if (next && latestCommit) {
+                  const full = latestCommit.body.trim()
+                    ? `${latestCommit.subject}\n\n${latestCommit.body}`
+                    : latestCommit.subject;
+                  setMessage(full);
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                amendMode
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Pencil className="h-3 w-3" />
+              {t("common.amend")}
+            </button>
+            {latestCommit && (!hasUpstream || aheadCount > 0) && (
+              <button
+                type="button"
+                title={t("commitPanel.undoLastCommitTitle")}
+                onClick={() => setUndoDialogOpen(true)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Undo2 className="h-3 w-3" />
+                {t("commitPanel.undoLastCommit")}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-1 px-1">
+          {(["feat", "fix", "docs", "refactor", "chore", "test", "perf", "ci"] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              title={t("commitPanel.ccTypeTitle", { type })}
+              onClick={() => setMessage((m) => {
+                const existing = m.split("\n")[0] ?? "";
+                const withoutType = existing.replace(/^[a-z]+(\([^)]*\))?!?:\s*/i, "");
+                const rest = m.includes("\n") ? "\n" + m.split("\n").slice(1).join("\n") : "";
+                return `${type}: ${withoutType}${rest}`;
+              })}
+              className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground ring-1 ring-border/60 hover:bg-muted hover:text-foreground"
+            >
+              {type}
+            </button>
+          ))}
         </div>
 
         <div className="relative">
@@ -509,9 +547,22 @@ export function CommitPanel() {
             placeholder={t("commitPanel.messagePlaceholder")}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
+                e.preventDefault();
+                void onCommit();
+              }
+            }}
             rows={3}
             className="resize-none rounded-md border-0 bg-muted/30 px-4 py-3 text-sm shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
+          <span
+            className={`pointer-events-none absolute bottom-2 left-3 font-mono text-[10px] tabular-nums transition-colors ${
+              subjectLen > 72 ? "text-destructive" : subjectLen > 60 ? "text-amber-500" : "text-muted-foreground/40"
+            }`}
+          >
+            {subjectLen}
+          </span>
           <div className="absolute bottom-2 right-2 flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -635,6 +686,47 @@ export function CommitPanel() {
               onClick={() => void confirmDiscard()}
             >
               {t("commitPanel.discardVerb")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={undoDialogOpen}
+        onOpenChange={(open) => { if (!open) setUndoDialogOpen(false); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("commitPanel.undoConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("commitPanel.undoConfirmDesc", {
+                subject: latestCommit?.subject ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              onClick={() => {
+                setUndoDialogOpen(false);
+                if (!activePath) return;
+                void (async () => {
+                  try {
+                    await gitReset(activePath, "HEAD~1", "soft");
+                    if (latestCommit) {
+                      const full = latestCommit.body.trim()
+                        ? `${latestCommit.subject}\n\n${latestCommit.body}`
+                        : latestCommit.subject;
+                      setMessage(full);
+                    }
+                  } catch (e) {
+                    toastError(String(e));
+                  }
+                })();
+              }}
+            >
+              {t("commitPanel.undoVerb")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

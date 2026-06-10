@@ -95,6 +95,7 @@ export type StatusEntry = {
   additions_unstaged: number;
   deletions_unstaged: number;
   binary: boolean;
+  embedded_repo: boolean;
 };
 
 export type UpstreamSyncCounts = {

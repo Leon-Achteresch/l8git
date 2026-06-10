@@ -1,24 +1,60 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 
 import { PanelSwap } from "@/components/motion/panel-swap";
-import { RepoCiPanel } from "@/components/repo/ci/repo-ci-panel";
 import { CommitPanel } from "@/components/repo/commit/commit-panel";
 import { RepoDetails } from "@/components/repo/layout/repo-details";
 import { RepoTabLayout } from "@/components/repo/layout/repo-tab-layout";
 import { EmptyState } from "@/components/repo/layout/empty-state";
 import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
-import { MergeConflictPage } from "@/components/repo/merge/merge-conflict-page";
-import { GitBlamePage } from "@/components/repo/blame/git-blame-page";
-import { PullRequestPanel } from "@/components/repo/pr/pull-request-panel";
-import { StashPanel } from "@/components/repo/stash/stash-panel";
-import { SubmodulesPanel } from "@/components/repo/submodules/submodules-panel";
-import { GitHooksPanel } from "@/components/repo/hooks/git-hooks-panel";
-import { WorktreePanel } from "@/components/repo/worktree/worktree-panel";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { useRepoRehydrate } from "@/lib/use-repo-rehydrate";
 import { useRepoStatusPoll } from "@/lib/use-repo-status-poll";
+
+// Heavy, conditionally shown panels (Monaco, xyflow, …) load on demand so the
+// initial route chunk stays small and the app paints fast on slow machines.
+const RepoCiPanel = lazy(() =>
+  import("@/components/repo/ci/repo-ci-panel").then((m) => ({
+    default: m.RepoCiPanel,
+  })),
+);
+const MergeConflictPage = lazy(() =>
+  import("@/components/repo/merge/merge-conflict-page").then((m) => ({
+    default: m.MergeConflictPage,
+  })),
+);
+const GitBlamePage = lazy(() =>
+  import("@/components/repo/blame/git-blame-page").then((m) => ({
+    default: m.GitBlamePage,
+  })),
+);
+const PullRequestPanel = lazy(() =>
+  import("@/components/repo/pr/pull-request-panel").then((m) => ({
+    default: m.PullRequestPanel,
+  })),
+);
+const StashPanel = lazy(() =>
+  import("@/components/repo/stash/stash-panel").then((m) => ({
+    default: m.StashPanel,
+  })),
+);
+const SubmodulesPanel = lazy(() =>
+  import("@/components/repo/submodules/submodules-panel").then((m) => ({
+    default: m.SubmodulesPanel,
+  })),
+);
+const GitHooksPanel = lazy(() =>
+  import("@/components/repo/hooks/git-hooks-panel").then((m) => ({
+    default: m.GitHooksPanel,
+  })),
+);
+const WorktreePanel = lazy(() =>
+  import("@/components/repo/worktree/worktree-panel").then((m) => ({
+    default: m.WorktreePanel,
+  })),
+);
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -42,14 +78,21 @@ function Home() {
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
       {mergeEditorPath && (
-        <MergeConflictPage path={mergeEditorPath} onClose={closeMergeEditor} />
+        <Suspense fallback={null}>
+          <MergeConflictPage
+            path={mergeEditorPath}
+            onClose={closeMergeEditor}
+          />
+        </Suspense>
       )}
       {blameEditorPath && (
-        <GitBlamePage
-          path={blameEditorPath}
-          initialFile={blameEditorFile}
-          onClose={closeBlameEditor}
-        />
+        <Suspense fallback={null}>
+          <GitBlamePage
+            path={blameEditorPath}
+            initialFile={blameEditorFile}
+            onClose={closeBlameEditor}
+          />
+        </Suspense>
       )}
       <RepoTabBar />
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -66,6 +109,7 @@ function Home() {
                 {sidebarTab === "commit" ? (
                   <CommitPanel />
                 ) : (
+                  <Suspense fallback={null}>
                   <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     {sidebarTab === "stash" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
@@ -95,6 +139,7 @@ function Home() {
                       <RepoDetails />
                     )}
                   </div>
+                  </Suspense>
                 )}
               </PanelSwap>
             </RepoTabLayout>

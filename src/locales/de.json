@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "save": "Speichern",
     "cancel": "Abbrechen",
@@ -29,7 +29,11 @@
     "info": "Info",
     "about": "Über",
     "mainNav": "Hauptnavigation",
-    "settingsAria": "Einstellungen"
+    "settingsAria": "Einstellungen",
+    "minimize": "Minimieren",
+    "maximize": "Maximieren",
+    "restore": "Wiederherstellen",
+    "close": "Schließen"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -160,7 +164,10 @@
     "titleTagline": "Einfach. Lokal. Schnell.",
     "subtitleLine1": "l8git gibt dir alle Werkzeuge, um effizient zu arbeiten –",
     "subtitleLine2": "ohne Ablenkung, ohne Cloud, ohne Kompromisse.",
-    "hint": "Klicke oben auf das Plus, um zu starten"
+    "hint": "Klicke oben auf das Plus, um zu starten",
+    "ctaOpen": "Ordner öffnen",
+    "ctaClone": "Repo klonen",
+    "ctaInit": "Neues Repo"
   },
   "info": {
     "title": "Info",
@@ -195,7 +202,16 @@
     "aiNoResponse": "Keine Antwort vom AI-Modell erhalten",
     "aiNoApiKey": "Kein API-Key konfiguriert. Gehe zu Einstellungen → AI, um deinen Key einzutragen.",
     "cloneOpenFailed": "Geklontes Repository konnte nicht geöffnet werden.",
-    "localChangesBlockPull": "Bitte zuerst die aktuellen Änderungen committen, danach erneut pullen und Konflikte manuell auflösen. Betroffen: {{files}}"
+    "localChangesBlockPull": "Bitte zuerst die aktuellen Änderungen committen, danach erneut pullen und Konflikte manuell auflösen. Betroffen: {{files}}",
+    "nonFastForward": "Remote hat neue Commits. Zuerst pullen, dann erneut pushen.",
+    "nonFastForwardAction": "Jetzt pullen",
+    "authFailed": "Authentifizierung fehlgeschlagen. Git-Konto in den Einstellungen prüfen.",
+    "authFailedAction": "Einstellungen öffnen",
+    "mergeConflict": "Merge-Konflikt erkannt. Im Merge-Editor auflösen.",
+    "mergeConflictAction": "Merge-Editor öffnen",
+    "stashAndPullAction": "Stash & Pull",
+    "detachedHead": "Du befindest dich im Detached-HEAD-Zustand. Branch erstellen, um Änderungen zu sichern.",
+    "aiNoDiff": "Kein gestagter Diff vorhanden"
   },
   "hotkeys": {
     "reloadActive": "Aktives Repo neu laden",
@@ -211,7 +227,8 @@
     "commitStageUnstageUnstaged": "Auswahl / Hunk / Datei stagen",
     "commitPrevHunk": "Vorheriger Hunk",
     "commitNextHunk": "Nächster Hunk",
-    "commitClearSelection": "Zeilenauswahl aufheben"
+    "commitClearSelection": "Zeilenauswahl aufheben",
+    "showShortcuts": "Tastenkürzel anzeigen"
   },
   "settings": {
     "back": "Zurück",
@@ -233,6 +250,10 @@
     "themeLight": "Hell",
     "themeDark": "Dunkel",
     "themeSystem": "System",
+    "uiScaleTitle": "UI-Skalierung",
+    "uiScaleDesc": "Gesamtgröße der Benutzeroberfläche anpassen.",
+    "uiScaleLabel": "Skalierung",
+    "uiScaleReset": "Auf 100% zurücksetzen",
     "themeAria": "Theme",
     "animationsSectionTitle": "Animationen",
     "animationsSectionSubtitle": "Übergänge und Bewegungseffekte",
@@ -464,7 +485,10 @@
     "noBranchesForQuery": "Keine Branches für „{{query}}“",
     "branchDeleteConfirm": "Branch \"{{name}}\" ist nicht gemerged. Trotzdem löschen?",
     "branchDeleteFailed": "Löschen fehlgeschlagen: {{error}}",
-    "branchPopoverTitle": "Branches & Tags"
+    "branchPopoverTitle": "Branches & Tags",
+    "branchForceDeleteTitle": "Nicht gemergten Branch löschen?",
+    "branchForceDeleteDesc": "Branch \"{{name}}\" hat Commits, die noch nicht in einen anderen Branch gemergt wurden. Diese Commits gehen dauerhaft verloren.",
+    "branchForceDeleteVerb": "Trotzdem löschen"
   },
   "toolbar": {
     "actionSuccess": "Aktion erfolgreich abgeschlossen.",
@@ -486,6 +510,7 @@
     "pullStrategyMerge": "Mergen (Konflikte selbst lösen)",
     "pullStrategyRebase": "Rebase (--rebase)",
     "pullStrategyFfOnly": "Nur Fast-Forward (--ff-only)",
+    "pullStrategyAutostash": "Merge + Auto-Stash (--autostash)",
     "pushTitle": "{{title}} (Rechtsklick für Optionen)",
     "pushLabel": "Push",
     "noForcePush": "Kein Force-Push",
@@ -562,6 +587,7 @@
     "filesCount": "· {{count}} {{unit}}",
     "stagedSummary": "{{count}} {{unit}} gestaged",
     "messagePlaceholder": "Commit-Nachricht eingeben...",
+    "ccTypeTitle": "{{type}}: dem Betreff voranstellen",
     "aiTitle": "Commit-Nachricht mit AI generieren",
     "aiAria": "AI generieren",
     "aiLanguageTitle": "Sprache der AI-Commit-Nachricht für dieses Repository",
@@ -597,6 +623,7 @@
     "discardSelectionLines_one": "{{count}} Zeile verwerfen",
     "discardSelectionLines_other": "{{count}} Zeilen verwerfen",
     "discardLinesConfirm": "{{count}} ausgewählte Zeile(n) dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
+    "embeddedRepo": "Git-Repo",
     "fileRowBlame": "Git-Blame anzeigen",
     "fileRowDiscard": "Änderungen verwerfen",
     "fileRowDiscardMultiple": "{{count}} Dateien verwerfen",
@@ -610,7 +637,12 @@
     "editFileSaving": "Speichert…",
     "editFileSaved": "Gespeichert",
     "editFileLoadError": "Dateiinhalt konnte nicht geladen werden.",
-    "editFileSaveError": "Datei konnte nicht gespeichert werden."
+    "editFileSaveError": "Datei konnte nicht gespeichert werden.",
+    "undoLastCommit": "Letzten Commit rückgängig",
+    "undoLastCommitTitle": "Soft-Reset HEAD~1 — Änderungen bleiben gestagt",
+    "undoConfirmTitle": "Letzten Commit rückgängig machen?",
+    "undoConfirmDesc": "Der Commit \"{{subject}}\" wird rückgängig gemacht und seine Änderungen wieder gestagt. Falls der Commit bereits gepusht wurde, kann dies nicht rückgängig gemacht werden.",
+    "undoVerb": "Commit rückgängig"
   },
   "bisect": {
     "ended": "Bisect beendet.",
@@ -637,7 +669,24 @@
     "badgeRemote": "remote",
     "checkoutShortcutTitle": "Auschecken ({{mod}}↵)",
     "footerJumpHistory": "Ins Verlauf springen",
-    "footerCheckout": "Branch auschecken"
+    "footerCheckout": "Branch auschecken",
+    "groupActions": "Aktionen",
+    "actionPush": "Push",
+    "actionPull": "Pull",
+    "actionFetch": "Fetch",
+    "actionNewBranch": "Neuer Branch…",
+    "actionOpenRepo": "Repository öffnen…",
+    "actionSettings": "Einstellungen",
+    "actionTabCommit": "Zu: Commit",
+    "actionTabHistory": "Zu: Verlauf",
+    "actionTabPr": "Zu: Pull Requests",
+    "actionTabCi": "Zu: CI",
+    "actionTabStash": "Zu: Stash",
+    "actionTabWorktrees": "Zu: Worktrees",
+    "actionTabHooks": "Zu: Hooks",
+    "actionTabSubmodules": "Zu: Submodules",
+    "actionToggleTerminal": "Terminal ein-/ausblenden",
+    "deepSearchHint": "Vollständige History-Suche in der History-Toolbar"
   },
   "repoTab": {
     "close": "Schließen",
@@ -1485,5 +1534,19 @@
     "cancel": "Abbrechen",
     "submitBusy": "Sperrt …",
     "submit": "Sperren"
+  },
+  "hotkeysOverlay": {
+    "title": "Tastenkürzel",
+    "groupGlobal": "Global",
+    "groupNavigation": "Navigation",
+    "groupCommitDiff": "Commit & Diff",
+    "groupSearch": "Befehlspalette",
+    "commandPalette": "Befehlspalette öffnen",
+    "showShortcuts": "Tastenkürzel anzeigen",
+    "toggleTerminal": "Terminal ein-/ausblenden",
+    "submitCommit": "Commit ausführen",
+    "sidebarSubmodules": "Sidebar: Submodules",
+    "sidebarWorktrees": "Sidebar: Worktrees",
+    "sidebarHooks": "Sidebar: Hooks"
   }
 }

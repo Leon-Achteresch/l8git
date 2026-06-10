@@ -8,7 +8,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import {
   type FormEvent,
   useEffect,
@@ -141,17 +141,17 @@ function BranchDropdown({
               </span>
             )}
           </span>
-          <motion.span
+          <m.span
             animate={{ rotate: open ? 180 : 0 }}
             transition={{ duration: 0.18 }}
             className="shrink-0 opacity-60"
           >
             <ChevronDown className="h-3 w-3" />
-          </motion.span>
+          </m.span>
         </button>
         <AnimatePresence>
           {open ? (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: -6, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
@@ -192,7 +192,7 @@ function BranchDropdown({
                   </>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           ) : null}
         </AnimatePresence>
       </div>
@@ -258,21 +258,21 @@ function BranchSection({
 export function PullRequestCreateTrigger({ onOpen }: { onOpen: () => void }) {
   const { t } = useTranslation();
   return (
-    <motion.button
+    <m.button
       layoutId={SHELL_LAYOUT_ID}
       transition={SHELL_TRANSITION}
       type="button"
       onClick={onOpen}
       className="flex h-7 items-center gap-1 rounded-[min(var(--radius-md),12px)] border border-transparent bg-transparent px-2.5 text-[0.8rem] font-medium text-foreground/80 shadow-none transition-colors hover:bg-muted hover:text-foreground"
     >
-      <motion.span
+      <m.span
         layout="position"
         className="inline-flex items-center gap-1"
       >
         <Plus className="h-3.5 w-3.5" />
         <span>{t("pr.createNewButton")}</span>
-      </motion.span>
-    </motion.button>
+      </m.span>
+    </m.button>
   );
 }
 
@@ -354,12 +354,12 @@ export function PullRequestCreatePanel({
   }
 
   return (
-    <motion.div
+    <m.div
       layoutId={SHELL_LAYOUT_ID}
       transition={SHELL_TRANSITION}
       className="mx-3 mt-3 overflow-hidden rounded-xl border border-primary/30 bg-card shadow-lg ring-1 ring-primary/10"
     >
-      <motion.form
+      <m.form
         onSubmit={(e) => void submit(e)}
         initial={{ opacity: 0, y: -4 }}
         animate={{
@@ -472,7 +472,7 @@ export function PullRequestCreatePanel({
             </Button>
           </div>
         </div>
-      </motion.form>
-    </motion.div>
+      </m.form>
+    </m.div>
   );
 }

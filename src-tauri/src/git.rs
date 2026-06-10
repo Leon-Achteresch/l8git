@@ -102,7 +102,7 @@ fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<Stri
             (false, false) => format!("{stderr}\n{stdout}"),
             (false, true) => stderr,
             (true, false) => stdout,
-            (true, true) => "git: Befehl fehlgeschlagen".into(),
+            (true, true) => "git: command failed".into(),
         };
         let trimmed = msg.trim().to_string();
         if trimmed.contains("Your local changes to the following files would be overwritten")
@@ -522,14 +522,18 @@ fn dirty_tracked_files(repo: &PathBuf) -> Vec<String> {
 pub async fn git_pull(path: String, strategy: Option<String>) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
-        let dirty = dirty_tracked_files(&repo);
-        if !dirty.is_empty() {
-            return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
+        let autostash = strategy.as_deref() == Some("autostash");
+        if !autostash {
+            let dirty = dirty_tracked_files(&repo);
+            if !dirty.is_empty() {
+                return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
+            }
         }
         let mut args: Vec<&str> = vec!["pull"];
         match strategy.as_deref() {
             Some("rebase") => args.push("--rebase"),
             Some("ff-only") => args.push("--ff-only"),
+            Some("autostash") => { args.push("--no-rebase"); args.push("--autostash"); }
             _ => args.push("--no-rebase"),
         }
         run_git_merged_output(&repo, &args)
@@ -1267,6 +1271,7 @@ pub struct StatusEntry {
     additions_unstaged: u32,
     deletions_unstaged: u32,
     binary: bool,
+    embedded_repo: bool,
 }
 
 fn diff_reports_binary(diff: &str) -> bool {
@@ -1410,10 +1415,14 @@ fn compute_status_entries(repo: &Path) -> Result<Vec<StatusEntry>, String> {
             .unwrap_or((0, 0, false));
 
         let mut binary = staged_binary || unstaged_binary;
+        let mut embedded_repo = false;
 
         if untracked {
-            let abs = repo.join(&file_path);
-            if let Some((is_binary, lines)) = sniff_untracked(&abs) {
+            let abs = repo.join(file_path.trim_end_matches('/'));
+            // Nested git repo not tracked as submodule — show it distinctly.
+            if abs.is_dir() && (abs.join(".git").exists()) {
+                embedded_repo = true;
+            } else if let Some((is_binary, lines)) = sniff_untracked(&abs) {
                 if is_binary {
                     binary = true;
                 } else {
@@ -1435,6 +1444,7 @@ fn compute_status_entries(repo: &Path) -> Result<Vec<StatusEntry>, String> {
             additions_unstaged,
             deletions_unstaged,
             binary,
+            embedded_repo,
         });
     }
 

@@ -25,6 +25,7 @@ type CommitPrefs = {
   setAiOutputLanguage: (value: string) => void;
   aiProviderType: AiProviderType;
   setAiProviderType: (value: AiProviderType) => void;
+  /** In-memory only – never persisted to localStorage. Populated from OS keyring on app start. */
   aiProviderApiKey: string;
   setAiProviderApiKey: (value: string) => void;
   aiProviderModel: string;
@@ -68,6 +69,11 @@ export const useCommitPrefs = create<CommitPrefs>()(
     {
       name: "l8git-commit-prefs",
       storage: createJSONStorage(() => localStorage),
+      // API key is stored in the OS keyring, not in localStorage.
+      partialize: (s) => {
+        const { aiProviderApiKey: _key, setAiProviderApiKey: _set, ...rest } = s;
+        return rest as Omit<CommitPrefs, "aiProviderApiKey" | "setAiProviderApiKey">;
+      },
     },
   ),
 );

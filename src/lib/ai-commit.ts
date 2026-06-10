@@ -108,7 +108,7 @@ function buildLanguageModel(
 
 export async function generateAiCommitMessage(stagedDiff: string, repoPath?: string): Promise<string> {
   const trimmedDiff = stagedDiff.trim();
-  if (!trimmedDiff) throw new Error("Kein gestagter Diff vorhanden");
+  if (!trimmedDiff) throw new Error(i18n.t("errors.aiNoDiff"));
 
   const prefs = useCommitPrefs.getState();
   const repoLanguage = repoPath ? useRepoPrefs.getState().getAiOutputLanguage(repoPath) : undefined;
