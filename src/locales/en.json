@@ -48,8 +48,6 @@
       "all": "All repos"
     },
     "cards": {
-      "commits30": "Commits · 30 d",
-      "lineDelta": "Working copy lines",
       "branches": "Branches",
       "branchesFooter": "{{active}} active · {{stale}} stale",
       "upstream": "Upstream",
@@ -59,27 +57,12 @@
       "workingCopy": "Working copy",
       "staged": "{{n}} staged",
       "unstaged": "{{n}} changed",
-      "untracked": "{{n}} new"
-    },
-    "activity": {
-      "title": "Commit activity",
-      "subtitle": "How the repo has been moving",
-      "day": "Day",
-      "week": "Week",
-      "month": "Month",
-      "empty": "No commits in the selected range.",
-      "legend": {
-        "commits": "Commits",
-        "insertions": "Insertions",
-        "deletions": "Deletions"
-      }
+      "untracked": "{{n}} new",
+      "openPrsFooter": "8-week trend",
+      "branchesRemote": "{{n}} remote"
     },
     "contributors": {
-      "title": "Top contributors",
-      "subtitle": "Last 90 days",
-      "empty": "No contributor data yet.",
-      "commits_one": "{{count}} commit",
-      "commits_other": "{{count}} commits"
+      "empty": "No contributor data yet."
     },
     "languages": {
       "title": "Languages",
@@ -135,12 +118,9 @@
       "empty": "No repositories registered in this workspace.",
       "totals": {
         "repos": "Repositories",
-        "ahead": "Σ ahead",
-        "behind": "Σ behind",
-        "dirty": "Dirty worktrees",
-        "scanned": "scanned",
-        "attention": "needs attention",
-        "allClear": "all clear"
+        "commits30": "Commits · last 30 days",
+        "sync": "Ahead / behind upstream",
+        "dirty": "Dirty worktrees"
       },
       "cols": {
         "repo": "Repository",
@@ -150,6 +130,45 @@
         "last": "Last commit",
         "activity": "30 d activity"
       }
+    },
+    "range": {
+      "14d": "14D",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1Y"
+    },
+    "rangeLong": {
+      "14d": "last 14 days",
+      "1m": "last 30 days",
+      "3m": "last 3 months",
+      "6m": "last 6 months",
+      "1y": "last 12 months"
+    },
+    "hero": {
+      "label": "Commits · {{range}}",
+      "insertions": "Lines added",
+      "deletions": "Lines removed",
+      "lines": "lines",
+      "vsPrev": "vs prior period",
+      "empty": "No commits in this range."
+    },
+    "monthly": {
+      "label": "Commits in {{month}}",
+      "commits": "Commits"
+    },
+    "heatmap": {
+      "label": "Active days · last 12 months",
+      "currentStreak": "Current streak",
+      "longestStreak": "Longest streak",
+      "busiest": "Busiest day",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "commits": "Commits"
+    },
+    "contributorsPie": {
+      "label": "Contributors · {{range}}",
+      "others": "Others"
     }
   },
   "emptyState": {

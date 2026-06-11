@@ -1,41 +1,27 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import {
-  ArrowDown,
   ArrowLeft,
-  ArrowUp,
-  FileDiff,
-  FilePlus2,
-  GitBranch,
-  GitCommit,
-  GitPullRequest,
   Languages as LanguagesIcon,
   ListChecks,
   Activity as ActivityIcon,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ActivityPanel } from "@/components/dashboard/activity-panel";
 import { AllReposTable } from "@/components/dashboard/all-repos-table";
-import { CommitActivityChart } from "@/components/dashboard/commit-activity-chart";
-import { DashboardDonut } from "@/components/dashboard/dashboard-donut";
-import { DashboardMiniBars, DashboardMirrorBars } from "@/components/dashboard/dashboard-mini-bars";
-import { DashboardSparkline } from "@/components/dashboard/dashboard-sparkline";
-import { DashboardStatCard } from "@/components/dashboard/dashboard-stat-card";
+import { ContributorsPanel } from "@/components/dashboard/contributors-panel";
+import { HeatmapPanel } from "@/components/dashboard/heatmap-panel";
 import { LanguageBreakdown } from "@/components/dashboard/language-breakdown";
+import { MonthlyPanel } from "@/components/dashboard/monthly-panel";
+import type { RangeKey } from "@/components/dashboard/ranges";
 import { RecentActivityFeed } from "@/components/dashboard/recent-activity-feed";
 import { RepoHealthList } from "@/components/dashboard/repo-health-list";
-import { TopContributorsList } from "@/components/dashboard/top-contributors-list";
+import { StatusStrip } from "@/components/dashboard/status-strip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  selectBranchBuckets,
-  selectCommitsByDay,
-  selectOpenPrTrend,
-  selectRecentActivity,
-  selectRepoHealth,
-  selectWorkingCopy,
-} from "@/lib/dashboard-aggregations";
+import { selectRecentActivity, selectRepoHealth } from "@/lib/dashboard-aggregations";
 import { useRepoStore } from "@/lib/repo-store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 
@@ -109,6 +95,8 @@ function DashboardPage() {
 
 function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName: string }) {
   const { t } = useTranslation();
+  const [range, setRange] = useState<RangeKey>("1m");
+
   const repo = useRepoStore((s) => (path ? s.repos[path] : undefined));
   const status = useRepoStore((s) => (path ? s.status[path] : undefined));
   const upstreamSync = useRepoStore((s) => (path ? s.upstreamSync[path] : undefined));
@@ -122,25 +110,6 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
 
   const commits = repo?.commits ?? [];
   const branches = repo?.branches ?? [];
-
-  const last30 = useMemo(() => selectCommitsByDay(commits, 30), [commits]);
-  const prev30 = useMemo(() => {
-    const buckets = selectCommitsByDay(commits, 60).slice(0, 30);
-    return buckets;
-  }, [commits]);
-  const commitsLast30Total = last30.reduce((acc, b) => acc + b.commits, 0);
-  const commitsPrev30Total = prev30.reduce((acc, b) => acc + b.commits, 0);
-  const commitsDeltaPct =
-    commitsPrev30Total === 0
-      ? null
-      : Math.round(((commitsLast30Total - commitsPrev30Total) / commitsPrev30Total) * 100);
-
-  const branchBuckets = useMemo(() => selectBranchBuckets(branches, commits), [branches, commits]);
-
-  const workingCopy = useMemo(() => selectWorkingCopy(status), [status]);
-
-  const prTrend = useMemo(() => selectOpenPrTrend(prs, 8), [prs]);
-  const openPrCount = prs?.filter((p) => p.state === "open").length ?? 0;
 
   const recent = useMemo(
     () => selectRecentActivity({ commits, prs, stashes, branches, limit: 10 }),
@@ -172,148 +141,29 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
     );
   }
 
-  const additions = (status ?? []).reduce(
-    (acc, e) => acc + e.additions_staged + e.additions_unstaged,
-    0,
-  );
-  const deletions = (status ?? []).reduce(
-    (acc, e) => acc + e.deletions_staged + e.deletions_unstaged,
-    0,
-  );
-
-  const ahead = upstreamSync?.ahead ?? 0;
-  const behind = upstreamSync?.behind ?? 0;
-
-  const fakeAddRemoveSeries = last30.map((b) => b.commits);
-
   return (
     <div className="space-y-4">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">
         {t("dashboard.activeRepoLabel")}
-        <span className="ml-2 text-foreground">{repoName || path}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <DashboardStatCard
-          icon={GitCommit}
-          label={t("dashboard.cards.commits30")}
-          value={commitsLast30Total}
-          delta={
-            commitsDeltaPct === null
-              ? undefined
-              : `${commitsDeltaPct >= 0 ? "+" : ""}${commitsDeltaPct}%`
-          }
-          trend={commitsDeltaPct === null ? "flat" : commitsDeltaPct >= 0 ? "up" : "down"}
-          chart={
-            <div className="h-full w-full text-primary">
-              <DashboardMiniBars data={last30.map((b) => b.commits)} color="currentColor" />
-            </div>
-          }
-        />
-        <DashboardStatCard
-          icon={FileDiff}
-          label={t("dashboard.cards.lineDelta")}
-          value={`${additions - deletions >= 0 ? "+" : ""}${(additions - deletions).toLocaleString()}`}
-          delta={`+${additions} / -${deletions}`}
-          trend={additions >= deletions ? "up" : "down"}
-          chart={
-            <DashboardMirrorBars
-              positive={fakeAddRemoveSeries}
-              negative={fakeAddRemoveSeries.map((v) => Math.max(0, v - 1))}
-              positiveColor="rgb(16 185 129)"
-              negativeColor="rgb(244 63 94)"
-            />
-          }
-        />
-        <DashboardStatCard
-          icon={GitBranch}
-          label={t("dashboard.cards.branches")}
-          value={branchBuckets.total}
-          footer={t("dashboard.cards.branchesFooter", {
-            active: branchBuckets.active,
-            stale: branchBuckets.stale,
-          })}
-          chart={
-            <DashboardDonut
-              size={48}
-              thickness={8}
-              slices={[
-                { key: "active", value: branchBuckets.active, color: "rgb(16 185 129)" },
-                { key: "stale", value: branchBuckets.stale, color: "rgb(245 158 11)" },
-                { key: "remote", value: branchBuckets.remote, color: "rgb(99 102 241)" },
-              ]}
-            />
-          }
-        />
-        <DashboardStatCard
-          icon={ahead >= behind ? ArrowUp : ArrowDown}
-          label={t("dashboard.cards.upstream")}
-          value={
-            hasUpstream === false ? (
-              <span className="text-base font-normal text-muted-foreground">
-                {t("dashboard.cards.noUpstream")}
-              </span>
-            ) : (
-              `${ahead}/${behind}`
-            )
-          }
-          footer={
-            hasUpstream === false
-              ? undefined
-              : t("dashboard.cards.upstreamFooter", { ahead, behind })
-          }
-        />
-        <DashboardStatCard
-          icon={GitPullRequest}
-          label={t("dashboard.cards.openPrs")}
-          value={openPrCount}
-          chart={
-            <div className="h-full w-full text-primary">
-              <DashboardSparkline data={prTrend.map((p) => p.count)} />
-            </div>
-          }
-        />
-        <DashboardStatCard
-          icon={FilePlus2}
-          label={t("dashboard.cards.workingCopy")}
-          value={workingCopy.total}
-          footer={
-            <div className="flex flex-wrap gap-1">
-              <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
-                {t("dashboard.cards.staged", { n: workingCopy.staged })}
-              </span>
-              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
-                {t("dashboard.cards.unstaged", { n: workingCopy.unstaged })}
-              </span>
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                {t("dashboard.cards.untracked", { n: workingCopy.untracked })}
-              </span>
-            </div>
-          }
-        />
+        <span className="ml-2 font-medium text-foreground">{repoName || path}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardContent className="h-[320px]">
-            <CommitActivityChart path={path} className="h-full" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <ActivityIcon className="size-4 text-muted-foreground" />
-              {t("dashboard.contributors.title")}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {t("dashboard.contributors.subtitle")}
-            </p>
-          </CardHeader>
-          <CardContent>
-            <TopContributorsList path={path} />
-          </CardContent>
-        </Card>
+        <ActivityPanel
+          path={path}
+          range={range}
+          onRangeChange={setRange}
+          className="lg:col-span-2"
+        />
+        <MonthlyPanel path={path} />
       </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <HeatmapPanel path={path} className="lg:col-span-2" />
+        <ContributorsPanel path={path} range={range} />
+      </div>
+
+      <StatusStrip path={path} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>

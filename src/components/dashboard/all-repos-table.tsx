@@ -1,11 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowDown, ArrowUp, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { DashboardSparkline } from "@/components/dashboard/dashboard-sparkline";
-import { DashboardStatCard } from "@/components/dashboard/dashboard-stat-card";
+import { PanelValue } from "@/components/dashboard/panel-bits";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,15 +53,14 @@ export function AllReposTable({ paths }: { paths: string[] }) {
     let ahead = 0;
     let behind = 0;
     let dirty = 0;
-    let stale = 0;
-    const staleCut = Date.now() / 1000 - 30 * 86400;
+    let commits30 = 0;
     for (const r of rows) {
       ahead += r.ahead;
       behind += r.behind;
       if (r.dirty_count > 0) dirty += 1;
-      if (r.last_commit_at !== null && r.last_commit_at < staleCut) stale += 1;
+      commits30 += r.commits_last_30d.reduce((acc, v) => acc + v, 0);
     }
-    return { ahead, behind, dirty, stale };
+    return { ahead, behind, dirty, commits30 };
   }, [rows]);
 
   const onOpen = (path: string) => {
@@ -73,26 +71,40 @@ export function AllReposTable({ paths }: { paths: string[] }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <DashboardStatCard
-          label={t("dashboard.all.totals.repos")}
-          value={paths.length}
-        />
-        <DashboardStatCard
-          label={t("dashboard.all.totals.behind")}
-          value={totals.behind}
-          delta={totals.behind > 0 ? t("dashboard.all.totals.attention") : t("dashboard.all.totals.allClear")}
-          trend={totals.behind > 0 ? "down" : "up"}
-        />
-        <DashboardStatCard
-          label={t("dashboard.all.totals.ahead")}
-          value={totals.ahead}
-          trend={totals.ahead > 0 ? "up" : "flat"}
-        />
-        <DashboardStatCard
-          label={t("dashboard.all.totals.dirty")}
-          value={totals.dirty}
-          delta={`${rows.length} ${t("dashboard.all.totals.scanned")}`}
-        />
+        <Card size="sm">
+          <CardContent>
+            <PanelValue value={paths.length} label={t("dashboard.all.totals.repos")} />
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardContent>
+            <PanelValue
+              value={totals.commits30.toLocaleString(i18n.resolvedLanguage)}
+              label={t("dashboard.all.totals.commits30")}
+            />
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardContent>
+            <PanelValue
+              value={
+                <span>
+                  <span className="text-git-added">↑{totals.ahead}</span>{" "}
+                  <span className="text-git-removed">↓{totals.behind}</span>
+                </span>
+              }
+              label={t("dashboard.all.totals.sync")}
+            />
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardContent>
+            <PanelValue
+              value={totals.dirty}
+              label={t("dashboard.all.totals.dirty")}
+            />
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -110,7 +122,7 @@ export function AllReposTable({ paths }: { paths: string[] }) {
           {paths.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t("dashboard.all.empty")}</p>
           ) : error ? (
-            <p className="text-xs text-rose-500">{error}</p>
+            <p className="text-xs text-git-removed">{error}</p>
           ) : loading && rows.length === 0 ? (
             <div className="space-y-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -137,37 +149,39 @@ export function AllReposTable({ paths }: { paths: string[] }) {
                       onClick={() => onOpen(r.path)}
                       className="cursor-pointer border-b border-border/40 transition-colors hover:bg-muted/40"
                     >
-                      <td className="py-2 pr-3">
+                      <td className="py-2.5 pr-3">
                         <div className="font-medium">{r.name || r.path}</div>
                         <div className="truncate text-[10px] text-muted-foreground">{r.path}</div>
                       </td>
-                      <td className="py-2 pr-3 text-xs text-muted-foreground">{r.branch || "—"}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        <span className="inline-flex items-center gap-1 text-xs">
-                          <ArrowUp className="size-3 text-emerald-500" />
-                          {r.ahead}
-                          <ArrowDown className="size-3 text-rose-500" />
-                          {r.behind}
+                      <td className="py-2.5 pr-3 font-mono text-xs text-muted-foreground">
+                        {r.branch || "—"}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums">
+                        <span className="inline-flex items-center gap-2 text-xs">
+                          <span className={cn(r.ahead > 0 ? "text-git-added" : "text-muted-foreground")}>
+                            ↑{r.ahead}
+                          </span>
+                          <span className={cn(r.behind > 0 ? "text-git-removed" : "text-muted-foreground")}>
+                            ↓{r.behind}
+                          </span>
                         </span>
                       </td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-xs">
+                      <td className="py-2.5 pr-3 text-right tabular-nums text-xs">
                         {r.dirty_count > 0 ? (
-                          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-600 dark:text-amber-400">
+                          <span className="rounded-full bg-git-modified-subtle px-2 py-0.5 text-git-modified">
                             {r.dirty_count}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">0</span>
                         )}
                       </td>
-                      <td className="py-2 pr-3 text-xs text-muted-foreground">
+                      <td className="py-2.5 pr-3 text-xs text-muted-foreground">
                         {r.last_commit_at
                           ? formatRelativeTime(new Date(r.last_commit_at * 1000), i18n.resolvedLanguage)
                           : "—"}
                       </td>
-                      <td className="py-2">
-                        <div className="h-8 w-28 text-primary">
-                          <DashboardSparkline data={r.commits_last_30d} />
-                        </div>
+                      <td className="py-2.5">
+                        <ActivityStrip data={r.commits_last_30d} />
                       </td>
                     </tr>
                   ))}
@@ -177,6 +191,24 @@ export function AllReposTable({ paths }: { paths: string[] }) {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ActivityStrip({ data }: { data: number[] }) {
+  const max = Math.max(...data, 1);
+  return (
+    <div className="flex h-7 w-32 items-end gap-px">
+      {data.map((v, i) => (
+        <div
+          key={i}
+          className={cn(
+            "flex-1 rounded-[1px]",
+            v > 0 ? "bg-foreground/70" : "bg-foreground/[0.12]",
+          )}
+          style={{ height: v > 0 ? `${Math.max(18, (v / max) * 100)}%` : "12%" }}
+        />
+      ))}
     </div>
   );
 }

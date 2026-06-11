@@ -97,36 +97,123 @@ export function selectBranchBuckets(
   return { total: branches.length, active, stale, remote };
 }
 
-export type ContributorBucket = {
-  name: string;
-  email: string;
+export type RawActivityBucket = {
+  bucket: string;
   commits: number;
-  percent: number;
+  insertions: number;
+  deletions: number;
 };
 
-export function selectTopContributors(
-  commits: readonly Commit[] | undefined,
-  limit = 6,
-): ContributorBucket[] {
-  if (!commits || commits.length === 0) return [];
-  const map = new Map<string, { name: string; email: string; commits: number }>();
-  for (const c of commits) {
-    const key = (c.email || c.author || "").toLowerCase();
-    if (!key) continue;
-    const existing = map.get(key);
-    if (existing) existing.commits += 1;
-    else
-      map.set(key, {
-        name: c.author || c.email || key,
-        email: c.email || "",
-        commits: 1,
-      });
+export type ActivityDay = {
+  date: string;
+  commits: number;
+  insertions: number;
+  deletions: number;
+};
+
+export function buildDailySeries(
+  buckets: readonly RawActivityBucket[] | undefined,
+  days: number,
+): ActivityDay[] {
+  const byDate = new Map((buckets ?? []).map((b) => [b.bucket, b]));
+  const today = startOfUtcDay(new Date());
+  const series: ActivityDay[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today.getTime() - i * DAY_MS).toISOString().slice(0, 10);
+    const b = byDate.get(date);
+    series.push({
+      date,
+      commits: b?.commits ?? 0,
+      insertions: b?.insertions ?? 0,
+      deletions: b?.deletions ?? 0,
+    });
   }
-  const total = commits.length;
-  return Array.from(map.values())
-    .sort((a, b) => b.commits - a.commits)
-    .slice(0, limit)
-    .map((e) => ({ ...e, percent: total > 0 ? (e.commits / total) * 100 : 0 }));
+  return series;
+}
+
+export type ActivityTotals = {
+  commits: number;
+  insertions: number;
+  deletions: number;
+};
+
+export function sumActivity(days: readonly ActivityDay[]): ActivityTotals {
+  return days.reduce(
+    (acc, d) => ({
+      commits: acc.commits + d.commits,
+      insertions: acc.insertions + d.insertions,
+      deletions: acc.deletions + d.deletions,
+    }),
+    { commits: 0, insertions: 0, deletions: 0 },
+  );
+}
+
+export type ActivityGrouping = "day" | "week" | "month";
+
+function groupKey(date: string, grouping: ActivityGrouping): string {
+  if (grouping === "day") return date;
+  const d = new Date(date + "T00:00:00Z");
+  if (grouping === "month") {
+    return `${date.slice(0, 7)}-01`;
+  }
+  const dow = (d.getUTCDay() + 6) % 7;
+  return new Date(d.getTime() - dow * DAY_MS).toISOString().slice(0, 10);
+}
+
+export function groupActivity(
+  days: readonly ActivityDay[],
+  grouping: ActivityGrouping,
+): ActivityDay[] {
+  const result: ActivityDay[] = [];
+  const indexByKey = new Map<string, number>();
+  for (const d of days) {
+    const key = groupKey(d.date, grouping);
+    const idx = indexByKey.get(key);
+    if (idx === undefined) {
+      indexByKey.set(key, result.length);
+      result.push({ ...d, date: key });
+    } else {
+      result[idx].commits += d.commits;
+      result[idx].insertions += d.insertions;
+      result[idx].deletions += d.deletions;
+    }
+  }
+  return result;
+}
+
+export type StreakSummary = {
+  activeDays: number;
+  currentStreak: number;
+  longestStreak: number;
+  busiest: ActivityDay | null;
+};
+
+export function selectStreaks(days: readonly ActivityDay[]): StreakSummary {
+  let activeDays = 0;
+  let longest = 0;
+  let run = 0;
+  let busiest: ActivityDay | null = null;
+  for (const d of days) {
+    if (d.commits > 0) {
+      activeDays += 1;
+      run += 1;
+      longest = Math.max(longest, run);
+      if (!busiest || d.commits > busiest.commits) busiest = d;
+    } else {
+      run = 0;
+    }
+  }
+  let current = 0;
+  for (let i = days.length - 1; i >= 0; i--) {
+    if (days[i].commits > 0) {
+      current += 1;
+    } else if (i === days.length - 1) {
+      continue;
+    } else {
+      break;
+    }
+  }
+  return { activeDays, currentStreak: current, longestStreak: longest, busiest };
 }
 
 export type WorkingCopySummary = {
