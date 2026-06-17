@@ -309,6 +309,277 @@ async fn bitbucket_list(host: &str) -> Result<Vec<RemoteRepo>, String> {
     Ok(out)
 }
 
+#[derive(Serialize)]
+pub struct CreatedRepo {
+    pub clone_url: String,
+    pub ssh_url: Option<String>,
+    pub full_name: String,
+    pub web_url: Option<String>,
+}
+
+fn validate_repo_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("Repository-Name darf nicht leer sein.".into());
+    }
+    if name.len() > 100 {
+        return Err("Repository-Name ist zu lang (max. 100 Zeichen).".into());
+    }
+    // Allow letters, digits and the characters commonly accepted as repo slugs.
+    let ok = name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    if !ok {
+        return Err(
+            "Repository-Name darf nur Buchstaben, Ziffern sowie - _ . enthalten.".into(),
+        );
+    }
+    Ok(())
+}
+
+async fn github_create(
+    host: &str,
+    name: &str,
+    private: bool,
+    description: Option<&str>,
+) -> Result<CreatedRepo, String> {
+    let cred = read_https_credential(host)?;
+    let client = http_client()?;
+    let url = format!("{}/user/repos", github_api_base(host));
+    let mut body = serde_json::json!({
+        "name": name,
+        "private": private,
+        "auto_init": false,
+    });
+    if let Some(d) = description.filter(|d| !d.is_empty()) {
+        body["description"] = Value::String(d.to_string());
+    }
+    let res = client
+        .post(&url)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "l8git")
+        .header("Authorization", format!("Bearer {}", cred.password))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("GitHub: {e}"))?;
+    if res.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err(format!(
+            "GitHub: 401. Bitte unter Einstellungen bei {host} anmelden."
+        ));
+    }
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        let msg = serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|v| v["message"].as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| body.trim().to_string());
+        return Err(format!("GitHub ({status}): {msg}"));
+    }
+    let v: Value = res.json().await.map_err(|e| format!("GitHub: {e}"))?;
+    let clone_url = v["clone_url"].as_str().unwrap_or("").to_string();
+    if clone_url.is_empty() {
+        return Err("GitHub: Antwort enthielt keine Clone-URL.".into());
+    }
+    Ok(CreatedRepo {
+        clone_url,
+        ssh_url: v["ssh_url"].as_str().map(|s| s.to_string()),
+        full_name: v["full_name"].as_str().unwrap_or(name).to_string(),
+        web_url: v["html_url"].as_str().map(|s| s.to_string()),
+    })
+}
+
+async fn gitlab_create(
+    host: &str,
+    name: &str,
+    private: bool,
+    description: Option<&str>,
+) -> Result<CreatedRepo, String> {
+    let cred = read_https_credential(host)?;
+    let client = http_client()?;
+    let base = format!("https://{host}");
+    let url = format!("{}/api/v4/projects", base.trim_end_matches('/'));
+    let mut body = serde_json::json!({
+        "name": name,
+        "visibility": if private { "private" } else { "public" },
+    });
+    if let Some(d) = description.filter(|d| !d.is_empty()) {
+        body["description"] = Value::String(d.to_string());
+    }
+    let res = client
+        .post(&url)
+        .header("User-Agent", "l8git")
+        .header("PRIVATE-TOKEN", cred.password)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("GitLab: {e}"))?;
+    if res.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err(format!(
+            "GitLab: 401. Bitte unter Einstellungen bei {host} anmelden."
+        ));
+    }
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        let msg = serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|v| {
+                v["message"]
+                    .as_str()
+                    .map(|s| s.to_string())
+                    .or_else(|| v["error"].as_str().map(|s| s.to_string()))
+            })
+            .unwrap_or_else(|| body.trim().to_string());
+        return Err(format!("GitLab ({status}): {msg}"));
+    }
+    let v: Value = res.json().await.map_err(|e| format!("GitLab: {e}"))?;
+    let clone_url = v["http_url_to_repo"].as_str().unwrap_or("").to_string();
+    if clone_url.is_empty() {
+        return Err("GitLab: Antwort enthielt keine Clone-URL.".into());
+    }
+    Ok(CreatedRepo {
+        clone_url,
+        ssh_url: v["ssh_url_to_repo"].as_str().map(|s| s.to_string()),
+        full_name: v["path_with_namespace"].as_str().unwrap_or(name).to_string(),
+        web_url: v["web_url"].as_str().map(|s| s.to_string()),
+    })
+}
+
+async fn bitbucket_first_workspace(
+    client: &reqwest::Client,
+    cred: &HttpsCredential,
+    host: &str,
+) -> Result<String, String> {
+    let workspaces_url = "https://api.bitbucket.org/2.0/user/workspaces?pagelen=100";
+    let rows = bitbucket_collect_paginated_values(client, cred, workspaces_url, host).await?;
+    for row in rows {
+        if let Some(s) = row
+            .get("workspace")
+            .and_then(|w| w.get("slug"))
+            .and_then(|s| s.as_str())
+        {
+            if !s.is_empty() {
+                return Ok(s.to_string());
+            }
+        }
+    }
+    Err("Bitbucket: Kein Workspace gefunden, in dem das Repository angelegt werden könnte.".into())
+}
+
+async fn bitbucket_create(
+    host: &str,
+    name: &str,
+    private: bool,
+    description: Option<&str>,
+) -> Result<CreatedRepo, String> {
+    let cred = read_https_credential(host)?;
+    let client = http_client()?;
+    let workspace = bitbucket_first_workspace(&client, &cred, host).await?;
+    // Bitbucket uses a slug in the URL; lowercase is the safest normalisation.
+    let slug = name.to_ascii_lowercase();
+    let url = format!("https://api.bitbucket.org/2.0/repositories/{workspace}/{slug}");
+    let mut body = serde_json::json!({
+        "scm": "git",
+        "is_private": private,
+        "name": name,
+    });
+    if let Some(d) = description.filter(|d| !d.is_empty()) {
+        body["description"] = Value::String(d.to_string());
+    }
+
+    let basic_b64 = cred
+        .username
+        .as_ref()
+        .filter(|u| !u.is_empty())
+        .map(|user| {
+            base64::engine::general_purpose::STANDARD
+                .encode(format!("{user}:{}", cred.password))
+        });
+    let req = client
+        .post(&url)
+        .header("User-Agent", "l8git")
+        .header("Accept", "application/json")
+        .json(&body);
+    let req = if let Some(ref b64) = basic_b64 {
+        req.header("Authorization", format!("Basic {b64}"))
+    } else if bitbucket_secret_likely_jwt(&cred.password) {
+        req.header("Authorization", format!("Bearer {}", cred.password))
+    } else {
+        return Err(format!(
+            "Bitbucket: Benutzername fehlt. Bitte unter Einstellungen bei {host} mit Benutzername und App-Passwort anmelden."
+        ));
+    };
+    let res = req.send().await.map_err(|e| format!("Bitbucket: {e}"))?;
+    if res.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err(format!(
+            "Bitbucket: 401. Bitte unter Einstellungen bei {host} anmelden."
+        ));
+    }
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        let msg = serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|v| v["error"]["message"].as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| body.trim().to_string());
+        return Err(format!("Bitbucket ({status}): {msg}"));
+    }
+    let v: Value = res.json().await.map_err(|e| format!("Bitbucket: {e}"))?;
+    let repo = bitbucket_remote_repo_from_value(&v)
+        .ok_or_else(|| "Bitbucket: Antwort enthielt keine Clone-URL.".to_string())?;
+    let ssh_url = v["links"]["clone"].as_array().and_then(|clones| {
+        clones.iter().find_map(|c| {
+            if c["name"].as_str() == Some("ssh") {
+                c["href"].as_str().map(|s| s.to_string())
+            } else {
+                None
+            }
+        })
+    });
+    let web_url = v["links"]["html"]["href"].as_str().map(|s| s.to_string());
+    Ok(CreatedRepo {
+        clone_url: repo.clone_url,
+        ssh_url,
+        full_name: repo.full_name,
+        web_url,
+    })
+}
+
+/// Create a new repository on the provider hosted at `host` and return its
+/// clone URL so the caller can wire it up as a git remote.
+#[tauri::command]
+pub async fn create_remote_repo(
+    host: String,
+    name: String,
+    private: bool,
+    description: Option<String>,
+) -> Result<CreatedRepo, String> {
+    let h = host.trim();
+    if h.is_empty() {
+        return Err("Host darf nicht leer sein".into());
+    }
+    let name = name.trim().to_string();
+    validate_repo_name(&name)?;
+    let description = description.map(|d| d.trim().to_string());
+    let desc = description.as_deref();
+    let host_lc = h.to_ascii_lowercase();
+    match host_lc.as_str() {
+        "github.com" => github_create(h, &name, private, desc).await,
+        "gitlab.com" => gitlab_create(h, &name, private, desc).await,
+        "bitbucket.org" => bitbucket_create(h, &name, private, desc).await,
+        "dev.azure.com" => Err(
+            "Azure DevOps: Das Anlegen von Repositories wird hier noch nicht unterstützt.".into(),
+        ),
+        _ if host_lc.contains("github") => github_create(h, &name, private, desc).await,
+        _ if host_lc.contains("gitlab") => gitlab_create(h, &name, private, desc).await,
+        _ => match github_create(h, &name, private, desc).await {
+            Ok(repo) => Ok(repo),
+            Err(_) => gitlab_create(h, &name, private, desc).await,
+        },
+    }
+}
+
 #[tauri::command]
 pub async fn list_remote_repos(host: String) -> Result<Vec<RemoteRepo>, String> {
     let h = host.trim();

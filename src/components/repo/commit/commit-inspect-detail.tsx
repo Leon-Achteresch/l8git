@@ -1,9 +1,4 @@
 import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -22,31 +17,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitInspectHeader } from "./commit-inspect-header";
 import { CommitInspectMessage } from "./commit-inspect-message";
-import { CommitInspectFileList } from "./commit-inspect-file-list";
-import { CommitInspectSplitHeader } from "./commit-inspect-split-header";
+import { CommitInspectFileTabs } from "./commit-inspect-file-tabs";
 import { CommitInspectDiff, FileDiffPayload } from "./commit-inspect-diff";
 import { CommitChangedFile } from "./commit-inspect-file-item";
-import { writeLocalStorageDebounced } from "@/lib/utils";
 
 type InspectPayload = { header: string; files: CommitChangedFile[] };
-
-const innerLayoutKey = "l8git.commit-inspect-inner.v3";
-
-function readSplitFlexFromStorage(): { files: number; diff: number } {
-  const raw = localStorage.getItem(innerLayoutKey);
-  if (!raw) return { files: 34, diff: 66 };
-  try {
-    const p = JSON.parse(raw) as Record<string, number>;
-    const f = p.cifiles;
-    const d = p.cidiff;
-    if (typeof f === "number" && typeof d === "number" && f > 0 && d > 0) {
-      return { files: f, diff: d };
-    }
-  } catch {
-    return { files: 34, diff: 66 };
-  }
-  return { files: 34, diff: 66 };
-}
 
 export function CommitInspectDetail({
   path,
@@ -62,24 +37,11 @@ export function CommitInspectDetail({
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [checkedFiles, setCheckedFiles] = useState<ReadonlySet<string>>(new Set());
   const [fileDiff, setFileDiff] = useState<FileDiffPayload | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffFailed, setDiffFailed] = useState(false);
-  const [splitFlex, setSplitFlex] = useState(readSplitFlexFromStorage);
   const [blameActive, setBlameActive] = useState(false);
   const [restoreDialog, setRestoreDialog] = useState<{ files: string[] } | null>(null);
-  const [defaultInnerLayout] = useState<Record<string, number> | undefined>(
-    () => {
-      const raw = localStorage.getItem(innerLayoutKey);
-      if (!raw) return undefined;
-      try {
-        return JSON.parse(raw) as Record<string, number>;
-      } catch {
-        return undefined;
-      }
-    },
-  );
 
   const loadInspect = useCallback(async () => {
     if (!commitHash) {
@@ -134,7 +96,6 @@ export function CommitInspectDetail({
 
   useEffect(() => {
     setSelectedFile(null);
-    setCheckedFiles(new Set());
     setFileDiff(null);
     setDiffFailed(false);
     setBlameActive(false);
@@ -163,31 +124,16 @@ export function CommitInspectDetail({
     [commitHash],
   );
 
-  const discardChecked = useCallback(() => {
-    if (!commitHash || checkedFiles.size === 0) return;
-    setRestoreDialog({ files: [...checkedFiles] });
-  }, [commitHash, checkedFiles]);
-
   const confirmRestore = useCallback(async () => {
     if (!commitHash || !restoreDialog) return;
     const { files } = restoreDialog;
     setRestoreDialog(null);
     try {
       await restoreFilesAtCommit(path, commitHash, files);
-      if (files.length > 1) setCheckedFiles(new Set());
     } catch (e) {
       toastError(String(e));
     }
   }, [commitHash, restoreDialog, restoreFilesAtCommit, path]);
-
-  const handleCheckedChange = useCallback((filePath: string, checked: boolean) => {
-    setCheckedFiles((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(filePath);
-      else next.delete(filePath);
-      return next;
-    });
-  }, []);
 
   const refreshAll = useCallback(() => {
     void loadInspect();
@@ -224,84 +170,41 @@ export function CommitInspectDetail({
             </span>
           </div>
         ) : (
-          <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-full min-h-0 min-w-0 flex-col">
             {payload?.header ? (
               <CommitInspectMessage message={payload.header} />
             ) : null}
-            <div className="flex min-h-0 flex-1 flex-col bg-muted/5">
-              <CommitInspectSplitHeader
-                selectedFile={blameActive ? null : selectedFile}
-                filesFlex={splitFlex.files}
-                diffFlex={splitFlex.diff}
-              />
-              <ResizablePanelGroup
-                orientation="horizontal"
-                id="commit-inspect-inner-v3"
-                className="min-h-0 flex-1"
-                defaultLayout={defaultInnerLayout}
-                onLayoutChanged={(layout) => {
-                  writeLocalStorageDebounced(
-                    innerLayoutKey,
-                    JSON.stringify(layout),
-                  );
-                  const f = layout.cifiles;
-                  const d = layout.cidiff;
-                  if (typeof f === "number" && typeof d === "number") {
-                    setSplitFlex({ files: f, diff: d });
-                  }
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/5">
+              <CommitInspectFileTabs
+                files={payload?.files ?? []}
+                selectedFile={selectedFile}
+                onSelectFile={(f) => {
+                  setSelectedFile(f);
+                  setBlameActive(false);
                 }}
-              >
-                <ResizablePanel
-                  id="cifiles"
-                  defaultSize="34%"
-                  minSize="14%"
-                  maxSize="78%"
-                  className="flex min-h-0 flex-col"
-                >
-                  <CommitInspectFileList
-                    files={payload?.files ?? []}
-                    selectedFile={selectedFile}
-                    checkedFiles={checkedFiles}
-                    onSelectFile={(f) => {
-                      setSelectedFile(f);
-                      setBlameActive(false);
-                    }}
-                    onBlame={(f) => {
-                      setSelectedFile(f);
-                      setBlameActive(true);
-                    }}
-                    onDiscardFile={discardFile}
-                    onCheckedChange={handleCheckedChange}
-                    onDiscardChecked={discardChecked}
+                onBlame={(f) => {
+                  setSelectedFile(f);
+                  setBlameActive(true);
+                }}
+                onDiscardFile={discardFile}
+              />
+              <div className="flex min-h-0 flex-1 flex-col">
+                {blameActive && selectedFile ? (
+                  <GitBlameSheet
+                    path={path}
+                    file={selectedFile}
+                    commit={commitHash ?? undefined}
+                    onClose={() => setBlameActive(false)}
                   />
-                </ResizablePanel>
-                <ResizableHandle
-                  withHandle
-                  className="w-1.5 bg-transparent transition-colors hover:bg-primary/20 active:bg-primary/40"
-                />
-                <ResizablePanel
-                  id="cidiff"
-                  defaultSize="66%"
-                  minSize="22%"
-                  className="flex min-h-0 flex-col"
-                >
-                  {blameActive && selectedFile ? (
-                    <GitBlameSheet
-                      path={path}
-                      file={selectedFile}
-                      commit={commitHash ?? undefined}
-                      onClose={() => setBlameActive(false)}
-                    />
-                  ) : (
-                    <CommitInspectDiff
-                      selectedFile={selectedFile}
-                      fileDiff={fileDiff}
-                      loading={diffLoading}
-                      failed={diffFailed}
-                    />
-                  )}
-                </ResizablePanel>
-              </ResizablePanelGroup>
+                ) : (
+                  <CommitInspectDiff
+                    selectedFile={selectedFile}
+                    fileDiff={fileDiff}
+                    loading={diffLoading}
+                    failed={diffFailed}
+                  />
+                )}
+              </div>
             </div>
           </div>
         )}
