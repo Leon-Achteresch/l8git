@@ -66,10 +66,11 @@ export function LanguageBreakdown({ path }: { path: string | null }) {
   const top = stats.slice(0, 6);
   return (
     <div className="space-y-3">
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="flex h-2.5 w-full gap-px overflow-hidden rounded-full bg-muted">
         {top.map((s) => (
           <div
             key={s.language}
+            className="h-full"
             style={{ width: `${s.percent}%`, backgroundColor: s.color }}
             title={`${s.language} ${s.percent.toFixed(1)}%`}
           />

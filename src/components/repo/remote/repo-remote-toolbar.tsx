@@ -37,6 +37,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { CreateRemoteRepoDialog } from './create-remote-repo-dialog';
 import { EditRemoteDialog } from './edit-remote-dialog';
 import { PushUpstreamDialog } from './push-upstream-dialog';
 import { ToolbarButton } from './toolbar-button';
@@ -99,6 +100,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const [showSpinner, setShowSpinner] = useState(false);
   const [pushDialogOpen, setPushDialogOpen] = useState(false);
   const [remoteDialogOpen, setRemoteDialogOpen] = useState(false);
+  const [createRemoteOpen, setCreateRemoteOpen] = useState(false);
   const [draftQuery, setDraftQuery] = useState('');
 
   useEffect(() => {
@@ -185,13 +187,26 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     ]
   );
 
-  const runPush = useCallback(() => {
+  const runPush = useCallback(async () => {
+    // No remote yet → offer to create one on a provider instead of failing.
+    try {
+      const remotes = await invoke<{ name: string; url: string }[]>(
+        'list_git_remotes',
+        { path }
+      );
+      if (remotes.length === 0) {
+        setCreateRemoteOpen(true);
+        return;
+      }
+    } catch {
+      // If we can't determine remotes, fall back to the normal push flow.
+    }
     if (lackUpstream) {
       setPushDialogOpen(true);
       return;
     }
     void run('push');
-  }, [lackUpstream, run]);
+  }, [lackUpstream, run, path]);
 
   const remoteDisabled = busy !== null;
   const ideConfigured = ideLaunchCommand.trim().length > 0;
@@ -592,6 +607,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       <EditRemoteDialog
         open={remoteDialogOpen}
         onClose={() => setRemoteDialogOpen(false)}
+        path={path}
+      />
+      <CreateRemoteRepoDialog
+        open={createRemoteOpen}
+        onClose={() => setCreateRemoteOpen(false)}
         path={path}
       />
     </>

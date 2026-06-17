@@ -102,6 +102,7 @@ pub fn run() {
             credentials::git_sign_out,
             credentials::git_credential_helper,
             providers::list_remote_repos,
+            providers::create_remote_repo,
             pr::resolve_repo_commit_avatars,
             pr::pr_list,
             pr::pr_create_web_url,

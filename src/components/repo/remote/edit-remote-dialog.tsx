@@ -4,10 +4,11 @@ import { Label } from "@/components/ui/label";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
-import { Loader2, X } from "lucide-react";
+import { CloudUpload, Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { CreateRemoteRepoDialog } from "./create-remote-repo-dialog";
 
 type GitRemoteRow = { name: string; url: string };
 
@@ -29,6 +30,7 @@ export function EditRemoteDialog({
   const [selectedName, setSelectedName] = useState("");
   const [urlDraft, setUrlDraft] = useState("");
   const [newRemoteName, setNewRemoteName] = useState("origin");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -149,18 +151,45 @@ export function EditRemoteDialog({
             }}
           >
             {empty ? (
-              <div className="grid gap-1">
-                <Label htmlFor="er-new-name">{t("editRemote.nameLabelNew")}</Label>
-                <Input
-                  id="er-new-name"
-                  value={newRemoteName}
-                  onChange={(e) => setNewRemoteName(e.target.value)}
-                  placeholder={t("editRemote.originPlaceholder")}
-                  spellCheck={false}
-                  autoComplete="off"
+              <>
+                <button
+                  type="button"
                   disabled={busy}
-                />
-              </div>
+                  onClick={() => setCreateOpen(true)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 disabled:opacity-50"
+                >
+                  <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                    <CloudUpload className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">
+                      {t("editRemote.createOnProviderTitle")}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {t("editRemote.createOnProviderHint")}
+                    </div>
+                  </div>
+                </button>
+                <div className="flex items-center gap-2 py-0.5">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="shrink-0 text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+                    {t("editRemote.orManual")}
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="er-new-name">{t("editRemote.nameLabelNew")}</Label>
+                  <Input
+                    id="er-new-name"
+                    value={newRemoteName}
+                    onChange={(e) => setNewRemoteName(e.target.value)}
+                    placeholder={t("editRemote.originPlaceholder")}
+                    spellCheck={false}
+                    autoComplete="off"
+                    disabled={busy}
+                  />
+                </div>
+              </>
             ) : (
               <div className="grid gap-1">
                 <Label htmlFor="er-remote">{t("editRemote.nameLabelExisting")}</Label>
@@ -207,6 +236,15 @@ export function EditRemoteDialog({
           </form>
         )}
       </div>
+      <CreateRemoteRepoDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        path={path}
+        onCreated={() => {
+          setCreateOpen(false);
+          onClose();
+        }}
+      />
     </div>
   );
 }

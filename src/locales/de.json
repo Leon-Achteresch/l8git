@@ -48,8 +48,6 @@
       "all": "Alle Repos"
     },
     "cards": {
-      "commits30": "Commits · 30 T",
-      "lineDelta": "Zeilenänderung",
       "branches": "Branches",
       "branchesFooter": "{{active}} aktiv · {{stale}} alt",
       "upstream": "Upstream",
@@ -59,27 +57,12 @@
       "workingCopy": "Working Copy",
       "staged": "{{n}} staged",
       "unstaged": "{{n}} geändert",
-      "untracked": "{{n}} neu"
-    },
-    "activity": {
-      "title": "Commit-Aktivität",
-      "subtitle": "Wie sich das Repo bewegt",
-      "day": "Tag",
-      "week": "Woche",
-      "month": "Monat",
-      "empty": "Keine Commits im gewählten Zeitraum.",
-      "legend": {
-        "commits": "Commits",
-        "insertions": "Hinzugefügt",
-        "deletions": "Entfernt"
-      }
+      "untracked": "{{n}} neu",
+      "openPrsFooter": "8-Wochen-Trend",
+      "branchesRemote": "{{n}} remote"
     },
     "contributors": {
-      "title": "Top Contributors",
-      "subtitle": "Letzte 90 Tage",
-      "empty": "Noch keine Contributor-Daten.",
-      "commits_one": "{{count}} Commit",
-      "commits_other": "{{count}} Commits"
+      "empty": "Noch keine Contributor-Daten."
     },
     "languages": {
       "title": "Sprachen",
@@ -135,12 +118,9 @@
       "empty": "Keine Repositories im Workspace.",
       "totals": {
         "repos": "Repositories",
-        "ahead": "Σ voraus",
-        "behind": "Σ zurück",
-        "dirty": "Dirty Worktrees",
-        "scanned": "geprüft",
-        "attention": "benötigt Aufmerksamkeit",
-        "allClear": "alles okay"
+        "commits30": "Commits · letzte 30 Tage",
+        "sync": "Voraus / zurück",
+        "dirty": "Dirty Worktrees"
       },
       "cols": {
         "repo": "Repository",
@@ -150,6 +130,45 @@
         "last": "Letzter Commit",
         "activity": "30-Tage-Aktivität"
       }
+    },
+    "range": {
+      "14d": "14T",
+      "1m": "1M",
+      "3m": "3M",
+      "6m": "6M",
+      "1y": "1J"
+    },
+    "rangeLong": {
+      "14d": "letzte 14 Tage",
+      "1m": "letzte 30 Tage",
+      "3m": "letzte 3 Monate",
+      "6m": "letzte 6 Monate",
+      "1y": "letzte 12 Monate"
+    },
+    "hero": {
+      "label": "Commits · {{range}}",
+      "insertions": "Zeilen hinzugefügt",
+      "deletions": "Zeilen entfernt",
+      "lines": "Zeilen",
+      "vsPrev": "ggü. Vorzeitraum",
+      "empty": "Keine Commits in diesem Zeitraum."
+    },
+    "monthly": {
+      "label": "Commits im {{month}}",
+      "commits": "Commits"
+    },
+    "heatmap": {
+      "label": "Aktive Tage · letzte 12 Monate",
+      "currentStreak": "Aktuelle Serie",
+      "longestStreak": "Längste Serie",
+      "busiest": "Aktivster Tag",
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tage",
+      "commits": "Commits"
+    },
+    "contributorsPie": {
+      "label": "Contributors · {{range}}",
+      "others": "Andere"
     }
   },
   "emptyState": {
@@ -1442,7 +1461,39 @@
     "toastAddedFallback": "Remote hinzugefügt.",
     "toastSavedFallback": "Remote aktualisiert.",
     "actionSuccessFallback": "Aktion erfolgreich abgeschlossen.",
-    "originPlaceholder": "origin"
+    "originPlaceholder": "origin",
+    "createOnProviderTitle": "Bei einem Anbieter erstellen",
+    "createOnProviderHint": "Neues Repository bei GitHub, GitLab oder Bitbucket anlegen und verbinden.",
+    "orManual": "oder manuell hinzufügen"
+  },
+  "createRemote": {
+    "dialogAria": "Remote-Repository erstellen",
+    "closeAria": "Schließen",
+    "backAria": "Zurück",
+    "titleChoose": "Remote-Repository erstellen",
+    "subtitleChoose": "Wähle, wo das Repository angelegt werden soll.",
+    "titleConfigure": "Repository-Details",
+    "subtitleConfigure": "Bei {{provider}} erstellen",
+    "noAccountsTitle": "Keine angemeldeten Anbieter",
+    "noAccountsHint": "Melde dich unter Einstellungen → Konten bei GitHub, GitLab oder Bitbucket an, um ein Remote-Repository zu erstellen.",
+    "soon": "Bald",
+    "nameLabel": "Repository-Name",
+    "nameRequired": "Bitte einen Repository-Namen eingeben.",
+    "willCreate": "Wird erstellt",
+    "descriptionLabel": "Beschreibung (optional)",
+    "descriptionPlaceholder": "Worum geht es in diesem Repository?",
+    "private": "Privat",
+    "privateHint": "Nur du und Mitarbeitende",
+    "public": "Öffentlich",
+    "publicHint": "Für alle sichtbar",
+    "pushLabel": "Aktuellen Branch pushen",
+    "pushHint": "Vorhandene Commits hochladen und Upstream setzen.",
+    "cancel": "Abbrechen",
+    "createButton": "Erstellen & verbinden",
+    "creating": "Wird erstellt …",
+    "created": "{{name}} erstellt.",
+    "createdAndPushed": "{{name}} erstellt und Branch gepusht.",
+    "createdPushFailed": "{{name}} erstellt, aber der Push ist fehlgeschlagen: {{error}}"
   },
   "branchMenu": {
     "switchTitle": "Branch wechseln",
