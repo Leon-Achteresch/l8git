@@ -649,6 +649,7 @@
     "fileRowBlame": "Git-Blame anzeigen",
     "fileRowDiscard": "Änderungen verwerfen",
     "fileRowDiscardMultiple": "{{count}} Dateien verwerfen",
+    "discardAllStaged": "Alle gestagten Änderungen verwerfen",
     "discardDialogTitle": "Änderungen verwerfen?",
     "discardManyConfirm_one": "Änderungen an {{count}} Datei dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
     "discardManyConfirm_other": "Änderungen an {{count}} Dateien dauerhaft verwerfen? Dies kann nicht rückgängig gemacht werden.",
