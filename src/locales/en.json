@@ -649,6 +649,7 @@
     "fileRowBlame": "Show Git blame",
     "fileRowDiscard": "Discard changes",
     "fileRowDiscardMultiple": "Discard {{count}} files",
+    "discardAllStaged": "Discard all staged changes",
     "discardDialogTitle": "Discard changes?",
     "discardManyConfirm_one": "Permanently discard changes to {{count}} file? This cannot be undone.",
     "discardManyConfirm_other": "Permanently discard changes to {{count}} files? This cannot be undone.",

@@ -315,6 +315,13 @@ export function CommitPanel() {
     void unstageFiles(activePath, paths).catch((e) => toastError(String(e)));
   }, [activePath, stagedRows, unstageFiles]);
 
+  const stableOnDiscardAllStaged = useCallback(() => {
+    if (!activePath) return;
+    const files = [...new Set(stagedRows.map((r) => r.path))];
+    if (files.length === 0) return;
+    setDiscardDialog({ files, worktreeOnly: false });
+  }, [activePath, stagedRows]);
+
   const discardOne = useCallback(
     (rowId: string) => {
       if (!activePath) return;
@@ -461,6 +468,7 @@ export function CommitPanel() {
               onReload={stableOnReload}
               onStageAll={stableOnStageAll}
               onUnstageAll={stableOnUnstageAll}
+              onDiscardAllStaged={stableOnDiscardAllStaged}
               onSelect={handleRowSelect}
               onToggle={stableOnToggleRow}
               onDiscard={discardOne}

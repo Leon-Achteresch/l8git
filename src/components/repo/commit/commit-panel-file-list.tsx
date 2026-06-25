@@ -1,3 +1,9 @@
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import type { StatusEntry } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -13,6 +19,7 @@ import {
   RefreshCw,
   Search,
   Square,
+  Undo2,
   X,
 } from "lucide-react";
 import { memo, useMemo, useRef, useState } from "react";
@@ -83,6 +90,7 @@ function VirtualFileListInner({
   onReload,
   onStageAll,
   onUnstageAll,
+  onDiscardAllStaged,
   onSelect,
   onToggle,
   onDiscard,
@@ -99,6 +107,7 @@ function VirtualFileListInner({
   onReload?: () => void;
   onStageAll?: () => void;
   onUnstageAll?: () => void;
+  onDiscardAllStaged?: () => void;
   onSelect: (id: string, shiftKey: boolean) => void;
   onToggle: (entry: StatusEntry, rowId: string) => void;
   onDiscard: (rowId: string) => void;
@@ -241,7 +250,7 @@ function VirtualFileListInner({
 
               if (item.type === "header") {
                 const isCollapsed = collapsed.has(item.id);
-                return (
+                const headerNode = (
                   <div
                     key={vi.key}
                     style={style}
@@ -292,6 +301,22 @@ function VirtualFileListInner({
                     </div>
                   </div>
                 );
+
+                if (item.id === "staged" && onDiscardAllStaged && stagedRows.length > 0) {
+                  return (
+                    <ContextMenu key={vi.key}>
+                      <ContextMenuTrigger asChild>{headerNode}</ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem variant="destructive" onSelect={onDiscardAllStaged}>
+                          <Undo2 className="h-3.5 w-3.5" />
+                          {t("commitPanel.discardAllStaged")}
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  );
+                }
+
+                return headerNode;
               }
 
               if (item.type === "conflict-row") {
