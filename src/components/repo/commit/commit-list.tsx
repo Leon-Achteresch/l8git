@@ -14,6 +14,7 @@ import { CommitRow } from "./commit-row";
 const ROW_ESTIMATE_BASE_PX = 84;
 const ROW_ESTIMATE_SEARCH_EXTRA_PX = 22;
 const SECTION_HEADER_ESTIMATE_PX = 28;
+const EMPTY_HASHES: ReadonlySet<string> = new Set();
 
 type FlatItem =
   | { kind: "header"; key: string; label: string }
@@ -92,10 +93,10 @@ export function CommitList({
   const showCommitDateGroups = useCommitPrefs(s => s.showCommitDateGroups);
   const branches = useRepoStore((s) => s.repos[path]?.branches ?? [] as Branch[]);
 
-  const graphKey = useMemo(
-    () => commits.map((c) => c.hash).join("|"),
-    [commits],
-  );
+  const graphKey = useMemo(() => {
+    const n = commits.length;
+    return n === 0 ? "" : `${n}:${commits[0].hash}:${commits[n - 1].hash}`;
+  }, [commits]);
   // Stable key for the branches list – rebuild the graph when tips change
   const branchesKey = useMemo(
     () => branches.map((b) => `${b.name}:${b.tip}`).join("|"),
@@ -400,6 +401,9 @@ export function CommitList({
             focusRingPulse && focusRingPulse.hash === oid
               ? focusRingPulse.token
               : undefined;
+          const multiSel = selectedHashes.has(row.commit.hash);
+          const isSelected =
+            !!selectedHash && normalizeGitOid(selectedHash) === oid;
           return (
             <li
               key={vi.key}
@@ -424,13 +428,9 @@ export function CommitList({
                 matchedPaths={matchedPaths}
                 searchHit={searchHit}
                 focusPulseToken={focusPulseToken}
-                selected={
-                  !!selectedHash &&
-                  normalizeGitOid(selectedHash) ===
-                    normalizeGitOid(row.commit.hash)
-                }
-                multiSelected={selectedHashes.has(row.commit.hash)}
-                selectedHashes={selectedHashes}
+                selected={isSelected}
+                multiSelected={multiSel}
+                selectedHashes={multiSel ? selectedHashes : EMPTY_HASHES}
                 onSelectHash={onToggleSelect}
                 onCherryPick={onCherryPickCb}
                 bisectRole={bisectRoleMap.get(normalizeGitOid(row.commit.hash)) ?? null}

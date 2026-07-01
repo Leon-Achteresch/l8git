@@ -9,7 +9,7 @@ import type { Commit } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import { writeLocalStorageDebounced } from '@/lib/utils';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { BisectStatusBanner } from '../bisect/bisect-status-banner';
 import { CherryPickStatusBanner } from './cherry-pick-status-banner';
@@ -113,9 +113,32 @@ export function CommitHistoryPanel({
     () => filteredCommits.map(c => c.hash),
     [filteredCommits],
   );
+  const hashIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    for (let i = 0; i < hashList.length; i++) m.set(hashList[i], i);
+    return m;
+  }, [hashList]);
+
+  const navStateRef = useRef({
+    hashList,
+    hashIndex,
+    selectedHash,
+    selectedHashes,
+    anchorHash,
+    cursorHash,
+  });
+  navStateRef.current = {
+    hashList,
+    hashIndex,
+    selectedHash,
+    selectedHashes,
+    anchorHash,
+    cursorHash,
+  };
 
   const onToggleSelect = useCallback(
     (hash: string, mode: CommitSelectMode) => {
+      const { hashList, hashIndex, anchorHash } = navStateRef.current;
       if (mode === 'single') {
         setSelectedHash(h => (h === hash ? null : hash));
         setSelectedHashes(new Set([hash]));
@@ -137,8 +160,8 @@ export function CommitHistoryPanel({
       }
 
       const anchor = anchorHash ?? hash;
-      const a = hashList.indexOf(anchor);
-      const b = hashList.indexOf(hash);
+      const a = hashIndex.get(anchor) ?? -1;
+      const b = hashIndex.get(hash) ?? -1;
       if (a < 0 || b < 0) {
         setSelectedHashes(new Set([hash]));
         setCursorHash(hash);
@@ -150,7 +173,7 @@ export function CommitHistoryPanel({
       setSelectedHashes(next);
       setCursorHash(hash);
     },
-    [anchorHash, hashList],
+    [],
   );
 
   useEffect(() => {
@@ -158,6 +181,14 @@ export function CommitHistoryPanel({
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (isInputFocused(e.target)) return;
+      const {
+        hashList,
+        hashIndex,
+        selectedHash,
+        selectedHashes,
+        anchorHash,
+        cursorHash,
+      } = navStateRef.current;
 
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'a') {
         e.preventDefault();
@@ -187,7 +218,7 @@ export function CommitHistoryPanel({
       if (e.shiftKey) {
         const anchor = anchorHash ?? selectedHash ?? hashList[0];
         const cur = cursorHash ?? anchor;
-        const curIdx = hashList.indexOf(cur);
+        const curIdx = hashIndex.get(cur) ?? -1;
         const nextIdx = Math.max(
           0,
           Math.min(hashList.length - 1, (curIdx < 0 ? 0 : curIdx) + dir),
@@ -195,7 +226,7 @@ export function CommitHistoryPanel({
         const nextHash = hashList[nextIdx];
         if (!nextHash) return;
 
-        const a = hashList.indexOf(anchor);
+        const a = hashIndex.get(anchor) ?? -1;
         const b = nextIdx;
         const [lo, hi] = a <= b ? [a, b] : [b, a];
         const next = new Set<string>();
@@ -205,7 +236,7 @@ export function CommitHistoryPanel({
         requestCommitHistoryFocus(path, nextHash);
       } else {
         const cur = cursorHash ?? selectedHash ?? anchorHash;
-        const curIdx = cur ? hashList.indexOf(cur) : -1;
+        const curIdx = cur ? (hashIndex.get(cur) ?? -1) : -1;
         const nextIdx = Math.max(
           0,
           Math.min(hashList.length - 1, (curIdx < 0 ? 0 : curIdx) + dir),
@@ -223,17 +254,7 @@ export function CommitHistoryPanel({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [
-    sidebarTab,
-    activePath,
-    path,
-    hashList,
-    selectedHash,
-    selectedHashes,
-    anchorHash,
-    cursorHash,
-    requestCommitHistoryFocus,
-  ]);
+  }, [sidebarTab, activePath, path, requestCommitHistoryFocus]);
 
   const onCherryPick = useCallback(
     async (hashes: string[], opts?: { mainline?: number }) => {
