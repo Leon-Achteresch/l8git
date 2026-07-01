@@ -1,7 +1,6 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 type Size = "xs" | "sm" | "md";
 
@@ -17,8 +16,6 @@ const FALLBACK_CLASSES: Record<Size, string> = {
   md: "text-xs",
 };
 
-type Phase = "primary" | "fallback" | "off";
-
 export function CommitAvatar({
   url,
   fallbackUrl,
@@ -30,70 +27,44 @@ export function CommitAvatar({
   name: string;
   size?: Size;
 }) {
-  const first = url?.trim() || undefined;
-  const fallbackSlot =
-    fallbackUrl === undefined
-      ? { mode: "none" as const }
-      : {
-          mode: "chain" as const,
-          src:
-            typeof fallbackUrl === "string" && fallbackUrl.trim()
-              ? fallbackUrl.trim()
-              : undefined,
-        };
-  const second = fallbackSlot.mode === "chain" ? fallbackSlot.src : undefined;
-  const [phase, setPhase] = useState<Phase>("primary");
-  const pendingSecondRef = useRef(false);
+  const sources = useMemo(() => {
+    const primary = url?.trim();
+    const fallback = fallbackUrl?.trim();
+    const list: string[] = [];
+    if (primary) list.push(primary);
+    if (fallback && fallback !== primary) list.push(fallback);
+    return list;
+  }, [url, fallbackUrl]);
 
-  useEffect(() => {
-    setPhase("primary");
-    pendingSecondRef.current = false;
-  }, [first]);
-
-  useEffect(() => {
-    if (!pendingSecondRef.current || !second) return;
-    pendingSecondRef.current = false;
-    setPhase("fallback");
-  }, [second]);
-
-  const activeSrc: string | undefined =
-    phase === "primary"
-      ? first
-      : phase === "fallback"
-        ? second
-        : undefined;
+  const [failed, setFailed] = useState<Record<string, true>>({});
+  const activeSrc = sources.find((s) => !failed[s]);
 
   return (
-    <Avatar className={cn(SIZE_CLASSES[size], "shrink-0")}>
+    <span
+      className={cn(
+        SIZE_CLASSES[size],
+        "relative flex shrink-0 overflow-hidden rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:border-border after:mix-blend-darken dark:after:mix-blend-lighten",
+      )}
+    >
       {activeSrc ? (
-        <AvatarImage
+        <img
           key={activeSrc}
           src={activeSrc}
           alt={name}
-          onLoadingStatusChange={(s) => {
-            if (s !== "error") return;
-            setPhase((p) => {
-              if (p === "primary") {
-                if (second) return "fallback";
-                if (fallbackSlot.mode === "chain") {
-                  pendingSecondRef.current = true;
-                }
-                return "off";
-              }
-              if (p === "fallback") return "off";
-              return p;
-            });
-          }}
+          decoding="async"
+          className="aspect-square size-full rounded-full object-cover"
+          onError={() => setFailed((f) => ({ ...f, [activeSrc]: true }))}
         />
-      ) : null}
-      <AvatarFallback
-        className={cn(
-          "bg-muted text-muted-foreground font-medium",
-          FALLBACK_CLASSES[size],
-        )}
-      >
-        {initials(name)}
-      </AvatarFallback>
-    </Avatar>
+      ) : (
+        <span
+          className={cn(
+            "flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground font-medium",
+            FALLBACK_CLASSES[size],
+          )}
+        >
+          {initials(name)}
+        </span>
+      )}
+    </span>
   );
 }
