@@ -256,6 +256,7 @@ type RepoState = {
   removeRepo: (path: string) => void;
   reorderRepos: (fromIndex: number, toIndex: number) => void;
   setActive: (path: string) => void;
+  ensureFavicons: () => void;
   reload: (path: string) => Promise<void>;
   refreshOpenRepo: (path: string) => Promise<void>;
   reloadAll: () => Promise<void>;
@@ -751,6 +752,15 @@ export const useRepoStore = create<RepoState>()(
           });
         }
         void get().reload(path);
+      },
+
+      ensureFavicons() {
+        for (const p of get().paths) {
+          if (p in get().favicons) continue;
+          void loadFavicon(p).then(icon => {
+            set(s => (p in s.favicons ? s : { favicons: { ...s.favicons, [p]: icon } }));
+          });
+        }
       },
 
       async reload(path) {
