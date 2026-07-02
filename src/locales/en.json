@@ -601,7 +601,12 @@
     "tabsSection": "Tabs",
     "tabsAria": "Terminal tabs",
     "tabsCount_one": "{{count}} tab",
-    "tabsCount_other": "{{count}} tabs"
+    "tabsCount_other": "{{count}} tabs",
+    "history": "Command history",
+    "historySearch": "Search commands…",
+    "historyEmpty": "No saved commands",
+    "historyDelete": "Remove entry",
+    "historyClear": "Clear history"
   },
   "commitPanel": {
     "changes": "Changes",

@@ -30,6 +30,7 @@ export type PromptTracker = {
 export function registerPromptTracker(
   term: Terminal,
   state?: ShellIntegrationState,
+  onCommand?: (cmd: string) => void,
 ): PromptTracker {
   let marker: IMarker | null = null;
   const d = term.parser.registerOscHandler(133, (data) => {
@@ -41,6 +42,10 @@ export function registerPromptTracker(
       if (state) state.inCommand = true;
     } else if (data.startsWith("C")) {
       if (state) state.inCommand = true;
+      if (onCommand && data.startsWith("C;")) {
+        const cmd = data.slice(2);
+        if (cmd.trim()) onCommand(cmd);
+      }
     } else if (data.startsWith("D")) {
       if (state) state.inCommand = false;
     }

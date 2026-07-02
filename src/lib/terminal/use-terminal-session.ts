@@ -1,6 +1,7 @@
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
+import { recordCommand } from "./command-history";
 import { DormantRing } from "./dormant-ring";
 import {
   createShellIntegrationState,
@@ -57,6 +58,11 @@ const sessions = new Map<string, Session>();
 
 export function terminalLeafId(path: string, tabId: string): string {
   return `${path}::${tabId}`;
+}
+
+function leafPath(leafId: string): string {
+  const i = leafId.lastIndexOf("::");
+  return i === -1 ? leafId : leafId.slice(0, i);
 }
 
 configureRendererPool({
@@ -188,7 +194,9 @@ function bindLeafToSlot(leafId: string, s: Session): void {
     rows: s.rows,
     registerOsc: (term) => {
       const shellState = createShellIntegrationState();
-      const prompt = registerPromptTracker(term, shellState);
+      const prompt = registerPromptTracker(term, shellState, (cmd) =>
+        recordCommand(leafPath(leafId), cmd),
+      );
       const cwd = registerCwdHandler(
         term,
         (next) => {
@@ -316,6 +324,13 @@ export function updateSessionShell(leafId: string, shell: string | null): void {
   const normalize = (v: string | null) => (v?.trim() ? v.trim() : null);
   if (normalize(s.shell) === normalize(shell)) return;
   void respawnSession(leafId, undefined, shell);
+}
+
+export function writeToSession(leafId: string, data: string): void {
+  const s = sessions.get(leafId);
+  if (!s || s.disposed || s.shellExited) return;
+  s.pty?.write(data);
+  focusSlot(leafId);
 }
 
 export function disposeSession(leafId: string): void {
