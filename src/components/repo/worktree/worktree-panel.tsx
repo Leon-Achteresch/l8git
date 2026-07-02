@@ -3,7 +3,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useRepoStore, type WorktreeEntry } from "@/lib/repo-store";
+import { useRepoStore, type Branch, type WorktreeEntry } from "@/lib/repo-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { WorktreeAddDialog } from "./worktree-add-dialog";
@@ -13,11 +13,12 @@ import { WorktreeLockDialog } from "./worktree-lock-dialog";
 import { WorktreeMoveDialog } from "./worktree-move-dialog";
 
 const layoutStorageKey = "l8git.worktree-split.layout.v1";
+const EMPTY_BRANCHES: Branch[] = [];
 
 export function WorktreePanel({ path }: { path: string }) {
   const reloadWorktrees = useRepoStore((s) => s.reloadWorktrees);
   const worktrees = useRepoStore((s) => s.worktrees[path]);
-  const branches = useRepoStore((s) => s.repos[path]?.branches ?? []);
+  const branches = useRepoStore((s) => s.repos[path]?.branches ?? EMPTY_BRANCHES);
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);

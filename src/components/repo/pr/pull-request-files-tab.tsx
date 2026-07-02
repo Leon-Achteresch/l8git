@@ -4,10 +4,10 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -42,6 +42,15 @@ export function PullRequestFilesTab({
   const [patch, setPatch] = useState<string | null>(null);
   const [patchLoading, setPatchLoading] = useState(false);
   const [patchFailed, setPatchFailed] = useState(false);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: files?.length ?? 0,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 30,
+    overscan: 12,
+    getItemKey: (i) => files?.[i]?.path ?? i,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -137,13 +146,32 @@ export function PullRequestFilesTab({
         maxSize="60%"
         className="min-h-0 flex flex-col"
       >
-        <ScrollArea className="h-full">
-          <ul className="divide-y divide-border/50">
-            {files.map((f) => {
+        <div ref={listRef} className="h-full overflow-y-auto">
+          <ul
+            style={{
+              height: virtualizer.getTotalSize(),
+              position: "relative",
+            }}
+          >
+            {virtualizer.getVirtualItems().map((vi) => {
+              const f = files[vi.index];
+              if (!f) return null;
               const status = STATUS_COLORS[f.status] ?? "text-muted-foreground";
               const active = f.path === current.path;
               return (
-                <li key={f.path}>
+                <li
+                  key={vi.key}
+                  data-index={vi.index}
+                  ref={virtualizer.measureElement}
+                  className="border-b border-border/50"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    transform: `translateY(${vi.start}px)`,
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => setSelected(f.path)}
@@ -170,7 +198,7 @@ export function PullRequestFilesTab({
               );
             })}
           </ul>
-        </ScrollArea>
+        </div>
       </ResizablePanel>
       <ResizableHandle withHandle className="bg-border/50" />
       <ResizablePanel

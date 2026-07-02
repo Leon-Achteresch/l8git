@@ -114,6 +114,47 @@ interface MonacoDiffViewerProps {
   filename?: string | null;
 }
 
+const DIFF_EDITOR_OPTIONS: Monaco.editor.IDiffEditorConstructionOptions = {
+  readOnly: true,
+  // ── Inline mode: single column, del/add lines one below the other ──
+  renderSideBySide: false,
+  // ── Visual tweaks ──────────────────────────────────────────────────
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  fontFamily: "\"Geist Mono\", ui-monospace, monospace",
+  fontSize: 12,
+  lineHeight: 18,
+  renderLineHighlight: "none",
+  overviewRulerBorder: false,
+  overviewRulerLanes: 0,
+  hideCursorInOverviewRuler: true,
+  folding: false,
+  glyphMargin: false,
+  lineNumbers: "on",
+  lineDecorationsWidth: 4,
+  scrollbar: {
+    vertical: "auto",
+    horizontal: "auto",
+    useShadows: false,
+    verticalScrollbarSize: 3,
+    horizontalScrollbarSize: 3,
+    verticalSliderSize: 3,
+    horizontalSliderSize: 3,
+  },
+  wordWrap: "off",
+  contextmenu: false,
+  automaticLayout: true,
+  renderOverviewRuler: false,
+  ignoreTrimWhitespace: false,
+  diffAlgorithm: "advanced",
+  // Collapse identical regions so only changed hunks are visible
+  hideUnchangedRegions: {
+    enabled: true,
+    minimumLineCount: 3,
+    contextLineCount: 3,
+  },
+};
+
 export function MonacoDiffViewer({ unifiedText, filename }: MonacoDiffViewerProps) {
   const language = detectLanguage(filename ?? null);
 
@@ -138,47 +179,6 @@ export function MonacoDiffViewer({ unifiedText, filename }: MonacoDiffViewerProp
   const lines = useMemo(() => parseUnifiedDiff(unifiedText), [unifiedText]);
   const { original, modified } = useMemo(() => buildDiffContent(lines), [lines]);
 
-  const options: Monaco.editor.IDiffEditorConstructionOptions = {
-    readOnly: true,
-    // ── Inline mode: single column, del/add lines one below the other ──
-    renderSideBySide: false,
-    // ── Visual tweaks ──────────────────────────────────────────────────
-    minimap: { enabled: false },
-    scrollBeyondLastLine: false,
-    fontFamily: "\"Geist Mono\", ui-monospace, monospace",
-    fontSize: 12,
-    lineHeight: 18,
-    renderLineHighlight: "none",
-    overviewRulerBorder: false,
-    overviewRulerLanes: 0,
-    hideCursorInOverviewRuler: true,
-    folding: false,
-    glyphMargin: false,
-    lineNumbers: "on",
-    lineDecorationsWidth: 4,
-    scrollbar: {
-      vertical: "auto",
-      horizontal: "auto",
-      useShadows: false,
-      verticalScrollbarSize: 3,
-      horizontalScrollbarSize: 3,
-      verticalSliderSize: 3,
-      horizontalSliderSize: 3,
-    },
-    wordWrap: "off",
-    contextmenu: false,
-    automaticLayout: true,
-    renderOverviewRuler: false,
-    ignoreTrimWhitespace: false,
-    diffAlgorithm: "advanced",
-    // Collapse identical regions so only changed hunks are visible
-    hideUnchangedRegions: {
-      enabled: true,
-      minimumLineCount: 3,
-      contextLineCount: 3,
-    },
-  };
-
   return (
     <div className="monaco-diff-viewer-root h-full min-h-0 w-full overflow-hidden">
       <DiffEditor
@@ -186,7 +186,7 @@ export function MonacoDiffViewer({ unifiedText, filename }: MonacoDiffViewerProp
         original={original}
         modified={modified}
         theme={monacoTheme}
-        options={options}
+        options={DIFF_EDITOR_OPTIONS}
       />
     </div>
   );

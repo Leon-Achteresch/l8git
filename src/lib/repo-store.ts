@@ -22,6 +22,12 @@ const stashesPending = new Map<string, number>();
 const loadMoreInFlight = new Map<string, boolean>();
 const loadMoreSearchInFlight = new Map<string, boolean>();
 const RELOAD_COALESCE_MS = 150;
+
+function sameByJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 const INITIAL_COMMIT_CAP = 80;
 
 function trimRepoCommits(
@@ -227,7 +233,6 @@ type RepoState = {
   status: Record<string, StatusEntry[]>;
   upstreamSync: Record<string, UpstreamSyncCounts>;
   hasUpstream: Record<string, boolean>;
-  statusLoading: Record<string, boolean>;
   stashes: Record<string, StashEntry[]>;
   stashesLoading: Record<string, boolean>;
   prs: Record<string, PullRequest[]>;
@@ -256,6 +261,7 @@ type RepoState = {
   removeRepo: (path: string) => void;
   reorderRepos: (fromIndex: number, toIndex: number) => void;
   setActive: (path: string) => void;
+  ensureFavicons: () => void;
   reload: (path: string) => Promise<void>;
   refreshOpenRepo: (path: string) => Promise<void>;
   reloadAll: () => Promise<void>;
@@ -441,7 +447,6 @@ export const useRepoStore = create<RepoState>()(
       status: {},
       upstreamSync: {},
       hasUpstream: {},
-      statusLoading: {},
       stashes: {},
       stashesLoading: {},
       prs: {},
@@ -753,6 +758,15 @@ export const useRepoStore = create<RepoState>()(
         void get().reload(path);
       },
 
+      ensureFavicons() {
+        for (const p of get().paths) {
+          if (p in get().favicons) continue;
+          void loadFavicon(p).then(icon => {
+            set(s => (p in s.favicons ? s : { favicons: { ...s.favicons, [p]: icon } }));
+          });
+        }
+      },
+
       async reload(path) {
         const existing = reloadInFlight.get(path);
         if (existing) return existing;
@@ -848,30 +862,35 @@ export const useRepoStore = create<RepoState>()(
         const promise = new Promise<void>(resolve => {
           const handle = window.setTimeout(async () => {
             statusPending.delete(path);
-            set(s => ({
-              statusLoading: { ...s.statusLoading, [path]: true },
-            }));
             try {
               const full = await invoke<{
                 entries: StatusEntry[];
                 upstream_sync: UpstreamSyncCounts;
                 has_upstream: boolean;
               }>('repo_full_status', { path });
-              set(s => ({
-                status: { ...s.status, [path]: full.entries },
-                upstreamSync: {
-                  ...s.upstreamSync,
-                  [path]: full.upstream_sync,
-                },
-                hasUpstream: { ...s.hasUpstream, [path]: full.has_upstream },
-                statusLoading: { ...s.statusLoading, [path]: false },
-              }));
+              set(s => {
+                const statusSame = sameByJson(s.status[path], full.entries);
+                const syncSame = sameByJson(
+                  s.upstreamSync[path],
+                  full.upstream_sync,
+                );
+                const upstreamSame =
+                  s.hasUpstream[path] === full.has_upstream;
+                if (statusSame && syncSame && upstreamSame) return s;
+                return {
+                  status: statusSame
+                    ? s.status
+                    : { ...s.status, [path]: full.entries },
+                  upstreamSync: syncSame
+                    ? s.upstreamSync
+                    : { ...s.upstreamSync, [path]: full.upstream_sync },
+                  hasUpstream: upstreamSame
+                    ? s.hasUpstream
+                    : { ...s.hasUpstream, [path]: full.has_upstream },
+                };
+              });
             } catch (e) {
-              const msg = String(e);
-              toastError(msg);
-              set(s => ({
-                statusLoading: { ...s.statusLoading, [path]: false },
-              }));
+              toastError(String(e));
             } finally {
               statusInFlight.delete(path);
               resolve();
@@ -893,23 +912,17 @@ export const useRepoStore = create<RepoState>()(
         const promise = new Promise<void>(resolve => {
           const handle = window.setTimeout(async () => {
             localStatusPending.delete(path);
-            set(s => ({
-              statusLoading: { ...s.statusLoading, [path]: true },
-            }));
             try {
               const entries = await invoke<StatusEntry[]>('repo_status', {
                 path,
               });
-              set(s => ({
-                status: { ...s.status, [path]: entries },
-                statusLoading: { ...s.statusLoading, [path]: false },
-              }));
+              set(s =>
+                sameByJson(s.status[path], entries)
+                  ? s
+                  : { status: { ...s.status, [path]: entries } },
+              );
             } catch (e) {
-              const msg = String(e);
-              toastError(msg);
-              set(s => ({
-                statusLoading: { ...s.statusLoading, [path]: false },
-              }));
+              toastError(String(e));
             } finally {
               localStatusInFlight.delete(path);
               resolve();
@@ -1193,7 +1206,9 @@ export const useRepoStore = create<RepoState>()(
                 path,
               });
               set(s => ({
-                stashes: { ...s.stashes, [path]: list },
+                stashes: sameByJson(s.stashes[path], list)
+                  ? s.stashes
+                  : { ...s.stashes, [path]: list },
                 stashesLoading: { ...s.stashesLoading, [path]: false },
               }));
             } catch (e) {

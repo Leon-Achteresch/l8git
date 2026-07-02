@@ -13,7 +13,7 @@ import {
   Square,
   XCircle,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   WorkflowJob,
@@ -25,7 +25,7 @@ import {
 
 // ── Status icon ───────────────────────────────────────────────────────────────
 
-function RunStatusIcon({
+const RunStatusIcon = memo(function RunStatusIcon({
   status,
   conclusion,
   size = "md",
@@ -57,7 +57,7 @@ function RunStatusIcon({
     );
 
   return <CircleDashed className={`${cls} shrink-0 text-muted-foreground/50`} />;
-}
+});
 
 // ── Step row ──────────────────────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ function StepRow({ step }: { step: WorkflowJob["steps"][number] }) {
 
 // ── Job row ───────────────────────────────────────────────────────────────────
 
-function JobRow({ job }: { job: WorkflowJob }) {
+const JobRow = memo(function JobRow({ job }: { job: WorkflowJob }) {
   const { t } = useTranslation();
   const [stepsOpen, setStepsOpen] = useState(false);
   const dur = formatDuration(job.started_at, job.completed_at);
@@ -129,7 +129,7 @@ function JobRow({ job }: { job: WorkflowJob }) {
       )}
     </div>
   );
-}
+});
 
 // ── Event badge ───────────────────────────────────────────────────────────────
 
@@ -144,7 +144,7 @@ function EventBadge({ event }: { event: string }) {
 
 // ── Workflow run row ──────────────────────────────────────────────────────────
 
-export function WorkflowRunRow({
+export const WorkflowRunRow = memo(function WorkflowRunRow({
   run,
   path,
   onRefresh,
@@ -380,4 +380,4 @@ export function WorkflowRunRow({
       )}
     </div>
   );
-}
+});

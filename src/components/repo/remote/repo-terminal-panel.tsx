@@ -1,9 +1,27 @@
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { repoDefaultTabTitle } from "@/lib/terminal-tab-title";
+import { useCommandHistory } from "@/lib/terminal/command-history";
+import {
+  terminalLeafId,
+  writeToSession,
+} from "@/lib/terminal/use-terminal-session";
 import { useRepoStore } from "@/lib/repo-store";
-import { useTerminalStore } from "@/lib/terminal-store";
-import { Plus, SquareTerminal, X } from "lucide-react";
+import { useTerminalStore, type TerminalTab } from "@/lib/terminal-store";
+import { History, Plus, SquareTerminal, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isDarkMode, RepoTerminalSession } from "./repo-terminal-session";
@@ -12,9 +30,11 @@ interface Props {
   path: string;
 }
 
+const EMPTY_TABS: TerminalTab[] = [];
+
 export function RepoTerminalPanel({ path }: Props) {
   const { t } = useTranslation();
-  const tabs = useTerminalStore((s) => s.tabsByPath[path] ?? []);
+  const tabs = useTerminalStore((s) => s.tabsByPath[path] ?? EMPTY_TABS);
   const activeId = useTerminalStore((s) => s.activeByPath[path] ?? null);
   const setVisible = useTerminalStore((s) => s.setVisible);
   const openTab = useTerminalStore((s) => s.openTab);
@@ -60,6 +80,7 @@ export function RepoTerminalPanel({ path }: Props) {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <CommandHistoryPopover path={path} activeId={activeId} />
           <Button
             type="button"
             variant="ghost"
@@ -146,5 +167,93 @@ export function RepoTerminalPanel({ path }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function CommandHistoryPopover({
+  path,
+  activeId,
+}: {
+  path: string;
+  activeId: string | null;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const entries = useCommandHistory((s) => s.byPath[path]) ?? [];
+  const remove = useCommandHistory((s) => s.remove);
+  const clear = useCommandHistory((s) => s.clear);
+
+  const runCommand = (cmd: string) => {
+    if (!activeId) return;
+    writeToSession(terminalLeafId(path, activeId), cmd);
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          title={t("embeddedTerminal.history")}
+        >
+          <History className="size-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-96 p-0">
+        <Command>
+          <CommandInput placeholder={t("embeddedTerminal.historySearch")} />
+          <CommandList>
+            <CommandEmpty>{t("embeddedTerminal.historyEmpty")}</CommandEmpty>
+            <CommandGroup>
+              {entries.map((entry) => (
+                <CommandItem
+                  key={entry.cmd}
+                  value={entry.cmd}
+                  onSelect={() => runCommand(entry.cmd)}
+                  className="group"
+                >
+                  <SquareTerminal className="size-3 shrink-0 text-muted-foreground/70" />
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                    {entry.cmd}
+                  </span>
+                  {entry.count > 1 && (
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      ×{entry.count}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    title={t("embeddedTerminal.historyDelete")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      remove(path, entry.cmd);
+                    }}
+                    className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-muted-foreground/15 group-hover:opacity-100"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+          {entries.length > 0 && (
+            <div className="border-t border-border/50 p-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs text-muted-foreground"
+                onClick={() => clear(path)}
+              >
+                <Trash2 className="size-3" />
+                {t("embeddedTerminal.historyClear")}
+              </Button>
+            </div>
+          )}
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

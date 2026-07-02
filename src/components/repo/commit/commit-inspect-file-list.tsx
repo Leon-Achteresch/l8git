@@ -1,7 +1,8 @@
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Undo2 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   CommitChangedFile,
@@ -36,6 +37,15 @@ export function CommitInspectFileList({
   if (allChecked) checkboxState = true;
   else if (someChecked) checkboxState = "indeterminate";
 
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: files.length,
+    getScrollElement: () => scrollerRef.current,
+    estimateSize: () => 54,
+    overscan: 8,
+    getItemKey: (i) => files[i]?.path ?? i,
+  });
+
   return (
     <div className="flex min-h-0 flex-col bg-muted/5">
       {onCheckedChange !== undefined && files.length > 0 && (
@@ -69,35 +79,55 @@ export function CommitInspectFileList({
           )}
         </div>
       )}
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-1.5 p-3">
-          {files.map((file) => (
-            <CommitInspectFileItem
-              key={file.path}
-              file={file}
-              isSelected={selectedFile === file.path}
-              isChecked={checkedFiles?.has(file.path)}
-              onSelect={() =>
-                onSelectFile(selectedFile === file.path ? null : file.path)
-              }
-              onBlame={onBlame ? () => onBlame(file.path) : undefined}
-              onDiscard={onDiscardFile ? () => onDiscardFile(file.path) : undefined}
-              onCheckedChange={
-                onCheckedChange
-                  ? (checked) => onCheckedChange(file.path, !!checked)
-                  : undefined
-              }
-            />
-          ))}
+      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="p-3">
           {files.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
               <span className="text-sm font-medium">
                 {t("commitInspect.noFilesInCommit")}
               </span>
             </div>
-          ) : null}
+          ) : (
+            <div
+              style={{
+                height: virtualizer.getTotalSize(),
+                position: "relative",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((vi) => {
+                const file = files[vi.index];
+                if (!file) return null;
+                return (
+                  <div
+                    key={vi.key}
+                    data-index={vi.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      transform: `translateY(${vi.start}px)`,
+                    }}
+                  >
+                    <div className="pb-1.5">
+                      <CommitInspectFileItem
+                        file={file}
+                        isSelected={selectedFile === file.path}
+                        isChecked={checkedFiles?.has(file.path)}
+                        onSelect={onSelectFile}
+                        onBlame={onBlame}
+                        onDiscard={onDiscardFile}
+                        onCheckedChange={onCheckedChange}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

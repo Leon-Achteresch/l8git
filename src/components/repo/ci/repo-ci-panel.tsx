@@ -96,6 +96,14 @@ export function RepoCiPanel({ path }: { path: string }) {
 
   const isRefreshing = mode === "checks" ? checksRefreshing : runsRefreshing;
 
+  const handleRunsRefresh = useCallback(() => {
+    void loadRuns();
+  }, [loadRuns]);
+
+  const handleRunSelect = useCallback((run: WorkflowRun) => {
+    setSelectedRun((prev) => (prev?.id === run.id ? null : run));
+  }, []);
+
   // ── List panel (reused in both split and full layouts) ─────────────────────
   const listPanel = (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -125,11 +133,9 @@ export function RepoCiPanel({ path }: { path: string }) {
             runs={runs}
             loading={runsLoading}
             path={path}
-            onRefresh={() => void loadRuns()}
+            onRefresh={handleRunsRefresh}
             selectedId={selectedRun?.id ?? null}
-            onSelect={(run) =>
-              setSelectedRun((prev) => (prev?.id === run.id ? null : run))
-            }
+            onSelect={handleRunSelect}
           />
         </div>
       )}

@@ -1,10 +1,8 @@
 import {
   laneColor,
-  normalizeGitOid,
   type GraphRow,
 } from "@/lib/graph";
-import type { Branch } from "@/lib/repo-store";
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 /** Pixels per lane when the graph has enough room. */
 const LANE_W = 11;
@@ -28,17 +26,17 @@ export function graphColWidth(
   return Math.min(maxW, Math.max(minW, PAD * 2 + lanes * LANE_W));
 }
 
-export function CommitGraphCell({
+export const CommitGraphCell = memo(function CommitGraphCell({
   row,
   maxLanes,
-  branches,
+  isBranchTip: isBranchTipProp = false,
   showRefs = true,
   originColors,
   colWidth,
 }: {
   row: GraphRow;
   maxLanes: number;
-  branches: Branch[];
+  isBranchTip?: boolean;
   showRefs?: boolean;
   originColors: ReadonlyMap<string, string>;
   /** Pre-computed column width from the parent (avoids duplicate pref reads). */
@@ -113,10 +111,7 @@ export function CommitGraphCell({
   // and is already consistent with the lane segments above/below.
   const dotStroke = row.color;
 
-  const commitHash = normalizeGitOid(row.commit.hash);
-  const isBranchTip =
-    showRefs &&
-    branches.some((b) => normalizeGitOid(b.tip) === commitHash);
+  const isBranchTip = showRefs && isBranchTipProp;
   const hasTag = showRefs && row.commit.tags.length > 0;
   const isMerge = row.commit.parents.length > 1;
 
@@ -218,4 +213,4 @@ export function CommitGraphCell({
       {dotEl}
     </svg>
   );
-}
+});

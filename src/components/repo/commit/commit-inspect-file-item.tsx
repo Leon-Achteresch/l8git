@@ -12,6 +12,7 @@ import {
   Plus,
   Undo2,
 } from "lucide-react";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 
 export type CommitChangedFile = {
@@ -21,7 +22,7 @@ export type CommitChangedFile = {
   binary: boolean;
 };
 
-export function CommitInspectFileItem({
+export const CommitInspectFileItem = memo(function CommitInspectFileItem({
   file,
   isSelected,
   isChecked,
@@ -33,10 +34,10 @@ export function CommitInspectFileItem({
   file: CommitChangedFile;
   isSelected: boolean;
   isChecked?: boolean;
-  onSelect: () => void;
-  onBlame?: () => void;
-  onDiscard?: () => void;
-  onCheckedChange?: (checked: boolean) => void;
+  onSelect: (path: string | null) => void;
+  onBlame?: (path: string) => void;
+  onDiscard?: (path: string) => void;
+  onCheckedChange?: (path: string, checked: boolean) => void;
 }) {
   const { t } = useTranslation();
   const baseName = file.path.split("/").pop() ?? file.path;
@@ -44,7 +45,7 @@ export function CommitInspectFileItem({
 
   const inner = (
     <div
-      onClick={onSelect}
+      onClick={() => onSelect(isSelected ? null : file.path)}
       className={`group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 ease-in-out ${
         isSelected
           ? "bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20"
@@ -55,13 +56,13 @@ export function CommitInspectFileItem({
         <div
           onClick={(e) => {
             e.stopPropagation();
-            onCheckedChange(!isChecked);
+            onCheckedChange(file.path, !isChecked);
           }}
           className="flex shrink-0 items-center justify-center"
         >
           <Checkbox
             checked={!!isChecked}
-            onCheckedChange={onCheckedChange}
+            onCheckedChange={(checked) => onCheckedChange(file.path, !!checked)}
             className="h-4 w-4"
           />
         </div>
@@ -115,13 +116,16 @@ export function CommitInspectFileItem({
     <ContextMenu>
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={onBlame} disabled={!onBlame}>
+        <ContextMenuItem
+          onSelect={onBlame ? () => onBlame(file.path) : undefined}
+          disabled={!onBlame}
+        >
           <GitCommitHorizontal className="h-3.5 w-3.5" />
           {t("commitPanel.fileRowBlame")}
         </ContextMenuItem>
         <ContextMenuItem
           variant="destructive"
-          onSelect={onDiscard}
+          onSelect={onDiscard ? () => onDiscard(file.path) : undefined}
           disabled={!onDiscard}
         >
           <Undo2 className="h-3.5 w-3.5" />
@@ -130,4 +134,4 @@ export function CommitInspectFileItem({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});
