@@ -1,15 +1,15 @@
 import { CommitAvatar } from "@/components/repo/commit/commit-avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatRelative } from "@/lib/format";
 import type { Branch, PrReviewer, PullRequest } from "@/lib/repo-store";
 import { Loader2, RefreshCw } from "lucide-react";
-import { AnimatePresence, LayoutGroup, m, type Variants } from "motion/react";
+import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   PullRequestCreatePanel,
   PullRequestCreateTrigger,
 } from "./pull-request-create-panel";
-import { useMemo, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { memo, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type Filter = "open" | "merged" | "closed" | "all";
@@ -121,34 +121,21 @@ function ReviewerAvatarStack({ reviewers }: { reviewers: PrReviewer[] }) {
   );
 }
 
-/* ─── Row variants ─────────────────────────────────────────────────────────── */
-
-const rowVariants: Variants = {
-  hidden: { opacity: 0, y: 10, filter: "blur(3px)" },
-  visible: { opacity: 1, y: 0, filter: "blur(0px)" },
-  exit: { opacity: 0, x: -8, filter: "blur(2px)" },
-};
-
-const listVariants: Variants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
-};
-
-function PRRow({
+const PRRow = memo(function PRRow({
   pr,
   selected,
-  onClick,
+  onSelect,
 }: {
   pr: PullRequest;
   selected: boolean;
-  onClick: () => void;
+  onSelect: (n: number) => void;
 }) {
   const state = displayState(pr);
   return (
-    <m.div variants={rowVariants} transition={{ type: "spring", stiffness: 340, damping: 28, mass: 0.7 }}>
+    <div className="pb-0.5">
       <button
         type="button"
-        onClick={onClick}
+        onClick={() => onSelect(pr.number)}
         className={[
           "group relative flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-left transition-all",
           selected
@@ -210,25 +197,20 @@ function PRRow({
           <ReviewerAvatarStack reviewers={pr.reviewers} />
         </div>
       </button>
-    </m.div>
+    </div>
   );
-}
+});
 
 function GroupHeader({ label, count }: { label: string; count: number }) {
   return (
-    <m.div
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-      className="flex items-center gap-2 px-2 pb-1 pt-3"
-    >
+    <div className="flex items-center gap-2 px-2 pb-1 pt-3">
       <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
       <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
         {count}
       </span>
-    </m.div>
+    </div>
   );
 }
 
@@ -320,6 +302,38 @@ export function PullRequestList({
     ].filter(Boolean) as { key: string; label: string | null; items: PullRequest[] }[];
   }, [filtered, filter, t, i18n.language]);
 
+  const flatItems = useMemo(() => {
+    const out: (
+      | { kind: "header"; key: string; label: string; count: number }
+      | { kind: "pr"; pr: PullRequest }
+    )[] = [];
+    for (const g of groups) {
+      if (g.label) {
+        out.push({
+          kind: "header",
+          key: `h-${g.key}`,
+          label: g.label,
+          count: g.items.length,
+        });
+      }
+      for (const pr of g.items) out.push({ kind: "pr", pr });
+    }
+    return out;
+  }, [groups]);
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => scrollerRef.current,
+    estimateSize: (i) => (flatItems[i]?.kind === "header" ? 34 : 64),
+    overscan: 8,
+    getItemKey: (i) => {
+      const it = flatItems[i];
+      if (!it) return i;
+      return it.kind === "header" ? it.key : it.pr.number;
+    },
+  });
+
   const TABS: { id: Filter; label: string }[] = useMemo(
     () => [
       { id: "open",   label: t("pr.filterTabOpen") },
@@ -406,20 +420,13 @@ export function PullRequestList({
         )}
       </AnimatePresence>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="p-2">
-          <AnimatePresence mode="wait" initial={false}>
-            {loading && !prs ? (
-              <m.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center justify-center p-8 text-sm text-muted-foreground"
-              >
+          {loading && !prs ? (
+              <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {t("pr.loading")}
-              </m.div>
+              </div>
             ) : !prs || prs.length === 0 ? (
               <EmptyState key="empty-all">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="opacity-30">
@@ -444,39 +451,44 @@ export function PullRequestList({
                 <span>{t("pr.noneInCategory")}</span>
               </EmptyState>
             ) : (
-              <m.div
-                key={`list-${filter}`}
-                initial="hidden"
-                animate="visible"
-                variants={{ hidden: {}, visible: { transition: { staggerChildren: 0 } } }}
+              <div
+                style={{
+                  height: virtualizer.getTotalSize(),
+                  position: "relative",
+                }}
               >
-                {groups.map((group) => (
-                  <div key={group.key}>
-                    {group.label && <GroupHeader label={group.label} count={group.items.length} />}
-                    <m.div
-                      className="flex flex-col gap-0.5"
-                      initial="hidden"
-                      animate="visible"
-                      variants={listVariants}
+                {virtualizer.getVirtualItems().map((vi) => {
+                  const item = flatItems[vi.index];
+                  if (!item) return null;
+                  return (
+                    <div
+                      key={vi.key}
+                      data-index={vi.index}
+                      ref={virtualizer.measureElement}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        transform: `translateY(${vi.start}px)`,
+                      }}
                     >
-                      <AnimatePresence initial={false}>
-                        {group.items.map((pr) => (
-                          <PRRow
-                            key={pr.number}
-                            pr={pr}
-                            selected={pr.number === selectedNumber}
-                            onClick={() => onSelect(pr.number)}
-                          />
-                        ))}
-                      </AnimatePresence>
-                    </m.div>
-                  </div>
-                ))}
-              </m.div>
+                      {item.kind === "header" ? (
+                        <GroupHeader label={item.label} count={item.count} />
+                      ) : (
+                        <PRRow
+                          pr={item.pr}
+                          selected={item.pr.number === selectedNumber}
+                          onSelect={onSelect}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
-          </AnimatePresence>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

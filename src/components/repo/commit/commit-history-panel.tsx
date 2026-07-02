@@ -5,7 +5,7 @@ import {
 } from '@/components/ui/resizable';
 import { toastError } from '@/lib/error-toast';
 import { computeReachableHashes, normalizeGitOid } from '@/lib/graph';
-import type { Commit } from '@/lib/repo-store';
+import type { Branch, Commit } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import { writeLocalStorageDebounced } from '@/lib/utils';
@@ -20,6 +20,7 @@ import { MergeStatusBanner } from '../merge/merge-status-banner';
 const layoutStorageKey = 'l8git.history-split.layout.v1';
 const EMPTY_HASH_SET: ReadonlySet<string> = new Set();
 const EMPTY_BRANCH_SET: ReadonlySet<string> = new Set();
+const EMPTY_BRANCHES: Branch[] = [];
 
 export type CommitSelectMode = 'single' | 'toggle' | 'range';
 
@@ -37,7 +38,7 @@ export function CommitHistoryPanel({
   path: string;
   commits: Commit[];
 }) {
-  const branches = useRepoStore(s => s.repos[path]?.branches ?? []);
+  const branches = useRepoStore(s => s.repos[path]?.branches ?? EMPTY_BRANCHES);
   const selectedBranchNames =
     useUiStore(s => s.branchFilterByPath[path]) ?? EMPTY_BRANCH_SET;
   const [selectedHash, setSelectedHash] = useState<string | null>(null);

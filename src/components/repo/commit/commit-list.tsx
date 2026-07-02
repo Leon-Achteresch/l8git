@@ -1,5 +1,6 @@
-import { historySectionTitle } from "@/lib/commit-history-sections";
-import { buildGraph, normalizeGitOid, type GraphRow } from "@/lib/graph";
+import { historySectionTitleResolver } from "@/lib/commit-history-sections";
+import { buildGraph, compareBranchesDisplay, normalizeGitOid, type GraphRow } from "@/lib/graph";
+import { graphColWidth } from "./commit-graph-cell";
 import type { Branch, Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -15,6 +16,7 @@ const ROW_ESTIMATE_BASE_PX = 84;
 const ROW_ESTIMATE_SEARCH_EXTRA_PX = 22;
 const SECTION_HEADER_ESTIMATE_PX = 28;
 const EMPTY_HASHES: ReadonlySet<string> = new Set();
+const EMPTY_BRANCHES: Branch[] = [];
 
 type FlatItem =
   | { kind: "header"; key: string; label: string }
@@ -91,7 +93,9 @@ export function CommitList({
   const bisectPending = useUiStore(s => s.bisectPending[path]);
   const bisectVisible = useUiStore(s => s.bisectVisible);
   const showCommitDateGroups = useCommitPrefs(s => s.showCommitDateGroups);
-  const branches = useRepoStore((s) => s.repos[path]?.branches ?? [] as Branch[]);
+  const graphLanePxMin = useCommitPrefs((s) => s.graphLanePxMin);
+  const graphLanePxMax = useCommitPrefs((s) => s.graphLanePxMax);
+  const branches = useRepoStore((s) => s.repos[path]?.branches ?? EMPTY_BRANCHES);
 
   const graphKey = useMemo(() => {
     const n = commits.length;
@@ -107,6 +111,20 @@ export function CommitList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [graphKey, branchesKey],
   );
+  const colW = graphColWidth(maxLanes, graphLanePxMin, graphLanePxMax);
+
+  const branchesByTipOid = useMemo(() => {
+    const m = new Map<string, Branch[]>();
+    for (const b of branches) {
+      const oid = normalizeGitOid(b.tip);
+      const list = m.get(oid);
+      if (list) list.push(b);
+      else m.set(oid, [b]);
+    }
+    for (const list of m.values()) list.sort(compareBranchesDisplay);
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchesKey]);
 
   const bisectRoleMap = useMemo((): Map<string, BisectRole> => {
     const m = new Map<string, BisectRole>();
@@ -129,9 +147,12 @@ export function CommitList({
   const flatItems = useMemo((): FlatItem[] => {
     const out: FlatItem[] = [];
     let last = "";
+    const sectionTitle = showCommitDateGroups
+      ? historySectionTitleResolver()
+      : null;
     for (let i = 0; i < rows.length; i++) {
-      if (showCommitDateGroups) {
-        const sec = historySectionTitle(rows[i].commit.date);
+      if (sectionTitle) {
+        const sec = sectionTitle(rows[i].commit.date);
         if (sec !== last) {
           out.push({ kind: "header", key: `${sec}-${i}`, label: sec });
           last = sec;
@@ -425,6 +446,9 @@ export function CommitList({
                 row={row}
                 maxLanes={maxLanes}
                 originColors={originColors}
+                colW={colW}
+                branchesAtCommit={branchesByTipOid.get(oid) ?? EMPTY_BRANCHES}
+                isBranchTip={branchesByTipOid.has(oid)}
                 matchedPaths={matchedPaths}
                 searchHit={searchHit}
                 focusPulseToken={focusPulseToken}

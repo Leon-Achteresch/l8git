@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { repoDefaultTabTitle } from "@/lib/terminal-tab-title";
 import { useRepoStore } from "@/lib/repo-store";
-import { useTerminalStore } from "@/lib/terminal-store";
+import { useTerminalStore, type TerminalTab } from "@/lib/terminal-store";
 import { Plus, SquareTerminal, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,9 +12,11 @@ interface Props {
   path: string;
 }
 
+const EMPTY_TABS: TerminalTab[] = [];
+
 export function RepoTerminalPanel({ path }: Props) {
   const { t } = useTranslation();
-  const tabs = useTerminalStore((s) => s.tabsByPath[path] ?? []);
+  const tabs = useTerminalStore((s) => s.tabsByPath[path] ?? EMPTY_TABS);
   const activeId = useTerminalStore((s) => s.activeByPath[path] ?? null);
   const setVisible = useTerminalStore((s) => s.setVisible);
   const openTab = useTerminalStore((s) => s.openTab);

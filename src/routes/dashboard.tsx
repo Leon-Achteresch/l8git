@@ -22,12 +22,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { selectRecentActivity, selectRepoHealth } from "@/lib/dashboard-aggregations";
-import { useRepoStore } from "@/lib/repo-store";
+import { useRepoStore, type Branch, type Commit } from "@/lib/repo-store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
+
+const EMPTY_COMMITS: Commit[] = [];
+const EMPTY_BRANCHES: Branch[] = [];
 
 function DashboardPage() {
   const { t } = useTranslation();
@@ -108,8 +111,8 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
   const cherryPick = useRepoStore((s) => (path ? s.cherryPickState[path] : undefined));
   const mergeState = useRepoStore((s) => (path ? s.mergeState[path] : undefined));
 
-  const commits = repo?.commits ?? [];
-  const branches = repo?.branches ?? [];
+  const commits = repo?.commits ?? EMPTY_COMMITS;
+  const branches = repo?.branches ?? EMPTY_BRANCHES;
 
   const recent = useMemo(
     () => selectRecentActivity({ commits, prs, stashes, branches, limit: 10 }),

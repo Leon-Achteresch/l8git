@@ -8,13 +8,11 @@ import {
 } from "@/components/ui/context-menu";
 import { toastError } from "@/lib/error-toast";
 import {
-  compareBranchesDisplay,
   laneColor,
-  normalizeGitOid,
   type GraphRow,
 } from "@/lib/graph";
 import { useGravatarUrl } from "@/lib/gravatar";
-import { useRepoStore } from "@/lib/repo-store";
+import { useRepoStore, type Branch } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
@@ -26,8 +24,7 @@ import { toast } from "sonner";
 import { CommitAuthorDate } from "./commit-author-date";
 import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
-import { CommitGraphCell, graphColWidth } from "./commit-graph-cell";
-import { useCommitPrefs } from "@/lib/commit-prefs";
+import { CommitGraphCell } from "./commit-graph-cell";
 import { CommitHashBadge } from "./commit-hash-badge";
 import { ResetDialog } from "@/components/repo/reset/reset-dialog";
 import { CommitTagDialog } from "./commit-tag-dialog";
@@ -41,6 +38,9 @@ function CommitRowInner({
   row,
   maxLanes,
   originColors,
+  colW,
+  branchesAtCommit,
+  isBranchTip,
   matchedPaths,
   searchHit,
   focusPulseToken,
@@ -56,6 +56,9 @@ function CommitRowInner({
   row: GraphRow;
   maxLanes: number;
   originColors: ReadonlyMap<string, string>;
+  colW: number;
+  branchesAtCommit: readonly Branch[];
+  isBranchTip: boolean;
   matchedPaths?: string[];
   searchHit: boolean;
   focusPulseToken?: number;
@@ -78,16 +81,6 @@ function CommitRowInner({
   const bisectReset = useRepoStore((s) => s.bisectReset);
   const setBisectPendingBad = useUiStore((s) => s.setBisectPendingBad);
   const setBisectPendingGood = useUiStore((s) => s.setBisectPendingGood);
-  const branches = useRepoStore((s) => s.repos[path]?.branches ?? []);
-  const graphLanePxMin = useCommitPrefs((s) => s.graphLanePxMin);
-  const graphLanePxMax = useCommitPrefs((s) => s.graphLanePxMax);
-  const colW = graphColWidth(maxLanes, graphLanePxMin, graphLanePxMax);
-  const branchesAtCommit = useMemo(() => {
-    const h = normalizeGitOid(commit.hash);
-    return branches
-      .filter((b) => normalizeGitOid(b.tip) === h)
-      .sort(compareBranchesDisplay);
-  }, [branches, commit.hash]);
   const [tagOpen, setTagOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
 
@@ -207,7 +200,7 @@ function CommitRowInner({
       )}
     >
       <div className="flex shrink-0 justify-center self-stretch pl-0.5 pr-1" style={{ width: colW }}>
-        <CommitGraphCell row={row} maxLanes={maxLanes} branches={branches} originColors={originColors} colWidth={colW} />
+        <CommitGraphCell row={row} maxLanes={maxLanes} isBranchTip={isBranchTip} originColors={originColors} colWidth={colW} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2.5 pl-2 sm:px-[14px] sm:py-2.5 sm:pl-1.5">
         <div className="flex min-w-0 items-center gap-2">

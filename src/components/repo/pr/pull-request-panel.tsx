@@ -3,24 +3,28 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useRepoStore } from "@/lib/repo-store";
+import { useRepoStore, type Branch } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PullRequestInspectDetail } from "./pull-request-inspect-detail";
 import { PullRequestList } from "./pull-request-list";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 
 const layoutStorageKey = "l8git.pr-split.layout.v1";
+const EMPTY_BRANCHES: Branch[] = [];
 
 export function PullRequestPanel({ path }: { path: string }) {
   const prs = useRepoStore((s) => s.prs[path]);
   const loading = useRepoStore((s) => !!s.prsLoading[path]);
   const loadPRs = useRepoStore((s) => s.loadPRs);
   const currentBranch = useRepoStore((s) => s.repos[path]?.branch ?? "");
-  const branches = useRepoStore((s) => s.repos[path]?.branches ?? []);
+  const branches = useRepoStore((s) => s.repos[path]?.branches ?? EMPTY_BRANCHES);
   const prCreateRequest = useUiStore((s) => s.prCreateRequest);
   const clearPrCreateRequest = useUiStore((s) => s.clearPrCreateRequest);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
+  const toggleSelected = useCallback((n: number) => {
+    setSelectedNumber((cur) => (cur === n ? null : n));
+  }, []);
   const [createOpen, setCreateOpen] = useState(false);
   const [createInitialHead, setCreateInitialHead] = useState<
     string | undefined
@@ -95,12 +99,7 @@ export function PullRequestPanel({ path }: { path: string }) {
             maxSize="70%"
             className="min-h-0 flex flex-col"
           >
-            <PullRequestList
-              {...listProps}
-              onSelect={(n) =>
-                setSelectedNumber((cur) => (cur === n ? null : n))
-              }
-            />
+            <PullRequestList {...listProps} onSelect={toggleSelected} />
           </ResizablePanel>
           <ResizableHandle
             withHandle
@@ -121,10 +120,7 @@ export function PullRequestPanel({ path }: { path: string }) {
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
-        <PullRequestList
-          {...listProps}
-          onSelect={(n) => setSelectedNumber(n)}
-        />
+        <PullRequestList {...listProps} onSelect={setSelectedNumber} />
       )}
     </div>
   );

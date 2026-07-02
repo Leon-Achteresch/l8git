@@ -12,15 +12,25 @@ function mondayStart(d: Date): Date {
   return x;
 }
 
-export function historySectionTitle(iso: string, now = new Date()): string {
-  const t = new Date(iso);
-  if (isNaN(t.getTime())) return i18n.t("commitHistory.earlier");
-  const cd = startOfLocalDay(t);
+export function historySectionTitleResolver(now = new Date()): (iso: string) => string {
   const nd = startOfLocalDay(now);
-  const diffDays = Math.round((nd - cd) / 86400000);
-  if (diffDays === 0) return i18n.t("commitHistory.today");
-  if (diffDays === 1) return i18n.t("commitHistory.yesterday");
   const ws = mondayStart(now).getTime();
-  if (cd >= ws && cd < nd) return i18n.t("commitHistory.thisWeek");
-  return i18n.t("commitHistory.earlier");
+  const earlier = i18n.t("commitHistory.earlier");
+  const today = i18n.t("commitHistory.today");
+  const yesterday = i18n.t("commitHistory.yesterday");
+  const thisWeek = i18n.t("commitHistory.thisWeek");
+  return (iso) => {
+    const t = new Date(iso);
+    if (isNaN(t.getTime())) return earlier;
+    const cd = startOfLocalDay(t);
+    const diffDays = Math.round((nd - cd) / 86400000);
+    if (diffDays === 0) return today;
+    if (diffDays === 1) return yesterday;
+    if (cd >= ws && cd < nd) return thisWeek;
+    return earlier;
+  };
+}
+
+export function historySectionTitle(iso: string, now = new Date()): string {
+  return historySectionTitleResolver(now)(iso);
 }

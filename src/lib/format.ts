@@ -1,5 +1,20 @@
 import i18n from "@/lib/i18n";
 
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function getDateFormatter(
+  locale: string | undefined,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const key = `${locale ?? ""}|${JSON.stringify(options)}`;
+  let fmt = dateFormatters.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(locale, options);
+    dateFormatters.set(key, fmt);
+  }
+  return fmt;
+}
+
 export function initials(name: string): string {
   return name
     .split(/\s+/)
@@ -12,7 +27,10 @@ export function initials(name: string): string {
 export function formatDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return getDateFormatter(undefined, {
+    dateStyle: "short",
+    timeStyle: "medium",
+  }).format(d);
 }
 
 export function formatRelative(iso: string, now: Date = new Date()): string {
@@ -29,9 +47,9 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
   if (diffDay < 7) return i18n.t("time.daysAgo", { count: diffDay });
   const sameYear = d.getFullYear() === now.getFullYear();
   const locTag = i18n.language === "en" ? "en-US" : "de-DE";
-  return d.toLocaleDateString(locTag, {
+  return getDateFormatter(locTag, {
     day: "numeric",
     month: "short",
     year: sameYear ? undefined : "numeric",
-  });
+  }).format(d);
 }
