@@ -15,6 +15,8 @@ export type TerminalTab = {
   id: string;
   title: string;
   createdAt: number;
+  /** When set, the tab runs this command instead of the default embedded shell. */
+  command?: string;
 };
 
 type TerminalState = {
@@ -26,7 +28,7 @@ type TerminalState = {
   toggleVisible: (path: string) => void;
   isVisible: (path: string) => boolean;
   setPanelHeight: (height: number) => void;
-  openTab: (path: string, title?: string) => string;
+  openTab: (path: string, title?: string, command?: string) => string;
   closeTab: (path: string, id: string) => void;
   closeAllForPath: (path: string) => void;
   setActiveTab: (path: string, id: string) => void;
@@ -59,7 +61,7 @@ export const useTerminalStore = create<TerminalState>()(
       },
       isVisible: (path) => !!get().visibleByPath[path],
       setPanelHeight: (height) => set({ panelHeight: clampHeight(height) }),
-      openTab: (path, title) => {
+      openTab: (path, title, command) => {
         const id = nextTabId();
         set((s) => {
           const tabs = s.tabsByPath[path] ?? [];
@@ -67,6 +69,7 @@ export const useTerminalStore = create<TerminalState>()(
             id,
             title: title?.trim() || "Terminal",
             createdAt: Date.now(),
+            command: command?.trim() || undefined,
           };
           return {
             tabsByPath: { ...s.tabsByPath, [path]: [...tabs, tab] },

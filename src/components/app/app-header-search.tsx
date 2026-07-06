@@ -24,6 +24,7 @@ import {
   Settings,
   Tag,
   Webhook,
+  Wrench,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -31,6 +32,16 @@ import { useRouter } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Command,
   CommandDialog,
@@ -44,6 +55,7 @@ import {
 } from "@/components/ui/command";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
+import { useRepoToolsStore } from "@/lib/repo-tools-store";
 import { useUiStore, type SidebarTab } from "@/lib/ui-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { usePickRepo } from "@/lib/use-pick-repo";
@@ -98,7 +110,21 @@ export function AppHeaderSearch() {
   );
   const setSidebarTab = useUiStore((s) => s.setSidebarTab);
   const toggleTerminal = useTerminalStore((s) => s.toggleVisible);
+  const openTerminalTab = useTerminalStore((s) => s.openTab);
+  const tools = useRepoToolsStore((s) =>
+    activePath ? s.toolsByPath[activePath] : undefined,
+  );
+  const loadTools = useRepoToolsStore((s) => s.loadTools);
+  const [pendingTool, setPendingTool] = useState<{
+    label: string;
+    run: string;
+  } | null>(null);
   const totalCommits = repo?.commits.length ?? 0;
+
+  // Refresh the repo's tool manifest whenever the palette opens.
+  useEffect(() => {
+    if (open && activePath) void loadTools(activePath);
+  }, [open, activePath, loadTools]);
 
   const branches = useMemo(() => repo?.branches ?? [], [repo]);
   const tags = useMemo(() => repo?.tags ?? [], [repo]);
@@ -223,6 +249,26 @@ export function AppHeaderSearch() {
             void invoke("reveal_repo_folder", { path: activePath }).catch((e) => toastError(String(e)));
           },
         },
+        // Repo-declared tool actions (.l8git/tools.json)
+        ...(tools ?? [])
+          .filter((tool) => tool.available)
+          .flatMap((tool) =>
+            tool.actions.map((action) => ({
+              id: `tool:${tool.name}:${action.label}`,
+              label: action.label,
+              icon: <Wrench className="size-3.5" />,
+              keywords: `tool ${tool.name} ${action.label} ${action.run}`,
+              onSelect: () => {
+                setOpen(false);
+                if (!activePath) return;
+                if (action.confirm) {
+                  setPendingTool({ label: action.label, run: action.run });
+                } else {
+                  openTerminalTab(activePath, action.label, action.run);
+                }
+              },
+            })),
+          ),
       ] : []),
       {
         id: "action:open-repo",
@@ -247,7 +293,7 @@ export function AppHeaderSearch() {
     ];
 
     return items;
-  }, [activePath, t, setSidebarTab, toggleTerminal, pickRepo, router]);
+  }, [activePath, t, setSidebarTab, toggleTerminal, openTerminalTab, tools, pickRepo, router]);
 
   const filteredActions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -501,6 +547,38 @@ export function AppHeaderSearch() {
           </div>
         </Command>
       </CommandDialog>
+
+      {/* Confirm gate for destructive tool actions launched from the palette */}
+      <AlertDialog
+        open={!!pendingTool}
+        onOpenChange={(next) => {
+          if (!next) setPendingTool(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("tools.confirmTitle", { label: pendingTool?.label ?? "" })}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="font-mono text-xs">
+              {t("tools.confirmDesc", { run: pendingTool?.run ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (activePath && pendingTool) {
+                  openTerminalTab(activePath, pendingTool.label, pendingTool.run);
+                }
+                setPendingTool(null);
+              }}
+            >
+              {t("tools.run")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

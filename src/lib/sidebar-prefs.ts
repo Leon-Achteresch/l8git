@@ -17,6 +17,7 @@ export const ALL_SIDEBAR_TABS: SidebarTab[] = [
   'submodules',
   'worktrees',
   'hooks',
+  'tools',
 ];
 
 const DEFAULTS = {

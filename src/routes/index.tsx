@@ -54,6 +54,11 @@ const WorktreePanel = lazy(() =>
     default: m.WorktreePanel,
   })),
 );
+const ToolsPanel = lazy(() =>
+  import("@/components/repo/tools/tools-panel").then((m) => ({
+    default: m.ToolsPanel,
+  })),
+);
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -132,6 +137,10 @@ function Home() {
                     ) : sidebarTab === "ci" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
                         <RepoCiPanel path={repo.path} />
+                      </div>
+                    ) : sidebarTab === "tools" ? (
+                      <div className="min-h-0 flex-1 overflow-hidden">
+                        <ToolsPanel path={repo.path} />
                       </div>
                     ) : (
                       <RepoDetails />

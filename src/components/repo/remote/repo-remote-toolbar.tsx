@@ -1,4 +1,14 @@
 import { BranchMultiSelect } from '@/components/repo/commit/branch-multi-select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   ContextMenuCheckboxItem,
@@ -8,6 +18,15 @@ import {
   ContextMenuRadioItem,
   ContextMenuSeparator,
 } from '@/components/ui/context-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useRepoToolsStore, type ToolAction } from '@/lib/repo-tools-store';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { Input } from '@/components/ui/input';
 import { toastError, toastGitError } from '@/lib/error-toast';
@@ -31,8 +50,10 @@ import {
   FolderOpen,
   Link,
   Loader2,
+  Play,
   ScanSearch,
   SquareTerminal,
+  Wrench,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -80,6 +101,13 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const setTerminalButtonMode = useWorkspacePrefs(s => s.setTerminalButtonMode);
   const terminalVisible = useTerminalStore(s => !!s.visibleByPath[path]);
   const toggleTerminal = useTerminalStore(s => s.toggleVisible);
+  const openTerminalTab = useTerminalStore(s => s.openTab);
+  const tools = useRepoToolsStore(s => s.toolsByPath[path]);
+  const loadTools = useRepoToolsStore(s => s.loadTools);
+  const [pendingTool, setPendingTool] = useState<{
+    label: string;
+    run: string;
+  } | null>(null);
   const fetchPruneBranches = useWorkspacePrefs(s => s.fetchPruneBranches);
   const setFetchPruneBranches = useWorkspacePrefs(s => s.setFetchPruneBranches);
   const fetchPruneTags = useWorkspacePrefs(s => s.fetchPruneTags);
@@ -414,6 +442,26 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     [path, terminalButtonMode, setTerminalButtonMode, toggleTerminal, t],
   );
 
+  // Repo-declared tools (.l8git/tools.json)
+  useEffect(() => {
+    void loadTools(path);
+  }, [path, loadTools]);
+
+  const toolGroups = useMemo(
+    () => (tools ?? []).filter((tool) => tool.available && tool.actions.length > 0),
+    [tools],
+  );
+
+  const runTool = (action: ToolAction) => {
+    // Runs in the embedded terminal so all console output + the exit code are shown.
+    openTerminalTab(path, action.label, action.run);
+  };
+
+  const onSelectTool = (action: ToolAction) => {
+    if (action.confirm) setPendingTool({ label: action.label, run: action.run });
+    else runTool(action);
+  };
+
   const hasSearchHits = (searchSlice?.hits?.length ?? 0) > 0;
   const canStepSearchMatches =
     !!draftQuery.trim() &&
@@ -522,6 +570,45 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             />
           </ToolbarGroup>
 
+          {toolGroups.length > 0 && (
+            <>
+              <ToolbarDivider />
+              <ToolbarGroup>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      title={t("toolbar.toolsTitle")}
+                      className='relative flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary'
+                    >
+                      <Wrench className='h-3.5 w-3.5' />
+                      <span>{t("toolbar.toolsLabel")}</span>
+                      <ChevronDown className='h-3 w-3 opacity-60' />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align='start' className='min-w-52'>
+                    {toolGroups.map((group, gi) => [
+                      gi > 0 ? <DropdownMenuSeparator key={`sep-${gi}`} /> : null,
+                      <DropdownMenuLabel key={`lbl-${gi}`}>
+                        {group.name}
+                      </DropdownMenuLabel>,
+                      ...group.actions.map((action, ai) => (
+                        <DropdownMenuItem
+                          key={`${gi}-${ai}`}
+                          onSelect={() => onSelectTool(action)}
+                        >
+                          <Play className='h-3.5 w-3.5' />
+                          <span className='flex-1 truncate'>{action.label}</span>
+                        </DropdownMenuItem>
+                      )),
+                    ])}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </ToolbarGroup>
+            </>
+          )}
+
           <ToolbarDivider />
 
           <ToolbarGroup>
@@ -614,6 +701,36 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
         onClose={() => setCreateRemoteOpen(false)}
         path={path}
       />
+      <AlertDialog
+        open={!!pendingTool}
+        onOpenChange={(next) => {
+          if (!next) setPendingTool(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("tools.confirmTitle", { label: pendingTool?.label ?? "" })}
+            </AlertDialogTitle>
+            <AlertDialogDescription className='font-mono text-xs'>
+              {t("tools.confirmDesc", { run: pendingTool?.run ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingTool) {
+                  openTerminalTab(path, pendingTool.label, pendingTool.run);
+                }
+                setPendingTool(null);
+              }}
+            >
+              {t("tools.run")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

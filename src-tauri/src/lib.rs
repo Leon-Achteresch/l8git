@@ -5,6 +5,7 @@ mod git;
 mod pr;
 mod providers;
 mod pty;
+mod repo_tools;
 mod secrets;
 mod shell;
 mod watcher;
@@ -42,6 +43,7 @@ pub fn run() {
             shell::reveal_repo_folder,
             shell::open_repo_terminal,
             shell::open_repo_in_ide,
+            repo_tools::list_repo_tools,
             git::git_fetch,
             git::git_pull,
             git::git_push,
