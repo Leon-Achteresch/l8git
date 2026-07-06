@@ -20,6 +20,7 @@ function tabLabel(tab: SidebarTab, t: (k: string) => string): string {
     case "submodules": return t("hotkeys.sidebarSubmodules");
     case "worktrees": return t("hotkeys.sidebarWorktrees");
     case "hooks": return t("hotkeys.sidebarHooks");
+    case "tools": return t("hotkeys.sidebarTools");
   }
 }
 

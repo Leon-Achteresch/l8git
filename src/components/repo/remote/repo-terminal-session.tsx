@@ -11,6 +11,7 @@ import {
   updateSessionShell,
   useTerminalSession,
 } from "@/lib/terminal/use-terminal-session";
+import { useTerminalStore } from "@/lib/terminal-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 
 export { isDarkMode };
@@ -36,6 +37,11 @@ export function RepoTerminalSession({
   const embeddedTerminalCommand = useWorkspacePrefs(
     (s) => s.embeddedTerminalCommand,
   );
+  // A tool tab carries its own command; plain terminals fall back to the shell pref.
+  const tabCommand = useTerminalStore(
+    (s) => s.tabsByPath[path]?.find((tab) => tab.id === tabId)?.command,
+  );
+  const sessionShell = tabCommand ?? embeddedTerminalCommand;
 
   const leafId = terminalLeafId(path, tabId);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -52,7 +58,7 @@ export function RepoTerminalSession({
     visible: active,
     focused: active,
     initialCwd: path,
-    shell: embeddedTerminalCommand,
+    shell: sessionShell,
     onExit: (code) => {
       setStatus("exited");
       setStatusMsg(String(code));
@@ -68,8 +74,8 @@ export function RepoTerminalSession({
   });
 
   useEffect(() => {
-    updateSessionShell(leafId, embeddedTerminalCommand);
-  }, [leafId, embeddedTerminalCommand]);
+    updateSessionShell(leafId, sessionShell);
+  }, [leafId, sessionShell]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => session.applyTheme());

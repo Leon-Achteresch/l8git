@@ -492,6 +492,7 @@
     "tabSubmodules": "Submodules",
     "tabWorktrees": "Worktrees",
     "tabHooks": "Hooks",
+    "tabTools": "Tools",
     "navAria": "Sidebar navigation",
     "filterPlaceholder": "Filter branches…",
     "filterAria": "Filter branches",
@@ -551,6 +552,8 @@
     "ideLabel": "IDE",
     "blameTitle": "Open Git Blame editor",
     "blameLabel": "Blame",
+    "toolsTitle": "Run a repository tool",
+    "toolsLabel": "Tools",
     "bisectRunningTitle": "Bisect running{{steps}} — click to show or hide",
     "bisectSteps": " (~{{count}} steps)",
     "bisectToggleTitle": "Toggle bisect annotations",
@@ -607,6 +610,16 @@
     "historyEmpty": "No saved commands",
     "historyDelete": "Remove entry",
     "historyClear": "Clear history"
+  },
+  "tools": {
+    "title": "Tools",
+    "subtitle": "Run this repository's declared commands",
+    "empty": "No tools declared for this repository.",
+    "emptyHint": "Add a .l8git/tools.json manifest to define tool actions.",
+    "run": "Run",
+    "unavailable": "{{requires}} not found — the tool isn't ready yet.",
+    "confirmTitle": "Run \"{{label}}\"?",
+    "confirmDesc": "This will run: {{run}}"
   },
   "commitPanel": {
     "changes": "Changes",
@@ -1607,6 +1620,7 @@
     "submitCommit": "Submit commit",
     "sidebarSubmodules": "Sidebar: Submodules",
     "sidebarWorktrees": "Sidebar: Worktrees",
-    "sidebarHooks": "Sidebar: Hooks"
+    "sidebarHooks": "Sidebar: Hooks",
+    "sidebarTools": "Sidebar: Tools"
   }
 }

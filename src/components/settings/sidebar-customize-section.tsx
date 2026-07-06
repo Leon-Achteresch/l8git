@@ -57,6 +57,7 @@ import {
   RotateCcw,
   Tag,
   Webhook,
+  Wrench,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -102,6 +103,10 @@ function useTabMeta(t: ReturnType<typeof useTranslation>["t"]): Record<
       hooks: {
         label: t("sidebar.tabHooks"),
         icon: <Webhook className="h-4 w-4" />,
+      },
+      tools: {
+        label: t("sidebar.tabTools"),
+        icon: <Wrench className="h-4 w-4" />,
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps

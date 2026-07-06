@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type Branch, type TagRef } from "@/lib/repo-store";
-import { useSidebarPrefs } from "@/lib/sidebar-prefs";
+import { ALL_SIDEBAR_TABS, useSidebarPrefs } from "@/lib/sidebar-prefs";
 import {
   GRID_SIDEBAR_MAX_WIDTH,
   GRID_SIDEBAR_MIN_WIDTH,
@@ -49,6 +49,7 @@ import {
   Plus,
   Search,
   Webhook,
+  Wrench,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -76,6 +77,7 @@ function buildTabIcons(
     submodules: <FolderGit2 className={iconClass} />,
     worktrees: <GitFork className={iconClass} />,
     hooks: <Webhook className={iconClass} />,
+    tools: <Wrench className={iconClass} />,
   };
 }
 
@@ -233,9 +235,7 @@ export function RepoSidebar() {
   const tabClickHandlers = useMemo(
     () =>
       new Map<SidebarTab, () => void>(
-        (
-          ["commit", "history", "pr", "ci", "stash", "submodules", "worktrees", "hooks"] as SidebarTab[]
-        ).map((v) => [v, () => setSidebarTab(v)]),
+        ALL_SIDEBAR_TABS.map((v) => [v, () => setSidebarTab(v)]),
       ),
     [setSidebarTab],
   );
@@ -251,6 +251,7 @@ export function RepoSidebar() {
       submodules: undefined,
       worktrees: worktreeCount > 0 ? worktreeCount : undefined,
       hooks: activeHookCount > 0 ? activeHookCount : undefined,
+      tools: undefined,
     }),
     [pendingCommitCount, prCount, stashCount, worktreeCount, activeHookCount],
   );
@@ -266,6 +267,7 @@ export function RepoSidebar() {
       submodules: t("sidebar.tabSubmodules"),
       worktrees: t("sidebar.tabWorktrees"),
       hooks: t("sidebar.tabHooks"),
+      tools: t("sidebar.tabTools"),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [t, i18n.language],

@@ -17,7 +17,8 @@ export type SidebarTab =
   | 'ci'
   | 'submodules'
   | 'worktrees'
-  | 'hooks';
+  | 'hooks'
+  | 'tools';
 
 export type CommitFocusRequest = {
   path: string;
