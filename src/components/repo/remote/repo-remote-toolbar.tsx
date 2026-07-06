@@ -630,7 +630,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               onSelectionChange={names => setBranchFilter(path, names)}
             />
           )}
-          <div className='flex min-w-0 flex-1 flex-col gap-1'>
+          <div className='flex min-w-0 flex-1 flex-col gap-1 pr-2'>
             <Input
               value={draftQuery}
               onChange={(e) => setDraftQuery(e.target.value)}

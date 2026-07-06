@@ -64,7 +64,7 @@ export function BranchMultiSelect({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
+          size="lg"
           className={cn(
             "h-8 gap-1.5 text-xs font-normal",
             count > 0 && "border-primary/40 bg-primary/5",
