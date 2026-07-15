@@ -11,27 +11,24 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
-  ContextMenuCheckboxItem,
-  ContextMenuItem,
-  ContextMenuLabel,
-  ContextMenuRadioGroup,
-  ContextMenuRadioItem,
-  ContextMenuSeparator,
-} from '@/components/ui/context-menu';
-import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { PopIn } from '@/components/motion/pop-in';
 import { useRepoToolsStore, type ToolAction } from '@/lib/repo-tools-store';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { Input } from '@/components/ui/input';
 import { toastError, toastGitError } from '@/lib/error-toast';
 import { useRepoStore, type Branch } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
+import { cn } from '@/lib/utils';
 import {
   useWorkspacePrefs,
   type PullStrategy,
@@ -52,8 +49,10 @@ import {
   Loader2,
   Play,
   ScanSearch,
+  Search,
   SquareTerminal,
   Wrench,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -62,7 +61,6 @@ import { CreateRemoteRepoDialog } from './create-remote-repo-dialog';
 import { EditRemoteDialog } from './edit-remote-dialog';
 import { PushUpstreamDialog } from './push-upstream-dialog';
 import { ToolbarButton } from './toolbar-button';
-import { ToolbarDivider } from './toolbar-divider';
 import { ToolbarGroup } from './toolbar-group';
 
 type RemoteOp = 'fetch' | 'pull' | 'push';
@@ -274,22 +272,21 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const fetchMenu = useMemo(
     () => (
       <>
-        <ContextMenuLabel>{t("toolbar.fetchPruneSection")}</ContextMenuLabel>
-        <ContextMenuSeparator />
-        <ContextMenuCheckboxItem
+        <DropdownMenuLabel>{t("toolbar.fetchPruneSection")}</DropdownMenuLabel>
+        <DropdownMenuCheckboxItem
           checked={fetchPruneBranches}
           onCheckedChange={(v) => setFetchPruneBranches(!!v)}
           onSelect={(e) => e.preventDefault()}
         >
           {t("toolbar.fetchPruneBranches")}
-        </ContextMenuCheckboxItem>
-        <ContextMenuCheckboxItem
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
           checked={fetchPruneTags}
           onCheckedChange={(v) => setFetchPruneTags(!!v)}
           onSelect={(e) => e.preventDefault()}
         >
           {t("toolbar.fetchPruneTags")}
-        </ContextMenuCheckboxItem>
+        </DropdownMenuCheckboxItem>
       </>
     ),
     [fetchPruneBranches, fetchPruneTags, setFetchPruneBranches, setFetchPruneTags, t],
@@ -298,24 +295,24 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const pullMenu = useMemo(
     () => (
       <>
-        <ContextMenuLabel>{t("toolbar.pullStrategySection")}</ContextMenuLabel>
-        <ContextMenuRadioGroup
+        <DropdownMenuLabel>{t("toolbar.pullStrategySection")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
           value={pullStrategy}
           onValueChange={(v) => setPullStrategy(v as PullStrategy)}
         >
-          <ContextMenuRadioItem value="merge" onSelect={(e) => e.preventDefault()}>
+          <DropdownMenuRadioItem value="merge" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.pullStrategyMerge")}
-          </ContextMenuRadioItem>
-          <ContextMenuRadioItem value="rebase" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="rebase" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.pullStrategyRebase")}
-          </ContextMenuRadioItem>
-          <ContextMenuRadioItem value="ff-only" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="ff-only" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.pullStrategyFfOnly")}
-          </ContextMenuRadioItem>
-          <ContextMenuRadioItem value="autostash" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="autostash" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.pullStrategyAutostash")}
-          </ContextMenuRadioItem>
-        </ContextMenuRadioGroup>
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
       </>
     ),
     [pullStrategy, setPullStrategy, t],
@@ -324,54 +321,54 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const pushMenu = useMemo(
     () => (
       <>
-        <ContextMenuLabel>{t("toolbar.pushForceSection")}</ContextMenuLabel>
-        <ContextMenuRadioGroup value={pushForceMode} onValueChange={(v) => setPushForceMode(v as PushForceMode)}>
-          <ContextMenuRadioItem value="none" onSelect={(e) => e.preventDefault()}>
+        <DropdownMenuLabel>{t("toolbar.pushForceSection")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={pushForceMode} onValueChange={(v) => setPushForceMode(v as PushForceMode)}>
+          <DropdownMenuRadioItem value="none" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.noForcePush")}
-          </ContextMenuRadioItem>
-          <ContextMenuRadioItem value="lease" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="lease" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.forceLeaseOption")}
-          </ContextMenuRadioItem>
-          <ContextMenuRadioItem value="force" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="force" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.forceHardOption")}
-          </ContextMenuRadioItem>
-        </ContextMenuRadioGroup>
-        <ContextMenuSeparator />
-        <ContextMenuLabel>{t("toolbar.pushTagsSection")}</ContextMenuLabel>
-        <ContextMenuRadioGroup value={pushTagsMode} onValueChange={(v) => setPushTagsMode(v as PushTagsMode)}>
-          <ContextMenuRadioItem value="none" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>{t("toolbar.pushTagsSection")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={pushTagsMode} onValueChange={(v) => setPushTagsMode(v as PushTagsMode)}>
+          <DropdownMenuRadioItem value="none" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.noTagsPush")}
-          </ContextMenuRadioItem>
-          <ContextMenuRadioItem value="follow" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="follow" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.pushTagsReachable")}
-          </ContextMenuRadioItem>
-          <ContextMenuRadioItem value="all" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="all" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.pushTagsAllOption")}
-          </ContextMenuRadioItem>
-        </ContextMenuRadioGroup>
-        <ContextMenuSeparator />
-        <ContextMenuLabel>{t("toolbar.pushOptionsSection")}</ContextMenuLabel>
-        <ContextMenuCheckboxItem
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>{t("toolbar.pushOptionsSection")}</DropdownMenuLabel>
+        <DropdownMenuCheckboxItem
           checked={pushAtomic}
           onCheckedChange={(v) => setPushAtomic(!!v)}
           onSelect={(e) => e.preventDefault()}
         >
           {t("toolbar.atomicOption")}
-        </ContextMenuCheckboxItem>
-        <ContextMenuCheckboxItem
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
           checked={pushNoVerify}
           onCheckedChange={(v) => setPushNoVerify(!!v)}
           onSelect={(e) => e.preventDefault()}
         >
           {t("toolbar.skipPrePushHooks")}
-        </ContextMenuCheckboxItem>
-        <ContextMenuCheckboxItem
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
           checked={pushDryRun}
           onCheckedChange={(v) => setPushDryRun(!!v)}
           onSelect={(e) => e.preventDefault()}
         >
           {t("toolbar.dryRunOption")}
-        </ContextMenuCheckboxItem>
+        </DropdownMenuCheckboxItem>
       </>
     ),
     [
@@ -416,27 +413,27 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const terminalMenu = useMemo(
     () => (
       <>
-        <ContextMenuLabel>{t("toolbar.terminalSection")}</ContextMenuLabel>
-        <ContextMenuRadioGroup
+        <DropdownMenuLabel>{t("toolbar.terminalSection")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
           value={terminalButtonMode}
           onValueChange={(v) =>
             setTerminalButtonMode(v === "external" ? "external" : "embedded")
           }
         >
-          <ContextMenuRadioItem value="embedded" onSelect={(e) => e.preventDefault()}>
+          <DropdownMenuRadioItem value="embedded" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.terminalModeEmbedded")}
-          </ContextMenuRadioItem>
-          <ContextMenuRadioItem value="external" onSelect={(e) => e.preventDefault()}>
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="external" onSelect={(e) => e.preventDefault()}>
             {t("toolbar.terminalModeExternal")}
-          </ContextMenuRadioItem>
-        </ContextMenuRadioGroup>
-        <ContextMenuSeparator />
-        <ContextMenuItem onSelect={() => toggleTerminal(path)}>
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => toggleTerminal(path)}>
           {t("toolbar.terminalToggleInApp")}
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => void openTerminalHere()}>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void openTerminalHere()}>
           {t("toolbar.terminalOpenExternal")}
-        </ContextMenuItem>
+        </DropdownMenuItem>
       </>
     ),
     [path, terminalButtonMode, setTerminalButtonMode, toggleTerminal, t],
@@ -462,17 +459,19 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     else runTool(action);
   };
 
-  const hasSearchHits = (searchSlice?.hits?.length ?? 0) > 0;
+  const trimmedQuery = draftQuery.trim();
+  const hitCount = searchSlice?.hits?.length ?? 0;
+  const searchLoading = !!searchSlice?.loading && !!searchSlice.query.trim();
   const canStepSearchMatches =
-    !!draftQuery.trim() &&
-    hasSearchHits &&
+    !!trimmedQuery &&
+    hitCount > 0 &&
     sidebarTab === 'history' &&
     activePath === path;
 
   return (
     <>
-      <div className='flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2 pb-2 pt-1'>
-        <div className='flex min-w-0 flex-1 flex-wrap items-center'>
+      <div className='flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-2 pt-1'>
+        <div className='flex min-w-0 flex-1 flex-wrap items-center gap-2'>
           <ToolbarGroup>
             <ToolbarButton
               title={t("toolbar.fetchTitle")}
@@ -487,7 +486,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                   <CloudDownload className='h-3.5 w-3.5' />
                 )
               }
-              contextMenuContent={fetchMenu}
+              menuContent={fetchMenu}
+              menuAriaLabel={t("toolbar.optionsAria")}
             />
             <ToolbarButton
               title={
@@ -505,10 +505,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                   <ArrowDownToLine className='h-3.5 w-3.5' />
                 )
               }
-              contextMenuContent={pullMenu}
+              menuContent={pullMenu}
+              menuAriaLabel={t("toolbar.optionsAria")}
             />
             <ToolbarButton
-              title={t("toolbar.pushTitle", { title: pushTitle })}
+              title={pushTitle}
               label={t("toolbar.pushLabel")}
               badge={pushCount}
               warnDot={pushForceMode !== 'none' || pushNoVerify || pushDryRun}
@@ -522,28 +523,24 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                   <ArrowUpToLine className='h-3.5 w-3.5' />
                 )
               }
-              contextMenuContent={pushMenu}
-            />
-            <ToolbarButton
-              title={t("toolbar.editRemoteTitle")}
-              label={t("toolbar.editRemoteLabel")}
-              onClick={() => setRemoteDialogOpen(true)}
-              icon={<Link className='h-3.5 w-3.5' />}
+              menuContent={pushMenu}
+              menuAriaLabel={t("toolbar.optionsAria")}
             />
           </ToolbarGroup>
 
-          <ToolbarDivider />
-
-          <ToolbarGroup>
+          <div className='flex items-center gap-0.5'>
+            <ToolbarButton
+              title={t("toolbar.editRemoteTitle")}
+              onClick={() => setRemoteDialogOpen(true)}
+              icon={<Link className='h-3.5 w-3.5' />}
+            />
             <ToolbarButton
               title={t("toolbar.revealTitle")}
-              label={t("toolbar.revealLabel")}
               onClick={() => void revealFolder()}
               icon={<FolderOpen className='h-3.5 w-3.5' />}
             />
             <ToolbarButton
               title={t("toolbar.terminalTitle")}
-              label={t("toolbar.terminalLabel")}
               isActive={terminalButtonMode === 'embedded' && terminalVisible}
               onClick={() => {
                 if (terminalButtonMode === 'embedded') {
@@ -553,76 +550,63 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                 }
               }}
               icon={<SquareTerminal className='h-3.5 w-3.5' />}
-              contextMenuContent={terminalMenu}
+              menuContent={terminalMenu}
+              menuAriaLabel={t("toolbar.optionsAria")}
             />
             <ToolbarButton
               title={ideConfigured ? t("toolbar.ideOpenTitle") : t("toolbar.ideConfigureTitle")}
-              label={t("toolbar.ideLabel")}
               disabled={!ideConfigured}
               onClick={() => void openIdeHere()}
               icon={<Code2 className='h-3.5 w-3.5' />}
             />
             <ToolbarButton
               title={t("toolbar.blameTitle")}
-              label={t("toolbar.blameLabel")}
               onClick={() => openBlameEditor(path)}
               icon={<FileClock className='h-3.5 w-3.5' />}
             />
-          </ToolbarGroup>
-
-          {toolGroups.length > 0 && (
-            <>
-              <ToolbarDivider />
-              <ToolbarGroup>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      title={t("toolbar.toolsTitle")}
-                      className='relative flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary'
-                    >
-                      <Wrench className='h-3.5 w-3.5' />
-                      <span>{t("toolbar.toolsLabel")}</span>
-                      <ChevronDown className='h-3 w-3 opacity-60' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align='start' className='min-w-52'>
-                    {toolGroups.map((group, gi) => [
-                      gi > 0 ? <DropdownMenuSeparator key={`sep-${gi}`} /> : null,
-                      <DropdownMenuLabel key={`lbl-${gi}`}>
-                        {group.name}
-                      </DropdownMenuLabel>,
-                      ...group.actions.map((action, ai) => (
-                        <DropdownMenuItem
-                          key={`${gi}-${ai}`}
-                          onSelect={() => onSelectTool(action)}
-                        >
-                          <Play className='h-3.5 w-3.5' />
-                          <span className='flex-1 truncate'>{action.label}</span>
-                        </DropdownMenuItem>
-                      )),
-                    ])}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </ToolbarGroup>
-            </>
-          )}
-
-          <ToolbarDivider />
-
-          <ToolbarGroup>
             <ToolbarButton
               title={bisectToolbarTitle}
-              label={t("toolbar.bisectLabel")}
               isActive={bisectVisible}
               badge={bisect?.active && !bisect?.done ? (bisect.steps_remaining ?? undefined) : undefined}
               onClick={() => setBisectVisible(!bisectVisible)}
               icon={<ScanSearch className='h-3.5 w-3.5' />}
             />
-          </ToolbarGroup>
+            {toolGroups.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    title={t("toolbar.toolsTitle")}
+                    className='relative flex h-7 items-center gap-1 rounded-lg px-2 text-xs text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary'
+                  >
+                    <Wrench className='h-3.5 w-3.5' />
+                    <ChevronDown className='size-3 opacity-60 transition-transform duration-200 in-data-[state=open]:rotate-180' />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='start' className='min-w-52'>
+                  {toolGroups.map((group, gi) => [
+                    gi > 0 ? <DropdownMenuSeparator key={`sep-${gi}`} /> : null,
+                    <DropdownMenuLabel key={`lbl-${gi}`}>
+                      {group.name}
+                    </DropdownMenuLabel>,
+                    ...group.actions.map((action, ai) => (
+                      <DropdownMenuItem
+                        key={`${gi}-${ai}`}
+                        onSelect={() => onSelectTool(action)}
+                      >
+                        <Play className='h-3.5 w-3.5' />
+                        <span className='flex-1 truncate'>{action.label}</span>
+                      </DropdownMenuItem>
+                    )),
+                  ])}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
-        <div className='flex w-full max-w-sm shrink-0 items-start gap-1 sm:w-auto sm:min-w-[12rem]'>
+
+        <div className='flex w-full max-w-sm shrink-0 items-center gap-1 sm:w-auto'>
           {branches.length > 0 && (
             <BranchMultiSelect
               branches={branches}
@@ -630,59 +614,91 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               onSelectionChange={names => setBranchFilter(path, names)}
             />
           )}
-          <div className='flex min-w-0 flex-1 flex-col gap-1 pr-2'>
+          <div
+            className={cn(
+              'group relative min-w-0 flex-1 transition-[width] duration-300 ease-out sm:flex-none',
+              trimmedQuery ? 'sm:w-72' : 'sm:w-44 sm:focus-within:w-72',
+            )}
+          >
+            <Search
+              aria-hidden
+              className='pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70 transition-colors duration-200 group-focus-within:text-foreground'
+            />
             <Input
               value={draftQuery}
               onChange={(e) => setDraftQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && canStepSearchMatches) {
+                  e.preventDefault();
+                  requestCommitSearchMatchStep(path, e.shiftKey ? 'prev' : 'next');
+                } else if (e.key === 'Escape' && draftQuery) {
+                  setDraftQuery('');
+                }
+              }}
               placeholder={t("toolbar.commitSearchPlaceholder")}
               spellCheck={false}
               autoComplete="off"
               aria-label={t("toolbar.commitSearchAria")}
-              className='h-8'
+              className={cn('h-8 pl-7', trimmedQuery ? 'pr-[5.75rem]' : 'pr-2')}
             />
-            {searchSlice?.loading &&
-            searchSlice.query.trim() &&
-            searchSlice.hits.length === 0 ? (
-              <span className='flex items-center gap-1.5 text-xs text-muted-foreground'>
-                <Loader2 className='h-3 w-3 shrink-0 animate-spin' />
-                {t("toolbar.searchSearching")}
-              </span>
-            ) : null}
-            {!searchSlice?.loading &&
-            searchSlice?.query?.trim() &&
-            searchSlice.hits.length === 0 ? (
-              <span className='text-xs text-muted-foreground'>
-                {t("toolbar.noMatches")}
-              </span>
-            ) : null}
+            {trimmedQuery && (
+              <div className='absolute inset-y-0 right-1 flex items-center gap-0.5'>
+                <PopIn>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon-xs'
+                    className='h-6 w-5 rounded-md text-muted-foreground hover:text-destructive'
+                    title={t("toolbar.searchClearAria")}
+                    aria-label={t("toolbar.searchClearAria")}
+                    onClick={() => setDraftQuery('')}
+                  >
+                    <X className='size-3' />
+                  </Button>
+                </PopIn>
+                {searchLoading ? (
+                  <Loader2 className='mx-1 h-3 w-3 shrink-0 animate-spin text-muted-foreground' />
+                ) : (
+                  <PopIn key={hitCount} title={t("toolbar.searchHitsTitle", { count: hitCount })}>
+                    <span
+                      className={cn(
+                        'flex h-[18px] min-w-[18px] items-center justify-center rounded-md px-1 text-[10px] font-semibold tabular-nums',
+                        hitCount === 0
+                          ? 'bg-destructive/10 text-destructive'
+                          : 'bg-muted/70 text-muted-foreground',
+                      )}
+                    >
+                      {hitCount > 99 ? '99+' : hitCount}
+                    </span>
+                  </PopIn>
+                )}
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon-xs'
+                  className='h-6 w-5 rounded-md text-muted-foreground hover:text-foreground'
+                  disabled={!canStepSearchMatches}
+                  title={t("toolbar.searchPrevTitle")}
+                  aria-label={t("toolbar.searchPrevAria")}
+                  onClick={() => requestCommitSearchMatchStep(path, 'prev')}
+                >
+                  <ChevronUp className='size-3' strokeWidth={2.25} />
+                </Button>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon-xs'
+                  className='h-6 w-5 rounded-md text-muted-foreground hover:text-foreground'
+                  disabled={!canStepSearchMatches}
+                  title={t("toolbar.searchNextTitle")}
+                  aria-label={t("toolbar.searchNextAria")}
+                  onClick={() => requestCommitSearchMatchStep(path, 'next')}
+                >
+                  <ChevronDown className='size-3' strokeWidth={2.25} />
+                </Button>
+              </div>
+            )}
           </div>
-          {draftQuery.trim() ? (
-            <div className='flex h-8 w-[1.375rem] shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-xs'>
-              <Button
-                type='button'
-                variant='ghost'
-                className='h-0 min-h-0 flex-1 rounded-none border-0 p-0 shadow-none hover:bg-muted/80'
-                disabled={!canStepSearchMatches}
-                title={t("toolbar.searchPrevTitle")}
-                aria-label={t("toolbar.searchPrevAria")}
-                onClick={() => requestCommitSearchMatchStep(path, 'prev')}
-              >
-                <ChevronUp className='size-2.5' strokeWidth={2.25} />
-              </Button>
-              <div className='h-px shrink-0 bg-border' aria-hidden />
-              <Button
-                type='button'
-                variant='ghost'
-                className='h-0 min-h-0 flex-1 rounded-none border-0 p-0 shadow-none hover:bg-muted/80'
-                disabled={!canStepSearchMatches}
-                title={t("toolbar.searchNextTitle")}
-                aria-label={t("toolbar.searchNextAria")}
-                onClick={() => requestCommitSearchMatchStep(path, 'next')}
-              >
-                <ChevronDown className='size-2.5' strokeWidth={2.25} />
-              </Button>
-            </div>
-          ) : null}
         </div>
       </div>
       <PushUpstreamDialog
