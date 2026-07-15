@@ -1,4 +1,5 @@
 import { MagicPill } from "@/components/motion/magic-pill";
+import { PopIn } from "@/components/motion/pop-in";
 import type { TabDisplayMode, TabLayout, TabSize } from "@/lib/sidebar-prefs";
 import { cn } from "@/lib/utils";
 
@@ -7,10 +8,28 @@ interface SidebarNavItemProps {
   icon?: React.ReactNode;
   label: string;
   count?: number;
+  emphasis?: boolean;
   onClick: () => void;
   displayMode?: TabDisplayMode;
   tabSize?: TabSize;
   tabLayout?: TabLayout;
+}
+
+function CornerBadge({ count, emphasis }: { count: number; emphasis?: boolean }) {
+  return (
+    <PopIn key={count} className="pointer-events-none absolute right-0.5 top-0.5">
+      <span
+        className={cn(
+          "flex h-[14px] min-w-[14px] items-center justify-center rounded-full px-0.5 text-[9px] font-bold tabular-nums",
+          emphasis
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground ring-1 ring-border",
+        )}
+      >
+        {count > 9 ? "9+" : count}
+      </span>
+    </PopIn>
+  );
 }
 
 export function SidebarNavItem({
@@ -18,6 +37,7 @@ export function SidebarNavItem({
   icon,
   label,
   count,
+  emphasis,
   onClick,
   displayMode = "full",
   tabSize = "normal",
@@ -43,7 +63,7 @@ export function SidebarNavItem({
         title={!showLabel ? label : undefined}
         onClick={onClick}
         className={cn(
-          "group relative flex w-full flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md px-1 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/60",
+          "group relative flex w-full flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md px-1 outline-none transition-[background,color,transform] duration-150 select-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/60",
           gridHeightClass,
           isActive
             ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-medium"
@@ -74,12 +94,7 @@ export function SidebarNavItem({
           </span>
         )}
 
-        {/* Corner count badge (always corner-style in grid mode) */}
-        {hasCount && (
-          <span className="pointer-events-none absolute right-0.5 top-0.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold tabular-nums text-primary-foreground">
-            {count! > 9 ? "9+" : count}
-          </span>
-        )}
+        {hasCount && <CornerBadge count={count!} emphasis={emphasis} />}
       </button>
     );
   }
@@ -99,7 +114,7 @@ export function SidebarNavItem({
       title={!showLabel ? label : undefined}
       onClick={onClick}
       className={cn(
-        "group relative flex w-full items-center overflow-hidden rounded-md outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/60",
+        "group relative flex w-full items-center overflow-hidden rounded-md outline-none transition-[background,color,transform] duration-150 select-none active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/60",
         heightClass,
         displayMode === "icons_only"
           ? "justify-center px-1"
@@ -131,26 +146,24 @@ export function SidebarNavItem({
         <span className="min-w-0 flex-1 truncate text-left">{label}</span>
       )}
 
-      {/* Count badge for label-visible modes */}
       {hasCount && showLabel && (
-        <span
-          className={cn(
-            "ml-auto flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-md px-1 text-[10px] font-semibold tabular-nums transition-colors",
-            isActive
-              ? "bg-primary/20 text-primary"
-              : "bg-muted/70 text-muted-foreground group-hover:bg-primary/15 group-hover:text-primary",
-          )}
-        >
-          {count! > 99 ? "99+" : count}
-        </span>
+        <PopIn key={count} className="ml-auto shrink-0">
+          <span
+            className={cn(
+              "flex h-[18px] min-w-[18px] items-center justify-center rounded-md px-1 text-[10px] font-semibold tabular-nums transition-colors",
+              emphasis
+                ? "bg-primary text-primary-foreground"
+                : isActive
+                  ? "bg-primary/20 text-primary"
+                  : "bg-muted/70 text-muted-foreground",
+            )}
+          >
+            {count! > 99 ? "99+" : count}
+          </span>
+        </PopIn>
       )}
 
-      {/* Compact count badge for icons-only mode */}
-      {hasCount && !showLabel && (
-        <span className="pointer-events-none absolute right-0.5 top-0.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold tabular-nums text-primary-foreground">
-          {count! > 9 ? "9+" : count}
-        </span>
-      )}
+      {hasCount && !showLabel && <CornerBadge count={count!} emphasis={emphasis} />}
     </button>
   );
 }

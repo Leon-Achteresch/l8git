@@ -109,30 +109,30 @@
     --l8-shadow-2xl: 0 25px 50px -12px rgb(17 17 17 / 0.14);
 
     --background: #f4f1ec;
-    --foreground: #1a1814;
+    --foreground: #0f0e0b;
 
     --card: #ffffff;
-    --card-foreground: #1a1814;
+    --card-foreground: #0f0e0b;
 
     --popover: #ffffff;
-    --popover-foreground: #1a1814;
+    --popover-foreground: #0f0e0b;
 
-    --primary: #1f2937;
+    --primary: #151d29;
     --primary-foreground: #ffffff;
 
-    --secondary: #e7ebf3;
-    --secondary-foreground: #1a1814;
+    --secondary: #dfe4ef;
+    --secondary-foreground: #0f0e0b;
 
-    --muted: #dde2ea;
-    --muted-foreground: #5c5852;
+    --muted: #d2d8e2;
+    --muted-foreground: #47433c;
 
-    --accent: #e2e8f2;
-    --accent-foreground: #1f2937;
+    --accent: #d8e0ee;
+    --accent-foreground: #151d29;
 
-    --destructive: oklch(0.62 0.14 25);
-    --border: rgb(17 17 17 / 0.2);
-    --input: rgb(17 17 17 / 0.24);
-    --ring: rgb(17 17 17 / 0.32);
+    --destructive: oklch(0.55 0.16 25);
+    --border: rgb(17 17 17 / 0.28);
+    --input: rgb(17 17 17 / 0.34);
+    --ring: rgb(17 17 17 / 0.45);
 
     --chart-1: oklch(0.65 0.14 250);
     --chart-2: oklch(0.7 0.15 295);
@@ -140,25 +140,25 @@
     --chart-4: oklch(0.7 0.14 175);
     --chart-5: oklch(0.7 0.15 90);
 
-    --git-added: oklch(0.62 0.14 145);
-    --git-added-subtle: oklch(0.96 0.04 145);
-    --git-removed: oklch(0.62 0.14 25);
-    --git-removed-subtle: oklch(0.96 0.04 25);
-    --git-modified: oklch(0.68 0.14 75);
-    --git-modified-subtle: oklch(0.96 0.04 75);
-    --git-branch: oklch(0.65 0.14 250);
-    --git-merge: oklch(0.7 0.15 295);
-    --git-tag: oklch(0.7 0.15 90);
-    --git-hash: oklch(0.45 0.02 50);
+    --git-added: oklch(0.53 0.15 145);
+    --git-added-subtle: oklch(0.94 0.05 145);
+    --git-removed: oklch(0.53 0.16 25);
+    --git-removed-subtle: oklch(0.94 0.05 25);
+    --git-modified: oklch(0.57 0.15 75);
+    --git-modified-subtle: oklch(0.94 0.05 75);
+    --git-branch: oklch(0.55 0.16 250);
+    --git-merge: oklch(0.55 0.17 295);
+    --git-tag: oklch(0.58 0.15 90);
+    --git-hash: oklch(0.38 0.02 50);
 
     --sidebar: #f5f3ef;
-    --sidebar-foreground: #1a1814;
-    --sidebar-primary: #1f2937;
+    --sidebar-foreground: #0f0e0b;
+    --sidebar-primary: #151d29;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #ebe7e1;
-    --sidebar-accent-foreground: #1a1814;
-    --sidebar-border: rgb(17 17 17 / 0.16);
-    --sidebar-ring: rgb(17 17 17 / 0.32);
+    --sidebar-accent: #e3ddd3;
+    --sidebar-accent-foreground: #0f0e0b;
+    --sidebar-border: rgb(17 17 17 / 0.24);
+    --sidebar-ring: rgb(17 17 17 / 0.45);
 }
 
 /*
@@ -174,30 +174,30 @@
     --l8-shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.55);
 
     --background: #0a0a0a;
-    --foreground: #e5e3df;
+    --foreground: #f4f2ee;
 
-    --card: #1b1b1f;
-    --card-foreground: #e5e3df;
+    --card: #1e1e23;
+    --card-foreground: #f4f2ee;
 
-    --popover: #1b1b1f;
-    --popover-foreground: #e5e3df;
+    --popover: #1e1e23;
+    --popover-foreground: #f4f2ee;
 
     --primary: #ffffff;
     --primary-foreground: #0c0b09;
 
-    --secondary: #1b1b1f;
-    --secondary-foreground: #e5e3df;
+    --secondary: #222228;
+    --secondary-foreground: #f4f2ee;
 
-    --muted: #111114;
-    --muted-foreground: #9b958e;
+    --muted: #17171b;
+    --muted-foreground: #b5afa6;
 
-    --accent: rgb(255 255 255 / 0.08);
-    --accent-foreground: #e5e3df;
+    --accent: rgb(255 255 255 / 0.14);
+    --accent-foreground: #ffffff;
 
-    --destructive: oklch(0.72 0.16 25);
-    --border: rgb(255 255 255 / 0.07);
-    --input: rgb(255 255 255 / 0.1);
-    --ring: rgb(255 255 255 / 0.22);
+    --destructive: oklch(0.74 0.17 25);
+    --border: rgb(255 255 255 / 0.14);
+    --input: rgb(255 255 255 / 0.18);
+    --ring: rgb(255 255 255 / 0.35);
 
     --chart-1: oklch(0.72 0.14 250);
     --chart-2: oklch(0.75 0.15 295);
@@ -205,25 +205,25 @@
     --chart-4: oklch(0.75 0.14 175);
     --chart-5: oklch(0.78 0.15 90);
 
-    --git-added: oklch(0.72 0.14 145);
-    --git-added-subtle: oklch(0.25 0.06 145);
-    --git-removed: oklch(0.72 0.14 25);
-    --git-removed-subtle: oklch(0.25 0.06 25);
-    --git-modified: oklch(0.78 0.14 75);
-    --git-modified-subtle: oklch(0.28 0.06 75);
-    --git-branch: oklch(0.72 0.14 250);
-    --git-merge: oklch(0.75 0.15 295);
-    --git-tag: oklch(0.78 0.15 90);
-    --git-hash: oklch(0.72 0.02 50);
+    --git-added: oklch(0.78 0.16 145);
+    --git-added-subtle: oklch(0.3 0.07 145);
+    --git-removed: oklch(0.76 0.16 25);
+    --git-removed-subtle: oklch(0.3 0.07 25);
+    --git-modified: oklch(0.82 0.15 75);
+    --git-modified-subtle: oklch(0.32 0.07 75);
+    --git-branch: oklch(0.78 0.15 250);
+    --git-merge: oklch(0.79 0.16 295);
+    --git-tag: oklch(0.84 0.16 90);
+    --git-hash: oklch(0.78 0.02 50);
 
     --sidebar: #111114;
-    --sidebar-foreground: #e5e3df;
+    --sidebar-foreground: #f4f2ee;
     --sidebar-primary: #ffffff;
     --sidebar-primary-foreground: #0c0b09;
-    --sidebar-accent: rgb(255 255 255 / 0.08);
-    --sidebar-accent-foreground: #e5e3df;
-    --sidebar-border: rgb(255 255 255 / 0.07);
-    --sidebar-ring: rgb(255 255 255 / 0.22);
+    --sidebar-accent: rgb(255 255 255 / 0.14);
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgb(255 255 255 / 0.14);
+    --sidebar-ring: rgb(255 255 255 / 0.35);
 }
 
 @layer base {
