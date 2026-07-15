@@ -1,4 +1,11 @@
 import {
+  filterForest,
+  flattenVisibleKeys,
+  useRepoGroupsStore,
+} from "@/lib/repo-groups-store";
+import { useRepoStore } from "@/lib/repo-store";
+import { useWorkspaceStore } from "@/lib/workspace-store";
+import {
   DndContext,
   PointerSensor,
   closestCenter,
@@ -10,18 +17,17 @@ import {
   SortableContext,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useRepoStore } from "@/lib/repo-store";
 import {
-  filterForest,
-  flattenVisibleKeys,
-  useRepoGroupsStore,
-} from "@/lib/repo-groups-store";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+} from "react";
+import { useShallow } from "zustand/react/shallow";
 import { AddRepoButton } from "./add-repo-button";
 import { ForestNodes } from "./repo-group";
 import { RepoWorkspaceSwitch } from "./repo-workspace-switch";
-import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
-import { useShallow } from "zustand/react/shallow";
 
 export function RepoTabBar() {
   const { paths, activePath, activeLoading } = useRepoStore(
@@ -42,10 +48,6 @@ export function RepoTabBar() {
     })),
   );
 
-  // Track previous paths in a ref so the effect can diff without subscribing to the store directly.
-  // Using useEffect([paths]) instead of store.subscribe() ensures state updates happen after render,
-  // avoiding the "maximum update depth exceeded" that occurs when Zustand's synchronous subscriber
-  // calls set() on another store during React's useSyncExternalStore snapshot check.
   const prevPathsRef = useRef<string[] | null>(null);
   useEffect(() => {
     const {
@@ -62,8 +64,12 @@ export function RepoTabBar() {
 
     const prevPaths = prevPathsRef.current;
     prevPathsRef.current = paths;
-    paths.filter((p) => !prevPaths.includes(p)).forEach(addRepoToActiveWorkspace);
-    prevPaths.filter((p) => !paths.includes(p)).forEach(removeRepoFromAllWorkspaces);
+    paths
+      .filter((p) => !prevPaths.includes(p))
+      .forEach(addRepoToActiveWorkspace);
+    prevPaths
+      .filter((p) => !paths.includes(p))
+      .forEach(removeRepoFromAllWorkspaces);
   }, [paths]);
 
   useEffect(() => {

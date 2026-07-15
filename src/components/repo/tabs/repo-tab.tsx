@@ -5,6 +5,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { useRepoGroupsStore } from "@/lib/repo-groups-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
@@ -24,7 +25,6 @@ import { m } from "motion/react";
 import { memo, useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
-import { useRepoGroupsStore } from "@/lib/repo-groups-store";
 import { RepoGroupDialog } from "./repo-group-dialog";
 import { RepoLanguageStats } from "./repo-language-stats";
 import { RepoTabGroupActions } from "./repo-tab-group-actions";
@@ -66,7 +66,10 @@ function TabCornerLeft() {
       xmlns="http://www.w3.org/2000/svg"
       className="absolute -left-[15px] bottom-0 [filter:drop-shadow(-1.2px_-0.5px_1px_rgba(0,0,0,0.10))]"
     >
-      <path d="M15 15H0C8.28427 15 15 8.28427 15 0V15Z" fill="var(--background)" />
+      <path
+        d="M15 15H0C8.28427 15 15 8.28427 15 0V15Z"
+        fill="var(--background)"
+      />
     </svg>
   );
 }
