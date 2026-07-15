@@ -29,6 +29,7 @@ const DEFAULTS = {
   gridColumns: 2 as GridColumns,
   showBranchFilter: true,
   defaultOpenSections: ['local', 'remote', 'tags'] as SidebarSectionId[],
+  moreTabsExpanded: false,
 };
 
 type SidebarPrefsState = {
@@ -40,6 +41,7 @@ type SidebarPrefsState = {
   gridColumns: GridColumns;
   showBranchFilter: boolean;
   defaultOpenSections: SidebarSectionId[];
+  moreTabsExpanded: boolean;
 
   setTabOrder: (order: SidebarTab[]) => void;
   toggleTabVisibility: (tab: SidebarTab) => void;
@@ -49,6 +51,7 @@ type SidebarPrefsState = {
   setGridColumns: (cols: GridColumns) => void;
   setShowBranchFilter: (v: boolean) => void;
   setDefaultOpenSections: (sections: SidebarSectionId[]) => void;
+  setMoreTabsExpanded: (v: boolean) => void;
   resetToDefaults: () => void;
 };
 
@@ -69,6 +72,7 @@ export const useSidebarPrefs = create<SidebarPrefsState>()(
       setGridColumns: cols => set({ gridColumns: cols }),
       setShowBranchFilter: v => set({ showBranchFilter: v }),
       setDefaultOpenSections: sections => set({ defaultOpenSections: sections }),
+      setMoreTabsExpanded: v => set({ moreTabsExpanded: v }),
       resetToDefaults: () => set(DEFAULTS),
     }),
     {
@@ -92,6 +96,7 @@ export const useSidebarPrefs = create<SidebarPrefsState>()(
           gridColumns: p.gridColumns ?? DEFAULTS.gridColumns,
           showBranchFilter: p.showBranchFilter ?? DEFAULTS.showBranchFilter,
           defaultOpenSections: p.defaultOpenSections ?? DEFAULTS.defaultOpenSections,
+          moreTabsExpanded: p.moreTabsExpanded ?? DEFAULTS.moreTabsExpanded,
         };
       },
     },
