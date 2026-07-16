@@ -19,7 +19,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronRight, FolderClosed, FolderOpen, FolderPlus, Pencil, Ungroup } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
-import { Fragment, useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { RepoGroupDialog } from "./repo-group-dialog";
@@ -36,10 +36,16 @@ export function ForestNodes({
   nodes,
   activePath,
   nested = false,
+  slot = null,
+  slotAt = -1,
+  slotOpen = false,
 }: {
   nodes: ForestNode[];
   activePath: string | null;
   nested?: boolean;
+  slot?: ReactNode;
+  slotAt?: number;
+  slotOpen?: boolean;
 }) {
   return (
     <>
@@ -51,12 +57,14 @@ export function ForestNodes({
           (prevNode !== null && nodeContainsActive(prevNode, activePath));
         return (
           <Fragment key={key}>
+            {i === slotAt && slot}
             {i > 0 && !nested && (
               <span
+                data-tab-sep
                 className={cn(
                   "mb-1 h-4 w-0.5 shrink-0 self-center rounded-full bg-foreground/5 transition-opacity",
                   "[*:hover+&]:opacity-0 [&:has(+*:hover)]:opacity-0",
-                  hideSeparator && "opacity-0",
+                  (hideSeparator || (slotOpen && i === slotAt)) && "opacity-0",
                 )}
                 aria-hidden
               />
@@ -74,6 +82,7 @@ export function ForestNodes({
           </Fragment>
         );
       })}
+      {slotAt >= nodes.length && slot}
     </>
   );
 }

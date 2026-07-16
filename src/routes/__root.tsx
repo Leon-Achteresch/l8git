@@ -19,12 +19,14 @@ const AppUpdateToast = lazy(() =>
 );
 
 import { AppHeader } from "@/components/app/app-header";
+import { AppIsland } from "@/components/app/app-island";
 import { HotkeysOverlay } from "@/components/app/hotkeys-overlay";
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { useRepoStore } from "@/lib/repo-store";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
 import { useTheme } from "@/lib/use-theme";
+import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { useState } from "react";
 
@@ -38,6 +40,9 @@ function RootLayout() {
   const { theme } = useTheme();
   const addRepo = useRepoStore((s) => s.addRepo);
   const uiScale = useWorkspacePrefs((s) => s.uiScale);
+  const islandEnabled = useUiVisibilityPrefs((s) => s.showHeaderIsland);
+  const hasActiveRepo = useRepoStore((s) => !!s.activePath);
+  const islandHandlesToasts = islandEnabled && hasActiveRepo;
 
   useEffect(() => {
     document.documentElement.style.fontSize = uiScale === 1 ? "" : `${uiScale * 100}%`;
@@ -64,12 +69,15 @@ function RootLayout() {
         <div className="min-h-0 flex-1 overflow-y-auto bg-background">
           <Outlet />
         </div>
-        <Toaster
-          richColors
-          closeButton
-          position="top-right"
-          theme={resolveTheme(theme)}
-        />
+        <AppIsland />
+        {!islandHandlesToasts && (
+          <Toaster
+            richColors
+            closeButton
+            position="top-right"
+            theme={resolveTheme(theme)}
+          />
+        )}
         <HotkeysOverlay open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
         <Suspense fallback={null}>
           <AppUpdateToast />
