@@ -93,7 +93,8 @@ export function dockRectFor(id: IslandDockId): DOMRect | null {
   return el ? el.getBoundingClientRect() : null;
 }
 
-export const MAGNET_RADIUS = 120;
+export const MAGNET_MARGIN = 32;
+const MAGNET_REACH = 200;
 
 export type MagnetHit = {
   id: IslandDockId;
@@ -102,31 +103,28 @@ export type MagnetHit = {
   pull: number;
 };
 
-export function magnetFor(
-  centerX: number,
-  centerY: number,
-  width: number,
-  height: number,
-): MagnetHit | null {
+export function magnetFor(centerX: number, centerY: number): MagnetHit | null {
   const { els } = useIslandDocks.getState();
   let best: (MagnetHit & { distance: number }) | null = null;
 
   for (const id of Object.keys(els) as IslandDockId[]) {
     const r = els[id]!.getBoundingClientRect();
-    const slotW = r.width || ISLAND_WIDTH;
-    const slotH = r.height || ISLAND_HEIGHT;
+    if (
+      centerX < r.left - MAGNET_MARGIN ||
+      centerX > r.right + MAGNET_MARGIN ||
+      centerY < r.top - MAGNET_MARGIN ||
+      centerY > r.bottom + MAGNET_MARGIN
+    )
+      continue;
     const slotX = r.left + r.width / 2;
     const slotY = r.top + r.height / 2;
-    const gapX = Math.max(0, Math.abs(slotX - centerX) - (width + slotW) / 2);
-    const gapY = Math.max(0, Math.abs(slotY - centerY) - (height + slotH) / 2);
-    const distance = Math.hypot(gapX, gapY);
-    if (distance > MAGNET_RADIUS) continue;
+    const distance = Math.hypot(slotX - centerX, slotY - centerY);
     if (best && distance >= best.distance) continue;
     best = {
       id,
       x: slotX,
       y: slotY,
-      pull: 1 - distance / MAGNET_RADIUS,
+      pull: 1 - Math.min(1, distance / MAGNET_REACH),
       distance,
     };
   }

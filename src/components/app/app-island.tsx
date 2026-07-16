@@ -220,14 +220,14 @@ export function AppIsland() {
             setView(null);
           }}
           onDrag={() => {
-            const hit = magnetAt(islandRef.current, x.get(), y.get());
+            const hit = magnetFor(x.get(), y.get());
             setHovered(hit?.id ?? null);
             const grip = hit ? hit.pull * hit.pull : 0;
             magnetX.set(hit ? (hit.x - x.get()) * grip : 0);
             magnetY.set(hit ? (hit.y - y.get()) * grip : 0);
           }}
           onDragEnd={() => {
-            const hit = magnetAt(islandRef.current, x.get(), y.get());
+            const hit = magnetFor(x.get(), y.get());
             x.jump(x.get() + magnetX.get());
             y.jump(y.get() + magnetY.get());
             magnetX.jump(0);
@@ -239,6 +239,8 @@ export function AppIsland() {
             justDraggedRef.current = true;
             if (hit) {
               setDock(hit.id);
+              void animate(x, hit.x, SNAP);
+              void animate(y, hit.y, SNAP);
             } else {
               setDock("free");
               setPosition({ x: Math.round(x.get()), y: Math.round(y.get()) });
@@ -631,11 +633,6 @@ function islandTarget(
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   }
   return position ?? defaultIslandPosition();
-}
-
-function magnetAt(el: HTMLElement | null, x: number, y: number) {
-  const { width, height } = islandSize(el);
-  return magnetFor(x, y, width, height);
 }
 
 function useIslandToast(enabled: boolean): ToastT | null {
