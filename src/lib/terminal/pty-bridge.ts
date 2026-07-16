@@ -18,6 +18,7 @@ export async function openPty(
   handlers: PtyHandlers,
   cwd?: string,
   shell?: string | null,
+  dark = true,
 ): Promise<PtySession> {
   const onData = new Channel<ArrayBuffer>();
   const onExit = new Channel<number>();
@@ -42,6 +43,7 @@ export async function openPty(
     rows,
     cwd: cwd ?? null,
     shell: shell?.trim() || null,
+    dark,
     onData,
     onExit,
   });

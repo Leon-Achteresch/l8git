@@ -23,6 +23,7 @@ const SCROLLBACK = 2_000;
 const FONT_SIZE = 13;
 const FONT_FAMILY =
   '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const LINE_HEIGHT = 1.35;
 
 export type SlotAdapter = {
   resolveLeaf(leafId: string): LeafBridge | null;
@@ -111,9 +112,11 @@ function termOptions() {
   return {
     fontFamily: FONT_FAMILY,
     fontSize: FONT_SIZE,
+    lineHeight: LINE_HEIGHT,
     theme: buildTerminalTheme(),
     cursorBlink: false,
     cursorStyle: "bar" as const,
+    cursorWidth: 1.5,
     cursorInactiveStyle: "outline" as const,
     scrollback: SCROLLBACK,
     allowProposedApi: true,
