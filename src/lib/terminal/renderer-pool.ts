@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
@@ -227,28 +228,15 @@ function createSlot(): Slot {
     (event) => {
       const clip = event.clipboardData;
       if (!clip) return;
-      let hasImage = false;
-      for (let i = 0; i < clip.items.length; i++) {
-        const item = clip.items[i];
-        if (item.kind === "file" && item.type.startsWith("image/")) {
-          hasImage = true;
-          break;
-        }
-      }
-      if (!hasImage) {
-        for (let i = 0; i < clip.files.length; i++) {
-          if (clip.files[i].type.startsWith("image/")) {
-            hasImage = true;
-            break;
-          }
-        }
-      }
-      if (!hasImage) return;
+      const file = imageFileFromClipboard(clip);
+      if (!file) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       const leafId = slot.currentLeafId;
       if (leafId === null) return;
-      adapter?.resolveLeaf(leafId)?.writeToPty("\x16");
+      void attachClipboardImage(file, (data) =>
+        adapter?.resolveLeaf(leafId)?.writeToPty(data),
+      );
     },
     { capture: true },
   );
@@ -815,4 +803,48 @@ function isShiftEnter(e: KeyboardEvent): boolean {
   return (
     e.key === "Enter" && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey
   );
+}
+
+const IMAGE_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+};
+
+function imageFileFromClipboard(clip: DataTransfer): File | null {
+  for (let i = 0; i < clip.items.length; i++) {
+    const item = clip.items[i];
+    if (item.kind === "file" && item.type.startsWith("image/")) {
+      const f = item.getAsFile();
+      if (f) return f;
+    }
+  }
+  for (let i = 0; i < clip.files.length; i++) {
+    if (clip.files[i].type.startsWith("image/")) return clip.files[i];
+  }
+  return null;
+}
+
+// Save a pasted image to a temp file and hand its path to the program in the
+// terminal. Claude Code only detects an image path inside a bracketed-paste
+// frame (ESC[200~ … ESC[201~) — raw Ctrl+V clipboard reads are unreliable on
+// Windows. No trailing newline: the user still types their prompt and submits.
+async function attachClipboardImage(
+  file: File,
+  write: (data: string) => void,
+): Promise<void> {
+  try {
+    const buf = await file.arrayBuffer();
+    const ext = IMAGE_EXT[file.type] ?? "png";
+    // ponytail: bytes cross IPC as a JSON number[]. Fine for clipboard-sized
+    // images; switch to a raw IPC channel if multi-MB pastes ever lag.
+    const path = await invoke<string>("save_clipboard_image", {
+      bytes: Array.from(new Uint8Array(buf)),
+      ext,
+    });
+    write(`\x1b[200~${path}\x1b[201~`);
+  } catch (e) {
+    console.error("[l8git] clipboard image paste failed:", e);
+  }
 }
