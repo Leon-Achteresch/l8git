@@ -299,6 +299,18 @@
   100% { transform: translateX(100%); }
 }
 
+@keyframes island-bar {
+  0%, 100% { height: 30%; opacity: 0.55; }
+  50%      { height: 100%; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[island-bar_0\.9s_ease-in-out_infinite\] {
+    animation: none;
+    height: 65%;
+  }
+}
+
 .merge-marker-line {
   background-color: rgba(245, 158, 11, 0.18) !important;
   border-top: 1px solid rgba(245, 158, 11, 0.55);
@@ -383,6 +395,62 @@
 .monaco-diff-viewer-root .monaco-scrollable-element > .scrollbar.horizontal > .slider {
   top: 0 !important;
   height: 3px !important;
+}
+
+.terminal-viewport .xterm {
+  height: 100%;
+  padding: 0;
+}
+
+.terminal-viewport .xterm-viewport {
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+}
+
+.terminal-viewport .xterm-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+
+.terminal-viewport .xterm-viewport::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--foreground) 22%, transparent);
+  border-radius: 999px;
+}
+
+.terminal-viewport .xterm-screen {
+  letter-spacing: 0.01em;
+}
+
+.terminal-well {
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.35) inset,
+    0 10px 28px -18px rgb(17 17 17 / 0.35);
+}
+
+.dark .terminal-well {
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.05) inset,
+    0 14px 36px -16px rgb(0 0 0 / 0.7);
+}
+
+.terminal-panel-chrome {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--card) 88%, transparent),
+      color-mix(in oklch, var(--muted) 35%, transparent)
+    );
+  backdrop-filter: blur(10px);
+}
+
+.terminal-viewport {
+  padding: 10px 14px 12px;
+}
+
+.terminal-viewport .xterm .xterm-helpers {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
