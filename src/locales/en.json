@@ -37,6 +37,25 @@
     "restore": "Restore",
     "close": "Close"
   },
+  "island": {
+    "open": "Show projects and integrations",
+    "close": "Close",
+    "projects_one": "{{count}} project",
+    "projects_other": "{{count}} projects",
+    "dirty_one": "{{count}} change",
+    "dirty_other": "{{count}} changes",
+    "integrations": "Integrations",
+    "display": "Display",
+    "showBranch": "Show branch",
+    "showDirty": "Show changes",
+    "showAgents": "Show agents",
+    "resetPosition": "Reset position",
+    "working": "Working in {{repo}}…"
+  },
+  "dock": {
+    "shell": "Shell",
+    "hide": "Hide terminal panel"
+  },
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Insights across your repositories",
@@ -399,7 +418,16 @@
     "sidebarTabLayoutGrid": "Grid",
     "sidebarTabLayoutGridDesc": "Multi-column grid",
     "sidebarGridColumns": "Columns",
-    "sidebarGridWidth": "Grid width"
+    "sidebarGridWidth": "Grid width",
+    "interfaceElementsTitle": "Interface elements",
+    "interfaceElementsDesc": "Dynamic Island, agent dock and terminal placement",
+    "islandLabel": "Show Dynamic Island",
+    "islandHint": "Floating overview of the active project, running agents and toast messages. Drag it anywhere; right-click for options.",
+    "dockLabel": "Show agent dock",
+    "dockHint": "Bottom dock to launch Claude Code, Codex, Gemini CLI, Cursor CLI, OpenCode, Copilot CLI and a shell for the current project.",
+    "terminalPositionLabel": "Terminal placement",
+    "terminalPositionBottom": "Bottom",
+    "terminalPositionRight": "Right"
   },
   "animations": {
     "title": "Motion & animations",
@@ -618,7 +646,9 @@
     "historySearch": "Search commands…",
     "historyEmpty": "No saved commands",
     "historyDelete": "Remove entry",
-    "historyClear": "Clear history"
+    "historyClear": "Clear history",
+    "dockRight": "Dock terminal to the right",
+    "dockBottom": "Dock terminal to the bottom"
   },
   "tools": {
     "title": "Tools",
@@ -635,6 +665,10 @@
     "filesCount": "· {{count}} {{unit}}",
     "stagedSummary": "{{count}} {{unit}} staged",
     "messagePlaceholder": "Enter commit message…",
+    "bodyPlaceholder": "Describe the change…",
+    "addDescription": "Add description",
+    "commitTo": "Commit to {{branch}}",
+    "amendBanner": "Amending previous commit",
     "ccTypeTitle": "Prepend {{type}}: to subject",
     "aiTitle": "Generate commit message with AI",
     "aiAria": "Generate with AI",
