@@ -32,6 +32,7 @@ import { StaggerCard } from "@/components/motion/stagger-card";
 import { AddGitAccount } from "@/components/repo/git-account/add-git-account";
 import { GitAccountRow } from "@/components/repo/git-account/git-account-row";
 import { AnimationsCard } from "@/components/settings/animations-card";
+import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
 import { SidebarCustomizeSection } from "@/components/settings/sidebar-customize-section";
 import { Button } from "@/components/ui/button";
 import {
@@ -568,6 +569,10 @@ export function Settings() {
                     </div>
                   </CardContent>
                 </Card>
+              </StaggerCard>
+
+              <StaggerCard index={3}>
+                <InterfaceElementsCard />
               </StaggerCard>
             </div>
           </section>
