@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn escape_applescript_string(s: &str) -> String {
     let mut o = String::with_capacity(s.len() + 2);
@@ -216,6 +217,38 @@ fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
         let _ = use_git_bash;
         Err("Platform not supported.".into())
     }
+}
+
+/// Persists a clipboard image to a temp file so it can be handed to a program
+/// running in the embedded terminal (Claude Code recognises image file paths,
+/// but not raw clipboard bytes on Windows). Returns the absolute path.
+#[tauri::command]
+pub async fn save_clipboard_image(bytes: Vec<u8>, ext: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || _save_clipboard_image(bytes, ext))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn _save_clipboard_image(bytes: Vec<u8>, ext: String) -> Result<String, String> {
+    if bytes.is_empty() {
+        return Err("Leeres Bild.".into());
+    }
+    let ext = match ext.trim().to_ascii_lowercase().as_str() {
+        "jpg" | "jpeg" => "jpg",
+        "gif" => "gif",
+        "webp" => "webp",
+        _ => "png",
+    };
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let mut dir = std::env::temp_dir();
+    dir.push("l8git-clip");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{e}"))?;
+    dir.push(format!("clip-{nanos}.{ext}"));
+    std::fs::write(&dir, &bytes).map_err(|e| format!("{e}"))?;
+    Ok(dir.to_string_lossy().into_owned())
 }
 
 #[tauri::command]

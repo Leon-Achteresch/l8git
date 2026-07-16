@@ -66,30 +66,73 @@ export function RepoTerminalPanel({ path }: Props) {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col text-xs text-foreground"
+      className="flex h-full min-h-0 flex-col text-foreground"
       style={{ backgroundColor: bg }}
     >
-      <div className="flex h-7 shrink-0 items-center justify-between border-b border-border/50 bg-muted/40 px-3 text-xs">
-        <div className="flex items-center gap-2">
-          <SquareTerminal className="size-3.5 text-muted-foreground" />
-          <span className="font-medium">{t("embeddedTerminal.title")}</span>
-          {tabs.length > 0 && (
-            <span className="text-muted-foreground">
-              · {t("embeddedTerminal.tabsCount", { count: tabs.length })}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <CommandHistoryPopover path={path} activeId={activeId} />
+      <div className="flex h-9 shrink-0 items-center gap-1 border-b border-border bg-muted/60 px-1.5">
+        <div
+          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label={t("embeddedTerminal.tabsAria")}
+        >
+          {tabs.map((tab) => {
+            const active = tab.id === activeId;
+            return (
+              <div
+                key={tab.id}
+                role="tab"
+                aria-selected={active}
+                className={cn(
+                  "group flex h-7 min-w-0 max-w-[190px] shrink-0 items-center gap-1.5 rounded-md pr-1.5 pl-2.5 text-xs transition-colors",
+                  active
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(path, tab.id)}
+                  className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-left"
+                  title={tab.title}
+                >
+                  <SquareTerminal
+                    className={cn(
+                      "size-3.5 shrink-0",
+                      active ? "text-primary" : "text-muted-foreground/70",
+                    )}
+                  />
+                  <span className="truncate">{tab.title}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeTab(path, tab.id);
+                  }}
+                  title={t("embeddedTerminal.closeTab")}
+                  className={cn(
+                    "flex size-4 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-muted-foreground/20 group-hover:opacity-100 focus-visible:opacity-100",
+                    active && "opacity-60",
+                  )}
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            );
+          })}
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
+            className="shrink-0"
             title={t("embeddedTerminal.newTab")}
             onClick={() => openTab(path, defaultTitle)}
           >
             <Plus className="size-3.5" />
           </Button>
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5 border-l border-border/60 pl-1">
+          <CommandHistoryPopover path={path} activeId={activeId} />
           <Button
             type="button"
             variant="ghost"
@@ -101,70 +144,17 @@ export function RepoTerminalPanel({ path }: Props) {
           </Button>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1">
-        <div className="relative min-h-0 min-w-0 flex-1">
-          {tabs.map((tab) => (
-            <RepoTerminalSession
-              key={tab.id}
-              path={path}
-              tabId={tab.id}
-              active={tab.id === activeId}
-              isDark={isDark}
-              onTitleChange={(title) => renameTab(path, tab.id, title)}
-            />
-          ))}
-        </div>
-        <div
-          className="flex w-44 shrink-0 flex-col border-l border-border/60 bg-muted/30"
-          aria-label={t("embeddedTerminal.tabsAria")}
-        >
-          <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-1">
-            {tabs.map((tab) => {
-              const active = tab.id === activeId;
-              return (
-                <li key={tab.id}>
-                  <div
-                    className={cn(
-                      "group flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-                      active
-                        ? "bg-primary/15 text-primary"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab(path, tab.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2 truncate text-left"
-                      title={tab.title}
-                    >
-                      <SquareTerminal
-                        className={cn(
-                          "size-3 shrink-0",
-                          active ? "text-primary" : "text-muted-foreground/70",
-                        )}
-                      />
-                      <span className="truncate">{tab.title}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeTab(path, tab.id);
-                      }}
-                      title={t("embeddedTerminal.closeTab")}
-                      className={cn(
-                        "rounded p-0.5 opacity-0 transition-opacity hover:bg-muted-foreground/15 group-hover:opacity-100",
-                        active && "opacity-70",
-                      )}
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+      <div className="relative min-h-0 flex-1">
+        {tabs.map((tab) => (
+          <RepoTerminalSession
+            key={tab.id}
+            path={path}
+            tabId={tab.id}
+            active={tab.id === activeId}
+            isDark={isDark}
+            onTitleChange={(title) => renameTab(path, tab.id, title)}
+          />
+        ))}
       </div>
     </div>
   );

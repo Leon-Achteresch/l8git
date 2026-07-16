@@ -43,6 +43,7 @@ pub fn run() {
             shell::reveal_repo_folder,
             shell::open_repo_terminal,
             shell::open_repo_in_ide,
+            shell::save_clipboard_image,
             repo_tools::list_repo_tools,
             git::git_fetch,
             git::git_pull,
