@@ -11,6 +11,12 @@ export const TERMINAL_MIN_HEIGHT = 120;
 export const TERMINAL_MAX_HEIGHT = 720;
 export const TERMINAL_DEFAULT_HEIGHT = 260;
 
+export const TERMINAL_MIN_WIDTH = 240;
+export const TERMINAL_MAX_WIDTH = 1200;
+export const TERMINAL_DEFAULT_WIDTH = 420;
+
+export type TerminalPosition = 'bottom' | 'right';
+
 export type TerminalTab = {
   id: string;
   title: string;
@@ -24,10 +30,14 @@ type TerminalState = {
   tabsByPath: Record<string, TerminalTab[]>;
   activeByPath: Record<string, string | null>;
   panelHeight: number;
+  panelWidth: number;
+  position: TerminalPosition;
   setVisible: (path: string, visible: boolean) => void;
   toggleVisible: (path: string) => void;
   isVisible: (path: string) => boolean;
   setPanelHeight: (height: number) => void;
+  setPanelWidth: (width: number) => void;
+  setPosition: (position: TerminalPosition) => void;
   openTab: (path: string, title?: string, command?: string) => string;
   closeTab: (path: string, id: string) => void;
   closeAllForPath: (path: string) => void;
@@ -37,6 +47,9 @@ type TerminalState = {
 
 const clampHeight = (v: number) =>
   Math.min(TERMINAL_MAX_HEIGHT, Math.max(TERMINAL_MIN_HEIGHT, Math.round(v)));
+
+const clampWidth = (v: number) =>
+  Math.min(TERMINAL_MAX_WIDTH, Math.max(TERMINAL_MIN_WIDTH, Math.round(v)));
 
 let tabSeq = 1;
 function nextTabId(): string {
@@ -51,6 +64,8 @@ export const useTerminalStore = create<TerminalState>()(
       tabsByPath: {},
       activeByPath: {},
       panelHeight: TERMINAL_DEFAULT_HEIGHT,
+      panelWidth: TERMINAL_DEFAULT_WIDTH,
+      position: 'bottom',
       setVisible: (path, visible) =>
         set((s) => ({
           visibleByPath: { ...s.visibleByPath, [path]: visible },
@@ -61,6 +76,8 @@ export const useTerminalStore = create<TerminalState>()(
       },
       isVisible: (path) => !!get().visibleByPath[path],
       setPanelHeight: (height) => set({ panelHeight: clampHeight(height) }),
+      setPanelWidth: (width) => set({ panelWidth: clampWidth(width) }),
+      setPosition: (position) => set({ position }),
       openTab: (path, title, command) => {
         const id = nextTabId();
         set((s) => {
@@ -126,12 +143,20 @@ export const useTerminalStore = create<TerminalState>()(
     {
       name: 'l8git-terminal',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ panelHeight: s.panelHeight }),
+      partialize: (s) => ({
+        panelHeight: s.panelHeight,
+        panelWidth: s.panelWidth,
+        position: s.position,
+      }),
       merge: (persisted, current) => {
-        const p = persisted as Partial<Pick<TerminalState, 'panelHeight'>>;
+        const p = persisted as Partial<
+          Pick<TerminalState, 'panelHeight' | 'panelWidth' | 'position'>
+        >;
         return {
           ...current,
           panelHeight: clampHeight(p.panelHeight ?? current.panelHeight),
+          panelWidth: clampWidth(p.panelWidth ?? current.panelWidth),
+          position: p.position === 'right' ? 'right' : 'bottom',
         };
       },
     },

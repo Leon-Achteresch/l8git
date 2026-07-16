@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,21 +8,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-  InputGroupTextarea,
-} from "@/components/ui/input-group";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -37,20 +21,12 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  Archive,
-  Check,
-  ChevronDown,
-  Loader2,
-  Pencil,
-  Undo2,
-  Sparkles,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
 import { VirtualFileList } from "./commit-panel-file-list";
 import { MergeStatusBanner } from "@/components/repo/merge/merge-status-banner";
 import { CommitPanelConflictPlaceholder } from "@/components/repo/commit/commit-panel-conflict-placeholder";
+import { CommitComposer } from "@/components/repo/commit/commit-composer";
 import {
   buildChangeRows,
   checkState,
@@ -59,22 +35,6 @@ import { generateAiCommitMessage } from "@/lib/ai-commit";
 import { useTranslation } from "react-i18next";
 
 const EMPTY_STATUS: StatusEntry[] = [];
-
-const AI_LANGUAGES = [
-  { label: "English", short: "EN" },
-  { label: "Deutsch", short: "DE" },
-  { label: "Français", short: "FR" },
-  { label: "Español", short: "ES" },
-  { label: "Italiano", short: "IT" },
-  { label: "Português", short: "PT" },
-  { label: "中文", short: "ZH" },
-  { label: "日本語", short: "JA" },
-] as const;
-
-function languageShort(lang: string): string {
-  return AI_LANGUAGES.find((l) => l.label.toLowerCase() === lang.toLowerCase())?.short
-    ?? lang.slice(0, 2).toUpperCase();
-}
 
 export function CommitPanel() {
   const { t } = useTranslation();
@@ -375,7 +335,6 @@ export function CommitPanel() {
 
   if (!activePath) return null;
 
-  const nothingToCommit = totals.stagedFiles === 0 && !amendMode;
   const canCommit = subject.trim().length > 0 && (amendMode || totals.stagedFiles > 0);
   const canStash = changeRows.length > 0;
 
@@ -499,177 +458,39 @@ export function CommitPanel() {
         </ResizablePanelGroup>
       </div>
 
-      <div className="flex flex-col gap-1.5 border-t border-border/60 px-2 py-2">
-        <InputGroup className="border-border/50 bg-muted/20 dark:bg-muted/10">
-          <InputGroupInput
-            placeholder={t("commitPanel.messagePlaceholder")}
-            value={subject}
-            onChange={(e) => handleSubjectChange(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
-                e.preventDefault();
-                void onCommit();
-              }
-            }}
-            className="text-sm"
-          />
-          <InputGroupAddon align="inline-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <InputGroupButton
-                  title={t("commitPanel.aiLanguageTitle")}
-                  className={
-                    "font-mono text-[10px] tabular-nums " +
-                    (repoAiLanguage ? "opacity-100" : "opacity-40 hover:opacity-100")
-                  }
-                >
-                  {languageShort(effectiveLanguage)}
-                </InputGroupButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="top">
-                <DropdownMenuLabel>{t("commitPanel.aiLanguageLabel")}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => activePath && setRepoAiLanguage(activePath, undefined)}
-                  className={!repoAiLanguage ? "font-medium" : ""}
-                >
-                  {t("commitPanel.aiLanguageDefault", { lang: languageShort(globalAiLanguage) })}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {AI_LANGUAGES.map(({ label, short }) => (
-                  <DropdownMenuItem
-                    key={label}
-                    onClick={() => activePath && setRepoAiLanguage(activePath, label)}
-                    className={repoAiLanguage === label ? "font-medium" : ""}
-                  >
-                    <span className="w-7 text-muted-foreground">{short}</span>
-                    {label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <InputGroupButton
-              title={t("commitPanel.aiTitle")}
-              aria-label={t("commitPanel.aiAria")}
-              disabled={stagedRows.length === 0 || aiGenerating}
-              onClick={() => void onGenerateAiMessage()}
-              className="opacity-40 hover:opacity-100 disabled:opacity-20"
-            >
-              {aiGenerating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" />
-              )}
-            </InputGroupButton>
-          </InputGroupAddon>
-        </InputGroup>
-
-        <InputGroup className="border-border/50 bg-muted/20 dark:bg-muted/10">
-          <InputGroupTextarea
-            placeholder="Description"
-            value={body}
-            onChange={(e) => handleBodyChange(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
-                e.preventDefault();
-                void onCommit();
-              }
-            }}
-            rows={2}
-            className="text-sm"
-          />
-          <InputGroupAddon align="block-end">
-            <InputGroupButton
-              title={t("commitPanel.stashTitle")}
-              aria-label={t("commitPanel.stashAria")}
-              disabled={!canStash}
-              onClick={() => setStashOpen(true)}
-              className="opacity-40 hover:opacity-100 disabled:opacity-20"
-            >
-              <Archive className="h-3.5 w-3.5" />
-            </InputGroupButton>
-          </InputGroupAddon>
-        </InputGroup>
-
-        {subjectLen > 0 && (
-          <div className="px-0.5">
-            <span
-              className={`font-mono text-[10px] tabular-nums transition-colors ${
-                subjectLen > 72
-                  ? "text-destructive"
-                  : subjectLen > 60
-                    ? "text-amber-500"
-                    : "text-muted-foreground/40"
-              }`}
-            >
-              {subjectLen}
-            </span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1.5">
-          <Button
-            onClick={() => void onCommit()}
-            disabled={!canCommit || committing}
-            className={
-              "h-8 flex-1 truncate rounded-lg text-sm " +
-              (amendMode
-                ? "bg-amber-500 text-white hover:bg-amber-600"
-                : canCommit
-                  ? ""
-                  : "bg-muted text-muted-foreground")
-            }
-          >
-            {committing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : null}
-            <span className="truncate">
-              {committing
-                ? (amendMode ? t("commitPanel.amendTitle") : t("commitPanel.commitTitle"))
-                : amendMode
-                  ? t("common.amend")
-                  : nothingToCommit
-                    ? "Add & Commit"
-                    : `Commit to ${currentBranch ?? "..."}`}
-            </span>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 shrink-0 rounded-lg border-border/60"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="top">
-              <DropdownMenuItem
-                onClick={() => {
-                  const next = !amendMode;
-                  setAmendMode(next);
-                  if (next && latestCommit) {
-                    const full = latestCommit.body.trim()
-                      ? `${latestCommit.subject}\n\n${latestCommit.body}`
-                      : latestCommit.subject;
-                    setMessage(full);
-                  }
-                }}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                {t("common.amend")}
-                {amendMode && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}
-              </DropdownMenuItem>
-              {latestCommit && (!hasUpstream || aheadCount > 0) && (
-                <DropdownMenuItem onClick={() => setUndoDialogOpen(true)}>
-                  <Undo2 className="h-3.5 w-3.5" />
-                  {t("commitPanel.undoLastCommit")}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <CommitComposer
+        subject={subject}
+        body={body}
+        subjectLen={subjectLen}
+        onSubjectChange={handleSubjectChange}
+        onBodyChange={handleBodyChange}
+        canCommit={canCommit}
+        committing={committing}
+        amendMode={amendMode}
+        currentBranch={currentBranch}
+        canStash={canStash}
+        aiGenerating={aiGenerating}
+        stagedFiles={totals.stagedFiles}
+        effectiveLanguage={effectiveLanguage}
+        repoAiLanguage={repoAiLanguage}
+        globalAiLanguage={globalAiLanguage}
+        canUndo={!!latestCommit && (!hasUpstream || aheadCount > 0)}
+        onCommit={() => void onCommit()}
+        onGenerateAi={() => void onGenerateAiMessage()}
+        onSetLanguage={(lang) => setRepoAiLanguage(activePath, lang)}
+        onToggleAmend={() => {
+          const next = !amendMode;
+          setAmendMode(next);
+          if (next && latestCommit) {
+            const full = latestCommit.body.trim()
+              ? `${latestCommit.subject}\n\n${latestCommit.body}`
+              : latestCommit.subject;
+            setMessage(full);
+          }
+        }}
+        onStash={() => setStashOpen(true)}
+        onUndo={() => setUndoDialogOpen(true)}
+      />
 
       <StashCreateDialog
         open={stashOpen}

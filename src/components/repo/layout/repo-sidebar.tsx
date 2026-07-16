@@ -1,3 +1,4 @@
+import { IslandDock } from "@/components/app/island-dock";
 import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
 import { BranchTree } from "@/components/repo/layout/branch-tree";
 import { SidebarNavItem } from "@/components/repo/layout/sidebar-nav-item";
@@ -320,6 +321,10 @@ export function RepoSidebar() {
       }}
     >
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex shrink-0 justify-center px-2">
+          <IslandDock id="sidebar" axis="y" />
+        </div>
+
         <nav
           className="shrink-0 p-2"
           role="tablist"

@@ -13,6 +13,7 @@ import {
 } from "@/lib/terminal/use-terminal-session";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
+import { TerminalSessionStatus } from "./terminal-session-status";
 
 export { isDarkMode };
 
@@ -37,7 +38,6 @@ export function RepoTerminalSession({
   const embeddedTerminalCommand = useWorkspacePrefs(
     (s) => s.embeddedTerminalCommand,
   );
-  // A tool tab carries its own command; plain terminals fall back to the shell pref.
   const tabCommand = useTerminalStore(
     (s) => s.tabsByPath[path]?.find((tab) => tab.id === tabId)?.command,
   );
@@ -96,33 +96,19 @@ export function RepoTerminalSession({
         display: active ? "flex" : "none",
       }}
     >
-      {status === "error" && (
-        <div className="shrink-0 border-b border-destructive/40 bg-destructive/10 px-3 py-1 text-xs text-destructive">
-          {t("embeddedTerminal.failed", { error: statusMsg })}
-          <button
-            type="button"
-            className="ml-2 underline"
-            onClick={handleReopen}
-          >
-            {t("embeddedTerminal.reopen")}
-          </button>
-        </div>
-      )}
-      {status === "exited" && (
-        <div className="shrink-0 border-b border-border/50 bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
-          {t("embeddedTerminal.exited", { code: statusMsg })}
-          <button
-            type="button"
-            className="ml-2 underline"
-            onClick={handleReopen}
-          >
-            {t("embeddedTerminal.reopen")}
-          </button>
-        </div>
-      )}
+      <TerminalSessionStatus
+        status={status}
+        label={
+          status === "error"
+            ? t("embeddedTerminal.failed", { error: statusMsg })
+            : t("embeddedTerminal.exited", { code: statusMsg })
+        }
+        reopenLabel={t("embeddedTerminal.reopen")}
+        onReopen={handleReopen}
+      />
       <div
         ref={containerRef}
-        className="min-h-0 flex-1 overflow-hidden px-2 py-1"
+        className="terminal-viewport min-h-0 flex-1 overflow-hidden"
         onClick={() => session.focus()}
       />
     </div>

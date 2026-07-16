@@ -37,6 +37,25 @@
     "restore": "Wiederherstellen",
     "close": "Schließen"
   },
+  "island": {
+    "open": "Projekte und Integrationen anzeigen",
+    "close": "Schließen",
+    "projects_one": "{{count}} Projekt",
+    "projects_other": "{{count}} Projekte",
+    "dirty_one": "{{count}} Änderung",
+    "dirty_other": "{{count}} Änderungen",
+    "integrations": "Integrationen",
+    "display": "Anzeige",
+    "showBranch": "Branch anzeigen",
+    "showDirty": "Änderungen anzeigen",
+    "showAgents": "Agents anzeigen",
+    "resetPosition": "Position zurücksetzen",
+    "working": "Arbeitet in {{repo}}…"
+  },
+  "dock": {
+    "shell": "Shell",
+    "hide": "Terminal ausblenden"
+  },
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Einblicke in deine Repositories",
@@ -399,7 +418,16 @@
     "sidebarTabLayoutGrid": "Raster",
     "sidebarTabLayoutGridDesc": "Mehrspaltiges Raster",
     "sidebarGridColumns": "Spalten",
-    "sidebarGridWidth": "Raster-Breite"
+    "sidebarGridWidth": "Raster-Breite",
+    "interfaceElementsTitle": "Oberflächen-Elemente",
+    "interfaceElementsDesc": "Dynamic Island, Agent-Dock und Terminal-Platzierung",
+    "islandLabel": "Dynamic Island anzeigen",
+    "islandHint": "Schwebende Übersicht über das aktive Projekt, laufende Agents und Toast-Nachrichten. Frei verschiebbar, Optionen per Rechtsklick.",
+    "dockLabel": "Agent-Dock anzeigen",
+    "dockHint": "Unteres Dock, um Claude Code, Codex, Gemini CLI, Cursor CLI, OpenCode, Copilot CLI und eine Shell für das aktuelle Projekt zu starten.",
+    "terminalPositionLabel": "Terminal-Platzierung",
+    "terminalPositionBottom": "Unten",
+    "terminalPositionRight": "Rechts"
   },
   "animations": {
     "title": "Bewegung & Animationen",
@@ -618,7 +646,9 @@
     "historySearch": "Befehle durchsuchen…",
     "historyEmpty": "Keine gespeicherten Befehle",
     "historyDelete": "Eintrag entfernen",
-    "historyClear": "Verlauf löschen"
+    "historyClear": "Verlauf löschen",
+    "dockRight": "Terminal rechts andocken",
+    "dockBottom": "Terminal unten andocken"
   },
   "tools": {
     "title": "Tools",
@@ -635,6 +665,10 @@
     "filesCount": "· {{count}} {{unit}}",
     "stagedSummary": "{{count}} {{unit}} gestaged",
     "messagePlaceholder": "Commit-Nachricht eingeben...",
+    "bodyPlaceholder": "Änderung beschreiben…",
+    "addDescription": "Beschreibung hinzufügen",
+    "commitTo": "Commit auf {{branch}}",
+    "amendBanner": "Vorherigen Commit ändern",
     "ccTypeTitle": "{{type}}: dem Betreff voranstellen",
     "aiTitle": "Commit-Nachricht mit AI generieren",
     "aiAria": "AI generieren",

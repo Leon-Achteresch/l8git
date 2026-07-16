@@ -5,6 +5,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { repoAvatarHue, repoInitialChar } from "@/lib/repo-avatar";
 import { useRepoGroupsStore } from "@/lib/repo-groups-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
@@ -42,19 +43,6 @@ const INDICATOR_SPRING = {
   damping: 38,
   mass: 0.55,
 } as const;
-
-function repoInitialChar(name: string): string {
-  const m = name.match(/[A-Za-z0-9]/);
-  return (m?.[0] ?? "?").toUpperCase();
-}
-
-function repoAvatarHue(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) {
-    h = name.charCodeAt(i) + ((h << 5) - h);
-  }
-  return Math.abs(h) % 360;
-}
 
 function TabCornerLeft() {
   return (

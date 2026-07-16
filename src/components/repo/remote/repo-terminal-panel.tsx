@@ -1,30 +1,17 @@
-import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { SPRING_LAYOUT, SPRING_PANEL } from "@/@lib/ease";
 import { repoDefaultTabTitle } from "@/lib/terminal-tab-title";
-import { useCommandHistory } from "@/lib/terminal/command-history";
-import {
-  terminalLeafId,
-  writeToSession,
-} from "@/lib/terminal/use-terminal-session";
+import { isDarkMode, terminalBackground } from "@/lib/terminal/terminal-theme";
 import { useRepoStore } from "@/lib/repo-store";
 import { useTerminalStore, type TerminalTab } from "@/lib/terminal-store";
-import { History, Plus, SquareTerminal, Trash2, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Plus, SquareTerminal, X } from "lucide-react";
+import { LayoutGroup, m } from "motion/react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isDarkMode, RepoTerminalSession } from "./repo-terminal-session";
+import { RepoTerminalSession } from "./repo-terminal-session";
+import { TerminalCommandHistory } from "./terminal-command-history";
+import { TerminalDockToggle } from "./terminal-dock-toggle";
+import { TerminalTabChip } from "./terminal-tab-chip";
 
 interface Props {
   path: string;
@@ -41,10 +28,13 @@ export function RepoTerminalPanel({ path }: Props) {
   const closeTab = useTerminalStore((s) => s.closeTab);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
   const renameTab = useTerminalStore((s) => s.renameTab);
+  const position = useTerminalStore((s) => s.position);
+  const setPosition = useTerminalStore((s) => s.setPosition);
   const branch = useRepoStore((s) => s.repos[path]?.branch ?? "");
 
   const [isDark, setIsDark] = useState(() => isDarkMode());
   const defaultTitle = repoDefaultTabTitle(path, branch);
+  const layoutGroup = `term-${path}`;
 
   useEffect(() => {
     const update = () => setIsDark(isDarkMode());
@@ -62,89 +52,85 @@ export function RepoTerminalPanel({ path }: Props) {
     }
   }, [path, tabs.length, openTab, defaultTitle]);
 
-  const bg = isDark ? "#0b0b0d" : "#ffffff";
-
   return (
-    <div
-      className="flex h-full min-h-0 flex-col text-foreground"
-      style={{ backgroundColor: bg }}
+    <m.div
+      layout
+      transition={SPRING_LAYOUT}
+      className="terminal-panel flex h-full min-h-0 flex-col text-foreground"
+      style={{ backgroundColor: terminalBackground() }}
     >
-      <div className="flex h-9 shrink-0 items-center gap-1 border-b border-border bg-muted/60 px-1.5">
-        <div
-          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          role="tablist"
-          aria-label={t("embeddedTerminal.tabsAria")}
-        >
-          {tabs.map((tab) => {
-            const active = tab.id === activeId;
-            return (
-              <div
-                key={tab.id}
-                role="tab"
-                aria-selected={active}
-                className={cn(
-                  "group flex h-7 min-w-0 max-w-[190px] shrink-0 items-center gap-1.5 rounded-md pr-1.5 pl-2.5 text-xs transition-colors",
-                  active
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => setActiveTab(path, tab.id)}
-                  className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-left"
-                  title={tab.title}
-                >
-                  <SquareTerminal
-                    className={cn(
-                      "size-3.5 shrink-0",
-                      active ? "text-primary" : "text-muted-foreground/70",
-                    )}
-                  />
-                  <span className="truncate">{tab.title}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeTab(path, tab.id);
-                  }}
-                  title={t("embeddedTerminal.closeTab")}
-                  className={cn(
-                    "flex size-4 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:bg-muted-foreground/20 group-hover:opacity-100 focus-visible:opacity-100",
-                    active && "opacity-60",
-                  )}
-                >
-                  <X className="size-3" />
-                </button>
+      <header className="terminal-panel-chrome relative flex shrink-0 flex-col gap-2 border-b border-border/50 px-2.5 py-2">
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-foreground/[0.06] ring-1 ring-border/50">
+              <SquareTerminal className="size-3.5 text-foreground/80" />
+            </span>
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-[12px] font-semibold tracking-tight">
+                {t("embeddedTerminal.title")}
               </div>
-            );
-          })}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="shrink-0"
-            title={t("embeddedTerminal.newTab")}
-            onClick={() => openTab(path, defaultTitle)}
-          >
-            <Plus className="size-3.5" />
-          </Button>
+              <div className="hidden text-[10px] text-muted-foreground sm:block">
+                Ctrl+`
+              </div>
+            </div>
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <TerminalCommandHistory path={path} activeId={activeId} />
+            <TerminalDockToggle
+              position={position}
+              onChange={setPosition}
+              dockBottomLabel={t("embeddedTerminal.dockBottom")}
+              dockRightLabel={t("embeddedTerminal.dockRight")}
+            />
+            <button
+              type="button"
+              title={t("embeddedTerminal.close")}
+              onClick={() => setVisible(path, false)}
+              className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-foreground/8 hover:text-foreground active:scale-95"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5 border-l border-border/60 pl-1">
-          <CommandHistoryPopover path={path} activeId={activeId} />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            title={t("embeddedTerminal.close")}
-            onClick={() => setVisible(path, false)}
+
+        <LayoutGroup id={layoutGroup}>
+          <div
+            className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full bg-foreground/[0.04] p-0.5 ring-1 ring-border/40 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            role="tablist"
+            aria-label={t("embeddedTerminal.tabsAria")}
           >
-            <X className="size-3.5" />
-          </Button>
-        </div>
-      </div>
-      <div className="relative min-h-0 flex-1">
+            {tabs.map((tab) => (
+              <TerminalTabChip
+                key={tab.id}
+                path={path}
+                tab={tab}
+                active={tab.id === activeId}
+                layoutGroup={layoutGroup}
+                onSelect={() => setActiveTab(path, tab.id)}
+                onClose={() => closeTab(path, tab.id)}
+                closeLabel={t("embeddedTerminal.closeTab")}
+              />
+            ))}
+            <button
+              type="button"
+              title={t("embeddedTerminal.newTab")}
+              onClick={() => openTab(path, defaultTitle)}
+              className={cn(
+                "flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-background hover:text-foreground hover:shadow-sm active:scale-95",
+              )}
+            >
+              <Plus className="size-3.5" />
+            </button>
+          </div>
+        </LayoutGroup>
+      </header>
+
+      <m.div
+        layout
+        transition={SPRING_PANEL}
+        className="terminal-panel-body relative min-h-0 flex-1"
+      >
         {tabs.map((tab) => (
           <RepoTerminalSession
             key={tab.id}
@@ -155,95 +141,7 @@ export function RepoTerminalPanel({ path }: Props) {
             onTitleChange={(title) => renameTab(path, tab.id, title)}
           />
         ))}
-      </div>
-    </div>
-  );
-}
-
-function CommandHistoryPopover({
-  path,
-  activeId,
-}: {
-  path: string;
-  activeId: string | null;
-}) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const entries = useCommandHistory((s) => s.byPath[path]) ?? [];
-  const remove = useCommandHistory((s) => s.remove);
-  const clear = useCommandHistory((s) => s.clear);
-
-  const runCommand = (cmd: string) => {
-    if (!activeId) return;
-    writeToSession(terminalLeafId(path, activeId), cmd);
-    setOpen(false);
-  };
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          title={t("embeddedTerminal.history")}
-        >
-          <History className="size-3.5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
-        <Command>
-          <CommandInput placeholder={t("embeddedTerminal.historySearch")} />
-          <CommandList>
-            <CommandEmpty>{t("embeddedTerminal.historyEmpty")}</CommandEmpty>
-            <CommandGroup>
-              {entries.map((entry) => (
-                <CommandItem
-                  key={entry.cmd}
-                  value={entry.cmd}
-                  onSelect={() => runCommand(entry.cmd)}
-                  className="group"
-                >
-                  <SquareTerminal className="size-3 shrink-0 text-muted-foreground/70" />
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs">
-                    {entry.cmd}
-                  </span>
-                  {entry.count > 1 && (
-                    <span className="shrink-0 text-[10px] text-muted-foreground">
-                      ×{entry.count}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    title={t("embeddedTerminal.historyDelete")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      remove(path, entry.cmd);
-                    }}
-                    className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-muted-foreground/15 group-hover:opacity-100"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-          {entries.length > 0 && (
-            <div className="border-t border-border/50 p-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-xs text-muted-foreground"
-                onClick={() => clear(path)}
-              >
-                <Trash2 className="size-3" />
-                {t("embeddedTerminal.historyClear")}
-              </Button>
-            </div>
-          )}
-        </Command>
-      </PopoverContent>
-    </Popover>
+      </m.div>
+    </m.div>
   );
 }

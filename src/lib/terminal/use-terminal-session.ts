@@ -1,14 +1,17 @@
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
+import { clearTerminalActivity, noteTerminalOutput } from "./activity";
 import { recordCommand } from "./command-history";
 import { DormantRing } from "./dormant-ring";
 import {
   createShellIntegrationState,
+  registerColorQueryHandlers,
   registerCwdHandler,
   registerPromptTracker,
 } from "./osc-handlers";
 import { openPty, type PtySession } from "./pty-bridge";
+import { isDarkMode } from "./terminal-theme";
 import {
   acquireSlot,
   applyTheme as applyPoolTheme,
@@ -140,6 +143,7 @@ function ensureSession(
 function deliverPtyBytes(leafId: string, bytes: Uint8Array): void {
   const s = sessions.get(leafId);
   if (!s) return;
+  noteTerminalOutput(leafId, bytes.length);
   const slot = getSlotForLeaf(leafId);
   if (slot) slot.term.write(bytes);
   else s.dormantRing.push(bytes);
@@ -168,6 +172,7 @@ async function openPtyForSession(
     },
     cwd,
     s.shell,
+    isDarkMode(),
   );
 }
 
@@ -206,7 +211,10 @@ function bindLeafToSlot(leafId: string, s: Session): void {
         },
         shellState,
       );
-      return [prompt.dispose, cwd];
+      const colors = registerColorQueryHandlers(term, (data) => {
+        s.pty?.write(data);
+      });
+      return [prompt.dispose, cwd, colors];
     },
     onSearchReady: (addon) => s.callbacks.onSearchReady?.(addon),
   });
@@ -342,6 +350,7 @@ export function disposeSession(leafId: string): void {
   s.snapshot = null;
   s.pty?.close();
   s.pty = null;
+  clearTerminalActivity(leafId);
   sessions.delete(leafId);
 }
 

@@ -36,6 +36,7 @@ pub async fn pty_open(
     rows: u16,
     cwd: Option<String>,
     shell: Option<String>,
+    dark: Option<bool>,
     on_data: Channel<Response>,
     on_exit: Channel<i32>,
 ) -> Result<u32, String> {
@@ -47,8 +48,9 @@ pub async fn pty_open(
         }
     }
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
+    let dark = dark.unwrap_or(true);
     let session = tauri::async_runtime::spawn_blocking(move || {
-        session::spawn(id, cols, rows, cwd, shell, on_data, on_exit).map(|(s, _)| s)
+        session::spawn(id, cols, rows, cwd, shell, dark, on_data, on_exit).map(|(s, _)| s)
     })
     .await
     .map_err(|e| {
@@ -60,7 +62,7 @@ pub async fn pty_open(
         e
     })?;
     state.sessions.write().unwrap().insert(id, session);
-    log::info!("pty opened id={id} cols={cols} rows={rows}");
+    log::info!("pty opened id={id} cols={cols} rows={rows} dark={dark}");
     Ok(id)
 }
 

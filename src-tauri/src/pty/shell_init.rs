@@ -5,6 +5,7 @@ use portable_pty::CommandBuilder;
 pub fn build_command(
     cwd: Option<String>,
     shell_override: Option<String>,
+    dark: bool,
 ) -> Result<CommandBuilder, String> {
     if let Some(raw) = shell_override {
         let trimmed = raw.trim().to_string();
@@ -15,18 +16,18 @@ pub fn build_command(
                 for a in parts {
                     cmd.arg(a);
                 }
-                apply_common(&mut cmd, cwd);
+                apply_common(&mut cmd, cwd, dark);
                 return Ok(cmd);
             }
         }
     }
     #[cfg(unix)]
     {
-        unix::build(cwd)
+        unix::build(cwd, dark)
     }
     #[cfg(windows)]
     {
-        windows::build(cwd)
+        windows::build(cwd, dark)
     }
 }
 
@@ -66,10 +67,11 @@ fn ensure_utf8_locale(cmd: &mut CommandBuilder) {
     cmd.env("LANG", fallback);
 }
 
-fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>) {
+fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>, dark: bool) {
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     cmd.env("L8GIT_TERMINAL", "1");
+    cmd.env("COLORFGBG", if dark { "15;0" } else { "0;15" });
     ensure_utf8_locale(cmd);
 
     let resolved_cwd = cwd
@@ -141,10 +143,10 @@ mod unix {
         }
     }
 
-    pub fn build(cwd: Option<String>) -> Result<CommandBuilder, String> {
+    pub fn build(cwd: Option<String>, dark: bool) -> Result<CommandBuilder, String> {
         let (shell, shell_path) = Shell::detect();
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd);
+        super::apply_common(&mut cmd, cwd, dark);
 
         match shell {
             Shell::Zsh => {
@@ -251,7 +253,7 @@ mod windows {
 
     const PROFILE_PS1: &str = include_str!("scripts/profile.ps1");
 
-    pub fn build(cwd: Option<String>) -> Result<CommandBuilder, String> {
+    pub fn build(cwd: Option<String>, dark: bool) -> Result<CommandBuilder, String> {
         let shell_path = super::windows_shell_path();
         let shell_name = shell_path
             .file_name()
@@ -261,7 +263,7 @@ mod windows {
         let is_powershell = shell_name == "pwsh.exe" || shell_name == "powershell.exe";
 
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd);
+        super::apply_common(&mut cmd, cwd, dark);
 
         if is_powershell {
             match prepare_ps_profile() {
