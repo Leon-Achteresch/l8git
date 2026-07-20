@@ -1,7 +1,12 @@
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { clearTerminalActivity, noteTerminalOutput } from "./activity";
+import {
+  clearTerminalActivity,
+  noteTerminalInput,
+  noteTerminalOutput,
+  noteTerminalResize,
+} from "./activity";
 import { recordCommand } from "./command-history";
 import { DormantRing } from "./dormant-ring";
 import { terminalLeafId } from "./leaf-id";
@@ -73,16 +78,19 @@ configureRendererPool({
     if (!s) return null;
     return {
       writeToPty: (data) => {
+        noteTerminalInput(leafId);
         s.pty?.write(data);
       },
       resizePty: (cols, rows) => {
         s.cols = cols;
         s.rows = rows;
+        noteTerminalResize(leafId);
         s.pty?.resize(cols, rows);
       },
       kickPty: (cols, rows) => {
         const pty = s.pty;
         if (!pty || cols <= 0 || rows <= 0) return;
+        noteTerminalResize(leafId);
         pty
           .resize(cols, rows + 1)
           .then(() => pty.resize(cols, rows))
@@ -266,6 +274,7 @@ function attachSession(
           return;
         }
         s.pty = pty;
+        noteTerminalResize(leafId);
         if (s.cols > 0 && s.rows > 0) pty.resize(s.cols, s.rows);
       })
       .catch((e) => {
@@ -322,6 +331,7 @@ export async function respawnSession(
     return;
   }
   s.pty = pty;
+  noteTerminalResize(leafId);
   if (s.cols > 0 && s.rows > 0) pty.resize(s.cols, s.rows);
 }
 
@@ -336,6 +346,7 @@ export function updateSessionShell(leafId: string, shell: string | null): void {
 export function writeToSession(leafId: string, data: string): void {
   const s = sessions.get(leafId);
   if (!s || s.disposed || s.shellExited) return;
+  noteTerminalInput(leafId);
   s.pty?.write(data);
   focusSlot(leafId);
 }
@@ -431,7 +442,10 @@ export function useTerminalSession({
   }, [leafId, visible, focused]);
 
   const write = useCallback(
-    (data: string) => sessions.get(leafId)?.pty?.write(data),
+    (data: string) => {
+      noteTerminalInput(leafId);
+      sessions.get(leafId)?.pty?.write(data);
+    },
     [leafId],
   );
 
