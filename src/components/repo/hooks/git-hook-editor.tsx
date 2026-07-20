@@ -1,3 +1,4 @@
+import "@/lib/monaco-setup";
 import { Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useEffect, useState } from "react";

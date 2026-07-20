@@ -47,7 +47,9 @@ export function RepoTerminalPanel({ path }: Props) {
   }, []);
 
   useEffect(() => {
-    if (tabs.length === 0) {
+    // Read live state: StrictMode double-fires this effect with the same
+    // closure, which used to open two tabs on first mount.
+    if ((useTerminalStore.getState().tabsByPath[path] ?? []).length === 0) {
       openTab(path, defaultTitle);
     }
   }, [path, tabs.length, openTab, defaultTitle]);

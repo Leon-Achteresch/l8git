@@ -44,6 +44,7 @@ pub fn run() {
             shell::open_repo_terminal,
             shell::open_repo_in_ide,
             shell::save_clipboard_image,
+            shell::detect_clis,
             repo_tools::list_repo_tools,
             git::git_fetch,
             git::git_pull,

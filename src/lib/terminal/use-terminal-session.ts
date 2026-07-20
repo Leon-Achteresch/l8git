@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { clearTerminalActivity, noteTerminalOutput } from "./activity";
 import { recordCommand } from "./command-history";
 import { DormantRing } from "./dormant-ring";
+import { terminalLeafId } from "./leaf-id";
 import {
   createShellIntegrationState,
   registerColorQueryHandlers,
@@ -59,9 +60,7 @@ type Session = {
 
 const sessions = new Map<string, Session>();
 
-export function terminalLeafId(path: string, tabId: string): string {
-  return `${path}::${tabId}`;
-}
+export { terminalLeafId };
 
 function leafPath(leafId: string): string {
   const i = leafId.lastIndexOf("::");

@@ -1,3 +1,4 @@
+import "@/lib/monaco-setup";
 import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { CheckCircle2, Loader2, Save } from "lucide-react";

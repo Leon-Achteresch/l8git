@@ -30,11 +30,8 @@ const tracks = new Map<string, Track>();
 
 export function noteTerminalOutput(leafId: string, byteLength: number): void {
   const now = Date.now();
-  let track = tracks.get(leafId);
-  if (!track) {
-    track = { bytes: 0, windowStart: now, timer: null };
-    tracks.set(leafId, track);
-  }
+  const track = tracks.get(leafId) ?? { bytes: 0, windowStart: now, timer: null };
+  tracks.set(leafId, track);
   if (now - track.windowStart > WINDOW_MS) {
     track.bytes = 0;
     track.windowStart = now;

@@ -19,7 +19,14 @@ const AppUpdateToast = lazy(() =>
 );
 
 import { AppHeader } from "@/components/app/app-header";
-import { AppIsland } from "@/components/app/app-island";
+
+// Lazy: the island drags the full motion animation engine (animate/useSpring/
+// DynamicIsland) with it — as an overlay it can appear a tick after first paint.
+const AppIsland = lazy(() =>
+  import("@/components/app/app-island").then((m) => ({
+    default: m.AppIsland,
+  })),
+);
 import { HotkeysOverlay } from "@/components/app/hotkeys-overlay";
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { useRepoStore } from "@/lib/repo-store";
@@ -69,7 +76,9 @@ function RootLayout() {
         <div className="min-h-0 flex-1 overflow-y-auto bg-background">
           <Outlet />
         </div>
-        <AppIsland />
+        <Suspense fallback={null}>
+          <AppIsland />
+        </Suspense>
         {!islandHandlesToasts && (
           <Toaster
             richColors

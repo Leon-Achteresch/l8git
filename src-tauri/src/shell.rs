@@ -251,6 +251,67 @@ fn _save_clipboard_image(bytes: Vec<u8>, ext: String) -> Result<String, String> 
     Ok(dir.to_string_lossy().into_owned())
 }
 
+#[cfg(target_os = "windows")]
+fn cli_in_path(name: &str) -> bool {
+    let Some(paths) = std::env::var_os("PATH") else {
+        return false;
+    };
+    let exts: Vec<String> = std::env::var("PATHEXT")
+        .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into())
+        .split(';')
+        .map(|e| e.trim().to_ascii_lowercase())
+        .filter(|e| !e.is_empty())
+        .collect();
+    for dir in std::env::split_paths(&paths) {
+        for ext in &exts {
+            if dir.join(format!("{name}{ext}")).is_file() {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+#[cfg(not(target_os = "windows"))]
+fn cli_in_path(name: &str) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).collect())
+        .unwrap_or_default();
+    // GUI-Apps bekommen auf macOS/Linux nur einen minimalen PATH; die üblichen
+    // CLI-Installationsorte zusätzlich prüfen.
+    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        dirs.push(home.join(".local/bin"));
+        dirs.push(home.join(".bun/bin"));
+        dirs.push(home.join(".npm-global/bin"));
+    }
+    dirs.push(PathBuf::from("/opt/homebrew/bin"));
+    dirs.push(PathBuf::from("/usr/local/bin"));
+    for dir in dirs {
+        let p = dir.join(name);
+        if let Ok(md) = p.metadata() {
+            if md.is_file() && md.permissions().mode() & 0o111 != 0 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Returns the subset of `commands` that resolve to an executable on this
+/// machine (PATH lookup, no processes spawned).
+#[tauri::command]
+pub async fn detect_clis(commands: Vec<String>) -> Vec<String> {
+    tokio::task::spawn_blocking(move || {
+        commands
+            .into_iter()
+            .filter(|c| !c.trim().is_empty() && cli_in_path(c.trim()))
+            .collect()
+    })
+    .await
+    .unwrap_or_default()
+}
+
 #[tauri::command]
 pub async fn open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || _open_repo_in_ide(path, ide_launch))

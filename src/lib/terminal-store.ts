@@ -1,11 +1,20 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import {
-  disposeSession,
-  disposeSessionsForPath,
-  terminalLeafId,
-} from '@/lib/terminal/use-terminal-session';
+import { terminalLeafId } from '@/lib/terminal/leaf-id';
+
+// Loaded on demand: a static import would drag the whole xterm renderer
+// stack into the entry chunk just to close tabs.
+function disposeSessionLazy(leafId: string): void {
+  void import('@/lib/terminal/use-terminal-session').then((m) =>
+    m.disposeSession(leafId),
+  );
+}
+function disposeSessionsForPathLazy(path: string): void {
+  void import('@/lib/terminal/use-terminal-session').then((m) =>
+    m.disposeSessionsForPath(path),
+  );
+}
 
 export const TERMINAL_MIN_HEIGHT = 120;
 export const TERMINAL_MAX_HEIGHT = 720;
@@ -97,7 +106,7 @@ export const useTerminalStore = create<TerminalState>()(
         return id;
       },
       closeTab: (path, id) => {
-        disposeSession(terminalLeafId(path, id));
+        disposeSessionLazy(terminalLeafId(path, id));
         set((s) => {
           const tabs = s.tabsByPath[path] ?? [];
           const idx = tabs.findIndex((t) => t.id === id);
@@ -118,7 +127,7 @@ export const useTerminalStore = create<TerminalState>()(
         });
       },
       closeAllForPath: (path) => {
-        disposeSessionsForPath(path);
+        disposeSessionsForPathLazy(path);
         set((s) => {
           const { [path]: _tabs, ...tabsByPath } = s.tabsByPath;
           const { [path]: _active, ...activeByPath } = s.activeByPath;

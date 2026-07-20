@@ -1,3 +1,4 @@
+import "@/lib/monaco-setup";
 import { DiffEditor, Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
