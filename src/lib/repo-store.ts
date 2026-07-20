@@ -774,6 +774,9 @@ export const useRepoStore = create<RepoState>()(
         const pending = reloadPending.get(path);
         if (pending !== undefined) window.clearTimeout(pending);
 
+        // First load of a repo (e.g. app boot) fires immediately; the
+        // coalescing delay only matters for watcher-triggered re-loads.
+        const delay = get().repos[path] ? RELOAD_COALESCE_MS : 0;
         const promise = new Promise<void>(resolve => {
           const handle = window.setTimeout(async () => {
             reloadPending.delete(path);
@@ -807,7 +810,7 @@ export const useRepoStore = create<RepoState>()(
               reloadInFlight.delete(path);
               resolve();
             }
-          }, RELOAD_COALESCE_MS);
+          }, delay);
           reloadPending.set(path, handle);
         });
         reloadInFlight.set(path, promise);
@@ -859,6 +862,7 @@ export const useRepoStore = create<RepoState>()(
         const pending = statusPending.get(path);
         if (pending !== undefined) window.clearTimeout(pending);
 
+        const delay = path in get().status ? RELOAD_COALESCE_MS : 0;
         const promise = new Promise<void>(resolve => {
           const handle = window.setTimeout(async () => {
             statusPending.delete(path);
@@ -895,7 +899,7 @@ export const useRepoStore = create<RepoState>()(
               statusInFlight.delete(path);
               resolve();
             }
-          }, RELOAD_COALESCE_MS);
+          }, delay);
           statusPending.set(path, handle);
         });
         statusInFlight.set(path, promise);
@@ -909,6 +913,7 @@ export const useRepoStore = create<RepoState>()(
         const pending = localStatusPending.get(path);
         if (pending !== undefined) window.clearTimeout(pending);
 
+        const delay = path in get().status ? RELOAD_COALESCE_MS : 0;
         const promise = new Promise<void>(resolve => {
           const handle = window.setTimeout(async () => {
             localStatusPending.delete(path);
@@ -927,7 +932,7 @@ export const useRepoStore = create<RepoState>()(
               localStatusInFlight.delete(path);
               resolve();
             }
-          }, RELOAD_COALESCE_MS);
+          }, delay);
           localStatusPending.set(path, handle);
         });
         localStatusInFlight.set(path, promise);
@@ -1195,6 +1200,7 @@ export const useRepoStore = create<RepoState>()(
         const pending = stashesPending.get(path);
         if (pending !== undefined) window.clearTimeout(pending);
 
+        const delay = path in get().stashes ? RELOAD_COALESCE_MS : 0;
         const promise = new Promise<void>(resolve => {
           const handle = window.setTimeout(async () => {
             stashesPending.delete(path);
@@ -1221,7 +1227,7 @@ export const useRepoStore = create<RepoState>()(
               stashesInFlight.delete(path);
               resolve();
             }
-          }, RELOAD_COALESCE_MS);
+          }, delay);
           stashesPending.set(path, handle);
         });
         stashesInFlight.set(path, promise);

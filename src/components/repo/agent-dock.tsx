@@ -1,12 +1,15 @@
 import { ChevronDown, SquareTerminal } from "lucide-react";
 import { m } from "motion/react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import { MagicPill } from "@/components/motion/magic-pill";
 import {
   AGENT_INTEGRATIONS,
+  detectInstalledAgents,
   integrationOf,
   launchAgent,
+  useInstalledAgents,
 } from "@/lib/agent-integrations";
 import { useRepoStore } from "@/lib/repo-store";
 import { repoDefaultTabTitle } from "@/lib/terminal-tab-title";
@@ -26,6 +29,11 @@ export function AgentDock({ path }: { path: string }) {
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
   const openTab = useTerminalStore((s) => s.openTab);
   const branch = useRepoStore((s) => s.repos[path]?.branch ?? "");
+  const installed = useInstalledAgents((s) => s.installed);
+
+  useEffect(() => {
+    detectInstalledAgents();
+  }, []);
 
   const focused = visible
     ? (tabs.find((tab) => tab.id === activeId) ?? tabs[0])
@@ -66,13 +74,22 @@ export function AgentDock({ path }: { path: string }) {
         const running = tabs.some(
           (tab) => integrationOf(tab)?.id === integration.id,
         );
+        // Only offer CLIs that exist on this machine (null = detection
+        // pending → show all); a running tab keeps its button regardless.
+        if (installed && !installed.has(integration.id) && !running) {
+          return null;
+        }
         return (
           <DockButton
             key={integration.id}
-            label={integration.label}
+            label={`${integration.label} — ${t("dock.newInstanceHint")}`}
             active={focusedId === integration.id}
             running={running}
-            onClick={() => launchAgent(path, integration)}
+            onClick={(e) =>
+              launchAgent(path, integration, {
+                newInstance: e.shiftKey || e.ctrlKey,
+              })
+            }
           >
             <integration.icon className="size-4" />
           </DockButton>
@@ -106,7 +123,7 @@ function DockButton({
   label: string;
   active: boolean;
   running: boolean;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   children: React.ReactNode;
 }) {
   return (

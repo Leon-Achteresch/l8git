@@ -43,7 +43,7 @@ import {
 } from "@/lib/island-store";
 import { repoLabel, useRepoStore } from "@/lib/repo-store";
 import { useTerminalActivity } from "@/lib/terminal/activity";
-import { terminalLeafId } from "@/lib/terminal/use-terminal-session";
+import { terminalLeafId } from "@/lib/terminal/leaf-id";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
 import { cn } from "@/lib/utils";

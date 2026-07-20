@@ -1,7 +1,7 @@
 import { SPRING_LAYOUT } from "@/@lib/ease";
 import { integrationOf } from "@/lib/agent-integrations";
 import { useTerminalActivity } from "@/lib/terminal/activity";
-import { terminalLeafId } from "@/lib/terminal/use-terminal-session";
+import { terminalLeafId } from "@/lib/terminal/leaf-id";
 import type { TerminalTab } from "@/lib/terminal-store";
 import { cn } from "@/lib/utils";
 import { SquareTerminal, X } from "lucide-react";

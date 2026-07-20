@@ -53,7 +53,7 @@ export type Slot = {
   ptyTimer: ReturnType<typeof setTimeout> | null;
   webglReapTimer: ReturnType<typeof setTimeout> | null;
   slotReapTimer: ReturnType<typeof setTimeout> | null;
-  unhideRaf: number | null;
+  cancelUnhide: (() => void) | null;
   lastCols: number;
   lastRows: number;
   lastW: number;
@@ -157,7 +157,7 @@ function createSlot(): Slot {
     ptyTimer: null,
     webglReapTimer: null,
     slotReapTimer: null,
-    unhideRaf: null,
+    cancelUnhide: null,
     lastCols: term.cols,
     lastRows: term.rows,
     lastW: 0,
@@ -318,8 +318,6 @@ export function acquireSlot(params: AcquireParams): Slot {
 }
 
 function bindSlot(slot: Slot, p: AcquireParams): void {
-  const stale =
-    !slot.webglAddon || performance.now() - slot.lastUsedAt > SLOT_STALE_MS;
   slot.currentLeafId = p.leafId;
   slot.lastUsedAt = performance.now();
 
@@ -395,37 +393,76 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
     adapter?.resolveLeaf(p.leafId)?.kickPty(slot.term.cols, slot.term.rows);
   }
 
-  scheduleUnhide(slot, stale);
+  scheduleUnhide(slot);
 
   p.onSearchReady(slot.searchAddon);
 }
 
-function scheduleUnhide(slot: Slot, stale: boolean): void {
-  slot.unhideRaf = requestAnimationFrame(() => {
-    slot.unhideRaf = requestAnimationFrame(() => {
-      slot.unhideRaf = null;
-      slot.host.style.visibility = "";
-      if (stale) {
-        if (!slot.webglAddon) attachWebgl(slot);
-        try {
-          slot.term.refresh(0, slot.term.rows - 1);
-        } catch {
-          void 0;
-        }
-      }
-      const leafId = slot.currentLeafId;
-      if (leafId !== null && adapter?.isLeafFocused(leafId)) {
-        slot.term.focus();
-      }
-    });
+// rAF is suspended while the window is hidden or occluded (agents can open the
+// panel in the background), so a bare double-rAF can leave the host stuck at
+// visibility:hidden. Race two rAFs against a timeout; whichever fires first
+// unhides and self-heals fit/webgl/paint.
+function scheduleUnhide(slot: Slot): void {
+  cancelPendingUnhide(slot);
+  let raf2 = 0;
+  const run = () => {
+    if (!slot.cancelUnhide) return;
+    slot.cancelUnhide();
+    unhideNow(slot);
+  };
+  const raf1 = requestAnimationFrame(() => {
+    raf2 = requestAnimationFrame(run);
   });
+  const timer = setTimeout(run, UNHIDE_FALLBACK_MS);
+  slot.cancelUnhide = () => {
+    slot.cancelUnhide = null;
+    cancelAnimationFrame(raf1);
+    if (raf2) cancelAnimationFrame(raf2);
+    clearTimeout(timer);
+  };
+}
+
+function unhideNow(slot: Slot): void {
+  slot.host.style.visibility = "";
+  // Bind may have fitted before layout settled; re-check against the live
+  // container so the slot never keeps a stale 80x24 canvas.
+  const dims = slot.fitAddon.proposeDimensions();
+  if (
+    dims &&
+    Number.isFinite(dims.cols) &&
+    Number.isFinite(dims.rows) &&
+    dims.cols > 0 &&
+    dims.rows > 0 &&
+    (dims.cols !== slot.term.cols || dims.rows !== slot.term.rows)
+  ) {
+    slot.fitAddon.fit();
+    slot.lastCols = slot.term.cols;
+    slot.lastRows = slot.term.rows;
+    const parent = slot.host.parentElement;
+    if (parent) {
+      slot.lastW = parent.clientWidth;
+      slot.lastH = parent.clientHeight;
+    }
+    if (slot.currentLeafId !== null) {
+      adapter
+        ?.resolveLeaf(slot.currentLeafId)
+        ?.resizePty(slot.lastCols, slot.lastRows);
+    }
+  }
+  if (!slot.webglAddon) attachWebgl(slot);
+  try {
+    slot.term.refresh(0, slot.term.rows - 1);
+  } catch {
+    void 0;
+  }
+  const leafId = slot.currentLeafId;
+  if (leafId !== null && adapter?.isLeafFocused(leafId)) {
+    slot.term.focus();
+  }
 }
 
 function cancelPendingUnhide(slot: Slot): void {
-  if (slot.unhideRaf !== null) {
-    cancelAnimationFrame(slot.unhideRaf);
-    slot.unhideRaf = null;
-  }
+  slot.cancelUnhide?.();
 }
 
 function rewireSlot(slot: Slot, p: AcquireParams): void {
@@ -613,7 +650,7 @@ function disposeSlot(slot: Slot): void {
 }
 
 const WEBGL_RECOVERY_DELAY_MS = 250;
-const SLOT_STALE_MS = 10_000;
+const UNHIDE_FALLBACK_MS = 250;
 const WEBGL_REAP_GRACE_MS = 30_000;
 const SLOT_REAP_GRACE_MS = 45_000;
 const IDLE_SLOTS_KEEP_WARM = 1;

@@ -1,10 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { FileDiff, RefreshCw } from "lucide-react";
+import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { ChangeRow } from "./commit-panel-types";
 import { StatusIcon } from "./commit-panel-status-icon";
-import { MonacoStagingDiff } from "./monaco-staging-diff";
+
+// Lazy: keeps Monaco (bundled, several MB) out of the startup chunks; the
+// idle prefetch below warms it before the user opens the first diff.
+const loadStagingDiff = () => import("./monaco-staging-diff");
+const MonacoStagingDiff = lazy(() =>
+  loadStagingDiff().then((m) => ({ default: m.MonacoStagingDiff })),
+);
 
 export function DiffViewer({
   repoPath,
@@ -18,6 +25,14 @@ export function DiffViewer({
   onReload: () => void;
 }) {
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const idle =
+      typeof requestIdleCallback === "function"
+        ? requestIdleCallback
+        : (cb: () => void) => setTimeout(cb, 500);
+    idle(() => void loadStagingDiff());
+  }, []);
 
   return !selectedRow ? (
     <div className="flex h-full items-center justify-center text-muted-foreground/50">
@@ -49,12 +64,14 @@ export function DiffViewer({
             {t("diff.binaryFile")}
           </div>
         ) : (
-          <MonacoStagingDiff
-            key={selectedRow.id}
-            repoPath={repoPath}
-            filePath={selectedRow.path}
-            onSaved={onReload}
-          />
+          <Suspense fallback={null}>
+            <MonacoStagingDiff
+              key={selectedRow.id}
+              repoPath={repoPath}
+              filePath={selectedRow.path}
+              onSaved={onReload}
+            />
+          </Suspense>
         )}
       </div>
     </div>

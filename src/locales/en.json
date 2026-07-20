@@ -54,6 +54,7 @@
   },
   "dock": {
     "shell": "Shell",
+    "newInstanceHint": "Shift+click: new instance",
     "hide": "Hide terminal panel"
   },
   "dashboard": {

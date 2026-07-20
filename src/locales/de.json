@@ -54,6 +54,7 @@
   },
   "dock": {
     "shell": "Shell",
+    "newInstanceHint": "Shift+Klick: neue Instanz",
     "hide": "Terminal ausblenden"
   },
   "dashboard": {
