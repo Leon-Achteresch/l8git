@@ -13,6 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as InfoRouteImport } from './routes/info'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChangelogRouteImport } from './routes/changelog'
+import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -36,6 +37,11 @@ const ChangelogRoute = ChangelogRouteImport.update({
   path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -50,6 +56,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/info': typeof InfoRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/info': typeof InfoRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/info': typeof InfoRoute
@@ -77,16 +86,25 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/agents'
     | '/changelog'
     | '/dashboard'
     | '/info'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/changelog' | '/dashboard' | '/info' | '/settings'
+  to:
+    | '/'
+    | '/about'
+    | '/agents'
+    | '/changelog'
+    | '/dashboard'
+    | '/info'
+    | '/settings'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/agents'
     | '/changelog'
     | '/dashboard'
     | '/info'
@@ -96,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  AgentsRoute: typeof AgentsRoute
   ChangelogRoute: typeof ChangelogRoute
   DashboardRoute: typeof DashboardRoute
   InfoRoute: typeof InfoRoute
@@ -132,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChangelogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -152,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  AgentsRoute: AgentsRoute,
   ChangelogRoute: ChangelogRoute,
   DashboardRoute: DashboardRoute,
   InfoRoute: InfoRoute,

@@ -26,6 +26,7 @@
   "header": {
     "repo": "Repository",
     "dashboard": "Dashboard",
+    "agents": "Agents",
     "info": "Info",
     "about": "About",
     "mainNav": "Main navigation",
@@ -36,6 +37,24 @@
     "maximize": "Maximize",
     "restore": "Restore",
     "close": "Close"
+  },
+  "agents": {
+    "repos": "Repositories",
+    "noRepos": "No repositories open",
+    "noReposHint": "Open a repository to launch agents.",
+    "noSession": "No agent session selected",
+    "noSessionHint": "Launch an agent for this repository",
+    "pickAgent": "Pick an integration to open a session.",
+    "launch": "Launch agent",
+    "close": "Close session",
+    "working": "Working…",
+    "changes": "Changes",
+    "noChanges": "No changes",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "commitPlaceholder": "Commit message…",
+    "commit": "Commit",
+    "push": "Push"
   },
   "island": {
     "open": "Show projects and integrations",

@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  Bot,
   GitFork,
   Info,
   LayoutDashboard,
@@ -28,6 +29,7 @@ export function AppHeader() {
   const navItems = [
     { to: "/" as const, label: t("header.repo"), icon: GitFork },
     { to: "/dashboard" as const, label: t("header.dashboard"), icon: LayoutDashboard },
+    { to: "/agents" as const, label: t("header.agents"), icon: Bot },
     { to: "/info" as const, label: t("header.info"), icon: Info },
     { to: "/about" as const, label: t("header.about"), icon: User },
   ] as const;
