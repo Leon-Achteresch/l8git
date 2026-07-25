@@ -1,6 +1,7 @@
 import { GitBranch } from "lucide-react";
-import { LayoutGroup } from "motion/react";
+import { AnimatePresence, LayoutGroup, m } from "motion/react";
 
+import { SPRING_LAYOUT, SPRING_PANEL } from "@/@lib/ease";
 import { AgentsDiffStat } from "@/components/agents/agents-diff-stat";
 import { AgentsLaunchMenu } from "@/components/agents/agents-launch-menu";
 import { AgentsSessionRow } from "@/components/agents/agents-session-row";
@@ -35,25 +36,45 @@ export function AgentsRepoBlock({
   const sessions = agentTabs(tabs);
   const { add, del } = agentsDiffTotals(status);
   const repoSelected = selected?.path === path && !selected?.tabId;
+  const inRepo = selected?.path === path;
   const layoutGroup = `agents-repo-${path}`;
+  const name = agentsRepoName(path);
 
   return (
-    <div className="space-y-1">
+    <div
+      className={cn(
+        "rounded-2xl transition-[background-color,box-shadow] duration-300",
+        sessions.length > 0 &&
+          "bg-foreground/[0.02] ring-1 ring-inset ring-border/30",
+        inRepo && sessions.length > 0 && "bg-foreground/[0.035]",
+      )}
+    >
       <div
         role="button"
         tabIndex={0}
         onClick={() => onSelect({ path })}
         onKeyDown={(e) => e.key === "Enter" && onSelect({ path })}
         className={cn(
-          "group flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2 transition-colors",
+          "group relative flex cursor-pointer items-center gap-2.5 rounded-2xl px-2 py-2 transition-colors duration-200",
           repoSelected
-            ? "bg-sidebar-accent/70 text-foreground"
-            : "hover:bg-sidebar-accent/40",
+            ? "text-foreground"
+            : "text-foreground/90 hover:bg-foreground/[0.04]",
         )}
       >
+        {repoSelected && (
+          <m.span
+            layoutId="agents-active-repo"
+            transition={SPRING_LAYOUT}
+            className="absolute inset-0 -z-10 rounded-2xl bg-background shadow-sm ring-1 ring-border/60"
+            aria-hidden
+          />
+        )}
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-foreground/[0.16] to-foreground/[0.05] text-[11px] font-semibold uppercase text-foreground/70 ring-1 ring-border/30">
+          {name.slice(0, 1)}
+        </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-medium tracking-tight">
-            {agentsRepoName(path)}
+            {name}
           </div>
           {branch && (
             <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
@@ -70,23 +91,35 @@ export function AgentsRepoBlock({
         />
       </div>
 
-      {sessions.length > 0 && (
-        <LayoutGroup id={layoutGroup}>
-          <div className="ml-1 space-y-0.5 border-l border-border/50 pl-2">
-            {sessions.map((tab) => (
-              <AgentsSessionRow
-                key={tab.id}
-                path={path}
-                tab={tab}
-                active={selected?.path === path && selected?.tabId === tab.id}
-                layoutGroup={layoutGroup}
-                onSelect={() => onSelect({ path, tabId: tab.id })}
-                onClose={() => closeTab(path, tab.id)}
-              />
-            ))}
-          </div>
-        </LayoutGroup>
-      )}
+      <AnimatePresence initial={false}>
+        {sessions.length > 0 && (
+          <m.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={SPRING_PANEL}
+            className="overflow-hidden"
+          >
+            <LayoutGroup id={layoutGroup}>
+              <div className="ml-4 space-y-0.5 border-l border-border/40 pb-1.5 pl-1.5 pr-1.5">
+                {sessions.map((tab) => (
+                  <AgentsSessionRow
+                    key={tab.id}
+                    path={path}
+                    tab={tab}
+                    active={
+                      selected?.path === path && selected?.tabId === tab.id
+                    }
+                    layoutGroup={layoutGroup}
+                    onSelect={() => onSelect({ path, tabId: tab.id })}
+                    onClose={() => closeTab(path, tab.id)}
+                  />
+                ))}
+              </div>
+            </LayoutGroup>
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

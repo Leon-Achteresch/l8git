@@ -1,7 +1,8 @@
 import { SquareTerminal } from "lucide-react";
-import { m } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
+import { SPRING_PANEL } from "@/@lib/ease";
 import { AgentsLaunchGrid } from "@/components/agents/agents-launch-grid";
 import {
   agentsRepoName,
@@ -47,10 +48,16 @@ export function AgentsTerminalPane({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-2.5 border-b border-border/40 px-4">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/60 ring-1 ring-border/40">
-          <Icon className="size-3.5" />
-        </span>
+      <header className="flex h-12 shrink-0 items-center gap-2.5 border-b border-border/40 px-3.5">
+        <m.span
+          key={tab?.id ?? selected.path}
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={SPRING_PANEL}
+          className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-foreground/[0.12] to-foreground/[0.04] ring-1 ring-border/40"
+        >
+          <Icon className="size-4" />
+        </m.span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-medium tracking-tight">
             {tab?.title ?? agentsRepoName(selected.path)}
@@ -59,16 +66,32 @@ export function AgentsTerminalPane({
             {agentsRepoName(selected.path)}
           </div>
         </div>
-        {working && (
-          <m.span
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-git-branch/10 px-2.5 py-1 text-[11px] font-medium text-git-branch"
-          >
-            <span className="size-1.5 animate-pulse rounded-full bg-git-branch" />
-            {t("agents.working")}
-          </m.span>
-        )}
+        <AnimatePresence>
+          {working && (
+            <m.span
+              initial={{ opacity: 0, scale: 0.9, y: -2 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -2 }}
+              transition={SPRING_PANEL}
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-git-branch/10 py-1 pl-2 pr-2.5 text-[11px] font-medium text-git-branch ring-1 ring-git-branch/20"
+            >
+              <span className="relative flex size-1.5">
+                <m.span
+                  className="absolute inset-0 rounded-full bg-git-branch/60"
+                  animate={{ scale: [1, 2.6], opacity: [0.6, 0] }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.6,
+                    ease: "easeOut",
+                  }}
+                  aria-hidden
+                />
+                <span className="relative size-1.5 rounded-full bg-git-branch" />
+              </span>
+              {t("agents.working")}
+            </m.span>
+          )}
+        </AnimatePresence>
       </header>
       {tab ? (
         <div className="relative min-h-0 flex-1 overflow-hidden">

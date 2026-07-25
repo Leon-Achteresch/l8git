@@ -45,12 +45,16 @@ export function AgentsLaunchMenu({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="size-7 shrink-0 rounded-lg text-muted-foreground"
+          className="size-7 shrink-0 rounded-full text-muted-foreground opacity-50 transition-[opacity,background-color,transform] duration-200 hover:bg-foreground/10 hover:text-foreground hover:opacity-100 active:scale-90 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
         >
           <Plus className="size-3.5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[180px]">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className="min-w-[200px] rounded-2xl p-1.5 shadow-lg"
+      >
         {items.map((integration) => (
           <DropdownMenuItem
             key={integration.id}
@@ -58,10 +62,14 @@ export function AgentsLaunchMenu({
               e.stopPropagation();
               launch(integration);
             }}
-            className="gap-2"
+            className="gap-2.5 rounded-xl px-2 py-1.5"
           >
-            <integration.icon className="size-4" />
-            {integration.label}
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.05] ring-1 ring-border/30">
+              <integration.icon className="size-3.5" />
+            </span>
+            <span className="text-[12px] font-medium tracking-tight">
+              {integration.label}
+            </span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
