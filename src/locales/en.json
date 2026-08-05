@@ -47,14 +47,7 @@
     "pickAgent": "Pick an integration to open a session.",
     "launch": "Launch agent",
     "close": "Close session",
-    "working": "Working…",
-    "changes": "Changes",
-    "noChanges": "No changes",
-    "files_one": "{{count}} file",
-    "files_other": "{{count}} files",
-    "commitPlaceholder": "Commit message…",
-    "commit": "Commit",
-    "push": "Push"
+    "working": "Working…"
   },
   "island": {
     "open": "Show projects and integrations",

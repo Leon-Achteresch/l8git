@@ -2,7 +2,6 @@ import { m } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 
 import { SPRING_PANEL } from "@/@lib/ease";
-import { AgentsChangesPane } from "@/components/agents/agents-changes-pane";
 import { AgentsEmpty } from "@/components/agents/agents-empty";
 import { AgentsSidebar } from "@/components/agents/agents-sidebar";
 import { AgentsTerminalPane } from "@/components/agents/agents-terminal-pane";
@@ -88,7 +87,7 @@ export function AgentsPage() {
   }
 
   return (
-    <div className="relative flex h-full min-h-0 p-3">
+    <div className="relative flex h-full min-h-0">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,hsl(var(--foreground)/0.05)_0%,transparent_70%)]"
@@ -97,7 +96,7 @@ export function AgentsPage() {
         initial={{ opacity: 0, y: 10, scale: 0.994 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={SPRING_PANEL}
-        className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-[22px] bg-card shadow-xl ring-1 ring-border/60"
+        className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-card"
       >
         <ResizablePanelGroup orientation="horizontal" id="agents-split">
           <ResizablePanel
@@ -116,7 +115,7 @@ export function AgentsPage() {
           <ResizableHandle className="w-px bg-border/40 transition-colors duration-200 hover:bg-primary/40" />
           <ResizablePanel
             id="agents-terminal"
-            defaultSize="55%"
+            defaultSize="80%"
             minSize="35%"
             className="min-w-0 bg-background"
           >
@@ -125,16 +124,6 @@ export function AgentsPage() {
               isDark={isDark}
               onSelect={setSelected}
             />
-          </ResizablePanel>
-          <ResizableHandle className="w-px bg-border/40 transition-colors duration-200 hover:bg-primary/40" />
-          <ResizablePanel
-            id="agents-changes"
-            defaultSize="25%"
-            minSize="18%"
-            maxSize="40%"
-            className="min-w-[236px] bg-foreground/[0.015]"
-          >
-            <AgentsChangesPane path={selectedPath} />
           </ResizablePanel>
         </ResizablePanelGroup>
       </m.div>
