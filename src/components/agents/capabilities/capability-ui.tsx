@@ -1,6 +1,11 @@
-import { AlertCircle, Inbox, LoaderCircle } from "lucide-react";
+import { AlertCircle, Copy, Inbox, LoaderCircle } from "lucide-react";
 import { Fragment, useState, type ReactNode } from "react";
 
+import {
+  copyToClipboard,
+  ItemContextMenu,
+  type MenuEntry,
+} from "@/components/agents/ui/item-context-menu";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -112,6 +117,7 @@ export function CapabilityListButton({
   meta,
   trailing,
   onClick,
+  menuEntries = [],
 }: {
   selected: boolean;
   icon: ReactNode;
@@ -120,8 +126,29 @@ export function CapabilityListButton({
   meta?: ReactNode;
   trailing?: ReactNode;
   onClick: () => void;
+  menuEntries?: MenuEntry[];
 }) {
+  const entries: MenuEntry[] = [
+    {
+      label: "Name kopieren",
+      icon: <Copy className="size-3.5" />,
+      onSelect: () => copyToClipboard(title, "Name kopiert"),
+    },
+    ...(description
+      ? ([
+          {
+            label: "Beschreibung kopieren",
+            icon: <Copy className="size-3.5" />,
+            onSelect: () => copyToClipboard(description, "Beschreibung kopiert"),
+          },
+        ] satisfies MenuEntry[])
+      : []),
+    ...(menuEntries.length ? (["separator"] satisfies MenuEntry[]) : []),
+    ...menuEntries,
+  ];
+
   return (
+    <ItemContextMenu entries={entries}>
     <button
       type="button"
       onClick={onClick}
@@ -150,6 +177,7 @@ export function CapabilityListButton({
       </span>
       {trailing ? <span className="mt-1 shrink-0">{trailing}</span> : null}
     </button>
+    </ItemContextMenu>
   );
 }
 

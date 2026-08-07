@@ -642,6 +642,10 @@ export class CodexAgentClient {
     return this.rpc.request("thread/archive", { threadId });
   }
 
+  unarchiveThread(threadId: string): Promise<Record<string, never>> {
+    return this.rpc.request("thread/unarchive", { threadId });
+  }
+
   deleteThread(threadId: string): Promise<Record<string, never>> {
     return this.rpc.request("thread/delete", { threadId });
   }

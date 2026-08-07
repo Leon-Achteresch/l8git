@@ -1,4 +1,5 @@
 import {
+  AtSign,
   Braces,
   Copy,
   FileText,
@@ -23,6 +24,8 @@ import {
   CapabilitySplit,
   CapabilityStat,
 } from "@/components/agents/capabilities/capability-ui";
+import { copyToClipboard } from "@/components/agents/ui/item-context-menu";
+import { insertIntoAgentComposer } from "@/lib/agents/composer-insert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -440,6 +443,18 @@ export function AgentSkillStudio({ query }: { query: string }) {
                   meta={<CapabilityPill>{skill.scope}</CapabilityPill>}
                   trailing={<span className={`mt-1 block size-1.5 rounded-full ${skill.enabled ? "bg-emerald-500" : "bg-muted-foreground/35"}`} />}
                   onClick={() => setSelectedPath(skill.path)}
+                  menuEntries={[
+                    {
+                      label: "Pfad kopieren",
+                      icon: <Copy className="size-3.5" />,
+                      onSelect: () => copyToClipboard(skill.path, "Pfad kopiert"),
+                    },
+                    {
+                      label: "Im Chat verwenden",
+                      icon: <AtSign className="size-3.5" />,
+                      onSelect: () => insertIntoAgentComposer(`@${skill.name} `),
+                    },
+                  ]}
                 />
                 )}
               />

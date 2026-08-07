@@ -52,6 +52,7 @@ import {
   loadAgentComposerDraft,
   saveAgentComposerDraft,
 } from "@/lib/agents/composer-drafts";
+import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
 import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
@@ -468,6 +469,14 @@ export const AgentChatPane = memo(function AgentChatPane({
     }, 250);
     return () => clearTimeout(timer);
   }, [attachments, composerDraftKey, draft]);
+
+  useEffect(
+    () =>
+      onAgentComposerInsert((text) =>
+        setDraft((current) => (current.trim() ? `${current.replace(/\s+$/, "")}\n\n${text}` : text)),
+      ),
+    [],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

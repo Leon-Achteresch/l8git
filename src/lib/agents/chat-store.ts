@@ -104,6 +104,7 @@ export interface AgentChatState {
   respondToRequest: (request: AgentPendingRequest, result: unknown) => Promise<void>;
   rejectUnsupportedRequest: (request: AgentPendingRequest) => Promise<void>;
   archiveThread: (path: string, threadId: string) => Promise<void>;
+  unarchiveThread: (path: string, threadId: string) => Promise<void>;
   deleteThread: (path: string, threadId: string) => Promise<void>;
   renameThread: (path: string, threadId: string, name: string) => Promise<void>;
   setThreadPinned: (path: string, threadId: string, isPinned: boolean) => Promise<void>;
@@ -816,7 +817,9 @@ function handleEvent(context: CodexSessionContext, event: RpcNotification): void
       return { requestsByThread };
     }
     if ((event.method === "thread/archived" || event.method === "thread/deleted") && threadId) {
-      const threadsByPath = updateThreadSummary(state.threadsByPath, threadId, () => null);
+      const threadsByPath = updateThreadSummary(state.threadsByPath, threadId, (thread) =>
+        event.method === "thread/deleted" ? null : { ...thread, archived: true },
+      );
       return {
         threadsByPath,
         activeThreadByPath: Object.fromEntries(
@@ -825,6 +828,14 @@ function handleEvent(context: CodexSessionContext, event: RpcNotification): void
             activeId === threadId ? null : activeId,
           ]),
         ),
+      };
+    }
+    if (event.method === "thread/unarchived" && threadId) {
+      return {
+        threadsByPath: updateThreadSummary(state.threadsByPath, threadId, (thread) => ({
+          ...thread,
+          archived: false,
+        })),
       };
     }
     if (event.method === "error") {
@@ -1151,10 +1162,16 @@ export const useAgentChatStore = create<AgentChatState>()(
       loadThreads: async (paths) => {
         const unique = [...new Set(paths.filter(Boolean))];
         if (!unique.length) return;
+        // ponytail: thread/list can only return archived or non-archived, never both.
+        // Archived threads are excluded from reconciliation and kept as-is instead.
         const trackedIdsByPath = new Map(
           unique.map((path) => [
             path,
-            new Set((get().threadsByPath[path] ?? []).map((thread) => thread.id)),
+            new Set(
+              (get().threadsByPath[path] ?? [])
+                .filter((thread) => !thread.archived)
+                .map((thread) => thread.id),
+            ),
           ]),
         );
         set((state) => ({
@@ -1648,7 +1665,9 @@ export const useAgentChatStore = create<AgentChatState>()(
         set((state) => ({
           threadsByPath: {
             ...state.threadsByPath,
-            [path]: (state.threadsByPath[path] ?? []).filter((thread) => thread.id !== threadId),
+            [path]: (state.threadsByPath[path] ?? []).map((thread) =>
+              thread.id === threadId ? { ...thread, archived: true } : thread,
+            ),
           },
           activeThreadByPath: {
             ...state.activeThreadByPath,
@@ -1664,6 +1683,25 @@ export const useAgentChatStore = create<AgentChatState>()(
             Object.entries(state.sessionStatusByThread).filter(([id]) => id !== threadId),
           ),
           visibleThreadId: state.visibleThreadId === threadId ? null : state.visibleThreadId,
+        }));
+      },
+
+      unarchiveThread: async (path, threadId) => {
+        const client = await codexSessionManager.controlClient();
+        try {
+          await client.unarchiveThread(threadId);
+        } finally {
+          codexSessionManager.releaseControl();
+        }
+        set((state) => ({
+          threadsByPath: {
+            ...state.threadsByPath,
+            [path]: sortThreadSummaries(
+              (state.threadsByPath[path] ?? []).map((thread) =>
+                thread.id === threadId ? { ...thread, archived: false } : thread,
+              ),
+            ),
+          },
         }));
       },
 

@@ -1179,10 +1179,11 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
         unique.map((path) => [path, []]),
       );
       for (const thread of values) {
-        if (!grouped[thread.path] || sessionPrefs.archived.has(thread.id)) continue;
+        if (!grouped[thread.path]) continue;
         grouped[thread.path].push({
           ...summary(thread),
           isPinned: sessionPrefs.pinned.has(thread.id),
+          archived: sessionPrefs.archived.has(thread.id),
         });
       }
       for (const path of unique) grouped[path] = sortThreads(grouped[path]);
@@ -1337,8 +1338,15 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
     sessionPrefs.archived.add(threadId);
     saveSessionPrefs();
     set((state) => ({
-      threadsByPath: { ...state.threadsByPath, [path]: (state.threadsByPath[path] ?? []).filter((thread) => thread.id !== threadId) },
+      threadsByPath: { ...state.threadsByPath, [path]: (state.threadsByPath[path] ?? []).map((thread) => thread.id === threadId ? { ...thread, archived: true } : thread) },
       activeThreadByPath: { ...state.activeThreadByPath, [path]: state.activeThreadByPath[path] === threadId ? null : state.activeThreadByPath[path] },
+    }));
+  },
+  unarchiveThread: async (path, threadId) => {
+    sessionPrefs.archived.delete(threadId);
+    saveSessionPrefs();
+    set((state) => ({
+      threadsByPath: { ...state.threadsByPath, [path]: sortThreads((state.threadsByPath[path] ?? []).map((thread) => thread.id === threadId ? { ...thread, archived: false } : thread)) },
     }));
   },
   deleteThread: async (path, threadId) => {

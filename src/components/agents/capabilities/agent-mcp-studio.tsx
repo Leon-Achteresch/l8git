@@ -1,4 +1,6 @@
 import {
+  Braces,
+  Copy,
   Database,
   ExternalLink,
   Globe2,
@@ -27,6 +29,7 @@ import {
   CapabilitySplit,
   CapabilityStat,
 } from "@/components/agents/capabilities/capability-ui";
+import { copyToClipboard } from "@/components/agents/ui/item-context-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -393,6 +396,22 @@ export function AgentMcpStudio({ query }: { query: string }) {
                   meta={<CapabilityPill tone={authTone(server.authStatus)}>{server.authStatus}</CapabilityPill>}
                   trailing={<span className={`mt-1 block size-1.5 rounded-full ${serverEnabled(server) && server.authStatus !== "unavailable" ? "bg-emerald-500" : "bg-muted-foreground/35"}`} />}
                   onClick={() => setSelectedName(server.name)}
+                  menuEntries={[
+                    {
+                      label: "Server-ID kopieren",
+                      icon: <Copy className="size-3.5" />,
+                      onSelect: () => copyToClipboard(server.name, "Server-ID kopiert"),
+                    },
+                    {
+                      label: "Konfiguration kopieren",
+                      icon: <Braces className="size-3.5" />,
+                      onSelect: () =>
+                        copyToClipboard(
+                          JSON.stringify(server.config ?? {}, null, 2),
+                          "Konfiguration kopiert",
+                        ),
+                    },
+                  ]}
                 />
                 )}
               />

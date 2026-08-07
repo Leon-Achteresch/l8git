@@ -57,6 +57,7 @@ function normalizeThreads(value: unknown): Record<string, AgentThreadSummary[]> 
           ? candidate.modelProvider
           : "openai",
         isPinned: candidate.isPinned === true,
+        archived: candidate.archived === true,
       } satisfies AgentThreadSummary];
     });
   }

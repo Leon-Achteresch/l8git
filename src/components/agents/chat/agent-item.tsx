@@ -4,18 +4,29 @@ import {
   Boxes,
   Braces,
   AtSign,
+  Copy,
+  CornerUpLeft,
+  FileCode2,
   FileImage,
   GitPullRequestArrow,
+  Quote,
   Search,
   Timer,
+  Undo2,
   Users,
   Volume2,
 } from "lucide-react";
-import { memo, useMemo } from "react";
+import { memo, type ReactNode, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { AgentActivity, type AgentActivityItem } from "@/components/agents/ui/agent-activity";
+import {
+  copyToClipboard,
+  ItemContextMenu as ItemMenu,
+  type MenuEntry,
+} from "@/components/agents/ui/item-context-menu";
+import { insertIntoAgentComposer } from "@/lib/agents/composer-insert";
 import type { AgentCodeLanguage } from "@/components/agents/ui/agent-code";
 import { FileDiff, type FileDiffLine } from "@/components/agents/ui/file-diff";
 import {
@@ -174,9 +185,35 @@ function userContent(item: AgentItem): {
   };
 }
 
+function quoted(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
+
 function UserMessage({ item }: { item: AgentItem }) {
   const content = userContent(item);
   return (
+    <ItemMenu
+      entries={[
+        {
+          label: "Nachricht kopieren",
+          icon: <Copy className="size-3.5" />,
+          onSelect: () => copyToClipboard(content.text, "Nachricht kopiert"),
+        },
+        {
+          label: "Erneut senden",
+          icon: <CornerUpLeft className="size-3.5" />,
+          onSelect: () => insertIntoAgentComposer(content.text),
+        },
+        {
+          label: "Als Zitat einfügen",
+          icon: <Quote className="size-3.5" />,
+          onSelect: () => insertIntoAgentComposer(quoted(content.text)),
+        },
+      ]}
+    >
     <MessageBubble align="end" variant="solid" animateIn>
       <MessageBubbleContent>
         <p className="whitespace-pre-wrap">{content.text}</p>
@@ -212,6 +249,7 @@ function UserMessage({ item }: { item: AgentItem }) {
         ) : null}
       </MessageBubbleContent>
     </MessageBubble>
+    </ItemMenu>
   );
 }
 
@@ -224,6 +262,41 @@ function AgentMessage({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
     ? memoryCitation.entries.filter(isRecord)
     : [];
   return (
+    <ItemMenu
+      entries={[
+        {
+          label: "Antwort kopieren",
+          icon: <Copy className="size-3.5" />,
+          onSelect: () => copyToClipboard(text, "Antwort kopiert"),
+        },
+        {
+          label: "Als Zitat antworten",
+          icon: <Quote className="size-3.5" />,
+          onSelect: () => insertIntoAgentComposer(`${quoted(text)}\n\n`),
+        },
+        ...(citationEntries.length > 0
+          ? ([
+              "separator",
+              {
+                label: "Quellenpfade kopieren",
+                icon: <FileCode2 className="size-3.5" />,
+                onSelect: () =>
+                  copyToClipboard(
+                    citationEntries
+                      .map((entry) => {
+                        const path = stringValue(entry.path);
+                        const line = typeof entry.lineStart === "number" ? entry.lineStart : null;
+                        return line ? `${path}:${line}` : path;
+                      })
+                      .filter(Boolean)
+                      .join("\n"),
+                    "Quellenpfade kopiert",
+                  ),
+              },
+            ] satisfies MenuEntry[])
+          : []),
+      ]}
+    >
     <MessageBubble align="start" variant="ghost">
       <MessageBubbleContent className="max-w-none">
         <StreamingResponse
@@ -258,6 +331,7 @@ function AgentMessage({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
         </StreamingResponse>
       </MessageBubbleContent>
     </MessageBubble>
+    </ItemMenu>
   );
 }
 
@@ -306,6 +380,31 @@ function CommandItem({ item }: { item: AgentItem }) {
     status === "running" ? 400 : 2_000,
   );
   return (
+    <ItemMenu
+      entries={[
+        {
+          label: "Befehl kopieren",
+          icon: <Copy className="size-3.5" />,
+          onSelect: () => copyToClipboard(command, "Befehl kopiert"),
+        },
+        {
+          label: "Ausgabe kopieren",
+          icon: <Copy className="size-3.5" />,
+          onSelect: () => copyToClipboard(output, "Ausgabe kopiert"),
+        },
+        "separator",
+        {
+          label: "Befehl erneut anfragen",
+          icon: <CornerUpLeft className="size-3.5" />,
+          onSelect: () => insertIntoAgentComposer(`Führe erneut aus:\n\`\`\`bash\n${command}\n\`\`\``),
+        },
+        {
+          label: "Ausgabe zitieren",
+          icon: <Quote className="size-3.5" />,
+          onSelect: () => insertIntoAgentComposer(`\`\`\`\n${boundedTail(output, 4_000, 60)}\n\`\`\`\n\n`),
+        },
+      ]}
+    >
     <ToolResult
       tool="Shell"
       title={command}
@@ -322,6 +421,7 @@ function CommandItem({ item }: { item: AgentItem }) {
         <p className="mt-2 text-[11px] text-muted-foreground">Exit-Code {item.exitCode}</p>
       ) : null}
     </ToolResult>
+    </ItemMenu>
   );
 }
 
@@ -336,15 +436,42 @@ function FileChangeItem({ item }: { item: AgentItem }) {
     <div className="space-y-1">
       {changes.map((change, index) => {
         return (
-          <FileDiff
+          <ItemMenu
             key={`${change.path}-${index}`}
-            file={change.path}
-            lines={change.lines}
-            language={change.language}
-            status={streaming ? "streaming" : "complete"}
-            copyText={change.diff}
-            defaultOpen={changes.length === 1}
-          />
+            entries={[
+              {
+                label: "Pfad kopieren",
+                icon: <Copy className="size-3.5" />,
+                onSelect: () => copyToClipboard(change.path, "Pfad kopiert"),
+              },
+              {
+                label: "Diff kopieren",
+                icon: <Copy className="size-3.5" />,
+                onSelect: () => copyToClipboard(change.diff, "Diff kopiert"),
+              },
+              "separator",
+              {
+                label: "Datei erwähnen",
+                icon: <AtSign className="size-3.5" />,
+                onSelect: () => insertIntoAgentComposer(`@${change.path} `),
+              },
+              {
+                label: "Änderung rückgängig machen lassen",
+                icon: <Undo2 className="size-3.5" />,
+                onSelect: () =>
+                  insertIntoAgentComposer(`Mache deine Änderungen an \`${change.path}\` rückgängig.`),
+              },
+            ]}
+          >
+            <FileDiff
+              file={change.path}
+              lines={change.lines}
+              language={change.language}
+              status={streaming ? "streaming" : "complete"}
+              copyText={change.diff}
+              defaultOpen={changes.length === 1}
+            />
+          </ItemMenu>
         );
       })}
     </div>
@@ -357,6 +484,25 @@ function ToolCallItem({ item }: { item: AgentItem }) {
   const output = item.result ?? item.contentItems ?? item.error ?? item.arguments;
   const status = toolStatus(item);
   return (
+    <ItemMenu
+      entries={[
+        {
+          label: "Ergebnis kopieren",
+          icon: <Copy className="size-3.5" />,
+          onSelect: () => copyToClipboard(prettyJson(output), "Ergebnis kopiert"),
+        },
+        {
+          label: "Argumente kopieren",
+          icon: <Braces className="size-3.5" />,
+          onSelect: () => copyToClipboard(prettyJson(item.arguments), "Argumente kopiert"),
+        },
+        {
+          label: `„${tool}“ kopieren`,
+          icon: <Copy className="size-3.5" />,
+          onSelect: () => copyToClipboard(tool, "Tool-Name kopiert"),
+        },
+      ]}
+    >
     <ToolResult
       tool={server}
       title={tool}
@@ -374,6 +520,7 @@ function ToolCallItem({ item }: { item: AgentItem }) {
         </div>
       ) : null}
     </ToolResult>
+    </ItemMenu>
   );
 }
 
@@ -401,6 +548,34 @@ function WebSearchItemView({ item, turn }: { item: AgentItem; turn: AgentTurn })
   );
 }
 
+function PlanMenu({ steps, children }: { steps: string[]; children: ReactNode }) {
+  const checklist = steps.map((step) => `- [ ] ${step}`).join("\n");
+  return (
+    <ItemMenu
+      entries={[
+        {
+          label: "Plan kopieren",
+          icon: <Copy className="size-3.5" />,
+          onSelect: () => copyToClipboard(checklist, "Plan kopiert"),
+        },
+        {
+          label: "Plan im Composer aufgreifen",
+          icon: <CornerUpLeft className="size-3.5" />,
+          onSelect: () => insertIntoAgentComposer(`${checklist}\n\n`),
+        },
+        {
+          label: "Plan überarbeiten lassen",
+          icon: <Quote className="size-3.5" />,
+          onSelect: () =>
+            insertIntoAgentComposer("Überarbeite deinen Plan, bevor du weitermachst:\n\n"),
+        },
+      ]}
+    >
+      {children}
+    </ItemMenu>
+  );
+}
+
 function PlanItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
   const structured = arrayValue(item.plan).filter(isRecord);
   if (structured.length > 0) {
@@ -414,7 +589,11 @@ function PlanItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
             ? "in-progress"
             : "pending",
     }));
-    return <TodoList items={todos} title="Plan" collapseOnComplete />;
+    return (
+      <PlanMenu steps={structured.map((entry) => stringValue(entry.step)).filter(Boolean)}>
+        <TodoList items={todos} title="Plan" collapseOnComplete />
+      </PlanMenu>
+    );
   }
   const text = stringValue(item.text, stringValue(item.plan));
   const lines = text
@@ -426,7 +605,11 @@ function PlanItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
     title: line,
     status: turn.status === "completed" ? "completed" : index === 0 ? "in-progress" : "pending",
   }));
-  return <TodoList items={todos} title="Plan" collapseOnComplete />;
+  return (
+    <PlanMenu steps={lines}>
+      <TodoList items={todos} title="Plan" collapseOnComplete />
+    </PlanMenu>
+  );
 }
 
 function CollaborationItem({ item }: { item: AgentItem }) {

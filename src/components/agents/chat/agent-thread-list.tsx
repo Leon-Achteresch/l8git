@@ -1,4 +1,4 @@
-import { MessageSquare } from "lucide-react";
+import { Archive, ArchiveRestore, MessageSquare } from "lucide-react";
 import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
@@ -19,11 +19,14 @@ export function AgentThreadList({
   limit,
   renamingThreadKey,
   locale,
+  showArchived,
+  archivedCount,
   onOpenThread,
   onCreateThread,
   onRenameThread,
   onSetPinned,
   onArchiveThread,
+  onToggleArchived,
   onShowMore,
 }: {
   path: string;
@@ -35,11 +38,14 @@ export function AgentThreadList({
   limit: number;
   renamingThreadKey: string | null;
   locale: string;
+  showArchived: boolean;
+  archivedCount: number;
   onOpenThread: (provider: NativeAgentProvider, threadId: string) => void;
   onCreateThread: () => void;
   onRenameThread: (threadKey: string | null) => void;
   onSetPinned: (provider: NativeAgentProvider, threadId: string, pinned: boolean) => Promise<void>;
-  onArchiveThread: (provider: NativeAgentProvider, threadId: string) => Promise<void>;
+  onArchiveThread: (provider: NativeAgentProvider, threadId: string, archived: boolean) => Promise<void>;
+  onToggleArchived: () => void;
   onShowMore: () => void;
 }) {
   const { t } = useTranslation();
@@ -56,7 +62,24 @@ export function AgentThreadList({
 
   return (
     <section className="px-2 pb-4">
-      <h2 className="ag-label px-2 pb-1.5">{t("agentChat.recents")}</h2>
+      <div className="flex items-center justify-between px-2 pb-1.5">
+        <h2 className="ag-label">
+          {showArchived ? t("agentChat.archived") : t("agentChat.recents")}
+        </h2>
+        {showArchived || archivedCount > 0 ? (
+          <button
+            type="button"
+            onClick={onToggleArchived}
+            data-active={showArchived}
+            className="ag-icon-btn size-5"
+            aria-pressed={showArchived}
+            aria-label={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
+            title={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
+          >
+            {showArchived ? <ArchiveRestore className="size-3" /> : <Archive className="size-3" />}
+          </button>
+        ) : null}
+      </div>
 
       {loading ? (
         <div className="space-y-px" aria-label={t("agentChat.loadingConversations")}>
@@ -66,6 +89,8 @@ export function AgentThreadList({
         </div>
       ) : threads.length === 0 && hasQuery ? (
         <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noMatchingChats")}</p>
+      ) : threads.length === 0 && showArchived ? (
+        <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noArchivedChats")}</p>
       ) : threads.length === 0 ? (
         <button type="button" onClick={onCreateThread} className="ag-row h-9 text-[11px]">
           <MessageSquare className="size-3.5 shrink-0" />
@@ -91,7 +116,7 @@ export function AgentThreadList({
                   onOpen={() => onOpenThread(thread.provider, thread.id)}
                   onRenamingChange={(renaming) => onRenameThread(renaming ? threadKey : null)}
                   onSetPinned={(pinned) => onSetPinned(thread.provider, thread.id, pinned)}
-                  onArchive={() => onArchiveThread(thread.provider, thread.id)}
+                  onArchive={(archived) => onArchiveThread(thread.provider, thread.id, archived)}
                 />
               </m.div>
             );
