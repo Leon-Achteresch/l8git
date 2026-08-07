@@ -261,19 +261,33 @@ function AgentMessage({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
   );
 }
 
+function reasoningTexts(value: unknown): string[] {
+  return arrayValue(value)
+    .map((entry) => {
+      if (typeof entry === "string") return entry;
+      if (!isRecord(entry)) return "";
+      return stringValue(entry.text) || stringValue(entry.summary_text) || stringValue(entry.content);
+    })
+    .map((text) => text.trim())
+    .filter(Boolean);
+}
+
 function ReasoningItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
   const provider = useAgentProviderStore((state) => state.provider);
-  const summaries = arrayValue(item.summary).filter((value): value is string => typeof value === "string");
-  const content = arrayValue(item.content).filter((value): value is string => typeof value === "string");
-  const rows: AgentActivityItem[] = [...summaries, ...content].map((text, index) => ({
+  const working = turn.status === "inProgress" && item.__completed !== true;
+  const rows: AgentActivityItem[] = [
+    ...reasoningTexts(item.summary),
+    ...reasoningTexts(item.content),
+  ].map((text, index) => ({
     id: `${item.id}-${index}`,
     type: "text",
     content: text,
   }));
+  if (rows.length === 0 && !working) return null;
   return (
     <AgentActivity
       items={rows}
-      status={turn.status === "inProgress" && item.__completed !== true ? "working" : "complete"}
+      status={working ? "working" : "complete"}
       duration={(turn.durationMs ?? 0) / 1000}
       activeLabel={provider === "claude" ? "Claude denkt nach…" : "Codex denkt nach…"}
       summary="Gedankengang"

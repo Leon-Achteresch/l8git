@@ -3,17 +3,21 @@ import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
 import { AgentThreadRow } from "@/components/agents/chat/agent-thread-row";
+import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import { SPRING_PANEL } from "@/lib/motion/ease";
+
+export type SidebarThread = AgentThreadSummary & { provider: NativeAgentProvider };
 
 export function AgentThreadList({
   path,
   threads,
+  activeProvider,
   activeThreadId,
   loading,
   hasQuery,
   limit,
-  renamingThreadId,
+  renamingThreadKey,
   locale,
   onOpenThread,
   onCreateThread,
@@ -23,18 +27,19 @@ export function AgentThreadList({
   onShowMore,
 }: {
   path: string;
-  threads: AgentThreadSummary[];
+  threads: SidebarThread[];
+  activeProvider: NativeAgentProvider;
   activeThreadId: string | null;
   loading: boolean;
   hasQuery: boolean;
   limit: number;
-  renamingThreadId: string | null;
+  renamingThreadKey: string | null;
   locale: string;
-  onOpenThread: (threadId: string) => void;
+  onOpenThread: (provider: NativeAgentProvider, threadId: string) => void;
   onCreateThread: () => void;
-  onRenameThread: (threadId: string | null) => void;
-  onSetPinned: (threadId: string, pinned: boolean) => Promise<void>;
-  onArchiveThread: (threadId: string) => Promise<void>;
+  onRenameThread: (threadKey: string | null) => void;
+  onSetPinned: (provider: NativeAgentProvider, threadId: string, pinned: boolean) => Promise<void>;
+  onArchiveThread: (provider: NativeAgentProvider, threadId: string) => Promise<void>;
   onShowMore: () => void;
 }) {
   const { t } = useTranslation();
@@ -68,26 +73,29 @@ export function AgentThreadList({
         </button>
       ) : (
         <div className="space-y-px">
-          {threads.slice(0, limit).map((thread, index) => (
-            <m.div
-              key={thread.id}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...SPRING_PANEL, delay: Math.min(index, 8) * 0.025 }}
-            >
-              <AgentThreadRow
-                path={path}
-                thread={thread}
-                active={thread.id === activeThreadId}
-                relativeDate={relativeDate(thread.updatedAt)}
-                renaming={renamingThreadId === thread.id}
-                onOpen={() => onOpenThread(thread.id)}
-                onRenamingChange={(renaming) => onRenameThread(renaming ? thread.id : null)}
-                onSetPinned={(pinned) => onSetPinned(thread.id, pinned)}
-                onArchive={() => onArchiveThread(thread.id)}
-              />
-            </m.div>
-          ))}
+          {threads.slice(0, limit).map((thread, index) => {
+            const threadKey = `${thread.provider}:${thread.id}`;
+            return (
+              <m.div
+                key={threadKey}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...SPRING_PANEL, delay: Math.min(index, 8) * 0.025 }}
+              >
+                <AgentThreadRow
+                  path={path}
+                  thread={thread}
+                  active={thread.id === activeThreadId && thread.provider === activeProvider}
+                  relativeDate={relativeDate(thread.updatedAt)}
+                  renaming={renamingThreadKey === threadKey}
+                  onOpen={() => onOpenThread(thread.provider, thread.id)}
+                  onRenamingChange={(renaming) => onRenameThread(renaming ? threadKey : null)}
+                  onSetPinned={(pinned) => onSetPinned(thread.provider, thread.id, pinned)}
+                  onArchive={() => onArchiveThread(thread.provider, thread.id)}
+                />
+              </m.div>
+            );
+          })}
           {threads.length > limit ? (
             <button
               type="button"

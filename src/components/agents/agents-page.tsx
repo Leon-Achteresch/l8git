@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 
 import "@/components/agents/agents.css";
@@ -11,16 +11,15 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { chatStoreFor, useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { useAgentRepoPaths, useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { useRepoStore } from "@/lib/repo-store";
 import { useTerminalStore } from "@/lib/terminal-store";
-import { useWorkspaceStore } from "@/lib/workspace-store";
 import { SPRING_LAYOUT } from "@/lib/motion/ease";
 
-const EMPTY_PATHS: string[] = [];
 const EMPTY_THREADS: AgentThreadSummary[] = [];
 const AgentCapabilityCenter = lazy(() => import("@/components/agents/capabilities/agent-capability-center").then(
   (module) => ({ default: module.AgentCapabilityCenter }),
@@ -31,28 +30,20 @@ const ClaudeCapabilityCenter = lazy(() => import("@/components/agents/capabiliti
 
 export function AgentsPage({ initialPath }: { initialPath?: string }) {
   const provider = useAgentProviderStore((state) => state.provider);
-  const knownPaths = useRepoStore((state) => state.paths);
   const activeRepoPath = useRepoStore((state) => state.activePath);
-  const workspacePaths = useWorkspaceStore(
-    (state) =>
-      state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId)?.repoPaths ?? EMPTY_PATHS,
-  );
   const retainSurface = useAgentChatStore((state) => state.retainSurface);
   const setVisibleThread = useAgentChatStore((state) => state.setVisibleThread);
   const connect = useAgentChatStore((state) => state.connect);
-  const loadThreads = useAgentChatStore((state) => state.loadThreads);
   const openThread = useAgentChatStore((state) => state.openThread);
 
-  const paths = useMemo(
-    () => [...new Set([...workspacePaths, ...knownPaths])],
-    [knownPaths, workspacePaths],
-  );
+  const paths = useAgentRepoPaths();
   const preferredPath =
     (initialPath && paths.includes(initialPath) ? initialPath : null) ??
     (activeRepoPath && paths.includes(activeRepoPath) ? activeRepoPath : null) ??
     paths[0] ??
     "";
-  const [selectedPath, setSelectedPath] = useState(preferredPath);
+  const selectedPath = useAgentRepoStore((state) => state.path);
+  const setSelectedPath = useAgentRepoStore((state) => state.setPath);
   const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
   const terminalVisible = useTerminalStore((state) => !!state.visibleByPath[selectedPath]);
   const toggleTerminal = useTerminalStore((state) => state.toggleVisible);
@@ -84,9 +75,10 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
 
   useEffect(() => {
     if (!paths.length) return;
-    void loadThreads(paths);
+    void chatStoreFor("codex").getState().loadThreads(paths);
+    void chatStoreFor("claude").getState().loadThreads(paths).catch(() => {});
     void connect().catch(() => {});
-  }, [connect, loadThreads, paths]);
+  }, [connect, paths]);
 
   useEffect(() => {
     setVisibleThread(activeThreadId);
@@ -116,9 +108,7 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
             className="ag-rail min-w-[264px] overflow-hidden"
           >
             <AgentChatSidebar
-              paths={paths}
               selectedPath={selectedPath}
-              onSelectPath={setSelectedPath}
               capabilityStudioOpen={capabilitySection !== null}
               onOpenCapabilities={() => setCapabilitySection("skills")}
             />

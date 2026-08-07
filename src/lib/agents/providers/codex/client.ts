@@ -36,6 +36,7 @@ import {
   codexSandboxPolicy,
   type CodexAccountResponse,
   type CodexLoginResponse,
+  type CodexModel,
   type CodexModelListResponse,
   type CodexRateLimitsResponse,
   type CodexRealtimeAudioChunk,
@@ -132,8 +133,18 @@ export class CodexAgentClient {
     return this.rpc.request("account/usage/read", undefined);
   }
 
-  models(): Promise<CodexModelListResponse> {
-    return this.rpc.request("model/list", { limit: 100, includeHidden: false });
+  async models(): Promise<CodexModel[]> {
+    const all: CodexModel[] = [];
+    let cursor: string | null = null;
+    do {
+      const page: CodexModelListResponse = await this.rpc.request("model/list", {
+        includeHidden: false,
+        ...(cursor ? { cursor } : {}),
+      });
+      all.push(...(page.data ?? []));
+      cursor = page.nextCursor ?? null;
+    } while (cursor && all.length < 500);
+    return all;
   }
 
   skills(cwd: string, forceReload = false): Promise<{ data: Array<{ cwd: string; skills: AgentSkill[] }> }> {

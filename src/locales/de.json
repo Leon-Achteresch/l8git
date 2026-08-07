@@ -40,7 +40,6 @@
     "close": "Schließen"
   },
   "agents": {
-    "repos": "Repositories",
     "noRepos": "Keine Repositories geöffnet",
     "noReposHint": "Öffne ein Repository, um Agents zu starten.",
     "noSession": "Keine Agent-Session ausgewählt",
@@ -119,6 +118,7 @@
       "untrustedOnly": "Nicht vertrauenswürdige Befehle",
       "neverAsk": "Nie fragen",
       "unrestrictedWarning": "Codex kann jeden Befehl ohne Rückfrage ausführen.",
+      "model": "Modell",
       "effort": "Denkaufwand",
       "default": "Standard",
       "speed": "Geschwindigkeit",
@@ -163,6 +163,10 @@
     },
     "searchChats": "Chats durchsuchen",
     "clearSearch": "Suche leeren",
+    "loadingModels": "Modelle werden geladen…",
+    "searchModels": "Modelle durchsuchen…",
+    "noMatchingModels": "Keine passenden Modelle",
+    "noModels": "Standardmodell",
     "recents": "Zuletzt",
     "noMatchingChats": "Keine passenden Chats",
     "shortcuts": "Kurzbefehle",

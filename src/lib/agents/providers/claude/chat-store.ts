@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { createStore } from "zustand/vanilla";
 
 import type { AgentChatState } from "@/lib/agents/chat-store";
+import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import { ClaudeClient, type ClaudeControlRequest, type ClaudeInitializeResult } from "@/lib/agents/providers/claude/client";
 import type {
   AgentAttachment,
@@ -423,6 +424,7 @@ function updateCapabilities(result: ClaudeInitializeResult, path: string) {
     tools: arrayValue(server.tools).map((tool) => isRecord(tool) ? stringValue(tool.name) : String(tool)).filter(Boolean),
     authStatus: stringValue(server.status, "unknown"),
   })));
+  if (models.length) saveModelCatalog("claude", models);
   claudeChatStore.setState((state) => ({
     models: models.length ? models : state.models,
     defaultModel: models[0]?.id ?? state.defaultModel,
@@ -962,6 +964,12 @@ async function loadCapabilities(path: string) {
   }
 }
 
+export async function warmClaudeModelCatalog(path: string): Promise<void> {
+  if (!path || catalogWarmups.has(path)) return;
+  catalogWarmups.add(path);
+  await loadCapabilities(path).catch(() => catalogWarmups.delete(path));
+}
+
 function loadSessionList(paths: string[]): Promise<ClaudeSessionSummary[]> {
   const unique = [...new Set(paths.filter(Boolean))].sort();
   const key = unique.join("\u0000");
@@ -1057,7 +1065,7 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
   loginError: null,
   rateLimits: null,
   accountUsage: null,
-  models: [],
+  models: loadModelCatalog("claude"),
   defaultModel: null,
   threadsByPath: {},
   loadingPaths: {},
@@ -1412,13 +1420,7 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
   },
   loadPermissionProfiles: async (path) => {
     set({ permissionProfiles, permissionProfilesPath: path });
-    // Models and effort levels only arrive with a session's initialize result,
-    // so a window that has not opened a thread yet has an empty catalog and the
-    // composer has nothing to offer. Warm it once per repo; spawning the CLI is
-    // expensive, so never retry after a run that simply reported no models.
-    if (get().models.length || catalogWarmups.has(path)) return;
-    catalogWarmups.add(path);
-    await loadCapabilities(path).catch(() => catalogWarmups.delete(path));
+    await warmClaudeModelCatalog(path);
   },
   listApps: async () => [],
   listMcpServers: async (threadId) => {

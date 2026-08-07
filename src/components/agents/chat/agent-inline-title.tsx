@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { chatStoreFor, useAgentChatStore } from "@/lib/agents/active-chat-store";
+import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import { cn } from "@/lib/utils";
 
 export function AgentInlineTitle({
   path,
+  provider,
   threadId,
   title,
   editing,
@@ -14,6 +16,7 @@ export function AgentInlineTitle({
   inputClassName,
 }: {
   path: string;
+  provider?: NativeAgentProvider;
   threadId: string;
   title: string;
   editing: boolean;
@@ -21,7 +24,8 @@ export function AgentInlineTitle({
   className?: string;
   inputClassName?: string;
 }) {
-  const renameThread = useAgentChatStore((state) => state.renameThread);
+  const activeRename = useAgentChatStore((state) => state.renameThread);
+  const renameThread = provider ? chatStoreFor(provider).getState().renameThread : activeRename;
   const [draft, setDraft] = useState(title);
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelledRef = useRef(false);

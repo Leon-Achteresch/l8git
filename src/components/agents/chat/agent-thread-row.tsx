@@ -9,6 +9,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { agentProviderMeta } from "@/lib/agents/provider-meta";
+import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 
 export function AgentThreadRow({
@@ -23,7 +25,7 @@ export function AgentThreadRow({
   onArchive,
 }: {
   path: string;
-  thread: AgentThreadSummary;
+  thread: AgentThreadSummary & { provider: NativeAgentProvider };
   active: boolean;
   relativeDate: string;
   renaming: boolean;
@@ -34,6 +36,8 @@ export function AgentThreadRow({
 }) {
   const { t } = useTranslation();
   const working = thread.status !== "idle" && thread.status !== "notLoaded";
+  const providerMeta = agentProviderMeta(thread.provider);
+  const ProviderLogo = providerMeta.Logo;
 
   return (
     <div className="group/thread relative">
@@ -50,11 +54,19 @@ export function AgentThreadRow({
         data-active={active}
         className="ag-row min-h-11 items-start py-2 pr-8"
       >
+        <span
+          className="mt-0.5 grid size-4 shrink-0 place-items-center"
+          title={providerMeta.label}
+          aria-label={providerMeta.label}
+        >
+          <ProviderLogo className="size-3.5" />
+        </span>
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
             {thread.isPinned ? <Pin className="ag-faint size-2.5 shrink-0" /> : null}
             <AgentInlineTitle
               path={path}
+              provider={thread.provider}
               threadId={thread.id}
               title={thread.title}
               editing={renaming}

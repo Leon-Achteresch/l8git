@@ -53,6 +53,7 @@ import {
   scheduleAgentSessionCatalogSave,
   type AgentSessionCatalog,
 } from "@/lib/agents/session-catalog";
+import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import i18n from "@/lib/i18n";
 
 export interface AgentChatState {
@@ -270,8 +271,19 @@ function replaceItem(items: AgentItem[], item: AgentItem): AgentItem[] {
     return [...items, item];
   }
   const next = [...items];
-  next[index] = item;
+  next[index] = keepStreamedReasoning(items[index], item);
   return next;
+}
+
+function keepStreamedReasoning(current: AgentItem, incoming: AgentItem): AgentItem {
+  if (incoming.type !== "reasoning") return incoming;
+  const merged = { ...incoming };
+  for (const field of ["summary", "content"] as const) {
+    const next = Array.isArray(merged[field]) ? merged[field] : [];
+    const previous = Array.isArray(current[field]) ? current[field] : [];
+    if (next.length === 0 && previous.length > 0) merged[field] = previous;
+  }
+  return merged;
 }
 
 function mergeCompletedTurn(current: AgentTurn | undefined, incoming: CodexTurn): AgentTurn {
@@ -710,14 +722,14 @@ function handleEvent(context: CodexSessionContext, event: RpcNotification): void
     }
     if (event.method === "item/started" || event.method === "item/completed") {
       if (!isRecord(params.item) || !threadId || !turnId) return state;
-      const item: AgentItem = {
+      const incoming: AgentItem = {
         ...(params.item as AgentItem),
         __completed: event.method === "item/completed",
       };
       const conversation = state.conversations[threadId];
       if (!conversation) return state;
       const turns = conversation.turns.map((turn) =>
-        turn.id === turnId ? { ...turn, items: replaceItem(turn.items, item) } : turn,
+        turn.id === turnId ? { ...turn, items: replaceItem(turn.items, incoming) } : turn,
       );
       return { conversations: { ...state.conversations, [threadId]: { ...conversation, turns } } };
     }
@@ -961,7 +973,7 @@ export const useAgentChatStore = create<AgentChatState>()(
       loginError: null,
       rateLimits: null,
       accountUsage: null,
-      models: [],
+      models: loadModelCatalog("codex"),
       defaultModel: null,
       threadsByPath: persistedCatalog.threadsByPath ?? {},
       loadingPaths: {},
@@ -1011,7 +1023,7 @@ export const useAgentChatStore = create<AgentChatState>()(
               client.usage().catch(() => null),
               client.collaborationModes().catch(() => ({ data: [] })),
             ]);
-            const models: AgentModelOption[] = modelsResponse.data.map((model) => ({
+            const models: AgentModelOption[] = modelsResponse.map((model) => ({
               id: model.model,
               label: model.displayName,
               description: model.description,
@@ -1027,6 +1039,7 @@ export const useAgentChatStore = create<AgentChatState>()(
               defaultServiceTier: model.defaultServiceTier ?? null,
               supportsPersonality: model.supportsPersonality === true,
             }));
+            saveModelCatalog("codex", models);
             const defaultModel =
               models.find((model) => model.isDefault)?.id ?? models[0]?.id ?? null;
             const currentModel = get().model;

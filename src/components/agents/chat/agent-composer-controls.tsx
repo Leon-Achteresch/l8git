@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AgentModelPicker } from "@/components/agents/chat/agent-model-picker";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { codexReasoningEffortLabel } from "@/lib/agents/codex-labels";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
@@ -75,7 +76,13 @@ function ControlPill({
 
 const RADIO_CLASS = "rounded-[9px] py-1.5 text-[12px]";
 
-export function AgentComposerControls({ path }: { path: string }) {
+export function AgentComposerControls({
+  path,
+  providerLocked = false,
+}: {
+  path: string;
+  providerLocked?: boolean;
+}) {
   const { t } = useTranslation();
   const provider = useAgentProviderStore((state) => state.provider);
   const effort = useAgentChatStore((state) => state.reasoningEffort);
@@ -129,6 +136,8 @@ export function AgentComposerControls({ path }: { path: string }) {
 
   return (
     <>
+      <AgentModelPicker path={path} providerLocked={providerLocked} />
+
       {supportedEfforts.length ? (
       <ControlPill
         icon={<Gauge />}

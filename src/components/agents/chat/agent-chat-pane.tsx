@@ -42,7 +42,6 @@ import { AgentThreadMenu } from "@/components/agents/chat/agent-thread-menu";
 import {
   PromptInput,
   type PromptAction,
-  type PromptModel,
   type PromptSlashCommand,
 } from "@/components/agents/ui/prompt-input";
 import { ClaudeCodeLogo, CodexLogo } from "@/components/brand/agent-logos";
@@ -479,16 +478,6 @@ export const AgentChatPane = memo(function AgentChatPane({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [threadId]);
-
-  const promptModels = useMemo<PromptModel[]>(
-    () =>
-      models.map((option) => ({
-        value: option.id,
-        label: option.label,
-        icon: <ProviderLogo className="size-3.5" />,
-      })),
-    [ProviderLogo, models],
-  );
 
   const actions = useMemo<PromptAction[]>(
     () => [
@@ -961,9 +950,6 @@ export const AgentChatPane = memo(function AgentChatPane({
       <PromptInput
         value={draft}
         onValueChange={setDraft}
-        models={promptModels}
-        model={model ?? undefined}
-        onModelChange={setModel}
         actions={actions}
         onAction={(action) => void runAction(action)}
         slashCommands={slashCommands}
@@ -978,7 +964,9 @@ export const AgentChatPane = memo(function AgentChatPane({
             )
           : undefined}
         header={attachmentChips}
-        leadingAction={<AgentComposerControls path={path} />}
+        leadingAction={
+          <AgentComposerControls path={path} providerLocked={conversationMeta.turnCount > 0} />
+        }
         disabled={connectionStatus !== "ready" || requiresAuth}
         placeholder={busy
           ? t("agentChat.steerPrompt")

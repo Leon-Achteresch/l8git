@@ -5,6 +5,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import { repoAvatarHue, repoInitialChar } from "@/lib/repo-avatar";
 import { useRepoGroupsStore } from "@/lib/repo-groups-store";
 import { useRepoStore } from "@/lib/repo-store";
@@ -227,6 +228,10 @@ export const RepoTab = memo(function RepoTab({
             style={style}
             type="button"
             onClick={() => {
+              if (router.state.location.pathname.startsWith("/agents")) {
+                useAgentRepoStore.getState().setPath(path);
+                return;
+              }
               useRepoStore.getState().setActive(path);
               void router.navigate({ to: "/" });
             }}
