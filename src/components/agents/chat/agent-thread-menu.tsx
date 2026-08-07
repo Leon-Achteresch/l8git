@@ -3,7 +3,6 @@ import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,20 +58,18 @@ export function AgentThreadMenu({
     <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="rounded-full text-muted-foreground"
+          className="ag-icon-btn"
           aria-label={t("agentChat.thread.actions")}
           title={t("agentChat.thread.actions")}
         >
-          <MoreHorizontal className="size-3.5" />
-        </Button>
+          <MoreHorizontal className="size-4" />
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 rounded-xl p-1.5">
+      <DropdownMenuContent align="end" className="ag-menu w-52 p-1.5">
         <DropdownMenuItem
-          className="rounded-lg"
+          className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]"
           disabled={busy}
           onClick={() => void run(() => startReview(threadId))}
         >
@@ -80,7 +77,7 @@ export function AgentThreadMenu({
           {t("agentChat.thread.review")}
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="rounded-lg"
+          className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]"
           disabled={busy}
           onClick={() => void run(() => forkThread(path, threadId))}
         >
@@ -88,7 +85,7 @@ export function AgentThreadMenu({
           {t("agentChat.thread.fork")}
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="rounded-lg"
+          className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]"
           disabled={busy}
           onClick={() =>
             void run(
@@ -100,12 +97,12 @@ export function AgentThreadMenu({
           <Boxes className="size-3.5" />
           {t("agentChat.thread.compact")}
         </DropdownMenuItem>
-        <DropdownMenuItem className="rounded-lg" onClick={() => setTerminalsOpen(true)}>
+        <DropdownMenuItem className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]" onClick={() => setTerminalsOpen(true)}>
           <SquareTerminal className="size-3.5" />
           Background terminals
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="rounded-lg"
+          className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]"
           disabled={busy}
           onClick={() => void run(() => archiveThread(path, threadId))}
         >
@@ -114,7 +111,7 @@ export function AgentThreadMenu({
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
-          className="rounded-lg"
+          className="ag-menu-item text-[12px]"
           disabled={busy}
           onClick={() => setDeleteOpen(true)}
         >

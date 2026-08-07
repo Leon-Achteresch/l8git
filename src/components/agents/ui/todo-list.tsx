@@ -70,7 +70,7 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={reduce ? { duration: 0 } : SPRING_SWAP}
-            className="absolute size-5.5 overflow-visible text-emerald-500"
+            className="absolute size-5.5 overflow-visible text-[var(--git-added)]"
           >
             <circle cx="12" cy="12" r="9" fill="currentColor" />
             <motion.path
@@ -121,9 +121,9 @@ function TodoStatusIcon({
       viewBox="0 0 24 24"
       initial={false}
       className={cn(
-        "mx-0.5 size-5 shrink-0 overflow-visible text-muted-foreground",
-        status === "in-progress" && "text-foreground",
-        status === "cancelled" && "text-rose-600 dark:text-rose-400",
+        "mx-0.5 size-5 shrink-0 overflow-visible text-[var(--ag-text-3)]",
+        status === "in-progress" && "text-[var(--ag-text)]",
+        status === "cancelled" && "text-[var(--git-removed)]",
       )}
     >
       <motion.circle
@@ -253,7 +253,7 @@ export function TodoList({
     <section
       aria-label="Agent task list"
       className={cn(
-        "w-full overflow-hidden rounded-2xl border border-border/70",
+        "ag-card w-full overflow-hidden",
         className,
       )}
     >
@@ -263,16 +263,16 @@ export function TodoList({
         aria-expanded={currentOpen}
         aria-controls={contentId}
         onClick={() => setOpen(!currentOpen)}
-        className="group flex h-11 w-full items-center gap-2.5 rounded-2xl px-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group flex h-10 w-full items-center gap-2.5 px-3 text-left outline-none transition-colors hover:bg-[var(--ag-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <TodoHeaderIcon complete={allComplete} />
-        <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/90">
+        <h3 className="min-w-0 flex-1 truncate text-[12px] font-medium">
           {title}
         </h3>
         <span
           className={cn(
-            "shrink-0 text-xs font-medium tabular-nums text-muted-foreground",
-            allComplete && "text-emerald-600 dark:text-emerald-400",
+            "shrink-0 text-[11px] font-medium tabular-nums text-[var(--ag-text-2)]",
+            allComplete && "text-[var(--git-added)]",
           )}
         >
           <span className="sr-only">
@@ -290,7 +290,7 @@ export function TodoList({
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
-          className="text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
+          className="ag-faint transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
         </motion.span>
@@ -304,7 +304,7 @@ export function TodoList({
       >
         {currentOpen ? <div
           ref={viewportRef}
-          className="scrollbar-hide overflow-y-auto px-2 pb-2"
+          className="ag-line scrollbar-hide overflow-y-auto border-t px-2 py-1.5"
           style={{ maxHeight }}
         >
           {items.length ? (
@@ -334,11 +334,11 @@ export function TodoList({
                     <span className="sr-only">{statusLabel(status)}: </span>
                     <span
                       className={cn(
-                        "min-w-0 flex-1 truncate text-sm leading-5",
-                        status === "pending" && "text-muted-foreground/65",
-                        status === "in-progress" && "text-foreground",
-                        status === "completed" && "text-muted-foreground/60",
-                        status === "cancelled" && "text-muted-foreground/55",
+                        "min-w-0 flex-1 truncate text-[13px] leading-5",
+                        status === "pending" && "text-[var(--ag-text-3)]",
+                        status === "in-progress" && "text-[var(--ag-text)]",
+                        status === "completed" && "text-[var(--ag-text-3)]",
+                        status === "cancelled" && "text-[var(--ag-text-3)]",
                       )}
                     >
                       <span className="relative inline-block max-w-full">

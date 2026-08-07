@@ -1,7 +1,7 @@
 "use client";
 // beui.dev/components/agents/agent-activity
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Lightbulb } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
@@ -201,8 +201,9 @@ export function AgentActivity({
         <div
           id={triggerId}
           role="status"
-          className="flex h-7 min-w-0 items-center text-muted-foreground"
+          className="flex h-7 min-w-0 items-center gap-1.5 text-[var(--ag-text-2)]"
         >
+          <Lightbulb className="size-3.5 shrink-0" />
           <ThinkingShimmer>{liveLabel}</ThinkingShimmer>
         </div>
       ) : (
@@ -212,8 +213,9 @@ export function AgentActivity({
           aria-expanded={expanded}
           aria-controls={contentId}
           onClick={toggle}
-          className="group flex h-7 min-w-0 items-center gap-1.5 rounded-md text-left font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="ag-chip group -ml-2 text-[12px] font-medium"
         >
+          <Lightbulb className="size-3.5 shrink-0" />
           <span className="truncate">{completedSummary}</span>
           <motion.span
             aria-hidden="true"

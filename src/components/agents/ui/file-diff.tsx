@@ -155,7 +155,7 @@ export function FileDiff({
     <div
       data-state={status}
       aria-busy={streaming}
-      className={cn("w-full text-sm", className)}
+      className={cn("ag-card w-full overflow-hidden text-sm", className)}
     >
       <button
         id={triggerId}
@@ -163,20 +163,17 @@ export function FileDiff({
         aria-expanded={currentOpen}
         aria-controls={contentId}
         onClick={() => setOpen(!currentOpen)}
-        className="group flex min-h-9 w-full items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="group flex h-9 w-full items-center gap-2 px-2.5 text-left outline-none transition-colors hover:bg-[var(--ag-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
-        <FileCode2
-          aria-hidden="true"
-          className="size-4 shrink-0 text-muted-foreground"
-        />
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/80">
+        <FileCode2 aria-hidden="true" className="ag-faint size-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--ag-text-2)]">
           {file}
         </span>
         <span className="flex shrink-0 items-center gap-2">
           <ChangeCount value={additions} type="added" />
           <ChangeCount value={deletions} type="removed" />
         </span>
-        <span className="grid size-4 shrink-0 place-items-center text-muted-foreground/60">
+        <span className="ag-faint grid size-4 shrink-0 place-items-center">
           {streaming ? (
             <LoaderCircle
               aria-label="Applying changes"
@@ -190,7 +187,7 @@ export function FileDiff({
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
-          className="shrink-0 text-muted-foreground/45 transition-colors group-hover:text-muted-foreground"
+          className="ag-faint shrink-0 transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
         </motion.span>
@@ -202,8 +199,8 @@ export function FileDiff({
         aria-labelledby={triggerId}
         open={currentOpen}
       >
-        <div className="pl-6 pt-1.5">
-          <div className="overflow-hidden rounded-xl bg-muted/80">
+        <div>
+          <div className="ag-line border-t bg-[var(--ag-surface-3)]">
             <div
               ref={viewportRef}
               data-slot="file-diff-viewport"
@@ -265,7 +262,7 @@ export function FileDiff({
                   onClick={handleCopy}
                   whileTap={reduce ? undefined : { scale: 0.9 }}
                   transition={SPRING_PRESS}
-                  className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  className="ag-icon-btn"
                 >
                   {copied ? (
                     <Check className="size-3.5" />

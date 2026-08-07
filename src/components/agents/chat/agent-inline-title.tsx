@@ -71,7 +71,7 @@ export function AgentInlineTitle({
           }
         }}
         className={cn(
-          "h-6 min-w-0 w-full rounded-md border border-border bg-background px-1.5 text-inherit font-inherit outline-none ring-2 ring-ring/25",
+          "h-6 w-full min-w-0 rounded-[7px] border border-[var(--ag-line-strong)] bg-[var(--ag-surface)] px-1.5 font-inherit text-inherit outline-none ring-2 ring-ring/20",
           inputClassName,
         )}
       />

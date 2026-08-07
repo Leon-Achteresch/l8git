@@ -84,14 +84,11 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
 
   return (
     <aside className="flex h-full min-h-0 flex-col">
-      <header className="agents-hairline flex h-14 shrink-0 items-center border-b px-3">
+      <header className="ag-line flex h-12 shrink-0 items-center border-b px-2">
         <AgentProviderSwitcher provider={provider} onProviderChange={setProvider} />
-        <span className="ml-auto rounded-md bg-foreground/[0.045] px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground">
-          {visibleThreads.length}
-        </span>
       </header>
 
-      <div className="agents-hairline border-b pt-3">
+      <div className="ag-line border-b py-2">
         <AgentSidebarActions
           query={query}
           onQueryChange={setQuery}
@@ -102,7 +99,7 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
         />
       </div>
 
-      <ScrollArea className="agents-scrollbar min-h-0 flex-1">
+      <ScrollArea className="ag-scroll min-h-0 flex-1">
         <div className="pt-3">
           <AgentRepositoryList
             paths={paths}
@@ -111,7 +108,7 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
             onSelectPath={onSelectPath}
             onNewThread={(path) => void newThread(path)}
           />
-          <div className="agents-hairline mx-3 mb-3 border-t" />
+          <div className="ag-line mx-4 mb-3 border-t" />
           <AgentThreadList
             path={selectedPath}
             threads={visibleThreads}

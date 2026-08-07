@@ -105,19 +105,15 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
   if (paths.length === 0) return <AgentsEmpty />;
 
   return (
-    <div className="agents-shell flex h-full min-h-0">
+    <div className="flex h-full min-h-0">
       <InAppTerminalLayout path={selectedPath}>
-        <ResizablePanelGroup
-          orientation="horizontal"
-          id="agents-chat-split"
-          className="agents-frame"
-        >
+        <ResizablePanelGroup orientation="horizontal" id="agents-chat-split">
           <ResizablePanel
             id="agents-chat-sidebar"
-            defaultSize="22%"
-            minSize="16%"
-            maxSize="31%"
-            className="agents-sidebar-surface min-w-[252px] overflow-hidden"
+            defaultSize="23%"
+            minSize="17%"
+            maxSize="32%"
+            className="ag-rail min-w-[264px] overflow-hidden"
           >
             <AgentChatSidebar
               paths={paths}
@@ -127,21 +123,21 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
               onOpenCapabilities={() => setCapabilitySection("skills")}
             />
           </ResizablePanel>
-          <ResizableHandle className="w-1 bg-transparent transition-colors hover:bg-[var(--agents-accent-soft)]" />
+          <ResizableHandle className="w-px bg-[var(--ag-line)] transition-colors hover:bg-[var(--ag-line-strong)]" />
           <ResizablePanel
             id="agents-chat-main"
-            defaultSize="78%"
+            defaultSize="77%"
             minSize="45%"
-            className="agents-main-surface min-w-0 overflow-hidden"
+            className="ag-stage min-w-0 overflow-hidden"
           >
             <AnimatePresence initial={false} mode="popLayout">
               <m.div
                 key={capabilitySection ? `capabilities:${provider}` : "chat"}
                 layout
                 layoutId="agents-workspace-surface"
-                initial={{ opacity: 0, scale: 0.992, clipPath: "inset(0 0 0 3% round 18px)" }}
-                animate={{ opacity: 1, scale: 1, clipPath: "inset(0 0 0 0% round 18px)" }}
-                exit={{ opacity: 0, scale: 0.995, clipPath: "inset(0 3% 0 0 round 18px)" }}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
                 transition={SPRING_LAYOUT}
                 className="h-full min-h-0"
               >

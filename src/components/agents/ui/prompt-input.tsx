@@ -1,5 +1,4 @@
 "use client";
-// beui.dev/components/agents/prompt-input
 
 import { ArrowUp, Plus, Square } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -14,7 +13,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button } from "@/components/motion/button";
 import {
   MorphPopover,
   MorphPopoverContent,
@@ -76,10 +74,18 @@ export interface PromptInputProps extends Omit<
   onStop?: () => void;
   minRows?: number;
   maxRows?: number;
+  /** Controls rendered after the model picker. */
   leadingAction?: ReactNode;
+  /** Controls rendered before the send button. */
   trailingAction?: ReactNode;
+  /** Content pinned above the textarea — attachment chips, context cards. */
+  header?: ReactNode;
   className?: string;
 }
+
+const LINE_HEIGHT = 24;
+/* Matches the textarea's pt-1; the mirror carries it so scrollHeight lines up. */
+const TEXTAREA_PADDING = 4;
 
 export function PromptInput({
   value,
@@ -99,9 +105,10 @@ export function PromptInput({
   allowEmptySubmit = false,
   onStop,
   minRows = 2,
-  maxRows = 8,
+  maxRows = 10,
   leadingAction,
   trailingAction,
+  header,
   className,
   disabled,
   placeholder = "Ask the agent to do something…",
@@ -113,17 +120,13 @@ export function PromptInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const measurementRef = useRef<HTMLDivElement>(null);
   const [internalValue, setInternalValue] = useState(defaultValue);
-  const [internalModel, setInternalModel] = useState(
-    defaultModel ?? models[0]?.value,
-  );
+  const [internalModel, setInternalModel] = useState(defaultModel ?? models[0]?.value);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const [dismissedSlashValue, setDismissedSlashValue] = useState<string | null>(null);
   const currentValue = value ?? internalValue;
   const currentModelValue = model ?? internalModel;
-  const currentModel = models.find(
-    (option) => option.value === currentModelValue,
-  );
+  const currentModel = models.find((option) => option.value === currentModelValue);
   const canSubmit =
     (Boolean(currentValue.trim()) || allowEmptySubmit) &&
     !disabled &&
@@ -150,10 +153,9 @@ export function PromptInput({
     const measurement = measurementRef.current;
     if (!textarea || !measurement || textarea.value !== currentValue) return;
 
-    const lineHeight = 24;
     const nextHeight = Math.min(
-      Math.max(measurement.scrollHeight, minRows * lineHeight),
-      maxRows * lineHeight,
+      Math.max(measurement.scrollHeight, minRows * LINE_HEIGHT + TEXTAREA_PADDING),
+      maxRows * LINE_HEIGHT + TEXTAREA_PADDING,
     );
     const height = `${nextHeight}px`;
     if (textarea.style.height !== height) textarea.style.height = height;
@@ -228,13 +230,7 @@ export function PromptInput({
         return;
       }
     }
-    if (
-      event.key !== "Enter" ||
-      event.shiftKey ||
-      event.nativeEvent.isComposing
-    ) {
-      return;
-    }
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
     submit();
   };
@@ -242,88 +238,104 @@ export function PromptInput({
   return (
     <form
       onSubmit={submit}
-      className={cn(
-        "relative w-full rounded-2xl border border-border/80 bg-background p-2 transition-colors focus-within:border-foreground/25",
-        disabled && "opacity-60",
-        className,
-      )}
+      className={cn("ag-composer relative w-full p-2", disabled && "opacity-60", className)}
     >
       {slashOpen ? (
-        <div className="absolute inset-x-0 bottom-[calc(100%+8px)] z-40 max-h-72 overflow-y-auto rounded-xl border border-border/70 bg-popover p-1.5 text-popover-foreground shadow-xl">
+        <div
+          role="listbox"
+          aria-label="Commands"
+          className="ag-menu ag-scroll absolute inset-x-0 bottom-[calc(100%+8px)] z-40 max-h-80 overflow-y-auto p-1.5"
+        >
+          <p className="ag-label px-2 pb-1 pt-1">Commands</p>
           {filteredSlashCommands.map((command, index) => (
             <button
               key={command.value}
               type="button"
+              role="option"
+              aria-selected={index === slashIndex}
               disabled={command.disabled}
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => setSlashIndex(index)}
               onClick={() => runSlashCommand(command)}
-              className={cn(
-                "flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left outline-none disabled:pointer-events-none disabled:opacity-45",
-                index === slashIndex ? "bg-muted" : "hover:bg-muted/70",
-              )}
+              data-active={index === slashIndex}
+              className="ag-menu-item gap-2.5"
             >
-              <span className="w-24 shrink-0 font-mono text-xs font-medium">/{command.value}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs">{command.label}</span>
-                {command.description ? (
-                  <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
-                    {command.description}
-                  </span>
-                ) : null}
+              <span className="ag-slash-token w-24 shrink-0 truncate font-mono text-[12px]">
+                /{command.value}
               </span>
+              <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--ag-text)]">
+                {command.label}
+              </span>
+              {command.description ? (
+                <span className="ag-faint hidden min-w-0 max-w-[42%] shrink-0 truncate text-[11px] sm:block">
+                  {command.description}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
       ) : null}
-      <div
-        ref={measurementRef}
-        aria-hidden="true"
-        className="pointer-events-none invisible absolute inset-x-2 top-0 whitespace-pre-wrap px-2 text-sm leading-6 [overflow-wrap:break-word]"
-      >
-        {`${currentValue}\u200b`}
-      </div>
-      <textarea
-        ref={textareaRef}
-        value={currentValue}
-        disabled={disabled}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        rows={minRows}
-        {...textareaProps}
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={handleKeyDown}
-        className="scrollbar-hide block w-full resize-none overflow-y-auto bg-transparent px-2 pt-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/55"
-      />
 
-      <div className="mt-1 flex min-h-8 items-center gap-1">
+      {header ? <div className="px-1 pb-1.5 pt-0.5">{header}</div> : null}
+
+      <div className="relative">
+        <div
+          ref={measurementRef}
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute inset-x-0 top-0 whitespace-pre-wrap px-2 pt-1 text-sm leading-6 [overflow-wrap:break-word]"
+        >
+          {`${currentValue}​`}
+        </div>
+        {slashMatch ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 whitespace-pre-wrap px-2 pt-1 text-sm leading-6 text-transparent [overflow-wrap:break-word]"
+          >
+            <span className="ag-slash">{`/${slashMatch[1] ?? ""}`}</span>
+            {currentValue.slice((slashMatch[1] ?? "").length + 1)}
+          </div>
+        ) : null}
+        <textarea
+          ref={textareaRef}
+          value={currentValue}
+          disabled={disabled}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          rows={minRows}
+          {...textareaProps}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={handleKeyDown}
+          className="scrollbar-hide relative block w-full resize-none overflow-y-auto bg-transparent px-2 pt-1 text-sm leading-6 text-[var(--ag-text)] outline-none placeholder:text-[var(--ag-text-3)]"
+        />
+      </div>
+
+      <div className="mt-1 flex min-h-8 items-center gap-0.5">
         {actions.length ? (
           <MorphPopover open={actionsOpen} onOpenChange={setActionsOpen}>
             <MorphPopoverTrigger>
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
                 disabled={disabled || loading}
                 aria-label="Add to prompt"
-                className="size-8 rounded-full"
+                className="ag-icon-btn"
               >
                 <motion.span
                   aria-hidden="true"
                   animate={{ rotate: actionsOpen ? 45 : 0 }}
                   transition={reduce ? { duration: 0 } : SPRING_SWAP}
+                  className="grid place-items-center"
                 >
                   <Plus className="size-4" />
                 </motion.span>
-              </Button>
+              </button>
             </MorphPopoverTrigger>
 
             <MorphPopoverContent
               side="top"
               align="start"
               sideOffset={8}
-              radius={12}
-              className="w-56 p-1.5"
+              radius={16}
+              className="ag-menu w-64 p-1.5"
             >
               {actions.map((action) => (
                 <button
@@ -334,19 +346,19 @@ export function PromptInput({
                     onAction?.(action.value);
                     setActionsOpen(false);
                   }}
-                  className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                  className="ag-menu-item items-start py-2"
                 >
                   {action.icon ? (
-                    <span className="mt-0.5 grid size-5 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4">
+                    <span className="ag-faint mt-px grid size-4 shrink-0 place-items-center [&_svg]:size-4">
                       {action.icon}
                     </span>
                   ) : null}
                   <span className="min-w-0">
-                    <span className="block text-sm text-foreground">
+                    <span className="block truncate text-[12px] text-[var(--ag-text)]">
                       {action.label}
                     </span>
                     {action.description ? (
-                      <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
+                      <span className="ag-faint mt-px block text-[11px] leading-4">
                         {action.description}
                       </span>
                     ) : null}
@@ -356,7 +368,7 @@ export function PromptInput({
             </MorphPopoverContent>
           </MorphPopover>
         ) : null}
-        {leadingAction}
+
         {models.length ? (
           <Select
             value={currentModelValue}
@@ -364,35 +376,33 @@ export function PromptInput({
             disabled={disabled || loading}
             className="min-w-0"
           >
-            <SelectTrigger className="h-8 w-auto max-w-52 rounded-xl border-0 bg-transparent px-2 py-0 text-xs hover:bg-muted focus-visible:ring-2">
+            <SelectTrigger className="ag-chip h-7 w-auto max-w-56 border-0 bg-transparent px-2 py-0 text-[12px] shadow-none focus-visible:ring-0">
               <span className="flex min-w-0 items-center gap-1.5">
                 {currentModel?.icon ? (
-                  <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-3.5">
+                  <span className="grid size-3.5 shrink-0 place-items-center [&_svg]:size-3.5">
                     {currentModel.icon}
                   </span>
                 ) : null}
-                <span className="truncate text-muted-foreground">
+                <span className="truncate font-medium text-[var(--ag-text)]">
                   {currentModel?.label ?? "Choose model"}
                 </span>
               </span>
             </SelectTrigger>
-            <SelectContent className="right-auto w-52 shadow-none">
+            <SelectContent className="ag-menu right-auto w-56 p-1.5 shadow-none">
               {models.map((option) => (
                 <SelectItem
                   key={option.value}
                   value={option.value}
                   disabled={option.disabled}
-                  className="py-2"
+                  className="rounded-[9px] py-1.5"
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     {option.icon ? (
-                      <span className="grid size-5 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4">
+                      <span className="grid size-4 shrink-0 place-items-center [&_svg]:size-4">
                         {option.icon}
                       </span>
                     ) : null}
-                    <span className="min-w-0 truncate text-sm text-foreground">
-                      {option.label}
-                    </span>
+                    <span className="min-w-0 truncate text-[12px]">{option.label}</span>
                   </span>
                 </SelectItem>
               ))}
@@ -400,32 +410,36 @@ export function PromptInput({
           </Select>
         ) : null}
 
-        {trailingAction ? <span className="ml-auto flex items-center">{trailingAction}</span> : null}
-        <Button
-          type={loading ? "button" : "submit"}
-          size="icon"
-          disabled={loading ? !onStop : !canSubmit}
-          aria-label={loading ? "Stop generating" : "Send prompt"}
-          onClick={loading ? onStop : undefined}
-          className={cn("size-8 rounded-full", !trailingAction && "ml-auto")}
-        >
-          <AnimatePresence initial={false} mode="popLayout">
-            <motion.span
-              key={loading ? "stop" : "send"}
-              initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
-              transition={reduce ? { duration: 0 } : SPRING_SWAP}
-              className="grid place-items-center"
-            >
-              {loading ? (
-                <Square className="size-3 fill-current" />
-              ) : (
-                <ArrowUp className="size-4" />
-              )}
-            </motion.span>
-          </AnimatePresence>
-        </Button>
+        {leadingAction}
+
+        <span className="ml-auto flex items-center gap-1">
+          {trailingAction}
+          <button
+            type={loading ? "button" : "submit"}
+            disabled={loading ? !onStop : !canSubmit}
+            data-stop={loading || undefined}
+            aria-label={loading ? "Stop generating" : "Send prompt"}
+            onClick={loading ? onStop : undefined}
+            className="ag-send"
+          >
+            <AnimatePresence initial={false} mode="popLayout">
+              <motion.span
+                key={loading ? "stop" : "send"}
+                initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
+                transition={reduce ? { duration: 0 } : SPRING_SWAP}
+                className="grid place-items-center"
+              >
+                {loading ? (
+                  <Square className="size-3 fill-current" />
+                ) : (
+                  <ArrowUp className="size-4" />
+                )}
+              </motion.span>
+            </AnimatePresence>
+          </button>
+        </span>
       </div>
     </form>
   );

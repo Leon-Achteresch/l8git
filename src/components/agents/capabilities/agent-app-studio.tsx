@@ -149,29 +149,29 @@ export function AgentAppStudio({ query }: { query: string }) {
             </div>
 
             <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-              <div className="rounded-2xl bg-foreground/[0.025] p-4 ring-1 ring-border/35">
+              <div className="ag-card p-4">
                 <div className="flex items-center gap-2"><ShieldCheck className="size-3.5 text-muted-foreground" /><h3 className="text-xs font-semibold">{t("agentCapabilities.apps.permissions")}</h3></div>
                 <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{t("agentCapabilities.apps.permissionsHint")}</p>
                 <div className="mt-4 space-y-2">
-                  <label className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2.5 ring-1 ring-border/35">
+                  <label className="ag-card flex items-center justify-between gap-3 px-3 py-2.5">
                     <span><span className="block text-[11px] font-medium">{t("agentCapabilities.apps.destructive")}</span><span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.apps.destructiveHint")}</span></span>
                     <Switch checked={destructive} disabled={busyKey === `app:${selected.id}:policy`} onCheckedChange={(checked) => void savePolicy("destructive_enabled", checked)} />
                   </label>
-                  <label className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2.5 ring-1 ring-border/35">
+                  <label className="ag-card flex items-center justify-between gap-3 px-3 py-2.5">
                     <span><span className="block text-[11px] font-medium">{t("agentCapabilities.apps.openWorld")}</span><span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.apps.openWorldHint")}</span></span>
                     <Switch checked={openWorld} disabled={busyKey === `app:${selected.id}:policy`} onCheckedChange={(checked) => void savePolicy("open_world_enabled", checked)} />
                   </label>
-                  <label className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2.5 ring-1 ring-border/35">
+                  <label className="ag-card flex items-center justify-between gap-3 px-3 py-2.5">
                     <span><span className="block text-[11px] font-medium">{t("agentCapabilities.apps.defaultToolsEnabled")}</span><span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.apps.defaultToolsEnabledHint")}</span></span>
                     <Switch checked={defaultToolsEnabled} disabled={busyKey === `app:${selected.id}:policy`} onCheckedChange={(checked) => void savePolicy("default_tools_enabled", checked)} />
                   </label>
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2.5 ring-1 ring-border/35">
+                  <div className="ag-card flex items-center justify-between gap-3 px-3 py-2.5">
                     <span><span className="block text-[11px] font-medium">{t("agentCapabilities.apps.defaultApproval")}</span><span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.apps.defaultApprovalHint")}</span></span>
                     <NativeSelect size="sm" value={defaultMode} disabled={busyKey === `app:${selected.id}:policy`} onChange={(event) => void savePolicy("default_tools_approval_mode", event.target.value)} className="w-32">
                       <NativeSelectOption value="auto">Auto</NativeSelectOption><NativeSelectOption value="prompt">Prompt</NativeSelectOption><NativeSelectOption value="writes">Writes</NativeSelectOption><NativeSelectOption value="approve">Approve</NativeSelectOption>
                     </NativeSelect>
                   </div>
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-background/70 px-3 py-2.5 ring-1 ring-border/35">
+                  <div className="ag-card flex items-center justify-between gap-3 px-3 py-2.5">
                     <span><span className="block text-[11px] font-medium">{t("agentCapabilities.apps.reviewer")}</span><span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.apps.reviewerHint")}</span></span>
                     <NativeSelect size="sm" value={reviewer} disabled={busyKey === `app:${selected.id}:policy`} onChange={(event) => void savePolicy("approvals_reviewer", event.target.value)} className="w-32">
                       <NativeSelectOption value="user">{t("agentCapabilities.apps.reviewerUser")}</NativeSelectOption>
@@ -180,7 +180,7 @@ export function AgentAppStudio({ query }: { query: string }) {
                   </div>
                 </div>
               </div>
-              <aside className="rounded-2xl bg-foreground/[0.025] p-4 ring-1 ring-border/35">
+              <aside className="ag-card p-4">
                 <span className="grid size-9 place-items-center rounded-xl bg-background ring-1 ring-border/40">{selected.logoUrl ? <img src={selected.logoUrl} alt="" className="size-7 rounded-lg object-cover" /> : <AppWindow className="size-4" />}</span>
                 <p className="mt-3 text-xs font-medium">{selected.branding?.developer || selected.metadata?.developer || t("agentCapabilities.apps.unknownDeveloper")}</p>
                 <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{selected.metadata?.version ? `v${selected.metadata.version}` : selected.id}</p>
@@ -192,7 +192,7 @@ export function AgentAppStudio({ query }: { query: string }) {
             <section>
               <div className="mb-2 flex items-center gap-2"><Wrench className="size-3.5 text-muted-foreground" /><h3 className="text-xs font-semibold">{t("agentCapabilities.apps.toolsAndPolicies")}</h3></div>
               {selected.tools.length ? (
-                <div className="overflow-hidden rounded-2xl ring-1 ring-border/40">
+                <div className="ag-card overflow-hidden">
                   {selected.tools.map((tool, index) => {
                     const policy = toolConfig(config, selected.id, tool.name);
                     const enabled = policy.enabled === undefined ? tool.isEnabled : policy.enabled !== false;

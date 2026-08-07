@@ -111,7 +111,7 @@ function approvalQuestions(
         description: (
           <div className="space-y-2">
             <p>{request.reason ?? t("agentChat.request.permissionsDescription")}</p>
-            <pre className="max-h-36 overflow-auto rounded-lg bg-background/65 p-2 font-mono text-[10px] leading-4">
+            <pre className="ag-inset max-h-36 overflow-auto p-2 font-mono text-[10px] leading-4">
               {JSON.stringify(request.raw.permissions ?? {}, null, 2)}
             </pre>
           </div>
@@ -247,7 +247,7 @@ export const AgentRequestCard = memo(function AgentRequestCard({ request }: { re
         onReject={request.kind === "elicitation"
           ? () => void handleElicitation(false)
           : undefined}
-        className="border border-border/60 bg-muted/70"
+        
       />
     );
   }
@@ -261,7 +261,7 @@ export const AgentRequestCard = memo(function AgentRequestCard({ request }: { re
         approveLabel={t("agentChat.request.openContinue")}
         onApprove={() => void handleElicitation(true)}
         onReject={() => void handleElicitation(false)}
-        className="border border-border/60 bg-muted/70"
+        
       />
     );
   }
@@ -273,9 +273,9 @@ export const AgentRequestCard = memo(function AgentRequestCard({ request }: { re
       status={status}
       approveLabel={t("agentChat.request.decline")}
       onApprove={() => void rejectUnsupported(request)}
-      className="border border-border/60 bg-muted/70"
+      
     >
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">
+      <pre className="ag-muted max-h-40 overflow-auto whitespace-pre-wrap text-[11px]">
         {JSON.stringify(request.raw, null, 2)}
       </pre>
     </ApprovalCard>

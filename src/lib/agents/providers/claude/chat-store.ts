@@ -48,6 +48,8 @@ const agentsByPath = new Map<string, Array<{ name: string; description: string }
 const mcpByPath = new Map<string, AgentMcpServer[]>();
 const capabilityLastUsedByPath = new Map<string, number>();
 const capabilityPromises = new Map<string, Promise<void>>();
+/* Repos whose model catalog we already tried to warm — see loadPermissionProfiles. */
+const catalogWarmups = new Set<string>();
 const transcriptPromises = new Map<string, Promise<ClaudeSessionTranscript>>();
 const threadListPromises = new Map<string, Promise<ClaudeSessionSummary[]>>();
 const threadListCache = new Map<string, { expiresAt: number; data: ClaudeSessionSummary[] }>();
@@ -1408,7 +1410,16 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
     if (!skillsByPath.has(path)) await loadCapabilities(path);
     return skillsByPath.get(path) ?? [];
   },
-  loadPermissionProfiles: async (path) => set({ permissionProfiles, permissionProfilesPath: path }),
+  loadPermissionProfiles: async (path) => {
+    set({ permissionProfiles, permissionProfilesPath: path });
+    // Models and effort levels only arrive with a session's initialize result,
+    // so a window that has not opened a thread yet has an empty catalog and the
+    // composer has nothing to offer. Warm it once per repo; spawning the CLI is
+    // expensive, so never retry after a run that simply reported no models.
+    if (get().models.length || catalogWarmups.has(path)) return;
+    catalogWarmups.add(path);
+    await loadCapabilities(path).catch(() => catalogWarmups.delete(path));
+  },
   listApps: async () => [],
   listMcpServers: async (threadId) => {
     const target = threadId ? clients.get(threadId) : clients.values().next().value;

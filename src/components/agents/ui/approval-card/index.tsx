@@ -182,7 +182,7 @@ function ProgressDots({ current, ids }: { current: number; ids: string[] }) {
             opacity: index <= current ? 1 : 0.35,
           }}
           transition={SPRING_SWAP}
-          className="size-1.5 rounded-full bg-foreground"
+          className="size-1.5 rounded-full bg-current"
         />
       ))}
     </span>
@@ -291,7 +291,7 @@ export function ApprovalCard({
       data-state={status}
       aria-busy={busy}
       className={cn(
-        "w-full overflow-hidden rounded-2xl bg-muted p-4 text-sm",
+        "ag-card w-full overflow-hidden p-4 text-sm shadow-[var(--ag-shadow-raise)]",
         className,
       )}
     >
@@ -320,7 +320,7 @@ export function ApprovalCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start gap-3">
-            <h3 className="min-w-0 flex-1 text-base font-medium leading-5 text-foreground">
+            <h3 className="min-w-0 flex-1 text-[14px] font-medium leading-5">
               <ActionSwapRollText value={titleKey}>
                 {displayTitle}
               </ActionSwapRollText>
@@ -344,7 +344,7 @@ export function ApprovalCard({
                 type="button"
                 aria-label="Dismiss"
                 onClick={onDismiss}
-                className="grid size-5 shrink-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="ag-icon-btn size-5"
               >
                 <X className="size-4" />
               </button>
@@ -362,7 +362,7 @@ export function ApprovalCard({
                   transition={{ duration: reduce ? 0 : 0.2, ease: EASE_OUT }}
                 >
                   {question.description ? (
-                    <div className="mt-1 leading-5 text-muted-foreground">
+                    <div className="ag-muted mt-1 leading-5">
                       {question.description}
                     </div>
                   ) : null}
@@ -378,7 +378,7 @@ export function ApprovalCard({
             ) : (
               <div>
                 {description ? (
-                  <p className="mt-1 leading-5 text-muted-foreground">
+                  <p className="ag-muted mt-1 leading-5">
                     {description}
                   </p>
                 ) : null}

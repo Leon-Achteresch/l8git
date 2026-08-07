@@ -214,7 +214,7 @@ function SkillEditor({
             {draft.dependencies.length ? (
               <div className="space-y-2">
                 {draft.dependencies.map((dependency, index) => (
-                  <div key={index} className="space-y-2 rounded-xl bg-foreground/[0.03] p-2.5 ring-1 ring-border/35">
+                  <div key={index} className="ag-card space-y-2 p-2.5">
                     <div className="grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(0,1fr)_2rem]">
                       <NativeSelect
                         value={dependency.type}
@@ -266,7 +266,7 @@ function SkillEditor({
                 ))}
               </div>
             ) : (
-              <p className="rounded-xl border border-dashed border-border/55 px-3 py-4 text-center text-[10px] text-muted-foreground">
+              <p className="ag-faint rounded-[12px] border border-dashed border-[var(--ag-line-strong)] px-3 py-4 text-center text-[11px]">
                 {t("agentCapabilities.skills.noDependencies")}
               </p>
             )}
@@ -275,7 +275,7 @@ function SkillEditor({
 
         <aside className="space-y-4 xl:sticky xl:top-5 xl:self-start">
           <SkillPreview draft={draft} />
-          <div className="space-y-3 rounded-2xl bg-foreground/[0.025] p-3.5 ring-1 ring-border/35">
+          <div className="ag-card space-y-3 p-3.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {t("agentCapabilities.skills.presentation")}
             </p>
@@ -307,14 +307,14 @@ function SkillEditor({
                 <Input id="skill-icon-large" value={draft.iconLarge} onChange={(event) => onChange({ ...draft, iconLarge: event.target.value })} placeholder="./assets/logo.png" className="h-8 rounded-lg font-mono text-[10px]" />
               </div>
             </div>
-            <label className="flex items-center justify-between gap-3 rounded-xl bg-background/60 px-3 py-2.5 ring-1 ring-border/35">
+            <label className="flex items-center justify-between gap-3 ag-card px-3 py-2.5">
               <span>
                 <span className="block text-[11px] font-medium">{t("agentCapabilities.skills.implicit")}</span>
                 <span className="mt-0.5 block text-[9px] leading-4 text-muted-foreground">{t("agentCapabilities.skills.implicitHint")}</span>
               </span>
               <Switch checked={draft.allowImplicitInvocation} onCheckedChange={(checked) => onChange({ ...draft, allowImplicitInvocation: checked })} />
             </label>
-            <div className="rounded-xl bg-background/60 px-3 py-2.5 ring-1 ring-border/35">
+            <div className="ag-card px-3 py-2.5">
               <p className="text-[11px] font-medium">{t("agentCapabilities.skills.products")}</p>
               <p className="mt-0.5 text-[9px] leading-4 text-muted-foreground">{t("agentCapabilities.skills.productsHint")}</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -475,7 +475,7 @@ export function AgentSkillStudio({ query }: { query: string }) {
               </div>
 
               <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_16rem]">
-                <div className="rounded-2xl bg-foreground/[0.025] p-4 ring-1 ring-border/35">
+                <div className="ag-card p-4">
                   <div className="flex items-center gap-2">
                     <Braces className="size-3.5 text-muted-foreground" />
                     <h3 className="text-xs font-semibold">{t("agentCapabilities.skills.activation")}</h3>
@@ -483,7 +483,7 @@ export function AgentSkillStudio({ query }: { query: string }) {
                   <p className="mt-2 text-xs leading-5 text-muted-foreground">{selected.description}</p>
                   <p className="mt-4 break-all font-mono text-[9px] leading-4 text-muted-foreground/70">{selected.path}</p>
                 </div>
-                <div className="rounded-2xl bg-foreground/[0.025] p-4 ring-1 ring-border/35">
+                <div className="ag-card p-4">
                   <Sparkles className="size-4" style={{ color: selected.interface?.brandColor }} />
                   <p className="mt-3 text-xs font-medium">${selected.name}</p>
                   <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{selected.interface?.defaultPrompt || t("agentCapabilities.skills.noDefaultPrompt")}</p>

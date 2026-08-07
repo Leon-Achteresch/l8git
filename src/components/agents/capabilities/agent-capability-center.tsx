@@ -251,25 +251,25 @@ export function AgentCapabilityCenter({
           : <AgentHookStudio query={deferredQuery} />;
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-background">
-      <header className="shrink-0 border-b border-border/50 bg-background/95">
-        <div className="flex h-12 items-center gap-3 px-3.5">
-          <Button type="button" variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground" onClick={onBack} title={t("agentCapabilities.backToChat")}><ArrowLeft className="size-3.5" /></Button>
-          <span className="grid size-7 place-items-center rounded-lg bg-foreground/[0.06] ring-1 ring-border/40"><Blocks className="size-3.5" /></span>
+    <section className="flex h-full min-h-0 flex-col">
+      <header className="ag-line shrink-0 border-b">
+        <div className="flex h-12 items-center gap-2 px-3">
+          <button type="button" className="ag-icon-btn" onClick={onBack} title={t("agentCapabilities.backToChat")} aria-label={t("agentCapabilities.backToChat")}><ArrowLeft className="size-4" /></button>
+          <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]"><Blocks className="size-3.5" /></span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold tracking-tight">{t("agentCapabilities.title")}</p>
-            <p className="truncate text-[9px] text-muted-foreground">{repoName(path)} · {t("agentCapabilities.subtitle")}</p>
+            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{t("agentCapabilities.title")}</p>
+            <p className="ag-faint truncate text-[10px]">{repoName(path)} · {t("agentCapabilities.subtitle")}</p>
           </div>
           <div className="relative hidden w-52 sm:block">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("agentCapabilities.search")} className="h-8 rounded-lg border-border/45 bg-foreground/[0.025] pl-7 text-[11px] shadow-none" />
+            <Search className="ag-faint pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2" />
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("agentCapabilities.search")} className="h-8 rounded-full border-[var(--ag-line)] bg-[var(--ag-surface-2)] pl-8 text-[11px] shadow-none" />
           </div>
-          <Button type="button" variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground" onClick={() => setImportOpen(true)} title={t("agentCapabilities.import")}><Import className="size-3.5" /></Button>
-          <Button type="button" variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground" onClick={() => void exportSnapshot().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("agentCapabilities.export")}><Download className="size-3.5" /></Button>
-          <Button type="button" variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground" onClick={() => setConfigOpen(true)} title={t("agentCapabilities.config.title")}><SlidersHorizontal className="size-3.5" /></Button>
-          <Button type="button" variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("common.refresh")}><RefreshCw className={cn("size-3.5", loading && "animate-spin")} /></Button>
+          <button type="button" className="ag-icon-btn" onClick={() => setImportOpen(true)} title={t("agentCapabilities.import")} aria-label={t("agentCapabilities.import")}><Import className="size-4" /></button>
+          <button type="button" className="ag-icon-btn" onClick={() => void exportSnapshot().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("agentCapabilities.export")} aria-label={t("agentCapabilities.export")}><Download className="size-4" /></button>
+          <button type="button" className="ag-icon-btn" onClick={() => setConfigOpen(true)} title={t("agentCapabilities.config.title")} aria-label={t("agentCapabilities.config.title")}><SlidersHorizontal className="size-4" /></button>
+          <button type="button" className="ag-icon-btn" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("common.refresh")} aria-label={t("common.refresh")}><RefreshCw className={cn("size-4", loading && "animate-spin")} /></button>
         </div>
-        <nav className="flex h-10 items-end gap-1 overflow-x-auto px-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={t("agentCapabilities.title")}>
+        <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={t("agentCapabilities.title")}>
           {SECTIONS.map(({ id, Icon }) => (
             <button
               key={id}
@@ -277,13 +277,13 @@ export function AgentCapabilityCenter({
               aria-pressed={section === id}
               onClick={() => { setSection(id); setQuery(""); }}
               className={cn(
-                "relative flex h-9 shrink-0 items-center gap-1.5 rounded-t-lg px-2.5 text-[11px] font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-                section === id && "bg-foreground/[0.045] text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground",
+"ag-pill h-8 shrink-0 gap-1.5 border-0 bg-transparent px-2.5 text-[11px] font-medium",
+                section === id && "bg-[var(--ag-selected)] text-[var(--ag-text)]",
               )}
             >
               <Icon className="size-3.5" />
               {t(`agentCapabilities.sections.${id}`)}
-              <span className="rounded-md bg-foreground/[0.06] px-1.5 py-0.5 text-[9px] tabular-nums text-muted-foreground">{counts[id]}</span>
+              <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
             </button>
           ))}
         </nav>
@@ -309,15 +309,15 @@ export function AgentCapabilityCenter({
           ) : (
             <div className="space-y-4">
               <div className="grid gap-2 sm:grid-cols-2">
-                {config?.userConfigPath ? <button type="button" onClick={() => void openConfigFile(config.userConfigPath ?? "", "# Personal Codex settings\n")} className="rounded-xl bg-foreground/[0.035] p-4 text-left ring-1 ring-border/40 transition-colors hover:bg-foreground/[0.06]"><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.config.user")}</p><p className="mt-1 line-clamp-2 break-all font-mono text-[9px] leading-4 text-muted-foreground">{config.userConfigPath}</p></button> : null}
-                {config?.projectConfigPath ? <button type="button" onClick={() => void openConfigFile(config.projectConfigPath, "# Repository-scoped Codex settings\n")} className="rounded-xl bg-foreground/[0.035] p-4 text-left ring-1 ring-border/40 transition-colors hover:bg-foreground/[0.06]"><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.config.project")}</p><p className="mt-1 line-clamp-2 break-all font-mono text-[9px] leading-4 text-muted-foreground">{config.projectConfigPath}</p></button> : null}
+                {config?.userConfigPath ? <button type="button" onClick={() => void openConfigFile(config.userConfigPath ?? "", "# Personal Codex settings\n")} className="ag-card p-4 text-left transition-colors hover:bg-[var(--ag-hover)]"><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.config.user")}</p><p className="mt-1 line-clamp-2 break-all font-mono text-[9px] leading-4 text-muted-foreground">{config.userConfigPath}</p></button> : null}
+                {config?.projectConfigPath ? <button type="button" onClick={() => void openConfigFile(config.projectConfigPath, "# Repository-scoped Codex settings\n")} className="ag-card p-4 text-left transition-colors hover:bg-[var(--ag-hover)]"><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.config.project")}</p><p className="mt-1 line-clamp-2 break-all font-mono text-[9px] leading-4 text-muted-foreground">{config.projectConfigPath}</p></button> : null}
               </div>
               <section>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("agentCapabilities.config.layers")}</p>
+                <p className="ag-label mb-2">{t("agentCapabilities.config.layers")}</p>
                 <div className="space-y-1.5">
                   {(config?.layers ?? []).map((layer, index) => (
-                    <div key={`${layer.name.type}:${layer.version}:${index}`} className="flex items-start gap-3 rounded-xl bg-foreground/[0.03] px-3 py-2.5 ring-1 ring-border/30">
-                      <span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${layer.disabledReason ? "bg-amber-500" : "bg-emerald-500"}`} />
+                    <div key={`${layer.name.type}:${layer.version}:${index}`} className="ag-card flex items-start gap-3 px-3 py-2.5">
+                      <span className="ag-dot mt-1.5 shrink-0" data-state={layer.disabledReason ? "working" : "ready"} />
                       <div className="min-w-0 flex-1"><p className="text-[11px] font-medium">{layer.name.name || layer.name.type}</p><p className="mt-0.5 break-all font-mono text-[9px] leading-4 text-muted-foreground">{layer.name.file || layer.name.dotCodexFolder || layer.name.id || layer.version}</p>{layer.disabledReason ? <p className="mt-1 text-[9px] text-amber-600 dark:text-amber-400">{layer.disabledReason}</p> : null}</div>
                     </div>
                   ))}

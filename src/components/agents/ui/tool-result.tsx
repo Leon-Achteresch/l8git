@@ -129,7 +129,7 @@ function ToolResultAction({
       onClick={onClick}
       whileTap={reduce ? undefined : { scale: 0.9 }}
       transition={SPRING_PRESS}
-      className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      className="ag-icon-btn"
     >
       {children}
     </motion.button>
@@ -245,7 +245,7 @@ export function ToolResult({
     <div
       data-state={status}
       aria-busy={running}
-      className={cn("w-full text-sm", className)}
+      className={cn("ag-card w-full overflow-hidden text-sm", className)}
     >
       <button
         id={triggerId}
@@ -253,28 +253,28 @@ export function ToolResult({
         aria-expanded={currentOpen}
         aria-controls={contentId}
         onClick={() => setOpen(!currentOpen)}
-        className="group flex min-h-9 w-full items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="group flex h-9 w-full items-center gap-2 px-2.5 text-left outline-none transition-colors hover:bg-[var(--ag-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span
           aria-hidden="true"
-          className="grid size-4 shrink-0 place-items-center text-muted-foreground"
+          className="ag-faint grid size-4 shrink-0 place-items-center"
         >
           {icon ?? <KindIcon kind={kind} />}
         </span>
         <span className="flex min-w-0 flex-1 items-baseline gap-2">
-          <span className="min-w-0 truncate font-medium text-foreground/90">
+          <span className="min-w-0 truncate text-[12px] font-medium">
             <ActionSwapRollText value={titleKey}>
               {title}
             </ActionSwapRollText>
           </span>
           {meta ? (
-            <span className="shrink-0 text-xs text-muted-foreground/60">
+            <span className="ag-faint shrink-0 truncate text-[11px]">
               <ActionSwapRollText value={metaKey}>
                 {meta}
               </ActionSwapRollText>
             </span>
           ) : null}
-          <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground/55">
+          <span className="ag-faint hidden min-w-0 truncate font-mono text-[10px] sm:block">
             <ActionSwapRollText value={toolKey}>
               {tool}
             </ActionSwapRollText>
@@ -293,7 +293,7 @@ export function ToolResult({
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
-          className="shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
+          className="ag-faint shrink-0 transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
         </motion.span>
@@ -305,8 +305,7 @@ export function ToolResult({
         aria-labelledby={triggerId}
         open={currentOpen}
       >
-        <div className="pl-6 pt-1.5">
-          <div className="overflow-hidden rounded-xl bg-muted/80">
+        <div className="ag-line border-t bg-[var(--ag-surface-3)]">
           <div
             ref={viewportRef}
             role="log"
@@ -319,8 +318,8 @@ export function ToolResult({
             </div>
           </div>
 
-            {canCopy || onRetry ? (
-              <div className="flex items-center gap-0.5 px-2 pb-1.5">
+          {canCopy || onRetry ? (
+            <div className="flex items-center gap-0.5 px-2 pb-1.5">
               {canCopy ? (
                 <ToolResultAction
                   label={copied ? "Copied" : "Copy result"}
@@ -338,14 +337,13 @@ export function ToolResult({
                   <RotateCcw className="size-3.5" />
                 </ToolResultAction>
               ) : null}
-              <span className="ml-auto text-[11px] text-muted-foreground/55">
+              <span className="ag-faint ml-auto text-[11px]">
                 <ActionSwapRollText value={status}>
                   {statusLabel}
                 </ActionSwapRollText>
               </span>
-              </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </AgentDisclosure>
     </div>

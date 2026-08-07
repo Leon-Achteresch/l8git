@@ -1,117 +1,447 @@
+/*
+ * Agents surface — design system.
+ *
+ * One canvas, one raised panel, hairline separators. Chrome stays neutral;
+ * colour is reserved for state (running / added / removed) and for the single
+ * send affordance.
+ *
+ * Tokens live on :root, not on .agents-shell — menus, selects and popovers
+ * render through a portal on <body>, outside the shell. Scoped there they
+ * resolve to nothing and every portalled surface loses its background.
+ */
+
+:root {
+  /*
+   * Surface ladder, back to front: canvas → rail → stage → surface (raised).
+   * Every step is one small value apart so borders still do the separating,
+   * but a card or composer never sits on its own colour.
+   */
+  --ag-canvas: #e6e3dd;
+  --ag-rail-bg: #f0eeea;
+  --ag-stage-bg: #faf9f7;
+  --ag-surface: #ffffff;
+  --ag-surface-2: #f1efeb;
+  --ag-surface-3: #f7f5f2;
+  --ag-dock-bg: #f1efeb;
+
+  --ag-line: rgb(17 17 17 / 0.09);
+  --ag-line-strong: rgb(17 17 17 / 0.16);
+
+  --ag-text: var(--foreground);
+  --ag-text-2: color-mix(in oklab, var(--foreground) 66%, transparent);
+  --ag-text-3: color-mix(in oklab, var(--foreground) 48%, transparent);
+
+  --ag-hover: color-mix(in oklab, var(--foreground) 5%, transparent);
+  --ag-press: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --ag-selected: color-mix(in oklab, var(--foreground) 7%, transparent);
+
+  --ag-solid: #17171a;
+  --ag-solid-fg: #ffffff;
+
+  /* Sent message. Dark ink on light canvas, a raised slab on dark. */
+  --ag-bubble: #17171a;
+  --ag-bubble-fg: #f7f6f3;
+
+  --ag-send: color-mix(in oklab, var(--git-branch) 18%, #fff);
+  --ag-send-hover: color-mix(in oklab, var(--git-branch) 28%, #fff);
+  --ag-send-fg: color-mix(in oklab, var(--git-branch) 88%, #000);
+
+  --ag-r-xl: 20px;
+  --ag-r-lg: 16px;
+  --ag-r-md: 12px;
+  --ag-r-sm: 9px;
+
+  --ag-shadow-panel: 0 1px 2px rgb(17 17 17 / 0.04), 0 12px 40px -18px rgb(17 17 17 / 0.28);
+  --ag-shadow-raise: 0 1px 2px rgb(17 17 17 / 0.05), 0 6px 16px -10px rgb(17 17 17 / 0.3);
+  --ag-shadow-pop: 0 2px 4px rgb(17 17 17 / 0.04), 0 18px 48px -20px rgb(17 17 17 / 0.35);
+}
+
 .agents-shell {
-  --agents-accent: #c64f28;
-  --agents-accent-strong: #a83d1d;
-  --agents-accent-soft: color-mix(in oklab, var(--agents-accent) 10%, transparent);
-  --agents-canvas: color-mix(in oklab, var(--background) 92%, #fff 8%);
-  --agents-sidebar: color-mix(in oklab, var(--background) 94%, var(--foreground) 6%);
-  --agents-line: color-mix(in oklab, var(--foreground) 12%, transparent);
-  --agents-shadow: 0 18px 52px color-mix(in oklab, var(--foreground) 10%, transparent);
   isolation: isolate;
-  background:
-    radial-gradient(circle at 12% -18%, color-mix(in oklab, var(--agents-accent) 7%, transparent), transparent 35%),
-    color-mix(in oklab, var(--background) 88%, var(--muted) 12%);
+  background: var(--ag-canvas);
+  color: var(--ag-text);
 }
 
-.dark .agents-shell {
-  --agents-accent: #de7958;
-  --agents-accent-strong: #ef8b68;
-  --agents-canvas: #101012;
-  --agents-sidebar: #151517;
-  --agents-line: rgb(255 255 255 / 0.1);
-  --agents-shadow: 0 22px 64px rgb(0 0 0 / 0.38);
-  background:
-    radial-gradient(circle at 12% -18%, rgb(222 121 88 / 0.08), transparent 35%),
-    #0b0b0c;
+.dark {
+  --ag-canvas: #050506;
+  --ag-rail-bg: #0e0e11;
+  --ag-stage-bg: #141417;
+  --ag-surface: #1c1c21;
+  --ag-surface-2: #26262c;
+  --ag-surface-3: #111114;
+  --ag-dock-bg: #17171b;
+
+  --ag-line: rgb(255 255 255 / 0.09);
+  --ag-line-strong: rgb(255 255 255 / 0.16);
+
+  --ag-hover: rgb(255 255 255 / 0.05);
+  --ag-press: rgb(255 255 255 / 0.09);
+  --ag-selected: rgb(255 255 255 / 0.08);
+
+  --ag-solid: #f2f0ec;
+  --ag-solid-fg: #101013;
+
+  --ag-bubble: #26262c;
+  --ag-bubble-fg: #f2f0ec;
+
+  --ag-send: color-mix(in oklab, var(--git-branch) 26%, #000);
+  --ag-send-hover: color-mix(in oklab, var(--git-branch) 38%, #000);
+  --ag-send-fg: color-mix(in oklab, var(--git-branch) 92%, #fff);
+
+  --ag-shadow-panel: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 24px 64px -28px rgb(0 0 0 / 0.9);
+  --ag-shadow-raise: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 20px -12px rgb(0 0 0 / 0.8);
+  --ag-shadow-pop: 0 28px 64px -24px rgb(0 0 0 / 0.85);
 }
 
-.agents-frame {
-  padding: 0.5rem;
+/* ── Frame ─────────────────────────────────────────────────────────────── */
+
+.ag-rail {
+  background: var(--ag-rail-bg);
 }
 
-.agents-sidebar-surface,
-.agents-main-surface {
-  border: 1px solid var(--agents-line);
-  background: var(--agents-canvas);
-  box-shadow: var(--agents-shadow);
+.ag-stage {
+  background: var(--ag-stage-bg);
 }
 
-.agents-sidebar-surface {
-  border-radius: 1.25rem 0 0 1.25rem;
-  background: var(--agents-sidebar);
+/* ── Surfaces ──────────────────────────────────────────────────────────── */
+
+.ag-card {
+  border: 1px solid var(--ag-line);
+  border-radius: var(--ag-r-md);
+  background: var(--ag-surface);
 }
 
-.agents-main-surface {
-  border-radius: 0 1.25rem 1.25rem 0;
+.ag-inset {
+  border-radius: var(--ag-r-md);
+  background: var(--ag-surface-2);
 }
 
-.agents-hairline {
-  border-color: var(--agents-line);
+.ag-line {
+  border-color: var(--ag-line);
 }
 
-.agents-accent-text {
-  color: var(--agents-accent);
+.ag-line-strong {
+  border-color: var(--ag-line-strong);
 }
 
-.agents-accent-surface {
-  color: var(--agents-accent-strong);
-  background: var(--agents-accent-soft);
+/* ── Type ──────────────────────────────────────────────────────────────── */
+
+.ag-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--ag-text-3);
 }
 
-.agents-active-rail {
+.ag-muted {
+  color: var(--ag-text-2);
+}
+
+.ag-faint {
+  color: var(--ag-text-3);
+}
+
+/* ── Rows ──────────────────────────────────────────────────────────────── */
+
+/* Navigation / list row. Selected state is a filled pill, per reference. */
+.ag-row {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  border-radius: var(--ag-r-sm);
+  padding-inline: 0.5rem;
+  text-align: start;
+  color: var(--ag-text-2);
+  outline: none;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
-.agents-active-rail::before {
-  position: absolute;
-  inset-block: 0.45rem;
-  inset-inline-start: 0;
-  width: 2px;
+.ag-row:hover {
+  background: var(--ag-hover);
+  color: var(--ag-text);
+}
+
+.ag-row:active {
+  background: var(--ag-press);
+}
+
+.ag-row:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.ag-row[data-active="true"] {
+  background: var(--ag-selected);
+  color: var(--ag-text);
+  font-weight: 500;
+}
+
+.ag-row-solid[data-active="true"] {
+  background: var(--ag-solid);
+  color: var(--ag-solid-fg);
+}
+
+/* ── Controls ──────────────────────────────────────────────────────────── */
+
+.ag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.75rem;
+  border: 1px solid var(--ag-line);
   border-radius: 999px;
-  background: var(--agents-accent);
-  content: "";
+  background: var(--ag-surface);
+  padding-inline: 0.625rem;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ag-text-2);
+  white-space: nowrap;
+  outline: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
 }
 
-.agents-composer {
-  border-color: color-mix(in oklab, var(--foreground) 15%, transparent);
-  background: color-mix(in oklab, var(--agents-canvas) 94%, transparent);
-  box-shadow:
-    0 18px 48px color-mix(in oklab, var(--foreground) 9%, transparent),
-    0 1px 0 color-mix(in oklab, #fff 70%, transparent) inset;
-  backdrop-filter: blur(18px) saturate(125%);
+.ag-pill:hover {
+  border-color: var(--ag-line-strong);
+  background: var(--ag-hover);
+  color: var(--ag-text);
 }
 
-.dark .agents-composer {
-  box-shadow:
-    0 20px 54px rgb(0 0 0 / 0.34),
-    0 1px 0 rgb(255 255 255 / 0.06) inset;
+.ag-pill:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
-.agents-scrollbar {
-  scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+.ag-pill[data-active="true"] {
+  border-color: transparent;
+  background: var(--ag-solid);
+  color: var(--ag-solid-fg);
+}
+
+/* Bare control inside the composer toolbar — no border until hovered. */
+.ag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  padding-inline: 0.5rem;
+  font-size: 12px;
+  color: var(--ag-text-2);
+  outline: none;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.ag-chip:hover {
+  background: var(--ag-hover);
+  color: var(--ag-text);
+}
+
+.ag-chip:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.ag-chip:disabled {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.ag-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  color: var(--ag-text-2);
+  outline: none;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.ag-icon-btn:hover {
+  background: var(--ag-hover);
+  color: var(--ag-text);
+}
+
+.ag-icon-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.ag-icon-btn:disabled {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.ag-send {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--ag-r-md);
+  background: var(--ag-send);
+  color: var(--ag-send-fg);
+  outline: none;
+  transition:
+    background-color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.ag-send:hover:not(:disabled) {
+  background: var(--ag-send-hover);
+}
+
+.ag-send:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.ag-send:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.ag-send:disabled {
+  opacity: 0.42;
+}
+
+.ag-send[data-stop="true"] {
+  background: var(--ag-solid);
+  color: var(--ag-solid-fg);
+}
+
+/* ── Composer ──────────────────────────────────────────────────────────── */
+
+.ag-composer {
+  border: 1px solid var(--ag-line);
+  border-radius: var(--ag-r-xl);
+  background: var(--ag-surface);
+  box-shadow: var(--ag-shadow-raise);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.ag-composer:focus-within {
+  border-color: var(--ag-line-strong);
+}
+
+/* Strip docked under the composer — reads as one object, half a step back. */
+.ag-dock {
+  margin-inline: 0.5rem;
+  border: 1px solid var(--ag-line);
+  border-top: 0;
+  border-radius: 0 0 var(--ag-r-lg) var(--ag-r-lg);
+  background: var(--ag-dock-bg);
+}
+
+/*
+ * Highlight for the slash token. Rendered on a transparent mirror layer behind
+ * the textarea, so it must not change metrics: the chip grows via box-shadow
+ * spread instead of padding.
+ */
+.ag-slash {
+  border-radius: 5px;
+  background: color-mix(in oklab, var(--git-merge) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--git-merge) 18%, transparent);
+}
+
+.ag-slash-token {
+  font-weight: 500;
+  color: var(--git-merge);
+}
+
+/* ── Popovers ──────────────────────────────────────────────────────────── */
+
+.ag-menu {
+  overflow: hidden;
+  border: 1px solid var(--ag-line);
+  border-radius: var(--ag-r-lg);
+  background: var(--ag-surface);
+  box-shadow: var(--ag-shadow-pop);
+}
+
+.ag-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  border-radius: var(--ag-r-sm);
+  padding: 0.4rem 0.5rem;
+  text-align: start;
+  outline: none;
+  transition: background-color 100ms ease;
+}
+
+.ag-menu-item:hover:not(:disabled),
+.ag-menu-item[data-active="true"] {
+  background: var(--ag-hover);
+}
+
+.ag-menu-item:disabled {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* ── Status ────────────────────────────────────────────────────────────── */
+
+.ag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ag-text-3);
+}
+
+.ag-dot[data-state="ready"] {
+  background: var(--git-added);
+}
+
+.ag-dot[data-state="working"] {
+  background: var(--git-modified);
+  animation: ag-pulse 1.4s ease-in-out infinite;
+}
+
+.ag-dot[data-state="error"] {
+  background: var(--destructive);
+}
+
+@keyframes ag-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────────────── */
+
+.ag-scroll {
+  scrollbar-color: color-mix(in oklab, var(--foreground) 16%, transparent) transparent;
   scrollbar-width: thin;
 }
 
-.agents-scrollbar::-webkit-scrollbar {
-  width: 0.45rem;
+.ag-scroll::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
 }
 
-.agents-scrollbar::-webkit-scrollbar-thumb {
+.ag-scroll::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: color-mix(in oklab, var(--foreground) 18%, transparent);
+  background: color-mix(in oklab, var(--foreground) 16%, transparent);
   background-clip: padding-box;
 }
 
-@media (max-width: 760px) {
-  .agents-frame {
-    padding: 0;
-  }
-
-  .agents-sidebar-surface,
-  .agents-main-surface {
-    border-block: 0;
-    border-radius: 0;
-  }
+.ag-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 26%, transparent);
+  background-clip: padding-box;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -119,5 +449,9 @@
   .agents-shell *::before,
   .agents-shell *::after {
     scroll-behavior: auto !important;
+  }
+
+  .ag-dot[data-state="working"] {
+    animation: none;
   }
 }

@@ -135,7 +135,7 @@ function McpEditor({
         )}
       />
       <div className="mx-auto max-w-4xl space-y-6 p-5">
-        <section className="grid gap-4 rounded-2xl bg-foreground/[0.025] p-4 ring-1 ring-border/35 sm:grid-cols-2">
+        <section className="grid gap-4 ag-card p-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="mcp-name" className="text-[10px]">{t("agentCapabilities.mcp.name")}</Label>
             <Input id="mcp-name" value={draft.name} disabled={Boolean(originalName)} onChange={(event) => onChange({ ...draft, name: event.target.value.replace(/[^A-Za-z0-9_-]/gu, "-") })} placeholder="github" className="h-9 rounded-lg font-mono text-xs" />
@@ -160,14 +160,14 @@ function McpEditor({
               <NativeSelectOption value="stdio">STDIO</NativeSelectOption>
             </NativeSelect>
           </div>
-          <label className="flex items-center justify-between rounded-xl bg-background/60 px-3 py-2.5 ring-1 ring-border/35">
+          <label className="ag-card flex items-center justify-between px-3 py-2.5">
             <span>
               <span className="block text-[11px] font-medium">{t("agentCapabilities.enabled")}</span>
               <span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.mcp.enabledHint")}</span>
             </span>
             <Switch checked={draft.enabled} onCheckedChange={(checked) => onChange({ ...draft, enabled: checked })} />
           </label>
-          <label className="flex items-center justify-between rounded-xl bg-background/60 px-3 py-2.5 ring-1 ring-border/35">
+          <label className="ag-card flex items-center justify-between px-3 py-2.5">
             <span>
               <span className="block text-[11px] font-medium">{t("agentCapabilities.mcp.required")}</span>
               <span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.mcp.requiredHint")}</span>
@@ -256,7 +256,7 @@ function McpEditor({
           </section>
         )}
 
-        <section className="grid gap-3 rounded-2xl bg-foreground/[0.025] p-4 ring-1 ring-border/35 sm:grid-cols-2">
+        <section className="grid gap-3 ag-card p-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="mcp-default-approval" className="text-[10px]">{t("agentCapabilities.mcp.defaultApproval")}</Label>
             <NativeSelect id="mcp-default-approval" value={draft.defaultApprovalMode} onChange={(event) => onChange({ ...draft, defaultApprovalMode: event.target.value as AgentMcpServerDraft["defaultApprovalMode"] })} className="w-full">
@@ -452,7 +452,7 @@ export function AgentMcpStudio({ query }: { query: string }) {
                   <h3 className="text-xs font-semibold">{t("agentCapabilities.mcp.exposedTools")}</h3>
                 </div>
                 {Object.keys(selected.tools).length ? (
-                  <div className="overflow-hidden rounded-2xl ring-1 ring-border/40">
+                  <div className="ag-card overflow-hidden">
                     {Object.entries(selected.tools).map(([name, tool], index) => {
                       const policy = toolPolicy(selected, name);
                       const toolBusy = busyKey === `mcp:${selected.name}:${name}`;
@@ -480,7 +480,7 @@ export function AgentMcpStudio({ query }: { query: string }) {
                     })}
                   </div>
                 ) : (
-                  <p className="rounded-xl border border-dashed border-border/55 p-4 text-center text-[10px] text-muted-foreground">{t("agentCapabilities.mcp.noTools")}</p>
+                  <p className="ag-faint rounded-[12px] border border-dashed border-[var(--ag-line-strong)] p-4 text-center text-[11px]">{t("agentCapabilities.mcp.noTools")}</p>
                 )}
               </section>
 
@@ -492,13 +492,13 @@ export function AgentMcpStudio({ query }: { query: string }) {
                   </div>
                   <div className="space-y-1.5">
                     {selected.resources.map((resource) => (
-                      <div key={resource.uri} className="rounded-xl bg-foreground/[0.03] px-3 py-2.5 ring-1 ring-border/30">
+                      <div key={resource.uri} className="ag-card px-3 py-2.5">
                         <p className="text-[11px] font-medium">{resource.title || resource.name}</p>
                         <p className="mt-0.5 truncate font-mono text-[9px] text-muted-foreground">{resource.uri}</p>
                       </div>
                     ))}
                     {selected.resourceTemplates.map((resource) => (
-                      <div key={resource.uriTemplate} className="rounded-xl bg-foreground/[0.03] px-3 py-2.5 ring-1 ring-border/30">
+                      <div key={resource.uriTemplate} className="ag-card px-3 py-2.5">
                         <div className="flex items-center gap-2"><p className="text-[11px] font-medium">{resource.title || resource.name}</p><CapabilityPill>template</CapabilityPill></div>
                         <p className="mt-0.5 truncate font-mono text-[9px] text-muted-foreground">{resource.uriTemplate}</p>
                       </div>

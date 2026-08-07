@@ -4,27 +4,40 @@ import {
   AlertCircle,
   AppWindow,
   Blocks,
+  ChevronRight,
   File,
   FileImage,
   Folder,
+  GitBranch,
   GitPullRequestArrow,
+  Hammer,
   LoaderCircle,
-  MessageSquarePlus,
   Mic,
   Paperclip,
+  ScanSearch,
   Sparkles,
   SquareTerminal,
   X,
 } from "lucide-react";
-import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  memo,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
 import { AgentAccountMenu } from "@/components/agents/chat/agent-account-menu";
+import { AgentComposerControls } from "@/components/agents/chat/agent-composer-controls";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentRequestCard } from "@/components/agents/chat/agent-request-card";
-import { AgentSettingsMenu } from "@/components/agents/chat/agent-settings-menu";
 import { AgentThreadMenu } from "@/components/agents/chat/agent-thread-menu";
 import {
   PromptInput,
@@ -33,7 +46,6 @@ import {
   type PromptSlashCommand,
 } from "@/components/agents/ui/prompt-input";
 import { ClaudeCodeLogo, CodexLogo } from "@/components/brand/agent-logos";
-import { Button } from "@/components/ui/button";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { codexReasoningEffortLabel } from "@/lib/agents/codex-labels";
 import {
@@ -44,7 +56,7 @@ import {
 import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
-import { useAgentRealtimeVoice } from "@/lib/agents/use-realtime-voice";
+import { useRepoStore } from "@/lib/repo-store";
 
 const AgentFilePicker = lazy(() => import("@/components/agents/chat/agent-file-picker").then(
   (module) => ({ default: module.AgentFilePicker }),
@@ -68,15 +80,24 @@ function repoName(path: string): string {
 
 const INITIAL_VISIBLE_TURNS = 32;
 const TURN_PAGE_SIZE = 32;
+const STARTER_ICONS = [
+  { Icon: ScanSearch, color: "var(--git-branch)" },
+  { Icon: Hammer, color: "var(--git-modified)" },
+  { Icon: GitPullRequestArrow, color: "var(--git-added)" },
+] as const;
 
 const AgentConversationViewport = memo(function AgentConversationViewport({
   path,
   threadId,
+  centered,
+  composer,
   onStarter,
   scrollToBottomSignal,
 }: {
   path: string;
   threadId: string | null;
+  centered: boolean;
+  composer: ReactNode;
   onStarter: (text: string) => void;
   scrollToBottomSignal: number;
 }) {
@@ -84,6 +105,7 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
   const provider = useAgentProviderStore((state) => state.provider);
   const isClaude = provider === "claude";
   const ProviderLogo = isClaude ? ClaudeCodeLogo : CodexLogo;
+  const agent = isClaude ? "Claude Code" : "Codex";
   const conversation = useAgentChatStore((state) =>
     threadId ? state.conversations[threadId] : undefined,
   );
@@ -183,48 +205,49 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
         const node = event.currentTarget;
         stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 96;
       }}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      className="ag-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
     >
-      <div ref={contentRef} className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-5 py-6 sm:px-8">
+      <div ref={contentRef} className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-6 py-7">
         {conversation?.loading || (!threadId && connectionStatus === "connecting") ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-            <LoaderCircle className="mr-2 size-4 animate-spin" />
-            {t("agentChat.connecting")}
+          <div className="ag-muted m-auto flex items-center gap-2 text-[12px]">
+            <LoaderCircle className="size-3.5 animate-spin" />
+            {t("agentChat.connecting", { agent })}
           </div>
         ) : !threadId && connectionError && connectionStatus === "error" ? (
-          <div className="m-auto max-w-md rounded-xl border border-destructive/30 bg-destructive/10 p-4">
-            <div className="flex items-start gap-2.5">
-              <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
-              <div>
-                <p className="text-sm font-medium">{t("agentChat.startErrorTitle")}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{connectionError}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 rounded-lg"
-                  onClick={() => void connect().then(() => loadThreads([path])).catch(() => {})}
-                >
-                  {t("agentChat.retry")}
-                </Button>
-              </div>
+          <div className="ag-card m-auto flex max-w-md items-start gap-3 border-destructive/25 bg-destructive/[0.06] p-4">
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium">{t("agentChat.startErrorTitle", { agent })}</p>
+              <p className="ag-muted mt-1 text-[12px] leading-5">{connectionError}</p>
+              <button
+                type="button"
+                className="ag-pill mt-3"
+                onClick={() => void connect().then(() => loadThreads([path])).catch(() => {})}
+              >
+                {t("agentChat.retry")}
+              </button>
             </div>
           </div>
         ) : requiresAuth ? (
-          <div className="m-auto max-w-md rounded-xl border border-border/60 bg-muted/45 p-5 text-center">
-            <ProviderLogo className="mx-auto size-6" />
-            <p className="mt-3 text-sm font-medium">{isClaude ? "Claude Code is not signed in" : t("agentChat.loginTitle")}</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {isClaude ? "Sign in with your Anthropic account in the browser. l8git keeps using the installed Claude Code CLI." : t("agentChat.loginDescription")}
+          <div className="ag-card m-auto max-w-sm p-6 text-center">
+            <span className="ag-inset mx-auto grid size-11 place-items-center rounded-[13px]">
+              <ProviderLogo className="size-5" />
+            </span>
+            <p className="mt-4 text-[14px] font-semibold tracking-tight">
+              {isClaude ? t("agentChat.loginTitleClaude") : t("agentChat.loginTitle")}
+            </p>
+            <p className="ag-muted mt-1.5 text-[12px] leading-5">
+              {isClaude ? t("agentChat.loginDescriptionClaude") : t("agentChat.loginDescription")}
             </p>
             {loginError ? (
-              <p className="mt-2 text-xs text-destructive">
+              <p className="mt-2 text-[12px] text-destructive">
                 {t("agentChat.loginFailed")}: {loginError}
               </p>
             ) : null}
-            <Button
+            <button
               type="button"
-              className="mt-4 rounded-lg"
+              className="ag-pill mt-5 h-8 px-4"
+              data-active="true"
               onClick={() => void login()}
               disabled={loginStatus === "starting" || loginStatus === "waiting"}
             >
@@ -233,40 +256,50 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
               ) : null}
               {loginStatus === "waiting"
                 ? t("agentChat.loginWaiting")
-                : isClaude ? "Sign in to Claude Code" : t("agentChat.loginAction")}
-            </Button>
+                : isClaude ? t("agentChat.loginActionClaude") : t("agentChat.loginAction")}
+            </button>
           </div>
-        ) : !conversation || turns.length === 0 ? (
-          <div className="my-auto flex flex-col items-center py-12 text-center">
-            <span className="grid size-12 place-items-center rounded-2xl bg-foreground/[0.06] ring-1 ring-border/40">
-              <ProviderLogo className="size-5" />
-            </span>
-            <h2 className="mt-4 text-[15px] font-semibold tracking-tight">{t("agentChat.emptyTitle")}</h2>
-            <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
-              {t("agentChat.emptyDescription", { repo: repoName(path) })}
-            </p>
-            <div className="mt-5 grid w-full max-w-lg gap-2">
-              {starters.map((starter) => (
-                <button
-                  key={starter}
-                  type="button"
-                  onClick={() => onStarter(starter)}
-                  className="rounded-xl border border-border/55 bg-card/50 px-3 py-2.5 text-left text-xs leading-5 text-foreground/85 transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {starter}
-                </button>
-              ))}
+        ) : centered ? (
+          <div className="m-auto w-full max-w-2xl py-8">
+            <div className="flex flex-col items-center text-center">
+              <span className="ag-inset grid size-11 place-items-center rounded-[13px]">
+                <ProviderLogo className="size-5" />
+              </span>
+              <h2 className="mt-4 text-[17px] font-semibold tracking-[-0.015em]">
+                {t("agentChat.emptyTitle", { agent })}
+              </h2>
+              <p className="ag-muted mt-1.5 max-w-sm text-[12px] leading-5">
+                {t("agentChat.emptyDescription", { agent, repo: repoName(path) })}
+              </p>
             </div>
+
+            <div className="ag-card mt-7 p-1.5">
+              <p className="ag-label px-2 py-1.5">{t("agentChat.shortcuts")}</p>
+              {starters.map((starter, index) => {
+                const { Icon, color } = STARTER_ICONS[index] ?? STARTER_ICONS[0];
+                return (
+                  <button
+                    key={starter}
+                    type="button"
+                    onClick={() => onStarter(starter)}
+                    className="ag-menu-item"
+                  >
+                    <Icon className="size-4 shrink-0" style={{ color }} />
+                    <span className="min-w-0 flex-1 truncate text-[13px]">{starter}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3">{composer}</div>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {hiddenTurnCount > 0 ? (
-              <div className="flex justify-center pb-1">
-                <Button
+              <div className="flex justify-center">
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-full text-xs text-muted-foreground"
+                  className="ag-pill"
                   onClick={() => {
                     const viewport = scrollRef.current;
                     if (viewport) {
@@ -277,10 +310,10 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
                   }}
                 >
                   {t("agentChat.showOlder", { count: Math.min(TURN_PAGE_SIZE, hiddenTurnCount) })}
-                </Button>
+                </button>
               </div>
             ) : null}
-            <Suspense fallback={<div className="h-16 animate-pulse rounded-xl bg-foreground/[0.025]" />}>
+            <Suspense fallback={<div className="ag-inset h-16 animate-pulse" />}>
               {visibleTurns.map((turn) => (
                 <div
                   key={turn.id}
@@ -294,7 +327,7 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
         )}
 
         {requests.length > 0 ? (
-          <div className="mt-5 space-y-3">
+          <div className="mt-6 space-y-3">
             {requests.map((request) => (
               <AgentRequestCard
                 key={`${request.sessionId}:${String(request.requestId)}`}
@@ -305,13 +338,13 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
         ) : null}
 
         {conversation?.error ? (
-          <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+          <div className="ag-card mt-4 flex items-start gap-2 border-destructive/25 bg-destructive/[0.06] px-3 py-2.5 text-[12px] text-destructive">
             <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
             <span className="min-w-0 flex-1">{conversation.error}</span>
             <button
               type="button"
               onClick={() => void openThread(path, conversation.threadId)}
-              className="rounded px-1.5 py-0.5 font-medium hover:bg-destructive/10"
+              className="rounded-md px-1.5 py-0.5 font-medium hover:bg-destructive/10"
             >
               {t("agentChat.retry")}
             </button>
@@ -319,7 +352,7 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
               type="button"
               onClick={() => clearError(conversation.threadId)}
               aria-label={t("agentChat.dismissError")}
-              className="rounded p-0.5 hover:bg-destructive/10"
+              className="rounded-md p-0.5 hover:bg-destructive/10"
             >
               <X className="size-3" />
             </button>
@@ -349,22 +382,30 @@ export const AgentChatPane = memo(function AgentChatPane({
   const ProviderLogo = isClaude ? ClaudeCodeLogo : CodexLogo;
   const providerLabel = isClaude ? "Claude Code" : "Codex";
   const connectionStatus = useAgentChatStore((state) => state.connectionStatus);
+  const connectionError = useAgentChatStore((state) => state.connectionError);
   const requiresAuth = useAgentChatStore((state) => state.requiresAuth);
   const loginStatus = useAgentChatStore((state) => state.loginStatus);
   const account = useAgentChatStore((state) => state.account);
   const models = useAgentChatStore((state) => state.models);
   const model = useAgentChatStore((state) => state.model);
+  const branch = useRepoStore((state) => state.repos[path]?.branch);
   const sessionStatus = useAgentChatStore((state) =>
     threadId ? (state.sessionStatusByThread[threadId] ?? "idle") : "idle",
   );
   const conversationMeta = useAgentChatStore(
     useShallow((state) => {
       const conversation = threadId ? state.conversations[threadId] : undefined;
+      const usage = conversation?.tokenUsage;
       return {
         exists: Boolean(conversation),
+        loading: Boolean(conversation?.loading),
         title: conversation?.title ?? "",
+        turnCount: conversation?.turns.length ?? 0,
         activeTurnId: conversation?.activeTurnId ?? null,
         goalObjective: conversation?.goal?.objective ?? null,
+        contextPercent: usage?.modelContextWindow
+          ? Math.min(100, Math.round((usage.totalTokens / usage.modelContextWindow) * 100))
+          : null,
       };
     }),
   );
@@ -388,13 +429,10 @@ export const AgentChatPane = memo(function AgentChatPane({
   const stopBackgroundTerminals = useAgentChatStore((state) => state.stopBackgroundTerminals);
   const setCollaborationMode = useAgentChatStore((state) => state.setCollaborationMode);
   const serviceTier = useAgentChatStore((state) => state.serviceTier);
-  const realtimeVoice = useAgentChatStore((state) => state.realtimeVoice);
   const setServiceTier = useAgentChatStore((state) => state.setServiceTier);
   const setPersonality = useAgentChatStore((state) => state.setPersonality);
   const permissionProfiles = useAgentChatStore((state) => state.permissionProfiles);
   const setPermissionProfile = useAgentChatStore((state) => state.setPermissionProfile);
-  const realtimeVoices = useAgentChatStore((state) => state.realtimeVoices);
-  const setRealtimeVoice = useAgentChatStore((state) => state.setRealtimeVoice);
   const logout = useAgentChatStore((state) => state.logout);
   const refreshAccount = useAgentChatStore((state) => state.refreshAccount);
   const composerDraftKey = agentComposerDraftKey(`${provider}:${path}`, threadId);
@@ -409,7 +447,15 @@ export const AgentChatPane = memo(function AgentChatPane({
   const [scrollToBottomSignal, setScrollToBottomSignal] = useState(0);
 
   const busy = Boolean(conversationMeta.activeTurnId);
-  const realtime = useAgentRealtimeVoice({ threadId, path, voice: realtimeVoice });
+  // Mirrors the viewport's blocking branches exactly: whenever it shows a
+  // connecting / error / sign-in card instead of the transcript, the composer
+  // stays docked at the bottom rather than moving into the middle.
+  const viewportBlocked =
+    requiresAuth ||
+    conversationMeta.loading ||
+    (!threadId && connectionStatus === "connecting") ||
+    (!threadId && Boolean(connectionError) && connectionStatus === "error");
+  const centeredComposer = !viewportBlocked && conversationMeta.turnCount === 0;
 
   useEffect(() => {
     if (!isClaude || loginStatus !== "waiting") return;
@@ -450,7 +496,7 @@ export const AgentChatPane = memo(function AgentChatPane({
         value: "image",
         label: t("agentChat.attachImage"),
         description: t("agentChat.attachImageTypes"),
-        icon: <Paperclip className="size-4" />,
+        icon: <FileImage className="size-4" />,
       },
       {
         value: "mention",
@@ -619,7 +665,6 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "goal", label: "Set or clear a goal", description: "/goal objective or /goal clear", disabled: !threadId, acceptsArgument: true },
     { value: "model", label: "Choose model and effort", description: "/model model-id [effort]", acceptsArgument: true },
     { value: "permissions", label: "Choose permissions", description: `Select a named ${providerLabel} permission profile`, acceptsArgument: true },
-    { value: "voice", label: "Start realtime voice", description: "/voice [voice-name]", disabled: !threadId, acceptsArgument: true },
     { value: "memories", label: "Configure memory", description: "/memories enabled, disabled, or reset", acceptsArgument: true },
     { value: "init", label: `Create ${isClaude ? "CLAUDE.md" : "AGENTS.md"}`, description: `Ask ${providerLabel} to add repository instructions`, disabled: busy },
     { value: "capabilities", label: "Open Capability Studio", description: "Manage skills, MCP, plugins, apps, and hooks" },
@@ -646,7 +691,7 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "archive", label: "Archive this chat", description: "Remove it from the active list", disabled: !threadId || busy },
     { value: "delete", label: "Delete this chat", description: "Permanently delete the transcript", disabled: !threadId || busy },
     { value: "logout", label: `Log out of ${providerLabel}`, description: `Disconnect the current ${isClaude ? "Anthropic" : "OpenAI"} account` },
-  ].filter((command) => !isClaude || !["apps", "voice", "memories", "import", "fast", "personality", "usage"].includes(command.value)), [busy, conversationMeta.exists, isClaude, model, models, onOpenCapabilities, onToggleTerminal, providerLabel, threadId]);
+  ].filter((command) => !isClaude || !["apps", "memories", "import", "fast", "personality", "usage"].includes(command.value)), [busy, conversationMeta.exists, isClaude, model, models, onOpenCapabilities, onToggleTerminal, providerLabel, threadId]);
 
   const runSlashCommand = async (command: string, argument: string) => {
     try {
@@ -782,24 +827,6 @@ export const AgentChatPane = memo(function AgentChatPane({
         toast.success(`Personality: ${value === "friendly" ? "Friendly" : value === "pragmatic" ? "Pragmatic" : "None"}`);
         return;
       }
-      if (command === "voice") {
-        let selectedVoice = realtimeVoice ?? undefined;
-        if (argument) {
-          selectedVoice = realtimeVoices?.v2.find((candidate) =>
-            candidate.toLocaleLowerCase() === argument.toLocaleLowerCase(),
-          );
-          if (!selectedVoice) throw new Error(`Unknown realtime voice: ${argument}`);
-          setRealtimeVoice(selectedVoice);
-          toast.success(`Voice: ${selectedVoice}`);
-          if (realtime.active) return;
-        }
-        if (realtime.active) await realtime.stop();
-        else {
-          realtime.dismissError();
-          await realtime.start(selectedVoice);
-        }
-        return;
-      }
       if (!threadId) throw new Error("Open a chat first.");
       if (command === "rename") {
         if (argument) await useAgentChatStore.getState().renameThread(path, threadId, argument);
@@ -879,13 +906,137 @@ export const AgentChatPane = memo(function AgentChatPane({
     }
   };
 
+  const statusState = busy
+    ? "working"
+    : sessionStatus === "ready"
+      ? "ready"
+      : sessionStatus === "connecting"
+        ? "working"
+        : sessionStatus === "error"
+          ? "error"
+          : "idle";
+  const statusLabel = busy
+    ? t("agentChat.working")
+    : sessionStatus === "ready"
+      ? t("agentChat.statusReady")
+      : sessionStatus === "connecting"
+        ? t("agentChat.statusConnecting")
+        : sessionStatus === "error"
+          ? t("agentChat.statusError")
+          : t("agentChat.statusIdle");
+
+  const attachmentChips = attachments.length > 0 ? (
+    <div className="flex flex-wrap gap-1.5">
+      {attachments.map((attachment) => (
+        <span
+          key={attachment.path}
+          className="ag-inset inline-flex max-w-56 items-center gap-1.5 rounded-[9px] px-2 py-1 text-[11px]"
+          title={attachment.path}
+        >
+          {attachment.type === "localImage" ? (
+            <FileImage className="ag-faint size-3 shrink-0" />
+          ) : attachment.type === "localAudio" ? (
+            <Mic className="ag-faint size-3 shrink-0" />
+          ) : attachment.type === "skill" ? (
+            <Sparkles className="ag-faint size-3 shrink-0" />
+          ) : (
+            <File className="ag-faint size-3 shrink-0" />
+          )}
+          <span className="truncate">{attachment.name}</span>
+          <button
+            type="button"
+            aria-label={t("agentChat.removeAttachment", { name: attachment.name })}
+            onClick={() => setAttachments((current) => current.filter((item) => item.path !== attachment.path))}
+            className="ag-icon-btn size-4"
+          >
+            <X className="size-2.5" />
+          </button>
+        </span>
+      ))}
+    </div>
+  ) : null;
+
+  const composer = (
+    <div className="w-full">
+      <PromptInput
+        value={draft}
+        onValueChange={setDraft}
+        models={promptModels}
+        model={model ?? undefined}
+        onModelChange={setModel}
+        actions={actions}
+        onAction={(action) => void runAction(action)}
+        slashCommands={slashCommands}
+        onSlashCommand={(command, argument) => void runSlashCommand(command, argument)}
+        onSubmit={(value) => void submit(value)}
+        loading={busy}
+        allowSubmitWhileLoading
+        allowEmptySubmit={attachments.length > 0}
+        onStop={threadId
+          ? () => void interrupt(threadId).catch((error: unknown) =>
+              toast.error(error instanceof Error ? error.message : String(error)),
+            )
+          : undefined}
+        header={attachmentChips}
+        leadingAction={<AgentComposerControls path={path} />}
+        disabled={connectionStatus !== "ready" || requiresAuth}
+        placeholder={busy
+          ? t("agentChat.steerPrompt")
+          : t("agentChat.prompt", { agent: providerLabel, repo: repoName(path) })}
+        aria-label={t("agentChat.promptAria", { agent: providerLabel })}
+      />
+
+      <div className="ag-dock flex items-center gap-2 px-3 py-1.5 text-[11px]">
+        <span className="ag-faint flex min-w-0 items-center gap-1.5">
+          <span className="truncate">{repoName(path)}</span>
+          {branch ? (
+            <>
+              <GitBranch className="size-3 shrink-0" />
+              <span className="truncate">{branch}</span>
+            </>
+          ) : null}
+        </span>
+
+        {conversationMeta.goalObjective && threadId ? (
+          <span className="ag-inset ml-1 inline-flex min-w-0 max-w-64 items-center gap-1.5 rounded-full px-2 py-0.5">
+            <span className="ag-faint shrink-0">{t("agentChat.goal")}</span>
+            <span className="truncate">{conversationMeta.goalObjective}</span>
+            <button
+              type="button"
+              className="ag-icon-btn size-4"
+              aria-label={t("agentChat.clearGoal")}
+              onClick={() => void clearGoal(threadId).catch((error: unknown) =>
+                toast.error(error instanceof Error ? error.message : String(error)),
+              )}
+            >
+              <X className="size-2.5" />
+            </button>
+          </span>
+        ) : null}
+
+        <span className="ag-faint ml-auto flex shrink-0 items-center gap-2">
+          {account?.email ? <span className="max-w-48 truncate">{account.email}</span> : null}
+          {conversationMeta.contextPercent !== null ? (
+            <span className="tabular-nums">
+              {t("agentChat.contextUsed", { value: conversationMeta.contextPercent })}
+            </span>
+          ) : null}
+        </span>
+      </div>
+    </div>
+  );
+
   return (
-    <section className="flex h-full min-h-0 flex-1 flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border/50 px-4">
-        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-foreground/[0.06] ring-1 ring-border/40">
+    <section className="flex h-full min-h-0 flex-1 flex-col">
+      <header className="ag-line flex h-12 shrink-0 items-center gap-2 border-b px-3">
+        <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]">
           <ProviderLogo className="size-3.5" />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <span className="ag-faint hidden shrink-0 truncate text-[12px] sm:block">
+            {repoName(path)}
+          </span>
+          <ChevronRight className="ag-faint hidden size-3 shrink-0 sm:block" />
           {conversationMeta.exists && threadId ? (
             <AgentInlineTitle
               path={path}
@@ -893,204 +1044,67 @@ export const AgentChatPane = memo(function AgentChatPane({
               title={conversationMeta.title}
               editing={renamingTitle}
               onEditingChange={setRenamingTitle}
-              className="block text-[13px] font-medium tracking-tight"
-              inputClassName="max-w-md text-[13px] font-medium tracking-tight"
+              className="min-w-0 truncate text-[13px] font-medium tracking-[-0.01em]"
+              inputClassName="max-w-md text-[13px] font-medium tracking-[-0.01em]"
             />
           ) : (
-            <p className="truncate text-[13px] font-medium tracking-tight">{providerLabel}</p>
+            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{providerLabel}</p>
           )}
-          <p className="truncate text-[10px] text-muted-foreground">
-            {repoName(path)}
-            {account?.email ? ` · ${account.email}` : ""}
-            {conversationMeta.goalObjective ? ` · Goal: ${conversationMeta.goalObjective}` : ""}
-          </p>
         </div>
-        {busy ? (
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <LoaderCircle className="size-3 animate-spin" />
-            {t("agentChat.working")}
-          </span>
-        ) : threadId ? (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full border border-border/45 px-2 py-1 text-[10px] font-medium text-muted-foreground"
-            title={t("agentChat.streamIsolated")}
-          >
-            <span
-              className={`size-1.5 rounded-full ${
-                sessionStatus === "ready"
-                  ? "bg-emerald-500"
-                  : sessionStatus === "connecting"
-                    ? "animate-pulse bg-amber-500"
-                    : sessionStatus === "error"
-                      ? "bg-destructive"
-                      : "bg-muted-foreground/45"
-              }`}
-            />
-            JSON
+
+        {threadId || busy ? (
+          <span className="ag-pill shrink-0" title={t("agentChat.streamIsolated")}>
+            <span className="ag-dot" data-state={statusState} aria-hidden="true" />
+            {statusLabel}
           </span>
         ) : null}
-        {threadId ? (
-          <AgentThreadMenu path={path} threadId={threadId} busy={busy} />
-        ) : null}
+
         {onToggleTerminal ? (
-          <Button
+          <button
             type="button"
-            variant={terminalVisible ? "secondary" : "ghost"}
-            size="icon-sm"
-            className={`rounded-full ${terminalVisible ? "text-foreground" : "text-muted-foreground"}`}
+            className="ag-icon-btn"
+            data-active={terminalVisible || undefined}
             onClick={onToggleTerminal}
             aria-pressed={terminalVisible}
             title={`${t("commitPanel.terminalToggleInApp")} (Ctrl+\`)`}
             aria-label={t("commitPanel.terminalToggleInApp")}
           >
-            <SquareTerminal className="size-3.5" />
-          </Button>
+            <SquareTerminal className="size-4" />
+          </button>
         ) : null}
+
         {onOpenCapabilities ? (
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="rounded-full text-muted-foreground"
+            className="ag-icon-btn"
             onClick={() => onOpenCapabilities("skills")}
             title={t("agentCapabilities.open")}
             aria-label={t("agentCapabilities.open")}
           >
-            <Blocks className="size-3.5" />
-          </Button>
+            <Blocks className="size-4" />
+          </button>
         ) : null}
+
+        {threadId ? <AgentThreadMenu path={path} threadId={threadId} busy={busy} /> : null}
+
         <AgentAccountMenu onImport={isClaude ? undefined : () => setImportOpen(true)} />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="rounded-full text-muted-foreground"
-          onClick={() => void newThread()}
-          title={t("agentChat.newConversation")}
-          aria-label={t("agentChat.newConversation")}
-        >
-          <MessageSquarePlus className="size-3.5" />
-        </Button>
       </header>
 
       <AgentConversationViewport
         path={path}
         threadId={threadId}
+        centered={centeredComposer}
+        composer={composer}
         onStarter={setDraft}
         scrollToBottomSignal={scrollToBottomSignal}
       />
 
-      <div className="shrink-0 border-t border-border/40 bg-background/95 px-4 pb-4 pt-3 backdrop-blur-sm">
-        <div className="mx-auto w-full max-w-3xl">
-          {!isClaude && (realtime.active || realtime.error) ? (
-            <div
-              className={`mb-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${
-                realtime.error
-                  ? "border-destructive/30 bg-destructive/10 text-destructive"
-                  : "border-emerald-500/25 bg-emerald-500/[0.07] text-foreground"
-              }`}
-            >
-              <span className={`size-2 shrink-0 rounded-full ${
-                realtime.status === "listening" ? "animate-pulse bg-emerald-500" : "bg-muted-foreground"
-              }`} />
-              <span className="min-w-0 flex-1 truncate">
-                {realtime.error
-                  ? realtime.error
-                  : realtime.transcript?.text || (realtime.status === "starting" ? "Starting voice…" : "Listening…")}
-              </span>
-              {realtime.error ? (
-                <button
-                  type="button"
-                  onClick={realtime.dismissError}
-                  className="rounded p-0.5 hover:bg-destructive/10"
-                  aria-label="Dismiss voice error"
-                >
-                  <X className="size-3" />
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          {attachments.length > 0 ? (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {attachments.map((attachment) => (
-                <span
-                  key={attachment.path}
-                  className="inline-flex max-w-56 items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-[11px] text-muted-foreground ring-1 ring-border/40"
-                >
-                  {attachment.type === "localImage" ? (
-                    <FileImage className="size-3 shrink-0" />
-                  ) : attachment.type === "localAudio" ? (
-                    <Mic className="size-3 shrink-0" />
-                  ) : attachment.type === "skill" ? (
-                    <Sparkles className="size-3 shrink-0" />
-                  ) : (
-                    <File className="size-3 shrink-0" />
-                  )}
-                  <span className="truncate">{attachment.name}</span>
-                  <button
-                    type="button"
-                    aria-label={t("agentChat.removeAttachment", { name: attachment.name })}
-                    onClick={() => setAttachments((current) => current.filter((item) => item.path !== attachment.path))}
-                    className="rounded p-0.5 hover:bg-foreground/10 hover:text-foreground"
-                  >
-                    <X className="size-2.5" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : null}
-          <PromptInput
-            value={draft}
-            onValueChange={setDraft}
-            models={promptModels}
-            model={model ?? undefined}
-            onModelChange={setModel}
-            actions={actions}
-            onAction={(action) => void runAction(action)}
-            slashCommands={slashCommands}
-            onSlashCommand={(command, argument) => void runSlashCommand(command, argument)}
-            onSubmit={(value) => void submit(value)}
-            loading={busy}
-            allowSubmitWhileLoading
-            allowEmptySubmit={attachments.length > 0}
-            onStop={threadId
-              ? () => void interrupt(threadId).catch((error: unknown) =>
-                  toast.error(error instanceof Error ? error.message : String(error)),
-                )
-              : undefined}
-            leadingAction={<AgentSettingsMenu path={path} />}
-            trailingAction={threadId && !isClaude ? (
-              <Button
-                type="button"
-                variant={realtime.active ? "destructive" : "ghost"}
-                size="icon"
-                className="size-8 rounded-full"
-                disabled={!realtime.active && (busy || connectionStatus !== "ready" || requiresAuth)}
-                onClick={() => {
-                  if (realtime.active) void realtime.stop();
-                  else {
-                    realtime.dismissError();
-                    void realtime.start();
-                  }
-                }}
-                title={realtime.active ? "Stop voice" : `Start voice${realtimeVoice ? ` · ${realtimeVoice}` : ""}`}
-                aria-label={realtime.active ? "Stop voice" : "Start voice"}
-              >
-                <Mic className={`size-3.5 ${realtime.status === "listening" ? "animate-pulse" : ""}`} />
-              </Button>
-            ) : undefined}
-            disabled={connectionStatus !== "ready" || requiresAuth}
-            placeholder={busy
-              ? t("agentChat.steerPrompt")
-              : t("agentChat.prompt", { repo: repoName(path) })}
-            aria-label={t("agentChat.promptAria")}
-            className="shadow-sm"
-          />
-          <p className="mt-1.5 px-1 text-center text-[10px] text-muted-foreground/60">
-            {t("agentChat.composerHint")}
-          </p>
+      {centeredComposer ? null : (
+        <div className="shrink-0 px-6 pb-4 pt-2">
+          <div className="mx-auto w-full max-w-3xl">{composer}</div>
         </div>
-      </div>
+      )}
+
       <Suspense fallback={null}>
         {resourcePicker === "skill" ? (
           <AgentResourcePicker

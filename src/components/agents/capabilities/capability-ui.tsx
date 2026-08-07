@@ -94,7 +94,7 @@ export function ProgressiveCapabilityList<T>({
       {remaining > 0 ? (
         <button
           type="button"
-          className="mt-2 w-full rounded-lg border border-border/45 px-3 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
+          className="ag-pill mt-2 h-8 w-full justify-center"
           onClick={() => setPagination({ resetKey, limit: limit + batchSize })}
         >
           {moreLabel(Math.min(batchSize, remaining))}

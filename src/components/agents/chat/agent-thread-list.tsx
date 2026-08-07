@@ -50,35 +50,24 @@ export function AgentThreadList({
   };
 
   return (
-    <section className="px-3 pb-4">
-      <div className="mb-1.5 flex items-center px-2">
-        <h2 className="text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground/75">
-          Recent chats
-        </h2>
-        <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/65">
-          {threads.length}
-        </span>
-      </div>
+    <section className="px-2 pb-4">
+      <h2 className="ag-label px-2 pb-1.5">{t("agentChat.recents")}</h2>
 
       {loading ? (
-        <div className="space-y-1" aria-label={t("agentChat.loadingConversations")}>
+        <div className="space-y-px" aria-label={t("agentChat.loadingConversations")}>
           {[0, 1, 2, 3].map((index) => (
-            <div key={index} className="h-11 animate-pulse rounded-[10px] bg-foreground/[0.035]" />
+            <div key={index} className="h-11 animate-pulse rounded-[9px] bg-[var(--ag-hover)]" />
           ))}
         </div>
       ) : threads.length === 0 && hasQuery ? (
-        <p className="rounded-[10px] px-2.5 py-3 text-[10px] text-muted-foreground">No matching chats</p>
+        <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noMatchingChats")}</p>
       ) : threads.length === 0 ? (
-        <button
-          type="button"
-          onClick={onCreateThread}
-          className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-3 text-left text-[10px] text-muted-foreground outline-none transition-colors hover:bg-foreground/[0.035] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <MessageSquare className="agents-accent-text size-3" />
+        <button type="button" onClick={onCreateThread} className="ag-row h-9 text-[11px]">
+          <MessageSquare className="size-3.5 shrink-0" />
           {t("agentChat.firstConversation")}
         </button>
       ) : (
-        <div className="space-y-0.5">
+        <div className="space-y-px">
           {threads.slice(0, limit).map((thread, index) => (
             <m.div
               key={thread.id}
@@ -103,7 +92,7 @@ export function AgentThreadList({
             <button
               type="button"
               onClick={onShowMore}
-              className="mt-1 w-full rounded-[10px] px-2 py-2 text-center text-[10px] font-medium text-muted-foreground outline-none transition-colors hover:bg-foreground/[0.035] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="ag-row mt-1 h-8 justify-center text-[11px] font-medium"
             >
               {t("agentChat.showMoreConversations", { count: Math.min(100, threads.length - limit) })}
             </button>

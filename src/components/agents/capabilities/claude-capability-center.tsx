@@ -4,7 +4,6 @@ import { toast } from "sonner";
 
 import { ClaudeCodeLogo } from "@/components/brand/agent-logos";
 import { ProgressiveCapabilityList } from "@/components/agents/capabilities/capability-ui";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
@@ -135,23 +134,23 @@ export function ClaudeCapabilityCenter({
   };
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-background">
-      <header className="shrink-0 border-b border-border/50 bg-background/95">
-        <div className="flex h-12 items-center gap-3 px-3.5">
-          <Button type="button" variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground" onClick={onBack} title="Back to chat">
-            <ArrowLeft className="size-3.5" />
-          </Button>
-          <span className="grid size-7 place-items-center rounded-lg bg-foreground/[0.06] ring-1 ring-border/40"><ClaudeCodeLogo className="size-4" /></span>
+    <section className="flex h-full min-h-0 flex-col">
+      <header className="ag-line shrink-0 border-b">
+        <div className="flex h-12 items-center gap-2 px-3">
+          <button type="button" className="ag-icon-btn" onClick={onBack} title="Back to chat" aria-label="Back to chat">
+            <ArrowLeft className="size-4" />
+          </button>
+          <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]"><ClaudeCodeLogo className="size-3.5" /></span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold tracking-tight">Claude Code capabilities</p>
-            <p className="truncate text-[9px] text-muted-foreground">{repoName(path)} · live from the installed CLI</p>
+            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">Claude Code capabilities</p>
+            <p className="ag-faint truncate text-[10px]">{repoName(path)} · live from the installed CLI</p>
           </div>
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" className="hidden h-8 w-52 rounded-lg text-[11px] sm:block" />
-          <Button type="button" variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground" disabled={loading} onClick={() => void load(true)} title="Refresh">
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-          </Button>
+          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" className="hidden h-8 w-52 rounded-full border-[var(--ag-line)] bg-[var(--ag-surface-2)] text-[11px] shadow-none sm:block" />
+          <button type="button" className="ag-icon-btn" disabled={loading} onClick={() => void load(true)} title="Refresh" aria-label="Refresh">
+            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+          </button>
         </div>
-        <nav className="flex h-10 items-end gap-1 overflow-x-auto px-3.5 [scrollbar-width:none]" aria-label="Claude Code capabilities">
+        <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none]" aria-label="Claude Code capabilities">
           {sections.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -159,17 +158,17 @@ export function ClaudeCapabilityCenter({
               aria-pressed={section === id}
               onClick={() => setSection(id)}
               className={cn(
-                "relative flex h-9 shrink-0 items-center gap-1.5 rounded-t-lg px-2.5 text-[11px] font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-                section === id && "bg-foreground/[0.045] text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-[#d97757]",
+"ag-pill h-8 shrink-0 gap-1.5 border-0 bg-transparent px-2.5 text-[11px] font-medium",
+                section === id && "bg-[var(--ag-selected)] text-[var(--ag-text)]",
               )}
             >
               <Icon className="size-3.5" /> {label}
-              <span className="rounded-md bg-foreground/[0.06] px-1.5 py-0.5 text-[9px] tabular-nums">{counts[id]}</span>
+              <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
             </button>
           ))}
         </nav>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-5">
+      <div className="ag-scroll min-h-0 flex-1 overflow-y-auto p-5">
         <div className="mx-auto grid max-w-4xl gap-2 sm:grid-cols-2">
           <ProgressiveCapabilityList
             items={entries}
@@ -177,15 +176,15 @@ export function ClaudeCapabilityCenter({
             resetKey={`${section}:${deferredQuery}:${entries.length}`}
             moreLabel={(count) => `Show ${count} more`}
             renderItem={(entry) => (
-            <article key={entry.id} className="rounded-xl border border-border/55 bg-card/45 p-3.5">
+            <article key={entry.id} className="ag-card p-3.5">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-[#d97757]/10 text-[#d97757]">
                   {(() => { const Icon = sections.find((item) => item.id === section)?.Icon ?? Blocks; return <Icon className="size-4" />; })()}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-xs font-medium">{entry.title}</h3>
-                  <p className="mt-1 line-clamp-3 text-[10px] leading-4 text-muted-foreground">{entry.description || "No description"}</p>
-                  {entry.meta ? <p className="mt-2 truncate font-mono text-[9px] text-muted-foreground/70">{entry.meta}</p> : null}
+                  <h3 className="truncate text-[12px] font-medium">{entry.title}</h3>
+                  <p className="ag-muted mt-1 line-clamp-3 text-[11px] leading-4">{entry.description || "No description"}</p>
+                  {entry.meta ? <p className="ag-faint mt-2 truncate font-mono text-[10px]">{entry.meta}</p> : null}
                 </div>
               </div>
             </article>

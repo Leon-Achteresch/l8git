@@ -2,7 +2,6 @@ import { Download, LogOut, RefreshCw, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,18 +82,16 @@ export function AgentAccountMenu({ onImport }: { onImport?: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="rounded-full text-muted-foreground"
+          className="ag-icon-btn"
           aria-label={t("agentChat.account.menu")}
           title={account.email ?? t("agentChat.account.menu")}
         >
-          <UserRound className="size-3.5" />
-        </Button>
+          <UserRound className="size-4" />
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64 rounded-xl p-1.5">
+      <DropdownMenuContent align="end" className="ag-menu w-64 p-1.5">
         <DropdownMenuLabel className="min-w-0 py-1.5">
           <span className="block truncate text-xs text-foreground">
             {account.email ?? t("agentChat.account.signedIn")}
@@ -127,17 +124,17 @@ export function AgentAccountMenu({ onImport }: { onImport?: () => void }) {
           />
         ) : null}
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="rounded-lg" onClick={() => void refresh()}>
+        <DropdownMenuItem className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]" onClick={() => void refresh()}>
           <RefreshCw className="size-3.5" />
           {t("agentChat.account.refresh")}
         </DropdownMenuItem>
         {onImport ? (
-          <DropdownMenuItem className="rounded-lg" onClick={onImport}>
+          <DropdownMenuItem className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]" onClick={onImport}>
             <Download className="size-3.5" />
             Import from Claude Code
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem className="rounded-lg" onClick={() => void signOut()}>
+        <DropdownMenuItem className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]" onClick={() => void signOut()}>
           <LogOut className="size-3.5" />
           {t("agentChat.account.logout")}
         </DropdownMenuItem>

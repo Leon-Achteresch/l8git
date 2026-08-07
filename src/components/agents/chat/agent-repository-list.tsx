@@ -1,8 +1,6 @@
 import { GitBranch, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { cn } from "@/lib/utils";
-
 function repoName(path: string): string {
   return path.split(/[\\/]/u).pop() ?? path;
 }
@@ -23,43 +21,37 @@ export function AgentRepositoryList({
   const { t } = useTranslation();
 
   return (
-    <section className="px-3 pb-3">
-      <div className="mb-1.5 flex items-center px-2">
-        <h2 className="text-[9px] font-semibold uppercase tracking-[0.13em] text-muted-foreground/75">
-          {t("agents.repos")}
-        </h2>
-        <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/70">
-          {paths.length}
-        </span>
-      </div>
-      <div className="space-y-0.5">
+    <section className="px-2 pb-2">
+      <h2 className="ag-label px-2 pb-1.5">{t("agents.repos")}</h2>
+      <div className="space-y-px">
         {paths.map((path) => {
           const selected = path === selectedPath;
+          const branch = branchByPath[path];
           return (
-            <div key={path} className="group flex items-center gap-1">
+            <div key={path} className="group/repo relative">
               <button
                 type="button"
                 onClick={() => onSelectPath(path)}
                 aria-pressed={selected}
-                className={cn(
-                  "relative flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-2 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                  selected
-                    ? "agents-active-rail bg-foreground/[0.06] pl-3 text-foreground"
-                    : "text-muted-foreground hover:bg-foreground/[0.035] hover:text-foreground",
-                )}
+                data-active={selected}
+                className="ag-row h-11 pr-8"
+                title={path}
               >
-                <span className={cn(
-                  "grid size-7 shrink-0 place-items-center rounded-[8px] text-[10px] font-semibold uppercase",
-                  selected ? "agents-accent-surface" : "bg-foreground/[0.045]",
-                )}>
+                <span
+                  className={`grid size-6 shrink-0 place-items-center rounded-[7px] text-[10px] font-semibold uppercase ${
+                    selected
+                      ? "bg-[var(--ag-solid)] text-[var(--ag-solid-fg)]"
+                      : "bg-[var(--ag-hover)] text-[var(--ag-text-2)]"
+                  }`}
+                >
                   {repoName(path).slice(0, 1)}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[11px] font-medium">{repoName(path)}</span>
-                  {branchByPath[path] ? (
-                    <span className="mt-0.5 flex items-center gap-1 text-[9px] text-muted-foreground/75">
-                      <GitBranch className="size-2.5" />
-                      <span className="truncate">{branchByPath[path]}</span>
+                  <span className="block truncate text-[12px]">{repoName(path)}</span>
+                  {branch ? (
+                    <span className="ag-faint mt-px flex items-center gap-1 text-[10px]">
+                      <GitBranch className="size-2.5 shrink-0" />
+                      <span className="truncate">{branch}</span>
                     </span>
                   ) : null}
                 </span>
@@ -67,10 +59,10 @@ export function AgentRepositoryList({
               <button
                 type="button"
                 onClick={() => onNewThread(path)}
-                className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground opacity-0 outline-none transition-[opacity,background-color,color,transform] hover:bg-foreground/[0.06] hover:text-foreground active:scale-95 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+                className="ag-icon-btn absolute right-1 top-1/2 size-6 -translate-y-1/2 opacity-0 transition-opacity group-hover/repo:opacity-100 focus-visible:opacity-100"
                 aria-label={`${t("agentChat.newConversation")} · ${repoName(path)}`}
               >
-                <Plus className="size-3" />
+                <Plus className="size-3.5" />
               </button>
             </div>
           );

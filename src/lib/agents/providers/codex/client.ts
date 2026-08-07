@@ -40,6 +40,7 @@ import {
   type CodexRateLimitsResponse,
   type CodexRealtimeAudioChunk,
   type CodexRealtimeStartOptions,
+  type CodexThread,
   type CodexThreadRuntime,
   type CodexThreadStartOptions,
   type CodexTurnOptions,
@@ -515,6 +516,35 @@ export class CodexAgentClient {
 
   resumeThread(threadId: string): Promise<CodexThreadRuntime> {
     return this.rpc.request("thread/resume", { threadId });
+  }
+
+  listThreads(
+    cwd: string,
+    cursor: string | null = null,
+  ): Promise<{ data: CodexThread[]; nextCursor: string | null }> {
+    return this.rpc.request("thread/list", {
+      cursor,
+      limit: 100,
+      sortKey: "updated_at",
+      sortDirection: "desc",
+      cwd,
+      archived: false,
+      // The local catalog may contain an explicitly adopted CLI/IDE thread,
+      // while sessions created by l8git use appServer. Query every source but
+      // only retain IDs that l8git already tracks.
+      sourceKinds: [
+        "cli",
+        "vscode",
+        "exec",
+        "appServer",
+        "subAgent",
+        "subAgentReview",
+        "subAgentCompact",
+        "subAgentThreadSpawn",
+        "subAgentOther",
+        "unknown",
+      ],
+    });
   }
 
   forkThread(threadId: string, options: CodexThreadStartOptions): Promise<CodexThreadRuntime> {

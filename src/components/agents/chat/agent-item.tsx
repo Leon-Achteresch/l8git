@@ -185,7 +185,7 @@ function UserMessage({ item }: { item: AgentItem }) {
             {content.images.map((path) => (
               <span
                 key={path}
-                className="inline-flex max-w-56 items-center gap-1.5 rounded-lg bg-background/15 px-2 py-1 font-mono text-[10px]"
+                className="inline-flex max-w-56 items-center gap-1.5 rounded-[8px] bg-white/12 px-2 py-1 font-mono text-[10px]"
                 title={path}
               >
                 <FileImage className="size-3 shrink-0" />
@@ -197,13 +197,13 @@ function UserMessage({ item }: { item: AgentItem }) {
         {content.mentions.length > 0 || content.audio.length > 0 ? (
           <div className="mt-2 flex flex-wrap justify-end gap-1.5">
             {content.mentions.map((mention) => (
-              <span key={mention} className="inline-flex items-center gap-1 rounded-lg bg-background/15 px-2 py-1 text-[10px]">
+              <span key={mention} className="inline-flex items-center gap-1 rounded-[8px] bg-white/12 px-2 py-1 text-[10px]">
                 <AtSign className="size-3" />
                 {mention}
               </span>
             ))}
             {content.audio.map((audio) => (
-              <span key={audio} className="inline-flex max-w-56 items-center gap-1 rounded-lg bg-background/15 px-2 py-1 text-[10px]">
+              <span key={audio} className="inline-flex max-w-56 items-center gap-1 rounded-[8px] bg-white/12 px-2 py-1 text-[10px]">
                 <Volume2 className="size-3 shrink-0" />
                 <span className="truncate">{audio.split(/[\\/]/).pop()}</span>
               </span>
@@ -247,7 +247,7 @@ function AgentMessage({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
                   <span
                     key={`${path}-${line ?? index}`}
                     title={stringValue(entry.note)}
-                    className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                    className="ag-inset rounded-[6px] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ag-text-2)]"
                   >
                     {path}{line ? `:${line}` : ""}
                   </span>

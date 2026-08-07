@@ -155,6 +155,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isMissingRolloutError(error: unknown): boolean {
+  return /no rollout found for thread id/i.test(errorMessage(error));
+}
+
 function externalImportNotification(
   event: RpcNotification,
 ): { importId: string; itemTypeResults: AgentExternalConfigImportTypeResult[] } | null {
@@ -1000,13 +1004,12 @@ export const useAgentChatStore = create<AgentChatState>()(
           try {
             const client = await codexSessionManager.controlClient();
             controlRetained = true;
-            const [modelsResponse, accountResponse, rateResponse, usageResponse, modesResponse, voicesResponse] = await Promise.all([
+            const [modelsResponse, accountResponse, rateResponse, usageResponse, modesResponse] = await Promise.all([
               client.models(),
               client.account(),
               client.rateLimits().catch(() => null),
               client.usage().catch(() => null),
               client.collaborationModes().catch(() => ({ data: [] })),
-              client.realtimeVoices().catch(() => null),
             ]);
             const models: AgentModelOption[] = modelsResponse.data.map((model) => ({
               id: model.model,
@@ -1060,10 +1063,6 @@ export const useAgentChatStore = create<AgentChatState>()(
                     }]
                   : [],
               ),
-              realtimeVoices: voicesResponse?.voices ?? null,
-              realtimeVoice: voicesResponse?.voices.v2.includes(state.realtimeVoice as AgentRealtimeVoice)
-                ? state.realtimeVoice
-                : (voicesResponse?.voices.defaultV2 ?? state.realtimeVoice),
             }));
           } catch (error) {
             set({ connectionStatus: "error", connectionError: errorMessage(error) });
@@ -1138,23 +1137,114 @@ export const useAgentChatStore = create<AgentChatState>()(
 
       loadThreads: async (paths) => {
         const unique = [...new Set(paths.filter(Boolean))];
-        set((state) => {
-          const threadsByPath = { ...state.threadsByPath };
-          const loadingPaths = { ...state.loadingPaths };
-          const activeThreadByPath = { ...state.activeThreadByPath };
-          for (const path of unique) {
-            const threads = sortThreadSummaries(threadsByPath[path] ?? []);
-            threadsByPath[path] = threads;
-            loadingPaths[path] = false;
-            if (
-              activeThreadByPath[path] &&
-              !threads.some((thread) => thread.id === activeThreadByPath[path])
-            ) {
-              activeThreadByPath[path] = null;
+        if (!unique.length) return;
+        const trackedIdsByPath = new Map(
+          unique.map((path) => [
+            path,
+            new Set((get().threadsByPath[path] ?? []).map((thread) => thread.id)),
+          ]),
+        );
+        set((state) => ({
+          loadingPaths: {
+            ...state.loadingPaths,
+            ...Object.fromEntries(unique.map((path) => [path, true])),
+          },
+        }));
+
+        if (![...trackedIdsByPath.values()].some((ids) => ids.size > 0)) {
+          set((state) => ({
+            loadingPaths: {
+              ...state.loadingPaths,
+              ...Object.fromEntries(unique.map((path) => [path, false])),
+            },
+          }));
+          return;
+        }
+
+        attachListeners();
+        const client = await codexSessionManager.controlClient();
+        try {
+          const results = await Promise.all(unique.map(async (path) => {
+            const trackedIds = trackedIdsByPath.get(path) ?? new Set<string>();
+            if (!trackedIds.size) return { path, trackedIds, threads: [] as CodexThread[] };
+            const found = new Map<string, CodexThread>();
+            let cursor: string | null = null;
+            do {
+              const response = await client.listThreads(path, cursor);
+              for (const thread of response.data) {
+                if (trackedIds.has(thread.id)) found.set(thread.id, thread);
+              }
+              cursor = response.nextCursor;
+            } while (cursor && found.size < trackedIds.size);
+            return { path, trackedIds, threads: [...found.values()] };
+          }));
+
+          const missingIds = new Set<string>();
+          for (const result of results) {
+            const foundIds = new Set(result.threads.map((thread) => thread.id));
+            for (const id of result.trackedIds) {
+              if (!foundIds.has(id)) missingIds.add(id);
             }
           }
-          return { threadsByPath, loadingPaths, activeThreadByPath };
-        });
+          await Promise.all([...missingIds].map((id) => codexSessionManager.closeThread(id)));
+
+          let clearVisibleThread = false;
+          set((state) => {
+            const threadsByPath = { ...state.threadsByPath };
+            const loadingPaths = { ...state.loadingPaths };
+            const activeThreadByPath = { ...state.activeThreadByPath };
+            for (const { path, trackedIds, threads } of results) {
+              // Preserve sessions created while this reconciliation was in flight.
+              const newThreads = (state.threadsByPath[path] ?? []).filter(
+                (thread) => !trackedIds.has(thread.id),
+              );
+              const reconciled = sortThreadSummaries([
+                ...threads.map(threadSummary),
+                ...newThreads,
+              ]);
+              threadsByPath[path] = reconciled;
+              loadingPaths[path] = false;
+              if (
+                activeThreadByPath[path] &&
+                !reconciled.some((thread) => thread.id === activeThreadByPath[path])
+              ) {
+                activeThreadByPath[path] = null;
+              }
+            }
+            clearVisibleThread = Boolean(
+              state.visibleThreadId && missingIds.has(state.visibleThreadId),
+            );
+            return {
+              threadsByPath,
+              loadingPaths,
+              activeThreadByPath,
+              visibleThreadId: clearVisibleThread ? null : state.visibleThreadId,
+              conversations: Object.fromEntries(
+                Object.entries(state.conversations).filter(([id]) => !missingIds.has(id)),
+              ),
+              requestsByThread: Object.fromEntries(
+                Object.entries(state.requestsByThread).filter(([id]) => !missingIds.has(id)),
+              ),
+              sessionStatusByThread: Object.fromEntries(
+                Object.entries(state.sessionStatusByThread).filter(([id]) => !missingIds.has(id)),
+              ),
+            };
+          });
+          if (clearVisibleThread) codexSessionManager.setVisibleThread(null);
+        } catch (error) {
+          set((state) => ({
+            loadingPaths: {
+              ...state.loadingPaths,
+              ...Object.fromEntries(unique.map((path) => [path, false])),
+            },
+            diagnostics: [
+              ...state.diagnostics,
+              `Thread-Katalog konnte nicht abgeglichen werden: ${errorMessage(error)}`,
+            ].slice(-80),
+          }));
+        } finally {
+          codexSessionManager.releaseControl();
+        }
       },
 
       createThread: async (path) => {
@@ -1301,6 +1391,34 @@ export const useAgentChatStore = create<AgentChatState>()(
             },
           }));
         } catch (error) {
+          if (isMissingRolloutError(error)) {
+            codexSessionManager.setVisibleThread(null);
+            set((state) => ({
+              threadsByPath: {
+                ...state.threadsByPath,
+                [path]: (state.threadsByPath[path] ?? []).filter(
+                  (thread) => thread.id !== threadId,
+                ),
+              },
+              activeThreadByPath: {
+                ...state.activeThreadByPath,
+                [path]: state.activeThreadByPath[path] === threadId
+                  ? null
+                  : state.activeThreadByPath[path],
+              },
+              conversations: Object.fromEntries(
+                Object.entries(state.conversations).filter(([id]) => id !== threadId),
+              ),
+              requestsByThread: Object.fromEntries(
+                Object.entries(state.requestsByThread).filter(([id]) => id !== threadId),
+              ),
+              sessionStatusByThread: Object.fromEntries(
+                Object.entries(state.sessionStatusByThread).filter(([id]) => id !== threadId),
+              ),
+              visibleThreadId: state.visibleThreadId === threadId ? null : state.visibleThreadId,
+            }));
+            return;
+          }
           set((state) => ({
             conversations: {
               ...state.conversations,

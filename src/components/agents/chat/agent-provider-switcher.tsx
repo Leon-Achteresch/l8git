@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 import { ClaudeCodeLogo, CodexLogo } from "@/components/brand/agent-logos";
 import {
@@ -9,6 +9,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 
+const PROVIDERS = [
+  { value: "codex", label: "Codex", description: "OpenAI CLI", Logo: CodexLogo },
+  { value: "claude", label: "Claude Code", description: "Anthropic CLI", Logo: ClaudeCodeLogo },
+] as const;
+
 export function AgentProviderSwitcher({
   provider,
   onProviderChange,
@@ -16,49 +21,42 @@ export function AgentProviderSwitcher({
   provider: NativeAgentProvider;
   onProviderChange: (provider: NativeAgentProvider) => void;
 }) {
-  const ProviderLogo = provider === "claude" ? ClaudeCodeLogo : CodexLogo;
-  const providerLabel = provider === "claude" ? "Claude Code" : "Codex";
+  const current = PROVIDERS.find((entry) => entry.value === provider) ?? PROVIDERS[0];
+  const CurrentLogo = current.Logo;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="group flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none transition-colors hover:bg-foreground/[0.045] focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`Agent provider: ${providerLabel}`}
+          className="ag-row h-9 gap-2.5 px-1.5"
+          aria-label={`Agent: ${current.label}`}
         >
-          <span className="agents-accent-surface grid size-7 shrink-0 place-items-center rounded-[9px]">
-            <ProviderLogo className="size-3.5" />
+          <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]">
+            <CurrentLogo className="size-3.5" />
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold tracking-[-0.015em]">
-              {providerLabel}
-            </span>
-            <span className="block truncate text-[9px] text-muted-foreground">
-              Native CLI agent
-            </span>
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold tracking-[-0.01em] text-[var(--ag-text)]">
+            {current.label}
           </span>
-          <ChevronDown className="size-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+          <ChevronsUpDown className="ag-faint size-3.5 shrink-0" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56 rounded-xl p-1.5">
-        {([
-          ["codex", "Codex", "OpenAI CLI", CodexLogo],
-          ["claude", "Claude Code", "Anthropic CLI", ClaudeCodeLogo],
-        ] as const).map(([value, label, description, Logo]) => (
+
+      <DropdownMenuContent align="start" sideOffset={6} className="ag-menu w-60 p-1.5">
+        {PROVIDERS.map(({ value, label, description, Logo }) => (
           <DropdownMenuItem
             key={value}
-            className="rounded-lg py-2"
+            className="ag-menu-item focus:bg-[var(--ag-hover)]"
             onClick={() => onProviderChange(value)}
           >
-            <span className="grid size-7 place-items-center rounded-lg bg-foreground/[0.05]">
+            <span className="ag-inset grid size-7 shrink-0 place-items-center rounded-[8px]">
               <Logo className="size-3.5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-medium">{label}</span>
-              <span className="block text-[9px] text-muted-foreground">{description}</span>
+              <span className="block truncate text-[12px] font-medium">{label}</span>
+              <span className="ag-faint block truncate text-[10px]">{description}</span>
             </span>
-            {provider === value ? <Check className="agents-accent-text size-3.5" /> : null}
+            {provider === value ? <Check className="size-3.5 shrink-0" /> : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
