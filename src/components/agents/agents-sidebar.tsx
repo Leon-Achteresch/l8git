@@ -2,7 +2,7 @@ import { Bot } from "lucide-react";
 import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
-import { SPRING_PANEL } from "@/@lib/ease";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 import { AgentsRepoBlock } from "@/components/agents/agents-repo-block";
 import type { AgentsSelection } from "@/components/agents/agents-types";
 import { ScrollArea } from "@/components/ui/scroll-area";

@@ -1,132 +1,183 @@
-import { m } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, m } from "motion/react";
 
-import { SPRING_PANEL } from "@/@lib/ease";
+import "@/components/agents/agents.css";
+import { AgentChatPane } from "@/components/agents/chat/agent-chat-pane";
+import { AgentChatSidebar } from "@/components/agents/chat/agent-chat-sidebar";
 import { AgentsEmpty } from "@/components/agents/agents-empty";
-import { AgentsSidebar } from "@/components/agents/agents-sidebar";
-import { AgentsTerminalPane } from "@/components/agents/agents-terminal-pane";
-import type { AgentsSelection } from "@/components/agents/agents-types";
+import { InAppTerminalLayout } from "@/components/repo/layout/in-app-terminal-layout";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import {
-  agentTabs,
-  detectInstalledAgents,
-} from "@/lib/agent-integrations";
+import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { useAgentProviderStore } from "@/lib/agents/provider-store";
+import type { AgentThreadSummary } from "@/lib/agents/types";
+import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { useRepoStore } from "@/lib/repo-store";
-import { isDarkMode } from "@/lib/terminal/terminal-theme";
-import { useTerminalStore, type TerminalTab } from "@/lib/terminal-store";
+import { useTerminalStore } from "@/lib/terminal-store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
+import { SPRING_LAYOUT } from "@/lib/motion/ease";
 
-const EMPTY_TABS: TerminalTab[] = [];
+const EMPTY_PATHS: string[] = [];
+const EMPTY_THREADS: AgentThreadSummary[] = [];
+const AgentCapabilityCenter = lazy(() => import("@/components/agents/capabilities/agent-capability-center").then(
+  (module) => ({ default: module.AgentCapabilityCenter }),
+));
+const ClaudeCapabilityCenter = lazy(() => import("@/components/agents/capabilities/claude-capability-center").then(
+  (module) => ({ default: module.ClaudeCapabilityCenter }),
+));
 
-export function AgentsPage() {
-  const knownPaths = useRepoStore((s) => s.paths);
+export function AgentsPage({ initialPath }: { initialPath?: string }) {
+  const provider = useAgentProviderStore((state) => state.provider);
+  const knownPaths = useRepoStore((state) => state.paths);
+  const activeRepoPath = useRepoStore((state) => state.activePath);
   const workspacePaths = useWorkspaceStore(
-    (s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.repoPaths ?? [],
+    (state) =>
+      state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId)?.repoPaths ?? EMPTY_PATHS,
   );
-  const tabsByPath = useTerminalStore((s) => s.tabsByPath);
-  const reloadStatus = useRepoStore((s) => s.reloadStatus);
+  const retainSurface = useAgentChatStore((state) => state.retainSurface);
+  const setVisibleThread = useAgentChatStore((state) => state.setVisibleThread);
+  const connect = useAgentChatStore((state) => state.connect);
+  const loadThreads = useAgentChatStore((state) => state.loadThreads);
+  const openThread = useAgentChatStore((state) => state.openThread);
 
-  const allPaths = useMemo(() => {
-    const set = new Set<string>([...workspacePaths, ...knownPaths]);
-    for (const p of Object.keys(tabsByPath)) {
-      if (agentTabs(tabsByPath[p] ?? []).length > 0) set.add(p);
+  const paths = useMemo(
+    () => [...new Set([...workspacePaths, ...knownPaths])],
+    [knownPaths, workspacePaths],
+  );
+  const preferredPath =
+    (initialPath && paths.includes(initialPath) ? initialPath : null) ??
+    (activeRepoPath && paths.includes(activeRepoPath) ? activeRepoPath : null) ??
+    paths[0] ??
+    "";
+  const [selectedPath, setSelectedPath] = useState(preferredPath);
+  const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
+  const terminalVisible = useTerminalStore((state) => !!state.visibleByPath[selectedPath]);
+  const toggleTerminal = useTerminalStore((state) => state.toggleVisible);
+  const selectedThreads = useAgentChatStore((state) => state.threadsByPath[selectedPath] ?? EMPTY_THREADS);
+  const activeThreadId = useAgentChatStore(
+    (state) => state.activeThreadByPath[selectedPath] ?? null,
+  );
+  const activeThreadIsKnown = activeThreadId !== null && selectedThreads.some(
+    (thread) => thread.id === activeThreadId,
+  );
+  const handleToggleTerminal = useCallback(() => {
+    toggleTerminal(selectedPath);
+  }, [selectedPath, toggleTerminal]);
+
+  useEffect(() => {
+    if (initialPath && paths.includes(initialPath) && initialPath !== selectedPath) {
+      setSelectedPath(initialPath);
     }
-    return [...set];
-  }, [workspacePaths, knownPaths, tabsByPath]);
-
-  const [selected, setSelected] = useState<AgentsSelection | null>(null);
-  const selectedPath = selected?.path ?? null;
-
-  const [isDark, setIsDark] = useState(() => isDarkMode());
-  useEffect(() => {
-    const update = () => setIsDark(isDarkMode());
-    const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
+  }, [initialPath, paths, selectedPath]);
 
   useEffect(() => {
-    detectInstalledAgents();
-    for (const p of useRepoStore.getState().paths) void reloadStatus(p);
-  }, [reloadStatus]);
+    if (!paths.length) return;
+    if (!paths.includes(selectedPath)) setSelectedPath(preferredPath || paths[0]);
+  }, [paths, preferredPath, selectedPath]);
 
   useEffect(() => {
-    if (!selectedPath) return;
-    void reloadStatus(selectedPath);
-    const id = window.setInterval(() => void reloadStatus(selectedPath), 5000);
-    return () => window.clearInterval(id);
-  }, [selectedPath, reloadStatus]);
+    return retainSurface();
+  }, [retainSurface]);
 
   useEffect(() => {
-    if (selected?.tabId) {
-      const tabs = tabsByPath[selected.path] ?? EMPTY_TABS;
-      if (tabs.some((tab) => tab.id === selected.tabId)) return;
-      setSelected({ path: selected.path });
-      return;
-    }
-    if (selected) return;
-    for (const p of allPaths) {
-      const first = agentTabs(tabsByPath[p] ?? EMPTY_TABS)[0];
-      if (first) {
-        setSelected({ path: p, tabId: first.id });
-        return;
-      }
-    }
-    if (allPaths[0]) setSelected({ path: allPaths[0] });
-  }, [selected, tabsByPath, allPaths]);
+    if (!paths.length) return;
+    void loadThreads(paths);
+    void connect().catch(() => {});
+  }, [connect, loadThreads, paths]);
 
-  if (allPaths.length === 0) {
-    return <AgentsEmpty />;
-  }
+  useEffect(() => {
+    setVisibleThread(activeThreadId);
+    return () => setVisibleThread(null);
+  }, [activeThreadId, setVisibleThread]);
+
+  useEffect(() => {
+    // Restoring an explicitly selected conversation is useful. Automatically
+    // opening the newest history entry is not: it parses a potentially huge
+    // transcript before the user has selected it.
+    if (!selectedPath || !activeThreadId || !activeThreadIsKnown) return;
+    const timer = window.setTimeout(() => void openThread(selectedPath, activeThreadId), 0);
+    return () => window.clearTimeout(timer);
+  }, [activeThreadId, activeThreadIsKnown, openThread, selectedPath]);
+
+  if (paths.length === 0) return <AgentsEmpty />;
 
   return (
-    <div className="relative flex h-full min-h-0">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,hsl(var(--foreground)/0.05)_0%,transparent_70%)]"
-      />
-      <m.div
-        initial={{ opacity: 0, y: 10, scale: 0.994 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={SPRING_PANEL}
-        className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-card"
-      >
-        <ResizablePanelGroup orientation="horizontal" id="agents-split">
+    <div className="agents-shell flex h-full min-h-0">
+      <InAppTerminalLayout path={selectedPath}>
+        <ResizablePanelGroup
+          orientation="horizontal"
+          id="agents-chat-split"
+          className="agents-frame"
+        >
           <ResizablePanel
-            id="agents-sidebar"
-            defaultSize="20%"
-            minSize="14%"
-            maxSize="32%"
-            className="min-w-[212px] bg-foreground/[0.025]"
+            id="agents-chat-sidebar"
+            defaultSize="22%"
+            minSize="16%"
+            maxSize="31%"
+            className="agents-sidebar-surface min-w-[252px] overflow-hidden"
           >
-            <AgentsSidebar
-              paths={allPaths}
-              selected={selected}
-              onSelect={setSelected}
+            <AgentChatSidebar
+              paths={paths}
+              selectedPath={selectedPath}
+              onSelectPath={setSelectedPath}
+              capabilityStudioOpen={capabilitySection !== null}
+              onOpenCapabilities={() => setCapabilitySection("skills")}
             />
           </ResizablePanel>
-          <ResizableHandle className="w-px bg-border/40 transition-colors duration-200 hover:bg-primary/40" />
+          <ResizableHandle className="w-1 bg-transparent transition-colors hover:bg-[var(--agents-accent-soft)]" />
           <ResizablePanel
-            id="agents-terminal"
-            defaultSize="80%"
-            minSize="35%"
-            className="min-w-0 bg-background"
+            id="agents-chat-main"
+            defaultSize="78%"
+            minSize="45%"
+            className="agents-main-surface min-w-0 overflow-hidden"
           >
-            <AgentsTerminalPane
-              selected={selected}
-              isDark={isDark}
-              onSelect={setSelected}
-            />
+            <AnimatePresence initial={false} mode="popLayout">
+              <m.div
+                key={capabilitySection ? `capabilities:${provider}` : "chat"}
+                layout
+                layoutId="agents-workspace-surface"
+                initial={{ opacity: 0, scale: 0.992, clipPath: "inset(0 0 0 3% round 18px)" }}
+                animate={{ opacity: 1, scale: 1, clipPath: "inset(0 0 0 0% round 18px)" }}
+                exit={{ opacity: 0, scale: 0.995, clipPath: "inset(0 3% 0 0 round 18px)" }}
+                transition={SPRING_LAYOUT}
+                className="h-full min-h-0"
+              >
+                {capabilitySection ? (
+                  <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Capability Studio…</div>}>
+                    {provider === "claude" ? (
+                      <ClaudeCapabilityCenter
+                        key={`claude-capabilities:${selectedPath}`}
+                        path={selectedPath}
+                        initialSection={capabilitySection}
+                        onBack={() => setCapabilitySection(null)}
+                      />
+                    ) : (
+                      <AgentCapabilityCenter
+                        key={`codex-capabilities:${selectedPath}`}
+                        path={selectedPath}
+                        initialSection={capabilitySection}
+                        onBack={() => setCapabilitySection(null)}
+                      />
+                    )}
+                  </Suspense>
+                ) : (
+                  <AgentChatPane
+                    key={`${selectedPath}:${activeThreadId ?? "new"}`}
+                    path={selectedPath}
+                    threadId={activeThreadId}
+                    terminalVisible={terminalVisible}
+                    onToggleTerminal={handleToggleTerminal}
+                    onOpenCapabilities={(section = "skills") => setCapabilitySection(section)}
+                  />
+                )}
+              </m.div>
+            </AnimatePresence>
           </ResizablePanel>
         </ResizablePanelGroup>
-      </m.div>
+      </InAppTerminalLayout>
     </div>
   );
 }

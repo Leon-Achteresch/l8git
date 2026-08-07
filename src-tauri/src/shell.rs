@@ -252,9 +252,9 @@ fn _save_clipboard_image(bytes: Vec<u8>, ext: String) -> Result<String, String> 
 }
 
 #[cfg(target_os = "windows")]
-fn cli_in_path(name: &str) -> bool {
+pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
     let Some(paths) = std::env::var_os("PATH") else {
-        return false;
+        return None;
     };
     let exts: Vec<String> = std::env::var("PATHEXT")
         .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into())
@@ -265,15 +265,15 @@ fn cli_in_path(name: &str) -> bool {
     for dir in std::env::split_paths(&paths) {
         for ext in &exts {
             if dir.join(format!("{name}{ext}")).is_file() {
-                return true;
+                return Some(dir.join(format!("{name}{ext}")));
             }
         }
     }
-    false
+    None
 }
 
 #[cfg(not(target_os = "windows"))]
-fn cli_in_path(name: &str) -> bool {
+pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
     use std::os::unix::fs::PermissionsExt;
     let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
         .map(|p| std::env::split_paths(&p).collect())
@@ -291,11 +291,15 @@ fn cli_in_path(name: &str) -> bool {
         let p = dir.join(name);
         if let Ok(md) = p.metadata() {
             if md.is_file() && md.permissions().mode() & 0o111 != 0 {
-                return true;
+                return Some(p);
             }
         }
     }
-    false
+    None
+}
+
+fn cli_in_path(name: &str) -> bool {
+    resolve_cli_path(name).is_some()
 }
 
 /// Returns the subset of `commands` that resolve to an executable on this

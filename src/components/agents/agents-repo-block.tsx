@@ -1,7 +1,7 @@
 import { GitBranch } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
 
-import { SPRING_LAYOUT, SPRING_PANEL } from "@/@lib/ease";
+import { SPRING_LAYOUT, SPRING_PANEL } from "@/lib/motion/ease";
 import { AgentsDiffStat } from "@/components/agents/agents-diff-stat";
 import { AgentsLaunchMenu } from "@/components/agents/agents-launch-menu";
 import { AgentsSessionRow } from "@/components/agents/agents-session-row";

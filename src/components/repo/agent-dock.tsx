@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, SquareTerminal } from "lucide-react";
 import { m } from "motion/react";
 import { useEffect } from "react";
@@ -21,6 +22,7 @@ const EMPTY_TABS: TerminalTab[] = [];
 
 export function AgentDock({ path }: { path: string }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const enabled = useUiVisibilityPrefs((s) => s.showAgentDock);
   const tabs = useTerminalStore((s) => s.tabsByPath[path] ?? EMPTY_TABS);
   const activeId = useTerminalStore((s) => s.activeByPath[path] ?? null);
@@ -71,7 +73,7 @@ export function AgentDock({ path }: { path: string }) {
       <span className="mx-0.5 h-4 w-px shrink-0 bg-border/60" aria-hidden />
 
       {AGENT_INTEGRATIONS.map((integration) => {
-        const running = tabs.some(
+        const running = integration.surface === "terminal" && tabs.some(
           (tab) => integrationOf(tab)?.id === integration.id,
         );
         // Only offer CLIs that exist on this machine (null = detection
@@ -82,14 +84,22 @@ export function AgentDock({ path }: { path: string }) {
         return (
           <DockButton
             key={integration.id}
-            label={`${integration.label} — ${t("dock.newInstanceHint")}`}
+            label={
+              integration.surface === "chat"
+                ? `${integration.label} Chat`
+                : `${integration.label} - ${t("dock.newInstanceHint")}`
+            }
             active={focusedId === integration.id}
             running={running}
-            onClick={(e) =>
+            onClick={(e) => {
+              if (integration.surface === "chat") {
+                void navigate({ to: "/agents", search: { path } });
+                return;
+              }
               launchAgent(path, integration, {
                 newInstance: e.shiftKey || e.ctrlKey,
-              })
-            }
+              });
+            }}
           >
             <integration.icon className="size-4" />
           </DockButton>

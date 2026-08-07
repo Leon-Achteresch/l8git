@@ -4,7 +4,7 @@ import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { SPRING_PANEL } from "@/@lib/ease";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 import { Button } from "@/components/ui/button";
 import { useRepoStore } from "@/lib/repo-store";
 

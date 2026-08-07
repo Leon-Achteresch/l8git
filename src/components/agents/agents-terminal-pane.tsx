@@ -2,7 +2,7 @@ import { SquareTerminal } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
-import { SPRING_PANEL } from "@/@lib/ease";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 import { AgentsLaunchGrid } from "@/components/agents/agents-launch-grid";
 import {
   agentsRepoName,

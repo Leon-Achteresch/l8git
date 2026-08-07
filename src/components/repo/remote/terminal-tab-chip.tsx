@@ -1,4 +1,4 @@
-import { SPRING_LAYOUT } from "@/@lib/ease";
+import { SPRING_LAYOUT } from "@/lib/motion/ease";
 import { integrationOf } from "@/lib/agent-integrations";
 import { useTerminalActivity } from "@/lib/terminal/activity";
 import { terminalLeafId } from "@/lib/terminal/leaf-id";

@@ -21,7 +21,7 @@ import { useShallow } from "zustand/react/shallow";
 import {
   DynamicIsland,
   DynamicIslandView,
-} from "@/@components/motion/dynamic-island";
+} from "@/components/motion/dynamic-island";
 import { RepoLogo } from "@/components/repo/repo-logo";
 import {
   AGENT_INTEGRATIONS,

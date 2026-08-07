@@ -1,4 +1,4 @@
-import { SPRING_PANEL } from "@/@lib/ease";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 import { RotateCcw } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";

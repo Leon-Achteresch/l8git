@@ -25,7 +25,7 @@ export function AgentsLaunchMenu({
 }) {
   const { t } = useTranslation();
   const items = AGENT_INTEGRATIONS.filter(
-    (i) => !installed || installed.has(i.id),
+    (i) => i.surface === "terminal" && (!installed || installed.has(i.id)),
   );
 
   const launch = (integration: AgentIntegration) => {

@@ -1,7 +1,7 @@
 import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
-import { SPRING_PANEL, SPRING_PRESS } from "@/@lib/ease";
+import { SPRING_PANEL, SPRING_PRESS } from "@/lib/motion/ease";
 import {
   AGENT_INTEGRATIONS,
   launchAgent,
@@ -28,7 +28,7 @@ export function AgentsLaunchGrid({
   const { t } = useTranslation();
   const installed = useInstalledAgents((s) => s.installed);
   const items = AGENT_INTEGRATIONS.filter(
-    (i) => !installed || installed.has(i.id),
+    (i) => i.surface === "terminal" && (!installed || installed.has(i.id)),
   );
 
   return (

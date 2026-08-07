@@ -1,0 +1,123 @@
+.agents-shell {
+  --agents-accent: #c64f28;
+  --agents-accent-strong: #a83d1d;
+  --agents-accent-soft: color-mix(in oklab, var(--agents-accent) 10%, transparent);
+  --agents-canvas: color-mix(in oklab, var(--background) 92%, #fff 8%);
+  --agents-sidebar: color-mix(in oklab, var(--background) 94%, var(--foreground) 6%);
+  --agents-line: color-mix(in oklab, var(--foreground) 12%, transparent);
+  --agents-shadow: 0 18px 52px color-mix(in oklab, var(--foreground) 10%, transparent);
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 12% -18%, color-mix(in oklab, var(--agents-accent) 7%, transparent), transparent 35%),
+    color-mix(in oklab, var(--background) 88%, var(--muted) 12%);
+}
+
+.dark .agents-shell {
+  --agents-accent: #de7958;
+  --agents-accent-strong: #ef8b68;
+  --agents-canvas: #101012;
+  --agents-sidebar: #151517;
+  --agents-line: rgb(255 255 255 / 0.1);
+  --agents-shadow: 0 22px 64px rgb(0 0 0 / 0.38);
+  background:
+    radial-gradient(circle at 12% -18%, rgb(222 121 88 / 0.08), transparent 35%),
+    #0b0b0c;
+}
+
+.agents-frame {
+  padding: 0.5rem;
+}
+
+.agents-sidebar-surface,
+.agents-main-surface {
+  border: 1px solid var(--agents-line);
+  background: var(--agents-canvas);
+  box-shadow: var(--agents-shadow);
+}
+
+.agents-sidebar-surface {
+  border-radius: 1.25rem 0 0 1.25rem;
+  background: var(--agents-sidebar);
+}
+
+.agents-main-surface {
+  border-radius: 0 1.25rem 1.25rem 0;
+}
+
+.agents-hairline {
+  border-color: var(--agents-line);
+}
+
+.agents-accent-text {
+  color: var(--agents-accent);
+}
+
+.agents-accent-surface {
+  color: var(--agents-accent-strong);
+  background: var(--agents-accent-soft);
+}
+
+.agents-active-rail {
+  position: relative;
+}
+
+.agents-active-rail::before {
+  position: absolute;
+  inset-block: 0.45rem;
+  inset-inline-start: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--agents-accent);
+  content: "";
+}
+
+.agents-composer {
+  border-color: color-mix(in oklab, var(--foreground) 15%, transparent);
+  background: color-mix(in oklab, var(--agents-canvas) 94%, transparent);
+  box-shadow:
+    0 18px 48px color-mix(in oklab, var(--foreground) 9%, transparent),
+    0 1px 0 color-mix(in oklab, #fff 70%, transparent) inset;
+  backdrop-filter: blur(18px) saturate(125%);
+}
+
+.dark .agents-composer {
+  box-shadow:
+    0 20px 54px rgb(0 0 0 / 0.34),
+    0 1px 0 rgb(255 255 255 / 0.06) inset;
+}
+
+.agents-scrollbar {
+  scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.agents-scrollbar::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.agents-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 18%, transparent);
+  background-clip: padding-box;
+}
+
+@media (max-width: 760px) {
+  .agents-frame {
+    padding: 0;
+  }
+
+  .agents-sidebar-surface,
+  .agents-main-surface {
+    border-block: 0;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agents-shell *,
+  .agents-shell *::before,
+  .agents-shell *::after {
+    scroll-behavior: auto !important;
+  }
+}

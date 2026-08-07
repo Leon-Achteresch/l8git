@@ -1,4 +1,4 @@
-import { SPRING_LAYOUT, SPRING_PANEL } from "@/@lib/ease";
+import { SPRING_LAYOUT, SPRING_PANEL } from "@/lib/motion/ease";
 import { repoDefaultTabTitle } from "@/lib/terminal-tab-title";
 import { isDarkMode, terminalBackground } from "@/lib/terminal/terminal-theme";
 import { useRepoStore } from "@/lib/repo-store";

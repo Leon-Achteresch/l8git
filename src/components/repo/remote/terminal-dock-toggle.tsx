@@ -1,4 +1,4 @@
-import { SPRING_LAYOUT } from "@/@lib/ease";
+import { SPRING_LAYOUT } from "@/lib/motion/ease";
 import type { TerminalPosition } from "@/lib/terminal-store";
 import { cn } from "@/lib/utils";
 import { PanelBottom, PanelRight } from "lucide-react";
