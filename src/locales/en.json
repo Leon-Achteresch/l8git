@@ -206,7 +206,12 @@
     "yesterday": "Yesterday",
     "last7Days": "Last 7 days",
     "older": "Older",
-    "pinned": "Pinned"
+    "pinned": "Pinned",
+    "worktrees": "Worktrees",
+    "newWorktree": "New worktree chat in {{repo}}",
+    "removeWorktree": "Remove worktree {{name}}",
+    "worktreeCreated": "Worktree created on {{branch}}",
+    "worktreeForceConfirm": "Worktree {{name}} has uncommitted changes. Remove it anyway?"
   },
   "island": {
     "open": "Show projects and integrations",
