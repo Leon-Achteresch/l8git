@@ -824,12 +824,12 @@ export const cursorChatStore = createStore<AgentChatState>()((set, get) => ({
   deleteThread: async (path, threadId) => {
     await clients.get(threadId)?.close().catch(() => {});
     clients.delete(threadId);
+    await invoke("cursor_delete_session", { sessionId: threadId });
     prefs.pinned.delete(threadId);
     prefs.archived.delete(threadId);
     savePrefs();
     transcripts.delete(threadId);
     saveTranscripts();
-    await invoke("cursor_delete_session", { sessionId: threadId }).catch(() => {});
     set((state) => {
       const conversations = { ...state.conversations };
       delete conversations[threadId];
@@ -847,7 +847,7 @@ export const cursorChatStore = createStore<AgentChatState>()((set, get) => ({
     });
   },
   renameThread: async (path, threadId, name) => {
-    await invoke("cursor_rename_session", { sessionId: threadId, title: name }).catch(() => {});
+    await invoke("cursor_rename_session", { sessionId: threadId, title: name });
     set((state) => ({
       threadsByPath: {
         ...state.threadsByPath,

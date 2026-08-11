@@ -57,7 +57,7 @@ import {
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
 import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
-import { agentProviderMeta } from "@/lib/agents/provider-meta";
+import { agentProviderMeta, providerSupportsSlashCommand } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
 
@@ -740,10 +740,13 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "archive", label: "Archive this chat", description: "Remove it from the active list", disabled: !threadId || busy },
     { value: "delete", label: "Delete this chat", description: "Permanently delete the transcript", disabled: !threadId || busy },
     { value: "logout", label: `Log out of ${providerLabel}`, description: `Disconnect the current ${isClaude ? "Anthropic" : isCodex ? "OpenAI" : "OpenCode"} account` },
-  ].filter((command) => isCodex || !["apps", "memories", "import", "fast", "personality", "usage"].includes(command.value)), [busy, conversationMeta.exists, isClaude, isCodex, model, models, onOpenCapabilities, onToggleTerminal, providerLabel, threadId]);
+  ].filter((command) => providerSupportsSlashCommand(provider, command.value)), [busy, conversationMeta.exists, isClaude, isCodex, model, models, onOpenCapabilities, onToggleTerminal, provider, providerLabel, threadId]);
 
   const runSlashCommand = async (command: string, argument: string) => {
     try {
+      if (!providerSupportsSlashCommand(provider, command)) {
+        throw new Error(`/${command} is not available with ${providerLabel}.`);
+      }
       if (command === "new") return await newThread();
       if (command === "clear") return await newThread();
       if (command === "image") return await pickImages();

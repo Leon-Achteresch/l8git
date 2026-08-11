@@ -16,3 +16,20 @@ export const AGENT_PROVIDERS = [
 export function agentProviderMeta(provider: NativeAgentProvider) {
   return AGENT_PROVIDERS.find((entry) => entry.value === provider) ?? AGENT_PROVIDERS[0];
 }
+
+const CODEX_ONLY_COMMANDS = ["apps", "memories", "import", "fast", "personality", "usage"] as const;
+const BACKGROUND_TERMINAL_COMMANDS = ["ps", "stop"] as const;
+
+export const UNSUPPORTED_SLASH_COMMANDS: Record<NativeAgentProvider, readonly string[]> = {
+  codex: [],
+  claude: CODEX_ONLY_COMMANDS,
+  opencode: [...CODEX_ONLY_COMMANDS, ...BACKGROUND_TERMINAL_COMMANDS],
+  cursor: [...CODEX_ONLY_COMMANDS, ...BACKGROUND_TERMINAL_COMMANDS],
+};
+
+export function providerSupportsSlashCommand(
+  provider: NativeAgentProvider,
+  command: string,
+): boolean {
+  return !UNSUPPORTED_SLASH_COMMANDS[provider]?.includes(command);
+}
