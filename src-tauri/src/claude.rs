@@ -41,6 +41,15 @@ pub struct ClaudeSkill {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ClaudeCapabilityFile {
+    name: String,
+    description: String,
+    path: String,
+    scope: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClaudeHook {
     key: String,
     event_name: String,
@@ -684,6 +693,260 @@ pub async fn claude_list_hooks(path: String) -> Result<Vec<ClaudeHook>, String> 
     .map_err(|error| error.to_string())?
 }
 
+fn managed_roots(repo: &Path) -> Vec<PathBuf> {
+    let mut roots = vec![repo.join(".claude")];
+    if let Some(home) = dirs::home_dir() {
+        roots.push(home.join(".claude"));
+    }
+    roots
+        .iter()
+        .filter_map(|root| fs::canonicalize(root).ok())
+        .collect()
+}
+
+fn managed_path(repo: &Path, target: &str) -> Result<PathBuf, String> {
+    let target = PathBuf::from(target.trim());
+    let canonical = fs::canonicalize(&target)
+        .map_err(|_| "Die Datei existiert nicht mehr.".to_string())?;
+    let allowed = managed_roots(repo)
+        .into_iter()
+        .any(|root| canonical.starts_with(&root));
+    if !allowed {
+        return Err("Nur Dateien in .claude dürfen bearbeitet werden.".into());
+    }
+    Ok(canonical)
+}
+
+fn scan_markdown(
+    root: &Path,
+    scope: &str,
+    prefix: &str,
+    depth: usize,
+    output: &mut Vec<ClaudeCapabilityFile>,
+) {
+    if depth > 6 || output.len() >= 2_000 || !root.is_dir() {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(metadata) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if metadata.file_type().is_symlink() {
+            continue;
+        }
+        let Some(file_name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if metadata.is_dir() {
+            scan_markdown(&path, scope, &format!("{prefix}{file_name}:"), depth + 1, output);
+            continue;
+        }
+        let Some(stem) = file_name.strip_suffix(".md") else {
+            continue;
+        };
+        let contents = fs::read_to_string(&path).unwrap_or_default();
+        output.push(ClaudeCapabilityFile {
+            name: format!("{prefix}{stem}"),
+            description: frontmatter_value(&contents, "description").unwrap_or_default(),
+            path: path.to_string_lossy().into_owned(),
+            scope: scope.into(),
+        });
+    }
+}
+
+#[tauri::command]
+pub async fn claude_list_capability_files(
+    path: String,
+    kind: String,
+) -> Result<Vec<ClaudeCapabilityFile>, String> {
+    tokio::task::spawn_blocking(move || {
+        if kind != "commands" && kind != "agents" {
+            return Err("Unbekannte Capability-Art.".into());
+        }
+        let repo = PathBuf::from(path.trim());
+        if !repo.is_dir() {
+            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+        }
+        let mut files = Vec::new();
+        if let Some(home) = dirs::home_dir() {
+            scan_markdown(&home.join(".claude").join(&kind), "user", "", 0, &mut files);
+        }
+        scan_markdown(&repo.join(".claude").join(&kind), "project", "", 0, &mut files);
+        files.sort_by(|a, b| a.name.cmp(&b.name).then(a.path.cmp(&b.path)));
+        Ok(files)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_read_capability_file(path: String, file: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let target = managed_path(&PathBuf::from(path.trim()), &file)?;
+        fs::read_to_string(target).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_write_capability_file(
+    path: String,
+    file: String,
+    contents: String,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let target = managed_path(&PathBuf::from(path.trim()), &file)?;
+        if !is_regular_file(&target) {
+            return Err("Nur reguläre Dateien können geschrieben werden.".into());
+        }
+        fs::write(target, contents).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_delete_capability_file(path: String, file: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let target = managed_path(&PathBuf::from(path.trim()), &file)?;
+        let skill_directory = target
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name == "SKILL.md")
+            .unwrap_or(false)
+            .then(|| target.parent().map(Path::to_path_buf))
+            .flatten();
+        match skill_directory {
+            Some(directory) => fs::remove_dir_all(directory).map_err(|error| error.to_string()),
+            None => fs::remove_file(target).map_err(|error| error.to_string()),
+        }
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_set_hook_disabled(
+    path: String,
+    source: String,
+    key: String,
+    disabled: bool,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let target = managed_path(&PathBuf::from(path.trim()), &source)?;
+        let parts = key.split(':').collect::<Vec<_>>();
+        let [_, event_name, group_index, handler_index] = parts.as_slice() else {
+            return Err("Ungültiger Hook-Schlüssel.".into());
+        };
+        let group_index = group_index.parse::<usize>().map_err(|_| "Ungültiger Hook-Schlüssel.".to_string())?;
+        let handler_index = handler_index.parse::<usize>().map_err(|_| "Ungültiger Hook-Schlüssel.".to_string())?;
+        let contents = fs::read(&target).map_err(|error| error.to_string())?;
+        let mut settings: Value = serde_json::from_slice(&contents).map_err(|error| error.to_string())?;
+        let group = settings
+            .get_mut("hooks")
+            .and_then(|hooks| hooks.get_mut(*event_name))
+            .and_then(|groups| groups.get_mut(group_index))
+            .ok_or_else(|| "Hook wurde nicht gefunden.".to_string())?;
+        let handler = match group.get_mut("hooks").and_then(Value::as_array_mut) {
+            Some(handlers) => handlers
+                .get_mut(handler_index)
+                .ok_or_else(|| "Hook wurde nicht gefunden.".to_string())?,
+            None => group,
+        };
+        let object = handler
+            .as_object_mut()
+            .ok_or_else(|| "Hook wurde nicht gefunden.".to_string())?;
+        if disabled {
+            object.insert("disabled".into(), Value::Bool(true));
+        } else {
+            object.remove("disabled");
+        }
+        let serialized = serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
+        fs::write(target, format!("{serialized}\n")).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+fn claude_cli(args: &[&str], repo: &Path) -> Result<(), String> {
+    let executable = resolve_cli_path("claude")
+        .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+    let output = Command::new(executable)
+        .args(args)
+        .current_dir(repo)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(if message.is_empty() { "Claude-CLI-Befehl ist fehlgeschlagen.".into() } else { message })
+}
+
+fn cli_argument(value: &str) -> Result<&str, String> {
+    let value = value.trim();
+    if value.is_empty()
+        || value.len() > 200
+        || value.starts_with('-')
+        || value.chars().any(char::is_control)
+    {
+        return Err("Ungültiger Name.".into());
+    }
+    Ok(value)
+}
+
+#[tauri::command]
+pub async fn claude_set_plugin_enabled(
+    path: String,
+    plugin: String,
+    enabled: bool,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let repo = PathBuf::from(path.trim());
+        if !repo.is_dir() {
+            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+        }
+        let plugin = cli_argument(&plugin)?;
+        claude_cli(&["plugin", if enabled { "enable" } else { "disable" }, plugin], &repo)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_uninstall_plugin(path: String, plugin: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let repo = PathBuf::from(path.trim());
+        if !repo.is_dir() {
+            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+        }
+        let plugin = cli_argument(&plugin)?;
+        claude_cli(&["plugin", "uninstall", plugin], &repo)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_mcp_remove(path: String, name: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let repo = PathBuf::from(path.trim());
+        if !repo.is_dir() {
+            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+        }
+        let name = cli_argument(&name)?;
+        claude_cli(&["mcp", "remove", name], &repo)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[tauri::command]
 pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
@@ -714,11 +977,37 @@ pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::{
-        hooks_from_file, project_dir_name, sanitize_entry, scan_skills, summarize_file,
-        SUMMARY_EDGE_BYTES,
+        hooks_from_file, managed_path, project_dir_name, sanitize_entry, scan_skills,
+        summarize_file, SUMMARY_EDGE_BYTES,
     };
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn managed_path_only_accepts_dot_claude_files() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let repo = std::env::temp_dir().join(format!("l8git-managed-{suffix}"));
+        let inside = repo.join(".claude").join("commands");
+        fs::create_dir_all(&inside).unwrap();
+        let allowed = inside.join("demo.md");
+        fs::write(&allowed, "demo").unwrap();
+        let outside = repo.join("secrets.md");
+        fs::write(&outside, "nope").unwrap();
+
+        assert!(managed_path(&repo, allowed.to_str().unwrap()).is_ok());
+        assert!(managed_path(&repo, outside.to_str().unwrap()).is_err());
+        assert!(managed_path(
+            &repo,
+            inside.join("..").join("..").join("secrets.md").to_str().unwrap()
+        )
+        .is_err());
+        assert!(managed_path(&repo, allowed.join("missing.md").to_str().unwrap()).is_err());
+
+        fs::remove_dir_all(&repo).ok();
+    }
 
     #[test]
     fn maps_cwd_to_claude_project_directory() {

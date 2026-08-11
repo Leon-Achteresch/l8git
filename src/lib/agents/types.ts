@@ -80,6 +80,7 @@ export interface AgentSkill {
   description: string;
   path: string;
   enabled: boolean;
+  scope?: string;
 }
 
 export interface AgentApp {
@@ -109,6 +110,9 @@ export interface AgentHook {
   eventName: string;
   enabled: boolean;
   trustStatus: string;
+  command?: string | null;
+  matcher?: string | null;
+  source?: string;
 }
 
 export interface AgentPlugin {
