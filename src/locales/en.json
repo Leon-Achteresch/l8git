@@ -211,7 +211,9 @@
     "newWorktree": "New worktree chat in {{repo}}",
     "removeWorktree": "Remove worktree {{name}}",
     "worktreeCreated": "Worktree created on {{branch}}",
-    "worktreeForceConfirm": "Worktree {{name}} has uncommitted changes. Remove it anyway?"
+    "worktreeForceConfirm": "Worktree {{name}} has uncommitted changes. Remove it anyway?",
+    "turnFinished": "Agent turn finished",
+    "openThread": "Open"
   },
   "island": {
     "open": "Show projects and integrations",
