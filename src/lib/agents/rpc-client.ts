@@ -25,7 +25,11 @@ interface RpcResponse {
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (reason: Error) => void;
-  timeout: ReturnType<typeof setTimeout>;
+  timeout: ReturnType<typeof setTimeout> | null;
+}
+
+export interface RpcRequestOptions {
+  timeoutMs?: number | null;
 }
 
 type NotificationListener = (notification: RpcNotification) => void;
@@ -90,27 +94,30 @@ export class JsonRpcProcessClient {
     return this.connectPromise;
   }
 
-  async request<T>(method: string, params?: RpcParams): Promise<T> {
+  async request<T>(method: string, params?: RpcParams, options?: RpcRequestOptions): Promise<T> {
     if (!this.transport || this.closed) {
       throw new Error("Der Agent ist nicht verbunden.");
     }
     const id = this.nextId++;
     const payload = params === undefined ? { method, id } : { method, id, params };
+    const timeoutMs = options?.timeoutMs === undefined ? RPC_REQUEST_TIMEOUT_MS : options.timeoutMs;
     const response = new Promise<T>((resolve, reject) => {
       this.pending.set(id, {
         resolve: (value) => resolve(value as T),
         reject,
-        timeout: setTimeout(() => {
-          this.pending.delete(id);
-          reject(new Error(`Agent-Anfrage ${method} hat das Zeitlimit überschritten.`));
-        }, RPC_REQUEST_TIMEOUT_MS),
+        timeout: timeoutMs === null || timeoutMs <= 0
+          ? null
+          : setTimeout(() => {
+              this.pending.delete(id);
+              reject(new Error(`Agent-Anfrage ${method} hat das Zeitlimit überschritten.`));
+            }, timeoutMs),
       });
     });
     try {
       await this.transport.send(payload);
     } catch (error) {
       const pending = this.pending.get(id);
-      if (pending) clearTimeout(pending.timeout);
+      if (pending?.timeout) clearTimeout(pending.timeout);
       this.pending.delete(id);
       throw error;
     }
@@ -177,7 +184,7 @@ export class JsonRpcProcessClient {
       const pending = this.pending.get(id);
       if (!pending) return;
       this.pending.delete(id);
-      clearTimeout(pending.timeout);
+      if (pending.timeout) clearTimeout(pending.timeout);
       const error = isRecord(message.error)
         ? {
             code: typeof message.error.code === "number" ? message.error.code : undefined,
@@ -197,7 +204,7 @@ export class JsonRpcProcessClient {
 
   private rejectPending(error: Error): void {
     for (const pending of this.pending.values()) {
-      clearTimeout(pending.timeout);
+      if (pending.timeout) clearTimeout(pending.timeout);
       pending.reject(error);
     }
     this.pending.clear();

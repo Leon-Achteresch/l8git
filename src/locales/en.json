@@ -213,7 +213,9 @@
     "worktreeCreated": "Worktree created on {{branch}}",
     "worktreeForceConfirm": "Worktree {{name}} has uncommitted changes. Remove it anyway?",
     "turnFinished": "Agent turn finished",
-    "openThread": "Open"
+    "openThread": "Open",
+    "changedFiles": "{{count}} changed files in the working tree",
+    "changedFiles_one": "1 changed file in the working tree"
   },
   "island": {
     "open": "Show projects and integrations",

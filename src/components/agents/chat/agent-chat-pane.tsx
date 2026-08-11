@@ -7,6 +7,7 @@ import {
   Blocks,
   ChevronRight,
   File,
+  FileDiff,
   FileImage,
   Folder,
   FolderGit2,
@@ -406,6 +407,8 @@ export const AgentChatPane = memo(function AgentChatPane({
   );
   const loadPRs = useRepoStore((state) => state.loadPRs);
   const reloadWorktrees = useRepoStore((state) => state.reloadWorktrees);
+  const reloadStatus = useRepoStore((state) => state.reloadStatus);
+  const changedFileCount = useRepoStore((state) => state.status[path]?.length ?? 0);
   const sessionStatus = useAgentChatStore((state) =>
     threadId ? (state.sessionStatusByThread[threadId] ?? "idle") : "idle",
   );
@@ -480,7 +483,13 @@ export const AgentChatPane = memo(function AgentChatPane({
     if (!path) return;
     void loadPRs(path).catch(() => {});
     void reloadWorktrees(path).catch(() => {});
-  }, [loadPRs, path, reloadWorktrees]);
+    void reloadStatus(path).catch(() => {});
+  }, [loadPRs, path, reloadStatus, reloadWorktrees]);
+
+  useEffect(() => {
+    if (!path || busy) return;
+    void reloadStatus(path).catch(() => {});
+  }, [busy, path, reloadStatus]);
 
   useEffect(() => {
     if (!isClaude || loginStatus !== "waiting") return;
@@ -1052,6 +1061,15 @@ export const AgentChatPane = memo(function AgentChatPane({
               <FolderGit2 className="size-3 shrink-0" />
               <span className="truncate">{worktreeName}</span>
             </>
+          ) : null}
+          {changedFileCount > 0 ? (
+            <span
+              className="flex shrink-0 items-center gap-1"
+              title={t("agentChat.changedFiles", { count: changedFileCount })}
+            >
+              <FileDiff className="size-3 shrink-0" />
+              <span>{changedFileCount}</span>
+            </span>
           ) : null}
           {branchPr ? (
             <button

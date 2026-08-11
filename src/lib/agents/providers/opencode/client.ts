@@ -195,7 +195,7 @@ export class OpenCodeClient {
     stopReason: string;
     usage?: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
   }> {
-    return this.rpc.request("session/prompt", { sessionId, prompt });
+    return this.rpc.request("session/prompt", { sessionId, prompt }, { timeoutMs: null });
   }
 
   cancel(sessionId: string): Promise<void> {

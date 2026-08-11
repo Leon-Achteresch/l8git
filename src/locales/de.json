@@ -213,7 +213,9 @@
     "worktreeCreated": "Worktree auf {{branch}} erstellt",
     "worktreeForceConfirm": "Worktree {{name}} hat nicht committete Änderungen. Trotzdem entfernen?",
     "turnFinished": "Agent-Turn abgeschlossen",
-    "openThread": "Öffnen"
+    "openThread": "Öffnen",
+    "changedFiles": "{{count}} geänderte Dateien im Arbeitsverzeichnis",
+    "changedFiles_one": "1 geänderte Datei im Arbeitsverzeichnis"
   },
   "island": {
     "open": "Projekte und Integrationen anzeigen",
