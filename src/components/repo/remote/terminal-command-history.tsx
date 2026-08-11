@@ -6,6 +6,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
@@ -41,13 +42,15 @@ export function TerminalCommandHistory({ path, activeId }: Props) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           title={t("embeddedTerminal.history")}
-          className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-foreground/8 hover:text-foreground active:scale-95"
+          className="size-7 rounded-full text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
         >
           <History className="size-3.5" />
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent
         align="end"
@@ -74,31 +77,35 @@ export function TerminalCommandHistory({ path, activeId }: Props) {
                       ×{entry.count}
                     </span>
                   )}
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
                     title={t("embeddedTerminal.historyDelete")}
                     onClick={(e) => {
                       e.stopPropagation();
                       remove(path, entry.cmd);
                     }}
-                    className="shrink-0 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-muted-foreground/15 group-hover:opacity-100"
+                    className="size-5 shrink-0 rounded-full p-0 opacity-0 hover:bg-muted-foreground/15 group-hover:opacity-100"
                   >
                     <X className="size-3" />
-                  </button>
+                  </Button>
                 </CommandItem>
               ))}
             </CommandGroup>
           </CommandList>
           {entries.length > 0 && (
             <div className="border-t border-border/50 p-1.5">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => clear(path)}
-                className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="h-auto w-full justify-start gap-2 rounded-xl px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <Trash2 className="size-3" />
                 {t("embeddedTerminal.historyClear")}
-              </button>
+              </Button>
             </div>
           )}
         </Command>

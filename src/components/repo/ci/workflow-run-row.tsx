@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -97,17 +98,19 @@ const JobRow = memo(function JobRow({ job }: { job: WorkflowJob }) {
           </span>
         )}
         {job.html_url && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={(e) => {
               e.stopPropagation();
               window.open(job.html_url!, "_blank", "noopener,noreferrer");
             }}
-            className="shrink-0 rounded p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+            className="shrink-0 opacity-0 group-hover:opacity-100"
             title={t("ci.openInBrowser")}
           >
-            <ExternalLink className="h-3 w-3" />
-          </button>
+            <ExternalLink />
+          </Button>
         )}
         {job.steps.length > 0 && (
           <div className="shrink-0 text-muted-foreground/50">
@@ -310,43 +313,43 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
         {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           {canRerun && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               disabled={actioning === "rerun"}
               onClick={handleRerun}
-              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
               title={t("ci.rerun")}
             >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${actioning === "rerun" ? "animate-spin" : ""}`}
-              />
-            </button>
+              <RefreshCw className={actioning === "rerun" ? "animate-spin" : undefined} />
+            </Button>
           )}
           {canCancel && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               disabled={actioning === "cancel"}
               onClick={handleCancel}
-              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+              className="hover:bg-destructive/10 hover:text-destructive"
               title={t("ci.cancelRun")}
             >
-              <Square
-                className={`h-3.5 w-3.5 ${actioning === "cancel" ? "animate-pulse" : ""}`}
-              />
-            </button>
+              <Square className={actioning === "cancel" ? "animate-pulse" : undefined} />
+            </Button>
           )}
           {run.html_url && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={(e) => {
                 e.stopPropagation();
                 window.open(run.html_url, "_blank", "noopener,noreferrer");
               }}
-              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
               title={t("ci.openInBrowser")}
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </button>
+              <ExternalLink />
+            </Button>
           )}
           <div className="p-1.5 text-muted-foreground/50">
             {expanded ? (

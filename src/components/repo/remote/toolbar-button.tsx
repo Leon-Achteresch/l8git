@@ -53,7 +53,7 @@ export function ToolbarButton({
     >
       {warnDot && (
         <PopIn className="absolute right-1 top-1">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-git-modified" />
         </PopIn>
       )}
       {icon}

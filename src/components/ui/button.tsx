@@ -16,8 +16,15 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+        subtle:
+          "text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
           "bg-destructive/10 text-destructive shadow-xs hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+        success:
+          "bg-git-added/10 text-git-added shadow-xs hover:bg-git-added/20 focus-visible:border-git-added/40 focus-visible:ring-git-added/20 dark:bg-git-added/20 dark:hover:bg-git-added/30",
+        warning:
+          "bg-git-modified/10 text-git-modified shadow-xs hover:bg-git-modified/20 focus-visible:border-git-modified/40 focus-visible:ring-git-modified/20 dark:bg-git-modified/20 dark:hover:bg-git-modified/30",
+        info: "bg-git-branch/10 text-git-branch shadow-xs hover:bg-git-branch/20 focus-visible:border-git-branch/40 focus-visible:ring-git-branch/20 dark:bg-git-branch/20 dark:hover:bg-git-branch/30",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

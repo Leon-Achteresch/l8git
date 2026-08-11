@@ -175,20 +175,20 @@ export const RepoTab = memo(function RepoTab({
       {showSyncMini && (
         <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] text-muted-foreground">
           {showConflictBadge ? (
-            <span className="inline-flex items-center gap-0.5 font-semibold text-amber-700 dark:text-amber-500">
+            <span className="inline-flex items-center gap-0.5 font-semibold text-git-modified">
               <AlertTriangle className="size-3" aria-hidden />
               {conflictCount}
             </span>
           ) : (
             <>
               {showAhead && (
-                <span className="inline-flex items-center gap-px font-semibold text-blue-600 dark:text-blue-400">
+                <span className="inline-flex items-center gap-px font-semibold text-git-branch">
                   <ArrowUp className="size-3" aria-hidden />
                   {ahead}
                 </span>
               )}
               {showBehind && (
-                <span className="inline-flex items-center gap-px font-semibold text-red-700 dark:text-red-400">
+                <span className="inline-flex items-center gap-px font-semibold text-git-removed">
                   <ArrowDown className="size-3" aria-hidden />
                   {behind}
                 </span>

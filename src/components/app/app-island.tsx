@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { ListRow } from "@/components/ui/list-row";
 import {
   AlertTriangle,
   Check,
@@ -57,6 +59,9 @@ const DEFAULT_TOAST_MS = 4000;
 const SNAP = { type: "spring", stiffness: 620, damping: 30, mass: 0.6 } as const;
 const MAGNET = { stiffness: 700, damping: 26, mass: 0.4 } as const;
 const SETTLE_MS = 320;
+
+const ISLAND_ROW = "text-current hover:bg-background/10 hover:text-current data-[active=true]:bg-background/15 data-[active=true]:text-current";
+const ISLAND_ICON = "text-current opacity-60 hover:bg-background/10 hover:text-current hover:opacity-100";
 
 type BusyAgent = { integration: AgentIntegration; title: string };
 
@@ -266,14 +271,13 @@ export function AppIsland() {
               <DynamicIsland
                 view={resolved}
                 compact={
-                  <button
-                    type="button"
+                  <ListRow
                     onClick={() => {
                       if (!idle()) return;
                       setView(PROJECTS_VIEW);
                     }}
                     aria-label={t("island.open")}
-                    className="flex min-w-[110px] max-w-[220px] items-center gap-2"
+                    className={cn(ISLAND_ROW, "min-w-[110px] max-w-[220px] px-0")}
                   >
                     <RepoLogo
                       path={activePath}
@@ -285,7 +289,7 @@ export function AppIsland() {
                     </span>
                     {showDirty && activeDirty > 0 && (
                       <span
-                        className="size-1.5 shrink-0 rounded-full bg-amber-400"
+                        className="size-1.5 shrink-0 rounded-full bg-git-modified"
                         title={t("island.dirty", { count: activeDirty })}
                       />
                     )}
@@ -298,17 +302,16 @@ export function AppIsland() {
                         ))}
                       </span>
                     )}
-                  </button>
+                  </ListRow>
                 }
               >
                 <DynamicIslandView id={AGENT_VIEW} className="!px-3 !py-2">
-                  <button
-                    type="button"
+                  <ListRow
                     onClick={() => {
                       if (!idle()) return;
                       setView(PROJECTS_VIEW);
                     }}
-                    className="flex w-[240px] items-center gap-2.5"
+                    className={cn(ISLAND_ROW, "w-[240px] gap-2.5 px-0")}
                   >
                     {PrimaryBusyIcon && (
                       <PrimaryBusyIcon className="size-4 shrink-0" />
@@ -322,7 +325,7 @@ export function AppIsland() {
                       </span>
                     </span>
                     <ActivityBars />
-                  </button>
+                  </ListRow>
                 </DynamicIslandView>
 
                 <DynamicIslandView id={TOAST_VIEW} className="!px-3 !py-2">
@@ -338,16 +341,17 @@ export function AppIsland() {
                         </span>
                       ) : null}
                     </span>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
                       onClick={() =>
                         toast && sonnerToast.dismiss(toast.id)
                       }
                       aria-label={t("island.close")}
-                      className="shrink-0 rounded p-0.5 opacity-50 transition-opacity hover:opacity-100"
+                      className={ISLAND_ICON}
                     >
-                      <X className="size-3" />
-                    </button>
+                      <X />
+                    </Button>
                   </div>
                 </DynamicIslandView>
 
@@ -357,14 +361,15 @@ export function AppIsland() {
                       <span className="text-[10px] font-medium uppercase tracking-wider opacity-50">
                         {t("island.projects", { count: paths.length })}
                       </span>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
                         onClick={() => setView(null)}
                         aria-label={t("island.close")}
-                        className="rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
+                        className={ISLAND_ICON}
                       >
-                        <X className="size-3" />
-                      </button>
+                        <X />
+                      </Button>
                     </div>
 
                     <div className="max-h-64 min-h-0 overflow-y-auto [scrollbar-width:thin]">
@@ -375,25 +380,20 @@ export function AppIsland() {
                         const busy = busyFor(path);
                         const label = repoLabel(path);
                         return (
-                          <button
+                          <ListRow
                             key={path}
-                            type="button"
+                            active={active}
                             onClick={() => {
                               setActive(path);
                               setView(null);
                             }}
                             title={path}
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
-                              active
-                                ? "bg-background/15"
-                                : "hover:bg-background/10",
-                            )}
+                            className={ISLAND_ROW}
                           >
                             <span
                               className={cn(
                                 "h-6 w-0.5 shrink-0 rounded-full",
-                                active ? "bg-emerald-400" : "bg-transparent",
+                                active ? "bg-git-added" : "bg-transparent",
                               )}
                             />
                             <RepoLogo path={path} label={label} />
@@ -411,7 +411,7 @@ export function AppIsland() {
                               )}
                             </span>
                             {showDirty && dirty > 0 && (
-                              <span className="shrink-0 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                              <span className="shrink-0 rounded-full bg-git-modified/20 px-1.5 py-0.5 text-[10px] font-medium text-git-modified">
                                 {dirty}
                               </span>
                             )}
@@ -429,7 +429,7 @@ export function AppIsland() {
                             {showAgents && busy.length > 0 && (
                               <ActivityBars className="h-2.5" />
                             )}
-                          </button>
+                          </ListRow>
                         );
                       })}
                     </div>
@@ -441,24 +441,26 @@ export function AppIsland() {
                           (b) => b.integration.id === i.id,
                         );
                         return (
-                          <button
+                          <ListRow
                             key={i.id}
-                            type="button"
+                            size="sm"
+                            active={running}
                             onClick={() => {
                               launchAgent(activePath, i);
                               setView(null);
                             }}
                             className={cn(
-                              "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors",
+                              ISLAND_ROW,
+                              "flex-1 justify-center gap-1.5 font-medium",
                               running
-                                ? "bg-emerald-400/15 text-emerald-300"
-                                : "opacity-70 hover:bg-background/10 hover:opacity-100",
+                                ? "bg-git-added/20 data-[active=true]:bg-git-added/20"
+                                : "opacity-70 hover:opacity-100",
                             )}
                           >
-                            <i.icon className="size-3 shrink-0" />
+                            <i.icon />
                             <span className="truncate">{i.label}</span>
                             {busy && <ActivityBars className="h-2" />}
-                          </button>
+                          </ListRow>
                         );
                       })}
                     </div>
@@ -473,37 +475,38 @@ export function AppIsland() {
                           <span className="truncate text-xs font-medium">
                             {activeLabel}
                           </span>
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => setView(null)}
                             aria-label={t("island.close")}
-                            className="rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
+                            className={ISLAND_ICON}
                           >
-                            <X className="size-3" />
-                          </button>
+                            <X />
+                          </Button>
                         </div>
 
-                        <button
-                          type="button"
+                        <ListRow
+                          size="sm"
                           onClick={() => setView(PROJECTS_VIEW)}
-                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-background/10"
+                          className={ISLAND_ROW}
                         >
-                          <FolderGit2 className="size-3.5 shrink-0 opacity-70" />
+                          <FolderGit2 className="opacity-70" />
                           <span className="flex-1 truncate">
                             {t("island.projects", { count: paths.length })}
                           </span>
-                        </button>
+                        </ListRow>
 
-                        <button
-                          type="button"
+                        <ListRow
+                          size="sm"
                           onClick={() => setMenuPage("integrations")}
-                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-background/10"
+                          className={ISLAND_ROW}
                         >
                           <span className="flex-1 truncate">
                             {t("island.integrations")}
                           </span>
-                          <ChevronRight className="size-3.5 shrink-0 opacity-50" />
-                        </button>
+                          <ChevronRight className="opacity-50" />
+                        </ListRow>
 
                         <div className="my-1 border-t border-background/10" />
 
@@ -511,10 +514,10 @@ export function AppIsland() {
                           {t("island.display")}
                         </span>
 
-                        <button
-                          type="button"
+                        <ListRow
+                          size="sm"
                           onClick={toggleBranch}
-                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-background/10"
+                          className={ISLAND_ROW}
                         >
                           <span className="flex size-3.5 shrink-0 items-center justify-center">
                             {showBranch && <Check className="size-3" />}
@@ -522,11 +525,11 @@ export function AppIsland() {
                           <span className="flex-1 truncate">
                             {t("island.showBranch")}
                           </span>
-                        </button>
-                        <button
-                          type="button"
+                        </ListRow>
+                        <ListRow
+                          size="sm"
                           onClick={toggleDirty}
-                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-background/10"
+                          className={ISLAND_ROW}
                         >
                           <span className="flex size-3.5 shrink-0 items-center justify-center">
                             {showDirty && <Check className="size-3" />}
@@ -534,11 +537,11 @@ export function AppIsland() {
                           <span className="flex-1 truncate">
                             {t("island.showDirty")}
                           </span>
-                        </button>
-                        <button
-                          type="button"
+                        </ListRow>
+                        <ListRow
+                          size="sm"
                           onClick={toggleAgents}
-                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-background/10"
+                          className={ISLAND_ROW}
                         >
                           <span className="flex size-3.5 shrink-0 items-center justify-center">
                             {showAgents && <Check className="size-3" />}
@@ -546,63 +549,65 @@ export function AppIsland() {
                           <span className="flex-1 truncate">
                             {t("island.showAgents")}
                           </span>
-                        </button>
+                        </ListRow>
 
                         <div className="my-1 border-t border-background/10" />
 
-                        <button
-                          type="button"
+                        <ListRow
+                          size="sm"
                           onClick={() => {
                             resetPosition();
                             setView(null);
                           }}
-                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-background/10"
+                          className={ISLAND_ROW}
                         >
-                          <RotateCcw className="size-3.5 shrink-0 opacity-70" />
+                          <RotateCcw className="opacity-70" />
                           <span className="flex-1 truncate">
                             {t("island.resetPosition")}
                           </span>
-                        </button>
+                        </ListRow>
                       </>
                     ) : (
                       <>
                         <div className="flex items-center gap-1 px-1 pb-1.5">
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => setMenuPage("root")}
-                            className="rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
+                            className={ISLAND_ICON}
                           >
-                            <ChevronLeft className="size-3.5" />
-                          </button>
+                            <ChevronLeft />
+                          </Button>
                           <span className="flex-1 truncate text-xs font-medium">
                             {t("island.integrations")}
                           </span>
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => setView(null)}
                             aria-label={t("island.close")}
-                            className="rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
+                            className={ISLAND_ICON}
                           >
-                            <X className="size-3" />
-                          </button>
+                            <X />
+                          </Button>
                         </div>
 
                         {AGENT_INTEGRATIONS.map((i) => (
-                          <button
+                          <ListRow
                             key={i.id}
-                            type="button"
+                            size="sm"
                             onClick={() => {
                               launchAgent(activePath, i);
                               setView(null);
                             }}
-                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-background/10"
+                            className={ISLAND_ROW}
                           >
-                            <i.icon className="size-3.5 shrink-0" />
+                            <i.icon />
                             <span className="flex-1 truncate">{i.label}</span>
                             {activeRunning.has(i.id) && (
-                              <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                              <span className="size-1.5 shrink-0 rounded-full bg-git-added" />
                             )}
-                          </button>
+                          </ListRow>
                         ))}
                       </>
                     )}
@@ -660,11 +665,11 @@ function renderToastNode(
 function ToastIcon({ type }: { type?: ToastT["type"] }) {
   const className = "size-4 shrink-0";
   if (type === "success")
-    return <CheckCircle2 className={cn(className, "text-emerald-400")} />;
+    return <CheckCircle2 className={cn(className, "text-git-added")} />;
   if (type === "error")
-    return <XCircle className={cn(className, "text-red-400")} />;
+    return <XCircle className={cn(className, "text-git-removed")} />;
   if (type === "warning")
-    return <AlertTriangle className={cn(className, "text-amber-400")} />;
+    return <AlertTriangle className={cn(className, "text-git-modified")} />;
   if (type === "loading")
     return <Loader2 className={cn(className, "animate-spin opacity-70")} />;
   return <Info className={cn(className, "opacity-70")} />;

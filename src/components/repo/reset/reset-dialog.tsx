@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
@@ -99,9 +101,9 @@ export function ResetDialog({
             <label className="text-xs font-medium text-muted-foreground" htmlFor="reset-target">
               {t("reset.targetLabel")}
             </label>
-            <input
+            <Input
               id="reset-target"
-              className="h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-mono outline-none focus:ring-1 focus:ring-ring"
+              className="font-mono"
               value={target}
               onChange={(e) => setTarget(e.target.value)}
               spellCheck={false}
@@ -111,15 +113,13 @@ export function ResetDialog({
             <p className="text-[11px] text-muted-foreground">{t("reset.targetHint")}</p>
           </div>
 
-          <div className="grid gap-1.5">
+          <RadioGroup value={mode} onValueChange={(value) => setMode(value as ResetMode)} className="grid gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">{t("reset.modeLabel")}</span>
             {modes.map((m) => (
-              <button
+              <label
                 key={m.value}
-                type="button"
-                onClick={() => setMode(m.value)}
                 className={cn(
-                  "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                  "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
                   mode === m.value
                     ? m.danger
                       ? "border-destructive/60 bg-destructive/5"
@@ -127,25 +127,7 @@ export function ResetDialog({
                     : "border-border hover:bg-muted/40",
                 )}
               >
-                <span
-                  className={cn(
-                    "mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 flex items-center justify-center",
-                    mode === m.value
-                      ? m.danger
-                        ? "border-destructive"
-                        : "border-primary"
-                      : "border-muted-foreground/40",
-                  )}
-                >
-                  {mode === m.value && (
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full",
-                        m.danger ? "bg-destructive" : "bg-primary",
-                      )}
-                    />
-                  )}
-                </span>
+                <RadioGroupItem value={m.value} className={cn("mt-0.5", m.danger && mode === m.value && "border-destructive bg-destructive")} />
                 <span className="flex-1 min-w-0">
                   <span
                     className={cn(
@@ -165,9 +147,9 @@ export function ResetDialog({
                     )}
                   />
                 )}
-              </button>
+              </label>
             ))}
-          </div>
+          </RadioGroup>
 
           {mode === "hard" && (
             <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">

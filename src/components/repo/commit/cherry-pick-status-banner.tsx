@@ -56,27 +56,29 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-b border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm",
+        "flex flex-col gap-2 border-b border-git-modified/40 bg-git-modified/10 px-4 py-3 text-sm",
       )}
       role="status"
       aria-live="polite"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <AlertTriangle className="h-4 w-4 text-git-modified" />
         <span className="font-medium">
           {t("cherryPick.pausedAt")}{" "}
-          <code className="rounded bg-amber-500/20 px-1 py-0.5 font-mono text-xs">
+          <code className="rounded bg-git-modified/20 px-1 py-0.5 font-mono text-xs">
             {headShort}
           </code>
         </span>
         {conflicts.length > 0 ? (
-          <button
+          <Button
             type="button"
+            variant="link"
+            size="xs"
             onClick={() => setExpanded((v) => !v)}
-            className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+            className="px-0 text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
           >
             {conflictLabel}
-          </button>
+          </Button>
         ) : (
           <span className="text-xs text-muted-foreground">{t("cherryPick.noConflicts")}</span>
         )}
@@ -148,7 +150,7 @@ export function CherryPickStatusBanner({ path }: { path: string }) {
         </div>
       </div>
       {expanded && conflicts.length > 0 ? (
-        <ul className="grid gap-0.5 rounded-md border border-amber-500/30 bg-background/60 p-2 font-mono text-xs">
+        <ul className="grid gap-0.5 rounded-md border border-git-modified/30 bg-background/60 p-2 font-mono text-xs">
           {conflicts.map((p) => (
             <li key={p} className="truncate" title={p}>
               {p}

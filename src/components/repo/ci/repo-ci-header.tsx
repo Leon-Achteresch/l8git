@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CiMode } from "./repo-ci-panel";
@@ -48,33 +49,22 @@ export function RepoCiHeader({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full transition-all hover:bg-primary/10 hover:text-primary"
           disabled={refreshing}
           onClick={onRefresh}
           aria-label={t("ci.refreshAria")}
           title={t("ci.refreshAria")}
         >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          <RefreshCw className={refreshing ? "animate-spin" : undefined} />
         </Button>
       </div>
 
       {/* Mode toggle */}
-      <div className="flex gap-1 rounded-xl bg-muted/30 p-1">
-        {(["runs", "checks"] as CiMode[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => onModeChange(m)}
-            className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-all ${
-              mode === m
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {m === "runs" ? t("ci.modeRuns") : t("ci.modeChecks")}
-          </button>
-        ))}
-      </div>
+      <Tabs value={mode} onValueChange={(value) => onModeChange(value as CiMode)}>
+        <TabsList className="w-full">
+          <TabsTrigger value="runs">{t("ci.modeRuns")}</TabsTrigger>
+          <TabsTrigger value="checks">{t("ci.modeChecks")}</TabsTrigger>
+        </TabsList>
+      </Tabs>
     </div>
   );
 }

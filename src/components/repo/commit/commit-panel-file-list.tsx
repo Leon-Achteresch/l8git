@@ -4,6 +4,9 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { StatusEntry } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -171,36 +174,40 @@ function VirtualFileListInner({
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={onToggleAll}
-          className="flex shrink-0 items-center text-muted-foreground/50 hover:text-primary"
           title="Toggle all"
         >
           {allState === "checked" ? (
-            <CheckSquare className="h-3.5 w-3.5 text-primary" />
+            <CheckSquare className="text-primary" />
           ) : allState === "indeterminate" ? (
-            <MinusSquare className="h-3.5 w-3.5 text-primary/70" />
+            <MinusSquare className="text-primary/70" />
           ) : (
-            <Square className="h-3.5 w-3.5" />
+            <Square className="text-muted-foreground" />
           )}
-        </button>
+        </Button>
         <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
-        <input
+        <Input
           type="text"
+          variant="bare"
+          inputSize="xs"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("commitPanel.fileListFilter")}
-          className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/35"
+          className="flex-1"
         />
         {searchQuery && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={() => setSearchQuery("")}
-            className="flex items-center text-muted-foreground/50 hover:text-muted-foreground"
           >
-            <X className="h-3 w-3" />
-          </button>
+            <X />
+          </Button>
         )}
         {multiSelectedIds.size > 1 && (
           <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
@@ -208,23 +215,21 @@ function VirtualFileListInner({
           </span>
         )}
         {conflictRows.length > 0 && (
-          <button
+          <Button
             type="button"
+            variant="warning"
+            size="xs"
             onClick={() => openMergeEditor(activePath)}
-            className="ml-auto flex shrink-0 items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/25 dark:text-amber-400"
+            className="ml-auto"
           >
-            <AlertTriangle className="h-2.5 w-2.5" />
+            <AlertTriangle />
             {conflictRows.length}
-          </button>
+          </Button>
         )}
         {onReload && (
-          <button
-            type="button"
-            onClick={onReload}
-            className="flex items-center text-muted-foreground/40 hover:text-muted-foreground"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </button>
+          <Button type="button" variant="ghost" size="icon-xs" onClick={onReload}>
+            <RefreshCw />
+          </Button>
         )}
       </div>
 
@@ -267,7 +272,7 @@ function VirtualFileListInner({
                         <span
                           className={
                             "text-xs font-medium " +
-                            (item.conflict ? "text-amber-500" : "text-muted-foreground")
+                            (item.conflict ? "text-git-modified" : "text-muted-foreground")
                           }
                         >
                           {item.label}
@@ -275,28 +280,32 @@ function VirtualFileListInner({
                       </span>
                       <div className="flex items-center gap-1">
                         {item.id === "staged" && onUnstageAll && (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-xs"
                             title="Unstage all"
                             onClick={(e) => { e.stopPropagation(); onUnstageAll(); }}
-                            className="hidden h-5 w-5 items-center justify-center rounded text-muted-foreground/50 hover:bg-muted hover:text-muted-foreground group-hover:flex"
+                            className="hidden group-hover:inline-flex"
                           >
-                            <Minus className="h-3 w-3" />
-                          </button>
+                            <Minus />
+                          </Button>
                         )}
                         {item.id === "unstaged" && onStageAll && (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-xs"
                             title="Stage all"
                             onClick={(e) => { e.stopPropagation(); onStageAll(); }}
-                            className="hidden h-5 w-5 items-center justify-center rounded text-muted-foreground/50 hover:bg-muted hover:text-muted-foreground group-hover:flex"
+                            className="hidden group-hover:inline-flex"
                           >
-                            <Plus className="h-3 w-3" />
-                          </button>
+                            <Plus />
+                          </Button>
                         )}
-                        <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+                        <Badge variant="secondary" className="font-mono tabular-nums">
                           {item.count}
-                        </span>
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -377,29 +386,31 @@ function ConflictRowWithPath({
       className={
         "group relative flex h-full cursor-pointer select-none items-center gap-2 px-4 py-1.5 text-sm transition-colors " +
         (selected
-          ? "bg-amber-500/15 text-foreground before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-amber-500"
-          : "text-muted-foreground hover:bg-amber-500/10")
+          ? "bg-git-modified/15 text-foreground before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-git-modified"
+          : "text-muted-foreground hover:bg-git-modified/10")
       }
     >
-      <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+      <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-git-modified" />
       <span className="min-w-0 flex-1 truncate text-sm">
         <span className="font-medium">{row.path.split("/").pop()}</span>
         <span className="ml-1.5 truncate text-[11px] opacity-40">
           {row.path.split("/").slice(0, -1).join("/")}
         </span>
       </span>
-      <button
+      <Button
         type="button"
+        variant="warning"
+        size="xs"
         onClick={(e) => {
           e.stopPropagation();
           openMergeEditor(activePath, row.path);
         }}
-        className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-600 ring-1 ring-amber-500/40 hover:bg-amber-500/20 dark:text-amber-400"
+        className="ml-auto"
         title={t("commitPanel.openConflictEditor")}
       >
-        <GitMerge className="h-3 w-3" />
+        <GitMerge />
         {t("commitPanel.resolveVerb")}
-      </button>
+      </Button>
     </div>
   );
 }

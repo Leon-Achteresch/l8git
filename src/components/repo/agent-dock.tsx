@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, SquareTerminal } from "lucide-react";
 import { m } from "motion/react";
@@ -137,18 +138,15 @@ function DockButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="subtle"
+      size="icon"
       onClick={onClick}
       title={label}
       aria-label={label}
       aria-pressed={active}
-      className={cn(
-        "relative flex size-8 shrink-0 items-center justify-center rounded-full transition-colors",
-        active
-          ? "text-foreground"
-          : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground",
-      )}
+      className={cn("relative rounded-full", active && "text-foreground")}
     >
       {active && (
         <MagicPill
@@ -161,11 +159,11 @@ function DockButton({
         <span
           className={cn(
             "absolute bottom-0.5 size-1 rounded-full",
-            active ? "bg-emerald-500" : "bg-emerald-500/60",
+            active ? "bg-git-added" : "bg-git-added/60",
           )}
           aria-hidden
         />
       )}
-    </button>
+    </Button>
   );
 }

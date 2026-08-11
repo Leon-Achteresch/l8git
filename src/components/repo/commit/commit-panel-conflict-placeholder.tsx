@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { GitMerge, AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -14,8 +15,8 @@ export function CommitPanelConflictPlaceholder({
   const openMergeEditor = useUiStore((s) => s.openMergeEditor);
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-full bg-amber-500/10 p-4 ring-1 ring-amber-500/30">
-        <AlertTriangle className="h-8 w-8 text-amber-500" />
+      <div className="rounded-full bg-git-modified/10 p-4 ring-1 ring-git-modified/30">
+        <AlertTriangle className="h-8 w-8 text-git-modified" />
       </div>
       <div className="grid gap-1">
         <p className="text-sm font-medium">{t("commitPanel.mergeConflict")}</p>
@@ -26,14 +27,14 @@ export function CommitPanelConflictPlaceholder({
           {filePath.split("/").pop()}
         </p>
       </div>
-      <button
+      <Button
         type="button"
+        variant="warning"
         onClick={() => openMergeEditor(repoPath, filePath || undefined)}
-        className="flex items-center gap-2 rounded-lg bg-amber-500/15 px-4 py-2 text-sm font-medium text-amber-600 hover:bg-amber-500/25 dark:text-amber-400"
       >
-        <GitMerge className="h-4 w-4" />
+        <GitMerge />
         {t("commitPanel.openConflictEditor")}
-      </button>
+      </Button>
     </div>
   );
 }

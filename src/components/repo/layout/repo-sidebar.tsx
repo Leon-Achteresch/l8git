@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { IslandDock } from "@/components/app/island-dock";
 import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
 import { BranchTree } from "@/components/repo/layout/branch-tree";
@@ -334,12 +335,12 @@ export function RepoSidebar() {
 
           {rareTabs.length > 0 && (
             <>
-              <button
-                type="button"
+              <ListRow
+                size="xs"
                 aria-expanded={showRare}
                 onClick={() => setMoreTabsExpanded(!showRare)}
                 disabled={rareActive}
-                className="mt-1 flex h-6 w-full items-center gap-1 rounded-md px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70 transition-colors duration-150 select-none hover:bg-sidebar-accent/30 hover:text-foreground disabled:opacity-60"
+                className="mt-1 gap-1 px-2 font-semibold uppercase tracking-[0.08em] hover:bg-sidebar-accent/30"
               >
                 <ChevronRight
                   className={cn(
@@ -355,7 +356,7 @@ export function RepoSidebar() {
                     {rareCountSum > 9 ? "9+" : rareCountSum}
                   </span>
                 )}
-              </button>
+              </ListRow>
               <AnimatePresence initial={false}>
                 {showRare && (
                   <m.div
@@ -382,15 +383,16 @@ export function RepoSidebar() {
           <div className="shrink-0 px-2 py-1.5">
             <Popover open={branchPopoverOpen} onOpenChange={setBranchPopoverOpen}>
               <PopoverTrigger asChild>
-                <button
+                <Button
                   type="button"
+                  variant="subtle"
+                  size="icon"
                   title={t("sidebar.branchPopoverTitle")}
                   aria-label={t("sidebar.branchPopoverTitle")}
                   className={cn(
-                    "relative flex h-8 w-full items-center justify-center rounded-md outline-none transition-[background,color,transform] duration-150 select-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/60",
-                    branchPopoverOpen
-                      ? "bg-sidebar-accent/80 text-sidebar-accent-foreground"
-                      : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground",
+                    "relative w-full hover:bg-sidebar-accent/40",
+                    branchPopoverOpen &&
+                      "bg-sidebar-accent/80 text-sidebar-accent-foreground",
                   )}
                 >
                   <GitBranch className="h-4 w-4" />
@@ -399,7 +401,7 @@ export function RepoSidebar() {
                       {totalBranchTagCount > 99 ? "99+" : totalBranchTagCount}
                     </span>
                   )}
-                </button>
+                </Button>
               </PopoverTrigger>
               <PopoverContent
                 side="right"

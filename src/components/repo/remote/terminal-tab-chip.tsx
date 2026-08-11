@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { SPRING_LAYOUT } from "@/lib/motion/ease";
 import { integrationOf } from "@/lib/agent-integrations";
 import { useTerminalActivity } from "@/lib/terminal/activity";
@@ -50,10 +51,12 @@ export function TerminalTabChip({
           aria-hidden
         />
       )}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-left"
+        className="h-auto min-w-0 flex-1 justify-start gap-1.5 truncate px-0 text-left"
         title={tab.title}
       >
         <span className="relative flex size-3.5 shrink-0 items-center justify-center">
@@ -77,21 +80,23 @@ export function TerminalTabChip({
           )}
         </span>
         <span className="truncate font-medium tracking-tight">{tab.title}</span>
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         onClick={(e) => {
           e.stopPropagation();
           onClose();
         }}
         title={closeLabel}
         className={cn(
-          "flex size-4 shrink-0 items-center justify-center rounded-full opacity-0 transition-[opacity,background-color,transform] duration-150 hover:bg-foreground/10 active:scale-90 group-hover:opacity-100 focus-visible:opacity-100",
+          "size-4 shrink-0 rounded-full p-0 opacity-0 hover:bg-foreground/10 group-hover:opacity-100 focus-visible:opacity-100",
           active && "opacity-60",
         )}
       >
         <X className="size-2.5" />
-      </button>
+      </Button>
     </div>
   );
 }

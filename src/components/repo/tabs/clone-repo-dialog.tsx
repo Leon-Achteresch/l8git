@@ -62,11 +62,12 @@ type PlatformCardProps = {
 
 function PlatformCard({ icon, label, sublabel, disabled, signedOutHint, onClick }: PlatformCardProps) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       disabled={disabled}
       onClick={onClick}
-      className="group flex w-full items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-border/80 hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-40"
+      className="group h-auto w-full justify-start gap-3 rounded-lg border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-border/80 hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-40"
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground transition-colors group-hover:bg-muted/80">
         {icon}
@@ -80,7 +81,7 @@ function PlatformCard({ icon, label, sublabel, disabled, signedOutHint, onClick 
       {disabled && signedOutHint && (
         <span className="shrink-0 text-xs text-muted-foreground">{signedOutHint}</span>
       )}
-    </button>
+    </Button>
   );
 }
 
@@ -298,14 +299,16 @@ export function CloneRepoDialog({
 
           {mode === "url" && (
             <div className="grid gap-4">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setMode("pick")}
-                className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                className="w-fit text-xs text-muted-foreground hover:text-foreground"
               >
                 <ChevronLeft className="h-3 w-3" />
                 {t("clone.back")}
-              </button>
+              </Button>
               <div className="grid gap-1.5">
                 <Label htmlFor="clone-url">{t("clone.remoteUrlLabel")}</Label>
                 <Input
@@ -364,18 +367,20 @@ export function CloneRepoDialog({
 
           {mode === "remote" && (
             <div className="grid gap-3">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setMode("pick");
                   setApiHost(null);
                   setRepos([]);
                 }}
-                className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                className="w-fit text-xs text-muted-foreground hover:text-foreground"
               >
                 <ChevronLeft className="h-3 w-3" />
                 {t("clone.back")}
-              </button>
+              </Button>
               {reposLoading ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -397,17 +402,19 @@ export function CloneRepoDialog({
 
           {mode === "dest" && (
             <div className="grid gap-4">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setPickedRepo(null);
                   setMode("remote");
                 }}
-                className="flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                className="w-fit text-xs text-muted-foreground hover:text-foreground"
               >
                 <ChevronLeft className="h-3 w-3" />
                 {t("clone.back")}
-              </button>
+              </Button>
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <p className="text-xs text-muted-foreground">{t("clone.pickedRepoSection")}</p>
                 <p className="truncate text-sm font-medium">{pickedRepo?.full_name}</p>

@@ -73,7 +73,7 @@ export function ToolsPanel({ path }: { path: string }) {
                     {tool.name}
                   </span>
                   {!tool.available && tool.requires && (
-                    <span className="text-[11px] text-amber-500">
+                    <span className="text-[11px] text-git-modified">
                       {t("tools.unavailable", { requires: tool.requires })}
                     </span>
                   )}

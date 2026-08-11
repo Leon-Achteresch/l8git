@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
 export function PanelValue({
@@ -75,22 +76,25 @@ export function RangePills<T extends string>({
   onChange: (key: T) => void;
 }) {
   return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background/40 p-0.5">
+    <ToggleGroup
+      type="single"
+      value={value}
+      onValueChange={(next) => {
+        if (next) onChange(next as T);
+      }}
+      size="sm"
+      spacing={2}
+      className="rounded-lg border border-border bg-background/40 p-0.5"
+    >
       {options.map((opt) => (
-        <button
+        <ToggleGroupItem
           key={opt.key}
-          type="button"
-          onClick={() => onChange(opt.key)}
-          className={cn(
-            "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
-            opt.key === value
-              ? "bg-foreground text-background"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+          value={opt.key}
+          className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background"
         >
           {opt.label}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }

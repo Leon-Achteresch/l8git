@@ -28,13 +28,13 @@ export function getDisplayStatus(entry: SubmoduleEntry): DisplayStatus {
 }
 
 const CLASS_BY_STATUS: Record<DisplayStatus, string> = {
-  synchronized: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  behind: "bg-red-500/15 text-red-600 dark:text-red-400",
-  local_modified: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  synchronized: "bg-git-added/15 text-git-added",
+  behind: "bg-git-removed/15 text-git-removed",
+  local_modified: "bg-git-modified/15 text-git-modified",
   detached: "bg-muted text-muted-foreground",
-  modified: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  modified: "bg-git-modified/15 text-git-modified",
   uninitialized: "bg-muted text-muted-foreground",
-  conflict: "bg-red-500/15 text-red-600 dark:text-red-400",
+  conflict: "bg-git-removed/15 text-git-removed",
 };
 
 export function SubmoduleStatusBadge({

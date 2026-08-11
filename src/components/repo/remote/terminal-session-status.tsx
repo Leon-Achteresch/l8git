@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { SPRING_PANEL } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 import { RotateCcw } from "lucide-react";
@@ -41,11 +42,13 @@ export function TerminalSessionStatus({
             )}
           >
             <span className="min-w-0 flex-1 truncate">{label}</span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={onReopen}
               className={cn(
-                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-medium transition-colors active:scale-[0.97]",
+                "h-auto shrink-0 rounded-full px-2 py-0.5 font-medium",
                 isError
                   ? "bg-destructive/15 hover:bg-destructive/25"
                   : "bg-foreground/5 hover:bg-foreground/10",
@@ -53,7 +56,7 @@ export function TerminalSessionStatus({
             >
               <RotateCcw className="size-3" />
               {reopenLabel}
-            </button>
+            </Button>
           </div>
         </m.div>
       )}

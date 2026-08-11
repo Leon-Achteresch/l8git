@@ -1,3 +1,4 @@
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -223,19 +224,19 @@ export function PullRequestOverviewTab({
                   <label className="text-xs text-muted-foreground">
                     {t("pr.mergeStrategyLabel")}
                   </label>
-                  <select
+                  <NativeSelect
+                    size="sm"
                     value={strategy}
                     onChange={(e) =>
                       setStrategy(e.target.value as MergeStrategy)
                     }
-                    className="rounded border bg-background px-2 py-1 text-xs"
                   >
-                    <option value="merge">{t("pr.strategyMergeCommit")}</option>
-                    <option value="squash">{t("pr.strategySquashOption")}</option>
-                    <option value="rebase">
+                    <NativeSelectOption value="merge">{t("pr.strategyMergeCommit")}</NativeSelectOption>
+                    <NativeSelectOption value="squash">{t("pr.strategySquashOption")}</NativeSelectOption>
+                    <NativeSelectOption value="rebase">
                       {t("pr.strategyRebaseOption")}
-                    </option>
-                  </select>
+                    </NativeSelectOption>
+                  </NativeSelect>
                 </div>
                 <Textarea
                   value={mergeMessage}

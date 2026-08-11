@@ -19,9 +19,11 @@ export function parseUnifiedDiff(text: string): DiffLine[] {
 
   let oldLine = 0;
   let newLine = 0;
+  let numbered = false;
 
   for (const line of lines) {
     if (line.startsWith('@@')) {
+      numbered = true;
       // Parse hunk header: @@ -oldStart[,oldCount] +newStart[,newCount] @@
       const m = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
       if (m) {
@@ -39,15 +41,20 @@ export function parseUnifiedDiff(text: string): DiffLine[] {
     ) {
       out.push({ kind: 'meta', text: line });
     } else if (line.startsWith('+')) {
-      out.push({ kind: 'add', text: line.slice(1), newLineNo: newLine });
+      out.push({ kind: 'add', text: line.slice(1), newLineNo: numbered ? newLine : undefined });
       newLine++;
     } else if (line.startsWith('-')) {
-      out.push({ kind: 'del', text: line.slice(1), oldLineNo: oldLine });
+      out.push({ kind: 'del', text: line.slice(1), oldLineNo: numbered ? oldLine : undefined });
       oldLine++;
     } else if (line.startsWith('\\')) {
       out.push({ kind: 'meta', text: line });
     } else if (line.startsWith(' ')) {
-      out.push({ kind: 'ctx', text: line.slice(1), oldLineNo: oldLine, newLineNo: newLine });
+      out.push({
+        kind: 'ctx',
+        text: line.slice(1),
+        oldLineNo: numbered ? oldLine : undefined,
+        newLineNo: numbered ? newLine : undefined,
+      });
       oldLine++;
       newLine++;
     } else {

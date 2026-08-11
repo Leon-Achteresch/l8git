@@ -1,3 +1,5 @@
+import { Slider } from "@/components/ui/slider";
+import { ListRow } from "@/components/ui/list-row";
 import {
   DndContext,
   DragOverlay,
@@ -155,15 +157,17 @@ function SortableTabItem({
       )}
     >
       {/* Drag handle */}
-      <button
+      <Button
         type="button"
-        className="cursor-grab touch-none text-muted-foreground/40 hover:text-muted-foreground transition-colors focus:outline-none active:cursor-grabbing"
+        variant="ghost"
+        size="icon-sm"
+        className="cursor-grab touch-none active:cursor-grabbing"
         aria-label="Ziehen zum Neuanordnen"
         {...listeners}
         {...attributes}
       >
-        <GripVertical className="h-4 w-4" />
-      </button>
+        <GripVertical />
+      </Button>
 
       {/* Icon */}
       <span
@@ -193,19 +197,16 @@ function SortableTabItem({
       )}
 
       {/* Visibility toggle */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={onToggle}
-        className={cn(
-          "flex h-7 w-7 items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
-          isHidden
-            ? "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/60"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
-        )}
+        className={cn(isHidden && "opacity-50")}
         aria-label={isHidden ? "Tab einblenden" : "Tab ausblenden"}
       >
-        {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
+        {isHidden ? <EyeOff /> : <Eye />}
+      </Button>
     </div>
   );
 }
@@ -233,15 +234,11 @@ function DisplayOption({
 }: DisplayOptionProps) {
   const active = current === value;
   return (
-    <button
-      type="button"
+    <ListRow
+      variant="card"
+      active={active}
       onClick={() => onClick(value)}
-      className={cn(
-        "group relative flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all",
-        active
-          ? "border-primary bg-primary/5 text-foreground shadow-sm"
-          : "border-border/50 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground",
-      )}
+      className="group flex-col items-center gap-3 border-2 p-4 text-center data-[active=true]:border-primary"
     >
       {/* Mini sidebar preview */}
       <div
@@ -263,7 +260,7 @@ function DisplayOption({
           </svg>
         </span>
       )}
-    </button>
+    </ListRow>
   );
 }
 
@@ -318,15 +315,11 @@ function LayoutOption({
 }: LayoutOptionProps) {
   const active = current === value;
   return (
-    <button
-      type="button"
+    <ListRow
+      variant="card"
+      active={active}
       onClick={() => onClick(value)}
-      className={cn(
-        "group relative flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all",
-        active
-          ? "border-primary bg-primary/5 text-foreground shadow-sm"
-          : "border-border/50 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground",
-      )}
+      className="group flex-col items-center gap-3 border-2 p-4 text-center data-[active=true]:border-primary"
     >
       <div
         className={cn(
@@ -347,7 +340,7 @@ function LayoutOption({
           </svg>
         </span>
       )}
-    </button>
+    </ListRow>
   );
 }
 
@@ -666,14 +659,12 @@ export function SidebarCustomizeSection() {
                     {gridSidebarWidth} px
                   </span>
                 </div>
-                <input
-                  type="range"
+                <Slider
                   min={GRID_SIDEBAR_MIN_WIDTH}
                   max={GRID_SIDEBAR_MAX_WIDTH}
                   step={4}
-                  value={gridSidebarWidth}
-                  onChange={e => setGridSidebarWidth(Number(e.target.value))}
-                  className="w-full accent-primary"
+                  value={[gridSidebarWidth]}
+                  onValueChange={([value]) => setGridSidebarWidth(value)}
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground/60">
                   <span>{GRID_SIDEBAR_MIN_WIDTH} px</span>

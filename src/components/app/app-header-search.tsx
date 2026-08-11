@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import {
   useCallback,
   useEffect,
@@ -59,7 +60,6 @@ import { useRepoToolsStore } from "@/lib/repo-tools-store";
 import { useUiStore, type SidebarTab } from "@/lib/ui-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { usePickRepo } from "@/lib/use-pick-repo";
-import { cn } from "@/lib/utils";
 
 const IS_MAC =
   typeof navigator !== "undefined" &&
@@ -394,20 +394,17 @@ export function AppHeaderSearch() {
   return (
     <>
       {/* ── Trigger button ───────────────────────────────────────────────────── */}
-      <button
+      <Button
         type="button"
+        variant="subtle"
+        size="icon-sm"
         onClick={() => setOpen(true)}
         style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
         aria-label={t("appSearch.triggerPlaceholder")}
         title={`${t("appSearch.triggerPlaceholder")} (${MOD_KEY}K)`}
-        className={cn(
-          "inline-flex size-7 shrink-0 cursor-pointer select-none items-center justify-center rounded-md",
-          "text-muted-foreground transition-colors",
-          "hover:bg-foreground/10 hover:text-foreground",
-        )}
       >
-        <Search className="size-4 shrink-0" strokeWidth={2} />
-      </button>
+        <Search strokeWidth={2} />
+      </Button>
 
       {/* ── Command dialog ───────────────────────────────────────────────────── */}
       <CommandDialog

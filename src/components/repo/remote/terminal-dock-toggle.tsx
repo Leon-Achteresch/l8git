@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { SPRING_LAYOUT } from "@/lib/motion/ease";
 import type { TerminalPosition } from "@/lib/terminal-store";
 import { cn } from "@/lib/utils";
@@ -38,14 +39,16 @@ export function TerminalDockToggle({
       ).map(({ id, label, Icon }) => {
         const active = position === id;
         return (
-          <button
+          <Button
             key={id}
             type="button"
+            variant="ghost"
+            size="icon-xs"
             title={label}
             aria-pressed={active}
             onClick={() => onChange(id)}
             className={cn(
-              "relative flex size-6 items-center justify-center rounded-full transition-colors",
+              "relative size-6 rounded-full transition-colors",
               active
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -60,7 +63,7 @@ export function TerminalDockToggle({
               />
             )}
             <Icon className="relative size-3.5" />
-          </button>
+          </Button>
         );
       })}
     </div>

@@ -1,3 +1,5 @@
+import { Checkbox } from "@/components/ui/checkbox";
+import { ListRow } from "@/components/ui/list-row";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Check,
@@ -118,18 +120,15 @@ function BranchDropdown({
     <div className="grid gap-1" ref={containerRef}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <div className="relative">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => !disabled && setOpen((o) => !o)}
           disabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label={ariaLabel}
-          className={cn(
-            "flex w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-left font-mono text-xs shadow-xs transition-colors",
-            "hover:bg-muted aria-expanded:bg-muted disabled:pointer-events-none disabled:opacity-50",
-            "focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-          )}
+          className="w-full justify-start font-mono text-xs"
         >
           <GitBranch className="h-3.5 w-3.5 shrink-0 opacity-60" />
           <span className="min-w-0 flex-1 truncate">
@@ -148,7 +147,7 @@ function BranchDropdown({
           >
             <ChevronDown className="h-3 w-3" />
           </m.span>
-        </button>
+        </Button>
         <AnimatePresence>
           {open ? (
             <m.div
@@ -162,12 +161,13 @@ function BranchDropdown({
             >
               <div className="flex items-center gap-1.5 border-b border-border/60 px-2 py-1.5">
                 <Search className="h-3 w-3 opacity-50" />
-                <input
+                <Input
+                  variant="bare"
+                  inputSize="xs"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t("pr.branchFilterPlaceholder")}
                   autoFocus
-                  className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60"
                 />
               </div>
               <div className="max-h-64 overflow-auto py-1">
@@ -221,16 +221,14 @@ function BranchSection({
       {branches.map((b) => {
         const active = value === b.name;
         return (
-          <button
+          <ListRow
             key={`${title}-${b.name}`}
-            type="button"
+            size="sm"
             role="option"
             aria-selected={active}
+            active={active}
             onClick={() => onPick(b.name)}
-            className={cn(
-              "flex w-full items-center gap-2 rounded px-2 py-1 text-left font-mono text-xs transition-colors hover:bg-muted",
-              active && "bg-muted/60",
-            )}
+            className="font-mono"
           >
             <span
               className={cn(
@@ -248,7 +246,7 @@ function BranchSection({
                 {t("pr.branchCurrentBadge")}
               </span>
             ) : null}
-          </button>
+          </ListRow>
         );
       })}
     </div>
@@ -447,16 +445,14 @@ export function PullRequestCreatePanel({
         </div>
 
         <div className="flex items-center justify-between gap-2 pt-1">
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
+          <Label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox
               checked={draft}
-              onChange={(e) => setDraft(e.target.checked)}
-              className="h-3.5 w-3.5 accent-primary"
+              onCheckedChange={(value) => setDraft(value === true)}
               disabled={busy}
             />
             {t("pr.draftLabel")}
-          </label>
+          </Label>
           <div className="flex items-center gap-1.5">
             <Button
               type="button"

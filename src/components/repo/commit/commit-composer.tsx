@@ -1,3 +1,5 @@
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -129,7 +131,7 @@ export function CommitComposer({
           focused
             ? "border-ring/50 shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_10px_28px_-10px_rgba(0,0,0,0.4)]"
             : "border-border/50",
-          amendMode && "border-amber-500/40",
+          amendMode && "border-git-modified/40",
         )}
       >
         <AnimatePresence initial={false}>
@@ -142,7 +144,7 @@ export function CommitComposer({
               transition={spring}
               className="overflow-hidden"
             >
-              <div className="flex items-center gap-2 bg-amber-500/10 px-3 py-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+              <div className="flex items-center gap-2 bg-git-modified/10 px-3 py-1.5 text-[11px] font-medium text-git-modified">
                 <Pencil className="size-3 shrink-0" />
                 <span className="truncate">{t("commitPanel.amendBanner")}</span>
               </div>
@@ -151,29 +153,32 @@ export function CommitComposer({
         </AnimatePresence>
 
         <div className="flex items-start gap-1 px-2.5 pt-2.5">
-          <input
+          <Input
+            variant="bare"
             value={subject}
             onChange={(e) => onSubjectChange(e.target.value)}
             onKeyDown={onKeyCommit}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder={t("commitPanel.messagePlaceholder")}
-            className="min-w-0 flex-1 bg-transparent py-1 text-[13px] font-medium leading-snug tracking-tight text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground/45"
+            className="flex-1 py-1 text-[13px] font-medium leading-snug tracking-tight placeholder:font-normal"
           />
 
           <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
                   title={t("commitPanel.aiLanguageTitle")}
                   className={cn(
-                    "rounded-md px-1.5 py-1 font-mono text-[10px] tabular-nums text-muted-foreground transition-opacity hover:bg-muted/60 hover:text-foreground",
+                    "font-mono tabular-nums",
                     repoAiLanguage ? "opacity-100" : "opacity-40 hover:opacity-100",
                   )}
                 >
                   {languageShort(effectiveLanguage)}
-                </button>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top">
                 <DropdownMenuLabel>{t("commitPanel.aiLanguageLabel")}</DropdownMenuLabel>
@@ -200,13 +205,14 @@ export function CommitComposer({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               title={t("commitPanel.aiTitle")}
               aria-label={t("commitPanel.aiAria")}
               disabled={stagedFiles === 0 || aiGenerating}
               onClick={onGenerateAi}
-              className="rounded-md p-1.5 text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground disabled:opacity-20"
             >
               <AnimatePresence mode="wait" initial={false}>
                 {aiGenerating ? (
@@ -233,7 +239,7 @@ export function CommitComposer({
                   </m.span>
                 )}
               </AnimatePresence>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -249,7 +255,7 @@ export function CommitComposer({
               className="overflow-hidden"
             >
               <div className="mx-2.5 mt-1 border-t border-border/40" />
-              <textarea
+              <Textarea
                 ref={bodyRef}
                 value={body}
                 onChange={(e) => onBodyChange(e.target.value)}
@@ -264,7 +270,7 @@ export function CommitComposer({
                 }}
                 placeholder={t("commitPanel.bodyPlaceholder")}
                 rows={2}
-                className="w-full resize-none bg-transparent px-2.5 py-2 text-[12.5px] leading-relaxed text-foreground/90 outline-none placeholder:text-muted-foreground/40"
+                className="resize-none border-0 bg-transparent px-2.5 py-2 text-[12.5px] leading-relaxed shadow-none focus-visible:ring-0"
               />
             </m.div>
           ) : (
@@ -277,14 +283,15 @@ export function CommitComposer({
               transition={{ duration: 0.12 }}
               className="px-2.5 pb-0.5"
             >
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="xs"
                 onClick={() => setBodyOpen(true)}
-                className="inline-flex items-center gap-1 rounded-md py-1 text-[11px] text-muted-foreground/50 transition-colors hover:text-muted-foreground"
               >
-                <Plus className="size-3" />
+                <Plus />
                 {t("commitPanel.addDescription")}
-              </button>
+              </Button>
             </m.div>
           )}
         </AnimatePresence>
@@ -325,7 +332,7 @@ export function CommitComposer({
                   className={cn(
                     "font-mono text-[10px] tabular-nums transition-colors duration-200",
                     subjectTone === "over" && "text-destructive",
-                    subjectTone === "warn" && "text-amber-500",
+                    subjectTone === "warn" && "text-git-modified",
                     subjectTone === "ok" && "text-muted-foreground/45",
                   )}
                 >
@@ -335,16 +342,17 @@ export function CommitComposer({
             </AnimatePresence>
           </div>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             title={t("commitPanel.stashTitle")}
             aria-label={t("commitPanel.stashAria")}
             disabled={!canStash}
             onClick={onStash}
-            className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground disabled:opacity-20"
           >
-            <Archive className="size-3.5" />
-          </button>
+            <Archive />
+          </Button>
 
           <div className="flex items-stretch">
             <m.button
@@ -357,7 +365,7 @@ export function CommitComposer({
               className={cn(
                 "relative flex h-8 max-w-[220px] items-center justify-center gap-1.5 overflow-hidden rounded-l-xl px-3 text-[12.5px] font-medium transition-colors",
                 amendMode
-                  ? "bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-500/50"
+                  ? "bg-git-modified text-white hover:bg-git-modified disabled:bg-git-modified/50"
                   : canCommit
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
                     : "bg-muted text-muted-foreground",
@@ -386,7 +394,7 @@ export function CommitComposer({
                   className={cn(
                     "h-8 w-7 shrink-0 rounded-l-none rounded-r-xl border-0 border-l",
                     amendMode
-                      ? "border-amber-600/40 bg-amber-500 text-white hover:bg-amber-600"
+                      ? "border-git-modified/40 bg-git-modified text-white hover:bg-git-modified"
                       : canCommit
                         ? "border-primary-foreground/15 bg-primary text-primary-foreground hover:bg-primary/90"
                         : "border-border/40",

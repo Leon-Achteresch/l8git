@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -75,7 +76,7 @@ export function WorktreeList({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.65_0.14_250_/_0.12)] text-[oklch(0.65_0.14_250)]">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-git-branch/12 text-git-branch">
             <GitFork className="h-4 w-4" />
           </div>
           <div className="min-w-0">
@@ -137,19 +138,19 @@ export function WorktreeList({
         </div>
       </div>
 
-      <button
-        type="button"
+      <ListRow
+        size="sm"
         onClick={() => setHintOpen((v) => !v)}
-        className="flex shrink-0 items-center gap-1.5 border-b border-border/40 bg-muted/30 px-3 py-2 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/60"
+        className="gap-1.5 rounded-none border-b border-border/40 bg-muted/30 px-3 py-2"
       >
-        <Info className="h-3.5 w-3.5 shrink-0 text-[oklch(0.65_0.14_250_/_0.7)]" />
+        <Info className="text-git-branch" />
         <span className="font-medium">{t("worktree.whatAreWorktrees")}</span>
         {hintOpen ? (
-          <ChevronDown className="ml-auto h-3.5 w-3.5" />
+          <ChevronDown className="ml-auto" />
         ) : (
-          <ChevronRight className="ml-auto h-3.5 w-3.5" />
+          <ChevronRight className="ml-auto" />
         )}
-      </button>
+      </ListRow>
       {hintOpen && (
         <div className="shrink-0 border-b border-border/40 bg-muted/20 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
           <p className="mb-1.5">{t("worktree.helpP1")}</p>

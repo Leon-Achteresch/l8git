@@ -1,3 +1,4 @@
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
@@ -129,18 +130,18 @@ export function RemoteTagDeleteDialog({
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               {t("editRemote.nameLabelExisting")}
             </label>
-            <select
+            <NativeSelect
+              className="w-full"
               value={selected}
               onChange={(e) => setSelected(e.target.value)}
               disabled={busy}
-              className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-ring"
             >
               {remotes.map((r) => (
-                <option key={r.name} value={r.name}>
+                <NativeSelectOption key={r.name} value={r.name}>
                   {r.name}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         )}
         <div className="flex justify-end gap-2">

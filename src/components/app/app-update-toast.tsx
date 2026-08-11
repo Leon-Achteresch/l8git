@@ -129,14 +129,15 @@ export function AppUpdateToast() {
           <div className="flex items-center gap-1.5 border-t border-border/50 px-3.5 py-2.5">
             {phase === "available" && (
               <>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
                   onClick={handleInfo}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <ExternalLink className="size-3" />
+                  <ExternalLink />
                   {t("updates.toastInfo")}
-                </button>
+                </Button>
                 <div className="flex-1" />
                 <Button
                   type="button"

@@ -92,7 +92,7 @@ export function SubmoduleDetail({
               </p>
               <p className="font-mono text-sm font-semibold">{shortRemote}</p>
               {entry.behind_count != null && entry.behind_count > 0 && (
-                <span className="text-[10px] text-red-500">
+                <span className="text-[10px] text-git-removed">
                   {t("submodule.commitsBehindShort", {
                     count: entry.behind_count,
                   })}

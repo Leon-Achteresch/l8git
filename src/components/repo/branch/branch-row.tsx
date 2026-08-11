@@ -118,7 +118,7 @@ function BranchRowInner({
       </span>
 
       {branch.behind != null && branch.behind > 0 && (
-        <span className='flex shrink-0 items-center gap-px rounded bg-red-500/10 px-1 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-400/10 dark:text-red-400'>
+        <span className='flex shrink-0 items-center gap-px rounded bg-git-removed/10 px-1 py-0.5 text-[10px] font-semibold text-git-removed dark:bg-git-removed/10 dark:text-git-removed'>
           <ArrowDown className='size-3' aria-hidden />
           {branch.behind}
         </span>

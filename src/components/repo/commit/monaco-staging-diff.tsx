@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import "@/lib/monaco-setup";
 import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
@@ -166,18 +167,14 @@ export function MonacoStagingDiff({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-end gap-2 border-b border-border/60 px-3 py-1">
         {isDirty && (
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          <span className="h-1.5 w-1.5 rounded-full bg-git-modified" />
         )}
-        <button
+        <Button
           type="button"
+          variant={isDirty && !saving ? "default" : "ghost"}
+          size="sm"
           disabled={!isDirty || saving}
           onClick={handleSave}
-          className={
-            "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors " +
-            (isDirty && !saving
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "cursor-default text-muted-foreground")
-          }
         >
           {saving ? (
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -191,7 +188,7 @@ export function MonacoStagingDiff({
             : savedFlash
               ? t("commitPanel.editFileSaved")
               : t("commitPanel.editFileSave")}
-        </button>
+        </Button>
       </div>
 
       <div className="min-h-0 flex-1">

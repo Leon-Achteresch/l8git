@@ -1,3 +1,4 @@
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
@@ -6,7 +7,6 @@ import { Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import {
   CheckCircle2,
-  ChevronDown,
   FileCode2,
   Loader2,
   Save,
@@ -171,25 +171,23 @@ export function CiYamlEditor({
         {/* File selector */}
         <div className="relative flex min-w-0 flex-1 items-center gap-1.5">
           <FileCode2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-          <div className="relative min-w-0 flex-1">
-            <select
-              value={selectedFile ?? ""}
-              onChange={(e) => setSelectedFile(e.target.value)}
-              className="w-full cursor-pointer appearance-none rounded-lg bg-muted/40 py-1 pl-2.5 pr-7 text-xs font-medium text-foreground outline-none transition hover:bg-muted/70 focus:ring-1 focus:ring-primary/50"
-            >
-              {files.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/70" />
-          </div>
+          <NativeSelect
+            size="sm"
+            className="min-w-0 flex-1"
+            value={selectedFile ?? ""}
+            onChange={(e) => setSelectedFile(e.target.value)}
+          >
+            {files.map((f) => (
+              <NativeSelectOption key={f} value={f}>
+                {f}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
         </div>
 
         {/* Dirty indicator */}
         {isDirty && (
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" title="Unsaved changes" />
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-git-modified" title="Unsaved changes" />
         )}
 
         {/* Save button */}

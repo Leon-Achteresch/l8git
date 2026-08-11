@@ -24,7 +24,7 @@ export function WorktreeStatusBadge({ entry }: { entry: WorktreeEntry }) {
 
   if (entry.is_locked) {
     const badge = (
-      <span className="inline-flex items-center rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+      <span className="inline-flex items-center rounded-md bg-git-modified/15 px-1.5 py-0.5 text-[10px] font-semibold text-git-modified">
         {t("worktree.badgeLocked")}
       </span>
     );

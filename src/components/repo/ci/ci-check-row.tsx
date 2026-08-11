@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, ExternalLink, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -91,29 +92,31 @@ export function CiCheckRow({
 
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           {canRerun && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               disabled={rerunning}
               onClick={(ev) => void handleRerun(ev)}
-              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-40"
               title={t("ci.rerun")}
             >
-              <RotateCcw className={`h-4 w-4 ${rerunning ? "animate-spin" : ""}`} />
-            </button>
+              <RotateCcw className={rerunning ? "animate-spin" : undefined} />
+            </Button>
           )}
           {check.html_url && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
                 window.open(check.html_url!, "_blank", "noopener,noreferrer");
               }}
-              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
               title={t("ci.openInBrowser")}
             >
-              <ExternalLink className="h-4 w-4" />
-            </button>
+              <ExternalLink />
+            </Button>
           )}
 
           <div className="p-2 text-muted-foreground transition-transform">

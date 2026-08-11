@@ -13,13 +13,12 @@ function CommitBranchBadgeInner({
 }) {
   const shell = cn(
     "max-w-[14rem] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
-    tone === "dark" &&
-      "border border-slate-200/90 bg-slate-100 text-slate-900 dark:border-zinc-600/80 dark:bg-zinc-800 dark:text-zinc-100",
+    tone === "dark" && "border border-border bg-secondary text-secondary-foreground",
     tone === "soft" && "border border-border/70 bg-background text-foreground/90",
     tone === "blue" &&
-      "border border-blue-200/80 bg-blue-100 text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/60 dark:text-blue-100",
+      "border border-git-branch/30 bg-git-branch/15 text-git-branch",
     tone === "rose" &&
-      "border border-rose-200/80 bg-rose-100 text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/60 dark:text-rose-100",
+      "border border-git-removed/30 bg-git-removed/15 text-git-removed",
   );
   return (
     <PopIn title={name} className={shell}>

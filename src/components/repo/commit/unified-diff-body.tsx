@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import {
   buildHunkPatch,
   buildPatchesForSelection,
@@ -111,20 +112,17 @@ function HunkActionButton({
   const { t } = useTranslation();
   const isStaged = sector === "staged";
   return (
-    <button
+    <Button
       type="button"
+      variant={isStaged ? "destructive" : "success"}
+      size="xs"
       onClick={onClick}
       title={isStaged ? t("commitPanel.hunkUnstageTitle") : t("commitPanel.hunkStageTitle")}
-      className={
-        "flex h-[14px] shrink-0 items-center gap-0.5 rounded px-1 text-[9px] font-semibold uppercase tracking-wider transition-opacity " +
-        (isStaged
-          ? "bg-git-removed/20 text-git-removed hover:bg-git-removed/40"
-          : "bg-git-added/20 text-git-added hover:bg-git-added/40")
-      }
+      className="h-[14px] gap-0.5 px-1 text-[9px] uppercase tracking-wider"
     >
-      {isStaged ? <Minus className="h-2 w-2" /> : <Plus className="h-2 w-2" />}
+      {isStaged ? <Minus /> : <Plus />}
       {isStaged ? t("commitPanel.hunkUnstageVerb") : t("commitPanel.hunkStageVerb")}
-    </button>
+    </Button>
   );
 }
 
@@ -379,32 +377,30 @@ function InteractiveVirtualDiffList({
             <span className="font-semibold text-foreground">{linesSelectedLabel}</span>
           </span>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={onClearSelection}
-              className="rounded px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/60"
             >
               {t("diff.cancel")}
-            </button>
+            </Button>
             {sector === "unstaged" && onDiscardHunk && (
-              <button
+              <Button
                 type="button"
+                variant="destructive"
+                size="xs"
                 onClick={handleDiscardSelectionButton}
-                className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
               >
-                <Trash2 className="h-3 w-3" />
+                <Trash2 />
                 {discardLabel}
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="button"
+              variant={sector === "unstaged" ? "success" : "destructive"}
+              size="xs"
               onClick={handleApplySelectionButton}
-              className={
-                "flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold transition-colors " +
-                (sector === "unstaged"
-                  ? "bg-git-added/20 text-git-added hover:bg-git-added/40"
-                  : "bg-git-removed/20 text-git-removed hover:bg-git-removed/40")
-              }
             >
               {sector === "unstaged" ? (
                 <Plus className="h-3 w-3" />
@@ -412,7 +408,7 @@ function InteractiveVirtualDiffList({
                 <Minus className="h-3 w-3" />
               )}
               {applyLabel}
-            </button>
+            </Button>
           </div>
         </div>
       )}

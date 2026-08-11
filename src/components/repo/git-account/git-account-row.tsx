@@ -50,7 +50,7 @@ export function GitAccountRow({ account, onSignOut, onRemoveCustom }: Props) {
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <CheckCircle2 className="size-3.5 text-emerald-500" />
+            <CheckCircle2 className="size-3.5 text-git-added" />
             <span>
               {account.username
                 ? t("gitAccount.signedInWithUser", { user: account.username })

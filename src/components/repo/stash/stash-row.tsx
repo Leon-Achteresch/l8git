@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -10,7 +11,6 @@ import { toastError } from "@/lib/error-toast";
 import { formatDate } from "@/lib/format";
 import type { StashEntry } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
-import { cn } from "@/lib/utils";
 import { Archive, GitBranch, Inbox, Layers, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -37,17 +37,13 @@ export function StashRow({
   const title = entry.subject.trim() || entry.message;
 
   const inner = (
-    <button
-      type="button"
+    <ListRow
+      variant="accent"
+      active={selected}
       onClick={onSelect}
-      className={cn(
-        "flex w-full cursor-pointer items-start gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-        selected
-          ? "bg-primary/12 text-primary ring-1 ring-primary/25"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-      )}
+      className="cursor-pointer items-start rounded-lg"
     >
-      <Archive className="mt-0.5 h-4 w-4 shrink-0 opacity-70" />
+      <Archive className="mt-0.5 opacity-70" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-mono text-[11px] opacity-60">
@@ -60,7 +56,7 @@ export function StashRow({
         <p className="mt-0.5 truncate font-medium text-foreground/90">{title}</p>
         <p className="mt-0.5 text-[10px] opacity-60">{formatDate(entry.date)}</p>
       </div>
-    </button>
+    </ListRow>
   );
 
   return (
