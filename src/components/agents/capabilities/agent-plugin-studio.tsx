@@ -238,7 +238,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
                   <div className="mb-1 flex items-center gap-2 px-1.5 py-1">
                     <Store className="size-3 text-muted-foreground" />
                     <p className="min-w-0 flex-1 truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{marketplace.displayName || marketplace.name}</p>
-                    <button type="button" onClick={() => setMarketplaceRemoveTarget(marketplace)} className="text-muted-foreground/60 hover:text-destructive" aria-label={t("agentCapabilities.plugins.removeMarketplace")}><X className="size-3" /></button>
+                    <Button type="button" variant="ghost" size="icon-xs" onClick={() => setMarketplaceRemoveTarget(marketplace)} className="size-5 text-muted-foreground/60 hover:text-destructive" aria-label={t("agentCapabilities.plugins.removeMarketplace")}><X className="size-3" /></Button>
                   </div>
                   <div className="space-y-0.5">
                     {marketplacePlugins.map((plugin) => (

@@ -4,6 +4,7 @@ import {
   Boxes,
   Braces,
   AtSign,
+  Clock,
   Copy,
   CornerUpLeft,
   FileCode2,
@@ -38,6 +39,7 @@ import { StreamingResponse } from "@/components/agents/ui/streaming-response";
 import { TodoList, type TodoItem } from "@/components/agents/ui/todo-list";
 import { ToolResult, ToolResultOutput } from "@/components/agents/ui/tool-result";
 import type { AgentItem, AgentTurn } from "@/lib/agents/types";
+import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { parseUnifiedDiff } from "@/lib/unified-diff";
 
@@ -67,6 +69,24 @@ function LazyJsonOutput({ value, highlight }: { value: unknown; highlight: boole
   return (
     <ToolResultOutput language="json" highlight={highlight}>
       {outputText}
+    </ToolResultOutput>
+  );
+}
+
+function plainText(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const blocks = value.filter(isRecord);
+  if (blocks.length !== value.length || !blocks.every((block) => block.type === "text")) return null;
+  return blocks.map((block) => stringValue(block.text)).join("\n");
+}
+
+function LazyToolOutput({ value, highlight }: { value: unknown; highlight: boolean }) {
+  const text = plainText(value);
+  if (text === null) return <LazyJsonOutput value={value} highlight={highlight} />;
+  return (
+    <ToolResultOutput language="text" highlight={highlight}>
+      {boundedTail(text, 160_000, 2_000)}
     </ToolResultOutput>
   );
 }
@@ -126,13 +146,15 @@ function diffLines(diff: string): FileDiffLine[] {
         const tail = diff.slice(tailBreak >= 0 ? tailBreak + 1 : -edge);
         return `${head}\n … ${diff.length - head.length - tail.length} Diff-Zeichen ausgelassen …\n${tail}`;
       })();
-  const lines = parseUnifiedDiff(source).map<FileDiffLine>((line, index) => ({
-    id: `${index}-${line.oldLineNo ?? ""}-${line.newLineNo ?? ""}`,
-    type: line.kind === "add" ? "added" : line.kind === "del" ? "removed" : "context",
-    oldLine: line.oldLineNo,
-    newLine: line.newLineNo,
-    content: line.text,
-  }));
+  const lines = parseUnifiedDiff(source)
+    .filter((line) => line.kind !== "meta" && line.kind !== "hunk")
+    .map<FileDiffLine>((line, index) => ({
+      id: `${index}-${line.oldLineNo ?? ""}-${line.newLineNo ?? ""}`,
+      type: line.kind === "add" ? "added" : line.kind === "del" ? "removed" : "context",
+      oldLine: line.oldLineNo,
+      newLine: line.newLineNo,
+      content: line.text,
+    }));
   const maxRenderedLines = 1_600;
   if (lines.length <= maxRenderedLines) return lines;
   const edge = maxRenderedLines / 2;
@@ -194,6 +216,7 @@ function quoted(text: string): string {
 
 function UserMessage({ item }: { item: AgentItem }) {
   const content = userContent(item);
+  const queued = item.__queued === true;
   return (
     <ItemMenu
       entries={[
@@ -214,6 +237,7 @@ function UserMessage({ item }: { item: AgentItem }) {
         },
       ]}
     >
+    <div className={queued ? "opacity-60" : undefined}>
     <MessageBubble align="end" variant="solid" animateIn>
       <MessageBubbleContent>
         <p className="whitespace-pre-wrap">{content.text}</p>
@@ -249,6 +273,13 @@ function UserMessage({ item }: { item: AgentItem }) {
         ) : null}
       </MessageBubbleContent>
     </MessageBubble>
+    {queued ? (
+      <div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+        <Clock className="size-3 animate-pulse" />
+        In Warteschlange – wird an die KI übermittelt
+      </div>
+    ) : null}
+    </div>
     </ItemMenu>
   );
 }
@@ -363,7 +394,7 @@ function ReasoningItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
       items={rows}
       status={working ? "working" : "complete"}
       duration={(turn.durationMs ?? 0) / 1000}
-      activeLabel={provider === "claude" ? "Claude denkt nach…" : "Codex denkt nach…"}
+      activeLabel={`${agentProviderMeta(provider).label} denkt nach…`}
       summary="Gedankengang"
       maxHeight={180}
     />
@@ -478,8 +509,18 @@ function FileChangeItem({ item }: { item: AgentItem }) {
   );
 }
 
+function toolSubject(args: unknown): string {
+  if (!isRecord(args)) return "";
+  for (const key of ["file_path", "path", "pattern", "query", "url", "command", "prompt", "description"]) {
+    const value = stringValue(args[key]);
+    if (value) return value.length > 120 ? `${value.slice(0, 120)}…` : value;
+  }
+  return "";
+}
+
 function ToolCallItem({ item }: { item: AgentItem }) {
   const tool = stringValue(item.tool, "Tool");
+  const subject = toolSubject(item.arguments);
   const server = stringValue(item.server, stringValue(item.namespace, "Agent"));
   const output = item.result ?? item.contentItems ?? item.error ?? item.arguments;
   const status = toolStatus(item);
@@ -506,12 +547,13 @@ function ToolCallItem({ item }: { item: AgentItem }) {
     <ToolResult
       tool={server}
       title={tool}
+      meta={subject || undefined}
       status={status}
       icon={<Braces className="size-4" />}
       onCopy={() => navigator.clipboard?.writeText(prettyJson(output))}
       defaultOpen={status === "error"}
     >
-      <LazyJsonOutput value={output} highlight={status !== "running"} />
+      <LazyToolOutput value={output} highlight={status !== "running"} />
       {arrayValue(item.progress).length > 0 ? (
         <div className="mt-2 space-y-1 border-t border-border/50 pt-2 text-xs text-muted-foreground">
           {arrayValue(item.progress).map((message, index) => (
@@ -756,7 +798,7 @@ export const AgentItemView = memo(function AgentItemView({ item, turn }: { item:
   }
   return (
     <ToolResult
-      tool={provider === "claude" ? "Claude Code" : "Codex"}
+      tool={agentProviderMeta(provider).label}
       title={item.type}
       status={turn.status === "inProgress" ? "running" : "success"}
       icon={item.type === "webSearch" ? <Search className="size-4" /> : undefined}

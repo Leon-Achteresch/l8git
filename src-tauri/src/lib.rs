@@ -2,6 +2,7 @@ mod agent_transport;
 mod claude;
 mod cmd;
 mod credentials;
+mod cursor;
 mod favicon;
 mod git;
 mod pr;
@@ -42,6 +43,8 @@ pub fn run() {
             agent_transport::agent_transport_send,
             agent_transport::agent_transport_close,
             agent_transport::agent_transport_close_all,
+            agent_transport::opencode_delete_session,
+            agent_transport::opencode_cli,
             claude::claude_list_sessions,
             claude::claude_read_session,
             claude::claude_rename_session,
@@ -53,6 +56,11 @@ pub fn run() {
             claude::claude_list_skills,
             claude::claude_list_hooks,
             claude::claude_mcp_login,
+            cursor::cursor_list_sessions,
+            cursor::cursor_delete_session,
+            cursor::cursor_rename_session,
+            cursor::cursor_cli,
+            cursor::cursor_list_hooks,
             git::open_repo,
             git::git_init_repo,
             git::repo_log_page,

@@ -11,6 +11,10 @@ export interface AgentTransportOpenOptions {
   model?: string;
   effort?: string;
   permissionMode?: string;
+  prompt?: string;
+  sandbox?: string;
+  addDirs?: string[];
+  worktree?: string;
 }
 
 export interface AgentTransportHandlers {

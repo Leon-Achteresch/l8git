@@ -257,6 +257,15 @@ export interface AgentTurn {
   durationMs?: number | null;
 }
 
+export interface AgentTokenUsage {
+  totalTokens: number;
+  modelContextWindow: number | null;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+}
+
 export interface AgentConversation {
   threadId: string;
   path: string;
@@ -271,10 +280,7 @@ export interface AgentConversation {
   sandboxMode: AgentSandboxMode;
   turns: AgentTurn[];
   activeTurnId: string | null;
-  tokenUsage?: {
-    totalTokens: number;
-    modelContextWindow: number | null;
-  };
+  tokenUsage?: AgentTokenUsage;
   loading: boolean;
   error: string | null;
 }

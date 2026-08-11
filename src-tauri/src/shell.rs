@@ -223,30 +223,51 @@ fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
 /// running in the embedded terminal (Claude Code recognises image file paths,
 /// but not raw clipboard bytes on Windows). Returns the absolute path.
 #[tauri::command]
-pub async fn save_clipboard_image(bytes: Vec<u8>, ext: String) -> Result<String, String> {
-    tokio::task::spawn_blocking(move || _save_clipboard_image(bytes, ext))
+pub async fn save_clipboard_image(
+    bytes: Vec<u8>,
+    ext: String,
+    name: Option<String>,
+) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || _save_clipboard_image(bytes, ext, name))
         .await
         .map_err(|e| e.to_string())?
 }
 
-fn _save_clipboard_image(bytes: Vec<u8>, ext: String) -> Result<String, String> {
+fn _save_clipboard_image(bytes: Vec<u8>, ext: String, name: Option<String>) -> Result<String, String> {
     if bytes.is_empty() {
         return Err("Leeres Bild.".into());
     }
-    let ext = match ext.trim().to_ascii_lowercase().as_str() {
-        "jpg" | "jpeg" => "jpg",
-        "gif" => "gif",
-        "webp" => "webp",
-        _ => "png",
-    };
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     let mut dir = std::env::temp_dir();
     dir.push("l8git-clip");
+    let file_name = match name
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .map(|n| {
+            n.chars()
+                .map(|c| if c.is_alphanumeric() || matches!(c, '.' | '-' | '_' | ' ') { c } else { '_' })
+                .collect::<String>()
+        }) {
+        Some(safe) => {
+            dir.push(format!("{nanos}"));
+            safe
+        }
+        None => {
+            let ext = match ext.trim().to_ascii_lowercase().as_str() {
+                "jpg" | "jpeg" => "jpg",
+                "gif" => "gif",
+                "webp" => "webp",
+                _ => "png",
+            };
+            format!("clip-{nanos}.{ext}")
+        }
+    };
     std::fs::create_dir_all(&dir).map_err(|e| format!("{e}"))?;
-    dir.push(format!("clip-{nanos}.{ext}"));
+    dir.push(file_name);
     std::fs::write(&dir, &bytes).map_err(|e| format!("{e}"))?;
     Ok(dir.to_string_lossy().into_owned())
 }

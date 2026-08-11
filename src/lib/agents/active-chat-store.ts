@@ -2,6 +2,8 @@ import { useStore } from "zustand";
 
 import { useAgentChatStore as useCodexChatStore, type AgentChatState } from "@/lib/agents/chat-store";
 import { claudeChatStore } from "@/lib/agents/providers/claude/chat-store";
+import { cursorChatStore } from "@/lib/agents/providers/cursor/chat-store";
+import { openCodeChatStore } from "@/lib/agents/providers/opencode/chat-store";
 import {
   activeAgentProvider,
   useAgentProviderStore,
@@ -9,7 +11,10 @@ import {
 } from "@/lib/agents/provider-store";
 
 export function chatStoreFor(provider: NativeAgentProvider) {
-  return provider === "claude" ? claudeChatStore : useCodexChatStore;
+  if (provider === "claude") return claudeChatStore;
+  if (provider === "opencode") return openCodeChatStore;
+  if (provider === "cursor") return cursorChatStore;
+  return useCodexChatStore;
 }
 
 function activeStore() {

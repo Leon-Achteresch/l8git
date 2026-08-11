@@ -254,7 +254,7 @@ export function AgentCapabilityCenter({
     <section className="flex h-full min-h-0 flex-col">
       <header className="ag-line shrink-0 border-b">
         <div className="flex h-12 items-center gap-2 px-3">
-          <button type="button" className="ag-icon-btn" onClick={onBack} title={t("agentCapabilities.backToChat")} aria-label={t("agentCapabilities.backToChat")}><ArrowLeft className="size-4" /></button>
+          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={onBack} title={t("agentCapabilities.backToChat")} aria-label={t("agentCapabilities.backToChat")}><ArrowLeft className="size-4" /></Button>
           <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]"><Blocks className="size-3.5" /></span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{t("agentCapabilities.title")}</p>
@@ -264,16 +264,18 @@ export function AgentCapabilityCenter({
             <Search className="ag-faint pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2" />
             <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("agentCapabilities.search")} className="h-8 rounded-full border-[var(--ag-line)] bg-[var(--ag-surface-2)] pl-8 text-[11px] shadow-none" />
           </div>
-          <button type="button" className="ag-icon-btn" onClick={() => setImportOpen(true)} title={t("agentCapabilities.import")} aria-label={t("agentCapabilities.import")}><Import className="size-4" /></button>
-          <button type="button" className="ag-icon-btn" onClick={() => void exportSnapshot().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("agentCapabilities.export")} aria-label={t("agentCapabilities.export")}><Download className="size-4" /></button>
-          <button type="button" className="ag-icon-btn" onClick={() => setConfigOpen(true)} title={t("agentCapabilities.config.title")} aria-label={t("agentCapabilities.config.title")}><SlidersHorizontal className="size-4" /></button>
-          <button type="button" className="ag-icon-btn" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("common.refresh")} aria-label={t("common.refresh")}><RefreshCw className={cn("size-4", loading && "animate-spin")} /></button>
+          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => setImportOpen(true)} title={t("agentCapabilities.import")} aria-label={t("agentCapabilities.import")}><Import className="size-4" /></Button>
+          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => void exportSnapshot().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("agentCapabilities.export")} aria-label={t("agentCapabilities.export")}><Download className="size-4" /></Button>
+          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => setConfigOpen(true)} title={t("agentCapabilities.config.title")} aria-label={t("agentCapabilities.config.title")}><SlidersHorizontal className="size-4" /></Button>
+          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("common.refresh")} aria-label={t("common.refresh")}><RefreshCw className={cn("size-4", loading && "animate-spin")} /></Button>
         </div>
         <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={t("agentCapabilities.title")}>
           {SECTIONS.map(({ id, Icon }) => (
-            <button
+            <Button
               key={id}
               type="button"
+              variant="ghost"
+              size="sm"
               aria-pressed={section === id}
               onClick={() => { setSection(id); setQuery(""); }}
               className={cn(
@@ -284,7 +286,7 @@ export function AgentCapabilityCenter({
               <Icon className="size-3.5" />
               {t(`agentCapabilities.sections.${id}`)}
               <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
-            </button>
+            </Button>
           ))}
         </nav>
       </header>
@@ -309,8 +311,8 @@ export function AgentCapabilityCenter({
           ) : (
             <div className="space-y-4">
               <div className="grid gap-2 sm:grid-cols-2">
-                {config?.userConfigPath ? <button type="button" onClick={() => void openConfigFile(config.userConfigPath ?? "", "# Personal Codex settings\n")} className="ag-card p-4 text-left transition-colors hover:bg-[var(--ag-hover)]"><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.config.user")}</p><p className="mt-1 line-clamp-2 break-all font-mono text-[9px] leading-4 text-muted-foreground">{config.userConfigPath}</p></button> : null}
-                {config?.projectConfigPath ? <button type="button" onClick={() => void openConfigFile(config.projectConfigPath, "# Repository-scoped Codex settings\n")} className="ag-card p-4 text-left transition-colors hover:bg-[var(--ag-hover)]"><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.config.project")}</p><p className="mt-1 line-clamp-2 break-all font-mono text-[9px] leading-4 text-muted-foreground">{config.projectConfigPath}</p></button> : null}
+                {config?.userConfigPath ? <Button type="button" variant="ghost" onClick={() => void openConfigFile(config.userConfigPath ?? "", "# Personal Codex settings\n")} className="ag-card h-auto items-start justify-start p-4 text-left hover:bg-[var(--ag-hover)]"><span><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.config.user")}</p><p className="mt-1 line-clamp-2 break-all font-mono text-[9px] leading-4 text-muted-foreground">{config.userConfigPath}</p></span></Button> : null}
+                {config?.projectConfigPath ? <Button type="button" variant="ghost" onClick={() => void openConfigFile(config.projectConfigPath, "# Repository-scoped Codex settings\n")} className="ag-card h-auto items-start justify-start p-4 text-left hover:bg-[var(--ag-hover)]"><span><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.config.project")}</p><p className="mt-1 line-clamp-2 break-all font-mono text-[9px] leading-4 text-muted-foreground">{config.projectConfigPath}</p></span></Button> : null}
               </div>
               <section>
                 <p className="ag-label mb-2">{t("agentCapabilities.config.layers")}</p>

@@ -65,6 +65,12 @@ fn claude_projects_dir() -> Result<PathBuf, String> {
         .ok_or_else(|| "Claude-Projektverzeichnis konnte nicht bestimmt werden.".into())
 }
 
+fn project_dir_name(path: &str) -> String {
+    path.chars()
+        .map(|character| if character.is_ascii_alphanumeric() { character } else { '-' })
+        .collect()
+}
+
 fn valid_session_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
@@ -134,7 +140,7 @@ fn scan_skills(root: &Path, scope: &str, depth: usize, output: &mut Vec<ClaudeSk
     }
 }
 
-fn hooks_from_file(path: &Path, source: &str, output: &mut Vec<ClaudeHook>) {
+pub(crate) fn hooks_from_file(path: &Path, source: &str, output: &mut Vec<ClaudeHook>) {
     if !is_regular_file(path) {
         return;
     }
@@ -342,10 +348,13 @@ fn read_session_cwd(file_path: &Path) -> Option<String> {
     file.take(SUMMARY_EDGE_BYTES as u64)
         .read_to_end(&mut head)
         .ok()?;
-    let mut fields = SummaryFields::default();
-    scan_summary_bytes(&head, false, true, &mut fields);
-    if fields.cwd.is_some() {
-        return fields.cwd;
+    for line in head.split(|byte| *byte == b'\n') {
+        let Ok(entry) = serde_json::from_slice::<Value>(line) else {
+            continue;
+        };
+        if let Some(cwd) = entry.get("cwd").and_then(Value::as_str) {
+            return Some(cwd.to_string());
+        }
     }
 
     // Extremely large first records are unusual, but retaining a slow fallback
@@ -369,6 +378,10 @@ fn session_file(session_id: &str, path: &str) -> Result<PathBuf, String> {
         return Err("Ungültige Claude-Session-ID.".into());
     }
     let projects = claude_projects_dir()?;
+    let direct = projects.join(project_dir_name(path)).join(format!("{session_id}.jsonl"));
+    if is_regular_file(&direct) && read_session_cwd(&direct).as_deref() == Some(path) {
+        return Ok(direct);
+    }
     let directories = fs::read_dir(projects).map_err(|error| error.to_string())?;
     for directory in directories.flatten() {
         let candidate = directory.path().join(format!("{session_id}.jsonl"));
@@ -379,6 +392,31 @@ fn session_file(session_id: &str, path: &str) -> Result<PathBuf, String> {
     Err("Claude-Unterhaltung wurde nicht gefunden.".into())
 }
 
+type SummaryCacheKey = (PathBuf, u64, u64);
+static SUMMARY_CACHE: once_cell::sync::Lazy<
+    std::sync::Mutex<std::collections::HashMap<SummaryCacheKey, Option<ClaudeSessionSummary>>>,
+> = once_cell::sync::Lazy::new(Default::default);
+
+fn cached_summary(
+    path: &Path,
+    modified: u64,
+    size: u64,
+    accepted_paths: &[String],
+) -> Option<ClaudeSessionSummary> {
+    let key = (path.to_path_buf(), modified, size);
+    if let Some(hit) = SUMMARY_CACHE.lock().ok().and_then(|cache| cache.get(&key).cloned()) {
+        return hit;
+    }
+    let summary = summarize_file(path, accepted_paths);
+    if let Ok(mut cache) = SUMMARY_CACHE.lock() {
+        if cache.len() > 4_000 {
+            cache.clear();
+        }
+        cache.insert(key, summary.clone());
+    }
+    summary
+}
+
 #[tauri::command]
 pub async fn claude_list_sessions(paths: Vec<String>) -> Result<Vec<ClaudeSessionSummary>, String> {
     tokio::task::spawn_blocking(move || {
@@ -387,35 +425,52 @@ pub async fn claude_list_sessions(paths: Vec<String>) -> Result<Vec<ClaudeSessio
             return Ok(Vec::new());
         }
         let mut candidates = Vec::new();
-        for directory in fs::read_dir(projects).map_err(|error| error.to_string())?.flatten() {
-            if !directory.path().is_dir() {
-                continue;
-            }
-            for file in fs::read_dir(directory.path()).into_iter().flatten().flatten() {
+        let directories: std::collections::BTreeSet<PathBuf> = paths
+            .iter()
+            .map(|path| projects.join(project_dir_name(path)))
+            .collect();
+        for directory in directories {
+            for file in fs::read_dir(&directory).into_iter().flatten().flatten() {
                 let path = file.path();
                 if path.extension().and_then(|value| value.to_str()) != Some("jsonl")
                     || !is_regular_file(&path)
                 {
                     continue;
                 }
-                let updated_at = fs::metadata(&path)
-                    .map(|metadata| unix_seconds(metadata.modified()))
-                    .unwrap_or(0);
-                candidates.push((updated_at, path));
+                let Ok(metadata) = fs::metadata(&path) else {
+                    continue;
+                };
+                candidates.push((unix_seconds(metadata.modified()), metadata.len(), path));
             }
         }
-        // Newest-first lets us stop as soon as the 500 visible matches are
-        // found instead of parsing every older transcript on disk.
         candidates.sort_unstable_by(|a, b| b.0.cmp(&a.0));
-        let mut sessions = Vec::with_capacity(candidates.len().min(500));
-        for (_, path) in candidates {
-            if let Some(summary) = summarize_file(&path, &paths) {
-                sessions.push(summary);
-                if sessions.len() == 500 {
-                    break;
-                }
-            }
-        }
+        candidates.truncate(500);
+
+        let workers = std::thread::available_parallelism()
+            .map(|value| value.get())
+            .unwrap_or(4)
+            .min(candidates.len().max(1));
+        let paths = &paths;
+        let mut sessions: Vec<ClaudeSessionSummary> = std::thread::scope(|scope| {
+            candidates
+                .chunks(candidates.len().div_ceil(workers).max(1))
+                .map(|chunk| {
+                    scope.spawn(move || {
+                        chunk
+                            .iter()
+                            .filter_map(|(modified, size, path)| {
+                                cached_summary(path, *modified, *size, paths)
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .filter_map(|handle| handle.join().ok())
+                .flatten()
+                .collect()
+        });
+        sessions.sort_unstable_by(|a, b| b.updated_at.cmp(&a.updated_at));
         Ok(sessions)
     })
     .await
@@ -426,8 +481,14 @@ pub async fn claude_list_sessions(paths: Vec<String>) -> Result<Vec<ClaudeSessio
 pub async fn claude_read_session(path: String, session_id: String) -> Result<ClaudeSessionTranscript, String> {
     tokio::task::spawn_blocking(move || {
         let file_path = session_file(&session_id, &path)?;
-        let summary = summarize_file(&file_path, &[path])
-            .ok_or_else(|| "Claude-Unterhaltung konnte nicht gelesen werden.".to_string())?;
+        let metadata = fs::metadata(&file_path).map_err(|error| error.to_string())?;
+        let summary = cached_summary(
+            &file_path,
+            unix_seconds(metadata.modified()),
+            metadata.len(),
+            &[path],
+        )
+        .ok_or_else(|| "Claude-Unterhaltung konnte nicht gelesen werden.".to_string())?;
         let file = File::open(file_path).map_err(|error| error.to_string())?;
         let entries = BufReader::new(file)
             .lines()
@@ -652,9 +713,24 @@ pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> 
 
 #[cfg(test)]
 mod tests {
-    use super::{hooks_from_file, sanitize_entry, scan_skills, summarize_file, SUMMARY_EDGE_BYTES};
+    use super::{
+        hooks_from_file, project_dir_name, sanitize_entry, scan_skills, summarize_file,
+        SUMMARY_EDGE_BYTES,
+    };
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn maps_cwd_to_claude_project_directory() {
+        assert_eq!(
+            project_dir_name("/Users/leon/Repositories/l8git"),
+            "-Users-leon-Repositories-l8git"
+        );
+        assert_eq!(
+            project_dir_name("/Users/leon/Library/com.apple.CloudDocs"),
+            "-Users-leon-Library-com-apple-CloudDocs"
+        );
+    }
 
     #[test]
     fn reads_claude_history_and_strips_thinking_signatures() {
@@ -725,6 +801,20 @@ mod tests {
         assert_eq!(hooks.len(), 1);
         assert_eq!(hooks[0].event_name, "PostToolUse");
         assert_eq!(hooks[0].command.as_deref(), Some("echo ok"));
+
+        let cursor_hooks = directory.join("hooks.json");
+        fs::write(
+            &cursor_hooks,
+            r#"{"version":1,"hooks":{"sessionStart":[{"command":"run.sh SessionStart"}],"stop":[{"command":"run.sh Stop"}]}}"#,
+        )
+        .unwrap();
+        let mut flat = Vec::new();
+        hooks_from_file(&cursor_hooks, "user", &mut flat);
+        assert_eq!(flat.len(), 2);
+        assert_eq!(flat[0].event_name, "sessionStart");
+        assert_eq!(flat[0].command.as_deref(), Some("run.sh SessionStart"));
+        assert_eq!(flat[1].event_name, "stop");
+        fs::remove_file(cursor_hooks).unwrap();
 
         fs::remove_file(file).unwrap();
         fs::remove_file(large_file).unwrap();

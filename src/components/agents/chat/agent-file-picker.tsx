@@ -11,6 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type { AgentFileMatch } from "@/lib/agents/types";
 
@@ -66,7 +67,7 @@ export function AgentFilePicker({
         if (!next) setQuery("");
       }}
       title="Mention a file"
-      description={`Search repository files for ${provider === "claude" ? "Claude Code" : "Codex"}`}
+      description={`Search repository files for ${agentProviderMeta(provider).label}`}
       className="max-w-xl"
       showCloseButton
     >

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
@@ -70,6 +70,10 @@ pub struct AgentTransportOptions {
     model: Option<String>,
     effort: Option<String>,
     permission_mode: Option<String>,
+    prompt: Option<String>,
+    sandbox: Option<String>,
+    add_dirs: Option<Vec<String>>,
+    worktree: Option<String>,
 }
 
 /// Ordered envelope used on the Tauri channel. `payload` is kept as JSON all
@@ -128,6 +132,77 @@ fn safe_argument(value: &str, label: &str) -> Result<String, String> {
         return Err(format!("Ungültiger Wert für {label}."));
     }
     Ok(value.to_string())
+}
+
+/// Prompts are passed as a single argv entry, so newlines stay valid; only
+/// NUL bytes and absurd sizes are rejected.
+fn safe_prompt(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 200_000 || value.contains('\0') {
+        return Err("Ungültiger Prompt für die Cursor CLI.".into());
+    }
+    Ok(value.to_string())
+}
+
+fn cursor_process(options: &AgentTransportOptions) -> Result<Command, String> {
+    let executable = crate::cursor::cursor_executable()?;
+    let mut command = Command::new(executable);
+    command.args([
+        "--print",
+        "--output-format",
+        "stream-json",
+        "--stream-partial-output",
+        "--trust",
+        "--approve-mcps",
+    ]);
+    match options.permission_mode.as_deref() {
+        Some("plan") => command.arg("--plan"),
+        Some("ask") => command.args(["--mode", "ask"]),
+        Some("auto-review") => command.arg("--auto-review"),
+        // Without an explicit policy the headless run would stall on the first
+        // approval prompt, so full access is the deliberate default here.
+        _ => command.arg("--force"),
+    };
+    if let Some(sandbox) = options.sandbox.as_deref() {
+        let sandbox = safe_argument(sandbox, "Cursor-Sandbox")?;
+        if sandbox != "enabled" && sandbox != "disabled" {
+            return Err("Ungültiger Wert für Cursor-Sandbox.".into());
+        }
+        command.args(["--sandbox", &sandbox]);
+    }
+    if let Some(model) = options.model.as_deref() {
+        command.args(["--model", &safe_argument(model, "Cursor-Modell")?]);
+    }
+    if options.resume.unwrap_or(false) {
+        let resume_session_id = options
+            .resume_session_id
+            .as_deref()
+            .ok_or_else(|| "Cursor-Resume ohne Session-ID.".to_string())?;
+        command.args(["--resume", &safe_argument(resume_session_id, "Cursor-Session")?]);
+    }
+    for directory in options.add_dirs.iter().flatten() {
+        let directory = safe_argument(directory, "Cursor-Zusatzverzeichnis")?;
+        if !PathBuf::from(&directory).is_dir() {
+            return Err("Ein zusätzliches Cursor-Verzeichnis existiert nicht.".into());
+        }
+        command.args(["--add-dir", &directory]);
+    }
+    if let Some(worktree) = options.worktree.as_deref() {
+        command.args(["--worktree", &safe_argument(worktree, "Cursor-Worktree")?]);
+    }
+    if let Some(cwd) = options.cwd.as_deref() {
+        let cwd = PathBuf::from(cwd);
+        if !cwd.is_dir() {
+            return Err("Das Arbeitsverzeichnis für die Cursor CLI existiert nicht.".into());
+        }
+        command.current_dir(cwd);
+    }
+    let prompt = options
+        .prompt
+        .as_deref()
+        .ok_or_else(|| "Cursor benötigt einen Prompt.".to_string())?;
+    command.arg(safe_prompt(prompt)?);
+    Ok(command)
 }
 
 fn provider_process(
@@ -203,6 +278,23 @@ fn provider_process(
             command.env("CLAUDE_CODE_ENTRYPOINT", "l8git");
             command.env("CLAUDE_AGENT_SDK_CLIENT_APP", "l8git/0.4.0");
             Ok((command, "Claude Code"))
+        }
+        "cursor" => Ok((cursor_process(options)?, "Cursor CLI")),
+        "opencode" => {
+            let executable = resolve_cli_path("opencode")
+                .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
+            let mut command = Command::new(executable);
+            // ACP multiplexes every session of a repository over one process,
+            // so model, mode and session lifecycle are negotiated in-band.
+            command.arg("acp");
+            if let Some(cwd) = options.cwd.as_deref() {
+                let cwd = PathBuf::from(cwd);
+                if !cwd.is_dir() {
+                    return Err("Das Arbeitsverzeichnis für OpenCode existiert nicht.".into());
+                }
+                command.current_dir(cwd);
+            }
+            Ok((command, "OpenCode"))
         }
         _ => Err(format!("Unbekannter Agent-Provider: {provider}")),
     }
@@ -433,9 +525,86 @@ pub fn agent_transport_close_all(
     Ok(count)
 }
 
+const OPENCODE_ALLOWED_COMMANDS: [&str; 4] = ["mcp", "agent", "models", "stats"];
+
+/// Read-only OpenCode subcommands that ACP does not expose. The allowlist keeps
+/// this away from `run`/`serve`/`upgrade`.
+#[tauri::command]
+pub async fn opencode_cli(args: Vec<String>, cwd: Option<String>) -> Result<String, String> {
+    let Some(first) = args.first().cloned() else {
+        return Err("OpenCode-Befehl fehlt.".into());
+    };
+    if !OPENCODE_ALLOWED_COMMANDS.contains(&first.as_str()) {
+        return Err(format!("OpenCode-Befehl ist nicht erlaubt: {first}"));
+    }
+    if args
+        .iter()
+        .any(|argument| argument.len() > 256 || argument.chars().any(char::is_control))
+    {
+        return Err("Ungültiges Argument für die OpenCode CLI.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let executable = resolve_cli_path("opencode")
+            .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
+        let mut command = Command::new(executable);
+        command.args(&args).stdin(Stdio::null());
+        if let Some(cwd) = cwd.as_deref() {
+            if !Path::new(cwd).is_dir() {
+                return Err("OpenCode-Arbeitsverzeichnis existiert nicht.".into());
+            }
+            command.current_dir(cwd);
+        }
+        let output = command
+            .output()
+            .map_err(|error| format!("OpenCode CLI ist fehlgeschlagen: {error}"))?;
+        if !output.status.success() {
+            let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            return Err(if message.is_empty() {
+                format!("OpenCode CLI ist fehlgeschlagen: {first}")
+            } else {
+                message
+            });
+        }
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+/// ACP has no delete verb, so removing a chat for good goes through the CLI.
+#[tauri::command]
+pub async fn opencode_delete_session(path: String, session_id: String) -> Result<(), String> {
+    validate_session_id(&session_id)?;
+    let cwd = PathBuf::from(&path);
+    if !cwd.is_dir() {
+        return Err("Das Arbeitsverzeichnis für OpenCode existiert nicht.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let executable = resolve_cli_path("opencode")
+            .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
+        let output = Command::new(executable)
+            .args(["session", "delete", &session_id])
+            .current_dir(cwd)
+            .output()
+            .map_err(|error| format!("OpenCode-Session konnte nicht gelöscht werden: {error}"))?;
+        if output.status.success() {
+            return Ok(());
+        }
+        Err(format!(
+            "OpenCode-Session konnte nicht gelöscht werden: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{encode_json_line, validate_session_id, AgentStreamEvent};
+    use super::{
+        cursor_process, encode_json_line, safe_prompt, validate_session_id, AgentStreamEvent,
+        AgentTransportOptions,
+    };
 
     #[test]
     fn validates_isolated_session_ids() {
@@ -454,6 +623,54 @@ mod tests {
         assert_eq!(encoded[..encoded.len() - 1].iter().filter(|byte| **byte == b'\n').count(), 0);
         let decoded: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
         assert_eq!(decoded, value);
+    }
+
+    #[test]
+    fn accepts_multiline_prompts_but_not_empty_ones() {
+        assert_eq!(safe_prompt(" fix\nthe bug ").unwrap(), "fix\nthe bug");
+        assert!(safe_prompt("   ").is_err());
+        assert!(safe_prompt("a\0b").is_err());
+    }
+
+    #[test]
+    fn cursor_command_forces_access_and_ends_with_the_prompt() {
+        let options = AgentTransportOptions {
+            prompt: Some("hallo".into()),
+            model: Some("composer-2.5".into()),
+            resume: Some(true),
+            resume_session_id: Some("abc-123".into()),
+            ..Default::default()
+        };
+        // Skipped on machines without the Cursor CLI installed.
+        let Ok(command) = cursor_process(&options) else {
+            return;
+        };
+        let args: Vec<String> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.contains(&"--force".to_string()));
+        assert!(args.windows(2).any(|pair| pair == ["--model", "composer-2.5"]));
+        assert!(args.windows(2).any(|pair| pair == ["--resume", "abc-123"]));
+        assert_eq!(args.last().map(String::as_str), Some("hallo"));
+    }
+
+    #[test]
+    fn cursor_plan_mode_replaces_force() {
+        let options = AgentTransportOptions {
+            prompt: Some("plane das".into()),
+            permission_mode: Some("plan".into()),
+            ..Default::default()
+        };
+        let Ok(command) = cursor_process(&options) else {
+            return;
+        };
+        let args: Vec<String> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.contains(&"--plan".to_string()));
+        assert!(!args.contains(&"--force".to_string()));
     }
 
     #[test]

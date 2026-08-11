@@ -9,7 +9,7 @@ import {
   PinOff,
   Trash2,
 } from "lucide-react";
-import { type ComponentType, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -33,6 +33,10 @@ import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 
+export function isWorking(status: string): boolean {
+  return status !== "idle" && status !== "notLoaded";
+}
+
 type MenuItemProps = {
   variant?: "destructive";
   className?: string;
@@ -40,14 +44,32 @@ type MenuItemProps = {
   children: ReactNode;
 };
 
-export function AgentThreadRow({
+function elapsedLabel(startedAt: number): string {
+  const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+function WorkingFor({ since }: { since: number }) {
+  const [label, setLabel] = useState(() => elapsedLabel(since));
+  useEffect(() => {
+    setLabel(elapsedLabel(since));
+    const timer = window.setInterval(() => setLabel(elapsedLabel(since)), 1_000);
+    return () => window.clearInterval(timer);
+  }, [since]);
+  return <>{label}</>;
+}
+
+export const AgentThreadRow = memo(function AgentThreadRow({
   path,
   thread,
   active,
   relativeDate,
+  workingSince,
   renaming,
   onOpen,
-  onRenamingChange,
+  onRename,
   onSetPinned,
   onArchive,
 }: {
@@ -55,16 +77,31 @@ export function AgentThreadRow({
   thread: AgentThreadSummary & { provider: NativeAgentProvider };
   active: boolean;
   relativeDate: string;
+  workingSince?: number;
   renaming: boolean;
-  onOpen: () => void;
-  onRenamingChange: (renaming: boolean) => void;
-  onSetPinned: (pinned: boolean) => Promise<void>;
-  onArchive: (archived: boolean) => Promise<void>;
+  onOpen: (provider: NativeAgentProvider, threadId: string) => void;
+  onRename: (threadKey: string | null) => void;
+  onSetPinned: (provider: NativeAgentProvider, threadId: string, pinned: boolean) => Promise<void>;
+  onArchive: (provider: NativeAgentProvider, threadId: string, archived: boolean) => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const working = thread.status !== "idle" && thread.status !== "notLoaded";
+  const working = isWorking(thread.status);
   const providerMeta = agentProviderMeta(thread.provider);
   const ProviderLogo = providerMeta.Logo;
+  const { provider, id: threadId } = thread;
+  const open = useCallback(() => onOpen(provider, threadId), [onOpen, provider, threadId]);
+  const setRenaming = useCallback(
+    (value: boolean) => onRename(value ? `${provider}:${threadId}` : null),
+    [onRename, provider, threadId],
+  );
+  const setPinned = useCallback(
+    (pinned: boolean) => onSetPinned(provider, threadId, pinned),
+    [onSetPinned, provider, threadId],
+  );
+  const archive = useCallback(
+    (archived: boolean) => onArchive(provider, threadId, archived),
+    [onArchive, provider, threadId],
+  );
 
   const run = (action: () => Promise<unknown>, success?: string) => {
     void action()
@@ -86,11 +123,11 @@ export function AgentThreadRow({
     itemClassName: string,
   ) => (
     <>
-      <Item className={itemClassName} onSelect={() => onSetPinned(!thread.isPinned)}>
+      <Item className={itemClassName} onSelect={() => setPinned(!thread.isPinned)}>
         {thread.isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
         {thread.isPinned ? t("agentChat.unpin") : t("agentChat.pin")}
       </Item>
-      <Item className={itemClassName} onSelect={() => onRenamingChange(true)}>
+      <Item className={itemClassName} onSelect={() => setRenaming(true)}>
         <Pencil className="size-3.5" />
         {t("agentChat.rename")}
       </Item>
@@ -116,7 +153,7 @@ export function AgentThreadRow({
       <Item
         variant={thread.archived ? undefined : "destructive"}
         className={itemClassName}
-        onSelect={() => run(() => onArchive(!thread.archived))}
+        onSelect={() => run(() => archive(!thread.archived))}
       >
         {thread.archived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
         {thread.archived ? t("agentChat.unarchive") : t("agentChat.archive")}
@@ -139,11 +176,11 @@ export function AgentThreadRow({
     <div
       role="button"
       tabIndex={0}
-      onClick={onOpen}
+      onClick={open}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        onOpen();
+        open();
       }}
       aria-current={active ? "page" : undefined}
       data-active={active}
@@ -165,7 +202,7 @@ export function AgentThreadRow({
             threadId={thread.id}
             title={thread.title}
             editing={renaming}
-            onEditingChange={onRenamingChange}
+            onEditingChange={setRenaming}
             className="min-w-0 flex-1 truncate text-[12px]"
             inputClassName="text-[12px]"
           />
@@ -174,8 +211,9 @@ export function AgentThreadRow({
           {working ? (
             <>
               <span className="ag-dot" data-state="working" aria-hidden="true" />
-              <span className="text-[10px] font-medium text-[var(--git-modified)]">
+              <span className="text-[10px] font-medium tabular-nums text-[var(--git-modified)]">
                 {t("agentChat.working")}
+                {workingSince ? <> <WorkingFor since={workingSince} /></> : null}
               </span>
               <span className="ag-faint text-[10px]">·</span>
             </>
@@ -215,4 +253,4 @@ export function AgentThreadRow({
       </DropdownMenu>
     </div>
   );
-}
+});

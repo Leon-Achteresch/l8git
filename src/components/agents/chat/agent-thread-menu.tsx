@@ -136,7 +136,9 @@ export function AgentThreadMenu({
           <AlertDialogDescription>
             {provider === "claude"
               ? "The Claude transcript is removed from Claude Code and moved to ~/.claude/l8git-trash for recovery."
-              : "The Codex transcript and descendant sessions are permanently deleted. This cannot be undone."}
+              : provider === "opencode"
+                ? "The OpenCode session is closed and deleted via the opencode CLI. This cannot be undone."
+                : "The Codex transcript and descendant sessions are permanently deleted. This cannot be undone."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

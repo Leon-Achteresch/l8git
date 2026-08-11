@@ -6,6 +6,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { chatStoreFor, useAgentChatStore, useProviderChatStore } from "@/lib/agents/active-chat-store";
 import { AGENT_PROVIDERS, agentProviderMeta } from "@/lib/agents/provider-meta";
 import { warmClaudeModelCatalog } from "@/lib/agents/providers/claude/chat-store";
+import { warmCursorModelCatalog } from "@/lib/agents/providers/cursor/chat-store";
+import { warmOpenCodeModelCatalog } from "@/lib/agents/providers/opencode/chat-store";
 import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { AgentModelOption } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
@@ -25,8 +27,12 @@ export function AgentModelPicker({
   const model = useAgentChatStore((state) => state.model);
   const codexModels = useProviderChatStore("codex", (state) => state.models ?? EMPTY_MODELS);
   const claudeModels = useProviderChatStore("claude", (state) => state.models ?? EMPTY_MODELS);
+  const openCodeModels = useProviderChatStore("opencode", (state) => state.models ?? EMPTY_MODELS);
+  const cursorModels = useProviderChatStore("cursor", (state) => state.models ?? EMPTY_MODELS);
   const codexStatus = useProviderChatStore("codex", (state) => state.connectionStatus);
   const claudeStatus = useProviderChatStore("claude", (state) => state.connectionStatus);
+  const openCodeStatus = useProviderChatStore("opencode", (state) => state.connectionStatus);
+  const cursorStatus = useProviderChatStore("cursor", (state) => state.connectionStatus);
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<NativeAgentProvider>(provider);
   const [query, setQuery] = useState("");
@@ -37,9 +43,21 @@ export function AgentModelPicker({
   const visiblePane = providerLocked ? provider : pane;
   const paneMeta = agentProviderMeta(visiblePane);
   const PaneLogo = paneMeta.Logo;
-  const paneModels = visiblePane === "claude" ? claudeModels : codexModels;
-  const paneStatus = visiblePane === "claude" ? claudeStatus : codexStatus;
-  const activeModels = provider === "claude" ? claudeModels : codexModels;
+  const modelsByProvider: Record<NativeAgentProvider, AgentModelOption[]> = {
+    codex: codexModels,
+    claude: claudeModels,
+    opencode: openCodeModels,
+    cursor: cursorModels,
+  };
+  const statusByProvider: Record<NativeAgentProvider, typeof codexStatus> = {
+    codex: codexStatus,
+    claude: claudeStatus,
+    opencode: openCodeStatus,
+    cursor: cursorStatus,
+  };
+  const paneModels = modelsByProvider[visiblePane];
+  const paneStatus = statusByProvider[visiblePane];
+  const activeModels = modelsByProvider[provider];
   const currentLabel =
     activeModels.find((option) => option.id === model)?.label ?? model ?? activeMeta.label;
 
@@ -55,9 +73,15 @@ export function AgentModelPicker({
 
   useEffect(() => {
     if (!open) return;
-    if (visiblePane === "claude") {
+    if (visiblePane === "claude" || visiblePane === "opencode" || visiblePane === "cursor") {
+      const warm =
+        visiblePane === "claude"
+          ? warmClaudeModelCatalog
+          : visiblePane === "cursor"
+            ? warmCursorModelCatalog
+            : warmOpenCodeModelCatalog;
       setWarming(true);
-      void warmClaudeModelCatalog(path).catch(() => {}).finally(() => setWarming(false));
+      void warm(path).catch(() => {}).finally(() => setWarming(false));
       return;
     }
     if (paneModels.length === 0) {

@@ -13,6 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type { AgentApp, AgentSkill } from "@/lib/agents/types";
 
@@ -79,7 +80,7 @@ export function AgentResourcePicker({
         if (!next) setQuery("");
       }}
       title={kind === "skill" ? "Skills" : "Apps"}
-      description={kind === "skill" ? `Attach a ${provider === "claude" ? "Claude Code" : "Codex"} skill` : "Mention a ChatGPT app"}
+      description={kind === "skill" ? `Attach a ${agentProviderMeta(provider).label} skill` : "Mention a ChatGPT app"}
       className="max-w-lg"
       showCloseButton
     >

@@ -416,8 +416,8 @@ export function AgentHookStudio({ query }: { query: string }) {
         <DialogContent>
           <DialogHeader><DialogTitle>{t("agentCapabilities.hooks.create")}</DialogTitle><DialogDescription>{t("agentCapabilities.hooks.createScopeHint")}</DialogDescription></DialogHeader>
           <div className="grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => void createInScope("repo")} className="rounded-xl bg-foreground/[0.035] p-4 text-left ring-1 ring-border/40 transition-colors hover:bg-foreground/[0.06]"><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.scopeRepo")}</p><p className="mt-1 text-[10px] leading-4 text-muted-foreground">.codex/hooks.json</p></button>
-            <button type="button" onClick={() => void createInScope("user")} className="rounded-xl bg-foreground/[0.035] p-4 text-left ring-1 ring-border/40 transition-colors hover:bg-foreground/[0.06]"><ShieldCheck className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.scopeUser")}</p><p className="mt-1 text-[10px] leading-4 text-muted-foreground">~/.codex/hooks.json</p></button>
+            <Button type="button" variant="outline" onClick={() => void createInScope("repo")} className="h-auto items-start justify-start rounded-xl bg-foreground/[0.035] p-4 text-left hover:bg-foreground/[0.06]"><span><FileCode2 className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.scopeRepo")}</p><p className="mt-1 text-[10px] leading-4 text-muted-foreground">.codex/hooks.json</p></span></Button>
+            <Button type="button" variant="outline" onClick={() => void createInScope("user")} className="h-auto items-start justify-start rounded-xl bg-foreground/[0.035] p-4 text-left hover:bg-foreground/[0.06]"><span><ShieldCheck className="size-4" /><p className="mt-3 text-xs font-medium">{t("agentCapabilities.scopeUser")}</p><p className="mt-1 text-[10px] leading-4 text-muted-foreground">~/.codex/hooks.json</p></span></Button>
           </div>
         </DialogContent>
       </Dialog>

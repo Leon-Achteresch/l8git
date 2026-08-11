@@ -51,8 +51,6 @@
   },
   "agentChat": {
     "newConversation": "Neue Unterhaltung",
-    "importConversation": "Einzelne CLI-Session öffnen",
-    "importPrompt": "Codex-Session-ID",
     "conversation": "Unterhaltung",
     "loadingConversations": "Unterhaltungen werden geladen…",
     "showOlder": "{{count}} ältere Turns anzeigen",
@@ -128,7 +126,8 @@
       "custom": "Eigene",
       "mode": "Modus",
       "defaultMode": "Build",
-      "planMode": "Plan"
+      "planMode": "Plan",
+      "agent": "Agent"
     },
     "request": {
       "inputRequired": "Eingabe benötigt",
@@ -189,7 +188,25 @@
     "clearGoal": "Ziel entfernen",
     "loginTitleClaude": "Claude Code ist nicht angemeldet",
     "loginDescriptionClaude": "Melde dich im Browser mit deinem Anthropic-Konto an. l8git nutzt weiterhin die installierte Claude-Code-CLI.",
-    "loginActionClaude": "Bei Claude Code anmelden"
+    "loginActionClaude": "Bei Claude Code anmelden",
+    "usage": {
+      "title": "Token-Verbrauch",
+      "input": "Input",
+      "output": "Output",
+      "cacheRead": "Cache gelesen",
+      "cacheWrite": "Cache geschrieben",
+      "cost": "Geschätzte Kosten",
+      "total": "Gesamt",
+      "saved": "Durch Cache gespart",
+      "disclaimer": "Schätzung zu Listenpreisen: ${{input}}/M Input, ${{output}}/M Output. Dein Tarif kann abweichen.",
+      "noPrice": "Kein Listenpreis für {{model}} hinterlegt — in token-cost.ts ergänzen."
+    },
+    "switchRepo": "Repository wechseln",
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "last7Days": "Letzte 7 Tage",
+    "older": "Älter",
+    "pinned": "Angeheftet"
   },
   "island": {
     "open": "Projekte und Integrationen anzeigen",

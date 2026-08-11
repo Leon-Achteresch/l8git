@@ -3,6 +3,7 @@ import { createStore } from "zustand/vanilla";
 
 import type { AgentChatState } from "@/lib/agents/chat-store";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
+import { accumulateUsage } from "@/lib/agents/token-cost";
 import { ClaudeClient, type ClaudeControlRequest, type ClaudeInitializeResult } from "@/lib/agents/providers/claude/client";
 import type {
   AgentAttachment,
@@ -236,9 +237,63 @@ function contentText(content: unknown): string {
     .join("\n");
 }
 
+const FILE_EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
+
+function replaceDiff(oldText: string, newText: string): string {
+  const removed = oldText ? oldText.split("\n").map((line) => `-${line}`) : [];
+  const added = newText ? newText.split("\n").map((line) => `+${line}`) : [];
+  return [...removed, ...added].join("\n");
+}
+
+function editDiff(tool: string, input: UnknownRecord): string {
+  if (tool === "Write") {
+    const content = stringValue(input.content);
+    const lines = content ? content.split("\n") : [];
+    return [`@@ -0,0 +1,${lines.length} @@`, ...lines.map((line) => `+${line}`)].join("\n");
+  }
+  if (tool === "MultiEdit") {
+    return arrayValue(input.edits)
+      .filter(isRecord)
+      .map((edit) => replaceDiff(stringValue(edit.old_string), stringValue(edit.new_string)))
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (tool === "NotebookEdit") {
+    return replaceDiff(stringValue(input.old_source), stringValue(input.new_source));
+  }
+  return replaceDiff(stringValue(input.old_string), stringValue(input.new_string));
+}
+
+function editChanges(tool: string, input: UnknownRecord) {
+  return [{
+    path: stringValue(input.file_path, stringValue(input.notebook_path)),
+    diff: editDiff(tool, input),
+  }];
+}
+
+function patchDiff(patch: unknown): string {
+  return arrayValue(patch)
+    .filter(isRecord)
+    .map((hunk) => [
+      `@@ -${hunk.oldStart ?? 1},${hunk.oldLines ?? 0} +${hunk.newStart ?? 1},${hunk.newLines ?? 0} @@`,
+      ...arrayValue(hunk.lines).map((line) => stringValue(line)),
+    ].join("\n"))
+    .join("\n");
+}
+
 function toolItem(block: UnknownRecord, itemId: string): AgentItem {
   const name = stringValue(block.name, "Tool");
   const input = isRecord(block.input) ? block.input : {};
+  if (FILE_EDIT_TOOLS.includes(name)) {
+    return {
+      id: itemId,
+      type: "fileChange",
+      tool: name,
+      changes: editChanges(name, input),
+      status: "inProgress",
+      toolUseId: block.id,
+    };
+  }
   if (name === "Bash") {
     return {
       id: itemId,
@@ -313,16 +368,20 @@ function assistantItems(message: UnknownRecord, prefix: string): AgentItem[] {
   });
 }
 
-function applyToolResult(turn: AgentTurn, block: UnknownRecord): AgentTurn {
+function applyToolResult(turn: AgentTurn, block: UnknownRecord, toolUseResult?: unknown): AgentTurn {
   const toolUseId = stringValue(block.tool_use_id);
   if (!toolUseId) return turn;
   const result = block.content;
+  const patch = isRecord(toolUseResult) ? patchDiff(toolUseResult.structuredPatch) : "";
   return {
     ...turn,
     items: turn.items.map((item) => item.toolUseId === toolUseId ? {
       ...item,
       status: block.is_error === true ? "failed" : "completed",
       result,
+      changes: item.type === "fileChange" && patch
+        ? arrayValue(item.changes).filter(isRecord).map((change) => ({ ...change, diff: patch }))
+        : item.changes,
       aggregatedOutput: item.type === "commandExecution" ? contentText(result) : item.aggregatedOutput,
       error: block.is_error === true ? contentText(result) : undefined,
       __completed: true,
@@ -339,7 +398,7 @@ function transcriptConversation(transcript: ClaudeSessionTranscript): AgentConve
       const blocks = arrayValue(message.content).filter(isRecord);
       const toolResults = blocks.filter((block) => block.type === "tool_result");
       if (toolResults.length && current) {
-        for (const block of toolResults) current = applyToolResult(current, block);
+        for (const block of toolResults) current = applyToolResult(current, block, entry.toolUseResult);
         turns[turns.length - 1] = current;
         continue;
       }
@@ -530,7 +589,14 @@ function applyStreamEvents(
       if (typeof item.partialJson === "string") {
         try { argumentsValue = JSON.parse(item.partialJson); } catch { /* final assistant frame supplies canonical input */ }
       }
-      items[itemIndex] = { ...item, arguments: argumentsValue, __completed: true };
+      items[itemIndex] = {
+        ...item,
+        arguments: argumentsValue,
+        changes: item.type === "fileChange" && isRecord(argumentsValue)
+          ? editChanges(stringValue(item.tool), argumentsValue)
+          : item.changes,
+        __completed: true,
+      };
       changed = true;
     }
   }
@@ -663,12 +729,29 @@ function handleClaudeMessage(threadId: string, path: string, event: UnknownRecor
   }
   if (event.type === "user" && isRecord(event.message)) {
     const results = arrayValue(event.message.content).filter(isRecord).filter((block) => block.type === "tool_result");
-    if (!results.length) return;
+    if (!results.length) {
+      updateConversation(threadId, (conversation) => {
+        let delivered = false;
+        return {
+          ...conversation,
+          turns: conversation.turns.map((turn) => ({
+            ...turn,
+            items: turn.items.map((item) => {
+              if (delivered || item.__queued !== true) return item;
+              delivered = true;
+              const { __queued, ...rest } = item;
+              return rest;
+            }),
+          })),
+        };
+      });
+      return;
+    }
     updateConversation(threadId, (conversation) => ({
       ...conversation,
       turns: conversation.turns.map((turn) => {
         let next = turn;
-        for (const result of results) next = applyToolResult(next, result);
+        for (const result of results) next = applyToolResult(next, result, event.toolUseResult);
         return next;
       }),
     }));
@@ -679,10 +762,14 @@ function handleClaudeMessage(threadId: string, path: string, event: UnknownRecor
       ...conversation,
       activeTurnId: null,
       error: event.is_error === true ? stringValue(event.result, "Claude Code turn failed.") : null,
-      tokenUsage: isRecord(event.usage) ? {
-        totalTokens: Number(event.usage.input_tokens ?? 0) + Number(event.usage.output_tokens ?? 0),
-        modelContextWindow: null,
-      } : conversation.tokenUsage,
+      tokenUsage: isRecord(event.usage)
+        ? accumulateUsage(conversation.tokenUsage, {
+            inputTokens: Number(event.usage.input_tokens ?? 0),
+            outputTokens: Number(event.usage.output_tokens ?? 0),
+            cacheReadTokens: Number(event.usage.cache_read_input_tokens ?? 0),
+            cacheWriteTokens: Number(event.usage.cache_creation_input_tokens ?? 0),
+          })
+        : conversation.tokenUsage,
       turns: conversation.turns.map((turn) => turn.id === conversation.activeTurnId ? {
         ...turn,
         status: event.is_error === true || stringValue(event.subtype).startsWith("error") ? "failed" : "completed",
@@ -1212,17 +1299,6 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
     }));
     return threadId;
   },
-  adoptThread: async (path, threadId) => {
-    const transcript = await loadTranscript(path, threadId);
-    persistedSessions.add(threadId);
-    const thread = summary(transcript.summary);
-    set((state) => ({
-      threadsByPath: { ...state.threadsByPath, [path]: sortThreads([thread, ...(state.threadsByPath[path] ?? []).filter((item) => item.id !== threadId)]) },
-      conversations: cacheConversation(state, threadId, transcriptConversation(transcript)),
-      activeThreadByPath: { ...state.activeThreadByPath, [path]: threadId },
-    }));
-    return threadId;
-  },
   openThread: async (path, threadId) => {
     conversationLastUsed.set(threadId, Date.now());
     set((state) => ({ activeThreadByPath: { ...state.activeThreadByPath, [path]: threadId } }));
@@ -1285,7 +1361,34 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
     const client = await ensureClient(conversation.path, threadId);
     const skills = attachments.filter((attachment) => attachment.type === "skill").map((attachment) => `/${attachment.name}`);
     const files = attachments.filter((attachment) => attachment.type !== "skill").map((attachment) => `@${attachment.path}`);
-    await client.sendPrompt([...skills, text, ...files].filter(Boolean).join("\n\n"));
+    const queuedId = id("queued");
+    updateConversation(threadId, (current) => ({
+      ...current,
+      turns: current.turns.map((turn) => turn.id === current.activeTurnId ? {
+        ...turn,
+        items: [...turn.items, {
+          id: queuedId,
+          type: "userMessage",
+          content: [
+            { type: "text", text },
+            ...attachments.map((attachment) => ({ type: attachment.type, path: attachment.path, name: attachment.name })),
+          ],
+          __queued: true,
+        }],
+      } : turn),
+    }));
+    try {
+      await client.sendPrompt([...skills, text, ...files].filter(Boolean).join("\n\n"));
+    } catch (error) {
+      updateConversation(threadId, (current) => ({
+        ...current,
+        turns: current.turns.map((turn) => ({
+          ...turn,
+          items: turn.items.filter((item) => item.id !== queuedId),
+        })),
+      }));
+      throw error;
+    }
     persistedSessions.add(threadId);
     pendingForkSources.delete(threadId);
   },

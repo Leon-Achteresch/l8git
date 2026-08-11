@@ -15,10 +15,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { ActionSwapRollText } from "@/components/motion/action-swap-roll";
-import { Button } from "@/components/motion/button";
-import { Checkbox } from "@/components/motion/checkbox";
-import { Input } from "@/components/motion/input";
-import { RadioGroup, RadioGroupItem } from "@/components/motion/radio";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { EASE_OUT, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 import type {
@@ -98,21 +98,21 @@ function QuestionOptions({
         question.multiple ? (
           <div className="grid gap-0.5">
             {question.options.map((option) => (
-              <Checkbox
-                key={option.value}
-                checked={answer.selected.includes(option.value)}
-                disabled={disabled || option.disabled}
-                label={option.label}
-                onCheckedChange={(checked) =>
-                  onChange({
-                    ...answer,
-                    selected: checked
-                      ? [...answer.selected, option.value]
-                      : answer.selected.filter((value) => value !== option.value),
-                  })
-                }
-                className="min-h-9 rounded-lg px-1.5 py-1"
-              />
+              <label key={option.value} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 has-disabled:cursor-not-allowed has-disabled:opacity-60">
+                <Checkbox
+                  checked={answer.selected.includes(option.value)}
+                  disabled={disabled || option.disabled}
+                  onCheckedChange={(checked) =>
+                    onChange({
+                      ...answer,
+                      selected: checked === true
+                        ? [...answer.selected, option.value]
+                        : answer.selected.filter((value) => value !== option.value),
+                    })
+                  }
+                />
+                <span className="select-none text-sm text-foreground">{option.label}</span>
+              </label>
             ))}
           </div>
         ) : (
@@ -125,13 +125,13 @@ function QuestionOptions({
             className="gap-0.5"
           >
             {question.options.map((option) => (
-              <RadioGroupItem
-                key={option.value}
-                value={option.value}
-                label={option.label}
-                disabled={disabled || option.disabled}
-                className="min-h-9 rounded-lg px-1.5 py-1"
-              />
+              <label key={option.value} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 has-disabled:cursor-not-allowed has-disabled:opacity-60">
+                <RadioGroupItem
+                  value={option.value}
+                  disabled={disabled || option.disabled}
+                />
+                <span className="select-none text-sm text-foreground">{option.label}</span>
+              </label>
             ))}
           </RadioGroup>
         )
@@ -144,18 +144,16 @@ function QuestionOptions({
           value={custom}
           disabled={disabled}
           placeholder={question.customPlaceholder ?? "Add another response…"}
-          onChange={(value) =>
+          onChange={(event) =>
             onChange({
               selected: question.multiple ? answer.selected : [],
-              custom: value,
+              custom: event.target.value,
             })
           }
-          className={cn("p-0.5", question.options?.length && "mt-1.5")}
-          classNames={{
-            field:
-              "h-10 rounded-xl border-0 bg-background/70 focus-within:bg-background",
-            input: "px-3 text-sm",
-          }}
+          className={cn(
+            "h-10 rounded-xl border-0 bg-background/70 px-3 text-sm focus-visible:bg-background",
+            question.options?.length && "mt-1.5",
+          )}
         />
       ) : null}
     </div>
@@ -340,14 +338,16 @@ export function ApprovalCard({
               </span>
             )}
             {onDismiss ? (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 aria-label="Dismiss"
                 onClick={onDismiss}
-                className="ag-icon-btn size-5"
+                className="ag-icon-btn size-5 rounded-full"
               >
                 <X className="size-4" />
-              </button>
+              </Button>
             ) : null}
           </div>
 

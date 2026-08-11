@@ -96,7 +96,6 @@ export interface AgentChatState {
   logout: () => Promise<void>;
   loadThreads: (paths: string[]) => Promise<void>;
   createThread: (path: string) => Promise<string>;
-  adoptThread: (path: string, threadId: string) => Promise<string>;
   openThread: (path: string, threadId: string) => Promise<void>;
   sendMessage: (path: string, text: string, attachments?: AgentAttachment[]) => Promise<void>;
   steerMessage: (threadId: string, text: string, attachments?: AgentAttachment[]) => Promise<void>;
@@ -655,6 +654,13 @@ function handleEvent(context: CodexSessionContext, event: RpcNotification): void
                 typeof params.tokenUsage.modelContextWindow === "number"
                   ? params.tokenUsage.modelContextWindow
                   : null,
+              inputTokens: Math.max(
+                0,
+                Number(total.inputTokens ?? 0) - Number(total.cachedInputTokens ?? 0),
+              ),
+              outputTokens: Number(total.outputTokens ?? 0),
+              cacheReadTokens: Number(total.cachedInputTokens ?? 0),
+              cacheWriteTokens: 0,
             },
           },
         },
@@ -1311,63 +1317,6 @@ export const useAgentChatStore = create<AgentChatState>()(
         return conversation.threadId;
       },
 
-      adoptThread: async (path, requestedThreadId) => {
-        const threadId = requestedThreadId.trim();
-        if (!threadId || threadId.length > 256 || /\s/.test(threadId)) {
-          throw new Error("Die Codex-Session-ID ist ungültig.");
-        }
-        const known = get().threadsByPath[path]?.some((thread) => thread.id === threadId);
-        if (known) {
-          await get().openThread(path, threadId);
-          return threadId;
-        }
-        attachListeners();
-        set((state) => ({
-          loadingPaths: { ...state.loadingPaths, [path]: true },
-        }));
-        try {
-          const { client, runtime } = await codexSessionManager.threadClient(threadId, path);
-          if (!runtime) throw new Error("Die Codex-Session ist bereits geöffnet.");
-          if (runtime.cwd.replace(/[\\/]+$/, "") !== path.replace(/[\\/]+$/, "")) {
-            await codexSessionManager.closeThread(threadId);
-            throw new Error(`Diese Codex-Session gehört zu ${runtime.cwd}.`);
-          }
-          const conversation = conversationFromRuntime(runtime);
-          const summary = threadSummary(runtime.thread);
-          codexSessionManager.setVisibleThread(conversation.threadId);
-          const goal = await client.getGoal(threadId).then((response) => response.goal).catch(() => null);
-          set((state) => ({
-            loadingPaths: { ...state.loadingPaths, [path]: false },
-            conversations: {
-              ...state.conversations,
-              [conversation.threadId]: { ...conversation, goal },
-            },
-            visibleThreadId: conversation.threadId,
-            activeThreadByPath: {
-              ...state.activeThreadByPath,
-              [path]: conversation.threadId,
-            },
-            threadsByPath: {
-              ...state.threadsByPath,
-              [path]: sortThreadSummaries([
-                summary,
-                ...(state.threadsByPath[path] ?? []).filter((thread) => thread.id !== summary.id),
-              ]),
-            },
-            sessionStatusByThread: {
-              ...state.sessionStatusByThread,
-              [conversation.threadId]: "ready",
-            },
-          }));
-          return conversation.threadId;
-        } catch (error) {
-          set((state) => ({
-            loadingPaths: { ...state.loadingPaths, [path]: false },
-          }));
-          throw error;
-        }
-      },
-
       openThread: async (path, threadId) => {
         attachListeners();
         codexSessionManager.setVisibleThread(threadId);
@@ -1604,10 +1553,47 @@ export const useAgentChatStore = create<AgentChatState>()(
         const sessionId = codexSessionManager.sessionIdForThread(threadId);
         const client = sessionId ? codexSessionManager.clientForSession(sessionId) : null;
         if (!client) throw new Error("Die laufende Codex-Session ist nicht mehr verbunden.");
-        await client.steer(threadId, expectedTurnId, [
+        const clientId = optimisticId("message");
+        const input: CodexUserInput[] = [
           { type: "text", text, text_elements: [] },
           ...attachments.map(inputFromAttachment),
-        ], optimisticId("message"));
+        ];
+        set((current) => ({
+          conversations: {
+            ...current.conversations,
+            [threadId]: {
+              ...current.conversations[threadId],
+              turns: current.conversations[threadId].turns.map((turn) =>
+                turn.id === expectedTurnId
+                  ? {
+                      ...turn,
+                      items: [
+                        ...turn.items,
+                        { id: clientId, clientId, type: "userMessage", content: input, __queued: true },
+                      ],
+                    }
+                  : turn,
+              ),
+            },
+          },
+        }));
+        try {
+          await client.steer(threadId, expectedTurnId, input, clientId);
+        } catch (error) {
+          set((current) => ({
+            conversations: {
+              ...current.conversations,
+              [threadId]: {
+                ...current.conversations[threadId],
+                turns: current.conversations[threadId].turns.map((turn) => ({
+                  ...turn,
+                  items: turn.items.filter((item) => item.id !== clientId),
+                })),
+              },
+            },
+          }));
+          throw error;
+        }
       },
 
       interrupt: async (threadId) => {

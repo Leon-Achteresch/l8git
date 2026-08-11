@@ -1,21 +1,15 @@
-import { Blocks, DownloadCloud, PenSquare, Search, X } from "lucide-react";
+import { PenSquare, Search, X } from "lucide-react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 export function AgentSidebarActions({
   query,
   onQueryChange,
-  capabilityStudioOpen,
   onNewThread,
-  onOpenCapabilities,
-  onOpenImport,
 }: {
   query: string;
   onQueryChange: (query: string) => void;
-  capabilityStudioOpen: boolean;
   onNewThread: () => void;
-  onOpenCapabilities?: () => void;
-  onOpenImport: () => void;
 }) {
   const { t } = useTranslation();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -58,21 +52,6 @@ export function AgentSidebarActions({
           </button>
         ) : null}
       </div>
-
-      <button
-        type="button"
-        onClick={onOpenCapabilities}
-        data-active={capabilityStudioOpen}
-        className="ag-row h-8 text-[12px]"
-      >
-        <Blocks className="size-3.5 shrink-0" />
-        <span className="flex-1 truncate">{t("agentCapabilities.title")}</span>
-      </button>
-
-      <button type="button" onClick={onOpenImport} className="ag-row h-8 text-[12px]">
-        <DownloadCloud className="size-3.5 shrink-0" />
-        <span className="flex-1 truncate">{t("agentChat.importConversation")}</span>
-      </button>
     </nav>
   );
 }

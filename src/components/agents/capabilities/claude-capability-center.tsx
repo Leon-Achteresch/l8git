@@ -2,16 +2,18 @@ import { ArrowLeft, Blocks, Bot, Command, PlugZap, RefreshCw, Sparkles, Webhook 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { ClaudeCodeLogo } from "@/components/brand/agent-logos";
+import { ClaudeCodeLogo, OpenCodeLogo } from "@/components/brand/agent-logos";
 import { ProgressiveCapabilityList } from "@/components/agents/capabilities/capability-ui";
 import { Input } from "@/components/ui/input";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { claudeCapabilitySnapshot } from "@/lib/agents/providers/claude/chat-store";
+import { openCodeCapabilitySnapshot } from "@/lib/agents/providers/opencode/chat-store";
 import type { AgentHook, AgentMcpServer, AgentPlugin, AgentSkill } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
 
 type Section = "skills" | "commands" | "agents" | "mcp" | "plugins" | "hooks";
+type CapabilityProvider = "claude" | "opencode";
 type Entry = { id: string; title: string; description: string; meta?: string };
 type ClaudeCapabilityData = {
   skills: AgentSkill[];
@@ -26,17 +28,20 @@ const capabilityDataCache = new Map<string, { expiresAt: number; data: ClaudeCap
 const capabilityDataPromises = new Map<string, Promise<ClaudeCapabilityData>>();
 
 async function fetchCapabilityData(
+  provider: CapabilityProvider,
   path: string,
   listPlugins: (path: string) => Promise<AgentPlugin[]>,
   force = false,
 ): Promise<ClaudeCapabilityData> {
-  const cached = capabilityDataCache.get(path);
+  const key = `${provider}:${path}`;
+  const cached = capabilityDataCache.get(key);
   if (!force && cached && cached.expiresAt > Date.now()) return cached.data;
-  const pending = capabilityDataPromises.get(path);
+  const pending = capabilityDataPromises.get(key);
   if (pending) return pending;
   const promise = (async () => {
+    const snapshotOf = provider === "opencode" ? openCodeCapabilitySnapshot : claudeCapabilitySnapshot;
     const [snapshot, plugins] = await Promise.all([
-      claudeCapabilitySnapshot(path, force),
+      snapshotOf(path, force),
       listPlugins(path).catch(() => cached?.data.plugins ?? []),
     ]);
     const data: ClaudeCapabilityData = {
@@ -47,17 +52,17 @@ async function fetchCapabilityData(
       plugins,
       hooks: snapshot.hooks,
     };
-    if (capabilityDataCache.size >= 8 && !capabilityDataCache.has(path)) {
+    if (capabilityDataCache.size >= 8 && !capabilityDataCache.has(key)) {
       capabilityDataCache.delete(capabilityDataCache.keys().next().value ?? "");
     }
-    capabilityDataCache.set(path, { expiresAt: Date.now() + 10_000, data });
+    capabilityDataCache.set(key, { expiresAt: Date.now() + 10_000, data });
     return data;
   })();
-  capabilityDataPromises.set(path, promise);
+  capabilityDataPromises.set(key, promise);
   try {
     return await promise;
   } finally {
-    if (capabilityDataPromises.get(path) === promise) capabilityDataPromises.delete(path);
+    if (capabilityDataPromises.get(key) === promise) capabilityDataPromises.delete(key);
   }
 }
 
@@ -77,12 +82,17 @@ function repoName(path: string) {
 export function ClaudeCapabilityCenter({
   path,
   initialSection = "skills",
+  provider = "claude",
   onBack,
 }: {
   path: string;
   initialSection?: AgentCapabilitySection;
+  provider?: CapabilityProvider;
   onBack: () => void;
 }) {
+  const isOpenCode = provider === "opencode";
+  const ProviderLogo = isOpenCode ? OpenCodeLogo : ClaudeCodeLogo;
+  const providerLabel = isOpenCode ? "OpenCode" : "Claude Code";
   const listPlugins = useAgentChatStore((state) => state.listPlugins);
   const [section, setSection] = useState<Section>(initialSection === "apps" ? "agents" : initialSection);
   const [query, setQuery] = useState("");
@@ -95,14 +105,14 @@ export function ClaudeCapabilityCenter({
     const request = ++requestRef.current;
     setLoading(true);
     try {
-      const nextData = await fetchCapabilityData(path, listPlugins, force);
+      const nextData = await fetchCapabilityData(provider, path, listPlugins, force);
       if (request === requestRef.current) setData(nextData);
     } catch (error) {
       if (request === requestRef.current) toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       if (request === requestRef.current) setLoading(false);
     }
-  }, [listPlugins, path]);
+  }, [listPlugins, path, provider]);
 
   useEffect(() => {
     void load();
@@ -114,7 +124,7 @@ export function ClaudeCapabilityCenter({
       : section === "commands"
         ? data.commands.map((item) => ({ id: item.name, title: `/${item.name}`, description: item.description, meta: item.argumentHint }))
         : section === "agents"
-          ? data.agents.map((item) => ({ id: item.name, title: item.name, description: item.description, meta: "Claude subagent" }))
+          ? data.agents.map((item) => ({ id: item.name, title: item.name, description: item.description, meta: isOpenCode ? "OpenCode agent" : "Claude subagent" }))
           : section === "mcp"
             ? data.mcp.map((item) => ({ id: item.name, title: item.name, description: item.tools.length ? item.tools.join(", ") : "No tools reported", meta: item.authStatus }))
             : section === "plugins"
@@ -140,9 +150,9 @@ export function ClaudeCapabilityCenter({
           <button type="button" className="ag-icon-btn" onClick={onBack} title="Back to chat" aria-label="Back to chat">
             <ArrowLeft className="size-4" />
           </button>
-          <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]"><ClaudeCodeLogo className="size-3.5" /></span>
+          <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]"><ProviderLogo className="size-3.5" /></span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">Claude Code capabilities</p>
+            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{providerLabel} capabilities</p>
             <p className="ag-faint truncate text-[10px]">{repoName(path)} · live from the installed CLI</p>
           </div>
           <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" className="hidden h-8 w-52 rounded-full border-[var(--ag-line)] bg-[var(--ag-surface-2)] text-[11px] shadow-none sm:block" />
@@ -150,7 +160,7 @@ export function ClaudeCapabilityCenter({
             <RefreshCw className={cn("size-4", loading && "animate-spin")} />
           </button>
         </div>
-        <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none]" aria-label="Claude Code capabilities">
+        <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none]" aria-label={`${providerLabel} capabilities`}>
           {sections.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -193,7 +203,7 @@ export function ClaudeCapabilityCenter({
         </div>
         {!loading && entries.length === 0 ? (
           <div className="grid h-56 place-items-center text-center text-xs text-muted-foreground">
-            <div><Blocks className="mx-auto mb-3 size-5" /><p>No matching Claude Code capabilities.</p></div>
+            <div><Blocks className="mx-auto mb-3 size-5" /><p>No matching {providerLabel} capabilities.</p></div>
           </div>
         ) : null}
       </div>

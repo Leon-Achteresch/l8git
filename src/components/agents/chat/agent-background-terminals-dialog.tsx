@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type { AgentBackgroundTerminal } from "@/lib/agents/types";
 
@@ -50,7 +51,7 @@ export function AgentBackgroundTerminalsDialog({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Background terminals</DialogTitle>
-          <DialogDescription>Shell processes still running for this {provider === "claude" ? "Claude Code" : "Codex"} chat.</DialogDescription>
+          <DialogDescription>Shell processes still running for this {agentProviderMeta(provider).label} chat.</DialogDescription>
         </DialogHeader>
         <div className="max-h-80 space-y-2 overflow-y-auto">
           {loading ? (

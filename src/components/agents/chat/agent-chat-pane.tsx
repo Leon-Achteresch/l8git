@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -8,6 +9,7 @@ import {
   File,
   FileImage,
   Folder,
+  FolderGit2,
   GitBranch,
   GitPullRequestArrow,
   Hammer,
@@ -37,6 +39,7 @@ import { useShallow } from "zustand/react/shallow";
 import { AgentAccountMenu } from "@/components/agents/chat/agent-account-menu";
 import { AgentComposerControls } from "@/components/agents/chat/agent-composer-controls";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
+import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
 import { AgentRequestCard } from "@/components/agents/chat/agent-request-card";
 import { AgentThreadMenu } from "@/components/agents/chat/agent-thread-menu";
 import {
@@ -44,7 +47,6 @@ import {
   type PromptAction,
   type PromptSlashCommand,
 } from "@/components/agents/ui/prompt-input";
-import { ClaudeCodeLogo, CodexLogo } from "@/components/brand/agent-logos";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { codexReasoningEffortLabel } from "@/lib/agents/codex-labels";
 import {
@@ -55,6 +57,7 @@ import {
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
 import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
+import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
 
@@ -104,8 +107,8 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
   const { t } = useTranslation();
   const provider = useAgentProviderStore((state) => state.provider);
   const isClaude = provider === "claude";
-  const ProviderLogo = isClaude ? ClaudeCodeLogo : CodexLogo;
-  const agent = isClaude ? "Claude Code" : "Codex";
+  const ProviderLogo = agentProviderMeta(provider).Logo;
+  const agent = agentProviderMeta(provider).label;
   const conversation = useAgentChatStore((state) =>
     threadId ? state.conversations[threadId] : undefined,
   );
@@ -379,8 +382,9 @@ export const AgentChatPane = memo(function AgentChatPane({
   const { t } = useTranslation();
   const provider = useAgentProviderStore((state) => state.provider);
   const isClaude = provider === "claude";
-  const ProviderLogo = isClaude ? ClaudeCodeLogo : CodexLogo;
-  const providerLabel = isClaude ? "Claude Code" : "Codex";
+  const isCodex = provider === "codex";
+  const ProviderLogo = agentProviderMeta(provider).Logo;
+  const providerLabel = agentProviderMeta(provider).label;
   const connectionStatus = useAgentChatStore((state) => state.connectionStatus);
   const connectionError = useAgentChatStore((state) => state.connectionError);
   const requiresAuth = useAgentChatStore((state) => state.requiresAuth);
@@ -389,6 +393,19 @@ export const AgentChatPane = memo(function AgentChatPane({
   const models = useAgentChatStore((state) => state.models);
   const model = useAgentChatStore((state) => state.model);
   const branch = useRepoStore((state) => state.repos[path]?.branch);
+  const worktreeName = useRepoStore((state) => {
+    const entry = state.worktrees[path]?.find((item) => item.path === path);
+    return entry && !entry.is_main ? (entry.branch ?? repoName(entry.path)) : null;
+  });
+  const branchPr = useRepoStore(
+    useShallow((state) =>
+      branch
+        ? (state.prs[path] ?? []).find((pr) => pr.source_branch === branch) ?? null
+        : null,
+    ),
+  );
+  const loadPRs = useRepoStore((state) => state.loadPRs);
+  const reloadWorktrees = useRepoStore((state) => state.reloadWorktrees);
   const sessionStatus = useAgentChatStore((state) =>
     threadId ? (state.sessionStatusByThread[threadId] ?? "idle") : "idle",
   );
@@ -403,6 +420,8 @@ export const AgentChatPane = memo(function AgentChatPane({
         turnCount: conversation?.turns.length ?? 0,
         activeTurnId: conversation?.activeTurnId ?? null,
         goalObjective: conversation?.goal?.objective ?? null,
+        usage: usage ?? null,
+        usageModel: conversation?.model ?? null,
         contextPercent: usage?.modelContextWindow
           ? Math.min(100, Math.round((usage.totalTokens / usage.modelContextWindow) * 100))
           : null,
@@ -456,6 +475,12 @@ export const AgentChatPane = memo(function AgentChatPane({
     (!threadId && connectionStatus === "connecting") ||
     (!threadId && Boolean(connectionError) && connectionStatus === "error");
   const centeredComposer = !viewportBlocked && conversationMeta.turnCount === 0;
+
+  useEffect(() => {
+    if (!path) return;
+    void loadPRs(path).catch(() => {});
+    void reloadWorktrees(path).catch(() => {});
+  }, [loadPRs, path, reloadWorktrees]);
 
   useEffect(() => {
     if (!isClaude || loginStatus !== "waiting") return;
@@ -539,8 +564,8 @@ export const AgentChatPane = memo(function AgentChatPane({
         icon: <GitPullRequestArrow className="size-4" />,
         disabled: !threadId || busy,
       },
-    ].filter((action) => !isClaude || action.value !== "app"),
-    [busy, isClaude, providerLabel, t, threadId],
+    ].filter((action) => isCodex || action.value !== "app"),
+    [busy, isCodex, providerLabel, t, threadId],
   );
 
   const appendPathAttachments = (
@@ -587,6 +612,32 @@ export const AgentChatPane = memo(function AgentChatPane({
     });
     const paths = typeof picked === "string" ? [picked] : Array.isArray(picked) ? picked : [];
     appendPathAttachments(paths, "localAudio");
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData?.files ?? []);
+    if (!files.length) return;
+    event.preventDefault();
+    void (async () => {
+      for (const file of files) {
+        try {
+          const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+          const savedPath = await invoke<string>("save_clipboard_image", {
+            bytes,
+            ext: file.name.split(".").pop() ?? "png",
+            name: file.name || null,
+          });
+          const type: AgentAttachment["type"] = file.type.startsWith("image/")
+            ? "localImage"
+            : file.type.startsWith("audio/")
+              ? "localAudio"
+              : "mention";
+          appendPathAttachments([savedPath], type);
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : String(error));
+        }
+      }
+    })();
   };
 
   const pickFolder = async () => {
@@ -673,7 +724,7 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "plugins", label: "Show plugins", description: "Inspect installed and discoverable plugins" },
     { value: "import", label: "Import from Claude Code", description: "Preview setup, skills, and recent chats" },
     { value: "terminal", label: "Toggle in-app terminal", description: "Open it beside or below the chat", disabled: !onToggleTerminal },
-    { value: "feedback", label: `Send ${providerLabel} feedback`, description: isClaude ? "Report a Claude Code issue" : "Optionally include diagnostic logs" },
+    { value: "feedback", label: `Send ${providerLabel} feedback`, description: isCodex ? "Optionally include diagnostic logs" : `Report a ${providerLabel} issue` },
     { value: "mention", label: "Mention files", description: "Attach exact local paths" },
     { value: "browse", label: "Browse any file", description: "Attach a path outside the repository" },
     { value: "folder", label: "Mention a folder", description: "Attach a local directory" },
@@ -688,8 +739,8 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "usage", label: "Show usage limits", description: "Current account rate limits" },
     { value: "archive", label: "Archive this chat", description: "Remove it from the active list", disabled: !threadId || busy },
     { value: "delete", label: "Delete this chat", description: "Permanently delete the transcript", disabled: !threadId || busy },
-    { value: "logout", label: `Log out of ${providerLabel}`, description: `Disconnect the current ${isClaude ? "Anthropic" : "OpenAI"} account` },
-  ].filter((command) => !isClaude || !["apps", "memories", "import", "fast", "personality", "usage"].includes(command.value)), [busy, conversationMeta.exists, isClaude, model, models, onOpenCapabilities, onToggleTerminal, providerLabel, threadId]);
+    { value: "logout", label: `Log out of ${providerLabel}`, description: `Disconnect the current ${isClaude ? "Anthropic" : isCodex ? "OpenAI" : "OpenCode"} account` },
+  ].filter((command) => isCodex || !["apps", "memories", "import", "fast", "personality", "usage"].includes(command.value)), [busy, conversationMeta.exists, isClaude, isCodex, model, models, onOpenCapabilities, onToggleTerminal, providerLabel, threadId]);
 
   const runSlashCommand = async (command: string, argument: string) => {
     try {
@@ -964,6 +1015,7 @@ export const AgentChatPane = memo(function AgentChatPane({
         slashCommands={slashCommands}
         onSlashCommand={(command, argument) => void runSlashCommand(command, argument)}
         onSubmit={(value) => void submit(value)}
+        onPaste={handlePaste}
         loading={busy}
         allowSubmitWhileLoading
         allowEmptySubmit={attachments.length > 0}
@@ -992,6 +1044,23 @@ export const AgentChatPane = memo(function AgentChatPane({
               <span className="truncate">{branch}</span>
             </>
           ) : null}
+          {worktreeName ? (
+            <>
+              <FolderGit2 className="size-3 shrink-0" />
+              <span className="truncate">{worktreeName}</span>
+            </>
+          ) : null}
+          {branchPr ? (
+            <button
+              type="button"
+              className="ag-chip h-5 gap-1 px-1.5 text-[11px]"
+              title={branchPr.title}
+              onClick={() => void openUrl(branchPr.html_url).catch(() => {})}
+            >
+              <GitPullRequestArrow className="size-3 shrink-0" />
+              <span className="tabular-nums">#{branchPr.number}</span>
+            </button>
+          ) : null}
         </span>
 
         {conversationMeta.goalObjective && threadId ? (
@@ -1013,6 +1082,10 @@ export const AgentChatPane = memo(function AgentChatPane({
 
         <span className="ag-faint ml-auto flex shrink-0 items-center gap-2">
           {account?.email ? <span className="max-w-48 truncate">{account.email}</span> : null}
+          <AgentUsagePill
+            usage={conversationMeta.usage}
+            model={conversationMeta.usageModel || model}
+          />
           {conversationMeta.contextPercent !== null ? (
             <span className="tabular-nums">
               {t("agentChat.contextUsed", { value: conversationMeta.contextPercent })}
@@ -1084,7 +1157,7 @@ export const AgentChatPane = memo(function AgentChatPane({
 
         {threadId ? <AgentThreadMenu path={path} threadId={threadId} busy={busy} /> : null}
 
-        <AgentAccountMenu onImport={isClaude ? undefined : () => setImportOpen(true)} />
+        <AgentAccountMenu onImport={isCodex ? () => setImportOpen(true) : undefined} />
       </header>
 
       <AgentConversationViewport

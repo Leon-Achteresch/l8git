@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 
 import "@/components/agents/agents.css";
@@ -47,22 +47,26 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
   const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
   const terminalVisible = useTerminalStore((state) => !!state.visibleByPath[selectedPath]);
   const toggleTerminal = useTerminalStore((state) => state.toggleVisible);
-  const selectedThreads = useAgentChatStore((state) => state.threadsByPath[selectedPath] ?? EMPTY_THREADS);
   const activeThreadId = useAgentChatStore(
     (state) => state.activeThreadByPath[selectedPath] ?? null,
   );
-  const activeThreadIsKnown = activeThreadId !== null && selectedThreads.some(
-    (thread) => thread.id === activeThreadId,
-  );
+  const activeThreadIsKnown = useAgentChatStore((state) => {
+    const id = state.activeThreadByPath[selectedPath] ?? null;
+    return id !== null && (state.threadsByPath[selectedPath] ?? EMPTY_THREADS).some(
+      (thread) => thread.id === id,
+    );
+  });
   const handleToggleTerminal = useCallback(() => {
     toggleTerminal(selectedPath);
   }, [selectedPath, toggleTerminal]);
 
+  const appliedInitialPath = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (initialPath && paths.includes(initialPath) && initialPath !== selectedPath) {
-      setSelectedPath(initialPath);
-    }
-  }, [initialPath, paths, selectedPath]);
+    if (!initialPath || appliedInitialPath.current === initialPath) return;
+    if (!paths.includes(initialPath)) return;
+    appliedInitialPath.current = initialPath;
+    setSelectedPath(initialPath);
+  }, [initialPath, paths]);
 
   useEffect(() => {
     if (!paths.length) return;
@@ -75,10 +79,16 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
 
   useEffect(() => {
     if (!paths.length) return;
-    void chatStoreFor("codex").getState().loadThreads(paths);
-    void chatStoreFor("claude").getState().loadThreads(paths).catch(() => {});
+    void chatStoreFor(provider).getState().loadThreads(paths).catch(() => {});
     void connect().catch(() => {});
-  }, [connect, paths]);
+    const timer = window.setTimeout(() => {
+      for (const id of ["codex", "claude", "cursor", "opencode"] as const) {
+        if (id === provider) continue;
+        void chatStoreFor(id).getState().loadThreads(paths).catch(() => {});
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [connect, paths, provider]);
 
   useEffect(() => {
     setVisibleThread(activeThreadId);
@@ -107,11 +117,7 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
             maxSize="32%"
             className="ag-rail min-w-[264px] overflow-hidden"
           >
-            <AgentChatSidebar
-              selectedPath={selectedPath}
-              capabilityStudioOpen={capabilitySection !== null}
-              onOpenCapabilities={() => setCapabilitySection("skills")}
-            />
+            <AgentChatSidebar selectedPath={selectedPath} />
           </ResizablePanel>
           <ResizableHandle className="w-px bg-[var(--ag-line)] transition-colors hover:bg-[var(--ag-line-strong)]" />
           <ResizablePanel
@@ -133,10 +139,11 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
               >
                 {capabilitySection ? (
                   <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Capability Studio…</div>}>
-                    {provider === "claude" ? (
+                    {provider === "claude" || provider === "opencode" ? (
                       <ClaudeCapabilityCenter
-                        key={`claude-capabilities:${selectedPath}`}
+                        key={`${provider}-capabilities:${selectedPath}`}
                         path={selectedPath}
+                        provider={provider}
                         initialSection={capabilitySection}
                         onBack={() => setCapabilitySection(null)}
                       />

@@ -1,4 +1,4 @@
-import { ChevronDown, Compass, Gauge, ShieldCheck } from "lucide-react";
+import { Bot, ChevronDown, Compass, Gauge, ShieldCheck } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -126,9 +126,11 @@ export function AgentComposerControls({
     { value: "never", label: t("agentChat.settings.neverAsk") },
   ];
   const unrestricted = sandbox === "danger-full-access" && approval === "never";
-  const accessLabel = permissionProfile
-    ? permissionProfileLabel(permissionProfile)
-    : (sandboxes.find((item) => item.value === sandbox)?.label ?? sandbox);
+  const agentModePill = provider === "opencode" && permissionProfiles.length > 0;
+  const accessLabel =
+    !agentModePill && permissionProfile
+      ? permissionProfileLabel(permissionProfile)
+      : (sandboxes.find((item) => item.value === sandbox)?.label ?? sandbox);
 
   useEffect(() => {
     void loadPermissionProfiles(path).catch(() => {});
@@ -200,13 +202,39 @@ export function AgentComposerControls({
       </ControlPill>
       ) : null}
 
+      {agentModePill ? (
+        <ControlPill
+          icon={<Bot />}
+          label={permissionProfile ? permissionProfileLabel(permissionProfile) : t("agentChat.settings.agent")}
+          title={t("agentChat.settings.agent")}
+        >
+          <DropdownMenuLabel className="ag-label">{t("agentChat.settings.agent")}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={permissionProfile ?? ""}
+            onValueChange={(value) => setPermissionProfile(value)}
+          >
+            {permissionProfiles.map((profile) => (
+              <DropdownMenuRadioItem
+                key={profile.id}
+                value={profile.id}
+                disabled={!profile.allowed}
+                className={RADIO_CLASS}
+                title={profile.description ?? undefined}
+              >
+                {permissionProfileLabel(profile.id)}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </ControlPill>
+      ) : null}
+
       <ControlPill
         icon={<ShieldCheck />}
         label={accessLabel}
         title={t("agentChat.settings.sandbox")}
         tone={unrestricted ? "warning" : "default"}
       >
-        {permissionProfiles.length ? (
+        {!agentModePill && permissionProfiles.length ? (
           <>
             <DropdownMenuLabel className="ag-label">
               {t("agentChat.settings.profile")}

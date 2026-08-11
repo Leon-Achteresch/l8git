@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 
 export function AgentFeedbackDialog({
@@ -25,7 +26,7 @@ export function AgentFeedbackDialog({
 }) {
   const sendFeedback = useAgentChatStore((state) => state.sendFeedback);
   const provider = useAgentProviderStore((state) => state.provider);
-  const providerLabel = provider === "claude" ? "Claude Code" : "Codex";
+  const providerLabel = agentProviderMeta(provider).label;
   const [reason, setReason] = useState("");
   const [includeLogs, setIncludeLogs] = useState(true);
   const [sending, setSending] = useState(false);
@@ -50,7 +51,7 @@ export function AgentFeedbackDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Send {providerLabel} feedback</DialogTitle>
-          <DialogDescription>Report a problem directly to the {provider === "claude" ? "Claude Code" : "Codex"} team.</DialogDescription>
+          <DialogDescription>Report a problem directly to the {providerLabel} team.</DialogDescription>
         </DialogHeader>
         <Textarea
           value={reason}
