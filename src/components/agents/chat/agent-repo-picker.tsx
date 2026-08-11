@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, FolderGit2, GitBranch, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, FolderGit2, GitBranch, GitMerge, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
   const worktrees = useAgentWorktreeStore((state) => state.worktrees);
   const createWorktree = useAgentWorktreeStore((state) => state.createWorktree);
   const removeWorktree = useAgentWorktreeStore((state) => state.removeWorktree);
+  const landWorktree = useAgentWorktreeStore((state) => state.landWorktree);
   const [pending, setPending] = useState(false);
   const branch = branches[selectedPath]?.branch;
   const basePath = worktrees[selectedPath]?.basePath ?? selectedPath;
@@ -47,6 +48,17 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       setPending(false);
+    }
+  };
+
+  const mergeWorktree = async (path: string) => {
+    const base = worktrees[path]?.basePath;
+    try {
+      await landWorktree(path);
+      toast.success(t("agentChat.worktreeLanded", { name: worktreeDisplayName(path) }));
+      if (base && selectedPath === path) setPath(base);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -129,6 +141,19 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
                   {repoName(entry.basePath)}
                 </span>
                 {entry.path === selectedPath ? <Check className="size-3.5 shrink-0" /> : null}
+                <button
+                  type="button"
+                  aria-label={t("agentChat.landWorktree", { name: worktreeDisplayName(entry.path) })}
+                  title={t("agentChat.landWorktree", { name: worktreeDisplayName(entry.path) })}
+                  className="ag-icon-btn size-5 shrink-0"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    void mergeWorktree(entry.path);
+                  }}
+                >
+                  <GitMerge className="size-3" />
+                </button>
                 <button
                   type="button"
                   aria-label={t("agentChat.removeWorktree", { name: worktreeDisplayName(entry.path) })}

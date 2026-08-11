@@ -99,6 +99,73 @@ describe("useAgentWorktreeStore", () => {
     expect(useAgentWorktreeStore.getState().worktrees).toEqual({});
   });
 
+  it("lands a clean worktree: merge, remove, delete branch, forget", async () => {
+    invoke.mockResolvedValue("");
+    const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "ship");
+    invoke.mockReset();
+    invoke.mockImplementation((command: unknown) =>
+      command === "repo_status" ? Promise.resolve([]) : Promise.resolve("Merge made"),
+    );
+    const output = await useAgentWorktreeStore.getState().landWorktree(entry.path);
+    expect(output).toBe("Merge made");
+    expect(invoke.mock.calls.map((call) => call[0])).toEqual([
+      "repo_status",
+      "git_merge",
+      "git_worktree_remove",
+      "delete_branch",
+    ]);
+    expect(invoke).toHaveBeenCalledWith("git_merge", {
+      path: "/repo",
+      branch: "agents/ship",
+      strategy: null,
+      message: null,
+    });
+    expect(useAgentWorktreeStore.getState().worktrees).toEqual({});
+  });
+
+  it("refuses to land a dirty worktree", async () => {
+    invoke.mockResolvedValue("");
+    const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "dirty-land");
+    invoke.mockReset();
+    invoke.mockImplementation((command: unknown) =>
+      command === "repo_status" ? Promise.resolve([{ path: "a.ts" }]) : Promise.resolve(""),
+    );
+    await expect(useAgentWorktreeStore.getState().landWorktree(entry.path)).rejects.toThrow(
+      /nicht committete/u,
+    );
+    expect(invoke.mock.calls.map((call) => call[0])).toEqual(["repo_status"]);
+    expect(useAgentWorktreeStore.getState().worktrees[entry.path]).toBeDefined();
+  });
+
+  it("translates the dirty-base marker and keeps the entry on merge failure", async () => {
+    invoke.mockResolvedValue("");
+    const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "blocked");
+    invoke.mockReset();
+    invoke.mockImplementation((command: unknown) => {
+      if (command === "repo_status") return Promise.resolve([]);
+      return Promise.reject(new Error("__LOCAL_CHANGES_BLOCK__|a.ts"));
+    });
+    await expect(useAgentWorktreeStore.getState().landWorktree(entry.path)).rejects.toThrow(
+      /Basis-Repository hat lokale Änderungen/u,
+    );
+    expect(useAgentWorktreeStore.getState().worktrees[entry.path]).toBeDefined();
+  });
+
+  it("still lands when only the branch cleanup fails", async () => {
+    invoke.mockResolvedValue("");
+    const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "half");
+    invoke.mockReset();
+    invoke.mockImplementation((command: unknown) => {
+      if (command === "repo_status") return Promise.resolve([]);
+      if (command === "delete_branch") return Promise.reject(new Error("in use"));
+      return Promise.resolve("Merge made");
+    });
+    await expect(useAgentWorktreeStore.getState().landWorktree(entry.path)).resolves.toBe(
+      "Merge made",
+    );
+    expect(useAgentWorktreeStore.getState().worktrees).toEqual({});
+  });
+
   it("keeps the entry when forced removal fails", async () => {
     invoke.mockResolvedValue("");
     const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "dirty");

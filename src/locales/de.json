@@ -215,7 +215,9 @@
     "turnFinished": "Agent-Turn abgeschlossen",
     "openThread": "Öffnen",
     "changedFiles": "{{count}} geänderte Dateien im Arbeitsverzeichnis",
-    "changedFiles_one": "1 geänderte Datei im Arbeitsverzeichnis"
+    "changedFiles_one": "1 geänderte Datei im Arbeitsverzeichnis",
+    "landWorktree": "{{name}} ins Basis-Repository mergen",
+    "worktreeLanded": "{{name}} gemergt und aufgeräumt"
   },
   "island": {
     "open": "Projekte und Integrationen anzeigen",

@@ -215,7 +215,9 @@
     "turnFinished": "Agent turn finished",
     "openThread": "Open",
     "changedFiles": "{{count}} changed files in the working tree",
-    "changedFiles_one": "1 changed file in the working tree"
+    "changedFiles_one": "1 changed file in the working tree",
+    "landWorktree": "Merge {{name}} into the base repository",
+    "worktreeLanded": "{{name}} merged and cleaned up"
   },
   "island": {
     "open": "Show projects and integrations",

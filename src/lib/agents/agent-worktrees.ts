@@ -33,6 +33,7 @@ interface AgentWorktreeState {
   worktrees: Record<string, AgentWorktree>;
   createWorktree: (basePath: string, name?: string) => Promise<AgentWorktree>;
   removeWorktree: (path: string, options?: { force?: boolean }) => Promise<void>;
+  landWorktree: (path: string) => Promise<string>;
 }
 
 export const useAgentWorktreeStore = create<AgentWorktreeState>()(
@@ -55,6 +56,49 @@ export const useAgentWorktreeStore = create<AgentWorktreeState>()(
         const entry: AgentWorktree = { path, basePath: base, branch, createdAt: Date.now() };
         set((state) => ({ worktrees: { ...state.worktrees, [path]: entry } }));
         return entry;
+      },
+      landWorktree: async (path) => {
+        const entry = get().worktrees[path];
+        if (!entry) throw new Error("Unbekannter Worktree.");
+        const status = await invoke<unknown[]>("repo_status", { path });
+        if (Array.isArray(status) && status.length > 0) {
+          throw new Error(
+            `Der Worktree hat ${status.length} nicht committete Änderungen. Bitte zuerst committen — zum Beispiel durch den Agent.`,
+          );
+        }
+        let output: string;
+        try {
+          output = await invoke<string>("git_merge", {
+            path: entry.basePath,
+            branch: entry.branch,
+            strategy: null,
+            message: null,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (message.includes("__LOCAL_CHANGES_BLOCK__")) {
+            throw new Error(
+              "Das Basis-Repository hat lokale Änderungen. Bitte zuerst committen oder stashen.",
+            );
+          }
+          throw new Error(message);
+        }
+        await invoke("git_worktree_remove", {
+          path: entry.basePath,
+          worktreePath: path,
+          force: false,
+        });
+        await invoke("delete_branch", {
+          path: entry.basePath,
+          name: entry.branch,
+          force: false,
+        }).catch(() => {});
+        set((state) => {
+          const worktrees = { ...state.worktrees };
+          delete worktrees[path];
+          return { worktrees };
+        });
+        return output;
       },
       removeWorktree: async (path, options) => {
         const entry = get().worktrees[path];
