@@ -1,3 +1,4 @@
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toastError } from "@/lib/error-toast";
@@ -81,13 +82,13 @@ export function WorktreeLockDialog({
 
           <div className="grid gap-1">
             <Label htmlFor="wt-lock-reason">{t("worktreeLock.reasonLabel")}</Label>
-            <textarea
+            <Textarea
               id="wt-lock-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder={t("worktree.lockReasonPlaceholder")}
               rows={3}
-              className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none resize-none focus:ring-2 focus:ring-ring/50"
+              className="resize-none"
             />
             <p className="text-[11px] text-muted-foreground">{t("worktree.lockReasonHint")}</p>
           </div>

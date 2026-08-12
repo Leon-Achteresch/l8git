@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
 import { useState } from "react";
 
@@ -46,22 +47,23 @@ export function FileTreeNode({
   if (node.isDir) {
     return (
       <div>
-        <button
-          type="button"
+        <ListRow
+          variant="ghost"
+          size="sm"
           onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center gap-1 rounded py-[3px] pr-2 text-left text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+          className="gap-1 pr-2"
           style={{ paddingLeft: `${depth * 12 + 6}px` }}
         >
           <ChevronRight
-            className={`h-3 w-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`}
+            className={`size-3 transition-transform ${open ? "rotate-90" : ""}`}
           />
           {open ? (
-            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400/80" />
+            <FolderOpen className="text-git-tag" />
           ) : (
-            <Folder className="h-3.5 w-3.5 shrink-0 text-amber-400/80" />
+            <Folder className="text-git-tag" />
           )}
           <span className="truncate font-medium">{node.name}</span>
-        </button>
+        </ListRow>
         {open && (
           <div>
             {node.children.map((child) => (
@@ -80,21 +82,17 @@ export function FileTreeNode({
   }
 
   return (
-    <button
-      type="button"
+    <ListRow
+      variant="accent"
+      size="sm"
+      active={isSelected}
       onClick={() => onSelect(node.fullPath)}
-      className={`flex w-full items-center gap-1.5 rounded py-[3px] pr-2 text-left text-[12px] transition-colors ${
-        isSelected
-          ? "bg-primary/12 text-primary font-medium"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-      }`}
+      className="gap-1.5 pr-2"
       style={{ paddingLeft: `${depth * 12 + 6 + 12}px` }}
       title={node.fullPath}
     >
-      <File
-        className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground/50"}`}
-      />
+      <File className={isSelected ? "text-primary" : "text-muted-foreground/50"} />
       <span className="truncate">{node.name}</span>
-    </button>
+    </ListRow>
   );
 }

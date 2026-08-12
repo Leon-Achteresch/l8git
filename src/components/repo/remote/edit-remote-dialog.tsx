@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
@@ -152,11 +153,12 @@ export function EditRemoteDialog({
           >
             {empty ? (
               <>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   disabled={busy}
                   onClick={() => setCreateOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 disabled:opacity-50"
+                  className="h-auto w-full justify-start gap-3 rounded-xl border-primary/40 bg-primary/5 p-3 text-left hover:bg-primary/10"
                 >
                   <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
                     <CloudUpload className="h-4.5 w-4.5" />
@@ -169,7 +171,7 @@ export function EditRemoteDialog({
                       {t("editRemote.createOnProviderHint")}
                     </div>
                   </div>
-                </button>
+                </Button>
                 <div className="flex items-center gap-2 py-0.5">
                   <div className="h-px flex-1 bg-border" />
                   <span className="shrink-0 text-[0.65rem] uppercase tracking-wide text-muted-foreground">
@@ -193,24 +195,20 @@ export function EditRemoteDialog({
             ) : (
               <div className="grid gap-1">
                 <Label htmlFor="er-remote">{t("editRemote.nameLabelExisting")}</Label>
-                <select
-                  id="er-remote"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                <Select
                   value={selectedName}
-                  onChange={(e) => {
-                    const n = e.target.value;
+                  onValueChange={(n) => {
                     setSelectedName(n);
                     const row = remotes.find((r) => r.name === n);
                     if (row) setUrlDraft(row.url);
                   }}
                   disabled={busy}
                 >
-                  {remotes.map((r) => (
-                    <option key={r.name} value={r.name}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="er-remote" className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {remotes.map((r) => <SelectItem key={r.name} value={r.name}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div className="grid gap-1">

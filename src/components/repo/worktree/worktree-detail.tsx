@@ -107,7 +107,7 @@ export function WorktreeDetail({
               "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
               entry.is_main
                 ? "bg-primary/12 text-primary"
-                : "bg-muted/70 text-[oklch(0.65_0.14_250)]",
+                : "bg-muted/70 text-git-branch",
             )}
           >
             <GitFork className="h-3.5 w-3.5" />
@@ -137,23 +137,24 @@ export function WorktreeDetail({
             <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
               {entry.path}
             </span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               onClick={() => {
                 navigator.clipboard.writeText(entry.path).catch(() => {});
                 toast.success(t("worktree.cardPathCopied"));
               }}
-              className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
               aria-label={t("worktree.detailAriaCopyPath")}
             >
-              <Copy className="h-3 w-3" />
-            </button>
+              <Copy />
+            </Button>
           </div>
         </InfoRow>
 
         {entry.branch && (
           <InfoRow label={t("worktree.detailBranchShort")}>
-            <span className="flex items-center gap-1 text-[11px] font-medium text-[oklch(0.65_0.14_250)]">
+            <span className="flex items-center gap-1 text-[11px] font-medium text-git-branch">
               <GitBranch className="h-3 w-3" />
               {entry.branch}
             </span>
@@ -169,8 +170,8 @@ export function WorktreeDetail({
         )}
 
         {entry.is_locked && (
-          <div className="rounded-lg border border-amber-500/25 bg-amber-500/8 px-2.5 py-2 text-[11px]">
-            <p className="font-semibold text-amber-600 dark:text-amber-400">
+          <div className="rounded-lg border border-git-modified/25 bg-git-modified/8 px-2.5 py-2 text-[11px]">
+            <p className="font-semibold text-git-modified">
               {t("worktree.detailLockedHeading")}
             </p>
             {entry.lock_reason && (

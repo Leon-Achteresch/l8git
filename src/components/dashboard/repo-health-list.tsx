@@ -10,10 +10,10 @@ export function RepoHealthList({ items }: { items: HealthItem[] }) {
       {items.map((item) => {
         const tone =
           item.severity === "ok"
-            ? "bg-emerald-500"
+            ? "bg-git-added"
             : item.severity === "warn"
-              ? "bg-amber-500"
-              : "bg-rose-500";
+              ? "bg-git-modified"
+              : "bg-git-removed";
         return (
           <li
             key={item.key}

@@ -136,12 +136,12 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
         <div className="flex h-full flex-col">
           <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="h-2 w-2 rounded-full bg-git-added" />
               {t("mergeEditor.oursHead")}
             </span>
             <span className="mx-auto opacity-40">{t("mergeEditor.vs")}</span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-blue-500" />
+              <span className="h-2 w-2 rounded-full bg-git-branch" />
               {t("mergeEditor.theirsIncoming")}
             </span>
           </div>
@@ -162,7 +162,7 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
           <span className="font-medium text-muted-foreground">{t("mergeEditor.result")}</span>
           {hasConflicts ? (
             <>
-              <span className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-amber-600 dark:text-amber-400">
+              <span className="ml-1 rounded bg-git-modified/20 px-1.5 py-0.5 font-mono text-git-modified">
                 {conflictBadge}
               </span>
               <div className="flex items-center gap-1">
@@ -180,7 +180,7 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
                   {activeBlockIdx + 1}/{blocks.length}
                 </span>
                 {activeBlock ? (
-                  <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400">
+                  <span className="rounded border border-git-modified/40 bg-git-modified/10 px-1.5 py-0.5 font-mono text-[10px] text-git-modified">
                     {t("mergeEditor.lineLabel", { line: activeBlock.startLine + 1 })}
                   </span>
                 ) : null}
@@ -208,7 +208,7 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
               </div>
             </>
           ) : (
-            <span className="ml-1 rounded bg-green-500/20 px-1.5 py-0.5 text-green-600 dark:text-green-400">
+            <span className="ml-1 rounded bg-git-added/20 px-1.5 py-0.5 text-git-added">
               {t("mergeEditor.allResolved")}
             </span>
           )}

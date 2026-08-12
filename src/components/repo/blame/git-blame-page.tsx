@@ -1,3 +1,5 @@
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { AppHeader } from "@/components/app/app-header";
 import { toastError } from "@/lib/error-toast";
 import "@/lib/monaco-setup";
@@ -132,15 +134,16 @@ export function GitBlamePage({
             </>
           )}
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={onClose}
           aria-label={t("blamePage.closeAria")}
           title={t("blamePage.closeAria")}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <X className="h-4 w-4" />
-        </button>
+          <X />
+        </Button>
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -215,22 +218,25 @@ export function GitBlamePage({
           <div className="shrink-0 border-b border-border/30 px-2 py-1.5">
             <div className="flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/30 px-2 py-1">
               <Search className="h-3 w-3 shrink-0 text-muted-foreground/50" />
-              <input
+              <Input
                 type="text"
+                variant="bare"
+                inputSize="xs"
                 value={fileSearch}
                 onChange={(e) => setFileSearch(e.target.value)}
                 placeholder={t("blamePage.searchPlaceholder")}
-                className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted-foreground/40"
+                className="flex-1"
                 spellCheck={false}
               />
               {fileSearch && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => setFileSearch("")}
-                  className="text-muted-foreground/50 hover:text-foreground transition-colors"
                 >
-                  <X className="h-3 w-3" />
-                </button>
+                  <X />
+                </Button>
               )}
             </div>
           </div>

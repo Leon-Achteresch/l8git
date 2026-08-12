@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
@@ -97,20 +98,16 @@ export function StashCreateDialog({
             />
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={includeUntracked}
-              onChange={(e) => setIncludeUntracked(e.target.checked)}
-              className="rounded border-input"
+              onCheckedChange={(checked) => setIncludeUntracked(checked === true)}
             />
             {t("stash.includeUntracked")}
           </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={keepIndex}
-              onChange={(e) => setKeepIndex(e.target.checked)}
-              className="rounded border-input"
+              onCheckedChange={(checked) => setKeepIndex(checked === true)}
             />
             {t("stash.keepIndex")}
           </label>

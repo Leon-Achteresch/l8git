@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { MagicPill } from "@/components/motion/magic-pill";
 import { PopIn } from "@/components/motion/pop-in";
 import type { TabDisplayMode, TabLayout, TabSize } from "@/lib/sidebar-prefs";
@@ -56,18 +57,16 @@ export function SidebarNavItem({
     }[tabSize];
 
     return (
-      <button
-        type="button"
+      <ListRow
         role="tab"
         aria-selected={isActive}
+        active={isActive}
         title={!showLabel ? label : undefined}
         onClick={onClick}
         className={cn(
-          "group relative flex w-full flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md px-1 outline-none transition-[background,color,transform] duration-150 select-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/60",
+          "group flex-col justify-center gap-0.5 overflow-hidden px-1 active:scale-[0.97]",
           gridHeightClass,
-          isActive
-            ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-medium"
-            : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground",
+          "hover:bg-sidebar-accent/40 data-[active=true]:bg-sidebar-accent/80 data-[active=true]:text-sidebar-accent-foreground",
         )}
       >
         {isActive && (
@@ -95,7 +94,7 @@ export function SidebarNavItem({
         )}
 
         {hasCount && <CornerBadge count={count!} emphasis={emphasis} />}
-      </button>
+      </ListRow>
     );
   }
 
@@ -107,21 +106,19 @@ export function SidebarNavItem({
   }[tabSize];
 
   return (
-    <button
-      type="button"
+    <ListRow
       role="tab"
       aria-selected={isActive}
+      active={isActive}
       title={!showLabel ? label : undefined}
       onClick={onClick}
       className={cn(
-        "group relative flex w-full items-center overflow-hidden rounded-md outline-none transition-[background,color,transform] duration-150 select-none active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/60",
+        "group overflow-hidden active:scale-[0.98]",
         heightClass,
         displayMode === "icons_only"
           ? "justify-center px-1"
           : "gap-2 pl-2.5 pr-2 text-[13px]",
-        isActive
-          ? "bg-sidebar-accent/80 text-sidebar-accent-foreground font-medium"
-          : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground",
+        "hover:bg-sidebar-accent/40 data-[active=true]:bg-sidebar-accent/80 data-[active=true]:text-sidebar-accent-foreground",
       )}
     >
       {isActive && (
@@ -164,6 +161,6 @@ export function SidebarNavItem({
       )}
 
       {hasCount && !showLabel && <CornerBadge count={count!} emphasis={emphasis} />}
-    </button>
+    </ListRow>
   );
 }

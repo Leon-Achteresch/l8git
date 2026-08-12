@@ -32,8 +32,8 @@ type CreatedRepo = {
 // a flat list. Falls back to a neutral style for self-hosted / custom hosts.
 const BRAND: Record<string, { label: string; gradient: string }> = {
   "github.com": { label: "GitHub", gradient: "from-zinc-700 to-zinc-900" },
-  "gitlab.com": { label: "GitLab", gradient: "from-orange-500 to-rose-600" },
-  "bitbucket.org": { label: "Bitbucket", gradient: "from-sky-500 to-blue-700" },
+  "gitlab.com": { label: "GitLab", gradient: "from-git-modified to-git-removed" },
+  "bitbucket.org": { label: "Bitbucket", gradient: "from-git-branch to-git-branch" },
 };
 
 const UNSUPPORTED_HOSTS = new Set(["dev.azure.com"]);
@@ -235,13 +235,14 @@ export function CreateRemoteRepoDialog({
                   const brand = brandFor(a);
                   const unsupported = UNSUPPORTED_HOSTS.has(a.host);
                   return (
-                    <button
+                    <Button
                       key={a.id}
                       type="button"
+                      variant="outline"
                       disabled={unsupported}
                       onClick={() => setAccount(a)}
                       className={cn(
-                        "group flex items-center gap-3 rounded-xl border border-border bg-background/50 p-3 text-left transition-all",
+                        "group h-auto w-full justify-start gap-3 rounded-xl border-border bg-background/50 p-3 text-left transition-all",
                         "hover:border-primary/40 hover:bg-muted hover:shadow-sm",
                         "disabled:pointer-events-none disabled:opacity-50",
                       )}
@@ -266,7 +267,7 @@ export function CreateRemoteRepoDialog({
                           {t("createRemote.soon")}
                         </span>
                       )}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -317,12 +318,14 @@ export function CreateRemoteRepoDialog({
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   disabled={busy}
+                  aria-pressed={isPrivate}
                   onClick={() => setIsPrivate(true)}
                   className={cn(
-                    "flex items-start gap-2 rounded-lg border p-3 text-left transition-colors",
+                    "h-auto items-start justify-start gap-2 rounded-lg p-3 text-left transition-colors",
                     isPrivate
                       ? "border-primary bg-primary/5 ring-1 ring-primary/30"
                       : "border-border bg-background/40 hover:bg-muted",
@@ -338,13 +341,15 @@ export function CreateRemoteRepoDialog({
                       {t("createRemote.privateHint")}
                     </div>
                   </div>
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="outline"
                   disabled={busy}
+                  aria-pressed={!isPrivate}
                   onClick={() => setIsPrivate(false)}
                   className={cn(
-                    "flex items-start gap-2 rounded-lg border p-3 text-left transition-colors",
+                    "h-auto items-start justify-start gap-2 rounded-lg p-3 text-left transition-colors",
                     !isPrivate
                       ? "border-primary bg-primary/5 ring-1 ring-primary/30"
                       : "border-border bg-background/40 hover:bg-muted",
@@ -362,7 +367,7 @@ export function CreateRemoteRepoDialog({
                       {t("createRemote.publicHint")}
                     </div>
                   </div>
-                </button>
+                </Button>
               </div>
 
               <label className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 px-3 py-2.5">

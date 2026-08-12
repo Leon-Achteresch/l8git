@@ -1,3 +1,6 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -179,73 +182,64 @@ export function CiDetailPanel({
 
           {/* Action buttons */}
           <div className="flex shrink-0 items-center gap-1">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => void loadJobs()}
               disabled={jobsLoading}
-              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-40"
               title={t("ci.refreshAria")}
             >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${jobsLoading ? "animate-spin" : ""}`}
-              />
-            </button>
+              <RefreshCw className={jobsLoading ? "animate-spin" : undefined} />
+            </Button>
             {run.html_url && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() =>
                   window.open(run.html_url, "_blank", "noopener,noreferrer")
                 }
-                className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                 title={t("ci.openInBrowser")}
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-              </button>
+                <ExternalLink />
+              </Button>
             )}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={onClose}
-              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
               title="Close"
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
+              <X />
+            </Button>
           </div>
         </div>
       </div>
 
       {/* ── Tab bar ── */}
-      <div className="flex shrink-0 border-b border-border/50 px-3">
-        <button
-          type="button"
-          onClick={() => setTab("pipeline")}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
-            tab === "pipeline"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Share2 className="h-3.5 w-3.5" />
-          Pipeline
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("yaml")}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition-colors ${
-            tab === "yaml"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <FileCode2 className="h-3.5 w-3.5" />
-          Workflow-Datei
-          {yamlFile && (
-            <span className="rounded bg-muted/60 px-1 font-mono text-[10px] text-muted-foreground">
-              {yamlFile}
-            </span>
-          )}
-        </button>
-      </div>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as typeof tab)}
+        className="shrink-0 border-b border-border/50 px-3"
+      >
+        <TabsList variant="line">
+          <TabsTrigger value="pipeline">
+            <Share2 />
+            Pipeline
+          </TabsTrigger>
+          <TabsTrigger value="yaml">
+            <FileCode2 />
+            Workflow-Datei
+            {yamlFile && (
+              <Badge variant="secondary" className="font-mono">
+                {yamlFile}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* ── Tab content ── */}
       <div className="min-h-0 flex-1 overflow-hidden">

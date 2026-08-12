@@ -1,3 +1,5 @@
+import { Badge } from "@/components/ui/badge";
+import { ListRow } from "@/components/ui/list-row";
 import { CommitAvatar } from "@/components/repo/commit/commit-avatar";
 import { formatRelative } from "@/lib/format";
 import type { Branch, PrReviewer, PullRequest } from "@/lib/repo-store";
@@ -58,37 +60,31 @@ function PRGlyph({ state }: { state: ReturnType<typeof displayState> }) {
 }
 
 const GLYPH_COLORS: Record<ReturnType<typeof displayState>, string> = {
-  open:   "bg-[oklch(0.94_0.05_145)] text-[oklch(0.38_0.14_145)]",
+  open:   "bg-git-added/15 text-git-added",
   draft:  "bg-muted text-muted-foreground",
-  merged: "bg-[oklch(0.93_0.05_290)] text-[oklch(0.4_0.14_290)]",
-  closed: "bg-[oklch(0.93_0.05_25)] text-[oklch(0.45_0.14_25)]",
+  merged: "bg-git-merge/15 text-git-merge",
+  closed: "bg-git-removed/15 text-git-removed",
 };
 
-const LABEL_COLORS: Record<string, { bg: string; fg: string }> = {
-  merge:    { bg: "oklch(0.93 0.06 25)",  fg: "oklch(0.4 0.14 25)" },
-  editor:   { bg: "oklch(0.94 0.06 290)", fg: "oklch(0.4 0.14 290)" },
-  breaking: { bg: "oklch(0.92 0.07 25)",  fg: "oklch(0.38 0.16 25)" },
-  bug:      { bg: "oklch(0.94 0.06 30)",  fg: "oklch(0.42 0.14 30)" },
-  refactor: { bg: "oklch(0.93 0.05 200)", fg: "oklch(0.4 0.14 200)" },
-  dx:       { bg: "oklch(0.93 0.05 145)", fg: "oklch(0.4 0.14 145)" },
-  ui:       { bg: "oklch(0.94 0.05 280)", fg: "oklch(0.4 0.14 280)" },
-  feature:  { bg: "oklch(0.93 0.06 145)", fg: "oklch(0.4 0.14 145)" },
-  fix:      { bg: "oklch(0.94 0.06 25)",  fg: "oklch(0.42 0.14 25)" },
+type LabelTone = React.ComponentProps<typeof Badge>["variant"];
+
+const LABEL_TONES: Record<string, LabelTone> = {
+  merge:    "destructive",
+  editor:   "info",
+  breaking: "destructive",
+  bug:      "destructive",
+  refactor: "info",
+  dx:       "success",
+  ui:       "info",
+  feature:  "success",
+  fix:      "warning",
 };
 
 function LabelChip({ label }: { label: string }) {
-  const colors = LABEL_COLORS[label.toLowerCase()];
   return (
-    <span
-      className="inline-flex shrink-0 items-center rounded px-1.5 py-0 text-[10px] font-medium"
-      style={colors ? { background: colors.bg, color: colors.fg } : undefined}
-    >
-      {!colors ? (
-        <span className="rounded bg-muted px-1.5 py-0 text-[10px] text-muted-foreground">
-          {label}
-        </span>
-      ) : label}
-    </span>
+    <Badge variant={LABEL_TONES[label.toLowerCase()] ?? "secondary"}>
+      {label}
+    </Badge>
   );
 }
 
@@ -100,11 +96,9 @@ function ReviewerAvatarStack({ reviewers }: { reviewers: PrReviewer[] }) {
       {shown.map((r, i) => (
         <span
           key={r.login}
-          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-background text-[9px] font-bold"
+          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-background bg-muted text-[9px] font-bold text-muted-foreground"
           style={{
             marginLeft: i === 0 ? 0 : "-5px",
-            background: "oklch(0.7 0.04 80)",
-            color: "white",
             zIndex: shown.length - i,
           }}
           title={r.login}
@@ -133,14 +127,15 @@ const PRRow = memo(function PRRow({
   const state = displayState(pr);
   return (
     <div className="pb-0.5">
-      <button
-        type="button"
+      <ListRow
+        variant="accent"
+        active={selected}
         onClick={() => onSelect(pr.number)}
         className={[
-          "group relative flex w-full items-start gap-2.5 rounded-md border px-3 py-2.5 text-left transition-all",
+          "group items-start border px-3 py-2.5",
           selected
-            ? "border-primary/40 bg-primary/5 shadow-sm"
-            : "border-transparent hover:border-border/60 hover:bg-muted/30",
+            ? "border-primary/40 shadow-sm"
+            : "border-transparent hover:border-border/60",
         ].join(" ")}
       >
         <AnimatePresence>
@@ -196,7 +191,7 @@ const PRRow = memo(function PRRow({
         <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
           <ReviewerAvatarStack reviewers={pr.reviewers} />
         </div>
-      </button>
+      </ListRow>
     </div>
   );
 });
@@ -354,11 +349,13 @@ export function PullRequestList({
               const count = counts[id];
               const active = filter === id;
               return (
-                <button
+                <Button
                   key={id}
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setFilterAndStore(id)}
-                  className="relative flex items-center gap-1.5 rounded px-2.5 py-1 text-[12px] font-medium transition-colors"
+                  className="relative hover:bg-transparent"
                   style={{ color: active ? "var(--color-primary)" : undefined }}
                 >
                   {active && (
@@ -381,7 +378,7 @@ export function PullRequestList({
                   >
                     {count}
                   </m.span>
-                </button>
+                </Button>
               );
             })}
           </div>

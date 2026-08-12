@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type CSSProperties, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -105,36 +106,42 @@ export function WindowControls() {
       className="flex self-stretch"
       style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
     >
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         tabIndex={-1}
         aria-label={t("header.minimize")}
         title={t("header.minimize")}
-        className={cn(buttonClass, "hover:bg-muted")}
+        className={buttonClass}
         onClick={() => void getCurrentWindow().minimize()}
       >
         <MinimizeIcon />
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         tabIndex={-1}
         aria-label={maximized ? t("header.restore") : t("header.maximize")}
         title={maximized ? t("header.restore") : t("header.maximize")}
-        className={cn(buttonClass, "hover:bg-muted")}
+        className={buttonClass}
         onClick={() => void getCurrentWindow().toggleMaximize()}
       >
         {maximized ? <RestoreIcon /> : <MaximizeIcon />}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         tabIndex={-1}
         aria-label={t("header.close")}
         title={t("header.close")}
-        className={cn(buttonClass, "hover:bg-[#c42b1c] hover:text-white")}
+        className={cn(buttonClass, "hover:bg-destructive hover:text-white")}
         onClick={() => void getCurrentWindow().close()}
       >
         <CloseIcon />
-      </button>
+      </Button>
     </div>
   );
 }

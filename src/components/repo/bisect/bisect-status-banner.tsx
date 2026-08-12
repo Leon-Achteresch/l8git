@@ -29,21 +29,21 @@ export function BisectStatusBanner({ path }: { path: string }) {
 
   if (bisect?.done) {
     return (
-      <div className="flex items-center gap-2 border-b border-orange-200 bg-orange-50 px-3 py-2 text-xs dark:border-orange-900/40 dark:bg-orange-950/30">
-        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
-        <span className="font-medium text-orange-800 dark:text-orange-300">{t("bisect.foundBad")}</span>
-        <code className="font-mono text-orange-700 dark:text-orange-400">
+      <div className="flex items-center gap-2 border-b border-git-modified/30 bg-git-modified/10 px-3 py-2 text-xs">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-git-modified" />
+        <span className="font-medium text-git-modified">{t("bisect.foundBad")}</span>
+        <code className="font-mono text-git-modified">
           {bisect.result_hash?.slice(0, 8)}
         </code>
         {bisect.result_subject && (
-          <span className="min-w-0 flex-1 truncate text-orange-700/80 dark:text-orange-400/80">
+          <span className="min-w-0 flex-1 truncate text-git-modified/80">
             {bisect.result_subject}
           </span>
         )}
         <Button
           size="sm"
           variant="ghost"
-          className="ml-auto h-6 gap-1 px-2 text-xs text-orange-700 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/40"
+          className="ml-auto h-6 gap-1 px-2 text-xs text-git-modified hover:bg-git-modified/15 hover:text-git-modified"
           onClick={() => void handleReset()}
         >
           <RotateCcw className="h-3 w-3" />
@@ -62,21 +62,21 @@ export function BisectStatusBanner({ path }: { path: string }) {
           : t("bisect.stepsOther", { count: n })
         : "";
     return (
-      <div className="flex items-center gap-2 border-b border-blue-200 bg-blue-50 px-3 py-2 text-xs dark:border-blue-900/40 dark:bg-blue-950/30">
-        <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-blue-500" />
-        <span className="font-medium text-blue-800 dark:text-blue-300">{t("bisect.running")}</span>
+      <div className="flex items-center gap-2 border-b border-git-branch/30 bg-git-branch/10 px-3 py-2 text-xs">
+        <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-git-branch" />
+        <span className="font-medium text-git-branch">{t("bisect.running")}</span>
         {stepsHint !== "" ? (
-          <span className="text-blue-700/70 dark:text-blue-400/70">{stepsHint}</span>
+          <span className="text-git-branch/70">{stepsHint}</span>
         ) : null}
         {bisect.current_subject && (
-          <span className="min-w-0 flex-1 truncate text-blue-700/70 dark:text-blue-400/70">
+          <span className="min-w-0 flex-1 truncate text-git-branch/70">
             · {bisect.current_subject}
           </span>
         )}
         <Button
           size="sm"
           variant="ghost"
-          className="ml-auto h-6 gap-1 px-2 text-xs text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/40"
+          className="ml-auto h-6 gap-1 px-2 text-xs text-git-branch hover:bg-git-branch/15 hover:text-git-branch"
           onClick={() => void handleReset()}
         >
           <RotateCcw className="h-3 w-3" />
@@ -89,9 +89,9 @@ export function BisectStatusBanner({ path }: { path: string }) {
   return (
     <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900/50">
       {hasPendingBad ? (
-        <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+        <XCircle className="h-3.5 w-3.5 shrink-0 text-git-removed" />
       ) : (
-        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-git-added" />
       )}
       <span className="text-muted-foreground">
         {t("bisect.pendingPrefix")}{" "}

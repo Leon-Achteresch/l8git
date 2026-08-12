@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { PanelBottom, PanelRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -12,7 +13,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useTerminalStore, type TerminalPosition } from "@/lib/terminal-store";
 import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
-import { cn } from "@/lib/utils";
 
 export function InterfaceElementsCard() {
   const { t } = useTranslation();
@@ -81,21 +81,17 @@ export function InterfaceElementsCard() {
           </Label>
           <div className="flex gap-2">
             {options.map(({ value, label, icon: Icon }) => (
-              <button
+              <ListRow
                 key={value}
-                type="button"
+                variant="card"
+                active={position === value}
                 onClick={() => setPosition(value)}
                 aria-pressed={position === value}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-                  position === value
-                    ? "border-primary/40 bg-primary/10 text-foreground"
-                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
+                className="flex-1 justify-center rounded-lg px-3 py-2 text-xs font-medium"
               >
-                <Icon className="size-4" />
+                <Icon />
                 {label}
-              </button>
+              </ListRow>
             ))}
           </div>
         </div>

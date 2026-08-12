@@ -15,7 +15,7 @@ export function RepoCiSummary({ checks }: { checks: RemoteCiCheck[] }) {
   return (
     <div className="flex items-center gap-4 px-4 pb-3 text-xs font-medium">
       {passed > 0 && (
-        <div className="flex items-center gap-1.5 text-emerald-500">
+        <div className="flex items-center gap-1.5 text-git-added">
           <CheckCircle2 className="h-4 w-4" />
           <span>{passed}</span>
         </div>
@@ -27,7 +27,7 @@ export function RepoCiSummary({ checks }: { checks: RemoteCiCheck[] }) {
         </div>
       )}
       {running > 0 && (
-        <div className="flex items-center gap-1.5 text-blue-500">
+        <div className="flex items-center gap-1.5 text-git-branch">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{running}</span>
         </div>

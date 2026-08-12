@@ -1,4 +1,6 @@
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -100,39 +102,28 @@ export function WorkflowRunList({
     <div className="flex h-full min-h-0 flex-col gap-2">
       {/* Filter pills */}
       {runs && runs.length > 0 && (
-        <div className="flex flex-wrap gap-1 px-2">
-          {filterBtns.map((btn) => {
-            const active = filter === btn.key;
-            return (
-              <button
-                key={btn.key}
-                type="button"
-                onClick={() => setFilter(btn.key)}
-                className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all ${
-                  active
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                }`}
-              >
-                {btn.dot && (
-                  <span className={`h-1.5 w-1.5 rounded-full ${btn.dot}`} />
-                )}
-                {btn.label}
-                {btn.count != null && btn.count > 0 && (
-                  <span
-                    className={`rounded-full px-1 text-[10px] font-bold ${
-                      active
-                        ? "bg-primary-foreground/20 text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {btn.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <ToggleGroup
+          type="single"
+          value={filter}
+          onValueChange={(value) => value && setFilter(value as typeof filter)}
+          variant="outline"
+          size="sm"
+          className="flex-wrap px-2"
+        >
+          {filterBtns.map((btn) => (
+            <ToggleGroupItem key={btn.key} value={btn.key} aria-label={btn.label}>
+              {btn.dot && (
+                <span className={`size-1.5 rounded-full ${btn.dot}`} />
+              )}
+              {btn.label}
+              {btn.count != null && btn.count > 0 && (
+                <Badge variant="secondary" className="tabular-nums">
+                  {btn.count}
+                </Badge>
+              )}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       )}
 
       {/* Run list */}

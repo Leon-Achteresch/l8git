@@ -171,32 +171,32 @@ function CommitRowInner({
       }
       className={cn(
         "relative mx-2 my-0.5 flex min-h-[4.5rem] cursor-pointer items-stretch rounded-[10px] outline-none transition-[background-color,box-shadow] duration-150 focus-visible:outline-none",
-        "bg-white dark:bg-zinc-950",
+        "bg-card",
         !selected &&
           !multiSelected &&
-          "hover:bg-blue-50/35 dark:hover:bg-zinc-900/90",
+          "hover:bg-muted/50",
         searchHit &&
           !selected &&
           !multiSelected &&
-          "bg-sky-50/85 dark:bg-sky-950/30",
+          "bg-git-branch/10",
         selected &&
-          "bg-slate-100 dark:bg-blue-950/50 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-blue-700 before:content-[''] dark:before:bg-blue-500",
+          "bg-muted before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-[''] dark:before:bg-git-branch",
         multiSelected &&
           !selected &&
-          "bg-blue-50/95 dark:bg-blue-950/35 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-blue-400/95 before:content-['']",
+          "bg-git-branch/12 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-['']",
         // Bisect role styles (only when not selected to avoid clashing)
         !selected && bisectRole === 'bad' &&
-          "bg-red-50/60 dark:bg-red-950/20 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-red-500 before:content-['']",
+          "bg-git-removed/10 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-removed before:content-['']",
         !selected && bisectRole === 'good' &&
-          "bg-green-50/60 dark:bg-green-950/20 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-green-500 before:content-['']",
+          "bg-git-added/10 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-added before:content-['']",
         !selected && bisectRole === 'current' &&
-          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-blue-400 before:content-[''] before:animate-pulse",
+          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-[''] before:animate-pulse",
         !selected && bisectRole === 'result' &&
-          "bg-orange-50/60 dark:bg-orange-950/20 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-orange-500 before:content-['']",
+          "bg-git-modified/10 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-modified before:content-['']",
         !selected && bisectRole === 'pending-bad' &&
-          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-red-300 before:content-['']",
+          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-git-removed before:content-['']",
         !selected && bisectRole === 'pending-good' &&
-          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-green-300 before:content-['']",
+          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-git-added before:content-['']",
       )}
     >
       <div className="flex shrink-0 justify-center self-stretch pl-0.5 pr-1" style={{ width: colW }}>
@@ -265,11 +265,11 @@ function CommitRowInner({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1.5 pr-3 sm:pr-4">
-        {bisectRole === 'bad' && <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />}
-        {bisectRole === 'good' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />}
-        {bisectRole === 'current' && <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-blue-500" />}
+        {bisectRole === 'bad' && <XCircle className="h-3.5 w-3.5 shrink-0 text-git-removed" />}
+        {bisectRole === 'good' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-git-added" />}
+        {bisectRole === 'current' && <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-git-branch" />}
         {bisectRole === 'result' && (
-          <span className="rounded-sm bg-orange-100 px-1 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+          <span className="rounded-sm bg-git-modified/15 px-1 py-0.5 text-[10px] font-semibold text-git-modified">
             {t("commitRow.firstBadBadge")}
           </span>
         )}
@@ -347,14 +347,14 @@ function CommitRowInner({
                 onSelect={() => handleBisectMark('good')}
                 className="gap-2 cursor-pointer"
               >
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <CheckCircle2 className="h-4 w-4 text-git-added" />
                 <span className="font-medium">{t("commitRow.markGood")}</span>
               </ContextMenuItem>
               <ContextMenuItem
                 onSelect={() => handleBisectMark('bad')}
                 className="gap-2 cursor-pointer"
               >
-                <XCircle className="h-4 w-4 text-red-500" />
+                <XCircle className="h-4 w-4 text-git-removed" />
                 <span className="font-medium">{t("commitRow.markBad")}</span>
               </ContextMenuItem>
               <ContextMenuItem
@@ -378,7 +378,7 @@ function CommitRowInner({
                 onSelect={() => handleSetPending('bad')}
                 className="gap-2 cursor-pointer"
               >
-                <XCircle className="h-4 w-4 text-red-400" />
+                <XCircle className="h-4 w-4 text-git-removed" />
                 <span className="font-medium">{t("commitRow.setBadCommit")}</span>
                 {bisectRole === 'pending-bad' && (
                   <AlertTriangle className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
@@ -388,7 +388,7 @@ function CommitRowInner({
                 onSelect={() => handleSetPending('good')}
                 className="gap-2 cursor-pointer"
               >
-                <CheckCircle2 className="h-4 w-4 text-green-400" />
+                <CheckCircle2 className="h-4 w-4 text-git-added" />
                 <span className="font-medium">{t("commitRow.setGoodCommit")}</span>
                 {bisectRole === 'pending-good' && (
                   <AlertTriangle className="ml-auto h-3.5 w-3.5 text-muted-foreground" />

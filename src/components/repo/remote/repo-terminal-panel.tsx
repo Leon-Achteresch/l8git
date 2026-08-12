@@ -1,4 +1,5 @@
-import { SPRING_LAYOUT, SPRING_PANEL } from "@/@lib/ease";
+import { Button } from "@/components/ui/button";
+import { SPRING_LAYOUT, SPRING_PANEL } from "@/lib/motion/ease";
 import { repoDefaultTabTitle } from "@/lib/terminal-tab-title";
 import { isDarkMode, terminalBackground } from "@/lib/terminal/terminal-theme";
 import { useRepoStore } from "@/lib/repo-store";
@@ -85,14 +86,16 @@ export function RepoTerminalPanel({ path }: Props) {
               dockBottomLabel={t("embeddedTerminal.dockBottom")}
               dockRightLabel={t("embeddedTerminal.dockRight")}
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               title={t("embeddedTerminal.close")}
               onClick={() => setVisible(path, false)}
-              className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-foreground/8 hover:text-foreground active:scale-95"
+              className="size-7 rounded-full text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
             >
               <X className="size-3.5" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -114,16 +117,18 @@ export function RepoTerminalPanel({ path }: Props) {
                 closeLabel={t("embeddedTerminal.closeTab")}
               />
             ))}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               title={t("embeddedTerminal.newTab")}
               onClick={() => openTab(path, defaultTitle)}
               className={cn(
-                "flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-background hover:text-foreground hover:shadow-sm active:scale-95",
+                "size-7 shrink-0 rounded-full text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm",
               )}
             >
               <Plus className="size-3.5" />
-            </button>
+            </Button>
           </div>
         </LayoutGroup>
       </header>

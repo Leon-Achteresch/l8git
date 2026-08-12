@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { UnifiedDiffBody } from "@/components/repo/commit/unified-diff-body";
 import {
   ResizableHandle,
@@ -172,12 +173,11 @@ export function PullRequestFilesTab({
                     transform: `translateY(${vi.start}px)`,
                   }}
                 >
-                  <button
-                    type="button"
+                  <ListRow
+                    size="sm"
+                    active={active}
                     onClick={() => setSelected(f.path)}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-muted/40 ${
-                      active ? "bg-muted/60" : ""
-                    }`}
+                    className="rounded-none px-3"
                     title={f.path}
                   >
                     <span
@@ -193,7 +193,7 @@ export function PullRequestFilesTab({
                       <span className="text-git-added">+{f.additions}</span>{" "}
                       <span className="text-git-removed">-{f.deletions}</span>
                     </span>
-                  </button>
+                  </ListRow>
                 </li>
               );
             })}

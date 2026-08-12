@@ -179,7 +179,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
       <div className="flex min-h-0 flex-1 border-b border-border">
         <div className="flex min-h-0 flex-1 flex-col border-r border-border">
           <div className="flex items-center gap-1.5 border-b border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-green-500" />
+            <span className="h-2 w-2 rounded-full bg-git-added" />
             {t("mergeEditor.oursHead")}
           </div>
           <div className="min-h-0 flex-1">
@@ -194,7 +194,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-center gap-1.5 border-b border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            <span className="h-2 w-2 rounded-full bg-git-branch" />
             {t("mergeEditor.theirsIncoming")}
           </div>
           <div className="min-h-0 flex-1">
@@ -214,7 +214,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
           <span className="font-medium text-muted-foreground">{t("mergeEditor.result")}</span>
           {hasConflicts ? (
             <>
-              <span className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-amber-600 dark:text-amber-400">
+              <span className="ml-1 rounded bg-git-modified/20 px-1.5 py-0.5 font-mono text-git-modified">
                 {conflictBadge}
               </span>
               <div className="flex items-center gap-1">
@@ -232,7 +232,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
                   {activeBlockIdx + 1}/{blocks.length}
                 </span>
                 {activeBlock ? (
-                  <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400">
+                  <span className="rounded border border-git-modified/40 bg-git-modified/10 px-1.5 py-0.5 font-mono text-[10px] text-git-modified">
                     {t("mergeEditor.lineLabel", { line: activeBlock.startLine + 1 })}
                   </span>
                 ) : null}
@@ -266,7 +266,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="gap-1 text-green-600 hover:bg-green-500/10 hover:text-green-600 dark:text-green-400"
+                  className="gap-1 text-git-added hover:bg-git-added/10 hover:text-git-added"
                   onClick={() => acceptAll("ours")}
                   title={t("mergeEditor.acceptAllOursHint")}
                 >
@@ -277,7 +277,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="gap-1 text-blue-600 hover:bg-blue-500/10 hover:text-blue-600 dark:text-blue-400"
+                  className="gap-1 text-git-branch hover:bg-git-branch/10 hover:text-git-branch"
                   onClick={() => acceptAll("theirs")}
                   title={t("mergeEditor.acceptAllTheirsHint")}
                 >
@@ -287,7 +287,7 @@ export function MergeEditor3Way({ versions, language, onSave, saving }: MergeEdi
               </div>
             </>
           ) : (
-            <span className="ml-1 rounded bg-green-500/20 px-1.5 py-0.5 text-green-600 dark:text-green-400">
+            <span className="ml-1 rounded bg-git-added/20 px-1.5 py-0.5 text-git-added">
               {t("mergeEditor.allResolved")}
             </span>
           )}

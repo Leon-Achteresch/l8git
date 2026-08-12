@@ -1,4 +1,7 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
 import { formatDate, formatRelative } from "@/lib/format";
 import type { PrReviewer, PullRequest } from "@/lib/repo-store";
@@ -38,10 +41,10 @@ type BranchProtection = {
 /* ─── Status pill ─────────────────────────────────────────────────────────── */
 
 const STATUS_PILL_STYLES: Record<string, { bg: string; dot: string }> = {
-  open:   { bg: "bg-[oklch(0.93_0.06_145/0.15)] text-[oklch(0.36_0.13_145)] border-[oklch(0.85_0.08_145)]",   dot: "bg-[oklch(0.55_0.15_145)]" },
+  open:   { bg: "bg-git-added/15 text-git-added border-git-added/30",   dot: "bg-git-added" },
   draft:  { bg: "bg-muted/50 text-muted-foreground border-border",                                              dot: "bg-muted-foreground" },
-  merged: { bg: "bg-[oklch(0.93_0.06_290/0.15)] text-[oklch(0.4_0.14_290)] border-[oklch(0.85_0.08_290)]",    dot: "bg-[oklch(0.55_0.14_290)]" },
-  closed: { bg: "bg-[oklch(0.93_0.05_25/0.15)] text-[oklch(0.4_0.14_25)] border-[oklch(0.85_0.08_25)]",       dot: "bg-[oklch(0.6_0.16_25)]" },
+  merged: { bg: "bg-git-merge/15 text-git-merge border-git-merge/30",    dot: "bg-git-merge" },
+  closed: { bg: "bg-git-removed/15 text-git-removed border-git-removed/30",       dot: "bg-git-removed" },
 };
 
 function StatusPill({ state, isDraft }: { state: string; isDraft: boolean }) {
@@ -82,34 +85,25 @@ function BranchRoute({ head, base }: { head: string; base: string }) {
 
 /* ─── Label chip ──────────────────────────────────────────────────────────── */
 
-const LABEL_COLORS: Record<string, { bg: string; fg: string }> = {
-  merge:    { bg: "oklch(0.93 0.06 25)",  fg: "oklch(0.4 0.14 25)" },
-  editor:   { bg: "oklch(0.94 0.06 290)", fg: "oklch(0.4 0.14 290)" },
-  breaking: { bg: "oklch(0.92 0.07 25)",  fg: "oklch(0.38 0.16 25)" },
-  bug:      { bg: "oklch(0.94 0.06 30)",  fg: "oklch(0.42 0.14 30)" },
-  refactor: { bg: "oklch(0.93 0.05 200)", fg: "oklch(0.4 0.14 200)" },
-  dx:       { bg: "oklch(0.93 0.05 145)", fg: "oklch(0.4 0.14 145)" },
-  ui:       { bg: "oklch(0.94 0.05 280)", fg: "oklch(0.4 0.14 280)" },
-  feature:  { bg: "oklch(0.93 0.06 145)", fg: "oklch(0.4 0.14 145)" },
-  fix:      { bg: "oklch(0.94 0.06 25)",  fg: "oklch(0.42 0.14 25)" },
+type LabelTone = React.ComponentProps<typeof Badge>["variant"];
+
+const LABEL_TONES: Record<string, LabelTone> = {
+  merge:    "destructive",
+  editor:   "info",
+  breaking: "destructive",
+  bug:      "destructive",
+  refactor: "info",
+  dx:       "success",
+  ui:       "info",
+  feature:  "success",
+  fix:      "warning",
 };
 
 function LabelChip({ label }: { label: string }) {
-  const colors = LABEL_COLORS[label.toLowerCase()];
-  if (colors) {
-    return (
-      <span
-        className="inline-flex items-center rounded px-1.5 py-0 text-[10px] font-medium"
-        style={{ background: colors.bg, color: colors.fg }}
-      >
-        {label}
-      </span>
-    );
-  }
   return (
-    <span className="inline-flex items-center rounded bg-muted px-1.5 py-0 text-[10px] text-muted-foreground">
+    <Badge variant={LABEL_TONES[label.toLowerCase()] ?? "secondary"}>
       {label}
-    </span>
+    </Badge>
   );
 }
 
@@ -122,11 +116,7 @@ function SideCard({ title, action, children }: { title: string; action?: string;
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {title}
         </span>
-        {action && (
-          <button type="button" className="text-[11px] text-primary hover:underline">
-            {action}
-          </button>
-        )}
+        {action ? <span className="text-[11px] text-muted-foreground">{action}</span> : null}
       </header>
       <div className="p-3">{children}</div>
     </section>
@@ -149,7 +139,7 @@ function ReviewerCard({ reviewers }: { reviewers: PrReviewer[] }) {
           <li key={r.login} className="flex items-center gap-2">
             <span
               className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
-              style={{ background: "oklch(0.7 0.04 80)" }}
+              
             >
               {r.login[0]?.toUpperCase()}
             </span>
@@ -240,7 +230,7 @@ function MergeStateBanner({
         {...bannerMotion}
         className={`rounded-md border p-3 ${
           isMerged
-            ? "border-[oklch(0.85_0.08_290)] bg-[oklch(0.96_0.04_290/0.12)] text-[oklch(0.4_0.14_290)]"
+            ? "border-git-merge/30 bg-git-merge/12 text-git-merge"
             : "border-border bg-muted/30 text-muted-foreground"
         }`}
       >
@@ -267,7 +257,7 @@ function MergeStateBanner({
 
   if (detail.state === "draft" || detail.is_draft) {
     return (
-      <m.div {...bannerMotion} className="rounded-md border border-[oklch(0.86_0.08_70)] bg-[oklch(0.97_0.03_70/0.15)] p-3 text-[oklch(0.4_0.13_70)]">
+      <m.div {...bannerMotion} className="rounded-md border border-git-modified/15 bg-git-modified/15 p-3 text-git-modified">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[13px] font-semibold">{t("prInspect.draftBlockedTitle")}</div>
@@ -285,7 +275,7 @@ function MergeStateBanner({
 
   if (detail.mergeable === false) {
     return (
-      <m.div {...bannerMotion} className="rounded-md border border-[oklch(0.85_0.08_25)] bg-[oklch(0.97_0.03_25/0.12)] p-3 text-[oklch(0.35_0.14_25)]">
+      <m.div {...bannerMotion} className="rounded-md border border-git-removed/30 bg-git-removed/12 p-3 text-git-removed">
         <div className="flex items-start gap-2">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -310,7 +300,7 @@ function MergeStateBanner({
 
   if (detail.mergeable === true) {
     return (
-      <m.div {...bannerMotion} className="flex flex-col gap-2.5 rounded-md border border-[oklch(0.85_0.08_145)] bg-[oklch(0.97_0.04_145/0.12)] p-3 text-[oklch(0.32_0.13_145)]">
+      <m.div {...bannerMotion} className="flex flex-col gap-2.5 rounded-md border border-git-added/30 bg-git-added/12 p-3 text-git-added">
         <div className="flex items-start gap-2">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 flex-1">
@@ -323,8 +313,8 @@ function MergeStateBanner({
 
         {/* Required status checks */}
         {!protectionLoading && protection && protection.required_status_checks.length > 0 && (
-          <div className="flex flex-col gap-1 rounded-md border border-[oklch(0.85_0.08_145/0.5)] bg-[oklch(0.97_0.04_145/0.08)] px-2.5 py-1.5">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[oklch(0.45_0.12_145)]">
+          <div className="flex flex-col gap-1 rounded-md border border-git-added/50 bg-git-added/8 px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-git-added">
               <ShieldCheck className="h-3 w-3" />
               {t("prInspect.requiredChecks")}
             </div>
@@ -332,7 +322,7 @@ function MergeStateBanner({
               {protection.required_status_checks.map((ctx) => (
                 <span
                   key={ctx}
-                  className="rounded bg-[oklch(0.93_0.05_145/0.4)] px-1.5 py-0 font-mono text-[10px] text-[oklch(0.38_0.12_145)]"
+                  className="rounded bg-git-added/15 px-1.5 py-0 font-mono text-[10px] text-git-added"
                 >
                   {ctx}
                 </span>
@@ -340,7 +330,7 @@ function MergeStateBanner({
             </div>
             {protection.required_approving_review_count != null &&
               protection.required_approving_review_count > 0 && (
-                <div className="text-[10px] text-[oklch(0.45_0.12_145)]">
+                <div className="text-[10px] text-git-added">
                   {t("prInspect.requiredApprovals", {
                     count: protection.required_approving_review_count,
                   })}
@@ -350,20 +340,24 @@ function MergeStateBanner({
         )}
 
         <div className="flex items-center gap-2">
-          <select
+          <Select
             value={strategy}
-            onChange={(e) => onStrategyChange(e.target.value as MergeStrategy)}
-            className="h-7 rounded border bg-background px-2 py-0 text-[11px] text-foreground"
+            onValueChange={(value) => onStrategyChange(value as MergeStrategy)}
           >
-            <option value="squash">{t("prInspect.strategySquashOpt")}</option>
-            <option value="rebase">{t("prInspect.strategyRebaseOpt")}</option>
-            <option value="merge">{t("prInspect.strategyMergeOpt")}</option>
-          </select>
-          <input
+            <SelectTrigger size="sm" className="w-32 text-[11px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="squash">{t("prInspect.strategySquashOpt")}</SelectItem>
+              <SelectItem value="rebase">{t("prInspect.strategyRebaseOpt")}</SelectItem>
+              <SelectItem value="merge">{t("prInspect.strategyMergeOpt")}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
             value={mergeMessage}
             onChange={(e) => onMergeMessageChange(e.target.value)}
             placeholder={t("prInspect.mergePlaceholder")}
-            className="h-7 min-w-0 flex-1 rounded border bg-background px-2 text-[11px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="h-7 min-w-0 flex-1 text-[11px]"
           />
           <Button size="sm" className="h-7 shrink-0 text-[11px]" onClick={onMerge} disabled={busy !== null}>
             <GitMerge className="mr-1 h-3 w-3" />
@@ -377,7 +371,7 @@ function MergeStateBanner({
 
         {/* Auto-merge toggle — only for GitHub PRs with a node_id */}
         {isGitHub && detail.node_id && (
-          <div className="flex items-center gap-2 border-t border-[oklch(0.85_0.08_145/0.3)] pt-2">
+          <div className="flex items-center gap-2 border-t border-git-added/30 pt-2">
             {detail.auto_merge_method ? (
               <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px]">
                 <Zap className="h-3.5 w-3.5 shrink-0" />
@@ -388,7 +382,7 @@ function MergeStateBanner({
                 </span>
               </div>
             ) : (
-              <span className="min-w-0 flex-1 text-[11px] text-[oklch(0.45_0.12_145)]">
+              <span className="min-w-0 flex-1 text-[11px] text-git-added">
                 {t("prInspect.autoMergeHint")}
               </span>
             )}
@@ -618,12 +612,14 @@ export function PullRequestInspectDetail({
         <LayoutGroup id="pr-detail-tabs">
           <nav className="mt-3 flex items-center gap-0">
             {TABS.map(({ id, label }) => (
-              <button
+              <Button
                 key={id}
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setTab(id)}
                 className={[
-                  "relative flex items-center gap-1.5 px-3 pb-2 pt-0.5 text-[12px] font-medium transition-colors",
+                  "relative h-auto items-center gap-1.5 rounded-none px-3 pb-2 pt-0.5 text-[12px] font-medium transition-colors",
                   tab === id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 ].join(" ")}
               >
@@ -635,7 +631,7 @@ export function PullRequestInspectDetail({
                     transition={{ type: "spring", stiffness: 480, damping: 36, mass: 0.6 }}
                   />
                 )}
-              </button>
+              </Button>
             ))}
           </nav>
         </LayoutGroup>

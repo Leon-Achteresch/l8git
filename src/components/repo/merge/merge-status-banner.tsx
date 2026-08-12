@@ -40,17 +40,17 @@ export function MergeStatusBanner({ path }: { path: string }) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-b border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm",
+        "flex flex-col gap-2 border-b border-git-branch/40 bg-git-branch/10 px-4 py-3 text-sm",
       )}
       role="status"
       aria-live="polite"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <GitMerge className="h-4 w-4 text-blue-500" />
+        <GitMerge className="h-4 w-4 text-git-branch" />
         <span className="font-medium">{t("mergeBanner.paused")}</span>
         {conflicts.length > 0 ? (
           <span className="text-xs text-muted-foreground">
-            <AlertTriangle className="mr-1 inline h-3 w-3 text-amber-500" />
+            <AlertTriangle className="mr-1 inline h-3 w-3 text-git-modified" />
             {conflictLabel}
           </span>
         ) : (

@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { ListRow } from "@/components/ui/list-row";
 import { toastError } from "@/lib/error-toast";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { invoke } from "@tauri-apps/api/core";
@@ -152,17 +154,18 @@ function CommitInfoCard({
       </div>
       {onNavigate && (
         <div className="border-t border-border/40 px-3 py-2">
-          <button
-            type="button"
+          <ListRow
+            variant="accent"
+            size="sm"
             onClick={() => {
               onNavigate(info.entry.commit_hash);
               onClose();
             }}
-            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/8 transition-colors"
+            className="font-medium text-primary"
           >
-            <GitCommitHorizontal className="h-3.5 w-3.5 shrink-0" />
+            <GitCommitHorizontal />
             {t("blame.navigateToCommit")}
-          </button>
+          </ListRow>
         </div>
       )}
     </div>
@@ -233,13 +236,13 @@ function BlameLines({
                 style={{ width: META_WIDTH }}
               >
                 {isFirstInGroup ? (
-                  <button
-                    type="button"
+                  <ListRow
+                    size="xs"
                     onClick={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       onAuthorClick(entry, rect);
                     }}
-                    className="group flex w-full items-center gap-2 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted/50"
+                    className="group"
                   >
                     <div
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white shadow-sm"
@@ -253,7 +256,7 @@ function BlameLines({
                     <span className="shrink-0 text-[10px] text-muted-foreground/60">
                       {entry.date}
                     </span>
-                  </button>
+                  </ListRow>
                 ) : (
                   <div className="flex w-full items-center pl-1.5">
                     <div
@@ -371,14 +374,15 @@ export function GitBlameSheet({
             {t("blame.linesCount", { count: entries.length })}
           </span>
         )}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={onClose}
           aria-label={t("blame.closeAria")}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
-          <X className="h-4 w-4" />
-        </button>
+          <X />
+        </Button>
       </div>
 
       <div className="min-h-0 flex-1">

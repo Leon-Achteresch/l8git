@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { useRouter } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -125,15 +126,10 @@ interface NavItemProps extends NavItemDef {
 
 function SettingsNavItem({ icon: Icon, label, accent, active, onClick }: NavItemProps) {
   return (
-    <button
-      type="button"
+    <ListRow
+      active={active}
       onClick={onClick}
-      className={cn(
-        "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150 text-left",
-        active
-          ? "bg-accent text-accent-foreground font-medium"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-      )}
+      className="group gap-3 rounded-lg px-3 py-2 hover:bg-accent/50 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
     >
       {active && (
         <span
@@ -150,7 +146,7 @@ function SettingsNavItem({ icon: Icon, label, accent, active, onClick }: NavItem
         )}
       />
       <span className="truncate">{label}</span>
-    </button>
+    </ListRow>
   );
 }
 
@@ -189,29 +185,29 @@ export function Settings() {
       {
         label: t("settings.navGroupInterface"),
         items: [
-          { id: "sidebar", label: t("settings.navSidebar"), icon: PanelLeft, accent: "bg-blue-500" },
-          { id: "appearance", label: t("settings.navAppearance"), icon: Palette, accent: "bg-purple-500" },
-          { id: "animations", label: t("settings.navAnimations"), icon: Zap, accent: "bg-amber-500" },
+          { id: "sidebar", label: t("settings.navSidebar"), icon: PanelLeft, accent: "bg-git-branch" },
+          { id: "appearance", label: t("settings.navAppearance"), icon: Palette, accent: "bg-git-merge" },
+          { id: "animations", label: t("settings.navAnimations"), icon: Zap, accent: "bg-git-modified" },
         ],
       },
       {
         label: t("settings.navGroupCommits"),
         items: [
-          { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal, accent: "bg-emerald-500" },
-          { id: "ai", label: t("settings.navAi"), icon: Sparkles, accent: "bg-violet-500" },
+          { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal, accent: "bg-git-added" },
+          { id: "ai", label: t("settings.navAi"), icon: Sparkles, accent: "bg-git-merge" },
         ],
       },
       {
         label: t("settings.navGroupWorkspace"),
         items: [
-          { id: "workspace", label: t("settings.navWorkspace"), icon: Terminal, accent: "bg-orange-500" },
+          { id: "workspace", label: t("settings.navWorkspace"), icon: Terminal, accent: "bg-git-modified" },
         ],
       },
       {
         label: t("settings.navGroupAccount"),
         items: [
-          { id: "accounts", label: t("settings.navAccounts"), icon: Users, accent: "bg-teal-500" },
-          { id: "updates", label: t("settings.navUpdates"), icon: Package, accent: "bg-sky-500" },
+          { id: "accounts", label: t("settings.navAccounts"), icon: Users, accent: "bg-git-added" },
+          { id: "updates", label: t("settings.navUpdates"), icon: Package, accent: "bg-git-branch" },
         ],
       },
     ],
@@ -436,8 +432,8 @@ export function Settings() {
               icon={PanelLeft}
               title={t("settings.sidebarSectionTitle")}
               subtitle={t("settings.sidebarSectionSubtitle")}
-              gradient="from-blue-500/25 to-indigo-500/25"
-              iconColor="text-blue-500"
+              gradient="from-git-branch/25 to-git-branch/25"
+              iconColor="text-git-branch"
             />
             <SidebarCustomizeSection />
           </section>
@@ -448,8 +444,8 @@ export function Settings() {
               icon={Palette}
               title={t("settings.appearanceTitle")}
               subtitle={t("settings.appearanceSubtitle")}
-              gradient="from-purple-500/25 to-pink-500/25"
-              iconColor="text-purple-500"
+              gradient="from-git-merge/25 to-pink-500/25"
+              iconColor="text-git-merge"
             />
 
             <div className="space-y-4">
@@ -557,13 +553,14 @@ export function Settings() {
                       />
                       <div className="flex justify-between text-[11px] text-muted-foreground/60 select-none">
                         <span>70%</span>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="xs"
                           onClick={() => setUiScale(1.0)}
-                          className="text-muted-foreground/50 hover:text-muted-foreground text-[10px]"
                         >
                           {t("settings.uiScaleReset")}
-                        </button>
+                        </Button>
                         <span>150%</span>
                       </div>
                     </div>
@@ -583,8 +580,8 @@ export function Settings() {
               icon={Zap}
               title={t("settings.animationsSectionTitle")}
               subtitle={t("settings.animationsSectionSubtitle")}
-              gradient="from-amber-500/25 to-yellow-400/25"
-              iconColor="text-amber-500"
+              gradient="from-git-modified/25 to-git-modified/25"
+              iconColor="text-git-modified"
             />
             <StaggerCard index={2}>
               <AnimationsCard />
@@ -597,8 +594,8 @@ export function Settings() {
               icon={GitCommitHorizontal}
               title={t("settings.commitsSectionTitle")}
               subtitle={t("settings.commitsSectionSubtitle")}
-              gradient="from-emerald-500/25 to-green-500/25"
-              iconColor="text-emerald-500"
+              gradient="from-git-added/25 to-git-added/25"
+              iconColor="text-git-added"
             />
 
             <div className="space-y-4">
@@ -816,8 +813,8 @@ export function Settings() {
               icon={Sparkles}
               title={t("settings.aiSectionTitle")}
               subtitle={t("settings.aiSectionSubtitle")}
-              gradient="from-violet-500/25 to-purple-500/25"
-              iconColor="text-violet-500"
+              gradient="from-git-merge/25 to-git-merge/25"
+              iconColor="text-git-merge"
             />
 
             <div className="space-y-4">
@@ -845,25 +842,21 @@ export function Settings() {
                       ).map(({ id, label, desc, icon: Icon }) => {
                         const active = aiProviderType === id;
                         return (
-                          <button
+                          <ListRow
                             key={id}
-                            type="button"
+                            variant="card"
                             role="radio"
                             aria-checked={active}
+                            active={active}
                             onClick={() => setAiProviderType(id)}
-                            className={cn(
-                              "flex flex-col gap-2.5 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              active
-                                ? "border-primary/40 bg-primary/5 ring-2 ring-ring ring-offset-2 ring-offset-background"
-                                : "border-border/60 hover:border-border hover:bg-muted/30",
-                            )}
+                            className="flex-col items-start gap-2.5 p-4"
                           >
                             <Icon className={cn("size-5", active ? "text-primary" : "text-muted-foreground")} />
                             <div>
                               <div className="text-sm font-semibold">{label}</div>
                               <div className="mt-0.5 text-xs text-muted-foreground">{desc}</div>
                             </div>
-                          </button>
+                          </ListRow>
                         );
                       })}
                     </div>
@@ -1024,8 +1017,8 @@ export function Settings() {
               icon={Terminal}
               title={t("settings.workspaceSectionTitle")}
               subtitle={t("settings.workspaceSectionSubtitle")}
-              gradient="from-orange-500/25 to-amber-500/25"
-              iconColor="text-orange-500"
+              gradient="from-git-modified/25 to-git-modified/25"
+              iconColor="text-git-modified"
             />
 
             <StaggerCard index={7}>
@@ -1197,8 +1190,8 @@ export function Settings() {
               icon={Users}
               title={t("settings.accountsSectionTitle")}
               subtitle={t("settings.accountsSectionSubtitle")}
-              gradient="from-teal-500/25 to-cyan-500/25"
-              iconColor="text-teal-500"
+              gradient="from-git-added/25 to-git-branch/25"
+              iconColor="text-git-added"
             />
 
             <StaggerCard index={9}>
@@ -1232,7 +1225,7 @@ export function Settings() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {!helper && !loading && !refreshing && (
-                    <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+                    <div className="flex items-start gap-2 rounded-lg border border-git-modified/40 bg-git-modified/10 p-3 text-xs text-git-modified">
                       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                       <div>{t("settings.noCredentialHelper")}</div>
                     </div>
@@ -1278,8 +1271,8 @@ export function Settings() {
               icon={Package}
               title={t("settings.updatesSectionTitle")}
               subtitle={t("settings.updatesSectionSubtitle")}
-              gradient="from-sky-500/25 to-blue-500/25"
-              iconColor="text-sky-500"
+              gradient="from-git-branch/25 to-git-branch/25"
+              iconColor="text-git-branch"
             />
 
             <StaggerCard index={10}>

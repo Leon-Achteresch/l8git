@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
 import type { Branch } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
@@ -123,25 +125,24 @@ export function NewBranchDialog({
           </div>
           <div className="grid gap-1">
             <Label htmlFor="nb-base">{t("newBranchDialog.baseLabel")}</Label>
-            <select
-              id="nb-base"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            <Select
               value={base || currentName || baseOptions[0] || ""}
-              onChange={(e) => setBase(e.target.value)}
+              onValueChange={setBase}
             >
-              {baseOptions.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="nb-base" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {baseOptions.map((b) => (
+                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={checkoutAfter}
-              onChange={(e) => setCheckoutAfter(e.target.checked)}
-              className="rounded border-input"
+              onCheckedChange={(checked) => setCheckoutAfter(checked === true)}
             />
             {t("newBranchDialog.checkoutAfter")}
           </label>

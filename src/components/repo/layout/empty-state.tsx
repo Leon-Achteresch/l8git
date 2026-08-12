@@ -27,37 +27,37 @@ export function EmptyState() {
 
       <div className="pointer-events-none absolute left-8 top-[14%]">
         <FeatureCard
-          icon={<GitCommitHorizontal className="size-6 text-orange-500" />}
+          icon={<GitCommitHorizontal className="size-6 text-git-modified" />}
           caption={t("emptyState.cardCommitsCaption")}
           label={t("emptyState.cardCommitsLabel")}
-          iconWellClassName="bg-orange-50 dark:bg-orange-950"
+          iconWellClassName="bg-git-modified"
           floatingPhase={0}
         />
       </div>
       <div className="pointer-events-none absolute right-8 top-[14%]">
         <FeatureCard
-          icon={<GitBranch className="size-6 text-teal-500" />}
+          icon={<GitBranch className="size-6 text-git-added" />}
           caption={t("emptyState.cardBranchesCaption")}
           label={t("emptyState.cardBranchesLabel")}
-          iconWellClassName="bg-teal-50 dark:bg-teal-950"
+          iconWellClassName="bg-git-added"
           floatingPhase={1}
         />
       </div>
       <div className="pointer-events-none absolute bottom-[18%] left-8">
         <FeatureCard
-          icon={<GitMerge className="size-6 text-rose-500" />}
+          icon={<GitMerge className="size-6 text-git-removed" />}
           caption={t("emptyState.cardMergesCaption")}
           label={t("emptyState.cardMergesLabel")}
-          iconWellClassName="bg-rose-50 dark:bg-rose-950"
+          iconWellClassName="bg-git-removed"
           floatingPhase={2}
         />
       </div>
       <div className="pointer-events-none absolute bottom-[18%] right-8">
         <FeatureCard
-          icon={<GitPullRequest className="size-6 text-violet-500" />}
+          icon={<GitPullRequest className="size-6 text-git-merge" />}
           caption={t("emptyState.cardPrCaption")}
           label={t("emptyState.cardPrLabel")}
-          iconWellClassName="bg-violet-50 dark:bg-violet-950"
+          iconWellClassName="bg-git-merge"
           floatingPhase={3}
         />
       </div>
@@ -65,7 +65,7 @@ export function EmptyState() {
       <div className="relative z-10 flex flex-col items-center gap-6 text-center">
         <h1 className="text-5xl font-bold leading-tight tracking-tight text-foreground">
           {t("emptyState.titleBefore")}{" "}
-          <span className="text-indigo-500">Git</span> {t("emptyState.titleAfter")}
+          <span className="text-git-branch">Git</span> {t("emptyState.titleAfter")}
           <br />
           {t("emptyState.titleTagline")}
         </h1>

@@ -3,6 +3,8 @@ import { create } from "zustand";
 const WINDOW_MS = 1000;
 const BUSY_BYTES = 400;
 const IDLE_MS = 1200;
+const QUIET_INPUT_MS = 350;
+const QUIET_RESIZE_MS = 1000;
 
 type ActivityState = {
   busy: Record<string, boolean>;
@@ -24,14 +26,43 @@ export const useTerminalActivity = create<ActivityState>()((set) => ({
     }),
 }));
 
-type Track = { bytes: number; windowStart: number; timer: number | null };
+type Track = {
+  bytes: number;
+  windowStart: number;
+  timer: number | null;
+  quietUntil: number;
+};
 
 const tracks = new Map<string, Track>();
 
+function trackFor(leafId: string, now: number): Track {
+  let track = tracks.get(leafId);
+  if (!track) {
+    track = { bytes: 0, windowStart: now, timer: null, quietUntil: 0 };
+    tracks.set(leafId, track);
+  }
+  return track;
+}
+
+export function noteTerminalInput(
+  leafId: string,
+  quietMs: number = QUIET_INPUT_MS,
+): void {
+  const now = Date.now();
+  const track = trackFor(leafId, now);
+  track.quietUntil = Math.max(track.quietUntil, now + quietMs);
+  track.bytes = 0;
+}
+
+export function noteTerminalResize(leafId: string): void {
+  noteTerminalInput(leafId, QUIET_RESIZE_MS);
+}
+
 export function noteTerminalOutput(leafId: string, byteLength: number): void {
   const now = Date.now();
-  const track = tracks.get(leafId) ?? { bytes: 0, windowStart: now, timer: null };
-  tracks.set(leafId, track);
+  const track = trackFor(leafId, now);
+  // Echo/Redraw direkt nach User-Input oder Resize ist keine Agent-Arbeit.
+  if (now < track.quietUntil) return;
   if (now - track.windowStart > WINDOW_MS) {
     track.bytes = 0;
     track.windowStart = now;

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import {
   Activity,
   AlertTriangle,
@@ -24,7 +25,7 @@ import { RemoteCiCheck, CheckAnnotation } from "./ci-types";
 const LEVEL_STYLE: Record<string, string> = {
   failure: "text-git-removed",
   error: "text-git-removed",
-  warning: "text-yellow-500",
+  warning: "text-git-modified",
   notice: "text-primary",
 };
 
@@ -204,21 +205,23 @@ export function CiCheckDetails({
 
       {/* Annotations — loaded lazily on demand */}
       {hasAnnotations && annotations === null && (
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           disabled={loadingAnnotations}
           onClick={() => void loadAnnotations()}
-          className="mt-3 flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:opacity-50"
+          className="mt-3"
         >
           {loadingAnnotations ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <MessageSquare className="h-3.5 w-3.5" />
+            <MessageSquare />
           )}
           {loadingAnnotations
             ? t("ci.annotationsLoading")
             : t("ci.loadAnnotations", { count: check.annotations_count })}
-        </button>
+        </Button>
       )}
 
       {annotations && annotations.length > 0 && (

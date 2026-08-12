@@ -49,21 +49,21 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const CELL_DEFAULT =
-  "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/80";
+  "border-border bg-muted text-muted-foreground";
 
 const TYPE_CELL: Record<string, string> = {
-  feat: "border-violet-200 bg-violet-100 dark:border-violet-800 dark:bg-violet-950/50",
-  fix: "border-rose-200 bg-rose-100 dark:border-rose-800 dark:bg-rose-950/50",
-  docs: "border-sky-200 bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50",
+  feat: "border-git-merge/30 bg-git-merge/15 text-git-merge",
+  fix: "border-git-removed/30 bg-git-removed/15 text-git-removed",
+  docs: "border-git-branch/30 bg-git-branch/15 text-git-branch",
   style:
-    "border-fuchsia-200 bg-fuchsia-100 dark:border-fuchsia-800 dark:bg-fuchsia-950/50",
-  refactor: "border-cyan-200 bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/50",
-  perf: "border-amber-200 bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50",
-  test: "border-emerald-200 bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50",
-  build: "border-orange-200 bg-orange-100 dark:border-orange-800 dark:bg-orange-950/50",
-  ci: "border-indigo-200 bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/50",
-  chore: "border-zinc-300 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800/80",
-  revert: "border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-950/50",
+    "border-git-merge/30 bg-git-merge/15 text-git-merge",
+  refactor: "border-git-branch/30 bg-git-branch/15 text-git-branch",
+  perf: "border-git-modified/30 bg-git-modified/15 text-git-modified",
+  test: "border-git-added/30 bg-git-added/15 text-git-added",
+  build: "border-git-modified/30 bg-git-modified/15 text-git-modified",
+  ci: "border-git-branch/30 bg-git-branch/15 text-git-branch",
+  chore: "border-border bg-muted text-muted-foreground",
+  revert: "border-border bg-secondary text-secondary-foreground",
 };
 
 function CommitConventionalIconsInner({

@@ -1,5 +1,8 @@
+mod agent_transport;
+mod claude;
 mod cmd;
 mod credentials;
+mod cursor;
 mod favicon;
 mod git;
 mod pr;
@@ -29,12 +32,43 @@ pub fn run() {
             }
             Ok(())
         })
+        .manage(agent_transport::AgentTransportState::default())
         .manage(pty::PtyState::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            agent_transport::agent_transport_open,
+            agent_transport::agent_transport_send,
+            agent_transport::agent_transport_close,
+            agent_transport::agent_transport_close_all,
+            agent_transport::opencode_delete_session,
+            agent_transport::opencode_cli,
+            claude::claude_list_sessions,
+            claude::claude_read_session,
+            claude::claude_rename_session,
+            claude::claude_delete_session,
+            claude::claude_auth_status,
+            claude::claude_start_login,
+            claude::claude_logout,
+            claude::claude_list_plugins,
+            claude::claude_list_skills,
+            claude::claude_list_hooks,
+            claude::claude_mcp_login,
+            claude::claude_mcp_remove,
+            claude::claude_list_capability_files,
+            claude::claude_read_capability_file,
+            claude::claude_write_capability_file,
+            claude::claude_delete_capability_file,
+            claude::claude_set_hook_disabled,
+            claude::claude_set_plugin_enabled,
+            claude::claude_uninstall_plugin,
+            cursor::cursor_list_sessions,
+            cursor::cursor_delete_session,
+            cursor::cursor_rename_session,
+            cursor::cursor_cli,
+            cursor::cursor_list_hooks,
             git::open_repo,
             git::git_init_repo,
             git::repo_log_page,

@@ -34,8 +34,8 @@ function StatCard({
       <span
         className={cn(
           "text-xl font-bold leading-none tabular-nums",
-          highlight === "red" && "text-red-500",
-          highlight === "amber" && "text-amber-500",
+          highlight === "red" && "text-git-removed",
+          highlight === "amber" && "text-git-modified",
           !highlight && "text-foreground",
         )}
       >
@@ -169,7 +169,7 @@ export function SubmoduleList({
               type="button"
               variant="outline"
               size="xs"
-              className="gap-1.5 text-[11px] text-red-500 hover:text-red-500"
+              className="gap-1.5 text-[11px] text-git-removed hover:text-git-removed"
               disabled={bulkBusy}
               onClick={() =>
                 void bulkRun(
@@ -180,7 +180,7 @@ export function SubmoduleList({
             >
               <Download className="h-3.5 w-3.5" />
               {t("submodule.listPullAll")}
-              <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-500">
+              <span className="rounded-full bg-git-removed/15 px-1.5 py-0.5 text-[9px] font-bold text-git-removed">
                 {behindTotal}
               </span>
             </Button>

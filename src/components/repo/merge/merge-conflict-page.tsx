@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { AppHeader } from "@/components/app/app-header";
 import { Button } from "@/components/ui/button";
 import { hasUnresolvedConflicts } from "@/lib/conflict-parser";
@@ -5,7 +6,6 @@ import { toastError } from "@/lib/error-toast";
 import type { ConflictVersions } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
-import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -226,26 +226,22 @@ export function MergeConflictPage({
               const isSelected = file === selectedFile;
               return (
                 <li key={file}>
-                  <button
-                    type="button"
+                  <ListRow
+                    size="sm"
+                    active={isSelected}
                     onClick={() => setSelectedFile(file)}
-                    className={cn(
-                      "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
-                      isSelected
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-accent/50",
-                    )}
+                    className="rounded-none px-3"
                     title={file}
                   >
                     {state?.resolved ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-green-500" />
+                      <CheckCircle2 className="text-git-added" />
                     ) : (
-                      <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+                      <AlertTriangle className="text-git-modified" />
                     )}
                     <span className="truncate font-mono">
                       {file.split("/").pop()}
                     </span>
-                  </button>
+                  </ListRow>
                 </li>
               );
             })}

@@ -2,14 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ComponentType } from "react";
 import { create } from "zustand";
 
-import {
-  ClaudeCodeLogo,
-  CodexLogo,
-  CopilotLogo,
-  CursorLogo,
-  GeminiLogo,
-  OpenCodeLogo,
-} from "@/components/brand/agent-logos";
+import { AGENT_PROVIDERS } from "@/lib/agents/provider-registry";
 import { useTerminalStore, type TerminalTab } from "@/lib/terminal-store";
 
 export type AgentIntegration = {
@@ -17,16 +10,12 @@ export type AgentIntegration = {
   label: string;
   command: string;
   icon: ComponentType<{ className?: string }>;
+  surface: "chat" | "terminal";
 };
 
-export const AGENT_INTEGRATIONS: AgentIntegration[] = [
-  { id: "claude", label: "Claude Code", command: "claude", icon: ClaudeCodeLogo },
-  { id: "codex", label: "Codex", command: "codex", icon: CodexLogo },
-  { id: "gemini", label: "Gemini CLI", command: "gemini", icon: GeminiLogo },
-  { id: "cursor", label: "Cursor CLI", command: "agent", icon: CursorLogo },
-  { id: "opencode", label: "OpenCode", command: "opencode", icon: OpenCodeLogo },
-  { id: "copilot", label: "Copilot CLI", command: "copilot", icon: CopilotLogo },
-];
+export const AGENT_INTEGRATIONS: AgentIntegration[] = AGENT_PROVIDERS.map(
+  ({ id, label, command, icon, surface }) => ({ id, label, command, icon, surface }),
+);
 
 export function integrationOf(tab: TerminalTab): AgentIntegration | undefined {
   const cmd = tab.command?.trim();
@@ -37,7 +26,7 @@ export function integrationOf(tab: TerminalTab): AgentIntegration | undefined {
 }
 
 export function agentTabs(tabs: TerminalTab[]): TerminalTab[] {
-  return tabs.filter((t) => integrationOf(t) !== undefined);
+  return tabs.filter((t) => integrationOf(t)?.surface === "terminal");
 }
 
 export function launchAgent(
@@ -45,6 +34,9 @@ export function launchAgent(
   integration: AgentIntegration,
   opts?: { newInstance?: boolean },
 ): string {
+  if (integration.surface !== "terminal") {
+    throw new Error(`${integration.label} verwendet die native Chat-Oberfläche.`);
+  }
   const s = useTerminalStore.getState();
   const own = (s.tabsByPath[path] ?? []).filter(
     (t) => integrationOf(t)?.id === integration.id,

@@ -45,11 +45,11 @@ function NodeStatusIcon({
   const s = { width: size, height: size };
 
   if (["success", "successful", "passed"].includes(key))
-    return <CheckCircle2 className={cls} style={s} color="#22c55e" />;
+    return <CheckCircle2 className={cls} style={s} color="var(--git-added)" />;
   if (
     ["failure", "failed", "timed_out", "error", "action_required"].includes(key)
   )
-    return <XCircle className={cls} style={s} color="#ef4444" />;
+    return <XCircle className={cls} style={s} color="var(--git-removed)" />;
   if (["cancelled"].includes(key))
     return (
       <Square className={cls} style={s} color="hsl(var(--muted-foreground))" />

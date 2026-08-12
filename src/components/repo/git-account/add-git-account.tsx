@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import { useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -7,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toastError } from "@/lib/error-toast";
-import { cn } from "@/lib/utils";
 
 type Provider = { id: string; name: string; host: string; builtin: boolean };
 
@@ -173,15 +173,11 @@ export function AddGitAccount({
               const already =
                 p.builtin && existingHosts.includes(p.host);
               return (
-                <button
+                <ListRow
                   key={p.id}
-                  type="button"
                   disabled={already}
                   onClick={() => setProvider(p)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border border-border bg-background/40 p-2.5 text-left transition-colors hover:bg-muted",
-                    "disabled:pointer-events-none disabled:opacity-50",
-                  )}
+                  className="gap-3 rounded-lg border border-border bg-background/40 p-2.5"
                 >
                   <div
                     className="grid size-8 place-items-center rounded-md border border-border bg-muted text-xs font-semibold uppercase text-muted-foreground"
@@ -200,7 +196,7 @@ export function AddGitAccount({
                       {t("gitAccount.alreadySignedIn")}
                     </span>
                   )}
-                </button>
+                </ListRow>
               );
             })}
           </div>

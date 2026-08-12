@@ -1,3 +1,4 @@
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -124,44 +125,44 @@ export function WorktreeAddDialog({
           <div className="grid gap-1">
             <Label>{t("worktreeAdd.modeLabel")}</Label>
             <div className="flex rounded-lg border border-border overflow-hidden text-sm">
-              <button
+              <Button
                 type="button"
+                variant={mode === "existing" ? "default" : "ghost"}
+                size="sm"
                 onClick={() => setMode("existing")}
-                className={`flex-1 px-3 py-1.5 text-center transition-colors ${
-                  mode === "existing" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted"
-                }`}
+                className="flex-1 rounded-none"
               >
                 {t("worktreeAdd.modeExistingBranch")}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant={mode === "new" ? "default" : "ghost"}
+                size="sm"
                 onClick={() => setMode("new")}
-                className={`flex-1 px-3 py-1.5 text-center transition-colors ${
-                  mode === "new" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-muted"
-                }`}
+                className="flex-1 rounded-none"
               >
                 {t("worktreeAdd.modeNewBranch")}
-              </button>
+              </Button>
             </div>
           </div>
 
           {mode === "existing" ? (
             <div className="grid gap-1">
               <Label htmlFor="wt-existing-branch">{t("worktreeAdd.branchLabel")}</Label>
-              <select
+              <NativeSelect
                 id="wt-existing-branch"
+                className="w-full"
                 value={existingBranch}
                 onChange={(e) => setExistingBranch(e.target.value)}
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/50"
                 required
               >
-                <option value="">{t("worktreeAdd.branchUnset")}</option>
+                <NativeSelectOption value="">{t("worktreeAdd.branchUnset")}</NativeSelectOption>
                 {localBranches.map((b) => (
-                  <option key={b.name} value={b.name}>
+                  <NativeSelectOption key={b.name} value={b.name}>
                     {b.name}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
+              </NativeSelect>
               <p className="text-[11px] text-muted-foreground">{t("worktreeAdd.existingBranchHint")}</p>
             </div>
           ) : (
@@ -172,22 +173,22 @@ export function WorktreeAddDialog({
               </div>
               <div className="grid gap-1">
                 <Label htmlFor="wt-base-branch">{t("worktreeAdd.baseBranchLabel")}</Label>
-                <select
+                <NativeSelect
                   id="wt-base-branch"
+                  className="w-full"
                   value={baseBranch}
                   onChange={(e) => setBaseBranch(e.target.value)}
-                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring/50"
                 >
-                  <option value="">{t("worktreeAdd.baseFromHead")}</option>
+                  <NativeSelectOption value="">{t("worktreeAdd.baseFromHead")}</NativeSelectOption>
                   {branches
                     .filter((b) => !b.is_remote)
                     .map((b) => (
-                      <option key={b.name} value={b.name}>
+                      <NativeSelectOption key={b.name} value={b.name}>
                         {b.name}
                         {b.is_current ? ` (${t("pr.branchCurrentBadge")})` : ""}
-                      </option>
+                      </NativeSelectOption>
                     ))}
-                </select>
+                </NativeSelect>
                 <p className="text-[11px] text-muted-foreground">{t("worktreeAdd.basisHint")}</p>
               </div>
             </>

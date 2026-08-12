@@ -5,9 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PanelValue } from "@/components/dashboard/panel-bits";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRelativeTime } from "@/lib/dashboard-aggregations";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
@@ -130,33 +132,40 @@ export function AllReposTable({ paths }: { paths: string[] }) {
               ))}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                    <th className="pb-2 pr-3 font-medium">{t("dashboard.all.cols.repo")}</th>
-                    <th className="pb-2 pr-3 font-medium">{t("dashboard.all.cols.branch")}</th>
-                    <th className="pb-2 pr-3 text-right font-medium">{t("dashboard.all.cols.sync")}</th>
-                    <th className="pb-2 pr-3 text-right font-medium">{t("dashboard.all.cols.dirty")}</th>
-                    <th className="pb-2 pr-3 font-medium">{t("dashboard.all.cols.last")}</th>
-                    <th className="pb-2 font-medium">{t("dashboard.all.cols.activity")}</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <Table className="min-w-[640px] border-collapse">
+              <TableHeader>
+                <TableRow className="text-left text-[10px] uppercase tracking-wide text-muted-foreground hover:bg-transparent">
+                  <TableHead className="h-auto pb-2 pr-3 text-[10px] font-medium text-muted-foreground">{t("dashboard.all.cols.repo")}</TableHead>
+                  <TableHead className="h-auto pb-2 pr-3 text-[10px] font-medium text-muted-foreground">{t("dashboard.all.cols.branch")}</TableHead>
+                  <TableHead className="h-auto pb-2 pr-3 text-right text-[10px] font-medium text-muted-foreground">{t("dashboard.all.cols.sync")}</TableHead>
+                  <TableHead className="h-auto pb-2 pr-3 text-right text-[10px] font-medium text-muted-foreground">{t("dashboard.all.cols.dirty")}</TableHead>
+                  <TableHead className="h-auto pb-2 pr-3 text-[10px] font-medium text-muted-foreground">{t("dashboard.all.cols.last")}</TableHead>
+                  <TableHead className="h-auto pb-2 text-[10px] font-medium text-muted-foreground">{t("dashboard.all.cols.activity")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                   {rows.map((r) => (
-                    <tr
+                    <TableRow
                       key={r.path}
                       onClick={() => onOpen(r.path)}
-                      className="cursor-pointer border-b border-border/40 transition-colors hover:bg-muted/40"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onOpen(r.path);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      className="cursor-pointer border-border/40 hover:bg-muted/40"
                     >
-                      <td className="py-2.5 pr-3">
+                      <TableCell className="py-2.5 pr-3">
                         <div className="font-medium">{r.name || r.path}</div>
                         <div className="truncate text-[10px] text-muted-foreground">{r.path}</div>
-                      </td>
-                      <td className="py-2.5 pr-3 font-mono text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="py-2.5 pr-3 font-mono text-xs text-muted-foreground">
                         {r.branch || "—"}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="py-2.5 pr-3 text-right tabular-nums">
                         <span className="inline-flex items-center gap-2 text-xs">
                           <span className={cn(r.ahead > 0 ? "text-git-added" : "text-muted-foreground")}>
                             ↑{r.ahead}
@@ -165,29 +174,28 @@ export function AllReposTable({ paths }: { paths: string[] }) {
                             ↓{r.behind}
                           </span>
                         </span>
-                      </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums text-xs">
+                      </TableCell>
+                      <TableCell className="py-2.5 pr-3 text-right tabular-nums text-xs">
                         {r.dirty_count > 0 ? (
-                          <span className="rounded-full bg-git-modified-subtle px-2 py-0.5 text-git-modified">
+                          <Badge variant="outline" className="border-0 bg-git-modified-subtle text-git-modified">
                             {r.dirty_count}
-                          </span>
+                          </Badge>
                         ) : (
                           <span className="text-muted-foreground">0</span>
                         )}
-                      </td>
-                      <td className="py-2.5 pr-3 text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="py-2.5 pr-3 text-xs text-muted-foreground">
                         {r.last_commit_at
                           ? formatRelativeTime(new Date(r.last_commit_at * 1000), i18n.resolvedLanguage)
                           : "—"}
-                      </td>
-                      <td className="py-2.5">
+                      </TableCell>
+                      <TableCell className="py-2.5">
                         <ActivityStrip data={r.commits_last_30d} />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -129,21 +130,22 @@ export function WorktreeCard({
         filter: { duration: 0.2 },
       }}
     >
-      <button
-        type="button"
+      <ListRow
+        variant="accent"
+        active={selected}
         onClick={onSelect}
         disabled={busy}
         className={cn(
-          "group relative w-full cursor-pointer overflow-hidden rounded-xl border text-left transition-all duration-150",
+          "group relative block cursor-pointer overflow-hidden rounded-xl border",
           "px-3.5 py-3",
           selected
             ? "border-primary/30 bg-primary/8 shadow-sm ring-1 ring-primary/20"
             : "border-border/60 bg-card shadow-xs hover:border-border hover:shadow-sm",
-          entry.is_locked && !selected && "border-l-2 border-l-amber-500/60",
+          entry.is_locked && !selected && "border-l-2 border-l-git-modified/60",
           entry.is_prunable && !selected && "opacity-70",
           entry.is_main &&
             !selected &&
-            "bg-[oklch(0.65_0.14_250_/_0.04)] ring-1 ring-[oklch(0.65_0.14_250_/_0.15)]",
+            "bg-git-branch/5 ring-1 ring-git-branch/15",
         )}
       >
         <div className="flex items-start gap-3">
@@ -152,7 +154,7 @@ export function WorktreeCard({
               "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
               entry.is_main
                 ? "bg-primary/12 text-primary"
-                : "bg-muted/70 text-[oklch(0.65_0.14_250)]",
+                : "bg-muted/70 text-git-branch",
             )}
           >
             <GitFork className="h-4 w-4" />
@@ -174,7 +176,7 @@ export function WorktreeCard({
 
             <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
               {entry.branch ? (
-                <span className="flex items-center gap-1 text-[11px] font-medium text-[oklch(0.65_0.14_250)]">
+                <span className="flex items-center gap-1 text-[11px] font-medium text-git-branch">
                   <GitBranch className="h-3 w-3" />
                   {entry.branch}
                 </span>
@@ -191,7 +193,7 @@ export function WorktreeCard({
             </div>
           </div>
         </div>
-      </button>
+      </ListRow>
     </m.div>
   );
 

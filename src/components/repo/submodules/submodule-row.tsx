@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -53,16 +54,11 @@ export function SubmoduleRow({
   const shortRemote = entry.remote_commit ?? "—";
 
   const row = (
-    <button
-      type="button"
+    <ListRow
+      variant="accent"
+      active={selected}
       onClick={onSelect}
-      className={cn(
-        "grid w-full cursor-pointer items-center gap-0 text-left text-sm transition-colors",
-        "grid-cols-[2fr_1fr_1fr_1fr_auto]",
-        selected
-          ? "bg-primary/10 text-primary"
-          : "hover:bg-muted/60",
-      )}
+      className="grid cursor-pointer grid-cols-[2fr_1fr_1fr_1fr_auto] gap-0 rounded-none px-0 py-0"
       style={{ minHeight: 48 }}
     >
       {/* SUBMODUL */}
@@ -109,7 +105,7 @@ export function SubmoduleRow({
           {shortRemote}
         </span>
         {entry.behind_count != null && entry.behind_count > 0 && (
-          <span className="text-[10px] font-medium text-red-500">
+          <span className="text-[10px] font-medium text-git-removed">
             ↓{entry.behind_count}
           </span>
         )}
@@ -119,7 +115,7 @@ export function SubmoduleRow({
       <div className="px-3 py-2.5">
         <SubmoduleStatusBadge entry={entry} />
       </div>
-    </button>
+    </ListRow>
   );
 
   return (

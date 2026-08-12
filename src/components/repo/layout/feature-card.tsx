@@ -45,7 +45,7 @@ export function FeatureCard({
   icon,
   caption,
   label,
-  iconWellClassName = "bg-green-50",
+  iconWellClassName = "bg-git-added",
   floatingPhase = 0,
 }: FeatureCardProps) {
   const baseDuration = 18;

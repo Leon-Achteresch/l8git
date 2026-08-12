@@ -1,3 +1,5 @@
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { BranchSection } from "@/components/repo/branch/branch-section";
 import { TagSection } from "@/components/repo/tag/tag-section";
 import {
@@ -94,23 +96,26 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
               aria-hidden
               className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-focus-within:text-foreground"
             />
-            <input
+            <Input
               type="search"
+              inputSize="sm"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("sidebar.filterPlaceholder")}
               aria-label={t("sidebar.filterAria")}
-              className="h-7 w-full rounded-md border border-transparent bg-muted/50 pl-7 pr-7 text-xs text-foreground placeholder:text-muted-foreground/80 outline-none transition-[background,border-color] focus:border-ring focus:bg-background [&::-webkit-search-cancel-button]:hidden"
+              className="border-transparent bg-muted/50 pl-7 pr-7 shadow-none focus-visible:bg-background [&::-webkit-search-cancel-button]:hidden"
             />
             {hasQuery && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => setQuery("")}
                 aria-label={t("sidebar.resetFilterAria")}
-                className="absolute right-1 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="absolute right-1"
               >
-                <X className="h-3 w-3" />
-              </button>
+                <X />
+              </Button>
             )}
           </label>
         </div>

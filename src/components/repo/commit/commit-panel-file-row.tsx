@@ -78,7 +78,7 @@ function FileRowInner({
       <span className="min-w-0 flex-1 truncate text-sm">
         <span className="font-medium">{row.path.split("/").pop()?.replace(/\/$/, "")}</span>
         {row.entry.embedded_repo && (
-          <span className="ml-2 rounded bg-violet-500/15 px-1 py-0.5 text-[10px] font-medium text-violet-500">
+          <span className="ml-2 rounded bg-git-merge/15 px-1 py-0.5 text-[10px] font-medium text-git-merge">
             {t("commitPanel.embeddedRepo")}
           </span>
         )}

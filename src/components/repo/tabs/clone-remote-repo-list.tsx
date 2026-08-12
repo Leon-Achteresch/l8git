@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { RemoteRepo } from "@/lib/remote-repo";
 import { GitBranch, Globe, Lock } from "lucide-react";
@@ -43,10 +44,12 @@ export function CloneRemoteRepoList({
         <ul className="max-h-[min(50vh,320px)] space-y-0.5 overflow-y-auto rounded-lg border border-border p-1">
           {filtered.map((r) => (
             <li key={r.clone_url}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => onPick(r)}
-                className="flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-muted"
+                className="h-auto w-full items-start justify-start gap-2.5 rounded-md px-2.5 py-2 text-left"
               >
                 {r.private ? (
                   <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
@@ -67,7 +70,7 @@ export function CloneRemoteRepoList({
                     </span>
                   )}
                 </span>
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

@@ -1,3 +1,4 @@
+import { ListRow } from "@/components/ui/list-row";
 import type { GitHookEntry } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { Webhook } from "lucide-react";
@@ -36,14 +37,14 @@ export function GitHooksCard({
         filter: { duration: 0.15 },
       }}
     >
-      <button
-        type="button"
+      <ListRow
+        variant="accent"
+        active={selected}
         onClick={onSelect}
         className={cn(
-          "group w-full cursor-pointer overflow-hidden rounded-xl border text-left transition-all duration-150",
-          "px-3 py-2.5",
+          "group block cursor-pointer overflow-hidden rounded-xl border px-3 py-2.5",
           selected
-            ? "border-primary/30 bg-primary/8 shadow-sm ring-1 ring-primary/20"
+            ? "border-primary/30 ring-1 ring-primary/20"
             : "border-border/60 bg-card shadow-xs hover:border-border hover:shadow-sm",
           isServer && "opacity-60",
         )}
@@ -53,9 +54,9 @@ export function GitHooksCard({
             className={cn(
               "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
               entry.is_enabled && !isServer
-                ? "bg-green-500/12 text-green-600 dark:text-green-400"
+                ? "bg-git-added/12 text-git-added"
                 : entry.exists && !isServer
-                  ? "bg-amber-500/12 text-amber-600 dark:text-amber-400"
+                  ? "bg-git-modified/12 text-git-modified"
                   : "bg-muted/60 text-muted-foreground/50",
             )}
           >
@@ -74,7 +75,7 @@ export function GitHooksCard({
             </p>
           </div>
         </div>
-      </button>
+      </ListRow>
     </m.div>
   );
 }

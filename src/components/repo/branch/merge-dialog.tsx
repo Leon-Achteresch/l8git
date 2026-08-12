@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
 import type { MergeStrategy } from "@/lib/repo-store";
@@ -184,8 +186,8 @@ export function MergeDialog({
         </p>
 
         <form onSubmit={(e) => void submit(e)} className="grid gap-4">
-          <fieldset className="grid gap-2" disabled={busy}>
-            <legend className="mb-1 text-xs font-medium text-muted-foreground">{t("merge.strategyLegend")}</legend>
+          <RadioGroup value={strategy} onValueChange={(value) => setStrategy(value as MergeStrategy)} className="grid gap-2" disabled={busy} aria-label={t("merge.strategyLegend")}>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">{t("merge.strategyLegend")}</p>
             {strategies.map((s) => {
               const checked = s.id === strategy;
               return (
@@ -196,13 +198,9 @@ export function MergeDialog({
                     checked ? "border-primary bg-accent/40" : "hover:bg-accent/30",
                   )}
                 >
-                  <input
-                    type="radio"
-                    name="merge-strategy"
+                  <RadioGroupItem
                     value={s.id}
-                    checked={checked}
-                    onChange={() => setStrategy(s.id)}
-                    className="mt-1 h-3.5 w-3.5 accent-primary"
+                    className="mt-1"
                   />
                   <span className="grid gap-0.5">
                     <span className="font-medium">{s.label}</span>
@@ -211,18 +209,16 @@ export function MergeDialog({
                 </label>
               );
             })}
-          </fieldset>
+          </RadioGroup>
 
           {messageRelevant ? (
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-2">
                 <Label htmlFor="merge-msg">{t("merge.messageLabel")}</Label>
                 <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useCustomMessage}
-                    onChange={(e) => setUseCustomMessage(e.target.checked)}
-                    className="h-3.5 w-3.5 accent-primary"
+                    onCheckedChange={(checked) => setUseCustomMessage(checked === true)}
                     disabled={busy}
                   />
                   {t("merge.customMessage")}
