@@ -37,6 +37,7 @@ export function AgentModelPicker({
   const [pane, setPane] = useState<NativeAgentProvider>(provider);
   const [query, setQuery] = useState("");
   const [warming, setWarming] = useState(false);
+  const [warmError, setWarmError] = useState<string | null>(null);
 
   const activeMeta = agentProviderMeta(provider);
   const ActiveLogo = activeMeta.Logo;
@@ -81,7 +82,10 @@ export function AgentModelPicker({
             ? warmCursorModelCatalog
             : warmOpenCodeModelCatalog;
       setWarming(true);
-      void warm(path).catch(() => {}).finally(() => setWarming(false));
+      setWarmError(null);
+      void warm(path)
+        .catch((error: unknown) => setWarmError(error instanceof Error ? error.message : String(error)))
+        .finally(() => setWarming(false));
       return;
     }
     if (paneModels.length === 0) {
@@ -183,7 +187,7 @@ export function AgentModelPicker({
                     </span>
                     <span className="ag-faint mt-0.5 flex items-center gap-1 text-[10px]">
                       <PaneLogo className="size-2.5 shrink-0" />
-                      {t("agentChat.noModels")}
+                      {warmError ?? t("agentChat.noModels")}
                     </span>
                   </span>
                   {visiblePane === provider ? <Check className="mt-0.5 size-3.5 shrink-0" /> : null}

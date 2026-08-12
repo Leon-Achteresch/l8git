@@ -274,19 +274,31 @@ fn _save_clipboard_image(bytes: Vec<u8>, ext: String, name: Option<String>) -> R
 
 #[cfg(target_os = "windows")]
 pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
-    let Some(paths) = std::env::var_os("PATH") else {
-        return None;
-    };
     let exts: Vec<String> = std::env::var("PATHEXT")
         .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into())
         .split(';')
         .map(|e| e.trim().to_ascii_lowercase())
         .filter(|e| !e.is_empty())
         .collect();
-    for dir in std::env::split_paths(&paths) {
+    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).collect())
+        .unwrap_or_default();
+    // Wird die App aus einer IDE oder einem verkuerzten Environment gestartet,
+    // fehlen die npm-/bun-Bin-Verzeichnisse im PATH; die CLIs liegen trotzdem
+    // an den ueblichen Installationsorten.
+    if let Some(profile) = std::env::var_os("USERPROFILE").map(PathBuf::from) {
+        dirs.push(profile.join(".bun/bin"));
+        dirs.push(profile.join(".local/bin"));
+        dirs.push(profile.join(".opencode/bin"));
+    }
+    if let Some(appdata) = std::env::var_os("APPDATA").map(PathBuf::from) {
+        dirs.push(appdata.join("npm"));
+    }
+    for dir in dirs {
         for ext in &exts {
-            if dir.join(format!("{name}{ext}")).is_file() {
-                return Some(dir.join(format!("{name}{ext}")));
+            let candidate = dir.join(format!("{name}{ext}"));
+            if candidate.is_file() {
+                return Some(candidate);
             }
         }
     }

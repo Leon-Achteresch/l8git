@@ -674,6 +674,8 @@ export async function warmOpenCodeModelCatalog(path: string): Promise<void> {
     const config = await client.newSession();
     applyConfig(path, config);
     await client.closeSession(config.sessionId).catch(() => {});
+    // Antwort ohne configOptions darf den Warmup nicht dauerhaft blockieren.
+    if (!openCodeChatStore.getState().models.length) catalogWarmups.delete(path);
   } catch (error) {
     catalogWarmups.delete(path);
     throw error;
