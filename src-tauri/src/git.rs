@@ -4444,6 +4444,88 @@ pub async fn toggle_git_hook(path: String, hook_name: String, enabled: bool) -> 
     }).await
 }
 
+#[derive(Serialize)]
+pub struct HookRunResult {
+    pub exit_code: i32,
+    pub output: String,
+}
+
+/// Hooks are POSIX scripts. On Windows the interpreter ships inside Git itself
+/// and is usually not on PATH, so derive it from `git --exec-path`.
+fn hook_shell(repo: &PathBuf) -> String {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(exec) = run_git(repo, &["--exec-path"]) {
+            // …/Git/mingw64/libexec/git-core → …/Git/usr/bin/sh.exe
+            if let Some(root) = Path::new(exec.trim()).ancestors().nth(3) {
+                let sh = root.join("usr").join("bin").join("sh.exe");
+                if sh.exists() {
+                    return sh.to_string_lossy().into_owned();
+                }
+            }
+        }
+    }
+    let _ = repo;
+    "sh".to_string()
+}
+
+#[tauri::command]
+pub async fn run_git_hook(path: String, hook_name: String) -> Result<HookRunResult, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let name = hook_name.trim().to_string();
+        if !ALL_HOOKS.contains(&name.as_str()) {
+            return Err(format!("Unbekannter Hook-Name: {name}"));
+        }
+        let hook_path = resolve_hooks_dir(&repo)?.join(&name);
+        if !hook_path.exists() {
+            return Err(format!("Hook '{name}' ist nicht installiert."));
+        }
+
+        let mut cmd = crate::cmd::cli_command(hook_shell(&repo));
+        cmd.current_dir(&repo)
+            .stdin(Stdio::null())
+            .arg(hook_path.to_string_lossy().replace('\\', "/"));
+
+        // ponytail: message hooks need $1 — the last commit message is the
+        // closest stand-in for a manual run. Other hooks run without args;
+        // stdin-driven ones (pre-push, server hooks) just see EOF.
+        let msg_file = matches!(
+            name.as_str(),
+            "commit-msg" | "prepare-commit-msg" | "applypatch-msg"
+        )
+        .then(|| {
+            let msg = run_git(&repo, &["log", "-1", "--pretty=%B"]).unwrap_or_default();
+            let file = std::env::temp_dir().join(format!("l8git-hook-msg-{}", std::process::id()));
+            std::fs::write(&file, msg).ok()?;
+            cmd.arg(file.to_string_lossy().replace('\\', "/"));
+            Some(file)
+        })
+        .flatten();
+
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Hook konnte nicht gestartet werden: {e}"))?;
+        if let Some(f) = msg_file {
+            let _ = std::fs::remove_file(f);
+        }
+
+        let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.trim().is_empty() {
+            if !text.is_empty() && !text.ends_with('\n') {
+                text.push('\n');
+            }
+            text.push_str(&stderr);
+        }
+        Ok(HookRunResult {
+            exit_code: output.status.code().unwrap_or(-1),
+            output: text.trim_end().to_string(),
+        })
+    })
+    .await
+}
+
 // ── Git Bisect ────────────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
@@ -4944,4 +5026,32 @@ pub async fn repos_overview(paths: Vec<String>) -> Result<Vec<RepoOverview>, Str
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod hook_run_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn runs_hook_and_reports_exit_code() {
+        let dir = std::env::temp_dir().join(format!("l8git-hooktest-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        run_git(&dir, &["init"]).unwrap();
+        let hooks = resolve_hooks_dir(&dir).unwrap();
+        std::fs::create_dir_all(&hooks).unwrap();
+        std::fs::write(
+            hooks.join("pre-commit"),
+            "#!/bin/sh\necho hallo-hook\nexit 3\n",
+        )
+        .unwrap();
+
+        let res = run_git_hook(dir.to_string_lossy().into_owned(), "pre-commit".into())
+            .await
+            .unwrap();
+        assert_eq!(res.exit_code, 3);
+        assert!(res.output.contains("hallo-hook"), "output: {}", res.output);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
