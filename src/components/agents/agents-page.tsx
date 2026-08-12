@@ -11,9 +11,12 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { chatStoreFor, useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { useAgentRepoPaths, useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
+import { refreshProviderThreads } from "@/lib/agents/thread-refresh";
+import { armTurnAttention } from "@/lib/agents/turn-attention";
+import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { useRepoStore } from "@/lib/repo-store";
@@ -77,14 +80,17 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
     return retainSurface();
   }, [retainSurface]);
 
+  useEffect(() => armTurnAttention(), []);
+  useEffect(() => armUsageLedger(), []);
+
   useEffect(() => {
     if (!paths.length) return;
-    void chatStoreFor(provider).getState().loadThreads(paths).catch(() => {});
+    refreshProviderThreads(provider, paths);
     void connect().catch(() => {});
     const timer = window.setTimeout(() => {
       for (const id of ["codex", "claude", "cursor", "opencode"] as const) {
         if (id === provider) continue;
-        void chatStoreFor(id).getState().loadThreads(paths).catch(() => {});
+        refreshProviderThreads(id, paths);
       }
     }, 300);
     return () => window.clearTimeout(timer);

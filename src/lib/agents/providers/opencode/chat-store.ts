@@ -1027,7 +1027,7 @@ export const openCodeChatStore = createStore<AgentChatState>()((set, get) => ({
   },
   deleteThread: async (path, threadId) => {
     await clientForThread(threadId)?.closeSession(threadId).catch(() => {});
-    await invoke("opencode_delete_session", { path, sessionId: threadId }).catch(() => {});
+    await invoke("opencode_delete_session", { path, sessionId: threadId });
     pathByThread.delete(threadId);
     conversationLastUsed.delete(threadId);
     updateQueue.delete(threadId);

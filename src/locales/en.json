@@ -206,7 +206,21 @@
     "yesterday": "Yesterday",
     "last7Days": "Last 7 days",
     "older": "Older",
-    "pinned": "Pinned"
+    "pinned": "Pinned",
+    "worktrees": "Worktrees",
+    "newWorktree": "New worktree chat in {{repo}}",
+    "removeWorktree": "Remove worktree {{name}}",
+    "worktreeCreated": "Worktree created on {{branch}}",
+    "worktreeForceConfirm": "Worktree {{name}} has uncommitted changes. Remove it anyway?",
+    "turnFinished": "Agent turn finished",
+    "openThread": "Open",
+    "changedFiles": "{{count}} changed files in the working tree",
+    "changedFiles_one": "1 changed file in the working tree",
+    "landWorktree": "Merge {{name}} into the base repository",
+    "worktreeLanded": "{{name}} merged and cleaned up",
+    "usageToday": "Today: {{cost}} · {{tokens}} tokens",
+    "usageWeek": "Last 7 days: {{cost}} · {{tokens}} tokens",
+    "chartLoading": "Rendering chart…"
   },
   "island": {
     "open": "Show projects and integrations",

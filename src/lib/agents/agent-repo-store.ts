@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { create } from "zustand";
 
+import { useAgentWorktreeStore } from "@/lib/agents/agent-worktrees";
 import { useRepoStore } from "@/lib/repo-store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 
@@ -21,8 +22,9 @@ export function useAgentRepoPaths() {
       state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId)?.repoPaths ??
       EMPTY_PATHS,
   );
+  const worktrees = useAgentWorktreeStore((state) => state.worktrees);
   return useMemo(
-    () => [...new Set([...workspacePaths, ...knownPaths])],
-    [knownPaths, workspacePaths],
+    () => [...new Set([...workspacePaths, ...knownPaths, ...Object.keys(worktrees)])],
+    [knownPaths, workspacePaths, worktrees],
   );
 }

@@ -17,11 +17,12 @@ import {
   Users,
   Volume2,
 } from "lucide-react";
-import { memo, type ReactNode, useMemo } from "react";
+import { isValidElement, memo, type ReactNode, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { AgentActivity, type AgentActivityItem } from "@/components/agents/ui/agent-activity";
+import { MarkdownChart } from "@/components/agents/ui/agent-chart";
 import {
   copyToClipboard,
   ItemContextMenu as ItemMenu,
@@ -91,8 +92,20 @@ function LazyToolOutput({ value, highlight }: { value: unknown; highlight: boole
   );
 }
 
+function chartSource(children: unknown): string | null {
+  if (!isValidElement(children)) return null;
+  const props = children.props as { className?: string; children?: unknown };
+  if (!props.className?.includes("language-chart")) return null;
+  return typeof props.children === "string" ? props.children : null;
+}
+
 const MARKDOWN_PLUGINS = [remarkGfm];
 const MARKDOWN_COMPONENTS: Components = {
+  pre: ({ children, ...props }) => {
+    const source = chartSource(children);
+    if (source !== null) return <MarkdownChart source={source} />;
+    return <pre {...props}>{children}</pre>;
+  },
   a: ({ href, children, ...props }) => (
     <a
       {...props}

@@ -7,6 +7,7 @@ import {
   Blocks,
   ChevronRight,
   File,
+  FileDiff,
   FileImage,
   Folder,
   FolderGit2,
@@ -57,7 +58,12 @@ import {
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
 import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
-import { agentProviderMeta } from "@/lib/agents/provider-meta";
+import { chartPrompt } from "@/lib/agents/chart-spec";
+import {
+  agentProviderMeta,
+  providerSupportsCapabilityCenter,
+  providerSupportsSlashCommand,
+} from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
 
@@ -406,6 +412,8 @@ export const AgentChatPane = memo(function AgentChatPane({
   );
   const loadPRs = useRepoStore((state) => state.loadPRs);
   const reloadWorktrees = useRepoStore((state) => state.reloadWorktrees);
+  const reloadStatus = useRepoStore((state) => state.reloadStatus);
+  const changedFileCount = useRepoStore((state) => state.status[path]?.length ?? 0);
   const sessionStatus = useAgentChatStore((state) =>
     threadId ? (state.sessionStatusByThread[threadId] ?? "idle") : "idle",
   );
@@ -480,7 +488,13 @@ export const AgentChatPane = memo(function AgentChatPane({
     if (!path) return;
     void loadPRs(path).catch(() => {});
     void reloadWorktrees(path).catch(() => {});
-  }, [loadPRs, path, reloadWorktrees]);
+    void reloadStatus(path).catch(() => {});
+  }, [loadPRs, path, reloadStatus, reloadWorktrees]);
+
+  useEffect(() => {
+    if (!path || busy) return;
+    void reloadStatus(path).catch(() => {});
+  }, [busy, path, reloadStatus]);
 
   useEffect(() => {
     if (!isClaude || loginStatus !== "waiting") return;
@@ -715,6 +729,7 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "model", label: "Choose model and effort", description: "/model model-id [effort]", acceptsArgument: true },
     { value: "permissions", label: "Choose permissions", description: `Select a named ${providerLabel} permission profile`, acceptsArgument: true },
     { value: "memories", label: "Configure memory", description: "/memories enabled, disabled, or reset", acceptsArgument: true },
+    { value: "chart", label: "Visualize data as a chart", description: "/chart what to visualize — renders an interactive chart", disabled: busy, acceptsArgument: true },
     { value: "init", label: `Create ${isClaude ? "CLAUDE.md" : "AGENTS.md"}`, description: `Ask ${providerLabel} to add repository instructions`, disabled: busy },
     { value: "capabilities", label: "Open Capability Studio", description: "Manage skills, MCP, plugins, apps, and hooks" },
     { value: "skills", label: "Manage skills", description: "Create, edit, enable, duplicate, and remove skills" },
@@ -740,10 +755,13 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "archive", label: "Archive this chat", description: "Remove it from the active list", disabled: !threadId || busy },
     { value: "delete", label: "Delete this chat", description: "Permanently delete the transcript", disabled: !threadId || busy },
     { value: "logout", label: `Log out of ${providerLabel}`, description: `Disconnect the current ${isClaude ? "Anthropic" : isCodex ? "OpenAI" : "OpenCode"} account` },
-  ].filter((command) => isCodex || !["apps", "memories", "import", "fast", "personality", "usage"].includes(command.value)), [busy, conversationMeta.exists, isClaude, isCodex, model, models, onOpenCapabilities, onToggleTerminal, providerLabel, threadId]);
+  ].filter((command) => providerSupportsSlashCommand(provider, command.value)), [busy, conversationMeta.exists, isClaude, isCodex, model, models, onOpenCapabilities, onToggleTerminal, provider, providerLabel, threadId]);
 
   const runSlashCommand = async (command: string, argument: string) => {
     try {
+      if (!providerSupportsSlashCommand(provider, command)) {
+        throw new Error(`/${command} is not available with ${providerLabel}.`);
+      }
       if (command === "new") return await newThread();
       if (command === "clear") return await newThread();
       if (command === "image") return await pickImages();
@@ -755,7 +773,9 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (command === "skills") return onOpenCapabilities?.("skills");
       if (command === "apps") return onOpenCapabilities?.("apps");
       if (command === "mcp") {
-        if (!argument) return onOpenCapabilities?.("mcp");
+        if (!argument && providerSupportsCapabilityCenter(provider)) {
+          return onOpenCapabilities?.("mcp");
+        }
         const servers = await listMcpServers(threadId ?? undefined);
         if (argument && argument.toLocaleLowerCase() !== "verbose") {
           const server = servers.find((candidate) =>
@@ -841,6 +861,11 @@ export const AgentChatPane = memo(function AgentChatPane({
         if (!threadId) throw new Error("Open a chat first.");
         await setMemoryMode(threadId, value);
         toast.success(`Memory ${value}`);
+        return;
+      }
+      if (command === "chart") {
+        if (!argument) throw new Error("Use /chart <what to visualize>.");
+        await sendMessage(path, chartPrompt(argument));
         return;
       }
       if (command === "init") {
@@ -1050,6 +1075,15 @@ export const AgentChatPane = memo(function AgentChatPane({
               <span className="truncate">{worktreeName}</span>
             </>
           ) : null}
+          {changedFileCount > 0 ? (
+            <span
+              className="flex shrink-0 items-center gap-1"
+              title={t("agentChat.changedFiles", { count: changedFileCount })}
+            >
+              <FileDiff className="size-3 shrink-0" />
+              <span>{changedFileCount}</span>
+            </span>
+          ) : null}
           {branchPr ? (
             <button
               type="button"
@@ -1143,7 +1177,7 @@ export const AgentChatPane = memo(function AgentChatPane({
           </button>
         ) : null}
 
-        {onOpenCapabilities ? (
+        {onOpenCapabilities && providerSupportsCapabilityCenter(provider) ? (
           <button
             type="button"
             className="ag-icon-btn"

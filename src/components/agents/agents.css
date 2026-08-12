@@ -54,6 +54,15 @@
   --ag-shadow-panel: 0 1px 2px rgb(17 17 17 / 0.04), 0 12px 40px -18px rgb(17 17 17 / 0.28);
   --ag-shadow-raise: 0 1px 2px rgb(17 17 17 / 0.05), 0 6px 16px -10px rgb(17 17 17 / 0.3);
   --ag-shadow-pop: 0 2px 4px rgb(17 17 17 / 0.04), 0 18px 48px -20px rgb(17 17 17 / 0.35);
+
+  --ag-chart-1: #2a78d6;
+  --ag-chart-2: #eb6834;
+  --ag-chart-3: #1baf7a;
+  --ag-chart-4: #eda100;
+  --ag-chart-5: #e87ba4;
+  --ag-chart-6: #008300;
+  --ag-chart-7: #4a3aa7;
+  --ag-chart-8: #e34948;
 }
 
 .agents-shell {
@@ -91,6 +100,15 @@
   --ag-shadow-panel: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 24px 64px -28px rgb(0 0 0 / 0.9);
   --ag-shadow-raise: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 20px -12px rgb(0 0 0 / 0.8);
   --ag-shadow-pop: 0 28px 64px -24px rgb(0 0 0 / 0.85);
+
+  --ag-chart-1: #3987e5;
+  --ag-chart-2: #d95926;
+  --ag-chart-3: #199e70;
+  --ag-chart-4: #c98500;
+  --ag-chart-5: #d55181;
+  --ag-chart-6: #008300;
+  --ag-chart-7: #9085e9;
+  --ag-chart-8: #e66767;
 }
 
 /* ── Frame ─────────────────────────────────────────────────────────────── */
