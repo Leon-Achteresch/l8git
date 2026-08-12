@@ -219,7 +219,8 @@
     "landWorktree": "Merge {{name}} into the base repository",
     "worktreeLanded": "{{name}} merged and cleaned up",
     "usageToday": "Today: {{cost}} · {{tokens}} tokens",
-    "usageWeek": "Last 7 days: {{cost}} · {{tokens}} tokens"
+    "usageWeek": "Last 7 days: {{cost}} · {{tokens}} tokens",
+    "chartLoading": "Rendering chart…"
   },
   "island": {
     "open": "Show projects and integrations",

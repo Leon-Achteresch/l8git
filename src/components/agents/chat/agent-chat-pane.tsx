@@ -58,6 +58,7 @@ import {
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
 import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
+import { chartPrompt } from "@/lib/agents/chart-spec";
 import {
   agentProviderMeta,
   providerSupportsCapabilityCenter,
@@ -728,6 +729,7 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "model", label: "Choose model and effort", description: "/model model-id [effort]", acceptsArgument: true },
     { value: "permissions", label: "Choose permissions", description: `Select a named ${providerLabel} permission profile`, acceptsArgument: true },
     { value: "memories", label: "Configure memory", description: "/memories enabled, disabled, or reset", acceptsArgument: true },
+    { value: "chart", label: "Visualize data as a chart", description: "/chart what to visualize — renders an interactive chart", disabled: busy, acceptsArgument: true },
     { value: "init", label: `Create ${isClaude ? "CLAUDE.md" : "AGENTS.md"}`, description: `Ask ${providerLabel} to add repository instructions`, disabled: busy },
     { value: "capabilities", label: "Open Capability Studio", description: "Manage skills, MCP, plugins, apps, and hooks" },
     { value: "skills", label: "Manage skills", description: "Create, edit, enable, duplicate, and remove skills" },
@@ -859,6 +861,11 @@ export const AgentChatPane = memo(function AgentChatPane({
         if (!threadId) throw new Error("Open a chat first.");
         await setMemoryMode(threadId, value);
         toast.success(`Memory ${value}`);
+        return;
+      }
+      if (command === "chart") {
+        if (!argument) throw new Error("Use /chart <what to visualize>.");
+        await sendMessage(path, chartPrompt(argument));
         return;
       }
       if (command === "init") {

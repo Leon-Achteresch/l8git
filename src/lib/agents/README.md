@@ -34,6 +34,10 @@ Parallele Agent-Sessions in isolierten Git-Worktrees:
 
 Beobachtet `conversation.tokenUsage` aller vier Provider-Stores, verbucht positive Deltas pro Tag und Provider (localStorage `l8git-agent-usage`, 30 Tage) und bepreist sie über `token-cost.ts`. Die Sidebar zeigt Heute-Kosten/-Tokens, Tooltip die 7-Tage-Summe. Erstbeobachtungen eines Threads werden nur geseedet, nicht verbucht — geladene Historie zählt nicht als neuer Verbrauch.
 
+## Charts (`chart-spec.ts`, `ui/agent-chart.tsx`)
+
+Alle vier CLIs können interaktive Charts rendern — provider-unabhängig über Markdown statt vier Tool-Protokolle: Der Agent gibt einen \`\`\`chart-Codeblock mit JSON aus (`type: bar|line|area`, `series[{label, data[{x,y}]}]`, optional `title`/`xLabel`/`yLabel`/`stacked`), der Markdown-Renderer ersetzt ihn durch ein TanStack-Chart (`@tanstack/charts` + `@tanstack/react-charts`, Tooltip und Legende inklusive). Der Slash-Command `/chart <was visualisieren>` hängt die Formatdokumentation (`CHART_FORMAT_DOC`) an den Prompt, damit jeder Agent das Format kennt. Während des Streamens zeigt unvollständiges JSON einen Platzhalter; ungültige Blöcke fallen auf normale Code-Darstellung zurück. Serienfarben: `--ag-chart-1..8` in `agents.css` (validierte Palette, eigene Dark-Stufung); maximal 8 Serien, Validierung in `parseChartSpec`.
+
 ## Konventionen
 
 - Fehler aus Stores propagieren lassen — die UI toastet abgelehnte Promises. Nur Best-Effort-Cleanup (`close()`, Branch-Löschung nach Merge) darf still scheitern.

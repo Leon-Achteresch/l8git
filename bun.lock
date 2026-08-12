@@ -17,6 +17,8 @@
         "@monaco-editor/react": "^4.7.0",
         "@pierre/diffs": "^1.1.12",
         "@tailwindcss/vite": "^4.2.2",
+        "@tanstack/charts": "0.6.5",
+        "@tanstack/charts-scales": "0.6.5",
         "@tanstack/react-charts": "^0.6.5",
         "@tanstack/react-hotkeys": "^0.9.1",
         "@tanstack/react-router": "^1.168.22",
@@ -520,6 +522,8 @@
     "@tailwindcss/vite": ["@tailwindcss/vite@4.2.2", "", { "dependencies": { "@tailwindcss/node": "4.2.2", "@tailwindcss/oxide": "4.2.2", "tailwindcss": "4.2.2" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-mEiF5HO1QqCLXoNEfXVA1Tzo+cYsrqV7w9Juj2wdUFyW07JRenqMG225MvPwr3ZD9N1bFQj46X7r33iHxLUW0w=="],
 
     "@tanstack/charts": ["@tanstack/charts@0.6.5", "", { "dependencies": { "@types/d3-geo": "^3.1.0", "@types/d3-shape": "^3.1.8", "d3-array": "3.2.4", "d3-geo": "3.1.1", "d3-scale": "4.0.2", "d3-shape": "3.2.0" } }, "sha512-37wwhwzfgXvwjFkFnH6y+wH8+ho7AuXevN9TuUf34lGvEiQZfdf1SRnT8Y6/4en/HyaHK2lC8EISYJ6AnxzL8w=="],
+
+    "@tanstack/charts-scales": ["@tanstack/charts-scales@0.6.5", "", {}, "sha512-5RiMqmvQ3Q3y2nGnVvbBjsjAG84ZE3qnarqQttjtrybO5H+vBhtkYebtdOgKDshl/gSYNO2YXoZuLqJu5QpEyw=="],
 
     "@tanstack/history": ["@tanstack/history@1.161.6", "", {}, "sha512-NaOGLRrddszbQj9upGat6HG/4TKvXLvu+osAIgfxPYA+eIvYKv8GKDJOrY2D3/U9MRnKfMWD7bU4jeD4xmqyIg=="],
 
