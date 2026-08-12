@@ -5,8 +5,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toastError } from "@/lib/error-toast";
-import { useRepoStore, type GitHookEntry } from "@/lib/repo-store";
-import { Eye, EyeOff, Loader2, Save, Trash2, Webhook, X } from "lucide-react";
+import {
+  useRepoStore,
+  type GitHookEntry,
+  type HookRunResult,
+} from "@/lib/repo-store";
+import { Eye, EyeOff, Loader2, Play, Save, Trash2, Webhook, X } from "lucide-react";
 import { m } from "motion/react";
 import { Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -55,10 +59,13 @@ export function GitHooksDetail({
   const saveGitHook = useRepoStore((s) => s.saveGitHook);
   const deleteGitHook = useRepoStore((s) => s.deleteGitHook);
   const toggleGitHook = useRepoStore((s) => s.toggleGitHook);
+  const runGitHook = useRepoStore((s) => s.runGitHook);
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState<HookRunResult | null>(null);
 
   const isServer = SERVER_HOOKS.has(entry.name);
   const canAbort = HOOK_CAN_ABORT.has(entry.name);
@@ -87,6 +94,25 @@ export function GitHooksDetail({
       toastError(String(e));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleRun = async () => {
+    setRunning(true);
+    try {
+      const res = await runGitHook(path, entry.name);
+      setRunResult(res);
+      if (res.exit_code === 0) {
+        toast.success(t("hooks.runOkToast", { name: entry.name }));
+      } else {
+        toast.error(
+          t("hooks.runFailToast", { name: entry.name, code: res.exit_code }),
+        );
+      }
+    } catch (e) {
+      toastError(String(e));
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -150,10 +176,25 @@ export function GitHooksDetail({
           </span>
         )}
         {entry.exists && !isServer && (
+          <div className="ml-auto flex items-center gap-1.5">
           <Button
             variant="outline"
             size="sm"
-            className="ml-auto h-6 gap-1 px-2 text-[11px]"
+            className="h-6 gap-1 px-2 text-[11px]"
+            disabled={running}
+            onClick={() => void handleRun()}
+          >
+            {running ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Play className="h-3 w-3" />
+            )}
+            {t("hooks.run")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 gap-1 px-2 text-[11px]"
             disabled={toggling}
             onClick={() => void handleToggle()}
           >
@@ -169,8 +210,39 @@ export function GitHooksDetail({
               </>
             )}
           </Button>
+          </div>
         )}
       </div>
+
+      {/* Run output */}
+      {runResult && (
+        <div className="shrink-0 border-b border-border/60 bg-muted/20">
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            <span
+              className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                runResult.exit_code === 0
+                  ? "bg-emerald-500/10 text-emerald-600"
+                  : "bg-destructive/10 text-destructive"
+              }`}
+            >
+              {t("hooks.exitCode", { code: runResult.exit_code })}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto h-6 w-6"
+              onClick={() => setRunResult(null)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          {runResult.output && (
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap px-3 pb-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
+              {runResult.output}
+            </pre>
+          )}
+        </div>
+      )}
 
       {/* Monaco editor */}
       <div className="min-h-0 flex-1">

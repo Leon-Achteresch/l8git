@@ -192,6 +192,7 @@ pub fn run() {
             git::save_git_hook,
             git::delete_git_hook,
             git::toggle_git_hook,
+            git::run_git_hook,
             git::git_bisect_status,
             git::git_bisect_start,
             git::git_bisect_mark,

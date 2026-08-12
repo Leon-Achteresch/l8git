@@ -211,6 +211,11 @@ export type GitHookEntry = {
   content_size: number;
 };
 
+export type HookRunResult = {
+  exit_code: number;
+  output: string;
+};
+
 export type BisectStatus = {
   active: boolean;
   done: boolean;
@@ -256,6 +261,7 @@ type RepoState = {
   deleteGitHook: (path: string, hookName: string) => Promise<void>;
   toggleGitHook: (path: string, hookName: string, enabled: boolean) => Promise<void>;
   getGitHookContent: (path: string, hookName: string) => Promise<string>;
+  runGitHook: (path: string, hookName: string) => Promise<HookRunResult>;
   loadPRs: (path: string) => Promise<void>;
   addRepo: (path: string) => Promise<string | null>;
   removeRepo: (path: string) => void;
@@ -1466,6 +1472,10 @@ export const useRepoStore = create<RepoState>()(
 
       async getGitHookContent(path, hookName) {
         return invoke<string>('get_git_hook_content', { path, hookName });
+      },
+
+      async runGitHook(path, hookName) {
+        return invoke<HookRunResult>('run_git_hook', { path, hookName });
       },
 
       async gitReset(path, target, mode) {
