@@ -72,8 +72,23 @@ export function AgentModelPicker({
     );
   }, [paneModels, query]);
 
+  // Jede CLI braucht fuer den ersten Katalog Sekunden (opencode ~10s, die
+  // anderen aehnlich). Danach liegt er im localStorage, also einmal pro
+  // Provider im Hintergrund fuellen statt den Nutzer beim Klick warten lassen.
+  useEffect(() => {
+    if (!path) return;
+    if (!claudeModels.length) void warmClaudeModelCatalog(path).catch(() => {});
+    if (!cursorModels.length) void warmCursorModelCatalog(path).catch(() => {});
+    if (!openCodeModels.length) void warmOpenCodeModelCatalog(path).catch(() => {});
+    if (!codexModels.length) void chatStoreFor("codex").getState().connect().catch(() => {});
+    // Absichtlich nur auf `path`: die Laengen sind Einmal-Guard, kein Trigger.
+  }, [path]);
+
   useEffect(() => {
     if (!open) return;
+    // Der Katalog liegt im localStorage; ein Warmup kostet einen CLI-Start
+    // und lohnt nur, wenn wirklich nichts da ist.
+    if (paneModels.length > 0) return;
     if (visiblePane === "claude" || visiblePane === "opencode" || visiblePane === "cursor") {
       const warm =
         visiblePane === "claude"
