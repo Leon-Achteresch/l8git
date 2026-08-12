@@ -217,7 +217,9 @@
     "changedFiles": "{{count}} geänderte Dateien im Arbeitsverzeichnis",
     "changedFiles_one": "1 geänderte Datei im Arbeitsverzeichnis",
     "landWorktree": "{{name}} ins Basis-Repository mergen",
-    "worktreeLanded": "{{name}} gemergt und aufgeräumt"
+    "worktreeLanded": "{{name}} gemergt und aufgeräumt",
+    "usageToday": "Heute: {{cost}} · {{tokens}} Tokens",
+    "usageWeek": "Letzte 7 Tage: {{cost}} · {{tokens}} Tokens"
   },
   "island": {
     "open": "Projekte und Integrationen anzeigen",

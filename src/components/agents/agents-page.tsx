@@ -16,6 +16,7 @@ import { useAgentRepoPaths, useAgentRepoStore } from "@/lib/agents/agent-repo-st
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { refreshProviderThreads } from "@/lib/agents/thread-refresh";
 import { armTurnAttention } from "@/lib/agents/turn-attention";
+import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { useRepoStore } from "@/lib/repo-store";
@@ -80,6 +81,7 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
   }, [retainSurface]);
 
   useEffect(() => armTurnAttention(), []);
+  useEffect(() => armUsageLedger(), []);
 
   useEffect(() => {
     if (!paths.length) return;
