@@ -20,12 +20,22 @@ export function agentProviderMeta(provider: NativeAgentProvider) {
 const CODEX_ONLY_COMMANDS = ["apps", "memories", "import", "fast", "personality", "usage"] as const;
 const BACKGROUND_TERMINAL_COMMANDS = ["ps", "stop"] as const;
 
+const CAPABILITY_CENTER_COMMANDS = ["capabilities", "skills", "hooks", "plugins"] as const;
+
 export const UNSUPPORTED_SLASH_COMMANDS: Record<NativeAgentProvider, readonly string[]> = {
   codex: [],
   claude: CODEX_ONLY_COMMANDS,
   opencode: [...CODEX_ONLY_COMMANDS, ...BACKGROUND_TERMINAL_COMMANDS],
-  cursor: [...CODEX_ONLY_COMMANDS, ...BACKGROUND_TERMINAL_COMMANDS],
+  cursor: [
+    ...CODEX_ONLY_COMMANDS,
+    ...BACKGROUND_TERMINAL_COMMANDS,
+    ...CAPABILITY_CENTER_COMMANDS,
+  ],
 };
+
+export function providerSupportsCapabilityCenter(provider: NativeAgentProvider): boolean {
+  return provider !== "cursor";
+}
 
 export function providerSupportsSlashCommand(
   provider: NativeAgentProvider,

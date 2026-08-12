@@ -4,6 +4,7 @@ import {
   AGENT_PROVIDERS,
   UNSUPPORTED_SLASH_COMMANDS,
   agentProviderMeta,
+  providerSupportsCapabilityCenter,
   providerSupportsSlashCommand,
 } from "@/lib/agents/provider-meta";
 
@@ -41,6 +42,18 @@ describe("providerSupportsSlashCommand", () => {
       expect(providerSupportsSlashCommand(provider, "ps")).toBe(false);
       expect(providerSupportsSlashCommand(provider, "stop")).toBe(false);
     }
+  });
+
+  it("hides the capability center from cursor", () => {
+    expect(providerSupportsCapabilityCenter("cursor")).toBe(false);
+    for (const provider of ["codex", "claude", "opencode"] as const) {
+      expect(providerSupportsCapabilityCenter(provider)).toBe(true);
+      expect(providerSupportsSlashCommand(provider, "skills")).toBe(true);
+    }
+    for (const command of ["capabilities", "skills", "hooks", "plugins"]) {
+      expect(providerSupportsSlashCommand("cursor", command)).toBe(false);
+    }
+    expect(providerSupportsSlashCommand("cursor", "mcp")).toBe(true);
   });
 
   it("keeps shared commands available everywhere", () => {

@@ -58,7 +58,11 @@ import {
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
 import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
-import { agentProviderMeta, providerSupportsSlashCommand } from "@/lib/agents/provider-meta";
+import {
+  agentProviderMeta,
+  providerSupportsCapabilityCenter,
+  providerSupportsSlashCommand,
+} from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
 
@@ -767,7 +771,9 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (command === "skills") return onOpenCapabilities?.("skills");
       if (command === "apps") return onOpenCapabilities?.("apps");
       if (command === "mcp") {
-        if (!argument) return onOpenCapabilities?.("mcp");
+        if (!argument && providerSupportsCapabilityCenter(provider)) {
+          return onOpenCapabilities?.("mcp");
+        }
         const servers = await listMcpServers(threadId ?? undefined);
         if (argument && argument.toLocaleLowerCase() !== "verbose") {
           const server = servers.find((candidate) =>
@@ -1164,7 +1170,7 @@ export const AgentChatPane = memo(function AgentChatPane({
           </button>
         ) : null}
 
-        {onOpenCapabilities ? (
+        {onOpenCapabilities && providerSupportsCapabilityCenter(provider) ? (
           <button
             type="button"
             className="ag-icon-btn"
