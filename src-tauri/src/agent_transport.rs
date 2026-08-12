@@ -11,6 +11,7 @@ use tauri::ipc::Channel;
 
 use serde::{Deserialize, Serialize};
 
+use crate::cmd::cli_command;
 use crate::shell::resolve_cli_path;
 
 /// A byte-transparent JSONL process transport. Provider-specific JSON-RPC
@@ -146,7 +147,7 @@ fn safe_prompt(value: &str) -> Result<String, String> {
 
 fn cursor_process(options: &AgentTransportOptions) -> Result<Command, String> {
     let executable = crate::cursor::cursor_executable()?;
-    let mut command = Command::new(executable);
+    let mut command = cli_command(executable);
     command.args([
         "--print",
         "--output-format",
@@ -214,14 +215,14 @@ fn provider_process(
         "codex" => {
             let executable = resolve_cli_path("codex")
                 .ok_or_else(|| "Codex CLI wurde nicht gefunden.".to_string())?;
-            let mut command = Command::new(executable);
+            let mut command = cli_command(executable);
             command.args(["app-server", "--listen", "stdio://"]);
             Ok((command, "Codex"))
         }
         "claude" => {
             let executable = resolve_cli_path("claude")
                 .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
-            let mut command = Command::new(executable);
+            let mut command = cli_command(executable);
             command.args([
                 "--output-format",
                 "stream-json",
@@ -283,7 +284,7 @@ fn provider_process(
         "opencode" => {
             let executable = resolve_cli_path("opencode")
                 .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
-            let mut command = Command::new(executable);
+            let mut command = cli_command(executable);
             // ACP multiplexes every session of a repository over one process,
             // so model, mode and session lifecycle are negotiated in-band.
             command.arg("acp");
@@ -546,7 +547,7 @@ pub async fn opencode_cli(args: Vec<String>, cwd: Option<String>) -> Result<Stri
     tauri::async_runtime::spawn_blocking(move || {
         let executable = resolve_cli_path("opencode")
             .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
-        let mut command = Command::new(executable);
+        let mut command = cli_command(executable);
         command.args(&args).stdin(Stdio::null());
         if let Some(cwd) = cwd.as_deref() {
             if !Path::new(cwd).is_dir() {
@@ -582,7 +583,7 @@ pub async fn opencode_delete_session(path: String, session_id: String) -> Result
     tauri::async_runtime::spawn_blocking(move || {
         let executable = resolve_cli_path("opencode")
             .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
-        let output = Command::new(executable)
+        let output = cli_command(executable)
             .args(["session", "delete", &session_id])
             .current_dir(cwd)
             .output()

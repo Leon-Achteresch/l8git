@@ -362,7 +362,8 @@ fn _open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
         return Err("Keine IDE konfiguriert.".into());
     }
 
-    let mut cmd = Command::new(&parts[0]);
+    // `code`/`cursor` sind auf Windows .cmd-Shims: ohne CREATE_NO_WINDOW blitzt eine Konsole auf.
+    let mut cmd = crate::cmd::cli_command(&parts[0]);
     for a in &parts[1..] {
         cmd.arg(a);
     }

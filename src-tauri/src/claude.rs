@@ -1,12 +1,13 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::cmd::cli_command;
 use crate::shell::resolve_cli_path;
 
 #[derive(Clone, Serialize)]
@@ -560,7 +561,7 @@ pub async fn claude_delete_session(path: String, session_id: String) -> Result<(
 fn claude_json(args: &[&str], cwd: Option<&str>) -> Result<Value, String> {
     let executable = resolve_cli_path("claude")
         .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
-    let mut command = Command::new(executable);
+    let mut command = cli_command(executable);
     command.args(args).stdin(Stdio::null());
     if let Some(cwd) = cwd {
         if !Path::new(cwd).is_dir() {
@@ -587,7 +588,7 @@ pub async fn claude_start_login() -> Result<String, String> {
     tokio::task::spawn_blocking(|| {
         let executable = resolve_cli_path("claude")
             .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
-        Command::new(executable)
+        cli_command(executable)
             .args(["auth", "login"])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -605,7 +606,7 @@ pub async fn claude_logout() -> Result<(), String> {
     tokio::task::spawn_blocking(|| {
         let executable = resolve_cli_path("claude")
             .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
-        let status = Command::new(executable)
+        let status = cli_command(executable)
             .args(["auth", "logout"])
             .status()
             .map_err(|error| error.to_string())?;
@@ -876,7 +877,7 @@ pub async fn claude_set_hook_disabled(
 fn claude_cli(args: &[&str], repo: &Path) -> Result<(), String> {
     let executable = resolve_cli_path("claude")
         .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
-    let output = Command::new(executable)
+    let output = cli_command(executable)
         .args(args)
         .current_dir(repo)
         .stdin(Stdio::null())
@@ -960,7 +961,7 @@ pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> 
         }
         let executable = resolve_cli_path("claude")
             .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
-        Command::new(executable)
+        cli_command(executable)
             .args(["mcp", "login", name])
             .current_dir(repo)
             .stdin(Stdio::null())

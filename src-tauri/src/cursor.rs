@@ -1,11 +1,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::cmd::cli_command;
 use crate::shell::resolve_cli_path;
 
 const ALLOWED_COMMANDS: [&str; 7] = [
@@ -244,7 +245,7 @@ pub async fn cursor_cli(args: Vec<String>, cwd: Option<String>) -> Result<String
         }) {
             return Err("Ungültiges Argument für die Cursor CLI.".into());
         }
-        let mut command = Command::new(cursor_executable()?);
+        let mut command = cli_command(cursor_executable()?);
         command.args(&args).stdin(Stdio::null());
         if let Some(cwd) = cwd.as_deref() {
             if !Path::new(cwd).is_dir() {
