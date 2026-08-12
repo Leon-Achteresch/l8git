@@ -30,6 +30,10 @@ Parallele Agent-Sessions in isolierten Git-Worktrees:
 - **Arbeiten**: Turn-Ende löst Aufmerksamkeitssignale aus (`turn-attention.ts`): Dock-Bounce bei unfokussiertem Fenster, sonst Toast mit Sprung zum Thread. Das Chat-Dock zeigt die Zahl geänderter Dateien.
 - **Landen** (Merge-Button im Picker): nur bei sauberem Worktree; merged `agents/<slug>` in den Basis-Branch, entfernt Worktree und Branch. Dirty-Base wird mit verständlicher Meldung abgelehnt; Merge-Konflikte landen im normalen Konfliktzustand des Basis-Repos.
 
+## Nutzungs-Ledger (`usage-ledger.ts`)
+
+Beobachtet `conversation.tokenUsage` aller vier Provider-Stores, verbucht positive Deltas pro Tag und Provider (localStorage `l8git-agent-usage`, 30 Tage) und bepreist sie über `token-cost.ts`. Die Sidebar zeigt Heute-Kosten/-Tokens, Tooltip die 7-Tage-Summe. Erstbeobachtungen eines Threads werden nur geseedet, nicht verbucht — geladene Historie zählt nicht als neuer Verbrauch.
+
 ## Konventionen
 
 - Fehler aus Stores propagieren lassen — die UI toastet abgelehnte Promises. Nur Best-Effort-Cleanup (`close()`, Branch-Löschung nach Merge) darf still scheitern.
