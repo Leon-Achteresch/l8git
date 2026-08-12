@@ -18,6 +18,11 @@ describe("modelPrice", () => {
     expect(modelPrice("gpt-5-mini-2025-08-07")?.input).toBe(0.25);
   });
 
+  it("prices legacy opus and sonnet models", () => {
+    expect(modelPrice("claude-opus-4-1")).toEqual({ input: 15, output: 75 });
+    expect(modelPrice("claude-sonnet-4-0")).toEqual({ input: 3, output: 15 });
+  });
+
   it("is case-insensitive", () => {
     expect(modelPrice("Claude-Haiku-4-5")).toEqual({ input: 1, output: 5 });
   });
