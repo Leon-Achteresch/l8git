@@ -1,4 +1,3 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Bot,
   Boxes,
@@ -17,11 +16,10 @@ import {
   Users,
   Volume2,
 } from "lucide-react";
-import { isValidElement, memo, type ReactNode, useMemo } from "react";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { memo, type ReactNode, useMemo } from "react";
 
 import { AgentActivity, type AgentActivityItem } from "@/components/agents/ui/agent-activity";
+import { AgentMarkdown } from "@/components/agents/ui/agent-markdown";
 import { MarkdownChart } from "@/components/agents/ui/agent-chart";
 import { CHART_TOOL_NAME } from "@/lib/agents/chart-spec";
 import {
@@ -40,6 +38,7 @@ import {
 import { StreamingResponse } from "@/components/agents/ui/streaming-response";
 import { TodoList, type TodoItem } from "@/components/agents/ui/todo-list";
 import { ToolResult, ToolResultOutput } from "@/components/agents/ui/tool-result";
+import { ToolPluginView, useToolPlugin } from "@/components/agents/ui/tool-plugins";
 import type { AgentItem, AgentTurn } from "@/lib/agents/types";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
@@ -92,35 +91,6 @@ function LazyToolOutput({ value, highlight }: { value: unknown; highlight: boole
     </ToolResultOutput>
   );
 }
-
-function chartSource(children: unknown): string | null {
-  if (!isValidElement(children)) return null;
-  const props = children.props as { className?: string; children?: unknown };
-  if (!props.className?.includes("language-chart")) return null;
-  return typeof props.children === "string" ? props.children : null;
-}
-
-const MARKDOWN_PLUGINS = [remarkGfm];
-const MARKDOWN_COMPONENTS: Components = {
-  pre: ({ children, ...props }) => {
-    const source = chartSource(children);
-    if (source !== null) return <MarkdownChart source={source} />;
-    return <pre {...props}>{children}</pre>;
-  },
-  a: ({ href, children, ...props }) => (
-    <a
-      {...props}
-      href={href}
-      onClick={(event) => {
-        if (!href) return;
-        event.preventDefault();
-        void openUrl(href);
-      }}
-    >
-      {children}
-    </a>
-  ),
-};
 
 function boundedTail(value: string, maxChars: number, maxLines: number): string {
   if (!value) return value;
@@ -352,9 +322,7 @@ function AgentMessage({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
           {renderPlainText ? (
             <div className="whitespace-pre-wrap break-words">{text}</div>
           ) : (
-            <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} components={MARKDOWN_COMPONENTS}>
-              {text}
-            </ReactMarkdown>
+            <AgentMarkdown>{text}</AgentMarkdown>
           )}
           {citationEntries.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -538,6 +506,7 @@ function ToolCallItem({ item }: { item: AgentItem }) {
   const server = stringValue(item.server, stringValue(item.namespace, "Agent"));
   const output = item.result ?? item.contentItems ?? item.error ?? item.arguments;
   const status = toolStatus(item);
+  const plugin = useToolPlugin(output, item);
   return (
     <ItemMenu
       entries={[
@@ -566,8 +535,16 @@ function ToolCallItem({ item }: { item: AgentItem }) {
       icon={<Braces className="size-4" />}
       onCopy={() => navigator.clipboard?.writeText(prettyJson(output))}
       defaultOpen={status === "error"}
+      maxHeight={plugin ? 420 : undefined}
     >
-      <LazyToolOutput value={output} highlight={status !== "running"} />
+      {plugin ? (
+        <ToolPluginView
+          resolved={plugin}
+          raw={<LazyToolOutput value={output} highlight={status !== "running"} />}
+        />
+      ) : (
+        <LazyToolOutput value={output} highlight={status !== "running"} />
+      )}
       {arrayValue(item.progress).length > 0 ? (
         <div className="mt-2 space-y-1 border-t border-border/50 pt-2 text-xs text-muted-foreground">
           {arrayValue(item.progress).map((message, index) => (
