@@ -125,3 +125,51 @@ Rules:
 export function chartPrompt(request: string): string {
   return `${request.trim()}\n\n${CHART_FORMAT_DOC}`;
 }
+
+export const CHART_TOOL_NAME = "mcp__l8git__render_chart";
+
+// ponytail: eine In-App-SDK-MCP-Server-Definition; weitere Tools kommen einfach in dieses Array.
+export const CHART_TOOL = {
+  name: "render_chart",
+  description:
+    "Rendert ein interaktives Diagramm direkt in der l8git-Chat-UI. Nutze das immer, wenn Zahlenreihen anschaulicher als Tabelle oder Prosa sind (Trends, Vergleiche, Verteilungen). Nach dem Tool-Call folgt ein Satz Interpretation.",
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["type", "series"],
+    properties: {
+      type: { type: "string", enum: CHART_TYPES, description: "Diagrammtyp." },
+      title: { type: "string", description: "Titel über dem Diagramm." },
+      xLabel: { type: "string" },
+      yLabel: { type: "string" },
+      stacked: { type: "boolean", description: "Stapelt Bar-Serien." },
+      series: {
+        type: "array",
+        minItems: 1,
+        maxItems: MAX_SERIES,
+        description: "Max. 8 Serien, alle mit denselben x-Werten in derselben Reihenfolge.",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["label", "data"],
+          properties: {
+            label: { type: "string" },
+            data: {
+              type: "array",
+              minItems: 1,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["x", "y"],
+                properties: {
+                  x: { type: ["string", "number"] },
+                  y: { type: "number" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
