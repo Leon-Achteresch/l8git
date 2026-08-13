@@ -240,6 +240,9 @@ fn provider_process(
                 "--prompt-suggestions",
                 "true",
                 "--allow-dangerously-skip-permissions",
+                // In-Prozess-MCP-Server: die Tools laufen im Frontend, nicht als Kindprozess.
+                "--mcp-config",
+                r#"{"mcpServers":{"l8git":{"type":"sdk","name":"l8git"}}}"#,
             ]);
             if options.resume.unwrap_or(false) {
                 let resume_session_id = match options.resume_session_id.as_deref() {

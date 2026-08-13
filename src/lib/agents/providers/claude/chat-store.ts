@@ -1,3 +1,4 @@
+import { CHART_TOOL } from "@/lib/agents/chart-spec";
 import { invoke } from "@tauri-apps/api/core";
 import { createStore } from "zustand/vanilla";
 
@@ -868,6 +869,29 @@ function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
         ],
       },
     }));
+    return;
+  }
+  if (subtype === "mcp_message") {
+    const message = isRecord(request.request.message) ? request.request.message : {};
+    if (message.id === undefined || message.id === null) return; // Notification, keine Antwort
+    const method = stringValue(message.method);
+    const result =
+      method === "initialize"
+        ? {
+            protocolVersion: "2024-11-05",
+            capabilities: { tools: {} },
+            serverInfo: { name: "l8git", version: "1.0.0" },
+          }
+        : method === "tools/list"
+          ? { tools: [CHART_TOOL] }
+          : method === "tools/call"
+            ? { content: [{ type: "text", text: "Diagramm wurde in der l8git-UI gerendert." }] }
+            : null;
+    void clients.get(threadId)?.respond(request.request_id, {
+      mcp_response: result
+        ? { jsonrpc: "2.0", id: message.id, result }
+        : { jsonrpc: "2.0", id: message.id, error: { code: -32601, message: `Unbekannte Methode: ${method}` } },
+    });
     return;
   }
   if (subtype !== "can_use_tool") {

@@ -23,6 +23,7 @@ import remarkGfm from "remark-gfm";
 
 import { AgentActivity, type AgentActivityItem } from "@/components/agents/ui/agent-activity";
 import { MarkdownChart } from "@/components/agents/ui/agent-chart";
+import { CHART_TOOL_NAME } from "@/lib/agents/chart-spec";
 import {
   copyToClipboard,
   ItemContextMenu as ItemMenu,
@@ -793,6 +794,7 @@ export const AgentItemView = memo(function AgentItemView({ item, turn }: { item:
   if (item.type === "reasoning") return <ReasoningItem item={item} turn={turn} />;
   if (item.type === "commandExecution") return <CommandItem item={item} />;
   if (item.type === "fileChange") return <FileChangeItem item={item} />;
+  if (item.tool === CHART_TOOL_NAME) return <MarkdownChart source={JSON.stringify(item.arguments ?? {})} />;
   if (item.type === "mcpToolCall" || item.type === "dynamicToolCall") return <ToolCallItem item={item} />;
   if (item.type === "webSearch") return <WebSearchItemView item={item} turn={turn} />;
   if (item.type === "plan") return <PlanItem item={item} turn={turn} />;
