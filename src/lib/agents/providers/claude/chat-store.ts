@@ -873,7 +873,10 @@ function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
   }
   if (subtype === "mcp_message") {
     const message = isRecord(request.request.message) ? request.request.message : {};
-    if (message.id === undefined || message.id === null) return; // Notification, keine Antwort
+    if (message.id === undefined || message.id === null) {
+      void clients.get(threadId)?.respond(request.request_id, {});
+      return;
+    }
     const method = stringValue(message.method);
     const result =
       method === "initialize"
