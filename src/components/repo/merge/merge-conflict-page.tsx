@@ -1,6 +1,8 @@
 import { ListRow } from "@/components/ui/list-row";
 import { AppHeader } from "@/components/app/app-header";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useCommitPrefs, type MergeEditorMode } from "@/lib/commit-prefs";
 import { toastRebaseError } from "@/components/repo/rebase/rebase-errors";
 import { notifyRebaseResult } from "@/components/repo/rebase/rebase-feedback";
 import { hasUnresolvedConflicts } from "@/lib/conflict-parser";
@@ -11,6 +13,8 @@ import { useUiStore } from "@/lib/ui-store";
 import {
   AlertTriangle,
   CheckCircle2,
+  Columns2,
+  Columns3,
   FastForward,
   FileCode2,
   GitCommit,
@@ -69,8 +73,6 @@ function detectLanguage(filename: string): string {
   return EXT_MAP[ext] ?? "plaintext";
 }
 
-type Mode = "3way" | "2way";
-
 interface FileState {
   versions: ConflictVersions | null;
   loading: boolean;
@@ -93,7 +95,8 @@ export function MergeConflictPage({
     : (mergeState?.conflicted_paths ?? []);
   const initialFile = useUiStore((s) => s.mergeEditorInitialFile);
 
-  const [mode] = useState<Mode>("3way");
+  const mode = useCommitPrefs((s) => s.mergeEditorMode);
+  const setMode = useCommitPrefs((s) => s.setMergeEditorMode);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileStates, setFileStates] = useState<Record<string, FileState>>({});
   const [saving, setSaving] = useState(false);
@@ -233,10 +236,35 @@ export function MergeConflictPage({
           </span>
         ) : null}
 
+        <ToggleGroup
+          type="single"
+          value={mode}
+          onValueChange={(value) => value && setMode(value as MergeEditorMode)}
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+        >
+          <ToggleGroupItem
+            value="3way"
+            aria-label={t("mergeConflictPage.modeThreeWay")}
+            title={t("mergeConflictPage.modeThreeWayTitle")}
+          >
+            <Columns3 />
+            {t("mergeConflictPage.modeThreeWay")}
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="2way"
+            aria-label={t("mergeConflictPage.modeTwoWay")}
+            title={t("mergeConflictPage.modeTwoWayTitle")}
+          >
+            <Columns2 />
+            {t("mergeConflictPage.modeTwoWay")}
+          </ToggleGroupItem>
+        </ToggleGroup>
+
         <Button
           type="button"
           size="sm"
-          className="ml-auto"
           disabled={!allResolved || committing}
           onClick={() => void handleCommit()}
           title={

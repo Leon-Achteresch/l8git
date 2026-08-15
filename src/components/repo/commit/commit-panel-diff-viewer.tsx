@@ -5,7 +5,10 @@ import { lazy, Suspense, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { CommitDiffViewMode } from "@/lib/commit-prefs";
+import { looksLikeLfsPointerText } from "@/lib/media";
+import { useLfsPointer } from "@/lib/use-media-file";
 import type { ParsedDiff } from "@/lib/unified-diff";
+import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
 
 import type { ChangeRow, FileDiffResponse } from "./commit-panel-types";
 import { StatusIcon } from "./commit-panel-status-icon";
@@ -87,6 +90,19 @@ export function DiffViewer({
     return diffPayload.untracked_plain;
   }, [diffPayload, selectedRow]);
 
+  const pointerFromDiff =
+    looksLikeLfsPointerText(unifiedText) || looksLikeLfsPointerText(untrackedPlain);
+
+  const workingTreePointer = useLfsPointer(
+    repoPath,
+    selectedRow?.path ?? null,
+    null,
+    !!selectedRow && !isBinary && !pointerFromDiff && viewMode === "edit",
+  );
+
+  const isLfs = pointerFromDiff || !!workingTreePointer.pointer?.isPointer;
+  const showMedia = isBinary || !!diffPayload?.is_binary || isLfs;
+
   if (!selectedRow) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground/50">
@@ -146,10 +162,17 @@ export function DiffViewer({
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {isBinary ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {t("diff.binaryFile")}
-          </div>
+        {showMedia ? (
+          <MediaDiffPanel
+            key={selectedRow.id}
+            repoPath={repoPath}
+            filePath={selectedRow.path}
+            beforeTreeish="HEAD"
+            afterTreeish={null}
+            beforeLabel={t("media.sideHead")}
+            afterLabel={t("media.sideWorkingTree")}
+            checkLfs={isLfs}
+          />
         ) : viewMode === "stage" ? (
           <UnifiedDiffBody
             loading={diffLoading}

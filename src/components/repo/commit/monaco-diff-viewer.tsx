@@ -4,6 +4,8 @@ import type * as Monaco from "monaco-editor";
 import { useEffect, useMemo, useState } from "react";
 import { parseUnifiedDiff, type DiffLine } from "@/lib/unified-diff";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
+import { useCommitPrefs } from "@/lib/commit-prefs";
+import { DiffLayoutToggle } from "./diff-layout-toggle";
 
 // ─── Language detection ────────────────────────────────────────────────────────
 
@@ -180,15 +182,29 @@ export function MonacoDiffViewer({ unifiedText, filename }: MonacoDiffViewerProp
   const lines = useMemo(() => parseUnifiedDiff(unifiedText), [unifiedText]);
   const { original, modified } = useMemo(() => buildDiffContent(lines), [lines]);
 
+  const layoutMode = useCommitPrefs((s) => s.diffLayoutMode);
+  const options = useMemo<Monaco.editor.IDiffEditorConstructionOptions>(
+    () => ({
+      ...DIFF_EDITOR_OPTIONS,
+      renderSideBySide: layoutMode === "sideBySide",
+    }),
+    [layoutMode],
+  );
+
   return (
-    <div className="monaco-diff-viewer-root h-full min-h-0 w-full overflow-hidden">
-      <DiffEditor
-        language={language}
-        original={original}
-        modified={modified}
-        theme={monacoTheme}
-        options={DIFF_EDITOR_OPTIONS}
-      />
+    <div className="monaco-diff-viewer-root flex h-full min-h-0 w-full flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-end gap-2 border-b border-border/60 px-3 py-1">
+        <DiffLayoutToggle />
+      </div>
+      <div className="min-h-0 flex-1">
+        <DiffEditor
+          language={language}
+          original={original}
+          modified={modified}
+          theme={monacoTheme}
+          options={options}
+        />
+      </div>
     </div>
   );
 }

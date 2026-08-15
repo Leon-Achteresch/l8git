@@ -14,11 +14,13 @@ import {
   ArrowUpToLine,
   CloudDownload,
   Code2,
+  Columns2,
   FolderGit2,
   FolderOpen,
   GitBranch,
   GitCommitHorizontal,
   GitFork,
+  GitMerge,
   History,
   Layers,
   ListChecks,
@@ -63,6 +65,7 @@ import { UndoConfirmDialog } from "@/components/repo/undo/undo-confirm-dialog";
 import { isRemoteCanceled, runRemoteOp } from "@/lib/remote-ops";
 import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interactive-editor";
 import { toastError } from "@/lib/error-toast";
+import { useCommitPrefs } from "@/lib/commit-prefs";
 import i18n from "@/lib/i18n";
 import { useRepoStore } from "@/lib/repo-store";
 import { useRepoToolsStore } from "@/lib/repo-tools-store";
@@ -315,6 +318,26 @@ export function AppHeaderSearch() {
           onSelect: () => {
             setOpen(false);
             toggleTerminal(activePath);
+          },
+        },
+        {
+          id: "action:diff-layout",
+          label: t("appSearch.actionToggleDiffLayout"),
+          icon: <Columns2 className="size-3.5" />,
+          keywords: "diff inline side by side nebeneinander split unified layout",
+          onSelect: () => {
+            setOpen(false);
+            useCommitPrefs.getState().toggleDiffLayoutMode();
+          },
+        },
+        {
+          id: "action:merge-editor-mode",
+          label: t("appSearch.actionToggleMergeEditor"),
+          icon: <GitMerge className="size-3.5" />,
+          keywords: "merge conflict editor 2way 3way wege konflikt",
+          onSelect: () => {
+            setOpen(false);
+            useCommitPrefs.getState().toggleMergeEditorMode();
           },
         },
         {

@@ -695,7 +695,12 @@ export function PullRequestInspectDetail({
                   <PullRequestCommitsTab path={path} number={number} />
                 )}
                 {tab === "files" && (
-                  <PullRequestFilesTab path={path} number={number} />
+                  <PullRequestFilesTab
+                    path={path}
+                    number={number}
+                    baseRef={detail.target_branch}
+                    headRef={detail.source_branch}
+                  />
                 )}
                 {tab === "checks" && (
                   <PullRequestChecksTab path={path} number={number} />

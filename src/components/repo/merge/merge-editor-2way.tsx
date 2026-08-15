@@ -1,7 +1,7 @@
 import "@/lib/monaco-setup";
 import { DiffEditor, Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type ConflictBlock,
@@ -12,8 +12,16 @@ import {
 import type { ConflictVersions } from "@/lib/repo-store";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Save } from "lucide-react";
 import { useMergeDecorations } from "./use-merge-decorations";
+
+function Kbd({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="ml-1 rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground opacity-70">
+      {children}
+    </kbd>
+  );
+}
 
 function useMonacoTheme() {
   const [isDark, setIsDark] = useState(
@@ -89,6 +97,7 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const [editorInstance, setEditorInstance] = useState<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const [monacoApi, setMonacoApi] = useState<typeof Monaco | null>(null);
+  const initialScrollDone = useRef(false);
 
   useMergeDecorations(editorInstance, monacoApi, resultText, activeBlockIdx);
 
@@ -110,11 +119,27 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
     editorRef.current?.revealLineInCenter(activeBlock.startLine + 1);
   }
 
+  function acceptAll(choice: "ours" | "theirs") {
+    let text = resultText;
+    const allBlocks = parseConflictBlocks(text);
+    for (let i = allBlocks.length - 1; i >= 0; i--) {
+      text = resolveConflict(text, allBlocks[i], choice);
+    }
+    setResultText(text);
+    setActiveBlockIdx(0);
+  }
+
   const scrollToBlock = useCallback((block: ConflictBlock | undefined) => {
     if (!block) return;
     editorRef.current?.revealLineInCenter(block.startLine + 1);
     editorRef.current?.setPosition({ lineNumber: block.startLine + 1, column: 1 });
   }, []);
+
+  useEffect(() => {
+    if (!editorInstance || initialScrollDone.current || blocks.length === 0) return;
+    initialScrollDone.current = true;
+    scrollToBlock(blocks[0]);
+  }, [editorInstance, blocks, scrollToBlock]);
 
   function prevBlock() {
     const idx = Math.max(0, activeBlockIdx - 1);
@@ -127,6 +152,21 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
     setActiveBlockIdx(idx);
     scrollToBlock(blocks[idx]);
   }
+
+  useEffect(() => {
+    if (!hasConflicts) return;
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "ArrowLeft") { e.preventDefault(); prevBlock(); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); nextBlock(); }
+      else if (e.key === "1") accept("ours");
+      else if (e.key === "2") accept("theirs");
+      else if (e.key === "3") accept("both");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [hasConflicts, activeBlockIdx, resultText]);
 
   const conflictBadge = t("mergeEditor.conflictsBadge", { count: blocks.length });
 
@@ -172,7 +212,7 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
                   size="icon-sm"
                   onClick={prevBlock}
                   disabled={activeBlockIdx === 0}
-                  title={t("mergeEditor.prevConflict")}
+                  title={t("mergeEditor.prevConflictKeys")}
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
@@ -190,20 +230,47 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
                   size="icon-sm"
                   onClick={nextBlock}
                   disabled={activeBlockIdx >= blocks.length - 1}
-                  title={t("mergeEditor.nextConflict")}
+                  title={t("mergeEditor.nextConflictKeys")}
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
               <div className="flex items-center gap-1">
-                <Button type="button" size="sm" variant="outline" onClick={() => accept("ours")}>
+                <Button type="button" size="sm" variant="outline" onClick={() => accept("ours")} title={t("mergeEditor.takeOursHint")}>
                   {t("mergeEditor.ours")}
+                  <Kbd>1</Kbd>
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => accept("theirs")}>
+                <Button type="button" size="sm" variant="outline" onClick={() => accept("theirs")} title={t("mergeEditor.takeTheirsHint")}>
                   {t("mergeEditor.theirs")}
+                  <Kbd>2</Kbd>
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => accept("both")}>
+                <Button type="button" size="sm" variant="outline" onClick={() => accept("both")} title={t("mergeEditor.keepBothHint")}>
                   {t("mergeEditor.both")}
+                  <Kbd>3</Kbd>
+                </Button>
+              </div>
+              <div className="flex items-center gap-1 border-l border-border pl-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-git-added hover:bg-git-added/10 hover:text-git-added"
+                  onClick={() => acceptAll("ours")}
+                  title={t("mergeEditor.acceptAllOursHint")}
+                >
+                  <ChevronsLeft className="h-3.5 w-3.5" />
+                  {t("mergeEditor.allOurs")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-git-branch hover:bg-git-branch/10 hover:text-git-branch"
+                  onClick={() => acceptAll("theirs")}
+                  title={t("mergeEditor.acceptAllTheirsHint")}
+                >
+                  {t("mergeEditor.allTheirs")}
+                  <ChevronsRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </>

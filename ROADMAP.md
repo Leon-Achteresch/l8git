@@ -43,10 +43,11 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 ## Q2 (Dez 2026–Feb 2027) — Daily Loop & Table Stakes
 
 ### Monat 4 — Diff-Erlebnis
-- [ ] Side-by-Side-Umschalter für alle Diff-Viewer, 2-Wege-Merge-Editor reaktivieren
-- [ ] Word-Level-Diff
-- [ ] Bild-Diff (Vorher/Nachher, Swipe, Onion-Skin)
-- [ ] Git-LFS-Grundsupport: Erkennung, Pointer-Anzeige, pull/track
+- [x] Side-by-Side-Umschalter für alle Diff-Viewer, 2-Wege-Merge-Editor reaktivieren
+- [x] Word-Level-Diff
+- [x] Bild-Diff (Vorher/Nachher, Swipe, Onion-Skin)
+- [x] Git-LFS-Grundsupport: Erkennung, Pointer-Anzeige, pull/track
+- [ ] Media/LFS-Folgearbeiten: Index-Treeish für gestagte Bilder, LFS-Blob-Materialisierung für committete Seiten, PR-Blobs über Provider-API, Größen-Command statt Voll-Download für Nicht-Bilder
 - [ ] Diff-Performance-Benchmark gegen Fork/GitKraken auf Monorepos, Ergebnis dokumentieren
 
 ### Monat 5 — Provider-Vollständigkeit

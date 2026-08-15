@@ -198,6 +198,8 @@ export function CommitInspectDetail({
                   />
                 ) : (
                   <CommitInspectDiff
+                    repoPath={path}
+                    commitHash={commitHash}
                     selectedFile={selectedFile}
                     fileDiff={fileDiff}
                     loading={diffLoading}

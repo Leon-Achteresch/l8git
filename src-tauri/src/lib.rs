@@ -6,6 +6,8 @@ mod credentials;
 mod cursor;
 mod favicon;
 pub mod git;
+mod lfs;
+mod media;
 pub mod pr;
 mod providers;
 mod pty;
@@ -232,7 +234,15 @@ pub fn run() {
             rebase::commit_fixup,
             git::git_remote_cancel,
             cmdlog::git_command_log,
-            cmdlog::git_command_log_clear
+            cmdlog::git_command_log_clear,
+            media::repo_file_bytes_at,
+            lfs::lfs_available,
+            lfs::lfs_tracked_patterns,
+            lfs::lfs_track,
+            lfs::lfs_untrack,
+            lfs::lfs_ls_files,
+            lfs::lfs_pull,
+            lfs::lfs_pointer_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

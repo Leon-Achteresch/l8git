@@ -1,5 +1,7 @@
 import { ListRow } from "@/components/ui/list-row";
 import { UnifiedDiffBody } from "@/components/repo/commit/unified-diff-body";
+import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
+import { isImagePath, looksLikeLfsPointerText } from "@/lib/media";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -27,12 +29,26 @@ const STATUS_COLORS: Record<string, string> = {
   renamed: "text-git-modified",
 };
 
+function refCandidates(
+  ref: string | undefined,
+  remoteFirst: boolean,
+): (string | null)[] {
+  const name = ref?.trim();
+  if (!name) return [];
+  const remote = `origin/${name}`;
+  return remoteFirst ? [remote, name] : [name, remote];
+}
+
 export function PullRequestFilesTab({
   path,
   number,
+  baseRef,
+  headRef,
 }: {
   path: string;
   number: number;
+  baseRef?: string;
+  headRef?: string;
 }) {
   const { t } = useTranslation();
   const [files, setFiles] = useState<PrFile[] | null>(null);
@@ -137,6 +153,13 @@ export function PullRequestFilesTab({
   }
 
   const current = files.find((f) => f.path === selected) ?? files[0];
+  const isLfsPatch = looksLikeLfsPointerText(patch);
+  const showMedia =
+    !patchLoading &&
+    !patchFailed &&
+    !!current &&
+    (isLfsPatch || (!patch?.trim() && isImagePath(current.path))) &&
+    (!!baseRef || !!headRef);
 
   return (
     <ResizablePanelGroup orientation="horizontal" id="pr-files-split">
@@ -207,19 +230,32 @@ export function PullRequestFilesTab({
         minSize="30%"
         className="min-h-0 flex flex-col"
       >
-        <UnifiedDiffBody
-          loading={patchLoading}
-          failed={patchFailed}
-          isBinary={false}
-          unifiedText={patch ?? ""}
-          untrackedPlain={null}
-          emptyHint={
-            patch
-              ? ""
-              : t("pr.noDiffLarge")
-          }
-          failedHint={t("diff.diffLoadFailedFallback")}
-        />
+        {showMedia && current ? (
+          <MediaDiffPanel
+            key={current.path}
+            repoPath={path}
+            filePath={current.path}
+            beforeTreeish={refCandidates(baseRef, true)}
+            afterTreeish={refCandidates(headRef, false)}
+            beforeLabel={t("media.sidePrBase")}
+            afterLabel={t("media.sidePrHead")}
+            checkLfs={isLfsPatch}
+          />
+        ) : (
+          <UnifiedDiffBody
+            loading={patchLoading}
+            failed={patchFailed}
+            isBinary={false}
+            unifiedText={patch ?? ""}
+            untrackedPlain={null}
+            emptyHint={
+              patch
+                ? ""
+                : t("pr.noDiffLarge")
+            }
+            failedHint={t("diff.diffLoadFailedFallback")}
+          />
+        )}
       </ResizablePanel>
     </ResizablePanelGroup>
   );

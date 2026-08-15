@@ -11,6 +11,7 @@ import {
   type InteractiveDiffLine,
   type ParsedDiff,
 } from "@/lib/unified-diff";
+import { diffWords, pairChangedLines, type WordDiffSegment } from "@/lib/word-diff";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,7 +23,70 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
 const lineWrap =
   "box-border block w-max min-w-full whitespace-pre px-4 py-0.5 font-mono text-[11px]";
 
-function diffLineNode(line: DiffLine) {
+type WordDiffLookup = (index: number) => WordDiffSegment[] | null;
+
+function useWordDiffLookup(
+  lines: readonly { kind: string; text: string }[],
+): WordDiffLookup {
+  const pairs = useMemo(
+    () => pairChangedLines(lines.map((line) => line.kind)),
+    [lines],
+  );
+  const cache = useMemo(() => new Map<number, WordDiffSegment[] | null>(), [pairs]);
+
+  return useCallback(
+    (index: number) => {
+      const cached = cache.get(index);
+      if (cached !== undefined) return cached;
+
+      const partnerIdx = pairs.get(index);
+      const line = lines[index];
+      const partner = partnerIdx !== undefined ? lines[partnerIdx] : undefined;
+      if (partnerIdx === undefined || !line || !partner) {
+        cache.set(index, null);
+        return null;
+      }
+
+      const isDel = line.kind === "del";
+      const result = isDel
+        ? diffWords(line.text, partner.text)
+        : diffWords(partner.text, line.text);
+      const own = result ? (isDel ? result.del : result.add) : null;
+      const other = result ? (isDel ? result.add : result.del) : null;
+      cache.set(index, own);
+      cache.set(partnerIdx, other);
+      return own;
+    },
+    [cache, pairs, lines],
+  );
+}
+
+function WordDiffText({
+  text,
+  segments,
+  kind,
+}: {
+  text: string;
+  segments: WordDiffSegment[] | null;
+  kind: "add" | "del";
+}) {
+  if (!segments) return <>{text}</>;
+  const highlight =
+    kind === "add"
+      ? "rounded-[2px] bg-git-added/25"
+      : "rounded-[2px] bg-git-removed/25";
+  return (
+    <>
+      {segments.map((segment, i) => (
+        <span key={i} className={segment.changed ? highlight : undefined}>
+          {segment.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function diffLineNode(line: DiffLine, segments: WordDiffSegment[] | null) {
   if (line.kind === "meta" || line.kind === "hunk") {
     return (
       <div className={`${lineWrap} bg-muted/5 text-muted-foreground/70`}>
@@ -42,7 +106,7 @@ function diffLineNode(line: DiffLine) {
       <div
         className={`${lineWrap} border-l-[3px] border-git-added bg-git-added-subtle/40 text-git-added transition-colors hover:bg-git-added-subtle/60`}
       >
-        {line.text}
+        <WordDiffText text={line.text} segments={segments} kind="add" />
       </div>
     );
   }
@@ -50,12 +114,13 @@ function diffLineNode(line: DiffLine) {
     <div
       className={`${lineWrap} border-l-[3px] border-git-removed bg-git-removed-subtle/40 text-git-removed transition-colors hover:bg-git-removed-subtle/60`}
     >
-      {line.text}
+      <WordDiffText text={line.text} segments={segments} kind="del" />
     </div>
   );
 }
 
 function VirtualDiffList({ lines }: { lines: DiffLine[] }) {
+  const wordDiffAt = useWordDiffLookup(lines);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: lines.length,
@@ -87,7 +152,7 @@ function VirtualDiffList({ lines }: { lines: DiffLine[] }) {
                 height: LINE_HEIGHT_PX,
               }}
             >
-              {diffLineNode(line)}
+              {diffLineNode(line, wordDiffAt(vi.index))}
             </div>
           );
         })}
@@ -159,6 +224,7 @@ function interactiveLineNode(
   onToggleLine: (key: SelectionKey) => void,
   onStageHunk: (hunkIdx: number) => void,
   onUnstageHunk: (hunkIdx: number) => void,
+  segments: WordDiffSegment[] | null,
 ) {
   if (line.kind === "meta") {
     return (
@@ -223,7 +289,11 @@ function interactiveLineNode(
       <div
         className={`whitespace-pre font-mono text-[11px] ${isAdd ? "text-git-added" : "text-git-removed"}`}
       >
-        {line.text}
+        <WordDiffText
+          text={line.text}
+          segments={segments}
+          kind={isAdd ? "add" : "del"}
+        />
       </div>
     </div>
   );
@@ -252,6 +322,7 @@ function InteractiveVirtualDiffList({
 }) {
   const { t } = useTranslation();
   const flatLines = useMemo(() => flattenParsedDiff(parsed), [parsed]);
+  const wordDiffAt = useWordDiffLookup(flatLines);
 
   const stageableIndices = useMemo(
     () =>
@@ -459,6 +530,7 @@ function InteractiveVirtualDiffList({
                   onToggleLine,
                   handleStageHunk,
                   handleUnstageHunk,
+                  wordDiffAt(vi.index),
                 )}
               </div>
             );
