@@ -254,7 +254,6 @@
     },
     "cards": {
       "branches": "Branches",
-      "branchesFooter": "{{active}} aktiv · {{stale}} alt",
       "upstream": "Upstream",
       "upstreamFooter": "{{ahead}} voraus · {{behind}} zurück",
       "noUpstream": "Kein Upstream",
@@ -263,8 +262,10 @@
       "staged": "{{n}} staged",
       "unstaged": "{{n}} geändert",
       "untracked": "{{n}} neu",
-      "openPrsFooter": "8-Wochen-Trend",
-      "branchesRemote": "{{n}} remote"
+      "branchesRemote": "{{n}} remote",
+      "branchesLocal": "{{n}} lokal",
+      "prsDrafts": "{{n}} Entwürfe",
+      "prsUnavailable": "Keine PR-Daten verfügbar"
     },
     "contributors": {
       "empty": "Noch keine Contributor-Daten."
@@ -374,7 +375,8 @@
     "contributorsPie": {
       "label": "Contributors · {{range}}",
       "others": "Andere"
-    }
+    },
+    "loadError": "Daten konnten nicht geladen werden."
   },
   "emptyState": {
     "cardCommitsCaption": "Alle Änderungen",
@@ -751,6 +753,7 @@
     "pushLabel": "Push",
     "optionsAria": "Optionen",
     "searchHitsTitle": "{{count}} Treffer",
+    "searchMinCharsTitle": "Mindestens {{count}} Zeichen eingeben",
     "noForcePush": "Kein Force-Push",
     "forceWithLeaseMenu": "Force-with-lease",
     "forcePushMenu": "Force-Push",
@@ -903,6 +906,10 @@
     "discardVerb": "Verwerfen",
     "editFile": "Datei bearbeiten",
     "viewDiff": "Diff anzeigen",
+    "viewModeStage": "Staging",
+    "viewModeStageTitle": "Hunks und einzelne Zeilen stagen",
+    "viewModeEdit": "Bearbeiten",
+    "viewModeEditTitle": "Datei im Diff-Editor bearbeiten",
     "editFileSave": "Speichern",
     "editFileSaving": "Speichert…",
     "editFileSaved": "Gespeichert",

@@ -1,31 +1,34 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { DashboardPrs } from "@/components/dashboard/use-dashboard-prs";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  selectBranchBuckets,
-  selectOpenPrTrend,
-  selectWorkingCopy,
-} from "@/lib/dashboard-aggregations";
+import { Skeleton } from "@/components/ui/skeleton";
+import { selectBranchScopes, selectWorkingCopy } from "@/lib/dashboard-aggregations";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 
-export function StatusStrip({ path, className }: { path: string; className?: string }) {
+export function StatusStrip({
+  path,
+  prs: prState,
+  className,
+}: {
+  path: string;
+  prs: DashboardPrs;
+  className?: string;
+}) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage;
   const repo = useRepoStore((s) => s.repos[path]);
   const status = useRepoStore((s) => s.status[path]);
   const upstreamSync = useRepoStore((s) => s.upstreamSync[path]);
   const hasUpstream = useRepoStore((s) => s.hasUpstream[path]);
-  const prs = useRepoStore((s) => s.prs[path]);
+  const { data: prs, loading: prsLoading, unavailable: prsUnavailable } = prState;
 
   const workingCopy = useMemo(() => selectWorkingCopy(status), [status]);
-  const branchBuckets = useMemo(
-    () => selectBranchBuckets(repo?.branches, repo?.commits),
-    [repo?.branches, repo?.commits],
-  );
-  const prTrend = useMemo(() => selectOpenPrTrend(prs, 8), [prs]);
-  const openPrCount = prs?.filter((p) => p.state === "open").length ?? 0;
+  const branchScopes = useMemo(() => selectBranchScopes(repo?.branches), [repo?.branches]);
+  const openPrs = useMemo(() => (prs ?? []).filter((p) => p.state === "open"), [prs]);
+  const draftPrs = openPrs.filter((p) => p.is_draft).length;
 
   const additions = (status ?? []).reduce(
     (acc, e) => acc + e.additions_staged + e.additions_unstaged,
@@ -36,6 +39,9 @@ export function StatusStrip({ path, className }: { path: string; className?: str
     0,
   );
 
+  const statusLoaded = status !== undefined;
+  const upstreamLoaded = upstreamSync !== undefined || hasUpstream !== undefined;
+  const branchesLoaded = repo !== undefined;
   const ahead = upstreamSync?.ahead ?? 0;
   const behind = upstreamSync?.behind ?? 0;
 
@@ -43,12 +49,14 @@ export function StatusStrip({ path, className }: { path: string; className?: str
     <div className={cn("grid grid-cols-2 gap-3 xl:grid-cols-4", className)}>
       <StatusTile
         label={t("dashboard.cards.workingCopy")}
-        value={workingCopy.total.toLocaleString(locale)}
+        value={statusLoaded ? workingCopy.total.toLocaleString(locale) : <TileSkeleton />}
         aside={
-          <span className="text-[11px] tabular-nums">
-            <span className="text-git-added">+{additions.toLocaleString(locale)}</span>{" "}
-            <span className="text-git-removed">−{deletions.toLocaleString(locale)}</span>
-          </span>
+          statusLoaded ? (
+            <span className="text-[11px] tabular-nums">
+              <span className="text-git-added">+{additions.toLocaleString(locale)}</span>{" "}
+              <span className="text-git-removed">−{deletions.toLocaleString(locale)}</span>
+            </span>
+          ) : null
         }
       >
         <SegmentBar
@@ -58,17 +66,21 @@ export function StatusStrip({ path, className }: { path: string; className?: str
             { value: workingCopy.untracked, className: "bg-foreground/[0.18]" },
           ]}
         />
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-          <span>{t("dashboard.cards.staged", { n: workingCopy.staged })}</span>
-          <span>{t("dashboard.cards.unstaged", { n: workingCopy.unstaged })}</span>
-          <span>{t("dashboard.cards.untracked", { n: workingCopy.untracked })}</span>
-        </div>
+        {statusLoaded ? (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+            <span>{t("dashboard.cards.staged", { n: workingCopy.staged })}</span>
+            <span>{t("dashboard.cards.unstaged", { n: workingCopy.unstaged })}</span>
+            <span>{t("dashboard.cards.untracked", { n: workingCopy.untracked })}</span>
+          </div>
+        ) : null}
       </StatusTile>
 
       <StatusTile
         label={t("dashboard.cards.upstream")}
         value={
-          hasUpstream === false ? (
+          !upstreamLoaded ? (
+            <TileSkeleton />
+          ) : hasUpstream === false ? (
             <span className="text-sm font-normal text-muted-foreground">
               {t("dashboard.cards.noUpstream")}
             </span>
@@ -80,7 +92,7 @@ export function StatusStrip({ path, className }: { path: string; className?: str
           )
         }
       >
-        {hasUpstream === false ? null : (
+        {hasUpstream === false || !upstreamLoaded ? null : (
           <>
             <SegmentBar
               segments={[
@@ -97,28 +109,36 @@ export function StatusStrip({ path, className }: { path: string; className?: str
 
       <StatusTile
         label={t("dashboard.cards.openPrs")}
-        value={openPrCount.toLocaleString(locale)}
-        aside={<MiniBars data={prTrend.map((p) => p.count)} />}
+        value={
+          prsUnavailable ? (
+            <span className="text-sm font-normal text-muted-foreground">—</span>
+          ) : prsLoading && !prs ? (
+            <TileSkeleton />
+          ) : (
+            openPrs.length.toLocaleString(locale)
+          )
+        }
       >
         <span className="text-[10px] text-muted-foreground">
-          {t("dashboard.cards.openPrsFooter")}
+          {prsUnavailable
+            ? t("dashboard.cards.prsUnavailable")
+            : t("dashboard.cards.prsDrafts", { n: draftPrs })}
         </span>
       </StatusTile>
 
-      <StatusTile label={t("dashboard.cards.branches")} value={branchBuckets.total.toLocaleString(locale)}>
+      <StatusTile
+        label={t("dashboard.cards.branches")}
+        value={branchesLoaded ? branchScopes.total.toLocaleString(locale) : <TileSkeleton />}
+      >
         <SegmentBar
           segments={[
-            { value: branchBuckets.active, className: "bg-foreground/80" },
-            { value: branchBuckets.stale, className: "bg-foreground/45" },
-            { value: branchBuckets.remote, className: "bg-foreground/[0.18]" },
+            { value: branchScopes.local, className: "bg-foreground/80" },
+            { value: branchScopes.remote, className: "bg-foreground/[0.18]" },
           ]}
         />
         <span className="text-[10px] text-muted-foreground">
-          {t("dashboard.cards.branchesFooter", {
-            active: branchBuckets.active,
-            stale: branchBuckets.stale,
-          })}{" "}
-          · {t("dashboard.cards.branchesRemote", { n: branchBuckets.remote })}
+          {t("dashboard.cards.branchesLocal", { n: branchScopes.local })} ·{" "}
+          {t("dashboard.cards.branchesRemote", { n: branchScopes.remote })}
         </span>
       </StatusTile>
     </div>
@@ -178,20 +198,6 @@ function SegmentBar({
   );
 }
 
-function MiniBars({ data }: { data: number[] }) {
-  const max = Math.max(...data, 1);
-  return (
-    <div className="flex h-6 items-end gap-0.5">
-      {data.map((v, i) => (
-        <div
-          key={i}
-          className={cn(
-            "w-1.5 rounded-[2px]",
-            i === data.length - 1 ? "bg-foreground/80" : "bg-foreground/25",
-          )}
-          style={{ height: `${Math.max(12, (v / max) * 100)}%` }}
-        />
-      ))}
-    </div>
-  );
+function TileSkeleton() {
+  return <Skeleton className="h-5 w-12 rounded" />;
 }

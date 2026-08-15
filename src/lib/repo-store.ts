@@ -22,6 +22,8 @@ const stashesPending = new Map<string, number>();
 const loadMoreInFlight = new Map<string, boolean>();
 const loadMoreSearchInFlight = new Map<string, boolean>();
 const RELOAD_COALESCE_MS = 150;
+export const COMMIT_SEARCH_MIN_CHARS = 2;
+export const COMMIT_SEARCH_DEBOUNCE_MS = 300;
 
 function sameByJson(a: unknown, b: unknown): boolean {
   if (a === b) return true;
@@ -477,7 +479,7 @@ export const useRepoStore = create<RepoState>()(
 
       async searchCommits(path, query) {
         const q = query.trim();
-        if (!q) {
+        if (q.length < COMMIT_SEARCH_MIN_CHARS) {
           get().clearCommitSearch(path);
           return;
         }
@@ -505,6 +507,8 @@ export const useRepoStore = create<RepoState>()(
             skip: 0,
             limit: 80,
             hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
+            searchPaths: null,
+            scanLimit: null,
           });
           set(s => {
             const cur = s.commitSearchByPath[path];
@@ -573,6 +577,8 @@ export const useRepoStore = create<RepoState>()(
             skip,
             limit: count,
             hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
+            searchPaths: null,
+            scanLimit: null,
           });
           if (more.length === 0) {
             set(s => {

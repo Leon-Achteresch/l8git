@@ -254,7 +254,6 @@
     },
     "cards": {
       "branches": "Branches",
-      "branchesFooter": "{{active}} active · {{stale}} stale",
       "upstream": "Upstream",
       "upstreamFooter": "{{ahead}} ahead · {{behind}} behind",
       "noUpstream": "No upstream",
@@ -263,8 +262,10 @@
       "staged": "{{n}} staged",
       "unstaged": "{{n}} changed",
       "untracked": "{{n}} new",
-      "openPrsFooter": "8-week trend",
-      "branchesRemote": "{{n}} remote"
+      "branchesRemote": "{{n}} remote",
+      "branchesLocal": "{{n}} local",
+      "prsDrafts": "{{n}} drafts",
+      "prsUnavailable": "No PR data available"
     },
     "contributors": {
       "empty": "No contributor data yet."
@@ -374,7 +375,8 @@
     "contributorsPie": {
       "label": "Contributors · {{range}}",
       "others": "Others"
-    }
+    },
+    "loadError": "Could not load data."
   },
   "emptyState": {
     "cardCommitsCaption": "All changes",
@@ -751,6 +753,7 @@
     "pushLabel": "Push",
     "optionsAria": "Options",
     "searchHitsTitle": "{{count}} matches",
+    "searchMinCharsTitle": "Type at least {{count}} characters",
     "noForcePush": "No force push",
     "forceWithLeaseMenu": "Force-with-lease",
     "forcePushMenu": "Force push",
@@ -903,6 +906,10 @@
     "discardVerb": "Discard",
     "editFile": "Edit file",
     "viewDiff": "View diff",
+    "viewModeStage": "Staging",
+    "viewModeStageTitle": "Stage hunks and single lines",
+    "viewModeEdit": "Edit",
+    "viewModeEditTitle": "Edit file in the diff editor",
     "editFileSave": "Save",
     "editFileSaving": "Saving…",
     "editFileSaved": "Saved",

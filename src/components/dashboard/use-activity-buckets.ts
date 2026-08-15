@@ -10,20 +10,25 @@ export function useActivityBuckets(
 ) {
   const [data, setData] = useState<RawActivityBucket[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!path) {
       setData(null);
+      setError(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
+    setError(null);
     invoke<RawActivityBucket[]>("repo_activity_buckets", { path, sinceDays, bucket })
       .then((res) => {
         if (!cancelled) setData(res);
       })
-      .catch(() => {
-        if (!cancelled) setData([]);
+      .catch((err) => {
+        if (cancelled) return;
+        setData(null);
+        setError(String(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -33,7 +38,7 @@ export function useActivityBuckets(
     };
   }, [path, sinceDays, bucket]);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 export function formatCompact(n: number, locale?: string): string {

@@ -14,14 +14,15 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 ## Q1 (Sep–Nov 2026) — Fundament & Vertrauen
 
 ### Monat 1 — Ernte & Ehrlichkeit
-- [ ] Hunk-/Zeilen-Staging in der UI aktivieren: `UnifiedDiffBody` ans Commit-Panel anbinden, `useCommitPanelHotkeys` anschließen, Debug-Logs entfernen
-- [ ] Commit-Suche entschärfen: Debounce im Frontend, Limit/Pagination im Backend statt Full-Scan pro Tastendruck
-- [ ] File-Watcher: `node_modules`, `target`, Build-Artefakte ignorieren
-- [ ] `read_repo_favicon` asynchron statt synchronem Tiefe-12-Plattenscan
-- [ ] Dashboard auf vorhandene Backend-Aggregationen umstellen (statt Berechnung aus ≤80 geladenen Commits)
-- [ ] Versionsnummern konsolidieren (package.json / tauri.conf.json / Cargo.toml / README-Badge, abgestimmt auf die Release-Pipeline)
-- [ ] README auf den echten Stand bringen (kein interaktives Rebase, kein LFS, 6 AI-Provider statt „OpenRouter")
-- [ ] CSP aktivieren, tote Dependencies entfernen (`@pierre/diffs`, `border-beam`), `.DS_Store`/leere Ordner aufräumen
+- [x] Hunk-/Zeilen-Staging in der UI aktivieren: `UnifiedDiffBody` ans Commit-Panel anbinden, `useCommitPanelHotkeys` anschließen, Debug-Logs entfernen
+- [x] Commit-Suche entschärfen: Debounce im Frontend, Limit/Pagination im Backend statt Full-Scan pro Tastendruck
+- [x] File-Watcher: `node_modules`, `target`, Build-Artefakte ignorieren
+- [x] `read_repo_favicon` asynchron statt synchronem Tiefe-12-Plattenscan
+- [x] Dashboard auf vorhandene Backend-Aggregationen umstellen (statt Berechnung aus ≤80 geladenen Commits)
+- [ ] Dashboard-Folgearbeiten: Backend-Commands für Branch-Aktualität, Aktivitäts-Feed und Aggregations-Caching
+- [x] Versionsnummern konsolidieren (package.json / tauri.conf.json / Cargo.toml / README-Badge, abgestimmt auf die Release-Pipeline)
+- [x] README auf den echten Stand bringen (kein interaktives Rebase, kein LFS, 6 AI-Provider statt „OpenRouter")
+- [x] CSP aktivieren, tote Dependencies entfernen (`@pierre/diffs`, `border-beam`), `.DS_Store`/leere Ordner aufräumen
 - [ ] Opt-in-Telemetrie (PostHog) + Crash-Reporting — anonym, transparent, abschaltbar, quelloffen auditierbar
 
 ### Monat 2 — Interaktiver Rebase

@@ -1,18 +1,33 @@
-import { GitBranch, GitCommit, GitPullRequest, Package } from "lucide-react";
+import { GitCommit, GitPullRequest, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import type { RecentActivityItem } from "@/lib/dashboard-aggregations";
 import { formatRelativeTime } from "@/lib/dashboard-aggregations";
 
 const ICONS: Record<RecentActivityItem["kind"], typeof GitCommit> = {
   commit: GitCommit,
-  branch: GitBranch,
   pr: GitPullRequest,
   stash: Package,
 };
 
-export function RecentActivityFeed({ items }: { items: RecentActivityItem[] }) {
+export function RecentActivityFeed({
+  items,
+  loading,
+}: {
+  items: RecentActivityItem[];
+  loading?: boolean;
+}) {
   const { t, i18n } = useTranslation();
+  if (loading && items.length === 0) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-8 w-full rounded" />
+        ))}
+      </div>
+    );
+  }
   if (items.length === 0) {
     return <p className="text-xs text-muted-foreground">{t("dashboard.activityFeed.empty")}</p>;
   }

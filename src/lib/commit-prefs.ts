@@ -3,6 +3,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 export type AiProviderType = "openai" | "anthropic" | "google" | "openrouter" | "ollama" | "compatible";
 
+export type CommitDiffViewMode = "edit" | "stage";
+
 export const AI_PROVIDER_DEFAULT_MODELS: Record<AiProviderType, string> = {
   openai: "gpt-4o-mini",
   anthropic: "claude-3-5-haiku-latest",
@@ -19,6 +21,8 @@ type CommitPrefs = {
   setShowConventionalCommitIcons: (value: boolean) => void;
   showCommitDateGroups: boolean;
   setShowCommitDateGroups: (value: boolean) => void;
+  diffViewMode: CommitDiffViewMode;
+  setDiffViewMode: (value: CommitDiffViewMode) => void;
   aiPromptTemplate: string;
   setAiPromptTemplate: (value: string) => void;
   aiOutputLanguage: string;
@@ -49,6 +53,8 @@ export const useCommitPrefs = create<CommitPrefs>()(
       showCommitDateGroups: true,
       setShowCommitDateGroups: (showCommitDateGroups) =>
         set({ showCommitDateGroups }),
+      diffViewMode: "stage",
+      setDiffViewMode: (diffViewMode) => set({ diffViewMode }),
       aiPromptTemplate: "",
       setAiPromptTemplate: (value) => set({ aiPromptTemplate: value }),
       aiOutputLanguage: "English",

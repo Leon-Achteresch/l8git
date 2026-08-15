@@ -76,7 +76,10 @@ fn favicon_from_manifest(manifest_path: &std::path::Path) -> Option<String> {
     Some(encode_image_data_url(&icon_bytes, &mime))
 }
 
-const ICO_SEARCH_MAX_DEPTH: usize = 12;
+const ICO_SEARCH_MAX_DEPTH: usize = 4;
+const ICO_SEARCH_MAX_DIRS: usize = 400;
+const ICO_SEARCH_MAX_ENTRIES_PER_DIR: usize = 400;
+const ICO_SEARCH_MAX_MATCHES: usize = 16;
 
 const ICO_SEARCH_SKIP_DIR_NAMES: &[&str] = &[
     ".git",
@@ -106,17 +109,24 @@ fn collect_ico_files(
     dir: &Path,
     rel_depth: usize,
     max_depth: usize,
+    budget: &mut usize,
     out: &mut Vec<PathBuf>,
 ) {
-    if rel_depth > max_depth {
+    if rel_depth > max_depth || *budget == 0 || out.len() >= ICO_SEARCH_MAX_MATCHES {
         return;
     }
+    *budget -= 1;
     let Ok(read) = std::fs::read_dir(dir) else {
         return;
     };
-    for entry in read.flatten() {
+    let mut sub_dirs: Vec<PathBuf> = Vec::new();
+    for entry in read.flatten().take(ICO_SEARCH_MAX_ENTRIES_PER_DIR) {
         let path = entry.path();
-        if path.is_dir() {
+        let is_dir = entry
+            .file_type()
+            .map(|t| t.is_dir())
+            .unwrap_or_else(|_| path.is_dir());
+        if is_dir {
             let name = path
                 .file_name()
                 .and_then(|n| n.to_str())
@@ -130,16 +140,26 @@ fn collect_ico_files(
             if name.starts_with('.') {
                 continue;
             }
-            collect_ico_files(&path, rel_depth + 1, max_depth, out);
+            sub_dirs.push(path);
         } else if is_ico_file(&path) {
             out.push(path);
+            if out.len() >= ICO_SEARCH_MAX_MATCHES {
+                return;
+            }
         }
+    }
+    for sub in sub_dirs {
+        if *budget == 0 || out.len() >= ICO_SEARCH_MAX_MATCHES {
+            return;
+        }
+        collect_ico_files(&sub, rel_depth + 1, max_depth, budget, out);
     }
 }
 
 fn any_ico_under_repo(root: &Path) -> Option<PathBuf> {
     let mut matches: Vec<PathBuf> = Vec::new();
-    collect_ico_files(root, 0, ICO_SEARCH_MAX_DEPTH, &mut matches);
+    let mut budget = ICO_SEARCH_MAX_DIRS;
+    collect_ico_files(root, 0, ICO_SEARCH_MAX_DEPTH, &mut budget, &mut matches);
     if matches.is_empty() {
         return None;
     }
@@ -156,8 +176,14 @@ fn any_ico_under_repo(root: &Path) -> Option<PathBuf> {
 }
 
 #[tauri::command]
-pub fn read_repo_favicon(path: String) -> Option<String> {
-    let root = PathBuf::from(&path);
+pub async fn read_repo_favicon(path: String) -> Option<String> {
+    tokio::task::spawn_blocking(move || read_repo_favicon_blocking(&path))
+        .await
+        .unwrap_or(None)
+}
+
+fn read_repo_favicon_blocking(path: &str) -> Option<String> {
+    let root = PathBuf::from(path);
     let favicon_candidates = [
         "favicon.ico",
         "public/favicon.ico",

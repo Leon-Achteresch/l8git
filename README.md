@@ -7,10 +7,11 @@
     <a href="#screenshots">Screenshots</a> •
     <a href="#installation">Installation</a> •
     <a href="#development">Development</a> •
-    <a href="#tech-stack">Tech Stack</a>
+    <a href="#tech-stack">Tech Stack</a> •
+    <a href="ROADMAP.md">Roadmap</a>
   </p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.3.0-blue.svg" alt="Version" />
+    <img src="https://img.shields.io/badge/version-0.5.0-blue.svg" alt="Version" />
     <img src="https://img.shields.io/badge/Tauri-2-ffc131.svg" alt="Tauri 2" />
     <img src="https://img.shields.io/badge/React-19-61DAFB.svg" alt="React 19" />
     <img src="https://img.shields.io/badge/Rust-2021-ed7b2b.svg" alt="Rust" />
@@ -38,10 +39,9 @@ Instead of switching between windows or terminals, l8git puts every repository o
 ### Git Operations
 - **Status** — full file-level status (staged, unstaged, untracked) with inline diff counts
 - **Staging** — stage/unstage individual files, hunks, or discard changes
-- **Commit** — write commit messages, amend commits, or generate AI-powered commit messages via OpenRouter
+- **Commit** — write commit messages, amend commits, or generate AI-powered commit messages
 - **Branching** — create, checkout, delete local and remote branches
 - **Merging** — merge with strategies (fast-forward, `--ff-only`, `--no-ff`, squash) and conflict resolution
-- **Rebase** — interactive rebase via git bisect integration
 - **Cherry-pick** — pick individual commits, continue/skip/abort on conflicts
 - **Revert** — revert commits with merge mainline parent selection
 - **Reset** — soft/mixed/hard reset to any ref
@@ -83,14 +83,14 @@ Instead of switching between windows or terminals, l8git puts every repository o
 - **Worktrees** — add, remove, lock, unlock, prune, and move git worktrees
 - **Git hooks** — list, view, edit, create, delete, and toggle hook executability
 - **Bisect** — start, mark (good/bad/skip), and reset bisect sessions
-- **Git LFS** — handles binary file detection and diff reporting
+- **Binary files** — binary file detection with dedicated diff reporting
 
 ### Terminal
 - **Embedded terminal** — xterm.js-based terminal for each repository
 - **Resizable** — supports interactive shell commands, resize, and repaint
 
 ### Quality of Life
-- **AI commit messages** — generate meaningful commit messages using AI via OpenRouter
+- **AI commit messages** — generate meaningful commit messages via OpenAI, Anthropic, Google, OpenRouter, Ollama, or any OpenAI-compatible endpoint (custom base URL)
 - **Themes** — light, dark, and system theme with smooth transitions
 - **Animations** — configurable UI animation preferences
 - **Internationalization** — i18n support with locale switching
@@ -206,7 +206,7 @@ TypeScript paths: `@/*` maps to `./src/*` (see `tsconfig.json`).
 | **HTTP Client** | reqwest (Rust) — GitHub, Bitbucket, GitLab API access |
 | **File Watching** | notify + notify-debouncer-full (Rust) |
 | **PTY** | portable-pty (Rust) — terminal emulation |
-| **AI** | OpenRouter SDK — AI commit message generation |
+| **AI** | Vercel AI SDK — OpenAI, Anthropic, Google, OpenRouter, Ollama, OpenAI-compatible providers |
 
 ---
 
@@ -219,6 +219,12 @@ l8git follows a two-process architecture:
 2. **React frontend** (`src/`) — renders the UI using TanStack Router for client-side routing and Zustand for state management. The UI is organized into panels (commit, stash, PR, submodules, worktrees, hooks, CI) that swap based on the active sidebar tab. File diffs and commit history use virtualized rendering for performance with large repositories.
 
 Git operations run on a blocking thread pool via `tokio::task::spawn_blocking` and are fully asynchronous from the UI perspective.
+
+---
+
+## Roadmap
+
+Planned work — including interactive rebase, universal undo, side-by-side diffs, and Git LFS support — is tracked in [ROADMAP.md](ROADMAP.md).
 
 ---
 

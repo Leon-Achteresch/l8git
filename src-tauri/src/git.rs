@@ -294,6 +294,14 @@ fn match_commit_record(
     Some(matched_paths)
 }
 
+const SEARCH_MIN_QUERY_LEN: usize = 2;
+const SEARCH_DEFAULT_SCAN_LIMIT: usize = 4000;
+const SEARCH_MAX_SCAN_LIMIT: usize = 50_000;
+
+fn query_needs_path_search(needle: &str) -> bool {
+    needle.contains('/') || needle.contains('\\') || needle.contains('.')
+}
+
 #[tauri::command]
 pub async fn repo_search_commits(
     path: String,
@@ -301,32 +309,43 @@ pub async fn repo_search_commits(
     skip: usize,
     limit: usize,
     hide_t3_checkpoints: Option<bool>,
+    search_paths: Option<bool>,
+    scan_limit: Option<usize>,
 ) -> Result<Vec<CommitSearchResult>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
         run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
             .map_err(|_| format!("'{path}' is not a git repository"))?;
         let needle = query.trim().to_lowercase();
-        if needle.is_empty() {
+        if needle.chars().count() < SEARCH_MIN_QUERY_LEN {
             return Ok(Vec::new());
         }
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
+        let with_paths = search_paths.unwrap_or_else(|| query_needs_path_search(&needle));
+        let capped = limit.clamp(1, 500);
+        let scan = scan_limit
+            .unwrap_or(SEARCH_DEFAULT_SCAN_LIMIT)
+            .clamp(1, SEARCH_MAX_SCAN_LIMIT)
+            .saturating_add(skip);
         let tag_map = tags_by_target(&repo);
         let sep = "\x1f";
         let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
         let pretty = format!("--pretty=format:{format}");
-        let mut search_args: Vec<&str> = vec!["log", "-z"];
+        let max_count = format!("--max-count={scan}");
+        let mut search_args: Vec<&str> = vec!["log", "-z", max_count.as_str()];
         let exclude_arg = "--exclude=refs/t3/*".to_string();
         if hide_t3 {
             search_args.push(&exclude_arg);
         }
-        search_args.extend_from_slice(&["--all", "--date-order", "--name-only", pretty.as_str()]);
+        search_args.extend_from_slice(&["--all", "--date-order", pretty.as_str()]);
+        if with_paths {
+            search_args.push("--name-only");
+        }
         let out = run_git(
             &repo,
             &search_args,
         )?;
         let tokens: Vec<&str> = out.split('\0').filter(|t| !t.is_empty()).collect();
-        let capped = limit.clamp(1, 500);
         let mut matched_seen = 0usize;
         let mut out_results: Vec<CommitSearchResult> = Vec::new();
         let mut i = 0usize;

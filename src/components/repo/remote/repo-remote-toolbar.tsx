@@ -26,7 +26,12 @@ import { useRepoToolsStore, type ToolAction } from '@/lib/repo-tools-store';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { Input } from '@/components/ui/input';
 import { toastError, toastGitError } from '@/lib/error-toast';
-import { useRepoStore, type Branch } from '@/lib/repo-store';
+import {
+  COMMIT_SEARCH_DEBOUNCE_MS,
+  COMMIT_SEARCH_MIN_CHARS,
+  useRepoStore,
+  type Branch,
+} from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import {
@@ -135,11 +140,16 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   }, [path, clearCommitSearch]);
 
   useEffect(() => {
+    const q = draftQuery.trim();
+    if (q.length > 0 && q.length < COMMIT_SEARCH_MIN_CHARS) {
+      clearCommitSearch(path);
+      return;
+    }
     const timer = window.setTimeout(() => {
-      void searchCommits(path, draftQuery);
-    }, 320);
+      void searchCommits(path, q);
+    }, COMMIT_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [draftQuery, path, searchCommits]);
+  }, [draftQuery, path, searchCommits, clearCommitSearch]);
 
   useEffect(() => {
     if (!busy) return;
@@ -460,8 +470,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   };
 
   const trimmedQuery = draftQuery.trim();
+  const queryTooShort =
+    trimmedQuery.length > 0 && trimmedQuery.length < COMMIT_SEARCH_MIN_CHARS;
   const hitCount = searchSlice?.hits?.length ?? 0;
-  const searchLoading = !!searchSlice?.loading && !!searchSlice.query.trim();
+  const searchLoading =
+    !queryTooShort && !!searchSlice?.loading && !!searchSlice.query.trim();
   const canStepSearchMatches =
     !!trimmedQuery &&
     hitCount > 0 &&
@@ -656,7 +669,16 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                     <X className='size-3' />
                   </Button>
                 </PopIn>
-                {searchLoading ? (
+                {queryTooShort ? (
+                  <span
+                    title={t("toolbar.searchMinCharsTitle", {
+                      count: COMMIT_SEARCH_MIN_CHARS,
+                    })}
+                    className='flex h-[18px] min-w-[18px] items-center justify-center rounded-md bg-muted/70 px-1 text-[10px] font-semibold tabular-nums text-muted-foreground'
+                  >
+                    {`${COMMIT_SEARCH_MIN_CHARS}+`}
+                  </span>
+                ) : searchLoading ? (
                   <Loader2 className='mx-1 h-3 w-3 shrink-0 animate-spin text-muted-foreground' />
                 ) : (
                   <PopIn key={hitCount} title={t("toolbar.searchHitsTitle", { count: hitCount })}>
