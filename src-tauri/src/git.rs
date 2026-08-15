@@ -2282,6 +2282,68 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
 }
 
 #[derive(Serialize)]
+pub struct BranchActivity {
+    pub name: String,
+    pub is_remote: bool,
+    pub last_commit_at: String,
+}
+
+fn collect_branch_activity(repo: &PathBuf) -> Result<Vec<BranchActivity>, String> {
+    let sep = "\x1f";
+    let format = format!("%(refname){sep}%(committerdate:iso-strict)");
+    let out = run_git(
+        repo,
+        &[
+            "for-each-ref",
+            "--sort=-committerdate",
+            &format!("--format={format}"),
+            "refs/heads",
+            "refs/remotes",
+        ],
+    )?;
+
+    let branches = out
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.splitn(2, sep);
+            let refname = parts.next()?;
+            let last_commit_at = parts.next().unwrap_or("").trim().to_string();
+            if last_commit_at.is_empty() {
+                return None;
+            }
+
+            let (name, is_remote) = if let Some(rest) = refname.strip_prefix("refs/heads/") {
+                (rest.to_string(), false)
+            } else if let Some(rest) = refname.strip_prefix("refs/remotes/") {
+                if rest.ends_with("/HEAD") {
+                    return None;
+                }
+                (rest.to_string(), true)
+            } else {
+                return None;
+            };
+
+            Some(BranchActivity {
+                name,
+                is_remote,
+                last_commit_at,
+            })
+        })
+        .collect();
+
+    Ok(branches)
+}
+
+#[tauri::command]
+pub async fn repo_branch_activity(path: String) -> Result<Vec<BranchActivity>, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        collect_branch_activity(&repo)
+    })
+    .await
+}
+
+#[derive(Serialize)]
 pub struct LanguageStat {
     pub language: String,
     pub color: String,
@@ -4756,18 +4818,18 @@ fn since_arg(days: u32) -> String {
     format!("--since={days}.days.ago")
 }
 
-fn collect_contributor_stats(repo: &PathBuf, days: u32) -> Result<Vec<ContributorStat>, String> {
+fn collect_contributor_stats(
+    repo: &PathBuf,
+    days: u32,
+    include_merges: bool,
+) -> Result<Vec<ContributorStat>, String> {
     let since = since_arg(days);
-    let out = run_git(
-        repo,
-        &[
-            "log",
-            "--no-merges",
-            &since,
-            "--numstat",
-            "--pretty=format:%x00%aN%x1f%aE",
-        ],
-    )?;
+    let mut args: Vec<&str> = vec!["log"];
+    if !include_merges {
+        args.push("--no-merges");
+    }
+    args.extend_from_slice(&[&since, "--numstat", "--pretty=format:%x00%aN%x1f%aE"]);
+    let out = run_git(repo, &args)?;
 
     let mut map: HashMap<(String, String), (u32, u32, u32)> = HashMap::new();
     let mut current: Option<(String, String)> = None;
@@ -4822,10 +4884,11 @@ pub async fn repo_contributor_stats(
     path: String,
     since_days: u32,
     limit: Option<u32>,
+    include_merges: Option<bool>,
 ) -> Result<Vec<ContributorStat>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
-        let mut stats = collect_contributor_stats(&repo, since_days)?;
+        let mut stats = collect_contributor_stats(&repo, since_days, include_merges.unwrap_or(false))?;
         if let Some(n) = limit {
             stats.truncate(n as usize);
         }
@@ -4877,18 +4940,15 @@ fn collect_activity_buckets(
     repo: &PathBuf,
     days: u32,
     bucket: &str,
+    include_merges: bool,
 ) -> Result<Vec<ActivityBucket>, String> {
     let since = since_arg(days);
-    let out = run_git(
-        repo,
-        &[
-            "log",
-            "--no-merges",
-            &since,
-            "--numstat",
-            "--pretty=format:%x00%ct",
-        ],
-    )?;
+    let mut args: Vec<&str> = vec!["log"];
+    if !include_merges {
+        args.push("--no-merges");
+    }
+    args.extend_from_slice(&[&since, "--numstat", "--pretty=format:%x00%ct"]);
+    let out = run_git(repo, &args)?;
 
     let mut by_key: std::collections::BTreeMap<String, (u32, u32, u32)> =
         std::collections::BTreeMap::new();
@@ -4939,6 +4999,7 @@ pub async fn repo_activity_buckets(
     path: String,
     since_days: u32,
     bucket: String,
+    include_merges: Option<bool>,
 ) -> Result<Vec<ActivityBucket>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
@@ -4946,7 +5007,7 @@ pub async fn repo_activity_buckets(
             "month" | "week" | "day" => bucket.as_str(),
             _ => "day",
         };
-        collect_activity_buckets(&repo, since_days, kind)
+        collect_activity_buckets(&repo, since_days, kind, include_merges.unwrap_or(false))
     })
     .await
 }

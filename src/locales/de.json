@@ -264,6 +264,8 @@
       "untracked": "{{n}} neu",
       "branchesRemote": "{{n}} remote",
       "branchesLocal": "{{n}} lokal",
+      "branchesActive": "{{n}} aktiv",
+      "branchesStale": "{{n}} inaktiv",
       "prsDrafts": "{{n}} Entwürfe",
       "prsUnavailable": "Keine PR-Daten verfügbar"
     },

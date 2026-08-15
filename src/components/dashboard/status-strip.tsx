@@ -1,10 +1,15 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useBranchActivity } from "@/components/dashboard/use-branch-activity";
 import type { DashboardPrs } from "@/components/dashboard/use-dashboard-prs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { selectBranchScopes, selectWorkingCopy } from "@/lib/dashboard-aggregations";
+import {
+  selectBranchActivity,
+  selectBranchScopes,
+  selectWorkingCopy,
+} from "@/lib/dashboard-aggregations";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 
@@ -25,8 +30,11 @@ export function StatusStrip({
   const hasUpstream = useRepoStore((s) => s.hasUpstream[path]);
   const { data: prs, loading: prsLoading, unavailable: prsUnavailable } = prState;
 
+  const { data: branchActivity, loading: branchActivityLoading } = useBranchActivity(path);
+
   const workingCopy = useMemo(() => selectWorkingCopy(status), [status]);
   const branchScopes = useMemo(() => selectBranchScopes(repo?.branches), [repo?.branches]);
+  const branchAges = useMemo(() => selectBranchActivity(branchActivity ?? undefined), [branchActivity]);
   const openPrs = useMemo(() => (prs ?? []).filter((p) => p.state === "open"), [prs]);
   const draftPrs = openPrs.filter((p) => p.is_draft).length;
 
@@ -131,15 +139,32 @@ export function StatusStrip({
         value={branchesLoaded ? branchScopes.total.toLocaleString(locale) : <TileSkeleton />}
       >
         <SegmentBar
-          segments={[
-            { value: branchScopes.local, className: "bg-foreground/80" },
-            { value: branchScopes.remote, className: "bg-foreground/[0.18]" },
-          ]}
+          segments={
+            branchActivity
+              ? [
+                  { value: branchAges.active, className: "bg-foreground/80" },
+                  { value: branchAges.stale, className: "bg-foreground/[0.18]" },
+                ]
+              : [
+                  { value: branchScopes.local, className: "bg-foreground/80" },
+                  { value: branchScopes.remote, className: "bg-foreground/[0.18]" },
+                ]
+          }
         />
-        <span className="text-[10px] text-muted-foreground">
-          {t("dashboard.cards.branchesLocal", { n: branchScopes.local })} ·{" "}
-          {t("dashboard.cards.branchesRemote", { n: branchScopes.remote })}
-        </span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+          {branchActivity ? (
+            <span>
+              {t("dashboard.cards.branchesActive", { n: branchAges.active })} ·{" "}
+              {t("dashboard.cards.branchesStale", { n: branchAges.stale })}
+            </span>
+          ) : branchActivityLoading ? (
+            <Skeleton className="h-2.5 w-24 rounded" />
+          ) : null}
+          <span>
+            {t("dashboard.cards.branchesLocal", { n: branchScopes.local })} ·{" "}
+            {t("dashboard.cards.branchesRemote", { n: branchScopes.remote })}
+          </span>
+        </div>
       </StatusTile>
     </div>
   );

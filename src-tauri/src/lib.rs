@@ -8,6 +8,7 @@ mod git;
 mod pr;
 mod providers;
 mod pty;
+mod rebase;
 mod repo_tools;
 mod secrets;
 mod shell;
@@ -200,6 +201,7 @@ pub fn run() {
             git::git_reset,
             git::repo_contributor_stats,
             git::repo_activity_buckets,
+            git::repo_branch_activity,
             git::repos_overview,
             pty::pty_open,
             pty::pty_write,
@@ -210,7 +212,15 @@ pub fn run() {
             pty::pty_shell_name,
             secrets::secret_set,
             secrets::secret_get,
-            secrets::secret_delete
+            secrets::secret_delete,
+            rebase::rebase_start,
+            rebase::rebase_status,
+            rebase::rebase_continue,
+            rebase::rebase_skip,
+            rebase::rebase_abort,
+            rebase::rebase_todo_preview,
+            rebase::rebase_interactive,
+            rebase::commit_fixup
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

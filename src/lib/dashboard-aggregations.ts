@@ -193,6 +193,36 @@ export function selectBranchScopes(branches: readonly Branch[] | undefined): Bra
   return { total: local + remote, local, remote };
 }
 
+export type BranchActivityEntry = {
+  name: string;
+  is_remote: boolean;
+  last_commit_at: string;
+};
+
+export type BranchActivitySummary = {
+  total: number;
+  active: number;
+  stale: number;
+};
+
+export const BRANCH_STALE_DAYS = 30;
+
+export function selectBranchActivity(
+  entries: readonly BranchActivityEntry[] | undefined,
+  staleDays: number = BRANCH_STALE_DAYS,
+  now: number = Date.now(),
+): BranchActivitySummary {
+  let active = 0;
+  let stale = 0;
+  const cutoff = now - staleDays * DAY_MS;
+  for (const e of entries ?? []) {
+    const dt = parseCommitDate(e.last_commit_at);
+    if (dt && dt.getTime() >= cutoff) active += 1;
+    else stale += 1;
+  }
+  return { total: active + stale, active, stale };
+}
+
 export type RecentActivityItem = {
   id: string;
   kind: "commit" | "stash" | "pr";
