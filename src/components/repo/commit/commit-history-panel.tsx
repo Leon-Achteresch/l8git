@@ -16,6 +16,7 @@ import { CherryPickStatusBanner } from './cherry-pick-status-banner';
 import { CommitInspectDetail } from './commit-inspect-detail';
 import { CommitList } from './commit-list';
 import { MergeStatusBanner } from '../merge/merge-status-banner';
+import { RebaseStatusBanner } from '../rebase/rebase-status-banner';
 
 const layoutStorageKey = 'l8git.history-split.layout.v1';
 const EMPTY_HASH_SET: ReadonlySet<string> = new Set();
@@ -307,6 +308,7 @@ export function CommitHistoryPanel({
       <BisectStatusBanner path={path} />
       <CherryPickStatusBanner path={path} />
       <MergeStatusBanner path={path} />
+      <RebaseStatusBanner path={path} />
       {selectedHash ? (
         <ResizablePanelGroup
           orientation='horizontal'

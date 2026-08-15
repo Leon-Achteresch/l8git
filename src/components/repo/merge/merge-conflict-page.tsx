@@ -1,6 +1,8 @@
 import { ListRow } from "@/components/ui/list-row";
 import { AppHeader } from "@/components/app/app-header";
 import { Button } from "@/components/ui/button";
+import { toastRebaseError } from "@/components/repo/rebase/rebase-errors";
+import { notifyRebaseResult } from "@/components/repo/rebase/rebase-feedback";
 import { hasUnresolvedConflicts } from "@/lib/conflict-parser";
 import { toastError } from "@/lib/error-toast";
 import type { ConflictVersions } from "@/lib/repo-store";
@@ -9,6 +11,7 @@ import { useUiStore } from "@/lib/ui-store";
 import {
   AlertTriangle,
   CheckCircle2,
+  FastForward,
   FileCode2,
   GitCommit,
   Loader2,
@@ -83,7 +86,11 @@ export function MergeConflictPage({
 }) {
   const { t } = useTranslation();
   const mergeState = useRepoStore((s) => s.mergeState[path]);
-  const conflictedFiles = mergeState?.conflicted_paths ?? [];
+  const rebaseState = useRepoStore((s) => s.rebaseState[path]);
+  const rebaseActive = rebaseState?.in_progress ?? false;
+  const conflictedFiles = rebaseActive
+    ? rebaseState.conflicted_paths
+    : (mergeState?.conflicted_paths ?? []);
   const initialFile = useUiStore((s) => s.mergeEditorInitialFile);
 
   const [mode] = useState<Mode>("3way");
@@ -94,6 +101,7 @@ export function MergeConflictPage({
 
   useEffect(() => {
     void useRepoStore.getState().reloadMergeState(path);
+    void useRepoStore.getState().reloadRebaseState(path);
   }, [path]);
 
   useEffect(() => {
@@ -163,19 +171,32 @@ export function MergeConflictPage({
   async function handleCommit() {
     setCommitting(true);
     try {
-      await useRepoStore.getState().mergeCommit(path);
-      toast.success(t("mergeConflictPage.toastCommitted"));
-      onClose();
+      if (rebaseActive) {
+        const res = await useRepoStore.getState().rebaseContinue(path);
+        notifyRebaseResult(path, res);
+        if (res.status === "conflict") {
+          setFileStates({});
+          setSelectedFile(null);
+        } else {
+          onClose();
+        }
+      } else {
+        await useRepoStore.getState().mergeCommit(path);
+        toast.success(t("mergeConflictPage.toastCommitted"));
+        onClose();
+      }
     } catch (err) {
-      toastError(String(err));
+      if (rebaseActive) toastRebaseError(err);
+      else toastError(String(err));
     } finally {
       setCommitting(false);
     }
   }
 
   const allResolved =
-    conflictedFiles.length > 0 &&
-    conflictedFiles.every((f) => fileStates[f]?.resolved);
+    conflictedFiles.length > 0
+      ? conflictedFiles.every((f) => fileStates[f]?.resolved)
+      : rebaseActive;
 
   const current = selectedFile ? fileStates[selectedFile] : null;
   const filesBadge = t("mergeConflictPage.filesBadge", {
@@ -195,10 +216,22 @@ export function MergeConflictPage({
         >
           <X className="h-4 w-4" />
         </Button>
-        <span className="font-medium">{t("mergeConflictPage.headerTitle")}</span>
+        <span className="font-medium">
+          {rebaseActive
+            ? t("mergeConflictPage.headerTitleRebase")
+            : t("mergeConflictPage.headerTitle")}
+        </span>
         <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
           {filesBadge}
         </span>
+        {rebaseActive && rebaseState.total > 0 ? (
+          <span className="rounded bg-git-modified/20 px-1.5 py-0.5 font-mono text-xs">
+            {t("rebaseBanner.progress", {
+              step: rebaseState.step,
+              total: rebaseState.total,
+            })}
+          </span>
+        ) : null}
 
         <Button
           type="button"
@@ -207,11 +240,23 @@ export function MergeConflictPage({
           disabled={!allResolved || committing}
           onClick={() => void handleCommit()}
           title={
-            !allResolved ? t("mergeConflictPage.commitDisabledHint") : undefined
+            !allResolved
+              ? rebaseActive
+                ? t("mergeConflictPage.continueDisabledHint")
+                : t("mergeConflictPage.commitDisabledHint")
+              : undefined
           }
         >
-          <GitCommit className="mr-1 h-3.5 w-3.5" />
-          {committing ? "…" : t("mergeConflictPage.commitButton")}
+          {rebaseActive ? (
+            <FastForward className="mr-1 h-3.5 w-3.5" />
+          ) : (
+            <GitCommit className="mr-1 h-3.5 w-3.5" />
+          )}
+          {committing
+            ? "…"
+            : rebaseActive
+              ? t("mergeConflictPage.continueRebaseButton")
+              : t("mergeConflictPage.commitButton")}
         </Button>
       </header>
 

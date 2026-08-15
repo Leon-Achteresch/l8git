@@ -26,9 +26,10 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 - [ ] Opt-in-Telemetrie (PostHog) + Crash-Reporting — anonym, transparent, abschaltbar, quelloffen auditierbar
 
 ### Monat 2 — Interaktiver Rebase
-- [ ] Lokales Rebase: onto beliebige Ref, `--autostash`, continue/skip/abort mit Anbindung an den Konflikt-Editor
-- [ ] Visueller interaktiver Rebase: Drag-and-drop-Reorder, squash/fixup/drop/reword/edit als Ein-Klick-Aktionen im Graph
-- [ ] Lazygit-Klasse Shortcuts: „Amend in älteren Commit", „Fixup hierhin" direkt aus dem Commit-Kontextmenü
+- [x] Lokales Rebase: onto beliebige Ref, `--autostash`, continue/skip/abort mit Anbindung an den Konflikt-Editor
+- [x] Visueller interaktiver Rebase: Drag-and-drop-Reorder, squash/fixup/drop/reword/edit als Ein-Klick-Aktionen im Graph
+- [x] Lazygit-Klasse Shortcuts: „Amend in älteren Commit", „Fixup hierhin" direkt aus dem Commit-Kontextmenü
+- [ ] Rebase-Folgearbeiten: Commit-Body im Reword vorbefüllen, Ref-Validierung in Dialog/Editor, `rebase_status` im Status-Poll, Windows-Smoke-Test der Sequence-Editor-Skripte
 
 ### Monat 3 — Universelles Undo & Qualität
 - [ ] Reflog-Ansicht

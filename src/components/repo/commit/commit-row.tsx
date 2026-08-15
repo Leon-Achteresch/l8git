@@ -1,4 +1,14 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -16,7 +26,7 @@ import { useRepoStore, type Branch } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, CircleDot, GitBranchPlus, History, RotateCcw, SkipForward, Tag, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranchPlus, History, ListOrdered, Pencil, RotateCcw, SkipForward, Tag, Trash2, Undo2, XCircle } from "lucide-react";
 import { m } from "motion/react";
 import { memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,6 +37,13 @@ import { CommitConventionalIcons } from "./commit-conventional-icons";
 import { CommitGraphCell } from "./commit-graph-cell";
 import { CommitHashBadge } from "./commit-hash-badge";
 import { ResetDialog } from "@/components/repo/reset/reset-dialog";
+import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interactive-editor";
+import {
+  dropCommit,
+  fixupStaged,
+  hasStagedChanges,
+} from "@/components/repo/rebase/rebase-quick-actions";
+import type { RebaseTodoAction } from "@/lib/repo-store";
 import { CommitTagDialog } from "./commit-tag-dialog";
 import { CommitTags } from "./commit-tags";
 import type { CommitSelectMode } from "./commit-history-panel";
@@ -83,6 +100,12 @@ function CommitRowInner({
   const setBisectPendingGood = useUiStore((s) => s.setBisectPendingGood);
   const [tagOpen, setTagOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [rebaseEditor, setRebaseEditor] = useState<{
+    preset: { hash: string; action: RebaseTodoAction } | null;
+  } | null>(null);
+  const [dropOpen, setDropOpen] = useState(false);
+  const [staged, setStaged] = useState(false);
+  const parentHash = commit.parents[0] ?? null;
 
   const subjectParts = useMemo(
     () => splitConventionalSubjectDisplay(commit.subject),
@@ -280,7 +303,11 @@ function CommitRowInner({
 
   return (
     <>
-      <ContextMenu>
+      <ContextMenu
+        onOpenChange={(open) => {
+          if (open) setStaged(hasStagedChanges(path));
+        }}
+      >
         <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
         <ContextMenuContent className="w-56">
           <ContextMenuItem
@@ -336,6 +363,60 @@ function CommitRowInner({
           >
             <History className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium">{t("commitRow.resetTo")}</span>
+          </ContextMenuItem>
+
+          <ContextMenuSeparator />
+          <ContextMenuLabel className="text-xs text-muted-foreground">{t("commitRow.rebaseLabel")}</ContextMenuLabel>
+
+          <ContextMenuItem
+            disabled={!parentHash}
+            onSelect={() => {
+              window.requestAnimationFrame(() =>
+                setRebaseEditor({ preset: null }),
+              );
+            }}
+            className="gap-2 cursor-pointer"
+            title={parentHash ? undefined : t("commitRow.rebaseRootHint")}
+          >
+            <ListOrdered className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{t("commitRow.rebaseInteractive")}</span>
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={!parentHash}
+            onSelect={() => {
+              window.requestAnimationFrame(() =>
+                setRebaseEditor({
+                  preset: { hash: commit.hash, action: "reword" },
+                }),
+              );
+            }}
+            className="gap-2 cursor-pointer"
+            title={parentHash ? undefined : t("commitRow.rebaseRootHint")}
+          >
+            <Pencil className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{t("commitRow.rebaseReword")}</span>
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={!staged}
+            onSelect={() => {
+              void fixupStaged(path, commit.hash);
+            }}
+            className="gap-2 cursor-pointer"
+            title={staged ? undefined : t("rebase.errors.nothingStaged")}
+          >
+            <Combine className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{t("commitRow.rebaseFixupStaged")}</span>
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={!parentHash}
+            onSelect={() => {
+              window.requestAnimationFrame(() => setDropOpen(true));
+            }}
+            className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+            title={parentHash ? undefined : t("commitRow.rebaseRootHint")}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="font-medium">{t("commitRow.rebaseDrop")}</span>
           </ContextMenuItem>
 
           <ContextMenuSeparator />
@@ -411,6 +492,40 @@ function CommitRowInner({
         path={path}
         commitHash={commit.hash}
       />
+      {rebaseEditor ? (
+        <RebaseInteractiveEditor
+          open
+          onClose={() => setRebaseEditor(null)}
+          path={path}
+          base={parentHash}
+          preset={rebaseEditor.preset}
+        />
+      ) : null}
+      <AlertDialog open={dropOpen} onOpenChange={setDropOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("commitRow.dropTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("commitRow.dropDesc", {
+                hash: commit.short_hash,
+                subject: commit.subject,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                if (parentHash) void dropCommit(path, parentHash, commit.hash);
+              }}
+            >
+              {t("commitRow.dropConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

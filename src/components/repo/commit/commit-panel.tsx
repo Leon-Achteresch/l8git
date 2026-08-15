@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
 import { VirtualFileList } from "./commit-panel-file-list";
 import { MergeStatusBanner } from "@/components/repo/merge/merge-status-banner";
+import { RebaseStatusBanner } from "@/components/repo/rebase/rebase-status-banner";
 import { CommitPanelConflictPlaceholder } from "@/components/repo/commit/commit-panel-conflict-placeholder";
 import { CommitComposer } from "@/components/repo/commit/commit-composer";
 import {
@@ -575,6 +576,7 @@ export function CommitPanel() {
       )}
 
       <MergeStatusBanner path={activePath} />
+      <RebaseStatusBanner path={activePath} />
 
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup

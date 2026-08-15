@@ -20,7 +20,9 @@ import {
   GitCommitHorizontal,
   GitFork,
   History,
+  Layers,
   ListChecks,
+  ListOrdered,
   Search,
   Settings,
   Tag,
@@ -54,6 +56,8 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
+import { RebaseDialog } from "@/components/repo/rebase/rebase-dialog";
+import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interactive-editor";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { useRepoToolsStore } from "@/lib/repo-tools-store";
@@ -119,6 +123,8 @@ export function AppHeaderSearch() {
     label: string;
     run: string;
   } | null>(null);
+  const [rebaseOpen, setRebaseOpen] = useState(false);
+  const [rebaseEditorOpen, setRebaseEditorOpen] = useState(false);
   const totalCommits = repo?.commits.length ?? 0;
 
   // Refresh the repo's tool manifest whenever the palette opens.
@@ -207,6 +213,26 @@ export function AppHeaderSearch() {
             void invoke<string>("git_fetch", { path: activePath, pruneBranches: true, pruneTags: false })
               .then(() => toast.success(t("toolbar.actionSuccess")))
               .catch((e) => toastError(String(e)));
+          },
+        },
+        {
+          id: "action:rebase",
+          label: t("appSearch.actionRebase"),
+          icon: <Layers className="size-3.5" />,
+          keywords: "rebase onto upstream umbasieren",
+          onSelect: () => {
+            setOpen(false);
+            setRebaseOpen(true);
+          },
+        },
+        {
+          id: "action:rebase-interactive",
+          label: t("appSearch.actionRebaseInteractive"),
+          icon: <ListOrdered className="size-3.5" />,
+          keywords: "rebase interactive interaktiv todo squash fixup reword drop",
+          onSelect: () => {
+            setOpen(false);
+            setRebaseEditorOpen(true);
           },
         },
         {
@@ -544,6 +570,23 @@ export function AppHeaderSearch() {
           </div>
         </Command>
       </CommandDialog>
+
+      {activePath ? (
+        <>
+          <RebaseDialog
+            open={rebaseOpen}
+            onClose={() => setRebaseOpen(false)}
+            path={activePath}
+          />
+          {rebaseEditorOpen ? (
+            <RebaseInteractiveEditor
+              open
+              onClose={() => setRebaseEditorOpen(false)}
+              path={activePath}
+            />
+          ) : null}
+        </>
+      ) : null}
 
       {/* Confirm gate for destructive tool actions launched from the palette */}
       <AlertDialog

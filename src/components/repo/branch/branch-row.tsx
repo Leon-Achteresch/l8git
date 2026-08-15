@@ -16,10 +16,12 @@ import {
   GitBranch,
   GitMerge,
   GitPullRequest,
+  Layers,
   Trash2,
 } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { RebaseDialog } from '../rebase/rebase-dialog';
 import { MergeDialog } from './merge-dialog';
 import { RemoteCheckoutDialog } from './remote-checkout-dialog';
 import { RemoteDeleteConfirmDialog } from './remote-delete-confirm-dialog';
@@ -52,6 +54,7 @@ function BranchRowInner({
   );
   const [deleteRemoteRef, setDeleteRemoteRef] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [rebaseOpen, setRebaseOpen] = useState(false);
 
   function defaultLocalFromRemote(remoteRef: string) {
     const slash = remoteRef.indexOf('/');
@@ -213,6 +216,16 @@ function BranchRowInner({
               </ContextMenuItem>
             </>
           ) : null}
+          {!branch.is_current ? (
+            <ContextMenuItem
+              onSelect={() => {
+                window.requestAnimationFrame(() => setRebaseOpen(true));
+              }}
+            >
+              <Layers className='h-3.5 w-3.5' />
+              {t('branch.menuRebaseOnto')}
+            </ContextMenuItem>
+          ) : null}
           {showRemoteCheckout ? (
             <ContextMenuItem onSelect={openRemoteCheckout}>
               <GitBranch className='h-3.5 w-3.5' />
@@ -275,6 +288,12 @@ function BranchRowInner({
         onClose={() => setMergeOpen(false)}
         path={path}
         sourceBranch={branch.name}
+      />
+      <RebaseDialog
+        open={rebaseOpen}
+        onClose={() => setRebaseOpen(false)}
+        path={path}
+        upstream={branch.name}
       />
     </>
   );
