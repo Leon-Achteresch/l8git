@@ -676,7 +676,7 @@ pub async fn repo_search_commits(
             .saturating_add(skip);
         let tag_map = tags_by_target(&repo);
         let sep = "\x1f";
-        let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
+        let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b%x00");
         let pretty = format!("--pretty=format:{format}");
         let max_count = format!("--max-count={scan}");
         let mut search_args: Vec<&str> = vec!["log", "-z", max_count.as_str()];
@@ -713,8 +713,18 @@ pub async fn repo_search_commits(
             let body = parts.next().unwrap_or_default().to_string();
             i += 1;
             let mut paths: Vec<String> = Vec::new();
+            let mut first_path_token = true;
             while i < tokens.len() && !is_commit_meta_token(tokens[i]) {
-                paths.push(tokens[i].to_string());
+                let raw = tokens[i];
+                let p = if first_path_token {
+                    raw.strip_prefix('\n').unwrap_or(raw)
+                } else {
+                    raw
+                };
+                first_path_token = false;
+                if !p.is_empty() {
+                    paths.push(p.to_string());
+                }
                 i += 1;
             }
             let Some(matched_paths) = match_commit_record(
@@ -2552,11 +2562,11 @@ pub async fn git_stash_file_diff(
             return Err("Dateipfad fehlt".into());
         }
         let sref = stash_ref(index);
+        let parent = format!("{sref}^1");
         let diff = run_git(
             &repo,
-            &["stash", "show", "-p", "--no-color", &sref, "--", f],
-        )
-        .unwrap_or_default();
+            &["diff", "--no-color", "-M", &parent, &sref, "--", f],
+        )?;
         let trimmed = diff.trim();
         if diff_reports_binary(&diff) {
             return Ok(CommitFileDiffResponse {

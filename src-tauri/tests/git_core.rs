@@ -454,27 +454,49 @@ async fn repo_search_commits_finds_commits_by_touched_path() {
     assert!(no_paths.is_empty(), "path search must be opt-out-able");
 }
 
-/// Bug repro, intentionally ignored: `repo_search_commits` runs
-/// `git log -z --pretty=format:... --name-only`, where git appends the file
-/// list to the last placeholder (`%b`) of the same NUL-record instead of
-/// emitting separate tokens. The per-commit path loop therefore never sees a
-/// path, so `matched_paths` stays empty and the file names leak into
-/// `commit.body`.
 #[tokio::test]
-#[ignore = "documents a git.rs bug: matched_paths is never filled and paths leak into commit.body"]
 async fn repo_search_commits_should_report_matched_paths() {
     let repo = TestRepo::new("search-paths-bug");
     repo.commit("src/deep/module.ts", "export {}\n", "unrelated subject");
+    repo.commit(
+        "src/other.ts",
+        "export {}\n",
+        "body carries paths\n\nsrc/deep/module.ts\n\nnot a real path list\n",
+    );
 
     let hits = git::repo_search_commits(repo.s(), "module.ts".into(), 0, 20, None, None, None)
         .await
         .unwrap();
-    assert_eq!(hits.len(), 1);
+    assert_eq!(hits.len(), 2);
+
+    let by_path = hits
+        .iter()
+        .find(|h| json(&h.commit)["subject"] == "unrelated subject")
+        .expect("commit touching the file must be found");
     assert_eq!(
-        json(&hits[0].commit)["body"], "",
+        json(&by_path.commit)["body"], "",
         "the commit body must not contain the changed file list"
     );
-    assert_eq!(hits[0].matched_paths, vec!["src/deep/module.ts".to_string()]);
+    assert_eq!(by_path.matched_paths, vec!["src/deep/module.ts".to_string()]);
+
+    let by_body = hits
+        .iter()
+        .find(|h| json(&h.commit)["subject"] == "body carries paths")
+        .expect("commit mentioning the path in its body must be found");
+    let body = json(&by_body.commit)["body"].as_str().unwrap_or_default().to_string();
+    assert!(
+        body.contains("src/deep/module.ts") && body.contains("not a real path list"),
+        "a multi-line body must survive intact, got {body:?}"
+    );
+    assert!(
+        !body.contains("src/other.ts"),
+        "the changed file list must not leak into the body, got {body:?}"
+    );
+    assert!(
+        by_body.matched_paths.is_empty(),
+        "path-looking body lines must not become matched paths, got {:?}",
+        by_body.matched_paths
+    );
 }
 
 #[tokio::test]

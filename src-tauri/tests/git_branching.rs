@@ -483,27 +483,28 @@ async fn stash_show_and_file_diff_describe_the_stashed_change() {
     assert!(git::git_stash_file_diff(repo.s(), 0, "  ".into()).await.is_err());
 }
 
-/// Bug repro, intentionally ignored: `git_stash_file_diff` runs
-/// `git stash show -p --no-color stash@{n} -- <file>`, which git rejects with
-/// "Too many revisions specified" because `git stash show` takes no pathspec.
-/// The error is swallowed by `unwrap_or_default()`, so the command always
-/// answers with an empty diff instead of the file's changes.
 #[tokio::test]
-#[ignore = "documents a git.rs bug: git_stash_file_diff always returns an empty diff"]
 async fn stash_file_diff_should_return_the_patch_for_one_file() {
     let repo = TestRepo::new("stash-file-diff-bug");
     repo.commit("a.txt", "v1\n", "c1");
+    repo.commit("b.txt", "keep\n", "c2");
     repo.write("a.txt", "v1\nv2\n");
+    repo.write("b.txt", "keep\nchanged\n");
     git::git_stash_push(repo.s(), Some("inspect me".into()), false, false)
         .await
         .unwrap();
 
     let diff = json(&git::git_stash_file_diff(repo.s(), 0, "a.txt".into()).await.unwrap());
     assert_eq!(diff["is_binary"], false);
+    let patch = diff["diff"].as_str().unwrap_or("");
+    assert!(patch.contains("+v2"), "expected the stashed hunk, got {diff}");
     assert!(
-        diff["diff"].as_str().unwrap_or("").contains("+v2"),
-        "expected the stashed hunk, got {diff}"
+        !patch.contains("b.txt"),
+        "the patch must be limited to the requested file, got {diff}"
     );
+
+    let untouched = json(&git::git_stash_file_diff(repo.s(), 0, "missing.txt".into()).await.unwrap());
+    assert!(untouched["diff"].is_null(), "unchanged files have no patch, got {untouched}");
 }
 
 #[tokio::test]
