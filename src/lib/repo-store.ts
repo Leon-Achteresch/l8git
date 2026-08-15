@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { toastError } from '@/lib/error-toast';
 import i18n from '@/lib/i18n';
+import { runRemoteOp } from '@/lib/remote-ops';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { useWorkspacePrefs } from '@/lib/workspace-prefs';
 
@@ -1103,7 +1104,9 @@ export const useRepoStore = create<RepoState>()(
       },
 
       async cloneRepo(url, dest) {
-        const out = await invoke<string>('git_clone', { url, dest });
+        const out = await runRemoteOp('clone', dest, opId =>
+          invoke<string>('git_clone', { url, dest, opId })
+        );
         const opened = await get().addRepo(dest);
         if (!opened) {
           throw new Error(i18n.t('errors.cloneOpenFailed'));

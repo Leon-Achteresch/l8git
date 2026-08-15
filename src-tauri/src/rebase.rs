@@ -95,6 +95,7 @@ fn run_git_env(repo: &Path, args: &[&str], env: &[(String, String)]) -> (bool, S
     for (key, value) in env {
         cmd.env(key, value);
     }
+    let span = crate::cmdlog::start(&repo.to_string_lossy(), args);
     match cmd.output() {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -105,9 +106,13 @@ fn run_git_env(repo: &Path, args: &[&str], env: &[(String, String)]) -> (bool, S
                 (true, false) => stderr,
                 (true, true) => String::new(),
             };
+            span.finish(output.status.success());
             (output.status.success(), merged.trim().to_string())
         }
-        Err(e) => (false, format!("failed to run git: {e}")),
+        Err(e) => {
+            span.finish(false);
+            (false, format!("failed to run git: {e}"))
+        }
     }
 }
 

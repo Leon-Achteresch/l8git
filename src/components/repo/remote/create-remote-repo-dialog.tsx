@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
 import { useGitAccounts, type GitAccount } from "@/lib/git-accounts";
+import { runRemoteOp } from "@/lib/remote-ops";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
@@ -121,15 +122,18 @@ export function CreateRemoteRepoDialog({
 
       if (pushAfter) {
         try {
-          await invoke<string>("git_push", {
-            path,
-            setUpstream: true,
-            forceMode: null,
-            tagsMode: null,
-            atomic: false,
-            noVerify: false,
-            dryRun: false,
-          });
+          await runRemoteOp("push", path, (opId) =>
+            invoke<string>("git_push", {
+              path,
+              setUpstream: true,
+              forceMode: null,
+              tagsMode: null,
+              atomic: false,
+              noVerify: false,
+              dryRun: false,
+              opId,
+            }),
+          );
           toast.success(
             t("createRemote.createdAndPushed", { name: created.full_name }),
           );

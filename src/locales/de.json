@@ -849,7 +849,8 @@
     "run": "Ausführen",
     "unavailable": "{{requires}} nicht gefunden – das Tool ist noch nicht bereit.",
     "confirmTitle": "\"{{label}}\" ausführen?",
-    "confirmDesc": "Es wird ausgeführt: {{run}}"
+    "confirmDesc": "Es wird ausgeführt: {{run}}",
+    "gitSection": "Git-Werkzeuge"
   },
   "commitPanel": {
     "changes": "Änderungen",
@@ -967,7 +968,10 @@
     "actionTabHooks": "Zu: Hooks",
     "actionTabSubmodules": "Zu: Submodules",
     "actionToggleTerminal": "Terminal ein-/ausblenden",
-    "deepSearchHint": "Vollständige History-Suche in der History-Toolbar"
+    "deepSearchHint": "Vollständige History-Suche in der History-Toolbar",
+    "actionUndoLast": "Letzte Operation rückgängig",
+    "actionReflog": "Reflog öffnen",
+    "actionCommandLog": "Git-Kommando-Log öffnen"
   },
   "repoTab": {
     "close": "Schließen",
@@ -1442,7 +1446,8 @@
     "start": "Rebase starten",
     "startConfirm": "Wirklich starten",
     "fixupSquashed": "Fixup erstellt und in den Ziel-Commit eingearbeitet.",
-    "fixupCommitted": "Fixup-Commit {{hash}} erstellt."
+    "fixupCommitted": "Fixup-Commit {{hash}} erstellt.",
+    "messageLoading": "Commit-Nachricht wird geladen …"
   },
   "commitRow": {
     "bisectBadToast": "Bad commit gesetzt — wähle nun einen 'good' commit.",
@@ -2191,5 +2196,80 @@
     "sidebarWorktrees": "Sidebar: Worktrees",
     "sidebarHooks": "Sidebar: Hooks",
     "sidebarTools": "Sidebar: Tools"
+  },
+  "reflog": {
+    "title": "Reflog",
+    "openTitle": "Reflog öffnen",
+    "subtitle_one": "{{repo}} · {{count}} Eintrag",
+    "subtitle_other": "{{repo}} · {{count}} Einträge",
+    "refresh": "Reflog neu laden",
+    "loading": "Reflog wird geladen …",
+    "empty": "Kein Reflog-Eintrag",
+    "emptyHint": "Sobald du committest, mergst oder rebasest, taucht die Aktion hier auf.",
+    "loadMore": "Mehr laden",
+    "copyHash": "Hash kopieren",
+    "hashCopied": "Hash kopiert",
+    "rowMenuAria": "Aktionen für diesen Reflog-Eintrag",
+    "resetKeep": "Hierauf zurücksetzen (schonend)",
+    "resetHard": "Hierauf zurücksetzen (hart)",
+    "resetKeepVerb": "Schonend zurücksetzen",
+    "resetHardVerb": "Hart zurücksetzen",
+    "confirmKeepTitle": "Schonend zurücksetzen?",
+    "confirmKeepDesc": "HEAD wird auf {{selector}} ({{hash}}) gesetzt. Lokale Änderungen bleiben erhalten – gibt es Konflikte, bricht Git ab.",
+    "confirmHardTitle": "Hart zurücksetzen?",
+    "confirmHardDesc": "HEAD wird auf {{selector}} ({{hash}}) gesetzt und der Arbeitsbereich überschrieben. Nicht committete Änderungen gehen unwiderruflich verloren.",
+    "resetSuccess": "Auf {{selector}} zurückgesetzt ({{hash}})"
+  },
+  "undo": {
+    "buttonLabel": "Letzte Operation rückgängig",
+    "buttonTitle": "Letzte Operation rückgängig machen",
+    "dialogTitle": "Letzte Operation rückgängig machen?",
+    "dialogDesc": "{{action}} → zurück auf {{hash}}",
+    "dialogHint": "Es wird kein --hard verwendet: lokale Änderungen bleiben erhalten oder die Aktion wird blockiert.",
+    "previewLoading": "Letzte Operation wird geprüft …",
+    "confirmVerb": "Rückgängig machen",
+    "busy": "Wird rückgängig gemacht …",
+    "successToast": "{{action}} rückgängig gemacht – HEAD steht jetzt auf {{hash}}",
+    "unsupportedToast": "„{{action}}“ lässt sich nicht automatisch rückgängig machen. Nutze das Reflog, um gezielt zurückzusetzen.",
+    "action": {
+      "merge": "Merge rückgängig",
+      "rebase": "Rebase rückgängig",
+      "reset": "Reset rückgängig",
+      "cherryPick": "Cherry-Pick rückgängig",
+      "revert": "Revert rückgängig",
+      "commit": "Commit rückgängig (bleibt gestaged)",
+      "amend": "Amend rückgängig (bleibt gestaged)",
+      "unsupported": "Nicht unterstützte Operation"
+    }
+  },
+  "cmdLog": {
+    "title": "Git-Kommando-Log",
+    "openTitle": "Git-Kommando-Log öffnen",
+    "subtitle_one": "{{count}} Kommando · neueste zuerst",
+    "subtitle_other": "{{count}} Kommandos · neueste zuerst",
+    "empty": "Noch keine Kommandos",
+    "emptyHint": "Jedes Git-Kommando, das l8git ausführt, erscheint hier mit Dauer und Exit-Status.",
+    "filterPlaceholder": "Filtern …",
+    "refresh": "Log neu laden",
+    "pause": "Live-Aktualisierung pausieren",
+    "resume": "Live-Aktualisierung fortsetzen",
+    "clear": "Log leeren",
+    "clearConfirmTitle": "Kommando-Log leeren?",
+    "clearConfirmDesc": "Alle aufgezeichneten Kommandos werden verworfen. Das ändert nichts an deinen Repositories.",
+    "copyRow": "Kommando kopieren",
+    "copied": "Kommando kopiert",
+    "exitOk": "Erfolgreich beendet",
+    "exitFail": "Mit Fehler beendet",
+    "noRepo": "kein Repo"
+  },
+  "remoteProgress": {
+    "op_fetch": "Fetch",
+    "op_pull": "Pull",
+    "op_push": "Push",
+    "op_clone": "Clone",
+    "starting": "Wird gestartet …",
+    "cancel": "Abbrechen",
+    "canceling": "Wird abgebrochen …",
+    "canceledToast": "Vorgang abgebrochen"
   }
 }

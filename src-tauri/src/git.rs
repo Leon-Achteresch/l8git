@@ -6,6 +6,7 @@ use std::process::Stdio;
 use serde::Serialize;
 
 use crate::cmd::git_command;
+use crate::cmdlog;
 
 #[derive(Serialize)]
 pub struct Commit {
@@ -71,12 +72,15 @@ pub struct GitRemote {
 }
 
 pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
-    let output = git_command()
-        .arg("-C")
-        .arg(repo)
-        .args(args)
-        .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
+    let span = cmdlog::start(&repo.to_string_lossy(), args);
+    let output = match git_command().arg("-C").arg(repo).args(args).output() {
+        Ok(output) => output,
+        Err(e) => {
+            span.finish(false);
+            return Err(format!("failed to run git: {e}"));
+        }
+    };
+    span.finish(output.status.success());
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
@@ -84,48 +88,64 @@ pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+fn merged_failure_message(stdout: &str, stderr: &str) -> String {
+    let msg = match (stderr.is_empty(), stdout.is_empty()) {
+        (false, false) => format!("{stderr}\n{stdout}"),
+        (false, true) => stderr.to_string(),
+        (true, false) => stdout.to_string(),
+        (true, true) => "git: command failed".into(),
+    };
+    let trimmed = msg.trim().to_string();
+    if trimmed.contains("Your local changes to the following files would be overwritten")
+        || trimmed.contains("would be overwritten by merge")
+        || trimmed.contains("Please commit your changes or stash them before you")
+    {
+        let files: Vec<&str> = trimmed
+            .lines()
+            .filter(|l| l.starts_with('\t'))
+            .map(|l| l.trim())
+            .collect();
+        return format!("__LOCAL_CHANGES_BLOCK__|{}", files.join(","));
+    }
+    trimmed
+}
+
+fn merged_ok_message(stdout: &str, stderr: &str) -> String {
+    let ok = match (stdout.is_empty(), stderr.is_empty()) {
+        (false, false) => format!("{stdout}\n{stderr}"),
+        (false, true) => stdout.to_string(),
+        (true, false) => stderr.to_string(),
+        (true, true) => String::new(),
+    };
+    ok.trim().to_string()
+}
+
 fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<String, String> {
     let mut cmd = git_command();
     if let Some(dir) = cwd {
         cmd.arg("-C").arg(dir);
     }
-    let output = cmd
-        .args(args)
-        .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
+    let log_path = cwd
+        .map(|d| d.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let span = cmdlog::start(&log_path, args);
+    let output = match cmd.args(args).output() {
+        Ok(output) => output,
+        Err(e) => {
+            span.finish(false);
+            return Err(format!("failed to run git: {e}"));
+        }
+    };
+    span.finish(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
 
     if !output.status.success() {
-        let msg = match (stderr.is_empty(), stdout.is_empty()) {
-            (false, false) => format!("{stderr}\n{stdout}"),
-            (false, true) => stderr,
-            (true, false) => stdout,
-            (true, true) => "git: command failed".into(),
-        };
-        let trimmed = msg.trim().to_string();
-        if trimmed.contains("Your local changes to the following files would be overwritten")
-            || trimmed.contains("would be overwritten by merge")
-            || trimmed.contains("Please commit your changes or stash them before you")
-        {
-            let files: Vec<&str> = trimmed
-                .lines()
-                .filter(|l| l.starts_with('\t'))
-                .map(|l| l.trim())
-                .collect();
-            return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", files.join(",")));
-        }
-        return Err(trimmed);
+        return Err(merged_failure_message(&stdout, &stderr));
     }
 
-    let ok = match (stdout.is_empty(), stderr.is_empty()) {
-        (false, false) => format!("{stdout}\n{stderr}"),
-        (false, true) => stdout,
-        (true, false) => stderr,
-        (true, true) => String::new(),
-    };
-    Ok(ok.trim().to_string())
+    Ok(merged_ok_message(&stdout, &stderr))
 }
 
 pub(crate) fn run_git_merged_output(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
@@ -136,6 +156,333 @@ async fn spawn_git<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) ->
     tokio::task::spawn_blocking(f)
         .await
         .expect("git blocking task panicked")
+}
+
+pub const REMOTE_CANCELED: &str = "__REMOTE_CANCELED__";
+const PROGRESS_EVENT: &str = "git-progress";
+const PROGRESS_DONE_EVENT: &str = "git-progress-done";
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitProgressEvent {
+    pub op_id: String,
+    pub repo_path: String,
+    pub op: String,
+    pub phase: String,
+    pub percent: Option<u8>,
+    pub detail: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitProgressDone {
+    pub op_id: String,
+    pub repo_path: String,
+    pub op: String,
+    pub ok: bool,
+    pub canceled: bool,
+    pub message: String,
+}
+
+#[derive(Debug, PartialEq)]
+struct ProgressLine {
+    phase: String,
+    percent: Option<u8>,
+    detail: String,
+}
+
+#[derive(Clone)]
+struct RemoteOp {
+    child: std::sync::Arc<std::sync::Mutex<std::process::Child>>,
+    canceled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pid: u32,
+}
+
+struct StreamOutcome {
+    success: bool,
+    stdout: String,
+    stderr: String,
+    canceled: bool,
+}
+
+fn remote_ops() -> &'static std::sync::Mutex<HashMap<String, RemoteOp>> {
+    static REG: std::sync::OnceLock<std::sync::Mutex<HashMap<String, RemoteOp>>> =
+        std::sync::OnceLock::new();
+    REG.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+fn parse_progress_chunk(chunk: &str) -> Option<ProgressLine> {
+    let mut text = chunk.trim();
+    while let Some(rest) = text.strip_prefix("remote:") {
+        text = rest.trim_start();
+    }
+    let (phase, rest) = text.split_once(':')?;
+    let phase = phase.trim();
+    if phase.is_empty()
+        || !phase
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == ' ' || c == '-')
+    {
+        return None;
+    }
+    let rest = rest.trim();
+    if !rest.starts_with(|c: char| c.is_ascii_digit()) {
+        return None;
+    }
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    let after = &rest[digits.len()..];
+    let (percent, detail) = match after.strip_prefix('%') {
+        Some(tail) => (
+            digits.parse::<u32>().ok().map(|v| v.min(100) as u8),
+            tail.trim().to_string(),
+        ),
+        None => (None, rest.to_string()),
+    };
+    Some(ProgressLine {
+        phase: phase.to_string(),
+        percent,
+        detail,
+    })
+}
+
+fn flush_progress_chunk(
+    buf: &mut Vec<u8>,
+    kept: &mut Vec<String>,
+    on_progress: &mut impl FnMut(ProgressLine),
+) {
+    if buf.is_empty() {
+        return;
+    }
+    let text = String::from_utf8_lossy(buf).trim_end().to_string();
+    buf.clear();
+    if text.trim().is_empty() {
+        return;
+    }
+    match parse_progress_chunk(&text) {
+        Some(line) => {
+            let keep = line.percent.is_none() || line.detail.contains("done.");
+            on_progress(line);
+            if keep {
+                kept.push(text);
+            }
+        }
+        None => kept.push(text),
+    }
+}
+
+fn read_progress_stream<R: std::io::Read>(
+    stream: R,
+    mut on_progress: impl FnMut(ProgressLine),
+) -> String {
+    let mut reader = std::io::BufReader::new(stream);
+    let mut chunk: Vec<u8> = Vec::new();
+    let mut kept: Vec<String> = Vec::new();
+    let mut byte = [0u8; 1];
+    loop {
+        match std::io::Read::read(&mut reader, &mut byte) {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+        if byte[0] == b'\r' || byte[0] == b'\n' {
+            flush_progress_chunk(&mut chunk, &mut kept, &mut on_progress);
+            continue;
+        }
+        chunk.push(byte[0]);
+    }
+    flush_progress_chunk(&mut chunk, &mut kept, &mut on_progress);
+    kept.join("\n")
+}
+
+fn kill_remote_op(op: &RemoteOp) {
+    #[cfg(windows)]
+    {
+        let _ = crate::cmd::cli_command("taskkill")
+            .args(["/PID", &op.pid.to_string(), "/T", "/F"])
+            .status();
+    }
+    #[cfg(unix)]
+    {
+        unsafe {
+            libc::kill(-(op.pid as i32), libc::SIGTERM);
+        }
+    }
+    if let Ok(mut child) = op.child.lock() {
+        let _ = child.kill();
+    }
+}
+
+fn run_git_streamed(
+    cwd: Option<&PathBuf>,
+    args: &[String],
+    op_id: &str,
+    on_progress: impl FnMut(ProgressLine),
+) -> Result<StreamOutcome, String> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    let mut cmd = git_command();
+    if let Some(dir) = cwd {
+        cmd.arg("-C").arg(dir);
+    }
+    cmd.args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("failed to run git: {e}"))?;
+    let pid = child.id();
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let shared = Arc::new(Mutex::new(child));
+    let canceled = Arc::new(AtomicBool::new(false));
+
+    if let Ok(mut reg) = remote_ops().lock() {
+        reg.insert(
+            op_id.to_string(),
+            RemoteOp {
+                child: shared.clone(),
+                canceled: canceled.clone(),
+                pid,
+            },
+        );
+    }
+
+    let stdout_thread = std::thread::spawn(move || {
+        let mut raw: Vec<u8> = Vec::new();
+        if let Some(mut out) = stdout {
+            let _ = std::io::Read::read_to_end(&mut out, &mut raw);
+        }
+        String::from_utf8_lossy(&raw).to_string()
+    });
+
+    let stderr_text = match stderr {
+        Some(err) => read_progress_stream(err, on_progress),
+        None => String::new(),
+    };
+    let stdout_text = stdout_thread.join().unwrap_or_default();
+
+    let status = shared
+        .lock()
+        .map_err(|e| e.to_string())
+        .and_then(|mut child| child.wait().map_err(|e| e.to_string()));
+
+    if let Ok(mut reg) = remote_ops().lock() {
+        reg.remove(op_id);
+    }
+
+    Ok(StreamOutcome {
+        success: status.map(|s| s.success()).unwrap_or(false),
+        stdout: stdout_text.trim().to_string(),
+        stderr: stderr_text.trim().to_string(),
+        canceled: canceled.load(Ordering::Relaxed),
+    })
+}
+
+fn emit_progress(event: &GitProgressEvent) {
+    if let Some(app) = cmdlog::app_handle() {
+        use tauri::Emitter;
+        let _ = app.emit(PROGRESS_EVENT, event);
+    }
+}
+
+fn emit_progress_done(event: &GitProgressDone) {
+    if let Some(app) = cmdlog::app_handle() {
+        use tauri::Emitter;
+        let _ = app.emit(PROGRESS_DONE_EVENT, event);
+    }
+}
+
+fn run_remote_op(
+    op: &str,
+    repo_path: &str,
+    cwd: Option<&PathBuf>,
+    args: Vec<String>,
+    op_id: Option<String>,
+) -> Result<String, String> {
+    let op_id = op_id
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty());
+    let Some(op_id) = op_id else {
+        let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        return run_git_merged_output_at(cwd, &refs);
+    };
+
+    let mut args = args;
+    args.insert(1, "--progress".to_string());
+
+    let span = cmdlog::start(repo_path, &args);
+    let outcome = run_git_streamed(cwd, &args, &op_id, |line| {
+        emit_progress(&GitProgressEvent {
+            op_id: op_id.clone(),
+            repo_path: repo_path.to_string(),
+            op: op.to_string(),
+            phase: line.phase,
+            percent: line.percent,
+            detail: line.detail,
+        });
+    });
+
+    let done = |ok: bool, canceled: bool, message: &str| {
+        emit_progress_done(&GitProgressDone {
+            op_id: op_id.clone(),
+            repo_path: repo_path.to_string(),
+            op: op.to_string(),
+            ok,
+            canceled,
+            message: message.to_string(),
+        });
+    };
+
+    let outcome = match outcome {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            span.finish(false);
+            done(false, false, &e);
+            return Err(e);
+        }
+    };
+    span.finish(outcome.success);
+
+    if outcome.canceled {
+        done(false, true, REMOTE_CANCELED);
+        return Err(REMOTE_CANCELED.to_string());
+    }
+    if !outcome.success {
+        let message = merged_failure_message(&outcome.stdout, &outcome.stderr);
+        done(false, false, &message);
+        return Err(message);
+    }
+    let message = merged_ok_message(&outcome.stdout, &outcome.stderr);
+    done(true, false, &message);
+    Ok(message)
+}
+
+#[tauri::command]
+pub async fn git_remote_cancel(op_id: String) -> Result<bool, String> {
+    spawn_git(move || {
+        let key = op_id.trim().to_string();
+        let entry = remote_ops()
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&key)
+            .cloned();
+        let Some(entry) = entry else {
+            return Ok(false);
+        };
+        entry
+            .canceled
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        kill_remote_op(&entry);
+        Ok(true)
+    })
+    .await
 }
 
 fn tags_by_target(repo: &PathBuf) -> HashMap<String, Vec<String>> {
@@ -501,19 +848,21 @@ pub async fn git_fetch(
     path: String,
     prune_branches: Option<bool>,
     prune_tags: Option<bool>,
+    op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
         let prune_branches = prune_branches.unwrap_or(true);
         let prune_tags = prune_tags.unwrap_or(false);
-        let mut args: Vec<&str> = vec!["fetch"];
+        let mut args: Vec<String> = vec!["fetch".to_string()];
         if prune_branches || prune_tags {
-            args.push("--prune");
+            args.push("--prune".to_string());
         }
         if prune_tags {
-            args.push("--prune-tags");
+            args.push("--prune-tags".to_string());
         }
-        run_git_merged_output(&repo, &args)
+        let repo_path = repo.to_string_lossy().to_string();
+        run_remote_op("fetch", &repo_path, Some(&repo), args, op_id)
     }).await
 }
 
@@ -538,7 +887,11 @@ fn dirty_tracked_files(repo: &PathBuf) -> Vec<String> {
 }
 
 #[tauri::command]
-pub async fn git_pull(path: String, strategy: Option<String>) -> Result<String, String> {
+pub async fn git_pull(
+    path: String,
+    strategy: Option<String>,
+    op_id: Option<String>,
+) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
         let autostash = strategy.as_deref() == Some("autostash");
@@ -548,14 +901,18 @@ pub async fn git_pull(path: String, strategy: Option<String>) -> Result<String, 
                 return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
             }
         }
-        let mut args: Vec<&str> = vec!["pull"];
+        let mut args: Vec<String> = vec!["pull".to_string()];
         match strategy.as_deref() {
-            Some("rebase") => args.push("--rebase"),
-            Some("ff-only") => args.push("--ff-only"),
-            Some("autostash") => { args.push("--no-rebase"); args.push("--autostash"); }
-            _ => args.push("--no-rebase"),
+            Some("rebase") => args.push("--rebase".to_string()),
+            Some("ff-only") => args.push("--ff-only".to_string()),
+            Some("autostash") => {
+                args.push("--no-rebase".to_string());
+                args.push("--autostash".to_string());
+            }
+            _ => args.push("--no-rebase".to_string()),
         }
-        run_git_merged_output(&repo, &args)
+        let repo_path = repo.to_string_lossy().to_string();
+        run_remote_op("pull", &repo_path, Some(&repo), args, op_id)
     }).await
 }
 
@@ -568,6 +925,7 @@ pub async fn git_push(
     atomic: Option<bool>,
     no_verify: Option<bool>,
     dry_run: Option<bool>,
+    op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
@@ -604,8 +962,8 @@ pub async fn git_push(
             args.push(branch);
         }
 
-        let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        run_git_merged_output(&repo, &arg_refs)
+        let repo_path = repo.to_string_lossy().to_string();
+        run_remote_op("push", &repo_path, Some(&repo), args, op_id)
     }).await
 }
 
@@ -696,7 +1054,11 @@ pub async fn repo_upstream_sync_counts(path: String) -> Result<UpstreamSyncCount
 }
 
 #[tauri::command]
-pub async fn git_clone(url: String, dest: String) -> Result<String, String> {
+pub async fn git_clone(
+    url: String,
+    dest: String,
+    op_id: Option<String>,
+) -> Result<String, String> {
     spawn_git(move || {
         let u = url.trim();
         let d = dest.trim();
@@ -706,7 +1068,8 @@ pub async fn git_clone(url: String, dest: String) -> Result<String, String> {
         if d.is_empty() {
             return Err("Zielpfad darf nicht leer sein".into());
         }
-        run_git_merged_output_at(None, &["clone", u, d])
+        let args = vec!["clone".to_string(), u.to_string(), d.to_string()];
+        run_remote_op("clone", d, None, args, op_id)
     }).await
 }
 
@@ -5133,5 +5496,210 @@ mod hook_run_tests {
         assert!(res.output.contains("hallo-hook"), "output: {}", res.output);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod remote_progress_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempPath {
+        path: PathBuf,
+    }
+
+    impl Drop for TempPath {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn temp_path(tag: &str) -> TempPath {
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let path = std::env::temp_dir().join(format!(
+            "l8git-progress-{tag}-{}-{id}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&path);
+        TempPath { path }
+    }
+
+    fn stream(cwd: Option<&PathBuf>, args: &[&str], op_id: &str) -> (StreamOutcome, Vec<ProgressLine>) {
+        let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+        let mut lines: Vec<ProgressLine> = Vec::new();
+        let outcome = run_git_streamed(cwd, &owned, op_id, |line| lines.push(line)).unwrap();
+        (outcome, lines)
+    }
+
+    fn phase_percent(lines: &[ProgressLine], phase: &str) -> Vec<Option<u8>> {
+        lines
+            .iter()
+            .filter(|l| l.phase == phase)
+            .map(|l| l.percent)
+            .collect()
+    }
+
+    #[test]
+    fn parses_captured_progress_stream() {
+        let captured = "remote: Enumerating objects: 62, done.        \rremote: Counting objects:  50% (31/62)        \rremote: Counting objects: 100% (62/62), done.        \rReceiving objects:  98% (61/62)\rReceiving objects: 100% (62/62), 1.16 MiB | 35.94 MiB/s, done.\nResolving deltas: 100% (10/10), done.\nTo /tmp/origin.git\n * [new branch]      HEAD -> main\n";
+
+        let mut lines: Vec<ProgressLine> = Vec::new();
+        let transcript = read_progress_stream(captured.as_bytes(), |line| lines.push(line));
+
+        assert_eq!(lines.len(), 6);
+        assert_eq!(lines[0].phase, "Enumerating objects");
+        assert_eq!(lines[0].percent, None);
+        assert_eq!(lines[0].detail, "62, done.");
+        assert_eq!(lines[1].phase, "Counting objects");
+        assert_eq!(lines[1].percent, Some(50));
+        assert_eq!(lines[1].detail, "(31/62)");
+        assert_eq!(lines[3].phase, "Receiving objects");
+        assert_eq!(lines[3].percent, Some(98));
+        assert_eq!(lines[4].percent, Some(100));
+        assert_eq!(lines[4].detail, "(62/62), 1.16 MiB | 35.94 MiB/s, done.");
+        assert_eq!(lines[5].phase, "Resolving deltas");
+
+        assert!(!transcript.contains("50%"), "transcript: {transcript}");
+        assert!(!transcript.contains("98%"), "transcript: {transcript}");
+        assert!(transcript.contains("To /tmp/origin.git"));
+        assert!(transcript.contains("[new branch]"));
+        assert!(transcript.lines().count() < 8);
+    }
+
+    #[test]
+    fn ignores_non_progress_output() {
+        assert!(parse_progress_chunk("Cloning into 'x'...").is_none());
+        assert!(parse_progress_chunk("remote: Total 62 (delta 0), reused 0").is_none());
+        assert!(parse_progress_chunk("To C:\\repos\\demo").is_none());
+        assert!(parse_progress_chunk("fatal: repository 'x' not found").is_none());
+        assert!(parse_progress_chunk("").is_none());
+        let updating = parse_progress_chunk("Updating files:  67% (2/3)").unwrap();
+        assert_eq!(updating.phase, "Updating files");
+        assert_eq!(updating.percent, Some(67));
+    }
+
+    #[test]
+    fn streams_progress_for_push_fetch_and_clone() {
+        let bare = temp_path("bare");
+        let work = temp_path("work");
+        let clone = temp_path("clone");
+        std::fs::create_dir_all(&bare.path).unwrap();
+        std::fs::create_dir_all(&work.path).unwrap();
+        run_git(&bare.path, &["init", "--bare", "-q", "."]).unwrap();
+        run_git(&work.path, &["-c", "init.defaultBranch=main", "init", "-q", "."]).unwrap();
+        run_git(&work.path, &["config", "user.email", "test@example.com"]).unwrap();
+        run_git(&work.path, &["config", "user.name", "Test"]).unwrap();
+        run_git(&work.path, &["config", "commit.gpgsign", "false"]).unwrap();
+        for n in 1..=8 {
+            std::fs::write(work.path.join(format!("f{n}.txt")), format!("{n}\n")).unwrap();
+        }
+        run_git(&work.path, &["add", "-A"]).unwrap();
+        run_git(&work.path, &["commit", "-q", "-m", "initial"]).unwrap();
+
+        let bare_url = bare.path.to_string_lossy().to_string();
+        let (pushed, push_lines) = stream(
+            Some(&work.path),
+            &["push", "--progress", "-u", &bare_url, "HEAD:main"],
+            "test-push",
+        );
+        assert!(pushed.success, "push failed: {}", pushed.stderr);
+        assert!(
+            phase_percent(&push_lines, "Writing objects").contains(&Some(100)),
+            "phases: {:?}",
+            push_lines.iter().map(|l| &l.phase).collect::<Vec<_>>()
+        );
+
+        let (cloned, clone_lines) = stream(
+            None,
+            &[
+                "clone",
+                "--progress",
+                "--no-local",
+                &bare_url,
+                &clone.path.to_string_lossy(),
+            ],
+            "test-clone",
+        );
+        assert!(cloned.success, "clone failed: {}", cloned.stderr);
+        assert!(
+            phase_percent(&clone_lines, "Receiving objects").contains(&Some(100)),
+            "phases: {:?}",
+            clone_lines.iter().map(|l| &l.phase).collect::<Vec<_>>()
+        );
+        assert!(clone_lines.len() > phase_percent(&clone_lines, "Receiving objects").len());
+
+        run_git(&clone.path, &["config", "user.email", "test@example.com"]).unwrap();
+        run_git(&clone.path, &["config", "user.name", "Test"]).unwrap();
+        run_git(&clone.path, &["config", "commit.gpgsign", "false"]).unwrap();
+        std::fs::write(clone.path.join("next.txt"), "next\n").unwrap();
+        run_git(&clone.path, &["add", "-A"]).unwrap();
+        run_git(&clone.path, &["commit", "-q", "-m", "second"]).unwrap();
+        run_git(&clone.path, &["push", "-q", "origin", "HEAD:main"]).unwrap();
+
+        let (fetched, fetch_lines) = stream(
+            Some(&work.path),
+            &["fetch", "--progress", &bare_url, "main"],
+            "test-fetch",
+        );
+        assert!(fetched.success, "fetch failed: {}", fetched.stderr);
+        assert!(
+            phase_percent(&fetch_lines, "Counting objects").contains(&Some(100)),
+            "phases: {:?}",
+            fetch_lines.iter().map(|l| &l.phase).collect::<Vec<_>>()
+        );
+        assert!(!fetched.canceled);
+    }
+
+    #[test]
+    fn registry_is_empty_after_completed_op() {
+        let repo = temp_path("registry");
+        std::fs::create_dir_all(&repo.path).unwrap();
+        run_git(&repo.path, &["init", "-q", "."]).unwrap();
+        let (outcome, _) = stream(Some(&repo.path), &["status", "--porcelain"], "test-registry");
+        assert!(outcome.success);
+        assert!(!remote_ops().lock().unwrap().contains_key("test-registry"));
+    }
+
+    #[tokio::test]
+    async fn cancel_reports_false_for_unknown_op() {
+        assert!(!git_remote_cancel("no-such-op".into()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn cancel_kills_running_op_and_its_children() {
+        let repo = temp_path("cancel");
+        std::fs::create_dir_all(&repo.path).unwrap();
+        run_git(&repo.path, &["init", "-q", "."]).unwrap();
+        let path = repo.path.clone();
+        let started = std::time::Instant::now();
+        let runner = tokio::task::spawn_blocking(move || {
+            stream(
+                Some(&path),
+                &["-c", "alias.slowop=!sleep 20", "slowop"],
+                "test-cancel",
+            )
+        });
+
+        let mut registered = false;
+        for _ in 0..150 {
+            if remote_ops().lock().unwrap().contains_key("test-cancel") {
+                registered = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(registered, "op was never registered");
+        assert!(git_remote_cancel("test-cancel".into()).await.unwrap());
+
+        let (outcome, _) = runner.await.unwrap();
+        assert!(outcome.canceled);
+        assert!(!outcome.success);
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(15),
+            "cancel did not stop the child process"
+        );
+        assert!(!remote_ops().lock().unwrap().contains_key("test-cancel"));
     }
 }

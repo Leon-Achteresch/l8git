@@ -13,6 +13,7 @@ export function useRepoStatusPoll() {
   const activePath = useRepoStore((s) => s.activePath);
   const reloadLocalStatus = useRepoStore((s) => s.reloadLocalStatus);
   const reloadStashes = useRepoStore((s) => s.reloadStashes);
+  const reloadRebaseState = useRepoStore((s) => s.reloadRebaseState);
 
   const inFlightRef = useRef(false);
 
@@ -35,6 +36,7 @@ export function useRepoStatusPoll() {
         await Promise.all([
           reloadLocalStatus(activePath),
           reloadStashes(activePath),
+          reloadRebaseState(activePath),
         ]);
       } finally {
         inFlightRef.current = false;
@@ -96,5 +98,5 @@ export function useRepoStatusPoll() {
         // ignore: window is closing or watcher already gone
       });
     };
-  }, [activePath, reloadLocalStatus, reloadStashes]);
+  }, [activePath, reloadLocalStatus, reloadStashes, reloadRebaseState]);
 }

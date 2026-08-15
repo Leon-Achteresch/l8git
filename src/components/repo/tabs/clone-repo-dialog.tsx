@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toastError } from "@/lib/error-toast";
+import { isRemoteCanceled } from "@/lib/remote-ops";
 import { useGitAccounts } from "@/lib/git-accounts";
 import type { RemoteRepo } from "@/lib/remote-repo";
 import { useRepoStore } from "@/lib/repo-store";
@@ -199,7 +200,8 @@ export function CloneRepoDialog({
       reset();
       onClose();
     } catch (e) {
-      toastError(String(e));
+      if (isRemoteCanceled(e)) toast.info(t("remoteProgress.canceledToast"));
+      else toastError(String(e));
     } finally {
       setBusy(false);
     }

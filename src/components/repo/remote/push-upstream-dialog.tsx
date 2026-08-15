@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
+import { isRemoteCanceled, runRemoteOp } from "@/lib/remote-ops";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { X } from "lucide-react";
@@ -35,15 +36,19 @@ export function PushUpstreamDialog({
   async function confirmPublish() {
     setBusy(true);
     try {
-      const out = await invoke<string>("git_push", {
-        path,
-        setUpstream: true,
-      });
+      const out = await runRemoteOp("push", path, (opId) =>
+        invoke<string>("git_push", {
+          path,
+          setUpstream: true,
+          opId,
+        }),
+      );
       await Promise.all([reload(path), reloadStatus(path)]);
       toast.success(out.trim() || t("pushUpstream.successFallback"));
       onClose();
     } catch (e) {
-      toastError(String(e));
+      if (isRemoteCanceled(e)) toast.info(t("remoteProgress.canceledToast"));
+      else toastError(String(e));
     } finally {
       setBusy(false);
     }

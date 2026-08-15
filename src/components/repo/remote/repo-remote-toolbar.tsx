@@ -1,4 +1,6 @@
 import { BranchMultiSelect } from '@/components/repo/commit/branch-multi-select';
+import { UndoConfirmDialog } from '@/components/repo/undo/undo-confirm-dialog';
+import { isRemoteCanceled, runRemoteOp } from '@/lib/remote-ops';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,12 +52,14 @@ import {
   Code2,
   FileClock,
   FolderOpen,
+  History,
   Link,
   Loader2,
   Play,
   ScanSearch,
   Search,
   SquareTerminal,
+  Undo2,
   Wrench,
   X,
 } from 'lucide-react';
@@ -98,6 +102,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const bisectVisible = useUiStore(s => s.bisectVisible);
   const setBisectVisible = useUiStore(s => s.setBisectVisible);
   const openBlameEditor = useUiStore(s => s.openBlameEditor);
+  const openReflogView = useUiStore(s => s.openReflogView);
   const ideLaunchCommand = useWorkspacePrefs(s => s.ideLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs(s => s.repoTerminalKind);
   const terminalButtonMode = useWorkspacePrefs(s => s.terminalButtonMode);
@@ -132,6 +137,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const [pushDialogOpen, setPushDialogOpen] = useState(false);
   const [remoteDialogOpen, setRemoteDialogOpen] = useState(false);
   const [createRemoteOpen, setCreateRemoteOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
   const [draftQuery, setDraftQuery] = useState('');
 
   useEffect(() => {
@@ -168,16 +174,21 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     async (op: RemoteOp) => {
       setBusy(op);
       try {
-        const out =
+        const out = await runRemoteOp(op, path, opId =>
           op === 'fetch'
-            ? await invoke<string>('git_fetch', {
+            ? invoke<string>('git_fetch', {
                 path,
                 pruneBranches: fetchPruneBranches,
                 pruneTags: fetchPruneTags,
+                opId,
               })
             : op === 'pull'
-              ? await invoke<string>('git_pull', { path, strategy: pullStrategy })
-              : await invoke<string>('git_push', {
+              ? invoke<string>('git_pull', {
+                  path,
+                  strategy: pullStrategy,
+                  opId,
+                })
+              : invoke<string>('git_push', {
                   path,
                   setUpstream: false,
                   forceMode: pushForceMode === 'none' ? null : pushForceMode,
@@ -185,17 +196,26 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                   atomic: pushAtomic,
                   noVerify: pushNoVerify,
                   dryRun: pushDryRun,
-                });
+                  opId,
+                }),
+        );
         await Promise.all([reload(path), reloadStatus(path)]);
         toast.success(out.trim() || t("toolbar.actionSuccess"));
       } catch (e) {
+        if (isRemoteCanceled(e)) {
+          toast.info(t('remoteProgress.canceledToast'));
+          await Promise.all([reload(path), reloadStatus(path)]);
+          return;
+        }
         toastGitError(String(e), {
           repoPath: path,
           onPull: () => void run('pull'),
           onStashAndPull: () => void (async () => {
             try {
               await invoke<string>('git_stash_push', { path, message: null, includeUntracked: false });
-              await invoke<string>('git_pull', { path, strategy: pullStrategy });
+              await runRemoteOp('pull', path, opId =>
+                invoke<string>('git_pull', { path, strategy: pullStrategy, opId })
+              );
               await Promise.all([reload(path), reloadStatus(path)]);
               toast.success(t("toolbar.actionSuccess"));
             } catch (e2) {
@@ -578,6 +598,16 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               icon={<FileClock className='h-3.5 w-3.5' />}
             />
             <ToolbarButton
+              title={t("undo.buttonTitle")}
+              onClick={() => setUndoOpen(true)}
+              icon={<Undo2 className='h-3.5 w-3.5' />}
+            />
+            <ToolbarButton
+              title={t("reflog.openTitle")}
+              onClick={() => openReflogView(path)}
+              icon={<History className='h-3.5 w-3.5' />}
+            />
+            <ToolbarButton
               title={bisectToolbarTitle}
               isActive={bisectVisible}
               badge={bisect?.active && !bisect?.done ? (bisect.steps_remaining ?? undefined) : undefined}
@@ -738,6 +768,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
         open={createRemoteOpen}
         onClose={() => setCreateRemoteOpen(false)}
         path={path}
+      />
+      <UndoConfirmDialog
+        open={undoOpen}
+        path={path}
+        onClose={() => setUndoOpen(false)}
       />
       <AlertDialog
         open={!!pendingTool}

@@ -28,6 +28,8 @@ export type RebaseEntry = {
   subject: string;
   action: RebaseTodoAction;
   message: string;
+  baseMessage: string;
+  messageLoaded: boolean;
 };
 
 export type RebaseTodoIssue = 'empty' | 'allDropped' | 'firstSquash' | null;
@@ -54,6 +56,8 @@ export function entriesFromCommits(
     subject: c.subject,
     action: preset && preset.hash === c.hash ? preset.action : 'pick',
     message: c.subject,
+    baseMessage: c.subject,
+    messageLoaded: false,
   }));
 }
 
@@ -93,13 +97,33 @@ export function toTodoItems(entries: readonly RebaseEntry[]): RebaseTodoItem[] {
   return entries.map(e => {
     const message = e.message.trim();
     const useMessage =
-      usesMessage(e.action) && message.length > 0 && message !== e.subject;
+      usesMessage(e.action) &&
+      message.length > 0 &&
+      message !== e.baseMessage.trim();
     return {
       action: e.action,
       hash: e.hash,
       newMessage: useMessage ? message : null,
     };
   });
+}
+
+export function withFullMessage(
+  entries: readonly RebaseEntry[],
+  hash: string,
+  fullMessage: string
+): RebaseEntry[] {
+  return entries.map(e =>
+    e.hash === hash && !e.messageLoaded
+      ? {
+          ...e,
+          message:
+            e.message.trim() === e.baseMessage.trim() ? fullMessage : e.message,
+          baseMessage: fullMessage,
+          messageLoaded: true,
+        }
+      : e
+  );
 }
 
 export function summarizeEntries(

@@ -71,6 +71,12 @@ type UiState = {
   blameEditorFile: string | null;
   openBlameEditor: (path: string, file?: string) => void;
   closeBlameEditor: () => void;
+  reflogViewPath: string | null;
+  openReflogView: (path: string) => void;
+  closeReflogView: () => void;
+  commandLogOpen: boolean;
+  openCommandLog: () => void;
+  closeCommandLog: () => void;
   bisectVisible: boolean;
   setBisectVisible: (v: boolean) => void;
   bisectPending: Record<string, { bad: string | null; good: string | null }>;
@@ -153,6 +159,12 @@ export const useUiStore = create<UiState>()(
       blameEditorFile: null,
       openBlameEditor: (path, file) => set({ blameEditorPath: path, blameEditorFile: file ?? null }),
       closeBlameEditor: () => set({ blameEditorPath: null, blameEditorFile: null }),
+      reflogViewPath: null,
+      openReflogView: path => set({ reflogViewPath: path }),
+      closeReflogView: () => set({ reflogViewPath: null }),
+      commandLogOpen: false,
+      openCommandLog: () => set({ commandLogOpen: true }),
+      closeCommandLog: () => set({ commandLogOpen: false }),
       bisectVisible: true,
       setBisectVisible: v => set({ bisectVisible: v }),
       bisectPending: {},

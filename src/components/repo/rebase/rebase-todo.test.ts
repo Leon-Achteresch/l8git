@@ -8,6 +8,7 @@ import {
   summarizeEntries,
   toTodoItems,
   validateEntries,
+  withFullMessage,
   type RebaseEntry,
 } from '@/components/repo/rebase/rebase-todo';
 
@@ -172,5 +173,56 @@ describe('summarizeEntries', () => {
     expect(summary.changed).toBe(true);
     expect(summary.dropped).toBe(1);
     expect(summary.counts.squash).toBe(1);
+  });
+});
+
+describe('withFullMessage', () => {
+  it('fills the untouched draft with the full commit body', () => {
+    const list = withFullMessage(
+      entries('reword'),
+      'aaaaaaa1111',
+      'first\n\nbody line'
+    );
+    expect(list[0].message).toBe('first\n\nbody line');
+    expect(list[0].baseMessage).toBe('first\n\nbody line');
+    expect(list[0].messageLoaded).toBe(true);
+    expect(list[1].messageLoaded).toBe(false);
+  });
+
+  it('keeps a message the user already edited', () => {
+    const edited = entries('reword').map(e =>
+      e.hash === 'aaaaaaa1111' ? { ...e, message: 'mine' } : e
+    );
+    const list = withFullMessage(edited, 'aaaaaaa1111', 'first\n\nbody');
+    expect(list[0].message).toBe('mine');
+    expect(list[0].baseMessage).toBe('first\n\nbody');
+  });
+
+  it('does not reload an entry that was already loaded', () => {
+    const once = withFullMessage(entries('reword'), 'aaaaaaa1111', 'full one');
+    const twice = withFullMessage(once, 'aaaaaaa1111', 'full two');
+    expect(twice[0].message).toBe('full one');
+  });
+});
+
+describe('toTodoItems with a loaded full message', () => {
+  it('sends nothing while the body is unchanged', () => {
+    const list = withFullMessage(
+      entries('reword'),
+      'aaaaaaa1111',
+      'first\n\nbody line'
+    );
+    expect(toTodoItems(list)[0].newMessage).toBeNull();
+  });
+
+  it('sends the edited body', () => {
+    const list = withFullMessage(
+      entries('reword'),
+      'aaaaaaa1111',
+      'first\n\nbody line'
+    ).map(e =>
+      e.hash === 'aaaaaaa1111' ? { ...e, message: 'first\n\nnew body' } : e
+    );
+    expect(toTodoItems(list)[0].newMessage).toBe('first\n\nnew body');
   });
 });

@@ -849,7 +849,8 @@
     "run": "Run",
     "unavailable": "{{requires}} not found — the tool isn't ready yet.",
     "confirmTitle": "Run \"{{label}}\"?",
-    "confirmDesc": "This will run: {{run}}"
+    "confirmDesc": "This will run: {{run}}",
+    "gitSection": "Git tools"
   },
   "commitPanel": {
     "changes": "Changes",
@@ -967,7 +968,10 @@
     "actionTabHooks": "Go to: Hooks",
     "actionTabSubmodules": "Go to: Submodules",
     "actionToggleTerminal": "Toggle Terminal",
-    "deepSearchHint": "Full history search in the History toolbar"
+    "deepSearchHint": "Full history search in the History toolbar",
+    "actionUndoLast": "Undo last operation",
+    "actionReflog": "Open reflog",
+    "actionCommandLog": "Open git command log"
   },
   "repoTab": {
     "close": "Close",
@@ -1442,7 +1446,8 @@
     "start": "Start rebase",
     "startConfirm": "Start for real",
     "fixupSquashed": "Fixup created and folded into the target commit.",
-    "fixupCommitted": "Fixup commit {{hash}} created."
+    "fixupCommitted": "Fixup commit {{hash}} created.",
+    "messageLoading": "Loading commit message …"
   },
   "commitRow": {
     "bisectBadToast": "\"Bad\" commit set — choose a \"good\" commit next.",
@@ -2191,5 +2196,80 @@
     "sidebarWorktrees": "Sidebar: Worktrees",
     "sidebarHooks": "Sidebar: Hooks",
     "sidebarTools": "Sidebar: Tools"
+  },
+  "reflog": {
+    "title": "Reflog",
+    "openTitle": "Open reflog",
+    "subtitle_one": "{{repo}} · {{count}} entry",
+    "subtitle_other": "{{repo}} · {{count}} entries",
+    "refresh": "Reload reflog",
+    "loading": "Loading reflog …",
+    "empty": "No reflog entries",
+    "emptyHint": "As soon as you commit, merge or rebase, the action shows up here.",
+    "loadMore": "Load more",
+    "copyHash": "Copy hash",
+    "hashCopied": "Hash copied",
+    "rowMenuAria": "Actions for this reflog entry",
+    "resetKeep": "Reset to this entry (keep changes)",
+    "resetHard": "Reset to this entry (hard)",
+    "resetKeepVerb": "Reset (keep)",
+    "resetHardVerb": "Reset hard",
+    "confirmKeepTitle": "Reset keeping local changes?",
+    "confirmKeepDesc": "HEAD moves to {{selector}} ({{hash}}). Local changes are kept — if they conflict, git aborts.",
+    "confirmHardTitle": "Reset hard?",
+    "confirmHardDesc": "HEAD moves to {{selector}} ({{hash}}) and the working tree is overwritten. Uncommitted changes are lost for good.",
+    "resetSuccess": "Reset to {{selector}} ({{hash}})"
+  },
+  "undo": {
+    "buttonLabel": "Undo last operation",
+    "buttonTitle": "Undo the last operation",
+    "dialogTitle": "Undo the last operation?",
+    "dialogDesc": "{{action}} → back to {{hash}}",
+    "dialogHint": "Never uses --hard: local changes are kept, or the undo is blocked.",
+    "previewLoading": "Checking the last operation …",
+    "confirmVerb": "Undo",
+    "busy": "Undoing …",
+    "successToast": "Undid {{action}} — HEAD is now at {{hash}}",
+    "unsupportedToast": "“{{action}}” cannot be undone automatically. Use the reflog to reset to a specific entry.",
+    "action": {
+      "merge": "Undo merge",
+      "rebase": "Undo rebase",
+      "reset": "Undo reset",
+      "cherryPick": "Undo cherry-pick",
+      "revert": "Undo revert",
+      "commit": "Undo commit (changes stay staged)",
+      "amend": "Undo amend (changes stay staged)",
+      "unsupported": "Unsupported operation"
+    }
+  },
+  "cmdLog": {
+    "title": "Git command log",
+    "openTitle": "Open git command log",
+    "subtitle_one": "{{count}} command · newest first",
+    "subtitle_other": "{{count}} commands · newest first",
+    "empty": "No commands yet",
+    "emptyHint": "Every git command l8git runs shows up here with duration and exit status.",
+    "filterPlaceholder": "Filter …",
+    "refresh": "Reload log",
+    "pause": "Pause live updates",
+    "resume": "Resume live updates",
+    "clear": "Clear log",
+    "clearConfirmTitle": "Clear the command log?",
+    "clearConfirmDesc": "All recorded commands are discarded. Your repositories are not touched.",
+    "copyRow": "Copy command",
+    "copied": "Command copied",
+    "exitOk": "Finished successfully",
+    "exitFail": "Finished with an error",
+    "noRepo": "no repo"
+  },
+  "remoteProgress": {
+    "op_fetch": "Fetch",
+    "op_pull": "Pull",
+    "op_push": "Push",
+    "op_clone": "Clone",
+    "starting": "Starting …",
+    "cancel": "Cancel",
+    "canceling": "Cancelling …",
+    "canceledToast": "Operation cancelled"
   }
 }

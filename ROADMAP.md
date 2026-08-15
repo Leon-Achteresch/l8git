@@ -32,11 +32,12 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 - [ ] Rebase-Folgearbeiten: Commit-Body im Reword vorbefüllen, Ref-Validierung in Dialog/Editor, `rebase_status` im Status-Poll, Windows-Smoke-Test der Sequence-Editor-Skripte
 
 ### Monat 3 — Universelles Undo & Qualität
-- [ ] Reflog-Ansicht
-- [ ] Operationsbasiertes Undo-Log: Merge/Rebase/Reset/Branch-Löschung rückgängig machen
-- [ ] Transparenz-Modus: jedes ausgeführte Git-Kommando in einem einsehbaren Log
-- [ ] Integrationstests für `git.rs` und `pr.rs` gegen Fixture-Repos, CI-Gate
-- [ ] Fortschrittsanzeige und Abbruch für clone/fetch/push
+- [x] Reflog-Ansicht
+- [x] Operationsbasiertes Undo-Log: Merge/Rebase/Reset/Branch-Löschung rückgängig machen
+- [x] Transparenz-Modus: jedes ausgeführte Git-Kommando in einem einsehbaren Log
+- [x] Integrationstests für `git.rs` und `pr.rs` gegen Fixture-Repos, CI-Gate
+- [x] Fortschrittsanzeige und Abbruch für clone/fetch/push
+- [ ] Undo-Folgearbeiten: Branch-Restore-UI, Undo-Fehlertexte als Sentinels statt englischer Prosa
 - [ ] Rust-Fehlermeldungen lokalisierbar machen (keine hartkodierten deutschen Strings)
 
 ## Q2 (Dez 2026–Feb 2027) — Daily Loop & Table Stakes

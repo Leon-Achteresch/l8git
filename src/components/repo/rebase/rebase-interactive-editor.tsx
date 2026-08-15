@@ -7,6 +7,7 @@ import {
   NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { commitFullMessage } from '@/lib/reflog-store';
 import type { RebaseTodoAction } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,7 @@ import {
   toTodoItems,
   usesMessage,
   validateEntries,
+  withFullMessage,
   type RebaseEntry,
 } from './rebase-todo';
 
@@ -79,6 +81,7 @@ function EntryRow({
   index,
   count,
   disabled,
+  messageLoading = false,
   registerRef,
   onAction,
   onMessage,
@@ -90,6 +93,7 @@ function EntryRow({
   index: number;
   count: number;
   disabled: boolean;
+  messageLoading?: boolean;
   registerRef?: (hash: string, el: HTMLDivElement | null) => void;
   onAction: (index: number, action: RebaseTodoAction) => void;
   onMessage: (index: number, message: string) => void;
@@ -219,12 +223,16 @@ function EntryRow({
       </div>
       {usesMessage(entry.action) && !overlay ? (
         <Textarea
-          value={entry.message}
+          value={messageLoading ? '' : entry.message}
           onChange={e => onMessage(index, e.target.value)}
-          placeholder={t('rebaseEditor.messagePlaceholder')}
-          disabled={disabled}
+          placeholder={
+            messageLoading
+              ? t('rebaseEditor.messageLoading')
+              : t('rebaseEditor.messagePlaceholder')
+          }
+          disabled={disabled || messageLoading}
           spellCheck={false}
-          rows={2}
+          rows={3}
           className='min-h-14 font-mono text-xs'
         />
       ) : null}
@@ -267,6 +275,9 @@ export function RebaseInteractiveEditor({
   const [busy, setBusy] = useState(false);
   const [armed, setArmed] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [messageLoading, setMessageLoading] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const presetHash = preset?.hash ?? null;
   const presetAction = preset?.action ?? null;
@@ -330,6 +341,38 @@ export function RebaseInteractiveEditor({
     }, 250);
     return () => window.clearTimeout(handle);
   }, [open, path, baseRef, rebaseTodoPreview]);
+
+  useEffect(() => {
+    if (!open) return;
+    const pending = entries.filter(
+      e => usesMessage(e.action) && !e.messageLoaded && !messageLoading[e.hash]
+    );
+    if (pending.length === 0) return;
+    setMessageLoading(prev => {
+      const next = { ...prev };
+      for (const e of pending) next[e.hash] = true;
+      return next;
+    });
+    for (const target of pending) {
+      void commitFullMessage(path, target.hash)
+        .then(full => {
+          setEntries(prev => withFullMessage(prev, target.hash, full));
+        })
+        .catch(() => {
+          setEntries(prev =>
+            prev.map(e =>
+              e.hash === target.hash ? { ...e, messageLoaded: true } : e
+            )
+          );
+        })
+        .finally(() => {
+          setMessageLoading(prev => {
+            const { [target.hash]: _removed, ...rest } = prev;
+            return rest;
+          });
+        });
+    }
+  }, [open, path, entries, messageLoading]);
 
   useEffect(() => {
     if (pendingFocus.current == null) return;
@@ -540,6 +583,7 @@ export function RebaseInteractiveEditor({
                       index={index}
                       count={entries.length}
                       disabled={busy}
+                      messageLoading={!!messageLoading[entry.hash]}
                       registerRef={registerRef}
                       onAction={setAction}
                       onMessage={setMessage}

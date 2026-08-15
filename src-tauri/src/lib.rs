@@ -1,17 +1,19 @@
 mod agent_transport;
 mod claude;
 mod cmd;
+mod cmdlog;
 mod credentials;
 mod cursor;
 mod favicon;
-mod git;
-mod pr;
+pub mod git;
+pub mod pr;
 mod providers;
 mod pty;
 mod rebase;
 mod repo_tools;
 mod secrets;
 mod shell;
+mod undo;
 mod watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -31,6 +33,7 @@ pub fn run() {
                     let _ = window.set_background_color(Some(color));
                 }
             }
+            cmdlog::set_app_handle(app.handle().clone());
             Ok(())
         })
         .manage(agent_transport::AgentTransportState::default())
@@ -202,6 +205,12 @@ pub fn run() {
             git::repo_contributor_stats,
             git::repo_activity_buckets,
             git::repo_branch_activity,
+            undo::reflog_list,
+            undo::undo_last_operation,
+            undo::undo_preview,
+            undo::reset_to_reflog_entry,
+            undo::branch_restore,
+            undo::commit_full_message,
             git::repos_overview,
             pty::pty_open,
             pty::pty_write,
@@ -220,7 +229,10 @@ pub fn run() {
             rebase::rebase_abort,
             rebase::rebase_todo_preview,
             rebase::rebase_interactive,
-            rebase::commit_fixup
+            rebase::commit_fixup,
+            git::git_remote_cancel,
+            cmdlog::git_command_log,
+            cmdlog::git_command_log_clear
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -23,9 +23,11 @@ import {
   Layers,
   ListChecks,
   ListOrdered,
+  ScrollText,
   Search,
   Settings,
   Tag,
+  Undo2,
   Webhook,
   Wrench,
 } from "lucide-react";
@@ -57,8 +59,11 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { RebaseDialog } from "@/components/repo/rebase/rebase-dialog";
+import { UndoConfirmDialog } from "@/components/repo/undo/undo-confirm-dialog";
+import { isRemoteCanceled, runRemoteOp } from "@/lib/remote-ops";
 import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interactive-editor";
 import { toastError } from "@/lib/error-toast";
+import i18n from "@/lib/i18n";
 import { useRepoStore } from "@/lib/repo-store";
 import { useRepoToolsStore } from "@/lib/repo-tools-store";
 import { useUiStore, type SidebarTab } from "@/lib/ui-store";
@@ -70,6 +75,14 @@ const IS_MAC =
   /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
 
 const MOD_KEY = IS_MAC ? "⌘" : "Ctrl";
+
+function reportRemoteError(error: unknown) {
+  if (isRemoteCanceled(error)) {
+    toast.info(i18n.t("remoteProgress.canceledToast"));
+    return;
+  }
+  toastError(String(error));
+}
 
 type ActionItem = {
   id: string;
@@ -113,6 +126,8 @@ export function AppHeaderSearch() {
     (s) => s.requestCommitHistoryFocus,
   );
   const setSidebarTab = useUiStore((s) => s.setSidebarTab);
+  const openReflogView = useUiStore((s) => s.openReflogView);
+  const openCommandLog = useUiStore((s) => s.openCommandLog);
   const toggleTerminal = useTerminalStore((s) => s.toggleVisible);
   const openTerminalTab = useTerminalStore((s) => s.openTab);
   const tools = useRepoToolsStore((s) =>
@@ -124,6 +139,7 @@ export function AppHeaderSearch() {
     run: string;
   } | null>(null);
   const [rebaseOpen, setRebaseOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
   const [rebaseEditorOpen, setRebaseEditorOpen] = useState(false);
   const totalCommits = repo?.commits.length ?? 0;
 
@@ -186,9 +202,11 @@ export function AppHeaderSearch() {
           keywords: "push upload",
           onSelect: () => {
             setOpen(false);
-            void invoke<string>("git_push", { path: activePath, setUpstream: false, forceMode: null, tagsMode: null, atomic: false, noVerify: false, dryRun: false })
+            void runRemoteOp("push", activePath, (opId) =>
+              invoke<string>("git_push", { path: activePath, setUpstream: false, forceMode: null, tagsMode: null, atomic: false, noVerify: false, dryRun: false, opId }),
+            )
               .then(() => toast.success(t("toolbar.actionSuccess")))
-              .catch((e) => toastError(String(e)));
+              .catch((e) => reportRemoteError(e));
           },
         },
         {
@@ -198,9 +216,11 @@ export function AppHeaderSearch() {
           keywords: "pull download sync",
           onSelect: () => {
             setOpen(false);
-            void invoke<string>("git_pull", { path: activePath, strategy: "merge" })
+            void runRemoteOp("pull", activePath, (opId) =>
+              invoke<string>("git_pull", { path: activePath, strategy: "merge", opId }),
+            )
               .then(() => toast.success(t("toolbar.actionSuccess")))
-              .catch((e) => toastError(String(e)));
+              .catch((e) => reportRemoteError(e));
           },
         },
         {
@@ -210,9 +230,41 @@ export function AppHeaderSearch() {
           keywords: "fetch remote",
           onSelect: () => {
             setOpen(false);
-            void invoke<string>("git_fetch", { path: activePath, pruneBranches: true, pruneTags: false })
+            void runRemoteOp("fetch", activePath, (opId) =>
+              invoke<string>("git_fetch", { path: activePath, pruneBranches: true, pruneTags: false, opId }),
+            )
               .then(() => toast.success(t("toolbar.actionSuccess")))
-              .catch((e) => toastError(String(e)));
+              .catch((e) => reportRemoteError(e));
+          },
+        },
+        {
+          id: "action:undo-last",
+          label: t("appSearch.actionUndoLast"),
+          icon: <Undo2 className="size-3.5" />,
+          keywords: "undo rueckgaengig rückgängig revert last operation reflog",
+          onSelect: () => {
+            setOpen(false);
+            setUndoOpen(true);
+          },
+        },
+        {
+          id: "action:reflog",
+          label: t("appSearch.actionReflog"),
+          icon: <History className="size-3.5" />,
+          keywords: "reflog history undo reset verlauf",
+          onSelect: () => {
+            setOpen(false);
+            openReflogView(activePath);
+          },
+        },
+        {
+          id: "action:command-log",
+          label: t("appSearch.actionCommandLog"),
+          icon: <ScrollText className="size-3.5" />,
+          keywords: "log kommando command transparenz transparency git",
+          onSelect: () => {
+            setOpen(false);
+            openCommandLog();
           },
         },
         {
@@ -319,7 +371,7 @@ export function AppHeaderSearch() {
     ];
 
     return items;
-  }, [activePath, t, setSidebarTab, toggleTerminal, openTerminalTab, tools, pickRepo, router]);
+  }, [activePath, t, setSidebarTab, toggleTerminal, openTerminalTab, tools, pickRepo, router, openReflogView, openCommandLog]);
 
   const filteredActions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -577,6 +629,11 @@ export function AppHeaderSearch() {
             open={rebaseOpen}
             onClose={() => setRebaseOpen(false)}
             path={activePath}
+          />
+          <UndoConfirmDialog
+            open={undoOpen}
+            path={activePath}
+            onClose={() => setUndoOpen(false)}
           />
           {rebaseEditorOpen ? (
             <RebaseInteractiveEditor

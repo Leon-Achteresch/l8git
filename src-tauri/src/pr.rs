@@ -175,22 +175,22 @@ pub struct PrCheckoutResult {
     branch: String,
 }
 
-struct RemoteHandle {
-    host: String,
-    provider: Provider,
-    owner: String,
-    repo: String,
+pub struct RemoteHandle {
+    pub host: String,
+    pub provider: Provider,
+    pub owner: String,
+    pub repo: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Provider {
+pub enum Provider {
     GitHub,
     Bitbucket,
     Unsupported,
 }
 
 impl Provider {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Provider::GitHub => "github",
             Provider::Bitbucket => "bitbucket",
@@ -199,7 +199,7 @@ impl Provider {
     }
 }
 
-fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
+pub fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
     let raw = run_git(path, &["config", "--get", "remote.origin.url"])
         .map_err(|_| "Kein Remote 'origin' konfiguriert.".to_string())?;
     let url = raw.trim().to_string();
@@ -263,13 +263,13 @@ fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
     })
 }
 
-fn unsupported_provider_err(host: &str) -> String {
+pub fn unsupported_provider_err(host: &str) -> String {
     format!(
         "Pull Requests für den Host {host} werden noch nicht unterstützt (GitHub, GitHub Enterprise und Bitbucket)."
     )
 }
 
-fn github_api_base(host: &str) -> String {
+pub fn github_api_base(host: &str) -> String {
     if host.eq_ignore_ascii_case("github.com") {
         "https://api.github.com".to_string()
     } else {
@@ -277,7 +277,7 @@ fn github_api_base(host: &str) -> String {
     }
 }
 
-fn github_repo_api_url(h: &RemoteHandle, suffix: &str) -> String {
+pub fn github_repo_api_url(h: &RemoteHandle, suffix: &str) -> String {
     format!(
         "{}/repos/{}/{}/{}",
         github_api_base(&h.host),
@@ -377,15 +377,15 @@ async fn bb_post_json(
     bb_read_json(res, host).await
 }
 
-fn str_or_empty(v: &Value) -> String {
+pub fn str_or_empty(v: &Value) -> String {
     v.as_str().unwrap_or("").to_string()
 }
 
-fn first_non_empty(a: String, b: String) -> String {
+pub fn first_non_empty(a: String, b: String) -> String {
     if a.is_empty() { b } else { a }
 }
 
-fn trunc_chars(s: &str, max: usize) -> String {
+pub fn trunc_chars(s: &str, max: usize) -> String {
     let n = s.chars().count();
     if n <= max {
         s.to_string()
@@ -397,7 +397,7 @@ fn trunc_chars(s: &str, max: usize) -> String {
 
 // ---------- GitHub mapping ----------
 
-fn gh_map_pr(v: &Value) -> PullRequest {
+pub fn gh_map_pr(v: &Value) -> PullRequest {
     let labels = v["labels"]
         .as_array()
         .map(|a| {
@@ -846,7 +846,7 @@ async fn gh_checks(
 
 // ---------- Bitbucket mapping ----------
 
-fn bb_map_pr(v: &Value) -> PullRequest {
+pub fn bb_map_pr(v: &Value) -> PullRequest {
     let state_raw = str_or_empty(&v["state"]).to_lowercase();
     let state = match state_raw.as_str() {
         "open" => "open".to_string(),
@@ -968,7 +968,7 @@ async fn bb_commits(
     Ok(out)
 }
 
-fn split_unified_diff_by_file(diff_text: &str) -> Vec<(String, String)> {
+pub fn split_unified_diff_by_file(diff_text: &str) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     let mut current: Option<(String, String)> = None;
     for line in diff_text.split_inclusive('\n') {
@@ -1098,7 +1098,7 @@ async fn bb_conversation(
     })
 }
 
-fn bb_commit_status_to_pr_check(v: &Value) -> PrCheck {
+pub fn bb_commit_status_to_pr_check(v: &Value) -> PrCheck {
     let key = str_or_empty(&v["key"]);
     let nm = str_or_empty(&v["name"]);
     let display = first_non_empty(nm, key.clone());
@@ -1340,7 +1340,7 @@ fn repo_path(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
-fn encode_uri_component(s: &str) -> String {
+pub fn encode_uri_component(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for &b in s.as_bytes() {
         match b {
@@ -1351,7 +1351,7 @@ fn encode_uri_component(s: &str) -> String {
     out
 }
 
-fn origin_default_branch(repo: &PathBuf) -> Result<String, String> {
+pub fn origin_default_branch(repo: &PathBuf) -> Result<String, String> {
     if let Ok(raw) = run_git(
         repo,
         &["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
@@ -1383,7 +1383,7 @@ fn origin_default_branch(repo: &PathBuf) -> Result<String, String> {
     Ok("main".to_string())
 }
 
-fn current_branch(repo: &PathBuf) -> Result<String, String> {
+pub fn current_branch(repo: &PathBuf) -> Result<String, String> {
     let branch = run_git(repo, &["rev-parse", "--abbrev-ref", "HEAD"])?
         .trim()
         .to_string();
@@ -1393,7 +1393,7 @@ fn current_branch(repo: &PathBuf) -> Result<String, String> {
     Ok(branch)
 }
 
-fn strip_remote_prefix(repo: &PathBuf, name: &str) -> Result<String, String> {
+pub fn strip_remote_prefix(repo: &PathBuf, name: &str) -> Result<String, String> {
     let n = name.trim();
     if n.is_empty() {
         return Ok(String::new());
