@@ -5,6 +5,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { toastError } from "@/lib/error-toast";
+import { trackWorkflowRuns } from "@/lib/notifications";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
@@ -67,6 +68,7 @@ export function RepoCiPanel({ path }: { path: string }) {
     setRunsRefreshing(true);
     try {
       const res = await invoke<WorkflowRun[]>("list_workflow_runs", { path });
+      trackWorkflowRuns(path, res);
       setRuns(res);
     } catch (e) {
       toastError(String(e));

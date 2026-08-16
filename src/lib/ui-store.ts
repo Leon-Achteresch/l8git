@@ -60,6 +60,9 @@ type UiState = {
   prCreateRequest: PrCreateRequest | null;
   requestPrCreate: (path: string, head: string) => void;
   clearPrCreateRequest: () => void;
+  prFocusRequest: { path: string; number: number } | null;
+  requestPrFocus: (path: string, number: number) => void;
+  clearPrFocusRequest: () => void;
   branchFilterByPath: Record<string, ReadonlySet<string>>;
   setBranchFilter: (path: string, names: ReadonlySet<string>) => void;
   clearBranchFilter: (path: string) => void;
@@ -141,6 +144,10 @@ export const useUiStore = create<UiState>()(
           },
         })),
       clearPrCreateRequest: () => set({ prCreateRequest: null }),
+      prFocusRequest: null,
+      requestPrFocus: (path, number) =>
+        set({ sidebarTab: 'pr', prFocusRequest: { path, number } }),
+      clearPrFocusRequest: () => set({ prFocusRequest: null }),
       branchFilterByPath: {},
       setBranchFilter: (path, names) =>
         set(s => ({

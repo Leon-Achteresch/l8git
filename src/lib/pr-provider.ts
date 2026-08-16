@@ -11,6 +11,9 @@ export type ProviderCapabilities = {
   can_delete_source_branch: boolean;
   can_rerun_checks: boolean;
   can_workflows: boolean;
+  can_inline_comments: boolean;
+  can_draft_reviews: boolean;
+  can_resolve_threads: boolean;
   merge_strategies: MergeStrategy[];
 };
 

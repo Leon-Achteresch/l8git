@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bell,
   Bot,
   Brain,
   Eye,
@@ -39,6 +40,7 @@ import { BranchCleanupCard } from "@/components/settings/branch-cleanup-card";
 import { GitSigningCard } from "@/components/settings/git-signing-card";
 import { HotkeysSection } from "@/components/settings/hotkeys-section";
 import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
+import { NotificationsCard } from "@/components/settings/notifications-card";
 import { SidebarCustomizeSection } from "@/components/settings/sidebar-customize-section";
 import { Button } from "@/components/ui/button";
 import {
@@ -193,6 +195,7 @@ export function Settings() {
           { id: "sidebar", label: t("settings.navSidebar"), icon: PanelLeft, accent: "bg-git-branch" },
           { id: "appearance", label: t("settings.navAppearance"), icon: Palette, accent: "bg-git-merge" },
           { id: "animations", label: t("settings.navAnimations"), icon: Zap, accent: "bg-git-modified" },
+          { id: "notifications", label: t("settings.navNotifications"), icon: Bell, accent: "bg-git-merge" },
           { id: "hotkeys", label: t("settings.navHotkeys"), icon: Keyboard, accent: "bg-git-added" },
         ],
       },
@@ -588,6 +591,20 @@ export function Settings() {
             />
             <StaggerCard index={2}>
               <AnimationsCard />
+            </StaggerCard>
+          </section>
+
+          {/* ── NOTIFICATIONS ─────────────────────────────────────────── */}
+          <section id="notifications" ref={setRef("notifications")} className="scroll-mt-10">
+            <SectionHeader
+              icon={Bell}
+              title={t("settings.notificationsSectionTitle")}
+              subtitle={t("settings.notificationsSectionSubtitle")}
+              gradient="from-git-merge/25 to-git-merge/25"
+              iconColor="text-git-merge"
+            />
+            <StaggerCard index={2}>
+              <NotificationsCard />
             </StaggerCard>
           </section>
 

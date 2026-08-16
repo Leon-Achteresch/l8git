@@ -46,6 +46,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             agent_transport::agent_transport_open,
             agent_transport::agent_transport_send,
@@ -261,7 +262,9 @@ pub fn run() {
             stack::stack_restack,
             stack::stack_restack_resume,
             stack::stack_restack_state,
-            stack::branch_cleanup_candidates
+            stack::branch_cleanup_candidates,
+            pr::pr_review_threads,
+            pr::pr_resolve_thread
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

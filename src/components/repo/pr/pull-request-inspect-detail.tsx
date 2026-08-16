@@ -19,6 +19,7 @@ import { PullRequestCommitsTab } from "./pull-request-commits-tab";
 import { PullRequestFilesTab } from "./pull-request-files-tab";
 import { PullRequestConversationTab } from "./pull-request-conversation-tab";
 import { PullRequestChecksTab } from "./pull-request-checks-tab";
+import { PullRequestReviewDraftsBar } from "./pull-request-review-drafts-bar";
 
 export type PullRequestDetail = PullRequest & {
   body_markdown: string;
@@ -481,6 +482,7 @@ function ReviewActions({
         number: detail.number,
         event,
         body,
+        comments: null,
       });
       onReviewed();
     } catch (e) {
@@ -793,6 +795,12 @@ export function PullRequestInspectDetail({
                 detail={detail}
                 caps={caps}
                 onReviewed={() => void load()}
+              />
+              <PullRequestReviewDraftsBar
+                path={path}
+                number={number}
+                caps={caps}
+                onSubmitted={() => void load()}
               />
             </div>
 

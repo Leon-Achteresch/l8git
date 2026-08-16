@@ -8,11 +8,44 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { toastError } from "@/lib/error-toast";
+import {
+  draftKey,
+  draftsByLine,
+  useReviewDraftStore,
+  useReviewDrafts,
+} from "@/lib/pr-review-drafts";
+import { usePrCapabilities } from "@/lib/pr-provider-store";
+import {
+  groupInlineThreads,
+  threadsByLine,
+  threadsForFile,
+  type PrComment,
+} from "@/lib/pr-threads";
+import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
+import {
+  InlineCommentComposer,
+  InlineDraftCard,
+  InlineThreadCard,
+  type ThreadResolveState,
+} from "./pull-request-inline-comments";
+
+type GhReviewThread = {
+  id: string;
+  resolved: boolean;
+  comment_ids: string[];
+};
 
 type PrFile = {
   path: string;
@@ -54,6 +87,65 @@ export function PullRequestFilesTab({
   const [files, setFiles] = useState<PrFile[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
+  const [comments, setComments] = useState<PrComment[]>([]);
+  const [reviewThreads, setReviewThreads] = useState<GhReviewThread[]>([]);
+  const [composer, setComposer] = useState<{ line: number; text: string } | null>(
+    null,
+  );
+
+  const caps = usePrCapabilities(path);
+  const currentBranch = useRepoStore((s) => s.repos[path]?.branch ?? "");
+  const drafts = useReviewDrafts(path, number);
+  const addDraft = useReviewDraftStore((s) => s.addDraft);
+  const updateDraft = useReviewDraftStore((s) => s.updateDraft);
+  const removeDraft = useReviewDraftStore((s) => s.removeDraft);
+
+  const canComment = caps?.can_inline_comments ?? false;
+  const canResolveThreads = caps?.can_resolve_threads ?? false;
+  const branchCheckedOut = !!headRef && currentBranch === headRef;
+  const applyDisabledHint = t("prReview.suggestionApplyDisabled", {
+    branch: headRef ?? "",
+  });
+
+  const loadComments = useCallback(() => {
+    let cancelled = false;
+    invoke<{ comments: PrComment[] }>("pr_conversation", { path, number })
+      .then((res) => {
+        if (!cancelled) setComments(res.comments ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setComments([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path, number]);
+
+  const loadThreadState = useCallback(() => {
+    if (!canResolveThreads) return () => {};
+    let cancelled = false;
+    invoke<GhReviewThread[]>("pr_review_threads", { path, number })
+      .then((res) => {
+        if (!cancelled) setReviewThreads(res);
+      })
+      .catch(() => {
+        if (!cancelled) setReviewThreads([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path, number, canResolveThreads]);
+
+  useEffect(() => {
+    setComments([]);
+    setComposer(null);
+    return loadComments();
+  }, [loadComments]);
+
+  useEffect(() => {
+    setReviewThreads([]);
+    return loadThreadState();
+  }, [loadThreadState]);
 
   const patchCache = useRef<Map<string, string>>(new Map());
   const [patch, setPatch] = useState<string | null>(null);
@@ -136,6 +228,109 @@ export function PullRequestFilesTab({
       cancelled = true;
     };
   }, [path, number, selected]);
+
+  useEffect(() => {
+    setComposer(null);
+  }, [selected]);
+
+  const activePath = selected ?? files?.[0]?.path ?? "";
+
+  const threads = useMemo(
+    () => threadsForFile(groupInlineThreads(comments), activePath),
+    [comments, activePath],
+  );
+  const threadLines = useMemo(() => threadsByLine(threads), [threads]);
+
+  const resolveByCommentId = useMemo(() => {
+    const map = new Map<string, ThreadResolveState>();
+    for (const entry of reviewThreads) {
+      for (const commentId of entry.comment_ids) {
+        map.set(commentId, { nodeId: entry.id, resolved: entry.resolved });
+      }
+    }
+    return map;
+  }, [reviewThreads]);
+  const draftLines = useMemo(
+    () => draftsByLine(drafts, activePath),
+    [drafts, activePath],
+  );
+
+  const annotationsByNewLine = useMemo(() => {
+    const map = new Map<number, ReactNode>();
+    const lines = new Set<number>([...threadLines.keys(), ...draftLines.keys()]);
+    if (composer) lines.add(composer.line);
+    const key = draftKey(path, number);
+    for (const line of lines) {
+      map.set(
+        line,
+        <div className="flex flex-col gap-1.5">
+          {(threadLines.get(line) ?? []).map((thread) => (
+            <InlineThreadCard
+              key={thread.id}
+              thread={thread}
+              repoPath={path}
+              prNumber={number}
+              canReply={canComment}
+              applyEnabled={branchCheckedOut}
+              applyDisabledHint={applyDisabledHint}
+              resolveState={thread.comments
+                .map((comment) => resolveByCommentId.get(comment.id))
+                .find((state) => state !== undefined)}
+              onReplied={loadComments}
+              onResolved={loadThreadState}
+            />
+          ))}
+          {(draftLines.get(line) ?? []).map((draft) => (
+            <InlineDraftCard
+              key={draft.id}
+              draft={draft}
+              repoPath={path}
+              applyEnabled={branchCheckedOut}
+              applyDisabledHint={applyDisabledHint}
+              onChange={(body) => updateDraft(key, draft.id, body)}
+              onRemove={() => removeDraft(key, draft.id)}
+            />
+          ))}
+          {composer?.line === line && (
+            <InlineCommentComposer
+              key={`composer-${activePath}-${line}`}
+              lineText={composer.text}
+              submitLabel={t("prReview.draftAdd")}
+              onSubmit={(body) => {
+                addDraft(key, { filePath: activePath, line, body });
+                setComposer(null);
+              }}
+              onCancel={() => setComposer(null)}
+            />
+          )}
+        </div>,
+      );
+    }
+    return map;
+  }, [
+    threadLines,
+    draftLines,
+    composer,
+    path,
+    number,
+    activePath,
+    canComment,
+    branchCheckedOut,
+    applyDisabledHint,
+    resolveByCommentId,
+    loadComments,
+    loadThreadState,
+    addDraft,
+    updateDraft,
+    removeDraft,
+    t,
+  ]);
+
+  const handleAddComment = useCallback(
+    (anchor: { newLineNo: number; text: string }) =>
+      setComposer({ line: anchor.newLineNo, text: anchor.text }),
+    [],
+  );
 
   if (loading && !files) {
     return (
@@ -254,6 +449,9 @@ export function PullRequestFilesTab({
                 : t("pr.noDiffLarge")
             }
             failedHint={t("diff.diffLoadFailedFallback")}
+            annotationsByNewLine={annotationsByNewLine}
+            onAddComment={canComment ? handleAddComment : undefined}
+            addCommentTitle={t("prReview.addCommentTitle")}
           />
         )}
       </ResizablePanel>

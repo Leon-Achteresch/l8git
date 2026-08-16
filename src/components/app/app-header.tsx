@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bot,
   GitFork,
+  Inbox,
   Info,
   LayoutDashboard,
   Settings,
@@ -21,6 +22,12 @@ const AppAgentsIndicator = lazy(() =>
   })),
 );
 
+const InboxIndicator = lazy(() =>
+  import("@/components/inbox/inbox-indicator").then((m) => ({
+    default: m.InboxIndicator,
+  })),
+);
+
 const IS_MAC =
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
@@ -35,6 +42,7 @@ export function AppHeader() {
   const navItems = [
     { to: "/" as const, label: t("header.repo"), icon: GitFork },
     { to: "/dashboard" as const, label: t("header.dashboard"), icon: LayoutDashboard },
+    { to: "/inbox" as const, label: t("header.inbox"), icon: Inbox },
     { to: "/agents" as const, label: t("header.agents"), icon: Bot },
     { to: "/info" as const, label: t("header.info"), icon: Info },
     { to: "/about" as const, label: t("header.about"), icon: User },
@@ -59,6 +67,10 @@ export function AppHeader() {
 
         <Suspense fallback={null}>
           <AppAgentsIndicator />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <InboxIndicator />
         </Suspense>
 
         <div className="mx-1 h-4 w-px bg-border/60" aria-hidden />

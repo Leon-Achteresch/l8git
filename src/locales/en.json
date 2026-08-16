@@ -76,6 +76,7 @@
   "header": {
     "repo": "Repository",
     "dashboard": "Dashboard",
+    "inbox": "Inbox",
     "agents": "Agents",
     "info": "Info",
     "about": "About",
@@ -87,6 +88,48 @@
     "maximize": "Maximize",
     "restore": "Restore",
     "close": "Close"
+  },
+  "inbox": {
+    "title": "Inbox",
+    "subtitle_one": "Across {{count}} repository in this workspace",
+    "subtitle_other": "Across {{count}} repositories in this workspace",
+    "updated": "updated {{time}}",
+    "refresh": "Refresh",
+    "openExternal": "Open in browser",
+    "indicator": "{{reviews}} review requests · {{failures}} red CI runs",
+    "repoErrors_one": "{{count}} repository could not be loaded",
+    "repoErrors_other": "{{count}} repositories could not be loaded",
+    "sections": {
+      "myPrs": "My pull requests",
+      "reviewRequested": "Review requested",
+      "redRuns": "Red CI runs",
+      "agents": "Running agents"
+    },
+    "empty": {
+      "myPrs": "No open pull requests of yours — sign in from the settings so they can be matched by author.",
+      "reviewRequested": "Nobody is waiting on your review right now.",
+      "redRuns": "Every default branch is green.",
+      "agents": "No agent is working or waiting for approval right now."
+    },
+    "badges": {
+      "draft": "Draft",
+      "reviewers_one": "{{count}} reviewer",
+      "reviewers_other": "{{count}} reviewers",
+      "pendingRequests_one": "{{count}} approval pending",
+      "pendingRequests_other": "{{count}} approvals pending"
+    },
+    "checks": {
+      "success": "Checks green",
+      "failure": "Checks red",
+      "running": "Checks running",
+      "unknown": "No checks"
+    },
+    "conclusion": {
+      "failure": "failed",
+      "timed_out": "timed out",
+      "startup_failure": "startup failure",
+      "action_required": "action required"
+    }
   },
   "agents": {
     "noRepos": "No repositories open",
@@ -622,6 +665,7 @@
     "title": "Settings",
     "navAppearance": "Appearance",
     "navAnimations": "Animations",
+    "navNotifications": "Notifications",
     "navCommits": "Commits",
     "navSigning": "Signing",
     "signingSectionTitle": "Git signing",
@@ -667,6 +711,8 @@
     "themeAria": "Theme",
     "animationsSectionTitle": "Animations",
     "animationsSectionSubtitle": "Transitions and motion",
+    "notificationsSectionTitle": "Notifications",
+    "notificationsSectionSubtitle": "System alerts while the app runs in the background",
     "commitsSectionTitle": "Commits",
     "commitsSectionSubtitle": "Commit display and message template",
     "historyTitle": "Commit history",
@@ -841,6 +887,36 @@
         "desc": "Prompt for generated pull request descriptions."
       }
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "desc": "Native system notifications bring you back to the app — but only while the window is not focused. Each source fires at most once per minute.",
+    "enableLabel": "Enable notifications",
+    "enableHint": "Global switch. While off nothing is sent, no matter the individual switches.",
+    "kindCiFailedLabel": "CI run failed",
+    "kindCiFailedHint": "When a workflow run flips from green or running to red during a refresh.",
+    "kindReviewRequestedLabel": "Review requested",
+    "kindReviewRequestedHint": "When a pull request refresh brings in a new reviewer entry.",
+    "kindAgentTurnLabel": "Agent finished or waiting",
+    "kindAgentTurnHint": "When an agent turn ends or an approval is requested.",
+    "kindRemoteOpDoneLabel": "Long remote operation finished",
+    "kindRemoteOpDoneHint": "Fetch, pull, push, or clone that ran longer than 10 seconds.",
+    "permissionLabel": "System permission",
+    "permissionGranted": "Granted",
+    "permissionDenied": "Denied — please allow notifications in your system settings.",
+    "permissionUnknown": "Not requested yet",
+    "permissionRequest": "Request permission",
+    "ciFailedTitle": "CI red in {{repo}}",
+    "ciFailedBody": "{{name}} failed ({{count}} affected).",
+    "reviewRequestedTitle": "Review requested in {{repo}}",
+    "reviewRequestedBody": "#{{number}} {{title}} — reviewer: {{login}}",
+    "agentTurnTitle": "Agent finished",
+    "agentTurnBody": "{{provider}}: {{title}}",
+    "agentApprovalTitle": "Agent waits for approval",
+    "agentApprovalBody": "{{provider}}: {{title}}",
+    "remoteDoneTitle": "{{op}} finished",
+    "remoteFailedTitle": "{{op}} failed",
+    "remoteDoneBody": "{{repo}} — took {{seconds}}s"
   },
   "animations": {
     "title": "Motion & animations",
@@ -2431,6 +2507,44 @@
     "label": "Remote",
     "menuLabel": "Push target",
     "pushTo": "Push to {{remote}}"
+  },
+  "prReview": {
+    "addCommentTitle": "Comment on this line",
+    "commentPlaceholder": "Comment on this line …",
+    "cancel": "Cancel",
+    "lineLabel": "Line {{line}}",
+    "threadCount_one": "{{count}} comment",
+    "threadCount_other": "{{count}} comments",
+    "reply": "Reply",
+    "replySubmit": "Send reply",
+    "threadResolve": "Resolve thread",
+    "threadUnresolve": "Reopen",
+    "threadResolved": "Resolved",
+    "draftAdd": "Add to review",
+    "draftBadge": "Draft",
+    "draftEdit": "Edit draft",
+    "draftRemove": "Discard draft",
+    "draftSave": "Apply",
+    "pendingComments_one": "{{count}} pending comment",
+    "pendingComments_other": "{{count}} pending comments",
+    "batchedHint": "will be sent as a single review",
+    "oneByOneHint": "will be sent one by one – this provider has no review drafts",
+    "discardAll": "Discard all",
+    "summaryPlaceholder": "Review summary (optional)",
+    "summaryRequired": "Requesting changes needs a summary.",
+    "submitComment": "Submit review",
+    "submitApprove": "Approve",
+    "submitRequestChanges": "Request changes",
+    "submitted_one": "Review submitted with {{count}} comment",
+    "submitted_other": "Review submitted with {{count}} comments",
+    "suggestionTitle": "Suggestion",
+    "suggestionMode": "Suggestion",
+    "suggestionModeHint": "Prefill the line content as a change suggestion",
+    "suggestionApply": "Apply locally",
+    "suggestionApplyDisabled": "Only available while the PR branch {{branch}} is checked out.",
+    "suggestionApplied": "Suggestion applied to {{file}}:{{line}}.",
+    "suggestionOutOfRange": "Line {{line}} no longer exists in your local {{file}}.",
+    "suggestionDeletesLine": "This line gets removed."
   },
   "prInspect": {
     "pillOpen": "Open",

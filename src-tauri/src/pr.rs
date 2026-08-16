@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use reqwest::StatusCode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
@@ -93,6 +93,19 @@ pub struct PrComment {
     kind: String,
     file_path: Option<String>,
     line: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    in_reply_to: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thread_id: Option<String>,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct ReviewDraftComment {
+    pub path: String,
+    pub line: u64,
+    pub body: String,
+    #[serde(default)]
+    pub side: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -240,6 +253,9 @@ pub struct ProviderCapabilities {
     pub can_delete_source_branch: bool,
     pub can_rerun_checks: bool,
     pub can_workflows: bool,
+    pub can_inline_comments: bool,
+    pub can_draft_reviews: bool,
+    pub can_resolve_threads: bool,
     pub merge_strategies: Vec<String>,
 }
 
@@ -295,6 +311,9 @@ pub fn provider_capabilities(provider: Provider, host: &str) -> ProviderCapabili
         can_delete_source_branch: can_delete,
         can_rerun_checks: can_rerun,
         can_workflows: provider == Provider::GitHub,
+        can_inline_comments: provider != Provider::Unsupported,
+        can_draft_reviews: matches!(provider, Provider::GitHub | Provider::Gitea),
+        can_resolve_threads: provider == Provider::GitHub,
         merge_strategies: strategies.into_iter().map(|s| s.to_string()).collect(),
     }
 }
@@ -744,6 +763,68 @@ async fn gh_file_patch(
     Ok(None)
 }
 
+pub fn gh_map_review_comment(c: &Value) -> PrComment {
+    let id = c["id"].as_u64().map(|n| n.to_string()).unwrap_or_default();
+    let in_reply_to = c["in_reply_to_id"]
+        .as_u64()
+        .map(|n| n.to_string())
+        .filter(|s| !s.is_empty());
+    let thread_id = in_reply_to
+        .clone()
+        .or_else(|| Some(id.clone()))
+        .filter(|s| !s.is_empty());
+    PrComment {
+        id,
+        author: str_or_empty(&c["user"]["login"]),
+        author_avatar: c["user"]["avatar_url"].as_str().map(|s| s.to_string()),
+        created_at: str_or_empty(&c["created_at"]),
+        body: str_or_empty(&c["body"]),
+        kind: "inline".into(),
+        file_path: c["path"].as_str().map(|s| s.to_string()),
+        line: c["line"].as_u64().or_else(|| c["original_line"].as_u64()),
+        in_reply_to,
+        thread_id,
+    }
+}
+
+pub fn gh_review_payload(event: &str, body: &str, comments: &[ReviewDraftComment]) -> Value {
+    let mapped: Vec<Value> = comments
+        .iter()
+        .map(|c| {
+            json!({
+                "path": c.path,
+                "line": c.line,
+                "side": c.side.clone().unwrap_or_else(|| "RIGHT".to_string()),
+                "body": c.body,
+            })
+        })
+        .collect();
+    if mapped.is_empty() {
+        json!({ "event": event, "body": body })
+    } else {
+        json!({ "event": event, "body": body, "comments": mapped })
+    }
+}
+
+pub fn gitea_review_payload(event: &str, body: &str, comments: &[ReviewDraftComment]) -> Value {
+    let mapped: Vec<Value> = comments
+        .iter()
+        .map(|c| {
+            json!({
+                "path": c.path,
+                "body": c.body,
+                "new_position": c.line,
+            })
+        })
+        .collect();
+    let event = if event == "APPROVE" { "APPROVED" } else { event };
+    if mapped.is_empty() {
+        json!({ "event": event, "body": body })
+    } else {
+        json!({ "event": event, "body": body, "comments": mapped })
+    }
+}
+
 async fn gh_conversation(
     client: &reqwest::Client,
     cred: &HttpsCredential,
@@ -781,19 +862,12 @@ async fn gh_conversation(
             kind: "issue".into(),
             file_path: None,
             line: None,
+            in_reply_to: None,
+            thread_id: None,
         });
     }
     for c in rc_v.as_array().cloned().unwrap_or_default() {
-        comments.push(PrComment {
-            id: c["id"].as_u64().map(|n| n.to_string()).unwrap_or_default(),
-            author: str_or_empty(&c["user"]["login"]),
-            author_avatar: c["user"]["avatar_url"].as_str().map(|s| s.to_string()),
-            created_at: str_or_empty(&c["created_at"]),
-            body: str_or_empty(&c["body"]),
-            kind: "inline".into(),
-            file_path: c["path"].as_str().map(|s| s.to_string()),
-            line: c["line"].as_u64().or_else(|| c["original_line"].as_u64()),
-        });
+        comments.push(gh_map_review_comment(&c));
     }
 
     let mut reviews = Vec::new();
@@ -1169,6 +1243,56 @@ async fn bb_file_patch(
         .map(|(_, d)| d))
 }
 
+pub fn bb_map_comment(c: &Value) -> Option<PrComment> {
+    if c["deleted"].as_bool().unwrap_or(false) {
+        return None;
+    }
+    let file_path = c["inline"]["path"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    let line = c["inline"]["to"]
+        .as_u64()
+        .or_else(|| c["inline"]["from"].as_u64());
+    let kind = if file_path.is_some() { "inline" } else { "issue" };
+    let id = c["id"].as_u64().map(|n| n.to_string()).unwrap_or_default();
+    let in_reply_to = c["parent"]["id"].as_u64().map(|n| n.to_string());
+    let thread_id = in_reply_to
+        .clone()
+        .or_else(|| Some(id.clone()))
+        .filter(|s| !s.is_empty());
+    Some(PrComment {
+        id,
+        author: str_or_empty(&c["user"]["display_name"]),
+        author_avatar: c["user"]["links"]["avatar"]["href"]
+            .as_str()
+            .map(|s| s.to_string()),
+        created_at: str_or_empty(&c["created_on"]),
+        body: c["content"]["raw"].as_str().unwrap_or("").to_string(),
+        kind: kind.into(),
+        file_path,
+        line,
+        in_reply_to,
+        thread_id,
+    })
+}
+
+pub fn bb_inline_comment_payload(
+    body: &str,
+    file_path: Option<&str>,
+    line: Option<u64>,
+    parent: Option<&str>,
+) -> Value {
+    let mut payload = json!({ "content": { "raw": body } });
+    if let (Some(p), Some(l)) = (file_path, line) {
+        payload["inline"] = json!({ "path": p, "to": l });
+    }
+    if let Some(parent_id) = parent.and_then(|p| p.trim().parse::<u64>().ok()) {
+        payload["parent"] = json!({ "id": parent_id });
+    }
+    payload
+}
+
 async fn bb_conversation(
     client: &reqwest::Client,
     cred: &HttpsCredential,
@@ -1180,25 +1304,7 @@ async fn bb_conversation(
         h.owner, h.repo
     );
     let values = bitbucket_collect_paginated_values(client, cred, &url, &h.host).await?;
-    let mut comments = Vec::new();
-    for c in values {
-        if c["deleted"].as_bool().unwrap_or(false) {
-            continue;
-        }
-        let file_path = c["inline"]["path"].as_str().map(|s| s.to_string());
-        let line = c["inline"]["to"].as_u64().or_else(|| c["inline"]["from"].as_u64());
-        let kind = if file_path.is_some() { "inline" } else { "issue" };
-        comments.push(PrComment {
-            id: c["id"].as_u64().map(|n| n.to_string()).unwrap_or_default(),
-            author: str_or_empty(&c["user"]["display_name"]),
-            author_avatar: c["user"]["links"]["avatar"]["href"].as_str().map(|s| s.to_string()),
-            created_at: str_or_empty(&c["created_on"]),
-            body: c["content"]["raw"].as_str().unwrap_or("").to_string(),
-            kind: kind.into(),
-            file_path,
-            line,
-        });
-    }
+    let comments: Vec<PrComment> = values.iter().filter_map(bb_map_comment).collect();
     Ok(PrConversation {
         comments,
         reviews: Vec::new(),
@@ -1627,7 +1733,46 @@ pub fn gl_map_note(v: &Value) -> Option<PrComment> {
         kind: kind.into(),
         file_path,
         line,
+        in_reply_to: None,
+        thread_id: None,
     })
+}
+
+pub fn gl_map_discussion(d: &Value) -> Vec<PrComment> {
+    let discussion_id = d["id"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    let mut out: Vec<PrComment> = Vec::new();
+    let mut root: Option<String> = None;
+    for note in d["notes"].as_array().cloned().unwrap_or_default() {
+        let Some(mut c) = gl_map_note(&note) else {
+            continue;
+        };
+        c.thread_id = discussion_id.clone().or_else(|| Some(c.id.clone()));
+        c.in_reply_to = root.clone();
+        if root.is_none() {
+            root = Some(c.id.clone());
+        }
+        out.push(c);
+    }
+    out
+}
+
+pub fn gl_discussion_position(mr: &Value, path: &str, line: u64) -> Option<Value> {
+    let refs = &mr["diff_refs"];
+    let base = refs["base_sha"].as_str().filter(|s| !s.is_empty())?;
+    let head = refs["head_sha"].as_str().filter(|s| !s.is_empty())?;
+    let start = refs["start_sha"].as_str().filter(|s| !s.is_empty())?;
+    Some(json!({
+        "base_sha": base,
+        "head_sha": head,
+        "start_sha": start,
+        "position_type": "text",
+        "new_path": path,
+        "old_path": path,
+        "new_line": line,
+    }))
 }
 
 pub fn gl_approvals_to_reviews(v: &Value) -> Vec<PrReview> {
@@ -1861,16 +2006,17 @@ async fn gl_conversation(
     h: &RemoteHandle,
     number: u64,
 ) -> Result<PrConversation, String> {
-    let notes = gl_get_paginated(
+    let discussions = gl_get_paginated(
         client,
         cred,
         h,
-        &format!("merge_requests/{number}/notes?sort=asc&order_by=created_at"),
+        &format!("merge_requests/{number}/discussions"),
         100,
         10,
     )
     .await?;
-    let comments: Vec<PrComment> = notes.iter().filter_map(gl_map_note).collect();
+    let mut comments: Vec<PrComment> = discussions.iter().flat_map(gl_map_discussion).collect();
+    comments.sort_by(|a, b| a.created_at.cmp(&b.created_at));
     let reviews = match gl_get_json(client, cred, h, &format!("merge_requests/{number}/approvals"))
         .await
     {
@@ -2610,14 +2756,121 @@ pub async fn repo_commit_checks(path: String) -> Result<RepoCommitChecks, String
     Ok(RepoCommitChecks { head_sha, checks })
 }
 
+async fn gl_post_inline_comment(
+    client: &reqwest::Client,
+    cred: &HttpsCredential,
+    h: &RemoteHandle,
+    number: u64,
+    comment: &ReviewDraftComment,
+) -> Result<(), String> {
+    let mr = gl_get_json(client, cred, h, &format!("merge_requests/{number}")).await?;
+    let url = gitlab_project_url(h, &format!("merge_requests/{number}/discussions"));
+    let payload = match gl_discussion_position(&mr, &comment.path, comment.line) {
+        Some(position) => json!({ "body": comment.body, "position": position }),
+        None => json!({ "body": comment.body }),
+    };
+    let res = gl_request(client, cred, reqwest::Method::POST, &url, Some(payload)).await?;
+    gl_read_json(res, &h.host).await?;
+    Ok(())
+}
+
+async fn bb_post_comment(
+    client: &reqwest::Client,
+    cred: &HttpsCredential,
+    h: &RemoteHandle,
+    number: u64,
+    body: &str,
+    file_path: Option<&str>,
+    line: Option<u64>,
+    parent: Option<&str>,
+) -> Result<(), String> {
+    let url = format!(
+        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/comments",
+        h.owner, h.repo
+    );
+    bb_post_json(
+        client,
+        cred,
+        &url,
+        &h.host,
+        bb_inline_comment_payload(body, file_path, line, parent),
+    )
+    .await?;
+    Ok(())
+}
+
 #[tauri::command]
-pub async fn pr_add_comment(path: String, number: u64, body: String) -> Result<(), String> {
+pub async fn pr_add_comment(
+    path: String,
+    number: u64,
+    body: String,
+    in_reply_to: Option<String>,
+    file_path: Option<String>,
+    line: Option<u64>,
+) -> Result<(), String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     let cred = read_https_credential(&h.host)?;
     let client = http_client()?;
+    let reply = in_reply_to.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    let anchor = match (file_path.as_deref(), line) {
+        (Some(fp), Some(l)) if !fp.trim().is_empty() => Some(ReviewDraftComment {
+            path: fp.to_string(),
+            line: l,
+            body: body.clone(),
+            side: None,
+        }),
+        _ => None,
+    };
     match h.provider {
-        Provider::GitHub | Provider::Gitea => {
+        Provider::GitHub => {
+            if let Some(reply_id) = reply {
+                let url = github_repo_api_url(
+                    &h,
+                    &format!("pulls/{number}/comments/{reply_id}/replies"),
+                );
+                let res = github_request(
+                    &client,
+                    &cred,
+                    reqwest::Method::POST,
+                    &url,
+                    Some(json!({ "body": body })),
+                )
+                .await?;
+                github_read_json(res, &h.host).await?;
+                return Ok(());
+            }
+            if let Some(comment) = anchor {
+                let url = github_repo_api_url(&h, &format!("pulls/{number}/reviews"));
+                let payload = gh_review_payload("COMMENT", "", std::slice::from_ref(&comment));
+                let res =
+                    github_request(&client, &cred, reqwest::Method::POST, &url, Some(payload))
+                        .await?;
+                github_read_json(res, &h.host).await?;
+                return Ok(());
+            }
+            let url = github_repo_api_url(&h, &format!("issues/{number}/comments"));
+            let res = github_request(
+                &client,
+                &cred,
+                reqwest::Method::POST,
+                &url,
+                Some(json!({ "body": body })),
+            )
+            .await?;
+            github_read_json(res, &h.host).await?;
+            Ok(())
+        }
+        Provider::Gitea => {
+            if let Some(comment) = anchor {
+                let url = github_repo_api_url(&h, &format!("pulls/{number}/reviews"));
+                let payload = gitea_review_payload("COMMENT", "", std::slice::from_ref(&comment));
+                let res =
+                    github_request(&client, &cred, reqwest::Method::POST, &url, Some(payload))
+                        .await?;
+                github_read_json(res, &h.host).await?;
+                return Ok(());
+            }
             let url = github_repo_api_url(&h, &format!("issues/{number}/comments"));
             let res = github_request(
                 &client,
@@ -2631,6 +2884,25 @@ pub async fn pr_add_comment(path: String, number: u64, body: String) -> Result<(
             Ok(())
         }
         Provider::GitLab => {
+            if let Some(discussion_id) = reply {
+                let url = gitlab_project_url(
+                    &h,
+                    &format!("merge_requests/{number}/discussions/{discussion_id}/notes"),
+                );
+                let res = gl_request(
+                    &client,
+                    &cred,
+                    reqwest::Method::POST,
+                    &url,
+                    Some(json!({ "body": body })),
+                )
+                .await?;
+                gl_read_json(res, &h.host).await?;
+                return Ok(());
+            }
+            if let Some(comment) = anchor {
+                return gl_post_inline_comment(&client, &cred, &h, number, &comment).await;
+            }
             let url = gitlab_project_url(&h, &format!("merge_requests/{number}/notes"));
             let res = gl_request(
                 &client,
@@ -2644,19 +2916,17 @@ pub async fn pr_add_comment(path: String, number: u64, body: String) -> Result<(
             Ok(())
         }
         Provider::Bitbucket => {
-            let url = format!(
-                "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/comments",
-                h.owner, h.repo
-            );
-            bb_post_json(
+            bb_post_comment(
                 &client,
                 &cred,
-                &url,
-                &h.host,
-                json!({ "content": { "raw": body } }),
+                &h,
+                number,
+                &body,
+                anchor.as_ref().map(|c| c.path.as_str()),
+                anchor.as_ref().map(|c| c.line),
+                reply.as_deref(),
             )
-            .await?;
-            Ok(())
+            .await
         }
         Provider::Unsupported => Err(unsupported_provider_err(&h.host)),
     }
@@ -2668,27 +2938,31 @@ pub async fn pr_submit_review(
     number: u64,
     event: String,
     body: String,
+    comments: Option<Vec<ReviewDraftComment>>,
 ) -> Result<(), String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     let cred = read_https_credential(&h.host)?;
     let client = http_client()?;
     let ev = event.to_uppercase();
+    let drafts = comments.unwrap_or_default();
     match h.provider {
         Provider::GitHub | Provider::Gitea => {
             let url = github_repo_api_url(&h, &format!("pulls/{number}/reviews"));
-            let ev = if h.provider == Provider::Gitea && ev == "APPROVE" {
-                "APPROVED".to_string()
+            let payload = if h.provider == Provider::Gitea {
+                gitea_review_payload(&ev, &body, &drafts)
             } else {
-                ev
+                gh_review_payload(&ev, &body, &drafts)
             };
-            let payload = json!({ "event": ev, "body": body });
             let res = github_request(&client, &cred, reqwest::Method::POST, &url, Some(payload))
                 .await?;
             github_read_json(res, &h.host).await?;
             Ok(())
         }
         Provider::GitLab => {
+            for comment in &drafts {
+                gl_post_inline_comment(&client, &cred, &h, number, comment).await?;
+            }
             let action = match ev.as_str() {
                 "APPROVE" | "APPROVED" => Some("approve"),
                 "UNAPPROVE" | "REQUEST_CHANGES" => Some("unapprove"),
@@ -2717,6 +2991,19 @@ pub async fn pr_submit_review(
             Ok(())
         }
         Provider::Bitbucket => {
+            for comment in &drafts {
+                bb_post_comment(
+                    &client,
+                    &cred,
+                    &h,
+                    number,
+                    &comment.body,
+                    Some(comment.path.as_str()),
+                    Some(comment.line),
+                    None,
+                )
+                .await?;
+            }
             let endpoint = match ev.as_str() {
                 "APPROVE" => "approve",
                 "REQUEST_CHANGES" => "request-changes",
@@ -3418,6 +3705,129 @@ pub async fn pr_set_auto_merge(
             return Err(format!("GitHub GraphQL Fehler: {msg}"));
         }
     }
+    Ok(())
+}
+
+// ========= GitHub — Review Threads (GraphQL) =========
+
+#[derive(Serialize)]
+pub struct GhReviewThread {
+    pub id: String,
+    pub resolved: bool,
+    pub comment_ids: Vec<String>,
+}
+
+pub fn gh_map_review_threads(v: &Value) -> Vec<GhReviewThread> {
+    v["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|node| {
+            let id = node["id"].as_str().filter(|s| !s.is_empty())?.to_string();
+            let comment_ids = node["comments"]["nodes"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|c| {
+                    c["databaseId"]
+                        .as_u64()
+                        .map(|n| n.to_string())
+                        .or_else(|| c["databaseId"].as_str().map(|s| s.to_string()))
+                })
+                .filter(|s| !s.is_empty())
+                .collect();
+            Some(GhReviewThread {
+                id,
+                resolved: node["isResolved"].as_bool().unwrap_or(false),
+                comment_ids,
+            })
+        })
+        .collect()
+}
+
+async fn github_graphql(
+    client: &reqwest::Client,
+    cred: &HttpsCredential,
+    host: &str,
+    body: Value,
+) -> Result<Value, String> {
+    let res = client
+        .post(github_graphql_endpoint(host))
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "l8git")
+        .header("Authorization", format!("Bearer {}", cred.password))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("GitHub GraphQL: {e}"))?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let text = res.text().await.unwrap_or_default();
+        return Err(format!("GitHub GraphQL {status}: {}", text.trim()));
+    }
+
+    let v: Value = res
+        .json()
+        .await
+        .map_err(|e| format!("GitHub GraphQL: {e}"))?;
+    if let Some(errors) = v["errors"].as_array() {
+        if !errors.is_empty() {
+            let msg = errors
+                .iter()
+                .filter_map(|e| e["message"].as_str())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(format!("GitHub GraphQL Fehler: {msg}"));
+        }
+    }
+    Ok(v)
+}
+
+#[tauri::command]
+pub async fn pr_review_threads(path: String, number: u64) -> Result<Vec<GhReviewThread>, String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Ok(Vec::new());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let body = json!({
+        "query": "query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { id isResolved comments(first: 100) { nodes { databaseId } } } } } } }",
+        "variables": { "owner": h.owner, "name": h.repo, "number": number }
+    });
+    let v = github_graphql(&client, &cred, &h.host, body).await?;
+    Ok(gh_map_review_threads(&v))
+}
+
+#[tauri::command]
+pub async fn pr_resolve_thread(
+    path: String,
+    thread_id: String,
+    resolved: bool,
+) -> Result<(), String> {
+    let p = repo_path(&path);
+    let h = parse_origin_url(&p)?;
+    if h.provider != Provider::GitHub {
+        return Err("Threads auflösen ist nur für GitHub verfügbar.".into());
+    }
+    let cred = read_https_credential(&h.host)?;
+    let client = http_client()?;
+    let query = if resolved {
+        "mutation($id: ID!) { resolveReviewThread(input: { threadId: $id }) { thread { id isResolved } } }"
+    } else {
+        "mutation($id: ID!) { unresolveReviewThread(input: { threadId: $id }) { thread { id isResolved } } }"
+    };
+    github_graphql(
+        &client,
+        &cred,
+        &h.host,
+        json!({ "query": query, "variables": { "id": thread_id } }),
+    )
+    .await?;
     Ok(())
 }
 

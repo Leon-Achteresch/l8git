@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as InfoRouteImport } from './routes/info'
+import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as AgentsRouteImport } from './routes/agents'
@@ -25,6 +26,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const InfoRoute = InfoRouteImport.update({
   id: '/info',
   path: '/info',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxRoute = InboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
+  '/inbox': typeof InboxRoute
   '/info': typeof InfoRoute
   '/settings': typeof SettingsRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
+  '/inbox': typeof InboxRoute
   '/info': typeof InfoRoute
   '/settings': typeof SettingsRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
+  '/inbox': typeof InboxRoute
   '/info': typeof InfoRoute
   '/settings': typeof SettingsRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/changelog'
     | '/dashboard'
+    | '/inbox'
     | '/info'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/changelog'
     | '/dashboard'
+    | '/inbox'
     | '/info'
     | '/settings'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/changelog'
     | '/dashboard'
+    | '/inbox'
     | '/info'
     | '/settings'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   AgentsRoute: typeof AgentsRoute
   ChangelogRoute: typeof ChangelogRoute
   DashboardRoute: typeof DashboardRoute
+  InboxRoute: typeof InboxRoute
   InfoRoute: typeof InfoRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/info'
       fullPath: '/info'
       preLoaderRoute: typeof InfoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox': {
+      id: '/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsRoute: AgentsRoute,
   ChangelogRoute: ChangelogRoute,
   DashboardRoute: DashboardRoute,
+  InboxRoute: InboxRoute,
   InfoRoute: InfoRoute,
   SettingsRoute: SettingsRoute,
 }

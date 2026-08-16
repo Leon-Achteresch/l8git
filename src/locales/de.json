@@ -76,6 +76,7 @@
   "header": {
     "repo": "Repository",
     "dashboard": "Dashboard",
+    "inbox": "Inbox",
     "agents": "Agents",
     "info": "Info",
     "about": "Über",
@@ -87,6 +88,48 @@
     "maximize": "Maximieren",
     "restore": "Wiederherstellen",
     "close": "Schließen"
+  },
+  "inbox": {
+    "title": "Inbox",
+    "subtitle_one": "Über {{count}} Repository im Workspace",
+    "subtitle_other": "Über {{count}} Repositories im Workspace",
+    "updated": "aktualisiert {{time}}",
+    "refresh": "Aktualisieren",
+    "openExternal": "Im Browser öffnen",
+    "indicator": "{{reviews}} Review-Anfragen · {{failures}} rote CI-Läufe",
+    "repoErrors_one": "{{count}} Repository konnte nicht geladen werden",
+    "repoErrors_other": "{{count}} Repositories konnten nicht geladen werden",
+    "sections": {
+      "myPrs": "Meine Pull Requests",
+      "reviewRequested": "Review angefordert",
+      "redRuns": "Rote CI-Läufe",
+      "agents": "Laufende Agents"
+    },
+    "empty": {
+      "myPrs": "Keine offenen Pull Requests von dir — melde dich in den Einstellungen an, damit die Zuordnung nach Autor greift.",
+      "reviewRequested": "Niemand wartet gerade auf dein Review.",
+      "redRuns": "Alle Default-Branches sind grün.",
+      "agents": "Kein Agent arbeitet oder wartet gerade auf eine Freigabe."
+    },
+    "badges": {
+      "draft": "Entwurf",
+      "reviewers_one": "{{count}} Reviewer",
+      "reviewers_other": "{{count}} Reviewer",
+      "pendingRequests_one": "{{count}} Freigabe offen",
+      "pendingRequests_other": "{{count}} Freigaben offen"
+    },
+    "checks": {
+      "success": "Checks grün",
+      "failure": "Checks rot",
+      "running": "Checks laufen",
+      "unknown": "Keine Checks"
+    },
+    "conclusion": {
+      "failure": "fehlgeschlagen",
+      "timed_out": "Zeitüberschreitung",
+      "startup_failure": "Startfehler",
+      "action_required": "Aktion nötig"
+    }
   },
   "agents": {
     "noRepos": "Keine Repositories geöffnet",
@@ -622,6 +665,7 @@
     "title": "Einstellungen",
     "navAppearance": "Darstellung",
     "navAnimations": "Animationen",
+    "navNotifications": "Benachrichtigungen",
     "navCommits": "Commits",
     "navSigning": "Signierung",
     "signingSectionTitle": "Git-Signierung",
@@ -667,6 +711,8 @@
     "themeAria": "Theme",
     "animationsSectionTitle": "Animationen",
     "animationsSectionSubtitle": "Übergänge und Bewegungseffekte",
+    "notificationsSectionTitle": "Benachrichtigungen",
+    "notificationsSectionSubtitle": "System-Hinweise, wenn die App im Hintergrund läuft",
     "commitsSectionTitle": "Commits",
     "commitsSectionSubtitle": "Commit-Darstellung und Nachrichtenvorlage",
     "historyTitle": "Commit-Historie",
@@ -841,6 +887,36 @@
         "desc": "Prompt für generierte Pull-Request-Beschreibungen."
       }
     }
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "desc": "Native System-Benachrichtigungen holen dich zurück in die App – aber nur, wenn das Fenster gerade nicht im Fokus ist. Pro Quelle erscheint höchstens eine Meldung pro Minute.",
+    "enableLabel": "Benachrichtigungen aktivieren",
+    "enableHint": "Globaler Schalter. Ist er aus, wird nichts gesendet – unabhängig von den Einzelschaltern.",
+    "kindCiFailedLabel": "CI-Lauf fehlgeschlagen",
+    "kindCiFailedHint": "Wenn ein Workflow-Lauf beim Aktualisieren von grün oder laufend auf rot wechselt.",
+    "kindReviewRequestedLabel": "Review angefordert",
+    "kindReviewRequestedHint": "Wenn beim Aktualisieren der Pull Requests ein neuer Reviewer eingetragen wurde.",
+    "kindAgentTurnLabel": "Agent fertig oder wartet",
+    "kindAgentTurnHint": "Wenn ein Agenten-Turn endet oder eine Freigabe angefragt wird.",
+    "kindRemoteOpDoneLabel": "Lange Remote-Operation fertig",
+    "kindRemoteOpDoneHint": "Fetch, Pull, Push oder Clone mit mehr als 10 Sekunden Laufzeit.",
+    "permissionLabel": "Systemberechtigung",
+    "permissionGranted": "Erteilt",
+    "permissionDenied": "Verweigert – bitte in den Systemeinstellungen erlauben.",
+    "permissionUnknown": "Noch nicht angefragt",
+    "permissionRequest": "Berechtigung anfragen",
+    "ciFailedTitle": "CI rot in {{repo}}",
+    "ciFailedBody": "{{name}} ist fehlgeschlagen ({{count}} betroffen).",
+    "reviewRequestedTitle": "Review angefordert in {{repo}}",
+    "reviewRequestedBody": "#{{number}} {{title}} – Reviewer: {{login}}",
+    "agentTurnTitle": "Agent fertig",
+    "agentTurnBody": "{{provider}}: {{title}}",
+    "agentApprovalTitle": "Agent wartet auf Freigabe",
+    "agentApprovalBody": "{{provider}}: {{title}}",
+    "remoteDoneTitle": "{{op}} abgeschlossen",
+    "remoteFailedTitle": "{{op}} fehlgeschlagen",
+    "remoteDoneBody": "{{repo}} – Dauer {{seconds}} s"
   },
   "animations": {
     "title": "Bewegung & Animationen",
@@ -2431,6 +2507,44 @@
     "label": "Remote",
     "menuLabel": "Push-Ziel",
     "pushTo": "Push nach {{remote}}"
+  },
+  "prReview": {
+    "addCommentTitle": "Kommentar zu dieser Zeile",
+    "commentPlaceholder": "Kommentar zu dieser Zeile …",
+    "cancel": "Abbrechen",
+    "lineLabel": "Zeile {{line}}",
+    "threadCount_one": "{{count}} Kommentar",
+    "threadCount_other": "{{count}} Kommentare",
+    "reply": "Antworten",
+    "replySubmit": "Antwort senden",
+    "threadResolve": "Thread auflösen",
+    "threadUnresolve": "Wieder öffnen",
+    "threadResolved": "Aufgelöst",
+    "draftAdd": "Zum Review hinzufügen",
+    "draftBadge": "Entwurf",
+    "draftEdit": "Entwurf bearbeiten",
+    "draftRemove": "Entwurf verwerfen",
+    "draftSave": "Übernehmen",
+    "pendingComments_one": "{{count}} ausstehender Kommentar",
+    "pendingComments_other": "{{count}} ausstehende Kommentare",
+    "batchedHint": "werden als ein Review abgeschickt",
+    "oneByOneHint": "werden einzeln gesendet – dieser Anbieter kennt keine Review-Entwürfe",
+    "discardAll": "Alle verwerfen",
+    "summaryPlaceholder": "Zusammenfassung des Reviews (optional)",
+    "summaryRequired": "Für „Änderungen anfordern“ braucht es eine Zusammenfassung.",
+    "submitComment": "Review abschicken",
+    "submitApprove": "Genehmigen",
+    "submitRequestChanges": "Änderungen anfordern",
+    "submitted_one": "Review mit {{count}} Kommentar abgeschickt",
+    "submitted_other": "Review mit {{count}} Kommentaren abgeschickt",
+    "suggestionTitle": "Vorschlag",
+    "suggestionMode": "Vorschlag",
+    "suggestionModeHint": "Zeileninhalt als Änderungsvorschlag vorbefüllen",
+    "suggestionApply": "Lokal anwenden",
+    "suggestionApplyDisabled": "Nur möglich, wenn der PR-Branch {{branch}} ausgecheckt ist.",
+    "suggestionApplied": "Vorschlag in {{file}}:{{line}} angewendet.",
+    "suggestionOutOfRange": "Zeile {{line}} gibt es in {{file}} lokal nicht mehr.",
+    "suggestionDeletesLine": "Diese Zeile wird entfernt."
   },
   "prInspect": {
     "pillOpen": "Offen",

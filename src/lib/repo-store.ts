@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { toastError } from '@/lib/error-toast';
 import i18n from '@/lib/i18n';
+import { trackPullRequests } from '@/lib/notifications';
 import { runRemoteOp } from '@/lib/remote-ops';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { useWorkspacePrefs } from '@/lib/workspace-prefs';
@@ -788,6 +789,7 @@ export const useRepoStore = create<RepoState>()(
         set(s => ({ prsLoading: { ...s.prsLoading, [path]: true } }));
         try {
           const list = await invoke<PullRequest[]>('pr_list', { path });
+          trackPullRequests(path, list);
           set(s => ({
             prs: { ...s.prs, [path]: list },
             prsLoading: { ...s.prsLoading, [path]: false },

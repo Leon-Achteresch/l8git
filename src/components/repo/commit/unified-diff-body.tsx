@@ -161,6 +161,81 @@ function VirtualDiffList({ lines }: { lines: DiffLine[] }) {
   );
 }
 
+export type DiffCommentAnchor = {
+  newLineNo: number;
+  text: string;
+};
+
+function AnnotatedVirtualDiffList({
+  lines,
+  annotationsByNewLine,
+  onAddComment,
+  addCommentTitle,
+}: {
+  lines: DiffLine[];
+  annotationsByNewLine?: ReadonlyMap<number, React.ReactNode>;
+  onAddComment?: (anchor: DiffCommentAnchor) => void;
+  addCommentTitle?: string;
+}) {
+  const wordDiffAt = useWordDiffLookup(lines);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: lines.length,
+    getScrollElement: () => scrollerRef.current,
+    estimateSize: () => LINE_HEIGHT_PX,
+    overscan: 16,
+  });
+
+  const items = virtualizer.getVirtualItems();
+
+  return (
+    <div ref={scrollerRef} className="h-full min-h-0 min-w-0 overflow-auto">
+      <div
+        style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+        className="py-2"
+      >
+        {items.map((vi) => {
+          const line = lines[vi.index];
+          if (!line) return null;
+          const newLineNo = line.newLineNo;
+          const annotation =
+            newLineNo != null ? annotationsByNewLine?.get(newLineNo) : undefined;
+          return (
+            <div
+              key={vi.key}
+              data-index={vi.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                transform: `translateY(${vi.start}px)`,
+              }}
+            >
+              <div className="group relative">
+                {onAddComment && newLineNo != null && (
+                  <button
+                    type="button"
+                    title={addCommentTitle}
+                    aria-label={addCommentTitle}
+                    onClick={() => onAddComment({ newLineNo, text: line.text })}
+                    className="absolute left-0.5 top-[1px] z-10 hidden h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground shadow-sm group-hover:flex"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                )}
+                {diffLineNode(line, wordDiffAt(vi.index))}
+              </div>
+              {annotation ? <div className="px-3 py-1">{annotation}</div> : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 type SelectionKey = string;
 
 function makeKey(hunkIdx: number, hunkLineIdx: number): SelectionKey {
@@ -558,6 +633,9 @@ export function UnifiedDiffBody({
   selectedLines = EMPTY_SET,
   onToggleLine,
   onClearSelection,
+  annotationsByNewLine,
+  onAddComment,
+  addCommentTitle,
 }: {
   loading: boolean;
   failed: boolean;
@@ -575,6 +653,9 @@ export function UnifiedDiffBody({
   selectedLines?: ReadonlySet<string>;
   onToggleLine?: (key: string) => void;
   onClearSelection?: () => void;
+  annotationsByNewLine?: ReadonlyMap<number, React.ReactNode>;
+  onAddComment?: (anchor: DiffCommentAnchor) => void;
+  addCommentTitle?: string;
 }) {
   const { t } = useTranslation();
   const interactive = !!(sector && (onStageHunk ?? onUnstageHunk));
@@ -666,6 +747,16 @@ export function UnifiedDiffBody({
       untrackedPlain != null && untrackedPlain.length > 0
         ? linesFromUntracked(untrackedPlain)
         : displayedDiffLines;
+    if (annotationsByNewLine || onAddComment) {
+      return (
+        <AnnotatedVirtualDiffList
+          lines={lines}
+          annotationsByNewLine={annotationsByNewLine}
+          onAddComment={onAddComment}
+          addCommentTitle={addCommentTitle}
+        />
+      );
+    }
     return <VirtualDiffList lines={lines} />;
   }
 

@@ -2,15 +2,17 @@ mod common;
 
 use common::{json, TestRepo};
 use l8git_lib::pr::{
-    bb_commit_status_to_pr_check, bb_map_pr, current_branch, detect_provider, encode_uri_component,
-    first_non_empty, gh_map_pr, gitea_api_base, github_api_base, github_repo_api_url,
-    gitlab_api_base, gitlab_auth_header, gitlab_project_id, gitlab_project_url,
-    gl_approvals_to_reviews, gl_commit_status_to_pr_check, gl_diff_counts, gl_diff_patch,
-    gl_diff_status, gl_job_to_pr_check, gl_map_commit, gl_map_detail, gl_map_file, gl_map_mr,
-    gl_map_note, gl_mergeable, gl_pipeline_to_pr_check, gl_status_to_check_state,
-    origin_default_branch, parse_origin_url, pr_create_web_url, provider_api_base,
-    provider_capabilities, split_unified_diff_by_file, str_or_empty, strip_remote_prefix,
-    trunc_chars, unsupported_provider_err, Provider, RemoteHandle, PROVIDER_UNKNOWN_CODE,
+    bb_commit_status_to_pr_check, bb_inline_comment_payload, bb_map_comment, bb_map_pr,
+    current_branch, detect_provider, encode_uri_component, first_non_empty, gh_map_pr,
+    gh_map_review_comment, gh_map_review_threads, gh_review_payload, gitea_api_base, gitea_review_payload,
+    github_api_base, github_repo_api_url, gitlab_api_base, gitlab_auth_header, gitlab_project_id,
+    gitlab_project_url, gl_approvals_to_reviews, gl_commit_status_to_pr_check, gl_diff_counts,
+    gl_diff_patch, gl_diff_status, gl_discussion_position, gl_job_to_pr_check, gl_map_commit,
+    gl_map_detail, gl_map_discussion, gl_map_file, gl_map_mr, gl_map_note, gl_mergeable,
+    gl_pipeline_to_pr_check, gl_status_to_check_state, origin_default_branch, parse_origin_url,
+    pr_create_web_url, provider_api_base, provider_capabilities, split_unified_diff_by_file,
+    str_or_empty, strip_remote_prefix, trunc_chars, unsupported_provider_err, Provider,
+    RemoteHandle, ReviewDraftComment, PROVIDER_UNKNOWN_CODE,
 };
 use serde_json::json as jval;
 
@@ -1196,4 +1198,255 @@ fn provider_capabilities_describe_what_each_forge_can_do() {
     let unknown = json(&provider_capabilities(Provider::Unsupported, "x.example"));
     assert_eq!(unknown["can_approve"], false);
     assert_eq!(unknown["merge_strategies"], jval!([]));
+}
+
+#[test]
+fn provider_capabilities_expose_the_review_comment_surface() {
+    let gh = json(&provider_capabilities(Provider::GitHub, "github.com"));
+    assert_eq!(gh["can_inline_comments"], true);
+    assert_eq!(gh["can_draft_reviews"], true);
+
+    let gitea = json(&provider_capabilities(Provider::Gitea, "codeberg.org"));
+    assert_eq!(gitea["can_draft_reviews"], true);
+
+    for provider in [Provider::GitLab, Provider::Bitbucket] {
+        let caps = json(&provider_capabilities(provider, "example.org"));
+        assert_eq!(caps["can_inline_comments"], true);
+        assert_eq!(
+            caps["can_draft_reviews"], false,
+            "comments have to be sent one by one there"
+        );
+    }
+
+    let unknown = json(&provider_capabilities(Provider::Unsupported, "x.example"));
+    assert_eq!(unknown["can_inline_comments"], false);
+    assert_eq!(unknown["can_draft_reviews"], false);
+}
+
+#[test]
+fn gh_review_comments_carry_their_thread_anchor() {
+    let root = json(&gh_map_review_comment(&jval!({
+        "id": 9001,
+        "user": { "login": "ada", "avatar_url": "https://gh/a.png" },
+        "created_at": "2024-06-01T10:00:00Z",
+        "body": "this allocation looks hot",
+        "path": "src/app.ts",
+        "line": 42
+    })));
+    assert_eq!(root["id"], "9001");
+    assert_eq!(root["kind"], "inline");
+    assert_eq!(root["file_path"], "src/app.ts");
+    assert_eq!(root["line"], 42);
+    assert_eq!(root["thread_id"], "9001", "a root comment opens its own thread");
+    assert!(root["in_reply_to"].is_null());
+
+    let reply = json(&gh_map_review_comment(&jval!({
+        "id": 9002,
+        "in_reply_to_id": 9001,
+        "user": { "login": "grace" },
+        "created_at": "2024-06-01T11:00:00Z",
+        "body": "agreed, will cache it",
+        "path": "src/app.ts",
+        "line": 42
+    })));
+    assert_eq!(reply["in_reply_to"], "9001");
+    assert_eq!(reply["thread_id"], "9001", "replies join the root thread");
+
+    let outdated = json(&gh_map_review_comment(&jval!({
+        "id": 9003,
+        "user": { "login": "ada" },
+        "body": "stale hunk",
+        "path": "src/old.ts",
+        "original_line": 7
+    })));
+    assert_eq!(outdated["line"], 7, "falls back to the original line");
+}
+
+#[test]
+fn gh_review_payload_bundles_draft_comments() {
+    let empty = gh_review_payload("APPROVE", "ship it", &[]);
+    assert_eq!(empty, jval!({ "event": "APPROVE", "body": "ship it" }));
+    assert!(empty.get("comments").is_none(), "no empty comments array");
+
+    let drafts = vec![
+        ReviewDraftComment {
+            path: "src/app.ts".into(),
+            line: 12,
+            body: "rename this".into(),
+            side: None,
+        },
+        ReviewDraftComment {
+            path: "src/old.ts".into(),
+            line: 3,
+            body: "why removed?".into(),
+            side: Some("LEFT".into()),
+        },
+    ];
+    let payload = gh_review_payload("REQUEST_CHANGES", "two nits", &drafts);
+    assert_eq!(payload["event"], "REQUEST_CHANGES");
+    assert_eq!(payload["body"], "two nits");
+    assert_eq!(
+        payload["comments"],
+        jval!([
+            { "path": "src/app.ts", "line": 12, "side": "RIGHT", "body": "rename this" },
+            { "path": "src/old.ts", "line": 3, "side": "LEFT", "body": "why removed?" }
+        ])
+    );
+
+    let gitea = gitea_review_payload("APPROVE", "", &drafts);
+    assert_eq!(gitea["event"], "APPROVED", "Gitea spells approval differently");
+    assert_eq!(
+        gitea["comments"],
+        jval!([
+            { "path": "src/app.ts", "body": "rename this", "new_position": 12 },
+            { "path": "src/old.ts", "body": "why removed?", "new_position": 3 }
+        ])
+    );
+}
+
+#[test]
+fn bb_comments_keep_inline_anchor_and_parent() {
+    let root = json(&bb_map_comment(&jval!({
+        "id": 11,
+        "user": { "display_name": "Ada", "links": { "avatar": { "href": "https://bb/a.png" } } },
+        "created_on": "2024-06-02T10:00:00Z",
+        "content": { "raw": "off by one" },
+        "inline": { "path": "src/app.ts", "to": 42 }
+    }))
+    .expect("a live comment survives"));
+    assert_eq!(root["kind"], "inline");
+    assert_eq!(root["file_path"], "src/app.ts");
+    assert_eq!(root["line"], 42);
+    assert_eq!(root["thread_id"], "11");
+
+    let reply = json(&bb_map_comment(&jval!({
+        "id": 12,
+        "parent": { "id": 11 },
+        "user": { "display_name": "Grace" },
+        "content": { "raw": "fixed" },
+        "inline": { "path": "src/app.ts", "from": 40 }
+    }))
+    .unwrap());
+    assert_eq!(reply["in_reply_to"], "11");
+    assert_eq!(reply["thread_id"], "11");
+    assert_eq!(reply["line"], 40, "falls back to the from-side line");
+
+    assert!(
+        bb_map_comment(&jval!({ "id": 13, "deleted": true, "content": { "raw": "oops" } })).is_none(),
+        "deleted comments stay hidden"
+    );
+}
+
+#[test]
+fn bb_inline_comment_payload_only_adds_what_it_knows() {
+    assert_eq!(
+        bb_inline_comment_payload("plain", None, None, None),
+        jval!({ "content": { "raw": "plain" } })
+    );
+    assert_eq!(
+        bb_inline_comment_payload("anchored", Some("src/app.ts"), Some(9), None),
+        jval!({ "content": { "raw": "anchored" }, "inline": { "path": "src/app.ts", "to": 9 } })
+    );
+    assert_eq!(
+        bb_inline_comment_payload("reply", None, None, Some("42")),
+        jval!({ "content": { "raw": "reply" }, "parent": { "id": 42 } })
+    );
+    assert_eq!(
+        bb_inline_comment_payload("bad parent", None, None, Some("not-a-number")),
+        jval!({ "content": { "raw": "bad parent" } }),
+        "unparsable ids are dropped instead of breaking the request"
+    );
+}
+
+#[test]
+fn gl_discussions_become_threaded_comments() {
+    let comments = gl_map_discussion(&jval!({
+        "id": "abc123",
+        "notes": [
+            {
+                "id": 1,
+                "body": "please extract this",
+                "created_at": "2024-06-03T10:00:00Z",
+                "author": { "username": "ada" },
+                "position": { "new_path": "src/app.ts", "new_line": 12 }
+            },
+            { "id": 2, "system": true, "body": "changed the description" },
+            {
+                "id": 3,
+                "body": "done",
+                "created_at": "2024-06-03T11:00:00Z",
+                "author": { "username": "grace" },
+                "position": { "new_path": "src/app.ts", "new_line": 12 }
+            }
+        ]
+    }));
+    assert_eq!(comments.len(), 2, "system notes are skipped");
+    let first = json(&comments[0]);
+    let second = json(&comments[1]);
+    assert_eq!(first["thread_id"], "abc123");
+    assert!(first["in_reply_to"].is_null());
+    assert_eq!(second["thread_id"], "abc123");
+    assert_eq!(second["in_reply_to"], "1", "later notes reply to the root note");
+    assert_eq!(second["file_path"], "src/app.ts");
+}
+
+#[test]
+fn gl_discussion_position_needs_the_full_diff_refs() {
+    let mr = jval!({
+        "diff_refs": {
+            "base_sha": "aaa",
+            "head_sha": "bbb",
+            "start_sha": "ccc"
+        }
+    });
+    assert_eq!(
+        gl_discussion_position(&mr, "src/app.ts", 12).unwrap(),
+        jval!({
+            "base_sha": "aaa",
+            "head_sha": "bbb",
+            "start_sha": "ccc",
+            "position_type": "text",
+            "new_path": "src/app.ts",
+            "old_path": "src/app.ts",
+            "new_line": 12
+        })
+    );
+
+    assert!(
+        gl_discussion_position(&jval!({ "diff_refs": { "base_sha": "aaa" } }), "a.ts", 1).is_none(),
+        "an incomplete position would be rejected by GitLab"
+    );
+    assert!(gl_discussion_position(&jval!({}), "a.ts", 1).is_none());
+}
+
+#[test]
+fn gh_review_threads_map_graphql_nodes_to_comment_ids() {
+    let threads = gh_map_review_threads(&jval!({
+        "data": { "repository": { "pullRequest": { "reviewThreads": { "nodes": [
+            {
+                "id": "PRRT_kw1",
+                "isResolved": false,
+                "comments": { "nodes": [ { "databaseId": 9001 }, { "databaseId": 9002 } ] }
+            },
+            {
+                "id": "PRRT_kw2",
+                "isResolved": true,
+                "comments": { "nodes": [ { "databaseId": 9003 } ] }
+            },
+            { "isResolved": false, "comments": { "nodes": [] } }
+        ] } } } }
+    }));
+
+    assert_eq!(threads.len(), 2, "a node without an id is unusable");
+    assert_eq!(threads[0].id, "PRRT_kw1");
+    assert!(!threads[0].resolved);
+    assert_eq!(threads[0].comment_ids, vec!["9001", "9002"]);
+    assert_eq!(threads[1].id, "PRRT_kw2");
+    assert!(threads[1].resolved);
+    assert_eq!(threads[1].comment_ids, vec!["9003"]);
+
+    assert!(
+        gh_map_review_threads(&jval!({ "data": { "repository": null } })).is_empty(),
+        "an empty response yields no threads instead of an error"
+    );
 }

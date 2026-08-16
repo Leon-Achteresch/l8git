@@ -92,9 +92,10 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 ## Q4 (Jun–Aug 2027) — Team, Reichweite, Community
 
 ### Monat 10 — Review-Inbox & Daily-Loop-Vollausbau
-- [ ] Repo-übergreifende Inbox: meine PRs, angeforderte Reviews, rote CI-Läufe, laufende Agents
-- [ ] PR-Review vertiefen: Inline-Kommentar-Threads, Suggested Changes, Review-Drafts
-- [ ] Native Benachrichtigungen (CI rot, Review angefordert, Agent fertig)
+- [x] Repo-übergreifende Inbox: meine PRs, angeforderte Reviews, rote CI-Läufe, laufende Agents
+- [x] PR-Review vertiefen: Inline-Kommentar-Threads, Suggested Changes, Review-Drafts
+- [x] Native Benachrichtigungen (CI rot, Review angefordert, Agent fertig)
+- [ ] Inbox/Notification-Folgearbeiten: Hintergrund-Polling für CI/Review-Ereignisse, default_branch aus dem Provider-Payload, Notification-Klick-Navigation sobald das Tauri-Plugin Desktop-Clicks liefert
 
 ### Monat 11 — Reichweite & Community
 - [ ] Linux-Polish: Wayland, HiDPI

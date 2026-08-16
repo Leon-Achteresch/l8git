@@ -80,6 +80,7 @@ export function PullRequestOverviewTab({
         number: detail.number,
         event,
         body: reviewBody.trim(),
+        comments: null,
       });
       setReviewBody("");
       onMutated();

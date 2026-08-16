@@ -87,7 +87,14 @@ export function PullRequestConversationTab({
     if (!body.trim()) return;
     setSending(true);
     try {
-      await invoke("pr_add_comment", { path, number, body: body.trim() });
+      await invoke("pr_add_comment", {
+        path,
+        number,
+        body: body.trim(),
+        inReplyTo: null,
+        filePath: null,
+        line: null,
+      });
       setBody("");
       await load();
       onCommented();
