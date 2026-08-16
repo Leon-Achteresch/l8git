@@ -18,6 +18,7 @@ import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
 import { useRepoPrefs } from "@/lib/repo-prefs";
 import { toastError } from "@/lib/error-toast";
+import { loadSigningInfo, type SigningInfo } from "@/lib/git-signing";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { parseDiffWithHunks, type ParsedDiff } from "@/lib/unified-diff";
@@ -75,6 +76,7 @@ export function CommitPanel() {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
   const [undoDialogOpen, setUndoDialogOpen] = useState(false);
+  const [signingInfo, setSigningInfo] = useState<SigningInfo | null>(null);
 
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
@@ -132,6 +134,24 @@ export function CommitPanel() {
     }
     return useCommitPrefs.persist.onFinishHydration(run);
   }, [activePath, seedMessageFromTemplate]);
+
+  useEffect(() => {
+    if (!activePath) {
+      setSigningInfo(null);
+      return;
+    }
+    let alive = true;
+    void loadSigningInfo(activePath)
+      .then((info) => {
+        if (alive) setSigningInfo(info);
+      })
+      .catch(() => {
+        if (alive) setSigningInfo(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [activePath]);
 
   useEffect(() => {
     let prev = useCommitPrefs.getState().messageTemplate;
@@ -667,6 +687,7 @@ export function CommitPanel() {
         repoAiLanguage={repoAiLanguage}
         globalAiLanguage={globalAiLanguage}
         canUndo={!!latestCommit && (!hasUpstream || aheadCount > 0)}
+        signingInfo={signingInfo}
         onCommit={() => void onCommit()}
         onGenerateAi={() => void onGenerateAiMessage()}
         onSetLanguage={(lang) => setRepoAiLanguage(activePath, lang)}

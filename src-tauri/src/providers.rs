@@ -24,6 +24,9 @@ pub(crate) fn http_client() -> Result<reqwest::Client, String> {
 }
 
 fn github_api_base(host: &str) -> String {
+    if crate::pr::detect_provider(host) == crate::pr::Provider::Gitea {
+        return crate::pr::gitea_api_base(host);
+    }
     if host.eq_ignore_ascii_case("github.com") {
         "https://api.github.com".to_string()
     } else {
@@ -563,17 +566,18 @@ pub async fn create_remote_repo(
     validate_repo_name(&name)?;
     let description = description.map(|d| d.trim().to_string());
     let desc = description.as_deref();
-    let host_lc = h.to_ascii_lowercase();
-    match host_lc.as_str() {
-        "github.com" => github_create(h, &name, private, desc).await,
-        "gitlab.com" => gitlab_create(h, &name, private, desc).await,
-        "bitbucket.org" => bitbucket_create(h, &name, private, desc).await,
-        "dev.azure.com" => Err(
+    if h.eq_ignore_ascii_case("dev.azure.com") {
+        return Err(
             "Azure DevOps: Das Anlegen von Repositories wird hier noch nicht unterstützt.".into(),
-        ),
-        _ if host_lc.contains("github") => github_create(h, &name, private, desc).await,
-        _ if host_lc.contains("gitlab") => gitlab_create(h, &name, private, desc).await,
-        _ => match github_create(h, &name, private, desc).await {
+        );
+    }
+    match crate::pr::detect_provider(h) {
+        crate::pr::Provider::GitLab => gitlab_create(h, &name, private, desc).await,
+        crate::pr::Provider::Bitbucket => bitbucket_create(h, &name, private, desc).await,
+        crate::pr::Provider::GitHub | crate::pr::Provider::Gitea => {
+            github_create(h, &name, private, desc).await
+        }
+        crate::pr::Provider::Unsupported => match github_create(h, &name, private, desc).await {
             Ok(repo) => Ok(repo),
             Err(_) => gitlab_create(h, &name, private, desc).await,
         },
@@ -586,15 +590,14 @@ pub async fn list_remote_repos(host: String) -> Result<Vec<RemoteRepo>, String> 
     if h.is_empty() {
         return Err("Host darf nicht leer sein".into());
     }
-    let host_lc = h.to_ascii_lowercase();
-    match host_lc.as_str() {
-        "github.com" => github_list(h).await,
-        "bitbucket.org" => bitbucket_list(h).await,
-        "dev.azure.com" => Err(
-            "Azure DevOps: Repo-Liste wird hier noch nicht unterstützt.".into(),
-        ),
-        _ if host_lc.contains("github") => github_list(h).await,
-        _ => match github_list(h).await {
+    if h.eq_ignore_ascii_case("dev.azure.com") {
+        return Err("Azure DevOps: Repo-Liste wird hier noch nicht unterstützt.".into());
+    }
+    match crate::pr::detect_provider(h) {
+        crate::pr::Provider::GitLab => gitlab_list(h).await,
+        crate::pr::Provider::Bitbucket => bitbucket_list(h).await,
+        crate::pr::Provider::GitHub | crate::pr::Provider::Gitea => github_list(h).await,
+        crate::pr::Provider::Unsupported => match github_list(h).await {
             Ok(repos) => Ok(repos),
             Err(_) => gitlab_list(h).await,
         },

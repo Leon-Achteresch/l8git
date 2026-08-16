@@ -58,7 +58,7 @@ async fn push_with_set_upstream_publishes_the_branch_and_records_tracking() {
 
     assert_eq!(git::branch_has_upstream(work.s()).await.unwrap(), false);
 
-    git::git_push(work.s(), true, None, None, None, None, None, None)
+    git::git_push(work.s(), true, None, None, None, None, None, None, None)
         .await
         .unwrap();
 
@@ -76,12 +76,12 @@ async fn push_dry_run_leaves_the_remote_untouched() {
     let before = remote_head(&bare, "main");
     work.commit("b.txt", "2\n", "second");
 
-    git::git_push(work.s(), false, None, None, None, None, Some(true), None)
+    git::git_push(work.s(), false, None, None, None, None, None, Some(true), None)
         .await
         .unwrap();
     assert_eq!(remote_head(&bare, "main"), before);
 
-    git::git_push(work.s(), false, None, None, None, None, None, None)
+    git::git_push(work.s(), false, None, None, None, None, None, None, None)
         .await
         .unwrap();
     assert_eq!(remote_head(&bare, "main"), work.head());
@@ -99,14 +99,14 @@ async fn push_force_with_lease_is_rejected_while_the_remote_is_ahead() {
     work.git(&["add", "-A"]);
     work.git(&["commit", "-q", "--amend", "-m", "amended locally"]);
 
-    let err = git::git_push(work.s(), false, Some("lease".into()), None, None, None, None, None)
+    let err = git::git_push(work.s(), false, None, Some("lease".into()), None, None, None, None, None)
         .await
         .unwrap_err();
     assert!(err.contains("rejected") || err.contains("stale info"), "{err}");
     assert_eq!(remote_head(&bare, "main"), other_head);
 
-    git::git_fetch(work.s(), None, None, None).await.unwrap();
-    git::git_push(work.s(), false, Some("lease".into()), None, None, None, None, None)
+    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
+    git::git_push(work.s(), false, None, Some("lease".into()), None, None, None, None, None)
         .await
         .unwrap();
     assert_eq!(remote_head(&bare, "main"), work.head());
@@ -117,7 +117,7 @@ async fn push_tags_mode_all_publishes_tags_and_delete_remote_tag_removes_them() 
     let (work, bare) = repo_with_remote("push-tags");
     work.git(&["tag", "v1.2.3"]);
 
-    git::git_push(work.s(), false, None, Some("all".into()), None, None, None, None)
+    git::git_push(work.s(), false, None, None, Some("all".into()), None, None, None, None)
         .await
         .unwrap();
     assert_eq!(bare.git(&["tag", "--list"]), "v1.2.3");
@@ -139,11 +139,11 @@ async fn fetch_updates_remote_tracking_refs_and_prunes_deleted_branches() {
     other.commit("tmp.txt", "x\n", "tmp work");
     other.git(&["push", "-q", "origin", "tmp"]);
 
-    git::git_fetch(work.s(), None, None, None).await.unwrap();
+    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
     assert!(work.try_git(&["rev-parse", "--verify", "refs/remotes/origin/tmp"]).0);
 
     other.git(&["push", "-q", "origin", "--delete", "tmp"]);
-    git::git_fetch(work.s(), Some(true), None, None).await.unwrap();
+    git::git_fetch(work.s(), Some(true), None, None, None, None).await.unwrap();
     assert!(
         !work.try_git(&["rev-parse", "--verify", "refs/remotes/origin/tmp"]).0,
         "prune must drop the stale remote-tracking ref"
@@ -158,7 +158,7 @@ async fn pull_fast_forwards_the_local_branch() {
     other.commit("other.txt", "x\n", "remote work");
     other.git(&["push", "-q", "origin", "main"]);
 
-    git::git_pull(work.s(), None, None).await.unwrap();
+    git::git_pull(work.s(), None, None, None).await.unwrap();
     assert_eq!(work.head(), other.head());
     assert_eq!(work.read("other.txt"), "x\n");
     assert_eq!(remote_head(&bare, "main"), work.head());
@@ -174,11 +174,11 @@ async fn pull_is_blocked_by_dirty_tracked_files_unless_autostash_is_requested() 
     other.git(&["push", "-q", "origin", "main"]);
 
     work.write("local.txt", "dirty edit\n");
-    let err = git::git_pull(work.s(), None, None).await.unwrap_err();
+    let err = git::git_pull(work.s(), None, None, None).await.unwrap_err();
     assert_eq!(err, "__LOCAL_CHANGES_BLOCK__|local.txt");
     assert!(!work.exists("other.txt"));
 
-    git::git_pull(work.s(), Some("autostash".into()), None).await.unwrap();
+    git::git_pull(work.s(), Some("autostash".into()), None, None).await.unwrap();
     assert!(work.exists("other.txt"));
     assert_eq!(work.read("local.txt"), "dirty edit\n");
 }
@@ -191,7 +191,7 @@ async fn pull_ff_only_fails_when_the_history_diverged() {
     other.git(&["push", "-q", "origin", "main"]);
     work.commit("local.txt", "y\n", "local work");
 
-    let err = git::git_pull(work.s(), Some("ff-only".into()), None).await.unwrap_err();
+    let err = git::git_pull(work.s(), Some("ff-only".into()), None, None).await.unwrap_err();
     assert!(err.to_lowercase().contains("fast-forward") || err.contains("diverg"), "{err}");
     assert_eq!(work.subjects()[0], "local work");
 }
@@ -207,7 +207,7 @@ async fn upstream_sync_counts_report_ahead_and_behind() {
     other.git(&["push", "-q", "origin", "main"]);
     work.commit("l1.txt", "x\n", "local one");
     work.commit("l2.txt", "x\n", "local two");
-    git::git_fetch(work.s(), None, None, None).await.unwrap();
+    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
 
     let counts = git::repo_upstream_sync_counts(work.s()).await.unwrap();
     assert_eq!(counts.ahead, 2);
@@ -226,7 +226,7 @@ async fn checkout_from_remote_creates_a_tracking_branch() {
     other.git(&["checkout", "-q", "-b", "feature"]);
     other.commit("feature.txt", "x\n", "feature work");
     other.git(&["push", "-q", "origin", "feature"]);
-    git::git_fetch(work.s(), None, None, None).await.unwrap();
+    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
 
     git::git_checkout(work.s(), "feature".into(), false, Some("origin/feature".into()), None)
         .await
@@ -328,4 +328,98 @@ async fn list_submodules_reports_the_registered_submodule() {
     assert_eq!(commits[0].author, "Test User");
     assert_eq!(commits[0].is_pinned, true);
     assert_eq!(commits[1].is_pinned, false);
+}
+
+#[tokio::test]
+async fn push_sets_upstream_on_the_requested_non_origin_remote() {
+    let origin = TestRepo::bare("multi-origin-bare");
+    let fork = TestRepo::bare("multi-fork-bare");
+    let work = TestRepo::new("multi-push-work");
+    work.commit("README.md", "hello\n", "initial");
+    work.git(&["remote", "add", "origin", &origin.file_url()]);
+    work.git(&["remote", "add", "fork", &fork.file_url()]);
+
+    assert_eq!(git::branch_push_remote(work.s()).await.unwrap(), "origin");
+
+    git::git_push(work.s(), true, Some("fork".into()), None, None, None, None, None, None)
+        .await
+        .unwrap();
+
+    assert_eq!(remote_head(&fork, "main"), work.head());
+    assert_eq!(fork.try_git(&["rev-parse", "refs/heads/main"]).0, true);
+    assert_eq!(origin.try_git(&["rev-parse", "refs/heads/main"]).0, false);
+    assert_eq!(work.git(&["config", "branch.main.remote"]), "fork");
+    assert_eq!(git::branch_has_upstream(work.s()).await.unwrap(), true);
+    assert_eq!(git::branch_push_remote(work.s()).await.unwrap(), "fork");
+}
+
+#[tokio::test]
+async fn push_without_upstream_targets_the_selected_remote() {
+    let origin = TestRepo::bare("target-origin-bare");
+    let fork = TestRepo::bare("target-fork-bare");
+    let work = TestRepo::new("target-push-work");
+    work.commit("README.md", "hello\n", "initial");
+    work.git(&["remote", "add", "origin", &origin.file_url()]);
+    work.git(&["remote", "add", "fork", &fork.file_url()]);
+    work.git(&["push", "-q", "-u", "origin", "main"]);
+
+    work.commit("next.txt", "more\n", "second");
+    git::git_push(work.s(), false, Some("fork".into()), None, None, None, None, None, None)
+        .await
+        .unwrap();
+
+    assert_eq!(remote_head(&fork, "main"), work.head());
+    assert_eq!(work.git(&["config", "branch.main.remote"]), "origin");
+}
+
+#[tokio::test]
+async fn push_upstream_falls_back_to_the_tracking_remote_when_none_is_given() {
+    let origin = TestRepo::bare("fallback-origin-bare");
+    let fork = TestRepo::bare("fallback-fork-bare");
+    let work = TestRepo::new("fallback-push-work");
+    work.commit("README.md", "hello\n", "initial");
+    work.git(&["remote", "add", "origin", &origin.file_url()]);
+    work.git(&["remote", "add", "fork", &fork.file_url()]);
+    work.git(&["config", "branch.main.remote", "fork"]);
+    work.git(&["config", "branch.main.merge", "refs/heads/main"]);
+
+    assert_eq!(git::branch_push_remote(work.s()).await.unwrap(), "fork");
+
+    git::git_push(work.s(), true, None, None, None, None, None, None, None)
+        .await
+        .unwrap();
+
+    assert_eq!(remote_head(&fork, "main"), work.head());
+    assert_eq!(origin.try_git(&["rev-parse", "refs/heads/main"]).0, false);
+}
+
+#[tokio::test]
+async fn fetch_can_target_a_single_remote_or_all_remotes() {
+    let origin = TestRepo::bare("fetch-origin-bare");
+    let fork = TestRepo::bare("fetch-fork-bare");
+    let work = TestRepo::new("fetch-multi-work");
+    work.commit("README.md", "hello\n", "initial");
+    work.git(&["remote", "add", "origin", &origin.file_url()]);
+    work.git(&["remote", "add", "fork", &fork.file_url()]);
+    work.git(&["push", "-q", "-u", "origin", "main"]);
+    work.git(&["push", "-q", "fork", "main"]);
+
+    let other = clone_of(&fork, "fetch-fork-clone");
+    other.commit("fork.txt", "fork\n", "fork commit");
+    other.git(&["push", "-q", "origin", "main"]);
+
+    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
+    assert_eq!(work.try_git(&["rev-parse", "refs/remotes/fork/main"]).1, work.head());
+
+    git::git_fetch(work.s(), None, None, Some("fork".into()), None, None)
+        .await
+        .unwrap();
+    assert_eq!(work.git(&["rev-parse", "refs/remotes/fork/main"]), other.head());
+
+    other.commit("fork2.txt", "fork2\n", "fork commit 2");
+    other.git(&["push", "-q", "origin", "main"]);
+    git::git_fetch(work.s(), None, None, None, Some(true), None)
+        .await
+        .unwrap();
+    assert_eq!(work.git(&["rev-parse", "refs/remotes/fork/main"]), other.head());
 }

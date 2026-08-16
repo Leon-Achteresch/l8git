@@ -207,6 +207,10 @@ pub fn run() {
             git::repo_contributor_stats,
             git::repo_activity_buckets,
             git::repo_branch_activity,
+            git::commit_signing_info,
+            git::set_commit_signing,
+            git::commit_signature_status,
+            git::branch_push_remote,
             undo::reflog_list,
             undo::undo_last_operation,
             undo::undo_preview,
@@ -242,7 +246,8 @@ pub fn run() {
             lfs::lfs_untrack,
             lfs::lfs_ls_files,
             lfs::lfs_pull,
-            lfs::lfs_pointer_info
+            lfs::lfs_pointer_info,
+            pr::pr_provider_capabilities
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

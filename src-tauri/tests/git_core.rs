@@ -258,11 +258,11 @@ async fn commit_changes_requires_a_message_and_creates_a_commit() {
     repo.write("a.txt", "two\n");
     repo.git(&["add", "--", "a.txt"]);
 
-    let err = git::commit_changes(repo.s(), "   ".into()).await.unwrap_err();
+    let err = git::commit_changes(repo.s(), "   ".into(), None).await.unwrap_err();
     assert!(err.contains("leer"), "{err}");
     assert_eq!(repo.subjects(), vec!["initial"]);
 
-    git::commit_changes(repo.s(), "  second change  ".into())
+    git::commit_changes(repo.s(), "  second change  ".into(), None)
         .await
         .unwrap();
     assert_eq!(repo.subjects(), vec!["second change", "initial"]);
@@ -728,4 +728,349 @@ async fn git_init_repo_creates_a_repository_in_a_new_folder() {
     assert!(std::path::Path::new(&created).join(".git").exists());
     assert!(git::git_init_repo("   ".into()).await.is_err());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+fn gpg_signing_available() -> bool {
+    let Ok(out) = std::process::Command::new("gpg")
+        .args(["--list-secret-keys", "--with-colons"])
+        .stdin(std::process::Stdio::null())
+        .output()
+    else {
+        return false;
+    };
+    out.status.success()
+        && String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .any(|l| l.starts_with("sec:"))
+}
+
+fn gpg_default_key() -> Option<String> {
+    let out = std::process::Command::new("gpg")
+        .args(["--list-secret-keys", "--with-colons"])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let mut lines = text.lines();
+    while let Some(line) = lines.next() {
+        if line.starts_with("sec:") {
+            for next in lines.by_ref() {
+                if let Some(rest) = next.strip_prefix("fpr:") {
+                    return rest.split(':').find(|f| !f.is_empty()).map(|f| f.to_string());
+                }
+                if next.starts_with("sec:") {
+                    break;
+                }
+            }
+        }
+    }
+    None
+}
+
+#[tokio::test]
+async fn git_tag_commit_creates_lightweight_and_annotated_tags() {
+    let repo = TestRepo::new("tag-kinds");
+    let first = repo.commit("a.txt", "1\n", "c1");
+    repo.commit("b.txt", "2\n", "c2");
+
+    git::git_tag_commit(repo.s(), "light".into(), first.clone(), None, None, None)
+        .await
+        .unwrap();
+    git::git_tag_commit(
+        repo.s(),
+        "annot".into(),
+        "HEAD".into(),
+        Some(true),
+        Some("  release notes\nline two  ".into()),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(repo.git(&["cat-file", "-t", "light"]), "commit");
+    assert_eq!(repo.git(&["cat-file", "-t", "annot"]), "tag");
+    assert!(repo.git(&["tag", "-n99", "-l", "annot"]).contains("release notes"));
+
+    let info = json(&git::open_repo(repo.s(), None).await.unwrap());
+    let tags = info["tags"].as_array().unwrap();
+    let annot = tags.iter().find(|t| t["name"] == "annot").unwrap();
+    assert_eq!(annot["kind"], "annotated");
+    assert_eq!(annot["message"], "release notes\nline two");
+    assert_eq!(annot["tagger"], "Test User");
+    assert_eq!(annot["commit"], repo.head());
+
+    let light = tags.iter().find(|t| t["name"] == "light").unwrap();
+    assert_eq!(light["kind"], "lightweight");
+    assert_eq!(light["message"], serde_json::Value::Null);
+    assert_eq!(light["commit"], first);
+}
+
+#[tokio::test]
+async fn annotated_tags_require_a_message() {
+    let repo = TestRepo::new("tag-msg-required");
+    repo.commit("a.txt", "1\n", "c1");
+
+    let err = git::git_tag_commit(
+        repo.s(),
+        "v1".into(),
+        "HEAD".into(),
+        Some(true),
+        Some("   ".into()),
+        None,
+    )
+    .await
+    .unwrap_err();
+    assert!(err.contains("Nachricht"), "{err}");
+    assert_eq!(repo.git(&["tag", "--list"]), "");
+}
+
+#[tokio::test]
+async fn signed_tags_are_listed_as_signed() {
+    if !gpg_signing_available() {
+        eprintln!("skipping: no gpg secret key configured");
+        return;
+    }
+    let Some(key) = gpg_default_key() else {
+        eprintln!("skipping: no gpg fingerprint found");
+        return;
+    };
+    let repo = TestRepo::new("tag-signed");
+    repo.commit("a.txt", "1\n", "c1");
+    repo.git(&["config", "user.signingkey", &key]);
+
+    let created = git::git_tag_commit(
+        repo.s(),
+        "v1-signed".into(),
+        "HEAD".into(),
+        None,
+        Some("signed release".into()),
+        Some(true),
+    )
+    .await;
+    if created.is_err() {
+        eprintln!("skipping: gpg could not sign ({created:?})");
+        return;
+    }
+
+    let info = json(&git::open_repo(repo.s(), None).await.unwrap());
+    let tag = info["tags"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "v1-signed")
+        .unwrap();
+    assert_eq!(tag["kind"], "signed");
+    assert_eq!(tag["message"], "signed release");
+}
+
+#[test]
+fn parse_tag_refs_splits_kind_message_and_target() {
+    let raw = concat!(
+        "light\u{001f}commit\u{001f}aaa111\u{001f}\u{001f}\u{001e}\n",
+        "annot\u{001f}tag\u{001f}bbb222\u{001f}Ada\u{001f}subject line\n\nbody text\n\u{001e}\n",
+        "signed\u{001f}tag\u{001f}ccc333\u{001f}Ada\u{001f}sig subject\n",
+        "-----BEGIN PGP SIGNATURE-----\nblob\n-----END PGP SIGNATURE-----\n\u{001e}\n",
+    );
+    let tags = git::parse_tag_refs(raw);
+    assert_eq!(tags.len(), 3);
+    assert_eq!(tags[0].name, "annot");
+    assert_eq!(tags[0].kind, "annotated");
+    assert_eq!(tags[0].commit, "bbb222");
+    assert_eq!(tags[0].message.as_deref(), Some("subject line\n\nbody text"));
+    assert_eq!(tags[0].tagger.as_deref(), Some("Ada"));
+    assert_eq!(tags[1].name, "light");
+    assert_eq!(tags[1].kind, "lightweight");
+    assert_eq!(tags[1].message, None);
+    assert_eq!(tags[2].name, "signed");
+    assert_eq!(tags[2].kind, "signed");
+    assert_eq!(tags[2].message.as_deref(), Some("sig subject"));
+}
+
+#[test]
+fn parse_signature_status_maps_every_git_code() {
+    let good = git::parse_signature_status("G\u{001f}Ada Lovelace <ada@example.com>\u{001f}ABC123\n");
+    assert_eq!(good.state, "good");
+    assert_eq!(good.code, "G");
+    assert_eq!(good.signer.as_deref(), Some("Ada Lovelace <ada@example.com>"));
+    assert_eq!(good.key.as_deref(), Some("ABC123"));
+
+    assert_eq!(git::parse_signature_status("B\u{001f}\u{001f}").state, "invalid");
+    assert_eq!(git::parse_signature_status("E\u{001f}\u{001f}KEY").state, "unknown_key");
+    assert_eq!(git::parse_signature_status("U\u{001f}x\u{001f}").state, "untrusted");
+    assert_eq!(git::parse_signature_status("X\u{001f}x\u{001f}").state, "untrusted");
+    assert_eq!(git::parse_signature_status("Y\u{001f}x\u{001f}").state, "untrusted");
+    assert_eq!(git::parse_signature_status("R\u{001f}x\u{001f}").state, "untrusted");
+
+    let none = git::parse_signature_status("N\u{001f}\u{001f}");
+    assert_eq!(none.state, "unsigned");
+    assert_eq!(none.signer, None);
+    assert_eq!(none.key, None);
+
+    let empty = git::parse_signature_status("");
+    assert_eq!(empty.state, "unsigned");
+    assert_eq!(empty.code, "N");
+}
+
+#[tokio::test]
+async fn commit_signature_status_reports_unsigned_commits() {
+    let repo = TestRepo::new("sig-status");
+    repo.commit("a.txt", "1\n", "c1");
+
+    let sig = git::commit_signature_status(repo.s(), repo.head()).await.unwrap();
+    assert_eq!(sig.state, "unsigned");
+    assert_eq!(sig.code, "N");
+    assert!(git::commit_signature_status(repo.s(), "  ".into()).await.is_err());
+}
+
+#[tokio::test]
+async fn commit_signing_info_reads_repo_configuration() {
+    let repo = TestRepo::new("signing-info");
+    repo.commit("a.txt", "1\n", "c1");
+
+    let off = git::commit_signing_info(repo.s()).await.unwrap();
+    assert_eq!(off.commit_sign, false);
+    assert_eq!(off.tag_sign, false);
+    assert_eq!(off.local.commit_sign, Some(false));
+    if off.global.format.is_none() {
+        assert_eq!(off.format, "openpgp");
+        assert_eq!(off.program, "gpg");
+    }
+
+    repo.git(&["config", "commit.gpgsign", "true"]);
+    repo.git(&["config", "tag.gpgsign", "true"]);
+    repo.git(&["config", "gpg.format", "ssh"]);
+    repo.git(&["config", "user.signingkey", "~/.ssh/id_ed25519.pub"]);
+
+    let on = git::commit_signing_info(repo.s()).await.unwrap();
+    assert_eq!(on.commit_sign, true);
+    assert_eq!(on.tag_sign, true);
+    assert_eq!(on.format, "ssh");
+    assert_eq!(on.signing_key.as_deref(), Some("~/.ssh/id_ed25519.pub"));
+    assert_eq!(on.program, "ssh-keygen");
+    assert_eq!(on.local.commit_sign, Some(true));
+    assert_eq!(on.local.format.as_deref(), Some("ssh"));
+
+    repo.git(&["config", "gpg.ssh.program", "/opt/custom/ssh-keygen"]);
+    let custom = git::commit_signing_info(repo.s()).await.unwrap();
+    assert_eq!(custom.program, "/opt/custom/ssh-keygen");
+    assert_eq!(custom.tool_available, false);
+}
+
+#[tokio::test]
+async fn set_commit_signing_writes_repo_local_config() {
+    let repo = TestRepo::new("signing-set");
+    repo.commit("a.txt", "1\n", "c1");
+
+    let after = git::set_commit_signing(
+        repo.s(),
+        Some(true),
+        None,
+        Some("ssh".into()),
+        Some("  key-abc  ".into()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(after.commit_sign, true);
+    assert_eq!(after.format, "ssh");
+    assert_eq!(after.signing_key.as_deref(), Some("key-abc"));
+    assert_eq!(repo.git(&["config", "--local", "commit.gpgsign"]), "true");
+    assert_eq!(repo.git(&["config", "--local", "user.signingkey"]), "key-abc");
+
+    let cleared = git::set_commit_signing(repo.s(), Some(false), None, None, Some("  ".into()))
+        .await
+        .unwrap();
+    assert_eq!(cleared.commit_sign, false);
+    assert_eq!(cleared.signing_key, None);
+    assert_eq!(repo.try_git(&["config", "--local", "user.signingkey"]).0, false);
+}
+
+#[tokio::test]
+async fn commit_changes_can_force_signing_off_without_changing_the_default() {
+    let repo = TestRepo::new("commit-nosign");
+    repo.commit("a.txt", "1\n", "c1");
+    repo.git(&["config", "commit.gpgsign", "true"]);
+    repo.git(&["config", "user.signingkey", "does-not-exist"]);
+
+    repo.write("b.txt", "2\n");
+    repo.git(&["add", "-A"]);
+    git::commit_changes(repo.s(), "unsigned please".into(), Some(false))
+        .await
+        .unwrap();
+    assert_eq!(repo.subjects()[0], "unsigned please");
+    assert_eq!(
+        git::commit_signature_status(repo.s(), repo.head()).await.unwrap().state,
+        "unsigned"
+    );
+}
+
+fn ssh_signing_key(repo: &TestRepo) -> Option<String> {
+    let key = repo.path.join("signing-key");
+    let status = std::process::Command::new("ssh-keygen")
+        .args(["-q", "-t", "ed25519", "-N", "", "-C", "l8git-test", "-f"])
+        .arg(&key)
+        .stdin(std::process::Stdio::null())
+        .status()
+        .ok()?;
+    if !status.success() {
+        return None;
+    }
+    let pub_key = format!("{}.pub", key.to_string_lossy());
+    let allowed = repo.path.join("allowed-signers");
+    let material = std::fs::read_to_string(&pub_key).ok()?;
+    std::fs::write(&allowed, format!("test@example.com {material}")).ok()?;
+    repo.git(&["config", "gpg.format", "ssh"]);
+    repo.git(&["config", "user.signingkey", &pub_key]);
+    repo.git(&["config", "gpg.ssh.allowedSignersFile", &allowed.to_string_lossy()]);
+    Some(pub_key)
+}
+
+#[tokio::test]
+async fn ssh_signed_tags_and_commits_are_reported_as_signed() {
+    let repo = TestRepo::new("ssh-signing");
+    repo.commit("a.txt", "1\n", "c1");
+    let Some(pub_key) = ssh_signing_key(&repo) else {
+        eprintln!("skipping: ssh-keygen unavailable");
+        return;
+    };
+
+    let signing = git::commit_signing_info(repo.s()).await.unwrap();
+    assert_eq!(signing.format, "ssh");
+    assert_eq!(signing.program, "ssh-keygen");
+    assert_eq!(signing.tool_available, true);
+    assert_eq!(signing.signing_key.as_deref(), Some(pub_key.as_str()));
+
+    let tagged = git::git_tag_commit(
+        repo.s(),
+        "v1-ssh".into(),
+        "HEAD".into(),
+        None,
+        Some("ssh signed tag".into()),
+        Some(true),
+    )
+    .await;
+    if tagged.is_err() {
+        eprintln!("skipping: ssh signing unsupported by this git ({tagged:?})");
+        return;
+    }
+
+    let info = json(&git::open_repo(repo.s(), None).await.unwrap());
+    let tag = info["tags"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "v1-ssh")
+        .unwrap();
+    assert_eq!(tag["kind"], "signed");
+    assert_eq!(tag["message"], "ssh signed tag");
+
+    repo.write("b.txt", "2\n");
+    repo.git(&["add", "-A"]);
+    git::commit_changes(repo.s(), "ssh signed commit".into(), Some(true))
+        .await
+        .unwrap();
+
+    let sig = git::commit_signature_status(repo.s(), repo.head()).await.unwrap();
+    assert_eq!(sig.state, "good");
+    assert_eq!(sig.code, "G");
+    assert_eq!(sig.signer.as_deref(), Some("test@example.com"));
 }

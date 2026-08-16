@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
+import { usePrCapabilities } from "@/lib/pr-provider-store";
 import type { Branch, PullRequest } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 
@@ -298,6 +299,8 @@ export function PullRequestCreatePanel({
   const [body, setBody] = useState("");
   const [draft, setDraft] = useState(false);
   const [busy, setBusy] = useState(false);
+  const caps = usePrCapabilities(path);
+  const canDraft = caps ? caps.can_draft : true;
 
   useEffect(() => {
     if (!head && currentBranch) setHead(currentBranch);
@@ -339,7 +342,7 @@ export function PullRequestCreatePanel({
         body,
         head: head.trim(),
         base: base.trim(),
-        draft,
+        draft: canDraft && draft,
       });
       toast.success(t("pr.createdToast", { number: pr.number }));
       onCreated?.(pr);
@@ -445,14 +448,18 @@ export function PullRequestCreatePanel({
         </div>
 
         <div className="flex items-center justify-between gap-2 pt-1">
-          <Label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-            <Checkbox
-              checked={draft}
-              onCheckedChange={(value) => setDraft(value === true)}
-              disabled={busy}
-            />
-            {t("pr.draftLabel")}
-          </Label>
+          {canDraft ? (
+            <Label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={draft}
+                onCheckedChange={(value) => setDraft(value === true)}
+                disabled={busy}
+              />
+              {t("pr.draftLabel")}
+            </Label>
+          ) : (
+            <span />
+          )}
           <div className="flex items-center gap-1.5">
             <Button
               type="button"

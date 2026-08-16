@@ -441,7 +441,8 @@
     "mergeConflictAction": "Merge-Editor öffnen",
     "stashAndPullAction": "Stash & Pull",
     "detachedHead": "Du befindest dich im Detached-HEAD-Zustand. Branch erstellen, um Änderungen zu sichern.",
-    "aiNoDiff": "Kein gestagter Diff vorhanden"
+    "aiNoDiff": "Kein gestagter Diff vorhanden",
+    "providerUnknown": "Provider nicht erkannt für {{host}} — unterstützt: GitHub, GitHub Enterprise, Bitbucket, GitLab, Gitea/Forgejo."
   },
   "hotkeys": {
     "reloadActive": "Aktives Repo neu laden",
@@ -466,6 +467,29 @@
     "navAppearance": "Darstellung",
     "navAnimations": "Animationen",
     "navCommits": "Commits",
+    "navSigning": "Signierung",
+    "signingSectionTitle": "Git-Signierung",
+    "signingSectionSubtitle": "Commits und Tags mit GPG oder SSH signieren",
+    "signingTitle": "Signierung dieses Repositories",
+    "signingDesc": "Die Umschalter schreiben in die lokale git config des geöffneten Repositories.",
+    "signingNoRepo": "Kein Repository geöffnet – öffne ein Repository, um dessen Signierung zu konfigurieren.",
+    "signingLoading": "Lese Signier-Konfiguration …",
+    "signingScopeGlobal": "Global:",
+    "signingScopeLocal": "Repository:",
+    "signingScopeEmpty": "nichts gesetzt",
+    "signingToolReady": "{{program}} gefunden ({{version}})",
+    "signingToolMissing": "{{program}} wurde nicht gefunden – Signieren schlägt fehl.",
+    "signingCommitLabel": "Commits signieren (commit.gpgsign)",
+    "signingCommitHint": "Jeder Commit in diesem Repository wird automatisch signiert.",
+    "signingTagLabel": "Tags signieren (tag.gpgsign)",
+    "signingTagHint": "Annotierte Tags werden standardmäßig signiert.",
+    "signingFormatLabel": "Signatur-Format (gpg.format)",
+    "signingFormatHint": "SSH benötigt Git 2.34 oder neuer.",
+    "signingKeyLabel": "Signier-Schlüssel (user.signingkey)",
+    "signingKeyPlaceholderGpg": "z. B. 3AA5C34371567BD2",
+    "signingKeyPlaceholderSsh": "z. B. ~/.ssh/id_ed25519.pub",
+    "signingKeyHint": "Leer lassen, um den globalen Schlüssel zu verwenden.",
+    "signingSaved": "Signier-Konfiguration gespeichert.",
     "navWorkspace": "Workspace",
     "navAccounts": "Git-Konten",
     "navUpdates": "Updates",
@@ -870,6 +894,10 @@
     "stashTitle": "Änderungen stashen",
     "stashAria": "Stashen",
     "commitTitle": "Committen",
+    "signingBadge": "wird signiert ({{format}})",
+    "signingTooltip": "Commits werden mit {{format}} signiert.",
+    "signingKeyTooltip": "Schlüssel: {{key}}",
+    "signingToolMissing": "Achtung: „{{program}}“ wurde nicht gefunden – der Commit kann fehlschlagen.",
     "amendTitle": "Letzten Commit ändern (--amend)",
     "mergeConflict": "Merge-Konflikt",
     "mergeConflictHint": "Diese Datei enthält Konflikte und kann nicht als Diff angezeigt werden.",
@@ -1513,7 +1541,17 @@
     "cancel": "Abbrechen",
     "submit": "Tag setzen",
     "toastEmptyName": "Tag-Name darf nicht leer sein.",
-    "toastSuccess": "Tag „{{name}}“ wurde gesetzt."
+    "toastEmptyMessage": "Tag-Nachricht darf nicht leer sein.",
+    "toastSuccess": "Tag „{{name}}“ wurde gesetzt.",
+    "kindLabel": "Tag-Typ",
+    "kindHint": {
+      "lightweight": "Nur ein Zeiger auf den Commit – ohne Autor, Datum oder Nachricht.",
+      "annotated": "Eigenes Tag-Objekt mit Autor, Datum und Nachricht.",
+      "signed": "Annotiertes Tag, zusätzlich signiert mit deinem konfigurierten Schlüssel."
+    },
+    "messageLabel": "Tag-Nachricht",
+    "messagePlaceholder": "Was ist an diesem Stand besonders?",
+    "signToolMissing": "{{format}}-Signierung ist konfiguriert, aber „{{program}}“ wurde nicht gefunden."
   },
   "blame": {
     "noData": "Keine Blame-Daten vorhanden.",
@@ -1818,6 +1856,7 @@
     "title": "Branch veröffentlichen",
     "closeAria": "Schließen",
     "body": "Branch „{{branch}}\" existiert nur lokal. Soll er auf origin veröffentlicht werden?",
+    "bodyWithRemote": "Branch „{{branch}}\" existiert nur lokal. Soll er auf „{{remote}}“ veröffentlicht werden?",
     "cancel": "Abbrechen",
     "publish": "Veröffentlichen",
     "successFallback": "Branch veröffentlicht."
@@ -1966,7 +2005,27 @@
   "tagRow": {
     "confirmLocalDelete": "Tag „{{name}}“ lokal löschen?",
     "menuLocalDelete": "Lokal löschen",
-    "menuRemoteDelete": "Remote löschen …"
+    "menuRemoteDelete": "Remote löschen …",
+    "taggerPrefix": "Tagger: {{name}}"
+  },
+  "tagKind": {
+    "lightweight": "Einfach",
+    "annotated": "Annotiert",
+    "signed": "Signiert"
+  },
+  "commitSignature": {
+    "good": "Signatur gültig",
+    "invalid": "Signatur ungültig",
+    "untrusted": "Signatur nicht vertrauenswürdig",
+    "unknown_key": "Schlüssel unbekannt",
+    "unsigned": "Nicht signiert",
+    "signer": "Signiert von {{signer}}",
+    "key": "Schlüssel: {{key}}"
+  },
+  "pushRemote": {
+    "label": "Remote",
+    "menuLabel": "Push-Ziel",
+    "pushTo": "Push nach {{remote}}"
   },
   "prInspect": {
     "pillOpen": "Offen",
@@ -2018,7 +2077,13 @@
     "autoMergeEnabled": "Auto-Merge aktiv ({{method}})",
     "autoMergeHint": "Auto-Merge: PR wird automatisch gemergt, wenn alle Checks bestehen.",
     "autoMergeEnable": "Auto-Merge aktivieren",
-    "autoMergeDisable": "Auto-Merge deaktivieren"
+    "autoMergeDisable": "Auto-Merge deaktivieren",
+    "deleteSourceBranch": "Quell-Branch {{branch}} nach dem Merge löschen",
+    "approveVerb": "Freigeben",
+    "approveBusy": "Wird freigegeben …",
+    "requestChangesVerb": "Änderungen anfordern",
+    "providerHint": "{{label}} · {{host}}",
+    "requestChangesPrompt": "Was soll geändert werden?"
   },
   "worktreeMove": {
     "toastSelectBranch": "Bitte einen Branch auswählen.",

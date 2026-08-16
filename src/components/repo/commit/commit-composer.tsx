@@ -9,6 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  shortSigningKey,
+  signingFormatLabel,
+  type SigningInfo,
+} from "@/lib/git-signing";
 import { cn } from "@/lib/utils";
 import {
   Archive,
@@ -17,6 +22,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  ShieldCheck,
   Sparkles,
   Undo2,
 } from "lucide-react";
@@ -61,6 +67,7 @@ type CommitComposerProps = {
   repoAiLanguage: string | undefined;
   globalAiLanguage: string;
   canUndo: boolean;
+  signingInfo: SigningInfo | null;
   onCommit: () => void;
   onGenerateAi: () => void;
   onSetLanguage: (lang: string | undefined) => void;
@@ -86,6 +93,7 @@ export function CommitComposer({
   repoAiLanguage,
   globalAiLanguage,
   canUndo,
+  signingInfo,
   onCommit,
   onGenerateAi,
   onSetLanguage,
@@ -113,6 +121,21 @@ export function CommitComposer({
 
   const subjectTone =
     subjectLen > 72 ? "over" : subjectLen > 60 ? "warn" : subjectLen > 0 ? "ok" : "idle";
+
+  const signingActive = !!signingInfo?.commitSign;
+  const signingFormat = signingActive ? signingFormatLabel(signingInfo?.format) : "";
+  const signingKey = shortSigningKey(signingInfo?.signingKey);
+  const signingTitle = signingActive
+    ? [
+        t("commitPanel.signingTooltip", { format: signingFormat }),
+        signingKey ? t("commitPanel.signingKeyTooltip", { key: signingKey }) : "",
+        signingInfo && !signingInfo.toolAvailable
+          ? t("commitPanel.signingToolMissing", { program: signingInfo.program })
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
 
   const onKeyCommit = (e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
@@ -316,6 +339,30 @@ export function CommitComposer({
                     count: stagedFiles,
                     unit: stagedFiles === 1 ? t("common.file") : t("common.files"),
                   })}
+                </m.span>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence initial={false}>
+              {signingActive && (
+                <m.span
+                  key="signing"
+                  layout
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={spring}
+                  title={signingTitle}
+                  aria-label={signingTitle}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                    signingInfo?.toolAvailable
+                      ? "bg-git-added/10 text-git-added"
+                      : "bg-git-modified/10 text-git-modified",
+                  )}
+                >
+                  <ShieldCheck className="size-3" aria-hidden />
+                  {t("commitPanel.signingBadge", { format: signingFormat })}
                 </m.span>
               )}
             </AnimatePresence>

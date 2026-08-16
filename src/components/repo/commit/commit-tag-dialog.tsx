@@ -1,12 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
-import { useRepoStore } from "@/lib/repo-store";
+import { loadSigningInfo, signingFormatLabel, type SigningInfo } from "@/lib/git-signing";
+import { useRepoStore, type TagKind } from "@/lib/repo-store";
+import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+
+const TAG_KINDS: TagKind[] = ["lightweight", "annotated", "signed"];
 
 export function CommitTagDialog({
   open,
@@ -24,19 +29,38 @@ export function CommitTagDialog({
   const { t } = useTranslation();
   const tagCommit = useRepoStore((s) => s.tagCommit);
   const [tagName, setTagName] = useState("");
+  const [kind, setKind] = useState<TagKind>("lightweight");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signing, setSigning] = useState<SigningInfo | null>(null);
 
   useEffect(() => {
     if (!open) {
       setTagName("");
+      setKind("lightweight");
+      setMessage("");
       setBusy(false);
+      return;
     }
-  }, [open]);
+    let alive = true;
+    void loadSigningInfo(path)
+      .then((info) => {
+        if (!alive) return;
+        setSigning(info);
+        if (info.tagSign) setKind("signed");
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [open, path]);
 
   function dismiss() {
     if (busy) return;
     onClose();
   }
+
+  const needsMessage = kind !== "lightweight";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,9 +69,18 @@ export function CommitTagDialog({
       toastError(t("commitTagDialog.toastEmptyName"));
       return;
     }
+    const msg = message.trim();
+    if (needsMessage && !msg) {
+      toastError(t("commitTagDialog.toastEmptyMessage"));
+      return;
+    }
     setBusy(true);
     try {
-      await tagCommit(path, n, commitHash);
+      await tagCommit(path, n, commitHash, {
+        annotated: needsMessage,
+        message: needsMessage ? msg : null,
+        sign: kind === "signed",
+      });
       toast.success(t("commitTagDialog.toastSuccess", { name: n }));
       onClose();
     } catch (err) {
@@ -101,6 +134,63 @@ export function CommitTagDialog({
               required
             />
           </div>
+
+          <div className="grid gap-1.5">
+            <Label>{t("commitTagDialog.kindLabel")}</Label>
+            <div
+              role="radiogroup"
+              aria-label={t("commitTagDialog.kindLabel")}
+              className="grid grid-cols-3 gap-1 rounded-lg bg-muted/50 p-1"
+            >
+              {TAG_KINDS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={kind === option}
+                  disabled={busy}
+                  onClick={() => setKind(option)}
+                  className={cn(
+                    "rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors",
+                    kind === option
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t(`tagKind.${option}`)}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              {t(`commitTagDialog.kindHint.${kind}`)}
+            </p>
+            {kind === "signed" && signing && !signing.toolAvailable && (
+              <p className="text-[11px] leading-snug text-destructive">
+                {t("commitTagDialog.signToolMissing", {
+                  format: signingFormatLabel(signing.format),
+                  program: signing.program,
+                })}
+              </p>
+            )}
+          </div>
+
+          {needsMessage && (
+            <div className="grid gap-1">
+              <Label htmlFor="commit-tag-message">
+                {t("commitTagDialog.messageLabel")}
+              </Label>
+              <Textarea
+                id="commit-tag-message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={3}
+                spellCheck={false}
+                placeholder={t("commitTagDialog.messagePlaceholder")}
+                className="resize-none text-[12.5px]"
+              />
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" size="sm" onClick={dismiss} disabled={busy}>
               {t("commitTagDialog.cancel")}

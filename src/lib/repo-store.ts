@@ -79,9 +79,20 @@ export type Branch = {
   behind?: number;
 };
 
+export type TagKind = 'lightweight' | 'annotated' | 'signed';
+
 export type TagRef = {
   name: string;
   commit: string;
+  kind: TagKind;
+  message: string | null;
+  tagger: string | null;
+};
+
+export type TagCreateOptions = {
+  annotated?: boolean;
+  message?: string | null;
+  sign?: boolean;
 };
 
 export type RepoInfo = {
@@ -434,7 +445,12 @@ type RepoState = {
   mergeCommit: (path: string) => Promise<string>;
   mergeGetConflictVersions: (path: string, file: string) => Promise<ConflictVersions>;
   mergeSaveResolved: (path: string, file: string, content: string) => Promise<void>;
-  tagCommit: (path: string, name: string, commit: string) => Promise<void>;
+  tagCommit: (
+    path: string,
+    name: string,
+    commit: string,
+    options?: TagCreateOptions
+  ) => Promise<void>;
   discardFiles: (path: string, files: string[]) => Promise<void>;
   discardWorktreeChanges: (path: string, files: string[]) => Promise<void>;
   restoreFilesAtCommit: (
@@ -1407,8 +1423,15 @@ export const useRepoStore = create<RepoState>()(
         ]);
       },
 
-      async tagCommit(path, name, commit) {
-        await invoke('git_tag_commit', { path, name, commit });
+      async tagCommit(path, name, commit, options) {
+        await invoke('git_tag_commit', {
+          path,
+          name,
+          commit,
+          annotated: options?.annotated ?? false,
+          message: options?.message ?? null,
+          sign: options?.sign ?? false,
+        });
         await get().reload(path);
       },
 

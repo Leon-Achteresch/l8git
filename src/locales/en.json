@@ -441,7 +441,8 @@
     "mergeConflictAction": "Open Merge Editor",
     "stashAndPullAction": "Stash & Pull",
     "detachedHead": "You are in detached HEAD state. Create a branch to keep your work.",
-    "aiNoDiff": "No staged diff available"
+    "aiNoDiff": "No staged diff available",
+    "providerUnknown": "Provider not recognised for {{host}} — supported: GitHub, GitHub Enterprise, Bitbucket, GitLab, Gitea/Forgejo."
   },
   "hotkeys": {
     "reloadActive": "Reload active repository",
@@ -466,6 +467,29 @@
     "navAppearance": "Appearance",
     "navAnimations": "Animations",
     "navCommits": "Commits",
+    "navSigning": "Signing",
+    "signingSectionTitle": "Git signing",
+    "signingSectionSubtitle": "Sign commits and tags with GPG or SSH",
+    "signingTitle": "Signing for this repository",
+    "signingDesc": "These switches write to the local git config of the open repository.",
+    "signingNoRepo": "No repository open — open one to configure its signing.",
+    "signingLoading": "Reading signing configuration…",
+    "signingScopeGlobal": "Global:",
+    "signingScopeLocal": "Repository:",
+    "signingScopeEmpty": "nothing set",
+    "signingToolReady": "{{program}} found ({{version}})",
+    "signingToolMissing": "{{program}} was not found — signing will fail.",
+    "signingCommitLabel": "Sign commits (commit.gpgsign)",
+    "signingCommitHint": "Every commit in this repository is signed automatically.",
+    "signingTagLabel": "Sign tags (tag.gpgsign)",
+    "signingTagHint": "Annotated tags are signed by default.",
+    "signingFormatLabel": "Signature format (gpg.format)",
+    "signingFormatHint": "SSH requires Git 2.34 or newer.",
+    "signingKeyLabel": "Signing key (user.signingkey)",
+    "signingKeyPlaceholderGpg": "e.g. 3AA5C34371567BD2",
+    "signingKeyPlaceholderSsh": "e.g. ~/.ssh/id_ed25519.pub",
+    "signingKeyHint": "Leave empty to use the global key.",
+    "signingSaved": "Signing configuration saved.",
     "navWorkspace": "Workspace",
     "navAccounts": "Git accounts",
     "navUpdates": "Updates",
@@ -870,6 +894,10 @@
     "stashTitle": "Stash changes",
     "stashAria": "Stash",
     "commitTitle": "Commit",
+    "signingBadge": "signed ({{format}})",
+    "signingTooltip": "Commits are signed with {{format}}.",
+    "signingKeyTooltip": "Key: {{key}}",
+    "signingToolMissing": "Warning: \"{{program}}\" was not found — committing may fail.",
     "amendTitle": "Amend last commit (--amend)",
     "mergeConflict": "Merge conflict",
     "mergeConflictHint": "This file has conflicts and cannot be shown as a diff.",
@@ -1513,7 +1541,17 @@
     "cancel": "Cancel",
     "submit": "Set tag",
     "toastEmptyName": "Tag name must not be empty.",
-    "toastSuccess": "Tag \"{{name}}\" was created."
+    "toastEmptyMessage": "Tag message must not be empty.",
+    "toastSuccess": "Tag \"{{name}}\" was created.",
+    "kindLabel": "Tag type",
+    "kindHint": {
+      "lightweight": "Just a pointer to the commit — no author, date or message.",
+      "annotated": "A real tag object with author, date and message.",
+      "signed": "An annotated tag, additionally signed with your configured key."
+    },
+    "messageLabel": "Tag message",
+    "messagePlaceholder": "What makes this state special?",
+    "signToolMissing": "{{format}} signing is configured, but \"{{program}}\" was not found."
   },
   "blame": {
     "noData": "No blame data available.",
@@ -1818,6 +1856,7 @@
     "title": "Publish branch",
     "closeAria": "Close",
     "body": "Branch \"{{branch}}\" exists only locally. Publish it to origin?",
+    "bodyWithRemote": "Branch \"{{branch}}\" exists only locally. Publish it to \"{{remote}}\"?",
     "cancel": "Cancel",
     "publish": "Publish",
     "successFallback": "Branch published."
@@ -1966,7 +2005,27 @@
   "tagRow": {
     "confirmLocalDelete": "Delete tag \"{{name}}\" locally?",
     "menuLocalDelete": "Delete locally",
-    "menuRemoteDelete": "Delete on remote…"
+    "menuRemoteDelete": "Delete on remote…",
+    "taggerPrefix": "Tagger: {{name}}"
+  },
+  "tagKind": {
+    "lightweight": "Lightweight",
+    "annotated": "Annotated",
+    "signed": "Signed"
+  },
+  "commitSignature": {
+    "good": "Signature valid",
+    "invalid": "Signature invalid",
+    "untrusted": "Signature untrusted",
+    "unknown_key": "Key unknown",
+    "unsigned": "Not signed",
+    "signer": "Signed by {{signer}}",
+    "key": "Key: {{key}}"
+  },
+  "pushRemote": {
+    "label": "Remote",
+    "menuLabel": "Push target",
+    "pushTo": "Push to {{remote}}"
   },
   "prInspect": {
     "pillOpen": "Open",
@@ -2018,7 +2077,13 @@
     "autoMergeEnabled": "Auto-merge enabled ({{method}})",
     "autoMergeHint": "Auto-merge: this PR will be merged automatically once all checks pass.",
     "autoMergeEnable": "Enable auto-merge",
-    "autoMergeDisable": "Disable auto-merge"
+    "autoMergeDisable": "Disable auto-merge",
+    "deleteSourceBranch": "Delete source branch {{branch}} after merge",
+    "approveVerb": "Approve",
+    "approveBusy": "Approving …",
+    "requestChangesVerb": "Request changes",
+    "providerHint": "{{label}} · {{host}}",
+    "requestChangesPrompt": "What should be changed?"
   },
   "worktreeMove": {
     "toastSelectBranch": "Please select a branch.",

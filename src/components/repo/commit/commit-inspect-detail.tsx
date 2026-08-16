@@ -16,6 +16,7 @@ import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitInspectHeader } from "./commit-inspect-header";
+import { CommitSignatureBadge } from "./commit-signature-badge";
 import { CommitInspectMessage } from "./commit-inspect-message";
 import { CommitInspectFileTabs } from "./commit-inspect-file-tabs";
 import { CommitInspectDiff, FileDiffPayload } from "./commit-inspect-diff";
@@ -148,6 +149,7 @@ export function CommitInspectDetail({
     <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-sm">
       <CommitInspectHeader
         title={t("commitInspect.panelTitle")}
+        badge={<CommitSignatureBadge path={path} commitHash={commitHash} />}
         onRefresh={refreshAll}
         onClose={onClose}
         loading={loading}

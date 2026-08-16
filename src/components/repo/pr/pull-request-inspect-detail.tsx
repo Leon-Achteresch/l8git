@@ -1,12 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
 import { formatDate, formatRelative } from "@/lib/format";
+import { pickMergeStrategy, type ProviderCapabilities } from "@/lib/pr-provider";
+import { usePrCapabilities } from "@/lib/pr-provider-store";
 import type { PrReviewer, PullRequest } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
-import { AlertCircle, CheckCircle2, Download, ExternalLink, GitMerge, Loader2, PanelRightClose, PanelRightOpen, RefreshCw, RotateCcw, ShieldCheck, X, Zap } from "lucide-react";
+import { AlertCircle, CheckCheck, CheckCircle2, Download, ExternalLink, GitMerge, Loader2, PanelRightClose, PanelRightOpen, RefreshCw, RotateCcw, ShieldCheck, ThumbsDown, X, Zap } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,6 +30,12 @@ export type PullRequestDetail = PullRequest & {
 
 type MergeStrategy = "merge" | "squash" | "rebase";
 type Tab = "conversation" | "commits" | "files" | "checks";
+
+const MERGE_STRATEGY_LABEL_KEYS: Record<MergeStrategy, string> = {
+  squash: "prInspect.strategySquashOpt",
+  rebase: "prInspect.strategyRebaseOpt",
+  merge: "prInspect.strategyMergeOpt",
+};
 
 type BranchProtection = {
   required_status_checks: string[];
@@ -156,22 +165,28 @@ function ReviewerCard({ reviewers }: { reviewers: PrReviewer[] }) {
 function MergeStateBanner({
   path,
   detail,
+  caps,
   busy,
   strategy,
   mergeMessage,
+  deleteSourceBranch,
   onStrategyChange,
   onMergeMessageChange,
+  onDeleteSourceBranchChange,
   onMerge,
   onCheckout,
   onReload,
 }: {
   path: string;
   detail: PullRequestDetail;
+  caps: ProviderCapabilities | null;
   busy: string | null;
   strategy: MergeStrategy;
   mergeMessage: string;
+  deleteSourceBranch: boolean;
   onStrategyChange: (s: MergeStrategy) => void;
   onMergeMessageChange: (m: string) => void;
+  onDeleteSourceBranchChange: (v: boolean) => void;
   onMerge: () => void;
   onCheckout: () => void;
   onReload: () => void;
@@ -183,6 +198,9 @@ function MergeStateBanner({
   const isActive = detail.state === "open" || detail.state === "draft";
   const isResolved = detail.state === "merged" || detail.state === "closed";
   const isGitHub = detail.provider === "github";
+  const strategies = caps?.merge_strategies ?? ["merge", "squash", "rebase"];
+  const canAutoMerge = caps ? caps.can_auto_merge : isGitHub;
+  const canDeleteSource = caps?.can_delete_source_branch ?? false;
 
   // Load branch protection once when the banner first shows for an open PR.
   useEffect(() => {
@@ -348,9 +366,11 @@ function MergeStateBanner({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="squash">{t("prInspect.strategySquashOpt")}</SelectItem>
-              <SelectItem value="rebase">{t("prInspect.strategyRebaseOpt")}</SelectItem>
-              <SelectItem value="merge">{t("prInspect.strategyMergeOpt")}</SelectItem>
+              {strategies.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {t(MERGE_STRATEGY_LABEL_KEYS[s])}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Input
@@ -369,8 +389,17 @@ function MergeStateBanner({
           </Button>
         </div>
 
-        {/* Auto-merge toggle — only for GitHub PRs with a node_id */}
-        {isGitHub && detail.node_id && (
+        {canDeleteSource && (
+          <label className="flex cursor-pointer items-center gap-2 text-[11px]">
+            <Checkbox
+              checked={deleteSourceBranch}
+              onCheckedChange={(v) => onDeleteSourceBranchChange(v === true)}
+            />
+            {t("prInspect.deleteSourceBranch", { branch: detail.source_branch })}
+          </label>
+        )}
+
+        {canAutoMerge && detail.node_id && (
           <div className="flex items-center gap-2 border-t border-git-added/30 pt-2">
             {detail.auto_merge_method ? (
               <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[11px]">
@@ -421,6 +450,77 @@ function MergeStateBanner({
   );
 }
 
+function ReviewActions({
+  path,
+  detail,
+  caps,
+  onReviewed,
+}: {
+  path: string;
+  detail: PullRequestDetail;
+  caps: ProviderCapabilities | null;
+  onReviewed: () => void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  if (!caps || !caps.can_approve) return null;
+  if (detail.state !== "open" && detail.state !== "draft") return null;
+
+  async function submit(event: "APPROVE" | "REQUEST_CHANGES") {
+    let body = "";
+    if (event === "REQUEST_CHANGES") {
+      const input = window.prompt(t("prInspect.requestChangesPrompt"));
+      if (input === null || !input.trim()) return;
+      body = input.trim();
+    }
+    setBusy(event);
+    try {
+      await invoke("pr_submit_review", {
+        path,
+        number: detail.number,
+        event,
+        body,
+      });
+      onReviewed();
+    } catch (e) {
+      toastError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-[11px]"
+        disabled={busy !== null}
+        onClick={() => void submit("APPROVE")}
+      >
+        <CheckCheck className="mr-1 h-3 w-3" />
+        {busy === "APPROVE" ? t("prInspect.approveBusy") : t("prInspect.approveVerb")}
+      </Button>
+      {caps.can_request_changes && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px]"
+          disabled={busy !== null}
+          onClick={() => void submit("REQUEST_CHANGES")}
+        >
+          <ThumbsDown className="mr-1 h-3 w-3" />
+          {t("prInspect.requestChangesVerb")}
+        </Button>
+      )}
+      <span className="text-[10px] text-muted-foreground">
+        {t("prInspect.providerHint", { label: caps.label, host: caps.host })}
+      </span>
+    </div>
+  );
+}
+
 /* ─── Main component ──────────────────────────────────────────────────────── */
 
 export function PullRequestInspectDetail({
@@ -439,9 +539,14 @@ export function PullRequestInspectDetail({
   const [tab, setTab] = useState<Tab>("conversation");
   const [strategy, setStrategy] = useState<MergeStrategy>("squash");
   const [mergeMessage, setMergeMessage] = useState("");
+  const [deleteSourceBranch, setDeleteSourceBranch] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { t } = useTranslation();
+  const caps = usePrCapabilities(path);
+  const effectiveStrategy = caps
+    ? pickMergeStrategy(strategy, caps.merge_strategies)
+    : strategy;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -463,14 +568,23 @@ export function PullRequestInspectDetail({
   }, [load]);
 
   async function doMerge() {
-    if (!window.confirm(t("prInspect.mergeConfirm", { number: String(number), strategy }))) return;
+    if (
+      !window.confirm(
+        t("prInspect.mergeConfirm", {
+          number: String(number),
+          strategy: effectiveStrategy,
+        }),
+      )
+    )
+      return;
     setBusy("merge");
     try {
       await invoke("pr_merge", {
         path,
         number,
-        strategy,
+        strategy: effectiveStrategy,
         message: mergeMessage.trim() ? mergeMessage.trim() : null,
+        deleteSourceBranch,
       });
       onMutated();
       void load();
@@ -661,16 +775,25 @@ export function PullRequestInspectDetail({
                   key={`${detail.state}-${String(detail.mergeable)}-${String(detail.is_draft)}`}
                   path={path}
                   detail={detail}
+                  caps={caps}
                   busy={busy}
-                  strategy={strategy}
+                  strategy={effectiveStrategy}
                   mergeMessage={mergeMessage}
+                  deleteSourceBranch={deleteSourceBranch}
                   onStrategyChange={setStrategy}
                   onMergeMessageChange={setMergeMessage}
+                  onDeleteSourceBranchChange={setDeleteSourceBranch}
                   onMerge={doMerge}
                   onCheckout={doCheckout}
                   onReload={load}
                 />
               </AnimatePresence>
+              <ReviewActions
+                path={path}
+                detail={detail}
+                caps={caps}
+                onReviewed={() => void load()}
+              />
             </div>
 
             {/* Tab content — crossfade on switch */}

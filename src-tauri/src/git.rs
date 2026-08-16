@@ -39,8 +39,11 @@ pub struct Branch {
 
 #[derive(Serialize)]
 pub struct TagRef {
-    name: String,
-    commit: String,
+    pub name: String,
+    pub commit: String,
+    pub kind: String,
+    pub message: Option<String>,
+    pub tagger: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -788,7 +791,7 @@ pub async fn open_repo(path: String, hide_t3_checkpoints: Option<bool>) -> Resul
         let tag_map = tags_by_target(&repo);
         let commits = fetch_commits(&repo, 0, DEFAULT_INITIAL_COMMITS, &tag_map, hide_t3)?;
         let branches = list_branches(&repo).unwrap_or_default();
-        let tags = tags_from_map(&tag_map);
+        let tags = tag_refs(&repo);
 
         Ok(RepoInfo {
             path: repo.to_string_lossy().to_string(),
@@ -821,18 +824,80 @@ pub async fn git_init_repo(path: String) -> Result<String, String> {
     }).await
 }
 
-fn tags_from_map(tag_map: &HashMap<String, Vec<String>>) -> Vec<TagRef> {
-    let mut tags: Vec<TagRef> = tag_map
-        .iter()
-        .flat_map(|(commit, names)| {
-            names.iter().map(move |name| TagRef {
-                name: name.clone(),
-                commit: commit.clone(),
-            })
-        })
-        .collect();
+pub const TAG_KIND_LIGHTWEIGHT: &str = "lightweight";
+pub const TAG_KIND_ANNOTATED: &str = "annotated";
+pub const TAG_KIND_SIGNED: &str = "signed";
+
+const TAG_FIELD_SEP: char = '\u{001f}';
+const TAG_RECORD_SEP: char = '\u{001e}';
+
+pub fn parse_tag_refs(raw: &str) -> Vec<TagRef> {
+    let mut tags: Vec<TagRef> = Vec::new();
+    for record in raw.split(TAG_RECORD_SEP) {
+        let record = record.trim_start_matches(['\n', '\r']);
+        if record.trim().is_empty() {
+            continue;
+        }
+        let mut fields = record.splitn(5, TAG_FIELD_SEP);
+        let name = fields.next().unwrap_or("").trim();
+        let object_type = fields.next().unwrap_or("").trim();
+        let commit = fields.next().unwrap_or("").trim();
+        let tagger = fields.next().unwrap_or("").trim();
+        let contents = fields.next().unwrap_or("");
+        if name.is_empty() || commit.is_empty() {
+            continue;
+        }
+        if object_type != "tag" {
+            tags.push(TagRef {
+                name: name.to_string(),
+                commit: commit.to_string(),
+                kind: TAG_KIND_LIGHTWEIGHT.to_string(),
+                message: None,
+                tagger: None,
+            });
+            continue;
+        }
+        let signed = contents.contains("-----BEGIN PGP SIGNATURE-----")
+            || contents.contains("-----BEGIN SSH SIGNATURE-----")
+            || contents.contains("-----BEGIN SIGNED MESSAGE-----");
+        let message = strip_signature_block(contents);
+        tags.push(TagRef {
+            name: name.to_string(),
+            commit: commit.to_string(),
+            kind: if signed { TAG_KIND_SIGNED } else { TAG_KIND_ANNOTATED }.to_string(),
+            message: (!message.is_empty()).then_some(message),
+            tagger: (!tagger.is_empty()).then(|| tagger.to_string()),
+        });
+    }
     tags.sort_by(|a, b| a.name.cmp(&b.name));
     tags
+}
+
+fn strip_signature_block(contents: &str) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("-----BEGIN PGP SIGNATURE-----")
+            || trimmed.starts_with("-----BEGIN SSH SIGNATURE-----")
+            || trimmed.starts_with("-----BEGIN SIGNED MESSAGE-----")
+        {
+            break;
+        }
+        out.push(line);
+    }
+    out.join("\n").trim().to_string()
+}
+
+fn tag_refs(repo: &PathBuf) -> Vec<TagRef> {
+    let format = format!(
+        "%(refname:strip=2){s}%(objecttype){s}%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end){s}%(taggername){s}%(contents){r}",
+        s = TAG_FIELD_SEP,
+        r = TAG_RECORD_SEP
+    );
+    let Ok(out) = run_git(repo, &["for-each-ref", "refs/tags", &format!("--format={format}")]) else {
+        return Vec::new();
+    };
+    parse_tag_refs(&out)
 }
 
 /// Load additional commits beyond what `open_repo` returned. Used by the
@@ -853,11 +918,66 @@ pub async fn repo_log_page(
     }).await
 }
 
+pub const DEFAULT_REMOTE: &str = "origin";
+
+fn normalized_remote(remote: Option<&str>) -> Option<String> {
+    let r = remote?.trim();
+    (!r.is_empty()).then(|| r.to_string())
+}
+
+fn remote_names(repo: &PathBuf) -> Vec<String> {
+    run_git(repo, &["remote"])
+        .unwrap_or_default()
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect()
+}
+
+/// The remote a plain `git push` would target: the current branch's tracking
+/// remote, else `remote.pushDefault`, else the only configured remote, else
+/// `origin`.
+fn resolve_push_remote(repo: &PathBuf) -> String {
+    let branch = run_git(repo, &["symbolic-ref", "--short", "HEAD"])
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+    if !branch.is_empty() {
+        if let Ok(out) = run_git(repo, &["config", "--get", &format!("branch.{branch}.remote")]) {
+            let out = out.trim().to_string();
+            if !out.is_empty() {
+                return out;
+            }
+        }
+    }
+    if let Ok(out) = run_git(repo, &["config", "--get", "remote.pushDefault"]) {
+        let out = out.trim().to_string();
+        if !out.is_empty() {
+            return out;
+        }
+    }
+    let remotes = remote_names(repo);
+    if remotes.len() == 1 {
+        return remotes[0].clone();
+    }
+    DEFAULT_REMOTE.to_string()
+}
+
+#[tauri::command]
+pub async fn branch_push_remote(path: String) -> Result<String, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        Ok(resolve_push_remote(&repo))
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn git_fetch(
     path: String,
     prune_branches: Option<bool>,
     prune_tags: Option<bool>,
+    remote: Option<String>,
+    all_remotes: Option<bool>,
     op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
@@ -870,6 +990,11 @@ pub async fn git_fetch(
         }
         if prune_tags {
             args.push("--prune-tags".to_string());
+        }
+        if all_remotes.unwrap_or(false) {
+            args.push("--all".to_string());
+        } else if let Some(r) = normalized_remote(remote.as_deref()) {
+            args.push(r);
         }
         let repo_path = repo.to_string_lossy().to_string();
         run_remote_op("fetch", &repo_path, Some(&repo), args, op_id)
@@ -900,6 +1025,7 @@ fn dirty_tracked_files(repo: &PathBuf) -> Vec<String> {
 pub async fn git_pull(
     path: String,
     strategy: Option<String>,
+    remote: Option<String>,
     op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
@@ -921,6 +1047,15 @@ pub async fn git_pull(
             }
             _ => args.push("--no-rebase".to_string()),
         }
+        if let Some(r) = normalized_remote(remote.as_deref()) {
+            args.push(r);
+            if let Ok(branch) = run_git(&repo, &["symbolic-ref", "--short", "HEAD"]) {
+                let branch = branch.trim().to_string();
+                if !branch.is_empty() {
+                    args.push(branch);
+                }
+            }
+        }
         let repo_path = repo.to_string_lossy().to_string();
         run_remote_op("pull", &repo_path, Some(&repo), args, op_id)
     }).await
@@ -930,6 +1065,7 @@ pub async fn git_pull(
 pub async fn git_push(
     path: String,
     set_upstream: bool,
+    remote: Option<String>,
     force_mode: Option<String>,
     tags_mode: Option<String>,
     atomic: Option<bool>,
@@ -964,12 +1100,22 @@ pub async fn git_push(
             args.push("--dry-run".to_string());
         }
 
+        let target = normalized_remote(remote.as_deref());
         if set_upstream {
             let branch = run_git(&repo, &["symbolic-ref", "--short", "HEAD"])
                 .map(|s| s.trim().to_string())?;
+            if branch.is_empty() {
+                return Err("HEAD zeigt auf keinen Branch".into());
+            }
+            let target = match target {
+                Some(r) => r,
+                None => resolve_push_remote(&repo),
+            };
             args.push("-u".to_string());
-            args.push("origin".to_string());
+            args.push(target);
             args.push(branch);
+        } else if let Some(r) = target {
+            args.push(r);
         }
 
         let repo_path = repo.to_string_lossy().to_string();
@@ -1467,7 +1613,14 @@ pub async fn git_merge_commit(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn git_tag_commit(path: String, name: String, commit: String) -> Result<(), String> {
+pub async fn git_tag_commit(
+    path: String,
+    name: String,
+    commit: String,
+    annotated: Option<bool>,
+    message: Option<String>,
+    sign: Option<bool>,
+) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
         let tag = name.trim();
@@ -1478,7 +1631,25 @@ pub async fn git_tag_commit(path: String, name: String, commit: String) -> Resul
         if c.is_empty() {
             return Err("Commit-Hash darf nicht leer sein".into());
         }
-        let parts = ["tag".to_string(), tag.to_string(), c.to_string()];
+        let sign = sign.unwrap_or(false);
+        let annotated = sign || annotated.unwrap_or(false);
+        let msg = message.unwrap_or_default().trim().to_string();
+        if annotated && msg.is_empty() {
+            return Err("Tag-Nachricht darf nicht leer sein".into());
+        }
+
+        let mut parts: Vec<String> = vec!["tag".to_string()];
+        if sign {
+            parts.push("-s".to_string());
+        } else if annotated {
+            parts.push("-a".to_string());
+        }
+        if annotated {
+            parts.push("-m".to_string());
+            parts.push(msg);
+        }
+        parts.push(tag.to_string());
+        parts.push(c.to_string());
         let args: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         run_git(&repo, &args)?;
         Ok(())
@@ -1947,14 +2118,26 @@ pub async fn unstage_files(path: String, files: Vec<String>) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub async fn commit_changes(path: String, message: String) -> Result<(), String> {
+pub async fn commit_changes(
+    path: String,
+    message: String,
+    sign: Option<bool>,
+) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
         let trimmed = message.trim();
         if trimmed.is_empty() {
             return Err("Commit-Nachricht darf nicht leer sein".into());
         }
-        run_git(&repo, &["commit", "-m", trimmed])?;
+        let mut args: Vec<&str> = vec!["commit"];
+        match sign {
+            Some(true) => args.push("-S"),
+            Some(false) => args.push("--no-gpg-sign"),
+            None => {}
+        }
+        args.push("-m");
+        args.push(trimmed);
+        run_git(&repo, &args)?;
         Ok(())
     }).await
 }
@@ -1970,6 +2153,220 @@ pub async fn commit_amend(path: String, message: String) -> Result<(), String> {
         run_git(&repo, &["commit", "--amend", "-m", trimmed])?;
         Ok(())
     }).await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SigningScope {
+    pub commit_sign: Option<bool>,
+    pub tag_sign: Option<bool>,
+    pub format: Option<String>,
+    pub signing_key: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SigningInfo {
+    pub commit_sign: bool,
+    pub tag_sign: bool,
+    pub format: String,
+    pub signing_key: Option<String>,
+    pub program: String,
+    pub tool_available: bool,
+    pub tool_version: Option<String>,
+    pub local: SigningScope,
+    pub global: SigningScope,
+}
+
+fn config_value(repo: &PathBuf, scope: Option<&str>, key: &str) -> Option<String> {
+    let mut args: Vec<&str> = vec!["config"];
+    if let Some(s) = scope {
+        args.push(s);
+    }
+    args.push("--get");
+    args.push(key);
+    let value = run_git(repo, &args).ok()?;
+    let value = value.trim().to_string();
+    (!value.is_empty()).then_some(value)
+}
+
+fn config_bool(repo: &PathBuf, scope: Option<&str>, key: &str) -> Option<bool> {
+    let raw = config_value(repo, scope, key)?;
+    match raw.to_ascii_lowercase().as_str() {
+        "true" | "yes" | "on" | "1" => Some(true),
+        "false" | "no" | "off" | "0" | "" => Some(false),
+        _ => None,
+    }
+}
+
+fn signing_scope(repo: &PathBuf, scope: Option<&str>) -> SigningScope {
+    SigningScope {
+        commit_sign: config_bool(repo, scope, "commit.gpgsign"),
+        tag_sign: config_bool(repo, scope, "tag.gpgsign"),
+        format: config_value(repo, scope, "gpg.format"),
+        signing_key: config_value(repo, scope, "user.signingkey"),
+    }
+}
+
+fn probe_tool(program: &str, args: &[&str], read_version: bool) -> (bool, Option<String>) {
+    let mut cmd = std::process::Command::new(program);
+    cmd.args(args);
+    cmd.stdin(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+    let Ok(out) = cmd.output() else {
+        return (false, None);
+    };
+    if !read_version {
+        return (true, None);
+    }
+    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+    let version = stdout
+        .lines()
+        .map(|l| l.trim())
+        .find(|l| !l.is_empty() && l.chars().any(|c| c.is_ascii_digit()))
+        .map(|l| l.to_string());
+    (true, version)
+}
+
+pub fn signing_program(format: &str, configured: Option<String>) -> (String, Vec<&'static str>, bool) {
+    let ssh_probe = vec!["-Y", "check-novalidate"];
+    if let Some(p) = configured.filter(|p| !p.trim().is_empty()) {
+        let p = p.trim().to_string();
+        return if format == "ssh" {
+            (p, ssh_probe, false)
+        } else {
+            (p, vec!["--version"], true)
+        };
+    }
+    match format {
+        "ssh" => ("ssh-keygen".to_string(), ssh_probe, false),
+        "x509" => ("gpgsm".to_string(), vec!["--version"], true),
+        _ => ("gpg".to_string(), vec!["--version"], true),
+    }
+}
+
+#[tauri::command]
+pub async fn commit_signing_info(path: String) -> Result<SigningInfo, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let local = signing_scope(&repo, Some("--local"));
+        let global = signing_scope(&repo, Some("--global"));
+
+        let commit_sign = config_bool(&repo, None, "commit.gpgsign").unwrap_or(false);
+        let tag_sign = config_bool(&repo, None, "tag.gpgsign").unwrap_or(false);
+        let format = config_value(&repo, None, "gpg.format")
+            .map(|f| f.to_ascii_lowercase())
+            .unwrap_or_else(|| "openpgp".to_string());
+        let signing_key = config_value(&repo, None, "user.signingkey");
+
+        let configured_program = config_value(&repo, None, &format!("gpg.{format}.program"))
+            .or_else(|| config_value(&repo, None, "gpg.program"));
+        let (program, probe_args, read_version) = signing_program(&format, configured_program);
+        let (tool_available, tool_version) = probe_tool(&program, &probe_args, read_version);
+
+        Ok(SigningInfo {
+            commit_sign,
+            tag_sign,
+            format,
+            signing_key,
+            program,
+            tool_available,
+            tool_version,
+            local,
+            global,
+        })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn set_commit_signing(
+    path: String,
+    commit_sign: Option<bool>,
+    tag_sign: Option<bool>,
+    format: Option<String>,
+    signing_key: Option<String>,
+) -> Result<SigningInfo, String> {
+    let apply_path = path.clone();
+    spawn_git(move || {
+        let repo = PathBuf::from(apply_path.trim());
+        let set = |key: &str, value: Option<String>| -> Result<(), String> {
+            match value {
+                Some(v) if !v.trim().is_empty() => {
+                    run_git(&repo, &["config", "--local", key, v.trim()]).map(|_| ())
+                }
+                Some(_) => {
+                    let _ = run_git(&repo, &["config", "--local", "--unset-all", key]);
+                    Ok(())
+                }
+                None => Ok(()),
+            }
+        };
+        set("commit.gpgsign", commit_sign.map(|v| v.to_string()))?;
+        set("tag.gpgsign", tag_sign.map(|v| v.to_string()))?;
+        set("gpg.format", format)?;
+        set("user.signingkey", signing_key)?;
+        Ok::<(), String>(())
+    })
+    .await?;
+    commit_signing_info(path).await
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitSignature {
+    pub state: String,
+    pub code: String,
+    pub signer: Option<String>,
+    pub key: Option<String>,
+}
+
+pub fn parse_signature_status(raw: &str) -> CommitSignature {
+    let line = raw.lines().next().unwrap_or("");
+    let mut fields = line.splitn(3, '\u{001f}');
+    let code = fields.next().unwrap_or("").trim().to_string();
+    let signer = fields.next().unwrap_or("").trim().to_string();
+    let key = fields.next().unwrap_or("").trim().to_string();
+    let state = match code.as_str() {
+        "G" => "good",
+        "B" => "invalid",
+        "U" | "X" | "Y" | "R" => "untrusted",
+        "E" => "unknown_key",
+        _ => "unsigned",
+    };
+    CommitSignature {
+        state: state.to_string(),
+        code: if code.is_empty() { "N".to_string() } else { code },
+        signer: (!signer.is_empty()).then_some(signer),
+        key: (!key.is_empty()).then_some(key),
+    }
+}
+
+#[tauri::command]
+pub async fn commit_signature_status(path: String, hash: String) -> Result<CommitSignature, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let c = hash.trim();
+        if c.is_empty() {
+            return Err("Commit-Referenz fehlt".into());
+        }
+        let out = run_git(
+            &repo,
+            &[
+                "log",
+                "-1",
+                "--no-color",
+                "--format=%G?\u{001f}%GS\u{001f}%GK",
+                c,
+            ],
+        )?;
+        Ok(parse_signature_status(&out))
+    })
+    .await
 }
 
 #[derive(Serialize)]

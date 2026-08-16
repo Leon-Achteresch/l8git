@@ -74,6 +74,8 @@ import { ToolbarGroup } from './toolbar-group';
 
 type RemoteOp = 'fetch' | 'pull' | 'push';
 
+type GitRemoteRow = { name: string; url: string };
+
 const SPINNER_DELAY_MS = 200;
 const EMPTY_BRANCH_FILTER: ReadonlySet<string> = new Set();
 const EMPTY_BRANCHES: readonly Branch[] = [];
@@ -139,11 +141,40 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const [createRemoteOpen, setCreateRemoteOpen] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
   const [draftQuery, setDraftQuery] = useState('');
+  const [remotes, setRemotes] = useState<GitRemoteRow[]>([]);
+  const [pushRemote, setPushRemote] = useState<string | null>(null);
 
   useEffect(() => {
     setDraftQuery('');
     clearCommitSearch(path);
   }, [path, clearCommitSearch]);
+
+  useEffect(() => {
+    let alive = true;
+    setRemotes([]);
+    setPushRemote(null);
+    void (async () => {
+      try {
+        const [list, preferred] = await Promise.all([
+          invoke<GitRemoteRow[]>('list_git_remotes', { path }),
+          invoke<string>('branch_push_remote', { path }).catch(() => 'origin'),
+        ]);
+        if (!alive) return;
+        setRemotes(list);
+        setPushRemote(
+          list.some(r => r.name === preferred) ? preferred : (list[0]?.name ?? null)
+        );
+      } catch {
+        if (alive) {
+          setRemotes([]);
+          setPushRemote(null);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [path, lackUpstream]);
 
   useEffect(() => {
     const q = draftQuery.trim();
@@ -191,6 +222,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               : invoke<string>('git_push', {
                   path,
                   setUpstream: false,
+                  remote: remotes.length > 1 ? pushRemote : null,
                   forceMode: pushForceMode === 'none' ? null : pushForceMode,
                   tagsMode: pushTagsMode === 'none' ? null : pushTagsMode,
                   atomic: pushAtomic,
@@ -239,6 +271,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       pushAtomic,
       pushNoVerify,
       pushDryRun,
+      pushRemote,
+      remotes,
       t,
     ]
   );
@@ -351,6 +385,26 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const pushMenu = useMemo(
     () => (
       <>
+        {remotes.length > 1 && (
+          <>
+            <DropdownMenuLabel>{t("pushRemote.menuLabel")}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={pushRemote ?? ''}
+              onValueChange={(v) => setPushRemote(v)}
+            >
+              {remotes.map((r) => (
+                <DropdownMenuRadioItem
+                  key={r.name}
+                  value={r.name}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {r.name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuLabel>{t("toolbar.pushForceSection")}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={pushForceMode} onValueChange={(v) => setPushForceMode(v as PushForceMode)}>
           <DropdownMenuRadioItem value="none" onSelect={(e) => e.preventDefault()}>
@@ -406,7 +460,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       pushDryRun,
       pushForceMode,
       pushNoVerify,
+      pushRemote,
       pushTagsMode,
+      remotes,
       setPushAtomic,
       setPushDryRun,
       setPushForceMode,
@@ -418,6 +474,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
 
   const pushTitle = useMemo(() => {
     const parts: string[] = [];
+    if (remotes.length > 1 && pushRemote) {
+      parts.push(t("pushRemote.pushTo", { remote: pushRemote }));
+    }
     if (pushCount > 0) parts.push(t("toolbar.pendingSuffix", { count: pushCount }));
     if (pushForceMode === "lease") parts.push(t("toolbar.forceWithLease"));
     else if (pushForceMode === "force") parts.push(t("toolbar.force"));
@@ -429,7 +488,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     pushCount,
     pushDryRun,
     pushForceMode,
+    pushRemote,
     pushTagsMode,
+    remotes,
     t,
   ]);
 

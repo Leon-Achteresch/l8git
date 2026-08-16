@@ -20,6 +20,7 @@ import {
   PanelLeft,
   Plus,
   RefreshCw,
+  ShieldCheck,
   Sparkles,
   Sun,
   Terminal,
@@ -33,6 +34,7 @@ import { StaggerCard } from "@/components/motion/stagger-card";
 import { AddGitAccount } from "@/components/repo/git-account/add-git-account";
 import { GitAccountRow } from "@/components/repo/git-account/git-account-row";
 import { AnimationsCard } from "@/components/settings/animations-card";
+import { GitSigningCard } from "@/components/settings/git-signing-card";
 import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
 import { SidebarCustomizeSection } from "@/components/settings/sidebar-customize-section";
 import { Button } from "@/components/ui/button";
@@ -194,6 +196,7 @@ export function Settings() {
         label: t("settings.navGroupCommits"),
         items: [
           { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal, accent: "bg-git-added" },
+          { id: "signing", label: t("settings.navSigning"), icon: ShieldCheck, accent: "bg-git-branch" },
           { id: "ai", label: t("settings.navAi"), icon: Sparkles, accent: "bg-git-merge" },
         ],
       },
@@ -805,6 +808,21 @@ export function Settings() {
                 </Card>
               </StaggerCard>
             </div>
+          </section>
+
+          {/* ── SIGNING ───────────────────────────────────────────────── */}
+          <section id="signing" ref={setRef("signing")} className="scroll-mt-10">
+            <SectionHeader
+              icon={ShieldCheck}
+              title={t("settings.signingSectionTitle")}
+              subtitle={t("settings.signingSectionSubtitle")}
+              gradient="from-git-branch/25 to-git-added/25"
+              iconColor="text-git-branch"
+            />
+
+            <StaggerCard index={0}>
+              <GitSigningCard />
+            </StaggerCard>
           </section>
 
           {/* ── AI ────────────────────────────────────────────────────── */}

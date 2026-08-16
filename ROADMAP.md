@@ -51,11 +51,12 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 - [ ] Diff-Performance-Benchmark gegen Fork/GitKraken auf Monorepos, Ergebnis dokumentieren
 
 ### Monat 5 — Provider-Vollständigkeit
-- [ ] GitLab komplett: MRs (Liste, Detail, Review, Merge), Pipelines, self-hosted
-- [ ] Gitea/Forgejo-Erkennung statt stillem GitHub-Fallback, saubere Fehlermeldungen
-- [ ] Annotierte und signierte Tags
-- [ ] GPG/SSH-Commit-Signierung
-- [ ] Multi-Remote-Push (origin-Hardcode entfernen)
+- [x] GitLab komplett: MRs (Liste, Detail, Review, Merge), Pipelines, self-hosted
+- [x] Gitea/Forgejo-Erkennung statt stillem GitHub-Fallback, saubere Fehlermeldungen
+- [x] Annotierte und signierte Tags
+- [x] GPG/SSH-Commit-Signierung
+- [x] Multi-Remote-Push (origin-Hardcode entfernen)
+- [ ] Provider-Folgearbeiten: Live-Test gegen echte GitLab-Instanz, Pipeline-Retry für GitLab, Signier-Badge live aktualisieren
 
 ### Monat 6 — Flow & Onboarding
 - [ ] Command Palette auf alle Aktionen ausweiten (alles ohne Maus erreichbar)

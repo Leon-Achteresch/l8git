@@ -530,10 +530,10 @@ async fn tags_can_be_created_listed_and_deleted() {
     let first = repo.commit("a.txt", "1\n", "c1");
     repo.commit("b.txt", "2\n", "c2");
 
-    git::git_tag_commit(repo.s(), "v1.0.0".into(), first.clone())
+    git::git_tag_commit(repo.s(), "v1.0.0".into(), first.clone(), None, None, None)
         .await
         .unwrap();
-    git::git_tag_commit(repo.s(), "v2.0.0".into(), "HEAD".into())
+    git::git_tag_commit(repo.s(), "v2.0.0".into(), "HEAD".into(), None, None, None)
         .await
         .unwrap();
 
@@ -550,8 +550,8 @@ async fn tags_can_be_created_listed_and_deleted() {
     git::delete_tag(repo.s(), "v1.0.0".into()).await.unwrap();
     assert_eq!(repo.git(&["tag", "--list"]), "v2.0.0");
 
-    assert!(git::git_tag_commit(repo.s(), "  ".into(), first.clone()).await.is_err());
-    assert!(git::git_tag_commit(repo.s(), "v3".into(), "  ".into()).await.is_err());
+    assert!(git::git_tag_commit(repo.s(), "  ".into(), first.clone(), None, None, None).await.is_err());
+    assert!(git::git_tag_commit(repo.s(), "v3".into(), "  ".into(), None, None, None).await.is_err());
     assert!(git::delete_tag(repo.s(), "  ".into()).await.is_err());
     assert!(git::delete_tag(repo.s(), "never-existed".into()).await.is_err());
 }
