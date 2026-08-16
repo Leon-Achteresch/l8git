@@ -1,3 +1,4 @@
+mod agent_review;
 mod agent_transport;
 mod claude;
 mod cmd;
@@ -247,7 +248,10 @@ pub fn run() {
             lfs::lfs_ls_files,
             lfs::lfs_pull,
             lfs::lfs_pointer_info,
-            pr::pr_provider_capabilities
+            pr::pr_provider_capabilities,
+            agent_review::agent_review_summary,
+            agent_review::agent_review_file_diff,
+            agent_review::agent_review_branch_merged
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

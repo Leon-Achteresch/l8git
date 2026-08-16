@@ -68,10 +68,11 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 ## Q3 (Mär–Mai 2027) — AI-native Differenzierung
 
 ### Monat 7 — Agent-Review-Workflow
-- [ ] Dashboard aller laufenden Agents über alle Repos
-- [ ] Diff-Review pro Agent-Session mit Hunk-genauem Übernehmen/Verwerfen
-- [ ] Ein-Klick-Flow: Review → Commit → Merge zurück → Worktree aufräumen
-- [ ] AI-gestütztes Commit-Splitting für Agent-Output
+- [x] Dashboard aller laufenden Agents über alle Repos
+- [x] Diff-Review pro Agent-Session mit Hunk-genauem Übernehmen/Verwerfen
+- [x] Ein-Klick-Flow: Review → Commit → Merge zurück → Worktree aufräumen
+- [x] AI-gestütztes Commit-Splitting für Agent-Output
+- [ ] Agent-Review-Folgearbeiten: Übersichts-Diff-Stat auf agent_review_summary umstellen, App-weites Agent-Presence-Arming, Merge-Strategie-Auswahl im Abschluss-Flow, buildLanguageModel aus ai-commit.ts exportieren statt duplizieren
 
 ### Monat 8 — Stacked Branches/PRs
 - [ ] Stacks im Client: Branch-Kette erstellen, automatisches Restacking bei Basis-Änderungen

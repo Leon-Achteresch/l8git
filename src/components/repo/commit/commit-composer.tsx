@@ -24,6 +24,7 @@ import {
   Plus,
   ShieldCheck,
   Sparkles,
+  Split,
   Undo2,
 } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
@@ -74,6 +75,7 @@ type CommitComposerProps = {
   onToggleAmend: () => void;
   onStash: () => void;
   onUndo: () => void;
+  onSplitCommits?: () => void;
 };
 
 export function CommitComposer({
@@ -100,6 +102,7 @@ export function CommitComposer({
   onToggleAmend,
   onStash,
   onUndo,
+  onSplitCommits,
 }: CommitComposerProps) {
   const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
@@ -457,6 +460,12 @@ export function CommitComposer({
                   {t("common.amend")}
                   {amendMode && <Check className="ml-auto size-3.5 text-primary" />}
                 </DropdownMenuItem>
+                {onSplitCommits && (
+                  <DropdownMenuItem onClick={onSplitCommits}>
+                    <Split className="size-3.5" />
+                    {t("commitSplit.menuEntry")}
+                  </DropdownMenuItem>
+                )}
                 {canUndo && (
                   <DropdownMenuItem onClick={onUndo}>
                     <Undo2 className="size-3.5" />

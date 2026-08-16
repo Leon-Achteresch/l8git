@@ -39,6 +39,7 @@ import {
 import { generateAiCommitMessage } from "@/lib/ai-commit";
 import { isAiConfigured } from "@/lib/ai-setup";
 import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
+import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog";
 import { useTranslation } from "react-i18next";
 
 const EMPTY_STATUS: StatusEntry[] = [];
@@ -76,6 +77,8 @@ export function CommitPanel() {
   const [aiSetupOpen, setAiSetupOpen] = useState(false);
   const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const aiReady = useCommitPrefs(() => isAiConfigured());
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
   const [undoDialogOpen, setUndoDialogOpen] = useState(false);
@@ -715,7 +718,16 @@ export function CommitPanel() {
         }}
         onStash={() => setStashOpen(true)}
         onUndo={() => setUndoDialogOpen(true)}
+        onSplitCommits={
+          activePath && aiReady && entries.length > 0
+            ? () => setSplitOpen(true)
+            : undefined
+        }
       />
+
+      {splitOpen && activePath ? (
+        <CommitSplitDialog open={splitOpen} onOpenChange={setSplitOpen} path={activePath} />
+      ) : null}
 
       <StashCreateDialog
         open={stashOpen}
