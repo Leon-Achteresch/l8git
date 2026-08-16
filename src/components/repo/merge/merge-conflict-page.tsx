@@ -344,6 +344,8 @@ export function MergeConflictPage({
                   key={`3way-${selectedFile}`}
                   versions={current.versions}
                   language={detectLanguage(selectedFile)}
+                  filePath={selectedFile}
+                  repoPath={path}
                   onSave={(content) => void handleSave(content)}
                   saving={saving}
                 />
@@ -352,6 +354,8 @@ export function MergeConflictPage({
                   key={`2way-${selectedFile}`}
                   versions={current.versions}
                   language={detectLanguage(selectedFile)}
+                  filePath={selectedFile}
+                  repoPath={path}
                   onSave={(content) => void handleSave(content)}
                   saving={saving}
                 />

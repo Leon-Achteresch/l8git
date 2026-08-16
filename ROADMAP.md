@@ -82,11 +82,12 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 - [ ] Stack-Folgearbeiten: Stack-Badges inline an Branch-Labels, global gemounteter Restack-Resume-Watcher, Graphite-artiger Ketten-Text im PR-Body, remote_merged-Flag für den Remote-Zwilling
 
 ### Monat 9 — Steuerbare AI in der Breite
-- [ ] AI-Konfliktlösung als Vorschlag im 3-Wege-Editor (nie Vollautomatik)
-- [ ] „Explain this branch/commit/diff"
-- [ ] AI-PR-Beschreibungen
-- [ ] Eigene Prompt-Templates überall, Reroll/Hint-Interaktion
-- [ ] Ollama/lokale Modelle als First-Class-Option
+- [x] AI-Konfliktlösung als Vorschlag im 3-Wege-Editor (nie Vollautomatik)
+- [x] „Explain this branch/commit/diff"
+- [x] AI-PR-Beschreibungen
+- [x] Eigene Prompt-Templates überall, Reroll/Hint-Interaktion
+- [x] Ollama/lokale Modelle als First-Class-Option
+- [ ] AI-Folgearbeiten: repo_range_commits-Command für Branch-Explain jenseits der geladenen Seite, AI-Beschreibung im Stack-PR-Ketten-Dialog (braucht Body-Feld)
 
 ## Q4 (Jun–Aug 2027) — Team, Reichweite, Community
 

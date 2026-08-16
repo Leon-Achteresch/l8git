@@ -5,12 +5,14 @@ import { useTranslation } from "react-i18next";
 export function CommitInspectHeader({
   title,
   badge,
+  actions,
   onRefresh,
   onClose,
   loading,
 }: {
   title?: string;
   badge?: React.ReactNode;
+  actions?: React.ReactNode;
   onRefresh: () => void;
   onClose: () => void;
   loading: boolean;
@@ -26,6 +28,7 @@ export function CommitInspectHeader({
         {badge}
       </span>
       <div className="flex items-center gap-1">
+        {actions}
         <Button
           variant="ghost"
           size="icon"

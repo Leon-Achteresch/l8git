@@ -18,10 +18,13 @@ import {
   GitMerge,
   GitPullRequest,
   Layers,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useExplainSheet } from '@/components/ai/explain-sheet';
+import { pickDefaultBaseBranch } from '@/lib/ai/explain-inputs';
 import { RebaseDialog } from '../rebase/rebase-dialog';
 import { MergeDialog } from './merge-dialog';
 import { RemoteCheckoutDialog } from './remote-checkout-dialog';
@@ -58,6 +61,17 @@ function BranchRowInner({
   const [deleteRemoteRef, setDeleteRemoteRef] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [rebaseOpen, setRebaseOpen] = useState(false);
+  const explain = useExplainSheet();
+
+  const openExplain = useCallback(() => {
+    const branches = useRepoStore.getState().repos[path]?.branches ?? [];
+    explain.open({
+      kind: 'branch',
+      repoPath: path,
+      branch: branch.name,
+      base: pickDefaultBaseBranch(branches, branch.name),
+    });
+  }, [explain, path, branch.name]);
 
   function defaultLocalFromRemote(remoteRef: string) {
     const slash = remoteRef.indexOf('/');
@@ -188,6 +202,15 @@ function BranchRowInner({
         <ContextMenuContent>
           <ContextMenuItem
             onSelect={() => {
+              window.requestAnimationFrame(openExplain);
+            }}
+          >
+            <Sparkles className='h-3.5 w-3.5 text-primary' />
+            {t('branch.menuExplainBranch')}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() => {
               window.requestAnimationFrame(() =>
                 requestPrCreate(path, branch.name),
               );
@@ -302,6 +325,7 @@ function BranchRowInner({
         path={path}
         upstream={branch.name}
       />
+      {explain.element}
     </>
   );
 }

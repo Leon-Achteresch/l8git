@@ -8,11 +8,13 @@ import {
   GitPullRequest,
   Plus,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import {
   type FormEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -21,10 +23,15 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { AiResultActions } from "@/components/ai/ai-result-actions";
+import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AiError } from "@/lib/ai/core";
+import { generatePrDescription } from "@/lib/ai/explain-sources";
+import { isAiConfigured } from "@/lib/ai-setup";
 import { toastError } from "@/lib/error-toast";
 import { usePrCapabilities } from "@/lib/pr-provider-store";
 import type { Branch, PullRequest } from "@/lib/repo-store";
@@ -299,8 +306,68 @@ export function PullRequestCreatePanel({
   const [body, setBody] = useState("");
   const [draft, setDraft] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiStarted, setAiStarted] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const aiAbortRef = useRef<AbortController | null>(null);
   const caps = usePrCapabilities(path);
   const canDraft = caps ? caps.can_draft : true;
+
+  const titleRef = useRef(title);
+  titleRef.current = title;
+  const headRef = useRef(head);
+  headRef.current = head;
+  const baseRef = useRef(base);
+  baseRef.current = base;
+
+  const runAiDescription = useCallback(
+    async (hint?: string) => {
+      const headValue = headRef.current.trim();
+      const baseValue = baseRef.current.trim();
+      if (!headValue || !baseValue) {
+        toastError(t("pr.pickBaseToast"));
+        return;
+      }
+      aiAbortRef.current?.abort();
+      const controller = new AbortController();
+      aiAbortRef.current = controller;
+      setAiBusy(true);
+      setAiStarted(true);
+      try {
+        const result = await generatePrDescription(
+          {
+            repoPath: path,
+            head: headValue,
+            base: baseValue,
+            withTitle: titleRef.current.trim().length === 0,
+          },
+          { hint, signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
+        setBody(result.body);
+        if (result.title && !titleRef.current.trim()) setTitle(result.title);
+      } catch (cause) {
+        if (cause instanceof AiError && cause.kind === "aborted") return;
+        toastError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        if (aiAbortRef.current === controller) {
+          aiAbortRef.current = null;
+          setAiBusy(false);
+        }
+      }
+    },
+    [path, t],
+  );
+
+  useEffect(() => () => aiAbortRef.current?.abort(), []);
+
+  const startAiDescription = useCallback(() => {
+    if (!isAiConfigured()) {
+      setSetupOpen(true);
+      return;
+    }
+    void runAiDescription();
+  }, [runAiDescription]);
 
   useEffect(() => {
     if (!head && currentBranch) setHead(currentBranch);
@@ -430,12 +497,25 @@ export function PullRequestCreatePanel({
         </div>
 
         <div className="grid gap-1">
-          <Label
-            htmlFor="pr-create-body"
-            className="text-xs text-muted-foreground"
-          >
-            {t("pr.descriptionLabel")}
-          </Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label
+              htmlFor="pr-create-body"
+              className="text-xs text-muted-foreground"
+            >
+              {t("pr.descriptionLabel")}
+            </Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-primary hover:bg-primary/10 hover:text-primary"
+              disabled={busy || aiBusy}
+              onClick={startAiDescription}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {t("pr.aiDescription")}
+            </Button>
+          </div>
           <Textarea
             id="pr-create-body"
             value={body}
@@ -445,6 +525,18 @@ export function PullRequestCreatePanel({
             placeholder={t("pr.bodyPlaceholder")}
             disabled={busy}
           />
+          {aiStarted ? (
+            <AiResultActions
+              busy={aiBusy}
+              disabled={busy}
+              onRegenerate={() => void runAiDescription()}
+              onRefine={(hint) => void runAiDescription(hint)}
+              onCancel={() => {
+                aiAbortRef.current?.abort();
+                setAiBusy(false);
+              }}
+            />
+          ) : null}
         </div>
 
         <div className="flex items-center justify-between gap-2 pt-1">
@@ -476,6 +568,11 @@ export function PullRequestCreatePanel({
           </div>
         </div>
       </m.form>
+      <AiSetupDialog
+        open={setupOpen}
+        onOpenChange={setSetupOpen}
+        onReady={() => void runAiDescription()}
+      />
     </m.div>
   );
 }

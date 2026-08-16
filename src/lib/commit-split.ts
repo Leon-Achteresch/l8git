@@ -1,16 +1,9 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
 import { invoke } from "@tauri-apps/api/core";
-import { generateText, type LanguageModel } from "ai";
+import { generateText } from "ai";
 
-import {
-  AI_PROVIDER_DEFAULT_MODELS,
-  useCommitPrefs,
-  type AiProviderType,
-} from "@/lib/commit-prefs";
+import { buildLanguageModel, resolveAiLanguage, hasAiCredentials } from "@/lib/ai/core";
+import { useCommitPrefs } from "@/lib/commit-prefs";
 import i18n from "@/lib/i18n";
-import { useRepoPrefs } from "@/lib/repo-prefs";
 import type { StatusEntry } from "@/lib/repo-store";
 import {
   buildPatchesForSelection,
@@ -419,36 +412,6 @@ export function selectionKeysForHunks(
   return keys;
 }
 
-function buildLanguageModel(
-  type: AiProviderType,
-  apiKey: string,
-  model: string,
-  baseUrl: string,
-): LanguageModel {
-  const resolvedModel = model.trim() || AI_PROVIDER_DEFAULT_MODELS[type];
-
-  switch (type) {
-    case "openai":
-      return createOpenAI({ apiKey })(resolvedModel);
-    case "anthropic":
-      return createAnthropic({ apiKey })(resolvedModel);
-    case "google":
-      return createGoogleGenerativeAI({ apiKey })(resolvedModel);
-    case "openrouter":
-      return createOpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: apiKey || import.meta.env.VITE_OPENROUTER_API_KEY,
-      })(resolvedModel);
-    case "ollama":
-      return createOpenAI({
-        baseURL: baseUrl.trim() || "http://localhost:11434/v1",
-        apiKey: "ollama",
-      })(resolvedModel);
-    case "compatible":
-      return createOpenAI({ baseURL: baseUrl.trim(), apiKey })(resolvedModel);
-  }
-}
-
 export interface SplitPlanResult {
   plan: SplitPlan;
   warnings: string[];
@@ -461,27 +424,19 @@ export async function planSplitFromUnits(
 ): Promise<SplitPlanResult> {
   if (units.length === 0) throw new SplitPlanError(i18n.t("commitSplit.errorNoUnits"));
 
-  const prefs = useCommitPrefs.getState();
-  const {
-    aiProviderType,
-    aiProviderApiKey,
-    aiProviderModel,
-    aiProviderBaseUrl,
-    aiOutputLanguage,
-  } = prefs;
+  const { aiProviderType, aiProviderApiKey, aiProviderModel, aiProviderBaseUrl } =
+    useCommitPrefs.getState();
 
-  if (
-    aiProviderType !== "ollama" &&
-    !aiProviderApiKey.trim() &&
-    !(aiProviderType === "openrouter" && import.meta.env.VITE_OPENROUTER_API_KEY)
-  ) {
+  if (!hasAiCredentials({
+    type: aiProviderType,
+    apiKey: aiProviderApiKey,
+    model: aiProviderModel,
+    baseUrl: aiProviderBaseUrl,
+  })) {
     throw new SplitPlanError(i18n.t("errors.aiNoApiKey"));
   }
 
-  const repoLanguage = options.repoPath
-    ? useRepoPrefs.getState().getAiOutputLanguage(options.repoPath)
-    : undefined;
-  const language = (repoLanguage ?? aiOutputLanguage).trim() || "English";
+  const language = resolveAiLanguage(options.repoPath);
 
   const model = buildLanguageModel(
     aiProviderType,

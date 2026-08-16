@@ -573,7 +573,10 @@
     "stashAndPullAction": "Stash & Pull",
     "detachedHead": "You are in detached HEAD state. Create a branch to keep your work.",
     "aiNoDiff": "No staged diff available",
-    "providerUnknown": "Provider not recognised for {{host}} — supported: GitHub, GitHub Enterprise, Bitbucket, GitLab, Gitea/Forgejo."
+    "providerUnknown": "Provider not recognised for {{host}} — supported: GitHub, GitHub Enterprise, Bitbucket, GitLab, Gitea/Forgejo.",
+    "aiAborted": "AI request cancelled",
+    "aiNetwork": "The AI provider could not be reached. Check your connection, base URL and model.",
+    "aiNoBranchCommits": "No commits found that exist only on this branch."
   },
   "hotkeys": {
     "reloadActive": "Reload active repository",
@@ -805,7 +808,39 @@
     "hotkeysRecording": "Press a key …",
     "hotkeysRecordHint": "Recording stays active until a valid combination is pressed. Escape cancels, Backspace or Delete restores the default.",
     "hotkeysConflict": "Also bound to: {{actions}}",
-    "hotkeysEditAria": "Change shortcut for {{action}}"
+    "hotkeysEditAria": "Change shortcut for {{action}}",
+    "aiPromptsTitle": "Customize prompts",
+    "aiPromptsDesc": "Prompt template per AI feature. Placeholders in double braces are replaced with the current context.",
+    "aiPromptPlaceholders": "Placeholders:",
+    "aiPromptReset": "Reset",
+    "aiPromptCustomized": "Customized",
+    "aiPromptMovedHint": "The system prompt now lives in Settings → AI → Customize prompts.",
+    "aiPromptFeatures": {
+      "commitMessage": {
+        "label": "Commit message",
+        "desc": "System prompt for generated commit messages. Output language and commit template are still applied as fixed rules."
+      },
+      "conflictResolution": {
+        "label": "Conflict resolution",
+        "desc": "Prompt for AI-assisted merge conflict resolution."
+      },
+      "explainCommit": {
+        "label": "Explain commit",
+        "desc": "Prompt for the explanation of a single commit."
+      },
+      "explainBranch": {
+        "label": "Explain branch",
+        "desc": "Prompt for the summary of all work on a branch."
+      },
+      "explainDiff": {
+        "label": "Explain diff",
+        "desc": "Prompt for the explanation of a single diff."
+      },
+      "prDescription": {
+        "label": "Pull request description",
+        "desc": "Prompt for generated pull request descriptions."
+      }
+    }
   },
   "animations": {
     "title": "Motion & animations",
@@ -1041,6 +1076,7 @@
     "gitSection": "Git tools"
   },
   "commitPanel": {
+    "explainDiff": "Explain diff",
     "changes": "Changes",
     "filesCount": "· {{count}} {{unit}}",
     "stagedSummary": "{{count}} {{unit}} staged",
@@ -1418,6 +1454,7 @@
     "confirmDeinit": "Deinitialize submodule \"{{path}}\"? The checkout will be removed; .gitmodules stays."
   },
   "pr": {
+    "aiDescription": "AI description",
     "emptyAccountHint": "Pull requests need a connected Git account.",
     "emptyAccountAction": "Connect Git account",
     "noneFound": "No pull requests found.",
@@ -1601,6 +1638,31 @@
     "allTheirs": "All theirs",
     "lineLabel": "Line {{line}}"
   },
+  "mergeAi": {
+    "title": "AI suggestion",
+    "suggest": "AI suggestion",
+    "suggestTitle": "Generate a suggestion for this conflict block — it is only shown, nothing is applied automatically",
+    "suggestAll": "All blocks",
+    "suggestAllTitle": "Generate a suggestion for every open conflict block one after another — each block still has to be applied manually",
+    "setup": "Set up AI",
+    "setupHint": "AI is not configured. Set it up here to get conflict suggestions.",
+    "generating": "Generating suggestion…",
+    "progress": "{{done}}/{{total}}",
+    "apply": "Apply",
+    "applyTitle": "Replace only this block in the result — does not save and does not mark the file resolved",
+    "discard": "Discard",
+    "discardTitle": "Discard suggestion",
+    "vsOurs": "Diff vs ours",
+    "vsTheirs": "Diff vs theirs",
+    "relationOurs": "same as ours",
+    "relationTheirs": "same as theirs",
+    "relationBoth": "ours + theirs",
+    "relationCustom": "merged",
+    "hintPlaceholder": "e.g. keep both imports, follow the formatting of ours …",
+    "errorConflictMarkers": "The answer still contained conflict markers (<<<<<<<, =======, >>>>>>>) and was discarded. Regenerate it or refine it with a hint.",
+    "errorEmpty": "The answer contained no usable file content. Regenerate it or refine it with a hint.",
+    "errorGeneric": "Suggestion failed."
+  },
   "cherryPick": {
     "noConflicts": "No open conflicts",
     "stashHint": "Resolve conflicts and stage changes first (git add).",
@@ -1723,6 +1785,7 @@
     "messageLoading": "Loading commit message …"
   },
   "commitRow": {
+    "explainCommit": "Explain this commit",
     "bisectBadToast": "\"Bad\" commit set — choose a \"good\" commit next.",
     "bisectGoodToast": "\"Good\" commit set — choose a \"bad\" commit next.",
     "addTag": "Add tag",
@@ -1750,6 +1813,7 @@
     "dropConfirm": "Drop"
   },
   "commitInspect": {
+    "explainCommit": "Explain",
     "changedFiles": "Changed files",
     "loadingDetails": "Loading details…",
     "resetConfirmOne": "Reset “{{path}}” to this commit state? Unsaved changes will be lost.",
@@ -1820,6 +1884,7 @@
     "noRemotes": "No remotes configured."
   },
   "branch": {
+    "menuExplainBranch": "Explain this branch",
     "defaultEmpty": "No branches",
     "delete": "Delete",
     "deleteRemoteTracking": "Delete remote-tracking branch",
@@ -2750,5 +2815,22 @@
     "cancel": "Cancel",
     "canceling": "Cancelling …",
     "canceledToast": "Operation cancelled"
+  },
+  "explain": {
+    "commitTitle": "Explain commit",
+    "branchTitle": "Explain branch",
+    "diffTitle": "Explain diff",
+    "branchSubtitle": "{{branch}} against {{base}}",
+    "loading": "Collecting context and generating the explanation …",
+    "empty": "No explanation yet.",
+    "copy": "Copy explanation",
+    "copied": "Copied"
+  },
+  "aiActions": {
+    "regenerate": "Regenerate",
+    "refine": "Refine with hint",
+    "running": "Generating…",
+    "hintPlaceholder": "e.g. mention the migration, keep it shorter …",
+    "hintSubmit": "Apply"
   }
 }

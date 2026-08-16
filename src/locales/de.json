@@ -573,7 +573,10 @@
     "stashAndPullAction": "Stash & Pull",
     "detachedHead": "Du befindest dich im Detached-HEAD-Zustand. Branch erstellen, um Änderungen zu sichern.",
     "aiNoDiff": "Kein gestagter Diff vorhanden",
-    "providerUnknown": "Provider nicht erkannt für {{host}} — unterstützt: GitHub, GitHub Enterprise, Bitbucket, GitLab, Gitea/Forgejo."
+    "providerUnknown": "Provider nicht erkannt für {{host}} — unterstützt: GitHub, GitHub Enterprise, Bitbucket, GitLab, Gitea/Forgejo.",
+    "aiAborted": "AI-Anfrage abgebrochen",
+    "aiNetwork": "AI-Anbieter nicht erreichbar. Verbindung, Base-URL und Modell prüfen.",
+    "aiNoBranchCommits": "Keine Commits gefunden, die nur auf diesem Branch liegen."
   },
   "hotkeys": {
     "reloadActive": "Aktives Repo neu laden",
@@ -805,7 +808,39 @@
     "hotkeysRecording": "Drücke Taste …",
     "hotkeysRecordHint": "Aufnahme läuft, bis eine gültige Kombination gedrückt wird. Escape bricht ab, Backspace oder Entf stellt den Standard wieder her.",
     "hotkeysConflict": "Doppelt belegt mit: {{actions}}",
-    "hotkeysEditAria": "Tastenkombination für {{action}} ändern"
+    "hotkeysEditAria": "Tastenkombination für {{action}} ändern",
+    "aiPromptsTitle": "Prompts anpassen",
+    "aiPromptsDesc": "Prompt-Vorlage je AI-Funktion. Platzhalter in doppelten geschweiften Klammern werden durch den aktuellen Kontext ersetzt.",
+    "aiPromptPlaceholders": "Platzhalter:",
+    "aiPromptReset": "Zurücksetzen",
+    "aiPromptCustomized": "Angepasst",
+    "aiPromptMovedHint": "Der System-Prompt liegt jetzt unter Einstellungen → AI → Prompts anpassen.",
+    "aiPromptFeatures": {
+      "commitMessage": {
+        "label": "Commit-Nachricht",
+        "desc": "System-Prompt für generierte Commit-Nachrichten. Ausgabesprache und Commit-Vorlage werden zusätzlich als feste Vorgaben ergänzt."
+      },
+      "conflictResolution": {
+        "label": "Konfliktlösung",
+        "desc": "Prompt für die AI-gestützte Auflösung von Merge-Konflikten."
+      },
+      "explainCommit": {
+        "label": "Commit erklären",
+        "desc": "Prompt für die Erklärung eines einzelnen Commits."
+      },
+      "explainBranch": {
+        "label": "Branch erklären",
+        "desc": "Prompt für die Zusammenfassung der Arbeit auf einem Branch."
+      },
+      "explainDiff": {
+        "label": "Diff erklären",
+        "desc": "Prompt für die Erklärung eines einzelnen Diffs."
+      },
+      "prDescription": {
+        "label": "Pull-Request-Beschreibung",
+        "desc": "Prompt für generierte Pull-Request-Beschreibungen."
+      }
+    }
   },
   "animations": {
     "title": "Bewegung & Animationen",
@@ -1041,6 +1076,7 @@
     "gitSection": "Git-Werkzeuge"
   },
   "commitPanel": {
+    "explainDiff": "Diff erklären",
     "changes": "Änderungen",
     "filesCount": "· {{count}} {{unit}}",
     "stagedSummary": "{{count}} {{unit}} gestaged",
@@ -1418,6 +1454,7 @@
     "confirmDeinit": "Submodule „{{path}}“ deinitialisieren? Der Checkout wird entfernt, .gitmodules bleibt erhalten."
   },
   "pr": {
+    "aiDescription": "AI-Beschreibung",
     "emptyAccountHint": "Pull Requests brauchen ein verbundenes Git-Konto.",
     "emptyAccountAction": "Git-Konto verbinden",
     "noneFound": "Keine Pull Requests gefunden.",
@@ -1601,6 +1638,31 @@
     "allTheirs": "Alle Theirs",
     "lineLabel": "Zeile {{line}}"
   },
+  "mergeAi": {
+    "title": "AI-Vorschlag",
+    "suggest": "AI-Vorschlag",
+    "suggestTitle": "Vorschlag für diesen Konfliktblock erzeugen – wird nur angezeigt, nichts wird automatisch übernommen",
+    "suggestAll": "Alle Blöcke",
+    "suggestAllTitle": "Nacheinander für alle offenen Konfliktblöcke einen Vorschlag erzeugen – jeder Block muss einzeln übernommen werden",
+    "setup": "AI einrichten",
+    "setupHint": "AI ist nicht konfiguriert. Hier einrichten, um Vorschläge für Konflikte zu erhalten.",
+    "generating": "Vorschlag wird erzeugt…",
+    "progress": "{{done}}/{{total}}",
+    "apply": "Übernehmen",
+    "applyTitle": "Nur diesen Block im Ergebnis ersetzen – nicht speichern, nicht als gelöst markieren",
+    "discard": "Verwerfen",
+    "discardTitle": "Vorschlag verwerfen",
+    "vsOurs": "Diff zu Ours",
+    "vsTheirs": "Diff zu Theirs",
+    "relationOurs": "entspricht Ours",
+    "relationTheirs": "entspricht Theirs",
+    "relationBoth": "Ours + Theirs",
+    "relationCustom": "zusammengeführt",
+    "hintPlaceholder": "z. B. beide Importe behalten, Formatierung von Ours übernehmen …",
+    "errorConflictMarkers": "Die Antwort enthält noch Konfliktmarker (<<<<<<<, =======, >>>>>>>) und wurde verworfen. Neu generieren oder mit einem Hinweis nachschärfen.",
+    "errorEmpty": "Die Antwort enthielt keinen verwertbaren Dateiinhalt. Neu generieren oder mit einem Hinweis nachschärfen.",
+    "errorGeneric": "Vorschlag fehlgeschlagen."
+  },
   "cherryPick": {
     "noConflicts": "Keine offenen Konflikte",
     "stashHint": "Konflikte zuerst auflösen und stagen (git add).",
@@ -1723,6 +1785,7 @@
     "messageLoading": "Commit-Nachricht wird geladen …"
   },
   "commitRow": {
+    "explainCommit": "Diesen Commit erklären",
     "bisectBadToast": "Bad commit gesetzt — wähle nun einen 'good' commit.",
     "bisectGoodToast": "Good commit gesetzt — wähle nun einen 'bad' commit.",
     "addTag": "Tag hinzufügen",
@@ -1750,6 +1813,7 @@
     "dropConfirm": "Verwerfen"
   },
   "commitInspect": {
+    "explainCommit": "Erklären",
     "changedFiles": "Geänderte Dateien",
     "loadingDetails": "Lade Details …",
     "resetConfirmOne": "„{{path}}\" auf den Stand dieses Commits zurücksetzen? Nicht gespeicherte Änderungen gehen verloren.",
@@ -1820,6 +1884,7 @@
     "noRemotes": "Keine Remotes konfiguriert."
   },
   "branch": {
+    "menuExplainBranch": "Diesen Branch erklären",
     "defaultEmpty": "Keine Branches",
     "delete": "Löschen",
     "deleteRemoteTracking": "Remote-Branch löschen",
@@ -2750,5 +2815,22 @@
     "cancel": "Abbrechen",
     "canceling": "Wird abgebrochen …",
     "canceledToast": "Vorgang abgebrochen"
+  },
+  "explain": {
+    "commitTitle": "Commit erklären",
+    "branchTitle": "Branch erklären",
+    "diffTitle": "Diff erklären",
+    "branchSubtitle": "{{branch}} gegen {{base}}",
+    "loading": "Kontext wird gesammelt und Erklärung generiert …",
+    "empty": "Noch keine Erklärung vorhanden.",
+    "copy": "Erklärung kopieren",
+    "copied": "Kopiert"
+  },
+  "aiActions": {
+    "regenerate": "Neu generieren",
+    "refine": "Mit Hinweis verfeinern",
+    "running": "Wird generiert…",
+    "hintPlaceholder": "z. B. Migration erwähnen, kürzer fassen …",
+    "hintSubmit": "Übernehmen"
   }
 }

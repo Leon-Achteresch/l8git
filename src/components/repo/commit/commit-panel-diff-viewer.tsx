@@ -1,6 +1,7 @@
+import { useExplainSheet } from "@/components/ai/explain-sheet";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { FileDiff, ListChecks, Pencil, RefreshCw } from "lucide-react";
+import { FileDiff, ListChecks, Pencil, RefreshCw, Sparkles } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -57,6 +58,7 @@ export function DiffViewer({
   onClearSelection: () => void;
 }) {
   const { t } = useTranslation();
+  const explain = useExplainSheet();
 
   useEffect(() => {
     if (viewMode !== "edit") return;
@@ -112,6 +114,7 @@ export function DiffViewer({
   }
 
   const sector = selectedRow.sector === "staged" ? "staged" : "unstaged";
+  const explainableDiff = showMedia ? null : unifiedText?.trim() || null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -124,6 +127,25 @@ export function DiffViewer({
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-primary hover:bg-primary/10 hover:text-primary"
+            disabled={!explainableDiff}
+            title={t("commitPanel.explainDiff")}
+            onClick={() => {
+              if (!explainableDiff) return;
+              explain.open({
+                kind: "diff",
+                repoPath,
+                file: selectedRow.path,
+                diff: explainableDiff,
+              });
+            }}
+          >
+            <Sparkles className="h-4 w-4" />
+            {t("commitPanel.explainDiff")}
+          </Button>
           <ToggleGroup
             type="single"
             value={viewMode}
@@ -203,6 +225,7 @@ export function DiffViewer({
           </Suspense>
         )}
       </div>
+      {explain.element}
     </div>
   );
 }

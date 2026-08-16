@@ -13,7 +13,10 @@ import type { ConflictVersions } from "@/lib/repo-store";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Save } from "lucide-react";
+import { applyConflictSuggestion } from "@/lib/ai/conflict-suggest";
 import { useMergeDecorations } from "./use-merge-decorations";
+import { useConflictAi } from "./use-conflict-ai";
+import { ConflictAiPreview, ConflictAiToolbar } from "./conflict-ai-panel";
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
@@ -85,11 +88,20 @@ const RESULT_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions = {
 interface MergeEditor2WayProps {
   versions: ConflictVersions;
   language: string;
+  filePath: string;
+  repoPath?: string;
   onSave: (content: string) => void;
   saving: boolean;
 }
 
-export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEditor2WayProps) {
+export function MergeEditor2Way({
+  versions,
+  language,
+  filePath,
+  repoPath,
+  onSave,
+  saving,
+}: MergeEditor2WayProps) {
   const { t } = useTranslation();
   const theme = useMonacoTheme();
   const [resultText, setResultText] = useState(versions.current);
@@ -100,6 +112,13 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
   const initialScrollDone = useRef(false);
 
   useMergeDecorations(editorInstance, monacoApi, resultText, activeBlockIdx);
+
+  const ai = useConflictAi({
+    filePath,
+    repoPath,
+    text: resultText,
+    baseFile: versions.base,
+  });
 
   useEffect(() => {
     setResultText(versions.current);
@@ -127,6 +146,15 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
     }
     setResultText(text);
     setActiveBlockIdx(0);
+  }
+
+  function applyAiSuggestion(block: ConflictBlock, content: string) {
+    const next = applyConflictSuggestion(resultText, block, content);
+    setResultText(next);
+    ai.dismiss(block);
+    const newBlocks = parseConflictBlocks(next);
+    setActiveBlockIdx((i) => Math.min(i, Math.max(0, newBlocks.length - 1)));
+    editorRef.current?.revealLineInCenter(block.startLine + 1);
   }
 
   const scrollToBlock = useCallback((block: ConflictBlock | undefined) => {
@@ -198,7 +226,7 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-xs">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-xs">
           <span className="font-medium text-muted-foreground">{t("mergeEditor.result")}</span>
           {hasConflicts ? (
             <>
@@ -273,6 +301,7 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
                   <ChevronsRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
+              <ConflictAiToolbar ai={ai} block={activeBlock} blocks={blocks} />
             </>
           ) : (
             <span className="ml-1 rounded bg-git-added/20 px-1.5 py-0.5 text-git-added">
@@ -290,6 +319,7 @@ export function MergeEditor2Way({ versions, language, onSave, saving }: MergeEdi
             {saving ? "…" : t("mergeEditor.saveStage")}
           </Button>
         </div>
+        <ConflictAiPreview ai={ai} block={activeBlock} onApply={applyAiSuggestion} />
         <div className="min-h-0 flex-1">
           <Editor
             language={language}

@@ -26,7 +26,7 @@ import { useRepoStore, type Branch } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranchPlus, History, ListOrdered, Pencil, RotateCcw, SkipForward, Tag, Trash2, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranchPlus, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
 import { m } from "motion/react";
 import { memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -36,6 +36,7 @@ import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
 import { CommitGraphCell } from "./commit-graph-cell";
 import { CommitHashBadge } from "./commit-hash-badge";
+import { useExplainSheet } from "@/components/ai/explain-sheet";
 import { ResetDialog } from "@/components/repo/reset/reset-dialog";
 import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interactive-editor";
 import {
@@ -105,6 +106,7 @@ function CommitRowInner({
   } | null>(null);
   const [dropOpen, setDropOpen] = useState(false);
   const [staged, setStaged] = useState(false);
+  const explain = useExplainSheet();
   const parentHash = commit.parents[0] ?? null;
 
   const subjectParts = useMemo(
@@ -310,6 +312,23 @@ function CommitRowInner({
       >
         <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
         <ContextMenuContent className="w-56">
+          <ContextMenuItem
+            onSelect={() => {
+              window.requestAnimationFrame(() =>
+                explain.open({
+                  kind: "commit",
+                  repoPath: path,
+                  commitHash: commit.hash,
+                  subject: commit.subject,
+                }),
+              );
+            }}
+            className="gap-2 cursor-pointer"
+          >
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="font-medium">{t("commitRow.explainCommit")}</span>
+          </ContextMenuItem>
+          <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => {
               window.requestAnimationFrame(() => setTagOpen(true));
@@ -526,6 +545,7 @@ function CommitRowInner({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {explain.element}
     </>
   );
 }

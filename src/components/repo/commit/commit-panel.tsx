@@ -37,6 +37,8 @@ import {
   type FileDiffResponse,
 } from "./commit-panel-types";
 import { generateAiCommitMessage } from "@/lib/ai-commit";
+import { AiError } from "@/lib/ai/core";
+import { AiResultActions } from "@/components/ai/ai-result-actions";
 import { isAiConfigured } from "@/lib/ai-setup";
 import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
 import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog";
@@ -74,6 +76,8 @@ export function CommitPanel() {
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiResultShown, setAiResultShown] = useState(false);
+  const aiAbortRef = useRef<AbortController | null>(null);
   const [aiSetupOpen, setAiSetupOpen] = useState(false);
   const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
@@ -140,6 +144,11 @@ export function CommitPanel() {
     }
     return useCommitPrefs.persist.onFinishHydration(run);
   }, [activePath, seedMessageFromTemplate]);
+
+  useEffect(() => {
+    setAiResultShown(false);
+    return () => aiAbortRef.current?.abort();
+  }, [activePath]);
 
   useEffect(() => {
     if (!activePath) {
@@ -523,28 +532,45 @@ export function CommitPanel() {
     }
   }, [activePath, discardFiles, discardWorktreeChanges, discardDialog]);
 
-  const runAiGeneration = useCallback(async () => {
+  const runAiGeneration = useCallback(async (hint?: string) => {
     if (!activePath || stagedRows.length === 0) return;
+    aiAbortRef.current?.abort();
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
     setAiGenerating(true);
     try {
       const stagedDiff = await invoke<string>("repo_staged_diff", { path: activePath });
-      const msg = await generateAiCommitMessage(stagedDiff, activePath);
+      const msg = await generateAiCommitMessage(stagedDiff, activePath, {
+        hint,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
       setMessage(msg);
+      setAiResultShown(true);
     } catch (e) {
-      toastError(String(e));
+      if (e instanceof AiError && e.kind === "aborted") return;
+      toastError(e instanceof Error ? e.message : String(e));
     } finally {
-      setAiGenerating(false);
+      if (aiAbortRef.current === controller) {
+        aiAbortRef.current = null;
+        setAiGenerating(false);
+      }
     }
   }, [activePath, stagedRows.length]);
 
-  const onGenerateAiMessage = useCallback(() => {
+  const onGenerateAiMessage = useCallback((hint?: string) => {
     if (!activePath || stagedRows.length === 0) return;
     if (!isAiConfigured()) {
       setAiSetupOpen(true);
       return;
     }
-    void runAiGeneration();
+    void runAiGeneration(hint);
   }, [activePath, stagedRows.length, runAiGeneration]);
+
+  const cancelAiGeneration = useCallback(() => {
+    aiAbortRef.current?.abort();
+    setAiGenerating(false);
+  }, []);
 
   if (!activePath) return null;
 
@@ -685,6 +711,17 @@ export function CommitPanel() {
         </ResizablePanelGroup>
       </div>
 
+      {aiResultShown && (aiGenerating || message.trim().length > 0) ? (
+        <AiResultActions
+          className="mx-2 mt-1"
+          busy={aiGenerating}
+          disabled={totals.stagedFiles === 0}
+          onRegenerate={() => onGenerateAiMessage()}
+          onRefine={(hint) => onGenerateAiMessage(hint)}
+          onCancel={cancelAiGeneration}
+        />
+      ) : null}
+
       <CommitComposer
         subject={subject}
         body={body}
@@ -704,7 +741,7 @@ export function CommitPanel() {
         canUndo={!!latestCommit && (!hasUpstream || aheadCount > 0)}
         signingInfo={signingInfo}
         onCommit={() => void onCommit()}
-        onGenerateAi={onGenerateAiMessage}
+        onGenerateAi={() => onGenerateAiMessage()}
         onSetLanguage={(lang) => setRepoAiLanguage(activePath, lang)}
         onToggleAmend={() => {
           const next = !amendMode;
