@@ -12,6 +12,7 @@ import { useUiStore } from '@/lib/ui-store';
 import { writeLocalStorageDebounced } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { StackGraphLegend } from '../branch/stack-graph-legend';
 import { BisectStatusBanner } from '../bisect/bisect-status-banner';
 import { CherryPickStatusBanner } from './cherry-pick-status-banner';
 import { CommitInspectDetail } from './commit-inspect-detail';
@@ -325,6 +326,7 @@ export function CommitHistoryPanel({
       <CherryPickStatusBanner path={path} />
       <MergeStatusBanner path={path} />
       <RebaseStatusBanner path={path} />
+      <StackGraphLegend path={path} />
       {selectedHash ? (
         <ResizablePanelGroup
           orientation='horizontal'

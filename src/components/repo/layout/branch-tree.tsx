@@ -1,6 +1,10 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { BranchCleanupButton } from "@/components/repo/branch/branch-cleanup-button";
 import { BranchSection } from "@/components/repo/branch/branch-section";
+import { StackSection } from "@/components/repo/branch/stack-section";
+import { totalStackBranches } from "@/lib/stack";
+import { useStackStore } from "@/lib/stack-store";
 import { TagSection } from "@/components/repo/tag/tag-section";
 import {
   Accordion,
@@ -87,6 +91,9 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
   const hasAnyMatch =
     localBranches.length + remoteBranches.length + filteredTags.length > 0;
 
+  const stackList = useStackStore((s) => s.lists[path]);
+  const stackCount = stackList ? totalStackBranches(stackList) : 0;
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {showBranchFilter && (
@@ -121,11 +128,17 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
         </div>
       )}
 
+      {path ? (
+        <div className="flex shrink-0 justify-end px-2 pb-0.5 pt-1">
+          <BranchCleanupButton path={path} />
+        </div>
+      ) : null}
+
       <ScrollArea className="min-h-0 min-w-0 flex-1">
         <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-1">
           <Accordion
             type="multiple"
-            defaultValue={defaultOpenSections}
+            defaultValue={[...defaultOpenSections, "stacks"]}
             className="w-full min-w-0"
           >
             <Section
@@ -142,6 +155,16 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
                 hideHeader
               />
             </Section>
+
+            {path ? (
+              <Section
+                value="stacks"
+                label={t("stack.sectionTitle")}
+                count={stackCount}
+              >
+                <StackSection path={path} />
+              </Section>
+            ) : null}
 
             {totalRemoteBranches > 0 && (
               <Section

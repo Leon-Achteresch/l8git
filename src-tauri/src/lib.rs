@@ -16,6 +16,7 @@ mod rebase;
 mod repo_tools;
 mod secrets;
 mod shell;
+mod stack;
 mod undo;
 mod watcher;
 
@@ -251,7 +252,16 @@ pub fn run() {
             pr::pr_provider_capabilities,
             agent_review::agent_review_summary,
             agent_review::agent_review_file_diff,
-            agent_review::agent_review_branch_merged
+            agent_review::agent_review_branch_merged,
+            stack::stack_list,
+            stack::stack_create_branch,
+            stack::stack_adopt,
+            stack::stack_remove,
+            stack::stack_next_branch_name,
+            stack::stack_restack,
+            stack::stack_restack_resume,
+            stack::stack_restack_state,
+            stack::branch_cleanup_candidates
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

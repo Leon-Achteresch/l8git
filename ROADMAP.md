@@ -75,10 +75,11 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 - [ ] Agent-Review-Folgearbeiten: Übersichts-Diff-Stat auf agent_review_summary umstellen, App-weites Agent-Presence-Arming, Merge-Strategie-Auswahl im Abschluss-Flow, buildLanguageModel aus ai-commit.ts exportieren statt duplizieren
 
 ### Monat 8 — Stacked Branches/PRs
-- [ ] Stacks im Client: Branch-Kette erstellen, automatisches Restacking bei Basis-Änderungen
-- [ ] Stack als PR-Kette zu GitHub/GitLab submitten
-- [ ] Graph-Visualisierung der Stacks
-- [ ] Auto-Branch-Archiving für gemergte/stale Branches
+- [x] Stacks im Client: Branch-Kette erstellen, automatisches Restacking bei Basis-Änderungen
+- [x] Stack als PR-Kette zu GitHub/GitLab submitten
+- [x] Graph-Visualisierung der Stacks
+- [x] Auto-Branch-Archiving für gemergte/stale Branches
+- [ ] Stack-Folgearbeiten: Stack-Badges inline an Branch-Labels, global gemounteter Restack-Resume-Watcher, Graphite-artiger Ketten-Text im PR-Body, remote_merged-Flag für den Remote-Zwilling
 
 ### Monat 9 — Steuerbare AI in der Breite
 - [ ] AI-Konfliktlösung als Vorschlag im 3-Wege-Editor (nie Vollautomatik)

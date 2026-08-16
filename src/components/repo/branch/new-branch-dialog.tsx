@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toastError } from "@/lib/error-toast";
 import type { Branch } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
+import { useStackStore } from "@/lib/stack-store";
 import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -23,9 +24,11 @@ export function NewBranchDialog({
 }) {
   const { t } = useTranslation();
   const createBranch = useRepoStore((s) => s.createBranch);
+  const createStackBranch = useStackStore((s) => s.createBranch);
   const [name, setName] = useState("");
   const [base, setBase] = useState("");
   const [checkoutAfter, setCheckoutAfter] = useState(true);
+  const [asStackBranch, setAsStackBranch] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const locals = useMemo(
@@ -48,6 +51,7 @@ export function NewBranchDialog({
       setName("");
       setBase("");
       setCheckoutAfter(true);
+      setAsStackBranch(false);
       setBusy(false);
       return;
     }
@@ -66,14 +70,18 @@ export function NewBranchDialog({
       toastError(t("newBranchDialog.toastEmptyName"));
       return;
     }
+    const parent = base.trim() || currentName;
+    if (asStackBranch && !parent) {
+      toastError(t("newBranchDialog.toastStackParentMissing"));
+      return;
+    }
     setBusy(true);
     try {
-      await createBranch(
-        path,
-        n,
-        base.trim() || undefined,
-        checkoutAfter,
-      );
+      if (asStackBranch) {
+        await createStackBranch(path, n, parent);
+      } else {
+        await createBranch(path, n, base.trim() || undefined, checkoutAfter);
+      }
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -141,7 +149,17 @@ export function NewBranchDialog({
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <Checkbox
-              checked={checkoutAfter}
+              checked={asStackBranch}
+              onCheckedChange={(checked) => setAsStackBranch(checked === true)}
+            />
+            {t("newBranchDialog.asStackBranch", {
+              parent: base.trim() || currentName || "HEAD",
+            })}
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <Checkbox
+              checked={asStackBranch ? true : checkoutAfter}
+              disabled={asStackBranch}
               onCheckedChange={(checked) => setCheckoutAfter(checked === true)}
             />
             {t("newBranchDialog.checkoutAfter")}
