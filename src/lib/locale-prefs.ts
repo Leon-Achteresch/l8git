@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import i18n from "@/lib/i18n";
+import { changeAppLanguage } from "@/lib/i18n";
+import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from "@/lib/locales";
 
-export type AppLocale = "de" | "en";
+export type { AppLocale };
 
 type LocalePrefs = {
   locale: AppLocale;
@@ -13,12 +14,9 @@ type LocalePrefs = {
 export const useLocalePrefs = create<LocalePrefs>()(
   persist(
     (set) => ({
-      locale: "de",
+      locale: DEFAULT_LOCALE,
       setLocale: (locale) => {
-        void i18n.changeLanguage(locale);
-        if (typeof document !== "undefined") {
-          document.documentElement.lang = locale;
-        }
+        void changeAppLanguage(locale);
         set({ locale });
       },
     }),
@@ -26,11 +24,8 @@ export const useLocalePrefs = create<LocalePrefs>()(
       name: "l8git-locale",
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
-        if (state?.locale === "de" || state?.locale === "en") {
-          void i18n.changeLanguage(state.locale);
-          if (typeof document !== "undefined") {
-            document.documentElement.lang = state.locale;
-          }
+        if (isAppLocale(state?.locale)) {
+          void changeAppLanguage(state.locale);
         }
       },
     },

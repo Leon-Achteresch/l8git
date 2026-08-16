@@ -98,12 +98,12 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 - [ ] Inbox/Notification-Folgearbeiten: Hintergrund-Polling für CI/Review-Ereignisse, default_branch aus dem Provider-Payload, Notification-Klick-Navigation sobald das Tauri-Plugin Desktop-Clicks liefert
 
 ### Monat 11 — Reichweite & Community
-- [ ] Linux-Polish: Wayland, HiDPI
-- [ ] Paket-Kanäle: Homebrew, winget, AUR, Flatpak
-- [ ] i18n-Ausbau (ES/FR/PT/ZH/JA) mit Lazy-Loading der Locales
-- [ ] Docs-Site mit Screenshots und Videos
-- [ ] Öffentliche Roadmap, GitHub Discussions/Discord
-- [ ] Contributor-Onboarding: CONTRIBUTING.md, good first issues, schnelle PR-Reviews
+- [ ] Linux-Polish: Wayland, HiDPI (braucht Linux-Testgerät)
+- [x] Paket-Kanäle: Homebrew, winget, AUR, Flatpak — Manifeste + Publizier-Anleitung unter `packaging/`; Veröffentlichung selbst ist manuell
+- [x] i18n-Ausbau (ES/FR/PT/ZH/JA) mit Lazy-Loading der Locales
+- [x] Docs: Nutzerhandbuch unter `docs/` (Screenshots/Videos noch offen — brauchen laufende App)
+- [ ] Öffentliche Roadmap auf GitHub, Discussions/Discord aktivieren (manuell auf github.com)
+- [x] Contributor-Onboarding: CONTRIBUTING.md, Code of Conduct, Issue-/PR-Templates, Good-first-issue-Empfehlungsliste, schnelle PR-Reviews
 
 ### Monat 12 — v1.0 & Nachhaltigkeit
 - [ ] Stabilitäts-Sprint und Security-Review (CSP, Tauri-Capabilities)

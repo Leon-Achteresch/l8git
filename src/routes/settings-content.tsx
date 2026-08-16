@@ -61,6 +61,7 @@ import { AiPromptSettings } from "@/components/ai/ai-prompt-settings";
 import { useCommitPrefs, AI_PROVIDER_DEFAULT_MODELS, type AiProviderType } from "@/lib/commit-prefs";
 import { useGitAccounts } from "@/lib/git-accounts";
 import { useLocalePrefs } from "@/lib/locale-prefs";
+import { APP_LOCALES } from "@/lib/locales";
 import type { Theme } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
 import { cn } from "@/lib/utils";
@@ -465,29 +466,25 @@ export function Settings() {
                     <div
                       role="radiogroup"
                       aria-label={t("settings.languageTitle")}
-                      className="grid grid-cols-2 gap-3 sm:max-w-xs"
+                      className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:max-w-2xl"
                     >
-                      {(
-                        [
-                          { value: "de" as const, label: t("settings.languageDe") },
-                          { value: "en" as const, label: t("settings.languageEn") },
-                        ] as const
-                      ).map(({ value, label }) => {
-                        const active = locale === value;
+                      {APP_LOCALES.map(({ code, nativeName }) => {
+                        const active = locale === code;
                         return (
                           <Button
-                            key={value}
+                            key={code}
                             type="button"
                             role="radio"
                             aria-checked={active}
+                            lang={code}
                             variant={active ? "default" : "outline"}
-                            onClick={() => setLocale(value)}
+                            onClick={() => setLocale(code)}
                             className={cn(
                               "h-auto py-3",
                               active && "ring-2 ring-ring ring-offset-2 ring-offset-background",
                             )}
                           >
-                            <span className="text-sm">{label}</span>
+                            <span className="text-sm">{nativeName}</span>
                           </Button>
                         );
                       })}

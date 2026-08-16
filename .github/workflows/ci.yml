@@ -40,6 +40,9 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      - name: Locale-Keys pruefen
+        run: node scripts/check-locales.mjs
+
       - name: Typecheck
         run: bunx tsc --noEmit
 
