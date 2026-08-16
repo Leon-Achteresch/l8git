@@ -303,6 +303,12 @@ Bug reports and feature requests go through the [issue templates](https://github
 
 ---
 
+## Sponsoring
+
+l8git is and will stay fully open source under MIT — no paywall, no feature gates, AI always works with your own keys or local models. If it saves you time, consider [sponsoring the development](https://github.com/sponsors/Leon-Achteresch). Sponsors are credited in the release changelog.
+
+---
+
 ## License
 
 [MIT](LICENSE)
