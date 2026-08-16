@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type Branch } from "@/lib/repo-store";
 import { ALL_SIDEBAR_TABS, useSidebarPrefs } from "@/lib/sidebar-prefs";
+import { useBranchSidebarHotkeys } from "@/lib/use-branch-hotkeys";
 import {
   GRID_SIDEBAR_MAX_WIDTH,
   GRID_SIDEBAR_MIN_WIDTH,
@@ -135,6 +136,8 @@ export function RepoSidebar() {
   const [newBranchOpen, setNewBranchOpen] = useState(false);
   const [branchPopoverOpen, setBranchPopoverOpen] = useState(false);
   const [forceDeleteTarget, setForceDeleteTarget] = useState<Branch | null>(null);
+
+  const openNewBranchDialog = useCallback(() => setNewBranchOpen(true), []);
 
   const onDelete = useCallback(
     async (b: Branch, force: boolean) => {
@@ -263,6 +266,12 @@ export function RepoSidebar() {
     () => buildTabIcons(tabSize, tabLayout),
     [tabSize, tabLayout],
   );
+
+  useBranchSidebarHotkeys({
+    path: activePath ?? "",
+    enabled: !!activePath,
+    onNewBranch: openNewBranchDialog,
+  });
 
   if (!repo || !activePath) return null;
 

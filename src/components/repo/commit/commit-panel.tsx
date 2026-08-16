@@ -37,6 +37,8 @@ import {
   type FileDiffResponse,
 } from "./commit-panel-types";
 import { generateAiCommitMessage } from "@/lib/ai-commit";
+import { isAiConfigured } from "@/lib/ai-setup";
+import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
 import { useTranslation } from "react-i18next";
 
 const EMPTY_STATUS: StatusEntry[] = [];
@@ -71,6 +73,7 @@ export function CommitPanel() {
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiSetupOpen, setAiSetupOpen] = useState(false);
   const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
@@ -517,7 +520,7 @@ export function CommitPanel() {
     }
   }, [activePath, discardFiles, discardWorktreeChanges, discardDialog]);
 
-  const onGenerateAiMessage = useCallback(async () => {
+  const runAiGeneration = useCallback(async () => {
     if (!activePath || stagedRows.length === 0) return;
     setAiGenerating(true);
     try {
@@ -530,6 +533,15 @@ export function CommitPanel() {
       setAiGenerating(false);
     }
   }, [activePath, stagedRows.length]);
+
+  const onGenerateAiMessage = useCallback(() => {
+    if (!activePath || stagedRows.length === 0) return;
+    if (!isAiConfigured()) {
+      setAiSetupOpen(true);
+      return;
+    }
+    void runAiGeneration();
+  }, [activePath, stagedRows.length, runAiGeneration]);
 
   if (!activePath) return null;
 
@@ -689,7 +701,7 @@ export function CommitPanel() {
         canUndo={!!latestCommit && (!hasUpstream || aheadCount > 0)}
         signingInfo={signingInfo}
         onCommit={() => void onCommit()}
-        onGenerateAi={() => void onGenerateAiMessage()}
+        onGenerateAi={onGenerateAiMessage}
         onSetLanguage={(lang) => setRepoAiLanguage(activePath, lang)}
         onToggleAmend={() => {
           const next = !amendMode;
@@ -709,6 +721,12 @@ export function CommitPanel() {
         open={stashOpen}
         onClose={() => setStashOpen(false)}
         path={activePath}
+      />
+
+      <AiSetupDialog
+        open={aiSetupOpen}
+        onOpenChange={setAiSetupOpen}
+        onReady={() => void runAiGeneration()}
       />
 
       <AlertDialog

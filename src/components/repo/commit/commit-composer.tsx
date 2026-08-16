@@ -177,6 +177,7 @@ export function CommitComposer({
 
         <div className="flex items-start gap-1 px-2.5 pt-2.5">
           <Input
+            data-commit-message-input=""
             variant="bare"
             value={subject}
             onChange={(e) => onSubjectChange(e.target.value)}

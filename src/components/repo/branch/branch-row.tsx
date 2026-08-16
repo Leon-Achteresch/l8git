@@ -8,6 +8,7 @@ import {
 import { toastError } from '@/lib/error-toast';
 import type { Branch } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
+import { useBranchFocusStore } from '@/lib/use-branch-hotkeys';
 import { useUiStore } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import {
@@ -47,6 +48,8 @@ function BranchRowInner({
 }) {
   const { t } = useTranslation();
   const checkoutBranch = useRepoStore(s => s.checkoutBranch);
+  const focusBranch = useBranchFocusStore(s => s.focusBranch);
+  const blurBranch = useBranchFocusStore(s => s.blurBranch);
   const focusCommitFromBranchTip = useUiStore(s => s.focusCommitFromBranchTip);
   const requestPrCreate = useUiStore(s => s.requestPrCreate);
   const [checkoutDraft, setCheckoutDraft] = useState<CheckoutDraft | null>(
@@ -84,8 +87,12 @@ function BranchRowInner({
 
   const row = (
     <li
+      tabIndex={0}
+      onFocus={() => focusBranch(path, branch.name)}
+      onBlur={() => blurBranch(path, branch.name)}
       onClick={e => {
         if (e.button !== 0) return;
+        focusBranch(path, branch.name);
         focusCommitFromBranchTip(path, branch.tip);
       }}
       onDoubleClick={e => {
@@ -94,7 +101,7 @@ function BranchRowInner({
       }}
       title={branch.name}
       className={cn(
-        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] transition-all',
+        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] transition-all outline-none focus-visible:ring-1 focus-visible:ring-ring',
         branch.is_current
           ? 'bg-sidebar-accent/70 font-medium text-sidebar-accent-foreground shadow-2xs'
           : 'text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground hover:shadow-2xs'

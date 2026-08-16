@@ -3,12 +3,22 @@ import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useHotkeyBindings, type HotkeyActionId } from "@/lib/hotkey-prefs";
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { useRepoStore } from "@/lib/repo-store";
 import { useSidebarPrefs } from "@/lib/sidebar-prefs";
 import { useUiStore, type SidebarTab } from "@/lib/ui-store";
 
-const TAB_HOTKEY_SLOTS = ["Mod+1", "Mod+2", "Mod+3", "Mod+4", "Mod+5", "Mod+6", "Mod+7", "Mod+8"] as const;
+const TAB_HOTKEY_SLOT_IDS = [
+  "sidebarSlot1",
+  "sidebarSlot2",
+  "sidebarSlot3",
+  "sidebarSlot4",
+  "sidebarSlot5",
+  "sidebarSlot6",
+  "sidebarSlot7",
+  "sidebarSlot8",
+] as const satisfies readonly HotkeyActionId[];
 
 function tabLabel(tab: SidebarTab, t: (k: string) => string): string {
   switch (tab) {
@@ -35,6 +45,7 @@ export function useAppHotkeys({ onShowShortcuts }: { onShowShortcuts?: () => voi
   const setSidebarTab = useUiStore((s) => s.setSidebarTab);
   const tabOrder = useSidebarPrefs((s) => s.tabOrder);
   const hiddenTabs = useSidebarPrefs((s) => s.hiddenTabs);
+  const bindings = useHotkeyBindings();
 
   const list = useMemo((): Array<UseHotkeyDefinition> => {
     const refreshActive = () => {
@@ -42,9 +53,9 @@ export function useAppHotkeys({ onShowShortcuts }: { onShowShortcuts?: () => voi
     };
     const visibleTabs = tabOrder.filter((tab) => !hiddenTabs.includes(tab));
     const sidebarHotkeys: UseHotkeyDefinition[] = visibleTabs
-      .slice(0, TAB_HOTKEY_SLOTS.length)
+      .slice(0, TAB_HOTKEY_SLOT_IDS.length)
       .map((tab, i) => ({
-        hotkey: TAB_HOTKEY_SLOTS[i],
+        hotkey: bindings[TAB_HOTKEY_SLOT_IDS[i]],
         callback: () => setSidebarTab(tab),
         options: {
           enabled: !!activePath,
@@ -54,7 +65,15 @@ export function useAppHotkeys({ onShowShortcuts }: { onShowShortcuts?: () => voi
 
     return [
       {
-        hotkey: "F5",
+        hotkey: bindings.reloadActiveAlt,
+        callback: refreshActive,
+        options: {
+          enabled: !!activePath,
+          meta: { name: t("hotkeys.reloadActiveAlt") },
+        },
+      },
+      {
+        hotkey: bindings.reloadActive,
         callback: refreshActive,
         options: {
           enabled: !!activePath,
@@ -62,15 +81,7 @@ export function useAppHotkeys({ onShowShortcuts }: { onShowShortcuts?: () => voi
         },
       },
       {
-        hotkey: "Mod+R",
-        callback: refreshActive,
-        options: {
-          enabled: !!activePath,
-          meta: { name: t("hotkeys.reloadActive") },
-        },
-      },
-      {
-        hotkey: "Mod+Shift+R",
+        hotkey: bindings.reloadAll,
         callback: () => {
           void (async () => {
             await reloadAll();
@@ -81,27 +92,28 @@ export function useAppHotkeys({ onShowShortcuts }: { onShowShortcuts?: () => voi
       },
       ...sidebarHotkeys,
       {
-        hotkey: "Mod+O",
+        hotkey: bindings.openRepo,
         callback: () => {
           void pickRepo();
         },
         options: { meta: { name: t("hotkeys.openRepo") } },
       },
       {
-        hotkey: "Mod+,",
+        hotkey: bindings.settings,
         callback: () => {
           void router.navigate({ to: "/settings" });
         },
         options: { meta: { name: t("hotkeys.settings") } },
       },
       {
-        hotkey: "Mod+/",
+        hotkey: bindings.showShortcuts,
         callback: () => onShowShortcuts?.(),
         options: { meta: { name: t("hotkeys.showShortcuts") } },
       },
     ];
   }, [
     activePath,
+    bindings,
     hiddenTabs,
     onShowShortcuts,
     pickRepo,

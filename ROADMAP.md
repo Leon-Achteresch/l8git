@@ -59,10 +59,11 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 - [ ] Provider-Folgearbeiten: Live-Test gegen echte GitLab-Instanz, Pipeline-Retry für GitLab, Signier-Badge live aktualisieren
 
 ### Monat 6 — Flow & Onboarding
-- [ ] Command Palette auf alle Aktionen ausweiten (alles ohne Maus erreichbar)
-- [ ] Hotkey-Rebinding, Kontext-Hotkeys pro Panel
-- [ ] Onboarding auf den Aha-Moment trimmen: Repo öffnen → Graph + erste AI-Commit-Message ohne Konfiguration, interaktive Mini-Tour
-- [ ] Retention-Messung live: Aktivierungsrate, D7/D30-Retention, Feature-Adoption
+- [x] Command Palette auf alle Aktionen ausweiten (alles ohne Maus erreichbar)
+- [x] Hotkey-Rebinding, Kontext-Hotkeys pro Panel
+- [x] Onboarding auf den Aha-Moment trimmen: Repo öffnen → Graph + erste AI-Commit-Message ohne Konfiguration, interaktive Mini-Tour
+- [ ] Retention-Messung live: Aktivierungsrate, D7/D30-Retention, Feature-Adoption (wartet auf PostHog-Entscheidung)
+- [ ] Flow-Folgearbeiten: Terminal-Toggle und History-Pfeiltasten ins Rebinding-System, Settings-Hash-Navigation, Branch-aus-Commit-Dialog
 
 ## Q3 (Mär–Mai 2027) — AI-native Differenzierung
 

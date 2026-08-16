@@ -12,6 +12,7 @@ import {
   GitCommitHorizontal,
   Globe2,
   HardDrive,
+  Keyboard,
   Link2,
   Monitor,
   Moon,
@@ -35,6 +36,7 @@ import { AddGitAccount } from "@/components/repo/git-account/add-git-account";
 import { GitAccountRow } from "@/components/repo/git-account/git-account-row";
 import { AnimationsCard } from "@/components/settings/animations-card";
 import { GitSigningCard } from "@/components/settings/git-signing-card";
+import { HotkeysSection } from "@/components/settings/hotkeys-section";
 import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
 import { SidebarCustomizeSection } from "@/components/settings/sidebar-customize-section";
 import { Button } from "@/components/ui/button";
@@ -190,6 +192,7 @@ export function Settings() {
           { id: "sidebar", label: t("settings.navSidebar"), icon: PanelLeft, accent: "bg-git-branch" },
           { id: "appearance", label: t("settings.navAppearance"), icon: Palette, accent: "bg-git-merge" },
           { id: "animations", label: t("settings.navAnimations"), icon: Zap, accent: "bg-git-modified" },
+          { id: "hotkeys", label: t("settings.navHotkeys"), icon: Keyboard, accent: "bg-git-added" },
         ],
       },
       {
@@ -588,6 +591,20 @@ export function Settings() {
             />
             <StaggerCard index={2}>
               <AnimationsCard />
+            </StaggerCard>
+          </section>
+
+          {/* ── HOTKEYS ───────────────────────────────────────────────── */}
+          <section id="hotkeys" ref={setRef("hotkeys")} className="scroll-mt-10">
+            <SectionHeader
+              icon={Keyboard}
+              title={t("settings.hotkeysSectionTitle")}
+              subtitle={t("settings.hotkeysSectionSubtitle")}
+              gradient="from-git-added/25 to-git-added/25"
+              iconColor="text-git-added"
+            />
+            <StaggerCard index={3}>
+              <HotkeysSection />
             </StaggerCard>
           </section>
 

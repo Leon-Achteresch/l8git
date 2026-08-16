@@ -7,6 +7,7 @@ import { toastError } from '@/lib/error-toast';
 import { computeReachableHashes, normalizeGitOid } from '@/lib/graph';
 import type { Branch, Commit } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
+import { useHistoryHotkeys } from '@/lib/use-history-hotkeys';
 import { useUiStore } from '@/lib/ui-store';
 import { writeLocalStorageDebounced } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,6 +17,7 @@ import { CherryPickStatusBanner } from './cherry-pick-status-banner';
 import { CommitInspectDetail } from './commit-inspect-detail';
 import { CommitList } from './commit-list';
 import { MergeStatusBanner } from '../merge/merge-status-banner';
+import { RebaseInteractiveEditor } from '../rebase/rebase-interactive-editor';
 import { RebaseStatusBanner } from '../rebase/rebase-status-banner';
 
 const layoutStorageKey = 'l8git.history-split.layout.v1';
@@ -258,6 +260,20 @@ export function CommitHistoryPanel({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [sidebarTab, activePath, path, requestCommitHistoryFocus]);
 
+  const [rebaseBase, setRebaseBase] = useState<string | null>(null);
+
+  const selectedCommit = useMemo(
+    () => (selectedHash ? (commits.find(c => c.hash === selectedHash) ?? null) : null),
+    [commits, selectedHash]
+  );
+
+  useHistoryHotkeys({
+    path,
+    commit: selectedCommit,
+    enabled: sidebarTab === 'history' && activePath === path,
+    onRebaseInteractive: setRebaseBase,
+  });
+
   const onCherryPick = useCallback(
     async (hashes: string[], opts?: { mainline?: number }) => {
       if (hashes.length === 0) return;
@@ -348,6 +364,14 @@ export function CommitHistoryPanel({
       ) : (
         <div className='flex min-h-0 flex-1 flex-col'>{list}</div>
       )}
+      {rebaseBase ? (
+        <RebaseInteractiveEditor
+          open
+          onClose={() => setRebaseBase(null)}
+          path={path}
+          base={rebaseBase}
+        />
+      ) : null}
     </div>
   );
 }

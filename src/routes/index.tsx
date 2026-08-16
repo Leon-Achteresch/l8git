@@ -6,6 +6,7 @@ import { CommitPanel } from "@/components/repo/commit/commit-panel";
 import { RepoDetails } from "@/components/repo/layout/repo-details";
 import { RepoTabLayout } from "@/components/repo/layout/repo-tab-layout";
 import { EmptyState } from "@/components/repo/layout/empty-state";
+import { OnboardingTour } from "@/components/onboarding/onboarding-tour";
 import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -156,6 +157,7 @@ function Home() {
           {!hasRepos && <EmptyState />}
         </div>
       </div>
+      <OnboardingTour />
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ListRow } from "@/components/ui/list-row";
+import { PanelEmptyHint } from "@/components/onboarding/panel-empty-hint";
 import { CommitAvatar } from "@/components/repo/commit/commit-avatar";
 import { formatRelative } from "@/lib/format";
 import type { Branch, PrReviewer, PullRequest } from "@/lib/repo-store";
@@ -433,9 +434,11 @@ export function PullRequestList({
                   <path d="M6 8v8M8 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
                 <span>{t("pr.noneFound")}</span>
-                <span className="text-xs">
-                  {t("pr.signInHint")}
-                </span>
+                <PanelEmptyHint
+                  hint={t("pr.emptyAccountHint")}
+                  settingsHash="accounts"
+                  actionLabel={t("pr.emptyAccountAction")}
+                />
               </EmptyState>
             ) : !filtered || filtered.length === 0 ? (
               <EmptyState key="empty-filter">

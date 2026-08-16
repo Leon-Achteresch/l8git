@@ -4,7 +4,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { formatForDisplay } from "@tanstack/react-hotkeys";
 import { useTranslation } from "react-i18next";
+
+import {
+  HOTKEY_ACTIONS,
+  useHotkeyBindings,
+  type HotkeyActionGroup,
+} from "@/lib/hotkey-prefs";
 
 const IS_MAC =
   typeof navigator !== "undefined" &&
@@ -23,41 +30,40 @@ interface ShortcutGroup {
 
 function useShortcutGroups(): ShortcutGroup[] {
   const { t } = useTranslation();
+  const bindings = useHotkeyBindings();
+
+  const rowsFor = (group: HotkeyActionGroup): ShortcutRow[] =>
+    HOTKEY_ACTIONS.filter((action) => action.group === group).map((action) => ({
+      keys: [formatForDisplay(bindings[action.id])],
+      description: t(action.labelKey, action.labelParams ?? {}),
+    }));
+
   return [
     {
       group: t("hotkeysOverlay.groupGlobal"),
       rows: [
-        { keys: ["F5", `${MOD}+R`], description: t("hotkeys.reloadActive") },
-        { keys: [`${MOD}+Shift+R`], description: t("hotkeys.reloadAll") },
-        { keys: [`${MOD}+O`], description: t("hotkeys.openRepo") },
-        { keys: [`${MOD}+K`], description: t("hotkeysOverlay.commandPalette") },
-        { keys: [`${MOD}+,`], description: t("hotkeys.settings") },
-        { keys: [`${MOD}+/`], description: t("hotkeysOverlay.showShortcuts") },
+        ...rowsFor("global"),
         { keys: [`Ctrl+\``], description: t("hotkeysOverlay.toggleTerminal") },
       ],
     },
     {
       group: t("hotkeysOverlay.groupNavigation"),
-      rows: [
-        { keys: [`${MOD}+1`], description: t("hotkeys.sidebarCommit") },
-        { keys: [`${MOD}+2`], description: t("hotkeys.sidebarHistory") },
-        { keys: [`${MOD}+3`], description: t("hotkeys.sidebarPr") },
-        { keys: [`${MOD}+4`], description: t("hotkeys.sidebarCi") },
-        { keys: [`${MOD}+5`], description: t("hotkeys.sidebarStash") },
-        { keys: [`${MOD}+6`], description: t("hotkeysOverlay.sidebarSubmodules") },
-        { keys: [`${MOD}+7`], description: t("hotkeysOverlay.sidebarWorktrees") },
-        { keys: [`${MOD}+8`], description: t("hotkeysOverlay.sidebarHooks") },
-      ],
+      rows: rowsFor("navigation"),
     },
     {
       group: t("hotkeysOverlay.groupCommitDiff"),
       rows: [
-        { keys: ["S"], description: t("hotkeys.commitStageUnstageUnstaged") },
-        { keys: ["["], description: t("hotkeys.commitPrevHunk") },
-        { keys: ["]"], description: t("hotkeys.commitNextHunk") },
-        { keys: ["Esc"], description: t("hotkeys.commitClearSelection") },
+        ...rowsFor("commit"),
         { keys: [`${MOD}+Enter`], description: t("hotkeysOverlay.submitCommit") },
       ],
+    },
+    {
+      group: t("hotkeys.group.history"),
+      rows: rowsFor("history"),
+    },
+    {
+      group: t("hotkeys.group.branch"),
+      rows: rowsFor("branch"),
     },
     {
       group: t("hotkeysOverlay.groupSearch"),

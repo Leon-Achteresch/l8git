@@ -1,5 +1,6 @@
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useTranslation } from "react-i18next";
+import { useHotkeyBindings } from "./hotkey-prefs";
 import {
   buildHunkPatch,
   buildPatchesForSelection,
@@ -32,11 +33,12 @@ export function useCommitPanelHotkeys({
   onToggleFile: () => void;
 }) {
   const { t } = useTranslation();
+  const bindings = useHotkeyBindings();
   const hunkCount = parsedDiff?.hunks.length ?? 0;
 
   useHotkeys([
     {
-      hotkey: "S",
+      hotkey: bindings.commitStageToggle,
       callback: () => {
         if (!sector) {
           onToggleFile();
@@ -67,7 +69,7 @@ export function useCommitPanelHotkeys({
       },
     },
     {
-      hotkey: "[",
+      hotkey: bindings.commitPrevHunk,
       callback: () => onFocusPrevHunk(),
       options: {
         enabled: enabled && hunkCount > 0,
@@ -75,7 +77,7 @@ export function useCommitPanelHotkeys({
       },
     },
     {
-      hotkey: "]",
+      hotkey: bindings.commitNextHunk,
       callback: () => onFocusNextHunk(),
       options: {
         enabled: enabled && hunkCount > 0,
@@ -83,7 +85,7 @@ export function useCommitPanelHotkeys({
       },
     },
     {
-      hotkey: "Escape",
+      hotkey: bindings.commitClearSelection,
       callback: () => onClearSelection(),
       options: {
         enabled: enabled && selectedLines.size > 0,
