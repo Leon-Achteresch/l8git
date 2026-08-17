@@ -15,6 +15,7 @@ export interface AgentTransportOpenOptions {
   sandbox?: string;
   addDirs?: string[];
   worktree?: string;
+  agentsTrusted?: boolean;
 }
 
 export interface AgentTransportHandlers {

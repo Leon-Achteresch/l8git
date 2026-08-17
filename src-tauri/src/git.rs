@@ -920,9 +920,27 @@ pub async fn repo_log_page(
 
 pub const DEFAULT_REMOTE: &str = "origin";
 
-fn normalized_remote(remote: Option<&str>) -> Option<String> {
-    let r = remote?.trim();
-    (!r.is_empty()).then(|| r.to_string())
+fn reject_dash_arg(value: &str, label: &str) -> Result<(), String> {
+    if value.starts_with('-') {
+        return Err(format!("Ungültiger {label}: Werte mit führendem '-' sind nicht erlaubt ({value})"));
+    }
+    Ok(())
+}
+
+fn normalized_remote(repo: &PathBuf, remote: Option<&str>) -> Result<Option<String>, String> {
+    let Some(r) = remote else {
+        return Ok(None);
+    };
+    let r = r.trim();
+    if r.is_empty() {
+        return Ok(None);
+    }
+    reject_dash_arg(r, "Remote-Name")?;
+    let known = remote_names(repo);
+    if !known.iter().any(|n| n == r) {
+        return Err(format!("Unbekannter Remote: {r}"));
+    }
+    Ok(Some(r.to_string()))
 }
 
 fn remote_names(repo: &PathBuf) -> Vec<String> {
@@ -993,7 +1011,8 @@ pub async fn git_fetch(
         }
         if all_remotes.unwrap_or(false) {
             args.push("--all".to_string());
-        } else if let Some(r) = normalized_remote(remote.as_deref()) {
+        } else if let Some(r) = normalized_remote(&repo, remote.as_deref())? {
+            args.push("--".to_string());
             args.push(r);
         }
         let repo_path = repo.to_string_lossy().to_string();
@@ -1047,7 +1066,8 @@ pub async fn git_pull(
             }
             _ => args.push("--no-rebase".to_string()),
         }
-        if let Some(r) = normalized_remote(remote.as_deref()) {
+        if let Some(r) = normalized_remote(&repo, remote.as_deref())? {
+            args.push("--".to_string());
             args.push(r);
             if let Ok(branch) = run_git(&repo, &["symbolic-ref", "--short", "HEAD"]) {
                 let branch = branch.trim().to_string();
@@ -1100,7 +1120,7 @@ pub async fn git_push(
             args.push("--dry-run".to_string());
         }
 
-        let target = normalized_remote(remote.as_deref());
+        let target = normalized_remote(&repo, remote.as_deref())?;
         if set_upstream {
             let branch = run_git(&repo, &["symbolic-ref", "--short", "HEAD"])
                 .map(|s| s.trim().to_string())?;
@@ -1112,9 +1132,11 @@ pub async fn git_push(
                 None => resolve_push_remote(&repo),
             };
             args.push("-u".to_string());
+            args.push("--".to_string());
             args.push(target);
             args.push(branch);
         } else if let Some(r) = target {
+            args.push("--".to_string());
             args.push(r);
         }
 
@@ -1224,7 +1246,7 @@ pub async fn git_clone(
         if d.is_empty() {
             return Err("Zielpfad darf nicht leer sein".into());
         }
-        let args = vec!["clone".to_string(), u.to_string(), d.to_string()];
+        let args = vec!["clone".to_string(), "--".to_string(), u.to_string(), d.to_string()];
         run_remote_op("clone", d, None, args, op_id)
     }).await
 }
@@ -1243,8 +1265,10 @@ pub async fn git_checkout(
         if name.is_empty() {
             return Err("Branch- oder Ref-Name darf nicht leer sein".into());
         }
+        reject_dash_arg(name, "Branch- oder Ref-Name")?;
         if let Some(remote) = from_remote.filter(|s| !s.trim().is_empty()) {
             let r = remote.trim();
+            reject_dash_arg(r, "Remote-Tracking-Ref")?;
             run_git(
                 &repo,
                 &["checkout", "-b", name, "--track", r],
@@ -1254,13 +1278,15 @@ pub async fn git_checkout(
         if create {
             let mut args: Vec<String> = vec!["checkout".into(), "-b".into(), name.to_string()];
             if let Some(b) = base.filter(|s| !s.trim().is_empty()) {
-                args.push(b.trim().to_string());
+                let b = b.trim().to_string();
+                reject_dash_arg(&b, "Basis-Ref")?;
+                args.push(b);
             }
             let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
             run_git(&repo, &refs)?;
             return Ok(());
         }
-        run_git(&repo, &["checkout", name])?;
+        run_git(&repo, &["checkout", name, "--"])?;
         Ok(())
     }).await
 }
@@ -1765,8 +1791,12 @@ pub async fn git_restore_files_at_commit(
 pub async fn delete_branch(path: String, name: String, force: bool) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
+        let n = name.trim();
+        if n.is_empty() {
+            return Err("Branch-Name darf nicht leer sein".into());
+        }
         let flag = if force { "-D" } else { "-d" };
-        run_git(&repo, &["branch", flag, &name])?;
+        run_git(&repo, &["branch", flag, "--", n])?;
         Ok(())
     }).await
 }
@@ -1784,8 +1814,11 @@ pub async fn delete_remote_branch(path: String, remote_ref: String) -> Result<St
         if remote.is_empty() || branch.is_empty() {
             return Err("Ungültige Remote-Ref".into());
         }
-        let out = run_git_merged_output(&repo, &["push", remote, "--delete", branch])?;
-        let _ = run_git_merged_output(&repo, &["fetch", remote, "--prune"]);
+        let remote = normalized_remote(&repo, Some(remote))?
+            .ok_or_else(|| "Ungültige Remote-Ref".to_string())?;
+        reject_dash_arg(branch, "Branch-Name")?;
+        let out = run_git_merged_output(&repo, &["push", &remote, "--delete", "--", branch])?;
+        let _ = run_git_merged_output(&repo, &["fetch", "--prune", "--", &remote]);
         Ok(out)
     }).await
 }
@@ -1798,7 +1831,7 @@ pub async fn delete_tag(path: String, name: String) -> Result<(), String> {
         if tag.is_empty() {
             return Err("Tag-Name darf nicht leer sein".into());
         }
-        run_git(&repo, &["tag", "-d", tag])?;
+        run_git(&repo, &["tag", "-d", "--", tag])?;
         Ok(())
     }).await
 }
@@ -1815,8 +1848,11 @@ pub async fn delete_remote_tag(path: String, name: String, remote: String) -> Re
         if r.is_empty() {
             return Err("Remote darf nicht leer sein".into());
         }
-        let out = run_git_merged_output(&repo, &["push", r, "--delete", &format!("refs/tags/{tag}")])?;
-        let _ = run_git_merged_output(&repo, &["fetch", r, "--prune", "--prune-tags"]);
+        let r = normalized_remote(&repo, Some(r))?
+            .ok_or_else(|| "Remote darf nicht leer sein".to_string())?;
+        reject_dash_arg(tag, "Tag-Name")?;
+        let out = run_git_merged_output(&repo, &["push", &r, "--delete", "--", &format!("refs/tags/{tag}")])?;
+        let _ = run_git_merged_output(&repo, &["fetch", "--prune", "--prune-tags", "--", &r]);
         Ok(out)
     }).await
 }
@@ -2488,7 +2524,7 @@ fn apply_patch_to_index(repo: &PathBuf, patch: &str, reverse: bool) -> Result<()
 #[tauri::command]
 pub async fn repo_read_file(path: String, file: String) -> Result<String, String> {
     spawn_git(move || {
-        let abs = PathBuf::from(path.trim()).join(file.trim());
+        let abs = crate::pathsafe::resolve_in_root(&PathBuf::from(path.trim()), file.trim())?;
         std::fs::read_to_string(&abs)
             .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))
     }).await
@@ -2497,7 +2533,7 @@ pub async fn repo_read_file(path: String, file: String) -> Result<String, String
 #[tauri::command]
 pub async fn repo_write_file(path: String, file: String, content: String) -> Result<(), String> {
     spawn_git(move || {
-        let abs = PathBuf::from(path.trim()).join(file.trim());
+        let abs = crate::pathsafe::resolve_in_root(&PathBuf::from(path.trim()), file.trim())?;
         std::fs::write(&abs, content)
             .map_err(|e| format!("Datei konnte nicht geschrieben werden: {e}"))
     }).await

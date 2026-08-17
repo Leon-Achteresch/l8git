@@ -423,3 +423,58 @@ async fn fetch_can_target_a_single_remote_or_all_remotes() {
         .unwrap();
     assert_eq!(work.git(&["rev-parse", "refs/remotes/fork/main"]), other.head());
 }
+
+#[tokio::test]
+async fn fetch_rejects_argument_injection_via_remote_name() {
+    let (work, _bare) = repo_with_remote("fetch-inject");
+    work.commit("a.txt", "1\n", "c1");
+
+    let marker = common::scratch_path("pwned-marker").join("pwned");
+    let evil = format!("--upload-pack=touch {}", marker.display());
+    let config = work.path.join(".git").join("config");
+    let mut cfg = std::fs::read_to_string(&config).unwrap();
+    cfg.push_str(&format!("[remote \"{evil}\"]\n\turl = git@github.com:acme/app.git\n\tfetch = +refs/heads/*:refs/remotes/evil/*\n"));
+    std::fs::write(&config, cfg).unwrap();
+
+    let err = git::git_fetch(work.s(), None, None, Some(evil.clone()), None, None)
+        .await
+        .expect_err("dash remote must be rejected");
+    assert!(err.contains("führendem '-'"), "err: {err}");
+    assert!(!marker.exists(), "injected command must not run");
+
+    let unknown = git::git_fetch(work.s(), None, None, Some("nope".into()), None, None).await;
+    assert!(unknown.is_err(), "unknown remote must be rejected");
+}
+
+#[tokio::test]
+async fn push_and_pull_reject_dash_and_unknown_remotes() {
+    let (work, _bare) = repo_with_remote("push-inject");
+    work.commit("a.txt", "1\n", "c1");
+
+    assert!(git::git_push(work.s(), false, Some("--force".into()), None, None, None, None, None, None)
+        .await
+        .is_err());
+    assert!(git::git_push(work.s(), false, Some("nope".into()), None, None, None, None, None, None)
+        .await
+        .is_err());
+    assert!(git::git_pull(work.s(), None, Some("--upload-pack=touch x".into()), None)
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn delete_branch_and_tag_are_injection_safe() {
+    let repo = TestRepo::new("delete-inject");
+    repo.commit("a.txt", "1\n", "c1");
+    let marker = common::scratch_path("del-marker").join("pwned");
+
+    repo.git(&["update-ref", "refs/heads/-evil", "HEAD"]);
+    git::delete_branch(repo.s(), "-evil".into(), true).await.unwrap();
+    assert!(!repo.try_git(&["rev-parse", "refs/heads/-evil"]).0, "branch must be gone");
+    assert!(!marker.exists());
+
+    repo.git(&["update-ref", "refs/tags/-eviltag", "HEAD"]);
+    git::delete_tag(repo.s(), "-eviltag".into()).await.unwrap();
+    assert!(!repo.try_git(&["rev-parse", "refs/tags/-eviltag"]).0, "tag must be gone");
+    assert!(!marker.exists());
+}

@@ -35,7 +35,7 @@ fn parse_size_value(s: &str) -> u32 {
         .unwrap_or(0)
 }
 
-fn favicon_from_manifest(manifest_path: &std::path::Path) -> Option<String> {
+fn favicon_from_manifest(root: &Path, manifest_path: &std::path::Path) -> Option<String> {
     let bytes = std::fs::read(manifest_path).ok()?;
     let json: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
     let icons = json.get("icons")?.as_array()?;
@@ -60,7 +60,7 @@ fn favicon_from_manifest(manifest_path: &std::path::Path) -> Option<String> {
     let (_, src, icon_type) = best?;
     let base_dir = manifest_path.parent()?;
     let trimmed = src.trim_start_matches('/');
-    let icon_path = base_dir.join(trimmed);
+    let icon_path = crate::pathsafe::contained(root, &base_dir.join(trimmed)).ok()?;
     let icon_bytes = std::fs::read(&icon_path).ok()?;
     if icon_bytes.is_empty() {
         return None;
@@ -219,7 +219,7 @@ fn read_repo_favicon_blocking(path: &str) -> Option<String> {
 
     for rel in manifest_candidates {
         let p = root.join(rel);
-        if let Some(icon) = favicon_from_manifest(&p) {
+        if let Some(icon) = favicon_from_manifest(&root, &p) {
             return Some(icon);
         }
     }
@@ -227,7 +227,7 @@ fn read_repo_favicon_blocking(path: &str) -> Option<String> {
     let expo_candidates = ["app.json", "app.config.json"];
     for rel in expo_candidates {
         let p = root.join(rel);
-        if let Some(icon) = favicon_from_expo_config(&p) {
+        if let Some(icon) = favicon_from_expo_config(&root, &p) {
             return Some(icon);
         }
     }
@@ -243,7 +243,7 @@ fn read_repo_favicon_blocking(path: &str) -> Option<String> {
     None
 }
 
-fn favicon_from_expo_config(config_path: &std::path::Path) -> Option<String> {
+fn favicon_from_expo_config(root: &Path, config_path: &std::path::Path) -> Option<String> {
     let bytes = std::fs::read(config_path).ok()?;
     let json: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
     let expo = json.get("expo").unwrap_or(&json);
@@ -259,7 +259,10 @@ fn favicon_from_expo_config(config_path: &std::path::Path) -> Option<String> {
 
     let base_dir = config_path.parent()?;
     for rel in candidates.into_iter().flatten() {
-        let icon_path = base_dir.join(rel.trim_start_matches("./").trim_start_matches('/'));
+        let candidate = base_dir.join(rel.trim_start_matches("./").trim_start_matches('/'));
+        let Ok(icon_path) = crate::pathsafe::contained(root, &candidate) else {
+            continue;
+        };
         let Ok(icon_bytes) = std::fs::read(&icon_path) else {
             continue;
         };

@@ -39,6 +39,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import { AgentAccountMenu } from "@/components/agents/chat/agent-account-menu";
 import { AgentComposerControls } from "@/components/agents/chat/agent-composer-controls";
+import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
 import { AgentRequestCard } from "@/components/agents/chat/agent-request-card";
@@ -1205,6 +1206,10 @@ export const AgentChatPane = memo(function AgentChatPane({
 
         <AgentAccountMenu onImport={isCodex ? () => setImportOpen(true) : undefined} />
       </header>
+
+      <div className="shrink-0 px-6">
+        <AgentTrustBanner path={path} />
+      </div>
 
       <AgentConversationViewport
         path={path}

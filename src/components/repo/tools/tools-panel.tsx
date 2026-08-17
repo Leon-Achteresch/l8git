@@ -40,8 +40,7 @@ export function ToolsPanel({ path }: { path: string }) {
   };
 
   const onRun = (action: ToolAction) => {
-    if (action.confirm) setPendingConfirm(action);
-    else runAction(action);
+    setPendingConfirm(action);
   };
 
   return (

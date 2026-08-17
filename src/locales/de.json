@@ -2963,5 +2963,14 @@
     "running": "Wird generiert…",
     "hintPlaceholder": "z. B. Migration erwähnen, kürzer fassen …",
     "hintSubmit": "Übernehmen"
+  },
+  "agentTrust": {
+    "bannerTitle": "Diesem Repository wird nicht vertraut",
+    "bannerBody": "Agents laufen mit erforderlichen Freigaben und ignorieren die Hooks und MCP-Server dieses Repos. Vertraue ihm nur, wenn du diesen Code kontrollierst oder vollständig prüfst.",
+    "trustAction": "Repo vertrauen",
+    "confirmTitle": "Agent-Konfiguration dieses Repositories vertrauen?",
+    "confirmBody": "Beim Vertrauen werden im Repository definierte Agent-Hooks und MCP-Server ausgeführt und Freigabeabfragen übersprungen. Vertraue nur Repositories, die du kontrollierst oder vollständig geprüft hast.",
+    "confirmAction": "Vertrauen",
+    "cancel": "Abbrechen"
   }
 }

@@ -3,6 +3,7 @@ mod common;
 use common::{json, TestRepo};
 use l8git_lib::pr::{
     bb_commit_status_to_pr_check, bb_inline_comment_payload, bb_map_comment, bb_map_pr,
+    bitbucket_api_base, is_bitbucket_cloud_host, BITBUCKET_SERVER_UNSUPPORTED,
     current_branch, detect_provider, encode_uri_component, first_non_empty, gh_map_pr,
     gh_map_review_comment, gh_map_review_threads, gh_review_payload, gitea_api_base, gitea_review_payload,
     github_api_base, github_repo_api_url, gitlab_api_base, gitlab_auth_header, gitlab_project_id,
@@ -237,6 +238,23 @@ fn github_api_base_switches_between_dotcom_and_enterprise() {
         github_api_base("github.corp.example/"),
         "https://github.corp.example/api/v3"
     );
+}
+
+#[test]
+fn bitbucket_api_base_only_serves_cloud_hosts() {
+    assert!(is_bitbucket_cloud_host("bitbucket.org"));
+    assert!(is_bitbucket_cloud_host("BITBUCKET.ORG"));
+    assert!(is_bitbucket_cloud_host("api.bitbucket.org"));
+    assert!(!is_bitbucket_cloud_host("bitbucket.corp.example"));
+    assert!(!is_bitbucket_cloud_host("evil-bitbucket.org.attacker.com"));
+
+    assert_eq!(
+        bitbucket_api_base("bitbucket.org").unwrap(),
+        "https://api.bitbucket.org/2.0"
+    );
+    let err = bitbucket_api_base("bitbucket.corp.example").unwrap_err();
+    assert_eq!(err, BITBUCKET_SERVER_UNSUPPORTED);
+    assert!(!err.contains("api.bitbucket.org"));
 }
 
 #[test]

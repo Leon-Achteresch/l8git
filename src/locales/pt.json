@@ -2963,5 +2963,14 @@
     "running": "Gerando…",
     "hintPlaceholder": "ex.: mencione a migração, deixe mais curto…",
     "hintSubmit": "Aplicar"
+  },
+  "agentTrust": {
+    "bannerTitle": "Este repositório não é confiável",
+    "bannerBody": "Os agentes são executados com aprovações obrigatórias e ignoram os hooks e servidores MCP deste repositório. Confie nele apenas se você controla ou revisa totalmente este código.",
+    "trustAction": "Confiar no repositório",
+    "confirmTitle": "Confiar na configuração de agentes deste repositório?",
+    "confirmBody": "Confiar executa os hooks de agente e servidores MCP definidos neste repositório e ignora as solicitações de aprovação. Confie apenas em repositórios que você controla ou revisou totalmente.",
+    "confirmAction": "Confiar",
+    "cancel": "Cancelar"
   }
 }

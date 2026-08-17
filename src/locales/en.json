@@ -2963,5 +2963,14 @@
     "running": "Generating…",
     "hintPlaceholder": "e.g. mention the migration, keep it shorter …",
     "hintSubmit": "Apply"
+  },
+  "agentTrust": {
+    "bannerTitle": "This repository is not trusted",
+    "bannerBody": "Agents run with approvals required and ignore this repo's hooks and MCP servers. Trust it only if you control or fully review this code.",
+    "trustAction": "Trust repo",
+    "confirmTitle": "Trust this repository's agent configuration?",
+    "confirmBody": "Trusting runs agent hooks and MCP servers defined in this repository and skips approval prompts. Only trust repositories you control or have fully reviewed.",
+    "confirmAction": "Trust",
+    "cancel": "Cancel"
   }
 }

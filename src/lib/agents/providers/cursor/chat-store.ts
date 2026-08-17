@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { createStore } from "zustand/vanilla";
 
+import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
+
 import type { AgentChatState } from "@/lib/agents/chat-store";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import { accumulateUsage } from "@/lib/agents/token-cost";
@@ -515,6 +517,7 @@ async function runTurn(threadId: string, path: string, prompt: string): Promise<
     model: state.model ?? undefined,
     permissionMode: cliMode(state),
     sandbox: cliSandbox(state),
+    agentsTrusted: isRepoAgentsTrusted(path),
   });
   cursorChatStore.setState((current) => ({
     sessionStatusByThread: { ...current.sessionStatusByThread, [threadId]: "ready" },

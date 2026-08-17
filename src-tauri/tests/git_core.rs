@@ -708,6 +708,24 @@ async fn repo_read_and_write_file_roundtrip_through_the_worktree() {
 }
 
 #[tokio::test]
+async fn repo_file_access_rejects_path_traversal() {
+    let repo = TestRepo::new("read-write-escape");
+    repo.commit("a.txt", "one\n", "initial");
+
+    assert!(git::repo_read_file(repo.s(), "../../../etc/hosts".into())
+        .await
+        .is_err());
+    assert!(git::repo_read_file(repo.s(), "/etc/hosts".into()).await.is_err());
+
+    let outside = repo.path.parent().unwrap().join("escaped.txt");
+    let _ = std::fs::remove_file(&outside);
+    assert!(git::repo_write_file(repo.s(), "../escaped.txt".into(), "x".into())
+        .await
+        .is_err());
+    assert!(!outside.exists(), "traversal write must not escape the repo");
+}
+
+#[tokio::test]
 async fn repo_list_files_returns_tracked_paths_only() {
     let repo = TestRepo::new("list-files");
     repo.write("src/a.ts", "a\n");

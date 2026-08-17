@@ -2963,5 +2963,14 @@
     "running": "正在生成…",
     "hintPlaceholder": "例如：提一下迁移、写得更简短一些 …",
     "hintSubmit": "应用"
+  },
+  "agentTrust": {
+    "bannerTitle": "此仓库不受信任",
+    "bannerBody": "代理在需要审批的模式下运行，并忽略此仓库的钩子和 MCP 服务器。仅在你掌控或完全审查过此代码时才信任它。",
+    "trustAction": "信任仓库",
+    "confirmTitle": "信任此仓库的代理配置？",
+    "confirmBody": "信任后将运行此仓库中定义的代理钩子和 MCP 服务器，并跳过审批提示。请仅信任你掌控或已完全审查的仓库。",
+    "confirmAction": "信任",
+    "cancel": "取消"
   }
 }

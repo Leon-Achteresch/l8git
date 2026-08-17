@@ -1,4 +1,5 @@
 import { CHART_TOOL } from "@/lib/agents/chart-spec";
+import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
 import { invoke } from "@tauri-apps/api/core";
 import { createStore } from "zustand/vanilla";
 
@@ -984,6 +985,7 @@ async function connectClient(
       model: state.model ?? undefined,
       effort: state.reasoningEffort,
       permissionMode: permissionMode(state),
+      agentsTrusted: isRepoAgentsTrusted(path),
     });
     updateCapabilities(initialized, path);
     claudeChatStore.setState((current) => ({

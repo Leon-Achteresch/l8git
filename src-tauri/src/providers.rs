@@ -94,6 +94,10 @@ pub(crate) async fn bitbucket_collect_paginated_values(
     host: &str,
 ) -> Result<Vec<Value>, String> {
     const MAX_PAGES: usize = 500;
+    let expected_host = reqwest::Url::parse(start_url)
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()))
+        .ok_or_else(|| "Bitbucket: Ungültige API-URL.".to_string())?;
     let mut out: Vec<Value> = Vec::new();
     let mut next: Option<String> = Some(start_url.to_string());
     let mut pages = 0usize;
@@ -101,6 +105,12 @@ pub(crate) async fn bitbucket_collect_paginated_values(
         pages += 1;
         if pages > MAX_PAGES {
             return Err("Bitbucket: Seitenlimit bei der API-Pagination erreicht.".into());
+        }
+        let page_host = reqwest::Url::parse(&url)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()));
+        if page_host.as_deref() != Some(expected_host.as_str()) {
+            return Err("Bitbucket: Pagination verweist auf einen fremden Host; abgebrochen.".into());
         }
         let res = bitbucket_send_authed(client, &url, cred, host).await?;
         if res.status() == reqwest::StatusCode::UNAUTHORIZED {

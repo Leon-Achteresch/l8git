@@ -396,6 +396,21 @@ pub fn gitea_api_base(host: &str) -> String {
     format!("https://{}/api/v1", host.trim().trim_end_matches('/'))
 }
 
+pub const BITBUCKET_SERVER_UNSUPPORTED: &str = "__BITBUCKET_SERVER_UNSUPPORTED__";
+
+pub fn is_bitbucket_cloud_host(host: &str) -> bool {
+    let host = host.trim().trim_end_matches('/').to_ascii_lowercase();
+    host == "bitbucket.org" || host.ends_with(".bitbucket.org")
+}
+
+pub fn bitbucket_api_base(host: &str) -> Result<String, String> {
+    if is_bitbucket_cloud_host(host) {
+        Ok("https://api.bitbucket.org/2.0".to_string())
+    } else {
+        Err(BITBUCKET_SERVER_UNSUPPORTED.to_string())
+    }
+}
+
 pub fn provider_api_base(h: &RemoteHandle) -> String {
     match h.provider {
         Provider::Gitea => gitea_api_base(&h.host),
@@ -1072,8 +1087,9 @@ async fn bb_list(
     cred: &HttpsCredential,
     h: &RemoteHandle,
 ) -> Result<Vec<PullRequest>, String> {
+    let api = bitbucket_api_base(&h.host)?;
     let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests?pagelen=50&state=OPEN&state=MERGED&state=DECLINED",
+        "{api}/repositories/{}/{}/pullrequests?pagelen=50&state=OPEN&state=MERGED&state=DECLINED",
         h.owner, h.repo
     );
     let values = bitbucket_collect_paginated_values(client, cred, &url, &h.host).await?;
@@ -1090,8 +1106,9 @@ async fn bb_detail(
     h: &RemoteHandle,
     number: u64,
 ) -> Result<PullRequestDetail, String> {
+    let api = bitbucket_api_base(&h.host)?;
     let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}",
+        "{api}/repositories/{}/{}/pullrequests/{number}",
         h.owner, h.repo
     );
     let res = bitbucket_send_authed(client, &url, cred, &h.host).await?;
@@ -1115,8 +1132,9 @@ async fn bb_commits(
     h: &RemoteHandle,
     number: u64,
 ) -> Result<Vec<PrCommit>, String> {
+    let api = bitbucket_api_base(&h.host)?;
     let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/commits?pagelen=50",
+        "{api}/repositories/{}/{}/pullrequests/{number}/commits?pagelen=50",
         h.owner, h.repo
     );
     let values = bitbucket_collect_paginated_values(client, cred, &url, &h.host).await?;
@@ -1181,8 +1199,9 @@ async fn bb_files(
     h: &RemoteHandle,
     number: u64,
 ) -> Result<Vec<PrFile>, String> {
+    let api = bitbucket_api_base(&h.host)?;
     let diffstat_url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/diffstat?pagelen=100",
+        "{api}/repositories/{}/{}/pullrequests/{number}/diffstat?pagelen=100",
         h.owner, h.repo
     );
     let stats = bitbucket_collect_paginated_values(client, cred, &diffstat_url, &h.host).await?;
@@ -1217,8 +1236,9 @@ async fn bb_file_patch(
     number: u64,
     target_path: &str,
 ) -> Result<Option<String>, String> {
+    let api = bitbucket_api_base(&h.host)?;
     let diff_url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/diff",
+        "{api}/repositories/{}/{}/pullrequests/{number}/diff",
         h.owner, h.repo
     );
     let diff_res = bitbucket_send_authed(client, &diff_url, cred, &h.host).await?;
@@ -1299,8 +1319,9 @@ async fn bb_conversation(
     h: &RemoteHandle,
     number: u64,
 ) -> Result<PrConversation, String> {
+    let api = bitbucket_api_base(&h.host)?;
     let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/comments?pagelen=50",
+        "{api}/repositories/{}/{}/pullrequests/{number}/comments?pagelen=50",
         h.owner, h.repo
     );
     let values = bitbucket_collect_paginated_values(client, cred, &url, &h.host).await?;
@@ -1364,8 +1385,9 @@ async fn bb_checks(
     h: &RemoteHandle,
     number: u64,
 ) -> Result<Vec<PrCheck>, String> {
+    let api = bitbucket_api_base(&h.host)?;
     let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/statuses?pagelen=100",
+        "{api}/repositories/{}/{}/pullrequests/{number}/statuses?pagelen=100",
         h.owner, h.repo
     );
     let values = bitbucket_collect_paginated_values(client, cred, &url, &h.host).await?;
@@ -1379,8 +1401,9 @@ async fn bb_checks_for_commit(
     commit_hash: &str,
 ) -> Result<Vec<PrCheck>, String> {
     let enc = encode_uri_component(commit_hash);
+    let api = bitbucket_api_base(&h.host)?;
     let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/commit/{enc}/statuses?pagelen=100",
+        "{api}/repositories/{}/{}/commit/{enc}/statuses?pagelen=100",
         h.owner, h.repo
     );
     let values = bitbucket_collect_paginated_values(client, cred, &url, &h.host).await?;
@@ -2137,8 +2160,17 @@ async fn bitbucket_commit_author_avatar_for_sha(
     repo: &str,
     sha: String,
 ) -> CommitAvatarEntry {
+    let api = match bitbucket_api_base(host) {
+        Ok(api) => api,
+        Err(_) => {
+            return CommitAvatarEntry {
+                hash: sha,
+                author_avatar: None,
+            };
+        }
+    };
     let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/commit/{}",
+        "{api}/repositories/{}/{}/commit/{}",
         owner, repo, sha
     );
     let res = match bitbucket_send_authed(client, &url, cred, host).await {
@@ -2455,8 +2487,9 @@ pub async fn pr_create(
             if draft {
                 return Err("Bitbucket unterstützt Draft-Pull-Requests hier nicht.".into());
             }
+            let api = bitbucket_api_base(&h.host)?;
             let url = format!(
-                "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests",
+                "{api}/repositories/{}/{}/pullrequests",
                 h.owner, h.repo
             );
             let v = bb_post_json(
@@ -2653,8 +2686,9 @@ async fn fetch_default_branch(p: &PathBuf) -> Option<String> {
             gl_read_json(res, &h.host).await.ok()?
         }
         Provider::Bitbucket => {
+            let api = bitbucket_api_base(&h.host).ok()?;
             let url = format!(
-                "https://api.bitbucket.org/2.0/repositories/{}/{}",
+                "{api}/repositories/{}/{}",
                 h.owner, h.repo
             );
             let res = bitbucket_send_authed(&client, &url, &cred, &h.host).await.ok()?;
@@ -2871,8 +2905,9 @@ async fn bb_post_comment(
     line: Option<u64>,
     parent: Option<&str>,
 ) -> Result<(), String> {
+    let api = bitbucket_api_base(&h.host)?;
     let url = format!(
-        "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/comments",
+        "{api}/repositories/{}/{}/pullrequests/{number}/comments",
         h.owner, h.repo
     );
     bb_post_json(
@@ -3096,8 +3131,9 @@ pub async fn pr_submit_review(
                 "REQUEST_CHANGES" => "request-changes",
                 _ => {
                     if !body.trim().is_empty() {
+                        let api = bitbucket_api_base(&h.host)?;
                         let url = format!(
-                            "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/comments",
+                            "{api}/repositories/{}/{}/pullrequests/{number}/comments",
                             h.owner, h.repo
                         );
                         bb_post_json(
@@ -3112,14 +3148,16 @@ pub async fn pr_submit_review(
                     return Ok(());
                 }
             };
+            let api = bitbucket_api_base(&h.host)?;
             let url = format!(
-                "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/{endpoint}",
+                "{api}/repositories/{}/{}/pullrequests/{number}/{endpoint}",
                 h.owner, h.repo
             );
             bb_post_json(&client, &cred, &url, &h.host, json!({})).await?;
             if !body.trim().is_empty() {
+                let api = bitbucket_api_base(&h.host)?;
                 let c_url = format!(
-                    "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/comments",
+                    "{api}/repositories/{}/{}/pullrequests/{number}/comments",
                     h.owner, h.repo
                 );
                 bb_post_json(
@@ -3226,8 +3264,9 @@ pub async fn pr_merge(
                 "rebase" => "fast_forward",
                 _ => "merge_commit",
             };
+            let api = bitbucket_api_base(&h.host)?;
             let url = format!(
-                "https://api.bitbucket.org/2.0/repositories/{}/{}/pullrequests/{number}/merge",
+                "{api}/repositories/{}/{}/pullrequests/{number}/merge",
                 h.owner, h.repo
             );
             let mut body = json!({ "merge_strategy": bb_strat, "close_source_branch": delete_source });

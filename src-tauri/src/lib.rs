@@ -9,6 +9,7 @@ mod favicon;
 pub mod git;
 mod lfs;
 mod media;
+pub mod pathsafe;
 pub mod pr;
 mod providers;
 mod pty;

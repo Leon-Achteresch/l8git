@@ -151,7 +151,7 @@ pub fn detect_mime(bytes: &[u8], rel_path: &str) -> String {
 }
 
 fn read_working_tree(repo: &Path, rel_path: &str) -> Result<Vec<u8>, String> {
-    let abs = repo.join(rel_path);
+    let abs = crate::pathsafe::resolve_in_root(repo, rel_path)?;
     let meta = std::fs::metadata(&abs).map_err(|e| format!("{}: {e}", abs.display()))?;
     if !meta.is_file() {
         return Err(format!("Not a file: {rel_path}"));

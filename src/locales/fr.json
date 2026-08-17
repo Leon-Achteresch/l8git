@@ -2963,5 +2963,14 @@
     "running": "Génération…",
     "hintPlaceholder": "p. ex. mentionne la migration, sois plus concis …",
     "hintSubmit": "Appliquer"
+  },
+  "agentTrust": {
+    "bannerTitle": "Ce dépôt n'est pas approuvé",
+    "bannerBody": "Les agents s'exécutent avec approbations requises et ignorent les hooks et serveurs MCP de ce dépôt. Ne l'approuvez que si vous contrôlez ou examinez entièrement ce code.",
+    "trustAction": "Approuver le dépôt",
+    "confirmTitle": "Approuver la configuration d'agent de ce dépôt ?",
+    "confirmBody": "L'approbation exécute les hooks d'agent et les serveurs MCP définis dans ce dépôt et ignore les demandes d'approbation. N'approuvez que les dépôts que vous contrôlez ou avez entièrement examinés.",
+    "confirmAction": "Approuver",
+    "cancel": "Annuler"
   }
 }

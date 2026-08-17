@@ -11,6 +11,7 @@ export interface CursorRunOptions {
   sandbox?: string;
   addDirs?: string[];
   worktree?: string;
+  agentsTrusted?: boolean;
 }
 
 export interface CursorClientHandlers {
@@ -75,6 +76,7 @@ export class CursorClient {
         sandbox: options.sandbox,
         addDirs: options.addDirs,
         worktree: options.worktree,
+        agentsTrusted: options.agentsTrusted,
       },
     );
     this.transport = transport;

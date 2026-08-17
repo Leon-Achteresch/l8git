@@ -107,7 +107,7 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 
 ### Monat 12 — v1.0 & Nachhaltigkeit
 - [x] Stabilitäts-Sprint: alle „Folgearbeiten“-Punkte aus Q1–Q3 abgearbeitet
-- [x] Security-Review durchgeführt (3 High, 2 Medium, 2 Low, 1 Info gefunden); Fixes in Arbeit
+- [x] Security-Review durchgeführt und behoben (3 High, 2 Medium, 2 Low; Fixes committet, +9 Sicherheitstests)
 - [x] Sponsor-Link in README + FUNDING.yml (GitHub Sponsors auf github.com noch zu aktivieren)
 - [ ] 1.0-Release: Show HN, Product Hunt (manuell, nach dem Launch-Sprint)
 

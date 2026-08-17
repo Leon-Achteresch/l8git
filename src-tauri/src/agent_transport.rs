@@ -75,6 +75,13 @@ pub struct AgentTransportOptions {
     sandbox: Option<String>,
     add_dirs: Option<Vec<String>>,
     worktree: Option<String>,
+    agents_trusted: Option<bool>,
+}
+
+impl AgentTransportOptions {
+    fn is_trusted(&self) -> bool {
+        self.agents_trusted.unwrap_or(false)
+    }
 }
 
 /// Ordered envelope used on the Tauri channel. `payload` is kept as JSON all
@@ -147,22 +154,23 @@ fn safe_prompt(value: &str) -> Result<String, String> {
 
 fn cursor_process(options: &AgentTransportOptions) -> Result<Command, String> {
     let executable = crate::cursor::cursor_executable()?;
+    let trusted = options.is_trusted();
     let mut command = cli_command(executable);
     command.args([
         "--print",
         "--output-format",
         "stream-json",
         "--stream-partial-output",
-        "--trust",
-        "--approve-mcps",
     ]);
+    if trusted {
+        command.args(["--trust", "--approve-mcps"]);
+    }
     match options.permission_mode.as_deref() {
         Some("plan") => command.arg("--plan"),
         Some("ask") => command.args(["--mode", "ask"]),
         Some("auto-review") => command.arg("--auto-review"),
-        // Without an explicit policy the headless run would stall on the first
-        // approval prompt, so full access is the deliberate default here.
-        _ => command.arg("--force"),
+        _ if trusted => command.arg("--force"),
+        _ => command.args(["--mode", "ask"]),
     };
     if let Some(sandbox) = options.sandbox.as_deref() {
         let sandbox = safe_argument(sandbox, "Cursor-Sandbox")?;
@@ -222,6 +230,7 @@ fn provider_process(
         "claude" => {
             let executable = resolve_cli_path("claude")
                 .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+            let trusted = options.is_trusted();
             let mut command = cli_command(executable);
             command.args([
                 "--output-format",
@@ -235,11 +244,16 @@ fn provider_process(
                 "--include-hook-events",
                 "--replay-user-messages",
                 "--forward-subagent-text",
-                "--setting-sources",
-                "user,project,local",
                 "--prompt-suggestions",
                 "true",
-                "--allow-dangerously-skip-permissions",
+            ]);
+            if trusted {
+                command.args(["--setting-sources", "user,project,local"]);
+                command.arg("--allow-dangerously-skip-permissions");
+            } else {
+                command.args(["--setting-sources", "user"]);
+            }
+            command.args([
                 // In-Prozess-MCP-Server: die Tools laufen im Frontend, nicht als Kindprozess.
                 "--mcp-config",
                 r#"{"mcpServers":{"l8git":{"type":"sdk","name":"l8git"}}}"#,
@@ -267,10 +281,13 @@ fn provider_process(
                 command.args(["--effort", &safe_argument(effort, "Claude-Effort")?]);
             }
             if let Some(mode) = options.permission_mode.as_deref() {
-                command.args([
-                    "--permission-mode",
-                    &safe_argument(mode, "Claude-Berechtigungsmodus")?,
-                ]);
+                let mode = safe_argument(mode, "Claude-Berechtigungsmodus")?;
+                let mode = if !trusted && mode == "bypassPermissions" {
+                    "default".to_string()
+                } else {
+                    mode
+                };
+                command.args(["--permission-mode", &mode]);
             }
             if let Some(cwd) = options.cwd.as_deref() {
                 let cwd = PathBuf::from(cwd);
@@ -643,6 +660,7 @@ mod tests {
             model: Some("composer-2.5".into()),
             resume: Some(true),
             resume_session_id: Some("abc-123".into()),
+            agents_trusted: Some(true),
             ..Default::default()
         };
         // Skipped on machines without the Cursor CLI installed.
@@ -657,6 +675,44 @@ mod tests {
         assert!(args.windows(2).any(|pair| pair == ["--model", "composer-2.5"]));
         assert!(args.windows(2).any(|pair| pair == ["--resume", "abc-123"]));
         assert_eq!(args.last().map(String::as_str), Some("hallo"));
+    }
+
+    #[test]
+    fn cursor_untrusted_omits_trust_flags_and_forces_ask() {
+        let options = AgentTransportOptions {
+            prompt: Some("hallo".into()),
+            ..Default::default()
+        };
+        let Ok(command) = cursor_process(&options) else {
+            return;
+        };
+        let args: Vec<String> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+        assert!(!args.contains(&"--trust".to_string()));
+        assert!(!args.contains(&"--approve-mcps".to_string()));
+        assert!(!args.contains(&"--force".to_string()));
+        assert!(args.windows(2).any(|pair| pair == ["--mode", "ask"]));
+    }
+
+    #[test]
+    fn cursor_trusted_keeps_trust_flags_and_force() {
+        let options = AgentTransportOptions {
+            prompt: Some("hallo".into()),
+            agents_trusted: Some(true),
+            ..Default::default()
+        };
+        let Ok(command) = cursor_process(&options) else {
+            return;
+        };
+        let args: Vec<String> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.contains(&"--trust".to_string()));
+        assert!(args.contains(&"--approve-mcps".to_string()));
+        assert!(args.contains(&"--force".to_string()));
     }
 
     #[test]
