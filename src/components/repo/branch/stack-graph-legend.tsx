@@ -1,7 +1,7 @@
 import { laneColor } from "@/lib/graph";
 import { useRepoStore } from "@/lib/repo-store";
 import { EMPTY_STACK_LIST, stackChain } from "@/lib/stack";
-import { useStackRestackWatcher, useStackStore } from "@/lib/stack-store";
+import { useStackStore } from "@/lib/stack-store";
 import { useUiStore } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
 import { Layers } from "lucide-react";
@@ -19,8 +19,6 @@ export function StackGraphLegend({ path }: { path: string }) {
       .map((b) => `${b.name}:${b.tip}`)
       .join("|"),
   );
-
-  useStackRestackWatcher(path);
 
   useEffect(() => {
     if (!path) return;

@@ -196,12 +196,37 @@ export type PrChainEntry = {
   parent: string;
   level: number;
   title: string;
+  body: string;
   status: PrChainStatus;
   ahead: number;
   prNumber: number | null;
   prUrl: string | null;
   error: string | null;
 };
+
+export type ChainBodyLabels = {
+  heading: string;
+  currentMarker: string;
+};
+
+export function chainBodyMarkdown(
+  entries: readonly PrChainEntry[],
+  branch: string,
+  labels: ChainBodyLabels,
+): string {
+  const lines = entries.map((entry) => {
+    const name = `\`${entry.branch}\``;
+    return entry.branch === branch
+      ? `- **${name}** — ${labels.currentMarker}`
+      : `- ${name}`;
+  });
+  return [labels.heading, "", ...lines].join("\n");
+}
+
+export function composePrBody(body: string, chain: string): string {
+  const intro = body.trim();
+  return intro ? `${intro}\n\n---\n\n${chain}\n` : `${chain}\n`;
+}
 
 function normalizeBranchName(name: string): string {
   return name.replace(/^refs\/heads\//, "").trim();
@@ -238,6 +263,7 @@ export function buildPrChain(
         parent: branch.parent,
         level: branch.level,
         title: existing ? existing.title : branchTitleSuggestion(branch),
+        body: "",
         status: existing ? ("existing" as const) : ("planned" as const),
         ahead: branch.ahead,
         prNumber: existing ? existing.number : null,

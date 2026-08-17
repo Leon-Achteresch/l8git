@@ -2601,6 +2601,93 @@ pub async fn resolve_repo_commit_avatars(
     Ok(out)
 }
 
+pub fn provider_default_branch(provider: Provider, v: &Value) -> Option<String> {
+    let raw = match provider {
+        Provider::GitHub | Provider::Gitea | Provider::GitLab => str_or_empty(&v["default_branch"]),
+        Provider::Bitbucket => str_or_empty(&v["mainbranch"]["name"]),
+        Provider::Unsupported => String::new(),
+    };
+    let trimmed = raw.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
+fn default_branch_cache() -> &'static Mutex<HashMap<String, (Option<String>, Instant)>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, (Option<String>, Instant)>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+const DEFAULT_BRANCH_CACHE_TTL: Duration = Duration::from_secs(60 * 60 * 6);
+
+fn origin_head_ref(repo: &PathBuf) -> Option<String> {
+    let raw = run_git(
+        repo,
+        &["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
+    )
+    .ok()?;
+    let rest = raw.trim().strip_prefix("refs/remotes/")?;
+    let tail = rest[rest.find('/')? + 1..].trim();
+    (!tail.is_empty()).then(|| tail.to_string())
+}
+
+async fn fetch_default_branch(p: &PathBuf) -> Option<String> {
+    let h = parse_origin_url(p).ok()?;
+    let cred = read_https_credential(&h.host).ok()?;
+    let client = http_client().ok()?;
+    let value = match h.provider {
+        Provider::GitHub | Provider::Gitea => {
+            let url = format!("{}/repos/{}/{}", provider_api_base(&h), h.owner, h.repo);
+            let res = github_request(&client, &cred, reqwest::Method::GET, &url, None)
+                .await
+                .ok()?;
+            github_read_json(res, &h.host).await.ok()?
+        }
+        Provider::GitLab => {
+            let url = format!(
+                "{}/projects/{}",
+                gitlab_api_base(&h.host),
+                gitlab_project_id(&h)
+            );
+            let res = gl_request(&client, &cred, reqwest::Method::GET, &url, None)
+                .await
+                .ok()?;
+            gl_read_json(res, &h.host).await.ok()?
+        }
+        Provider::Bitbucket => {
+            let url = format!(
+                "https://api.bitbucket.org/2.0/repositories/{}/{}",
+                h.owner, h.repo
+            );
+            let res = bitbucket_send_authed(&client, &url, &cred, &h.host).await.ok()?;
+            bb_read_json(res, &h.host).await.ok()?
+        }
+        Provider::Unsupported => return None,
+    };
+    provider_default_branch(h.provider, &value)
+}
+
+#[tauri::command]
+pub async fn pr_default_branch(path: String) -> Result<Option<String>, String> {
+    let p = repo_path(&path);
+    let key = p.to_string_lossy().to_string();
+    let now = Instant::now();
+    {
+        let mut cache = default_branch_cache().lock().map_err(|e| e.to_string())?;
+        cache.retain(|_, (_, at)| now.duration_since(*at) < DEFAULT_BRANCH_CACHE_TTL);
+        if let Some((value, _)) = cache.get(&key) {
+            return Ok(value.clone());
+        }
+    }
+
+    let resolved = match fetch_default_branch(&p).await {
+        Some(branch) => Some(branch),
+        None => origin_head_ref(&p),
+    };
+    if let Ok(mut cache) = default_branch_cache().lock() {
+        cache.insert(key, (resolved.clone(), now));
+    }
+    Ok(resolved)
+}
+
 #[tauri::command]
 pub async fn pr_list(path: String) -> Result<Vec<PullRequest>, String> {
     let p = repo_path(&path);

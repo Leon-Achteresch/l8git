@@ -79,6 +79,7 @@ export type InboxRepoInput = {
   prs: PullRequest[];
   runs: InboxWorkflowRun[];
   branches?: string[];
+  defaultBranch?: string | null;
 };
 
 export type InboxSections = {
@@ -148,7 +149,11 @@ export function stripRemotePrefix(branch: string): string {
 export function resolveDefaultBranch(input: {
   branches?: string[];
   prTargets?: string[];
+  defaultBranch?: string | null;
 }): string | null {
+  const provided = (input.defaultBranch ?? "").trim();
+  if (provided) return stripRemotePrefix(provided);
+
   const counts = new Map<string, number>();
   for (const raw of input.prTargets ?? []) {
     const branch = raw.trim();
@@ -269,6 +274,7 @@ export function selectRedRuns(repos: InboxRepoInput[]): InboxCiItem[] {
     const defaultBranch = resolveDefaultBranch({
       branches: repo.branches,
       prTargets: repo.prs.filter(isOpenPr).map((pr) => pr.target_branch),
+      defaultBranch: repo.defaultBranch,
     });
     const accepted = (branch: string) =>
       defaultBranch

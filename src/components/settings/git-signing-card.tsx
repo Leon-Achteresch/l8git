@@ -21,6 +21,7 @@ import {
   type SigningScope,
 } from "@/lib/git-signing";
 import { useRepoStore } from "@/lib/repo-store";
+import { notifySigningChanged } from "@/lib/signing-store";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -81,6 +82,7 @@ export function GitSigningCard() {
       const next = await applySigningConfig(activePath, patch);
       setInfo(next);
       setKeyDraft(next.signingKey ?? "");
+      notifySigningChanged();
       toast.success(t("settings.signingSaved"));
     } catch (err) {
       toastError(String(err));

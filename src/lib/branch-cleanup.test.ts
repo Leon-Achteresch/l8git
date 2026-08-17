@@ -251,6 +251,31 @@ describe("deletableRemoteRef", () => {
       deletableRemoteRef(candidate({ reason: "stale", remoteRef: "origin/x", remoteMerged: null })),
     ).toBeNull();
   });
+
+  it("lets the backend flag win over the reason in both directions", () => {
+    expect(
+      deletableRemoteRef(candidate({ reason: "stale", remoteRef: "origin/x", remoteMerged: true })),
+    ).toBe("origin/x");
+    expect(
+      deletableRemoteRef(candidate({ reason: "merged", remoteRef: "origin/x", remoteMerged: false })),
+    ).toBeNull();
+  });
+
+  it("keeps a false flag from the backend payload distinct from a missing one", () => {
+    const [withFlag, withoutFlag] = parseCleanupCandidates([
+      {
+        name: "feature/a",
+        kind: "merged",
+        upstream: "origin/feature/a",
+        remote_merged: false,
+      },
+      { name: "feature/b", kind: "merged", upstream: "origin/feature/b" },
+    ]);
+    expect(withFlag.remoteMerged).toBe(false);
+    expect(deletableRemoteRef(withFlag)).toBeNull();
+    expect(withoutFlag.remoteMerged).toBeNull();
+    expect(deletableRemoteRef(withoutFlag)).toBe("origin/feature/b");
+  });
 });
 
 describe("clampStaleDays", () => {

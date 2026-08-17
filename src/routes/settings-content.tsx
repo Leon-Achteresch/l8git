@@ -1,5 +1,5 @@
 import { ListRow } from "@/components/ui/list-row";
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, useRouterState } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   AlertTriangle,
@@ -326,6 +326,7 @@ export function Settings() {
   const mainRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const [activeSection, setActiveSection] = useState("sidebar");
+  const locationHash = useRouterState({ select: (s) => s.location.hash });
 
   useEffect(() => {
     const main = mainRef.current;
@@ -353,6 +354,18 @@ export function Settings() {
     sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
     setActiveSection(id);
   }
+
+  useEffect(() => {
+    const id = locationHash.replace(/^#/, "");
+    if (!id) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = sectionRefs.current[id];
+      if (!target) return;
+      target.scrollIntoView({ block: "start" });
+      setActiveSection(id);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [locationHash]);
 
   function setRef(id: string) {
     return (el: HTMLElement | null) => { sectionRefs.current[id] = el; };

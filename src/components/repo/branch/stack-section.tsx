@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import type { Stack } from "@/lib/stack";
-import { useStackRestackWatcher, useStackStore } from "@/lib/stack-store";
+import { useStackStore } from "@/lib/stack-store";
 import { Layers, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -34,8 +34,6 @@ export function StackSection({ path }: { path: string }) {
 
   const [createParent, setCreateParent] = useState<string | null>(null);
   const [chainStack, setChainStack] = useState<Stack | null>(null);
-
-  useStackRestackWatcher(path);
 
   useEffect(() => {
     if (!path) return;

@@ -1074,3 +1074,121 @@ async fn ssh_signed_tags_and_commits_are_reported_as_signed() {
     assert_eq!(sig.code, "G");
     assert_eq!(sig.signer.as_deref(), Some("test@example.com"));
 }
+
+#[tokio::test]
+async fn range_commits_reports_commits_and_aggregated_diffstat() {
+    let repo = TestRepo::new("range-commits");
+    repo.commit("base.txt", "base\n", "root");
+    repo.git(&["checkout", "-q", "-b", "feature"]);
+    repo.commit("a.txt", "a1\na2\n", "add a");
+    repo.commit("b.txt", "b1\n", "add b");
+    repo.git(&["checkout", "-q", "main"]);
+    repo.commit("main-only.txt", "m\n", "main moves on");
+
+    let range = json(
+        &git::repo_range_commits(repo.s(), Some("main".into()), "feature".into(), Some(10))
+            .await
+            .unwrap(),
+    );
+
+    let subjects: Vec<String> = range["commits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["subject"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert_eq!(subjects, vec!["add b", "add a"]);
+    assert_eq!(range["total_commits"], 2);
+    assert_eq!(range["truncated"], false);
+
+    let paths: Vec<String> = range["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["path"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(paths.contains(&"a.txt".to_string()), "{paths:?}");
+    assert!(paths.contains(&"b.txt".to_string()), "{paths:?}");
+    assert!(!paths.contains(&"main-only.txt".to_string()), "{paths:?}");
+    assert_eq!(range["additions"], 3);
+    assert_eq!(range["deletions"], 0);
+}
+
+#[tokio::test]
+async fn range_commits_honours_the_limit_and_works_without_a_base() {
+    let repo = TestRepo::new("range-limit");
+    repo.commit("a.txt", "1\n", "c1");
+    repo.commit("a.txt", "1\n2\n", "c2");
+    repo.commit("a.txt", "1\n2\n3\n", "c3");
+
+    let range = json(
+        &git::repo_range_commits(repo.s(), None, "HEAD".into(), Some(2))
+            .await
+            .unwrap(),
+    );
+    assert_eq!(range["commits"].as_array().unwrap().len(), 2);
+    assert_eq!(range["total_commits"], 3);
+    assert_eq!(range["truncated"], true);
+    assert_eq!(range["files"][0]["path"], "a.txt");
+
+    assert!(git::repo_range_commits(repo.s(), None, "nope".into(), None)
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn range_commits_ignores_a_base_that_does_not_exist() {
+    let repo = TestRepo::new("range-missing-base");
+    repo.commit("a.txt", "1\n", "c1");
+    repo.commit("a.txt", "1\n2\n", "c2");
+
+    let range = json(
+        &git::repo_range_commits(repo.s(), Some("ghost".into()), "HEAD".into(), None)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(range["total_commits"], 2);
+}
+
+#[tokio::test]
+async fn activity_buckets_are_cached_until_head_moves() {
+    let repo = TestRepo::new("agg-cache");
+    repo.commit("a.txt", "1\n", "c1");
+
+    let first = json(
+        &git::repo_activity_buckets(repo.s(), 30, "day".into(), None)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(first.as_array().unwrap().len(), 1);
+    assert_eq!(first[0]["commits"], 1);
+
+    let cached = json(
+        &git::repo_activity_buckets(repo.s(), 30, "day".into(), None)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(cached, first);
+
+    repo.commit("a.txt", "1\n2\n", "c2");
+    let fresh = json(
+        &git::repo_activity_buckets(repo.s(), 30, "day".into(), None)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(fresh[0]["commits"], 2);
+
+    let contributors = json(
+        &git::repo_contributor_stats(repo.s(), 30, None, None)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(contributors[0]["commits"], 2);
+    let contributors_cached = json(
+        &git::repo_contributor_stats(repo.s(), 30, Some(1), None)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(contributors_cached.as_array().unwrap().len(), 1);
+    assert_eq!(contributors_cached[0]["commits"], 2);
+}

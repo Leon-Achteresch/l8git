@@ -590,7 +590,11 @@
     "today": "今天",
     "yesterday": "昨天",
     "thisWeek": "本周",
-    "earlier": "更早"
+    "earlier": "更早",
+    "checkoutChoiceTitle": "检出提交",
+    "checkoutChoiceDesc": "{{hash}}「{{subject}}」— 以分离 HEAD 检出，还是从此处创建新分支？",
+    "checkoutChoiceBranch": "创建分支",
+    "checkoutChoiceDetached": "分离检出"
   },
   "time": {
     "justNow": "刚刚",
@@ -658,7 +662,8 @@
       "history": "历史",
       "commit": "提交面板",
       "branch": "分支侧边栏"
-    }
+    },
+    "terminalToggle": "显示/隐藏终端"
   },
   "settings": {
     "back": "返回",
@@ -1886,7 +1891,9 @@
     "rebaseRootHint": "历史中的第一个提交无法执行此操作。",
     "dropTitle": "丢弃提交？",
     "dropDesc": "提交 {{hash}}“{{subject}}”将通过变基从历史中移除。其后的每个提交都会被重写。",
-    "dropConfirm": "丢弃"
+    "dropConfirm": "丢弃",
+    "branchFromHere": "从此处创建分支",
+    "stackBadgeTitle": "{{name}} · 堆栈 {{root}} · 层级 {{level}}"
   },
   "commitInspect": {
     "explainCommit": "解释",
@@ -2026,7 +2033,11 @@
     "create": "创建",
     "asStackBranch": "作为 {{parent}} 之上的栈分支",
     "toastEmptyName": "分支名称不能为空。",
-    "toastStackParentMissing": "栈分支需要一个父分支。"
+    "toastStackParentMissing": "栈分支需要一个父分支。",
+    "baseCommitOption": "任意提交 …",
+    "commitLabel": "提交（哈希或引用）",
+    "commitPlaceholder": "a1b2c3d",
+    "toastCommitMissing": "请填写一个提交。"
   },
   "stack": {
     "sectionTitle": "分支栈",
@@ -2085,7 +2096,13 @@
     "chainOpenPrAria": "打开 PR #{{number}}",
     "chainTitleAria": "{{branch}} 的标题",
     "legendAria": "分支栈层级",
-    "legendChipTitle": "{{name}} —— 分支栈 {{root}}，第 {{level}} 层"
+    "legendChipTitle": "{{name}} —— 分支栈 {{root}}，第 {{level}} 层",
+    "chainBodyHeading": "#### PR 链",
+    "chainBodyCurrent": "当前 PR",
+    "chainBodyPlaceholder": "描述（可选）",
+    "chainBodyAria": "{{branch}} 的描述",
+    "chainBodyAi": "用 AI 生成描述",
+    "chainBodyAiAria": "用 AI 为 {{branch}} 生成描述"
   },
   "remoteBranchCheckout": {
     "dialogAria": "从远程检出本地分支",

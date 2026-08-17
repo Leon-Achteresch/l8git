@@ -590,7 +590,11 @@
     "today": "TODAY",
     "yesterday": "YESTERDAY",
     "thisWeek": "THIS WEEK",
-    "earlier": "EARLIER"
+    "earlier": "EARLIER",
+    "checkoutChoiceTitle": "Check out commit",
+    "checkoutChoiceDesc": "{{hash}} “{{subject}}” — check out as a detached HEAD or create a new branch from here?",
+    "checkoutChoiceBranch": "Create branch",
+    "checkoutChoiceDetached": "Check out detached"
   },
   "time": {
     "justNow": "just now",
@@ -658,7 +662,8 @@
       "history": "History",
       "commit": "Commit panel",
       "branch": "Branch sidebar"
-    }
+    },
+    "terminalToggle": "Toggle terminal"
   },
   "settings": {
     "back": "Back",
@@ -1886,7 +1891,9 @@
     "rebaseRootHint": "Not possible for the first commit in history.",
     "dropTitle": "Drop commit?",
     "dropDesc": "Commit {{hash}} \"{{subject}}\" will be removed from history by a rebase. Every commit after it gets rewritten.",
-    "dropConfirm": "Drop"
+    "dropConfirm": "Drop",
+    "branchFromHere": "Branch from here",
+    "stackBadgeTitle": "{{name}} · stack {{root}} · level {{level}}"
   },
   "commitInspect": {
     "explainCommit": "Explain",
@@ -2026,7 +2033,11 @@
     "create": "Create",
     "asStackBranch": "As stack branch on {{parent}}",
     "toastEmptyName": "Branch name must not be empty.",
-    "toastStackParentMissing": "A stack branch needs a parent branch."
+    "toastStackParentMissing": "A stack branch needs a parent branch.",
+    "baseCommitOption": "Any commit …",
+    "commitLabel": "Commit (hash or ref)",
+    "commitPlaceholder": "a1b2c3d",
+    "toastCommitMissing": "Please provide a commit."
   },
   "stack": {
     "sectionTitle": "Stacks",
@@ -2085,7 +2096,13 @@
     "chainOpenPrAria": "Open PR #{{number}}",
     "chainTitleAria": "Title for {{branch}}",
     "legendAria": "Stack levels",
-    "legendChipTitle": "{{name}} – stack {{root}}, level {{level}}"
+    "legendChipTitle": "{{name}} – stack {{root}}, level {{level}}",
+    "chainBodyHeading": "#### PR chain",
+    "chainBodyCurrent": "this PR",
+    "chainBodyPlaceholder": "Description (optional)",
+    "chainBodyAria": "Description for {{branch}}",
+    "chainBodyAi": "Generate description with AI",
+    "chainBodyAiAria": "Generate description for {{branch}} with AI"
   },
   "remoteBranchCheckout": {
     "dialogAria": "Check out a local branch from remote",

@@ -1,6 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 
+import {
+  loadAgentReviewSummary,
+  reviewTotals,
+  type AgentReviewSummary,
+} from "@/lib/agents/agent-review";
+import { useAgentWorktreeStore } from "@/lib/agents/agent-worktrees";
 import type { StatusEntry } from "@/lib/repo-store";
 
 const TTL_MS = 20_000;
@@ -22,6 +28,14 @@ export function diffStatFromStatus(entries: StatusEntry[], now: number = Date.no
   return { files: entries.length, additions, deletions, loadedAt: now };
 }
 
+export function diffStatFromReview(
+  summary: AgentReviewSummary,
+  now: number = Date.now(),
+): WorktreeDiffStat {
+  const totals = reviewTotals(summary.files ?? []);
+  return { ...totals, loadedAt: now };
+}
+
 export function isDiffStatStale(
   stat: WorktreeDiffStat | undefined,
   now: number = Date.now(),
@@ -37,6 +51,17 @@ interface WorktreeDiffState {
 
 const inFlight = new Set<string>();
 
+async function loadDiffStat(path: string): Promise<WorktreeDiffStat> {
+  const basePath = useAgentWorktreeStore.getState().worktrees[path]?.basePath;
+  const summary = basePath
+    ? await loadAgentReviewSummary(path, basePath).catch(() => null)
+    : null;
+  if (summary) return diffStatFromReview(summary);
+
+  const entries = await invoke<StatusEntry[]>("repo_status", { path });
+  return diffStatFromStatus(Array.isArray(entries) ? entries : []);
+}
+
 export const useWorktreeDiffStore = create<WorktreeDiffState>((set, get) => ({
   statsByPath: {},
   refresh: async (paths) => {
@@ -49,8 +74,7 @@ export const useWorktreeDiffStore = create<WorktreeDiffState>((set, get) => ({
     await Promise.all(
       stale.map(async (path) => {
         try {
-          const entries = await invoke<StatusEntry[]>("repo_status", { path });
-          const stat = diffStatFromStatus(Array.isArray(entries) ? entries : []);
+          const stat = await loadDiffStat(path);
           set((state) => ({ statsByPath: { ...state.statsByPath, [path]: stat } }));
         } catch {
           set((state) => ({

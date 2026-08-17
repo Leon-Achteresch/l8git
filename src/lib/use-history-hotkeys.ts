@@ -4,9 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { create } from 'zustand';
 
-import { toastError } from './error-toast';
 import { useHotkeyBindings } from './hotkey-prefs';
-import { useRepoStore, type Commit } from './repo-store';
+import { type Commit } from './repo-store';
 
 export type HistorySelection = {
   path: string;
@@ -38,11 +37,13 @@ export function useHistoryHotkeys({
   commit,
   enabled,
   onRebaseInteractive,
+  onCheckoutChoice,
 }: {
   path: string;
   commit: Commit | null;
   enabled: boolean;
   onRebaseInteractive: (baseHash: string) => void;
+  onCheckoutChoice: (commit: Commit) => void;
 }) {
   const { t } = useTranslation();
   const bindings = useHotkeyBindings();
@@ -80,15 +81,7 @@ export function useHistoryHotkeys({
       hotkey: bindings.historyCheckoutCommit,
       callback: () => {
         if (!commit) return;
-        void useRepoStore
-          .getState()
-          .checkoutBranch(path, commit.hash)
-          .then(() =>
-            toast.success(
-              t('hotkeys.historyCheckoutToast', { hash: commit.short_hash })
-            )
-          )
-          .catch(e => toastError(String(e)));
+        onCheckoutChoice(commit);
       },
       options: {
         enabled: hasCommit,

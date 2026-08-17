@@ -5554,7 +5554,7 @@ pub async fn git_reset(path: String, target: String, mode: String) -> Result<Str
     }).await
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct ContributorStat {
     pub name: String,
     pub email: String,
@@ -5563,12 +5563,58 @@ pub struct ContributorStat {
     pub deletions: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct ActivityBucket {
     pub bucket: String,
     pub commits: u32,
     pub insertions: u32,
     pub deletions: u32,
+}
+
+type AggCache<T> = HashMap<String, (String, T)>;
+
+const AGG_CACHE_MAX: usize = 50;
+
+fn contributor_cache() -> &'static std::sync::Mutex<AggCache<Vec<ContributorStat>>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<AggCache<Vec<ContributorStat>>>> =
+        std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+fn activity_cache() -> &'static std::sync::Mutex<AggCache<Vec<ActivityBucket>>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<AggCache<Vec<ActivityBucket>>>> =
+        std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+fn agg_head_oid(repo: &PathBuf) -> Option<String> {
+    run_git(repo, &["rev-parse", "HEAD"])
+        .ok()
+        .map(|out| out.trim().to_string())
+        .filter(|oid| !oid.is_empty())
+}
+
+fn agg_cache_get<T: Clone>(
+    cache: &'static std::sync::Mutex<AggCache<T>>,
+    key: &str,
+    head: &str,
+) -> Option<T> {
+    let map = cache.lock().ok()?;
+    let (cached_head, value) = map.get(key)?;
+    (cached_head == head).then(|| value.clone())
+}
+
+fn agg_cache_put<T>(
+    cache: &'static std::sync::Mutex<AggCache<T>>,
+    key: String,
+    head: String,
+    value: T,
+) {
+    let Ok(mut map) = cache.lock() else { return };
+    if map.len() >= AGG_CACHE_MAX && !map.contains_key(&key) {
+        map.clear();
+    }
+    map.insert(key, (head, value));
 }
 
 #[derive(Serialize)]
@@ -5658,7 +5704,22 @@ pub async fn repo_contributor_stats(
 ) -> Result<Vec<ContributorStat>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
-        let mut stats = collect_contributor_stats(&repo, since_days, include_merges.unwrap_or(false))?;
+        let merges = include_merges.unwrap_or(false);
+        let head = agg_head_oid(&repo);
+        let key = format!("{}|{since_days}|{merges}", repo.to_string_lossy());
+        let mut stats = match head
+            .as_deref()
+            .and_then(|oid| agg_cache_get(contributor_cache(), &key, oid))
+        {
+            Some(hit) => hit,
+            None => {
+                let fresh = collect_contributor_stats(&repo, since_days, merges)?;
+                if let Some(oid) = head {
+                    agg_cache_put(contributor_cache(), key, oid, fresh.clone());
+                }
+                fresh
+            }
+        };
         if let Some(n) = limit {
             stats.truncate(n as usize);
         }
@@ -5777,7 +5838,20 @@ pub async fn repo_activity_buckets(
             "month" | "week" | "day" => bucket.as_str(),
             _ => "day",
         };
-        collect_activity_buckets(&repo, since_days, kind, include_merges.unwrap_or(false))
+        let merges = include_merges.unwrap_or(false);
+        let head = agg_head_oid(&repo);
+        let key = format!("{}|{since_days}|{kind}|{merges}", repo.to_string_lossy());
+        if let Some(hit) = head
+            .as_deref()
+            .and_then(|oid| agg_cache_get(activity_cache(), &key, oid))
+        {
+            return Ok(hit);
+        }
+        let fresh = collect_activity_buckets(&repo, since_days, kind, merges)?;
+        if let Some(oid) = head {
+            agg_cache_put(activity_cache(), key, oid, fresh.clone());
+        }
+        Ok(fresh)
     })
     .await
 }
@@ -5876,6 +5950,188 @@ pub async fn repos_overview(paths: Vec<String>) -> Result<Vec<RepoOverview>, Str
         }
     }
     Ok(out)
+}
+
+#[derive(Serialize)]
+pub struct RangeCommitsResponse {
+    pub commits: Vec<Commit>,
+    pub files: Vec<CommitChangedFile>,
+    pub total_commits: u32,
+    pub additions: u32,
+    pub deletions: u32,
+    pub truncated: bool,
+}
+
+const RANGE_MAX_COMMITS: usize = 400;
+const RANGE_MAX_FILES: usize = 500;
+
+fn range_rev_exists(repo: &PathBuf, rev: &str) -> bool {
+    run_git(repo, &["rev-parse", "-q", "--verify", &format!("{rev}^{{commit}}")]).is_ok()
+}
+
+fn range_commits(repo: &PathBuf, spec: &str, limit: usize) -> Result<Vec<Commit>, String> {
+    let sep = "\x1f";
+    let format = format!("--pretty=format:%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
+    let max_count = format!("--max-count={limit}");
+    let out = run_git(repo, &["log", "-z", &max_count, &format, spec])?;
+    Ok(out
+        .split('\0')
+        .filter(|chunk| !chunk.is_empty())
+        .filter_map(|record| {
+            let mut parts = record.splitn(8, sep);
+            let hash = parts.next()?.to_string();
+            let short_hash = parts.next()?.to_string();
+            let author = parts.next()?.to_string();
+            let email = parts.next()?.to_string();
+            let date = parts.next()?.to_string();
+            let parents = parts
+                .next()?
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect();
+            let subject = parts.next()?.to_string();
+            let body = parts.next().unwrap_or_default().to_string();
+            Some(Commit {
+                hash,
+                short_hash,
+                author,
+                email,
+                date,
+                subject,
+                body,
+                parents,
+                tags: Vec::new(),
+                author_avatar: None,
+            })
+        })
+        .collect())
+}
+
+fn range_log_numstat(repo: &PathBuf, spec: &str, limit: usize) -> Vec<CommitChangedFile> {
+    let max_count = format!("--max-count={limit}");
+    let Ok(out) = run_git(
+        repo,
+        &[
+            "log",
+            "--no-renames",
+            "--numstat",
+            "--format=%x00",
+            &max_count,
+            spec,
+        ],
+    ) else {
+        return Vec::new();
+    };
+    let mut map: HashMap<String, (u32, u32, bool)> = HashMap::new();
+    for raw_line in out.split('\n') {
+        let line = raw_line.trim_end_matches('\r');
+        if line.is_empty() || line.starts_with('\u{0}') {
+            continue;
+        }
+        let mut fields = line.splitn(3, '\t');
+        let adds_s = fields.next().unwrap_or("");
+        let dels_s = fields.next().unwrap_or("");
+        let path = fields.next().unwrap_or("").trim();
+        if path.is_empty() {
+            continue;
+        }
+        let binary = adds_s == "-" || dels_s == "-";
+        let entry = map.entry(path.to_string()).or_insert((0, 0, false));
+        entry.0 += adds_s.parse::<u32>().unwrap_or(0);
+        entry.1 += dels_s.parse::<u32>().unwrap_or(0);
+        entry.2 = entry.2 || binary;
+    }
+    map.into_iter()
+        .map(|(path, (additions, deletions, binary))| CommitChangedFile {
+            path,
+            additions,
+            deletions,
+            binary,
+        })
+        .collect()
+}
+
+fn range_diff_numstat(repo: &PathBuf, base: &str, head: &str) -> Option<Vec<CommitChangedFile>> {
+    let out = run_git(
+        repo,
+        &[
+            "diff",
+            "--numstat",
+            "-z",
+            "--no-renames",
+            &format!("{base}...{head}"),
+        ],
+    )
+    .ok()?;
+    Some(
+        parse_numstat(&out)
+            .into_iter()
+            .map(|(path, (additions, deletions, binary))| CommitChangedFile {
+                path,
+                additions,
+                deletions,
+                binary,
+            })
+            .collect(),
+    )
+}
+
+#[tauri::command]
+pub async fn repo_range_commits(
+    path: String,
+    base: Option<String>,
+    head: String,
+    limit: Option<u32>,
+) -> Result<RangeCommitsResponse, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let head = head.trim().to_string();
+        if head.is_empty() {
+            return Err("Head-Referenz fehlt".into());
+        }
+        if !range_rev_exists(&repo, &head) {
+            return Err(format!("Referenz {head} existiert nicht"));
+        }
+        let base = base
+            .map(|b| b.trim().to_string())
+            .filter(|b| !b.is_empty() && range_rev_exists(&repo, b));
+        let limit = (limit.unwrap_or(60) as usize).clamp(1, RANGE_MAX_COMMITS);
+        let spec = match base.as_deref() {
+            Some(b) => format!("{b}..{head}"),
+            None => head.clone(),
+        };
+
+        let total_commits = run_git(&repo, &["rev-list", "--count", &spec])
+            .ok()
+            .and_then(|out| out.trim().parse::<u32>().ok())
+            .unwrap_or(0);
+        let commits = range_commits(&repo, &spec, limit)?;
+
+        let mut files = match base.as_deref() {
+            Some(b) => range_diff_numstat(&repo, b, &head)
+                .unwrap_or_else(|| range_log_numstat(&repo, &spec, limit)),
+            None => range_log_numstat(&repo, &spec, limit),
+        };
+        files.sort_by(|a, b| {
+            (b.additions + b.deletions)
+                .cmp(&(a.additions + a.deletions))
+                .then_with(|| a.path.cmp(&b.path))
+        });
+        let files_truncated = files.len() > RANGE_MAX_FILES;
+        files.truncate(RANGE_MAX_FILES);
+
+        let additions = files.iter().map(|f| f.additions).sum();
+        let deletions = files.iter().map(|f| f.deletions).sum();
+        Ok(RangeCommitsResponse {
+            truncated: files_truncated || total_commits as usize > commits.len(),
+            commits,
+            files,
+            total_commits,
+            additions,
+            deletions,
+        })
+    })
+    .await
 }
 
 #[cfg(test)]

@@ -590,7 +590,11 @@
     "today": "HOY",
     "yesterday": "AYER",
     "thisWeek": "ESTA SEMANA",
-    "earlier": "ANTERIORES"
+    "earlier": "ANTERIORES",
+    "checkoutChoiceTitle": "Cambiar al commit",
+    "checkoutChoiceDesc": "{{hash}} «{{subject}}» — ¿hacer checkout con HEAD desacoplado o crear una rama nueva desde aquí?",
+    "checkoutChoiceBranch": "Crear rama",
+    "checkoutChoiceDetached": "Checkout desacoplado"
   },
   "time": {
     "justNow": "ahora mismo",
@@ -658,7 +662,8 @@
       "history": "Historial",
       "commit": "Panel de commit",
       "branch": "Barra de ramas"
-    }
+    },
+    "terminalToggle": "Mostrar/ocultar terminal"
   },
   "settings": {
     "back": "Atrás",
@@ -1886,7 +1891,9 @@
     "rebaseRootHint": "No es posible con el primer commit del historial.",
     "dropTitle": "¿Descartar el commit?",
     "dropDesc": "El commit {{hash}} «{{subject}}» se eliminará del historial mediante un rebase. Todos los commits posteriores se reescribirán.",
-    "dropConfirm": "Descartar"
+    "dropConfirm": "Descartar",
+    "branchFromHere": "Rama desde aquí",
+    "stackBadgeTitle": "{{name}} · pila {{root}} · nivel {{level}}"
   },
   "commitInspect": {
     "explainCommit": "Explicar",
@@ -2026,7 +2033,11 @@
     "create": "Crear",
     "asStackBranch": "Como rama de stack sobre {{parent}}",
     "toastEmptyName": "El nombre de la rama no puede estar vacío.",
-    "toastStackParentMissing": "Una rama de stack necesita una rama padre."
+    "toastStackParentMissing": "Una rama de stack necesita una rama padre.",
+    "baseCommitOption": "Cualquier commit …",
+    "commitLabel": "Commit (hash o ref)",
+    "commitPlaceholder": "a1b2c3d",
+    "toastCommitMissing": "Indica un commit."
   },
   "stack": {
     "sectionTitle": "Stacks",
@@ -2085,7 +2096,13 @@
     "chainOpenPrAria": "Abrir el PR #{{number}}",
     "chainTitleAria": "Título de {{branch}}",
     "legendAria": "Niveles del stack",
-    "legendChipTitle": "{{name}} — stack {{root}}, nivel {{level}}"
+    "legendChipTitle": "{{name}} — stack {{root}}, nivel {{level}}",
+    "chainBodyHeading": "#### Cadena de PR",
+    "chainBodyCurrent": "este PR",
+    "chainBodyPlaceholder": "Descripción (opcional)",
+    "chainBodyAria": "Descripción para {{branch}}",
+    "chainBodyAi": "Generar descripción con IA",
+    "chainBodyAiAria": "Generar descripción para {{branch}} con IA"
   },
   "remoteBranchCheckout": {
     "dialogAria": "Crear una rama local a partir de la remota",

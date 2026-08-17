@@ -10,7 +10,8 @@ use l8git_lib::pr::{
     gl_diff_patch, gl_diff_status, gl_discussion_position, gl_job_to_pr_check, gl_map_commit,
     gl_map_detail, gl_map_discussion, gl_map_file, gl_map_mr, gl_map_note, gl_mergeable,
     gl_pipeline_to_pr_check, gl_status_to_check_state, origin_default_branch, parse_origin_url,
-    pr_create_web_url, provider_api_base, provider_capabilities, split_unified_diff_by_file,
+    pr_create_web_url, provider_api_base, provider_capabilities, provider_default_branch,
+    split_unified_diff_by_file,
     str_or_empty, strip_remote_prefix, trunc_chars, unsupported_provider_err, Provider,
     RemoteHandle, ReviewDraftComment, PROVIDER_UNKNOWN_CODE,
 };
@@ -1448,5 +1449,52 @@ fn gh_review_threads_map_graphql_nodes_to_comment_ids() {
     assert!(
         gh_map_review_threads(&jval!({ "data": { "repository": null } })).is_empty(),
         "an empty response yields no threads instead of an error"
+    );
+}
+
+#[test]
+fn provider_default_branch_reads_the_field_each_forge_uses() {
+    assert_eq!(
+        provider_default_branch(
+            Provider::GitHub,
+            &jval!({ "name": "app", "default_branch": "development" })
+        )
+        .as_deref(),
+        Some("development")
+    );
+    assert_eq!(
+        provider_default_branch(Provider::Gitea, &jval!({ "default_branch": "trunk" })).as_deref(),
+        Some("trunk")
+    );
+    assert_eq!(
+        provider_default_branch(
+            Provider::GitLab,
+            &jval!({ "id": 42, "default_branch": "master" })
+        )
+        .as_deref(),
+        Some("master")
+    );
+    assert_eq!(
+        provider_default_branch(
+            Provider::Bitbucket,
+            &jval!({ "mainbranch": { "type": "branch", "name": "release" } })
+        )
+        .as_deref(),
+        Some("release")
+    );
+
+    assert_eq!(
+        provider_default_branch(Provider::Bitbucket, &jval!({ "default_branch": "main" })),
+        None,
+        "bitbucket only reports mainbranch.name"
+    );
+    assert_eq!(
+        provider_default_branch(Provider::GitHub, &jval!({ "default_branch": "  " })),
+        None
+    );
+    assert_eq!(provider_default_branch(Provider::GitHub, &jval!({})), None);
+    assert_eq!(
+        provider_default_branch(Provider::Unsupported, &jval!({ "default_branch": "main" })),
+        None
     );
 }

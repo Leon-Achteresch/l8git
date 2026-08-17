@@ -590,7 +590,11 @@
     "today": "今日",
     "yesterday": "昨日",
     "thisWeek": "今週",
-    "earlier": "それ以前"
+    "earlier": "それ以前",
+    "checkoutChoiceTitle": "コミットをチェックアウト",
+    "checkoutChoiceDesc": "{{hash}}「{{subject}}」— detached HEAD でチェックアウトしますか、ここから新しいブランチを作成しますか？",
+    "checkoutChoiceBranch": "ブランチを作成",
+    "checkoutChoiceDetached": "detached でチェックアウト"
   },
   "time": {
     "justNow": "たった今",
@@ -658,7 +662,8 @@
       "history": "履歴",
       "commit": "コミットパネル",
       "branch": "ブランチサイドバー"
-    }
+    },
+    "terminalToggle": "ターミナルの表示切り替え"
   },
   "settings": {
     "back": "戻る",
@@ -1886,7 +1891,9 @@
     "rebaseRootHint": "履歴の最初のコミットでは実行できません。",
     "dropTitle": "コミットを削除しますか？",
     "dropDesc": "コミット {{hash}}「{{subject}}」はリベースによって履歴から削除されます。以降のすべてのコミットは書き換えられます。",
-    "dropConfirm": "削除"
+    "dropConfirm": "削除",
+    "branchFromHere": "ここからブランチを作成",
+    "stackBadgeTitle": "{{name}} · スタック {{root}} · レベル {{level}}"
   },
   "commitInspect": {
     "explainCommit": "説明",
@@ -2026,7 +2033,11 @@
     "create": "作成",
     "asStackBranch": "{{parent}} 上のスタックブランチとして",
     "toastEmptyName": "ブランチ名は空にできません。",
-    "toastStackParentMissing": "スタックブランチには親ブランチが必要です。"
+    "toastStackParentMissing": "スタックブランチには親ブランチが必要です。",
+    "baseCommitOption": "任意のコミット …",
+    "commitLabel": "コミット（ハッシュまたは参照）",
+    "commitPlaceholder": "a1b2c3d",
+    "toastCommitMissing": "コミットを入力してください。"
   },
   "stack": {
     "sectionTitle": "スタック",
@@ -2085,7 +2096,13 @@
     "chainOpenPrAria": "PR #{{number}} を開く",
     "chainTitleAria": "{{branch}} のタイトル",
     "legendAria": "スタックのレベル",
-    "legendChipTitle": "{{name}} – スタック {{root}}、レベル {{level}}"
+    "legendChipTitle": "{{name}} – スタック {{root}}、レベル {{level}}",
+    "chainBodyHeading": "#### PR チェーン",
+    "chainBodyCurrent": "この PR",
+    "chainBodyPlaceholder": "説明（任意）",
+    "chainBodyAria": "{{branch}} の説明",
+    "chainBodyAi": "AI で説明を生成",
+    "chainBodyAiAria": "AI で {{branch}} の説明を生成"
   },
   "remoteBranchCheckout": {
     "dialogAria": "リモートからローカルブランチをチェックアウト",

@@ -4,7 +4,9 @@ import type { PullRequest } from "@/lib/repo-store";
 import {
   branchTitleSuggestion,
   buildPrChain,
+  chainBodyMarkdown,
   chainSummary,
+  composePrBody,
   findExistingPr,
   markChainFailure,
   stackChain,
@@ -330,5 +332,20 @@ describe("chain updates", () => {
     const next = markChainFailure(chain, "unknown", "boom");
     expect(next).toEqual(chain);
     expect(next).not.toBe(chain);
+  });
+
+  it("renders the chain markdown and marks the current level", () => {
+    const body = chainBodyMarkdown(chain, "b", {
+      heading: "#### PR chain",
+      currentMarker: "this PR",
+    });
+    expect(body).toBe(
+      ["#### PR chain", "", "- `a`", "- **`b`** — this PR", "- `c`"].join("\n"),
+    );
+  });
+
+  it("appends the chain to an intro body", () => {
+    expect(composePrBody("  Intro  ", "chain")).toBe("Intro\n\n---\n\nchain\n");
+    expect(composePrBody("   ", "chain")).toBe("chain\n");
   });
 });

@@ -147,6 +147,20 @@ describe("stripRemotePrefix / resolveDefaultBranch", () => {
     expect(resolveDefaultBranch({ branches: ["feature/a"] })).toBeNull();
     expect(resolveDefaultBranch({})).toBeNull();
   });
+
+  it("prefers the branch the provider reports over the heuristic", () => {
+    expect(
+      resolveDefaultBranch({
+        defaultBranch: "origin/release",
+        prTargets: ["main", "main"],
+        branches: ["main"],
+      }),
+    ).toBe("release");
+    expect(
+      resolveDefaultBranch({ defaultBranch: "  ", prTargets: ["develop", "develop"] }),
+    ).toBe("develop");
+    expect(resolveDefaultBranch({ defaultBranch: null, branches: ["main"] })).toBe("main");
+  });
 });
 
 describe("latestRunForBranch / checkStateForRun", () => {
@@ -251,6 +265,20 @@ describe("selectRedRuns", () => {
     expect(items.map((i) => i.runId)).toEqual([3]);
     expect(items[0].branch).toBe("main");
     expect(items[0].conclusion).toBe("failure");
+  });
+
+  it("follows the provider default branch even when it looks unusual", () => {
+    const items = selectRedRuns([
+      repo({
+        defaultBranch: "release/1.0",
+        prs: [pr({ target_branch: "main" })],
+        runs: [
+          run({ id: 20, workflow_id: 1, conclusion: "failure", head_branch: "release/1.0" }),
+          run({ id: 21, workflow_id: 2, conclusion: "failure", head_branch: "main" }),
+        ],
+      }),
+    ]);
+    expect(items.map((i) => i.runId)).toEqual([20]);
   });
 
   it("uses candidate branch names when nothing resolves the default branch", () => {

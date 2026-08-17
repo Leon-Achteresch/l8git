@@ -590,7 +590,11 @@
     "today": "HEUTE",
     "yesterday": "GESTERN",
     "thisWeek": "DIESE WOCHE",
-    "earlier": "FRÜHER"
+    "earlier": "FRÜHER",
+    "checkoutChoiceTitle": "Commit auschecken",
+    "checkoutChoiceDesc": "{{hash}} „{{subject}}“ — direkt im Detached-HEAD auschecken oder einen neuen Branch von hier anlegen?",
+    "checkoutChoiceBranch": "Branch anlegen",
+    "checkoutChoiceDetached": "Detached auschecken"
   },
   "time": {
     "justNow": "gerade eben",
@@ -658,7 +662,8 @@
       "history": "Verlauf",
       "commit": "Commit-Panel",
       "branch": "Branch-Sidebar"
-    }
+    },
+    "terminalToggle": "Terminal ein-/ausblenden"
   },
   "settings": {
     "back": "Zurück",
@@ -1886,7 +1891,9 @@
     "rebaseRootHint": "Für den ersten Commit der Historie nicht möglich.",
     "dropTitle": "Commit verwerfen?",
     "dropDesc": "Commit {{hash}} „{{subject}}\" wird per Rebase aus der Historie entfernt. Die Commits danach werden neu geschrieben.",
-    "dropConfirm": "Verwerfen"
+    "dropConfirm": "Verwerfen",
+    "branchFromHere": "Branch von hier",
+    "stackBadgeTitle": "{{name}} · Stack {{root}} · Ebene {{level}}"
   },
   "commitInspect": {
     "explainCommit": "Erklären",
@@ -2026,7 +2033,11 @@
     "create": "Anlegen",
     "asStackBranch": "Als Stack-Branch auf {{parent}}",
     "toastEmptyName": "Branch-Name darf nicht leer sein.",
-    "toastStackParentMissing": "Für einen Stack-Branch wird ein Parent-Branch gebraucht."
+    "toastStackParentMissing": "Für einen Stack-Branch wird ein Parent-Branch gebraucht.",
+    "baseCommitOption": "Beliebiger Commit …",
+    "commitLabel": "Commit (Hash oder Ref)",
+    "commitPlaceholder": "a1b2c3d",
+    "toastCommitMissing": "Bitte einen Commit angeben."
   },
   "stack": {
     "sectionTitle": "Stacks",
@@ -2085,7 +2096,13 @@
     "chainOpenPrAria": "PR #{{number}} öffnen",
     "chainTitleAria": "Titel für {{branch}}",
     "legendAria": "Stack-Ebenen",
-    "legendChipTitle": "{{name}} – Stack {{root}}, Ebene {{level}}"
+    "legendChipTitle": "{{name}} – Stack {{root}}, Ebene {{level}}",
+    "chainBodyHeading": "#### PR-Kette",
+    "chainBodyCurrent": "dieser PR",
+    "chainBodyPlaceholder": "Beschreibung (optional)",
+    "chainBodyAria": "Beschreibung für {{branch}}",
+    "chainBodyAi": "Beschreibung per AI erzeugen",
+    "chainBodyAiAria": "Beschreibung für {{branch}} per AI erzeugen"
   },
   "remoteBranchCheckout": {
     "dialogAria": "Lokalen Branch auschecken",

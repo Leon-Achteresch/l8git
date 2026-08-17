@@ -264,7 +264,9 @@ pub fn run() {
             stack::stack_restack_state,
             stack::branch_cleanup_candidates,
             pr::pr_review_threads,
-            pr::pr_resolve_thread
+            pr::pr_resolve_thread,
+            git::repo_range_commits,
+            pr::pr_default_branch
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

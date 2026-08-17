@@ -23,10 +23,11 @@ import {
 } from "@/lib/graph";
 import { useGravatarUrl } from "@/lib/gravatar";
 import { useRepoStore, type Branch } from "@/lib/repo-store";
+import { useStackLabels } from "@/lib/stack-store";
 import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranchPlus, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranch, GitBranchPlus, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
 import { m } from "motion/react";
 import { memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -47,7 +48,10 @@ import {
 import type { RebaseTodoAction } from "@/lib/repo-store";
 import { CommitTagDialog } from "./commit-tag-dialog";
 import { CommitTags } from "./commit-tags";
+import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
 import type { CommitSelectMode } from "./commit-history-panel";
+
+const EMPTY_BRANCHES: Branch[] = [];
 
 export type BisectRole = 'bad' | 'good' | 'current' | 'result' | 'pending-bad' | 'pending-good';
 
@@ -100,7 +104,10 @@ function CommitRowInner({
   const setBisectPendingBad = useUiStore((s) => s.setBisectPendingBad);
   const setBisectPendingGood = useUiStore((s) => s.setBisectPendingGood);
   const [tagOpen, setTagOpen] = useState(false);
+  const [branchOpen, setBranchOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const allBranches = useRepoStore((s) => s.repos[path]?.branches ?? EMPTY_BRANCHES);
+  const stackLabels = useStackLabels(path);
   const [rebaseEditor, setRebaseEditor] = useState<{
     preset: { hash: string; action: RebaseTodoAction } | null;
   } | null>(null);
@@ -234,8 +241,8 @@ function CommitRowInner({
             body={commit.body}
           />
           {branchesAtCommit.map((b, i) => {
-            const tail =
-              b.name.replace(/^refs\/heads\//, "").split("/").pop() ?? b.name;
+            const local = b.name.replace(/^refs\/heads\//, "");
+            const tail = local.split("/").pop() ?? b.name;
             const primary =
               i === 0 &&
               (b.is_current ||
@@ -245,12 +252,23 @@ function CommitRowInner({
               : i % 2 === 0
                 ? "blue"
                 : "rose";
+            const stack = b.is_remote ? undefined : stackLabels.get(local);
             return (
               <CommitBranchBadge
                 key={b.name}
                 name={b.name}
                 accentColor={laneColor(b.name)}
                 tone={tone}
+                stackLevel={stack?.level}
+                stackTitle={
+                  stack
+                    ? t("commitRow.stackBadgeTitle", {
+                        name: b.name,
+                        root: stack.root,
+                        level: stack.level,
+                      })
+                    : undefined
+                }
               />
             );
           })}
@@ -337,6 +355,15 @@ function CommitRowInner({
           >
             <Tag className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium">{t("commitRow.addTag")}</span>
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              window.requestAnimationFrame(() => setBranchOpen(true));
+            }}
+            className="gap-2 cursor-pointer"
+          >
+            <GitBranch className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{t("commitRow.branchFromHere")}</span>
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => {
@@ -504,6 +531,14 @@ function CommitRowInner({
         path={path}
         commitHash={commit.hash}
         shortHash={commit.short_hash}
+      />
+      <NewBranchDialog
+        open={branchOpen}
+        onClose={() => setBranchOpen(false)}
+        path={path}
+        branches={allBranches}
+        commitRef={commit.short_hash}
+        commitLabel={commit.subject}
       />
       <ResetDialog
         open={resetOpen}

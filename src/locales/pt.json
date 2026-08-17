@@ -590,7 +590,11 @@
     "today": "HOJE",
     "yesterday": "ONTEM",
     "thisWeek": "ESTA SEMANA",
-    "earlier": "ANTERIORES"
+    "earlier": "ANTERIORES",
+    "checkoutChoiceTitle": "Fazer checkout do commit",
+    "checkoutChoiceDesc": "{{hash}} “{{subject}}” — fazer checkout com HEAD desanexado ou criar um novo ramo a partir daqui?",
+    "checkoutChoiceBranch": "Criar ramo",
+    "checkoutChoiceDetached": "Checkout desanexado"
   },
   "time": {
     "justNow": "agora mesmo",
@@ -658,7 +662,8 @@
       "history": "Histórico",
       "commit": "Painel de commit",
       "branch": "Barra de branches"
-    }
+    },
+    "terminalToggle": "Mostrar/ocultar terminal"
   },
   "settings": {
     "back": "Voltar",
@@ -1886,7 +1891,9 @@
     "rebaseRootHint": "Não é possível para o primeiro commit do histórico.",
     "dropTitle": "Descartar commit?",
     "dropDesc": "O commit {{hash}} \"{{subject}}\" será removido do histórico por um rebase. Todos os commits posteriores serão reescritos.",
-    "dropConfirm": "Descartar"
+    "dropConfirm": "Descartar",
+    "branchFromHere": "Ramo a partir daqui",
+    "stackBadgeTitle": "{{name}} · pilha {{root}} · nível {{level}}"
   },
   "commitInspect": {
     "explainCommit": "Explicar",
@@ -2026,7 +2033,11 @@
     "create": "Criar",
     "asStackBranch": "Como branch de stack sobre {{parent}}",
     "toastEmptyName": "O nome do branch não pode ficar vazio.",
-    "toastStackParentMissing": "Um branch de stack precisa de um branch pai."
+    "toastStackParentMissing": "Um branch de stack precisa de um branch pai.",
+    "baseCommitOption": "Qualquer commit …",
+    "commitLabel": "Commit (hash ou ref)",
+    "commitPlaceholder": "a1b2c3d",
+    "toastCommitMissing": "Informe um commit."
   },
   "stack": {
     "sectionTitle": "Stacks",
@@ -2085,7 +2096,13 @@
     "chainOpenPrAria": "Abrir o PR #{{number}}",
     "chainTitleAria": "Título para {{branch}}",
     "legendAria": "Níveis do stack",
-    "legendChipTitle": "{{name}} – stack {{root}}, nível {{level}}"
+    "legendChipTitle": "{{name}} – stack {{root}}, nível {{level}}",
+    "chainBodyHeading": "#### Cadeia de PRs",
+    "chainBodyCurrent": "este PR",
+    "chainBodyPlaceholder": "Descrição (opcional)",
+    "chainBodyAria": "Descrição para {{branch}}",
+    "chainBodyAi": "Gerar descrição com IA",
+    "chainBodyAiAria": "Gerar descrição para {{branch}} com IA"
   },
   "remoteBranchCheckout": {
     "dialogAria": "Fazer checkout de um branch local a partir do remoto",

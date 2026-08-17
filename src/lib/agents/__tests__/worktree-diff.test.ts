@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
-import { diffStatFromStatus, isDiffStatStale } from "@/lib/agents/worktree-diff";
+import type { AgentReviewSummary } from "@/lib/agents/agent-review";
+import {
+  diffStatFromReview,
+  diffStatFromStatus,
+  isDiffStatStale,
+} from "@/lib/agents/worktree-diff";
 import type { StatusEntry } from "@/lib/repo-store";
 
 function status(overrides: Partial<StatusEntry> = {}): StatusEntry {
@@ -38,6 +43,30 @@ describe("diffStatFromStatus", () => {
 
   it("returns zeroes for a clean worktree", () => {
     expect(diffStatFromStatus([], 1)).toEqual({ files: 0, additions: 0, deletions: 0, loadedAt: 1 });
+  });
+});
+
+describe("diffStatFromReview", () => {
+  it("counts committed work from the merge-base diff, not just the dirty files", () => {
+    const summary: AgentReviewSummary = {
+      baseBranch: "main",
+      sessionBranch: "agents/x",
+      mergeBase: "abc123",
+      files: [
+        { path: "a.ts", additions: 12, deletions: 4, binary: false, untracked: false },
+        { path: "b.ts", additions: 3, deletions: 0, binary: false, untracked: true },
+      ],
+      additions: 15,
+      deletions: 4,
+      commits: 2,
+      uncommitted: 0,
+    };
+    expect(diffStatFromReview(summary, 500)).toEqual({
+      files: 2,
+      additions: 15,
+      deletions: 4,
+      loadedAt: 500,
+    });
   });
 });
 

@@ -590,7 +590,11 @@
     "today": "AUJOURD'HUI",
     "yesterday": "HIER",
     "thisWeek": "CETTE SEMAINE",
-    "earlier": "PLUS TÔT"
+    "earlier": "PLUS TÔT",
+    "checkoutChoiceTitle": "Extraire le commit",
+    "checkoutChoiceDesc": "{{hash}} « {{subject}} » — extraire en HEAD détaché ou créer une nouvelle branche à partir d'ici ?",
+    "checkoutChoiceBranch": "Créer une branche",
+    "checkoutChoiceDetached": "Extraire en détaché"
   },
   "time": {
     "justNow": "à l'instant",
@@ -658,7 +662,8 @@
       "history": "Historique",
       "commit": "Panneau de commit",
       "branch": "Barre latérale des branches"
-    }
+    },
+    "terminalToggle": "Afficher/masquer le terminal"
   },
   "settings": {
     "back": "Retour",
@@ -1886,7 +1891,9 @@
     "rebaseRootHint": "Impossible pour le premier commit de l'historique.",
     "dropTitle": "Supprimer le commit ?",
     "dropDesc": "Le commit {{hash}} « {{subject}} » sera retiré de l'historique par un rebase. Tous les commits suivants seront réécrits.",
-    "dropConfirm": "Supprimer"
+    "dropConfirm": "Supprimer",
+    "branchFromHere": "Branche à partir d'ici",
+    "stackBadgeTitle": "{{name}} · pile {{root}} · niveau {{level}}"
   },
   "commitInspect": {
     "explainCommit": "Expliquer",
@@ -2026,7 +2033,11 @@
     "create": "Créer",
     "asStackBranch": "Comme branche de stack sur {{parent}}",
     "toastEmptyName": "Le nom de la branche ne peut pas être vide.",
-    "toastStackParentMissing": "Une branche de stack nécessite une branche parente."
+    "toastStackParentMissing": "Une branche de stack nécessite une branche parente.",
+    "baseCommitOption": "N'importe quel commit …",
+    "commitLabel": "Commit (hash ou réf)",
+    "commitPlaceholder": "a1b2c3d",
+    "toastCommitMissing": "Indiquez un commit."
   },
   "stack": {
     "sectionTitle": "Stacks",
@@ -2085,7 +2096,13 @@
     "chainOpenPrAria": "Ouvrir la PR #{{number}}",
     "chainTitleAria": "Titre pour {{branch}}",
     "legendAria": "Niveaux du stack",
-    "legendChipTitle": "{{name}} – stack {{root}}, niveau {{level}}"
+    "legendChipTitle": "{{name}} – stack {{root}}, niveau {{level}}",
+    "chainBodyHeading": "#### Chaîne de PR",
+    "chainBodyCurrent": "cette PR",
+    "chainBodyPlaceholder": "Description (facultatif)",
+    "chainBodyAria": "Description pour {{branch}}",
+    "chainBodyAi": "Générer la description avec l'IA",
+    "chainBodyAiAria": "Générer la description pour {{branch}} avec l'IA"
   },
   "remoteBranchCheckout": {
     "dialogAria": "Extraire une branche locale depuis un remote",

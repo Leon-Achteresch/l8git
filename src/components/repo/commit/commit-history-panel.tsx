@@ -1,8 +1,19 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable';
+import { NewBranchDialog } from '@/components/repo/branch/new-branch-dialog';
 import { toastError } from '@/lib/error-toast';
 import { computeReachableHashes, normalizeGitOid } from '@/lib/graph';
 import type { Branch, Commit } from '@/lib/repo-store';
@@ -11,6 +22,7 @@ import { useHistoryHotkeys } from '@/lib/use-history-hotkeys';
 import { useUiStore } from '@/lib/ui-store';
 import { writeLocalStorageDebounced } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { StackGraphLegend } from '../branch/stack-graph-legend';
 import { BisectStatusBanner } from '../bisect/bisect-status-banner';
@@ -42,6 +54,7 @@ export function CommitHistoryPanel({
   path: string;
   commits: Commit[];
 }) {
+  const { t } = useTranslation();
   const branches = useRepoStore(s => s.repos[path]?.branches ?? EMPTY_BRANCHES);
   const selectedBranchNames =
     useUiStore(s => s.branchFilterByPath[path]) ?? EMPTY_BRANCH_SET;
@@ -268,12 +281,32 @@ export function CommitHistoryPanel({
     [commits, selectedHash]
   );
 
+  const [checkoutChoice, setCheckoutChoice] = useState<Commit | null>(null);
+  const [branchFromCommit, setBranchFromCommit] = useState<Commit | null>(null);
+
   useHistoryHotkeys({
     path,
     commit: selectedCommit,
     enabled: sidebarTab === 'history' && activePath === path,
     onRebaseInteractive: setRebaseBase,
+    onCheckoutChoice: setCheckoutChoice,
   });
+
+  const checkoutDetached = useCallback(
+    (commit: Commit) => {
+      setCheckoutChoice(null);
+      void useRepoStore
+        .getState()
+        .checkoutBranch(path, commit.hash)
+        .then(() =>
+          toast.success(
+            t('hotkeys.historyCheckoutToast', { hash: commit.short_hash }),
+          ),
+        )
+        .catch(e => toastError(String(e)));
+    },
+    [path, t],
+  );
 
   const onCherryPick = useCallback(
     async (hashes: string[], opts?: { mainline?: number }) => {
@@ -374,6 +407,54 @@ export function CommitHistoryPanel({
           base={rebaseBase}
         />
       ) : null}
+      <AlertDialog
+        open={!!checkoutChoice}
+        onOpenChange={open => {
+          if (!open) setCheckoutChoice(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('commitHistory.checkoutChoiceTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('commitHistory.checkoutChoiceDesc', {
+                hash: checkoutChoice?.short_hash ?? '',
+                subject: checkoutChoice?.subject ?? '',
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              size='sm'
+              variant='outline'
+              onClick={() => {
+                const commit = checkoutChoice;
+                setCheckoutChoice(null);
+                if (commit) setBranchFromCommit(commit);
+              }}
+            >
+              {t('commitHistory.checkoutChoiceBranch')}
+            </AlertDialogAction>
+            <AlertDialogAction
+              size='sm'
+              onClick={() => {
+                if (checkoutChoice) checkoutDetached(checkoutChoice);
+              }}
+            >
+              {t('commitHistory.checkoutChoiceDetached')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <NewBranchDialog
+        open={!!branchFromCommit}
+        onClose={() => setBranchFromCommit(null)}
+        path={path}
+        branches={branches}
+        commitRef={branchFromCommit?.short_hash}
+        commitLabel={branchFromCommit?.subject}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/repo/layout/empty-state";
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour";
 import { RepoSidebar } from "@/components/repo/layout/repo-sidebar";
 import { useRepoStore } from "@/lib/repo-store";
+import { useStackRestackWatcher } from "@/lib/stack-store";
 import { useUiStore } from "@/lib/ui-store";
 import { useRepoRehydrate } from "@/lib/use-repo-rehydrate";
 import { useRepoStatusPoll } from "@/lib/use-repo-status-poll";
@@ -79,6 +80,8 @@ function Home() {
   const blameEditorPath = useUiStore((s) => s.blameEditorPath);
   const blameEditorFile = useUiStore((s) => s.blameEditorFile);
   const closeBlameEditor = useUiStore((s) => s.closeBlameEditor);
+
+  useStackRestackWatcher(activePath ?? "");
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">

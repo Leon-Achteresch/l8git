@@ -54,6 +54,12 @@ const ACTION_DEFS = [
     labelKey: 'hotkeys.showShortcuts',
   },
   {
+    id: 'terminalToggle',
+    group: 'global',
+    defaultHotkey: 'Control+`',
+    labelKey: 'hotkeys.terminalToggle',
+  },
+  {
     id: 'sidebarSlot1',
     group: 'navigation',
     defaultHotkey: 'Mod+1',

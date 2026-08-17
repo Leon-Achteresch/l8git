@@ -7,9 +7,15 @@ import { toastError } from "@/lib/error-toast";
 import { usePrCapabilities } from "@/lib/pr-provider-store";
 import type { PullRequest } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
+import { Textarea } from "@/components/ui/textarea";
+import { AiError } from "@/lib/ai/core";
+import { generatePrDescription } from "@/lib/ai/explain-sources";
+import { isAiConfigured } from "@/lib/ai-setup";
 import {
   buildPrChain,
+  chainBodyMarkdown,
   chainSummary,
+  composePrBody,
   markChainFailure,
   submittableChainEntries,
   updateChainEntry,
@@ -19,7 +25,15 @@ import {
 import { cn } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { AlertTriangle, Check, ExternalLink, MinusCircle, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  ExternalLink,
+  LoaderCircle,
+  MinusCircle,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -63,6 +77,8 @@ export function StackPrChainDialog({
   const [draft, setDraft] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [aiBranch, setAiBranch] = useState<string | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
 
   const stackRef = useRef<Stack | null>(stack);
   stackRef.current = stack;
@@ -90,9 +106,36 @@ export function StackPrChainDialog({
     };
   }, [open, path, stackRoot, loadPRs]);
 
+  useEffect(() => () => aiAbortRef.current?.abort(), []);
+
   function dismiss() {
     if (busy) return;
+    aiAbortRef.current?.abort();
     onClose();
+  }
+
+  async function runAiBody(entry: PrChainEntry) {
+    if (aiBranch) return;
+    aiAbortRef.current?.abort();
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+    setAiBranch(entry.branch);
+    try {
+      const result = await generatePrDescription(
+        { repoPath: path, head: entry.branch, base: entry.parent },
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
+      setEntries((cur) =>
+        updateChainEntry(cur, entry.branch, { body: result.body }),
+      );
+    } catch (cause) {
+      if (cause instanceof AiError && cause.kind === "aborted") return;
+      toastError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      if (aiAbortRef.current === controller) aiAbortRef.current = null;
+      setAiBranch((cur) => (cur === entry.branch ? null : cur));
+    }
   }
 
   async function submit() {
@@ -117,10 +160,14 @@ export function StackPrChainDialog({
           break;
         }
         try {
+          const chain = chainBodyMarkdown(current, entry.branch, {
+            heading: t("stack.chainBodyHeading"),
+            currentMarker: t("stack.chainBodyCurrent"),
+          });
           const pr = await invoke<PullRequest>("pr_create", {
             path,
             title,
-            body: "",
+            body: composePrBody(entry.body, chain),
             head: entry.branch,
             base: entry.parent,
             draft: canDraft && draft,
@@ -160,6 +207,7 @@ export function StackPrChainDialog({
 
   const summary = chainSummary(entries);
   const pendingCount = summary.planned + summary.failed;
+  const aiReady = isAiConfigured();
 
   return (
     <div
@@ -245,6 +293,40 @@ export function StackPrChainDialog({
                       )
                     }
                   />
+                  {entry.status === "planned" || entry.status === "failed" ? (
+                    <div className="mt-1 flex items-start gap-1.5">
+                      <Textarea
+                        rows={2}
+                        className="min-h-0 flex-1 text-[11px]"
+                        value={entry.body}
+                        disabled={busy}
+                        placeholder={t("stack.chainBodyPlaceholder")}
+                        aria-label={t("stack.chainBodyAria", { branch: entry.branch })}
+                        onChange={(e) =>
+                          setEntries((cur) =>
+                            updateChainEntry(cur, entry.branch, { body: e.target.value }),
+                          )
+                        }
+                      />
+                      {aiReady ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          disabled={busy || aiBranch !== null}
+                          aria-label={t("stack.chainBodyAiAria", { branch: entry.branch })}
+                          title={t("stack.chainBodyAi")}
+                          onClick={() => void runAiBody(entry)}
+                        >
+                          {aiBranch === entry.branch ? (
+                            <LoaderCircle className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3 w-3 text-primary" />
+                          )}
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {entry.status === "existing" ? (
                     <p className="mt-1 text-[10px] text-muted-foreground">
                       {t("stack.chainExisting", { number: entry.prNumber ?? 0 })}

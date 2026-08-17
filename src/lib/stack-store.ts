@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { create } from "zustand";
 
@@ -9,8 +9,10 @@ import { useRepoStore } from "@/lib/repo-store";
 import {
   EMPTY_RESTACK_STATE,
   EMPTY_STACK_LIST,
+  stackLabels,
   stackRestackTargets,
   type Stack,
+  type StackLabel,
   type StackList,
   type StackRestackResult,
   type StackRestackState,
@@ -164,6 +166,21 @@ export const useStackStore = create<StackStoreState>((set, get) => ({
       return { lists, restackState, loading, busy, error };
     }),
 }));
+
+const EMPTY_LABELS: ReadonlyMap<string, StackLabel> = new Map();
+const labelCache = new WeakMap<StackList, ReadonlyMap<string, StackLabel>>();
+
+export function useStackLabels(path: string): ReadonlyMap<string, StackLabel> {
+  const list = useStackStore((s) => s.lists[path]);
+  return useMemo(() => {
+    if (!list) return EMPTY_LABELS;
+    const cached = labelCache.get(list);
+    if (cached) return cached;
+    const labels = stackLabels(list);
+    labelCache.set(list, labels);
+    return labels;
+  }, [list]);
+}
 
 export function useStackRestackWatcher(path: string) {
   const rebaseInProgress = useRepoStore(

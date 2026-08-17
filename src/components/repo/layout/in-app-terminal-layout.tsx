@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
 import { m } from "motion/react";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useTranslation } from "react-i18next";
 
 import { SPRING_LAYOUT, SPRING_PANEL } from "@/lib/motion/ease";
@@ -9,6 +10,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useHotkeyBindings } from "@/lib/hotkey-prefs";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { cn } from "@/lib/utils";
 
@@ -33,23 +35,19 @@ export function InAppTerminalLayout({
   const setPanelHeight = useTerminalStore((state) => state.setPanelHeight);
   const setPanelWidth = useTerminalStore((state) => state.setPanelWidth);
   const toggleVisible = useTerminalStore((state) => state.toggleVisible);
+  const bindings = useHotkeyBindings();
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.ctrlKey &&
-        !event.shiftKey &&
-        !event.altKey &&
-        !event.metaKey &&
-        event.key === "`"
-      ) {
-        event.preventDefault();
-        toggleVisible(path);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [path, toggleVisible]);
+  useHotkeys([
+    {
+      hotkey: bindings.terminalToggle,
+      callback: () => toggleVisible(path),
+      options: {
+        enabled: !!path,
+        ignoreInputs: false,
+        meta: { name: t("hotkeys.terminalToggle") },
+      },
+    },
+  ], { preventDefault: true });
 
   const atRight = position === "right";
   const totalHint = typeof window === "undefined"

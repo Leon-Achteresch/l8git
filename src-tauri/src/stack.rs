@@ -108,6 +108,7 @@ pub struct CleanupCandidate {
     pub ahead_of_upstream: u32,
     pub has_upstream: bool,
     pub upstream: Option<String>,
+    pub remote_merged: bool,
     pub tip: String,
     pub short_tip: String,
     pub subject: String,
@@ -1031,6 +1032,26 @@ fn merged_branches(repo: &Path, base: &str) -> HashSet<String> {
     .unwrap_or_default()
 }
 
+fn merged_remote_branches(repo: &Path, base: &str) -> HashSet<String> {
+    read(
+        repo,
+        &[
+            "branch",
+            "-r",
+            "--merged",
+            base,
+            "--format=%(refname:short)",
+        ],
+    )
+    .map(|out| {
+        out.lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty() && !l.contains("->"))
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
 fn is_squash_merged(repo: &Path, base: &str, branch: &str) -> bool {
     let Some(out) = read(repo, &["cherry", base, branch]) else {
         return false;
@@ -1054,6 +1075,7 @@ fn collect_cleanup(repo: &Path, stale_days: u32) -> Result<BranchCleanupReport, 
     let base = default_branch(repo);
     let current = head_branch(repo);
     let merged = merged_branches(repo, &base);
+    let merged_remotes = merged_remote_branches(repo, &base);
     let format = format!(
         "--format=%(refname:short){SEP}%(objectname){SEP}%(committerdate:iso-strict){SEP}%(committerdate:unix){SEP}%(upstream:short){SEP}%(contents:subject)"
     );
@@ -1106,6 +1128,14 @@ fn collect_cleanup(repo: &Path, stale_days: u32) -> Result<BranchCleanupReport, 
             continue;
         };
 
+        let remote_merged = match upstream.as_deref() {
+            Some(up) => {
+                merged_remotes.contains(up)
+                    || (kind == "squashMerged" && is_squash_merged(repo, &base, up))
+            }
+            None => false,
+        };
+
         candidates.push(CleanupCandidate {
             name,
             kind: kind.to_string(),
@@ -1114,6 +1144,7 @@ fn collect_cleanup(repo: &Path, stale_days: u32) -> Result<BranchCleanupReport, 
             ahead_of_upstream: ahead,
             has_upstream: upstream.is_some(),
             upstream,
+            remote_merged,
             short_tip: short_hash(repo, &tip),
             tip,
             subject,
@@ -1557,5 +1588,64 @@ mod tests {
         assert!(!old.has_upstream);
         assert!(old.last_commit_at.starts_with("2020-01-01"));
         assert_eq!(old.subject, "old work");
+    }
+
+    #[tokio::test]
+    async fn cleanup_candidates_report_whether_the_upstream_twin_is_merged() {
+        let repo = TestRepo::new();
+        repo.commit("base.txt", "base\n", "root");
+
+        repo.git(&["checkout", "-q", "-b", "merged-branch"]);
+        let merged_tip = repo.commit("m.txt", "m\n", "merged work");
+        repo.git(&["checkout", "-q", "main"]);
+        repo.git(&["merge", "--no-ff", "-q", "-m", "merge branch", "merged-branch"]);
+
+        repo.git(&["checkout", "-q", "-b", "lonely-branch"]);
+        repo.commit("l.txt", "l\n", "lonely work");
+        repo.git(&["checkout", "-q", "main"]);
+        repo.git(&["merge", "--no-ff", "-q", "-m", "merge lonely", "lonely-branch"]);
+
+        repo.git(&["checkout", "-q", "-b", "old-branch", "main"]);
+        repo.commit_at("o.txt", "o\n", "old work", "2020-01-01T00:00:00+0000");
+        let old_tip = repo.git(&["rev-parse", "HEAD"]);
+        repo.git(&["checkout", "-q", "main"]);
+
+        repo.git(&["remote", "add", "origin", "."]);
+        for (branch, tip) in [("merged-branch", &merged_tip), ("old-branch", &old_tip)] {
+            repo.git(&[
+                "update-ref",
+                &format!("refs/remotes/origin/{branch}"),
+                tip.trim(),
+            ]);
+            repo.git(&["config", &format!("branch.{branch}.remote"), "origin"]);
+            repo.git(&[
+                "config",
+                &format!("branch.{branch}.merge"),
+                &format!("refs/heads/{branch}"),
+            ]);
+        }
+
+        let report = branch_cleanup_candidates(repo.path(), 30).await.unwrap();
+        let by_name: HashMap<String, &CleanupCandidate> = report
+            .candidates
+            .iter()
+            .map(|c| (c.name.clone(), c))
+            .collect();
+
+        let merged = by_name.get("merged-branch").unwrap();
+        assert_eq!(merged.kind, "merged");
+        assert_eq!(merged.upstream.as_deref(), Some("origin/merged-branch"));
+        assert!(merged.remote_merged, "the upstream twin is merged into main");
+
+        let old = by_name.get("old-branch").unwrap();
+        assert_eq!(old.kind, "stale");
+        assert!(
+            !old.remote_merged,
+            "a stale branch whose remote twin is unmerged must not be flagged"
+        );
+
+        let lonely = by_name.get("lonely-branch").unwrap();
+        assert!(!lonely.has_upstream);
+        assert!(!lonely.remote_merged, "without an upstream there is nothing to delete");
     }
 }

@@ -6,14 +6,10 @@ import {
   EXPLAIN_FILE_DIFF_BUDGET,
   EXPLAIN_MAX_COMMITS,
   EXPLAIN_MAX_DIFF_FILES,
-  EXPLAIN_MAX_STAT_COMMITS,
-  branchTip,
-  commitsInRange,
   fitDiffToBudget,
   formatCommitList,
   formatDiffStat,
   joinFileDiffs,
-  mergeFileStats,
   parseCommitHeader,
   splitPrDraft,
   type FileStat,
@@ -22,11 +18,20 @@ import {
 import { getPromptTemplate } from "@/lib/ai/prompt-prefs";
 import { renderTemplate } from "@/lib/ai/prompts";
 import i18n from "@/lib/i18n";
-import { useRepoStore } from "@/lib/repo-store";
+import type { Commit } from "@/lib/repo-store";
 
 type CommitInspectPayload = {
   header: string;
   files: { path: string; additions: number; deletions: number; binary: boolean }[];
+};
+
+type RangeCommitsPayload = {
+  commits: Commit[];
+  files: FileStat[];
+  total_commits: number;
+  additions: number;
+  deletions: number;
+  truncated: boolean;
 };
 
 type CommitFileDiffPayload = { diff: string | null; is_binary: boolean };
@@ -106,40 +111,34 @@ export async function loadBranchExplainInput(
   base: string | null,
   signal?: AbortSignal,
 ): Promise<BranchExplainInput> {
-  const repo = useRepoStore.getState().repos[repoPath];
-  const commits = repo?.commits ?? [];
-  const branches = repo?.branches ?? [];
-  const tip = branchTip(branches, branch);
-  if (!tip) {
-    throw new AiError("empty", i18n.t("errors.aiNoBranchCommits"), "explainBranch");
+  let payload: RangeCommitsPayload;
+  try {
+    payload = await invoke<RangeCommitsPayload>("repo_range_commits", {
+      path: repoPath,
+      base,
+      head: branch,
+      limit: EXPLAIN_MAX_COMMITS,
+    });
+  } catch (error) {
+    throw new AiError(
+      "empty",
+      i18n.t("errors.aiNoBranchCommits"),
+      "explainBranch",
+      error,
+    );
   }
-
-  const range = commitsInRange(commits, tip, branchTip(branches, base), EXPLAIN_MAX_COMMITS);
-  if (range.length === 0) {
-    throw new AiError("empty", i18n.t("errors.aiNoBranchCommits"), "explainBranch");
-  }
-
-  const statCommits = range
-    .filter((commit) => commit.parents.length <= 1)
-    .slice(0, EXPLAIN_MAX_STAT_COMMITS);
-
-  const groups = await Promise.all(
-    statCommits.map(async (commit): Promise<FileStat[]> => {
-      try {
-        const payload = await inspectCommit(repoPath, commit.hash);
-        return payload.files;
-      } catch {
-        return [];
-      }
-    }),
-  );
   if (signal?.aborted) throw new AiError("aborted", i18n.t("errors.aiAborted"), "explainBranch");
 
+  const commits = payload.commits ?? [];
+  if (commits.length === 0) {
+    throw new AiError("empty", i18n.t("errors.aiNoBranchCommits"), "explainBranch");
+  }
+
   return {
-    commits: formatCommitList(range),
-    stat: formatDiffStat(mergeFileStats(groups)),
-    commitCount: range.length,
-    truncated: statCommits.length < range.length,
+    commits: formatCommitList(commits),
+    stat: formatDiffStat(payload.files ?? []),
+    commitCount: payload.total_commits || commits.length,
+    truncated: payload.truncated === true,
   };
 }
 

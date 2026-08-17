@@ -56,6 +56,13 @@ async function loadRepo(
     error = { path, repoName, message: String(e) };
   }
 
+  let defaultBranch: string | null = null;
+  try {
+    defaultBranch = await invoke<string | null>("pr_default_branch", { path });
+  } catch {
+    defaultBranch = null;
+  }
+
   let runs: InboxWorkflowRun[] = [];
   if (caps.can_workflows) {
     try {
@@ -68,7 +75,7 @@ async function loadRepo(
   if (error && prs.length === 0 && runs.length === 0) {
     return { input: null, error };
   }
-  return { input: { path, repoName, viewerLogin, prs, runs }, error };
+  return { input: { path, repoName, viewerLogin, prs, runs, defaultBranch }, error };
 }
 
 export const useInboxStore = create<InboxState>((set, get) => ({

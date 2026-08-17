@@ -20,6 +20,7 @@ import { useRepoPrefs } from "@/lib/repo-prefs";
 import { toastError } from "@/lib/error-toast";
 import { loadSigningInfo, type SigningInfo } from "@/lib/git-signing";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
+import { useSigningRevision } from "@/lib/signing-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { parseDiffWithHunks, type ParsedDiff } from "@/lib/unified-diff";
 import { useCommitPanelHotkeys } from "@/lib/use-commit-panel-hotkeys";
@@ -87,6 +88,7 @@ export function CommitPanel() {
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
   const [undoDialogOpen, setUndoDialogOpen] = useState(false);
   const [signingInfo, setSigningInfo] = useState<SigningInfo | null>(null);
+  const signingRevision = useSigningRevision((s) => s.revision);
 
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
@@ -166,7 +168,7 @@ export function CommitPanel() {
     return () => {
       alive = false;
     };
-  }, [activePath]);
+  }, [activePath, signingRevision]);
 
   useEffect(() => {
     let prev = useCommitPrefs.getState().messageTemplate;
