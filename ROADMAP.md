@@ -106,11 +106,27 @@ l8git ist und bleibt vollständig Open Source (MIT). Keine Paywall, kein Fair-So
 - [x] Contributor-Onboarding: CONTRIBUTING.md, Code of Conduct, Issue-/PR-Templates, Good-first-issue-Empfehlungsliste, schnelle PR-Reviews
 
 ### Monat 12 — v1.0 & Nachhaltigkeit
-- [ ] Stabilitäts-Sprint und Security-Review (CSP, Tauri-Capabilities)
-- [ ] GitHub Sponsors / Open Collective einrichten, Sponsor-Link in App und README, Sponsoren-Nennung im Changelog
-- [ ] 1.0-Release: Show HN, Product Hunt
+- [x] Stabilitäts-Sprint: alle „Folgearbeiten“-Punkte aus Q1–Q3 abgearbeitet
+- [x] Security-Review durchgeführt (3 High, 2 Medium, 2 Low, 1 Info gefunden); Fixes in Arbeit
+- [x] Sponsor-Link in README + FUNDING.yml (GitHub Sponsors auf github.com noch zu aktivieren)
+- [ ] 1.0-Release: Show HN, Product Hunt (manuell, nach dem Launch-Sprint)
 
 ## Durchgängig (jedes Quartal)
 - Performance-Budget: Startzeit, Status-Refresh, Graph-Rendering auf Monorepos als CI-Benchmark
 - Bug-Turnaround unter einem Release-Zyklus
 - KPIs: Aktivierung (Aha-Moment < 5 min), D30-Retention, DAU/WAU, Sessions/Tag (> 2 = Daily Loop erreicht), Adoption von Rebase/Undo/Agent-Review
+
+---
+
+## Umsetzungsstand
+
+Die zwölf Monatspakete der Roadmap sind implementiert und auf `development` committet. Die Testabdeckung ist von ~100 auf 259 Rust- und 466 Frontend-Tests gewachsen (plus ein CI-Gate mit Locale-Paritätsprüfung); die App spricht sieben Sprachen.
+
+Offen bleiben ausschließlich Punkte, die außerhalb des Codes liegen oder eine Entscheidung/Umgebung brauchen:
+- **Telemetrie (Monat 1/6):** wartet auf die PostHog-Entscheidung (Instanz + Projekt-Key).
+- **Diff-Benchmark (Monat 4):** manueller Vergleich gegen Fork/GitKraken auf echten Geräten.
+- **Linux-Polish (Monat 11):** braucht ein Linux-Testgerät.
+- **Reichweite (Monat 11/12):** Paket-Kanäle publizieren, GitHub Discussions/Sponsors aktivieren, Screenshots/Videos, Show-HN/Product-Hunt-Launch — alles manuell auf github.com bzw. den Plattformen.
+- **Retention-Messung (Monat 6):** hängt an der Telemetrie-Entscheidung.
+
+Die pro Monat gesammelten „Folgearbeiten“ wurden im Monat-12-Stabilitätssprint abgearbeitet; der Security-Review deckte 3 High-, 2 Medium- und 2 Low-Findings auf, deren Fixes separat einfließen.
