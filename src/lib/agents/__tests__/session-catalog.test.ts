@@ -1,38 +1,19 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
+import { installTestPlatform } from "@/lib/agents/__tests__/platform-harness";
 import {
   flushAgentSessionCatalog,
   loadAgentSessionCatalog,
   scheduleAgentSessionCatalogSave,
   type AgentSessionCatalog,
 } from "@/lib/agents/session-catalog";
-
-const STORAGE_KEY = "l8git-agent-chat";
-
-function stubLocalStorage() {
-  const store = new Map<string, string>();
-  const stub = {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => void store.set(key, value),
-    removeItem: (key: string) => void store.delete(key),
-    clear: () => store.clear(),
-  };
-  Object.defineProperty(globalThis, "localStorage", {
-    value: stub,
-    configurable: true,
-  });
-  return store;
-}
+import { AGENT_SESSION_CATALOG_KEY as STORAGE_KEY } from "@/lib/agents/storage-keys";
 
 describe("session catalog", () => {
   let store: Map<string, string>;
 
   beforeEach(() => {
-    store = stubLocalStorage();
-  });
-
-  afterEach(() => {
-    Reflect.deleteProperty(globalThis, "localStorage");
+    store = installTestPlatform().storage;
   });
 
   it("returns an empty catalog when nothing is stored", () => {

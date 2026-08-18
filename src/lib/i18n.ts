@@ -7,6 +7,7 @@ import {
   isAppLocale,
   type AppLocale,
 } from "@/lib/locales";
+import { kvGet } from "@/lib/platform/kv";
 
 type TranslationBundle = Record<string, unknown>;
 
@@ -23,9 +24,8 @@ const loaders: Record<AppLocale, () => Promise<{ default: TranslationBundle }>> 
 const loaded = new Set<AppLocale>();
 
 function readInitialLng(): AppLocale {
-  if (typeof localStorage === "undefined") return DEFAULT_LOCALE;
   try {
-    const raw = localStorage.getItem("l8git-locale");
+    const raw = kvGet("l8git-locale");
     if (!raw) return DEFAULT_LOCALE;
     const parsed = JSON.parse(raw) as { state?: { locale?: unknown } };
     const locale = parsed.state?.locale;

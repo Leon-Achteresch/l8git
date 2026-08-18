@@ -4,7 +4,6 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
 
 pub const MAX_ENTRIES: usize = 500;
 const EVENT_NAME: &str = "git-command";
@@ -30,19 +29,6 @@ fn buffer() -> &'static Mutex<VecDeque<GitCommandEntry>> {
 
 fn lock_buffer() -> MutexGuard<'static, VecDeque<GitCommandEntry>> {
     buffer().lock().unwrap_or_else(|e| e.into_inner())
-}
-
-fn app_slot() -> &'static OnceLock<AppHandle> {
-    static APP: OnceLock<AppHandle> = OnceLock::new();
-    &APP
-}
-
-pub(crate) fn set_app_handle(app: AppHandle) {
-    let _ = app_slot().set(app);
-}
-
-pub(crate) fn app_handle() -> Option<&'static AppHandle> {
-    app_slot().get()
 }
 
 fn mask_url(value: &str) -> String {
@@ -146,9 +132,7 @@ impl CommandSpan {
             started_at: self.started_at,
         };
         push_entry(&mut lock_buffer(), entry.clone());
-        if let Some(app) = app_handle() {
-            let _ = app.emit(EVENT_NAME, &entry);
-        }
+        crate::sink::emit(EVENT_NAME, &entry);
     }
 }
 

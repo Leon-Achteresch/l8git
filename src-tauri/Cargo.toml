@@ -14,6 +14,31 @@ edition = "2021"
 name = "l8git_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "l8gitd"
+path = "src/bin/l8gitd.rs"
+required-features = ["headless"]
+
+[features]
+default = []
+headless = [
+	"dep:axum",
+	"dep:x25519-dalek",
+	"dep:chacha20poly1305",
+	"dep:hkdf",
+	"dep:hmac",
+	"dep:sha2",
+	"dep:subtle",
+	"dep:rand",
+	"dep:qrcode",
+	"dep:clap",
+	"dep:futures-util",
+	"dep:tokio-tungstenite",
+	"tokio/full",
+	"keyring/apple-native",
+	"keyring/linux-native",
+]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -35,6 +60,19 @@ once_cell = "1"
 keyring = { version = "3", features = ["windows-native"] }
 dirs = "6"
 log = "0.4"
+
+axum = { version = "0.8", features = ["ws"], optional = true }
+x25519-dalek = { version = "2", optional = true }
+chacha20poly1305 = { version = "0.10", optional = true }
+hkdf = { version = "0.12", optional = true }
+hmac = { version = "0.12", optional = true }
+sha2 = { version = "0.10", optional = true }
+subtle = { version = "2", optional = true }
+rand = { version = "0.8", optional = true }
+qrcode = { version = "0.14", default-features = false, optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
+tokio-tungstenite = { version = "0.29", features = ["native-tls"], optional = true }
 
 [profile.release]
 opt-level = 3

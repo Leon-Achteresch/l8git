@@ -54,6 +54,7 @@ import {
   type AgentSessionCatalog,
 } from "@/lib/agents/session-catalog";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
+import { onAppSuspend } from "@/lib/platform/lifecycle";
 import i18n from "@/lib/i18n";
 
 export interface AgentChatState {
@@ -2311,6 +2312,4 @@ useAgentChatStore.subscribe((state) => {
   scheduleAgentSessionCatalogSave(nextCatalog);
 });
 
-if (typeof window !== "undefined") {
-  window.addEventListener("pagehide", flushAgentSessionCatalog);
-}
+onAppSuspend(flushAgentSessionCatalog);

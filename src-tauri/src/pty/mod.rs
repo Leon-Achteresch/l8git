@@ -29,9 +29,29 @@ impl Default for PtyState {
     }
 }
 
+#[cfg(all(test, feature = "headless"))]
+impl PtyState {
+    pub(crate) fn is_open(&self, id: u32) -> bool {
+        self.sessions.read().unwrap().contains_key(&id)
+    }
+}
+
 #[tauri::command]
 pub async fn pty_open(
     state: tauri::State<'_, PtyState>,
+    cols: u16,
+    rows: u16,
+    cwd: Option<String>,
+    shell: Option<String>,
+    dark: Option<bool>,
+    on_data: Channel<Response>,
+    on_exit: Channel<i32>,
+) -> Result<u32, String> {
+    pty_open_inner(&state, cols, rows, cwd, shell, dark, on_data, on_exit).await
+}
+
+pub(crate) async fn pty_open_inner(
+    state: &PtyState,
     cols: u16,
     rows: u16,
     cwd: Option<String>,
@@ -68,6 +88,10 @@ pub async fn pty_open(
 
 #[tauri::command]
 pub fn pty_write(state: tauri::State<PtyState>, id: u32, data: String) -> Result<(), String> {
+    pty_write_inner(&state, id, data)
+}
+
+pub(crate) fn pty_write_inner(state: &PtyState, id: u32, data: String) -> Result<(), String> {
     let session = state
         .sessions
         .read()
@@ -93,6 +117,15 @@ pub fn pty_write(state: tauri::State<PtyState>, id: u32, data: String) -> Result
 #[tauri::command]
 pub fn pty_resize(
     state: tauri::State<PtyState>,
+    id: u32,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    pty_resize_inner(&state, id, cols, rows)
+}
+
+pub(crate) fn pty_resize_inner(
+    state: &PtyState,
     id: u32,
     cols: u16,
     rows: u16,
@@ -126,6 +159,10 @@ pub fn pty_resize(
 
 #[tauri::command]
 pub fn pty_close(state: tauri::State<PtyState>, id: u32) -> Result<(), String> {
+    pty_close_inner(&state, id)
+}
+
+pub(crate) fn pty_close_inner(state: &PtyState, id: u32) -> Result<(), String> {
     let session = state.sessions.write().unwrap().remove(&id);
     if let Some(s) = session {
         if let Err(e) = s.killer.lock().unwrap().kill() {
@@ -151,6 +188,10 @@ pub fn pty_close(state: tauri::State<PtyState>, id: u32) -> Result<(), String> {
 
 #[tauri::command]
 pub fn pty_has_foreground_process(state: tauri::State<PtyState>, id: u32) -> Result<bool, String> {
+    pty_has_foreground_process_inner(&state, id)
+}
+
+pub(crate) fn pty_has_foreground_process_inner(state: &PtyState, id: u32) -> Result<bool, String> {
     let sessions = state.sessions.read().unwrap();
     let session = sessions.get(&id).ok_or_else(|| {
         log::warn!("pty_has_foreground_process: unknown session id={id}");
@@ -206,6 +247,10 @@ fn shell_has_children(shell_pid: u32) -> bool {
 
 #[tauri::command]
 pub fn pty_close_all(state: tauri::State<PtyState>) -> Result<usize, String> {
+    pty_close_all_inner(&state)
+}
+
+pub(crate) fn pty_close_all_inner(state: &PtyState) -> Result<usize, String> {
     let drained: Vec<(u32, Arc<Session>)> = {
         let mut sessions = state.sessions.write().unwrap();
         sessions.drain().collect()

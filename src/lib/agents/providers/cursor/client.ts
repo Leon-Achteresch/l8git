@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/platform/ipc";
 
 import { openAgentTransport, type AgentTransport } from "@/lib/agents/transport";
 

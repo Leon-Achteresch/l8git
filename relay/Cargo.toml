@@ -1,0 +1,37 @@
+[package]
+name = "l8git-relay"
+version = "0.1.0"
+edition = "2021"
+description = "Blind WebSocket relay for l8git Remote"
+license = "MIT"
+
+[workspace]
+
+[lib]
+name = "l8git_relay"
+path = "src/lib.rs"
+
+[[bin]]
+name = "l8git-relay"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+sha2 = "0.10"
+subtle = "2"
+clap = { version = "4", features = ["derive"] }
+log = "0.4"
+env_logger = "0.11"
+
+[dev-dependencies]
+tokio-tungstenite = "0.29"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true

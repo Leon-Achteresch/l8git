@@ -1,4 +1,4 @@
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { channel, invoke } from "@/lib/platform/ipc";
 
 export type AgentTransportProvider = "codex" | "claude" | (string & {});
 
@@ -49,17 +49,18 @@ export async function openAgentTransport(
   handlers: AgentTransportHandlers,
   options?: AgentTransportOpenOptions,
 ): Promise<AgentTransport> {
-  const onEvent = new Channel<AgentStreamEvent>();
+  let handleEvent: (event: AgentStreamEvent) => void = () => {};
+  const onEvent = channel<AgentStreamEvent>((event) => handleEvent(event));
   let transportId: number | null = null;
   let exited = false;
   let released = false;
   const release = () => {
     if (released) return;
     released = true;
-    onEvent.onmessage = () => {};
+    handleEvent = () => {};
   };
 
-  onEvent.onmessage = (event) => {
+  handleEvent = (event) => {
     if (event.sessionId !== sessionId) return;
     if (event.stream === "json") {
       handlers.onMessage(event.payload, event.sequence);

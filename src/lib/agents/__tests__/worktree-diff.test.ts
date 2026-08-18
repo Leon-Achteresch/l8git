@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-
+import { installTestPlatform } from "@/lib/agents/__tests__/platform-harness";
 import type { AgentReviewSummary } from "@/lib/agents/agent-review";
 import {
   diffStatFromReview,
@@ -9,6 +8,10 @@ import {
   isDiffStatStale,
 } from "@/lib/agents/worktree-diff";
 import type { StatusEntry } from "@/lib/repo-store";
+
+beforeEach(() => {
+  installTestPlatform();
+});
 
 function status(overrides: Partial<StatusEntry> = {}): StatusEntry {
   return {

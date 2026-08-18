@@ -1,6 +1,11 @@
 import { CHART_TOOL } from "@/lib/agents/chart-spec";
 import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/platform/ipc";
+import { kvGet, kvSet } from "@/lib/platform/kv";
+import {
+  CLAUDE_SESSION_PREFS_KEY as SESSION_PREFS_KEY,
+  CLAUDE_SETTINGS_KEY,
+} from "@/lib/agents/storage-keys";
 import { createStore } from "zustand/vanilla";
 
 import type { AgentChatState } from "@/lib/agents/chat-store";
@@ -79,11 +84,9 @@ const MAX_CACHED_CONVERSATIONS = 6;
 const streamEventsByThread = new Map<string, UnknownRecord[]>();
 let streamFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
-const SESSION_PREFS_KEY = "l8git.claude-session-state.v1";
 const sessionPrefs: { pinned: Set<string>; archived: Set<string> } = (() => {
-  if (typeof window === "undefined") return { pinned: new Set<string>(), archived: new Set<string>() };
   try {
-    const value = JSON.parse(window.localStorage.getItem(SESSION_PREFS_KEY) ?? "{}") as { pinned?: string[]; archived?: string[] };
+    const value = JSON.parse(kvGet(SESSION_PREFS_KEY) ?? "{}") as { pinned?: string[]; archived?: string[] };
     return { pinned: new Set(value.pinned ?? []), archived: new Set(value.archived ?? []) };
   } catch {
     return { pinned: new Set<string>(), archived: new Set<string>() };
@@ -91,17 +94,15 @@ const sessionPrefs: { pinned: Set<string>; archived: Set<string> } = (() => {
 })();
 
 function saveSessionPrefs() {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(SESSION_PREFS_KEY, JSON.stringify({
+  kvSet(SESSION_PREFS_KEY, JSON.stringify({
     pinned: [...sessionPrefs.pinned],
     archived: [...sessionPrefs.archived],
   }));
 }
 
 const persistedSettings = (() => {
-  if (typeof window === "undefined") return {} as Partial<AgentChatState>;
   try {
-    const value = JSON.parse(window.localStorage.getItem("l8git.claude-settings.v1") ?? "{}") as UnknownRecord;
+    const value = JSON.parse(kvGet(CLAUDE_SETTINGS_KEY) ?? "{}") as UnknownRecord;
     return {
       model: typeof value.model === "string" ? value.model : null,
       reasoningEffort: typeof value.reasoningEffort === "string" ? value.reasoningEffort : "high",
@@ -1703,7 +1704,6 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
 
 let lastPersistedSettings = "";
 claudeChatStore.subscribe((state) => {
-  if (typeof window === "undefined") return;
   const value = JSON.stringify({
     model: state.model,
     reasoningEffort: state.reasoningEffort,
@@ -1714,5 +1714,5 @@ claudeChatStore.subscribe((state) => {
   });
   if (value === lastPersistedSettings) return;
   lastPersistedSettings = value;
-  window.localStorage.setItem("l8git.claude-settings.v1", value);
+  kvSet(CLAUDE_SETTINGS_KEY, value);
 });

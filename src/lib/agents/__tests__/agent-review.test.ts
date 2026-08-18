@@ -1,7 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
-const invoke = vi.fn();
-vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }));
+import { installTestPlatform } from "@/lib/agents/__tests__/platform-harness";
 
 import {
   canRunStep,
@@ -21,6 +20,12 @@ import {
   setStepStatus,
   type AgentReviewFile,
 } from "@/lib/agents/agent-review";
+
+let invoke: Mock;
+
+beforeEach(() => {
+  invoke = installTestPlatform().invoke;
+});
 
 const SAMPLE_DIFF = [
   "diff --git a/f.txt b/f.txt",
@@ -137,8 +142,6 @@ describe("finish flow steps", () => {
 });
 
 describe("discardReviewHunk", () => {
-  beforeEach(() => invoke.mockReset());
-
   it("discards the hunk in the worktree via discard_hunk", async () => {
     invoke.mockResolvedValue(undefined);
     const parsed = parseReviewDiff(SAMPLE_DIFF)!;
@@ -160,8 +163,6 @@ describe("discardReviewHunk", () => {
 });
 
 describe("discardReviewFile", () => {
-  beforeEach(() => invoke.mockReset());
-
   it("deletes untracked files", async () => {
     invoke.mockResolvedValue(undefined);
     await discardReviewFile("/tmp/wt", "abc123", file({ path: "new.txt", untracked: true }));
@@ -202,8 +203,6 @@ describe("discardReviewFile", () => {
 });
 
 describe("deleteSessionBranchIfMerged", () => {
-  beforeEach(() => invoke.mockReset());
-
   it("keeps unmerged branches", async () => {
     invoke.mockResolvedValueOnce(false);
     expect(await deleteSessionBranchIfMerged("/tmp/app", "agents/x")).toBe(false);

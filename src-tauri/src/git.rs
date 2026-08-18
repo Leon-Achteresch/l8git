@@ -389,17 +389,11 @@ fn run_git_streamed(
 }
 
 fn emit_progress(event: &GitProgressEvent) {
-    if let Some(app) = cmdlog::app_handle() {
-        use tauri::Emitter;
-        let _ = app.emit(PROGRESS_EVENT, event);
-    }
+    crate::sink::emit(PROGRESS_EVENT, event);
 }
 
 fn emit_progress_done(event: &GitProgressDone) {
-    if let Some(app) = cmdlog::app_handle() {
-        use tauri::Emitter;
-        let _ = app.emit(PROGRESS_DONE_EVENT, event);
-    }
+    crate::sink::emit(PROGRESS_DONE_EVENT, event);
 }
 
 fn run_remote_op(

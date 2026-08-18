@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { platformStorage } from "@/lib/platform/kv";
+
 type AgentTrustPrefs = {
   trustedByRepo: Record<string, boolean>;
   setRepoTrusted: (repoPath: string, trusted: boolean) => void;
@@ -23,7 +25,7 @@ export const useAgentTrustPrefs = create<AgentTrustPrefs>()(
     }),
     {
       name: "l8git-agent-trust-prefs",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => platformStorage),
     },
   ),
 );

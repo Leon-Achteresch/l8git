@@ -1,4 +1,9 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/platform/ipc";
+import { kvGet, kvSet } from "@/lib/platform/kv";
+import {
+  OPENCODE_SESSION_PREFS_KEY as SESSION_PREFS_KEY,
+  OPENCODE_SETTINGS_KEY as SETTINGS_KEY,
+} from "@/lib/agents/storage-keys";
 import { createStore } from "zustand/vanilla";
 
 import type { AgentChatState } from "@/lib/agents/chat-store";
@@ -37,9 +42,6 @@ const MODE_CATEGORY = "mode";
 const EFFORT_CATEGORY = "thought_level";
 const STREAM_FLUSH_MS = 32;
 const MAX_CACHED_CONVERSATIONS = 6;
-const SETTINGS_KEY = "l8git.opencode-settings.v1";
-const SESSION_PREFS_KEY = "l8git.opencode-session-state.v1";
-
 const clients = new Map<string, OpenCodeClient>();
 const clientPromises = new Map<string, Promise<OpenCodeClient>>();
 const pathByThread = new Map<string, string>();
@@ -82,9 +84,8 @@ function epochSeconds(value: unknown): number {
 }
 
 const sessionPrefs: { pinned: Set<string>; archived: Set<string> } = (() => {
-  if (typeof window === "undefined") return { pinned: new Set<string>(), archived: new Set<string>() };
   try {
-    const value = JSON.parse(window.localStorage.getItem(SESSION_PREFS_KEY) ?? "{}") as {
+    const value = JSON.parse(kvGet(SESSION_PREFS_KEY) ?? "{}") as {
       pinned?: string[];
       archived?: string[];
     };
@@ -95,17 +96,15 @@ const sessionPrefs: { pinned: Set<string>; archived: Set<string> } = (() => {
 })();
 
 function saveSessionPrefs(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(
+  kvSet(
     SESSION_PREFS_KEY,
     JSON.stringify({ pinned: [...sessionPrefs.pinned], archived: [...sessionPrefs.archived] }),
   );
 }
 
 const persistedSettings = (() => {
-  if (typeof window === "undefined") return {} as UnknownRecord;
   try {
-    return JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}") as UnknownRecord;
+    return JSON.parse(kvGet(SETTINGS_KEY) ?? "{}") as UnknownRecord;
   } catch {
     return {} as UnknownRecord;
   }
@@ -1215,7 +1214,6 @@ export const openCodeChatStore = createStore<AgentChatState>()((set, get) => ({
 
 let lastPersistedSettings = "";
 openCodeChatStore.subscribe((state) => {
-  if (typeof window === "undefined") return;
   const value = JSON.stringify({
     model: state.model,
     reasoningEffort: state.reasoningEffort,
@@ -1226,5 +1224,5 @@ openCodeChatStore.subscribe((state) => {
   });
   if (value === lastPersistedSettings) return;
   lastPersistedSettings = value;
-  window.localStorage.setItem(SETTINGS_KEY, value);
+  kvSet(SETTINGS_KEY, value);
 });

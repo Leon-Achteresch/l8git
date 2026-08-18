@@ -1,5 +1,5 @@
 mod agent_review;
-mod agent_transport;
+pub mod agent_transport;
 mod claude;
 mod cmd;
 mod cmdlog;
@@ -12,14 +12,26 @@ mod media;
 pub mod pathsafe;
 pub mod pr;
 mod providers;
-mod pty;
+pub mod pty;
 mod rebase;
 mod repo_tools;
 mod secrets;
+#[cfg(feature = "headless")]
+pub mod server;
 mod shell;
+pub mod sink;
 mod stack;
 mod undo;
 mod watcher;
+
+struct TauriSink(tauri::AppHandle);
+
+impl sink::EventSink for TauriSink {
+    fn emit(&self, name: &str, payload: serde_json::Value) {
+        use tauri::Emitter;
+        let _ = self.0.emit(name, payload);
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -38,7 +50,7 @@ pub fn run() {
                     let _ = window.set_background_color(Some(color));
                 }
             }
-            cmdlog::set_app_handle(app.handle().clone());
+            sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
             Ok(())
         })
         .manage(agent_transport::AgentTransportState::default())

@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use notify::{EventKind, RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
-use tauri::{AppHandle, Emitter};
 
 struct Entry {
     stop: Arc<AtomicBool>,
@@ -152,7 +151,11 @@ fn attach_git_dir<W: Watcher>(watcher: &mut W, root: &Path) {
 }
 
 #[tauri::command]
-pub fn watch_repo(app: AppHandle, path: String) -> Result<(), String> {
+pub fn watch_repo(path: String) -> Result<(), String> {
+    watch_repo_inner(path)
+}
+
+pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
     let trimmed = path.trim();
     if trimmed.is_empty() {
         return Err("Pfad darf nicht leer sein".into());
@@ -172,7 +175,6 @@ pub fn watch_repo(app: AppHandle, path: String) -> Result<(), String> {
     }
 
     let emit_key = key.clone();
-    let app_handle = app.clone();
     let stop = Arc::new(AtomicBool::new(false));
     let thread_stop = stop.clone();
     let mut roots: Vec<PathBuf> = vec![repo_path.clone()];
@@ -234,7 +236,7 @@ pub fn watch_repo(app: AppHandle, path: String) -> Result<(), String> {
                 }
             }
             if meaningful {
-                let _ = app_handle.emit("repo-changed", &emit_key);
+                crate::sink::emit("repo-changed", &emit_key);
             }
         }
     });
@@ -249,6 +251,10 @@ pub fn watch_repo(app: AppHandle, path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn unwatch_repo(path: String) -> Result<(), String> {
+    unwatch_repo_inner(path)
+}
+
+pub(crate) fn unwatch_repo_inner(path: String) -> Result<(), String> {
     let key = path.trim().to_string();
     if let Ok(mut reg) = registry().lock() {
         reg.remove(&key);

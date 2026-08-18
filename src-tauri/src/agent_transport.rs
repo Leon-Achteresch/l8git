@@ -329,6 +329,16 @@ pub async fn agent_transport_open(
     options: Option<AgentTransportOptions>,
     on_event: Channel<AgentStreamEvent>,
 ) -> Result<AgentTransportHandle, String> {
+    agent_transport_open_inner(&state, provider, session_id, options, on_event).await
+}
+
+pub(crate) async fn agent_transport_open_inner(
+    state: &AgentTransportState,
+    provider: String,
+    session_id: String,
+    options: Option<AgentTransportOptions>,
+    on_event: Channel<AgentStreamEvent>,
+) -> Result<AgentTransportHandle, String> {
     let provider = provider.trim().to_ascii_lowercase();
     let session_id = session_id.trim().to_string();
     validate_session_id(&session_id)?;
@@ -489,6 +499,15 @@ pub fn agent_transport_send(
     session_id: String,
     message: serde_json::Value,
 ) -> Result<(), String> {
+    agent_transport_send_inner(&state, id, session_id, message)
+}
+
+pub(crate) fn agent_transport_send_inner(
+    state: &AgentTransportState,
+    id: u32,
+    session_id: String,
+    message: serde_json::Value,
+) -> Result<(), String> {
     let transport = state
         .sessions
         .read()
@@ -516,6 +535,14 @@ pub fn agent_transport_close(
     id: u32,
     session_id: String,
 ) -> Result<(), String> {
+    agent_transport_close_inner(&state, id, session_id)
+}
+
+pub(crate) fn agent_transport_close_inner(
+    state: &AgentTransportState,
+    id: u32,
+    session_id: String,
+) -> Result<(), String> {
     let mut sessions = state.sessions.write().unwrap();
     if let Some(transport) = sessions.get(&id) {
         if transport.session_id != session_id {
@@ -534,6 +561,12 @@ pub fn agent_transport_close(
 #[tauri::command]
 pub fn agent_transport_close_all(
     state: tauri::State<AgentTransportState>,
+) -> Result<usize, String> {
+    agent_transport_close_all_inner(&state)
+}
+
+pub(crate) fn agent_transport_close_all_inner(
+    state: &AgentTransportState,
 ) -> Result<usize, String> {
     let sessions: Vec<Arc<AgentTransport>> = {
         let mut guard = state.sessions.write().unwrap();

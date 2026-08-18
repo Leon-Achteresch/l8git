@@ -1,5 +1,7 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+
+import { platformStorage } from "@/lib/platform/kv";
 
 import { chatStoreFor } from "@/lib/agents/active-chat-store";
 import { threadCostKey } from "@/lib/agents/overview";
@@ -159,7 +161,11 @@ export const useUsageLedgerStore = create<UsageLedgerState>()(
         });
       },
     }),
-    { name: "l8git-agent-usage", version: 1 },
+    {
+      name: "l8git-agent-usage",
+      version: 1,
+      storage: createJSONStorage(() => platformStorage),
+    },
   ),
 );
 

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import i18n from "@/lib/i18n";
+import { platformStorage } from "@/lib/platform/kv";
 
 export type Workspace = {
   id: string;
@@ -89,7 +90,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: "l8git-workspaces",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => platformStorage),
     },
   ),
 );

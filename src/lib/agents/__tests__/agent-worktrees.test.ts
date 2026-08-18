@@ -1,14 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
-const invoke = vi.fn();
-vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }));
-
+import { installTestPlatform } from "@/lib/agents/__tests__/platform-harness";
 import {
   useAgentWorktreeStore,
   worktreeDisplayName,
   worktreeSlug,
   worktreeTargetPath,
 } from "@/lib/agents/agent-worktrees";
+
+let invoke: Mock;
+
+beforeEach(() => {
+  invoke = installTestPlatform().invoke;
+});
 
 describe("worktreeSlug", () => {
   it("slugifies names", () => {
@@ -52,7 +56,6 @@ describe("worktreeDisplayName", () => {
 
 describe("useAgentWorktreeStore", () => {
   beforeEach(() => {
-    invoke.mockReset();
     useAgentWorktreeStore.setState({ worktrees: {} });
   });
 
