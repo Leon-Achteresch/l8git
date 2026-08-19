@@ -101,8 +101,13 @@ pub fn channel_arg<T>(args: &Value, ctx: &DispatchCtx, name: &str) -> Result<Cha
     let req_id = ctx.req_id;
     let arg_name = camel;
     Ok(Channel::new(move |body| {
-        conn.send_chan(req_id, &arg_name, body_to_value(body));
-        Ok(())
+        if conn.send_chan(req_id, &arg_name, body_to_value(body)) {
+            return Ok(());
+        }
+        Err(tauri::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "Verbindung geschlossen",
+        )))
     }))
 }
 
@@ -161,9 +166,9 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::mpsc;
 
-    fn ctx() -> (DispatchCtx, mpsc::UnboundedReceiver<Value>) {
+    fn ctx() -> (DispatchCtx, mpsc::Receiver<Value>) {
         let state = ServerState::new("host".into(), [7u8; 32], vec![], None);
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::channel(crate::server::state::OUTBOX_CAPACITY);
         let conn = Arc::new(ConnectionHandle::new(1, tx));
         (DispatchCtx::new(state, conn, 42, "demo"), rx)
     }
@@ -179,6 +184,10 @@ mod tests {
             "streaming_command" (repo_path: String, on_event: chan Value) => {
                 let _ = on_event.send(json!({ "phase": "start", "repo": repo_path }));
                 Ok::<_, String>(json!("done"))
+            }
+
+            "reporting_command" (on_event: chan Value) => {
+                Ok::<_, String>(json!(on_event.send(json!("tick")).is_ok()))
             }
 
             "state_command" () => {
@@ -251,6 +260,22 @@ mod tests {
                 "arg": "onEvent",
                 "payload": { "phase": "start", "repo": "/tmp/x" }
             })
+        );
+    }
+
+    #[tokio::test]
+    async fn a_channel_reports_failure_once_the_connection_is_gone() {
+        let (ctx, rx) = ctx();
+        let args = json!({ "onEvent": { "__channel__": true } });
+        assert_eq!(
+            demo("reporting_command", args.clone(), &ctx).await.unwrap(),
+            Ok(json!(true))
+        );
+        drop(rx);
+        assert_eq!(
+            demo("reporting_command", args, &ctx).await.unwrap(),
+            Ok(json!(false)),
+            "producers rely on the send error to shut themselves down"
         );
     }
 

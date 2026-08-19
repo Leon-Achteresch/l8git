@@ -222,7 +222,7 @@ Rules:
 Before any dispatch, `ws.rs` runs `ServerState::ensure_allowed(&args)`. It walks the whole
 args object recursively and, for keys whose camelCase name is one of
 
-`path, paths, repoPath, repoPaths, repoRoot, rootPath, basePath, cwd, dir, directory, worktree, worktreePath, targetPath, destPath, dest, newPath, destination`
+`path, paths, repoPath, repoPaths, repoRoot, rootPath, basePath, cwd, dir, directory, worktree, worktreePath, addDirs, targetPath, destPath, dest, newPath, destination`
 
 checks every **absolute** string value — and every absolute string inside an array value,
 which is what `repos_overview`, `claude_list_sessions` and `cursor_list_sessions` send as
@@ -233,7 +233,10 @@ responsibility via `pathsafe::resolve_in_root`. With an empty allowlist every ab
 is rejected.
 
 If you add a command with a differently named absolute-path argument, add the key to
-`server::config::PATH_ARG_KEYS`.
+`server::config::PATH_ARG_KEYS`. `agent_transport_open` additionally re-checks `cwd`,
+`worktree` and `addDirs` of its options struct against the roots in
+`server::dispatch::agents`, so a forgotten key alone cannot hand an agent CLI a directory
+the operator never released.
 
 ## Session lifecycle (for reference)
 
@@ -246,9 +249,29 @@ If you add a command with a differently named absolute-path argument, add the ke
    `ping` is answered with `pong`. Encryption counters are strictly sequential per
    direction; a gap or replay closes the session.
 
+`cancel` also kills the git child of the request: `spawn_request` remembers the `opId` of
+the arguments, and `cancel` (as well as the disconnect path) routes it through
+`git::cancel_remote_op`, the same registry `git_remote_cancel(opId)` uses. Without an
+`opId` the abort only stops the awaiting task.
+
 Every connection gets its own send queue; all sealing happens in a single writer task, so
 frames produced concurrently by dispatch tasks and the event forwarder stay ordered and
 never reuse a nonce.
+
+Limits enforced by `ws::session` (a client that violates them loses the session, which runs
+`release_resources`, so its PTYs and agent transports die with it):
+
+- `HANDSHAKE_TIMEOUT` (10 s) per handshake frame — an unauthenticated peer cannot park a
+  session.
+- `IDLE_TIMEOUT` (60 s, 3× the client's 20 s ping) in the frame loop — a half-open
+  connection (radio loss, no FIN) is torn down instead of parking the reader forever.
+- `state::MAX_SESSIONS` (64) concurrent sessions, counted by a `SessionSlot` guard.
+- The outbound queues are bounded (`OUTBOX_CAPACITY` frames per connection,
+  `WIRE_CAPACITY` sealed frames per transport). `ConnectionHandle::send` reports `false`
+  when the queue is full, which makes producers (PTY flusher, agent stdout reader) stop and
+  drops the connection instead of growing the heap without bound. `dispatch::channel_arg`
+  translates that `false` into an `Err` on the `Channel`, which is the shutdown signal those
+  producers already listen to.
 
 ## Transport seam
 
@@ -257,7 +280,7 @@ never reuse a nonce.
 ```rust
 pub enum Frame { Text(String), Binary(Vec<u8>) }
 pub type Inbox = mpsc::UnboundedReceiver<Frame>;
-pub type Wire  = mpsc::UnboundedSender<Frame>;
+pub type Wire  = mpsc::Sender<Frame>;
 pub async fn session(state: Arc<ServerState>, inbox: Inbox, wire: Wire) -> Result<(), String>;
 ```
 

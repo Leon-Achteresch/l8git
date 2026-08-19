@@ -1,7 +1,7 @@
 import { UserAttentionType, getCurrentWindow } from "@tauri-apps/api/window";
 import { toast } from "sonner";
 
-import { armTurnAttention, setTurnAttentionSink } from "@/lib/agents/turn-attention";
+import { setTurnAttentionSink } from "@/lib/agents/turn-attention-sink";
 import { setKnownRepoPathsSource } from "@/lib/agents/known-repo-paths";
 import { useRepoStore } from "@/lib/repo-store";
 
@@ -23,7 +23,3 @@ setTurnAttentionSink({
     });
   },
 });
-
-export function armDesktopTurnAttention(): () => void {
-  return armTurnAttention();
-}

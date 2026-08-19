@@ -18,6 +18,7 @@ pub const PATH_ARG_KEYS: &[&str] = &[
     "directory",
     "worktree",
     "worktreePath",
+    "addDirs",
     "targetPath",
     "destPath",
     "dest",
@@ -97,7 +98,7 @@ fn is_path_key(key: &str) -> bool {
     PATH_ARG_KEYS.iter().any(|k| *k == camel)
 }
 
-fn check_path(allowed: &[PathBuf], raw: &str) -> Result<(), String> {
+pub fn check_path(allowed: &[PathBuf], raw: &str) -> Result<(), String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return Ok(());
@@ -219,6 +220,24 @@ mod tests {
             &json!({ "dest": root.join("repo/clone").to_string_lossy() })
         )
         .is_ok());
+    }
+
+    #[test]
+    fn extra_agent_directories_are_guarded_like_every_other_path_argument() {
+        let root = scratch("adddirs");
+        let allowed = vec![root.join("repo")];
+        let inside = root.join("repo/src").to_string_lossy().into_owned();
+        assert!(ensure_allowed(&allowed, &json!({ "options": { "addDirs": [inside] } })).is_ok());
+        assert!(ensure_allowed(
+            &allowed,
+            &json!({ "options": { "addDirs": ["/etc", "/tmp"] } })
+        )
+        .is_err());
+        assert!(ensure_allowed(
+            &allowed,
+            &json!({ "options": { "add_dirs": ["/etc"] } })
+        )
+        .is_err());
     }
 
     #[test]

@@ -22,6 +22,7 @@ import { getClient, useConnections, useHostMeta, useOnlineHostIds } from '~/lib/
 import { hostQueryKey } from '~/lib/query';
 import { useRepoRegistry } from '~/lib/repo/registry';
 
+import { finishFlowKey } from './review-flow';
 import { useChatStore, type AgentChatState } from './stores';
 
 export type {
@@ -367,14 +368,22 @@ export function useReviewFinish(
   const [message, setMessage] = React.useState('');
   const [branchKept, setBranchKept] = React.useState(false);
 
+  const uncommittedRef = React.useRef(hasUncommitted);
+  uncommittedRef.current = hasUncommitted;
+
   const reset = React.useCallback(() => {
-    setSteps(createFinishSteps({ hasUncommitted }));
+    setSteps(createFinishSteps({ hasUncommitted: uncommittedRef.current }));
     setBranchKept(false);
-  }, [hasUncommitted]);
+  }, []);
+
+  const flowKey = finishFlowKey(session, summary);
 
   React.useEffect(() => {
+    if (!flowKey) {
+      return;
+    }
     reset();
-  }, [reset]);
+  }, [flowKey, reset]);
 
   const runStep = React.useCallback(
     (id: AgentReviewStepId) => {

@@ -1,5 +1,5 @@
 import { invoke } from "@/lib/platform/ipc";
-import { kvGet, kvSet } from "@/lib/platform/kv";
+import { kvGet, kvSet, kvSetOrThrow } from "@/lib/platform/kv";
 import {
   CURSOR_SESSION_PREFS_KEY as PREFS_KEY,
   CURSOR_SETTINGS_KEY as SETTINGS_KEY,
@@ -147,7 +147,7 @@ function saveTranscripts() {
   transcripts.clear();
   for (const [threadId, turns] of entries) transcripts.set(threadId, turns);
   try {
-    kvSet(TRANSCRIPTS_KEY, JSON.stringify(Object.fromEntries(entries)));
+    kvSetOrThrow(TRANSCRIPTS_KEY, JSON.stringify(Object.fromEntries(entries)));
   } catch {
     const kept = entries.slice(-Math.ceil(entries.length / 2));
     kvSet(TRANSCRIPTS_KEY, JSON.stringify(Object.fromEntries(kept)));

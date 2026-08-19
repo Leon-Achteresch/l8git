@@ -198,9 +198,9 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::mpsc;
 
-    fn ctx() -> (DispatchCtx, mpsc::UnboundedReceiver<Value>) {
+    fn ctx() -> (DispatchCtx, mpsc::Receiver<Value>) {
         let state = ServerState::new("host".into(), [7u8; 32], vec![], None);
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::channel(crate::server::state::OUTBOX_CAPACITY);
         let conn = Arc::new(ConnectionHandle::new(1, tx));
         (DispatchCtx::new(state, conn, 42, "pr"), rx)
     }

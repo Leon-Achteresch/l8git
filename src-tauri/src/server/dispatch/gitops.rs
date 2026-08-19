@@ -212,7 +212,7 @@ mod tests {
 
     fn ctx() -> DispatchCtx {
         let state = ServerState::new("host".into(), [3u8; 32], vec![], None);
-        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, _rx) = tokio::sync::mpsc::channel(crate::server::state::OUTBOX_CAPACITY);
         DispatchCtx::new(state, Arc::new(ConnectionHandle::new(1, tx)), 1, "test")
     }
 

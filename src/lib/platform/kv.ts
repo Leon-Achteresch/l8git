@@ -31,14 +31,22 @@ export function kvGet(key: string): string | null {
 }
 
 export function kvSet(key: string, value: string): void {
-  cache.set(key, value);
-  const store = storage();
-  if (!store) return;
   try {
-    void Promise.resolve(store.setItem(key, value)).catch(() => undefined);
+    kvSetOrThrow(key, value);
   } catch {
+    cache.set(key, value);
+  }
+}
+
+export function kvSetOrThrow(key: string, value: string): void {
+  const store = storage();
+  if (!store) {
+    cache.set(key, value);
     return;
   }
+  const result = store.setItem(key, value);
+  cache.set(key, value);
+  void Promise.resolve(result).catch(() => undefined);
 }
 
 export function kvRemove(key: string): void {
@@ -72,6 +80,12 @@ export function resetKvCache(): void {
 
 export const platformStorage: StateStorage = {
   getItem: (name) => storage()?.getItem(name) ?? null,
-  setItem: (name, value) => storage()?.setItem(name, value),
+  setItem: (name, value) => {
+    try {
+      return storage()?.setItem(name, value);
+    } catch {
+      return;
+    }
+  },
   removeItem: (name) => storage()?.removeItem(name),
 };

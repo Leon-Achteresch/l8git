@@ -18,7 +18,7 @@ import { useAgentRepoPaths, useAgentRepoStore } from "@/lib/agents/agent-repo-st
 import type { AgentOverviewEntry } from "@/lib/agents/overview";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { refreshProviderThreads } from "@/lib/agents/thread-refresh";
-import { armDesktopTurnAttention } from "@/lib/agents-desktop";
+import { armTurnAttention } from "@/lib/agents/turn-attention";
 import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
@@ -126,7 +126,7 @@ export function AgentsPage({
     return retainSurface();
   }, [retainSurface]);
 
-  useEffect(() => armDesktopTurnAttention(), []);
+  useEffect(() => armTurnAttention(), []);
   useEffect(() => armUsageLedger(), []);
 
   useEffect(() => {

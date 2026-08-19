@@ -1,8 +1,14 @@
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { AppState } from 'react-native';
 import { create } from 'zustand';
 
 import type { TurnAttentionNotification } from '@desktop/lib/agents/turn-attention';
+
+import { turnNoticeRun, type TurnNoticeNavigator } from './turn-notice';
+
+export { turnNoticeRun };
+export type { TurnNoticeNavigator, TurnNoticeThread } from './turn-notice';
 
 export type AgentNoticeTone = 'info' | 'success' | 'attention';
 
@@ -88,20 +94,33 @@ export function agentSendHaptic(): void {
   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
 }
 
-export function notifyAgentTurn(notification: TurnAttentionNotification): void {
+export function notifyAgentTurn(
+  notification: TurnAttentionNotification,
+  hostId: string | null,
+  open: TurnNoticeNavigator
+): void {
   if (isAgentAttentionMuted()) {
     return;
   }
+  const run = turnNoticeRun(notification, hostId, open);
   pushAgentNotice(notification.title, {
     tone: 'success',
-    actionLabel: notification.action?.label,
-    run: notification.action?.run,
+    actionLabel: run ? notification.action?.label : undefined,
+    run: run ?? undefined,
   });
   agentAttentionHaptic();
 }
 
 export async function installTurnAttentionSink(): Promise<() => void> {
-  const { setTurnAttentionSink } = await import('@desktop/lib/agents/turn-attention');
+  const [{ setTurnAttentionSink }, route, binding] = await Promise.all([
+    import('@desktop/lib/agents/turn-attention'),
+    import('~/components/agents/chat/route'),
+    import('./use-agent-connection'),
+  ]);
+  const open: TurnNoticeNavigator = (target) => {
+    route.bindAgentThreadTarget(target);
+    router.push(route.agentThreadHref(target));
+  };
   setTurnAttentionSink({
     isFocused: isAppFocused,
     requestAttention: () => {
@@ -109,7 +128,8 @@ export async function installTurnAttentionSink(): Promise<() => void> {
         agentAttentionHaptic();
       }
     },
-    notify: notifyAgentTurn,
+    notify: (notification) =>
+      notifyAgentTurn(notification, binding.boundAgentHostId(), open),
   });
   return () => {
     setTurnAttentionSink({

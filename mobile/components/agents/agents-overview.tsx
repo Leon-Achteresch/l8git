@@ -136,6 +136,15 @@ export function AgentsOverview() {
     }
   }, [focusedPaths]);
 
+  const connectionReady = connection.bound && connection.status === 'ready';
+
+  React.useEffect(() => {
+    if (!connectionReady || focusedPaths.length === 0) {
+      return;
+    }
+    void refreshAgentThreads(focusedPaths);
+  }, [connectionReady, focusedHostId, focusedPaths]);
+
   const subtitle =
     pairedHosts === 0
       ? 'Pair a host to run agents'

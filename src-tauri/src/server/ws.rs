@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
@@ -12,8 +13,12 @@ use tokio::sync::mpsc;
 use tokio::task::AbortHandle;
 
 use crate::server::crypto::{self, Hello, Opener, Sealer};
-use crate::server::state::{ConnectionHandle, DispatchCtx, ServerState};
+use crate::server::state::{ConnectionHandle, DispatchCtx, ServerState, OUTBOX_CAPACITY};
 use crate::server::{dispatch, exec, resources};
+
+pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+pub const IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+pub const WIRE_CAPACITY: usize = 256;
 
 #[derive(Clone, Debug)]
 pub enum Frame {
@@ -31,7 +36,7 @@ impl Frame {
 }
 
 pub type Inbox = mpsc::UnboundedReceiver<Frame>;
-pub type Wire = mpsc::UnboundedSender<Frame>;
+pub type Wire = mpsc::Sender<Frame>;
 
 pub fn router(state: Arc<ServerState>) -> Router {
     Router::new()
@@ -70,7 +75,7 @@ async fn upgrade(State(state): State<Arc<ServerState>>, ws: WebSocketUpgrade) ->
 async fn socket_session(state: Arc<ServerState>, socket: WebSocket) -> Result<(), String> {
     let (mut sink, mut stream) = socket.split();
     let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
-    let (wire, mut wire_rx) = mpsc::unbounded_channel::<Frame>();
+    let (wire, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
 
     let writer = tokio::spawn(async move {
         while let Some(frame) = wire_rx.recv().await {
@@ -105,11 +110,21 @@ async fn socket_session(state: Arc<ServerState>, socket: WebSocket) -> Result<()
     result
 }
 
+async fn recv_within(inbox: &mut Inbox, limit: Duration, what: &str) -> Result<Frame, String> {
+    match tokio::time::timeout(limit, inbox.recv()).await {
+        Ok(Some(frame)) => Ok(frame),
+        Ok(None) => Err(format!("kein {what} empfangen")),
+        Err(_) => Err(format!("Zeitüberschreitung beim Warten auf {what}")),
+    }
+}
+
 pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> Result<(), String> {
-    let hello_raw = inbox
-        .recv()
-        .await
-        .ok_or_else(|| "kein hello empfangen".to_string())?
+    let _slot = state
+        .acquire_session()
+        .ok_or_else(|| "zu viele gleichzeitige Verbindungen".to_string())?;
+
+    let hello_raw = recv_within(&mut inbox, HANDSHAKE_TIMEOUT, "hello")
+        .await?
         .into_bytes();
     let hello: Hello =
         serde_json::from_slice(&hello_raw).map_err(|e| format!("ungültiges hello: {e}"))?;
@@ -120,12 +135,12 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
     let (welcome, mut handshake) = crypto::server_accept(&state.psk, &hello)?;
     let welcome_raw = serde_json::to_string(&welcome).map_err(|e| e.to_string())?;
     wire.send(Frame::Text(welcome_raw))
+        .await
         .map_err(|_| "Verbindung geschlossen".to_string())?;
 
-    let auth_frame = match inbox.recv().await {
-        Some(Frame::Binary(bytes)) => bytes,
-        Some(Frame::Text(_)) => return Err("auth-Frame muss binär sein".into()),
-        None => return Err("kein auth-Frame empfangen".into()),
+    let auth_frame = match recv_within(&mut inbox, HANDSHAKE_TIMEOUT, "auth-Frame").await? {
+        Frame::Binary(bytes) => bytes,
+        Frame::Text(_) => return Err("auth-Frame muss binär sein".into()),
     };
     let auth = handshake.opener.open_json(&auth_frame)?;
     if auth.get("type").and_then(Value::as_str) != Some("auth") {
@@ -140,9 +155,10 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
     let (mut sealer, opener, _) = handshake.split();
     let ready_frame = sealer.seal_json(&ready)?;
     wire.send(Frame::Binary(ready_frame))
+        .await
         .map_err(|_| "Verbindung geschlossen".to_string())?;
 
-    let (outbox, out_rx) = mpsc::unbounded_channel::<Value>();
+    let (outbox, out_rx) = mpsc::channel::<Value>(OUTBOX_CAPACITY);
     let conn = Arc::new(ConnectionHandle::new(state.next_connection_id(), outbox));
     log::info!("l8gitd connection {} authenticated", conn.id);
 
@@ -159,12 +175,12 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
     result
 }
 
-async fn writer_loop(wire: Wire, mut sealer: Sealer, mut out_rx: mpsc::UnboundedReceiver<Value>) {
+async fn writer_loop(wire: Wire, mut sealer: Sealer, mut out_rx: mpsc::Receiver<Value>) {
     while let Some(frame) = out_rx.recv().await {
         let Ok(sealed) = sealer.seal_json(&frame) else {
             break;
         };
-        if wire.send(Frame::Binary(sealed)).is_err() {
+        if wire.send(Frame::Binary(sealed)).await.is_err() {
             break;
         }
     }
@@ -187,7 +203,12 @@ async fn event_loop(state: Arc<ServerState>, conn: Arc<ConnectionHandle>) {
     }
 }
 
-type Pending = Arc<Mutex<HashMap<i64, AbortHandle>>>;
+struct PendingRequest {
+    abort: AbortHandle,
+    op_id: Option<String>,
+}
+
+type Pending = Arc<Mutex<HashMap<i64, PendingRequest>>>;
 
 async fn read_loop(
     state: Arc<ServerState>,
@@ -197,7 +218,21 @@ async fn read_loop(
 ) -> Result<(), String> {
     let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
     let mut outcome = Ok(());
-    while let Some(message) = inbox.recv().await {
+    loop {
+        let message = tokio::select! {
+            received = tokio::time::timeout(IDLE_TIMEOUT, inbox.recv()) => match received {
+                Ok(Some(message)) => message,
+                Ok(None) => break,
+                Err(_) => {
+                    outcome = Err("Zeitüberschreitung: der Client sendet nichts mehr".to_string());
+                    break;
+                }
+            },
+            _ = conn.overflowed() => {
+                outcome = Err("Ausgangspuffer übergelaufen".to_string());
+                break;
+            }
+        };
         let Frame::Binary(bytes) = message else {
             outcome = Err("unerwarteter Text-Frame nach dem Handshake".to_string());
             break;
@@ -210,10 +245,19 @@ async fn read_loop(
             }
         }
     }
-    for (_, handle) in pending.lock().unwrap_or_else(|e| e.into_inner()).drain() {
-        handle.abort();
+    for (_, request) in pending.lock().unwrap_or_else(|e| e.into_inner()).drain() {
+        request.cancel();
     }
     outcome
+}
+
+impl PendingRequest {
+    fn cancel(&self) {
+        if let Some(op_id) = self.op_id.clone() {
+            tokio::task::spawn_blocking(move || crate::git::cancel_remote_op(&op_id));
+        }
+        self.abort.abort();
+    }
 }
 
 fn frame_id(frame: &Value) -> Option<i64> {
@@ -229,12 +273,12 @@ fn handle_frame(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending:
             let Some(id) = frame_id(&frame) else {
                 return;
             };
-            let handle = pending
+            let request = pending
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .remove(&id);
-            if let Some(handle) = handle {
-                handle.abort();
+            if let Some(request) = request {
+                request.cancel();
                 conn.send_response(id, Err("__REMOTE_CANCELED__".to_string()));
             }
         }
@@ -267,6 +311,10 @@ fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending
         return;
     }
 
+    let op_id = args
+        .get("opId")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     let ctx = DispatchCtx::new(state.clone(), conn.clone(), id, &cmd);
     let conn_for_task = conn.clone();
     let pending_for_task = pending.clone();
@@ -288,24 +336,27 @@ fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending
             .remove(&id);
         conn_for_task.send_response(id, result);
     });
-    pending
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(id, task.abort_handle());
+    pending.lock().unwrap_or_else(|e| e.into_inner()).insert(
+        id,
+        PendingRequest {
+            abort: task.abort_handle(),
+            op_id,
+        },
+    );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn harness() -> (Arc<ServerState>, Arc<ConnectionHandle>, Pending, mpsc::UnboundedReceiver<Value>) {
+    fn harness() -> (Arc<ServerState>, Arc<ConnectionHandle>, Pending, mpsc::Receiver<Value>) {
         let state = ServerState::new("host".into(), [3u8; 32], vec![], None);
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = mpsc::channel(OUTBOX_CAPACITY);
         let conn = Arc::new(ConnectionHandle::new(1, tx));
         (state, conn, Arc::new(Mutex::new(HashMap::new())), rx)
     }
 
-    async fn drain(rx: &mut mpsc::UnboundedReceiver<Value>) -> Value {
+    async fn drain(rx: &mut mpsc::Receiver<Value>) -> Value {
         tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv())
             .await
             .expect("frame arrives")
@@ -379,10 +430,13 @@ mod tests {
         let task = tokio::spawn(async move {
             let _ = never_rx.await;
         });
-        pending
-            .lock()
-            .unwrap()
-            .insert(11, task.abort_handle());
+        pending.lock().unwrap().insert(
+            11,
+            PendingRequest {
+                abort: task.abort_handle(),
+                op_id: None,
+            },
+        );
         handle_frame(&state, &conn, &pending, json!({ "type": "cancel", "id": 11 }));
         let frame = drain(&mut rx).await;
         assert_eq!(frame["ok"], false);
@@ -394,11 +448,98 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_running_request_remembers_the_remote_op_id_of_its_arguments() {
+        let (state, conn, pending, _rx) = harness();
+        handle_frame(
+            &state,
+            &conn,
+            &pending,
+            json!({
+                "type": "req",
+                "id": 3,
+                "cmd": dispatch::TEST_SLEEP_COMMAND,
+                "args": { "millis": 400, "opId": "op-3" }
+            }),
+        );
+        let op_id = pending
+            .lock()
+            .unwrap()
+            .get(&3)
+            .and_then(|request| request.op_id.clone());
+        assert_eq!(op_id.as_deref(), Some("op-3"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancel_kills_the_git_child_that_belongs_to_the_request() {
+        let (state, conn, pending, mut rx) = harness();
+        let child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .expect("sleep is available");
+        crate::git::track_remote_op_for_test("ws-cancel", child);
+
+        let (never_tx, never_rx) = tokio::sync::oneshot::channel::<()>();
+        let task = tokio::spawn(async move {
+            let _ = never_rx.await;
+        });
+        pending.lock().unwrap().insert(
+            7,
+            PendingRequest {
+                abort: task.abort_handle(),
+                op_id: Some("ws-cancel".to_string()),
+            },
+        );
+
+        handle_frame(&state, &conn, &pending, json!({ "type": "cancel", "id": 7 }));
+        assert_eq!(drain(&mut rx).await["error"], "__REMOTE_CANCELED__");
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while crate::git::remote_op_canceled_for_test("ws-cancel") != Some(true) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "cancel must reach the running git child, not just the tokio task"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        crate::git::forget_remote_op_for_test("ws-cancel");
+        drop(never_tx);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_peer_that_never_says_hello_is_dropped_and_frees_its_session_slot() {
+        let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
+        let state = ServerState::new("host-quiet".into(), psk, vec![], None);
+        let (_in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
+        let (wire_tx, _wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
+        let error = session(state.clone(), in_rx, wire_tx)
+            .await
+            .expect_err("the handshake must not wait forever");
+        assert!(error.contains("Zeitüberschreitung"), "{error}");
+        assert_eq!(state.open_sessions(), 0);
+    }
+
+    #[tokio::test]
+    async fn sessions_beyond_the_cap_are_refused() {
+        let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
+        let state = ServerState::new("host-cap".into(), psk, vec![], None);
+        let slots: Vec<_> = (0..crate::server::state::MAX_SESSIONS)
+            .map(|_| state.acquire_session().unwrap())
+            .collect();
+        let (_in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
+        let (wire_tx, _wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
+        let error = session(state.clone(), in_rx, wire_tx)
+            .await
+            .expect_err("the cap refuses further sessions");
+        assert!(error.contains("zu viele"), "{error}");
+        drop(slots);
+    }
+
+    #[tokio::test]
     async fn a_session_over_plain_channels_completes_the_handshake_and_serves_frames() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
         let state = ServerState::new("host-x".into(), psk, vec![], None);
         let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
-        let (wire_tx, mut wire_rx) = mpsc::unbounded_channel::<Frame>();
+        let (wire_tx, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
         let task = tokio::spawn(session(state, in_rx, wire_tx));
 
         let (handshake, hello) = crypto::client_hello(&psk, "host-x");
@@ -437,12 +578,46 @@ mod tests {
         assert!(wire_rx.recv().await.is_none());
     }
 
+    #[tokio::test(start_paused = true)]
+    async fn an_authenticated_connection_that_goes_quiet_is_torn_down() {
+        let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
+        let state = ServerState::new("host-halfopen".into(), psk, vec![], None);
+        let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
+        let (wire_tx, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
+        let task = tokio::spawn(session(state.clone(), in_rx, wire_tx));
+
+        let (handshake, hello) = crypto::client_hello(&psk, "host-halfopen");
+        in_tx
+            .send(Frame::Binary(serde_json::to_vec(&hello).unwrap()))
+            .unwrap();
+        let Some(Frame::Text(welcome_raw)) = wire_rx.recv().await else {
+            panic!("welcome must be a text frame");
+        };
+        let welcome: crypto::Welcome = serde_json::from_str(&welcome_raw).unwrap();
+        let mut client = handshake.finish(&welcome).unwrap();
+        let auth = client.auth_frame();
+        in_tx
+            .send(Frame::Binary(client.sealer.seal_json(&auth).unwrap()))
+            .unwrap();
+        let Some(Frame::Binary(ready)) = wire_rx.recv().await else {
+            panic!("ready must be a binary frame");
+        };
+        assert_eq!(client.opener.open_json(&ready).unwrap()["type"], "ready");
+
+        let error = task
+            .await
+            .unwrap()
+            .expect_err("a client that stops pinging must not park the reader forever");
+        assert!(error.contains("Zeitüberschreitung"), "{error}");
+        assert_eq!(state.open_sessions(), 0);
+    }
+
     #[tokio::test]
     async fn a_slow_synchronous_command_never_stalls_the_ping_loop() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
         let state = ServerState::new("host-slow".into(), psk, vec![], None);
         let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
-        let (wire_tx, mut wire_rx) = mpsc::unbounded_channel::<Frame>();
+        let (wire_tx, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
         let task = tokio::spawn(session(state, in_rx, wire_tx));
 
         let (handshake, hello) = crypto::client_hello(&psk, "host-slow");
@@ -507,7 +682,7 @@ mod tests {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
         let state = ServerState::new("host-x".into(), psk, vec![], None);
         let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
-        let (wire_tx, mut wire_rx) = mpsc::unbounded_channel::<Frame>();
+        let (wire_tx, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
         let task = tokio::spawn(session(state, in_rx, wire_tx));
         let (_, hello) = crypto::client_hello(&psk, "someone-else");
         in_tx

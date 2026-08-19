@@ -34,6 +34,8 @@ export interface HostRuntime {
   latencyMs: number | null;
   lastError: string | null;
   attempt: number;
+  drops: number;
+  readySince: number | null;
   hostInfo: HostInfo | null;
   since: number;
   nextRetryAt: number | null;
@@ -52,6 +54,7 @@ const SECURE_PREFIX = 'l8git_pairing_';
 const RELAY_HEADSTART_MS = 1_200;
 const BACKOFF_BASE_MS = 1_000;
 const BACKOFF_CAP_MS = 30_000;
+const STABLE_CONNECTION_MS = 30_000;
 const RELAY_TOKEN_HEADER = 'x-relay-token';
 
 const ENDPOINT_PATTERN = /^(wss?):\/\/([^/?#]+)(\/[^?#]*)?$/i;
@@ -62,6 +65,7 @@ const pairings = new Map<string, HostPairing>();
 const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const attemptTokens = new Map<string, number>();
 const clientUnsubscribes = new Map<string, () => void>();
+const inflightConnects = new Map<string, Promise<void>>();
 
 export const IDLE_RUNTIME: HostRuntime = Object.freeze({
   status: 'idle',
@@ -70,6 +74,8 @@ export const IDLE_RUNTIME: HostRuntime = Object.freeze({
   latencyMs: null,
   lastError: null,
   attempt: 0,
+  drops: 0,
+  readySince: null,
   hostInfo: null,
   since: 0,
   nextRetryAt: null,
@@ -124,6 +130,23 @@ export function backoffDelay(attempt: number): number {
   return Math.round(base / 2 + Math.random() * (base / 2));
 }
 
+export interface RetryPlan {
+  attempt: number;
+  drops: number;
+  delay: number;
+}
+
+export function planRetry(
+  runtime: Pick<HostRuntime, 'attempt' | 'drops' | 'readySince'> | undefined,
+  now = Date.now()
+): RetryPlan {
+  const attempt = (runtime?.attempt ?? 0) + 1;
+  const stable =
+    runtime?.readySince != null && now - runtime.readySince >= STABLE_CONNECTION_MS;
+  const drops = stable ? 1 : (runtime?.drops ?? 0) + 1;
+  return { attempt, drops, delay: backoffDelay(Math.max(attempt, drops)) };
+}
+
 interface ConnectionsState {
   hydrated: boolean;
   hosts: HostMeta[];
@@ -169,9 +192,14 @@ export const useConnections = create<ConnectionsState>((set, get) => {
       return;
     }
     clearRetry(hostId);
-    const attempt = (get().runtime[hostId]?.attempt ?? 0) + 1;
-    const delay = backoffDelay(attempt);
-    patch(hostId, { status: 'reconnecting', attempt, nextRetryAt: Date.now() + delay });
+    const { attempt, drops, delay } = planRetry(get().runtime[hostId]);
+    patch(hostId, {
+      status: 'reconnecting',
+      attempt,
+      drops,
+      readySince: null,
+      nextRetryAt: Date.now() + delay,
+    });
     retryTimers.set(
       hostId,
       setTimeout(() => {
@@ -191,6 +219,7 @@ export const useConnections = create<ConnectionsState>((set, get) => {
           status: 'online',
           lastError: null,
           attempt: 0,
+          readySince: Date.now(),
           nextRetryAt: null,
           latencyMs: client.latencyMs,
           hostInfo: client.hostInfo,
@@ -318,44 +347,64 @@ export const useConnections = create<ConnectionsState>((set, get) => {
       if (clients.get(hostId)?.isReady) {
         return;
       }
+      const pending = inflightConnects.get(hostId);
+      if (pending) {
+        return pending;
+      }
       clearRetry(hostId);
 
       const token = (attemptTokens.get(hostId) ?? 0) + 1;
       attemptTokens.set(hostId, token);
       patch(hostId, { status: 'connecting', lastError: null, nextRetryAt: null });
 
+      const run = (async () => {
+        try {
+          const pairing = await loadPairing(meta);
+          const winner = await raceEndpoints(
+            meta,
+            pairing,
+            () => attemptTokens.get(hostId) === token
+          );
+          if (attemptTokens.get(hostId) !== token) {
+            winner.close();
+            return;
+          }
+          installClient(hostId, winner);
+          patch(hostId, {
+            status: 'online',
+            endpoint: winner.endpoint,
+            endpointKind: winner.endpoint ? classifyEndpoint(winner.endpoint) : null,
+            hostInfo: winner.hostInfo,
+            lastError: null,
+            attempt: 0,
+            readySince: Date.now(),
+            nextRetryAt: null,
+          });
+          await updateHost(hostId, { lastConnectedAt: Date.now() });
+        } catch (cause) {
+          if (attemptTokens.get(hostId) !== token) {
+            return;
+          }
+          patch(hostId, {
+            status: 'error',
+            lastError: cause instanceof Error ? cause.message : String(cause),
+          });
+          scheduleRetry(hostId);
+        }
+      })();
+      inflightConnects.set(hostId, run);
       try {
-        const pairing = await loadPairing(meta);
-        const winner = await raceEndpoints(meta, pairing, () => attemptTokens.get(hostId) === token);
-        if (attemptTokens.get(hostId) !== token) {
-          winner.close();
-          return;
+        await run;
+      } finally {
+        if (inflightConnects.get(hostId) === run) {
+          inflightConnects.delete(hostId);
         }
-        installClient(hostId, winner);
-        patch(hostId, {
-          status: 'online',
-          endpoint: winner.endpoint,
-          endpointKind: winner.endpoint ? classifyEndpoint(winner.endpoint) : null,
-          hostInfo: winner.hostInfo,
-          lastError: null,
-          attempt: 0,
-          nextRetryAt: null,
-        });
-        await updateHost(hostId, { lastConnectedAt: Date.now() });
-      } catch (cause) {
-        if (attemptTokens.get(hostId) !== token) {
-          return;
-        }
-        patch(hostId, {
-          status: 'error',
-          lastError: cause instanceof Error ? cause.message : String(cause),
-        });
-        scheduleRetry(hostId);
       }
     },
 
     disconnect: (hostId) => {
       attemptTokens.set(hostId, (attemptTokens.get(hostId) ?? 0) + 1);
+      inflightConnects.delete(hostId);
       clearRetry(hostId);
       const client = clients.get(hostId);
       releaseClient(hostId);
@@ -367,6 +416,8 @@ export const useConnections = create<ConnectionsState>((set, get) => {
         endpointKind: null,
         latencyMs: null,
         attempt: 0,
+        drops: 0,
+        readySince: null,
         nextRetryAt: null,
       });
     },

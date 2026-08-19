@@ -1,3 +1,5 @@
+import { utf8ToBytes } from '@noble/hashes/utils.js';
+
 import {
   PROTOCOL_VERSION,
   authTag,
@@ -83,6 +85,7 @@ export interface TestServerOptions {
   hostId: string;
   host?: HostInfo;
   handlers?: Record<string, TestHandler>;
+  binaryWelcome?: boolean;
 }
 
 export class TestServer {
@@ -166,13 +169,14 @@ export class TestServer {
     this.serverEph = keys.publicKey;
     this.helloNonce = nonce;
 
+    const welcome = JSON.stringify({
+      v: PROTOCOL_VERSION,
+      type: 'welcome',
+      eph: toBase64(keys.publicKey),
+      tag: toBase64(handshakeTag(psk, clientEph, keys.publicKey, nonce)),
+    });
     this.socket?.send(
-      JSON.stringify({
-        v: PROTOCOL_VERSION,
-        type: 'welcome',
-        eph: toBase64(keys.publicKey),
-        tag: toBase64(handshakeTag(psk, clientEph, keys.publicKey, nonce)),
-      })
+      this.options.binaryWelcome ? copyBuffer(utf8ToBytes(welcome)) : welcome
     );
 
     const session = deriveSessionKeys(keys.secretKey, clientEph, psk);

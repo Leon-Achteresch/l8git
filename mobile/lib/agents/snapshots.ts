@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { ProviderOverviewInput, ThreadCost } from '@desktop/lib/agents/overview';
 
+import { useAgentBinding } from './binding';
 import {
   emptyHostSnapshot,
   type AgentHostSnapshot,
@@ -89,6 +90,13 @@ export function captureHostSnapshot(options: CaptureOptions): AgentHostSnapshot 
 
 export function recordHostSnapshot(options: CaptureOptions): void {
   useAgentSnapshots.getState().put(captureHostSnapshot(options));
+}
+
+export function recordBoundSnapshot(options: CaptureOptions): void {
+  if (useAgentBinding.getState().hostId !== options.hostId) {
+    return;
+  }
+  recordHostSnapshot(options);
 }
 
 export function unbindHostSnapshot(hostId: string): void {

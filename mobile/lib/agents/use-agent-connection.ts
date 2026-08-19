@@ -1,12 +1,21 @@
 import * as React from 'react';
-import { create } from 'zustand';
+
+import { failAgentTransports } from '@desktop/lib/agents/transport';
 
 import { getClient, useConnections, useHostMeta, useHostRuntime } from '~/lib/connections';
 import { useHostRepoPaths } from '~/lib/repo/registry';
 
+import {
+  claimBindingOwner,
+  isBindingOwner,
+  nextBindingOwnerId,
+  useAgentBinding,
+  useBindingOwners,
+  type AgentBindingState,
+} from './binding';
 import { applyProviderForHost, useActiveProvider } from './provider-selection';
 import { useAgentRuntime } from './runtime';
-import { recordHostSnapshot, unbindHostSnapshot, useAgentSnapshots } from './snapshots';
+import { recordBoundSnapshot, unbindHostSnapshot, useAgentSnapshots } from './snapshots';
 import {
   resetAllChatStores,
   tryChatStore,
@@ -14,21 +23,24 @@ import {
   type NativeAgentProvider,
 } from './stores';
 
+export { boundAgentHostId, useAgentBinding } from './binding';
+export type { AgentBindingState };
+
 export type AgentBindingStatus = 'idle' | 'offline' | 'connecting' | 'ready' | 'error';
 
 const SNAPSHOT_THROTTLE_MS = 750;
 
-interface BindingState {
-  hostId: string | null;
-  epoch: number;
+function useBindingOwner(): boolean {
+  const id = React.useMemo(() => nextBindingOwnerId(), []);
+  React.useEffect(() => claimBindingOwner(id), [id]);
+  return useBindingOwners((state) => isBindingOwner(state.stack, id));
 }
-
-export const useAgentBinding = create<BindingState>(() => ({ hostId: null, epoch: 0 }));
 
 let boundClient: unknown = null;
 
-export function boundAgentHostId(): string | null {
-  return useAgentBinding.getState().hostId;
+function releaseAgentSessions(): void {
+  failAgentTransports();
+  resetAllChatStores();
 }
 
 function unbind(): void {
@@ -38,7 +50,7 @@ function unbind(): void {
   }
   boundClient = null;
   useAgentBinding.setState({ hostId: null });
-  resetAllChatStores();
+  releaseAgentSessions();
 }
 
 export interface AgentConnection {
@@ -60,13 +72,14 @@ export function useAgentConnection(hostId: string | null | undefined): AgentConn
   const provider = useActiveProvider();
   const knownPaths = useHostRepoPaths(target);
   const bound = useAgentBinding((state) => state.hostId);
+  const owner = useBindingOwner();
   const [attempt, setAttempt] = React.useState(0);
 
   const ready = runtimePhase === 'ready';
   const online = hostRuntime.status === 'online';
 
   React.useEffect(() => {
-    if (!ready) {
+    if (!ready || !owner) {
       return;
     }
     if (!target || !online) {
@@ -78,7 +91,7 @@ export function useAgentConnection(hostId: string | null | undefined): AgentConn
 
     const client = getClient(target);
     if (useAgentBinding.getState().hostId !== target || boundClient !== client) {
-      resetAllChatStores();
+      releaseAgentSessions();
       boundClient = client;
       useAgentBinding.setState({ hostId: target, epoch: clientEpoch });
     }
@@ -98,7 +111,7 @@ export function useAgentConnection(hostId: string | null | undefined): AgentConn
           if (cancelled) {
             return;
           }
-          recordHostSnapshot({
+          recordBoundSnapshot({
             hostId: target,
             hostName: meta?.name ?? target,
             online: true,
@@ -111,7 +124,7 @@ export function useAgentConnection(hostId: string | null | undefined): AgentConn
       cancelled = true;
       released?.();
     };
-  }, [attempt, clientEpoch, knownPaths, meta?.name, online, provider, ready, target]);
+  }, [attempt, clientEpoch, knownPaths, meta?.name, online, owner, provider, ready, target]);
 
   React.useEffect(() => {
     if (!ready || !target || !online) {
@@ -128,7 +141,7 @@ export function useAgentConnection(hostId: string | null | undefined): AgentConn
       }
       timer = setTimeout(() => {
         timer = null;
-        recordHostSnapshot({
+        recordBoundSnapshot({
           hostId: target,
           hostName: meta?.name ?? target,
           online: true,
@@ -173,8 +186,10 @@ export function useAgentConnection(hostId: string | null | undefined): AgentConn
     error: connectionError ?? hostRuntime.lastError ?? null,
     bound: bound === target && target !== null,
     reconnect: React.useCallback(() => {
-      unbind();
+      if (owner) {
+        unbind();
+      }
       setAttempt((value) => value + 1);
-    }, []),
+    }, [owner]),
   };
 }

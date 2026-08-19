@@ -461,25 +461,59 @@ fn run_remote_op(
     Ok(message)
 }
 
+pub fn cancel_remote_op(op_id: &str) -> bool {
+    let key = op_id.trim().to_string();
+    let entry = match remote_ops().lock() {
+        Ok(registry) => registry.get(&key).cloned(),
+        Err(error) => {
+            log::warn!("remote-op registry poisoned: {error}");
+            None
+        }
+    };
+    let Some(entry) = entry else {
+        return false;
+    };
+    entry
+        .canceled
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+    kill_remote_op(&entry);
+    true
+}
+
 #[tauri::command]
 pub async fn git_remote_cancel(op_id: String) -> Result<bool, String> {
-    spawn_git(move || {
-        let key = op_id.trim().to_string();
-        let entry = remote_ops()
-            .lock()
-            .map_err(|e| e.to_string())?
-            .get(&key)
-            .cloned();
-        let Some(entry) = entry else {
-            return Ok(false);
-        };
-        entry
-            .canceled
-            .store(true, std::sync::atomic::Ordering::Relaxed);
-        kill_remote_op(&entry);
-        Ok(true)
-    })
-    .await
+    Ok(spawn_git(move || cancel_remote_op(&op_id)).await)
+}
+
+#[cfg(test)]
+pub(crate) fn track_remote_op_for_test(op_id: &str, child: std::process::Child) {
+    let pid = child.id();
+    if let Ok(mut registry) = remote_ops().lock() {
+        registry.insert(
+            op_id.to_string(),
+            RemoteOp {
+                child: std::sync::Arc::new(std::sync::Mutex::new(child)),
+                canceled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                pid,
+            },
+        );
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn remote_op_canceled_for_test(op_id: &str) -> Option<bool> {
+    remote_ops()
+        .lock()
+        .ok()?
+        .get(op_id)
+        .map(|op| op.canceled.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+#[cfg(test)]
+pub(crate) fn forget_remote_op_for_test(op_id: &str) {
+    if let Ok(mut registry) = remote_ops().lock() {
+        registry.remove(op_id);
+    }
 }
 
 fn tags_by_target(repo: &PathBuf) -> HashMap<String, Vec<String>> {

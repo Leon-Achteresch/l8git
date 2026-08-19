@@ -43,6 +43,12 @@ interface AgentStreamEvent {
   payload: unknown;
 }
 
+const liveTransports = new Set<(code: number) => void>();
+
+export function failAgentTransports(code = -1): void {
+  for (const fail of [...liveTransports]) fail(code);
+}
+
 export async function openAgentTransport(
   provider: AgentTransportProvider,
   sessionId: string,
@@ -58,7 +64,15 @@ export async function openAgentTransport(
     if (released) return;
     released = true;
     handleEvent = () => {};
+    liveTransports.delete(fail);
   };
+  const fail = (code: number) => {
+    if (released || exited) return;
+    exited = true;
+    handlers.onExit?.(code);
+    release();
+  };
+  liveTransports.add(fail);
 
   handleEvent = (event) => {
     if (event.sessionId !== sessionId) return;

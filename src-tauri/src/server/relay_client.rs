@@ -26,9 +26,10 @@ pub const OP_CLOSE: &str = "close";
 pub const BACKOFF_MIN: Duration = Duration::from_secs(1);
 pub const BACKOFF_MAX: Duration = Duration::from_secs(60);
 pub const PING_INTERVAL: Duration = Duration::from_secs(30);
+pub const RELAY_QUEUE: usize = 256;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
-type Outbound = mpsc::UnboundedSender<Message>;
+type Outbound = mpsc::Sender<Message>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -132,7 +133,7 @@ async fn connect(url: &str, token: &str) -> Result<Socket, String> {
 
 async fn pump(state: Arc<ServerState>, socket: Socket) -> Result<(), String> {
     let (mut sink, mut stream) = socket.split();
-    let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Message>();
+    let (out_tx, mut out_rx) = mpsc::channel::<Message>(RELAY_QUEUE);
 
     let writer = tokio::spawn(async move {
         while let Some(message) = out_rx.recv().await {
@@ -177,7 +178,11 @@ async fn keepalive_loop(out: Outbound) {
     ticker.tick().await;
     loop {
         ticker.tick().await;
-        if out.send(Message::Ping(Vec::<u8>::new().into())).is_err() {
+        if out
+            .send(Message::Ping(Vec::<u8>::new().into()))
+            .await
+            .is_err()
+        {
             return;
         }
     }
@@ -203,14 +208,14 @@ fn handle_relay_frame(
         }
         OP_DATA => {
             let Some(session) = conns.get(&frame.conn_id) else {
-                let _ = out.send(RelayFrame::message(&frame.conn_id, OP_CLOSE, &[]));
+                let _ = out.try_send(RelayFrame::message(&frame.conn_id, OP_CLOSE, &[]));
                 return;
             };
             match frame.payload() {
                 Ok(payload) => {
                     if session.send(Frame::Binary(payload)).is_err() {
                         conns.remove(&frame.conn_id);
-                        let _ = out.send(RelayFrame::message(&frame.conn_id, OP_CLOSE, &[]));
+                        let _ = out.try_send(RelayFrame::message(&frame.conn_id, OP_CLOSE, &[]));
                     }
                 }
                 Err(error) => log::warn!("l8gitd Relay: {error}"),
@@ -230,7 +235,7 @@ async fn relay_session(
     inbox: ws::Inbox,
     out: Outbound,
 ) {
-    let (wire, mut wire_rx) = mpsc::unbounded_channel::<Frame>();
+    let (wire, mut wire_rx) = mpsc::channel::<Frame>(ws::WIRE_CAPACITY);
     let forward_id = conn_id.clone();
     let forward_out = out.clone();
     let forward = tokio::spawn(async move {
@@ -238,6 +243,7 @@ async fn relay_session(
             let payload = frame.into_bytes();
             if forward_out
                 .send(RelayFrame::message(&forward_id, OP_DATA, &payload))
+                .await
                 .is_err()
             {
                 break;
@@ -248,7 +254,7 @@ async fn relay_session(
         log::debug!("l8gitd Relay-Session {conn_id} beendet: {error}");
     }
     let _ = forward.await;
-    let _ = out.send(RelayFrame::message(&conn_id, OP_CLOSE, &[]));
+    let _ = out.send(RelayFrame::message(&conn_id, OP_CLOSE, &[])).await;
 }
 
 #[cfg(test)]
@@ -306,7 +312,7 @@ mod tests {
     async fn open_data_and_close_frames_drive_independent_sessions() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
         let state = ServerState::new("host-x".into(), psk, vec![], None);
-        let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Message>();
+        let (out_tx, mut out_rx) = mpsc::channel::<Message>(RELAY_QUEUE);
         let mut conns = HashMap::new();
 
         handle_relay_frame(
@@ -356,7 +362,7 @@ mod tests {
         assert_eq!(expect_op(&mut out_rx).await, (String::from("c1"), OP_CLOSE.to_string()));
     }
 
-    async fn next_frame(out_rx: &mut mpsc::UnboundedReceiver<Message>) -> RelayFrame {
+    async fn next_frame(out_rx: &mut mpsc::Receiver<Message>) -> RelayFrame {
         let message = tokio::time::timeout(Duration::from_secs(5), out_rx.recv())
             .await
             .expect("frame arrives in time")
@@ -367,14 +373,14 @@ mod tests {
         serde_json::from_str(text.as_str()).unwrap()
     }
 
-    async fn expect_data(out_rx: &mut mpsc::UnboundedReceiver<Message>, conn_id: &str) -> Vec<u8> {
+    async fn expect_data(out_rx: &mut mpsc::Receiver<Message>, conn_id: &str) -> Vec<u8> {
         let frame = next_frame(out_rx).await;
         assert_eq!(frame.conn_id, conn_id);
         assert_eq!(frame.op, OP_DATA);
         frame.payload().unwrap()
     }
 
-    async fn expect_op(out_rx: &mut mpsc::UnboundedReceiver<Message>) -> (String, String) {
+    async fn expect_op(out_rx: &mut mpsc::Receiver<Message>) -> (String, String) {
         let frame = next_frame(out_rx).await;
         (frame.conn_id, frame.op)
     }

@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use serde::Serialize;
 use serde_json::{json, Value};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, Notify};
 
 use crate::agent_transport::AgentTransportState;
 use crate::pty::PtyState;
@@ -13,6 +13,8 @@ use crate::server::crypto::PSK_LEN;
 use crate::server::resources::ConnResources;
 
 pub const EVENT_CAPACITY: usize = 1024;
+pub const OUTBOX_CAPACITY: usize = 2048;
+pub const MAX_SESSIONS: usize = 64;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,6 +76,15 @@ pub struct ServerState {
     pub events: broadcast::Sender<BroadcastEvent>,
     watched: Mutex<HashMap<String, HashSet<u64>>>,
     next_connection: AtomicU64,
+    sessions: AtomicUsize,
+}
+
+pub struct SessionSlot(Arc<ServerState>);
+
+impl Drop for SessionSlot {
+    fn drop(&mut self) {
+        self.0.sessions.fetch_sub(1, Ordering::AcqRel);
+    }
 }
 
 impl ServerState {
@@ -95,11 +106,34 @@ impl ServerState {
             events,
             watched: Mutex::new(HashMap::new()),
             next_connection: AtomicU64::new(1),
+            sessions: AtomicUsize::new(0),
         })
     }
 
     pub fn next_connection_id(&self) -> u64 {
         self.next_connection.fetch_add(1, Ordering::Relaxed)
+    }
+
+    pub fn acquire_session(self: &Arc<Self>) -> Option<SessionSlot> {
+        let mut current = self.sessions.load(Ordering::Acquire);
+        loop {
+            if current >= MAX_SESSIONS {
+                return None;
+            }
+            match self.sessions.compare_exchange_weak(
+                current,
+                current + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Some(SessionSlot(self.clone())),
+                Err(actual) => current = actual,
+            }
+        }
+    }
+
+    pub fn open_sessions(&self) -> usize {
+        self.sessions.load(Ordering::Acquire)
     }
 
     pub fn allowed_roots(&self) -> Vec<PathBuf> {
@@ -190,17 +224,23 @@ impl ServerState {
 
 pub struct ConnectionHandle {
     pub id: u64,
-    outbox: mpsc::UnboundedSender<Value>,
+    outbox: mpsc::Sender<Value>,
     resources: Mutex<ConnResources>,
+    dropped: Notify,
 }
 
 impl ConnectionHandle {
-    pub fn new(id: u64, outbox: mpsc::UnboundedSender<Value>) -> Self {
+    pub fn new(id: u64, outbox: mpsc::Sender<Value>) -> Self {
         Self {
             id,
             outbox,
             resources: Mutex::new(ConnResources::default()),
+            dropped: Notify::new(),
         }
+    }
+
+    pub async fn overflowed(&self) {
+        self.dropped.notified().await;
     }
 
     pub fn record_resource(&self, cmd: &str, args: &Value, data: &Value) {
@@ -222,7 +262,18 @@ impl ConnectionHandle {
     }
 
     pub fn send(&self, frame: Value) -> bool {
-        self.outbox.send(frame).is_ok()
+        match self.outbox.try_send(frame) {
+            Ok(()) => true,
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                log::warn!(
+                    "l8gitd connection {} is too far behind, dropping it",
+                    self.id
+                );
+                self.dropped.notify_one();
+                false
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => false,
+        }
     }
 
     pub fn send_response(&self, id: i64, result: Result<Value, String>) -> bool {
@@ -266,5 +317,53 @@ impl DispatchCtx {
 
     pub fn send_chan(&self, arg: &str, payload: Value) -> bool {
         self.conn.send_chan(self.req_id, arg, payload)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn state() -> Arc<ServerState> {
+        ServerState::new("host".into(), [9u8; PSK_LEN], vec![], None)
+    }
+
+    #[test]
+    fn concurrent_sessions_are_capped_and_slots_come_back_on_drop() {
+        let state = state();
+        let slots: Vec<SessionSlot> = (0..MAX_SESSIONS)
+            .map(|_| state.acquire_session().expect("slot below the cap"))
+            .collect();
+        assert_eq!(state.open_sessions(), MAX_SESSIONS);
+        assert!(state.acquire_session().is_none());
+        drop(slots);
+        assert_eq!(state.open_sessions(), 0);
+        assert!(state.acquire_session().is_some());
+    }
+
+    #[tokio::test]
+    async fn a_full_outbox_reports_failure_and_wakes_the_read_loop() {
+        let (tx, _rx) = mpsc::channel(2);
+        let conn = ConnectionHandle::new(1, tx);
+        assert!(conn.send(json!(1)));
+        assert!(conn.send(json!(2)));
+        assert!(!conn.send(json!(3)));
+        tokio::time::timeout(std::time::Duration::from_secs(2), conn.overflowed())
+            .await
+            .expect("the overflow wakes the connection up");
+    }
+
+    #[tokio::test]
+    async fn a_closed_outbox_reports_failure_without_signalling_an_overflow() {
+        let (tx, rx) = mpsc::channel(2);
+        drop(rx);
+        let conn = ConnectionHandle::new(1, tx);
+        assert!(!conn.send(json!(1)));
+        assert!(tokio::time::timeout(
+            std::time::Duration::from_millis(50),
+            conn.overflowed()
+        )
+        .await
+        .is_err());
     }
 }

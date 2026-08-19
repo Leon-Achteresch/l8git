@@ -18,7 +18,9 @@ import {
   type ServerFrame,
   encodeHello,
   parseWelcome,
+  toBytes,
 } from './frames';
+import { bytesToUtf8 } from '@noble/ciphers/utils.js';
 
 export type { HostInfo } from './frames';
 
@@ -341,10 +343,7 @@ export class ProtocolClient {
             succeed(this.info);
             return;
           }
-          if (typeof event.data !== 'string') {
-            throw new ProtocolError('expected the welcome message as text', 'handshake');
-          }
-          const welcome = parseWelcome(event.data);
+          const welcome = parseWelcome(welcomeText(event.data));
           const serverEph = decodeFixed(welcome.eph, 32, 'server ephemeral key');
           if (!verifyTag(handshakeTag(psk, keys.publicKey, serverEph, nonce), welcome.tag)) {
             throw new ProtocolError('handshake tag mismatch', 'handshake');
@@ -613,14 +612,23 @@ export class ProtocolClient {
         return;
       }
       case 'chan': {
-        this.channels.get(frame.id)?.get(frame.arg)?.(frame.payload);
+        const handler = this.channels.get(frame.id)?.get(frame.arg);
+        if (handler) {
+          try {
+            handler(frame.payload);
+          } catch {
+          }
+        }
         return;
       }
       case 'event': {
         const listeners = this.events.get(frame.name);
         if (listeners) {
           for (const listener of [...listeners]) {
-            listener(frame.payload);
+            try {
+              listener(frame.payload);
+            } catch {
+            }
           }
         }
         return;
@@ -648,6 +656,17 @@ export class ProtocolClient {
       default:
         return;
     }
+  }
+}
+
+function welcomeText(data: unknown): string {
+  if (typeof data === 'string') {
+    return data;
+  }
+  try {
+    return bytesToUtf8(toBytes(data));
+  } catch {
+    throw new ProtocolError('expected the welcome message as text', 'handshake');
   }
 }
 

@@ -155,6 +155,26 @@ describe('ProtocolClient against a spec-compliant test server', () => {
     client.close();
   });
 
+  it('accepts a binary welcome frame as delivered by the relay', async () => {
+    const { client, server } = createHarness({
+      hostId: HOST_ID,
+      psk: PSK,
+      binaryWelcome: true,
+      host: { name: 'relayed', version: '1.2.3', platform: 'linux' },
+      handlers: {
+        repo_status: () => ({ branch: 'main' }),
+      },
+    });
+
+    const host = await client.connect('ws://mock', pairing);
+    expect(host).toEqual({ name: 'relayed', version: '1.2.3', platform: 'linux' });
+    expect(client.status).toBe('ready');
+    expect(server.isAuthenticated).toBe(true);
+    expect(await client.request('repo_status', {})).toEqual({ branch: 'main' });
+
+    client.close();
+  });
+
   it('aborts the handshake when the welcome tag does not verify', async () => {
     const { client } = createHarness({ hostId: HOST_ID, psk: OTHER_PSK });
     await expect(client.connect('ws://mock', pairing)).rejects.toThrow(/handshake tag mismatch/);

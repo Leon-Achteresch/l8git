@@ -3,8 +3,13 @@ import * as SecureStore from 'expo-secure-store';
 
 import { setPlatform, type PlatformIpc, type PlatformSecrets } from '@desktop/lib/platform';
 
-import { getActiveClient, requireActiveClient, useConnections } from './connections';
+import { useAgentBinding } from './agents/binding';
+import { getClient, requireActiveClient, requireClient, useConnections } from './connections';
 import { channelArg } from './protocol/client';
+
+function targetHostId(): string | null {
+  return useAgentBinding.getState().hostId ?? useConnections.getState().activeHostId;
+}
 
 const storage: PlatformIpc['storage'] = {
   getItem: (name) => AsyncStorage.getItem(name),
@@ -33,24 +38,32 @@ const secrets: PlatformSecrets = {
 };
 
 export const remotePlatform: PlatformIpc = {
-  invoke: <T,>(cmd: string, args: Record<string, unknown> = {}) =>
-    requireActiveClient().request<T>(cmd, args),
+  invoke: async <T,>(cmd: string, args: Record<string, unknown> = {}) => {
+    const hostId = useAgentBinding.getState().hostId;
+    const client = hostId ? requireClient(hostId) : requireActiveClient();
+    return client.request<T>(cmd, args);
+  },
   channel: <T,>(onMessage: (message: T) => void) => channelArg(onMessage),
   listen: (event, callback) => {
-    let off = getActiveClient()?.on(event, callback) ?? null;
-    let boundTo = useConnections.getState().activeHostId;
+    let boundTo = targetHostId();
     let boundEpoch = useConnections.getState().clientEpoch;
-    const unsubscribe = useConnections.subscribe((state) => {
-      if (state.activeHostId === boundTo && state.clientEpoch === boundEpoch) {
+    let off = getClient(boundTo)?.on(event, callback) ?? null;
+    const rebind = () => {
+      const nextHostId = targetHostId();
+      const nextEpoch = useConnections.getState().clientEpoch;
+      if (nextHostId === boundTo && nextEpoch === boundEpoch) {
         return;
       }
-      boundTo = state.activeHostId;
-      boundEpoch = state.clientEpoch;
+      boundTo = nextHostId;
+      boundEpoch = nextEpoch;
       off?.();
-      off = getActiveClient()?.on(event, callback) ?? null;
-    });
+      off = getClient(boundTo)?.on(event, callback) ?? null;
+    };
+    const unsubscribeConnections = useConnections.subscribe(rebind);
+    const unsubscribeBinding = useAgentBinding.subscribe(rebind);
     return () => {
-      unsubscribe();
+      unsubscribeConnections();
+      unsubscribeBinding();
       off?.();
       off = null;
     };

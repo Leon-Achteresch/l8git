@@ -14,11 +14,7 @@ const storage: StateStorage = {
     }
   },
   setItem: (name, value) => {
-    try {
-      localStorage.setItem(name, value);
-    } catch {
-      return;
-    }
+    localStorage.setItem(name, value);
   },
   removeItem: (name) => {
     try {
