@@ -38,7 +38,7 @@ const TONE_TEXT: Record<PillTone, string> = {
   danger: 'text-destructive',
   warning: 'text-warning',
   info: 'text-git-branch',
-  accent: 'text-foreground',
+  accent: 'text-accent-foreground',
   added: 'text-git-added',
   removed: 'text-git-removed',
   modified: 'text-git-modified',
@@ -91,6 +91,7 @@ export function StatusPill({
       {icon ? <Icon as={icon} size={size === 'xs' ? 9 : 11} className={TONE_TEXT[tone]} /> : null}
       <Text
         numberOfLines={1}
+        style={{ fontVariant: ['tabular-nums'] }}
         className={cn(
           TONE_TEXT[tone],
           mono ? 'font-mono' : 'font-medium',

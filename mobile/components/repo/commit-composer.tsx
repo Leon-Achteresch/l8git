@@ -5,6 +5,7 @@ import { Platform, Pressable, TextInput, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { Spinner } from '~/components/shared/spinner';
+import { palette } from '~/lib/theme';
 import { useBottomInset } from '~/components/shared/use-bottom-inset';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
@@ -110,7 +111,7 @@ export function CommitComposer({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder={amend ? 'Rewrite the commit message' : 'Commit message'}
-          placeholderTextColor="rgba(181,175,166,0.5)"
+          placeholderTextColor={`${palette.mutedForeground}80`}
           multiline
           editable={!committing}
           className="text-foreground min-h-11 text-sm"

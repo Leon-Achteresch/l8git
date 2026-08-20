@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { AgentThreadRow } from '~/components/agents/agent-thread-row';
+import { statusMeta } from '~/components/agents/agent-meta';
 import { PulseDot } from '~/components/agents/agent-status-chip';
 import { RowGroup } from '~/components/shared/pressable-row';
 import { Icon } from '~/components/ui/icon';
@@ -40,7 +41,7 @@ export function AgentAttentionSection({
       className="border-warning/35 bg-warning/8 overflow-hidden rounded-2xl border">
       <View className="flex-row items-center gap-2.5 px-3 pb-2 pt-3">
         {approvals > 0 ? (
-          <PulseDot color="#fcb442" size={7} />
+          <PulseDot color={statusMeta('awaitingApproval').color} size={7} />
         ) : (
           <Icon as={ShieldQuestion} size={13} className="text-warning" />
         )}

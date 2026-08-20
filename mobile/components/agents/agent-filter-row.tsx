@@ -18,6 +18,7 @@ import {
 } from '~/components/agents/overview-model';
 import { accentFor } from '~/components/shared/format';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import type { HostAgentEntry, HostAgentSummary } from '~/lib/agents/overview-aggregator';
 import type { NativeAgentProvider } from '~/lib/agents/stores';
 import { cn } from '~/lib/utils';
@@ -66,23 +67,30 @@ export function FilterChip({
       onPress={onPress}>
       <View
         style={active && accent ? { borderColor: `${accent}66` } : undefined}
-        className="border-border overflow-hidden rounded-full border">
+        className={cn(
+          'overflow-hidden rounded-full border',
+          active && !accent ? 'border-accent-foreground/30' : 'border-border'
+        )}>
         <Animated.View
           pointerEvents="none"
           style={[fillStyle, accent ? { backgroundColor: accent } : undefined]}
-          className={cn('absolute bottom-0 left-0 right-0 top-0', !accent && 'bg-foreground')}
+          className={cn('absolute bottom-0 left-0 right-0 top-0', !accent && 'bg-accent')}
         />
         <View className="flex-row items-center gap-1.5 px-2.5 py-1.5">
           {dot ? (
             <View
-              style={{ backgroundColor: dotColor ?? '#b5afa6' }}
+              style={{ backgroundColor: dotColor ?? palette.mutedForeground }}
               className="h-1.5 w-1.5 rounded-full"
             />
           ) : null}
           <Text
             className={cn(
               'text-2xs font-medium',
-              active ? (accent ? 'text-foreground' : 'text-background') : 'text-muted-foreground'
+              active
+                ? accent
+                  ? 'text-foreground'
+                  : 'text-accent-foreground'
+                : 'text-muted-foreground'
             )}>
             {label}
           </Text>
@@ -93,7 +101,7 @@ export function FilterChip({
                 active
                   ? accent
                     ? 'text-foreground/70'
-                    : 'text-background/70'
+                    : 'text-accent-foreground/70'
                   : 'text-muted-foreground/60'
               )}>
               {count}
@@ -253,7 +261,7 @@ export function AgentFilterRow({
                   active={filters.hostId === host.hostId}
                   accent={`${accentFor(host.hostId)}2e`}
                   dot
-                  dotColor={host.online ? accentFor(host.hostId) : 'rgba(181,175,166,0.45)'}
+                  dotColor={host.online ? accentFor(host.hostId) : palette.mutedForeground}
                   onPress={() => setHost(host.hostId)}
                 />
               ))}

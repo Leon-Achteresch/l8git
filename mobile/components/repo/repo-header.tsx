@@ -48,12 +48,12 @@ function SegmentButton({
         <Animated.View
           pointerEvents="none"
           style={pillStyle}
-          className="bg-secondary border-border absolute bottom-0 left-0 right-0 top-0 rounded-lg border"
+          className="bg-accent border-accent-foreground/25 absolute bottom-0 left-0 right-0 top-0 rounded-lg border"
         />
         <Text
           className={cn(
-            'text-sm',
-            active ? 'text-foreground font-medium' : 'text-muted-foreground'
+            'text-sm tracking-wide',
+            active ? 'text-accent-foreground font-medium' : 'text-muted-foreground'
           )}>
           {REPO_SECTION_LABEL[section]}
         </Text>

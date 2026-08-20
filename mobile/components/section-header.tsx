@@ -15,11 +15,17 @@ export function SectionHeader({ title, count, action, className }: SectionHeader
   return (
     <View className={cn('flex-row items-center justify-between pb-2 pt-4', className)}>
       <View className="flex-row items-center gap-2">
-        <Text className="text-muted-foreground text-xs font-medium uppercase tracking-widest">
+        <Text
+          style={{ letterSpacing: 0.4 }}
+          className="text-muted-foreground text-2xs font-medium uppercase">
           {title}
         </Text>
         {typeof count === 'number' ? (
-          <Text className="text-muted-foreground font-mono text-xs">{count}</Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground font-mono text-2xs">
+            {count}
+          </Text>
         ) : null}
       </View>
       {action}

@@ -11,7 +11,7 @@ import { Text } from '~/components/ui/text';
 import { palette } from '~/lib/theme';
 
 const VISIBLE = 6;
-const OTHER_COLOR = 'rgba(255,255,255,0.22)';
+const OTHER_COLOR = palette.mutedForeground;
 
 type Segment = {
   key: string;

@@ -59,7 +59,13 @@ export function ListRow({
           </Text>
         ) : null}
       </View>
-      {meta ? <Text className="text-muted-foreground font-mono text-xs">{meta}</Text> : null}
+      {meta ? (
+        <Text
+          style={{ fontVariant: ['tabular-nums'] }}
+          className="text-muted-foreground font-mono text-xs">
+          {meta}
+        </Text>
+      ) : null}
       {trailing}
       {chevron ? <Icon as={ChevronRight} className="text-muted-foreground size-4" /> : null}
     </Pressable>

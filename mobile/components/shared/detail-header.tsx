@@ -42,7 +42,10 @@ export function DetailHeader({
         <Icon as={ChevronLeft} size={20} className="text-foreground" />
       </Pressable>
       <View className="min-w-0 flex-1">
-        <Text numberOfLines={1} className="text-foreground text-base font-semibold tracking-tight">
+        <Text
+          numberOfLines={1}
+          style={{ letterSpacing: 0.2 }}
+          className="text-foreground text-base font-semibold">
           {title}
         </Text>
         {subtitle ? (

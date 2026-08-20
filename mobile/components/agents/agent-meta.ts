@@ -2,6 +2,7 @@ import type { AgentOverviewStatus } from '@desktop/lib/agents/overview';
 
 import type { PillTone } from '~/components/shared/status-pill';
 import type { NativeAgentProvider } from '~/lib/agents/stores';
+import { palette } from '~/lib/theme';
 
 export interface AgentProviderMeta {
   value: NativeAgentProvider;
@@ -20,8 +21,8 @@ export const AGENT_PROVIDER_META: Record<NativeAgentProvider, AgentProviderMeta>
     short: 'Codex',
     mark: 'CX',
     description: 'OpenAI CLI',
-    color: '#f4f2ee',
-    tint: 'rgba(244,242,238,0.12)',
+    color: palette.foreground,
+    tint: 'rgba(244,244,246,0.12)',
   },
   claude: {
     value: 'claude',
@@ -75,11 +76,11 @@ export const AGENT_STATUS_META: Record<AgentOverviewStatus, AgentStatusMeta> = {
     label: 'Needs approval',
     short: 'Approval',
     tone: 'warning',
-    color: '#fcb442',
+    color: palette.warning,
   },
-  running: { label: 'Running', short: 'Running', tone: 'branch', color: '#65bdff' },
-  failed: { label: 'Failed', short: 'Failed', tone: 'danger', color: '#ff7a73' },
-  idle: { label: 'Idle', short: 'Idle', tone: 'neutral', color: '#b5afa6' },
+  running: { label: 'Running', short: 'Running', tone: 'branch', color: palette.git.branch },
+  failed: { label: 'Failed', short: 'Failed', tone: 'danger', color: palette.destructive },
+  idle: { label: 'Idle', short: 'Idle', tone: 'neutral', color: palette.mutedForeground },
 };
 
 export function statusMeta(status: AgentOverviewStatus): AgentStatusMeta {

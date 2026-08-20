@@ -87,12 +87,14 @@ function TabItem({
           <Icon
             as={icon}
             size={20}
-            color={focused ? palette.foreground : palette.mutedForeground}
+            color={focused ? palette.brand : palette.mutedForeground}
           />
         </Animated.View>
         {badge && badge > 0 ? (
           <View className="bg-destructive absolute -right-0.5 -top-0.5 h-4 min-w-4 items-center justify-center rounded-full px-1">
-            <Text className="text-destructive-foreground font-mono text-2xs">
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-destructive-foreground font-mono text-2xs">
               {badge > 99 ? '99+' : badge}
             </Text>
           </View>
@@ -102,7 +104,7 @@ function TabItem({
         <Text
           className={
             focused
-              ? 'text-foreground text-2xs font-medium'
+              ? 'text-primary text-2xs font-medium'
               : 'text-muted-foreground text-2xs'
           }>
           {label}
@@ -127,7 +129,7 @@ export function TabBar({ state, descriptors, navigation }: TabBarProps) {
 
   return (
     <Animated.View
-      style={[barStyle, { paddingBottom: Math.max(insets.bottom, 8) }]}
+      style={[barStyle, { flexDirection: 'row', paddingBottom: Math.max(insets.bottom, 8) }]}
       className="border-border bg-sidebar flex-row border-t px-1 pt-1">
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];

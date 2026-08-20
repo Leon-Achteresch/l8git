@@ -134,7 +134,10 @@ function HostCard({
         <Text numberOfLines={1} className="text-foreground text-base font-medium">
           {host.name}
         </Text>
-        <Text numberOfLines={1} className="text-muted-foreground text-sm">
+        <Text
+          numberOfLines={1}
+          className="text-muted-foreground text-sm"
+          style={{ fontVariant: ['tabular-nums'] }}>
           {statusLabel(status, runtime?.latencyMs ?? null)}
           {' · '}
           {runtime?.endpoint ?? host.endpoints.join(', ')}

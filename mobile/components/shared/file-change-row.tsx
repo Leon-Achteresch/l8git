@@ -181,10 +181,18 @@ export function FileChangeRow({
         ) : (
           <View className="flex-row items-center gap-1.5">
             {additions ? (
-              <Text className="text-git-added font-mono text-2xs">+{additions}</Text>
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-git-added font-mono text-2xs">
+                +{additions}
+              </Text>
             ) : null}
             {deletions ? (
-              <Text className="text-git-removed font-mono text-2xs">−{deletions}</Text>
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-git-removed font-mono text-2xs">
+                −{deletions}
+              </Text>
             ) : null}
           </View>
         )}

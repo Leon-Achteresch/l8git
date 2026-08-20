@@ -25,11 +25,11 @@ export function RangePills({
             className="rounded-md">
             <Animated.View
               layout={LinearTransition.duration(160)}
-              className={cn('rounded-md px-2 py-1', active && 'bg-foreground')}>
+              className={cn('rounded-md px-2 py-1', active && 'bg-primary')}>
               <Text
                 className={cn(
-                  'text-2xs font-medium',
-                  active ? 'text-background' : 'text-muted-foreground'
+                  'text-2xs font-medium tracking-wide',
+                  active ? 'text-primary-foreground' : 'text-muted-foreground'
                 )}>
                 {key}
               </Text>

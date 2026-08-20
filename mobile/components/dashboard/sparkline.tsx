@@ -2,8 +2,10 @@ import * as React from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 
+import { palette } from '~/lib/theme';
+
 const GAP = 1;
-const EMPTY_COLOR = 'rgba(255,255,255,0.07)';
+const EMPTY_COLOR = palette.border;
 
 export function Sparkline({
   values,

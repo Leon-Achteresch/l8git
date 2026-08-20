@@ -98,8 +98,15 @@ export function CommitRow({
             </Text>
           </View>
           <View className="flex-row items-center gap-1.5">
-            <Text className="text-git-hash font-mono text-2xs">{shortHash(hash)}</Text>
-            <Text numberOfLines={1} className="text-muted-foreground flex-1 text-xs">
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-git-hash font-mono text-2xs">
+              {shortHash(hash)}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-muted-foreground flex-1 text-xs">
               {meta}
             </Text>
           </View>

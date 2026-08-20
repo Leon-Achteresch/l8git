@@ -46,24 +46,28 @@ function Chip({
       accessibilityLabel={`${PR_FILTER_LABEL[filter]} pull requests`}
       onPress={onPress}
       className="mr-2">
-      <View className="border-border overflow-hidden rounded-full border">
+      <View
+        className={cn(
+          'overflow-hidden rounded-full border',
+          active ? 'border-accent-foreground/30' : 'border-border'
+        )}>
         <Animated.View
           pointerEvents="none"
           style={fillStyle}
-          className="bg-foreground absolute bottom-0 left-0 right-0 top-0"
+          className="bg-accent absolute bottom-0 left-0 right-0 top-0"
         />
         <View className="flex-row items-center gap-1.5 px-3 py-1.5">
           <Text
             className={cn(
               'text-xs font-medium',
-              active ? 'text-background' : 'text-muted-foreground'
+              active ? 'text-accent-foreground' : 'text-muted-foreground'
             )}>
             {PR_FILTER_LABEL[filter]}
           </Text>
           <Text
             className={cn(
               'font-mono text-2xs tabular-nums',
-              active ? 'text-background/70' : 'text-muted-foreground/60'
+              active ? 'text-accent-foreground/70' : 'text-muted-foreground/60'
             )}>
             {count}
           </Text>

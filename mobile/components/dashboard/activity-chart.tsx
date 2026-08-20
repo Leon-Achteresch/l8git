@@ -16,11 +16,12 @@ import {
 } from '~/components/dashboard/aggregate';
 import { closeArea, monotoneLine, type ChartPoint } from '~/components/dashboard/chart-path';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 
 const PAD_TOP = 12;
 const EDGE = 1.5;
-const GRID_COLOR = 'rgba(255,255,255,0.055)';
-const BASELINE_COLOR = 'rgba(255,255,255,0.12)';
+const GRID_COLOR = palette.border;
+const BASELINE_COLOR = palette.border;
 
 export type ActivityChartProps = {
   points: readonly ActivityPoint[];

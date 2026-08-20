@@ -95,10 +95,17 @@ export function BranchRow({
 
           <View className="flex-row items-center gap-1.5">
             {tip ? (
-              <Text className="text-git-hash font-mono text-2xs">{shortHash(tip)}</Text>
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-git-hash font-mono text-2xs">
+                {shortHash(tip)}
+              </Text>
             ) : null}
             {meta ? (
-              <Text numberOfLines={1} className="text-muted-foreground flex-1 text-xs">
+              <Text
+                numberOfLines={1}
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-muted-foreground flex-1 text-xs">
                 {meta}
               </Text>
             ) : upstream ? (

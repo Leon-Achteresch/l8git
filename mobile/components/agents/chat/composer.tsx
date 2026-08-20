@@ -16,6 +16,7 @@ import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { pushAgentNotice } from '~/lib/agents/attention';
 import type { NativeAgentProvider } from '~/lib/agents/stores';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 import {
@@ -153,7 +154,7 @@ export function AgentComposer({
                 ? 'Steer the running turn…'
                 : `Message ${providerLabel(provider)} about ${repoLabel}`
             }
-            placeholderTextColor="rgba(181,175,166,0.55)"
+            placeholderTextColor={palette.mutedForeground}
             style={{ height, textAlignVertical: 'top' }}
             className="text-foreground py-2 text-sm leading-5"
           />
