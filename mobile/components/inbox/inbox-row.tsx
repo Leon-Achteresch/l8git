@@ -1,12 +1,14 @@
-import { ChevronRight, ExternalLink } from 'lucide-react-native';
+import { ChevronRight, ExternalLink, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { relativeTime } from '~/components/shared/format';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export function RepoChip({ name }: { name: string }) {
@@ -27,6 +29,8 @@ export type InboxRowFrameProps = {
   repoName: string;
   title: string;
   updatedAt: string;
+  icon?: LucideIcon;
+  iconColor?: string;
   meta?: React.ReactNode;
   badges?: React.ReactNode;
   externalUrl?: string | null;
@@ -39,6 +43,8 @@ export function InboxRowFrame({
   repoName,
   title,
   updatedAt,
+  icon,
+  iconColor = palette.cat.purple,
   meta,
   badges,
   externalUrl,
@@ -58,7 +64,8 @@ export function InboxRowFrame({
       onPress={onPress}
       accessibilityLabel={accessibilityLabel ?? title}
       className={cn(divider && 'border-border/40 border-t')}>
-      <View className="flex-row items-center gap-2 px-3.5 py-3">
+      <View className="flex-row items-center gap-3 px-4 py-3.5">
+        {icon ? <IconBadge icon={icon} color={iconColor} size="md" /> : null}
         <View className="min-w-0 flex-1 gap-1.5">
           <View className="flex-row items-center gap-2">
             <RepoChip name={repoName} />

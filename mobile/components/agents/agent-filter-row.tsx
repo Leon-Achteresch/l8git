@@ -69,14 +69,14 @@ export function FilterChip({
         style={active && accent ? { borderColor: `${accent}66` } : undefined}
         className={cn(
           'overflow-hidden rounded-full border',
-          active && !accent ? 'border-accent-foreground/30' : 'border-border'
+          active && !accent ? 'border-primary' : 'border-border'
         )}>
         <Animated.View
           pointerEvents="none"
           style={[fillStyle, accent ? { backgroundColor: accent } : undefined]}
-          className={cn('absolute bottom-0 left-0 right-0 top-0', !accent && 'bg-accent')}
+          className={cn('absolute bottom-0 left-0 right-0 top-0', !accent && 'bg-primary')}
         />
-        <View className="flex-row items-center gap-1.5 px-2.5 py-1.5">
+        <View className="flex-row items-center gap-1.5 px-3 py-1.5">
           {dot ? (
             <View
               style={{ backgroundColor: dotColor ?? palette.mutedForeground }}
@@ -85,23 +85,24 @@ export function FilterChip({
           ) : null}
           <Text
             className={cn(
-              'text-2xs font-medium',
+              'text-2xs font-semibold',
               active
                 ? accent
                   ? 'text-foreground'
-                  : 'text-accent-foreground'
+                  : 'text-primary-foreground'
                 : 'text-muted-foreground'
             )}>
             {label}
           </Text>
           {typeof count === 'number' ? (
             <Text
+              style={{ fontVariant: ['tabular-nums'] }}
               className={cn(
                 'font-mono text-2xs',
                 active
                   ? accent
                     ? 'text-foreground/70'
-                    : 'text-accent-foreground/70'
+                    : 'text-primary-foreground/75'
                   : 'text-muted-foreground/60'
               )}>
               {count}

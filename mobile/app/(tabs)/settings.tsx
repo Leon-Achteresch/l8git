@@ -1,15 +1,17 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Bell, Info, Palette, Shapes, Vibrate } from 'lucide-react-native';
+import { Bell, Info, Palette, Settings2, Shapes, Vibrate } from 'lucide-react-native';
 import * as React from 'react';
 
 import { HostsSection } from '~/components/connections/hosts-section';
 import { ListGroup, ListRow } from '~/components/list-row';
 import { Screen, ScreenTitle } from '~/components/screen';
 import { SectionHeader } from '~/components/section-header';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -17,9 +19,11 @@ export default function SettingsScreen() {
   const [notifications, setNotifications] = React.useState(true);
 
   return (
-    <Screen scroll>
+    <Screen scroll contentClassName="pb-24">
       <ScreenTitle
         title="Settings"
+        icon={Settings2}
+        iconColor={palette.cat.cyan}
         subtitle="Hosts, pairing and preferences"
         right={
           <Avatar alt="l8git" className="h-9 w-9">
@@ -35,18 +39,23 @@ export default function SettingsScreen() {
       <SectionHeader title="Preferences" />
       <ListGroup>
         <ListRow
-          icon={Vibrate}
+          leading={<IconBadge icon={Vibrate} color={palette.cat.purple} size="md" />}
           title="Haptic feedback"
           subtitle="Vibrate on approvals and tab changes"
           trailing={<Switch checked={haptics} onCheckedChange={setHaptics} />}
         />
         <ListRow
-          icon={Bell}
+          leading={<IconBadge icon={Bell} color={palette.cat.coral} size="md" />}
           title="In-app notifications"
           subtitle="Banner for pending agent approvals"
           trailing={<Switch checked={notifications} onCheckedChange={setNotifications} />}
         />
-        <ListRow icon={Palette} title="Appearance" subtitle="Dark (l8git)" chevron />
+        <ListRow
+          leading={<IconBadge icon={Palette} color={palette.cat.pink} size="md" />}
+          title="Appearance"
+          subtitle="Dark (l8git)"
+          chevron
+        />
       </ListGroup>
 
       {__DEV__ ? (
@@ -54,7 +63,7 @@ export default function SettingsScreen() {
           <SectionHeader title="Developer" />
           <ListGroup>
             <ListRow
-              icon={Shapes}
+              leading={<IconBadge icon={Shapes} color={palette.cat.blue} size="md" />}
               title="Component bench"
               subtitle="Every shared primitive on one screen"
               chevron
@@ -67,7 +76,7 @@ export default function SettingsScreen() {
       <SectionHeader title="About" />
       <ListGroup>
         <ListRow
-          icon={Info}
+          leading={<IconBadge icon={Info} color={palette.cat.green} size="md" />}
           title="l8git Remote"
           subtitle={`v${Constants.expoConfig?.version ?? '0.1.0'}`}
         />

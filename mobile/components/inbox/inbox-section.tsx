@@ -9,38 +9,19 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { Icon } from '~/components/ui/icon';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export type InboxSectionTone = 'neutral' | 'attention' | 'danger' | 'info';
 
-const TONE_ICON: Record<InboxSectionTone, string> = {
-  neutral: 'text-muted-foreground',
-  attention: 'text-git-modified',
-  danger: 'text-git-removed',
-  info: 'text-git-branch',
-};
-
-const TONE_SURFACE: Record<InboxSectionTone, string> = {
-  neutral: 'border-border bg-muted/60',
-  attention: 'border-git-modified/35 bg-git-modified/12',
-  danger: 'border-git-removed/35 bg-git-removed/12',
-  info: 'border-git-branch/35 bg-git-branch/12',
-};
-
-const TONE_COUNT_SURFACE: Record<InboxSectionTone, string> = {
-  neutral: 'bg-muted',
-  attention: 'bg-git-modified/15',
-  danger: 'bg-git-removed/15',
-  info: 'bg-git-branch/15',
-};
-
 function SectionSkeleton() {
   return (
-    <View className="gap-3 px-3.5 py-3.5">
+    <View className="gap-3 px-4 py-4">
       {[0, 1].map((row) => (
         <View key={row} className="gap-2">
           <View className="flex-row items-center gap-2">
@@ -58,7 +39,7 @@ export function InboxSection({
   icon,
   title,
   count,
-  tone = 'neutral',
+  color = palette.cat.coral,
   hint,
   loading = false,
   index = 0,
@@ -67,6 +48,7 @@ export function InboxSection({
   icon: LucideIcon;
   title: string;
   count: number;
+  color?: string;
   tone?: InboxSectionTone;
   hint: string;
   loading?: boolean;
@@ -94,44 +76,47 @@ export function InboxSection({
     <Animated.View
       entering={FadeInDown.duration(260).delay(index * 60)}
       layout={LinearTransition.duration(220)}
-      className="border-border/70 bg-card/40 overflow-hidden rounded-2xl border">
+      style={{
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 6,
+      }}
+      className="border-border bg-card overflow-hidden rounded-3xl border">
       <PressableRow
         flat
         haptic={false}
         onPress={toggle}
         accessibilityLabel={`${title}, ${count} items`}>
-        <View className="flex-row items-center gap-2.5 px-3.5 py-3">
-          <Animated.View style={chevronStyle}>
-            <Icon as={ChevronRight} size={13} className="text-muted-foreground/70" />
-          </Animated.View>
+        <View className="flex-row items-center gap-3 px-4 py-3.5">
+          <IconBadge icon={icon} color={active ? color : palette.mutedForeground} size="md" />
+
+          <Text
+            style={{ letterSpacing: 0.6 }}
+            className="text-foreground min-w-0 flex-1 text-xs font-semibold uppercase">
+            {title}
+          </Text>
 
           <View
+            style={{ backgroundColor: active ? `${color}26` : undefined }}
             className={cn(
-              'h-7 w-7 items-center justify-center rounded-lg border',
-              active ? TONE_SURFACE[tone] : 'border-border bg-muted/50'
-            )}>
-            <Icon
-              as={icon}
-              size={14}
-              className={active ? TONE_ICON[tone] : 'text-muted-foreground'}
-            />
-          </View>
-
-          <Text className="text-foreground min-w-0 flex-1 text-sm font-medium">{title}</Text>
-
-          <View
-            className={cn(
-              'h-5 min-w-5 items-center justify-center rounded-full px-1.5',
-              active ? TONE_COUNT_SURFACE[tone] : 'bg-muted'
+              'h-7 min-w-7 items-center justify-center rounded-full px-2',
+              !active && 'bg-secondary'
             )}>
             <Text
-              className={cn(
-                'font-mono text-2xs',
-                active ? TONE_ICON[tone] : 'text-muted-foreground'
-              )}>
+              style={{
+                fontVariant: ['tabular-nums'],
+                color: active ? color : palette.mutedForeground,
+              }}
+              className="font-mono text-xs font-semibold">
               {count}
             </Text>
           </View>
+
+          <Animated.View style={chevronStyle}>
+            <Icon as={ChevronRight} size={16} className="text-muted-foreground/70" />
+          </Animated.View>
         </View>
       </PressableRow>
 
@@ -143,7 +128,7 @@ export function InboxSection({
           {loading && count === 0 ? (
             <SectionSkeleton />
           ) : count === 0 ? (
-            <Text className="text-muted-foreground/80 px-3.5 py-3.5 text-xs">{hint}</Text>
+            <Text className="text-muted-foreground/80 px-4 py-4 text-sm">{hint}</Text>
           ) : (
             children
           )}

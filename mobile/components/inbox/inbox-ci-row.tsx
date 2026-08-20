@@ -7,6 +7,7 @@ import { HostBadge } from '~/components/shared/host-badge';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Text } from '~/components/ui/text';
 import type { InboxCiItem } from '~/lib/inbox';
+import { palette } from '~/lib/theme';
 
 const CONCLUSION_LABEL: Record<string, string> = {
   failure: 'failed',
@@ -33,6 +34,8 @@ export const InboxCiRow = React.memo(function InboxCiRow({
       repoName={item.repoName}
       title={item.name}
       updatedAt={item.updatedAt}
+      icon={TriangleAlert}
+      iconColor={palette.destructive}
       externalUrl={item.htmlUrl || null}
       divider={divider}
       accessibilityLabel={`Failing workflow ${item.name} in ${item.repoName}`}

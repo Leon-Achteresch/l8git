@@ -10,6 +10,7 @@ import { accentFor, initials } from '~/components/shared/format';
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 
 const VISIBLE = 6;
 
@@ -35,9 +36,15 @@ export function ContributorsCard({
       <PanelHeader
         title="Contributors"
         hint={rangeLabel}
+        icon={Users}
+        iconColor={palette.cat.purple}
         right={
           query.data ? (
-            <Text className="text-muted-foreground font-mono text-xs">{stats.length}</Text>
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-foreground text-2xl font-bold">
+              {stats.length}
+            </Text>
           ) : null
         }
       />
@@ -64,32 +71,34 @@ export function ContributorsCard({
               <View key={`${entry.email}-${entry.name}-${index}`} className="flex-row items-center gap-3">
                 <Avatar
                   alt={entry.name || entry.email}
-                  className="size-7"
+                  className="size-9"
                   style={{ backgroundColor: `${accent}26` }}>
                   <AvatarFallback className="bg-transparent">
-                    <Text style={{ color: accent }} className="text-2xs font-semibold">
+                    <Text style={{ color: accent }} className="text-xs font-semibold">
                       {initials(entry.name || entry.email)}
                     </Text>
                   </AvatarFallback>
                 </Avatar>
 
                 <View className="min-w-0 flex-1 gap-1.5">
-                  <Text numberOfLines={1} className="text-foreground text-sm font-medium">
+                  <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
                     {entry.name || entry.email || 'Unknown'}
                   </Text>
-                  <View className="bg-muted h-1 w-full overflow-hidden rounded-sm">
+                  <View className="bg-secondary h-1.5 w-full overflow-hidden rounded-full">
                     <View
                       style={{
                         width: `${Math.max(4, (entry.commits / peak) * 100)}%`,
                         backgroundColor: accent,
                       }}
-                      className="h-full rounded-sm"
+                      className="h-full rounded-full"
                     />
                   </View>
                 </View>
 
                 <View className="items-end gap-0.5">
-                  <Text className="text-foreground font-mono text-sm">
+                  <Text
+                    style={{ fontVariant: ['tabular-nums'] }}
+                    className="text-foreground text-base font-bold">
                     {compactNumber(entry.commits)}
                   </Text>
                   <Text className="text-2xs font-mono">

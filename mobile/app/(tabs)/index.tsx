@@ -4,6 +4,7 @@ import {
   Eye,
   FolderGit2,
   GitPullRequest,
+  Inbox,
   Plug,
   TriangleAlert,
   UserRound,
@@ -36,11 +37,14 @@ import { palette } from '~/lib/theme';
 
 function CountChip({ value, busy }: { value: number; busy: boolean }) {
   return (
-    <View className="border-border bg-muted/70 h-7 min-w-9 flex-row items-center justify-center gap-1.5 rounded-full border px-2.5">
+    <View className="border-border bg-secondary h-8 min-w-10 flex-row items-center justify-center gap-1.5 rounded-full border px-3">
       {busy ? <Spinner size={11} className="text-muted-foreground" /> : null}
       <Text
+        style={{ fontVariant: ['tabular-nums'] }}
         className={
-          value > 0 ? 'text-foreground font-mono text-xs' : 'text-muted-foreground font-mono text-xs'
+          value > 0
+            ? 'text-primary font-mono text-sm font-semibold'
+            : 'text-muted-foreground font-mono text-sm font-semibold'
         }>
         {value}
       </Text>
@@ -108,6 +112,8 @@ export default function InboxScreen() {
       <View className="px-4">
         <ScreenTitle
           title="Inbox"
+          icon={Inbox}
+          iconColor={palette.cat.coral}
           subtitle={subtitle}
           right={
             <View className="flex-row items-center gap-2">
@@ -183,7 +189,7 @@ export default function InboxScreen() {
               icon={Eye}
               title="Awaiting your review"
               count={sections.reviewRequested.length}
-              tone="attention"
+              color={palette.cat.coral}
               hint="No pull request is waiting for your review."
               loading={loading}
               index={0}>
@@ -193,6 +199,7 @@ export default function InboxScreen() {
                     item={item}
                     showHost={showHost}
                     divider={index > 0}
+                    iconColor={palette.cat.coral}
                     onOpen={openPr}
                   />
                 </Animated.View>
@@ -203,7 +210,7 @@ export default function InboxScreen() {
               icon={TriangleAlert}
               title="Failing pipelines"
               count={sections.redRuns.length}
-              tone="danger"
+              color={palette.destructive}
               hint="Every tracked branch is green."
               loading={loading}
               index={1}>
@@ -223,7 +230,7 @@ export default function InboxScreen() {
               icon={Bot}
               title="Agents awaiting approval"
               count={agents.length}
-              tone="attention"
+              color={palette.cat.purple}
               hint="Approval requests from every connected host will appear here."
               index={2}
             />
@@ -232,6 +239,7 @@ export default function InboxScreen() {
               icon={GitPullRequest}
               title="My open pull requests"
               count={sections.myPrs.length}
+              color={palette.cat.purple}
               hint="You have no open pull requests."
               loading={loading}
               index={3}>

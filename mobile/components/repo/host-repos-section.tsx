@@ -124,7 +124,7 @@ export function HostReposSection({
       </View>
 
       {!online ? (
-        <View className="border-border bg-card/40 flex-row items-center gap-3 rounded-xl border px-3.5 py-3">
+        <View className="border-border bg-card flex-row items-center gap-3 rounded-2xl border px-3.5 py-3">
           <Icon as={Plug} size={15} className="text-muted-foreground/60" />
           <View className="flex-1">
             <Text className="text-foreground text-sm font-medium">
@@ -145,7 +145,7 @@ export function HostReposSection({
       {loading && rows.length === 0 ? (
         <SkeletonList rows={3} />
       ) : overviews.isError && rows.length === 0 ? (
-        <View className="border-destructive/30 bg-destructive/5 gap-3 rounded-xl border p-4">
+        <View className="border-destructive/30 bg-destructive/5 gap-3 rounded-2xl border p-4">
           <Text className="text-destructive text-sm font-medium">Could not load repositories</Text>
           <Text className="text-muted-foreground text-xs">
             {overviews.error instanceof Error ? overviews.error.message : 'Unknown error'}
@@ -160,7 +160,7 @@ export function HostReposSection({
           </Button>
         </View>
       ) : rows.length === 0 ? (
-        <View className="border-border/70 items-center gap-2 rounded-xl border border-dashed px-4 py-6">
+        <View className="border-border/70 items-center gap-2 rounded-2xl border border-dashed px-4 py-6">
           <Text className="text-muted-foreground text-sm">No repositories yet</Text>
           <Button size="sm" variant="secondary" onPress={() => onAddRepo(hostId)}>
             <Icon as={FolderPlus} size={13} className="text-foreground" />

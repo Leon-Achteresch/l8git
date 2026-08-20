@@ -136,7 +136,7 @@ export function AgentComposer({
 
         <View
           className={cn(
-            'border-input bg-muted/40 min-w-0 flex-1 rounded-2xl border px-3 py-1',
+            'border-border bg-elevated min-w-0 flex-1 rounded-3xl border px-4 py-1',
             disabled && 'opacity-60'
           )}>
           <TextInput

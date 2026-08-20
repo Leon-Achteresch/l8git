@@ -1,4 +1,11 @@
-import { ArrowRight, CircleCheck, CircleX, LoaderCircle, Users } from 'lucide-react-native';
+import {
+  ArrowRight,
+  CircleCheck,
+  CircleX,
+  GitPullRequest,
+  LoaderCircle,
+  Users,
+} from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -9,6 +16,7 @@ import { StatusPill, type PillTone } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import type { InboxCheckState, InboxPrItem } from '~/lib/inbox';
+import { palette } from '~/lib/theme';
 
 const CHECK_TONE: Record<InboxCheckState, PillTone> = {
   success: 'added',
@@ -35,11 +43,13 @@ export const InboxPrRow = React.memo(function InboxPrRow({
   item,
   showHost = false,
   divider = false,
+  iconColor = palette.cat.purple,
   onOpen,
 }: {
   item: InboxPrItem;
   showHost?: boolean;
   divider?: boolean;
+  iconColor?: string;
   onOpen: (item: InboxPrItem) => void;
 }) {
   const handlePress = React.useCallback(() => onOpen(item), [item, onOpen]);
@@ -49,6 +59,8 @@ export const InboxPrRow = React.memo(function InboxPrRow({
       repoName={item.repoName}
       title={item.title}
       updatedAt={item.updatedAt}
+      icon={GitPullRequest}
+      iconColor={iconColor}
       externalUrl={item.htmlUrl || null}
       divider={divider}
       accessibilityLabel={`Pull request ${item.number} in ${item.repoName}: ${item.title}`}

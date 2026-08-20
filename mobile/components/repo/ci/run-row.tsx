@@ -8,6 +8,7 @@ import {
   ciState,
   ciStateLabel,
   runDuration,
+  type CiState,
   type WorkflowRun,
 } from '~/components/repo/ci/ci-types';
 import { middleTruncate, relativeTime, shortHash } from '~/components/shared/format';
@@ -15,6 +16,18 @@ import { PressableRow } from '~/components/shared/pressable-row';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { cn } from '~/lib/utils';
+
+const RUN_SURFACE: Record<CiState, string> = {
+  success: 'bg-git-added/15',
+  failure: 'bg-git-removed/15',
+  running: 'bg-git-branch/15',
+  queued: 'bg-git-modified/15',
+  cancelled: 'bg-secondary',
+  skipped: 'bg-secondary',
+  neutral: 'bg-secondary',
+  unknown: 'bg-secondary',
+};
 
 export const RunRow = React.memo(function RunRow({
   run,
@@ -38,8 +51,12 @@ export const RunRow = React.memo(function RunRow({
       onPress={handlePress}
       accessibilityLabel={`Workflow run ${run.name} #${run.run_number}`}>
       <View className="flex-row items-start gap-3 px-3 py-3">
-        <View className="pt-0.5">
-          <CiStatusIcon status={run.status} conclusion={run.conclusion} size={17} />
+        <View
+          className={cn(
+            'h-10 w-10 items-center justify-center rounded-2xl',
+            RUN_SURFACE[state]
+          )}>
+          <CiStatusIcon status={run.status} conclusion={run.conclusion} size={19} />
         </View>
 
         <View className="min-w-0 flex-1 gap-1">

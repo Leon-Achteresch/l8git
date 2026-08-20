@@ -79,9 +79,9 @@ export function PressableRow({
         }}
         className={cn(
           'border-border relative',
-          !flat && 'bg-card/50 border-x border-b',
-          !flat && first && 'rounded-t-xl border-t',
-          !flat && last && 'rounded-b-xl',
+          !flat && 'bg-card border-x border-b',
+          !flat && first && 'rounded-t-2xl border-t',
+          !flat && last && 'rounded-b-2xl',
           selected && 'bg-accent/60',
           disabled && 'opacity-45',
           className

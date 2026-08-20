@@ -45,7 +45,7 @@ function ToolbarButton({
         onPress();
       }}
       className={cn(
-        'border-border bg-card/60 h-9 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border active:opacity-70',
+        'border-border bg-card h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-2xl border active:opacity-70',
         (disabled || busy) && 'opacity-45'
       )}>
       <Icon
@@ -127,7 +127,7 @@ export function RemoteToolbar({
           accessibilityLabel="Remote defaults"
           onPress={() => setShowStrategy((value) => !value)}
           className={cn(
-            'border-border bg-card/60 h-9 w-9 items-center justify-center rounded-xl border active:opacity-70',
+            'border-border bg-card h-10 w-10 items-center justify-center rounded-2xl border active:opacity-70',
             showStrategy && 'bg-accent'
           )}>
           <Icon as={Settings2} size={14} className="text-muted-foreground" />

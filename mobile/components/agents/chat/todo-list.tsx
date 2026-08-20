@@ -3,9 +3,11 @@ import * as React from 'react';
 import { View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
+import { IconBadge } from '~/components/shared/icon-badge';
 import { Spinner } from '~/components/shared/spinner';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export type TodoStatus = 'pending' | 'in-progress' | 'completed';
@@ -48,13 +50,15 @@ export function TodoList({
     <Animated.View
       layout={LinearTransition.duration(180)}
       entering={FadeIn.duration(160)}
-      className="border-border bg-card/45 gap-2.5 rounded-xl border p-3">
-      <View className="flex-row items-center gap-2">
-        <Icon as={ListChecks} size={13} className="text-git-merge" />
-        <Text className="text-foreground flex-1 text-xs font-semibold uppercase tracking-widest">
+      className="border-border bg-card gap-2.5 rounded-2xl border p-3">
+      <View className="flex-row items-center gap-2.5">
+        <IconBadge icon={ListChecks} color={palette.cat.purple} size="sm" />
+        <Text className="text-foreground flex-1 text-sm font-semibold uppercase tracking-widest">
           {title}
         </Text>
-        <Text className="text-muted-foreground font-mono text-2xs">
+        <Text
+          style={{ fontVariant: ['tabular-nums'] }}
+          className="text-muted-foreground font-mono text-2xs">
           {done}/{items.length}
         </Text>
       </View>

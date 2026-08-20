@@ -68,7 +68,7 @@ export function FileStatusBadge({
   className,
 }: {
   status: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) {
   const code = normalizeFileStatus(status);
@@ -77,12 +77,21 @@ export function FileStatusBadge({
     <View
       accessibilityLabel={style.label}
       className={cn(
-        'items-center justify-center rounded border',
+        'items-center justify-center border',
         style.surface,
-        size === 'sm' ? 'h-4 w-4' : 'h-5 w-5',
+        size === 'lg' ? 'h-10 w-10 rounded-xl' : 'rounded',
+        size === 'sm' && 'h-4 w-4',
+        size === 'md' && 'h-5 w-5',
         className
       )}>
-      <Text className={cn('font-mono-medium text-2xs', style.text)}>{code}</Text>
+      <Text
+        className={cn(
+          'font-mono-medium',
+          size === 'lg' ? 'text-base' : 'text-2xs',
+          style.text
+        )}>
+        {code}
+      </Text>
     </View>
   );
 }
@@ -147,52 +156,58 @@ export function FileChangeRow({
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityLabel={`${fileStatusLabel(status)} ${path}`}>
-      <View className="flex-row items-center gap-2.5 px-3 py-2.5">
+      <View className="flex-row items-center gap-3 px-3.5 py-3">
         {check && onToggle ? (
           <Pressable hitSlop={10} onPress={onToggle} accessibilityRole="checkbox">
             <Icon
               as={CHECK_ICON[check]}
-              size={17}
+              size={19}
               className={check === 'unchecked' ? 'text-muted-foreground/45' : 'text-foreground'}
             />
           </Pressable>
         ) : null}
 
-        <FileStatusBadge status={status} />
+        <FileStatusBadge status={status} size="lg" />
 
         <View className="min-w-0 flex-1">
-          <Text numberOfLines={1} className="text-foreground text-sm font-medium">
+          <Text numberOfLines={1} className="text-foreground text-base font-semibold">
             {name}
             {submodule ? <Text className="text-git-merge text-2xs"> submodule</Text> : null}
           </Text>
           {renamedFrom ? (
-            <Text numberOfLines={1} className="text-muted-foreground/70 text-2xs">
+            <Text numberOfLines={1} className="text-muted-foreground/70 text-sm">
               from {renamedFrom}
             </Text>
           ) : dirLabel ? (
-            <Text numberOfLines={1} className="text-muted-foreground/70 text-2xs">
+            <Text numberOfLines={1} className="text-muted-foreground/70 text-sm">
               {dirLabel}
             </Text>
           ) : null}
         </View>
 
         {binary ? (
-          <Text className="text-muted-foreground/70 font-mono text-2xs">bin</Text>
+          <View className="bg-secondary rounded-full px-2.5 py-1">
+            <Text className="text-muted-foreground/70 font-mono text-2xs">bin</Text>
+          </View>
         ) : (
           <View className="flex-row items-center gap-1.5">
             {additions ? (
-              <Text
-                style={{ fontVariant: ['tabular-nums'] }}
-                className="text-git-added font-mono text-2xs">
-                +{additions}
-              </Text>
+              <View className="bg-git-added/12 rounded-full px-2 py-0.5">
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-git-added font-mono text-2xs">
+                  +{additions}
+                </Text>
+              </View>
             ) : null}
             {deletions ? (
-              <Text
-                style={{ fontVariant: ['tabular-nums'] }}
-                className="text-git-removed font-mono text-2xs">
-                −{deletions}
-              </Text>
+              <View className="bg-git-removed/12 rounded-full px-2 py-0.5">
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-git-removed font-mono text-2xs">
+                  −{deletions}
+                </Text>
+              </View>
             ) : null}
           </View>
         )}

@@ -65,7 +65,7 @@ export function CommitRow({
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityLabel={`Commit ${shortHash(hash)}: ${subject}`}>
-      <View className="flex-row items-center gap-3 px-3 py-2.5">
+      <View className="flex-row items-center gap-3 px-3.5 py-3">
         {graph ? (
           <View className="w-3 items-center self-stretch">
             <View
@@ -73,7 +73,7 @@ export function CommitRow({
             />
             <View
               style={{ backgroundColor: dotColor, borderColor: palette.background }}
-              className="h-2.5 w-2.5 rounded-full border-2"
+              className="h-3 w-3 rounded-full border-2"
             />
             <View
               className={cn('w-px flex-1', connectBottom ? 'bg-border' : 'bg-transparent')}
@@ -81,10 +81,10 @@ export function CommitRow({
           </View>
         ) : null}
 
-        <Avatar alt={author} className="size-8">
+        <Avatar alt={author} className="size-10">
           {avatarUrl ? <AvatarImage source={{ uri: avatarUrl }} /> : null}
           <AvatarFallback style={{ backgroundColor: `${avatarTint}26` }}>
-            <Text style={{ color: avatarTint }} className="text-2xs font-semibold">
+            <Text style={{ color: avatarTint }} className="text-xs font-semibold">
               {initials(author)}
             </Text>
           </AvatarFallback>
@@ -92,21 +92,21 @@ export function CommitRow({
 
         <View className="min-w-0 flex-1 gap-1">
           <View className="flex-row items-center gap-1.5">
-            {merge ? <Icon as={GitMerge} size={12} className="text-git-merge" /> : null}
-            <Text numberOfLines={1} className="text-foreground flex-1 text-sm font-medium">
+            {merge ? <Icon as={GitMerge} size={14} className="text-git-merge" /> : null}
+            <Text numberOfLines={1} className="text-foreground flex-1 text-base font-semibold">
               {subject}
             </Text>
           </View>
           <View className="flex-row items-center gap-1.5">
             <Text
               style={{ fontVariant: ['tabular-nums'] }}
-              className="text-git-hash font-mono text-2xs">
+              className="text-git-hash font-mono text-xs">
               {shortHash(hash)}
             </Text>
             <Text
               numberOfLines={1}
               style={{ fontVariant: ['tabular-nums'] }}
-              className="text-muted-foreground flex-1 text-xs">
+              className="text-muted-foreground flex-1 text-sm">
               {meta}
             </Text>
           </View>

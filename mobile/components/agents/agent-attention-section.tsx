@@ -5,11 +5,11 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 
 import { AgentThreadRow } from '~/components/agents/agent-thread-row';
 import { statusMeta } from '~/components/agents/agent-meta';
-import { PulseDot } from '~/components/agents/agent-status-chip';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { RowGroup } from '~/components/shared/pressable-row';
-import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import type { HostAgentEntry } from '~/lib/agents/overview-aggregator';
+import { palette } from '~/lib/theme';
 
 export function AgentAttentionSection({
   entries,
@@ -38,23 +38,29 @@ export function AgentAttentionSection({
       entering={FadeIn.duration(220)}
       exiting={FadeOut.duration(160)}
       layout={LinearTransition.duration(220)}
-      className="border-warning/35 bg-warning/8 overflow-hidden rounded-2xl border">
-      <View className="flex-row items-center gap-2.5 px-3 pb-2 pt-3">
-        {approvals > 0 ? (
-          <PulseDot color={statusMeta('awaitingApproval').color} size={7} />
-        ) : (
-          <Icon as={ShieldQuestion} size={13} className="text-warning" />
-        )}
-        <Text className="text-warning flex-1 text-xs font-semibold uppercase tracking-widest">
-          Needs attention
+      style={{
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 6,
+      }}
+      className="border-warning/35 bg-warning/8 overflow-hidden rounded-3xl border">
+      <View className="flex-row items-center gap-3 px-3.5 pb-2 pt-3.5">
+        <IconBadge icon={ShieldQuestion} color={statusMeta('awaitingApproval').color} size="md" />
+        <View className="flex-1 gap-0.5">
+          <Text className="text-warning text-base font-bold">Needs attention</Text>
+          <Text className="text-muted-foreground text-xs">{hint}</Text>
+        </View>
+        <Text
+          style={{ fontVariant: ['tabular-nums'], color: palette.warning }}
+          className="text-3xl font-bold tabular-nums">
+          {entries.length}
         </Text>
-        <Text className="text-warning/80 font-mono text-2xs">{entries.length}</Text>
       </View>
 
-      <Text className="text-muted-foreground px-3 pb-2.5 text-xs">{hint}</Text>
-
-      <View className="px-1.5 pb-1.5">
-        <RowGroup className="rounded-xl">
+      <View className="px-1.5 pb-1.5 pt-1">
+        <RowGroup className="rounded-2xl">
           {entries.map((entry) => (
             <AgentThreadRow
               key={entry.key}

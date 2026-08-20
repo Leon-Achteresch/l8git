@@ -68,6 +68,8 @@ export default function ReposScreen() {
       <View className="px-4 pt-2">
         <ScreenTitle
           title="Repos"
+          icon={FolderGit2}
+          iconColor={palette.cat.blue}
           subtitle={
             hosts.length === 0
               ? 'No hosts paired yet'

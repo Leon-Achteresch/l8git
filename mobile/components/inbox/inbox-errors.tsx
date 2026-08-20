@@ -3,10 +3,12 @@ import * as React from 'react';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
+import { IconBadge } from '~/components/shared/icon-badge';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import type { InboxRepoError } from '~/lib/inbox';
+import { palette } from '~/lib/theme';
 
 export function InboxErrors({
   errors,
@@ -27,10 +29,10 @@ export function InboxErrors({
     <Animated.View
       entering={FadeIn.duration(200)}
       exiting={FadeOut.duration(150)}
-      className="border-git-modified/35 bg-git-modified/8 gap-2 rounded-2xl border px-3.5 py-3">
-      <View className="flex-row items-center gap-2">
-        <Icon as={TriangleAlert} size={14} className="text-git-modified" />
-        <Text className="text-git-modified min-w-0 flex-1 text-xs font-medium">
+      className="border-git-modified/35 bg-git-modified/8 gap-2 rounded-3xl border px-4 py-3.5">
+      <View className="flex-row items-center gap-3">
+        <IconBadge icon={TriangleAlert} color={palette.warning} size="md" />
+        <Text className="text-git-modified min-w-0 flex-1 text-sm font-semibold">
           {errors.length === 1 ? '1 repo could not be read' : `${errors.length} repos could not be read`}
         </Text>
         <Button size="sm" variant="ghost" disabled={busy} onPress={onRetry}>

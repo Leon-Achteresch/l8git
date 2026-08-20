@@ -14,11 +14,25 @@ import {
   type CiState,
   type RemoteCiCheck,
 } from '~/components/repo/ci/ci-types';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { Spinner } from '~/components/shared/spinner';
 import { relativeTime } from '~/components/shared/format';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
+import { cn } from '~/lib/utils';
+
+const CHECK_SURFACE: Record<CiState, string> = {
+  success: 'bg-git-added/15',
+  failure: 'bg-git-removed/15',
+  running: 'bg-git-branch/15',
+  queued: 'bg-git-modified/15',
+  cancelled: 'bg-secondary',
+  skipped: 'bg-secondary',
+  neutral: 'bg-secondary',
+  unknown: 'bg-secondary',
+};
 
 const SUMMARY_ORDER: readonly CiState[] = [
   'failure',
@@ -96,7 +110,13 @@ function CheckRow({
         disabled={!expandable}
         onPress={() => setExpanded((value) => !value)}
         className="active:bg-accent/40 flex-row items-center gap-3 px-3 py-2.5">
-        <CiStatusIcon status={check.status} conclusion={check.conclusion} />
+        <View
+          className={cn(
+            'h-9 w-9 items-center justify-center rounded-xl',
+            CHECK_SURFACE[ciState(check.status, check.conclusion)]
+          )}>
+          <CiStatusIcon status={check.status} conclusion={check.conclusion} />
+        </View>
         <View className="min-w-0 flex-1 gap-0.5">
           <Text numberOfLines={1} className="text-foreground text-sm font-medium">
             {check.name}
@@ -175,15 +195,15 @@ export function ChecksList({
 
   if (sorted.length === 0) {
     return (
-      <View className="border-border bg-card/40 flex-row items-center gap-2 rounded-xl border px-3 py-3">
-        <Icon as={ShieldCheck} size={14} className="text-muted-foreground" />
-        <Text className="text-muted-foreground text-xs">No checks reported for this commit.</Text>
+      <View className="border-border bg-card flex-row items-center gap-3 rounded-2xl border px-3.5 py-3.5">
+        <IconBadge icon={ShieldCheck} color={palette.cat.cyan} size="md" />
+        <Text className="text-muted-foreground text-sm">No checks reported for this commit.</Text>
       </View>
     );
   }
 
   return (
-    <View className="border-border bg-card/40 overflow-hidden rounded-xl border">
+    <View className="border-border bg-card overflow-hidden rounded-2xl border">
       {sorted.map((check, index) => (
         <CheckRow
           key={check.check_run_id ?? check.status_uuid ?? `${check.name}-${index}`}

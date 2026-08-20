@@ -1,6 +1,6 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { FileWarning, GitBranch, GitPullRequest, Layers } from 'lucide-react-native';
+import { FileWarning, GitBranch, GitPullRequest, Layers, Server } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
@@ -20,6 +20,8 @@ import { RepoTile } from '~/components/dashboard/repo-tile';
 import { StatTile } from '~/components/dashboard/stat-tile';
 import { EmptyState } from '~/components/empty-state';
 import { accentFor, repoName } from '~/components/shared/format';
+import { IconBadge } from '~/components/shared/icon-badge';
+import { palette } from '~/lib/theme';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
 import { useHostMeta, useHostRuntime } from '~/lib/connections';
@@ -95,17 +97,21 @@ export function HostSection({
       entering={FadeInDown.duration(280).delay(index * 70)}
       layout={LinearTransition.duration(200)}
       className="gap-3 pt-3">
-      <View className="flex-row items-center gap-2">
-        <View style={{ backgroundColor: accent }} className="h-4 w-1 rounded-full" />
-        <Text numberOfLines={1} className="text-foreground max-w-52 text-base font-semibold">
+      <View className="flex-row items-center gap-2.5">
+        <IconBadge icon={Server} color={accent} size="sm" />
+        <Text numberOfLines={1} className="text-foreground max-w-52 text-lg font-bold tracking-tight">
           {meta?.name ?? hostId}
         </Text>
-        <Text className="text-muted-foreground font-mono text-xs">
+        <Text
+          style={{ fontVariant: ['tabular-nums'] }}
+          className="text-muted-foreground font-mono text-xs">
           {`${paths.length} ${paths.length === 1 ? 'repo' : 'repos'}`}
         </Text>
         <View className="flex-1" />
         {runtime.latencyMs === null ? null : (
-          <Text className="text-muted-foreground/70 font-mono text-2xs">
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground/70 font-mono text-2xs">
             {`${Math.round(runtime.latencyMs)} ms`}
           </Text>
         )}
@@ -123,11 +129,11 @@ export function HostSection({
           <RepoChips chips={chips} selected={selectedPath} accent={accent} onSelect={setPicked} />
 
           {overview.isPending ? (
-            <View className="flex-row flex-wrap gap-2.5">
+            <View className="flex-row flex-wrap gap-3">
               {Array.from({ length: Math.min(4, paths.length) }).map((_, tile) => (
                 <Skeleton
                   key={tile}
-                  className="h-[132px] rounded-xl opacity-60"
+                  className="h-[150px] rounded-2xl opacity-60"
                   style={{ width: '48%' }}
                 />
               ))}
@@ -138,7 +144,7 @@ export function HostSection({
               onRetry={() => void overview.refetch()}
             />
           ) : (
-            <View className="flex-row flex-wrap gap-2.5">
+            <View className="flex-row flex-wrap gap-3">
               {repos.map((repo, tileIndex) => (
                 <RepoTile
                   key={repo.path}
@@ -153,12 +159,13 @@ export function HostSection({
             </View>
           )}
 
-          <View className="flex-row flex-wrap gap-2.5">
+          <View className="flex-row flex-wrap gap-3">
             <StatTile
               icon={FileWarning}
               label="Dirty files"
               value={selected ? String(selected.dirty_count) : '—'}
               tone={selected && selected.dirty_count > 0 ? 'warning' : 'default'}
+              color={palette.cat.orange}
               loading={overview.isPending}
             />
             <StatTile
@@ -166,6 +173,7 @@ export function HostSection({
               label="Ahead / behind"
               value={selected ? `${selected.ahead}/${selected.behind}` : '—'}
               tone={selected && selected.behind > 0 ? 'danger' : 'default'}
+              color={palette.cat.coral}
               loading={overview.isPending}
             />
             <StatTile
@@ -173,6 +181,7 @@ export function HostSection({
               label="Active branches"
               value={activeBranches === null ? '—' : String(activeBranches)}
               tone="branch"
+              color={palette.cat.blue}
               loading={branches.isPending && Boolean(selectedPath)}
             />
             <StatTile
@@ -180,6 +189,7 @@ export function HostSection({
               label="Open PRs"
               value={openPrs === null ? '—' : String(openPrs)}
               tone={openPrs && openPrs > 0 ? 'success' : 'default'}
+              color={palette.cat.purple}
               loading={prs.isPending && Boolean(selectedPath)}
             />
           </View>

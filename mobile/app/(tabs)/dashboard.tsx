@@ -3,6 +3,7 @@ import {
   FileWarning,
   GitCommitHorizontal,
   Layers,
+  LayoutDashboard,
   PlugZap,
   RotateCw,
   ServerOff,
@@ -67,7 +68,7 @@ export default function DashboardScreen() {
     <Screen contentClassName="px-0">
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerClassName="gap-3 px-4 pb-20 pt-2"
+        contentContainerClassName="gap-4 px-4 pb-24 pt-2"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -79,6 +80,8 @@ export default function DashboardScreen() {
         }>
         <ScreenTitle
           title="Dashboard"
+          icon={LayoutDashboard}
+          iconColor={palette.cat.green}
           subtitle={
             pairedCount === 0
               ? 'No hosts paired yet'
@@ -110,17 +113,19 @@ export default function DashboardScreen() {
           />
         ) : (
           <>
-            <View className="flex-row flex-wrap gap-2.5">
+            <View className="flex-row flex-wrap gap-3">
               <StatTile
                 icon={Layers}
                 label="Repos"
                 value={String(totals.repos)}
+                color={palette.cat.blue}
                 loading={loading && totals.repos === 0}
               />
               <StatTile
                 icon={GitCommitHorizontal}
                 label="Commits 30d"
                 value={compactNumber(totals.commits)}
+                color={palette.cat.green}
                 loading={loading && totals.repos === 0}
               />
               <StatTile
@@ -128,6 +133,7 @@ export default function DashboardScreen() {
                 label="Dirty repos"
                 value={String(totals.dirty)}
                 tone={totals.dirty > 0 ? 'warning' : 'default'}
+                color={palette.cat.orange}
                 loading={loading && totals.repos === 0}
               />
               <StatTile
@@ -135,6 +141,7 @@ export default function DashboardScreen() {
                 label="Ahead / behind"
                 value={`${totals.ahead}/${totals.behind}`}
                 tone={totals.behind > 0 ? 'danger' : 'default'}
+                color={palette.cat.coral}
                 loading={loading && totals.repos === 0}
               />
             </View>

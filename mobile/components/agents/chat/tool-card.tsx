@@ -10,13 +10,21 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { IconBadge } from '~/components/shared/icon-badge';
 import { Spinner } from '~/components/shared/spinner';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { fonts } from '~/lib/theme';
+import { fonts, palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 import type { ToolRunStatus } from './item-utils';
+
+const STATUS_COLOR: Record<ToolRunStatus, string> = {
+  running: palette.cat.blue,
+  success: palette.cat.green,
+  error: palette.destructive,
+  cancelled: palette.mutedForeground,
+};
 
 const STATUS_ICON: Record<Exclude<ToolRunStatus, 'running'>, LucideIcon> = {
   success: Check,
@@ -76,7 +84,7 @@ export function ToolCard({
     <Animated.View
       layout={LinearTransition.duration(180)}
       className={cn(
-        'bg-card/45 overflow-hidden rounded-xl border',
+        'bg-card overflow-hidden rounded-2xl border',
         STATUS_BORDER[status],
         status === 'running' && 'bg-git-branch/[0.06]'
       )}>
@@ -89,7 +97,7 @@ export function ToolCard({
         <Animated.View style={chevronStyle}>
           <Icon as={ChevronRight} size={13} className="text-muted-foreground" />
         </Animated.View>
-        {icon ? <Icon as={icon} size={13} className="text-muted-foreground" /> : null}
+        {icon ? <IconBadge icon={icon} color={STATUS_COLOR[status]} size="sm" /> : null}
         <View className="min-w-0 flex-1 gap-0.5">
           <View className="flex-row items-center gap-1.5">
             <Text className="text-muted-foreground text-2xs font-medium uppercase tracking-widest">

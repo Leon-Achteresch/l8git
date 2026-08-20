@@ -7,11 +7,13 @@ import { AgentThreadRow } from '~/components/agents/agent-thread-row';
 import type { AgentRepoGroup } from '~/components/agents/overview-model';
 import { middleTruncate } from '~/components/shared/format';
 import { HostBadge } from '~/components/shared/host-badge';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { RowGroup } from '~/components/shared/pressable-row';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import type { HostAgentEntry } from '~/lib/agents/overview-aggregator';
+import { palette } from '~/lib/theme';
 
 export function AgentRepoGroupCard({
   group,
@@ -36,8 +38,8 @@ export function AgentRepoGroupCard({
         accessibilityLabel={`Start a new thread in ${group.repoName}`}
         onPress={() => onNewThread(group)}
         className="active:opacity-70 flex-row items-center gap-2 px-1">
-        <Icon as={FolderGit2} size={12} className="text-muted-foreground" />
-        <Text numberOfLines={1} className="text-foreground max-w-44 text-xs font-semibold">
+        <IconBadge icon={FolderGit2} color={palette.cat.blue} size="sm" />
+        <Text numberOfLines={1} className="text-foreground max-w-40 text-sm font-semibold">
           {group.repoName}
         </Text>
         {showHost ? <HostBadge hostId={group.hostId} name={group.hostName} size="xs" /> : null}
@@ -52,13 +54,15 @@ export function AgentRepoGroupCard({
         ) : group.counts.running > 0 ? (
           <StatusPill size="xs" tone="branch" dot label={`${group.counts.running} running`} />
         ) : null}
-        <Text className="text-muted-foreground/70 font-mono text-2xs">
+        <Text
+          style={{ fontVariant: ['tabular-nums'] }}
+          className="text-muted-foreground/70 font-mono text-2xs">
           {group.entries.length}
         </Text>
         <Icon as={ChevronRight} size={12} className="text-muted-foreground/60" />
       </Pressable>
 
-      <RowGroup>
+      <RowGroup className="rounded-2xl">
         {group.entries.map((entry) => (
           <AgentThreadRow key={entry.key} entry={entry} showHost={false} onOpen={onOpen} />
         ))}

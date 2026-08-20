@@ -217,6 +217,7 @@ export function ActivityChart({
         {labels.map((label, index) => (
           <Text
             key={`${label}-${index}`}
+            style={{ fontVariant: ['tabular-nums'] }}
             className="text-muted-foreground/70 text-2xs font-mono">
             {label}
           </Text>

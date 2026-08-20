@@ -29,10 +29,10 @@ export const PR_STATE_LABEL: Record<PrDisplayState, string> = {
 };
 
 const SURFACE: Record<PrDisplayState, string> = {
-  open: 'bg-git-added/12 border-git-added/30',
-  draft: 'bg-muted border-border',
-  merged: 'bg-git-merge/12 border-git-merge/30',
-  closed: 'bg-git-removed/12 border-git-removed/30',
+  open: 'bg-git-added/15',
+  draft: 'bg-secondary',
+  merged: 'bg-git-merge/15',
+  closed: 'bg-git-removed/15',
 };
 
 const FOREGROUND: Record<PrDisplayState, string> = {
@@ -54,14 +54,14 @@ export function PrGlyph({
   return (
     <View
       className={cn(
-        'items-center justify-center rounded-lg border',
+        'items-center justify-center',
         SURFACE[state],
-        size === 'sm' ? 'h-6 w-6' : 'h-8 w-8',
+        size === 'sm' ? 'h-8 w-8 rounded-xl' : 'h-10 w-10 rounded-2xl',
         className
       )}>
       <Icon
         as={PR_STATE_ICON[state]}
-        size={size === 'sm' ? 12 : 15}
+        size={size === 'sm' ? 15 : 19}
         className={FOREGROUND[state]}
       />
     </View>

@@ -3,10 +3,12 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { middleTruncate, relativeTime, shortHash } from '~/components/shared/format';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export type BranchRowProps = {
@@ -59,37 +61,28 @@ export function BranchRow({
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityLabel={current ? `Current branch ${name}` : `Branch ${name}`}>
-      <View className="flex-row items-center gap-2.5 px-3 py-2.5">
-        {current ? <View className="bg-git-branch absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-r" /> : null}
+      <View className="flex-row items-center gap-3 px-3.5 py-3">
+        {current ? <View className="bg-git-branch absolute bottom-2 left-0 top-2 w-1 rounded-r-full" /> : null}
 
-        <View
-          className={cn(
-            'h-7 w-7 items-center justify-center rounded-lg border',
-            current
-              ? 'border-git-branch/40 bg-git-branch/15'
-              : remote
-                ? 'border-border bg-muted/70'
-                : 'border-border bg-muted/40'
-          )}>
-          <Icon
-            as={remote ? Cloud : GitBranch}
-            size={13}
-            className={current ? 'text-git-branch' : 'text-muted-foreground'}
-          />
-        </View>
+        <IconBadge
+          icon={remote ? Cloud : GitBranch}
+          color={palette.cat.blue}
+          size="md"
+          solid={current}
+        />
 
         <View className="min-w-0 flex-1 gap-0.5">
           <View className="flex-row items-center gap-1.5">
             <Text
               numberOfLines={1}
               className={cn(
-                'flex-1 text-sm font-medium',
+                'flex-1 text-base font-semibold',
                 current ? 'text-git-branch' : 'text-foreground'
               )}>
               {middleTruncate(name, 40)}
             </Text>
             {current ? (
-              <Icon as={Check} size={12} className="text-git-branch" />
+              <Icon as={Check} size={14} className="text-git-branch" />
             ) : null}
           </View>
 

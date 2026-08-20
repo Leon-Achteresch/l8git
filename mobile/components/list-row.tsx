@@ -2,8 +2,10 @@ import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
+import { IconBadge } from '~/components/shared/icon-badge';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 type ListRowProps = {
@@ -11,6 +13,7 @@ type ListRowProps = {
   subtitle?: string;
   meta?: string;
   icon?: LucideIcon;
+  iconColor?: string;
   leading?: React.ReactNode;
   trailing?: React.ReactNode;
   chevron?: boolean;
@@ -26,6 +29,7 @@ export function ListRow({
   subtitle,
   meta,
   icon,
+  iconColor = palette.cat.blue,
   leading,
   trailing,
   chevron = false,
@@ -41,16 +45,16 @@ export function ListRow({
       disabled={disabled || !onPress}
       onPress={onPress}
       className={cn(
-        'border-border bg-card/60 flex-row items-center gap-3 border-x border-b px-3 py-3',
-        first && 'rounded-t-lg border-t',
-        last && 'rounded-b-lg',
+        'border-border bg-card flex-row items-center gap-3 border-x border-b px-3.5 py-3.5',
+        first && 'rounded-t-2xl border-t',
+        last && 'rounded-b-2xl',
         onPress && 'active:bg-accent',
         disabled && 'opacity-50',
         className
       )}>
-      {leading ?? (icon ? <Icon as={icon} className="text-muted-foreground size-4" /> : null)}
+      {leading ?? (icon ? <IconBadge icon={icon} color={iconColor} size="md" /> : null)}
       <View className="min-w-0 flex-1 gap-0.5">
-        <Text numberOfLines={1} className="text-foreground text-base font-medium">
+        <Text numberOfLines={1} className="text-foreground text-base font-semibold">
           {title}
         </Text>
         {subtitle ? (
@@ -60,14 +64,16 @@ export function ListRow({
         ) : null}
       </View>
       {meta ? (
-        <Text
-          style={{ fontVariant: ['tabular-nums'] }}
-          className="text-muted-foreground font-mono text-xs">
-          {meta}
-        </Text>
+        <View className="bg-secondary rounded-full px-2.5 py-1">
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground font-mono text-xs">
+            {meta}
+          </Text>
+        </View>
       ) : null}
       {trailing}
-      {chevron ? <Icon as={ChevronRight} className="text-muted-foreground size-4" /> : null}
+      {chevron ? <Icon as={ChevronRight} className="text-muted-foreground size-5" /> : null}
     </Pressable>
   );
 }

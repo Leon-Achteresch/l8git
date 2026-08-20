@@ -1,8 +1,16 @@
-import { ArrowDown, ArrowUp, ChevronRight, GitBranch, TriangleAlert } from 'lucide-react-native';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronRight,
+  FolderGit2,
+  GitBranch,
+  TriangleAlert,
+} from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
 import { middleTruncate, relativeTime, splitPath } from '~/components/shared/format';
+import { catColor, IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
@@ -37,9 +45,10 @@ export const RepoRow = React.memo(function RepoRow({
       onLongPress={onLongPress}
       accessibilityLabel={`${overview.name}, ${overview.branch || 'no branch'}`}>
       <View className="flex-row items-center gap-3 px-3.5 py-3">
+        <IconBadge icon={FolderGit2} color={catColor(overview.name || overview.path)} size="md" />
         <View className="min-w-0 flex-1 gap-1">
           <View className="flex-row items-center gap-2">
-            <Text numberOfLines={1} className="text-foreground text-[15px] font-semibold">
+            <Text numberOfLines={1} className="text-foreground text-base font-semibold">
               {overview.name || splitPath(overview.path).name}
             </Text>
             {overview.dirty_count > 0 ? (

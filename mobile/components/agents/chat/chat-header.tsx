@@ -1,6 +1,8 @@
-import { ChevronLeft, Settings2 } from 'lucide-react-native';
+import { Bot, ChevronLeft, Settings2 } from 'lucide-react-native';
 import { View } from 'react-native';
 
+import { providerMeta } from '~/components/agents/agent-meta';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { StatusPill, type PillTone } from '~/components/shared/status-pill';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
@@ -45,13 +47,15 @@ export function AgentChatHeader({
   onOpenSettings: () => void;
 }) {
   return (
-    <View className="border-border flex-row items-center gap-1 border-b px-1.5 py-1.5">
+    <View className="border-border flex-row items-center gap-1.5 border-b px-1.5 py-1.5">
       <Button size="icon" variant="ghost" accessibilityLabel="Back" onPress={onBack}>
         <Icon as={ChevronLeft} size={20} className="text-foreground" />
       </Button>
 
+      <IconBadge icon={Bot} color={providerMeta(provider).color} size="sm" />
+
       <View className="min-w-0 flex-1 gap-0.5 pl-0.5">
-        <Text numberOfLines={1} className="text-foreground text-sm font-semibold tracking-tight">
+        <Text numberOfLines={1} className="text-foreground text-base font-bold tracking-tight">
           {title || providerLabel(provider)}
         </Text>
         <Text numberOfLines={1} className="text-muted-foreground text-2xs">

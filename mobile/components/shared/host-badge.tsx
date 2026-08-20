@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 
-import { accentFor } from '~/components/shared/format';
+import { catColor } from '~/components/shared/icon-badge';
 import { Text } from '~/components/ui/text';
 import { useHostMeta, useHostRuntime } from '~/lib/connections';
 import { cn } from '~/lib/utils';
@@ -25,7 +25,7 @@ export function HostBadge({
   const meta = useHostMeta(hostId);
   const runtime = useHostRuntime(showStatus ? hostId : null);
   const label = name ?? meta?.name ?? hostId;
-  const color = accentFor(hostId);
+  const color = catColor(hostId);
   const offline = showStatus && runtime.status !== 'online';
 
   return (

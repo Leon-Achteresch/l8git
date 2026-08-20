@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { ChevronLeft, GitBranch } from 'lucide-react-native';
+import { ChevronLeft, FolderGit2, GitBranch } from 'lucide-react-native';
 import * as React from 'react';
 import { Platform, Pressable, ScrollView, View } from 'react-native';
 import Animated, {
@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { HostBadge } from '~/components/shared/host-badge';
+import { catColor, IconBadge } from '~/components/shared/icon-badge';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
@@ -44,16 +45,16 @@ function SegmentButton({
       accessibilityState={{ selected: active }}
       onPress={onPress}
       className="px-1">
-      <View className="h-8 justify-center px-3">
+      <View className="h-9 justify-center px-4">
         <Animated.View
           pointerEvents="none"
           style={pillStyle}
-          className="bg-accent border-accent-foreground/25 absolute bottom-0 left-0 right-0 top-0 rounded-lg border"
+          className="bg-primary absolute bottom-0 left-0 right-0 top-0 rounded-full"
         />
         <Text
           className={cn(
             'text-sm tracking-wide',
-            active ? 'text-accent-foreground font-medium' : 'text-muted-foreground'
+            active ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'
           )}>
           {REPO_SECTION_LABEL[section]}
         </Text>
@@ -100,19 +101,20 @@ export function RepoHeader({
 
   return (
     <View className="gap-2 pb-2">
-      <View className="flex-row items-center gap-1 px-2 pt-1">
+      <View className="flex-row items-center gap-2 px-2 pt-1">
         <Button size="icon" variant="ghost" accessibilityLabel="Back" onPress={onBack}>
           <Icon as={ChevronLeft} className="text-foreground size-5" />
         </Button>
+        <IconBadge icon={FolderGit2} color={catColor(repoName || repoPath)} size="md" />
         <View className="min-w-0 flex-1">
-          <Text numberOfLines={1} className="text-foreground text-lg font-semibold tracking-tight">
+          <Text numberOfLines={1} className="text-foreground text-2xl font-bold tracking-tight">
             {repoName}
           </Text>
           <View className="flex-row items-center gap-2">
             {branch ? (
-              <View className="flex-row items-center gap-1">
+              <View className="bg-secondary flex-row items-center gap-1 rounded-full px-2 py-0.5">
                 <Icon as={GitBranch} size={11} className="text-git-branch" />
-                <Text numberOfLines={1} className="text-git-branch max-w-40 text-2xs font-medium">
+                <Text numberOfLines={1} className="text-git-branch max-w-40 text-2xs font-semibold">
                   {branch}
                 </Text>
               </View>

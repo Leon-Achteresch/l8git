@@ -3,6 +3,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { ListGroup, ListRow } from '~/components/list-row';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { StatusDot } from '~/components/status-dot';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
@@ -18,6 +19,7 @@ import {
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { classifyEndpoint, useConnections, useHostMeta, useHostRuntime } from '~/lib/connections';
+import { palette } from '~/lib/theme';
 import { statusTone } from './status';
 
 export function HostDetailDialog({
@@ -71,19 +73,19 @@ export function HostDetailDialog({
 
         <ListGroup>
           <ListRow
-            icon={Gauge}
+            leading={<IconBadge icon={Gauge} color={palette.cat.green} size="md" />}
             title="Latency"
             subtitle="Ping round trip"
             meta={online && runtime.latencyMs !== null ? `${Math.round(runtime.latencyMs)} ms` : '—'}
           />
           <ListRow
-            icon={Radio}
+            leading={<IconBadge icon={Radio} color={palette.cat.blue} size="md" />}
             title="Endpoint"
             subtitle={runtime.endpoint ?? 'not connected'}
             meta={runtime.endpoint ? classifyEndpoint(runtime.endpoint) : undefined}
           />
           <ListRow
-            icon={Server}
+            leading={<IconBadge icon={Server} color={palette.cat.purple} size="md" />}
             title="Host"
             subtitle={
               runtime.hostInfo
@@ -92,7 +94,7 @@ export function HostDetailDialog({
             }
           />
           <ListRow
-            icon={Activity}
+            leading={<IconBadge icon={Activity} color={palette.cat.orange} size="md" />}
             title="Reconnect attempts"
             meta={String(runtime.attempt)}
             subtitle={

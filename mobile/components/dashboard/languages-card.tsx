@@ -57,6 +57,8 @@ export function LanguagesCard({
     <Panel>
       <PanelHeader
         title="Languages"
+        icon={FileCode2}
+        iconColor={palette.cat.cyan}
         hint={total > 0 ? `${formatBytes(total)} tracked` : undefined}
       />
 
@@ -73,7 +75,7 @@ export function LanguagesCard({
         <PanelEmpty icon={FileCode2} message="No tracked source files in HEAD." />
       ) : (
         <Animated.View entering={FadeIn.duration(200)} className="gap-3">
-          <View className="bg-muted h-2.5 w-full flex-row gap-px overflow-hidden rounded-sm">
+          <View className="bg-secondary h-3 w-full flex-row gap-px overflow-hidden rounded-full">
             {segments.map((segment) => (
               <View
                 key={segment.key}
@@ -87,20 +89,24 @@ export function LanguagesCard({
             ))}
           </View>
 
-          <View className="gap-2">
+          <View className="gap-2.5">
             {segments.map((segment) => (
               <View key={segment.key} className="flex-row items-center gap-2">
                 <View
                   style={{ backgroundColor: segment.color }}
-                  className="h-2 w-2 rounded-full"
+                  className="h-2.5 w-2.5 rounded-full"
                 />
-                <Text numberOfLines={1} className="text-foreground flex-1 text-xs font-medium">
+                <Text numberOfLines={1} className="text-foreground flex-1 text-sm font-medium">
                   {segment.label}
                 </Text>
-                <Text className="text-muted-foreground font-mono text-xs">
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-foreground font-mono text-xs font-semibold">
                   {`${segment.percent.toFixed(1)}%`}
                 </Text>
-                <Text className="text-muted-foreground/60 w-16 text-right font-mono text-2xs">
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-muted-foreground/60 w-16 text-right font-mono text-2xs">
                   {formatBytes(segment.bytes)}
                 </Text>
               </View>

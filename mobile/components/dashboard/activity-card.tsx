@@ -67,6 +67,8 @@ export function ActivityCard({
     <Panel>
       <PanelHeader
         title="Activity"
+        icon={Activity}
+        iconColor={accent}
         right={<RangePills value={range} onChange={onRangeChange} />}
       />
 

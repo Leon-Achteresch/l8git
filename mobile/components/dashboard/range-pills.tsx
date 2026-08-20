@@ -13,7 +13,7 @@ export function RangePills({
   onChange: (next: RangeKey) => void;
 }) {
   return (
-    <View className="border-border bg-muted/50 flex-row rounded-lg border p-0.5">
+    <View className="border-border bg-secondary flex-row rounded-full border p-1">
       {RANGE_KEYS.map((key) => {
         const active = key === value;
         return (
@@ -22,13 +22,14 @@ export function RangePills({
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(key)}
-            className="rounded-md">
+            className="rounded-full">
             <Animated.View
               layout={LinearTransition.duration(160)}
-              className={cn('rounded-md px-2 py-1', active && 'bg-primary')}>
+              className={cn('rounded-full px-3 py-1', active && 'bg-primary')}>
               <Text
+                style={{ fontVariant: ['tabular-nums'] }}
                 className={cn(
-                  'text-2xs font-medium tracking-wide',
+                  'text-2xs font-semibold tracking-wide',
                   active ? 'text-primary-foreground' : 'text-muted-foreground'
                 )}>
                 {key}

@@ -1,13 +1,13 @@
 import { formatUsd } from '@desktop/lib/agents/token-cost';
-import { CircleAlert, FolderGit2, GitBranch } from 'lucide-react-native';
+import { Bot, CircleAlert, FolderGit2, GitBranch } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
 import { providerMeta } from '~/components/agents/agent-meta';
 import { AgentStatusChip } from '~/components/agents/agent-status-chip';
 import { agentTimestampMs, formatTokens } from '~/components/agents/overview-model';
-import { ProviderMark } from '~/components/agents/provider-badge';
 import { relativeTime } from '~/components/shared/format';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
@@ -55,20 +55,26 @@ export const AgentThreadRow = React.memo(function AgentThreadRow({
           />
         ) : null}
 
-        <ProviderMark provider={entry.provider} dimmed={entry.stale} />
+        <View style={{ opacity: entry.stale ? 0.55 : 1 }}>
+          <IconBadge icon={Bot} color={meta.color} size="md" />
+        </View>
 
         <View className="min-w-0 flex-1 gap-1">
           <View className="flex-row items-start gap-2">
             <Text
               numberOfLines={1}
               className={cn(
-                'min-w-0 flex-1 text-sm font-medium',
+                'min-w-0 flex-1 text-base font-semibold',
                 entry.stale ? 'text-foreground/70' : 'text-foreground'
               )}>
               {entry.title}
             </Text>
             {stamp ? (
-              <Text className="text-muted-foreground/80 shrink-0 font-mono text-2xs">{stamp}</Text>
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-muted-foreground/80 shrink-0 font-mono text-2xs">
+                {stamp}
+              </Text>
             ) : null}
           </View>
 
@@ -111,14 +117,20 @@ export const AgentThreadRow = React.memo(function AgentThreadRow({
 
             {tokens ? (
               <View className="border-border bg-muted/60 rounded-full border px-1.5 py-px">
-                <Text className="text-muted-foreground font-mono text-2xs">
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-muted-foreground font-mono text-2xs">
                   {tokens}
                   {cost ? ` · ${cost}` : ''}
                 </Text>
               </View>
             ) : cost ? (
               <View className="border-border bg-muted/60 rounded-full border px-1.5 py-px">
-                <Text className="text-muted-foreground font-mono text-2xs">{cost}</Text>
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-muted-foreground font-mono text-2xs">
+                  {cost}
+                </Text>
               </View>
             ) : null}
 

@@ -59,9 +59,9 @@ export function InboxZero({ subtitle }: { subtitle?: string }) {
         </Animated.View>
       </View>
 
-      <Animated.View entering={FadeInDown.duration(320).delay(120)} className="items-center gap-1">
-        <Text className="text-foreground text-lg font-semibold tracking-tight">Inbox zero</Text>
-        <Text className="text-muted-foreground max-w-72 text-center text-sm">
+      <Animated.View entering={FadeInDown.duration(320).delay(120)} className="items-center gap-1.5">
+        <Text className="text-foreground text-3xl font-bold tracking-tight">Inbox zero</Text>
+        <Text className="text-muted-foreground max-w-72 text-center text-base">
           {subtitle ?? 'No reviews waiting, no red pipelines, nothing needs you right now.'}
         </Text>
       </Animated.View>

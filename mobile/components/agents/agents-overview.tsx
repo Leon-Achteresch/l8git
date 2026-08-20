@@ -29,7 +29,7 @@ import {
   type AgentRepoGroup,
 } from '~/components/agents/overview-model';
 import { EmptyState } from '~/components/empty-state';
-import { ScreenTitle } from '~/components/screen';
+import { IconBadge } from '~/components/shared/icon-badge';
 import { useBottomInset } from '~/components/shared/use-bottom-inset';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
@@ -48,7 +48,11 @@ import { palette } from '~/lib/theme';
 function HeaderPill({ label }: { label: string }) {
   return (
     <View className="border-border bg-muted/70 rounded-full border px-2.5 py-1">
-      <Text className="text-muted-foreground font-mono text-2xs">{label}</Text>
+      <Text
+        style={{ fontVariant: ['tabular-nums'] }}
+        className="text-muted-foreground font-mono text-2xs">
+        {label}
+      </Text>
     </View>
   );
 }
@@ -156,27 +160,30 @@ export function AgentsOverview() {
 
   return (
     <View className="flex-1">
-      <View className="px-4">
-        <ScreenTitle
-          title="Agents"
-          subtitle={subtitle}
-          right={
-            <View className="flex-row items-center gap-2">
-              {tokens ? <HeaderPill label={tokens} /> : null}
-              {cost > 0 ? <HeaderPill label={formatUsd(cost)} /> : null}
-              <ApprovalsInboxIconButton />
-              <WorktreeReviewsIconButton />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Start a new agent thread"
-                hitSlop={8}
-                onPress={() => openComposer()}
-                className="border-border bg-muted/70 active:bg-accent h-8 w-8 items-center justify-center rounded-full border">
-                <Icon as={Plus} size={15} className="text-foreground" />
-              </Pressable>
-            </View>
-          }
-        />
+      <View className="flex-row items-start justify-between gap-3 px-4 pb-3 pt-1">
+        <View className="min-w-0 flex-1 flex-row items-center gap-3">
+          <IconBadge icon={Bot} color={palette.cat.purple} size="lg" />
+          <View className="min-w-0 flex-1 gap-0.5">
+            <Text className="text-foreground text-3xl font-bold tracking-tight">Agents</Text>
+            <Text numberOfLines={1} className="text-muted-foreground text-sm">
+              {subtitle}
+            </Text>
+          </View>
+        </View>
+        <View className="flex-row items-center gap-2 pt-1">
+          {tokens ? <HeaderPill label={tokens} /> : null}
+          {cost > 0 ? <HeaderPill label={formatUsd(cost)} /> : null}
+          <ApprovalsInboxIconButton />
+          <WorktreeReviewsIconButton />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start a new agent thread"
+            hitSlop={8}
+            onPress={() => openComposer()}
+            className="bg-primary active:opacity-80 h-9 w-9 items-center justify-center rounded-full">
+            <Icon as={Plus} size={17} className="text-primary-foreground" />
+          </Pressable>
+        </View>
       </View>
 
       {entries.length > 0 || !isDefaultFilters(filters) ? (
@@ -283,7 +290,7 @@ export function AgentsOverview() {
           </Animated.View>
         )}
 
-        <View style={{ height: bottomInset + 40 }} />
+        <View style={{ height: bottomInset + 72 }} />
       </ScrollView>
 
       <NewThreadSheet

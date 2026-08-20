@@ -99,7 +99,11 @@ export function AgentStatusChip({
       )}
       <Text className={cn('text-2xs font-medium', CHIP_TEXT[status])}>{label}</Text>
       {count && count > 1 ? (
-        <Text className={cn('font-mono text-2xs opacity-70', CHIP_TEXT[status])}>{count}</Text>
+        <Text
+          style={{ fontVariant: ['tabular-nums'] }}
+          className={cn('font-mono text-2xs opacity-70', CHIP_TEXT[status])}>
+          {count}
+        </Text>
       ) : null}
     </View>
   );

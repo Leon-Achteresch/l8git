@@ -14,7 +14,11 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <View className="min-w-16 gap-0.5">
       <Text className="text-muted-foreground/70 text-2xs uppercase tracking-widest">{label}</Text>
-      <Text className="text-foreground font-mono text-xs">{value}</Text>
+      <Text
+        style={{ fontVariant: ['tabular-nums'] }}
+        className="text-foreground font-mono text-xs">
+        {value}
+      </Text>
     </View>
   );
 }
