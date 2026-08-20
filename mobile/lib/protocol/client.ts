@@ -137,7 +137,8 @@ function defaultSocketFactory(url: string, options?: SocketOptions): SocketLike 
   if (!Ctor) {
     throw new ProtocolError('no WebSocket implementation available');
   }
-  return new Ctor(url, null, options);
+  const supportsOptions = typeof document === 'undefined' && options != null;
+  return supportsOptions ? new Ctor(url, null, options) : new Ctor(url);
 }
 
 interface PendingRequest {

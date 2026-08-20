@@ -40,6 +40,10 @@ const isInsideProject = (filePath) =>
   typeof filePath === 'string' && !path.relative(projectRoot, filePath).startsWith('..');
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web' && moduleName === 'expo-secure-store') {
+    return { type: 'sourceFile', filePath: path.resolve(projectRoot, 'lib/securestore-web.js') };
+  }
+
   const exact = exactAliases.get(moduleName);
   if (exact) {
     return { type: 'sourceFile', filePath: exact };

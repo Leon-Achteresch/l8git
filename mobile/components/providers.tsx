@@ -11,6 +11,8 @@ import { PortalHost } from '@rn-primitives/portal';
 
 import { startAgentRuntime } from '~/lib/agents/runtime';
 import { startConnectionManager } from '~/lib/connections';
+import { useDevPairing } from '~/lib/dev-pairing';
+import { useDevTour } from '~/lib/dev-tour';
 import { createQueryClient, useHostInvalidationBridge } from '~/lib/query';
 import { navigationTheme } from '~/lib/theme';
 
@@ -39,6 +41,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 function ConnectionBridge() {
   useHostInvalidationBridge();
+  useDevPairing();
+  useDevTour();
   React.useEffect(() => startConnectionManager(), []);
   React.useEffect(() => {
     void startAgentRuntime();

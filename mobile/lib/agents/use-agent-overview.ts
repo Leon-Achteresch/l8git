@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useShallow } from 'zustand/react/shallow';
 
 import { useConnections } from '~/lib/connections';
 
@@ -25,14 +24,16 @@ interface HostDescriptor {
 }
 
 function useHostDescriptors(): HostDescriptor[] {
-  return useConnections(
-    useShallow((state) =>
-      state.hosts.map((host) => ({
+  const hosts = useConnections((state) => state.hosts);
+  const runtime = useConnections((state) => state.runtime);
+  return React.useMemo(
+    () =>
+      hosts.map((host) => ({
         hostId: host.hostId,
         hostName: host.name,
-        online: state.runtime[host.hostId]?.status === 'online',
-      }))
-    )
+        online: runtime[host.hostId]?.status === 'online',
+      })),
+    [hosts, runtime]
   );
 }
 
