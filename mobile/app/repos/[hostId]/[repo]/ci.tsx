@@ -153,7 +153,7 @@ export default function RepoCiScreen() {
             <Icon
               as={RotateCw}
               size={15}
-              className={active.isFetching ? 'text-git-branch' : 'text-muted-foreground'}
+              className={active.isFetching ? 'text-foreground' : 'text-muted-foreground'}
             />
           </Pressable>
         </View>

@@ -36,7 +36,7 @@ function SessionRow({
       accessibilityLabel={`Review ${session.name}`}>
       <View className="flex-row items-center gap-2.5 px-3 py-3">
         <View className="border-git-branch/30 bg-git-branch/12 h-8 w-8 items-center justify-center rounded-lg border">
-          <Icon as={GitBranch} size={14} className="text-git-branch" />
+          <Icon as={GitBranch} size={14} className="text-foreground" />
         </View>
         <View className="min-w-0 flex-1 gap-0.5">
           <Text numberOfLines={1} className="text-foreground text-sm font-medium">

@@ -110,7 +110,7 @@ export default function RepoPullRequestsScreen() {
               <Icon
                 as={RotateCw}
                 size={15}
-                className={list.isFetching ? 'text-git-branch' : 'text-muted-foreground'}
+                className={list.isFetching ? 'text-foreground' : 'text-muted-foreground'}
               />
             </Pressable>
           }

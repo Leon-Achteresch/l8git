@@ -244,9 +244,9 @@ export default function RepoBranchesScreen() {
         </View>
         {currentBranch ? (
           <View className="flex-row items-center gap-2 px-0.5">
-            <Icon as={GitBranch} size={12} className="text-git-branch" />
+            <Icon as={GitBranch} size={12} className="text-foreground" />
             <Text numberOfLines={1} className="text-muted-foreground flex-1 text-xs">
-              on <Text className="text-git-branch text-xs font-medium">{currentBranch}</Text>
+              on <Text className="text-foreground text-xs font-medium">{currentBranch}</Text>
             </Text>
             {upstream.data && (upstream.data.ahead > 0 || upstream.data.behind > 0) ? (
               <View className="flex-row gap-1">

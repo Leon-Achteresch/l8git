@@ -116,7 +116,7 @@ export default function WorkflowRunDetailScreen() {
               <Icon
                 as={RotateCw}
                 size={16}
-                className={jobs.isFetching ? 'text-git-branch' : 'text-muted-foreground'}
+                className={jobs.isFetching ? 'text-foreground' : 'text-muted-foreground'}
               />
             </Pressable>
           </>

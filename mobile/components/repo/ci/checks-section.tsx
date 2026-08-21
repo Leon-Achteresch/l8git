@@ -136,7 +136,7 @@ function CheckRow({
             onPress={() => onRerun(check)}
             className="active:bg-accent h-7 w-7 items-center justify-center rounded-lg">
             {rerunning ? (
-              <Spinner size={13} className="text-git-branch" />
+              <Spinner size={13} className="text-foreground" />
             ) : (
               <Icon as={RotateCw} size={13} className="text-muted-foreground" />
             )}

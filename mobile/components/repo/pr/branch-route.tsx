@@ -19,7 +19,7 @@ export function BranchRoute({
 }) {
   return (
     <View className={cn('min-w-0 flex-row items-center gap-1', className)}>
-      <Text numberOfLines={1} className="text-git-branch font-mono text-2xs">
+      <Text numberOfLines={1} className="text-foreground font-mono text-2xs">
         {middleTruncate(head, max)}
       </Text>
       <Icon as={ArrowRight} size={9} className="text-muted-foreground/60" />

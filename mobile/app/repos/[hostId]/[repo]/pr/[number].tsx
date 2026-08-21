@@ -121,7 +121,7 @@ export default function PullRequestDetailScreen() {
               <Icon
                 as={RotateCw}
                 size={16}
-                className={detail.isFetching ? 'text-git-branch' : 'text-muted-foreground'}
+                className={detail.isFetching ? 'text-foreground' : 'text-muted-foreground'}
               />
             </Pressable>
             <Pressable

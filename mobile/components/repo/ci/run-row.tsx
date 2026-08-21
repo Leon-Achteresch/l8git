@@ -76,8 +76,8 @@ export const RunRow = React.memo(function RunRow({
           <View className="flex-row flex-wrap items-center gap-x-1.5 gap-y-1">
             {run.head_branch ? (
               <View className="flex-row items-center gap-1">
-                <Icon as={GitBranch} size={9} className="text-git-branch" />
-                <Text numberOfLines={1} className="text-git-branch/90 max-w-32 text-2xs">
+                <Icon as={GitBranch} size={9} className="text-foreground" />
+                <Text numberOfLines={1} className="text-foreground/90 max-w-32 text-2xs">
                   {middleTruncate(run.head_branch, 22)}
                 </Text>
               </View>
