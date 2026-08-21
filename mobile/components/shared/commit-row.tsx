@@ -54,7 +54,6 @@ export function CommitRow({
 }: CommitRowProps) {
   const merge = (parents?.length ?? 0) > 1;
   const dotColor = laneColor ?? accentFor(hash);
-  const avatarTint = accentFor(email ?? author);
   const meta = [author, relativeTime(date)].filter(Boolean).join(' · ');
 
   return (
@@ -83,8 +82,8 @@ export function CommitRow({
 
         <Avatar alt={author} className="size-10">
           {avatarUrl ? <AvatarImage source={{ uri: avatarUrl }} /> : null}
-          <AvatarFallback style={{ backgroundColor: `${avatarTint}26` }}>
-            <Text style={{ color: avatarTint }} className="text-xs font-semibold">
+          <AvatarFallback className="bg-secondary">
+            <Text className="text-muted-foreground text-xs font-semibold">
               {initials(author)}
             </Text>
           </AvatarFallback>

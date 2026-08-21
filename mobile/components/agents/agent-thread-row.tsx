@@ -1,16 +1,16 @@
 import { formatUsd } from '@desktop/lib/agents/token-cost';
-import { Bot, CircleAlert, FolderGit2, GitBranch } from 'lucide-react-native';
+import { CircleAlert, FolderGit2, GitBranch } from 'lucide-react-native';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 
 import { providerMeta } from '~/components/agents/agent-meta';
 import { AgentStatusChip } from '~/components/agents/agent-status-chip';
 import { agentTimestampMs, formatTokens } from '~/components/agents/overview-model';
 import { relativeTime } from '~/components/shared/format';
-import { IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { illustrations } from '~/lib/illustrations';
 import type { HostAgentEntry } from '~/lib/agents/overview-aggregator';
 import { cn } from '~/lib/utils';
 
@@ -56,7 +56,11 @@ export const AgentThreadRow = React.memo(function AgentThreadRow({
         ) : null}
 
         <View style={{ opacity: entry.stale ? 0.55 : 1 }}>
-          <IconBadge icon={Bot} color={meta.color} size="md" />
+          <Image
+            source={illustrations.agent}
+            resizeMode="cover"
+            style={{ width: 40, height: 40, borderRadius: 13 }}
+          />
         </View>
 
         <View className="min-w-0 flex-1 gap-1">
@@ -108,7 +112,7 @@ export const AgentThreadRow = React.memo(function AgentThreadRow({
             {entry.isWorktree ? (
               <View className="border-border bg-muted/60 flex-row items-center gap-1 rounded-full border px-1.5 py-px">
                 <Icon as={FolderGit2} size={9} className="text-muted-foreground" />
-                <Icon as={GitBranch} size={9} className="text-git-branch" />
+                <Icon as={GitBranch} size={9} className="text-muted-foreground" />
                 <Text numberOfLines={1} className="text-muted-foreground max-w-24 text-2xs">
                   {entry.branch ?? 'worktree'}
                 </Text>

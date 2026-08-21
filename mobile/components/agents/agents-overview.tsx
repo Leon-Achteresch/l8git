@@ -1,9 +1,9 @@
 import { formatUsd } from '@desktop/lib/agents/token-cost';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Bot, FolderGit2, ListFilter, Plug, Plus, WifiOff } from 'lucide-react-native';
+import { FolderGit2, ListFilter, Plug, Plus, WifiOff } from 'lucide-react-native';
 import * as React from 'react';
-import { Platform, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Image, Platform, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 
 import { AgentAttentionSection } from '~/components/agents/agent-attention-section';
@@ -29,7 +29,6 @@ import {
   type AgentRepoGroup,
 } from '~/components/agents/overview-model';
 import { EmptyState } from '~/components/empty-state';
-import { IconBadge } from '~/components/shared/icon-badge';
 import { useBottomInset } from '~/components/shared/use-bottom-inset';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
@@ -43,11 +42,12 @@ import { useAgentConnection } from '~/lib/agents/use-agent-connection';
 import { useAgentOverview } from '~/lib/agents/use-agent-overview';
 import { useConnections } from '~/lib/connections';
 import { useHostRepoPaths, useRepoRegistry } from '~/lib/repo/registry';
+import { illustrations } from '~/lib/illustrations';
 import { palette } from '~/lib/theme';
 
 function HeaderPill({ label }: { label: string }) {
   return (
-    <View className="border-border bg-muted/70 rounded-full border px-2.5 py-1">
+    <View className="bg-secondary rounded-full px-2.5 py-1">
       <Text
         style={{ fontVariant: ['tabular-nums'] }}
         className="text-muted-foreground font-mono text-2xs">
@@ -162,7 +162,11 @@ export function AgentsOverview() {
     <View className="flex-1">
       <View className="flex-row items-start justify-between gap-3 px-4 pb-3 pt-1">
         <View className="min-w-0 flex-1 flex-row items-center gap-3">
-          <IconBadge icon={Bot} color={palette.cat.purple} size="lg" />
+          <Image
+            source={illustrations.agent}
+            resizeMode="cover"
+            style={{ width: 48, height: 48, borderRadius: 15 }}
+          />
           <View className="min-w-0 flex-1 gap-0.5">
             <Text className="text-foreground text-3xl font-bold tracking-tight">Agents</Text>
             <Text numberOfLines={1} className="text-muted-foreground text-sm">
@@ -201,7 +205,7 @@ export function AgentsOverview() {
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-4 px-4 pt-1"
+        contentContainerClassName="gap-4 px-4 pb-24 pt-1"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -244,7 +248,7 @@ export function AgentsOverview() {
           />
         ) : entries.length === 0 ? (
           <EmptyState
-            icon={Bot}
+            illustration="agent"
             title="No agent threads yet"
             description={`Start a thread on ${
               connection.hostName ?? 'this host'

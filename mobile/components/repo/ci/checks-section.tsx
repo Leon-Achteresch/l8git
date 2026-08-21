@@ -14,13 +14,11 @@ import {
   type CiState,
   type RemoteCiCheck,
 } from '~/components/repo/ci/ci-types';
-import { IconBadge } from '~/components/shared/icon-badge';
 import { Spinner } from '~/components/shared/spinner';
 import { relativeTime } from '~/components/shared/format';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 const CHECK_SURFACE: Record<CiState, string> = {
@@ -195,8 +193,10 @@ export function ChecksList({
 
   if (sorted.length === 0) {
     return (
-      <View className="border-border bg-card flex-row items-center gap-3 rounded-2xl border px-3.5 py-3.5">
-        <IconBadge icon={ShieldCheck} color={palette.cat.cyan} size="md" />
+      <View className="bg-card flex-row items-center gap-3 rounded-2xl px-3.5 py-3.5">
+        <View className="bg-secondary h-10 w-10 items-center justify-center rounded-2xl">
+          <Icon as={ShieldCheck} size={19} className="text-muted-foreground" />
+        </View>
         <Text className="text-muted-foreground text-sm">No checks reported for this commit.</Text>
       </View>
     );

@@ -2,10 +2,8 @@ import { ChevronRight, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
-import { IconBadge } from '~/components/shared/icon-badge';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 type ListRowProps = {
@@ -29,7 +27,6 @@ export function ListRow({
   subtitle,
   meta,
   icon,
-  iconColor = palette.cat.blue,
   leading,
   trailing,
   chevron = false,
@@ -52,7 +49,12 @@ export function ListRow({
         disabled && 'opacity-50',
         className
       )}>
-      {leading ?? (icon ? <IconBadge icon={icon} color={iconColor} size="md" /> : null)}
+      {leading ??
+        (icon ? (
+          <View className="bg-secondary h-9 w-9 items-center justify-center rounded-full">
+            <Icon as={icon} size={17} className="text-muted-foreground" />
+          </View>
+        ) : null)}
       <View className="min-w-0 flex-1 gap-0.5">
         <Text numberOfLines={1} className="text-foreground text-base font-semibold">
           {title}

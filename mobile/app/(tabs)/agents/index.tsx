@@ -1,11 +1,9 @@
-import { Bot } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { AgentRuntimeGate } from '~/components/agents/agent-runtime-gate';
 import { AgentsOverview } from '~/components/agents/agents-overview';
 import { AgentsOverviewSkeleton } from '~/components/agents/agents-overview-skeleton';
 import { Screen, ScreenTitle } from '~/components/screen';
-import { palette } from '~/lib/theme';
 
 export default function AgentsScreen() {
   return (
@@ -15,8 +13,7 @@ export default function AgentsScreen() {
           <View className="flex-1 px-4">
             <ScreenTitle
               title="Agents"
-              icon={Bot}
-              iconColor={palette.cat.purple}
+              illustration="agent"
               subtitle="Starting the agent runtime…"
             />
             <AgentsOverviewSkeleton />

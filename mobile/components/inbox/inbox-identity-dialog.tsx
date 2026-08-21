@@ -11,13 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
-import { IconBadge } from '~/components/shared/icon-badge';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
 import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
 import { useViewerIdentity } from '~/lib/inbox-identity';
-import { palette } from '~/lib/theme';
 
 const PROVIDER_LABEL: Record<string, string> = {
   'github.com': 'GitHub',
@@ -139,7 +137,9 @@ export function InboxIdentityNudge({
       entering={FadeIn.duration(200)}
       exiting={FadeOut.duration(150)}
       className="border-border bg-card flex-row items-center gap-3 rounded-3xl border py-3 pl-3.5 pr-2">
-      <IconBadge icon={UserRound} color={palette.cat.coral} size="md" />
+      <View className="bg-secondary h-10 w-10 items-center justify-center rounded-2xl">
+        <Icon as={UserRound} size={19} className="text-muted-foreground" />
+      </View>
       <Text className="text-muted-foreground min-w-0 flex-1 text-xs">
         Showing every open pull request. Add your {hosts.map(providerLabel).join(' and ')} handle to
         filter this feed.

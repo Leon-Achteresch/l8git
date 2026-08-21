@@ -4,7 +4,6 @@ import {
   Eye,
   FolderGit2,
   GitPullRequest,
-  Inbox,
   Plug,
   TriangleAlert,
   UserRound,
@@ -112,8 +111,7 @@ export default function InboxScreen() {
       <View className="px-4">
         <ScreenTitle
           title="Inbox"
-          icon={Inbox}
-          iconColor={palette.cat.coral}
+          illustration="inbox"
           subtitle={subtitle}
           right={
             <View className="flex-row items-center gap-2">
@@ -123,8 +121,8 @@ export default function InboxScreen() {
                   accessibilityLabel="Edit your review handles"
                   hitSlop={8}
                   onPress={openIdentity}
-                  className="border-border bg-muted/70 active:bg-accent h-7 w-7 items-center justify-center rounded-full border">
-                  <Icon as={UserRound} size={13} className="text-muted-foreground" />
+                  className="bg-secondary active:opacity-80 h-8 w-8 items-center justify-center rounded-full">
+                  <Icon as={UserRound} size={14} className="text-muted-foreground" />
                 </Pressable>
               ) : null}
               <CountChip value={totalCount} busy={fetching && !refreshing} />
@@ -189,7 +187,6 @@ export default function InboxScreen() {
               icon={Eye}
               title="Awaiting your review"
               count={sections.reviewRequested.length}
-              color={palette.cat.coral}
               hint="No pull request is waiting for your review."
               loading={loading}
               index={0}>
@@ -199,7 +196,6 @@ export default function InboxScreen() {
                     item={item}
                     showHost={showHost}
                     divider={index > 0}
-                    iconColor={palette.cat.coral}
                     onOpen={openPr}
                   />
                 </Animated.View>
@@ -230,7 +226,6 @@ export default function InboxScreen() {
               icon={Bot}
               title="Agents awaiting approval"
               count={agents.length}
-              color={palette.cat.purple}
               hint="Approval requests from every connected host will appear here."
               index={2}
             />
@@ -239,7 +234,6 @@ export default function InboxScreen() {
               icon={GitPullRequest}
               title="My open pull requests"
               count={sections.myPrs.length}
-              color={palette.cat.purple}
               hint="You have no open pull requests."
               loading={loading}
               index={3}>

@@ -4,7 +4,6 @@ import { Pressable, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { relativeTime } from '~/components/shared/format';
-import { IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
@@ -44,7 +43,7 @@ export function InboxRowFrame({
   title,
   updatedAt,
   icon,
-  iconColor = palette.cat.purple,
+  iconColor = palette.mutedForeground,
   meta,
   badges,
   externalUrl,
@@ -65,7 +64,11 @@ export function InboxRowFrame({
       accessibilityLabel={accessibilityLabel ?? title}
       className={cn(divider && 'border-border/40 border-t')}>
       <View className="flex-row items-center gap-3 px-4 py-3.5">
-        {icon ? <IconBadge icon={icon} color={iconColor} size="md" /> : null}
+        {icon ? (
+          <View className="bg-secondary h-10 w-10 items-center justify-center rounded-2xl">
+            <Icon as={icon} size={19} color={iconColor} />
+          </View>
+        ) : null}
         <View className="min-w-0 flex-1 gap-1.5">
           <View className="flex-row items-center gap-2">
             <RepoChip name={repoName} />

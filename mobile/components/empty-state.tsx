@@ -1,15 +1,16 @@
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 
-import { IconBadge } from '~/components/shared/icon-badge';
+import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { palette } from '~/lib/theme';
+import { illustrationsLarge, type IllustrationName } from '~/lib/illustrations';
 import { cn } from '~/lib/utils';
 
 type EmptyStateProps = {
   icon?: LucideIcon;
   iconColor?: string;
+  illustration?: IllustrationName;
   title: string;
   description?: string;
   action?: React.ReactNode;
@@ -18,7 +19,7 @@ type EmptyStateProps = {
 
 export function EmptyState({
   icon,
-  iconColor = palette.cat.coral,
+  illustration,
   title,
   description,
   action,
@@ -26,7 +27,15 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <View className={cn('flex-1 items-center justify-center gap-4 px-8 py-12', className)}>
-      {icon ? <IconBadge icon={icon} color={iconColor} size="lg" /> : null}
+      {illustration ? (
+        <Image
+          source={illustrationsLarge[illustration]}
+          resizeMode="contain"
+          style={{ width: 110, height: 110 }}
+        />
+      ) : icon ? (
+        <Icon as={icon} size={44} className="text-muted-foreground" />
+      ) : null}
       <View className="items-center gap-1.5">
         <Text className="text-foreground text-lg font-bold">{title}</Text>
         {description ? (

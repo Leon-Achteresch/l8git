@@ -1,11 +1,9 @@
-import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react-native';
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react-native';
 import { View } from 'react-native';
 
-import { IconBadge } from '~/components/shared/icon-badge';
 import { Icon } from '~/components/ui/icon';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
-import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export type StatTone = 'default' | 'success' | 'warning' | 'danger' | 'branch';
@@ -15,74 +13,46 @@ const TONE_TEXT: Record<StatTone, string> = {
   success: 'text-success',
   warning: 'text-warning',
   danger: 'text-destructive',
-  branch: 'text-git-branch',
+  branch: 'text-foreground',
 };
-
-const TONE_COLOR: Record<StatTone, string> = {
-  default: palette.cat.blue,
-  success: palette.cat.green,
-  warning: palette.cat.orange,
-  danger: palette.cat.coral,
-  branch: palette.cat.blue,
-};
-
-const CARD_SHADOW = {
-  shadowColor: '#000',
-  shadowOpacity: 0.25,
-  shadowRadius: 16,
-  shadowOffset: { width: 0, height: 6 },
-  elevation: 6,
-} as const;
 
 const NUM = { fontVariant: ['tabular-nums' as const] };
 
 export function StatTile({
-  icon,
   label,
   value,
   tone = 'default',
-  color,
   delta,
   loading = false,
   className,
 }: {
-  icon: LucideIcon;
   label: string;
   value: string;
   tone?: StatTone;
-  color?: string;
   delta?: number | null;
   loading?: boolean;
   className?: string;
 }) {
   return (
-    <View
-      style={CARD_SHADOW}
-      className={cn(
-        'border-border bg-card min-w-[46%] flex-1 gap-3 rounded-2xl border px-4 py-4',
-        className
-      )}>
+    <View className={cn('bg-card min-w-[46%] flex-1 gap-3 rounded-3xl px-4 py-4', className)}>
       <View className="flex-row items-center justify-between">
-        <IconBadge icon={icon} color={color ?? TONE_COLOR[tone]} size="md" />
-        <DeltaBadge value={delta} />
-      </View>
-      <View className="gap-1">
         <Text
           numberOfLines={1}
-          className="text-muted-foreground text-2xs font-semibold uppercase tracking-widest">
+          className="text-muted-foreground text-2xs font-medium uppercase tracking-wider">
           {label}
         </Text>
-        {loading ? (
-          <Skeleton className="h-9 w-16 rounded-lg" />
-        ) : (
-          <Text
-            style={NUM}
-            numberOfLines={1}
-            className={cn('text-4xl font-bold leading-none', TONE_TEXT[tone])}>
-            {value}
-          </Text>
-        )}
+        <DeltaBadge value={delta} />
       </View>
+      {loading ? (
+        <Skeleton className="h-8 w-16 rounded-lg" />
+      ) : (
+        <Text
+          style={NUM}
+          numberOfLines={1}
+          className={cn('text-[26px] font-bold leading-tight', TONE_TEXT[tone])}>
+          {value}
+        </Text>
+      )}
     </View>
   );
 }

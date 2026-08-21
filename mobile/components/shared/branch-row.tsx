@@ -3,12 +3,10 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { middleTruncate, relativeTime, shortHash } from '~/components/shared/format';
-import { IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export type BranchRowProps = {
@@ -62,27 +60,29 @@ export function BranchRow({
       onLongPress={onLongPress}
       accessibilityLabel={current ? `Current branch ${name}` : `Branch ${name}`}>
       <View className="flex-row items-center gap-3 px-3.5 py-3">
-        {current ? <View className="bg-git-branch absolute bottom-2 left-0 top-2 w-1 rounded-r-full" /> : null}
+        {current ? <View className="bg-foreground absolute bottom-2 left-0 top-2 w-1 rounded-r-full" /> : null}
 
-        <IconBadge
-          icon={remote ? Cloud : GitBranch}
-          color={palette.cat.blue}
-          size="md"
-          solid={current}
-        />
+        <View
+          className={cn(
+            'h-9 w-9 items-center justify-center rounded-full',
+            current ? 'bg-primary' : 'bg-secondary'
+          )}>
+          <Icon
+            as={remote ? Cloud : GitBranch}
+            size={17}
+            className={current ? 'text-primary-foreground' : 'text-muted-foreground'}
+          />
+        </View>
 
         <View className="min-w-0 flex-1 gap-0.5">
           <View className="flex-row items-center gap-1.5">
             <Text
               numberOfLines={1}
-              className={cn(
-                'flex-1 text-base font-semibold',
-                current ? 'text-git-branch' : 'text-foreground'
-              )}>
+              className="text-foreground flex-1 text-base font-semibold">
               {middleTruncate(name, 40)}
             </Text>
             {current ? (
-              <Icon as={Check} size={14} className="text-git-branch" />
+              <Icon as={Check} size={14} className="text-foreground" />
             ) : null}
           </View>
 

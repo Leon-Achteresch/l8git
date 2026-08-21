@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { ChevronLeft, FolderGit2, GitBranch } from 'lucide-react-native';
+import { ChevronLeft, GitBranch } from 'lucide-react-native';
 import * as React from 'react';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,11 +9,11 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { HostBadge } from '~/components/shared/host-badge';
-import { catColor, IconBadge } from '~/components/shared/icon-badge';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { illustrations } from '~/lib/illustrations';
 import { REPO_SECTIONS, REPO_SECTION_LABEL, type RepoSection } from '~/lib/repo/route';
 import { cn } from '~/lib/utils';
 
@@ -105,7 +105,11 @@ export function RepoHeader({
         <Button size="icon" variant="ghost" accessibilityLabel="Back" onPress={onBack}>
           <Icon as={ChevronLeft} className="text-foreground size-5" />
         </Button>
-        <IconBadge icon={FolderGit2} color={catColor(repoName || repoPath)} size="md" />
+        <Image
+          source={illustrations.repo}
+          resizeMode="cover"
+          style={{ width: 40, height: 40, borderRadius: 13 }}
+        />
         <View className="min-w-0 flex-1">
           <Text numberOfLines={1} className="text-foreground text-2xl font-bold tracking-tight">
             {repoName}
@@ -113,8 +117,8 @@ export function RepoHeader({
           <View className="flex-row items-center gap-2">
             {branch ? (
               <View className="bg-secondary flex-row items-center gap-1 rounded-full px-2 py-0.5">
-                <Icon as={GitBranch} size={11} className="text-git-branch" />
-                <Text numberOfLines={1} className="text-git-branch max-w-40 text-2xs font-semibold">
+                <Icon as={GitBranch} size={11} className="text-muted-foreground" />
+                <Text numberOfLines={1} className="text-muted-foreground max-w-40 text-2xs font-semibold">
                   {branch}
                 </Text>
               </View>

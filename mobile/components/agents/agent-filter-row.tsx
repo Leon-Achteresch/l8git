@@ -35,7 +35,6 @@ export function FilterChip({
   label,
   count,
   active,
-  accent,
   dot,
   dotColor,
   onPress,
@@ -43,7 +42,6 @@ export function FilterChip({
   label: string;
   count?: number;
   active: boolean;
-  accent?: string;
   dot?: boolean;
   dotColor?: string;
   onPress: () => void;
@@ -65,16 +63,11 @@ export function FilterChip({
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
       onPress={onPress}>
-      <View
-        style={active && accent ? { borderColor: `${accent}66` } : undefined}
-        className={cn(
-          'overflow-hidden rounded-full border',
-          active && !accent ? 'border-primary' : 'border-border'
-        )}>
+      <View className="bg-secondary overflow-hidden rounded-full">
         <Animated.View
           pointerEvents="none"
-          style={[fillStyle, accent ? { backgroundColor: accent } : undefined]}
-          className={cn('absolute bottom-0 left-0 right-0 top-0', !accent && 'bg-primary')}
+          style={fillStyle}
+          className="bg-primary absolute bottom-0 left-0 right-0 top-0"
         />
         <View className="flex-row items-center gap-1.5 px-3 py-1.5">
           {dot ? (
@@ -86,11 +79,7 @@ export function FilterChip({
           <Text
             className={cn(
               'text-2xs font-semibold',
-              active
-                ? accent
-                  ? 'text-foreground'
-                  : 'text-primary-foreground'
-                : 'text-muted-foreground'
+              active ? 'text-primary-foreground' : 'text-muted-foreground'
             )}>
             {label}
           </Text>
@@ -99,11 +88,7 @@ export function FilterChip({
               style={{ fontVariant: ['tabular-nums'] }}
               className={cn(
                 'font-mono text-2xs',
-                active
-                  ? accent
-                    ? 'text-foreground/70'
-                    : 'text-primary-foreground/75'
-                  : 'text-muted-foreground/60'
+                active ? 'text-primary-foreground/75' : 'text-muted-foreground/60'
               )}>
               {count}
             </Text>
@@ -205,7 +190,6 @@ export function AgentFilterRow({
               label={STATUS_LABEL[status]}
               count={statusCounts[status]}
               active={filters.status === status}
-              accent={`${meta.color}2e`}
               dot
               dotColor={meta.color}
               onPress={() => setStatus(status)}
@@ -235,7 +219,6 @@ export function AgentFilterRow({
                     label={meta.short}
                     count={providerCounts[provider]}
                     active={filters.provider === provider}
-                    accent={`${meta.color}2e`}
                     dot
                     dotColor={meta.color}
                     onPress={() => setProvider(provider)}
@@ -260,7 +243,6 @@ export function AgentFilterRow({
                   label={host.hostId === boundHostId ? `${host.hostName} · live` : host.hostName}
                   count={hostCounts[host.hostId] ?? 0}
                   active={filters.hostId === host.hostId}
-                  accent={`${accentFor(host.hostId)}2e`}
                   dot
                   dotColor={host.online ? accentFor(host.hostId) : palette.mutedForeground}
                   onPress={() => setHost(host.hostId)}

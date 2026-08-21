@@ -2,22 +2,12 @@ import { RotateCw, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { IconBadge } from '~/components/shared/icon-badge';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Icon } from '~/components/ui/icon';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
-import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
-
-const CARD_SHADOW = {
-  shadowColor: '#000',
-  shadowOpacity: 0.25,
-  shadowRadius: 16,
-  shadowOffset: { width: 0, height: 6 },
-  elevation: 6,
-} as const;
 
 export function Panel({
   children,
@@ -27,11 +17,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <Card
-      style={CARD_SHADOW}
-      className={cn('border-border bg-card gap-3 rounded-3xl border px-5 py-5', className)}>
-      {children}
-    </Card>
+    <Card className={cn('bg-card gap-3 rounded-3xl px-5 py-5', className)}>{children}</Card>
   );
 }
 
@@ -39,7 +25,6 @@ export function PanelHeader({
   title,
   hint,
   icon,
-  iconColor = palette.cat.green,
   right,
 }: {
   title: string;
@@ -51,7 +36,11 @@ export function PanelHeader({
   return (
     <View className="flex-row items-center justify-between gap-3">
       <View className="min-w-0 flex-1 flex-row items-center gap-3">
-        {icon ? <IconBadge icon={icon} color={iconColor} size="sm" /> : null}
+        {icon ? (
+          <View className="bg-secondary h-9 w-9 items-center justify-center rounded-2xl">
+            <Icon as={icon} className="text-muted-foreground size-4" />
+          </View>
+        ) : null}
         <View className="min-w-0 flex-1 gap-0.5">
           <Text className="text-foreground text-base font-semibold tracking-tight">{title}</Text>
           {hint ? (

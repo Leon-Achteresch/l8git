@@ -6,7 +6,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { compactNumber } from '~/components/dashboard/aggregate';
 import { Panel, PanelEmpty, PanelError, PanelHeader } from '~/components/dashboard/panel';
 import { useContributorStats } from '~/components/dashboard/queries';
-import { accentFor, initials } from '~/components/shared/format';
+import { initials } from '~/components/shared/format';
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
@@ -37,7 +37,6 @@ export function ContributorsCard({
         title="Contributors"
         hint={rangeLabel}
         icon={Users}
-        iconColor={palette.cat.purple}
         right={
           query.data ? (
             <Text
@@ -66,15 +65,11 @@ export function ContributorsCard({
       ) : (
         <Animated.View entering={FadeIn.duration(200)} className="gap-3">
           {top.map((entry, index) => {
-            const accent = accentFor(entry.email || entry.name);
             return (
               <View key={`${entry.email}-${entry.name}-${index}`} className="flex-row items-center gap-3">
-                <Avatar
-                  alt={entry.name || entry.email}
-                  className="size-9"
-                  style={{ backgroundColor: `${accent}26` }}>
+                <Avatar alt={entry.name || entry.email} className="bg-secondary size-9">
                   <AvatarFallback className="bg-transparent">
-                    <Text style={{ color: accent }} className="text-xs font-semibold">
+                    <Text className="text-foreground text-xs font-semibold">
                       {initials(entry.name || entry.email)}
                     </Text>
                   </AvatarFallback>
@@ -88,7 +83,7 @@ export function ContributorsCard({
                     <View
                       style={{
                         width: `${Math.max(4, (entry.commits / peak) * 100)}%`,
-                        backgroundColor: accent,
+                        backgroundColor: palette.foreground,
                       }}
                       className="h-full rounded-full"
                     />

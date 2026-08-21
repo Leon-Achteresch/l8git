@@ -47,7 +47,7 @@ function Chip({
       disabled={disabled}
       onPress={onPress}
       className={cn(
-        'border-border bg-muted/50 active:bg-accent rounded-full border px-2.5 py-1',
+        'bg-secondary active:opacity-70 rounded-full px-2.5 py-1',
         disabled && 'opacity-50'
       )}>
       <Text numberOfLines={1} className="text-muted-foreground max-w-44 text-2xs font-medium">
@@ -136,7 +136,7 @@ export function AgentComposer({
 
         <View
           className={cn(
-            'border-border bg-elevated min-w-0 flex-1 rounded-3xl border px-4 py-1',
+            'border-border bg-secondary min-w-0 flex-1 rounded-3xl border px-4 py-1',
             disabled && 'opacity-60'
           )}>
           <TextInput

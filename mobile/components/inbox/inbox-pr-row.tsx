@@ -43,7 +43,7 @@ export const InboxPrRow = React.memo(function InboxPrRow({
   item,
   showHost = false,
   divider = false,
-  iconColor = palette.cat.purple,
+  iconColor = palette.mutedForeground,
   onOpen,
 }: {
   item: InboxPrItem;
@@ -74,7 +74,7 @@ export const InboxPrRow = React.memo(function InboxPrRow({
           </Text>
           <MetaDot />
           <View className="min-w-0 flex-row items-center gap-1">
-            <Text numberOfLines={1} className="text-git-branch/90 max-w-28 text-2xs">
+            <Text numberOfLines={1} className="text-foreground/90 max-w-28 text-2xs">
               {middleTruncate(item.sourceBranch, 22)}
             </Text>
             <Icon as={ArrowRight} size={9} className="text-muted-foreground/60" />

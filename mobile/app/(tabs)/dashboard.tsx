@@ -1,15 +1,6 @@
-import {
-  ArrowUpDown,
-  FileWarning,
-  GitCommitHorizontal,
-  Layers,
-  LayoutDashboard,
-  PlugZap,
-  RotateCw,
-  ServerOff,
-} from 'lucide-react-native';
+import { RotateCw } from 'lucide-react-native';
 import * as React from 'react';
-import { RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 
 import { compactNumber } from '~/components/dashboard/aggregate';
 import { HostSection } from '~/components/dashboard/host-section';
@@ -22,7 +13,6 @@ import {
 import { StatTile } from '~/components/dashboard/stat-tile';
 import { EmptyState } from '~/components/empty-state';
 import { Screen, ScreenTitle } from '~/components/screen';
-import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { useConnections, useOnlineHostIds } from '~/lib/connections';
@@ -80,34 +70,32 @@ export default function DashboardScreen() {
         }>
         <ScreenTitle
           title="Dashboard"
-          icon={LayoutDashboard}
-          iconColor={palette.cat.green}
+          illustration="dashboard"
           subtitle={
             pairedCount === 0
               ? 'No hosts paired yet'
               : `${onlineHostIds.length} of ${pairedCount} hosts online`
           }
           right={
-            <Button
-              size="icon"
-              variant="ghost"
+            <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Refresh dashboard"
               onPress={onRefresh}
-              className="h-9 w-9 rounded-lg">
-              <Icon as={RotateCw} className="text-muted-foreground size-4" />
-            </Button>
+              className="bg-secondary active:opacity-80 h-10 w-10 items-center justify-center rounded-2xl">
+              <Icon as={RotateCw} className="text-foreground size-5" />
+            </Pressable>
           }
         />
 
         {pairedCount === 0 ? (
           <EmptyState
-            icon={PlugZap}
+            illustration="host"
             title="No hosts paired"
             description="Pair an l8gitd host in Settings to see live repo metrics."
           />
         ) : onlineHostIds.length === 0 ? (
           <EmptyState
-            icon={ServerOff}
+            illustration="host"
             title="Every host is offline"
             description="Metrics appear as soon as a paired host reconnects."
           />
@@ -115,33 +103,25 @@ export default function DashboardScreen() {
           <>
             <View className="flex-row flex-wrap gap-3">
               <StatTile
-                icon={Layers}
                 label="Repos"
                 value={String(totals.repos)}
-                color={palette.cat.blue}
                 loading={loading && totals.repos === 0}
               />
               <StatTile
-                icon={GitCommitHorizontal}
                 label="Commits 30d"
                 value={compactNumber(totals.commits)}
-                color={palette.cat.green}
                 loading={loading && totals.repos === 0}
               />
               <StatTile
-                icon={FileWarning}
                 label="Dirty repos"
                 value={String(totals.dirty)}
                 tone={totals.dirty > 0 ? 'warning' : 'default'}
-                color={palette.cat.orange}
                 loading={loading && totals.repos === 0}
               />
               <StatTile
-                icon={ArrowUpDown}
                 label="Ahead / behind"
                 value={`${totals.ahead}/${totals.behind}`}
                 tone={totals.behind > 0 ? 'danger' : 'default'}
-                color={palette.cat.coral}
                 loading={loading && totals.repos === 0}
               />
             </View>

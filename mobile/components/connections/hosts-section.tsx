@@ -1,20 +1,20 @@
 import * as Haptics from 'expo-haptics';
-import { Plus, Server, Trash2 } from 'lucide-react-native';
+import { Plus, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
-import { Alert as RNAlert, Pressable, View } from 'react-native';
+import { Alert as RNAlert, Image, Pressable, View } from 'react-native';
 
 import { AddHostDialog } from '~/components/connections/add-host-dialog';
 import { HostDetailDialog } from '~/components/connections/host-detail-dialog';
 import { statusLabel, statusTone } from '~/components/connections/status';
 import { EmptyState } from '~/components/empty-state';
 import { SectionHeader } from '~/components/section-header';
-import { catColor, IconBadge } from '~/components/shared/icon-badge';
 import { StatusDot } from '~/components/status-dot';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
 import { useConnections, type HostMeta } from '~/lib/connections';
+import { illustrations } from '~/lib/illustrations';
 import { cn } from '~/lib/utils';
 
 export function HostsSection() {
@@ -41,7 +41,7 @@ export function HostsSection() {
 
       {hosts.length === 0 ? (
         <EmptyState
-          icon={Server}
+          illustration="host"
           title="No hosts paired"
           description="Run `l8gitd pair` on your machine and scan the QR code to connect."
           action={
@@ -121,11 +121,15 @@ function HostCard({ host, onOpenDetail }: { host: HostMeta; onOpenDetail: () => 
         elevation: 6,
       }}
       className={cn(
-        'border-border bg-card active:bg-elevated flex-row items-center gap-3 rounded-2xl border px-3.5 py-3.5',
-        activeHostId === host.hostId && 'border-primary'
+        'bg-card active:bg-elevated flex-row items-center gap-3 rounded-3xl p-4',
+        activeHostId === host.hostId && 'border-primary border'
       )}>
       <View className="relative">
-        <IconBadge icon={Server} color={catColor(host.hostId)} size="lg" />
+        <Image
+          source={illustrations.host}
+          resizeMode="cover"
+          style={{ width: 52, height: 52, borderRadius: 16 }}
+        />
         <View className="border-card absolute -bottom-0.5 -right-0.5 rounded-full border-2">
           <StatusDot
             tone={statusTone(status)}

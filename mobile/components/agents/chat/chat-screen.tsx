@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Bot, PlugZap, TriangleAlert, WifiOff } from 'lucide-react-native';
+import { PlugZap, TriangleAlert, WifiOff } from 'lucide-react-native';
 import * as React from 'react';
 import { KeyboardAvoidingView, Linking, Platform, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,7 +52,7 @@ function errorMessage(error: unknown): string {
 
 function StarterCard({ onPick }: { onPick: (text: string) => void }) {
   return (
-    <View className="border-border bg-card/40 gap-2 rounded-2xl border p-3">
+    <View className="border-border bg-card gap-2 rounded-3xl border p-3.5">
       <Text className="text-muted-foreground text-2xs font-medium uppercase tracking-widest">
         Quick starts
       </Text>
@@ -326,7 +326,7 @@ export function AgentChatScreen({
           empty ? (
             <View className="gap-4 py-6">
               <EmptyState
-                icon={Bot}
+                illustration="agent"
                 className="flex-none py-2"
                 title={`Talk to ${providerLabel(provider)}`}
                 description={`A fresh conversation in ${repoName(path)}.`}

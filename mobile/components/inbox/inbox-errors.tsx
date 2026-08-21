@@ -3,12 +3,10 @@ import * as React from 'react';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
-import { IconBadge } from '~/components/shared/icon-badge';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import type { InboxRepoError } from '~/lib/inbox';
-import { palette } from '~/lib/theme';
 
 export function InboxErrors({
   errors,
@@ -31,7 +29,9 @@ export function InboxErrors({
       exiting={FadeOut.duration(150)}
       className="border-git-modified/35 bg-git-modified/8 gap-2 rounded-3xl border px-4 py-3.5">
       <View className="flex-row items-center gap-3">
-        <IconBadge icon={TriangleAlert} color={palette.warning} size="md" />
+        <View className="bg-secondary h-10 w-10 items-center justify-center rounded-2xl">
+          <Icon as={TriangleAlert} size={19} className="text-warning" />
+        </View>
         <Text className="text-git-modified min-w-0 flex-1 text-sm font-semibold">
           {errors.length === 1 ? '1 repo could not be read' : `${errors.length} repos could not be read`}
         </Text>

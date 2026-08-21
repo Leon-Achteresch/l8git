@@ -9,7 +9,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { IconBadge } from '~/components/shared/icon-badge';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { Icon } from '~/components/ui/icon';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -39,7 +38,7 @@ export function InboxSection({
   icon,
   title,
   count,
-  color = palette.cat.coral,
+  color,
   hint,
   loading = false,
   index = 0,
@@ -90,7 +89,11 @@ export function InboxSection({
         onPress={toggle}
         accessibilityLabel={`${title}, ${count} items`}>
         <View className="flex-row items-center gap-3 px-4 py-3.5">
-          <IconBadge icon={icon} color={active ? color : palette.mutedForeground} size="md" />
+          <Icon
+            as={icon}
+            size={20}
+            color={active ? (color ?? palette.foreground) : palette.mutedForeground}
+          />
 
           <Text
             style={{ letterSpacing: 0.6 }}
@@ -98,18 +101,13 @@ export function InboxSection({
             {title}
           </Text>
 
-          <View
-            style={{ backgroundColor: active ? `${color}26` : undefined }}
-            className={cn(
-              'h-7 min-w-7 items-center justify-center rounded-full px-2',
-              !active && 'bg-secondary'
-            )}>
+          <View className="bg-secondary h-7 min-w-7 items-center justify-center rounded-full px-2">
             <Text
               style={{
                 fontVariant: ['tabular-nums'],
-                color: active ? color : palette.mutedForeground,
+                color: active ? (color ?? palette.foreground) : palette.mutedForeground,
               }}
-              className="font-mono text-xs font-semibold">
+              className="text-xs font-semibold">
               {count}
             </Text>
           </View>

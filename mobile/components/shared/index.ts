@@ -13,4 +13,3 @@ export { ProgressToastHost } from '~/components/shared/progress-toast-host';
 export * from '~/components/shared/spinner';
 export * from '~/components/shared/status-pill';
 export * from '~/components/shared/use-bottom-inset';
-export * from './icon-badge';

@@ -1,14 +1,12 @@
-import { ShieldQuestion } from 'lucide-react-native';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { AgentThreadRow } from '~/components/agents/agent-thread-row';
-import { statusMeta } from '~/components/agents/agent-meta';
-import { IconBadge } from '~/components/shared/icon-badge';
 import { RowGroup } from '~/components/shared/pressable-row';
 import { Text } from '~/components/ui/text';
 import type { HostAgentEntry } from '~/lib/agents/overview-aggregator';
+import { illustrations } from '~/lib/illustrations';
 import { palette } from '~/lib/theme';
 
 export function AgentAttentionSection({
@@ -45,9 +43,13 @@ export function AgentAttentionSection({
         shadowOffset: { width: 0, height: 6 },
         elevation: 6,
       }}
-      className="border-warning/35 bg-warning/8 overflow-hidden rounded-3xl border">
+      className="border-warning/35 bg-card overflow-hidden rounded-3xl border">
       <View className="flex-row items-center gap-3 px-3.5 pb-2 pt-3.5">
-        <IconBadge icon={ShieldQuestion} color={statusMeta('awaitingApproval').color} size="md" />
+        <Image
+          source={illustrations.agent}
+          resizeMode="cover"
+          style={{ width: 44, height: 44, borderRadius: 14 }}
+        />
         <View className="flex-1 gap-0.5">
           <Text className="text-warning text-base font-bold">Needs attention</Text>
           <Text className="text-muted-foreground text-xs">{hint}</Text>

@@ -1,12 +1,10 @@
 import { useRouter } from 'expo-router';
 import { FolderPlus, Plug, RotateCw } from 'lucide-react-native';
 import * as React from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { RepoRow } from '~/components/repo/repo-row';
-import { HostBadge } from '~/components/shared/host-badge';
-import { RowGroup } from '~/components/shared/pressable-row';
 import { SkeletonList } from '~/components/skeleton-list';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
@@ -106,21 +104,36 @@ export function HostReposSection({
 
   return (
     <Animated.View layout={LinearTransition.duration(200)} className="gap-2">
-      <View className="flex-row items-center justify-between pt-4">
-        <View className="flex-row items-center gap-2">
-          <HostBadge hostId={hostId} name={hostName} showStatus />
-          <Text className="text-muted-foreground/60 font-mono text-2xs">
-            {rows.length > 0 ? rows.length : ''}
-          </Text>
+      <View className="flex-row items-center justify-between pb-1 pt-5">
+        <View className="flex-row items-center gap-2.5">
+          <View className="relative">
+            <View className="bg-secondary h-9 w-9 items-center justify-center rounded-full">
+              <Text className="text-foreground text-2xs font-bold">
+                {hostName.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase() || 'H'}
+              </Text>
+            </View>
+            <View
+              className={`border-background absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 ${
+                online ? 'bg-success' : connecting ? 'bg-warning' : 'bg-muted-foreground'
+              }`}
+            />
+          </View>
+          <Text className="text-foreground text-base font-semibold">{hostName}</Text>
+          {rows.length > 0 ? (
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-muted-foreground text-sm">
+              {rows.length}
+            </Text>
+          ) : null}
         </View>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7"
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel={`Add a repository on ${hostName}`}
-          onPress={() => onAddRepo(hostId)}>
-          <Icon as={FolderPlus} size={15} className="text-muted-foreground" />
-        </Button>
+          onPress={() => onAddRepo(hostId)}
+          className="bg-secondary active:opacity-80 h-9 w-9 items-center justify-center rounded-2xl">
+          <Icon as={FolderPlus} size={16} className="text-foreground" />
+        </Pressable>
       </View>
 
       {!online ? (
@@ -168,17 +181,15 @@ export function HostReposSection({
           </Button>
         </View>
       ) : (
-        <Animated.View entering={FadeIn.duration(160)}>
-          <RowGroup>
-            {rows.map((row) => (
-              <RepoRow
-                key={row.path}
-                overview={row}
-                onPress={() => openRepo(row.path)}
-                onLongPress={() => confirmForget(row.path)}
-              />
-            ))}
-          </RowGroup>
+        <Animated.View entering={FadeIn.duration(160)} className="mt-2">
+          {rows.map((row) => (
+            <RepoRow
+              key={row.path}
+              overview={row}
+              onPress={() => openRepo(row.path)}
+              onLongPress={() => confirmForget(row.path)}
+            />
+          ))}
         </Animated.View>
       )}
     </Animated.View>

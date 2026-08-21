@@ -58,7 +58,6 @@ export function LanguagesCard({
       <PanelHeader
         title="Languages"
         icon={FileCode2}
-        iconColor={palette.cat.cyan}
         hint={total > 0 ? `${formatBytes(total)} tracked` : undefined}
       />
 

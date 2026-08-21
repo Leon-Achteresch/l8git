@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 
-import { catColor } from '~/components/shared/icon-badge';
+import { initials } from '~/components/shared/format';
 import { Text } from '~/components/ui/text';
 import { useHostMeta, useHostRuntime } from '~/lib/connections';
 import { cn } from '~/lib/utils';
@@ -25,27 +25,49 @@ export function HostBadge({
   const meta = useHostMeta(hostId);
   const runtime = useHostRuntime(showStatus ? hostId : null);
   const label = name ?? meta?.name ?? hostId;
-  const color = catColor(hostId);
-  const offline = showStatus && runtime.status !== 'online';
+  const online = runtime.status === 'online';
+  const connecting = runtime.status === 'connecting' || runtime.status === 'reconnecting';
+  const mono = initials(label);
 
   return (
     <View
       className={cn(
-        'border-border bg-muted/70 flex-row items-center gap-1.5 rounded-full border',
-        size === 'xs' ? 'px-1.5 py-px' : 'px-2 py-0.5',
+        'flex-row items-center gap-1.5',
+        showName && 'bg-secondary rounded-full',
+        showName && (size === 'xs' ? 'py-px pl-px pr-2' : 'py-0.5 pl-0.5 pr-2.5'),
         className
       )}>
-      <View
-        style={{ backgroundColor: color, opacity: offline ? 0.35 : 1 }}
-        className={size === 'xs' ? 'h-1.5 w-1.5 rounded-full' : 'h-2 w-2 rounded-full'}
-      />
+      <View className="relative">
+        <View
+          className={cn(
+            'bg-muted items-center justify-center rounded-full',
+            size === 'xs' ? 'h-4 w-4' : 'h-6 w-6'
+          )}>
+          <Text
+            className={cn(
+              'text-muted-foreground font-bold',
+              size === 'xs' ? 'text-[8px]' : 'text-2xs'
+            )}>
+            {mono}
+          </Text>
+        </View>
+        {showStatus ? (
+          <View
+            className={cn(
+              'border-background absolute -bottom-px -right-px rounded-full border-2',
+              size === 'xs' ? 'h-2 w-2' : 'h-2.5 w-2.5',
+              online ? 'bg-success' : connecting ? 'bg-warning' : 'bg-muted-foreground'
+            )}
+          />
+        ) : null}
+      </View>
       {showName ? (
         <Text
           numberOfLines={1}
           className={cn(
-            'text-muted-foreground max-w-32 font-medium',
+            'text-foreground max-w-32 font-medium',
             size === 'xs' ? 'text-2xs' : 'text-xs',
-            offline && 'opacity-70'
+            !online && showStatus && 'opacity-70'
           )}>
           {label}
         </Text>

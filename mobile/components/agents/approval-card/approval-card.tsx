@@ -299,7 +299,7 @@ export function ApprovalCard({
     <Animated.View
       layout={LinearTransition.duration(220)}
       className={cn(
-        'overflow-hidden rounded-2xl border',
+        'overflow-hidden rounded-3xl border',
         interactive ? DANGER_SURFACE[danger] : 'border-border bg-card/40',
         className
       )}>
