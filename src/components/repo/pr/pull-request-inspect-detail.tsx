@@ -1,7 +1,9 @@
+import { CommitAvatar } from "@/components/repo/commit/commit-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
 import { formatDate, formatRelative } from "@/lib/format";
@@ -9,7 +11,7 @@ import { pickMergeStrategy, type ProviderCapabilities } from "@/lib/pr-provider"
 import { usePrCapabilities } from "@/lib/pr-provider-store";
 import type { PrReviewer, PullRequest } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
-import { AlertCircle, CheckCheck, CheckCircle2, Download, ExternalLink, GitMerge, Loader2, PanelRightClose, PanelRightOpen, RefreshCw, RotateCcw, ShieldCheck, ThumbsDown, X, Zap } from "lucide-react";
+import { AlertCircle, CheckCheck, CheckCircle2, Download, ExternalLink, GitMerge, Loader2, RefreshCw, RotateCcw, ShieldCheck, ThumbsDown, X, Zap } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -117,47 +119,86 @@ function LabelChip({ label }: { label: string }) {
   );
 }
 
-/* ─── Sidebar card ────────────────────────────────────────────────────────── */
+/* ─── Header people ──────────────────────────────────────────────────────── */
 
-function SideCard({ title, action, children }: { title: string; action?: string; children: React.ReactNode }) {
+function AuthorChip({ detail }: { detail: PullRequestDetail }) {
+  const { t } = useTranslation();
   return (
-    <section className="rounded-md border bg-background">
-      <header className="flex items-center justify-between border-b px-3 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-        </span>
-        {action ? <span className="text-[11px] text-muted-foreground">{action}</span> : null}
-      </header>
-      <div className="p-3">{children}</div>
-    </section>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <CommitAvatar url={detail.author_avatar} name={detail.author} size="xs" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-3">
+        <div className="flex items-center gap-2">
+          <CommitAvatar url={detail.author_avatar} name={detail.author} size="md" />
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-medium">{detail.author}</div>
+            <div className="text-[11px] text-muted-foreground">
+              {t("prInspect.openedPR")} {formatRelative(detail.created_at)}
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
-function ReviewerCard({ reviewers }: { reviewers: PrReviewer[] }) {
+function ReviewersChip({ reviewers }: { reviewers: PrReviewer[] }) {
   const { t } = useTranslation();
-  if (reviewers.length === 0) {
-    return (
-      <SideCard title={t("prInspect.reviewerTitle")} action={t("prInspect.requestReview")}>
-        <span className="text-[11px] italic text-muted-foreground">{t("prInspect.reviewerEmpty")}</span>
-      </SideCard>
-    );
-  }
+  const shown = reviewers.slice(0, 3);
   return (
-    <SideCard title={t("prInspect.reviewerTitle")} action={t("prInspect.requestReview")}>
-      <ul className="flex flex-col gap-1.5">
-        {reviewers.map((r) => (
-          <li key={r.login} className="flex items-center gap-2">
-            <span
-              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
-              
-            >
-              {r.login[0]?.toUpperCase()}
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title={t("prInspect.reviewerTitle")}
+        >
+          {shown.length === 0 ? (
+            <span className="inline-flex h-5 items-center rounded-full border border-dashed px-2 text-[10px] text-muted-foreground">
+              {t("prInspect.reviewerTitle")}
             </span>
-            <span className="min-w-0 flex-1 truncate text-[12px]">{r.login}</span>
-          </li>
-        ))}
-      </ul>
-    </SideCard>
+          ) : (
+            shown.map((r, i) => (
+              <span
+                key={r.login}
+                className="rounded-full ring-1 ring-background"
+                style={{ marginLeft: i === 0 ? 0 : "-7px", zIndex: shown.length - i }}
+              >
+                <CommitAvatar url={r.avatar} name={r.login} size="xs" />
+              </span>
+            ))
+          )}
+          {reviewers.length > shown.length && (
+            <span className="ml-1 text-[10px] text-muted-foreground">
+              +{reviewers.length - shown.length}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("prInspect.reviewerTitle")}
+          </span>
+          <span className="text-[11px] text-muted-foreground">{t("prInspect.requestReview")}</span>
+        </div>
+        {reviewers.length === 0 ? (
+          <span className="text-[11px] italic text-muted-foreground">{t("prInspect.reviewerEmpty")}</span>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {reviewers.map((r) => (
+              <li key={r.login} className="flex items-center gap-2">
+                <CommitAvatar url={r.avatar} name={r.login} size="xs" />
+                <span className="min-w-0 flex-1 truncate text-[12px]">{r.login}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -543,7 +584,6 @@ export function PullRequestInspectDetail({
   const [mergeMessage, setMergeMessage] = useState("");
   const [deleteSourceBranch, setDeleteSourceBranch] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { t } = useTranslation();
   const caps = usePrCapabilities(path);
   const effectiveStrategy = caps
@@ -640,6 +680,11 @@ export function PullRequestInspectDetail({
               base={detail.target_branch}
             />
           )}
+          {detail?.head_sha && (
+            <code className="font-mono text-[11px] text-muted-foreground">
+              {detail.head_sha.slice(0, 7)}
+            </code>
+          )}
           <span className="flex-1" />
           {detail?.html_url && (
             <Button
@@ -661,19 +706,6 @@ export function PullRequestInspectDetail({
             title={t("pr.reloadTitle")}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : ""}`} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setSidebarOpen((v) => !v)}
-            title={sidebarOpen ? t("prInspect.sidebarHide") : t("prInspect.sidebarShow")}
-          >
-            {sidebarOpen ? (
-              <PanelRightClose className="h-3.5 w-3.5" />
-            ) : (
-              <PanelRightOpen className="h-3.5 w-3.5" />
-            )}
           </Button>
           <Button
             variant="ghost"
@@ -708,11 +740,14 @@ export function PullRequestInspectDetail({
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 30, delay: 0.08 }}
             className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+            <AuthorChip detail={detail} />
             <span className="font-medium text-foreground">{detail.author}</span>
             <span>{t("prInspect.openedPR")}</span>
             <time title={formatDate(detail.created_at)}>
               {formatRelative(detail.created_at)}
             </time>
+            <span className="opacity-40">·</span>
+            <ReviewersChip reviewers={detail.reviewers} />
             {detail.labels.length > 0 && (
               <>
                 <span className="opacity-40">·</span>
@@ -840,66 +875,6 @@ export function PullRequestInspectDetail({
             </AnimatePresence>
           </div>
 
-          {/* Sidebar — slides in/out from the right */}
-          <AnimatePresence initial={false}>
-            {sidebarOpen && (
-              <m.aside
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 220, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 380, damping: 34, mass: 0.65 }}
-                style={{ overflow: "hidden", flexShrink: 0 }}
-                className="border-l"
-              >
-                <div className="flex w-[220px] flex-col gap-3 overflow-y-auto p-3 h-full">
-            <ReviewerCard reviewers={detail.reviewers} />
-
-            {detail.labels.length > 0 && (
-              <SideCard title={t("prInspect.sidebarLabels")}>
-                <div className="flex flex-wrap gap-1">
-                  {detail.labels.map((l) => <LabelChip key={l} label={l} />)}
-                </div>
-              </SideCard>
-            )}
-
-            <SideCard title={t("prInspect.sidebarBranch")}>
-              <div className="flex flex-col gap-2 text-[11px]">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 font-mono text-[10px] text-muted-foreground">{t("prInspect.sidebarHead")}</span>
-                  <span className="rounded bg-muted px-1.5 py-0 font-mono text-[10px]">
-                    {detail.source_branch}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-8 font-mono text-[10px] text-muted-foreground">{t("prInspect.sidebarBase")}</span>
-                  <span className="rounded bg-primary/10 px-1.5 py-0 font-mono text-[10px] text-primary">
-                    {detail.target_branch}
-                  </span>
-                </div>
-                {detail.head_sha ? (
-                  <div className="flex items-center gap-2">
-                    <span className="w-8 font-mono text-[10px] text-muted-foreground">{t("prInspect.sidebarSha")}</span>
-                    <code className="font-mono text-[10px] text-muted-foreground">
-                      {detail.head_sha.slice(0, 7)}
-                    </code>
-                  </div>
-                ) : null}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-1 h-6 w-full text-[10px]"
-                  onClick={doCheckout}
-                  disabled={busy !== null}
-                >
-                  <Download className="mr-1 h-3 w-3" />
-                  {t("prInspect.checkoutLocalButton")}
-                </Button>
-              </div>
-            </SideCard>
-                </div>
-              </m.aside>
-            )}
-          </AnimatePresence>
         </div>
       )}
     </div>
