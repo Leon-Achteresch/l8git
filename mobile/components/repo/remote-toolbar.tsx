@@ -45,7 +45,7 @@ function ToolbarButton({
         onPress();
       }}
       className={cn(
-        'border-border bg-card h-10 flex-1 flex-row items-center justify-center gap-1.5 rounded-2xl border active:opacity-70',
+        'bg-card h-11 flex-1 flex-row items-center justify-center gap-1.5 rounded-full active:opacity-70',
         (disabled || busy) && 'opacity-45'
       )}>
       <Icon
@@ -127,7 +127,7 @@ export function RemoteToolbar({
           accessibilityLabel="Remote defaults"
           onPress={() => setShowStrategy((value) => !value)}
           className={cn(
-            'border-border bg-card h-10 w-10 items-center justify-center rounded-2xl border active:opacity-70',
+            'bg-card h-11 w-11 items-center justify-center rounded-full active:opacity-70',
             showStrategy && 'bg-accent'
           )}>
           <Icon as={Settings2} size={14} className="text-muted-foreground" />
@@ -141,7 +141,7 @@ export function RemoteToolbar({
       ) : null}
 
       {showStrategy ? (
-        <View className="border-border bg-card/50 gap-2 rounded-xl border p-2.5">
+        <View className="bg-card gap-2 rounded-3xl p-3.5">
           <Text className="text-muted-foreground text-2xs uppercase tracking-widest">
             Pull strategy
           </Text>

@@ -42,9 +42,10 @@ export function ListRow({
       disabled={disabled || !onPress}
       onPress={onPress}
       className={cn(
-        'border-border bg-card flex-row items-center gap-3 border-x border-b px-3.5 py-3.5',
-        first && 'rounded-t-2xl border-t',
-        last && 'rounded-b-2xl',
+        'bg-card flex-row items-center gap-3 px-4 py-3.5',
+        !last && 'border-white/5 border-b',
+        first && 'rounded-t-3xl',
+        last && 'rounded-b-3xl',
         onPress && 'active:bg-accent',
         disabled && 'opacity-50',
         className

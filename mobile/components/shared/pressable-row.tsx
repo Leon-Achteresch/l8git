@@ -78,10 +78,11 @@ export function PressableRow({
           pressed.value = withTiming(0, PRESS_OUT);
         }}
         className={cn(
-          'border-border relative',
-          !flat && 'bg-card border-x border-b',
-          !flat && first && 'rounded-t-2xl border-t',
-          !flat && last && 'rounded-b-2xl',
+          'relative',
+          !flat && 'bg-card',
+          !flat && !last && 'border-white/5 border-b',
+          !flat && first && 'rounded-t-3xl',
+          !flat && last && 'rounded-b-3xl',
           selected && 'bg-accent/60',
           disabled && 'opacity-45',
           className

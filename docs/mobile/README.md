@@ -20,11 +20,12 @@ Die App scannt den QR-Code (oder fügt das JSON manuell ein) und verbindet sich 
 
 Aufgenommen im iPhone-17-Pro-Simulator (Expo Go) gegen einen laufenden `l8gitd` mit Live-Git-Daten — via mobilewright (`MW_ROUTES=/,/repos bunx mobilewright test shots` in `mobile/`, Ausgabe `/tmp/mw-shots/`, dann hierher kopieren).
 
-| Home | Repos | Dashboard | Agents |
-|---|---|---|---|
-| ![Home](screenshots/home.png) | ![Repos](screenshots/repos.png) | ![Dashboard](screenshots/dashboard.png) | ![Agents](screenshots/agents.png) |
+| Home | Repo-Detail | Repos | Dashboard | Agents |
+|---|---|---|---|---|
+| ![Home](screenshots/home.png) | ![Repo-Detail](screenshots/repo-detail.png) | ![Repos](screenshots/repos.png) | ![Dashboard](screenshots/dashboard.png) | ![Agents](screenshots/agents.png) |
 
 - **Home** — Glass-Buttons, Hosts als Story-Avatare mit Status-Ring, „For you“-Karten pro Repo (Branch, ↑↓, Dirty, Open/History), „Needs you“ mit Reviews, roten Pipelines, Agent-Approvals und eigenen PRs; schwebende Pill-Tab-Bar.
+- **Repo-Detail** — Profil-Layout: geblurter Backdrop, rundes Repo-Avatar, Name + Branch, Stats-Reihe Ahead/Behind/Changes, Sektions-Chips (Status/History/Branches/Stash/PRs/CI), darunter Fetch/Pull/Push-Pills, Änderungsliste als Karte und Commit-Composer.
 - **Repos** — verbundener Host (grün), `l8git`-Repo auf `development`, Ahead/Behind- und Dirty-Zähler live vom Host.
 - **Dashboard** — Übersichts-Kacheln (Repos, Commits 30d, Ahead/Behind), Commit-Aktivität als SVG-Sparkline, Sprach- und Branch-Statistik.
 - **Agents** — kompletter Agents-Tab: Threads aller vier Provider (Codex/Claude/OpenCode/Cursor) mit Status-Chips, Approvals-Filter und Gruppierung pro Repo.

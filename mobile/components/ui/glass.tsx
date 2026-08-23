@@ -20,7 +20,7 @@ export function Glass({ style, intensity = 30, children, ...props }: BlurViewPro
     <BlurView
       intensity={intensity}
       tint="dark"
-      experimentalBlurMethod="dimezisBlurView"
+      blurMethod="dimezisBlurView"
       style={[glassSurface, style]}
       {...props}>
       {children}

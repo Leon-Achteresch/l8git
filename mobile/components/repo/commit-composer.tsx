@@ -58,7 +58,7 @@ export function CommitComposer({
     <Animated.View
       layout={LinearTransition.duration(180)}
       style={{ paddingBottom: bottomInset }}
-      className="border-border bg-sidebar gap-2.5 border-t px-4 pt-2.5">
+      className="bg-background gap-2.5 px-4 pt-2.5">
       <View className="flex-row items-center justify-between">
         <View className="min-w-0 flex-1 flex-row items-center gap-2">
           <Icon as={GitCommitVertical} size={13} className="text-muted-foreground" />
@@ -102,8 +102,8 @@ export function CommitComposer({
 
       <View
         className={cn(
-          'border-input bg-background rounded-xl border px-3 py-2',
-          focused && 'border-ring'
+          'bg-card rounded-3xl px-4 py-2.5',
+          focused && 'bg-elevated'
         )}>
         <TextInput
           value={message}
@@ -142,7 +142,7 @@ export function CommitComposer({
           disabled={!canCommit}
           onPress={commit}
           className={cn(
-            'h-10 flex-row items-center justify-center gap-2 rounded-xl px-5',
+            'h-11 flex-row items-center justify-center gap-2 rounded-full px-6',
             canCommit ? 'bg-primary active:bg-primary/90' : 'bg-secondary opacity-50'
           )}>
           {committing ? <Spinner size={14} className="text-primary-foreground" /> : null}

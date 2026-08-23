@@ -4,7 +4,6 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RepoHeader } from '~/components/repo/repo-header';
-import { Separator } from '~/components/ui/separator';
 import { useHostRuntime } from '~/lib/connections';
 import { repoName as repoNameOf } from '~/components/shared/format';
 import { useRepoSummary, useRepoWatcher } from '~/lib/repo/queries';
@@ -45,10 +44,9 @@ export default function RepoShellLayout() {
   }, [router]);
 
   return (
-    <SafeAreaView edges={['top']} className="bg-background flex-1">
+    <SafeAreaView edges={detail ? ['top'] : []} className="bg-background flex-1">
       {detail ? null : (
-        <>
-          <RepoHeader
+        <RepoHeader
             hostId={hostId}
             repoName={summary.data?.name || repoNameOf(repoPath)}
             repoPath={repoPath}
@@ -59,8 +57,6 @@ export default function RepoShellLayout() {
             onSelect={onSelect}
             onBack={onBack}
           />
-          <Separator />
-        </>
       )}
       <View className="flex-1">
         <Slot />
