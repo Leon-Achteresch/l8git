@@ -62,6 +62,7 @@ function normalizeCommitMessageText(text: string): string {
 export interface AiCommitMessageOptions {
   hint?: string;
   signal?: AbortSignal;
+  onDelta?: (partial: string) => void;
 }
 
 export async function generateAiCommitMessage(
@@ -94,6 +95,9 @@ export async function generateAiCommitMessage(
     prompt: `Write the commit message from this staged diff (all files):\n\n\`\`\`diff\n${diffBody}\n\`\`\``,
     hint: options.hint,
     signal: options.signal,
+    ...(options.onDelta
+      ? { onDelta: (full: string) => options.onDelta?.(normalizeCommitMessageText(full)) }
+      : {}),
   });
 
   return normalizeCommitMessageText(text);

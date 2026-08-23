@@ -173,7 +173,7 @@ export function AgentReviewFinishDialog({
     try {
       await invoke("stage_files", { path: worktreePath, files: ["."] });
       const diff = await stagedReviewDiff(worktreePath);
-      setMessage(await generateAiCommitMessage(diff, worktreePath));
+      setMessage(await generateAiCommitMessage(diff, worktreePath, { onDelta: setMessage }));
     } catch (cause) {
       toastError(cause instanceof Error ? cause.message : String(cause));
     } finally {

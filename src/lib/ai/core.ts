@@ -1,7 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateText, type LanguageModel } from "ai";
+import { generateText, streamText, type LanguageModel } from "ai";
 
 import {
   AI_PROVIDER_DEFAULT_MODELS,
@@ -144,10 +144,11 @@ export interface GenerateAiTextOptions {
   hint?: string;
   signal?: AbortSignal;
   model?: LanguageModel;
+  onDelta?: (fullText: string) => void;
 }
 
 export async function generateAiText(options: GenerateAiTextOptions): Promise<string> {
-  const { feature, prompt, system, hint, signal } = options;
+  const { feature, prompt, system, hint, signal, onDelta } = options;
 
   if (signal?.aborted) {
     throw new AiError("aborted", i18n.t("errors.aiAborted"), feature);
@@ -160,13 +161,27 @@ export async function generateAiText(options: GenerateAiTextOptions): Promise<st
     : prompt;
 
   try {
-    const result = await generateText({
-      model,
-      ...(system ? { system } : {}),
-      prompt: finalPrompt,
-      ...(signal ? { abortSignal: signal } : {}),
-    });
-    const text = result.text ?? "";
+    let text = "";
+    if (onDelta) {
+      const result = streamText({
+        model,
+        ...(system ? { system } : {}),
+        prompt: finalPrompt,
+        ...(signal ? { abortSignal: signal } : {}),
+      });
+      for await (const delta of result.textStream) {
+        text += delta;
+        onDelta(text);
+      }
+    } else {
+      const result = await generateText({
+        model,
+        ...(system ? { system } : {}),
+        prompt: finalPrompt,
+        ...(signal ? { abortSignal: signal } : {}),
+      });
+      text = result.text ?? "";
+    }
     if (!text.trim()) {
       throw new AiError("empty", i18n.t("errors.aiNoResponse"), feature);
     }

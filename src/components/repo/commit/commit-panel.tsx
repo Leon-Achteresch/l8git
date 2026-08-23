@@ -545,6 +545,9 @@ export function CommitPanel() {
       const msg = await generateAiCommitMessage(stagedDiff, activePath, {
         hint,
         signal: controller.signal,
+        onDelta: (partial) => {
+          if (!controller.signal.aborted) setMessage(partial);
+        },
       });
       if (controller.signal.aborted) return;
       setMessage(msg);
