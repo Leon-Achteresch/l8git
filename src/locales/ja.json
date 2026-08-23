@@ -2972,5 +2972,28 @@
     "confirmBody": "信頼すると、このリポジトリで定義されたエージェントのフックと MCP サーバーが実行され、承認の確認がスキップされます。管理下にあるか完全に確認したリポジトリのみを信頼してください。",
     "confirmAction": "信頼する",
     "cancel": "キャンセル"
+  },
+  "remoteServer": {
+    "title": "リモートサーバー",
+    "desc": "モバイルアプリ用のヘッドレスホスト l8gitd — ここで起動・停止・設定します。",
+    "running": "実行中",
+    "stopped": "停止中",
+    "portLabel": "ポート",
+    "relayLabel": "リレー URL（任意）",
+    "save": "保存",
+    "start": "開始",
+    "stop": "停止",
+    "external": "このアプリの外部で起動されています — そちらで停止してください。",
+    "binary": "バイナリ: {{path}}",
+    "binaryMissing": "l8gitd が見つかりません — `cargo build --features headless --bin l8gitd` でビルドし、PATH に追加してください。",
+    "noRoots": "公開されたリポジトリルートはまだありません。",
+    "rootsLabel": "公開中のリポジトリルート",
+    "addRoot": "追加",
+    "removeRoot": "ルートを削除",
+    "pair": "ペアリング",
+    "pairTitle": "モバイルアプリとペアリング",
+    "pairDesc": "l8git アプリで QR コードをスキャンするか、JSON を手動で入力してください。",
+    "copyJson": "JSON をコピー",
+    "copied": "コピーしました"
   }
 }

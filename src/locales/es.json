@@ -2972,5 +2972,28 @@
     "confirmBody": "Al confiar se ejecutan los hooks de agente y los servidores MCP definidos en este repositorio y se omiten las solicitudes de aprobación. Confía solo en repositorios que controlas o has revisado por completo.",
     "confirmAction": "Confiar",
     "cancel": "Cancelar"
+  },
+  "remoteServer": {
+    "title": "Servidor remoto",
+    "desc": "Host headless l8gitd para la app móvil: iníciale, detenle y configúralo aquí.",
+    "running": "En ejecución",
+    "stopped": "Detenido",
+    "portLabel": "Puerto",
+    "relayLabel": "URL de relay (opcional)",
+    "save": "Guardar",
+    "start": "Iniciar",
+    "stop": "Detener",
+    "external": "Iniciado fuera de esta app: deténlo allí.",
+    "binary": "Binario: {{path}}",
+    "binaryMissing": "No se encontró l8gitd: compílalo con `cargo build --features headless --bin l8gitd` y añádelo al PATH.",
+    "noRoots": "Aún no hay raíces de repositorio publicadas.",
+    "rootsLabel": "Raíces de repositorio publicadas",
+    "addRoot": "Añadir",
+    "removeRoot": "Quitar raíz",
+    "pair": "Emparejamiento",
+    "pairTitle": "Emparejar app móvil",
+    "pairDesc": "Escanea el código QR en la app l8git o introduce el JSON manualmente.",
+    "copyJson": "Copiar JSON",
+    "copied": "Copiado"
   }
 }

@@ -2972,5 +2972,28 @@
     "confirmBody": "信任后将运行此仓库中定义的代理钩子和 MCP 服务器，并跳过审批提示。请仅信任你掌控或已完全审查的仓库。",
     "confirmAction": "信任",
     "cancel": "取消"
+  },
+  "remoteServer": {
+    "title": "远程服务器",
+    "desc": "面向移动应用的无界面主机 l8gitd —— 在此启动、停止和配置。",
+    "running": "运行中",
+    "stopped": "已停止",
+    "portLabel": "端口",
+    "relayLabel": "中继 URL（可选）",
+    "save": "保存",
+    "start": "启动",
+    "stop": "停止",
+    "external": "已在本应用之外启动 —— 请在那里停止。",
+    "binary": "二进制文件：{{path}}",
+    "binaryMissing": "未找到 l8gitd —— 请使用 `cargo build --features headless --bin l8gitd` 构建并加入 PATH。",
+    "noRoots": "尚未开放任何仓库根目录。",
+    "rootsLabel": "已开放的仓库根目录",
+    "addRoot": "添加",
+    "removeRoot": "移除根目录",
+    "pair": "配对",
+    "pairTitle": "配对移动应用",
+    "pairDesc": "在 l8git 应用中扫描二维码，或手动输入 JSON。",
+    "copyJson": "复制 JSON",
+    "copied": "已复制"
   }
 }

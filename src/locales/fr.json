@@ -2972,5 +2972,28 @@
     "confirmBody": "L'approbation exécute les hooks d'agent et les serveurs MCP définis dans ce dépôt et ignore les demandes d'approbation. N'approuvez que les dépôts que vous contrôlez ou avez entièrement examinés.",
     "confirmAction": "Approuver",
     "cancel": "Annuler"
+  },
+  "remoteServer": {
+    "title": "Serveur distant",
+    "desc": "Hôte headless l8gitd pour l'app mobile — démarrez, arrêtez et configurez-le ici.",
+    "running": "En cours",
+    "stopped": "Arrêté",
+    "portLabel": "Port",
+    "relayLabel": "URL de relais (optionnel)",
+    "save": "Enregistrer",
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "external": "Démarré en dehors de cette app — arrêtez-le là-bas.",
+    "binary": "Binaire : {{path}}",
+    "binaryMissing": "l8gitd introuvable — compilez-le avec `cargo build --features headless --bin l8gitd` et ajoutez-le au PATH.",
+    "noRoots": "Aucune racine de dépôt partagée pour l'instant.",
+    "rootsLabel": "Racines de dépôt partagées",
+    "addRoot": "Ajouter",
+    "removeRoot": "Supprimer la racine",
+    "pair": "Appairage",
+    "pairTitle": "Appairer l'app mobile",
+    "pairDesc": "Scannez le QR code dans l'app l8git ou saisissez le JSON manuellement.",
+    "copyJson": "Copier le JSON",
+    "copied": "Copié"
   }
 }
