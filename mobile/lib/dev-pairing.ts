@@ -18,9 +18,7 @@ export function useDevPairing(): void {
       try {
         const pairing = parsePairing(raw);
         const state = useConnections.getState();
-        if (!state.hosts.some((h) => h.hostId === pairing.hostId)) {
-          await state.addHost(pairing);
-        }
+        await state.addHost(pairing);
         state.setActiveHost(pairing.hostId);
         for (let i = 0; i < 10 && !cancelled; i += 1) {
           const runtime = useConnections.getState().runtime[pairing.hostId];
@@ -32,7 +30,7 @@ export function useDevPairing(): void {
             }
             return;
           }
-          console.log('[dev-pairing] connect attempt', i, runtime?.status ?? 'idle');
+          console.log('[dev-pairing] connect attempt', i, runtime?.status ?? 'idle', runtime?.lastError ?? '', runtime?.endpoint ?? '');
           await useConnections.getState().connect(pairing.hostId).catch(() => undefined);
           await sleep(2500);
         }

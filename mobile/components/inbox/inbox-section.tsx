@@ -82,7 +82,7 @@ export function InboxSection({
         shadowOffset: { width: 0, height: 6 },
         elevation: 6,
       }}
-      className="border-border bg-card overflow-hidden rounded-3xl border">
+      className="bg-card overflow-hidden rounded-[28px]">
       <PressableRow
         flat
         haptic={false}
@@ -122,7 +122,7 @@ export function InboxSection({
         <Animated.View
           entering={FadeInDown.duration(180)}
           layout={LinearTransition.duration(200)}
-          className="border-border/60 border-t">
+          className="border-white/5 border-t">
           {loading && count === 0 ? (
             <SectionSkeleton />
           ) : count === 0 ? (
