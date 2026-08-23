@@ -1,7 +1,8 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
-import { Image, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { View } from 'react-native';
 import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
 
 import { ActivityCard } from '~/components/dashboard/activity-card';
@@ -18,8 +19,7 @@ import { RepoChips } from '~/components/dashboard/repo-chips';
 import { RepoTile } from '~/components/dashboard/repo-tile';
 import { StatTile } from '~/components/dashboard/stat-tile';
 import { EmptyState } from '~/components/empty-state';
-import { repoName } from '~/components/shared/format';
-import { illustrations } from '~/lib/illustrations';
+import { initials, repoName } from '~/components/shared/format';
 import { palette } from '~/lib/theme';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
@@ -27,6 +27,13 @@ import { useHostMeta, useHostRuntime } from '~/lib/connections';
 import { repoLink } from '~/lib/repo/route';
 
 const ACTIVE_BRANCH_WINDOW_DAYS = 14;
+
+const HOST_GRADIENTS: [string, string][] = [
+  ['#ff6b57', '#bf5af2'],
+  ['#0a84ff', '#40c8e0'],
+  ['#34c759', '#ffd60a'],
+  ['#ff2d92', '#ff9f0a'],
+];
 
 export function HostSection({
   hostId,
@@ -96,21 +103,39 @@ export function HostSection({
       entering={FadeInDown.duration(280).delay(index * 70)}
       layout={LinearTransition.duration(200)}
       className="gap-3 pt-3">
-      <View className="flex-row items-center gap-2.5">
-        <Image
-          source={illustrations.host}
-          resizeMode="cover"
-          style={{ width: 40, height: 40, borderRadius: 13 }}
-        />
-        <Text numberOfLines={1} className="text-foreground max-w-52 text-lg font-bold tracking-tight">
-          {meta?.name ?? hostId}
-        </Text>
-        <Text
-          style={{ fontVariant: ['tabular-nums'] }}
-          className="text-muted-foreground text-xs">
-          {`${paths.length} ${paths.length === 1 ? 'repo' : 'repos'}`}
-        </Text>
-        <View className="flex-1" />
+      <View className="flex-row items-center gap-3">
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            borderWidth: 2,
+            padding: 2,
+            borderColor:
+              runtime.status === 'online'
+                ? palette.success
+                : runtime.status === 'connecting' || runtime.status === 'reconnecting'
+                  ? palette.warning
+                  : 'rgba(255,255,255,0.18)',
+          }}>
+          <LinearGradient
+            colors={HOST_GRADIENTS[index % HOST_GRADIENTS.length]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ flex: 1, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+            <Text className="text-2xs font-bold text-white">{initials(meta?.name ?? hostId)}</Text>
+          </LinearGradient>
+        </View>
+        <View className="min-w-0 flex-1">
+          <Text numberOfLines={1} className="text-foreground text-lg font-bold">
+            {meta?.name ?? hostId}
+          </Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground text-xs">
+            {`${paths.length} ${paths.length === 1 ? 'repo' : 'repos'}`}
+          </Text>
+        </View>
         {runtime.latencyMs === null ? null : (
           <Text
             style={{ fontVariant: ['tabular-nums'] }}
@@ -136,7 +161,7 @@ export function HostSection({
               {Array.from({ length: Math.min(4, paths.length) }).map((_, tile) => (
                 <Skeleton
                   key={tile}
-                  className="h-[150px] rounded-2xl opacity-60"
+                  className="h-[150px] rounded-[28px] opacity-60"
                   style={{ width: '48%' }}
                 />
               ))}

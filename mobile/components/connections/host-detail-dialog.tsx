@@ -1,9 +1,10 @@
-import { Activity, Gauge, Radio, Server, TriangleAlert, type LucideIcon } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Activity, Gauge, Radio, Server, Star, TriangleAlert, Unplug, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
 import { ListGroup, ListRow } from '~/components/list-row';
-import { StatusDot } from '~/components/status-dot';
+import { initials } from '~/components/shared/format';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -15,15 +16,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import { SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { classifyEndpoint, useConnections, useHostMeta, useHostRuntime } from '~/lib/connections';
-import { statusTone } from './status';
+import { palette } from '~/lib/theme';
+
+const HOST_GRADIENTS: [string, string][] = [
+  ['#ff6b57', '#bf5af2'],
+  ['#0a84ff', '#40c8e0'],
+  ['#34c759', '#ffd60a'],
+  ['#ff2d92', '#ff9f0a'],
+];
 
 function RowIcon({ icon }: { icon: LucideIcon }) {
   return (
-    <View className="bg-secondary h-9 w-9 items-center justify-center rounded-xl">
-      <Icon as={icon} size={18} className="text-muted-foreground" />
+    <View
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.10)',
+      }}>
+      <Icon as={icon} size={17} color={palette.foreground} />
     </View>
   );
 }
@@ -42,6 +59,9 @@ export function HostDetailDialog({
   const disconnect = useConnections((state) => state.disconnect);
   const setActiveHost = useConnections((state) => state.setActiveHost);
   const activeHostId = useConnections((state) => state.activeHostId);
+  const hostIndex = useConnections((state) =>
+    Math.max(0, state.hosts.findIndex((host) => host.hostId === hostId))
+  );
 
   React.useEffect(() => {
     if (!hostId || runtime.status !== 'online') {
@@ -53,18 +73,56 @@ export function HostDetailDialog({
   }, [hostId, measureLatency, runtime.status]);
 
   const online = runtime.status === 'online';
+  const ring =
+    runtime.status === 'online'
+      ? palette.success
+      : runtime.status === 'connecting' || runtime.status === 'reconnecting'
+        ? palette.warning
+        : runtime.status === 'error'
+          ? palette.destructive
+          : 'rgba(255,255,255,0.18)';
 
   return (
     <Dialog open={Boolean(hostId)} onOpenChange={onOpenChange}>
       <DialogContent className="w-full max-w-md gap-4">
         <DialogHeader>
-          <DialogTitle>{meta?.name ?? 'Host'}</DialogTitle>
-          <DialogDescription>{meta?.hostId ?? ''}</DialogDescription>
+          <View className="flex-row items-center gap-3.5">
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                borderWidth: 2,
+                borderColor: ring,
+                padding: 3,
+              }}>
+              <LinearGradient
+                colors={HOST_GRADIENTS[hostIndex % HOST_GRADIENTS.length]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  flex: 1,
+                  borderRadius: 23,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Text className="text-sm font-bold text-white">{initials(meta?.name)}</Text>
+              </LinearGradient>
+            </View>
+            <View className="min-w-0 flex-1 gap-0.5">
+              <DialogTitle numberOfLines={1}>{meta?.name ?? 'Host'}</DialogTitle>
+              <DialogDescription numberOfLines={1} className="font-mono text-xs">
+                {meta?.hostId ?? ''}
+              </DialogDescription>
+            </View>
+          </View>
         </DialogHeader>
 
-        <View className="flex-row items-center gap-2">
-          <StatusDot tone={statusTone(runtime.status)} pulse={runtime.status !== 'online'} />
-          <Text className="text-foreground text-sm font-medium capitalize">{runtime.status}</Text>
+        <View className="flex-row flex-wrap items-center gap-2">
+          <View className="flex-row items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1">
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: ring }} />
+            <Text className="text-foreground text-xs font-semibold capitalize">{runtime.status}</Text>
+          </View>
           {runtime.endpointKind ? (
             <Badge variant="secondary">
               <Text>{runtime.endpointKind === 'lan' ? 'LAN' : 'Relay'}</Text>
@@ -72,6 +130,7 @@ export function HostDetailDialog({
           ) : null}
           {activeHostId === meta?.hostId ? (
             <Badge>
+              <Icon as={Star} size={10} color={palette.primaryForeground} />
               <Text>Active</Text>
             </Badge>
           ) : null}
@@ -83,12 +142,14 @@ export function HostDetailDialog({
             title="Latency"
             subtitle="Ping round trip"
             meta={online && runtime.latencyMs !== null ? `${Math.round(runtime.latencyMs)} ms` : '—'}
+            className="bg-elevated"
           />
           <ListRow
             leading={<RowIcon icon={Radio} />}
             title="Endpoint"
             subtitle={runtime.endpoint ?? 'not connected'}
             meta={runtime.endpoint ? classifyEndpoint(runtime.endpoint) : undefined}
+            className="bg-elevated"
           />
           <ListRow
             leading={<RowIcon icon={Server} />}
@@ -98,6 +159,7 @@ export function HostDetailDialog({
                 ? `${runtime.hostInfo.platform ?? 'unknown'} · v${runtime.hostInfo.version ?? '?'}`
                 : 'unknown'
             }
+            className="bg-elevated"
           />
           <ListRow
             leading={<RowIcon icon={Activity} />}
@@ -108,33 +170,36 @@ export function HostDetailDialog({
                 ? `next try in ${Math.max(0, Math.round((runtime.nextRetryAt - Date.now()) / 1000))}s`
                 : 'idle'
             }
+            className="bg-elevated"
           />
         </ListGroup>
 
         {runtime.lastError ? (
-          <Alert icon={TriangleAlert} variant="destructive">
+          <Alert icon={TriangleAlert} variant="destructive" className="bg-elevated">
             <AlertTitle>Last error</AlertTitle>
             <AlertDescription>{runtime.lastError}</AlertDescription>
           </Alert>
         ) : null}
 
         <DialogFooter>
-          <View className="flex-row gap-2">
-            {meta && activeHostId !== meta.hostId ? (
-              <Button
-                variant="outline"
-                className="flex-1"
-                onPress={() => setActiveHost(meta.hostId)}>
-                <Text>Make active</Text>
-              </Button>
-            ) : null}
+          <View className="gap-2.5">
             {meta ? (
-              <Button
-                variant={online ? 'secondary' : 'default'}
-                className="flex-1"
-                onPress={() => (online ? disconnect(meta.hostId) : void connect(meta.hostId))}>
-                <Icon as={Radio} className="text-foreground size-4" />
-                <Text>{online ? 'Disconnect' : 'Connect'}</Text>
+              online ? (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onPress={() => disconnect(meta.hostId)}>
+                  <Icon as={Unplug} size={16} color={palette.foreground} />
+                  <Text>Disconnect</Text>
+                </Button>
+              ) : (
+                <SolidPill icon={Radio} label="Connect" onPress={() => void connect(meta.hostId)} />
+              )
+            ) : null}
+            {meta && activeHostId !== meta.hostId ? (
+              <Button variant="ghost" size="lg" onPress={() => setActiveHost(meta.hostId)}>
+                <Icon as={Star} size={16} color={palette.foreground} />
+                <Text>Make active</Text>
               </Button>
             ) : null}
           </View>

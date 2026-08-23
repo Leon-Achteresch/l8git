@@ -43,7 +43,7 @@ export const InboxPrRow = React.memo(function InboxPrRow({
   item,
   showHost = false,
   divider = false,
-  iconColor = palette.mutedForeground,
+  iconColor = palette.foreground,
   onOpen,
 }: {
   item: InboxPrItem;
@@ -67,7 +67,11 @@ export const InboxPrRow = React.memo(function InboxPrRow({
       onPress={handlePress}
       meta={
         <>
-          <Text className="text-muted-foreground font-mono text-2xs">#{item.number}</Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground font-mono text-2xs">
+            #{item.number}
+          </Text>
           <MetaDot />
           <Text numberOfLines={1} className="text-muted-foreground max-w-28 text-2xs">
             {item.author}

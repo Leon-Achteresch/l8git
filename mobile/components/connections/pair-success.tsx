@@ -45,16 +45,16 @@ export function PairSuccess({ name }: { name: string }) {
       <View className="h-20 w-20 items-center justify-center">
         <Animated.View
           style={ringStyle}
-          className="border-success/60 absolute h-20 w-20 rounded-full border-2"
+          className="bg-success/25 absolute h-20 w-20 rounded-full"
         />
         <Animated.View
           style={badgeStyle}
-          className="bg-success/15 border-success/50 h-16 w-16 items-center justify-center rounded-full border">
-          <Icon as={Check} className="text-success size-7" />
+          className="bg-success h-16 w-16 items-center justify-center rounded-full">
+          <Icon as={Check} className="text-success-foreground size-7" />
         </Animated.View>
       </View>
       <Animated.View style={labelStyle} className="items-center gap-1">
-        <Text className="text-foreground text-base font-semibold">Host paired</Text>
+        <Text className="text-foreground text-lg font-bold tracking-tight">Host paired</Text>
         <Text className="text-muted-foreground text-sm">{name}</Text>
       </Animated.View>
     </View>

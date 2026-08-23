@@ -7,6 +7,7 @@ import { PressableRow } from '~/components/shared/pressable-row';
 import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export type BranchRowProps = {
@@ -55,22 +56,20 @@ export function BranchRow({
       first={first}
       last={last}
       flat={flat}
-      selected={selected || current}
+      selected={selected}
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityLabel={current ? `Current branch ${name}` : `Branch ${name}`}>
-      <View className="flex-row items-center gap-3 px-3.5 py-3">
-        {current ? <View className="bg-foreground absolute bottom-2 left-0 top-2 w-1 rounded-r-full" /> : null}
-
+      <View className="flex-row items-center gap-3 py-3.5 pl-4 pr-3">
         <View
           className={cn(
-            'h-9 w-9 items-center justify-center rounded-full',
-            current ? 'bg-primary' : 'bg-secondary'
+            'h-11 w-11 items-center justify-center rounded-full',
+            current ? 'bg-primary' : 'bg-white/10'
           )}>
           <Icon
             as={remote ? Cloud : GitBranch}
-            size={17}
-            className={current ? 'text-primary-foreground' : 'text-muted-foreground'}
+            size={18}
+            color={current ? palette.primaryForeground : palette.foreground}
           />
         </View>
 
@@ -81,16 +80,14 @@ export function BranchRow({
               className="text-foreground flex-1 text-base font-semibold">
               {middleTruncate(name, 40)}
             </Text>
-            {current ? (
-              <Icon as={Check} size={14} className="text-foreground" />
-            ) : null}
+            {current ? <Icon as={Check} size={14} color={palette.foreground} /> : null}
           </View>
 
           <View className="flex-row items-center gap-1.5">
             {tip ? (
               <Text
                 style={{ fontVariant: ['tabular-nums'] }}
-                className="text-git-hash font-mono text-2xs">
+                className="text-muted-foreground font-mono text-xs">
                 {shortHash(tip)}
               </Text>
             ) : null}
@@ -109,7 +106,7 @@ export function BranchRow({
           </View>
         </View>
 
-        <View className="flex-row items-center gap-1">
+        <View className="flex-row items-center gap-1.5">
           {gone ? <StatusPill label="gone" tone="danger" size="xs" /> : null}
           {ahead ? <StatusPill label={ahead} tone="added" size="xs" icon={ArrowUp} mono /> : null}
           {behind ? (

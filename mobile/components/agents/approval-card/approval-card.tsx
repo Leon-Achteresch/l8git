@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   TriangleAlert,
   X,
+  type LucideIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
@@ -21,9 +22,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { SoftPill } from '~/components/agents/agent-sheet';
 import { Spinner } from '~/components/shared/spinner';
-import { StatusPill, type PillTone } from '~/components/shared/status-pill';
-import { Button } from '~/components/ui/button';
+import { GlassCircle, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
@@ -41,7 +42,66 @@ import {
 
 export type ApprovalCardStatus = 'pending' | 'submitting' | 'approved' | 'rejected' | 'answered';
 
-const STATUS_TONE: Record<ApprovalCardStatus, PillTone> = {
+export type ApprovalTagTone =
+  | 'neutral'
+  | 'accent'
+  | 'warning'
+  | 'info'
+  | 'success'
+  | 'danger'
+  | 'branch'
+  | 'modified';
+
+const TAG_SURFACE: Record<ApprovalTagTone, string> = {
+  neutral: 'bg-white/[0.06]',
+  accent: 'bg-white/10',
+  warning: 'bg-warning/15',
+  info: 'bg-git-branch/15',
+  success: 'bg-success/15',
+  danger: 'bg-destructive/15',
+  branch: 'bg-git-branch/15',
+  modified: 'bg-git-modified/15',
+};
+
+const TAG_TEXT: Record<ApprovalTagTone, string> = {
+  neutral: 'text-muted-foreground',
+  accent: 'text-foreground',
+  warning: 'text-warning',
+  info: 'text-git-branch',
+  success: 'text-success',
+  danger: 'text-destructive',
+  branch: 'text-git-branch',
+  modified: 'text-git-modified',
+};
+
+export function ApprovalTag({
+  label,
+  tone = 'neutral',
+  icon,
+  mono = false,
+}: {
+  label: string;
+  tone?: ApprovalTagTone;
+  icon?: LucideIcon;
+  mono?: boolean;
+}) {
+  return (
+    <View
+      className={cn(
+        'flex-row items-center gap-1 rounded-full px-2.5 py-1',
+        TAG_SURFACE[tone]
+      )}>
+      {icon ? <Icon as={icon} size={10} className={TAG_TEXT[tone]} /> : null}
+      <Text
+        numberOfLines={1}
+        className={cn('text-2xs font-semibold', mono && 'font-mono', TAG_TEXT[tone])}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+const STATUS_TONE: Record<ApprovalCardStatus, ApprovalTagTone> = {
   pending: 'warning',
   submitting: 'info',
   approved: 'success',
@@ -57,16 +117,16 @@ const STATUS_LABEL: Record<ApprovalCardStatus, string> = {
   answered: 'Answered',
 };
 
-const DANGER_SURFACE: Record<ApprovalDanger, string> = {
-  normal: 'border-border bg-card/70',
-  caution: 'border-warning/35 bg-warning/5',
-  danger: 'border-destructive/45 bg-destructive/8',
-};
-
 const DANGER_ICON: Record<ApprovalDanger, string> = {
-  normal: 'text-muted-foreground',
+  normal: 'text-foreground',
   caution: 'text-warning',
   danger: 'text-destructive',
+};
+
+const DANGER_GLYPH_SURFACE: Record<ApprovalDanger, string> = {
+  normal: 'bg-white/10',
+  caution: 'bg-warning/15',
+  danger: 'bg-destructive/15',
 };
 
 function PendingGlyph({ danger, questions }: { danger: ApprovalDanger; questions: boolean }) {
@@ -82,7 +142,7 @@ function PendingGlyph({ danger, questions }: { danger: ApprovalDanger; questions
 
   return (
     <Animated.View style={style}>
-      <Icon as={glyph} size={16} className={DANGER_ICON[danger]} />
+      <Icon as={glyph} size={17} className={DANGER_ICON[danger]} />
     </Animated.View>
   );
 }
@@ -97,15 +157,15 @@ function StatusGlyph({
   questions: boolean;
 }) {
   if (status === 'submitting') {
-    return <Spinner size={16} />;
+    return <Spinner size={17} />;
   }
   if (status === 'pending') {
     return <PendingGlyph danger={danger} questions={questions} />;
   }
   if (status === 'rejected') {
-    return <Icon as={X} size={16} className="text-destructive" />;
+    return <Icon as={X} size={17} className="text-destructive" />;
   }
-  return <Icon as={Check} size={16} className="text-success" />;
+  return <Icon as={Check} size={17} className="text-success" />;
 }
 
 function OptionButton({
@@ -130,26 +190,26 @@ function OptionButton({
       disabled={disabled}
       onPress={onPress}
       className={cn(
-        'flex-row items-start gap-2.5 rounded-xl border px-3 py-2.5',
-        selected ? 'border-foreground/30 bg-accent/70' : 'border-border bg-card/40 active:bg-accent/40',
+        'flex-row items-start gap-3 rounded-2xl px-4 py-3',
+        selected ? 'bg-white/10' : 'bg-white/[0.04] active:bg-white/[0.08]',
         disabled && 'opacity-50'
       )}>
       <View
         className={cn(
-          'mt-0.5 h-4 w-4 items-center justify-center border',
-          multiple ? 'rounded-[5px]' : 'rounded-full',
-          selected ? 'border-foreground bg-foreground' : 'border-muted-foreground/50'
+          'mt-0.5 h-5 w-5 items-center justify-center',
+          multiple ? 'rounded-md' : 'rounded-full',
+          selected ? 'bg-foreground' : 'bg-white/10'
         )}>
         {selected ? (
           multiple ? (
-            <Icon as={Check} size={10} className="text-background" />
+            <Icon as={Check} size={12} className="text-background" />
           ) : (
-            <View className="bg-background h-1.5 w-1.5 rounded-full" />
+            <View className="bg-background h-2 w-2 rounded-full" />
           )
         ) : null}
       </View>
       <View className="min-w-0 flex-1 gap-0.5">
-        <Text className="text-foreground text-sm font-medium">{label}</Text>
+        <Text className="text-foreground text-sm font-semibold">{label}</Text>
         {description ? (
           <Text className="text-muted-foreground text-xs leading-4">{description}</Text>
         ) : null}
@@ -181,7 +241,7 @@ function QuestionBody({
   };
 
   return (
-    <View className="gap-1.5 pt-2.5">
+    <View className="gap-2 pt-2">
       {question.description ? (
         <Text className="text-muted-foreground pb-1 text-xs leading-4">{question.description}</Text>
       ) : null}
@@ -207,7 +267,7 @@ function QuestionBody({
           onChangeText={(custom) =>
             onChange({ selected: question.multiple ? answer.selected : [], custom })
           }
-          className="mt-0.5 text-sm"
+          className="bg-white/[0.06] mt-0.5 text-sm"
         />
       ) : null}
     </View>
@@ -222,7 +282,7 @@ function ProgressDots({ total, current }: { total: number; current: number }) {
           key={index}
           className={cn(
             'rounded-full',
-            index === current ? 'bg-foreground h-1.5 w-1.5' : 'bg-muted-foreground/40 h-1 w-1'
+            index === current ? 'bg-foreground h-1.5 w-4' : 'bg-white/20 h-1.5 w-1.5'
           )}
         />
       ))}
@@ -298,17 +358,17 @@ export function ApprovalCard({
   return (
     <Animated.View
       layout={LinearTransition.duration(220)}
-      className={cn(
-        'overflow-hidden rounded-3xl border',
-        interactive ? DANGER_SURFACE[danger] : 'border-border bg-card/40',
-        className
-      )}>
-      <View className="flex-row items-start gap-2.5 px-3 pb-2 pt-3">
-        <View className="pt-0.5">
+      className={cn('bg-card overflow-hidden rounded-[28px]', !interactive && 'opacity-80', className)}>
+      <View className="flex-row items-start gap-3 px-4 pb-2 pt-4">
+        <View
+          className={cn(
+            'h-10 w-10 items-center justify-center rounded-full',
+            interactive ? DANGER_GLYPH_SURFACE[danger] : 'bg-white/[0.06]'
+          )}>
           <StatusGlyph status={status} danger={danger} questions={list.length > 0} />
         </View>
-        <View className="min-w-0 flex-1 gap-0.5">
-          <Text numberOfLines={2} className="text-foreground text-sm font-semibold">
+        <View className="min-w-0 flex-1 gap-0.5 pt-0.5">
+          <Text numberOfLines={2} className="text-foreground text-base font-semibold leading-5">
             {question?.title ?? title}
           </Text>
           {subtitle && !question ? (
@@ -318,18 +378,20 @@ export function ApprovalCard({
           ) : null}
         </View>
         {interactive && list.length > 1 ? (
-          <Text className="text-muted-foreground/70 font-mono text-2xs">
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground/70 pt-1 font-mono text-2xs">
             {current + 1}/{list.length}
           </Text>
         ) : (
-          <StatusPill label={STATUS_LABEL[status]} tone={STATUS_TONE[status]} size="xs" />
+          <ApprovalTag label={STATUS_LABEL[status]} tone={STATUS_TONE[status]} />
         )}
       </View>
 
-      {meta ? <View className="flex-row flex-wrap gap-1.5 px-3 pb-2">{meta}</View> : null}
+      {meta ? <View className="flex-row flex-wrap gap-1.5 px-4 pb-2">{meta}</View> : null}
 
       {interactive ? (
-        <View className="px-3 pb-3">
+        <View className="px-4 pb-4">
           {question ? (
             <Animated.View
               key={question.id}
@@ -351,15 +413,13 @@ export function ApprovalCard({
           {danger !== 'normal' && dangerNotes && dangerNotes.length > 0 ? (
             <View
               className={cn(
-                'mt-2 flex-row items-start gap-2 rounded-xl border px-2.5 py-2',
-                danger === 'danger'
-                  ? 'border-destructive/30 bg-destructive/10'
-                  : 'border-warning/30 bg-warning/8'
+                'mt-2.5 flex-row items-start gap-2 rounded-2xl px-3.5 py-2.5',
+                danger === 'danger' ? 'bg-destructive/12' : 'bg-warning/12'
               )}>
               <Icon
                 as={TriangleAlert}
-                size={12}
-                className={danger === 'danger' ? 'text-destructive' : 'text-warning'}
+                size={13}
+                className={cn('mt-px', danger === 'danger' ? 'text-destructive' : 'text-warning')}
               />
               <Text
                 className={cn(
@@ -372,71 +432,80 @@ export function ApprovalCard({
           ) : null}
 
           {error ? (
-            <View className="border-destructive/30 bg-destructive/10 mt-2 rounded-xl border px-2.5 py-2">
+            <View className="bg-destructive/12 mt-2.5 rounded-2xl px-3.5 py-2.5">
               <Text className="text-destructive text-2xs leading-4">{error}</Text>
             </View>
           ) : null}
 
           {question ? (
-            <View className="flex-row items-center gap-2 pt-3">
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={busy || current === 0}
-                accessibilityLabel="Previous question"
-                onPress={() => setStep(Math.max(0, current - 1))}>
-                <Icon as={ArrowLeft} size={16} className="text-foreground" />
-              </Button>
+            <View className="flex-row items-center gap-2.5 pt-4">
+              <GlassCircle
+                icon={ArrowLeft}
+                size={40}
+                label="Previous question"
+                onPress={busy || current === 0 ? undefined : () => setStep(Math.max(0, current - 1))}
+                style={{ opacity: busy || current === 0 ? 0.4 : 1 }}
+              />
               <ProgressDots total={list.length} current={current} />
               <View className="flex-1" />
               {onDeny ? (
-                <Button size="sm" variant="ghost" disabled={busy} onPress={onDeny}>
-                  <Text className="text-muted-foreground text-xs">{denyLabel}</Text>
-                </Button>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={denyLabel}
+                  disabled={busy}
+                  onPress={onDeny}
+                  className="active:opacity-70 px-3 py-2">
+                  <Text className="text-muted-foreground text-sm font-medium">{denyLabel}</Text>
+                </Pressable>
               ) : null}
-              <Button size="sm" disabled={busy || !canContinue} onPress={advance}>
-                <Text className="text-xs">{last ? submitLabel : 'Next'}</Text>
-                <Icon as={ArrowRight} size={13} className="text-primary-foreground" />
-              </Button>
+              <SolidPill
+                icon={ArrowRight}
+                label={last ? submitLabel : 'Next'}
+                disabled={busy || !canContinue}
+                onPress={advance}
+                style={{ height: 44, borderRadius: 22, paddingHorizontal: 18 }}
+              />
             </View>
           ) : (
-            <View className="flex-row flex-wrap items-center gap-2 pt-3">
-              {onApprove ? (
-                <Button
-                  size="sm"
-                  variant={danger === 'danger' ? 'destructive' : 'default'}
-                  disabled={busy}
-                  onPress={onApprove}
-                  className="flex-1">
-                  <Icon
-                    as={Check}
-                    size={14}
-                    className={danger === 'danger' ? 'text-white' : 'text-primary-foreground'}
+            <View className="gap-2 pt-4">
+              <View className="flex-row items-center gap-2.5">
+                {onApprove ? (
+                  <SolidPill
+                    icon={Check}
+                    label={approveLabel}
+                    disabled={busy}
+                    onPress={onApprove}
+                    style={{ flex: 1 }}
                   />
-                  <Text className="text-xs">{approveLabel}</Text>
-                </Button>
-              ) : null}
-              {onDeny ? (
-                <Button size="sm" variant="outline" disabled={busy} onPress={onDeny}>
-                  <Icon as={X} size={14} className="text-foreground" />
-                  <Text className="text-xs">{denyLabel}</Text>
-                </Button>
-              ) : null}
+                ) : null}
+                {onDeny ? (
+                  <SoftPill
+                    icon={X}
+                    label={denyLabel}
+                    tone="danger"
+                    disabled={busy}
+                    onPress={onDeny}
+                    style={onApprove ? undefined : { flex: 1 }}
+                  />
+                ) : null}
+              </View>
               {onAlwaysAllow && alwaysAllowLabel ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={alwaysAllowLabel}
                   disabled={busy}
                   onPress={onAlwaysAllow}
-                  className="w-full">
-                  <Text className="text-muted-foreground text-xs">{alwaysAllowLabel}</Text>
-                </Button>
+                  className="active:opacity-70 items-center py-2">
+                  <Text className="text-muted-foreground text-xs font-medium">
+                    {alwaysAllowLabel}
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
           )}
         </View>
       ) : (
-        <View className="px-3 pb-3">
+        <View className="px-4 pb-4">
           <Text className="text-muted-foreground text-xs">
             {resultNote ?? STATUS_LABEL[status]}
           </Text>

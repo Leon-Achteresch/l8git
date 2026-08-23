@@ -1,13 +1,12 @@
-import { TriangleAlert } from 'lucide-react-native';
+import { RotateCw, TriangleAlert } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { EmptyState } from '~/components/empty-state';
 import { SkeletonList } from '~/components/skeleton-list';
-import { Button } from '~/components/ui/button';
+import { GlassPill } from '~/components/ui/glass';
 import { Skeleton } from '~/components/ui/skeleton';
-import { Text } from '~/components/ui/text';
 import { retryAgentRuntime, useAgentRuntimeBoot } from '~/lib/agents/runtime';
 
 export function AgentRuntimeSkeleton() {
@@ -15,7 +14,7 @@ export function AgentRuntimeSkeleton() {
     <Animated.View exiting={FadeOut.duration(140)} className="gap-4">
       <View className="flex-row gap-2">
         {['a', 'b', 'c', 'd'].map((key) => (
-          <Skeleton key={key} className="h-8 flex-1 rounded-full" />
+          <Skeleton key={key} className="h-9 flex-1 rounded-full" />
         ))}
       </View>
       <SkeletonList rows={5} avatar />
@@ -38,11 +37,7 @@ export function AgentRuntimeGate({
         icon={TriangleAlert}
         title="Agent runtime failed to start"
         description={error ?? 'The agent stores could not be initialised on this device.'}
-        action={
-          <Button variant="outline" size="sm" onPress={retryAgentRuntime}>
-            <Text>Try again</Text>
-          </Button>
-        }
+        action={<GlassPill icon={RotateCw} label="Try again" onPress={retryAgentRuntime} />}
       />
     );
   }

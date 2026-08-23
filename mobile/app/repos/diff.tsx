@@ -1,15 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Minus, Plus, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Minus, Plus, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DetailHeader } from '~/components/shared/detail-header';
 import { DiffView } from '~/components/shared/diff-view';
 import { splitPath } from '~/components/shared/format';
-import { Icon } from '~/components/ui/icon';
-import { Separator } from '~/components/ui/separator';
+import { Fade, GlassCircle, GlassPill, SolidPill } from '~/components/ui/glass';
 import { Text } from '~/components/ui/text';
 import { useHostRuntime } from '~/lib/connections';
 import {
@@ -19,6 +17,7 @@ import {
   useUnstageFiles,
 } from '~/lib/repo/queries';
 import { decodeRepoParam } from '~/lib/repo/route';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 type Side = 'staged' | 'unstaged';
@@ -66,6 +65,14 @@ export default function RepoFileDiffScreen() {
   const insets = useSafeAreaInsets();
   const { name, dir } = splitPath(file);
 
+  const goBack = React.useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/repos');
+  }, [router]);
+
   const feedback = React.useCallback(() => {
     if (Platform.OS !== 'web') {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -91,37 +98,52 @@ export default function RepoFileDiffScreen() {
 
   return (
     <SafeAreaView edges={['top']} className="bg-background flex-1">
-      <DetailHeader title={name} subtitle={dir || undefined} />
+      <View className="flex-row items-center gap-3 px-5 pb-3 pt-2">
+        <GlassCircle icon={ArrowLeft} label="Back" onPress={goBack} />
+        <View className="min-w-0 flex-1">
+          <Text numberOfLines={1} className="text-foreground text-xl font-bold tracking-tight">
+            {name}
+          </Text>
+          {dir ? (
+            <Text numberOfLines={1} className="text-muted-foreground text-xs">
+              {dir}
+            </Text>
+          ) : null}
+        </View>
+        <GlassCircle
+          icon={Trash2}
+          label="Discard changes"
+          color={palette.destructive}
+          onPress={confirmDiscard}
+        />
+      </View>
 
       {hasStaged && hasUnstaged ? (
-        <>
-          <View className="flex-row gap-1 px-4 pb-2 pt-2">
-            {(['unstaged', 'staged'] as const).map((value) => (
-              <Pressable
-                key={value}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: side === value }}
-                onPress={() => setSide(value)}
+        <View className="flex-row gap-2 px-5 pb-3">
+          {(['unstaged', 'staged'] as const).map((value) => (
+            <Pressable
+              key={value}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: side === value }}
+              onPress={() => setSide(value)}
+              className={cn(
+                'h-9 flex-1 items-center justify-center rounded-full',
+                side === value ? 'bg-primary' : 'bg-card'
+              )}>
+              <Text
                 className={cn(
-                  'flex-1 items-center rounded-lg border py-1.5',
-                  side === value ? 'border-border bg-secondary' : 'border-transparent bg-muted/40'
+                  'text-sm font-semibold',
+                  side === value ? 'text-primary-foreground' : 'text-muted-foreground'
                 )}>
-                <Text
-                  className={cn(
-                    'text-xs',
-                    side === value ? 'text-foreground font-medium' : 'text-muted-foreground'
-                  )}>
-                  {value === 'staged' ? 'Staged' : 'Working copy'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <Separator />
-        </>
+                {value === 'staged' ? 'Staged' : 'Working copy'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       ) : null}
 
       <ScrollView
-        contentContainerClassName="gap-2 px-4 pb-28 pt-3"
+        contentContainerClassName="gap-3 px-5 pb-36 pt-1"
         showsVerticalScrollIndicator={false}>
         <DiffView
           diff={untracked ? null : side === 'staged' ? payload?.staged : payload?.unstaged}
@@ -146,38 +168,34 @@ export default function RepoFileDiffScreen() {
       </ScrollView>
 
       <View
-        style={{ paddingBottom: Math.max(insets.bottom, 12) }}
-        className="border-border bg-sidebar flex-row gap-2 border-t px-4 pt-2.5">
-        {side === 'staged' ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              feedback();
-              unstage.mutate([file]);
-            }}
-            className="border-border bg-card/70 h-10 flex-1 flex-row items-center justify-center gap-2 rounded-xl border active:opacity-70">
-            <Icon as={Minus} size={14} className="text-foreground" />
-            <Text className="text-foreground text-sm font-medium">Unstage</Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              feedback();
-              stage.mutate([file]);
-            }}
-            className="bg-primary h-10 flex-1 flex-row items-center justify-center gap-2 rounded-xl active:opacity-90">
-            <Icon as={Plus} size={14} className="text-primary-foreground" />
-            <Text className="text-primary-foreground text-sm font-semibold">Stage file</Text>
-          </Pressable>
-        )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Discard changes"
-          onPress={confirmDiscard}
-          className="border-destructive/40 bg-destructive/10 h-10 w-12 items-center justify-center rounded-xl border active:opacity-70">
-          <Icon as={Trash2} size={15} className="text-destructive" />
-        </Pressable>
+        pointerEvents="box-none"
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
+        <Fade height={120} />
+        <View
+          style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+          className="flex-row items-center justify-center gap-3 px-5 pt-3">
+          {side === 'staged' ? (
+            <GlassPill
+              icon={Minus}
+              label="Unstage"
+              onPress={() => {
+                feedback();
+                unstage.mutate([file]);
+              }}
+              style={{ flex: 1 }}
+            />
+          ) : (
+            <SolidPill
+              icon={Plus}
+              label="Stage file"
+              onPress={() => {
+                feedback();
+                stage.mutate([file]);
+              }}
+              style={{ flex: 1 }}
+            />
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );

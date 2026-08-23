@@ -1,14 +1,13 @@
 import { useRouter } from 'expo-router';
-import { GitBranch, GitPullRequestArrow } from 'lucide-react-native';
+import { ArrowLeft, GitBranch, GitPullRequestArrow } from 'lucide-react-native';
 import * as React from 'react';
 import { FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '~/components/empty-state';
-import { DetailHeader } from '~/components/shared/detail-header';
 import { PressableRow } from '~/components/shared/pressable-row';
-import { StatusPill } from '~/components/shared/status-pill';
 import { SkeletonList } from '~/components/skeleton-list';
+import { GlassCircle } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import {
@@ -34,20 +33,24 @@ function SessionRow({
       last={last}
       onPress={onPress}
       accessibilityLabel={`Review ${session.name}`}>
-      <View className="flex-row items-center gap-2.5 px-3 py-3">
-        <View className="border-git-branch/30 bg-git-branch/12 h-8 w-8 items-center justify-center rounded-lg border">
-          <Icon as={GitBranch} size={14} className="text-foreground" />
+      <View className="flex-row items-center gap-3 px-4 py-3.5">
+        <View className="bg-white/10 h-10 w-10 items-center justify-center rounded-full">
+          <Icon as={GitBranch} size={16} className="text-foreground" />
         </View>
         <View className="min-w-0 flex-1 gap-0.5">
-          <Text numberOfLines={1} className="text-foreground text-sm font-medium">
+          <Text numberOfLines={1} className="text-foreground text-base font-semibold">
             {session.name}
           </Text>
-          <Text numberOfLines={1} className="text-muted-foreground text-2xs">
+          <Text numberOfLines={1} className="text-muted-foreground text-xs">
             {session.repoName} · {session.hostName}
           </Text>
         </View>
         {session.branch ? (
-          <StatusPill label={session.branch} tone="branch" size="xs" mono />
+          <View className="bg-white/[0.06] max-w-32 rounded-full px-2.5 py-1">
+            <Text numberOfLines={1} className="text-muted-foreground font-mono text-2xs">
+              {session.branch}
+            </Text>
+          </View>
         ) : null}
       </View>
     </PressableRow>
@@ -60,18 +63,26 @@ export default function AgentReviewsScreen() {
 
   return (
     <SafeAreaView edges={['top']} className="bg-background flex-1">
-      <DetailHeader
-        title="Worktree reviews"
-        subtitle={
-          sessions.length > 0
-            ? `${sessions.length} agent session${sessions.length === 1 ? '' : 's'} ready to review`
-            : 'Agent sessions running in their own worktree'
-        }
-        onBack={() => (router.canGoBack() ? router.back() : router.replace('/agents'))}
-      />
+      <View className="flex-row items-center gap-3 px-5 pb-4 pt-2">
+        <GlassCircle
+          icon={ArrowLeft}
+          label="Back"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/agents'))}
+        />
+        <View className="min-w-0 flex-1">
+          <Text numberOfLines={1} className="text-foreground text-3xl font-bold tracking-tight">
+            Reviews
+          </Text>
+          <Text numberOfLines={1} className="text-muted-foreground text-sm">
+            {sessions.length > 0
+              ? `${sessions.length} agent session${sessions.length === 1 ? '' : 's'} ready to review`
+              : 'Agent sessions running in their own worktree'}
+          </Text>
+        </View>
+      </View>
 
       {loading && sessions.length === 0 ? (
-        <View className="px-4 pt-3">
+        <View className="px-5 pt-1">
           <SkeletonList rows={4} avatar />
         </View>
       ) : sessions.length === 0 ? (
@@ -84,7 +95,7 @@ export default function AgentReviewsScreen() {
         <FlatList
           data={sessions}
           keyExtractor={(item) => `${item.hostId}:${item.worktreePath}`}
-          contentContainerClassName="px-4 pb-16 pt-3"
+          contentContainerClassName="px-5 pb-16 pt-1"
           showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => (
             <SessionRow

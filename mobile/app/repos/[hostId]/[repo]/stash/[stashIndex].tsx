@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Layers, MoreVertical } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ChangedFilesSection } from '~/components/repo/changed-files';
@@ -20,9 +20,11 @@ import { StashActionSheet, stashLabel } from '~/components/repo/stash/stash-shee
 import { relativeTime, shortHash } from '~/components/shared/format';
 import { StatusPill } from '~/components/shared/status-pill';
 import { SkeletonList } from '~/components/skeleton-list';
+import { GlassCircle } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 
 export default function StashDetailScreen() {
   const router = useRouter();
@@ -50,14 +52,12 @@ export default function StashDetailScreen() {
         title={entry ? stashLabel(entry) : `stash@{${index}}`}
         subtitle={entry ? `stash@{${index}} · ${entry.branch}` : header.subject || undefined}
         right={
-          <Pressable
-            accessibilityLabel="Stash actions"
-            hitSlop={8}
-            disabled={!entry}
-            onPress={() => setActionsOpen(true)}
-            className="active:bg-accent h-9 w-9 items-center justify-center rounded-lg">
-            <Icon as={MoreVertical} size={17} className="text-foreground" />
-          </Pressable>
+          <GlassCircle
+            icon={MoreVertical}
+            label="Stash actions"
+            onPress={entry ? () => setActionsOpen(true) : undefined}
+            style={{ opacity: entry ? 1 : 0.45 }}
+          />
         }
       />
 
@@ -65,13 +65,13 @@ export default function StashDetailScreen() {
         <OfflineState hostId={hostId} />
       ) : (
         <ScrollView
-          contentContainerClassName="gap-3 px-4 pb-24 pt-3"
+          contentContainerClassName="gap-3 px-5 pb-24 pt-2"
           showsVerticalScrollIndicator={false}>
           {inspect.isPending ? (
             <View className="gap-3">
-              <View className="border-border bg-card/40 gap-3 rounded-2xl border p-4">
-                <Skeleton className="h-4 w-2/3 rounded" />
-                <Skeleton className="h-3 w-1/2 rounded" />
+              <View className="bg-card gap-3 rounded-[28px] p-5">
+                <Skeleton className="h-4 w-2/3 rounded-full" />
+                <Skeleton className="h-3 w-1/2 rounded-full" />
               </View>
               <SkeletonList rows={4} />
             </View>
@@ -85,25 +85,35 @@ export default function StashDetailScreen() {
             <>
               <Animated.View
                 entering={FadeInDown.duration(220).springify().damping(20)}
-                className="border-border bg-card/50 gap-2 rounded-2xl border p-4">
-                <View className="flex-row items-center gap-2">
-                  <Icon as={Layers} size={14} className="text-git-merge" />
-                  <Text className="text-foreground flex-1 text-sm font-medium">
-                    {header.subject || (entry ? stashLabel(entry) : `stash@{${index}}`)}
-                  </Text>
+                className="bg-card gap-4 rounded-[28px] p-5">
+                <View className="flex-row items-start gap-3.5">
+                  <View
+                    style={{ backgroundColor: `${palette.git.merge}26` }}
+                    className="h-12 w-12 items-center justify-center rounded-full">
+                    <Icon as={Layers} size={20} color={palette.git.merge} />
+                  </View>
+                  <View className="min-w-0 flex-1 gap-1">
+                    <Text className="text-foreground text-lg font-semibold leading-6">
+                      {header.subject || (entry ? stashLabel(entry) : `stash@{${index}}`)}
+                    </Text>
+                    <Text
+                      style={{ fontVariant: ['tabular-nums'] }}
+                      className="text-muted-foreground text-xs">
+                      {[
+                        entry?.branch,
+                        header.hash ? shortHash(header.hash) : null,
+                        relativeTime(entry?.date ?? header.authorDate),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  </View>
                   <StatusPill label={`stash@{${index}}`} tone="merge" size="xs" mono />
                 </View>
-                <Text className="text-muted-foreground text-xs">
-                  {[
-                    entry?.branch,
-                    header.hash ? shortHash(header.hash) : null,
-                    relativeTime(entry?.date ?? header.authorDate),
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </Text>
                 {header.body ? (
-                  <Text className="text-muted-foreground text-xs leading-5">{header.body}</Text>
+                  <Text selectable className="text-muted-foreground text-sm leading-5">
+                    {header.body}
+                  </Text>
                 ) : null}
               </Animated.View>
 

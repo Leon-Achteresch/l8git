@@ -7,7 +7,7 @@ function Card({ className, ...props }: React.ComponentProps<typeof View> & React
     <TextClassContext.Provider value="text-card-foreground">
       <View
         className={cn(
-          'bg-card border-border flex flex-col gap-6 rounded-xl border py-6 shadow-sm shadow-black/5',
+          'bg-card flex flex-col gap-6 rounded-[28px] py-6',
           className
         )}
         {...props}
@@ -31,7 +31,7 @@ function CardTitle({
       ref={ref}
       role="heading"
       aria-level={3}
-      className={cn('font-semibold leading-none', className)}
+      className={cn('text-base font-bold leading-none tracking-tight', className)}
       {...props}
     />
   );

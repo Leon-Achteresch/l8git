@@ -22,12 +22,12 @@ function Bullet({ status }: { status: TodoStatus }) {
   }
   if (status === 'completed') {
     return (
-      <View className="border-success/50 bg-success/15 h-3.5 w-3.5 items-center justify-center rounded-full border">
-        <Icon as={Check} size={8} className="text-success" />
+      <View className="bg-success/25 h-4 w-4 items-center justify-center rounded-full">
+        <Icon as={Check} size={9} className="text-success" />
       </View>
     );
   }
-  return <View className="border-muted-foreground/45 h-3.5 w-3.5 rounded-full border" />;
+  return <View className="bg-white/10 h-4 w-4 rounded-full" />;
 }
 
 export function TodoList({
@@ -48,7 +48,7 @@ export function TodoList({
     <Animated.View
       layout={LinearTransition.duration(180)}
       entering={FadeIn.duration(160)}
-      className="border-border bg-card gap-2.5 rounded-3xl border p-3.5">
+      className="bg-white/5 gap-3 rounded-3xl px-4 py-4">
       <View className="flex-row items-center gap-2.5">
         <Icon as={ListChecks} size={16} className="text-muted-foreground" />
         <Text className="text-foreground flex-1 text-sm font-semibold uppercase tracking-widest">
@@ -61,7 +61,7 @@ export function TodoList({
         </Text>
       </View>
 
-      <View className="bg-muted h-1 overflow-hidden rounded-full">
+      <View className="bg-white/10 h-1 overflow-hidden rounded-full">
         <Animated.View
           layout={LinearTransition.duration(280)}
           style={{ width: `${Math.round(ratio * 100)}%` }}
@@ -69,9 +69,9 @@ export function TodoList({
         />
       </View>
 
-      <View className="gap-1.5">
+      <View className="gap-2">
         {items.map((item) => (
-          <View key={item.id} className="flex-row items-start gap-2">
+          <View key={item.id} className="flex-row items-start gap-2.5">
             <View className="pt-0.5">
               <Bullet status={item.status} />
             </View>

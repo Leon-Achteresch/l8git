@@ -18,6 +18,14 @@ import { cn } from '~/lib/utils';
 
 const NUM = { fontVariant: ['tabular-nums' as const] };
 
+const TILE = {
+  gap: 12,
+  overflow: 'hidden' as const,
+  borderRadius: 28,
+  paddingHorizontal: 16,
+  paddingVertical: 16,
+};
+
 export function RepoTile({
   repo,
   accent,
@@ -65,16 +73,15 @@ export function RepoTile({
         onPressOut={() => {
           pressed.value = withTiming(0, { duration: 180 });
         }}
-        style={selected ? { borderColor: palette.foreground } : undefined}
-        className={cn(
-          'border-border bg-card gap-3 overflow-hidden rounded-3xl border px-3.5 py-4',
-          selected && 'bg-elevated'
-        )}>
+        style={[
+          TILE,
+          { backgroundColor: selected ? 'rgba(255,255,255,0.12)' : palette.card },
+        ]}>
         <View className="flex-row items-center gap-2">
           <Image
             source={illustrations.repo}
             resizeMode="cover"
-            style={{ width: 34, height: 34, borderRadius: 11 }}
+            style={{ width: 34, height: 34, borderRadius: 17 }}
           />
           <View className="min-w-0 flex-1">
             <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
@@ -82,7 +89,9 @@ export function RepoTile({
             </Text>
           </View>
           {repo.dirty_count > 0 ? (
-            <View className="bg-warning h-2 w-2 rounded-full" />
+            <View
+              style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette.warning }}
+            />
           ) : null}
         </View>
 
@@ -95,8 +104,18 @@ export function RepoTile({
           </View>
         ) : (
           <>
-            <View className="bg-secondary self-start flex-row items-center gap-1 rounded-full px-2 py-1">
-              <Icon as={GitBranch} className="text-muted-foreground size-3" />
+            <View
+              style={{
+                alignSelf: 'flex-start',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                borderRadius: 999,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+              }}>
+              <Icon as={GitBranch} size={11} color={palette.mutedForeground} />
               <Text numberOfLines={1} className="text-muted-foreground max-w-24 text-2xs">
                 {repo.branch || 'detached'}
               </Text>

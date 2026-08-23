@@ -1,5 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  ArrowLeft,
   CircleSlash,
   ExternalLink,
   GitBranch,
@@ -8,7 +9,7 @@ import {
   Workflow,
 } from 'lucide-react-native';
 import * as React from 'react';
-import { Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Linking, RefreshControl, ScrollView, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { EmptyState } from '~/components/empty-state';
@@ -27,9 +28,9 @@ import {
   isCiActive,
   runDuration,
   workflowFileName,
+  type CiState,
 } from '~/components/repo/ci/ci-types';
 import { JobAccordion } from '~/components/repo/ci/job-accordion';
-import { DetailHeader } from '~/components/shared/detail-header';
 import { useRepoScope } from '~/components/repo/git-queries';
 import { GitToast, useGitToast } from '~/components/repo/git-toast';
 import { usePrCapabilities } from '~/components/repo/pr/pr-queries';
@@ -39,16 +40,28 @@ import { SectionHeader } from '~/components/section-header';
 import { relativeTime, shortHash } from '~/components/shared/format';
 import { StatusPill } from '~/components/shared/status-pill';
 import { SkeletonList } from '~/components/skeleton-list';
-import { Button } from '~/components/ui/button';
+import { GlassCircle, GlassPill, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
 import { palette } from '~/lib/theme';
+import { cn } from '~/lib/utils';
+
+const RUN_SURFACE: Record<CiState, string> = {
+  success: 'bg-git-added/15',
+  failure: 'bg-git-removed/15',
+  running: 'bg-git-branch/15',
+  queued: 'bg-git-modified/15',
+  cancelled: 'bg-white/10',
+  skipped: 'bg-white/10',
+  neutral: 'bg-white/10',
+  unknown: 'bg-white/10',
+};
 
 function MetaChip({ icon, label }: { icon: typeof GitBranch; label: string }) {
   return (
     <View className="flex-row items-center gap-1">
-      <Icon as={icon} size={10} className="text-muted-foreground/70" />
+      <Icon as={icon} size={10} className="text-muted-foreground" />
       <Text numberOfLines={1} className="text-muted-foreground text-2xs">
         {label}
       </Text>
@@ -57,6 +70,7 @@ function MetaChip({ icon, label }: { icon: typeof GitBranch; label: string }) {
 }
 
 export default function WorkflowRunDetailScreen() {
+  const router = useRouter();
   const { hostId, repoPath } = useRepoRoute();
   const params = useLocalSearchParams<{ runId?: string }>();
   const runId = Number.parseInt(decodeRouteValue(params.runId) || '0', 10);
@@ -92,36 +106,59 @@ export default function WorkflowRunDetailScreen() {
     });
   }, [cancel, runId, toast]);
 
+  const goBack = React.useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/repos');
+  }, [router]);
+
+  const htmlUrl = run?.html_url ?? null;
+  const openOnWeb = React.useCallback(() => {
+    if (htmlUrl) {
+      void Linking.openURL(htmlUrl).catch(() => undefined);
+    }
+  }, [htmlUrl]);
+
   return (
     <View className="bg-background flex-1">
-      <DetailHeader
-        title={run?.name ?? `Run #${runId || '—'}`}
-        subtitle={run ? `#${run.run_number} · ${ciStateLabel(run.status, run.conclusion)}` : repoPath}
-        right={
-          <>
-            {run?.html_url ? (
-              <Pressable
-                accessibilityLabel="Open run in browser"
-                hitSlop={8}
-                onPress={() => void Linking.openURL(run.html_url).catch(() => undefined)}
-                className="active:bg-accent h-9 w-9 items-center justify-center rounded-lg">
-                <Icon as={ExternalLink} size={16} className="text-muted-foreground" />
-              </Pressable>
-            ) : null}
-            <Pressable
-              accessibilityLabel="Reload run"
-              hitSlop={8}
-              onPress={refresh}
-              className="active:bg-accent h-9 w-9 items-center justify-center rounded-lg">
-              <Icon
-                as={RotateCw}
-                size={16}
-                className={jobs.isFetching ? 'text-foreground' : 'text-muted-foreground'}
-              />
-            </Pressable>
-          </>
-        }
-      />
+      <View className="flex-row items-center gap-3 px-5 pb-3 pt-2">
+        <GlassCircle icon={ArrowLeft} label="Back" onPress={goBack} />
+        <View className="min-w-0 flex-1">
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground text-xs font-medium">
+            {run
+              ? `#${run.run_number} · ${ciStateLabel(run.status, run.conclusion)}`
+              : `#${runId || '—'}`}
+          </Text>
+          <Text numberOfLines={1} className="text-foreground text-lg font-bold tracking-tight">
+            {run?.name ?? 'Workflow run'}
+          </Text>
+          <View className="flex-row items-center gap-1">
+            <Icon as={GitBranch} size={10} className="text-muted-foreground" />
+            <Text numberOfLines={1} className="text-muted-foreground text-2xs">
+              {run?.head_branch || repoPath}
+            </Text>
+          </View>
+        </View>
+        {htmlUrl ? (
+          <GlassCircle
+            icon={ExternalLink}
+            label="Open run in browser"
+            size={40}
+            onPress={openOnWeb}
+          />
+        ) : null}
+        <GlassCircle
+          icon={RotateCw}
+          label="Reload run"
+          size={40}
+          color={jobs.isFetching ? palette.foreground : palette.mutedForeground}
+          onPress={refresh}
+        />
+      </View>
 
       {!scope.online ? (
         <OfflineState hostId={hostId} />
@@ -133,7 +170,7 @@ export default function WorkflowRunDetailScreen() {
         />
       ) : (
         <ScrollView
-          contentContainerClassName="gap-3 px-4 pb-24 pt-3"
+          contentContainerClassName="gap-3 px-5 pb-28 pt-1"
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -145,13 +182,17 @@ export default function WorkflowRunDetailScreen() {
           {run ? (
             <Animated.View
               entering={FadeInDown.duration(220).springify().damping(20)}
-              className="border-border bg-card/50 gap-3 rounded-2xl border p-4">
+              className="bg-card gap-3 rounded-[28px] p-4">
               <View className="flex-row items-start gap-3">
-                <View className="pt-0.5">
-                  <CiStatusIcon status={run.status} conclusion={run.conclusion} size={20} />
+                <View
+                  className={cn(
+                    'h-11 w-11 items-center justify-center rounded-full',
+                    RUN_SURFACE[state]
+                  )}>
+                  <CiStatusIcon status={run.status} conclusion={run.conclusion} size={19} />
                 </View>
                 <View className="min-w-0 flex-1 gap-1">
-                  <Text className="text-foreground text-base font-medium leading-5">
+                  <Text className="text-foreground text-base font-semibold leading-5">
                     {run.name}
                   </Text>
                   {run.display_title ? (
@@ -170,15 +211,17 @@ export default function WorkflowRunDetailScreen() {
 
               <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1.5">
                 {run.head_branch ? <MetaChip icon={GitBranch} label={run.head_branch} /> : null}
-                <Text className="text-muted-foreground/60 font-mono text-2xs">
+                <Text className="text-muted-foreground font-mono text-2xs">
                   {shortHash(run.head_sha)}
                 </Text>
-                <Text className="text-muted-foreground/70 text-2xs">{run.event}</Text>
+                <Text className="text-muted-foreground text-2xs">{run.event}</Text>
                 {run.actor_login ? (
-                  <Text className="text-muted-foreground/70 text-2xs">{run.actor_login}</Text>
+                  <Text className="text-muted-foreground text-2xs">{run.actor_login}</Text>
                 ) : null}
                 {duration ? <MetaChip icon={Timer} label={duration} /> : null}
-                <Text className="text-muted-foreground/60 text-2xs">
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-muted-foreground text-2xs">
                   {relativeTime(run.created_at)}
                 </Text>
                 {run.run_attempt && run.run_attempt > 1 ? (
@@ -189,36 +232,29 @@ export default function WorkflowRunDetailScreen() {
                 ) : null}
               </View>
 
-              <View className="border-border/60 flex-row gap-2 border-t pt-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
+              <View className="border-white/5 flex-row items-center gap-2 border-t pt-3">
+                <SolidPill
+                  icon={RotateCw}
+                  label={rerun.isPending ? 'Re-running…' : 'Re-run'}
                   disabled={busy}
-                  onPress={doRerun}>
-                  <Icon as={RotateCw} size={13} className="text-foreground" />
-                  <Text className="text-xs">{rerun.isPending ? 'Re-running…' : 'Re-run'}</Text>
-                </Button>
+                  onPress={doRerun}
+                  style={{ flex: 1 }}
+                />
                 {running ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    disabled={busy}
-                    onPress={doCancel}>
-                    <Icon as={CircleSlash} size={13} className="text-destructive" />
-                    <Text className="text-destructive text-xs">
-                      {cancel.isPending ? 'Cancelling…' : 'Cancel'}
-                    </Text>
-                  </Button>
+                  <GlassPill
+                    icon={CircleSlash}
+                    label={cancel.isPending ? 'Cancelling…' : 'Cancel'}
+                    onPress={busy ? undefined : doCancel}
+                    style={{ opacity: busy ? 0.5 : 1 }}
+                  />
                 ) : null}
               </View>
             </Animated.View>
           ) : runs.isPending ? (
-            <View className="border-border bg-card/40 gap-3 rounded-2xl border p-4">
-              <Skeleton className="h-4 w-2/3 rounded" />
-              <Skeleton className="h-3 w-1/2 rounded" />
-              <Skeleton className="h-8 w-full rounded" />
+            <View className="bg-card gap-3 rounded-[28px] p-4">
+              <Skeleton className="h-4 w-2/3 rounded-full" />
+              <Skeleton className="h-3 w-1/2 rounded-full" />
+              <Skeleton className="h-10 w-full rounded-full" />
             </View>
           ) : runs.isError ? (
             <QueryErrorState
@@ -245,7 +281,7 @@ export default function WorkflowRunDetailScreen() {
                 onRetry={() => void jobs.refetch()}
               />
             ) : (jobs.data?.length ?? 0) === 0 ? (
-              <View className="border-border bg-card/40 rounded-xl border px-3 py-3">
+              <View className="bg-card rounded-[28px] px-4 py-3.5">
                 <Text className="text-muted-foreground text-xs">
                   This run reported no jobs yet.
                 </Text>

@@ -15,7 +15,7 @@ export type StatusTone =
 
 const TONE_CLASS: Record<StatusTone, string> = {
   online: 'bg-success',
-  offline: 'bg-muted-foreground/50',
+  offline: 'bg-white/20',
   connecting: 'bg-warning',
   error: 'bg-destructive',
   added: 'bg-git-added',

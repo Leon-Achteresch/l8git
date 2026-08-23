@@ -28,26 +28,22 @@ export function HostBadge({
   const online = runtime.status === 'online';
   const connecting = runtime.status === 'connecting' || runtime.status === 'reconnecting';
   const mono = initials(label);
+  const avatar = size === 'xs' ? 16 : 24;
 
   return (
     <View
       className={cn(
         'flex-row items-center gap-1.5',
-        showName && 'bg-secondary rounded-full',
+        showName && 'bg-white/10 rounded-full',
         showName && (size === 'xs' ? 'py-px pl-px pr-2' : 'py-0.5 pl-0.5 pr-2.5'),
         className
       )}>
       <View className="relative">
         <View
-          className={cn(
-            'bg-muted items-center justify-center rounded-full',
-            size === 'xs' ? 'h-4 w-4' : 'h-6 w-6'
-          )}>
+          style={{ width: avatar, height: avatar, borderRadius: avatar / 2 }}
+          className="bg-white/15 items-center justify-center">
           <Text
-            className={cn(
-              'text-muted-foreground font-bold',
-              size === 'xs' ? 'text-[8px]' : 'text-2xs'
-            )}>
+            className={cn('text-foreground font-bold', size === 'xs' ? 'text-[8px]' : 'text-2xs')}>
             {mono}
           </Text>
         </View>
@@ -56,7 +52,7 @@ export function HostBadge({
             className={cn(
               'border-background absolute -bottom-px -right-px rounded-full border-2',
               size === 'xs' ? 'h-2 w-2' : 'h-2.5 w-2.5',
-              online ? 'bg-success' : connecting ? 'bg-warning' : 'bg-muted-foreground'
+              online ? 'bg-success' : connecting ? 'bg-warning' : 'bg-white/30'
             )}
           />
         ) : null}

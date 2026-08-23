@@ -19,17 +19,17 @@ export type PillTone =
   | 'merge';
 
 const TONE_SURFACE: Record<PillTone, string> = {
-  neutral: 'bg-muted border-border',
-  success: 'bg-success/12 border-success/35',
-  danger: 'bg-destructive/12 border-destructive/35',
-  warning: 'bg-warning/12 border-warning/35',
-  info: 'bg-git-branch/12 border-git-branch/35',
-  accent: 'bg-accent border-border',
-  added: 'bg-git-added/12 border-git-added/35',
-  removed: 'bg-git-removed/12 border-git-removed/35',
-  modified: 'bg-git-modified/12 border-git-modified/35',
-  branch: 'bg-git-branch/12 border-git-branch/35',
-  merge: 'bg-git-merge/12 border-git-merge/35',
+  neutral: 'bg-white/10',
+  success: 'bg-success/15',
+  danger: 'bg-destructive/15',
+  warning: 'bg-warning/15',
+  info: 'bg-git-branch/15',
+  accent: 'bg-white/15',
+  added: 'bg-git-added/15',
+  removed: 'bg-git-removed/15',
+  modified: 'bg-git-modified/15',
+  branch: 'bg-git-branch/15',
+  merge: 'bg-git-merge/15',
 };
 
 const TONE_TEXT: Record<PillTone, string> = {
@@ -82,9 +82,9 @@ export function StatusPill({
   return (
     <View
       className={cn(
-        'flex-row items-center gap-1 rounded-full border',
+        'flex-row items-center gap-1 rounded-full',
         TONE_SURFACE[tone],
-        size === 'xs' ? 'px-1.5 py-px' : 'px-2 py-0.5',
+        size === 'xs' ? 'px-2 py-0.5' : 'px-2.5 py-1',
         className
       )}>
       {dot ? <View className={cn('h-1.5 w-1.5 rounded-full', TONE_DOT[tone])} /> : null}
@@ -94,7 +94,7 @@ export function StatusPill({
         style={{ fontVariant: ['tabular-nums'] }}
         className={cn(
           TONE_TEXT[tone],
-          mono ? 'font-mono' : 'font-medium',
+          mono ? 'font-mono' : 'font-semibold',
           size === 'xs' ? 'text-2xs' : 'text-xs'
         )}>
         {label}

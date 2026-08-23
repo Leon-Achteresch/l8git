@@ -26,10 +26,10 @@ const CHECK_SURFACE: Record<CiState, string> = {
   failure: 'bg-git-removed/15',
   running: 'bg-git-branch/15',
   queued: 'bg-git-modified/15',
-  cancelled: 'bg-secondary',
-  skipped: 'bg-secondary',
-  neutral: 'bg-secondary',
-  unknown: 'bg-secondary',
+  cancelled: 'bg-white/10',
+  skipped: 'bg-white/10',
+  neutral: 'bg-white/10',
+  unknown: 'bg-white/10',
 };
 
 const SUMMARY_ORDER: readonly CiState[] = [
@@ -102,28 +102,28 @@ function CheckRow({
   return (
     <Animated.View
       layout={LinearTransition.duration(160)}
-      className={first ? undefined : 'border-border/60 border-t'}>
+      className={first ? undefined : 'border-white/5 border-t'}>
       <Pressable
         accessibilityRole={expandable ? 'button' : undefined}
         disabled={!expandable}
         onPress={() => setExpanded((value) => !value)}
-        className="active:bg-accent/40 flex-row items-center gap-3 px-3 py-2.5">
+        className="active:bg-white/5 flex-row items-center gap-3 px-4 py-3">
         <View
           className={cn(
-            'h-9 w-9 items-center justify-center rounded-xl',
+            'h-10 w-10 items-center justify-center rounded-full',
             CHECK_SURFACE[ciState(check.status, check.conclusion)]
           )}>
-          <CiStatusIcon status={check.status} conclusion={check.conclusion} />
+          <CiStatusIcon status={check.status} conclusion={check.conclusion} size={17} />
         </View>
         <View className="min-w-0 flex-1 gap-0.5">
-          <Text numberOfLines={1} className="text-foreground text-sm font-medium">
+          <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
             {check.name}
           </Text>
           <Text numberOfLines={1} className="text-muted-foreground text-2xs">
             {meta}
           </Text>
           {detail ? (
-            <Text numberOfLines={1} className="text-muted-foreground/70 text-2xs">
+            <Text numberOfLines={1} className="text-muted-foreground text-2xs">
               {detail}
             </Text>
           ) : null}
@@ -134,11 +134,11 @@ function CheckRow({
             hitSlop={8}
             disabled={rerunning}
             onPress={() => onRerun(check)}
-            className="active:bg-accent h-7 w-7 items-center justify-center rounded-lg">
+            className="bg-white/10 active:bg-white/15 h-8 w-8 items-center justify-center rounded-full">
             {rerunning ? (
               <Spinner size={13} className="text-foreground" />
             ) : (
-              <Icon as={RotateCw} size={13} className="text-muted-foreground" />
+              <Icon as={RotateCw} size={13} className="text-foreground" />
             )}
           </Pressable>
         ) : null}
@@ -147,15 +147,15 @@ function CheckRow({
             accessibilityLabel={`Open ${check.name} in browser`}
             hitSlop={8}
             onPress={() => void Linking.openURL(url).catch(() => undefined)}
-            className="active:bg-accent h-7 w-7 items-center justify-center rounded-lg">
-            <Icon as={ExternalLink} size={13} className="text-muted-foreground" />
+            className="bg-white/10 active:bg-white/15 h-8 w-8 items-center justify-center rounded-full">
+            <Icon as={ExternalLink} size={13} className="text-foreground" />
           </Pressable>
         ) : null}
       </Pressable>
 
       {expanded && summary ? (
-        <Animated.View entering={FadeIn.duration(140)} className="px-3 pb-3">
-          <View className="border-border bg-muted/40 rounded-lg border px-2.5 py-2">
+        <Animated.View entering={FadeIn.duration(140)} className="px-4 pb-3.5">
+          <View className="bg-white/5 rounded-2xl px-3.5 py-2.5">
             <Text className="text-muted-foreground text-2xs leading-4">{summary}</Text>
           </View>
         </Animated.View>
@@ -193,17 +193,19 @@ export function ChecksList({
 
   if (sorted.length === 0) {
     return (
-      <View className="bg-card flex-row items-center gap-3 rounded-2xl px-3.5 py-3.5">
-        <View className="bg-secondary h-10 w-10 items-center justify-center rounded-2xl">
-          <Icon as={ShieldCheck} size={19} className="text-muted-foreground" />
+      <View className="bg-card flex-row items-center gap-3 rounded-[28px] px-4 py-3.5">
+        <View className="bg-white/10 h-10 w-10 items-center justify-center rounded-full">
+          <Icon as={ShieldCheck} size={17} className="text-muted-foreground" />
         </View>
-        <Text className="text-muted-foreground text-sm">No checks reported for this commit.</Text>
+        <Text className="text-muted-foreground flex-1 text-sm">
+          No checks reported for this commit.
+        </Text>
       </View>
     );
   }
 
   return (
-    <View className="border-border bg-card overflow-hidden rounded-2xl border">
+    <View className="bg-card overflow-hidden rounded-[28px]">
       {sorted.map((check, index) => (
         <CheckRow
           key={check.check_run_id ?? check.status_uuid ?? `${check.name}-${index}`}

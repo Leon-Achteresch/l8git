@@ -2,13 +2,23 @@ import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { Glass } from '~/components/ui/glass';
 import { Text } from '~/components/ui/text';
-import { cn } from '~/lib/utils';
+import { palette } from '~/lib/theme';
 
 export type RepoChip = {
   path: string;
   name: string;
   dirty: boolean;
+};
+
+const CHIP_SHAPE = {
+  height: 36,
+  borderRadius: 18,
+  paddingHorizontal: 14,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 6,
 };
 
 export function RepoChips({
@@ -29,8 +39,8 @@ export function RepoChips({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      className="-mx-4"
-      contentContainerClassName="gap-2 px-4">
+      className="-mx-5"
+      contentContainerClassName="gap-2 px-5">
       {chips.map((chip) => (
         <Chip
           key={chip.path}
@@ -62,6 +72,30 @@ function Chip({
     opacity: 1 - pressed.value * 0.25,
   }));
 
+  const inner = (
+    <>
+      {chip.dirty ? (
+        <View
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: active ? palette.primaryForeground : palette.warning,
+          }}
+        />
+      ) : null}
+      <Text
+        numberOfLines={1}
+        className={
+          active
+            ? 'text-primary-foreground max-w-40 text-sm font-semibold'
+            : 'text-foreground max-w-40 text-sm font-medium'
+        }>
+        {chip.name}
+      </Text>
+    </>
+  );
+
   return (
     <Animated.View style={style}>
       <Pressable
@@ -73,21 +107,12 @@ function Chip({
         }}
         onPressOut={() => {
           pressed.value = withTiming(0, { duration: 180 });
-        }}
-        style={active ? { borderColor: accent, backgroundColor: `${accent}1f` } : undefined}
-        className={cn(
-          'flex-row items-center gap-1.5 rounded-full border px-3 py-1.5',
-          active ? 'border-transparent' : 'border-border bg-muted/50'
-        )}>
-        {chip.dirty ? <View className="bg-git-modified h-1.5 w-1.5 rounded-full" /> : null}
-        <Text
-          numberOfLines={1}
-          className={cn(
-            'max-w-40 text-xs font-medium',
-            active ? 'text-foreground' : 'text-muted-foreground'
-          )}>
-          {chip.name}
-        </Text>
+        }}>
+        {active ? (
+          <View style={[CHIP_SHAPE, { backgroundColor: accent }]}>{inner}</View>
+        ) : (
+          <Glass style={CHIP_SHAPE}>{inner}</Glass>
+        )}
       </Pressable>
     </Animated.View>
   );

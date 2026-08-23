@@ -1,21 +1,24 @@
 import * as Haptics from 'expo-haptics';
 import * as React from 'react';
 import { Platform, Pressable, ScrollView, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
 
 import {
   PR_FILTERS,
   PR_FILTER_LABEL,
   type PrFilter,
 } from '~/components/repo/pr/pr-types';
+import { Glass } from '~/components/ui/glass';
 import { Text } from '~/components/ui/text';
-import { cn } from '~/lib/utils';
+import { palette } from '~/lib/theme';
 
-const SPRING = { damping: 20, stiffness: 260, mass: 0.6 } as const;
+const CHIP_SHAPE = {
+  height: 36,
+  borderRadius: 18,
+  paddingHorizontal: 14,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 6,
+};
 
 function Chip({
   filter,
@@ -28,16 +31,25 @@ function Chip({
   active: boolean;
   onPress: () => void;
 }) {
-  const value = useSharedValue(active ? 1 : 0);
-
-  React.useEffect(() => {
-    value.value = withSpring(active ? 1 : 0, SPRING);
-  }, [active, value]);
-
-  const fillStyle = useAnimatedStyle(() => ({
-    opacity: value.value,
-    transform: [{ scale: 0.94 + value.value * 0.06 }],
-  }));
+  const inner = (
+    <>
+      <Text
+        className={
+          active
+            ? 'text-primary-foreground text-sm font-semibold'
+            : 'text-foreground text-sm font-medium'
+        }>
+        {PR_FILTER_LABEL[filter]}
+      </Text>
+      <Text
+        style={{ fontVariant: ['tabular-nums'] }}
+        className={
+          active ? 'text-primary-foreground/60 text-xs' : 'text-muted-foreground text-xs'
+        }>
+        {count}
+      </Text>
+    </>
+  );
 
   return (
     <Pressable
@@ -45,34 +57,12 @@ function Chip({
       accessibilityState={{ selected: active }}
       accessibilityLabel={`${PR_FILTER_LABEL[filter]} pull requests`}
       onPress={onPress}
-      className="mr-2">
-      <View
-        className={cn(
-          'overflow-hidden rounded-full border',
-          active ? 'border-accent-foreground/30' : 'border-border'
-        )}>
-        <Animated.View
-          pointerEvents="none"
-          style={fillStyle}
-          className="bg-accent absolute bottom-0 left-0 right-0 top-0"
-        />
-        <View className="flex-row items-center gap-1.5 px-3 py-1.5">
-          <Text
-            className={cn(
-              'text-xs font-medium',
-              active ? 'text-accent-foreground' : 'text-muted-foreground'
-            )}>
-            {PR_FILTER_LABEL[filter]}
-          </Text>
-          <Text
-            className={cn(
-              'font-mono text-2xs tabular-nums',
-              active ? 'text-accent-foreground/70' : 'text-muted-foreground/60'
-            )}>
-            {count}
-          </Text>
-        </View>
-      </View>
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+      {active ? (
+        <View style={[CHIP_SHAPE, { backgroundColor: palette.primary }]}>{inner}</View>
+      ) : (
+        <Glass style={CHIP_SHAPE}>{inner}</Glass>
+      )}
     </Pressable>
   );
 }
@@ -102,12 +92,12 @@ export function PrFilterChips({
   );
 
   return (
-    <View className="flex-row items-center gap-2">
+    <View className="flex-row items-center gap-3">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         className="grow"
-        contentContainerClassName="items-center">
+        contentContainerStyle={{ alignItems: 'center', gap: 8 }}>
         {PR_FILTERS.map((filter) => (
           <Chip
             key={filter}

@@ -5,7 +5,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { EmptyState } from '~/components/empty-state';
 import { errorMessage } from '~/components/repo/git-types';
-import { Button } from '~/components/ui/button';
+import { GlassPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { useHostMeta } from '~/lib/connections';
@@ -26,20 +26,16 @@ export function QueryErrorState({
   return (
     <Animated.View
       entering={FadeIn.duration(160)}
-      className={cn(
-        'border-destructive/30 bg-destructive/5 mt-2 gap-3 rounded-2xl border p-4',
-        className
-      )}>
-      <View className="flex-row items-center gap-2">
-        <Icon as={TriangleAlert} size={15} className="text-destructive" />
-        <Text className="text-destructive flex-1 text-sm font-medium">{title}</Text>
+      className={cn('bg-card mt-2 gap-3 rounded-[28px] px-5 py-4', className)}>
+      <View className="flex-row items-center gap-3">
+        <View className="bg-destructive/15 h-9 w-9 items-center justify-center rounded-full">
+          <Icon as={TriangleAlert} size={16} className="text-destructive" />
+        </View>
+        <Text className="text-foreground flex-1 text-sm font-semibold">{title}</Text>
       </View>
       <Text className="text-muted-foreground font-mono text-2xs">{errorMessage(error)}</Text>
       {onRetry ? (
-        <Button variant="outline" size="sm" onPress={onRetry} className="self-start">
-          <Icon as={RotateCw} size={13} className="text-foreground" />
-          <Text className="text-xs">Retry</Text>
-        </Button>
+        <GlassPill icon={RotateCw} label="Retry" onPress={onRetry} style={{ alignSelf: 'flex-start' }} />
       ) : null}
     </Animated.View>
   );

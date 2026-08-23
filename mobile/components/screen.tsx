@@ -25,7 +25,7 @@ export function Screen({
     return (
       <SafeAreaView edges={edges} className={cn('bg-background flex-1', className)}>
         <ScrollView
-          contentContainerClassName={cn('gap-3 px-4 pb-16 pt-2', contentClassName)}
+          contentContainerClassName={cn('gap-3 px-5 pb-32 pt-2', contentClassName)}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           {children}
@@ -36,7 +36,7 @@ export function Screen({
 
   return (
     <SafeAreaView edges={edges} className={cn('bg-background flex-1', className)}>
-      <View className={cn('flex-1 px-4 pt-2', contentClassName)} {...props}>
+      <View className={cn('flex-1 px-5 pt-2', contentClassName)} {...props}>
         {children}
       </View>
     </SafeAreaView>
@@ -57,13 +57,13 @@ export function ScreenTitle({
   illustration?: IllustrationName;
 }) {
   return (
-    <View className="flex-row items-center justify-between gap-3 pb-3 pt-1">
+    <View className="flex-row items-center justify-between gap-3 pb-4 pt-2">
       <View className="flex-1 flex-row items-center gap-3">
         {illustration ? (
           <Image
             source={illustrations[illustration]}
             resizeMode="cover"
-            style={{ width: 44, height: 44, borderRadius: 14 }}
+            style={{ width: 44, height: 44, borderRadius: 22 }}
           />
         ) : null}
         <View className="flex-1 gap-0.5">
@@ -71,7 +71,7 @@ export function ScreenTitle({
           {subtitle ? <Text className="text-muted-foreground text-sm">{subtitle}</Text> : null}
         </View>
       </View>
-      {right ? <View className="pl-1">{right}</View> : null}
+      {right ? <View className="flex-row items-center gap-3">{right}</View> : null}
     </View>
   );
 }

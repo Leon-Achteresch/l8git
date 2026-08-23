@@ -30,16 +30,20 @@ export const PrRow = React.memo(function PrRow({
       last={last}
       onPress={handlePress}
       accessibilityLabel={`Pull request ${pr.number}: ${pr.title}`}>
-      <View className="flex-row items-start gap-3 px-3 py-3">
+      <View className="flex-row items-start gap-3 px-4 py-3.5">
         <PrGlyph state={state} />
 
         <View className="min-w-0 flex-1 gap-1.5">
-          <Text numberOfLines={2} className="text-foreground text-sm font-medium leading-5">
+          <Text numberOfLines={2} className="text-foreground text-sm font-semibold leading-5">
             {pr.title}
           </Text>
 
           <View className="flex-row flex-wrap items-center gap-x-1.5 gap-y-1">
-            <Text className="text-muted-foreground/70 font-mono text-2xs">#{pr.number}</Text>
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-muted-foreground text-2xs">
+              #{pr.number}
+            </Text>
             <Text className="text-muted-foreground/40 text-2xs">·</Text>
             <Text numberOfLines={1} className="text-muted-foreground max-w-28 text-2xs">
               {pr.author}
@@ -54,7 +58,7 @@ export const PrRow = React.memo(function PrRow({
                 <StatusPill key={label} label={label} tone="accent" size="xs" />
               ))}
               {pr.labels.length > 3 ? (
-                <Text className="text-muted-foreground/70 self-center font-mono text-2xs">
+                <Text className="text-muted-foreground self-center text-2xs">
                   +{pr.labels.length - 3}
                 </Text>
               ) : null}
@@ -64,7 +68,9 @@ export const PrRow = React.memo(function PrRow({
 
         <View className="shrink-0 items-end gap-1.5">
           <StatusPill label={PR_STATE_LABEL[state]} tone={PR_STATE_TONE[state]} size="xs" dot />
-          <Text className="text-muted-foreground/70 text-2xs tabular-nums">
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground text-2xs">
             {relativeTime(pr.updated_at)}
           </Text>
           {pr.reviewers.length > 0 ? (

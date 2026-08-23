@@ -1,21 +1,40 @@
 import * as Haptics from 'expo-haptics';
-import { Plus, Trash2 } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Plus, Radio, Star, Trash2, Unplug } from 'lucide-react-native';
 import * as React from 'react';
-import { Alert as RNAlert, Image, Pressable, View } from 'react-native';
+import { Alert as RNAlert, Pressable, View } from 'react-native';
 
 import { AddHostDialog } from '~/components/connections/add-host-dialog';
 import { HostDetailDialog } from '~/components/connections/host-detail-dialog';
-import { statusLabel, statusTone } from '~/components/connections/status';
+import { statusLabel } from '~/components/connections/status';
 import { EmptyState } from '~/components/empty-state';
-import { SectionHeader } from '~/components/section-header';
-import { StatusDot } from '~/components/status-dot';
-import { Button } from '~/components/ui/button';
+import { initials } from '~/components/shared/format';
+import { GlassPill, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
-import { useConnections, type HostMeta } from '~/lib/connections';
-import { illustrations } from '~/lib/illustrations';
-import { cn } from '~/lib/utils';
+import { useConnections, type HostMeta, type HostStatus } from '~/lib/connections';
+import { palette } from '~/lib/theme';
+
+const HOST_GRADIENTS: [string, string][] = [
+  ['#ff6b57', '#bf5af2'],
+  ['#0a84ff', '#40c8e0'],
+  ['#34c759', '#ffd60a'],
+  ['#ff2d92', '#ff9f0a'],
+];
+
+function ringColor(status: HostStatus): string {
+  if (status === 'online') {
+    return palette.success;
+  }
+  if (status === 'connecting' || status === 'reconnecting') {
+    return palette.warning;
+  }
+  if (status === 'error') {
+    return palette.destructive;
+  }
+  return 'rgba(255,255,255,0.18)';
+}
 
 export function HostsSection() {
   const hosts = useConnections((state) => state.hosts);
@@ -23,39 +42,42 @@ export function HostsSection() {
   const [detailHostId, setDetailHostId] = React.useState<string | null>(null);
 
   return (
-    <View>
-      <SectionHeader
-        title="Hosts"
-        count={hosts.length}
-        action={
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add host"
-            onPress={() => setAdding(true)}
-            className="bg-primary active:opacity-80 flex-row items-center gap-1.5 rounded-full py-1.5 pl-2.5 pr-3.5">
-            <Icon as={Plus} className="text-primary-foreground size-4" />
-            <Text className="text-primary-foreground text-sm font-semibold">Add host</Text>
-          </Pressable>
-        }
-      />
+    <View className="gap-3">
+      <View className="flex-row items-center justify-between pt-2">
+        <View className="flex-row items-center gap-2">
+          <Text className="text-foreground text-base font-semibold">Hosts</Text>
+          {hosts.length > 0 ? (
+            <Text style={{ fontVariant: ['tabular-nums'] }} className="text-muted-foreground text-sm">
+              {hosts.length}
+            </Text>
+          ) : null}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add host"
+          onPress={() => setAdding(true)}
+          className="bg-primary active:opacity-80 h-9 flex-row items-center gap-1.5 rounded-full pl-3 pr-4">
+          <Icon as={Plus} size={15} color={palette.primaryForeground} />
+          <Text className="text-primary-foreground text-sm font-semibold">Add host</Text>
+        </Pressable>
+      </View>
 
       {hosts.length === 0 ? (
-        <EmptyState
-          illustration="host"
-          title="No hosts paired"
-          description="Run `l8gitd pair` on your machine and scan the QR code to connect."
-          action={
-            <Button size="sm" onPress={() => setAdding(true)}>
-              <Text>Add host</Text>
-            </Button>
-          }
-        />
+        <View className="bg-card rounded-[28px]">
+          <EmptyState
+            illustration="host"
+            title="No hosts paired"
+            description="Run `l8gitd pair` on your machine and scan the QR code to connect."
+            action={<SolidPill icon={Plus} label="Add host" onPress={() => setAdding(true)} />}
+          />
+        </View>
       ) : (
         <View className="gap-3">
-          {hosts.map((host) => (
+          {hosts.map((host, index) => (
             <HostCard
               key={host.hostId}
               host={host}
+              index={index}
               onOpenDetail={() => setDetailHostId(host.hostId)}
             />
           ))}
@@ -71,7 +93,15 @@ export function HostsSection() {
   );
 }
 
-function HostCard({ host, onOpenDetail }: { host: HostMeta; onOpenDetail: () => void }) {
+function HostCard({
+  host,
+  index,
+  onOpenDetail,
+}: {
+  host: HostMeta;
+  index: number;
+  onOpenDetail: () => void;
+}) {
   const runtime = useConnections((state) => state.runtime[host.hostId]);
   const activeHostId = useConnections((state) => state.activeHostId);
   const connect = useConnections((state) => state.connect);
@@ -81,6 +111,7 @@ function HostCard({ host, onOpenDetail }: { host: HostMeta; onOpenDetail: () => 
 
   const status = runtime?.status ?? 'idle';
   const wantsConnection = status !== 'idle' && status !== 'error';
+  const active = activeHostId === host.hostId;
 
   const onToggle = (next: boolean) => {
     void Haptics.selectionAsync();
@@ -111,60 +142,93 @@ function HostCard({ host, onOpenDetail }: { host: HostMeta; onOpenDetail: () => 
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${host.name}, ${status}`}
       onPress={onOpenDetail}
       onLongPress={() => setActiveHost(host.hostId)}
-      style={{
-        shadowColor: '#000',
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: 6,
-      }}
-      className={cn(
-        'bg-card active:bg-elevated flex-row items-center gap-3 rounded-3xl p-4',
-        activeHostId === host.hostId && 'border-primary border'
-      )}>
-      <View className="relative">
-        <Image
-          source={illustrations.host}
-          resizeMode="cover"
-          style={{ width: 52, height: 52, borderRadius: 16 }}
-        />
-        <View className="border-card absolute -bottom-0.5 -right-0.5 rounded-full border-2">
-          <StatusDot
-            tone={statusTone(status)}
-            size="lg"
-            pulse={status === 'connecting' || status === 'reconnecting'}
-          />
+      className="bg-card active:bg-elevated gap-4 rounded-[28px] px-5 pb-4 pt-5">
+      <View className="flex-row items-center gap-4">
+        <View
+          style={{
+            width: 66,
+            height: 66,
+            borderRadius: 33,
+            borderWidth: 2,
+            borderColor: ringColor(status),
+            padding: 3,
+          }}>
+          <LinearGradient
+            colors={HOST_GRADIENTS[index % HOST_GRADIENTS.length]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              flex: 1,
+              borderRadius: 28,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            <Text className="text-base font-bold text-white">{initials(host.name)}</Text>
+          </LinearGradient>
         </View>
-      </View>
-      <View className="min-w-0 flex-1 gap-0.5">
-        <Text numberOfLines={1} className="text-foreground text-base font-semibold">
-          {host.name}
-        </Text>
-        <Text
-          numberOfLines={1}
-          className="text-muted-foreground text-sm"
-          style={{ fontVariant: ['tabular-nums'] }}>
-          {statusLabel(status, runtime?.latencyMs ?? null)}
-          {' · '}
-          {runtime?.endpoint ?? host.endpoints.join(', ')}
-        </Text>
-        {runtime?.lastError ? (
-          <Text numberOfLines={1} className="text-destructive text-xs">
-            {runtime.lastError}
+
+        <View className="min-w-0 flex-1 gap-0.5">
+          <View className="flex-row items-center gap-2">
+            <Text numberOfLines={1} className="text-foreground min-w-0 shrink text-lg font-bold tracking-tight">
+              {host.name}
+            </Text>
+            {active ? (
+              <View className="bg-primary flex-row items-center gap-1 rounded-full px-2 py-0.5">
+                <Icon as={Star} size={10} color={palette.primaryForeground} />
+                <Text className="text-primary-foreground text-2xs font-bold">Active</Text>
+              </View>
+            ) : null}
+          </View>
+          <View className="flex-row items-center gap-1.5">
+            <View
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: 4,
+                backgroundColor: ringColor(status),
+              }}
+            />
+            <Text
+              numberOfLines={1}
+              className="text-muted-foreground text-sm"
+              style={{ fontVariant: ['tabular-nums'] }}>
+              {statusLabel(status, runtime?.latencyMs ?? null)}
+            </Text>
+          </View>
+          <Text numberOfLines={1} className="text-muted-foreground font-mono text-xs">
+            {runtime?.endpoint ?? host.endpoints.join(', ')}
           </Text>
-        ) : null}
+          {runtime?.lastError ? (
+            <Text numberOfLines={1} className="text-destructive text-xs">
+              {runtime.lastError}
+            </Text>
+          ) : null}
+        </View>
+
+        <Switch checked={wantsConnection} onCheckedChange={onToggle} />
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Forget ${host.name}`}
-        hitSlop={8}
-        onPress={onForget}
-        className="active:bg-accent h-8 w-8 items-center justify-center rounded-full">
-        <Icon as={Trash2} className="text-muted-foreground size-4" />
-      </Pressable>
-      <Switch checked={wantsConnection} onCheckedChange={onToggle} />
+
+      <View className="flex-row items-center gap-2">
+        {wantsConnection ? (
+          <GlassPill icon={Unplug} label="Disconnect" onPress={() => disconnect(host.hostId)} />
+        ) : (
+          <GlassPill icon={Radio} label="Connect" onPress={() => void connect(host.hostId)} />
+        )}
+        <View className="flex-1" />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Forget ${host.name}`}
+          hitSlop={8}
+          onPress={onForget}
+          className="active:opacity-60 h-9 flex-row items-center gap-1.5 rounded-full px-3">
+          <Icon as={Trash2} size={14} color={palette.destructive} />
+          <Text className="text-destructive text-sm font-semibold">Forget</Text>
+        </Pressable>
+      </View>
     </Pressable>
   );
 }

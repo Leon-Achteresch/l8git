@@ -63,9 +63,9 @@ export function LanguagesCard({
 
       {query.isPending ? (
         <View className="gap-3 py-1">
-          <Skeleton className="h-2.5 w-full rounded-sm" />
+          <Skeleton className="h-3 w-full rounded-full" />
           {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-3 w-full rounded" />
+            <Skeleton key={index} className="h-3 w-full rounded-full" />
           ))}
         </View>
       ) : query.isError ? (
@@ -74,7 +74,9 @@ export function LanguagesCard({
         <PanelEmpty icon={FileCode2} message="No tracked source files in HEAD." />
       ) : (
         <Animated.View entering={FadeIn.duration(200)} className="gap-3">
-          <View className="bg-secondary h-3 w-full flex-row gap-px overflow-hidden rounded-full">
+          <View
+            className="h-3 w-full flex-row gap-px overflow-hidden rounded-full"
+            style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
             {segments.map((segment) => (
               <View
                 key={segment.key}

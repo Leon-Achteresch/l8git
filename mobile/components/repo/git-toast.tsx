@@ -4,8 +4,10 @@ import { Pressable, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown, LinearTransition } from 'react-native-reanimated';
 
 import { errorMessage } from '~/components/repo/git-types';
+import { Glass } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export type ToastKind = 'error' | 'success' | 'info';
@@ -23,16 +25,10 @@ const AUTO_DISMISS: Record<ToastKind, number> = {
   info: 4_000,
 };
 
-const SURFACE: Record<ToastKind, string> = {
-  error: 'border-destructive/40 bg-destructive/12',
-  success: 'border-success/35 bg-success/12',
-  info: 'border-border bg-card',
-};
-
 const ACCENT: Record<ToastKind, string> = {
-  error: 'text-destructive',
-  success: 'text-success',
-  info: 'text-git-branch',
+  error: palette.destructive,
+  success: palette.success,
+  info: palette.foreground,
 };
 
 const ICON = {
@@ -113,28 +109,56 @@ export function GitToast({
   return (
     <View
       pointerEvents="box-none"
-      className={cn('absolute bottom-4 left-0 right-0 px-4', className)}>
+      className={cn('absolute bottom-4 left-0 right-0 px-5', className)}>
       <Animated.View
         key={notice.id}
         layout={LinearTransition.duration(160)}
         entering={FadeInDown.duration(220).springify().damping(18)}
-        exiting={FadeOutDown.duration(160)}
-        className={cn(
-          'flex-row items-start gap-2.5 rounded-2xl border px-3.5 py-3 shadow-lg shadow-black/40',
-          SURFACE[notice.kind]
-        )}>
-        <Icon as={ICON[notice.kind]} size={15} className={cn('mt-0.5', ACCENT[notice.kind])} />
-        <View className="min-w-0 flex-1 gap-1">
-          <Text className="text-foreground text-sm font-medium">{notice.title}</Text>
-          {notice.detail ? (
-            <Text numberOfLines={6} className="text-muted-foreground font-mono text-2xs">
-              {notice.detail}
-            </Text>
-          ) : null}
-        </View>
-        <Pressable hitSlop={12} onPress={onDismiss} accessibilityLabel="Dismiss">
-          <Icon as={X} size={14} className="text-muted-foreground" />
-        </Pressable>
+        exiting={FadeOutDown.duration(160)}>
+        <Glass
+          intensity={50}
+          style={{
+            borderRadius: 24,
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 12,
+          }}>
+          <View
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.12)',
+            }}>
+            <Icon as={ICON[notice.kind]} size={15} color={ACCENT[notice.kind]} />
+          </View>
+          <View className="min-w-0 flex-1 gap-1 pt-1.5">
+            <Text className="text-foreground text-sm font-semibold">{notice.title}</Text>
+            {notice.detail ? (
+              <Text numberOfLines={6} className="text-muted-foreground font-mono text-2xs">
+                {notice.detail}
+              </Text>
+            ) : null}
+          </View>
+          <Pressable
+            hitSlop={12}
+            onPress={onDismiss}
+            accessibilityLabel="Dismiss"
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 13,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.12)',
+            }}>
+            <Icon as={X} size={13} color={palette.foreground} />
+          </Pressable>
+        </Glass>
       </Animated.View>
     </View>
   );

@@ -17,7 +17,7 @@ function AvatarImage({
   className,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
-  return <AvatarPrimitive.Image className={cn('aspect-square size-full', className)} {...props} />;
+  return <AvatarPrimitive.Image className={cn('aspect-square size-full rounded-full', className)} {...props} />;
 }
 
 function AvatarFallback({
@@ -27,7 +27,7 @@ function AvatarFallback({
   return (
     <AvatarPrimitive.Fallback
       className={cn(
-        'bg-muted flex size-full flex-row items-center justify-center rounded-full',
+        'bg-secondary flex size-full flex-row items-center justify-center rounded-full',
         className
       )}
       {...props}

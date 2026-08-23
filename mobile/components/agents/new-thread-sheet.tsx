@@ -3,11 +3,9 @@ import { View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { AGENT_PROVIDER_ORDER, providerMeta } from '~/components/agents/agent-meta';
-import { OptionRow, Sheet, SheetNote } from '~/components/repo/sheet';
+import { AgentSheet, SheetMessage, SheetOption, SoftPill } from '~/components/agents/agent-sheet';
 import { middleTruncate, repoName } from '~/components/shared/format';
-import { Spinner } from '~/components/shared/spinner';
-import { Button } from '~/components/ui/button';
-import { Text } from '~/components/ui/text';
+import { SolidPill } from '~/components/ui/glass';
 import { useConnections } from '~/lib/connections';
 import { createAgentThread } from '~/lib/agents/overview-actions';
 import type { NativeAgentProvider } from '~/lib/agents/stores';
@@ -28,14 +26,14 @@ const STEP_LABEL: Record<Step, string> = {
 function StepDots({ step }: { step: Step }) {
   const index = STEPS.indexOf(step);
   return (
-    <View className="flex-row items-center gap-1.5 pb-1">
+    <View className="flex-row items-center gap-1.5 pb-2">
       {STEPS.map((value, position) => (
         <View
           key={value}
           className={cn(
             'h-1 rounded-full',
-            position === index ? 'bg-foreground w-6' : 'bg-border w-3',
-            position < index && 'bg-muted-foreground/60'
+            position === index ? 'bg-foreground w-6' : 'bg-white/15 w-3',
+            position < index && 'bg-white/40'
           )}
         />
       ))}
@@ -154,17 +152,17 @@ export function NewThreadSheet({
       : `${STEP_LABEL[step]} · step ${STEPS.indexOf(step) + 1} of ${STEPS.length}`;
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="New agent thread" description={description}>
+    <AgentSheet visible={visible} onClose={onClose} title="New agent thread" description={description}>
       <StepDots step={step} />
 
       {onlineHosts.length === 0 ? (
-        <SheetNote>
+        <SheetMessage>
           Pair a host and bring it online before starting a thread. Agent threads run on the
           machine, not on the phone.
-        </SheetNote>
+        </SheetMessage>
       ) : step === 'host' ? (
         onlineHosts.map((host) => (
-          <OptionRow
+          <SheetOption
             key={host.hostId}
             label={host.name}
             description={`${(pathsByHost[host.hostId] ?? []).length} tracked ${
@@ -179,12 +177,12 @@ export function NewThreadSheet({
         ))
       ) : step === 'repo' ? (
         paths.length === 0 ? (
-          <SheetNote>
+          <SheetMessage>
             This host has no tracked repositories yet. Open one from the Repos tab first.
-          </SheetNote>
+          </SheetMessage>
         ) : (
           paths.map((value) => (
-            <OptionRow
+            <SheetOption
               key={value}
               label={repoName(value)}
               description={middleTruncate(value, 46)}
@@ -197,7 +195,7 @@ export function NewThreadSheet({
         AGENT_PROVIDER_ORDER.map((value) => {
           const meta = providerMeta(value);
           return (
-            <OptionRow
+            <SheetOption
               key={value}
               label={meta.label}
               description={meta.description}
@@ -208,23 +206,19 @@ export function NewThreadSheet({
         })
       )}
 
-      {error ? <SheetNote tone="danger">{error}</SheetNote> : null}
+      {error ? <SheetMessage tone="danger">{error}</SheetMessage> : null}
 
-      <View className="flex-row gap-2 pt-1">
+      <View className="flex-row gap-2.5 pt-2">
         {step !== 'host' ? (
-          <Button variant="outline" size="sm" className="flex-1" disabled={busy} onPress={goBack}>
-            <Text>Back</Text>
-          </Button>
+          <SoftPill label="Back" disabled={busy} onPress={goBack} style={{ flex: 1 }} />
         ) : null}
-        <Button
-          size="sm"
-          className="flex-1"
+        <SolidPill
+          label={busy ? 'Creating…' : step === 'provider' ? 'Create thread' : 'Continue'}
           disabled={!canContinue || busy || onlineHosts.length === 0}
-          onPress={advance}>
-          {busy ? <Spinner size={13} className="text-primary-foreground" /> : null}
-          <Text>{step === 'provider' ? 'Create thread' : 'Continue'}</Text>
-        </Button>
+          onPress={advance}
+          style={{ flex: 1 }}
+        />
       </View>
-    </Sheet>
+    </AgentSheet>
   );
 }

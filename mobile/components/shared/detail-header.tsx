@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
-import { Icon } from '~/components/ui/icon';
+import { GlassCircle } from '~/components/ui/glass';
 import { Text } from '~/components/ui/text';
 
 export function DetailHeader({
@@ -32,26 +32,19 @@ export function DetailHeader({
   }, [onBack, router]);
 
   return (
-    <View className="flex-row items-center gap-2.5 px-2 pb-3 pt-1">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        hitSlop={8}
-        onPress={goBack}
-        className="active:bg-accent bg-secondary h-10 w-10 items-center justify-center rounded-full">
-        <Icon as={ChevronLeft} size={22} className="text-foreground" />
-      </Pressable>
+    <View className="flex-row items-center gap-3 px-5 pb-3 pt-2">
+      <GlassCircle icon={ArrowLeft} label="Back" onPress={goBack} />
       <View className="min-w-0 flex-1">
-        <Text numberOfLines={1} className="text-foreground text-2xl font-bold">
+        <Text numberOfLines={1} className="text-foreground text-xl font-bold tracking-tight">
           {title}
         </Text>
         {subtitle ? (
-          <Text numberOfLines={1} className="text-muted-foreground text-sm">
+          <Text numberOfLines={1} className="text-muted-foreground text-xs">
             {subtitle}
           </Text>
         ) : null}
       </View>
-      {right ? <View className="flex-row items-center gap-1.5 pr-1">{right}</View> : null}
+      {right ? <View className="flex-row items-center gap-2">{right}</View> : null}
     </View>
   );
 }

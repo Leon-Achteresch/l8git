@@ -5,6 +5,7 @@ import Animated, { FadeInUp, FadeOutUp, LinearTransition } from 'react-native-re
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { repoName } from '~/components/shared/format';
+import { Glass } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Progress } from '~/components/ui/progress';
 import { Text } from '~/components/ui/text';
@@ -18,7 +19,7 @@ import {
   type RemoteOpEntry,
   type RemoteOpResult,
 } from '~/lib/repo/remote-ops';
-import { cn } from '~/lib/utils';
+import { palette } from '~/lib/theme';
 
 const RESULT_TTL_MS = 5_000;
 
@@ -36,74 +37,95 @@ function ActiveOpCard({ op }: { op: RemoteOpEntry }) {
   const scope = [hostLabel, repoName(op.repoPath)].filter(Boolean).join(' · ');
 
   return (
-    <View className="border-border bg-popover gap-2 rounded-2xl border p-3 shadow-lg shadow-black/40">
-      <View className="flex-row items-center gap-2">
-        <Text className="text-foreground flex-1 text-xs font-medium">
+    <Glass intensity={50} style={{ borderRadius: 24, padding: 14, gap: 10 }}>
+      <View className="flex-row items-center gap-2.5">
+        <Text className="text-foreground flex-1 text-sm font-semibold">
           {remoteOpLabel(op.op)}
           {op.phase ? ` · ${op.phase}` : ''}
         </Text>
         {op.percent !== null ? (
-          <Text className="text-muted-foreground font-mono text-2xs">{op.percent}%</Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground font-mono text-xs">
+            {op.percent}%
+          </Text>
         ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cancel operation"
           hitSlop={10}
-          onPress={() => void cancelRemoteOp(op.hostId, op.opId)}>
-          <Icon as={X} size={13} className="text-muted-foreground" />
+          onPress={() => void cancelRemoteOp(op.hostId, op.opId)}
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 13,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(255,255,255,0.12)',
+          }}>
+          <Icon as={X} size={13} color={palette.foreground} />
         </Pressable>
       </View>
       <Progress
         value={op.percent ?? 0}
-        className="h-1"
-        indicatorClassName={op.percent === null ? 'bg-muted-foreground/40' : 'bg-primary'}
+        className="bg-white/10 h-1"
+        indicatorClassName={op.percent === null ? 'bg-white/40' : 'bg-primary'}
       />
       <View className="flex-row items-center gap-2">
         {scope ? (
-          <Text numberOfLines={1} className="text-muted-foreground/70 flex-1 text-2xs">
+          <Text numberOfLines={1} className="text-muted-foreground flex-1 text-2xs">
             {scope}
           </Text>
         ) : null}
         {op.detail ? (
-          <Text numberOfLines={1} className="text-muted-foreground/70 flex-1 text-right font-mono text-2xs">
+          <Text
+            numberOfLines={1}
+            className="text-muted-foreground flex-1 text-right font-mono text-2xs">
             {op.detail}
           </Text>
         ) : null}
       </View>
-    </View>
+    </Glass>
   );
 }
 
 function ResultCard({ result, onDismiss }: { result: RemoteOpResult; onDismiss: () => void }) {
   const icon =
     result.tone === 'success' ? CircleCheck : result.tone === 'error' ? CircleAlert : Info;
+  const color =
+    result.tone === 'error'
+      ? palette.destructive
+      : result.tone === 'success'
+        ? palette.success
+        : palette.mutedForeground;
 
   return (
     <Pressable accessibilityRole="button" accessibilityLabel="Dismiss" onPress={onDismiss}>
-      <View
-        className={cn(
-          'flex-row items-start gap-2.5 rounded-2xl border p-3 shadow-lg shadow-black/40',
-          result.tone === 'error'
-            ? 'border-destructive/40 bg-destructive/15'
-            : result.tone === 'success'
-              ? 'border-success/35 bg-popover'
-              : 'border-border bg-popover'
-        )}>
-        <Icon
-          as={icon}
-          size={14}
-          className={
-            result.tone === 'error'
-              ? 'text-destructive'
-              : result.tone === 'success'
-                ? 'text-success'
-                : 'text-muted-foreground'
-          }
-        />
-        <Text numberOfLines={4} className="text-foreground flex-1 text-xs">
+      <Glass
+        intensity={50}
+        style={{
+          borderRadius: 24,
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+        }}>
+        <View
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 15,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(255,255,255,0.12)',
+          }}>
+          <Icon as={icon} size={15} color={color} />
+        </View>
+        <Text numberOfLines={4} className="text-foreground flex-1 text-sm font-medium">
           {result.message}
         </Text>
-      </View>
+      </Glass>
     </Pressable>
   );
 }
@@ -132,7 +154,7 @@ export function ProgressToastHost() {
     <View
       pointerEvents="box-none"
       style={{ top: insets.top + 6 }}
-      className="absolute left-4 right-4 z-50">
+      className="absolute left-5 right-5 z-50">
       <Animated.View
         key={active ? active.opId : result?.id}
         entering={FadeInUp.duration(180)}

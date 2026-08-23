@@ -51,14 +51,14 @@ export function AgentUsageFooter({
         accessibilityState={{ expanded: open }}
         accessibilityLabel="Token usage details"
         onPress={() => setOpen((value) => !value)}
-        className="active:bg-accent/30 flex-row items-center gap-2 px-3.5 py-1.5">
+        className="active:opacity-70 flex-row items-center gap-2 px-5 py-1.5">
         <Icon as={Gauge} size={11} className="text-muted-foreground/70" />
         <Text className="text-muted-foreground font-mono text-2xs">
           {formatTokens(usage.totalTokens)} tokens
         </Text>
         {contextPercent !== null ? (
           <View className="flex-row items-center gap-1.5">
-            <View className="bg-muted h-1 w-14 overflow-hidden rounded-full">
+            <View className="bg-white/10 h-1 w-14 overflow-hidden rounded-full">
               <View
                 style={{ width: `${contextPercent}%` }}
                 className={cn(
@@ -93,7 +93,7 @@ export function AgentUsageFooter({
       {open ? (
         <Animated.View
           entering={FadeIn.duration(140)}
-          className="border-border/50 flex-row flex-wrap gap-4 border-t px-3.5 py-2.5">
+          className="border-white/5 flex-row flex-wrap gap-4 border-t px-5 py-2.5">
           <Metric label="Input" value={formatTokens(usage.inputTokens ?? 0)} />
           <Metric label="Output" value={formatTokens(usage.outputTokens ?? 0)} />
           <Metric label="Cache read" value={formatTokens(usage.cacheReadTokens ?? 0)} />

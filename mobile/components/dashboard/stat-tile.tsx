@@ -34,25 +34,23 @@ export function StatTile({
   className?: string;
 }) {
   return (
-    <View className={cn('bg-card min-w-[46%] flex-1 gap-3 rounded-3xl px-4 py-4', className)}>
-      <View className="flex-row items-center justify-between">
-        <Text
-          numberOfLines={1}
-          className="text-muted-foreground text-2xs font-medium uppercase tracking-wider">
-          {label}
-        </Text>
+    <View className={cn('bg-card min-w-[46%] flex-1 gap-2 rounded-[28px] px-5 py-4', className)}>
+      <View className="flex-row items-center justify-between gap-2">
+        {loading ? (
+          <Skeleton className="h-9 w-20 rounded-full" />
+        ) : (
+          <Text
+            style={NUM}
+            numberOfLines={1}
+            className={cn('text-[30px] font-bold leading-tight tracking-tight', TONE_TEXT[tone])}>
+            {value}
+          </Text>
+        )}
         <DeltaBadge value={delta} />
       </View>
-      {loading ? (
-        <Skeleton className="h-8 w-16 rounded-lg" />
-      ) : (
-        <Text
-          style={NUM}
-          numberOfLines={1}
-          className={cn('text-[26px] font-bold leading-tight', TONE_TEXT[tone])}>
-          {value}
-        </Text>
-      )}
+      <Text numberOfLines={1} className="text-muted-foreground text-xs">
+        {label}
+      </Text>
     </View>
   );
 }

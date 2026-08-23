@@ -2,9 +2,14 @@ import { Check, CircleDashed, GitMerge, TriangleAlert } from 'lucide-react-nativ
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { Sheet, SheetInput, SheetNote } from '~/components/repo/sheet';
+import {
+  AgentSheet,
+  SheetMessage,
+  SheetTextInput,
+  SoftPill,
+} from '~/components/agents/agent-sheet';
 import { Spinner } from '~/components/shared/spinner';
-import { Button } from '~/components/ui/button';
+import { SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { agentSendHaptic } from '~/lib/agents/attention';
@@ -71,13 +76,15 @@ function StepCard({
   return (
     <View
       className={cn(
-        'border-border bg-card/50 gap-2 rounded-xl border p-3',
-        step.status === 'failed' && 'border-destructive/45',
+        'gap-2.5 rounded-[22px] px-4 py-3.5',
+        step.status === 'failed' ? 'bg-destructive/10' : 'bg-white/[0.05]',
         step.status === 'done' && 'opacity-70'
       )}>
-      <View className="flex-row items-center gap-2">
-        <StepGlyph step={step} />
-        <Text className="text-foreground flex-1 text-sm font-medium">{STEP_TITLE[step.id]}</Text>
+      <View className="flex-row items-center gap-2.5">
+        <View className="bg-white/10 h-8 w-8 items-center justify-center rounded-full">
+          <StepGlyph step={step} />
+        </View>
+        <Text className="text-foreground flex-1 text-sm font-semibold">{STEP_TITLE[step.id]}</Text>
         <Text className="text-muted-foreground text-2xs uppercase tracking-wide">
           {STATUS_LABEL[step.status]}
         </Text>
@@ -85,22 +92,23 @@ function StepCard({
       {hint ? <Text className="text-muted-foreground text-xs leading-4">{hint}</Text> : null}
       {children}
       {step.error ? (
-        <View className="border-destructive/30 bg-destructive/10 rounded-lg border px-2.5 py-2">
+        <View className="bg-destructive/12 rounded-2xl px-3.5 py-2.5">
           <Text className="text-destructive text-2xs leading-4">{step.error}</Text>
         </View>
       ) : null}
       {step.status === 'done' || step.status === 'skipped' ? null : step.status === 'failed' ? (
-        <Button variant="outline" size="sm" onPress={onRetry} className="self-start">
-          <Text className="text-xs">Retry</Text>
-        </Button>
+        <SoftPill
+          label="Retry"
+          onPress={onRetry}
+          style={{ alignSelf: 'flex-start' }}
+        />
       ) : (
-        <Button
-          size="sm"
+        <SolidPill
+          label={runLabel}
           disabled={disabled || !canRun || step.status === 'running'}
           onPress={onRun}
-          className="self-start">
-          <Text className="text-xs">{runLabel}</Text>
-        </Button>
+          style={{ alignSelf: 'flex-start', height: 42, borderRadius: 21, paddingHorizontal: 18 }}
+        />
       )}
     </View>
   );
@@ -147,7 +155,7 @@ export function ReviewFinishSheet({
   }
 
   return (
-    <Sheet
+    <AgentSheet
       visible={visible}
       onClose={onClose}
       title="Finish review"
@@ -156,11 +164,7 @@ export function ReviewFinishSheet({
           ? `${summary.sessionBranch} → ${summary.baseBranch}`
           : 'Land the agent session into its base branch.'
       }
-      footer={
-        <Button variant="outline" onPress={onClose}>
-          <Text>{finish.status === 'done' ? 'Close' : 'Not now'}</Text>
-        </Button>
-      }>
+      footer={<SoftPill label={finish.status === 'done' ? 'Close' : 'Not now'} onPress={onClose} />}>
       <StepCard
         step={commit}
         disabled={busy}
@@ -174,7 +178,7 @@ export function ReviewFinishSheet({
             : `${summary?.uncommitted ?? 0} uncommitted change(s) in the worktree.`
         }>
         {commit.status === 'skipped' ? null : (
-          <SheetInput
+          <SheetTextInput
             value={finish.message}
             onChangeText={finish.setMessage}
             placeholder="Commit message"
@@ -209,14 +213,14 @@ export function ReviewFinishSheet({
       />
 
       {finish.branchKept ? (
-        <SheetNote>The session branch was kept — it is not fully merged yet.</SheetNote>
+        <SheetMessage>The session branch was kept — it is not fully merged yet.</SheetMessage>
       ) : null}
 
       {busy ? (
-        <SheetNote tone="danger">
+        <SheetMessage tone="danger">
           An agent turn is still running in this worktree. Finishing now can conflict with it.
-        </SheetNote>
+        </SheetMessage>
       ) : null}
-    </Sheet>
+    </AgentSheet>
   );
 }

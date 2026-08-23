@@ -73,8 +73,8 @@ export function ActivityCard({
 
       {query.isPending ? (
         <View className="gap-3">
-          <Skeleton className="h-8 w-24 rounded" />
-          <Skeleton className="w-full rounded-lg" style={{ height: CHART_HEIGHT }} />
+          <Skeleton className="h-10 w-24 rounded-full" />
+          <Skeleton className="w-full rounded-3xl" style={{ height: CHART_HEIGHT }} />
         </View>
       ) : query.isError ? (
         <PanelError onRetry={() => void query.refetch()} height={CHART_HEIGHT} />

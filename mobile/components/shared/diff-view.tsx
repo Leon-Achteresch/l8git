@@ -14,7 +14,7 @@ import { FileStatusBadge } from '~/components/shared/file-change-row';
 import { expandTabs, middleTruncate, splitPath } from '~/components/shared/format';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { EmptyState } from '~/components/empty-state';
-import { Button } from '~/components/ui/button';
+import { GlassPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
@@ -35,15 +35,15 @@ const ROW_SURFACE: Record<DiffRow['kind'], string> = {
   add: 'bg-git-added-subtle/45',
   del: 'bg-git-removed-subtle/45',
   ctx: 'bg-transparent',
-  hunk: 'bg-muted/60',
-  meta: 'bg-muted/30',
+  hunk: 'bg-white/5',
+  meta: 'bg-white/5',
 };
 
 const ROW_TEXT: Record<DiffRow['kind'], string> = {
   add: 'text-git-added',
   del: 'text-git-removed',
   ctx: 'text-foreground/75',
-  hunk: 'text-git-branch/80',
+  hunk: 'text-muted-foreground',
   meta: 'text-muted-foreground/60',
 };
 
@@ -51,7 +51,7 @@ const ROW_BORDER: Record<DiffRow['kind'], string> = {
   add: palette.git.added,
   del: palette.git.removed,
   ctx: 'transparent',
-  hunk: palette.git.branch,
+  hunk: 'transparent',
   meta: 'transparent',
 };
 
@@ -138,7 +138,7 @@ function DiffFileBody({ file, initialRows }: { file: DiffFile; initialRows: numb
 
   if (file.binary) {
     return (
-      <View className="border-border/60 border-t px-3 py-4">
+      <View className="border-white/5 border-t px-4 py-4">
         <Text className="text-muted-foreground text-center text-xs">Binary file not shown</Text>
       </View>
     );
@@ -146,7 +146,7 @@ function DiffFileBody({ file, initialRows }: { file: DiffFile; initialRows: numb
 
   if (file.rows.length === 0) {
     return (
-      <View className="border-border/60 border-t px-3 py-4">
+      <View className="border-white/5 border-t px-4 py-4">
         <Text className="text-muted-foreground text-center text-xs">No textual changes</Text>
       </View>
     );
@@ -156,9 +156,9 @@ function DiffFileBody({ file, initialRows }: { file: DiffFile; initialRows: numb
   const remaining = file.rows.length - rows.length;
 
   return (
-    <Animated.View entering={FadeIn.duration(140)} className="border-border/60 border-t">
+    <Animated.View entering={FadeIn.duration(140)} className="border-white/5 border-t py-1.5">
       <View className="flex-row">
-        <View className="border-border/50 border-r">
+        <View className="border-white/5 border-r">
           {rows.map((row, index) => (
             <GutterRow key={index} row={row} width={width} />
           ))}
@@ -176,15 +176,11 @@ function DiffFileBody({ file, initialRows }: { file: DiffFile; initialRows: numb
         </ScrollView>
       </View>
       {remaining > 0 ? (
-        <View className="border-border/50 border-t p-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onPress={() => setVisible((current) => current + MORE_ROWS)}>
-            <Text className="text-xs">
-              Show {Math.min(remaining, MORE_ROWS)} more of {remaining} lines
-            </Text>
-          </Button>
+        <View className="items-center px-4 pb-2 pt-3">
+          <GlassPill
+            label={`Show ${Math.min(remaining, MORE_ROWS)} more of ${remaining} lines`}
+            onPress={() => setVisible((current) => current + MORE_ROWS)}
+          />
         </View>
       ) : null}
     </Animated.View>
@@ -210,12 +206,12 @@ function DiffFileSection({
   return (
     <Animated.View
       layout={LinearTransition.duration(180)}
-      className="border-border bg-card/40 overflow-hidden rounded-xl border">
+      className="bg-card overflow-hidden rounded-[28px]">
       <PressableRow
         flat
         onPress={collapsible ? onToggle : undefined}
         accessibilityLabel={`${file.path}, ${expanded ? 'collapse' : 'expand'}`}>
-        <View className="flex-row items-center gap-2.5 px-3 py-2.5">
+        <View className="flex-row items-center gap-3 px-4 py-3.5">
           {collapsible ? (
             <Icon
               as={expanded ? ChevronDown : ChevronRight}
@@ -223,9 +219,9 @@ function DiffFileSection({
               className="text-muted-foreground"
             />
           ) : null}
-          <FileStatusBadge status={file.status} size="sm" />
+          <FileStatusBadge status={file.status} size="md" />
           <View className="min-w-0 flex-1">
-            <Text numberOfLines={1} className="text-foreground text-sm font-medium">
+            <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
               {name}
             </Text>
             {dir ? (
@@ -236,10 +232,22 @@ function DiffFileSection({
           </View>
           <View className="flex-row items-center gap-1.5">
             {file.additions ? (
-              <Text className="text-git-added font-mono text-2xs">+{file.additions}</Text>
+              <View className="bg-git-added/12 rounded-full px-2 py-0.5">
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-git-added font-mono text-2xs">
+                  +{file.additions}
+                </Text>
+              </View>
             ) : null}
             {file.deletions ? (
-              <Text className="text-git-removed font-mono text-2xs">−{file.deletions}</Text>
+              <View className="bg-git-removed/12 rounded-full px-2 py-0.5">
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-git-removed font-mono text-2xs">
+                  −{file.deletions}
+                </Text>
+              </View>
             ) : null}
           </View>
         </View>
@@ -251,12 +259,15 @@ function DiffFileSection({
 
 export function DiffSkeleton({ rows = 12 }: { rows?: number }) {
   return (
-    <View className="border-border bg-card/40 gap-2 overflow-hidden rounded-xl border p-3">
-      <Skeleton className="h-3 w-40 rounded" />
+    <View className="bg-card gap-2.5 overflow-hidden rounded-[28px] p-4">
+      <Skeleton className="h-3.5 w-40 rounded-full" />
       {Array.from({ length: rows }).map((_, index) => (
         <Skeleton
           key={index}
-          className={cn('h-2.5 rounded', index % 4 === 0 ? 'w-3/4' : index % 3 === 0 ? 'w-1/2' : 'w-5/6')}
+          className={cn(
+            'h-2.5 rounded-full',
+            index % 4 === 0 ? 'w-3/4' : index % 3 === 0 ? 'w-1/2' : 'w-5/6'
+          )}
         />
       ))}
     </View>
@@ -323,14 +334,11 @@ export function DiffView({
 
   if (error) {
     return (
-      <View className="border-destructive/30 bg-destructive/5 gap-3 rounded-xl border p-4">
-        <Text className="text-destructive text-sm font-medium">Could not load the diff</Text>
+      <View className="bg-card gap-3 rounded-[28px] px-5 py-4">
+        <Text className="text-destructive text-sm font-semibold">Could not load the diff</Text>
         <Text className="text-muted-foreground text-xs">{error}</Text>
         {onRetry ? (
-          <Button variant="outline" size="sm" onPress={onRetry} className="self-start">
-            <Icon as={RotateCw} size={13} className="text-foreground" />
-            <Text className="text-xs">Retry</Text>
-          </Button>
+          <GlassPill icon={RotateCw} label="Retry" onPress={onRetry} style={{ alignSelf: 'flex-start' }} />
         ) : null}
       </View>
     );
@@ -341,14 +349,22 @@ export function DiffView({
   }
 
   return (
-    <View className={cn('gap-2', className)}>
+    <View className={cn('gap-3', className)}>
       {parsed.length > 1 ? (
         <View className="flex-row items-center gap-2 px-1">
-          <Text className="text-muted-foreground text-xs">
+          <Text className="text-foreground text-base font-semibold">
             {parsed.length} files changed
           </Text>
-          <Text className="text-git-added font-mono text-2xs">+{totals.additions}</Text>
-          <Text className="text-git-removed font-mono text-2xs">−{totals.deletions}</Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-git-added font-mono text-xs">
+            +{totals.additions}
+          </Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-git-removed font-mono text-xs">
+            −{totals.deletions}
+          </Text>
         </View>
       ) : null}
 

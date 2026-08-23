@@ -13,11 +13,11 @@ import {
   SheetField,
   SheetInput,
   SheetNote,
+  SheetPrimary,
+  SheetSecondary,
   SheetToggle,
 } from '~/components/repo/sheet';
 import { shortHash } from '~/components/shared/format';
-import { Button } from '~/components/ui/button';
-import { Text } from '~/components/ui/text';
 
 const STRATEGIES: { id: MergeStrategy; label: string; description: string }[] = [
   {
@@ -132,10 +132,8 @@ export function BranchActionSheet({
   const remote = branch.is_remote ? remoteOf(branch.name) : null;
 
   const footer = (primary: React.ReactNode) => (
-    <View className="flex-row gap-2">
-      <Button variant="secondary" className="flex-1" disabled={busy} onPress={() => setStep('menu')}>
-        <Text>Back</Text>
-      </Button>
+    <View className="flex-row gap-2.5">
+      <SheetSecondary label="Back" disabled={busy} onPress={() => setStep('menu')} />
       {primary}
     </View>
   );
@@ -149,17 +147,16 @@ export function BranchActionSheet({
         title="Checkout remote branch"
         description={branch.name}
         footer={footer(
-          <Button
-            className="flex-1"
+          <SheetPrimary
+            label={checkout.isPending ? 'Checking out…' : 'Checkout'}
             disabled={busy || trimmed.length === 0}
             onPress={() =>
               checkout.mutate(
                 { name: trimmed, fromRemote: branch.name },
                 settle(`Checked out ${trimmed}`, 'Checkout failed')
               )
-            }>
-            <Text>{checkout.isPending ? 'Checking out…' : 'Checkout'}</Text>
-          </Button>
+            }
+          />
         )}>
         <SheetField label="Local branch name" hint={`Tracks ${branch.name}`}>
           <SheetInput value={localName} onChangeText={setLocalName} autoFocus />
@@ -177,8 +174,8 @@ export function BranchActionSheet({
         title="Merge into current branch"
         description={`${branch.name} → ${currentBranch}`}
         footer={footer(
-          <Button
-            className="flex-1"
+          <SheetPrimary
+            label={merge.isPending ? 'Merging…' : 'Merge'}
             disabled={busy}
             onPress={() =>
               merge.mutate(
@@ -189,9 +186,8 @@ export function BranchActionSheet({
                 },
                 settle(`Merged ${branch.name}`, 'Merge failed')
               )
-            }>
-            <Text>{merge.isPending ? 'Merging…' : 'Merge'}</Text>
-          </Button>
+            }
+          />
         )}>
         {STRATEGIES.map((entry) => (
           <OptionRow
@@ -225,9 +221,9 @@ export function BranchActionSheet({
         title={branch.is_remote ? 'Delete remote branch' : 'Delete branch'}
         description={branch.name}
         footer={footer(
-          <Button
-            variant="destructive"
-            className="flex-1"
+          <SheetPrimary
+            label={busy ? 'Deleting…' : 'Delete'}
+            destructive
             disabled={busy}
             onPress={() =>
               branch.is_remote
@@ -239,9 +235,8 @@ export function BranchActionSheet({
                     { name: branch.name, force },
                     settle(`Deleted ${branch.name}`, 'Delete failed')
                   )
-            }>
-            <Text>{busy ? 'Deleting…' : 'Delete'}</Text>
-          </Button>
+            }
+          />
         )}>
         {branch.is_remote ? (
           <SheetNote tone="danger">
@@ -370,16 +365,10 @@ export function CreateBranchSheet({
       title="New branch"
       description="Branch off any ref, tag or commit"
       footer={
-        <View className="flex-row gap-2">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            disabled={create.isPending}
-            onPress={onClose}>
-            <Text>Cancel</Text>
-          </Button>
-          <Button
-            className="flex-1"
+        <View className="flex-row gap-2.5">
+          <SheetSecondary label="Cancel" disabled={create.isPending} onPress={onClose} />
+          <SheetPrimary
+            label={create.isPending ? 'Creating…' : 'Create'}
             disabled={create.isPending || trimmed.length === 0}
             onPress={() =>
               create.mutate(
@@ -395,9 +384,8 @@ export function CreateBranchSheet({
                   },
                 }
               )
-            }>
-            <Text>{create.isPending ? 'Creating…' : 'Create'}</Text>
-          </Button>
+            }
+          />
         </View>
       }>
       <SheetField label="Branch name">
@@ -466,17 +454,15 @@ export function TagActionSheet({
         title="Delete tag"
         description={tag.name}
         footer={
-          <View className="flex-row gap-2">
-            <Button
-              variant="secondary"
-              className="flex-1"
+          <View className="flex-row gap-2.5">
+            <SheetSecondary
+              label="Back"
               disabled={remove.isPending}
-              onPress={() => setConfirming(false)}>
-              <Text>Back</Text>
-            </Button>
-            <Button
-              variant="destructive"
-              className="flex-1"
+              onPress={() => setConfirming(false)}
+            />
+            <SheetPrimary
+              label={remove.isPending ? 'Deleting…' : 'Delete'}
+              destructive
               disabled={remove.isPending}
               onPress={() =>
                 remove.mutate(
@@ -492,9 +478,8 @@ export function TagActionSheet({
                     },
                   }
                 )
-              }>
-              <Text>{remove.isPending ? 'Deleting…' : 'Delete'}</Text>
-            </Button>
+              }
+            />
           </View>
         }>
         <SheetNote tone="danger">

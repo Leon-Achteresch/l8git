@@ -1,12 +1,12 @@
 import { Send } from 'lucide-react-native';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Spinner } from '~/components/shared/spinner';
-import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
 import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 
 export function PrComposer({
   value,
@@ -26,26 +26,43 @@ export function PrComposer({
   const canSend = value.trim().length > 0 && !sending && !disabled;
 
   return (
-    <View className="border-border bg-card/40 gap-2 rounded-xl border p-2.5">
+    <View className="bg-card gap-3 rounded-[28px] p-3">
       <Input
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        placeholderTextColor={palette.mutedForeground}
         editable={!disabled && !sending}
         multiline
         autoCapitalize="sentences"
-        className="h-20 py-2 text-sm"
+        className="bg-white/5 h-24 rounded-3xl px-4 py-3 text-sm"
       />
-      <View className="flex-row items-center justify-between">
-        <Text className="text-muted-foreground/60 text-2xs">Markdown supported</Text>
-        <Button size="sm" disabled={!canSend} onPress={onSubmit}>
+      <View className="flex-row items-center justify-between px-1">
+        <Text className="text-muted-foreground text-2xs">Markdown supported</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Post comment"
+          disabled={!canSend}
+          onPress={onSubmit}
+          style={({ pressed }) => ({
+            height: 38,
+            borderRadius: 19,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            backgroundColor: palette.primary,
+            opacity: !canSend ? 0.45 : pressed ? 0.85 : 1,
+          })}>
           {sending ? (
             <Spinner size={13} className="text-primary-foreground" />
           ) : (
             <Icon as={Send} size={13} className="text-primary-foreground" />
           )}
-          <Text className="text-xs">{sending ? 'Sending' : 'Comment'}</Text>
-        </Button>
+          <Text className="text-primary-foreground text-sm font-semibold">
+            {sending ? 'Sending' : 'Comment'}
+          </Text>
+        </Pressable>
       </View>
     </View>
   );

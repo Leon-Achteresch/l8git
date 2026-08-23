@@ -11,6 +11,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { AgentApprovalCard } from '~/components/agents/approval-card';
 import { Spinner } from '~/components/shared/spinner';
 import { Button } from '~/components/ui/button';
+import { Glass } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import type { NativeAgentProvider } from '~/lib/agents/stores';
@@ -29,18 +30,26 @@ const PILL_THRESHOLD = 260;
 
 function WorkingRow() {
   return (
-    <Animated.View
-      entering={FadeIn.duration(200)}
-      className="border-git-branch/25 bg-git-branch/[0.06] flex-row items-center gap-2 self-start rounded-full border px-3 py-1.5">
-      <Spinner size={12} className="text-git-branch" />
-      <Text className="text-git-branch text-xs font-medium">Working…</Text>
+    <Animated.View entering={FadeIn.duration(200)} className="self-start">
+      <Glass
+        style={{
+          height: 34,
+          borderRadius: 17,
+          paddingHorizontal: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+        <Spinner size={12} className="text-foreground" />
+        <Text className="text-foreground text-xs font-semibold">Working…</Text>
+      </Glass>
     </Animated.View>
   );
 }
 
 function TurnErrorRow({ message }: { message: string }) {
   return (
-    <View className="border-destructive/30 bg-destructive/[0.07] flex-row items-start gap-2 rounded-xl border px-3 py-2.5">
+    <View className="bg-destructive/12 flex-row items-start gap-2.5 rounded-2xl px-4 py-3">
       <Icon as={TriangleAlert} size={13} className="text-destructive mt-0.5" />
       <Text className="text-destructive flex-1 text-xs leading-5">{message}</Text>
     </View>
@@ -130,7 +139,7 @@ export function AgentTranscript({
         maxToRenderPerBatch={8}
         windowSize={11}
         contentContainerStyle={{
-          paddingHorizontal: 14,
+          paddingHorizontal: 16,
           paddingTop: contentBottomInset,
           paddingBottom: 8,
           gap: 12,
@@ -163,7 +172,7 @@ export function AgentTranscript({
             size="sm"
             variant="secondary"
             onPress={scrollToBottom}
-            className="border-border rounded-full border shadow-lg shadow-black/40">
+            className="rounded-full shadow-lg shadow-black/40">
             <Icon as={ArrowDown} size={13} className="text-foreground" />
             <Text className="text-xs font-medium">Jump to latest</Text>
           </Button>

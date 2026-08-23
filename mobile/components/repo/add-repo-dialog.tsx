@@ -5,7 +5,6 @@ import { Platform, View } from 'react-native';
 
 import { PressableRow } from '~/components/shared/pressable-row';
 import { StatusDot } from '~/components/status-dot';
-import { Button } from '~/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import { GlassPill, SolidPill } from '~/components/ui/glass';
 import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
 import { getClient, useConnections } from '~/lib/connections';
@@ -93,10 +93,8 @@ export function AddRepoDialog({ open, onOpenChange, defaultHostId }: AddRepoDial
         </DialogHeader>
 
         <View className="gap-2">
-          <Text className="text-muted-foreground text-xs font-medium uppercase tracking-widest">
-            Host
-          </Text>
-          <View className="overflow-hidden rounded-xl">
+          <Text className="text-foreground text-base font-semibold">Host</Text>
+          <View className="bg-muted overflow-hidden rounded-3xl">
             {hosts.map((host, index) => {
               const status = runtime[host.hostId]?.status ?? 'idle';
               return (
@@ -106,7 +104,7 @@ export function AddRepoDialog({ open, onOpenChange, defaultHostId }: AddRepoDial
                   last={index === hosts.length - 1}
                   selected={host.hostId === hostId}
                   onPress={() => setHostId(host.hostId)}>
-                  <View className="flex-row items-center gap-2.5 px-3 py-2.5">
+                  <View className="bg-muted flex-row items-center gap-3 px-4 py-3">
                     <StatusDot
                       tone={
                         status === 'online'
@@ -122,7 +120,7 @@ export function AddRepoDialog({ open, onOpenChange, defaultHostId }: AddRepoDial
                       numberOfLines={1}
                       className={cn(
                         'flex-1 text-sm',
-                        host.hostId === hostId ? 'text-foreground font-medium' : 'text-muted-foreground'
+                        host.hostId === hostId ? 'text-foreground font-semibold' : 'text-muted-foreground'
                       )}>
                       {host.name}
                     </Text>
@@ -139,9 +137,7 @@ export function AddRepoDialog({ open, onOpenChange, defaultHostId }: AddRepoDial
         </View>
 
         <View className="gap-2">
-          <Text className="text-muted-foreground text-xs font-medium uppercase tracking-widest">
-            Repository path
-          </Text>
+          <Text className="text-foreground text-base font-semibold">Repository path</Text>
           <Input
             value={path}
             onChangeText={setPath}
@@ -149,19 +145,23 @@ export function AddRepoDialog({ open, onOpenChange, defaultHostId }: AddRepoDial
             autoCapitalize="none"
             autoCorrect={false}
             spellCheck={false}
-            className="font-mono text-sm"
+            className="bg-muted font-mono text-sm"
             onSubmitEditing={() => void submit()}
           />
           {error ? <Text className="text-destructive text-xs">{error}</Text> : null}
         </View>
 
-        <DialogFooter>
-          <Button variant="ghost" onPress={() => onOpenChange(false)}>
-            <Text>Cancel</Text>
-          </Button>
-          <Button disabled={checking || !path.trim() || !hostId} onPress={() => void submit()}>
-            <Text>{checking ? 'Checking…' : 'Add repository'}</Text>
-          </Button>
+        <DialogFooter className="gap-3">
+          <GlassPill
+            label="Cancel"
+            onPress={() => onOpenChange(false)}
+            style={{ alignSelf: 'center' }}
+          />
+          <SolidPill
+            label={checking ? 'Checking…' : 'Add repository'}
+            disabled={checking || !path.trim() || !hostId}
+            onPress={() => void submit()}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

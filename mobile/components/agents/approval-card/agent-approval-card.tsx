@@ -10,13 +10,12 @@ import {
   type DiffFile,
 } from '~/components/shared/diff-parse';
 import { middleTruncate } from '~/components/shared/format';
-import { StatusPill } from '~/components/shared/status-pill';
 import { Text } from '~/components/ui/text';
 import { agentApprovalHaptic, agentSendHaptic } from '~/lib/agents/attention';
 import { tryChatStore, type NativeAgentProvider } from '~/lib/agents/stores';
 import type { AgentPendingRequest } from '@desktop/lib/agents/types';
 
-import { ApprovalCard, type ApprovalCardStatus } from './approval-card';
+import { ApprovalCard, ApprovalTag, type ApprovalCardStatus } from './approval-card';
 import { CommandLine } from './command-line';
 import {
   answerPayload,
@@ -82,7 +81,7 @@ function RequestBody({ request }: { request: AgentPendingRequest }) {
         {diffFiles.length > 0 ? (
           <DiffView files={diffFiles} initialRows={80} emptyHint="No textual changes." />
         ) : changes.length > 0 ? (
-          <View className="border-border bg-muted/40 gap-1 rounded-xl border px-3 py-2.5">
+          <View className="bg-black/40 gap-1 rounded-2xl px-4 py-3">
             {changes.map((change) => (
               <Text key={change.path} numberOfLines={1} className="text-foreground font-mono text-2xs">
                 {change.path}
@@ -104,8 +103,8 @@ function RequestBody({ request }: { request: AgentPendingRequest }) {
         <Text className="text-muted-foreground text-xs leading-4">
           {request.reason ?? 'The agent is asking for additional permissions for this turn.'}
         </Text>
-        <View className="border-border bg-muted/40 max-h-48 overflow-hidden rounded-xl border">
-          <ScrollView bounces={false} contentContainerClassName="px-3 py-2.5">
+        <View className="bg-black/40 max-h-48 overflow-hidden rounded-2xl">
+          <ScrollView bounces={false} contentContainerClassName="px-4 py-3">
             <Text className="text-foreground/80 font-mono text-2xs leading-4">
               {JSON.stringify(request.raw.permissions ?? {}, null, 2)}
             </Text>
@@ -122,8 +121,8 @@ function RequestBody({ request }: { request: AgentPendingRequest }) {
 
   if (request.kind === 'unknown') {
     return (
-      <View className="border-border bg-muted/40 max-h-56 overflow-hidden rounded-xl border">
-        <ScrollView bounces={false} contentContainerClassName="px-3 py-2.5">
+      <View className="bg-black/40 max-h-56 overflow-hidden rounded-2xl">
+        <ScrollView bounces={false} contentContainerClassName="px-4 py-3">
           <Text className="text-muted-foreground font-mono text-2xs leading-4">
             {rawPreview(request)}
           </Text>
@@ -238,13 +237,11 @@ export function AgentApprovalCard({
 
   const meta = showContext ? (
     <>
-      <StatusPill label={PROVIDER_LABEL[provider]} tone="accent" size="xs" />
-      {hostName ? <StatusPill label={hostName} tone="neutral" size="xs" /> : null}
-      {repoName ? (
-        <StatusPill label={repoName} tone="branch" size="xs" icon={FolderGit2} />
-      ) : null}
+      <ApprovalTag label={PROVIDER_LABEL[provider]} tone="accent" />
+      {hostName ? <ApprovalTag label={hostName} tone="neutral" /> : null}
+      {repoName ? <ApprovalTag label={repoName} tone="branch" icon={FolderGit2} /> : null}
       {request.kind === 'command' ? (
-        <StatusPill label="Command" tone="modified" size="xs" icon={Terminal} />
+        <ApprovalTag label="Command" tone="modified" icon={Terminal} />
       ) : null}
     </>
   ) : null;

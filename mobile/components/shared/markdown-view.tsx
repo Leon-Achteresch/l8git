@@ -13,8 +13,8 @@ import { fonts, palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 const HEADING_CLASS: Record<number, string> = {
-  1: 'text-xl font-semibold tracking-tight',
-  2: 'text-lg font-semibold tracking-tight',
+  1: 'text-xl font-bold tracking-tight',
+  2: 'text-lg font-bold tracking-tight',
   3: 'text-base font-semibold',
   4: 'text-sm font-semibold',
   5: 'text-sm font-medium',
@@ -40,8 +40,8 @@ function spanStyle(span: MdSpan): TextStyle {
   if (span.code) {
     style.fontFamily = fonts.mono;
     style.fontSize = 12;
-    style.backgroundColor = palette.muted;
-    style.color = palette.git.hash;
+    style.backgroundColor = 'rgba(255,255,255,0.08)';
+    style.color = palette.foreground;
   } else if (span.bold) {
     style.fontFamily = fonts.semibold;
   } else if (span.italic) {
@@ -81,9 +81,9 @@ function Spans({
 
 function CodeBlock({ lang, lines }: { lang: string | null; lines: readonly string[] }) {
   return (
-    <View className="border-border bg-muted/50 overflow-hidden rounded-lg border">
+    <View className="bg-card overflow-hidden rounded-3xl">
       {lang ? (
-        <View className="border-border/60 bg-muted/70 border-b px-2.5 py-1">
+        <View className="border-white/5 bg-white/5 border-b px-4 py-1.5">
           <Text className="text-muted-foreground font-mono text-2xs">{lang}</Text>
         </View>
       ) : null}
@@ -91,7 +91,7 @@ function CodeBlock({ lang, lines }: { lang: string | null; lines: readonly strin
         horizontal
         bounces={false}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ minWidth: '100%', paddingHorizontal: 10, paddingVertical: 8 }}>
+        contentContainerStyle={{ minWidth: '100%', paddingHorizontal: 16, paddingVertical: 12 }}>
         <View>
           {lines.map((line, index) => (
             <Text key={index} numberOfLines={1} style={CODE_FONT}>
@@ -122,7 +122,7 @@ function Block({
   }
 
   if (block.type === 'rule') {
-    return <View className="bg-border h-px w-full" />;
+    return <View className="bg-white/10 h-px w-full" />;
   }
 
   if (block.type === 'heading') {
@@ -135,7 +135,7 @@ function Block({
 
   if (block.type === 'quote') {
     return (
-      <View className="border-border/80 border-l-2 pl-3">
+      <View className="border-white/15 border-l-2 pl-3">
         <Text className={cn('text-muted-foreground text-sm leading-5', textClassName)}>
           <Spans spans={block.spans} onLinkPress={onLinkPress} />
         </Text>

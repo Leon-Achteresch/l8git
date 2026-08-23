@@ -15,6 +15,7 @@ import {
   ciState,
   ciStateLabel,
   formatDuration,
+  type CiState,
   type WorkflowJob,
   type WorkflowStep,
 } from '~/components/repo/ci/ci-types';
@@ -23,25 +24,42 @@ import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { cn } from '~/lib/utils';
 
+const JOB_SURFACE: Record<CiState, string> = {
+  success: 'bg-git-added/15',
+  failure: 'bg-git-removed/15',
+  running: 'bg-git-branch/15',
+  queued: 'bg-git-modified/15',
+  cancelled: 'bg-white/10',
+  skipped: 'bg-white/10',
+  neutral: 'bg-white/10',
+  unknown: 'bg-white/10',
+};
+
 const SPRING = { damping: 20, stiffness: 220, mass: 0.6 } as const;
 
 function StepRow({ step, last }: { step: WorkflowStep; last: boolean }) {
   const duration = formatDuration(step.started_at, step.completed_at);
   return (
-    <View className="flex-row items-start gap-2.5 pl-1">
+    <View className="flex-row items-start gap-3 pl-1">
       <View className="items-center">
         <View className="py-0.5">
           <CiStatusIcon status={step.status} conclusion={step.conclusion} size={12} />
         </View>
-        {last ? null : <View className="bg-border/70 w-px flex-1" />}
+        {last ? null : <View className="bg-white/10 w-px flex-1" />}
       </View>
-      <View className="min-w-0 flex-1 flex-row items-center gap-2 pb-2.5">
+      <View className="min-w-0 flex-1 flex-row items-center gap-2 pb-3">
         <Text numberOfLines={2} className="text-muted-foreground flex-1 text-xs leading-4">
-          <Text className="text-muted-foreground/50 font-mono text-2xs">{step.number}. </Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground/50 text-2xs">
+            {step.number}.{' '}
+          </Text>
           {step.name}
         </Text>
         {duration ? (
-          <Text className="text-muted-foreground/60 font-mono text-2xs tabular-nums">
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground font-mono text-2xs">
             {duration}
           </Text>
         ) : null}
@@ -53,10 +71,12 @@ function StepRow({ step, last }: { step: WorkflowStep; last: boolean }) {
 function JobCard({
   job,
   expanded,
+  first,
   onToggle,
 }: {
   job: WorkflowJob;
   expanded: boolean;
+  first: boolean;
   onToggle: (id: number) => void;
 }) {
   const state = ciState(job.status, job.conclusion);
@@ -74,25 +94,25 @@ function JobCard({
   return (
     <Animated.View
       layout={LinearTransition.duration(180)}
-      className={cn(
-        'border-border bg-card/40 overflow-hidden rounded-xl border',
-        expanded && 'bg-card/70'
-      )}>
+      className={cn('overflow-hidden', !first && 'border-white/5 border-t')}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded }}
         accessibilityLabel={`Job ${job.name}`}
         onPress={() => onToggle(job.id)}
-        className="active:bg-accent/40 flex-row items-center gap-2.5 px-3 py-3">
-        <Animated.View style={chevronStyle}>
-          <Icon as={ChevronRight} size={14} className="text-muted-foreground" />
-        </Animated.View>
-        <CiStatusIcon status={job.status} conclusion={job.conclusion} size={15} />
+        className="active:bg-white/5 flex-row items-center gap-3 px-4 py-3">
+        <View
+          className={cn(
+            'h-10 w-10 items-center justify-center rounded-full',
+            JOB_SURFACE[state]
+          )}>
+          <CiStatusIcon status={job.status} conclusion={job.conclusion} size={17} />
+        </View>
         <View className="min-w-0 flex-1 gap-0.5">
-          <Text numberOfLines={1} className="text-foreground text-sm font-medium">
+          <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
             {job.name}
           </Text>
-          <Text className="text-muted-foreground/70 text-2xs">
+          <Text className="text-muted-foreground text-2xs">
             {[
               `${job.steps.length} step${job.steps.length === 1 ? '' : 's'}`,
               duration,
@@ -111,18 +131,19 @@ function JobCard({
             accessibilityLabel={`Open ${job.name} in browser`}
             hitSlop={8}
             onPress={() => void Linking.openURL(job.html_url ?? '').catch(() => undefined)}
-            className="active:bg-accent h-7 w-7 items-center justify-center rounded-lg">
-            <Icon as={ExternalLink} size={12} className="text-muted-foreground" />
+            className="bg-white/10 active:bg-white/15 h-8 w-8 items-center justify-center rounded-full">
+            <Icon as={ExternalLink} size={13} className="text-foreground" />
           </Pressable>
         ) : null}
+        <Animated.View style={chevronStyle}>
+          <Icon as={ChevronRight} size={15} className="text-muted-foreground" />
+        </Animated.View>
       </Pressable>
 
       {expanded ? (
-        <Animated.View
-          entering={FadeIn.duration(150)}
-          className="border-border/60 border-t px-3 pt-2.5">
+        <Animated.View entering={FadeIn.duration(150)} className="px-4 pb-1 pl-[26px] pt-1">
           {job.steps.length === 0 ? (
-            <Text className="text-muted-foreground/70 pb-3 text-xs italic">
+            <Text className="text-muted-foreground pb-3 text-xs italic">
               This job reported no steps.
             </Text>
           ) : (
@@ -169,9 +190,15 @@ export function JobAccordion({ jobs }: { jobs: readonly WorkflowJob[] }) {
   }, []);
 
   return (
-    <View className="gap-2">
-      {jobs.map((job) => (
-        <JobCard key={job.id} job={job} expanded={expanded.has(job.id)} onToggle={toggle} />
+    <View className="bg-card overflow-hidden rounded-[28px]">
+      {jobs.map((job, index) => (
+        <JobCard
+          key={job.id}
+          job={job}
+          first={index === 0}
+          expanded={expanded.has(job.id)}
+          onToggle={toggle}
+        />
       ))}
     </View>
   );

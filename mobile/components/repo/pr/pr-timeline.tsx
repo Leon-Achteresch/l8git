@@ -53,17 +53,17 @@ const REVIEW_ACCENT: Record<string, string> = {
   CHANGES_REQUESTED: 'text-git-removed',
 };
 
-const REVIEW_SURFACE: Record<string, string> = {
-  APPROVED: 'border-git-added/25 bg-git-added/8',
-  CHANGES_REQUESTED: 'border-git-removed/25 bg-git-removed/8',
+const REVIEW_BUBBLE: Record<string, string> = {
+  APPROVED: 'bg-git-added/15',
+  CHANGES_REQUESTED: 'bg-git-removed/15',
 };
 
 function AuthorAvatar({ name }: { name: string }) {
   const tint = accentFor(name);
   return (
-    <Avatar alt={name} className="size-7">
+    <Avatar alt={name} className="size-9">
       <AvatarFallback style={{ backgroundColor: `${tint}26` }}>
-        <Text style={{ color: tint }} className="text-2xs font-semibold">
+        <Text style={{ color: tint }} className="text-xs font-semibold">
           {initials(name)}
         </Text>
       </AvatarFallback>
@@ -89,21 +89,20 @@ function EntryCard({
         .delay(Math.min(index, 6) * 28)
         .springify()
         .damping(20)}
-      className={cn(
-        'gap-2 rounded-xl border p-3',
-        isReview
-          ? (REVIEW_SURFACE[state] ?? 'border-border bg-card/60')
-          : 'border-border bg-card/40'
-      )}>
-      <View className="flex-row items-center gap-2">
+      className="bg-card gap-3 rounded-[28px] px-4 py-3.5">
+      <View className="flex-row items-center gap-3">
         <AuthorAvatar name={author} />
         <View className="min-w-0 flex-1">
           <View className="flex-row items-center gap-1.5">
-            <Text numberOfLines={1} className="text-foreground text-xs font-medium">
+            <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
               {author}
             </Text>
             {isReview ? (
-              <View className="flex-row items-center gap-1">
+              <View
+                className={cn(
+                  'flex-row items-center gap-1 rounded-full px-2 py-0.5',
+                  REVIEW_BUBBLE[state] ?? 'bg-white/10'
+                )}>
                 <Icon
                   as={REVIEW_ICON[state] ?? MessageSquare}
                   size={11}
@@ -111,7 +110,7 @@ function EntryCard({
                 />
                 <Text
                   className={cn(
-                    'text-2xs',
+                    'text-2xs font-medium',
                     REVIEW_ACCENT[state] ?? 'text-muted-foreground'
                   )}>
                   {reviewStateLabel(entry.data.state)}
@@ -121,15 +120,17 @@ function EntryCard({
           </View>
           {!isReview && entry.data.file_path ? (
             <View className="flex-row items-center gap-1">
-              <Icon as={FileCode2} size={9} className="text-muted-foreground/60" />
-              <Text numberOfLines={1} className="text-muted-foreground/70 font-mono text-2xs">
+              <Icon as={FileCode2} size={9} className="text-muted-foreground" />
+              <Text numberOfLines={1} className="text-muted-foreground font-mono text-2xs">
                 {entry.data.file_path}
                 {entry.data.line ? `:${entry.data.line}` : ''}
               </Text>
             </View>
           ) : null}
         </View>
-        <Text className="text-muted-foreground/70 text-2xs tabular-nums">
+        <Text
+          style={{ fontVariant: ['tabular-nums'] }}
+          className="text-muted-foreground text-2xs">
           {relativeTime(entry.at)}
         </Text>
       </View>
@@ -137,7 +138,7 @@ function EntryCard({
       {body.length > 0 ? (
         <MarkdownView content={body} textClassName="text-sm" />
       ) : (
-        <Text className="text-muted-foreground/70 text-xs italic">No message.</Text>
+        <Text className="text-muted-foreground text-xs italic">No message.</Text>
       )}
     </Animated.View>
   );
@@ -146,9 +147,11 @@ function EntryCard({
 export function PrTimeline({ entries }: { entries: readonly TimelineEntry[] }) {
   if (entries.length === 0) {
     return (
-      <View className="border-border bg-card/40 flex-row items-center gap-2 rounded-xl border px-3 py-3">
-        <Icon as={MessageSquare} size={14} className="text-muted-foreground" />
-        <Text className="text-muted-foreground text-xs">
+      <View className="bg-card flex-row items-center gap-3 rounded-[28px] px-4 py-3.5">
+        <View className="bg-white/10 h-10 w-10 items-center justify-center rounded-full">
+          <Icon as={MessageSquare} size={17} className="text-muted-foreground" />
+        </View>
+        <Text className="text-muted-foreground flex-1 text-xs">
           No comments or reviews yet — start the conversation below.
         </Text>
       </View>
@@ -156,7 +159,7 @@ export function PrTimeline({ entries }: { entries: readonly TimelineEntry[] }) {
   }
 
   return (
-    <View className="gap-2">
+    <View className="gap-3">
       {entries.map((entry, index) => (
         <EntryCard key={entry.id} entry={entry} index={index} />
       ))}

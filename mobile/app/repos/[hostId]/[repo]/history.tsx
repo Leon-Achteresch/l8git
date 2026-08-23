@@ -101,16 +101,20 @@ export default function RepoHistoryScreen() {
             onPress={() => openCommit(item.commit.hash)}
             onLongPress={open}
             trailing={
-              <Pressable hitSlop={10} accessibilityLabel="Commit actions" onPress={open}>
-                <Icon as={MoreVertical} size={16} className="text-muted-foreground" />
+              <Pressable
+                hitSlop={10}
+                accessibilityLabel="Commit actions"
+                onPress={open}
+                className="bg-white/5 active:bg-white/10 h-9 w-9 items-center justify-center rounded-full">
+                <Icon as={MoreVertical} size={16} color={palette.mutedForeground} />
               </Pressable>
             }
           />
           {paths.length > 0 ? (
             <View
               className={cn(
-                'border-border bg-card/30 flex-row flex-wrap gap-1 border-x border-b px-3 pb-2 pt-0.5',
-                isLast && 'rounded-b-xl'
+                'bg-card flex-row flex-wrap gap-1 px-4 pb-3.5 pt-0.5',
+                isLast ? 'rounded-b-3xl' : 'border-white/5 border-b'
               )}>
               {paths.slice(0, 4).map((path) => (
                 <StatusPill
@@ -142,14 +146,14 @@ export default function RepoHistoryScreen() {
 
   return (
     <View className="bg-background flex-1">
-      <View className="gap-2 px-4 pb-2 pt-1">
+      <View className="gap-2.5 px-5 pb-3 pt-1">
         <SearchField
           value={rawQuery}
           onChangeText={setRawQuery}
           placeholder="Search commits, authors, paths"
         />
-        <View className="flex-row items-center justify-between px-0.5">
-          <Text className="text-muted-foreground text-xs">
+        <View className="flex-row items-center justify-between px-1">
+          <Text style={{ fontVariant: ['tabular-nums'] }} className="text-muted-foreground text-xs">
             {searching
               ? `${entries.length} match${entries.length === 1 ? '' : 'es'}`
               : `${entries.length} commit${entries.length === 1 ? '' : 's'} loaded`}
@@ -163,7 +167,7 @@ export default function RepoHistoryScreen() {
       </View>
 
       {active.isError ? (
-        <View className="px-4">
+        <View className="px-5">
           <QueryErrorState
             title={searching ? 'Search failed' : 'Could not load history'}
             error={active.error}
@@ -171,7 +175,7 @@ export default function RepoHistoryScreen() {
           />
         </View>
       ) : loading ? (
-        <View className="px-4 pt-1">
+        <View className="px-5 pt-1">
           <SkeletonList rows={8} avatar />
         </View>
       ) : entries.length === 0 ? (
@@ -191,7 +195,7 @@ export default function RepoHistoryScreen() {
           data={entries}
           keyExtractor={(item) => item.commit.hash}
           renderItem={renderItem}
-          contentContainerClassName="px-4 pb-24"
+          contentContainerClassName="px-5 pb-24"
           showsVerticalScrollIndicator={false}
           onEndReachedThreshold={0.6}
           onEndReached={() => {

@@ -37,15 +37,15 @@ export function CommandLine({
   return (
     <View
       className={cn(
-        'overflow-hidden rounded-xl border',
-        tone === 'danger' ? 'border-destructive/35 bg-destructive/8' : 'border-border bg-muted/45',
+        'overflow-hidden rounded-2xl',
+        tone === 'danger' ? 'bg-destructive/12' : 'bg-black/40',
         className
       )}>
       <ScrollView
         horizontal
         bounces={false}
         showsHorizontalScrollIndicator={false}
-        contentContainerClassName="px-3 py-2.5">
+        contentContainerClassName="px-4 py-3">
         <View className="gap-0.5">
           {lines.map((line, lineIndex) => (
             <View key={lineIndex} className="flex-row items-baseline">

@@ -10,6 +10,7 @@ import { SectionHeader } from '~/components/section-header';
 import { DiffSkeleton, DiffView } from '~/components/shared/diff-view';
 import { FileChangeRow } from '~/components/shared/file-change-row';
 import { Text } from '~/components/ui/text';
+import { cn } from '~/lib/utils';
 
 export function statusForChange(file: ChangedFile): string {
   if (file.additions > 0 && file.deletions === 0) {
@@ -68,13 +69,25 @@ export function ChangedFilesSection({
         title={title}
         count={files.length}
         action={
-          <View className="flex-row items-center gap-2">
-            <Text className="text-git-added font-mono text-2xs">+{totals.additions}</Text>
-            <Text className="text-git-removed font-mono text-2xs">−{totals.deletions}</Text>
+          <View className="flex-row items-center gap-1.5">
+            <View className="bg-git-added/12 rounded-full px-2 py-0.5">
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-git-added font-mono text-2xs">
+                +{totals.additions}
+              </Text>
+            </View>
+            <View className="bg-git-removed/12 rounded-full px-2 py-0.5">
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-git-removed font-mono text-2xs">
+                −{totals.deletions}
+              </Text>
+            </View>
           </View>
         }
       />
-      <Animated.View layout={LinearTransition.duration(180)}>
+      <Animated.View layout={LinearTransition.duration(180)} className="overflow-hidden rounded-3xl">
         {files.map((file, index) => {
           const open = selected === file.path;
           return (
@@ -93,7 +106,10 @@ export function ChangedFilesSection({
               {open ? (
                 <Animated.View
                   entering={FadeIn.duration(160)}
-                  className="border-border bg-background/60 border-x border-b p-2">
+                  className={cn(
+                    'bg-muted border-white/5 border-b p-3',
+                    index === files.length - 1 && 'rounded-b-3xl border-b-0'
+                  )}>
                   {loading ? (
                     <DiffSkeleton rows={10} />
                   ) : error ? (

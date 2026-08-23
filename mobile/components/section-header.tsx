@@ -14,16 +14,14 @@ type SectionHeaderProps = {
 export function SectionHeader({ title, count, action, className }: SectionHeaderProps) {
   return (
     <View className={cn('flex-row items-center justify-between pb-3 pt-5', className)}>
-      <View className="flex-row items-center gap-2.5">
-        <Text className="text-foreground text-xl font-bold">{title}</Text>
+      <View className="flex-row items-center gap-2">
+        <Text className="text-foreground text-base font-semibold">{title}</Text>
         {typeof count === 'number' ? (
-          <View className="bg-secondary min-w-6 items-center rounded-full px-2.5 py-0.5">
-            <Text
-              style={{ fontVariant: ['tabular-nums'] }}
-              className="text-muted-foreground text-xs font-semibold">
-              {count}
-            </Text>
-          </View>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground text-sm">
+            {count}
+          </Text>
         ) : null}
       </View>
       {action}

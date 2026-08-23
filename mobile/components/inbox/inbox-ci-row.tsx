@@ -48,7 +48,11 @@ export const InboxCiRow = React.memo(function InboxCiRow({
             icon={GitBranch}
             size="xs"
           />
-          <Text className="text-muted-foreground font-mono text-2xs">#{item.runNumber}</Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground font-mono text-2xs">
+            #{item.runNumber}
+          </Text>
           <MetaDot />
           <Text numberOfLines={1} className="text-muted-foreground max-w-28 text-2xs">
             {item.event}

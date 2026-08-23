@@ -11,10 +11,12 @@ import {
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Input } from '~/components/ui/input';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export function Sheet({
@@ -49,7 +51,7 @@ export function Sheet({
           <Pressable
             accessibilityLabel="Close"
             onPress={onClose}
-            className="flex-1 bg-black/65"
+            className="flex-1 bg-black/70"
           />
         </Animated.View>
 
@@ -57,14 +59,18 @@ export function Sheet({
           <Animated.View
             entering={SlideInDown.duration(260).springify().damping(22)}
             exiting={SlideOutDown.duration(180)}
-            style={{ paddingBottom: insets.bottom + 12 }}
-            className="border-border bg-background rounded-t-3xl border-x border-t px-4 pt-2.5">
-            <View className="bg-border mb-3 h-1 w-9 self-center rounded-full" />
+            style={{ paddingBottom: insets.bottom + 14 }}
+            className="bg-card rounded-t-[28px] px-5 pt-3">
+            <View className="bg-white/15 mb-4 h-1 w-9 self-center rounded-full" />
 
-            <View className="gap-1 pb-3">
-              <Text className="text-foreground text-lg font-semibold tracking-tight">{title}</Text>
+            <View className="gap-1 pb-4">
+              <Text numberOfLines={2} className="text-foreground text-xl font-bold tracking-tight">
+                {title}
+              </Text>
               {description ? (
-                <Text className="text-muted-foreground text-sm">{description}</Text>
+                <Text numberOfLines={2} className="text-muted-foreground text-sm">
+                  {description}
+                </Text>
               ) : null}
             </View>
 
@@ -77,11 +83,69 @@ export function Sheet({
               {children}
             </ScrollView>
 
-            {footer ? <View className="gap-2 pt-3">{footer}</View> : null}
+            {footer ? <View className="gap-2 pt-4">{footer}</View> : null}
           </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
+  );
+}
+
+export function SheetPrimary({
+  label,
+  onPress,
+  disabled = false,
+  destructive = false,
+  icon,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  destructive?: boolean;
+  icon?: LucideIcon;
+}) {
+  if (destructive) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        disabled={disabled}
+        onPress={onPress}
+        className={cn(
+          'bg-destructive/15 active:bg-destructive/25 h-[54px] flex-1 flex-row items-center justify-center gap-2 rounded-full px-5',
+          disabled && 'opacity-50'
+        )}>
+        {icon ? <Icon as={icon} size={17} color={palette.destructive} /> : null}
+        <Text className="text-destructive text-base font-semibold">{label}</Text>
+      </Pressable>
+    );
+  }
+  return (
+    <SolidPill icon={icon} label={label} disabled={disabled} onPress={onPress} style={{ flex: 1 }} />
+  );
+}
+
+export function SheetSecondary({
+  label,
+  onPress,
+  disabled = false,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={disabled}
+      onPress={onPress}
+      className={cn(
+        'bg-white/10 active:bg-white/15 h-[54px] flex-1 flex-row items-center justify-center rounded-full px-5',
+        disabled && 'opacity-50'
+      )}>
+      <Text className="text-foreground text-base font-semibold">{label}</Text>
+    </Pressable>
   );
 }
 
@@ -106,34 +170,34 @@ export function SheetAction({
       disabled={disabled}
       onPress={onPress}
       className={cn(
-        'border-border bg-card/60 active:bg-accent flex-row items-center gap-3 rounded-xl border px-3 py-3',
+        'active:bg-white/5 flex-row items-center gap-3.5 rounded-3xl px-2 py-2.5',
         disabled && 'opacity-45'
       )}>
       <View
         className={cn(
-          'h-8 w-8 items-center justify-center rounded-lg border',
+          'h-11 w-11 items-center justify-center rounded-full',
           tone === 'danger'
-            ? 'border-destructive/30 bg-destructive/12'
+            ? 'bg-destructive/15'
             : tone === 'accent'
-              ? 'border-git-branch/30 bg-git-branch/12'
-              : 'border-border bg-muted/60'
+              ? 'bg-primary'
+              : 'bg-white/10'
         )}>
         <Icon
           as={icon}
-          size={15}
-          className={
+          size={18}
+          color={
             tone === 'danger'
-              ? 'text-destructive'
+              ? palette.destructive
               : tone === 'accent'
-                ? 'text-git-branch'
-                : 'text-foreground'
+                ? palette.primaryForeground
+                : palette.foreground
           }
         />
       </View>
       <View className="min-w-0 flex-1 gap-0.5">
         <Text
           className={cn(
-            'text-sm font-medium',
+            'text-base font-semibold',
             tone === 'danger' ? 'text-destructive' : 'text-foreground'
           )}>
           {label}
@@ -167,21 +231,17 @@ export function OptionRow({
       accessibilityState={{ selected }}
       onPress={onPress}
       className={cn(
-        'flex-row items-start gap-3 rounded-xl border px-3 py-2.5',
-        selected
-          ? danger
-            ? 'border-destructive/45 bg-destructive/10'
-            : 'border-foreground/25 bg-accent/60'
-          : 'border-border bg-card/40 active:bg-accent/40'
+        'flex-row items-start gap-3 rounded-3xl px-4 py-3',
+        selected ? (danger ? 'bg-destructive/15' : 'bg-white/10') : 'active:bg-white/5'
       )}>
       <View
         className={cn(
-          'mt-0.5 h-4 w-4 items-center justify-center rounded-full border',
+          'mt-0.5 h-[18px] w-[18px] items-center justify-center rounded-full border-2',
           selected
             ? danger
               ? 'border-destructive'
               : 'border-foreground'
-            : 'border-muted-foreground/50'
+            : 'border-white/20'
         )}>
         {selected ? (
           <View className={cn('h-2 w-2 rounded-full', danger ? 'bg-destructive' : 'bg-foreground')} />
@@ -190,7 +250,7 @@ export function OptionRow({
       <View className="min-w-0 flex-1 gap-0.5">
         <Text
           className={cn(
-            'text-sm font-medium',
+            'text-sm font-semibold',
             selected && danger ? 'text-destructive' : 'text-foreground'
           )}>
           {label}
@@ -213,12 +273,12 @@ export function SheetField({
   children: React.ReactNode;
 }) {
   return (
-    <View className="gap-1.5 py-1">
-      <Text className="text-muted-foreground text-xs font-medium uppercase tracking-widest">
+    <View className="gap-2 py-1">
+      <Text className="text-muted-foreground px-1 text-xs font-medium uppercase tracking-widest">
         {label}
       </Text>
       {children}
-      {hint ? <Text className="text-muted-foreground/80 text-2xs">{hint}</Text> : null}
+      {hint ? <Text className="text-muted-foreground/80 px-1 text-2xs">{hint}</Text> : null}
     </View>
   );
 }
@@ -243,11 +303,16 @@ export function SheetInput({
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
+      placeholderTextColor={palette.mutedForeground}
       autoFocus={autoFocus}
       multiline={multiline}
       autoCapitalize={autoCapitalize}
       autoCorrect={false}
-      className={cn('text-sm', multiline && 'h-20 py-2')}
+      textAlignVertical={multiline ? 'top' : 'center'}
+      className={cn(
+        'bg-white/10 border-0 px-4 text-sm shadow-none',
+        multiline ? 'h-24 rounded-3xl py-3' : 'h-12 rounded-full'
+      )}
     />
   );
 }
@@ -268,9 +333,9 @@ export function SheetToggle({
       accessibilityRole="switch"
       accessibilityState={{ checked }}
       onPress={() => onCheckedChange(!checked)}
-      className="border-border bg-card/40 flex-row items-center gap-3 rounded-xl border px-3 py-2.5">
+      className="bg-white/5 active:bg-white/10 flex-row items-center gap-3 rounded-3xl px-4 py-3">
       <View className="min-w-0 flex-1 gap-0.5">
-        <Text className="text-foreground text-sm font-medium">{label}</Text>
+        <Text className="text-foreground text-sm font-semibold">{label}</Text>
         {description ? (
           <Text className="text-muted-foreground text-xs leading-4">{description}</Text>
         ) : null}
@@ -290,8 +355,8 @@ export function SheetNote({
   return (
     <View
       className={cn(
-        'rounded-xl border px-3 py-2.5',
-        tone === 'danger' ? 'border-destructive/30 bg-destructive/8' : 'border-border bg-muted/40'
+        'rounded-3xl px-4 py-3',
+        tone === 'danger' ? 'bg-destructive/10' : 'bg-white/5'
       )}>
       <Text
         className={cn(

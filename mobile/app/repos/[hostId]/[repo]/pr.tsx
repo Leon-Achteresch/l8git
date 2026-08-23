@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { GitPullRequest, GitPullRequestClosed, RotateCw } from 'lucide-react-native';
 import * as React from 'react';
-import { FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { FlatList, RefreshControl, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { EmptyState } from '~/components/empty-state';
@@ -20,7 +20,7 @@ import { OfflineState, QueryErrorState } from '~/components/repo/repo-states';
 import { useRepoRoute } from '~/lib/repo/route';
 import { errorMessage } from '~/components/repo/git-types';
 import { SkeletonList } from '~/components/skeleton-list';
-import { Icon } from '~/components/ui/icon';
+import { GlassCircle } from '~/components/ui/glass';
 import { Text } from '~/components/ui/text';
 import { palette } from '~/lib/theme';
 
@@ -96,27 +96,23 @@ export default function RepoPullRequestsScreen() {
 
   return (
     <View className="bg-background flex-1">
-      <View className="gap-2 px-4 pb-2 pt-1">
+      <View className="gap-2 px-5 pb-3 pt-1">
         <PrFilterChips
           value={filter}
           counts={counts}
           onChange={setFilter}
           trailing={
-            <Pressable
-              accessibilityLabel="Reload pull requests"
-              hitSlop={10}
+            <GlassCircle
+              icon={RotateCw}
+              label="Reload pull requests"
+              size={36}
+              color={list.isFetching ? palette.foreground : palette.mutedForeground}
               onPress={refresh}
-              className="active:bg-accent h-8 w-8 items-center justify-center rounded-lg">
-              <Icon
-                as={RotateCw}
-                size={15}
-                className={list.isFetching ? 'text-foreground' : 'text-muted-foreground'}
-              />
-            </Pressable>
+            />
           }
         />
         {caps.data ? (
-          <Text className="text-muted-foreground/70 px-0.5 text-2xs">
+          <Text className="text-muted-foreground px-1 text-2xs">
             {caps.data.label} · {caps.data.host}
             {caps.data.merge_strategies.length > 0
               ? ` · merge: ${caps.data.merge_strategies.join(', ')}`
@@ -126,7 +122,7 @@ export default function RepoPullRequestsScreen() {
       </View>
 
       {list.isError ? (
-        <View className="px-4">
+        <View className="px-5">
           <QueryErrorState
             title={
               unknownHost
@@ -138,7 +134,7 @@ export default function RepoPullRequestsScreen() {
           />
         </View>
       ) : list.isPending ? (
-        <View className="px-4 pt-1">
+        <View className="px-5 pt-1">
           <SkeletonList rows={6} />
         </View>
       ) : visible.length === 0 ? (
@@ -156,7 +152,7 @@ export default function RepoPullRequestsScreen() {
           data={visible}
           keyExtractor={(item) => String(item.number)}
           renderItem={renderItem}
-          contentContainerClassName="px-4 pb-24"
+          contentContainerClassName="px-5 pb-28"
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

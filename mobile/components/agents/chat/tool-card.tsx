@@ -31,11 +31,11 @@ const STATUS_TINT: Record<ToolRunStatus, string> = {
   cancelled: 'text-muted-foreground',
 };
 
-const STATUS_BORDER: Record<ToolRunStatus, string> = {
-  running: 'border-git-branch/30',
-  success: 'border-border',
-  error: 'border-destructive/35',
-  cancelled: 'border-border',
+const STATUS_SURFACE: Record<ToolRunStatus, string> = {
+  running: 'bg-git-branch/[0.12]',
+  success: 'bg-white/5',
+  error: 'bg-destructive/[0.10]',
+  cancelled: 'bg-white/5',
 };
 
 function StatusGlyph({ status }: { status: ToolRunStatus }) {
@@ -75,17 +75,13 @@ export function ToolCard({
   return (
     <Animated.View
       layout={LinearTransition.duration(180)}
-      className={cn(
-        'bg-card overflow-hidden rounded-3xl border',
-        STATUS_BORDER[status],
-        status === 'running' && 'bg-git-branch/[0.06]'
-      )}>
+      className={cn('overflow-hidden rounded-3xl', STATUS_SURFACE[status])}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`${tool}: ${title}`}
         onPress={() => setOpen((value) => !value)}
-        className="active:bg-accent/40 flex-row items-center gap-2.5 px-3 py-2.5">
+        className="active:bg-white/5 flex-row items-center gap-2.5 px-4 py-3">
         <Animated.View style={chevronStyle}>
           <Icon as={ChevronRight} size={13} className="text-muted-foreground" />
         </Animated.View>
@@ -113,7 +109,7 @@ export function ToolCard({
       </Pressable>
 
       {open && children ? (
-        <Animated.View entering={FadeIn.duration(140)} className="border-border/60 border-t">
+        <Animated.View entering={FadeIn.duration(140)} className="border-white/5 border-t">
           {children}
         </Animated.View>
       ) : null}
@@ -137,7 +133,7 @@ export function ToolOutput({
 
   if (!text.trim()) {
     return (
-      <Text className="text-muted-foreground/70 px-3 py-2.5 text-xs italic">No output yet</Text>
+      <Text className="text-muted-foreground/70 px-4 py-3 text-xs italic">No output yet</Text>
     );
   }
 
@@ -146,7 +142,7 @@ export function ToolOutput({
       horizontal
       bounces={false}
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ minWidth: '100%', paddingHorizontal: 12, paddingVertical: 8 }}>
+      contentContainerStyle={{ minWidth: '100%', paddingHorizontal: 16, paddingVertical: 10 }}>
       <View>
         {lines.map((line, index) => (
           <Text

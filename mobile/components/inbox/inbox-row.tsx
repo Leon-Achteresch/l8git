@@ -12,8 +12,8 @@ import { cn } from '~/lib/utils';
 
 export function RepoChip({ name }: { name: string }) {
   return (
-    <View className="border-border/70 bg-muted shrink-0 rounded-md border px-1.5 py-px">
-      <Text numberOfLines={1} className="text-muted-foreground max-w-28 text-2xs font-medium">
+    <View className="bg-white/10 shrink-0 rounded-full px-2 py-0.5">
+      <Text numberOfLines={1} className="text-foreground max-w-28 text-2xs font-semibold">
         {name}
       </Text>
     </View>
@@ -43,7 +43,7 @@ export function InboxRowFrame({
   title,
   updatedAt,
   icon,
-  iconColor = palette.mutedForeground,
+  iconColor = palette.foreground,
   meta,
   badges,
   externalUrl,
@@ -62,20 +62,22 @@ export function InboxRowFrame({
       flat
       onPress={onPress}
       accessibilityLabel={accessibilityLabel ?? title}
-      className={cn(divider && 'border-border/40 border-t')}>
+      className={cn(divider && 'border-white/5 border-t')}>
       <View className="flex-row items-center gap-3 px-4 py-3.5">
         {icon ? (
-          <View className="bg-secondary h-10 w-10 items-center justify-center rounded-2xl">
+          <View className="bg-white/10 h-10 w-10 items-center justify-center rounded-full">
             <Icon as={icon} size={19} color={iconColor} />
           </View>
         ) : null}
         <View className="min-w-0 flex-1 gap-1.5">
           <View className="flex-row items-center gap-2">
             <RepoChip name={repoName} />
-            <Text numberOfLines={1} className="text-foreground min-w-0 flex-1 text-sm font-medium">
+            <Text numberOfLines={1} className="text-foreground min-w-0 flex-1 text-sm font-semibold">
               {title}
             </Text>
-            <Text className="text-muted-foreground/80 shrink-0 font-mono text-2xs">
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-muted-foreground shrink-0 text-2xs">
               {relativeTime(updatedAt)}
             </Text>
           </View>
@@ -95,11 +97,11 @@ export function InboxRowFrame({
             accessibilityLabel="Open on the web"
             hitSlop={8}
             onPress={openExternal}
-            className="active:bg-accent h-7 w-7 items-center justify-center rounded-lg">
-            <Icon as={ExternalLink} size={13} className="text-muted-foreground" />
+            className="bg-white/10 active:bg-white/15 h-8 w-8 items-center justify-center rounded-full">
+            <Icon as={ExternalLink} size={13} className="text-foreground" />
           </Pressable>
         ) : (
-          <Icon as={ChevronRight} size={14} className="text-muted-foreground/50" />
+          <Icon as={ChevronRight} size={16} className="text-muted-foreground/60" />
         )}
       </View>
     </PressableRow>

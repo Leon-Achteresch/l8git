@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { CloudOff, Inbox, MessageSquare, ShieldCheck } from 'lucide-react-native';
+import { ArrowLeft, CloudOff, Inbox, MessageSquare } from 'lucide-react-native';
 import * as React from 'react';
 import { SectionList, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
@@ -8,11 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AgentApprovalCard } from '~/components/agents/approval-card';
 import { useOpenAgentThread } from '~/components/agents/chat/route';
 import { EmptyState } from '~/components/empty-state';
-import { DetailHeader } from '~/components/shared/detail-header';
 import { PressableRow } from '~/components/shared/pressable-row';
-import { StatusPill } from '~/components/shared/status-pill';
 import { SkeletonList } from '~/components/skeleton-list';
-import { Button } from '~/components/ui/button';
+import { GlassCircle, GlassPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import {
@@ -52,6 +50,16 @@ function groupApprovals(approvals: readonly PendingApproval[]): ApprovalSection[
   return [...sections.values()];
 }
 
+function CountBadge({ value }: { value: number }) {
+  return (
+    <View className="bg-warning/15 min-w-7 items-center justify-center rounded-full px-2 py-1">
+      <Text style={{ fontVariant: ['tabular-nums'] }} className="text-warning text-xs font-bold">
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 function StaleHostRow({
   hostName,
   online,
@@ -63,10 +71,12 @@ function StaleHostRow({
 }) {
   return (
     <PressableRow flat>
-      <View className="border-border bg-card/40 mb-2 flex-row items-center gap-2.5 rounded-xl border px-3 py-2.5">
-        <Icon as={CloudOff} size={14} className="text-muted-foreground" />
+      <View className="bg-card mb-2 flex-row items-center gap-3 rounded-3xl px-4 py-3.5">
+        <View className="bg-white/10 h-9 w-9 items-center justify-center rounded-full">
+          <Icon as={CloudOff} size={15} className="text-muted-foreground" />
+        </View>
         <View className="min-w-0 flex-1">
-          <Text numberOfLines={1} className="text-foreground text-sm font-medium">
+          <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
             {hostName}
           </Text>
           <Text className="text-muted-foreground text-2xs">
@@ -75,7 +85,7 @@ function StaleHostRow({
               : 'Host offline — approvals cannot be answered.'}
           </Text>
         </View>
-        <StatusPill label={pending} tone="warning" size="xs" mono />
+        <CountBadge value={pending} />
       </View>
     </PressableRow>
   );
@@ -110,28 +120,32 @@ export default function AgentApprovalsScreen() {
 
   return (
     <SafeAreaView edges={['top']} className="bg-background flex-1">
-      <DetailHeader
-        title="Approvals"
-        subtitle={
-          approvals.length > 0
-            ? `${approvals.length} waiting across ${sections.length} thread${sections.length === 1 ? '' : 's'}`
-            : 'Nothing waiting on you'
-        }
-        onBack={() => (router.canGoBack() ? router.back() : router.replace('/agents'))}
-        right={
-          approvals.length > 0 ? (
-            <StatusPill label={approvals.length} tone="warning" size="xs" mono dot />
-          ) : null
-        }
-      />
+      <View className="flex-row items-center gap-3 px-5 pb-4 pt-2">
+        <GlassCircle
+          icon={ArrowLeft}
+          label="Back"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/agents'))}
+        />
+        <View className="min-w-0 flex-1">
+          <Text numberOfLines={1} className="text-foreground text-3xl font-bold tracking-tight">
+            Approvals
+          </Text>
+          <Text numberOfLines={1} className="text-muted-foreground text-sm">
+            {approvals.length > 0
+              ? `${approvals.length} waiting across ${sections.length} thread${sections.length === 1 ? '' : 's'}`
+              : 'Nothing waiting on you'}
+          </Text>
+        </View>
+        {approvals.length > 0 ? <CountBadge value={approvals.length} /> : null}
+      </View>
 
       {phase === 'booting' || phase === 'idle' ? (
-        <View className="px-4 pt-3">
+        <View className="px-5 pt-1">
           <SkeletonList rows={3} />
         </View>
       ) : approvals.length === 0 && staleHosts.length === 0 ? (
         <EmptyState
-          icon={ShieldCheck}
+          illustration="inbox"
           title="Inbox zero"
           description={
             boundHostId && hostRuntime.status === 'online'
@@ -139,17 +153,18 @@ export default function AgentApprovalsScreen() {
               : 'Connect a host and open an agent thread — pending approvals show up here.'
           }
           action={
-            <Button variant="outline" size="sm" onPress={() => router.replace('/agents')}>
-              <Icon as={MessageSquare} size={13} className="text-foreground" />
-              <Text className="text-xs">Go to Agents</Text>
-            </Button>
+            <GlassPill
+              icon={MessageSquare}
+              label="Go to Agents"
+              onPress={() => router.replace('/agents')}
+            />
           }
         />
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.key}
-          contentContainerClassName="gap-2 px-4 pb-16 pt-3"
+          contentContainerClassName="gap-3 px-5 pb-16 pt-1"
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
           ListHeaderComponent={
@@ -178,19 +193,19 @@ export default function AgentApprovalsScreen() {
               flat
               onPress={() => openThread(section.head)}
               accessibilityLabel={`Open ${section.title}`}>
-              <View className="flex-row items-center gap-2 pb-1.5 pt-3">
+              <View className="flex-row items-center gap-2.5 px-1 pb-1 pt-3">
                 <View className="min-w-0 flex-1">
-                  <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
+                  <Text numberOfLines={1} className="text-foreground text-base font-semibold">
                     {section.title}
                   </Text>
-                  <Text numberOfLines={1} className="text-muted-foreground text-2xs">
+                  <Text numberOfLines={1} className="text-muted-foreground text-xs">
                     {section.subtitle}
                   </Text>
                 </View>
-                <StatusPill label={`${section.data.length}`} tone="warning" size="xs" mono />
-                <Text className="text-primary text-2xs font-semibold uppercase tracking-wide">
-                  Open
-                </Text>
+                <CountBadge value={section.data.length} />
+                <View className="bg-white/10 rounded-full px-3 py-1.5">
+                  <Text className="text-foreground text-xs font-semibold">Open</Text>
+                </View>
               </View>
             </PressableRow>
           )}

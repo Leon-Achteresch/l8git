@@ -11,10 +11,10 @@ import {
   SheetField,
   SheetInput,
   SheetNote,
+  SheetPrimary,
+  SheetSecondary,
   SheetToggle,
 } from '~/components/repo/sheet';
-import { Button } from '~/components/ui/button';
-import { Text } from '~/components/ui/text';
 
 export function stashLabel(entry: StashEntry): string {
   const message = entry.message?.trim() || entry.subject?.trim();
@@ -94,26 +94,19 @@ export function StashActionSheet({
         title="Drop stash"
         description={`stash@{${entry.index}} · ${title}`}
         footer={
-          <View className="flex-row gap-2">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              disabled={busy}
-              onPress={() => setStep('menu')}>
-              <Text>Back</Text>
-            </Button>
-            <Button
-              variant="destructive"
-              className="flex-1"
+          <View className="flex-row gap-2.5">
+            <SheetSecondary label="Back" disabled={busy} onPress={() => setStep('menu')} />
+            <SheetPrimary
+              label={drop.isPending ? 'Dropping…' : 'Drop'}
+              destructive
               disabled={busy}
               onPress={() =>
                 drop.mutate(
                   { index: entry.index },
                   settle('Stash dropped', 'Could not drop the stash', true)
                 )
-              }>
-              <Text>{drop.isPending ? 'Dropping…' : 'Drop'}</Text>
-            </Button>
+              }
+            />
           </View>
         }>
         <SheetNote tone="danger">
@@ -133,25 +126,18 @@ export function StashActionSheet({
         title="Branch from stash"
         description={`stash@{${entry.index}} · ${title}`}
         footer={
-          <View className="flex-row gap-2">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              disabled={busy}
-              onPress={() => setStep('menu')}>
-              <Text>Back</Text>
-            </Button>
-            <Button
-              className="flex-1"
+          <View className="flex-row gap-2.5">
+            <SheetSecondary label="Back" disabled={busy} onPress={() => setStep('menu')} />
+            <SheetPrimary
+              label={branch.isPending ? 'Creating…' : 'Create branch'}
               disabled={busy || trimmed.length === 0}
               onPress={() =>
                 branch.mutate(
                   { index: entry.index, name: trimmed },
                   settle(`Branch ${trimmed} created`, 'Could not branch from the stash', true)
                 )
-              }>
-              <Text>{branch.isPending ? 'Creating…' : 'Create branch'}</Text>
-            </Button>
+              }
+            />
           </View>
         }>
         <SheetField
@@ -257,12 +243,10 @@ export function PushStashSheet({
       title="Stash changes"
       description="Park the current working tree and start from a clean state"
       footer={
-        <View className="flex-row gap-2">
-          <Button variant="secondary" className="flex-1" disabled={push.isPending} onPress={onClose}>
-            <Text>Cancel</Text>
-          </Button>
-          <Button
-            className="flex-1"
+        <View className="flex-row gap-2.5">
+          <SheetSecondary label="Cancel" disabled={push.isPending} onPress={onClose} />
+          <SheetPrimary
+            label={push.isPending ? 'Stashing…' : 'Stash'}
             disabled={push.isPending}
             onPress={() =>
               push.mutate(
@@ -282,9 +266,8 @@ export function PushStashSheet({
                   },
                 }
               )
-            }>
-            <Text>{push.isPending ? 'Stashing…' : 'Stash'}</Text>
-          </Button>
+            }
+          />
         </View>
       }>
       <SheetField label="Message" hint="Optional — git generates one from the current commit">

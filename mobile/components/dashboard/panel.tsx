@@ -2,11 +2,11 @@ import { RotateCw, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { Button } from '~/components/ui/button';
-import { Card } from '~/components/ui/card';
+import { GlassPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
 export function Panel({
@@ -17,7 +17,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <Card className={cn('bg-card gap-3 rounded-3xl px-5 py-5', className)}>{children}</Card>
+    <View className={cn('bg-card gap-3 rounded-[28px] px-5 py-5', className)}>{children}</View>
   );
 }
 
@@ -35,16 +35,24 @@ export function PanelHeader({
 }) {
   return (
     <View className="flex-row items-center justify-between gap-3">
-      <View className="min-w-0 flex-1 flex-row items-center gap-3">
+      <View className="min-w-0 flex-1 flex-row items-center gap-2.5">
         {icon ? (
-          <View className="bg-secondary h-9 w-9 items-center justify-center rounded-2xl">
-            <Icon as={icon} className="text-muted-foreground size-4" />
+          <View
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+            }}>
+            <Icon as={icon} size={15} color={palette.foreground} />
           </View>
         ) : null}
-        <View className="min-w-0 flex-1 gap-0.5">
-          <Text className="text-foreground text-base font-semibold tracking-tight">{title}</Text>
+        <View className="min-w-0 flex-1 flex-row items-baseline gap-2">
+          <Text className="text-foreground text-base font-semibold">{title}</Text>
           {hint ? (
-            <Text numberOfLines={1} className="text-muted-foreground text-xs">
+            <Text numberOfLines={1} className="text-muted-foreground shrink text-sm">
               {hint}
             </Text>
           ) : null}
@@ -93,12 +101,7 @@ export function PanelError({
   return (
     <View className="items-center justify-center gap-3 py-4" style={height ? { height } : null}>
       <Text className="text-muted-foreground max-w-64 text-center text-xs">{message}</Text>
-      {onRetry ? (
-        <Button size="sm" variant="outline" onPress={onRetry} className="h-8 rounded-lg px-3">
-          <Icon as={RotateCw} className="text-foreground size-3.5" />
-          <Text className="text-xs">Retry</Text>
-        </Button>
-      ) : null}
+      {onRetry ? <GlassPill icon={RotateCw} label="Retry" onPress={onRetry} /> : null}
     </View>
   );
 }
@@ -114,8 +117,16 @@ export function PanelEmpty({
 }) {
   return (
     <View className="items-center justify-center gap-2 py-6" style={height ? { height } : null}>
-      <View className="border-border bg-muted/60 h-9 w-9 items-center justify-center rounded-full border">
-        <Icon as={icon} className="text-muted-foreground size-4" />
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(255,255,255,0.06)',
+        }}>
+        <Icon as={icon} size={16} color={palette.mutedForeground} />
       </View>
       <Text className="text-muted-foreground max-w-64 text-center text-xs">{message}</Text>
     </View>
@@ -125,7 +136,7 @@ export function PanelEmpty({
 export function PanelSkeleton({ height = 120 }: { height?: number }) {
   return (
     <View className="gap-2" style={{ height }}>
-      <Skeleton className="h-full w-full rounded-lg opacity-60" />
+      <Skeleton className="h-full w-full rounded-3xl opacity-60" />
     </View>
   );
 }

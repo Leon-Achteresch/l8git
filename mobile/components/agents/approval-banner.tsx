@@ -13,6 +13,7 @@ import {
   supportsQuickDecision,
 } from '~/components/agents/approval-card';
 import { useOpenAgentThread } from '~/components/agents/chat/route';
+import { Glass, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { agentApprovalHaptic, useAgentNotices } from '~/lib/agents/attention';
@@ -151,23 +152,33 @@ export function ApprovalBanner() {
           (progressVisible ? PROGRESS_OFFSET : 0) +
           notices * NOTICE_OFFSET,
       }}
-      className="absolute left-3 right-3 z-50">
-      <View
-        className={cn(
-          'overflow-hidden rounded-2xl border shadow-lg shadow-black/50',
-          danger === 'danger'
-            ? 'border-destructive/50 bg-destructive/12'
-            : 'border-warning/45 bg-popover'
-        )}>
+      className="absolute left-4 right-4 z-50">
+      <Glass
+        intensity={50}
+        style={{
+          borderRadius: 28,
+          backgroundColor:
+            danger === 'danger' ? 'rgba(255,69,58,0.16)' : 'rgba(28,28,32,0.78)',
+          shadowColor: '#000',
+          shadowOpacity: 0.5,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+        }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Open thread" onPress={open}>
-          <View className="flex-row items-start gap-2.5 px-3 pb-2 pt-2.5">
-            <Icon
-              as={ShieldAlert}
-              size={15}
-              className={danger === 'danger' ? 'text-destructive' : 'text-warning'}
-            />
+          <View className="flex-row items-start gap-3 px-4 pb-3 pt-4">
+            <View
+              className={cn(
+                'h-9 w-9 items-center justify-center rounded-full',
+                danger === 'danger' ? 'bg-destructive/20' : 'bg-warning/15'
+              )}>
+              <Icon
+                as={ShieldAlert}
+                size={16}
+                className={danger === 'danger' ? 'text-destructive' : 'text-warning'}
+              />
+            </View>
             <View className="min-w-0 flex-1 gap-0.5">
-              <Text numberOfLines={1} className="text-foreground text-xs font-semibold">
+              <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
                 {approvalTitle(active.request)}
               </Text>
               <Text numberOfLines={1} className="text-muted-foreground font-mono text-2xs">
@@ -181,68 +192,54 @@ export function ApprovalBanner() {
               hitSlop={10}
               accessibilityLabel="Dismiss"
               onPress={() => setActive(null)}
-              className="pt-0.5">
-              <Icon as={X} size={14} className="text-muted-foreground" />
+              className="bg-white/10 h-7 w-7 items-center justify-center rounded-full">
+              <Icon as={X} size={13} className="text-foreground" />
             </Pressable>
           </View>
         </Pressable>
 
-        <View className="border-border/60 flex-row items-center gap-2 border-t px-3 py-2">
+        <View className="border-white/5 flex-row items-center gap-2 border-t px-4 py-3">
           {quick ? (
             <>
-              <Pressable
-                accessibilityRole="button"
+              <SolidPill
+                icon={Check}
+                label={danger === 'danger' ? 'Approve anyway' : 'Approve'}
                 disabled={busy}
                 onPress={() => decide('accept')}
-                className={cn(
-                  'flex-1 flex-row items-center justify-center gap-1.5 rounded-lg py-2',
-                  danger === 'danger' ? 'bg-destructive/25' : 'bg-primary',
-                  busy && 'opacity-50'
-                )}>
-                <Icon
-                  as={Check}
-                  size={13}
-                  className={danger === 'danger' ? 'text-destructive' : 'text-primary-foreground'}
-                />
-                <Text
-                  className={cn(
-                    'text-xs font-semibold',
-                    danger === 'danger' ? 'text-destructive' : 'text-primary-foreground'
-                  )}>
-                  {danger === 'danger' ? 'Approve anyway' : 'Approve'}
-                </Text>
-              </Pressable>
+                style={{ flex: 1, height: 42, borderRadius: 21, paddingHorizontal: 14 }}
+              />
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Deny"
                 disabled={busy}
                 onPress={() => decide('decline')}
                 className={cn(
-                  'border-border flex-row items-center justify-center gap-1.5 rounded-lg border px-3 py-2',
+                  'bg-white/10 active:bg-white/15 h-[42px] flex-row items-center justify-center gap-1.5 rounded-full px-4',
                   busy && 'opacity-50'
                 )}>
-                <Icon as={X} size={13} className="text-foreground" />
-                <Text className="text-foreground text-xs font-medium">Deny</Text>
+                <Icon as={X} size={14} className="text-destructive" />
+                <Text className="text-destructive text-sm font-semibold">Deny</Text>
               </Pressable>
             </>
           ) : (
-            <Pressable
-              accessibilityRole="button"
+            <SolidPill
+              label="Answer now"
               onPress={open}
-              className="bg-primary flex-1 items-center rounded-lg py-2">
-              <Text className="text-primary-foreground text-xs font-semibold">Answer now</Text>
-            </Pressable>
+              style={{ flex: 1, height: 42, borderRadius: 21, paddingHorizontal: 14 }}
+            />
           )}
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Open approvals inbox"
             onPress={() => {
               setActive(null);
               router.push('/agents/approvals');
             }}
-            className="px-2 py-2">
-            <Text className="text-muted-foreground text-xs">Inbox</Text>
+            className="active:opacity-70 px-2.5 py-2">
+            <Text className="text-muted-foreground text-sm font-medium">Inbox</Text>
           </Pressable>
         </View>
-      </View>
+      </Glass>
     </Animated.View>
   );
 }

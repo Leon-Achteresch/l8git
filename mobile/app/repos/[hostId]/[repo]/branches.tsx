@@ -26,7 +26,7 @@ import { BranchRow } from '~/components/shared/branch-row';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { StatusPill } from '~/components/shared/status-pill';
 import { SkeletonList } from '~/components/skeleton-list';
-import { Button } from '~/components/ui/button';
+import { Glass, GlassCircle } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { palette } from '~/lib/theme';
@@ -46,6 +46,58 @@ const TAG_TONE = {
   signed: 'success',
 } as const;
 
+function SegmentChip({
+  segment,
+  active,
+  count,
+  onPress,
+}: {
+  segment: Segment;
+  active: boolean;
+  count: number;
+  onPress: () => void;
+}) {
+  const inner = (
+    <>
+      <Text
+        className={
+          active
+            ? 'text-primary-foreground text-sm font-semibold'
+            : 'text-foreground text-sm font-medium'
+        }>
+        {SEGMENT_LABEL[segment]}
+      </Text>
+      <Text
+        style={{ fontVariant: ['tabular-nums'] }}
+        className={cn('text-xs', active ? 'text-primary-foreground/60' : 'text-muted-foreground')}>
+        {count}
+      </Text>
+    </>
+  );
+  const shape = {
+    height: 36,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  };
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={SEGMENT_LABEL[segment]}
+      onPress={onPress}
+      className="active:opacity-70">
+      {active ? (
+        <View style={[shape, { backgroundColor: palette.primary }]}>{inner}</View>
+      ) : (
+        <Glass style={shape}>{inner}</Glass>
+      )}
+    </Pressable>
+  );
+}
+
 function SegmentBar({
   value,
   counts,
@@ -56,36 +108,16 @@ function SegmentBar({
   onChange: (next: Segment) => void;
 }) {
   return (
-    <View className="bg-muted/70 flex-row gap-1 rounded-xl p-1">
-      {(Object.keys(SEGMENT_LABEL) as Segment[]).map((segment) => {
-        const active = segment === value;
-        return (
-          <Pressable
-            key={segment}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            onPress={() => onChange(segment)}
-            className={cn(
-              'flex-1 flex-row items-center justify-center gap-1.5 rounded-lg py-1.5',
-              active ? 'bg-card border-border border' : 'active:bg-accent/50'
-            )}>
-            <Text
-              className={cn(
-                'text-xs font-medium',
-                active ? 'text-foreground' : 'text-muted-foreground'
-              )}>
-              {SEGMENT_LABEL[segment]}
-            </Text>
-            <Text
-              className={cn(
-                'font-mono text-2xs',
-                active ? 'text-muted-foreground' : 'text-muted-foreground/60'
-              )}>
-              {counts[segment]}
-            </Text>
-          </Pressable>
-        );
-      })}
+    <View className="flex-row items-center gap-2">
+      {(Object.keys(SEGMENT_LABEL) as Segment[]).map((segment) => (
+        <SegmentChip
+          key={segment}
+          segment={segment}
+          active={segment === value}
+          count={counts[segment]}
+          onPress={() => onChange(segment)}
+        />
+      ))}
     </View>
   );
 }
@@ -103,23 +135,29 @@ function TagRowItem({
 }) {
   return (
     <PressableRow first={first} last={last} onPress={onPress} onLongPress={onPress}>
-      <View className="flex-row items-center gap-2.5 px-3 py-2.5">
-        <View className="border-git-tag/30 bg-git-tag/12 h-7 w-7 items-center justify-center rounded-lg border">
-          <Icon as={TagIcon} size={13} className="text-git-tag" />
+      <View className="flex-row items-center gap-3 py-3.5 pl-4 pr-3">
+        <View
+          style={{ backgroundColor: `${palette.git.tag}26` }}
+          className="h-11 w-11 items-center justify-center rounded-full">
+          <Icon as={TagIcon} size={17} color={palette.git.tag} />
         </View>
         <View className="min-w-0 flex-1 gap-0.5">
-          <Text numberOfLines={1} className="text-foreground text-sm font-medium">
+          <Text numberOfLines={1} className="text-foreground text-base font-semibold">
             {middleTruncate(tag.name, 38)}
           </Text>
           <View className="flex-row items-center gap-1.5">
-            <Text className="text-git-hash font-mono text-2xs">{shortHash(tag.commit)}</Text>
+            <Text
+              style={{ fontVariant: ['tabular-nums'] }}
+              className="text-muted-foreground font-mono text-xs">
+              {shortHash(tag.commit)}
+            </Text>
             <Text numberOfLines={1} className="text-muted-foreground flex-1 text-xs">
               {[tag.message?.trim(), tag.tagger].filter(Boolean).join(' · ')}
             </Text>
           </View>
         </View>
         <StatusPill label={tag.kind} tone={TAG_TONE[tag.kind] ?? 'neutral'} size="xs" />
-        <Icon as={MoreVertical} size={15} className="text-muted-foreground" />
+        <Icon as={MoreVertical} size={15} color={palette.mutedForeground} />
       </View>
     </PressableRow>
   );
@@ -225,26 +263,20 @@ export default function RepoBranchesScreen() {
 
   return (
     <View className="bg-background flex-1">
-      <View className="gap-2 px-4 pb-2 pt-1">
-        <SegmentBar value={segment} counts={counts} onChange={setSegment} />
-        <View className="flex-row items-center gap-2">
+      <View className="gap-2.5 px-5 pb-3 pt-1">
+        <View className="flex-row items-center gap-2.5">
           <SearchField
             value={filter}
             onChangeText={setFilter}
             placeholder={segment === 'tags' ? 'Filter tags' : 'Filter branches'}
             className="flex-1"
           />
-          <Button
-            size="icon"
-            variant="secondary"
-            accessibilityLabel="New branch"
-            onPress={() => setCreating(true)}>
-            <Icon as={Plus} size={16} className="text-foreground" />
-          </Button>
+          <GlassCircle icon={Plus} label="New branch" size={46} onPress={() => setCreating(true)} />
         </View>
+        <SegmentBar value={segment} counts={counts} onChange={setSegment} />
         {currentBranch ? (
-          <View className="flex-row items-center gap-2 px-0.5">
-            <Icon as={GitBranch} size={12} className="text-foreground" />
+          <View className="flex-row items-center gap-2 px-1">
+            <Icon as={GitBranch} size={12} color={palette.foreground} />
             <Text numberOfLines={1} className="text-muted-foreground flex-1 text-xs">
               on <Text className="text-foreground text-xs font-medium">{currentBranch}</Text>
             </Text>
@@ -263,7 +295,7 @@ export default function RepoBranchesScreen() {
       </View>
 
       {overview.isError ? (
-        <View className="px-4">
+        <View className="px-5">
           <QueryErrorState
             title="Could not load branches"
             error={overview.error}
@@ -271,7 +303,7 @@ export default function RepoBranchesScreen() {
           />
         </View>
       ) : overview.isPending ? (
-        <View className="px-4 pt-1">
+        <View className="px-5 pt-1">
           <SkeletonList rows={7} />
         </View>
       ) : segment === 'tags' ? (
@@ -279,7 +311,7 @@ export default function RepoBranchesScreen() {
           <FlatList
             data={visibleTags}
             keyExtractor={(tag) => tag.name}
-            contentContainerClassName="px-4 pb-24"
+            contentContainerClassName="px-5 pb-24"
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={listEmpty}
             refreshControl={
@@ -304,7 +336,7 @@ export default function RepoBranchesScreen() {
           <FlatList
             data={visibleBranches}
             keyExtractor={(branch) => `${branch.is_remote ? 'r' : 'l'}:${branch.name}`}
-            contentContainerClassName="px-4 pb-24"
+            contentContainerClassName="px-5 pb-24"
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={listEmpty}
             refreshControl={
@@ -327,7 +359,7 @@ export default function RepoBranchesScreen() {
                 last={index === visibleBranches.length - 1}
                 onPress={() => setBranchTarget(item)}
                 onLongPress={() => setBranchTarget(item)}
-                trailing={<Icon as={MoreVertical} size={15} className="text-muted-foreground" />}
+                trailing={<Icon as={MoreVertical} size={15} color={palette.mutedForeground} />}
               />
             )}
           />

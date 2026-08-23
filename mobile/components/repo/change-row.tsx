@@ -56,18 +56,24 @@ function ActionButton({
           action.run();
         }}
         className={cn(
-          'h-full items-center justify-center gap-1',
-          action.destructive ? 'bg-destructive/85' : 'bg-secondary'
+          'h-full items-center justify-center gap-1.5',
+          action.destructive ? 'bg-destructive' : 'bg-elevated'
         )}
         style={{ width: ACTION_WIDTH }}>
-        <Icon
-          as={action.icon}
-          size={16}
-          className={action.destructive ? 'text-white' : 'text-foreground'}
-        />
+        <View
+          className={cn(
+            'h-9 w-9 items-center justify-center rounded-full',
+            action.destructive ? 'bg-white/20' : 'bg-white/10'
+          )}>
+          <Icon
+            as={action.icon}
+            size={16}
+            className={action.destructive ? 'text-white' : 'text-foreground'}
+          />
+        </View>
         <Text
           className={cn(
-            'text-2xs font-medium',
+            'text-2xs font-semibold',
             action.destructive ? 'text-white' : 'text-foreground'
           )}>
           {action.label}

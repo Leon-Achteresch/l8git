@@ -12,11 +12,11 @@ import {
   SheetField,
   SheetInput,
   SheetNote,
+  SheetPrimary,
+  SheetSecondary,
   SheetToggle,
 } from '~/components/repo/sheet';
 import { shortHash } from '~/components/shared/format';
-import { Button } from '~/components/ui/button';
-import { Text } from '~/components/ui/text';
 
 export type CommitTarget = {
   hash: string;
@@ -151,10 +151,8 @@ export function CommitActionSheet({
   }
 
   const footer = (primary: React.ReactNode) => (
-    <View className="flex-row gap-2">
-      <Button variant="secondary" className="flex-1" disabled={busy} onPress={() => setStep('menu')}>
-        <Text>Back</Text>
-      </Button>
+    <View className="flex-row gap-2.5">
+      <SheetSecondary label="Back" disabled={busy} onPress={() => setStep('menu')} />
       {primary}
     </View>
   );
@@ -167,17 +165,16 @@ export function CommitActionSheet({
         title="Checkout commit"
         description={`${label} — ${commit.subject}`}
         footer={footer(
-          <Button
-            className="flex-1"
+          <SheetPrimary
+            label={checkout.isPending ? 'Checking out…' : 'Checkout'}
             disabled={busy}
             onPress={() =>
               checkout.mutate(
                 { hash: commit.hash },
                 settle('Checked out commit', 'Checkout failed')
               )
-            }>
-            <Text>{checkout.isPending ? 'Checking out…' : 'Checkout'}</Text>
-          </Button>
+            }
+          />
         )}>
         <SheetNote>
           Checking out a commit leaves the repository in a detached HEAD state. Create a branch
@@ -195,17 +192,16 @@ export function CommitActionSheet({
         title="Cherry-pick commit"
         description={`${label} — ${commit.subject}`}
         footer={footer(
-          <Button
-            className="flex-1"
+          <SheetPrimary
+            label={cherryPick.isPending ? 'Applying…' : 'Cherry-pick'}
             disabled={busy}
             onPress={() =>
               cherryPick.mutate(
                 { hash: commit.hash, mainline: isMerge ? 1 : null },
                 settle('Cherry-picked', 'Cherry-pick failed')
               )
-            }>
-            <Text>{cherryPick.isPending ? 'Applying…' : 'Cherry-pick'}</Text>
-          </Button>
+            }
+          />
         )}>
         <SheetNote>
           {isMerge
@@ -224,17 +220,16 @@ export function CommitActionSheet({
         title="Revert commit"
         description={`${label} — ${commit.subject}`}
         footer={footer(
-          <Button
-            className="flex-1"
+          <SheetPrimary
+            label={revert.isPending ? 'Reverting…' : 'Revert'}
             disabled={busy}
             onPress={() =>
               revert.mutate(
                 { hash: commit.hash, mergeMainline: isMerge ? 1 : null },
                 settle('Revert created', 'Revert failed')
               )
-            }>
-            <Text>{revert.isPending ? 'Reverting…' : 'Revert'}</Text>
-          </Button>
+            }
+          />
         )}>
         <SheetNote>
           A new commit is created that undoes the changes of this one. History is preserved.
@@ -252,18 +247,17 @@ export function CommitActionSheet({
         title="Reset to commit"
         description={`${label} — ${commit.subject}`}
         footer={footer(
-          <Button
-            variant={hard ? 'destructive' : 'default'}
-            className="flex-1"
+          <SheetPrimary
+            label={reset.isPending ? 'Resetting…' : `Reset ${mode}`}
+            destructive={hard}
             disabled={busy}
             onPress={() =>
               reset.mutate(
                 { hash: commit.hash, mode },
                 settle(`Reset (${mode}) done`, 'Reset failed')
               )
-            }>
-            <Text>{reset.isPending ? 'Resetting…' : `Reset ${mode}`}</Text>
-          </Button>
+            }
+          />
         )}>
         {RESET_MODES.map((entry) => (
           <OptionRow
@@ -296,8 +290,8 @@ export function CommitActionSheet({
         title="Create tag"
         description={`${label} — ${commit.subject}`}
         footer={footer(
-          <Button
-            className="flex-1"
+          <SheetPrimary
+            label={tag.isPending ? 'Tagging…' : 'Create tag'}
             disabled={busy || !tagReady}
             onPress={() =>
               tag.mutate(
@@ -309,9 +303,8 @@ export function CommitActionSheet({
                 },
                 settle(`Tag ${trimmed} created`, 'Tagging failed')
               )
-            }>
-            <Text>{tag.isPending ? 'Tagging…' : 'Create tag'}</Text>
-          </Button>
+            }
+          />
         )}>
         <SheetField label="Tag name" hint="For example v1.4.0">
           <SheetInput

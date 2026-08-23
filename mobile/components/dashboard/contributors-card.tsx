@@ -52,9 +52,9 @@ export function ContributorsCard({
         <View className="gap-3 py-1">
           {Array.from({ length: 4 }).map((_, index) => (
             <View key={index} className="flex-row items-center gap-3">
-              <Skeleton className="h-7 w-7 rounded-full" />
-              <Skeleton className="h-3 flex-1 rounded" />
-              <Skeleton className="h-3 w-8 rounded" />
+              <Skeleton className="h-9 w-9 rounded-full" />
+              <Skeleton className="h-3 flex-1 rounded-full" />
+              <Skeleton className="h-3 w-8 rounded-full" />
             </View>
           ))}
         </View>
@@ -67,7 +67,10 @@ export function ContributorsCard({
           {top.map((entry, index) => {
             return (
               <View key={`${entry.email}-${entry.name}-${index}`} className="flex-row items-center gap-3">
-                <Avatar alt={entry.name || entry.email} className="bg-secondary size-9">
+                <Avatar
+                  alt={entry.name || entry.email}
+                  className="size-9"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
                   <AvatarFallback className="bg-transparent">
                     <Text className="text-foreground text-xs font-semibold">
                       {initials(entry.name || entry.email)}
@@ -79,7 +82,9 @@ export function ContributorsCard({
                   <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
                     {entry.name || entry.email || 'Unknown'}
                   </Text>
-                  <View className="bg-secondary h-1.5 w-full overflow-hidden rounded-full">
+                  <View
+                    className="h-1.5 w-full overflow-hidden rounded-full"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
                     <View
                       style={{
                         width: `${Math.max(4, (entry.commits / peak) * 100)}%`,

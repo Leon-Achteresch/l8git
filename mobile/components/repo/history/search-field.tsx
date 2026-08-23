@@ -2,9 +2,9 @@ import { Search, X } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
+import { Glass } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { palette } from '~/lib/theme';
-import { cn } from '~/lib/utils';
 
 export function SearchField({
   value,
@@ -20,31 +20,40 @@ export function SearchField({
   const [focused, setFocused] = React.useState(false);
 
   return (
-    <View
-      className={cn(
-        'flex-row items-center gap-2 rounded-xl border px-3',
-        focused ? 'border-foreground/25 bg-card' : 'border-border bg-card/50',
-        className
-      )}>
-      <Icon as={Search} size={14} className="text-muted-foreground" />
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        placeholder={placeholder}
-        placeholderTextColor={`${palette.mutedForeground}99`}
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
-        style={{ color: palette.foreground }}
-        className="h-10 flex-1 text-sm"
-      />
-      {value.length > 0 ? (
-        <Pressable hitSlop={10} onPress={() => onChangeText('')} accessibilityLabel="Clear search">
-          <Icon as={X} size={14} className="text-muted-foreground" />
-        </Pressable>
-      ) : null}
+    <View className={className}>
+      <Glass
+        style={{
+          height: 46,
+          borderRadius: 23,
+          paddingHorizontal: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          borderColor: focused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.18)',
+        }}>
+        <Icon as={Search} size={17} color={palette.mutedForeground} />
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          placeholderTextColor={palette.mutedForeground}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          style={{ color: palette.foreground, paddingVertical: 0 }}
+          className="h-11 flex-1 text-base"
+        />
+        {value.length > 0 ? (
+          <Pressable
+            hitSlop={10}
+            onPress={() => onChangeText('')}
+            accessibilityLabel="Clear search">
+            <Icon as={X} size={16} color={palette.mutedForeground} />
+          </Pressable>
+        ) : null}
+      </Glass>
     </View>
   );
 }

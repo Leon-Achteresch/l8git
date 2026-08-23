@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
-import { Button } from '~/components/ui/button';
+import { GlassPill, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
@@ -68,7 +68,7 @@ export function InboxIdentityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-4">
+      <DialogContent className="gap-5">
         <DialogHeader>
           <DialogTitle>Your review handles</DialogTitle>
           <DialogDescription>
@@ -84,13 +84,15 @@ export function InboxIdentityDialog({
             </Text>
           ) : (
             hosts.map((host) => (
-              <View key={host} className="gap-1.5">
-                <View className="flex-row items-center gap-1.5">
-                  <Icon as={UserRound} size={12} className="text-muted-foreground" />
-                  <Text className="text-muted-foreground text-xs font-medium">
+              <View key={host} className="gap-2">
+                <View className="flex-row items-center gap-2">
+                  <View className="bg-white/10 h-6 w-6 items-center justify-center rounded-full">
+                    <Icon as={UserRound} size={12} className="text-foreground" />
+                  </View>
+                  <Text className="text-foreground text-sm font-semibold">
                     {providerLabel(host)}
                   </Text>
-                  <Text className="text-muted-foreground/60 font-mono text-2xs">{host}</Text>
+                  <Text className="text-muted-foreground font-mono text-2xs">{host}</Text>
                 </View>
                 <Input
                   value={drafts[host] ?? ''}
@@ -100,19 +102,24 @@ export function InboxIdentityDialog({
                   autoCorrect={false}
                   spellCheck={false}
                   returnKeyType="done"
+                  className="bg-muted"
                 />
               </View>
             ))
           )}
         </View>
 
-        <DialogFooter>
-          <Button variant="ghost" disabled={busy} onPress={() => onOpenChange(false)}>
-            <Text>Cancel</Text>
-          </Button>
-          <Button disabled={busy || hosts.length === 0} onPress={() => void save()}>
-            <Text>Save</Text>
-          </Button>
+        <DialogFooter className="gap-3">
+          <GlassPill
+            label="Cancel"
+            onPress={busy ? undefined : () => onOpenChange(false)}
+            style={{ alignSelf: 'center', opacity: busy ? 0.5 : 1 }}
+          />
+          <SolidPill
+            label="Save"
+            disabled={busy || hosts.length === 0}
+            onPress={() => void save()}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -136,24 +143,22 @@ export function InboxIdentityNudge({
     <Animated.View
       entering={FadeIn.duration(200)}
       exiting={FadeOut.duration(150)}
-      className="border-border bg-card flex-row items-center gap-3 rounded-3xl border py-3 pl-3.5 pr-2">
-      <View className="bg-secondary h-10 w-10 items-center justify-center rounded-2xl">
-        <Icon as={UserRound} size={19} className="text-muted-foreground" />
+      className="bg-card flex-row items-center gap-3 rounded-[28px] py-3 pl-4 pr-3">
+      <View className="bg-white/10 h-10 w-10 items-center justify-center rounded-full">
+        <Icon as={UserRound} size={19} className="text-foreground" />
       </View>
       <Text className="text-muted-foreground min-w-0 flex-1 text-xs">
         Showing every open pull request. Add your {hosts.map(providerLabel).join(' and ')} handle to
         filter this feed.
       </Text>
-      <Button size="sm" variant="secondary" onPress={onPress}>
-        <Text className="text-xs">Set handle</Text>
-      </Button>
+      <GlassPill label="Set handle" onPress={onPress} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Dismiss"
         hitSlop={8}
         onPress={onDismiss}
-        className="active:bg-accent h-7 w-7 items-center justify-center rounded-lg">
-        <Icon as={X} size={13} className="text-muted-foreground/70" />
+        className="bg-white/10 active:bg-white/15 h-7 w-7 items-center justify-center rounded-full">
+        <Icon as={X} size={13} className="text-foreground" />
       </Pressable>
     </Animated.View>
   );

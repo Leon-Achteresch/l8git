@@ -1,7 +1,13 @@
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { OptionRow, Sheet, SheetField, SheetNote } from '~/components/repo/sheet';
+import {
+  AgentSheet,
+  SheetChip,
+  SheetMessage,
+  SheetOption,
+  SheetSection,
+} from '~/components/agents/agent-sheet';
 import { Text } from '~/components/ui/text';
 import {
   tryChatStore,
@@ -90,21 +96,24 @@ export function AgentSettingsSheet({
   );
 
   const showReasoning = capabilities.reasoning && settings.efforts.length > 0;
+  const selectedEffort = settings.efforts.find(
+    (effort) => effort.value === settings.reasoningEffort
+  );
 
   return (
-    <Sheet
+    <AgentSheet
       visible={visible}
       onClose={onClose}
       title={`${providerLabel(provider)} settings`}
       description="Model, thinking effort and permissions for this conversation.">
       {capabilities.models ? (
-        <SheetField label="Model" hint={locked ? 'Applies to the next turn.' : undefined}>
+        <SheetSection label="Model" hint={locked ? 'Applies to the next turn.' : undefined}>
           {settings.models.length === 0 ? (
-            <SheetNote>No model catalog reported by this provider yet.</SheetNote>
+            <SheetMessage>No model catalog reported by this provider yet.</SheetMessage>
           ) : (
             <View className="gap-2">
               {settings.models.map((option) => (
-                <OptionRow
+                <SheetOption
                   key={option.id}
                   label={option.label}
                   description={option.description || undefined}
@@ -114,30 +123,34 @@ export function AgentSettingsSheet({
               ))}
             </View>
           )}
-        </SheetField>
+        </SheetSection>
       ) : null}
 
       {showReasoning ? (
-        <SheetField label="Reasoning effort">
-          <View className="gap-2">
+        <SheetSection label="Reasoning effort">
+          <View className="flex-row flex-wrap gap-2">
             {settings.efforts.map((effort) => (
-              <OptionRow
+              <SheetChip
                 key={effort.value}
                 label={reasoningEffortLabel(effort.value)}
-                description={effort.description || undefined}
-                selected={settings.reasoningEffort === effort.value}
+                active={settings.reasoningEffort === effort.value}
                 onPress={() => apply((state) => state.setReasoningEffort(effort.value))}
               />
             ))}
           </View>
-        </SheetField>
+          {selectedEffort?.description ? (
+            <Text className="text-muted-foreground text-xs leading-4">
+              {selectedEffort.description}
+            </Text>
+          ) : null}
+        </SheetSection>
       ) : null}
 
       {capabilities.approvalPolicy ? (
-        <SheetField label="Approval policy">
+        <SheetSection label="Approval policy">
           <View className="gap-2">
             {APPROVAL_POLICY_OPTIONS.map((option) => (
-              <OptionRow
+              <SheetOption
                 key={option.value}
                 label={option.label}
                 description={option.description}
@@ -147,14 +160,14 @@ export function AgentSettingsSheet({
               />
             ))}
           </View>
-        </SheetField>
+        </SheetSection>
       ) : null}
 
       {capabilities.sandbox ? (
-        <SheetField label="Sandbox">
+        <SheetSection label="Sandbox">
           <View className="gap-2">
             {SANDBOX_OPTIONS.map((option) => (
-              <OptionRow
+              <SheetOption
                 key={option.value}
                 label={option.label}
                 description={option.description}
@@ -164,17 +177,15 @@ export function AgentSettingsSheet({
               />
             ))}
           </View>
-        </SheetField>
+        </SheetSection>
       ) : null}
 
       {!capabilities.approvals ? (
-        <SheetNote>
-          <Text className="text-muted-foreground text-xs">
-            {providerLabel(provider)} does not surface interactive approvals — commands run under
-            the policy configured on the host.
-          </Text>
-        </SheetNote>
+        <SheetMessage>
+          {providerLabel(provider)} does not surface interactive approvals — commands run under the
+          policy configured on the host.
+        </SheetMessage>
       ) : null}
-    </Sheet>
+    </AgentSheet>
   );
 }

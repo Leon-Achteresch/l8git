@@ -20,9 +20,18 @@ export function AgentEmpty({
 }) {
   return (
     <View className={cn('flex-1 items-center justify-center gap-5 px-8 py-14', className)}>
-      <Image source={source} resizeMode="cover" style={{ width: 112, height: 112, borderRadius: 30 }} />
+      <View
+        style={{
+          width: 124,
+          height: 124,
+          borderRadius: 62,
+          padding: 4,
+          backgroundColor: 'rgba(255,255,255,0.06)',
+        }}>
+        <Image source={source} resizeMode="cover" style={{ width: 116, height: 116, borderRadius: 58 }} />
+      </View>
       <View className="items-center gap-1.5">
-        <Text className="text-foreground text-xl font-bold">{title}</Text>
+        <Text className="text-foreground text-xl font-bold tracking-tight">{title}</Text>
         {description ? (
           <Text className="text-muted-foreground text-center text-sm leading-5">{description}</Text>
         ) : null}

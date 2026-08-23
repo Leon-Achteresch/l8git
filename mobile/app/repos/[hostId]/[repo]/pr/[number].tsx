@@ -1,12 +1,11 @@
-import { useLocalSearchParams } from 'expo-router';
-import { MoreVertical, RotateCw } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ArrowLeft, Ellipsis, ExternalLink, RotateCw } from 'lucide-react-native';
 import * as React from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, ScrollView, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ChecksList, ChecksSummary, canRerunCheck } from '~/components/repo/ci/checks-section';
 import type { RemoteCiCheck } from '~/components/repo/ci/ci-types';
-import { DetailHeader } from '~/components/shared/detail-header';
 import { useRepoScope } from '~/components/repo/git-queries';
 import { errorMessage } from '~/components/repo/git-types';
 import { GitToast, useGitToast } from '~/components/repo/git-toast';
@@ -39,11 +38,13 @@ import { MarkdownView } from '~/components/shared/markdown-view';
 import { StatusPill } from '~/components/shared/status-pill';
 import { SkeletonList } from '~/components/skeleton-list';
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
-import { Icon } from '~/components/ui/icon';
+import { GlassCircle, GlassPill, SolidPill } from '~/components/ui/glass';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
+import { palette } from '~/lib/theme';
 
 export default function PullRequestDetailScreen() {
+  const router = useRouter();
   const { hostId, repoPath } = useRepoRoute();
   const params = useLocalSearchParams<{ number?: string }>();
   const number = Number.parseInt(decodeRouteValue(params.number) || '0', 10);
@@ -106,35 +107,61 @@ export default function PullRequestDetailScreen() {
   const rerunnableChecks = (checks.data ?? []).some(canRerunCheck);
   const unknownHost = detail.isError ? providerUnknownHost(errorMessage(detail.error)) : null;
 
+  const goBack = React.useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/repos');
+  }, [router]);
+
+  const openActions = React.useCallback(() => setActionsOpen(true), []);
+  const htmlUrl = detail.data?.html_url ?? null;
+  const openOnWeb = React.useCallback(() => {
+    if (htmlUrl) {
+      void Linking.openURL(htmlUrl).catch(() => undefined);
+    }
+  }, [htmlUrl]);
+
   return (
     <View className="bg-background flex-1">
-      <DetailHeader
-        title={detail.data?.title ?? `Pull request #${number || '—'}`}
-        subtitle={detail.data ? `#${detail.data.number} · ${detail.data.author}` : repoPath}
-        right={
-          <>
-            <Pressable
-              accessibilityLabel="Reload pull request"
-              hitSlop={8}
-              onPress={refresh}
-              className="active:bg-accent h-9 w-9 items-center justify-center rounded-lg">
-              <Icon
-                as={RotateCw}
-                size={16}
-                className={detail.isFetching ? 'text-foreground' : 'text-muted-foreground'}
-              />
-            </Pressable>
-            <Pressable
-              accessibilityLabel="Pull request actions"
-              hitSlop={8}
-              disabled={!detail.data}
-              onPress={() => setActionsOpen(true)}
-              className="active:bg-accent h-9 w-9 items-center justify-center rounded-lg">
-              <Icon as={MoreVertical} size={17} className="text-foreground" />
-            </Pressable>
-          </>
-        }
-      />
+      <View className="flex-row items-center gap-3 px-5 pb-3 pt-2">
+        <GlassCircle icon={ArrowLeft} label="Back" onPress={goBack} />
+        <View className="min-w-0 flex-1">
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-muted-foreground text-xs font-medium">
+            {detail.data ? `#${detail.data.number} · ${detail.data.author}` : `#${number || '—'}`}
+          </Text>
+          <Text numberOfLines={1} className="text-foreground text-lg font-bold tracking-tight">
+            {detail.data?.title ?? 'Pull request'}
+          </Text>
+          {detail.data ? (
+            <BranchRoute
+              head={detail.data.source_branch}
+              base={detail.data.target_branch}
+              max={18}
+            />
+          ) : (
+            <Text numberOfLines={1} className="text-muted-foreground text-2xs">
+              {repoPath}
+            </Text>
+          )}
+        </View>
+        <GlassCircle
+          icon={RotateCw}
+          label="Reload pull request"
+          size={40}
+          color={detail.isFetching ? palette.foreground : palette.mutedForeground}
+          onPress={refresh}
+        />
+        <GlassCircle
+          icon={Ellipsis}
+          label="Pull request actions"
+          size={40}
+          onPress={detail.data ? openActions : undefined}
+        />
+      </View>
 
       {!scope.online ? (
         <OfflineState hostId={hostId} />
@@ -144,15 +171,15 @@ export default function PullRequestDetailScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={90}>
           <ScrollView
-            contentContainerClassName="gap-3 px-4 pb-24 pt-3"
+            contentContainerClassName="gap-3 px-5 pb-28 pt-1"
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             {detail.isPending ? (
               <View className="gap-3">
-                <View className="border-border bg-card/40 gap-3 rounded-2xl border p-4">
-                  <Skeleton className="h-4 w-3/4 rounded" />
-                  <Skeleton className="h-3 w-1/2 rounded" />
-                  <Skeleton className="h-3 w-2/5 rounded" />
+                <View className="bg-card gap-3 rounded-[28px] p-4">
+                  <Skeleton className="h-4 w-3/4 rounded-full" />
+                  <Skeleton className="h-3 w-1/2 rounded-full" />
+                  <Skeleton className="h-3 w-2/5 rounded-full" />
                 </View>
                 <SkeletonList rows={4} avatar />
               </View>
@@ -170,18 +197,14 @@ export default function PullRequestDetailScreen() {
               <>
                 <Animated.View
                   entering={FadeInDown.duration(220).springify().damping(20)}
-                  className="border-border bg-card/50 gap-3 rounded-2xl border p-4">
+                  className="bg-card gap-3 rounded-[28px] p-4">
                   <View className="flex-row items-start gap-3">
                     <PrGlyph state={state} />
                     <View className="min-w-0 flex-1 gap-1">
-                      <Text className="text-foreground text-base font-medium leading-5">
+                      <Text className="text-foreground text-base font-semibold leading-5">
                         {detail.data.title}
                       </Text>
                       <View className="flex-row flex-wrap items-center gap-x-1.5 gap-y-1">
-                        <Text className="text-muted-foreground/70 font-mono text-2xs">
-                          #{detail.data.number}
-                        </Text>
-                        <Text className="text-muted-foreground/40 text-2xs">·</Text>
                         <Text className="text-muted-foreground text-2xs">
                           opened {relativeTime(detail.data.created_at)}
                         </Text>
@@ -200,17 +223,17 @@ export default function PullRequestDetailScreen() {
                   </View>
 
                   <View className="flex-row items-center gap-2">
-                    <Avatar alt={detail.data.author} className="size-6">
+                    <Avatar alt={detail.data.author} className="size-7">
                       <AvatarFallback style={{ backgroundColor: `${tint}26` }}>
                         <Text style={{ color: tint }} className="text-2xs font-semibold">
                           {initials(detail.data.author)}
                         </Text>
                       </AvatarFallback>
                     </Avatar>
-                    <Text numberOfLines={1} className="text-muted-foreground text-xs">
+                    <Text numberOfLines={1} className="text-foreground text-xs font-medium">
                       {detail.data.author}
                     </Text>
-                    <View className="bg-border h-3 w-px" />
+                    <View className="bg-white/10 h-3 w-px" />
                     <BranchRoute
                       head={detail.data.source_branch}
                       base={detail.data.target_branch}
@@ -228,7 +251,7 @@ export default function PullRequestDetailScreen() {
                   ) : null}
 
                   {detail.data.reviewers.length > 0 ? (
-                    <View className="border-border/60 flex-row flex-wrap items-center gap-1.5 border-t pt-3">
+                    <View className="border-white/5 flex-row flex-wrap items-center gap-1.5 border-t pt-3">
                       <Text className="text-muted-foreground text-2xs uppercase tracking-widest">
                         Reviewers
                       </Text>
@@ -246,13 +269,25 @@ export default function PullRequestDetailScreen() {
 
                 <PrStatusBanner detail={detail.data} protection={protection.data ?? null} />
 
+                <View className="flex-row items-center gap-2 pt-1">
+                  <SolidPill
+                    icon={Ellipsis}
+                    label="Actions"
+                    onPress={openActions}
+                    style={{ flex: 1 }}
+                  />
+                  {detail.data.html_url ? (
+                    <GlassPill icon={ExternalLink} label="Open on web" onPress={openOnWeb} />
+                  ) : null}
+                </View>
+
                 {detail.data.body_markdown.trim().length > 0 ? (
-                  <View className="border-border bg-card/40 rounded-xl border p-3.5">
+                  <View className="bg-card rounded-[28px] px-4 py-4">
                     <MarkdownView content={detail.data.body_markdown} />
                   </View>
                 ) : (
-                  <View className="border-border bg-card/40 rounded-xl border p-3.5">
-                    <Text className="text-muted-foreground/70 text-xs italic">
+                  <View className="bg-card rounded-[28px] px-4 py-4">
+                    <Text className="text-muted-foreground text-xs italic">
                       No description provided.
                     </Text>
                   </View>
@@ -269,7 +304,7 @@ export default function PullRequestDetailScreen() {
                       onRetry={() => void checks.refetch()}
                     />
                   ) : (
-                    <View className="gap-2">
+                    <View className="gap-3">
                       <ChecksSummary checks={checks.data ?? []} />
                       <ChecksList
                         checks={checks.data ?? []}
@@ -277,7 +312,7 @@ export default function PullRequestDetailScreen() {
                         onRerun={canRerunChecks ? rerunCheck : null}
                       />
                       {!canRerunChecks && rerunnableChecks ? (
-                        <Text className="text-muted-foreground/60 px-0.5 text-2xs">
+                        <Text className="text-muted-foreground px-1 text-2xs">
                           {caps.data?.label ?? 'This provider'} does not support re-running checks
                           from l8git.
                         </Text>

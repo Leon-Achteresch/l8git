@@ -34,10 +34,10 @@ import {
   SheetField,
   SheetInput,
   SheetNote,
+  SheetPrimary,
+  SheetSecondary,
   SheetToggle,
 } from '~/components/repo/sheet';
-import { Button } from '~/components/ui/button';
-import { Text } from '~/components/ui/text';
 
 type Step = 'menu' | 'merge' | 'approve' | 'request-changes';
 
@@ -120,13 +120,7 @@ export function PrActionSheet({
 
   const back = (primary: React.ReactNode) => (
     <View className="flex-row gap-2">
-      <Button
-        variant="secondary"
-        className="flex-1"
-        disabled={busy}
-        onPress={() => setStep('menu')}>
-        <Text>Back</Text>
-      </Button>
+      <SheetSecondary label="Back" disabled={busy} onPress={() => setStep('menu')} />
       {primary}
     </View>
   );
@@ -140,8 +134,9 @@ export function PrActionSheet({
         title="Merge pull request"
         description={label}
         footer={back(
-          <Button
-            className="flex-1"
+          <SheetPrimary
+            icon={GitMerge}
+            label={merge.isPending ? 'Merging…' : `Merge (${strategy})`}
             disabled={busy}
             onPress={() =>
               merge.mutate(
@@ -157,9 +152,8 @@ export function PrActionSheet({
                     : undefined
                 )
               )
-            }>
-            <Text>{merge.isPending ? 'Merging…' : `Merge (${strategy})`}</Text>
-          </Button>
+            }
+          />
         )}>
         {strategies.map((option) => (
           <OptionRow
@@ -208,9 +202,16 @@ export function PrActionSheet({
         title={requesting ? 'Request changes' : 'Approve pull request'}
         description={label}
         footer={back(
-          <Button
-            variant={requesting ? 'destructive' : 'default'}
-            className="flex-1"
+          <SheetPrimary
+            icon={requesting ? ThumbsDown : CircleCheck}
+            destructive={requesting}
+            label={
+              review.isPending
+                ? 'Submitting…'
+                : requesting
+                  ? 'Request changes'
+                  : 'Approve'
+            }
             disabled={busy || !ready}
             onPress={() =>
               review.mutate(
@@ -224,15 +225,8 @@ export function PrActionSheet({
                   requesting ? 'Review failed' : 'Approval failed'
                 )
               )
-            }>
-            <Text>
-              {review.isPending
-                ? 'Submitting…'
-                : requesting
-                  ? 'Request changes'
-                  : 'Approve'}
-            </Text>
-          </Button>
+            }
+          />
         )}>
         <SheetField
           label={requesting ? 'What needs to change?' : 'Review comment'}

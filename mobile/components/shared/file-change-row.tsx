@@ -11,44 +11,18 @@ import { cn } from '~/lib/utils';
 export type FileStatusCode = 'A' | 'M' | 'D' | 'R' | 'C' | 'T' | 'U' | '?' | '!';
 
 const STATUS_STYLE: Record<FileStatusCode, { surface: string; text: string; label: string }> = {
-  A: { surface: 'bg-git-added/15 border-git-added/30', text: 'text-git-added', label: 'Added' },
-  M: {
-    surface: 'bg-git-modified/15 border-git-modified/30',
-    text: 'text-git-modified',
-    label: 'Modified',
-  },
-  D: {
-    surface: 'bg-git-removed/15 border-git-removed/30',
-    text: 'text-git-removed',
-    label: 'Deleted',
-  },
-  R: {
-    surface: 'bg-git-branch/15 border-git-branch/30',
-    text: 'text-git-branch',
-    label: 'Renamed',
-  },
-  C: {
-    surface: 'bg-git-branch/15 border-git-branch/30',
-    text: 'text-git-branch',
-    label: 'Copied',
-  },
-  T: {
-    surface: 'bg-git-merge/15 border-git-merge/30',
-    text: 'text-git-merge',
-    label: 'Type changed',
-  },
-  U: {
-    surface: 'bg-destructive/15 border-destructive/30',
-    text: 'text-destructive',
-    label: 'Conflicted',
-  },
-  '?': {
-    surface: 'bg-git-added/10 border-git-added/25',
-    text: 'text-git-added',
-    label: 'Untracked',
-  },
-  '!': { surface: 'bg-muted border-border', text: 'text-muted-foreground', label: 'Ignored' },
+  A: { surface: 'bg-git-added/15', text: 'text-git-added', label: 'Added' },
+  M: { surface: 'bg-git-modified/15', text: 'text-git-modified', label: 'Modified' },
+  D: { surface: 'bg-git-removed/15', text: 'text-git-removed', label: 'Deleted' },
+  R: { surface: 'bg-git-branch/15', text: 'text-git-branch', label: 'Renamed' },
+  C: { surface: 'bg-git-branch/15', text: 'text-git-branch', label: 'Copied' },
+  T: { surface: 'bg-git-merge/15', text: 'text-git-merge', label: 'Type changed' },
+  U: { surface: 'bg-destructive/15', text: 'text-destructive', label: 'Conflicted' },
+  '?': { surface: 'bg-git-added/10', text: 'text-git-added', label: 'Untracked' },
+  '!': { surface: 'bg-white/10', text: 'text-muted-foreground', label: 'Ignored' },
 };
+
+const BADGE_SIZE = { sm: 18, md: 24, lg: 40 } as const;
 
 export function normalizeFileStatus(value: string | null | undefined): FileStatusCode {
   const code = (value ?? '').trim().toUpperCase().charAt(0);
@@ -73,21 +47,16 @@ export function FileStatusBadge({
 }) {
   const code = normalizeFileStatus(status);
   const style = STATUS_STYLE[code];
+  const px = BADGE_SIZE[size];
   return (
     <View
       accessibilityLabel={style.label}
-      className={cn(
-        'items-center justify-center border',
-        style.surface,
-        size === 'lg' ? 'h-10 w-10 rounded-xl' : 'rounded',
-        size === 'sm' && 'h-4 w-4',
-        size === 'md' && 'h-5 w-5',
-        className
-      )}>
+      style={{ width: px, height: px, borderRadius: px / 2 }}
+      className={cn('items-center justify-center', style.surface, className)}>
       <Text
         className={cn(
           'font-mono-medium',
-          size === 'lg' ? 'text-base' : 'text-2xs',
+          size === 'lg' ? 'text-base' : size === 'md' ? 'text-xs' : 'text-2xs',
           style.text
         )}>
         {code}
@@ -156,7 +125,7 @@ export function FileChangeRow({
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityLabel={`${fileStatusLabel(status)} ${path}`}>
-      <View className="flex-row items-center gap-3 px-3.5 py-3">
+      <View className="flex-row items-center gap-3 px-4 py-3.5">
         {check && onToggle ? (
           <Pressable hitSlop={10} onPress={onToggle} accessibilityRole="checkbox">
             <Icon
@@ -186,7 +155,7 @@ export function FileChangeRow({
         </View>
 
         {binary ? (
-          <View className="bg-secondary rounded-full px-2.5 py-1">
+          <View className="bg-white/10 rounded-full px-2.5 py-1">
             <Text className="text-muted-foreground/70 font-mono text-2xs">bin</Text>
           </View>
         ) : (

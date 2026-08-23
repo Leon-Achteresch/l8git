@@ -1,9 +1,13 @@
 import { useRouter } from 'expo-router';
 import {
+  ArrowLeft,
+  Bell,
   CircleDot,
   Cloud,
   GitBranch,
+  Plus,
   Rocket,
+  Settings2,
   Sparkles,
   TriangleAlert,
 } from 'lucide-react-native';
@@ -54,6 +58,7 @@ import { Avatar, AvatarFallback } from '~/components/ui/avatar';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
+import { Glass, GlassCircle, GlassPill, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
@@ -202,7 +207,7 @@ export default function DevComponentsScreen() {
       />
 
       <ScrollView
-        contentContainerClassName="gap-3 px-4 pt-1"
+        contentContainerClassName="gap-3 px-5 pt-1"
         contentContainerStyle={{ paddingBottom: bottomInset + 48 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
@@ -223,10 +228,7 @@ export default function DevComponentsScreen() {
               ] as const
             ).map(([name, color]) => (
               <View key={name} className="items-center gap-1">
-                <View
-                  style={{ backgroundColor: color }}
-                  className="border-border h-9 w-9 rounded-lg border"
-                />
+                <View style={{ backgroundColor: color }} className="h-9 w-9 rounded-full" />
                 <Text className="text-muted-foreground text-2xs">{name}</Text>
               </View>
             ))}
@@ -253,6 +255,38 @@ export default function DevComponentsScreen() {
               Overline 10
             </Text>
           </View>
+        </Bench>
+
+        <Bench title="Glass and pills">
+          <Row>
+            <GlassCircle icon={ArrowLeft} label="Back" onPress={() => toast.showInfo('Back')} />
+            <GlassCircle icon={Settings2} label="Settings" onPress={() => toast.showInfo('Settings')} />
+            <GlassCircle icon={Bell} label="Alerts" badge={3} onPress={() => toast.showInfo('Alerts')} />
+            <GlassCircle icon={Plus} label="Add" size={36} onPress={() => toast.showInfo('Add')} />
+          </Row>
+          <Row>
+            <GlassPill icon={GitBranch} label="Glass pill" onPress={() => toast.showInfo('Glass pill')} />
+            <GlassPill label="Plain" onPress={() => toast.showInfo('Plain pill')} />
+          </Row>
+          <SolidPill
+            icon={Rocket}
+            label="Solid pill"
+            onPress={() => toast.showSuccess('Solid pill pressed')}
+          />
+          <SolidPill label="Disabled" disabled />
+          <Glass
+            style={{
+              height: 46,
+              borderRadius: 23,
+              paddingHorizontal: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+            }}>
+            <Icon as={Sparkles} size={16} color={palette.foreground} />
+            <Text className="text-foreground flex-1 text-sm font-semibold">Glass surface</Text>
+            <StatusPill label="live" tone="success" size="xs" dot />
+          </Glass>
         </Bench>
 
         <Bench title="Buttons">
@@ -362,7 +396,7 @@ export default function DevComponentsScreen() {
             </CardHeader>
             <CardContent>
               <Text className="text-muted-foreground text-sm">
-                Content sits on the zinc card surface with a hairline border.
+                Content sits on the borderless card surface.
               </Text>
             </CardContent>
           </Card>
@@ -493,16 +527,12 @@ export default function DevComponentsScreen() {
 
         <Bench title="Loading, empty and error">
           <SkeletonList rows={3} avatar />
-          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-3xl" />
           <EmptyState
             icon={Sparkles}
             title="Nothing here yet"
             description="Empty states carry an icon, a title, a hint and one action."
-            action={
-              <Button size="sm" variant="secondary" onPress={() => toast.showInfo('Retry pressed')}>
-                <Text className="text-xs">Retry</Text>
-              </Button>
-            }
+            action={<SolidPill label="Retry" onPress={() => toast.showInfo('Retry pressed')} />}
           />
           <QueryErrorState
             title="Could not load commits"
@@ -512,25 +542,21 @@ export default function DevComponentsScreen() {
         </Bench>
 
         <Bench title="Action sheet">
-          <Button size="sm" variant="secondary" onPress={() => setSheetOpen(true)}>
-            <Text className="text-xs">Open sheet</Text>
-          </Button>
+          <GlassPill
+            label="Open sheet"
+            onPress={() => setSheetOpen(true)}
+            style={{ alignSelf: 'flex-start' }}
+          />
         </Bench>
 
         <Bench title="Toasts">
           <Row>
-            <Button size="sm" variant="secondary" onPress={() => toast.showSuccess('Pushed to origin/main')}>
-              <Text className="text-xs">Success toast</Text>
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onPress={() => toast.showError('Push failed', new Error('non-fast-forward'))}>
-              <Text className="text-xs">Error toast</Text>
-            </Button>
-            <Button size="sm" variant="outline" onPress={simulateRemoteOp}>
-              <Text className="text-xs">Progress toast</Text>
-            </Button>
+            <GlassPill label="Success toast" onPress={() => toast.showSuccess('Pushed to origin/main')} />
+            <GlassPill
+              label="Error toast"
+              onPress={() => toast.showError('Push failed', new Error('non-fast-forward'))}
+            />
+            <GlassPill label="Progress toast" onPress={simulateRemoteOp} />
           </Row>
         </Bench>
       </ScrollView>
@@ -540,11 +566,7 @@ export default function DevComponentsScreen() {
         onClose={() => setSheetOpen(false)}
         title="Pull"
         description="Sheet, actions, options, fields, toggles and notes."
-        footer={
-          <Button size="sm" variant="secondary" onPress={() => setSheetOpen(false)}>
-            <Text className="text-xs">Close</Text>
-          </Button>
-        }>
+        footer={<SolidPill label="Close" onPress={() => setSheetOpen(false)} />}>
         <SheetAction
           icon={Rocket}
           label="Pull now"

@@ -19,15 +19,17 @@ import { accentFor, initials, relativeTime, shortHash } from '~/components/share
 import { StatusPill } from '~/components/shared/status-pill';
 import { SkeletonList } from '~/components/skeleton-list';
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
-import { Icon } from '~/components/ui/icon';
+import { GlassCircle } from '~/components/ui/glass';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Text } from '~/components/ui/text';
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row items-start gap-3">
-      <Text className="text-muted-foreground w-24 text-xs">{label}</Text>
-      <Text className="text-foreground flex-1 text-xs">{value}</Text>
+      <Text className="text-muted-foreground w-20 text-xs">{label}</Text>
+      <Text selectable className="text-foreground flex-1 text-xs">
+        {value}
+      </Text>
     </View>
   );
 }
@@ -64,13 +66,11 @@ export default function CommitDetailScreen() {
         title={header.subject || 'Commit'}
         subtitle={shortHash(hash, 10)}
         right={
-          <Pressable
-            accessibilityLabel="Commit actions"
-            hitSlop={8}
+          <GlassCircle
+            icon={MoreVertical}
+            label="Commit actions"
             onPress={() => setActionsOpen(true)}
-            className="active:bg-accent h-9 w-9 items-center justify-center rounded-lg">
-            <Icon as={MoreVertical} size={17} className="text-foreground" />
-          </Pressable>
+          />
         }
       />
 
@@ -78,14 +78,14 @@ export default function CommitDetailScreen() {
         <OfflineState hostId={hostId} />
       ) : (
         <ScrollView
-          contentContainerClassName="gap-3 px-4 pb-24 pt-3"
+          contentContainerClassName="gap-3 px-5 pb-24 pt-2"
           showsVerticalScrollIndicator={false}>
           {inspect.isPending ? (
             <View className="gap-3">
-              <View className="border-border bg-card/40 gap-3 rounded-2xl border p-4">
-                <Skeleton className="h-4 w-3/4 rounded" />
-                <Skeleton className="h-3 w-1/2 rounded" />
-                <Skeleton className="h-3 w-2/5 rounded" />
+              <View className="bg-card gap-3 rounded-[28px] p-5">
+                <Skeleton className="h-4 w-3/4 rounded-full" />
+                <Skeleton className="h-3 w-1/2 rounded-full" />
+                <Skeleton className="h-3 w-2/5 rounded-full" />
               </View>
               <SkeletonList rows={5} />
             </View>
@@ -99,17 +99,17 @@ export default function CommitDetailScreen() {
             <>
               <Animated.View
                 entering={FadeInDown.duration(220).springify().damping(20)}
-                className="border-border bg-card/50 gap-3 rounded-2xl border p-4">
-                <View className="flex-row items-start gap-3">
-                  <Avatar alt={header.author ?? 'Author'} className="size-9">
+                className="bg-card gap-4 rounded-[28px] p-5">
+                <View className="flex-row items-start gap-3.5">
+                  <Avatar alt={header.author ?? 'Author'} className="size-12">
                     <AvatarFallback style={{ backgroundColor: `${tint}26` }}>
-                      <Text style={{ color: tint }} className="text-xs font-semibold">
+                      <Text style={{ color: tint }} className="text-sm font-bold">
                         {initials(header.author)}
                       </Text>
                     </AvatarFallback>
                   </Avatar>
                   <View className="min-w-0 flex-1 gap-1">
-                    <Text className="text-foreground text-base font-medium leading-5">
+                    <Text className="text-foreground text-lg font-semibold leading-6">
                       {header.subject || '(no subject)'}
                     </Text>
                     <Text className="text-muted-foreground text-xs">
@@ -122,11 +122,13 @@ export default function CommitDetailScreen() {
                 </View>
 
                 {header.body ? (
-                  <Text className="text-muted-foreground text-sm leading-5">{header.body}</Text>
+                  <Text selectable className="text-muted-foreground text-sm leading-5">
+                    {header.body}
+                  </Text>
                 ) : null}
 
                 {header.refs.length > 0 ? (
-                  <View className="flex-row flex-wrap gap-1">
+                  <View className="flex-row flex-wrap gap-1.5">
                     {header.refs.map((ref) => (
                       <StatusPill
                         key={ref}
@@ -139,7 +141,7 @@ export default function CommitDetailScreen() {
                   </View>
                 ) : null}
 
-                <View className="border-border/60 gap-1.5 border-t pt-3">
+                <View className="border-white/5 gap-2 border-t pt-4">
                   <MetaRow label="Commit" value={header.hash ?? hash} />
                   {header.authorEmail ? (
                     <MetaRow label="Author" value={`${header.author} <${header.authorEmail}>`} />
@@ -152,20 +154,24 @@ export default function CommitDetailScreen() {
                     <MetaRow label="Committed" value={header.commitDate} />
                   ) : null}
                   {header.merge.length > 0 ? (
-                    <View className="flex-row items-center gap-2 pt-1">
-                      <Text className="text-muted-foreground w-24 text-xs">Parents</Text>
+                    <View className="flex-row items-center gap-3 pt-1">
+                      <Text className="text-muted-foreground w-20 text-xs">Parents</Text>
                       <View className="flex-1 flex-row flex-wrap gap-1.5">
                         {header.merge.map((parent) => (
                           <Pressable
                             key={parent}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open parent ${shortHash(parent)}`}
                             onPress={() =>
                               router.push({
                                 pathname: '/repos/[hostId]/[repo]/commit/[hash]',
                                 params: { hostId, repo: repoPath, hash: parent },
                               })
                             }
-                            className="border-border bg-muted/60 active:bg-accent rounded-md border px-1.5 py-0.5">
-                            <Text className="text-git-hash font-mono text-2xs">
+                            className="bg-white/10 active:bg-white/15 rounded-full px-2.5 py-1">
+                            <Text
+                              style={{ fontVariant: ['tabular-nums'] }}
+                              className="text-foreground font-mono text-xs">
                               {shortHash(parent)}
                             </Text>
                           </Pressable>

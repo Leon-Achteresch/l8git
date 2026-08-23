@@ -1,6 +1,7 @@
 import { RotateCw } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { compactNumber } from '~/components/dashboard/aggregate';
 import { HostSection } from '~/components/dashboard/host-section';
@@ -12,8 +13,7 @@ import {
 } from '~/components/dashboard/queries';
 import { StatTile } from '~/components/dashboard/stat-tile';
 import { EmptyState } from '~/components/empty-state';
-import { Screen, ScreenTitle } from '~/components/screen';
-import { Icon } from '~/components/ui/icon';
+import { GlassCircle } from '~/components/ui/glass';
 import { Text } from '~/components/ui/text';
 import { useConnections, useOnlineHostIds } from '~/lib/connections';
 import { palette } from '~/lib/theme';
@@ -55,10 +55,23 @@ export default function DashboardScreen() {
   }, [refresh]);
 
   return (
-    <Screen contentClassName="px-0">
+    <SafeAreaView edges={['top']} className="bg-background flex-1">
+      <View className="flex-row items-center justify-between gap-3 px-5 pb-4 pt-1">
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text className="text-foreground text-3xl font-bold tracking-tight">Dashboard</Text>
+          <Text numberOfLines={1} className="text-muted-foreground text-sm">
+            {pairedCount === 0
+              ? 'No hosts paired yet'
+              : `${onlineHostIds.length} of ${pairedCount} hosts online`}
+          </Text>
+        </View>
+        <GlassCircle icon={RotateCw} label="Refresh dashboard" onPress={onRefresh} />
+      </View>
+
       <ScrollView
+        className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerClassName="gap-4 px-4 pb-24 pt-2"
+        contentContainerClassName="gap-4 px-5 pb-32 pt-1"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -68,25 +81,6 @@ export default function DashboardScreen() {
             progressBackgroundColor={palette.card}
           />
         }>
-        <ScreenTitle
-          title="Dashboard"
-          illustration="dashboard"
-          subtitle={
-            pairedCount === 0
-              ? 'No hosts paired yet'
-              : `${onlineHostIds.length} of ${pairedCount} hosts online`
-          }
-          right={
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Refresh dashboard"
-              onPress={onRefresh}
-              className="bg-secondary active:opacity-80 h-10 w-10 items-center justify-center rounded-2xl">
-              <Icon as={RotateCw} className="text-foreground size-5" />
-            </Pressable>
-          }
-        />
-
         {pairedCount === 0 ? (
           <EmptyState
             illustration="host"
@@ -142,6 +136,6 @@ export default function DashboardScreen() {
           </>
         )}
       </ScrollView>
-    </Screen>
+    </SafeAreaView>
   );
 }

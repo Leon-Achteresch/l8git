@@ -7,6 +7,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { PairSuccess } from '~/components/connections/pair-success';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
+import { SolidPill } from '~/components/ui/glass';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
 import { useConnections } from '~/lib/connections';
 import { parsePairing } from '~/lib/protocol/client';
+import { palette } from '~/lib/theme';
 
 type Mode = 'choose' | 'scan' | 'manual' | 'done';
 
@@ -109,13 +111,10 @@ export function AddHostDialog({
         ) : null}
 
         {mode === 'choose' ? (
-          <View className="gap-2">
-            <Button onPress={() => void openScanner()}>
-              <Icon as={QrCode} className="text-primary-foreground size-4" />
-              <Text>Scan QR code</Text>
-            </Button>
-            <Button variant="outline" onPress={() => setMode('manual')}>
-              <Icon as={ClipboardPaste} className="text-foreground size-4" />
+          <View className="gap-2.5">
+            <SolidPill icon={QrCode} label="Scan QR code" onPress={() => void openScanner()} />
+            <Button variant="outline" size="lg" onPress={() => setMode('manual')}>
+              <Icon as={ClipboardPaste} size={16} color={palette.foreground} />
               <Text>Paste pairing JSON</Text>
             </Button>
           </View>
@@ -123,7 +122,7 @@ export function AddHostDialog({
 
         {mode === 'scan' ? (
           <View className="gap-3">
-            <View className="border-border bg-muted h-64 overflow-hidden rounded-xl border">
+            <View className="bg-elevated h-64 overflow-hidden rounded-3xl">
               <CameraView
                 style={{ flex: 1 }}
                 facing="back"
@@ -138,7 +137,7 @@ export function AddHostDialog({
                 }}
               />
             </View>
-            <Button variant="ghost" onPress={() => setMode('choose')}>
+            <Button variant="ghost" size="lg" onPress={() => setMode('choose')}>
               <Text>Cancel</Text>
             </Button>
           </View>
@@ -153,17 +152,18 @@ export function AddHostDialog({
               autoCapitalize="none"
               autoCorrect={false}
               placeholder='{"v":1,"hostId":"…","psk":"…","endpoints":["ws://…"]}'
-              className="h-28 py-2 font-mono text-xs"
+              className="bg-elevated h-28 font-mono text-xs"
             />
-            <View className="flex-row gap-2">
-              <Button variant="ghost" className="flex-1" onPress={() => setMode('choose')}>
+            <View className="flex-row items-center gap-2">
+              <Button variant="ghost" size="lg" className="flex-1" onPress={() => setMode('choose')}>
                 <Text>Back</Text>
               </Button>
               <Button
+                size="lg"
                 className="flex-1"
                 disabled={busy || payload.trim().length === 0}
                 onPress={() => void submit(payload)}>
-                {busy ? <ActivityIndicator size="small" /> : <Text>Pair</Text>}
+                {busy ? <ActivityIndicator size="small" color={palette.primaryForeground} /> : <Text>Pair</Text>}
               </Button>
             </View>
           </View>
@@ -173,9 +173,7 @@ export function AddHostDialog({
           <View className="gap-3">
             <PairSuccess name={pairedName} />
             <DialogFooter>
-              <Button onPress={() => onOpenChange(false)}>
-                <Text>Done</Text>
-              </Button>
+              <SolidPill label="Done" onPress={() => onOpenChange(false)} />
             </DialogFooter>
           </View>
         ) : null}
