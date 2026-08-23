@@ -2986,7 +2986,14 @@
     "external": "Started outside this app — stop it there.",
     "binary": "Binary: {{path}}",
     "binaryMissing": "l8gitd not found — build it with `cargo build --features headless --bin l8gitd` and put it on your PATH.",
-    "roots": "{{count}} released repo roots",
-    "noRoots": "no released repo roots (`l8gitd allow <path>`)"
+    "noRoots": "No repo roots released yet.",
+    "rootsLabel": "Released repo roots",
+    "addRoot": "Add",
+    "removeRoot": "Remove root",
+    "pair": "Pairing",
+    "pairTitle": "Pair mobile app",
+    "pairDesc": "Scan the QR code in the l8git app or enter the JSON manually.",
+    "copyJson": "Copy JSON",
+    "copied": "Copied"
   }
 }

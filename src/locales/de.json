@@ -2986,7 +2986,14 @@
     "external": "Außerhalb dieser App gestartet — dort beenden.",
     "binary": "Binary: {{path}}",
     "binaryMissing": "l8gitd nicht gefunden — mit `cargo build --features headless --bin l8gitd` bauen und in den PATH legen.",
-    "roots": "{{count}} freigegebene Repo-Roots",
-    "noRoots": "keine freigegebenen Repo-Roots (`l8gitd allow <pfad>`)"
+    "noRoots": "Noch keine Repo-Roots freigegeben.",
+    "rootsLabel": "Freigegebene Repo-Roots",
+    "addRoot": "Hinzufügen",
+    "removeRoot": "Root entfernen",
+    "pair": "Pairing",
+    "pairTitle": "Mobile-App koppeln",
+    "pairDesc": "QR-Code in der l8git-App scannen oder das JSON manuell eingeben.",
+    "copyJson": "JSON kopieren",
+    "copied": "Kopiert"
   }
 }

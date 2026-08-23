@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_PORT: u16 = 8484;
+const MISSING_BINARY: &str = "l8gitd nicht gefunden — mit `cargo build --features headless --bin l8gitd` bauen und in den PATH legen.";
 
 static CHILD: Lazy<Mutex<Option<Child>>> = Lazy::new(|| Mutex::new(None));
 
@@ -135,9 +136,7 @@ pub fn remote_start() -> Result<RemoteStatus, String> {
     if listening(port) {
         return Ok(remote_status());
     }
-    let exe = binary().ok_or_else(|| {
-        "l8gitd nicht gefunden — mit `cargo build --features headless --bin l8gitd` bauen und in den PATH legen.".to_string()
-    })?;
+    let exe = binary().ok_or_else(|| MISSING_BINARY.to_string())?;
     let mut command = Command::new(&exe);
     command
         .arg("serve")
@@ -170,6 +169,58 @@ pub fn remote_start() -> Result<RemoteStatus, String> {
     } else {
         message
     })
+}
+
+fn run_cli(args: &[&str]) -> Result<String, String> {
+    let exe = binary().ok_or_else(|| MISSING_BINARY.to_string())?;
+    let output = Command::new(&exe)
+        .args(args)
+        .output()
+        .map_err(|e| format!("{}: {e}", exe.display()))?;
+    if !output.status.success() {
+        let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if message.is_empty() {
+            format!("l8gitd {} fehlgeschlagen.", args.join(" "))
+        } else {
+            message
+        });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Pairing {
+    qr: String,
+    json: String,
+}
+
+#[tauri::command]
+pub fn remote_pair() -> Result<Pairing, String> {
+    let stdout = run_cli(&["pair"])?;
+    let json = stdout
+        .lines()
+        .rev()
+        .find(|line| line.trim_start().starts_with('{'))
+        .ok_or_else(|| "Kein Pairing-JSON von l8gitd erhalten.".to_string())?
+        .trim()
+        .to_string();
+    let qr = stdout.replace(&json, "").trim_matches('\n').to_string();
+    Ok(Pairing { qr, json })
+}
+
+#[tauri::command]
+pub fn remote_add_root(path: String) -> Result<RemoteStatus, String> {
+    run_cli(&["allow", &path])?;
+    Ok(remote_status())
+}
+
+#[tauri::command]
+pub fn remote_remove_root(path: String) -> Result<RemoteStatus, String> {
+    let mut config = load();
+    config.roots.retain(|root| root != &path);
+    save(&config)?;
+    Ok(remote_status())
 }
 
 #[tauri::command]
