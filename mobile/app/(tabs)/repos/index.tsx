@@ -9,6 +9,7 @@ import { AddRepoDialog } from '~/components/repo/add-repo-dialog';
 import { HostReposSection } from '~/components/repo/host-repos-section';
 import { EmptyState } from '~/components/empty-state';
 import { Button } from '~/components/ui/button';
+import { Glass, GlassCircle } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
@@ -67,16 +68,10 @@ export default function ReposScreen() {
       <View className="px-5 pt-1">
         <View className="mb-3 flex-row items-center justify-between">
           <Text className="text-foreground text-3xl font-bold">Repos</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add a repository"
-            onPress={() => openDialog(null)}
-            className="bg-secondary active:opacity-80 h-10 w-10 items-center justify-center rounded-2xl">
-            <Icon as={Plus} size={20} className="text-foreground" />
-          </Pressable>
+          <GlassCircle icon={Plus} label="Add a repository" onPress={() => openDialog(null)} />
         </View>
 
-        <View className="bg-secondary mb-1 h-11 flex-row items-center gap-2.5 rounded-full px-4">
+        <Glass style={{ height: 46, borderRadius: 23, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <Icon as={Search} size={17} className="text-muted-foreground" />
           <Input
             value={query}
@@ -96,7 +91,7 @@ export default function ReposScreen() {
               <Icon as={X} size={16} className="text-muted-foreground" />
             </Pressable>
           ) : null}
-        </View>
+        </Glass>
       </View>
 
       <ScrollView

@@ -1,10 +1,13 @@
 import { useRouter } from 'expo-router';
 import { FolderPlus, Plug, RotateCw } from 'lucide-react-native';
 import * as React from 'react';
-import { Alert, Pressable, View } from 'react-native';
-import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
+import { Alert, View } from 'react-native';
 
-import { RepoRow } from '~/components/repo/repo-row';
+import { LinearGradient } from 'expo-linear-gradient';
+
+import { RepoTile } from '~/components/repo/repo-row';
+import { initials } from '~/components/shared/format';
+import { GlassCircle } from '~/components/ui/glass';
 import { SkeletonList } from '~/components/skeleton-list';
 import { Button } from '~/components/ui/button';
 import { Icon } from '~/components/ui/icon';
@@ -103,41 +106,47 @@ export function HostReposSection({
   };
 
   return (
-    <Animated.View layout={LinearTransition.duration(200)} className="gap-2">
-      <View className="flex-row items-center justify-between pb-1 pt-5">
-        <View className="flex-row items-center gap-2.5">
-          <View className="relative">
-            <View className="bg-secondary h-9 w-9 items-center justify-center rounded-full">
-              <Text className="text-foreground text-2xs font-bold">
-                {hostName.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase() || 'H'}
-              </Text>
-            </View>
-            <View
-              className={`border-background absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 ${
-                online ? 'bg-success' : connecting ? 'bg-warning' : 'bg-muted-foreground'
-              }`}
-            />
+    <View className="gap-2">
+      <View className="flex-row items-center justify-between pb-2 pt-5">
+        <View className="flex-row items-center gap-3">
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              borderWidth: 2,
+              padding: 2,
+              borderColor: online
+                ? '#34c759'
+                : connecting
+                  ? '#ff9f0a'
+                  : 'rgba(255,255,255,0.18)',
+            }}>
+            <LinearGradient
+              colors={['#ff6b57', '#bf5af2']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ flex: 1, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+              <Text className="text-2xs font-bold text-white">{initials(hostName)}</Text>
+            </LinearGradient>
           </View>
-          <Text className="text-foreground text-base font-semibold">{hostName}</Text>
-          {rows.length > 0 ? (
-            <Text
-              style={{ fontVariant: ['tabular-nums'] }}
-              className="text-muted-foreground text-sm">
-              {rows.length}
+          <View>
+            <Text className="text-foreground text-lg font-bold">{hostName}</Text>
+            <Text className="text-muted-foreground text-xs">
+              {online ? `${rows.length} ${rows.length === 1 ? 'repo' : 'repos'}` : connecting ? 'Connecting…' : 'Offline'}
             </Text>
-          ) : null}
+          </View>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Add a repository on ${hostName}`}
+        <GlassCircle
+          icon={FolderPlus}
+          size={40}
+          label={`Add a repository on ${hostName}`}
           onPress={() => onAddRepo(hostId)}
-          className="bg-secondary active:opacity-80 h-9 w-9 items-center justify-center rounded-2xl">
-          <Icon as={FolderPlus} size={16} className="text-foreground" />
-        </Pressable>
+        />
       </View>
 
       {!online ? (
-        <View className="border-border bg-card flex-row items-center gap-3 rounded-2xl border px-3.5 py-3">
+        <View className="bg-card flex-row items-center gap-3 rounded-3xl px-4 py-3.5">
           <Icon as={Plug} size={15} className="text-muted-foreground/60" />
           <View className="flex-1">
             <Text className="text-foreground text-sm font-medium">
@@ -158,7 +167,7 @@ export function HostReposSection({
       {loading && rows.length === 0 ? (
         <SkeletonList rows={3} />
       ) : overviews.isError && rows.length === 0 ? (
-        <View className="border-destructive/30 bg-destructive/5 gap-3 rounded-2xl border p-4">
+        <View className="bg-destructive/10 gap-3 rounded-3xl p-4">
           <Text className="text-destructive text-sm font-medium">Could not load repositories</Text>
           <Text className="text-muted-foreground text-xs">
             {overviews.error instanceof Error ? overviews.error.message : 'Unknown error'}
@@ -173,7 +182,7 @@ export function HostReposSection({
           </Button>
         </View>
       ) : rows.length === 0 ? (
-        <View className="border-border/70 items-center gap-2 rounded-2xl border border-dashed px-4 py-6">
+        <View className="border-white/15 items-center gap-2 rounded-3xl border border-dashed px-4 py-6">
           <Text className="text-muted-foreground text-sm">No repositories yet</Text>
           <Button size="sm" variant="secondary" onPress={() => onAddRepo(hostId)}>
             <Icon as={FolderPlus} size={13} className="text-foreground" />
@@ -181,17 +190,18 @@ export function HostReposSection({
           </Button>
         </View>
       ) : (
-        <Animated.View entering={FadeIn.duration(160)} className="mt-2">
-          {rows.map((row) => (
-            <RepoRow
+        <View className="flex-row flex-wrap justify-between" style={{ rowGap: 12 }}>
+          {rows.map((row, index) => (
+            <RepoTile
               key={row.path}
               overview={row}
+              index={index}
               onPress={() => openRepo(row.path)}
               onLongPress={() => confirmForget(row.path)}
             />
           ))}
-        </Animated.View>
+        </View>
       )}
-    </Animated.View>
+    </View>
   );
 }
