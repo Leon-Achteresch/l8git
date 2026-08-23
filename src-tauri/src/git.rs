@@ -6314,7 +6314,7 @@ mod remote_progress_tests {
         let clone = temp_path("clone");
         std::fs::create_dir_all(&bare.path).unwrap();
         std::fs::create_dir_all(&work.path).unwrap();
-        run_git(&bare.path, &["init", "--bare", "-q", "."]).unwrap();
+        run_git(&bare.path, &["-c", "init.defaultBranch=main", "init", "--bare", "-q", "."]).unwrap();
         run_git(&work.path, &["-c", "init.defaultBranch=main", "init", "-q", "."]).unwrap();
         run_git(&work.path, &["config", "user.email", "test@example.com"]).unwrap();
         run_git(&work.path, &["config", "user.name", "Test"]).unwrap();
