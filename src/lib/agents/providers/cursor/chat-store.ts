@@ -1,5 +1,13 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/platform/ipc";
+import { kvGet, kvSet, kvSetOrThrow } from "@/lib/platform/kv";
+import {
+  CURSOR_SESSION_PREFS_KEY as PREFS_KEY,
+  CURSOR_SETTINGS_KEY as SETTINGS_KEY,
+  CURSOR_TRANSCRIPTS_KEY as TRANSCRIPTS_KEY,
+} from "@/lib/agents/storage-keys";
 import { createStore } from "zustand/vanilla";
+
+import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
 
 import type { AgentChatState } from "@/lib/agents/chat-store";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
@@ -65,9 +73,6 @@ function loadSessionList(unique: string[]): Promise<CursorSessionSummary[]> {
   return promise;
 }
 const MAX_TRANSCRIPTS = 12;
-const TRANSCRIPTS_KEY = "l8git.cursor-transcripts.v1";
-const PREFS_KEY = "l8git.cursor-session-state.v1";
-const SETTINGS_KEY = "l8git.cursor-settings.v1";
 
 let sequence = 1;
 
@@ -92,9 +97,8 @@ function errorMessage(error: unknown): string {
 }
 
 function readJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = kvGet(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -107,8 +111,7 @@ const prefs = (() => {
 })();
 
 function savePrefs() {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(
+  kvSet(
     PREFS_KEY,
     JSON.stringify({ pinned: [...prefs.pinned], archived: [...prefs.archived] }),
   );
@@ -140,16 +143,14 @@ const transcripts = new Map<string, AgentTurn[]>(
 );
 
 function saveTranscripts() {
-  if (typeof window === "undefined") return;
   const entries = [...transcripts.entries()].slice(-MAX_TRANSCRIPTS);
   transcripts.clear();
   for (const [threadId, turns] of entries) transcripts.set(threadId, turns);
   try {
-    window.localStorage.setItem(TRANSCRIPTS_KEY, JSON.stringify(Object.fromEntries(entries)));
+    kvSetOrThrow(TRANSCRIPTS_KEY, JSON.stringify(Object.fromEntries(entries)));
   } catch {
-    // Quota exceeded: drop the oldest half rather than losing the newest chat.
     const kept = entries.slice(-Math.ceil(entries.length / 2));
-    window.localStorage.setItem(TRANSCRIPTS_KEY, JSON.stringify(Object.fromEntries(kept)));
+    kvSet(TRANSCRIPTS_KEY, JSON.stringify(Object.fromEntries(kept)));
   }
 }
 
@@ -515,6 +516,7 @@ async function runTurn(threadId: string, path: string, prompt: string): Promise<
     model: state.model ?? undefined,
     permissionMode: cliMode(state),
     sandbox: cliSandbox(state),
+    agentsTrusted: isRepoAgentsTrusted(path),
   });
   cursorChatStore.setState((current) => ({
     sessionStatusByThread: { ...current.sessionStatusByThread, [threadId]: "ready" },
@@ -1016,7 +1018,6 @@ export const cursorChatStore = createStore<AgentChatState>()((set, get) => ({
 
 let lastSettings = "";
 cursorChatStore.subscribe((state) => {
-  if (typeof window === "undefined") return;
   const value = JSON.stringify({
     model: state.model,
     collaborationMode: state.collaborationMode,
@@ -1026,5 +1027,5 @@ cursorChatStore.subscribe((state) => {
   });
   if (value === lastSettings) return;
   lastSettings = value;
-  window.localStorage.setItem(SETTINGS_KEY, value);
+  kvSet(SETTINGS_KEY, value);
 });

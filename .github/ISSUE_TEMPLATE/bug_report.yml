@@ -1,0 +1,117 @@
+name: Bug report
+description: Something in l8git does not work the way it should
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please fill in as much as you can — a reliable reproduction is the fastest path to a fix.
+
+        Security-sensitive problems should not be filed here; describe the issue without the exploitable details and a maintainer will follow up.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear description of the problem.
+      placeholder: Staging a single hunk also staged the file below it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Number the steps so we can follow them exactly.
+      placeholder: |
+        1. Open a repository with two modified files
+        2. Switch to the Commit panel
+        3. Select a hunk in the first file and press S
+        4. Look at the staged section
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: OS version
+      placeholder: "macOS 15.3 / Windows 11 23H2 / Fedora 41 (Wayland)"
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: l8git version
+      description: Shown under Info → About. If you build from source, name the commit instead.
+      placeholder: "0.5.0"
+    validations:
+      required: true
+
+  - type: input
+    id: git_version
+    attributes:
+      label: Git version
+      description: Output of `git --version`.
+      placeholder: "git version 2.47.1"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the app is affected?
+      options:
+        - Commit and staging
+        - History and graph
+        - Branches, merge, rebase
+        - Stacks
+        - Pull requests and CI
+        - Inbox and notifications
+        - AI features
+        - Agents
+        - Terminal
+        - Undo, reflog, command log
+        - Settings and appearance
+        - Other / not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Git command log or error output
+      description: >
+        The Tools panel has a git command log that records every command l8git runs with its exit status.
+        Paste the failing entry or any error toast text here. It will be rendered as code, no backticks needed.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Screenshots, repository size, unusual Git configuration, provider (GitHub / GitLab / Bitbucket / Gitea), and so on.
+    validations:
+      required: false

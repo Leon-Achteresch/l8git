@@ -1,17 +1,38 @@
-mod agent_transport;
+mod agent_review;
+pub mod agent_transport;
 mod claude;
 mod cmd;
+mod cmdlog;
 mod credentials;
 mod cursor;
 mod favicon;
-mod git;
-mod pr;
+pub mod git;
+mod lfs;
+mod media;
+pub mod pathsafe;
+pub mod pr;
 mod providers;
-mod pty;
+pub mod pty;
+mod rebase;
+mod remote;
 mod repo_tools;
 mod secrets;
+#[cfg(feature = "headless")]
+pub mod server;
 mod shell;
+pub mod sink;
+mod stack;
+mod undo;
 mod watcher;
+
+struct TauriSink(tauri::AppHandle);
+
+impl sink::EventSink for TauriSink {
+    fn emit(&self, name: &str, payload: serde_json::Value) {
+        use tauri::Emitter;
+        let _ = self.0.emit(name, payload);
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -30,6 +51,7 @@ pub fn run() {
                     let _ = window.set_background_color(Some(color));
                 }
             }
+            sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
             Ok(())
         })
         .manage(agent_transport::AgentTransportState::default())
@@ -38,7 +60,15 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
+            remote::remote_status,
+            remote::remote_set_config,
+            remote::remote_start,
+            remote::remote_stop,
+            remote::remote_pair,
+            remote::remote_add_root,
+            remote::remote_remove_root,
             agent_transport::agent_transport_open,
             agent_transport::agent_transport_send,
             agent_transport::agent_transport_close,
@@ -200,6 +230,17 @@ pub fn run() {
             git::git_reset,
             git::repo_contributor_stats,
             git::repo_activity_buckets,
+            git::repo_branch_activity,
+            git::commit_signing_info,
+            git::set_commit_signing,
+            git::commit_signature_status,
+            git::branch_push_remote,
+            undo::reflog_list,
+            undo::undo_last_operation,
+            undo::undo_preview,
+            undo::reset_to_reflog_entry,
+            undo::branch_restore,
+            undo::commit_full_message,
             git::repos_overview,
             pty::pty_open,
             pty::pty_write,
@@ -210,7 +251,43 @@ pub fn run() {
             pty::pty_shell_name,
             secrets::secret_set,
             secrets::secret_get,
-            secrets::secret_delete
+            secrets::secret_delete,
+            rebase::rebase_start,
+            rebase::rebase_status,
+            rebase::rebase_continue,
+            rebase::rebase_skip,
+            rebase::rebase_abort,
+            rebase::rebase_todo_preview,
+            rebase::rebase_interactive,
+            rebase::commit_fixup,
+            git::git_remote_cancel,
+            cmdlog::git_command_log,
+            cmdlog::git_command_log_clear,
+            media::repo_file_bytes_at,
+            lfs::lfs_available,
+            lfs::lfs_tracked_patterns,
+            lfs::lfs_track,
+            lfs::lfs_untrack,
+            lfs::lfs_ls_files,
+            lfs::lfs_pull,
+            lfs::lfs_pointer_info,
+            pr::pr_provider_capabilities,
+            agent_review::agent_review_summary,
+            agent_review::agent_review_file_diff,
+            agent_review::agent_review_branch_merged,
+            stack::stack_list,
+            stack::stack_create_branch,
+            stack::stack_adopt,
+            stack::stack_remove,
+            stack::stack_next_branch_name,
+            stack::stack_restack,
+            stack::stack_restack_resume,
+            stack::stack_restack_state,
+            stack::branch_cleanup_candidates,
+            pr::pr_review_threads,
+            pr::pr_resolve_thread,
+            git::repo_range_commits,
+            pr::pr_default_branch
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

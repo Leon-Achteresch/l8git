@@ -57,6 +57,17 @@ export function PullRequestPanel({ path }: { path: string }) {
     clearPrCreateRequest();
   }, [prCreateRequest, path, clearPrCreateRequest]);
 
+  const prFocusRequest = useUiStore((s) => s.prFocusRequest);
+  const clearPrFocusRequest = useUiStore((s) => s.clearPrFocusRequest);
+  useEffect(() => {
+    if (!prFocusRequest) return;
+    if (prFocusRequest.path !== path) return;
+    if (!prs?.some((pr) => pr.number === prFocusRequest.number)) return;
+    setSelectedNumber(prFocusRequest.number);
+    setCreateOpen(false);
+    clearPrFocusRequest();
+  }, [prFocusRequest, path, prs, clearPrFocusRequest]);
+
   const listProps = {
     path,
     prs,

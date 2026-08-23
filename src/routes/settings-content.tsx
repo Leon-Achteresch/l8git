@@ -1,9 +1,10 @@
 import { ListRow } from "@/components/ui/list-row";
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, useRouterState } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bell,
   Bot,
   Brain,
   Eye,
@@ -12,6 +13,7 @@ import {
   GitCommitHorizontal,
   Globe2,
   HardDrive,
+  Keyboard,
   Link2,
   Monitor,
   Moon,
@@ -20,6 +22,7 @@ import {
   PanelLeft,
   Plus,
   RefreshCw,
+  ShieldCheck,
   Sparkles,
   Sun,
   Terminal,
@@ -33,7 +36,12 @@ import { StaggerCard } from "@/components/motion/stagger-card";
 import { AddGitAccount } from "@/components/repo/git-account/add-git-account";
 import { GitAccountRow } from "@/components/repo/git-account/git-account-row";
 import { AnimationsCard } from "@/components/settings/animations-card";
+import { BranchCleanupCard } from "@/components/settings/branch-cleanup-card";
+import { RemoteServerCard } from "@/components/settings/remote-server-card";
+import { GitSigningCard } from "@/components/settings/git-signing-card";
+import { HotkeysSection } from "@/components/settings/hotkeys-section";
 import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
+import { NotificationsCard } from "@/components/settings/notifications-card";
 import { SidebarCustomizeSection } from "@/components/settings/sidebar-customize-section";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,10 +58,11 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { checkForAppUpdate } from "@/lib/app-updater";
-import { DEFAULT_AI_PROMPT_TEMPLATE } from "@/lib/ai-commit";
+import { AiPromptSettings } from "@/components/ai/ai-prompt-settings";
 import { useCommitPrefs, AI_PROVIDER_DEFAULT_MODELS, type AiProviderType } from "@/lib/commit-prefs";
 import { useGitAccounts } from "@/lib/git-accounts";
 import { useLocalePrefs } from "@/lib/locale-prefs";
+import { APP_LOCALES } from "@/lib/locales";
 import type { Theme } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
 import { cn } from "@/lib/utils";
@@ -188,12 +197,15 @@ export function Settings() {
           { id: "sidebar", label: t("settings.navSidebar"), icon: PanelLeft, accent: "bg-git-branch" },
           { id: "appearance", label: t("settings.navAppearance"), icon: Palette, accent: "bg-git-merge" },
           { id: "animations", label: t("settings.navAnimations"), icon: Zap, accent: "bg-git-modified" },
+          { id: "notifications", label: t("settings.navNotifications"), icon: Bell, accent: "bg-git-merge" },
+          { id: "hotkeys", label: t("settings.navHotkeys"), icon: Keyboard, accent: "bg-git-added" },
         ],
       },
       {
         label: t("settings.navGroupCommits"),
         items: [
           { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal, accent: "bg-git-added" },
+          { id: "signing", label: t("settings.navSigning"), icon: ShieldCheck, accent: "bg-git-branch" },
           { id: "ai", label: t("settings.navAi"), icon: Sparkles, accent: "bg-git-merge" },
         ],
       },
@@ -236,8 +248,6 @@ export function Settings() {
   const setShowConventionalCommitIcons = useCommitPrefs((s) => s.setShowConventionalCommitIcons);
   const showCommitDateGroups = useCommitPrefs((s) => s.showCommitDateGroups);
   const setShowCommitDateGroups = useCommitPrefs((s) => s.setShowCommitDateGroups);
-  const aiPromptTemplate = useCommitPrefs((s) => s.aiPromptTemplate);
-  const setAiPromptTemplate = useCommitPrefs((s) => s.setAiPromptTemplate);
   const aiOutputLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
   const setAiOutputLanguage = useCommitPrefs((s) => s.setAiOutputLanguage);
   const aiProviderType = useCommitPrefs((s) => s.aiProviderType);
@@ -254,7 +264,6 @@ export function Settings() {
   const setGraphLanePxMax = useCommitPrefs((s) => s.setGraphLanePxMax);
 
   const [commitTemplateDraft, setCommitTemplateDraft] = useState(messageTemplate);
-  const [aiPromptDraft, setAiPromptDraft] = useState(aiPromptTemplate);
   const [aiLanguageDraft, setAiLanguageDraft] = useState(aiOutputLanguage);
   const [aiApiKeyDraft, setAiApiKeyDraft] = useState(aiProviderApiKey);
   const [aiModelDraft, setAiModelDraft] = useState(aiProviderModel);
@@ -262,7 +271,6 @@ export function Settings() {
   const [aiApiKeyVisible, setAiApiKeyVisible] = useState(false);
 
   useEffect(() => { setCommitTemplateDraft(messageTemplate); }, [messageTemplate]);
-  useEffect(() => { setAiPromptDraft(aiPromptTemplate); }, [aiPromptTemplate]);
   useEffect(() => { setAiLanguageDraft(aiOutputLanguage); }, [aiOutputLanguage]);
   useEffect(() => { setAiApiKeyDraft(aiProviderApiKey); }, [aiProviderApiKey]);
   // Load the API key from the OS keyring when the settings page mounts.
@@ -282,7 +290,7 @@ export function Settings() {
 
   const signedInAccounts = accounts.filter((a) => a.signed_in);
   const commitTemplateDirty = commitTemplateDraft !== messageTemplate;
-  const aiPromptDirty = aiPromptDraft !== aiPromptTemplate || aiLanguageDraft !== aiOutputLanguage;
+  const aiLanguageDirty = aiLanguageDraft !== aiOutputLanguage;
   const aiProviderDirty = aiApiKeyDraft !== aiProviderApiKey || aiModelDraft !== aiProviderModel || aiBaseUrlDraft !== aiProviderBaseUrl;
 
   const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
@@ -319,6 +327,7 @@ export function Settings() {
   const mainRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const [activeSection, setActiveSection] = useState("sidebar");
+  const locationHash = useRouterState({ select: (s) => s.location.hash });
 
   useEffect(() => {
     const main = mainRef.current;
@@ -346,6 +355,18 @@ export function Settings() {
     sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
     setActiveSection(id);
   }
+
+  useEffect(() => {
+    const id = locationHash.replace(/^#/, "");
+    if (!id) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = sectionRefs.current[id];
+      if (!target) return;
+      target.scrollIntoView({ block: "start" });
+      setActiveSection(id);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [locationHash]);
 
   function setRef(id: string) {
     return (el: HTMLElement | null) => { sectionRefs.current[id] = el; };
@@ -459,29 +480,25 @@ export function Settings() {
                     <div
                       role="radiogroup"
                       aria-label={t("settings.languageTitle")}
-                      className="grid grid-cols-2 gap-3 sm:max-w-xs"
+                      className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:max-w-2xl"
                     >
-                      {(
-                        [
-                          { value: "de" as const, label: t("settings.languageDe") },
-                          { value: "en" as const, label: t("settings.languageEn") },
-                        ] as const
-                      ).map(({ value, label }) => {
-                        const active = locale === value;
+                      {APP_LOCALES.map(({ code, nativeName }) => {
+                        const active = locale === code;
                         return (
                           <Button
-                            key={value}
+                            key={code}
                             type="button"
                             role="radio"
                             aria-checked={active}
+                            lang={code}
                             variant={active ? "default" : "outline"}
-                            onClick={() => setLocale(value)}
+                            onClick={() => setLocale(code)}
                             className={cn(
                               "h-auto py-3",
                               active && "ring-2 ring-ring ring-offset-2 ring-offset-background",
                             )}
                           >
-                            <span className="text-sm">{label}</span>
+                            <span className="text-sm">{nativeName}</span>
                           </Button>
                         );
                       })}
@@ -585,6 +602,34 @@ export function Settings() {
             />
             <StaggerCard index={2}>
               <AnimationsCard />
+            </StaggerCard>
+          </section>
+
+          {/* ── NOTIFICATIONS ─────────────────────────────────────────── */}
+          <section id="notifications" ref={setRef("notifications")} className="scroll-mt-10">
+            <SectionHeader
+              icon={Bell}
+              title={t("settings.notificationsSectionTitle")}
+              subtitle={t("settings.notificationsSectionSubtitle")}
+              gradient="from-git-merge/25 to-git-merge/25"
+              iconColor="text-git-merge"
+            />
+            <StaggerCard index={2}>
+              <NotificationsCard />
+            </StaggerCard>
+          </section>
+
+          {/* ── HOTKEYS ───────────────────────────────────────────────── */}
+          <section id="hotkeys" ref={setRef("hotkeys")} className="scroll-mt-10">
+            <SectionHeader
+              icon={Keyboard}
+              title={t("settings.hotkeysSectionTitle")}
+              subtitle={t("settings.hotkeysSectionSubtitle")}
+              gradient="from-git-added/25 to-git-added/25"
+              iconColor="text-git-added"
+            />
+            <StaggerCard index={3}>
+              <HotkeysSection />
             </StaggerCard>
           </section>
 
@@ -774,29 +819,12 @@ export function Settings() {
                       />
                       <p className="text-xs text-muted-foreground">{t("settings.aiOutputHint")}</p>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ai-prompt" className="text-sm font-medium">
-                        {t("settings.aiPromptLabel")}
-                      </Label>
-                      <Textarea
-                        id="ai-prompt"
-                        value={aiPromptDraft}
-                        onChange={(e) => setAiPromptDraft(e.target.value)}
-                        rows={8}
-                        placeholder={DEFAULT_AI_PROMPT_TEMPLATE}
-                        className="min-h-[180px] font-mono text-sm"
-                        spellCheck={false}
-                      />
-                      <p className="text-xs text-muted-foreground">{t("settings.aiPromptHint")}</p>
-                    </div>
+                    <p className="text-xs text-muted-foreground">{t("settings.aiPromptMovedHint")}</p>
                     <div className="flex justify-end">
                       <Button
                         type="button"
-                        disabled={!aiPromptDirty}
-                        onClick={() => {
-                          setAiPromptTemplate(aiPromptDraft);
-                          setAiOutputLanguage(aiLanguageDraft);
-                        }}
+                        disabled={!aiLanguageDirty}
+                        onClick={() => setAiOutputLanguage(aiLanguageDraft)}
                       >
                         {t("common.save")}
                       </Button>
@@ -805,6 +833,21 @@ export function Settings() {
                 </Card>
               </StaggerCard>
             </div>
+          </section>
+
+          {/* ── SIGNING ───────────────────────────────────────────────── */}
+          <section id="signing" ref={setRef("signing")} className="scroll-mt-10">
+            <SectionHeader
+              icon={ShieldCheck}
+              title={t("settings.signingSectionTitle")}
+              subtitle={t("settings.signingSectionSubtitle")}
+              gradient="from-git-branch/25 to-git-added/25"
+              iconColor="text-git-branch"
+            />
+
+            <StaggerCard index={0}>
+              <GitSigningCard />
+            </StaggerCard>
           </section>
 
           {/* ── AI ────────────────────────────────────────────────────── */}
@@ -978,33 +1021,27 @@ export function Settings() {
                       />
                       <p className="text-xs text-muted-foreground">{t("settings.aiOutputHint")}</p>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ai-prompt" className="text-sm font-medium">
-                        {t("settings.aiPromptLabel")}
-                      </Label>
-                      <Textarea
-                        id="ai-prompt"
-                        value={aiPromptDraft}
-                        onChange={(e) => setAiPromptDraft(e.target.value)}
-                        rows={8}
-                        placeholder={DEFAULT_AI_PROMPT_TEMPLATE}
-                        className="min-h-[180px] font-mono text-sm"
-                        spellCheck={false}
-                      />
-                      <p className="text-xs text-muted-foreground">{t("settings.aiPromptHint")}</p>
-                    </div>
                     <div className="flex justify-end">
                       <Button
                         type="button"
-                        disabled={!aiPromptDirty}
-                        onClick={() => {
-                          setAiPromptTemplate(aiPromptDraft);
-                          setAiOutputLanguage(aiLanguageDraft);
-                        }}
+                        disabled={!aiLanguageDirty}
+                        onClick={() => setAiOutputLanguage(aiLanguageDraft)}
                       >
                         {t("common.save")}
                       </Button>
                     </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={2}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.aiPromptsTitle")}</CardTitle>
+                    <CardDescription>{t("settings.aiPromptsDesc")}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <AiPromptSettings />
                   </CardContent>
                 </Card>
               </StaggerCard>
@@ -1181,6 +1218,14 @@ export function Settings() {
                   </div>
                 </CardContent>
               </Card>
+            </StaggerCard>
+
+            <StaggerCard index={9} className="mt-4">
+              <BranchCleanupCard />
+            </StaggerCard>
+
+            <StaggerCard index={10} className="mt-4">
+              <RemoteServerCard />
             </StaggerCard>
           </section>
 

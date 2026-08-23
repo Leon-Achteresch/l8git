@@ -9,6 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  shortSigningKey,
+  signingFormatLabel,
+  type SigningInfo,
+} from "@/lib/git-signing";
 import { cn } from "@/lib/utils";
 import {
   Archive,
@@ -17,7 +22,9 @@ import {
   Loader2,
   Pencil,
   Plus,
+  ShieldCheck,
   Sparkles,
+  Split,
   Undo2,
 } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
@@ -61,12 +68,14 @@ type CommitComposerProps = {
   repoAiLanguage: string | undefined;
   globalAiLanguage: string;
   canUndo: boolean;
+  signingInfo: SigningInfo | null;
   onCommit: () => void;
   onGenerateAi: () => void;
   onSetLanguage: (lang: string | undefined) => void;
   onToggleAmend: () => void;
   onStash: () => void;
   onUndo: () => void;
+  onSplitCommits?: () => void;
 };
 
 export function CommitComposer({
@@ -86,12 +95,14 @@ export function CommitComposer({
   repoAiLanguage,
   globalAiLanguage,
   canUndo,
+  signingInfo,
   onCommit,
   onGenerateAi,
   onSetLanguage,
   onToggleAmend,
   onStash,
   onUndo,
+  onSplitCommits,
 }: CommitComposerProps) {
   const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
@@ -113,6 +124,21 @@ export function CommitComposer({
 
   const subjectTone =
     subjectLen > 72 ? "over" : subjectLen > 60 ? "warn" : subjectLen > 0 ? "ok" : "idle";
+
+  const signingActive = !!signingInfo?.commitSign;
+  const signingFormat = signingActive ? signingFormatLabel(signingInfo?.format) : "";
+  const signingKey = shortSigningKey(signingInfo?.signingKey);
+  const signingTitle = signingActive
+    ? [
+        t("commitPanel.signingTooltip", { format: signingFormat }),
+        signingKey ? t("commitPanel.signingKeyTooltip", { key: signingKey }) : "",
+        signingInfo && !signingInfo.toolAvailable
+          ? t("commitPanel.signingToolMissing", { program: signingInfo.program })
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
 
   const onKeyCommit = (e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
@@ -154,9 +180,11 @@ export function CommitComposer({
 
         <div className="flex items-start gap-1 px-2.5 pt-2.5">
           <Input
+            data-commit-message-input=""
             variant="bare"
             value={subject}
             onChange={(e) => onSubjectChange(e.target.value)}
+            readOnly={aiGenerating}
             onKeyDown={onKeyCommit}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
@@ -259,6 +287,7 @@ export function CommitComposer({
                 ref={bodyRef}
                 value={body}
                 onChange={(e) => onBodyChange(e.target.value)}
+                readOnly={aiGenerating}
                 onKeyDown={onKeyCommit}
                 onFocus={() => {
                   setFocused(true);
@@ -316,6 +345,30 @@ export function CommitComposer({
                     count: stagedFiles,
                     unit: stagedFiles === 1 ? t("common.file") : t("common.files"),
                   })}
+                </m.span>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence initial={false}>
+              {signingActive && (
+                <m.span
+                  key="signing"
+                  layout
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={spring}
+                  title={signingTitle}
+                  aria-label={signingTitle}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                    signingInfo?.toolAvailable
+                      ? "bg-git-added/10 text-git-added"
+                      : "bg-git-modified/10 text-git-modified",
+                  )}
+                >
+                  <ShieldCheck className="size-3" aria-hidden />
+                  {t("commitPanel.signingBadge", { format: signingFormat })}
                 </m.span>
               )}
             </AnimatePresence>
@@ -409,6 +462,12 @@ export function CommitComposer({
                   {t("common.amend")}
                   {amendMode && <Check className="ml-auto size-3.5 text-primary" />}
                 </DropdownMenuItem>
+                {onSplitCommits && (
+                  <DropdownMenuItem onClick={onSplitCommits}>
+                    <Split className="size-3.5" />
+                    {t("commitSplit.menuEntry")}
+                  </DropdownMenuItem>
+                )}
                 {canUndo && (
                   <DropdownMenuItem onClick={onUndo}>
                     <Undo2 className="size-3.5" />

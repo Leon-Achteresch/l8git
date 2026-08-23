@@ -4,11 +4,15 @@ import { useTranslation } from "react-i18next";
 
 export function CommitInspectHeader({
   title,
+  badge,
+  actions,
   onRefresh,
   onClose,
   loading,
 }: {
   title?: string;
+  badge?: React.ReactNode;
+  actions?: React.ReactNode;
   onRefresh: () => void;
   onClose: () => void;
   loading: boolean;
@@ -16,11 +20,15 @@ export function CommitInspectHeader({
   const { t } = useTranslation();
   const heading = title ?? t("commitInspect.panelTitle");
   return (
-    <div className="flex items-center justify-between bg-muted/10 px-4 py-3 backdrop-blur-md">
-      <span className="text-sm font-semibold tracking-tight text-foreground/80">
-        {heading}
+    <div className="flex items-center justify-between gap-2 bg-muted/10 px-4 py-3 backdrop-blur-md">
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-sm font-semibold tracking-tight text-foreground/80">
+          {heading}
+        </span>
+        {badge}
       </span>
       <div className="flex items-center gap-1">
+        {actions}
         <Button
           variant="ghost"
           size="icon"

@@ -226,6 +226,10 @@ export function StashInspectDetail({
                   className="flex min-h-0 flex-col"
                 >
                   <CommitInspectDiff
+                    repoPath={path}
+                    commitHash={
+                      stashIndex != null ? `stash@{${stashIndex}}` : null
+                    }
                     selectedFile={selectedFile}
                     fileDiff={fileDiff}
                     loading={diffLoading}

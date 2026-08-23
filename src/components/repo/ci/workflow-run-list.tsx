@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PanelEmptyHint } from "@/components/onboarding/panel-empty-hint";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -128,8 +129,13 @@ export function WorkflowRunList({
 
       {/* Run list */}
       {!runs || filtered.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground/70">
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 p-6 text-center text-sm text-muted-foreground/70">
           {t("ci.noRuns")}
+          <PanelEmptyHint
+            hint={t("ci.emptyProviderHint")}
+            settingsHash="accounts"
+            actionLabel={t("ci.emptyProviderAction")}
+          />
         </div>
       ) : (
         <ScrollArea className="min-h-0 flex-1 px-2 pb-2">

@@ -1,0 +1,132 @@
+# Flatpak-Manifest fuer l8git (App-ID = tauri.conf.json identifier: com.leon.l8git)
+#
+# Lokaler Bau/Test (nicht in dieser Umgebung durchgefuehrt, siehe LUECKEN):
+#   flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47
+#   flatpak-builder --user --install --force-clean build-dir packaging/flatpak/com.leon.l8git.yml
+#   flatpak run com.leon.l8git
+#
+# PRO RELEASE ZU AKTUALISIEREN: url + sha256 der .deb-Quelle unten.
+#
+# ============================ BEKANNTE LUECKEN ============================
+# Dieses Manifest ist NICHT verifiziert - es gibt in dieser Umgebung weder
+# Linux-Runtime noch Netzzugriff. Vor einer Flathub-Submission muss Folgendes
+# geklaert werden:
+#
+# 1) KEIN LINUX-ARTEFAKT. .github/workflows/release.yml baut nur macOS und
+#    Windows. Das unten referenzierte l8git_<version>_amd64.deb existiert im
+#    Release noch nicht. Ohne ubuntu-Runner in der Build-Matrix ist dieser
+#    Kanal tot.
+#
+# 2) WEBKIT-VERSION. Tauri 2 linkt auf Linux gegen webkit2gtk-4.1 (GTK3).
+#    Welche org.gnome.Platform-Version libwebkit2gtk-4.1.so noch mitbringt,
+#    muss geprueft werden, bevor die runtime-version festgezurrt wird:
+#      flatpak run --command=sh org.gnome.Sdk//47 -c \
+#        'ls /usr/lib/*/libwebkit2gtk-4.1.so* /usr/lib/*/libwebkitgtk-6.0.so* 2>/dev/null'
+#    Faellt 4.1 in 47 weg, auf //46 (oder //45) zuruecksetzen. Alternativ
+#    org.freedesktop.Platform + eigenes webkit-Modul, was den Build stark
+#    aufblaeht.
+#
+# 3) GIT FEHLT IN DER SANDBOX. Die App ruft git als Subprozess auf (README:
+#    "You need git installed and available in your PATH"). In der Sandbox gibt
+#    es kein git. Optionen, beide unschoen:
+#      a) git als zusaetzliches Modul mitbauen -> App sieht dann NICHT die
+#         ~/.gitconfig-Helper, ssh-agent-Sockets und Host-Credential-Helper des
+#         Nutzers, ausser man reicht sie explizit durch.
+#      b) --talk-name=org.freedesktop.Flatpak + flatpak-spawn --host -> haette
+#         Code-Aenderungen in src-tauri zur Folge (sprengt Sandbox faktisch)
+#         und wird im Flathub-Review regelmaessig abgelehnt.
+#    Unten ist Variante (a) als Modul vorbereitet, aber auskommentiert.
+#
+# 4) EINGEBETTETES TERMINAL UND CLI-AGENTS. Terminal (portable-pty) sowie die
+#    Anbindungen an claude/opencode/cursor starten Host-Binaries. In der
+#    Sandbox laufen sie im Runtime-Kontext und finden die Host-Tools nicht.
+#    Diese Features sind in einem Flatpak-Build de facto nicht funktionsfaehig.
+#
+# 5) AUTO-UPDATER. plugins.updater in tauri.conf.json zeigt auf latest.json.
+#    Im Flatpak muss der Updater deaktiviert sein (Flatpak aktualisiert selbst,
+#    das Bundle ist read-only). Erfordert einen Build-Schalter in der App.
+#
+# 6) APPSTREAM. Flathub verlangt com.leon.l8git.metainfo.xml inkl. Screenshots
+#    und Release-Eintraegen. Existiert im Repo nicht (README: "Screenshots -
+#    Coming soon"), muss also erst geschrieben werden. Der Build-Schritt unten
+#    installiert die Datei nur, wenn sie neben diesem Manifest liegt.
+#
+# 7) DATEISYSTEM. --filesystem=home deckt keine Repos ausserhalb von $HOME ab
+#    (z.B. /srv, /mnt, externe Platten). --filesystem=host waere noetig, wird
+#    im Flathub-Review aber kritisch gesehen.
+#
+# 8) VORKOMPILIERTES BINARY. Ein aus dem .deb entpacktes Binary ist fuer
+#    Flathub nur eingeschraenkt akzeptabel; bevorzugt wird ein Build aus den
+#    Quellen (cargo- und node-Offline-Sources via flatpak-cargo-generator /
+#    flatpak-node-generator). Das ist der eigentliche Ausbauschritt, sobald
+#    Punkt 1-3 geklaert sind.
+# =========================================================================
+
+app-id: com.leon.l8git
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+command: l8git
+separate-locales: false
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --filesystem=home
+  - --filesystem=xdg-run/keyring
+  - --socket=ssh-auth
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+  - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /share/doc
+  - /share/man
+  - '*.a'
+  - '*.la'
+
+modules:
+  # Siehe Luecke 3: ohne dieses Modul hat die App kein git in der Sandbox.
+  # Aktivieren, sobald geklaert ist, wie Credential-Helper und ssh-agent
+  # durchgereicht werden.
+  # - name: git
+  #   buildsystem: autotools
+  #   config-opts:
+  #     - --without-tcltk
+  #   sources:
+  #     - type: archive
+  #       url: https://www.kernel.org/pub/software/scm/git/git-2.47.1.tar.xz
+  #       sha256: 0000000000000000000000000000000000000000000000000000000000000000
+
+  - name: l8git
+    buildsystem: simple
+    build-commands:
+      - ar x l8git.deb
+      - tar -xf data.tar.* -C .
+      - install -Dm755 usr/bin/l8git /app/bin/l8git
+      - install -Dm644 usr/share/applications/l8git.desktop
+        /app/share/applications/com.leon.l8git.desktop
+      - desktop-file-edit --set-icon=com.leon.l8git
+        /app/share/applications/com.leon.l8git.desktop
+      - for size in 32 128 256 512; do
+        src="usr/share/icons/hicolor/${size}x${size}/apps/l8git.png";
+        test -f "$src" && install -Dm644 "$src"
+        "/app/share/icons/hicolor/${size}x${size}/apps/com.leon.l8git.png" || true;
+        done
+      - test -f com.leon.l8git.metainfo.xml && install -Dm644 com.leon.l8git.metainfo.xml
+        /app/share/metainfo/com.leon.l8git.metainfo.xml || true
+    sources:
+      # PLATZHALTER: sha256 muss durch den Hash des echten Release-Artefakts
+      # ersetzt werden (siehe packaging/README.md, Abschnitt "sha256 ermitteln").
+      - type: file
+        url: https://github.com/Leon-Achteresch/l8git/releases/download/v0.5.0/l8git_0.5.0_amd64.deb
+        sha256: '0000000000000000000000000000000000000000000000000000000000000000'
+        dest-filename: l8git.deb
+      # Sobald vorhanden, hier die AppStream-Datei aus dem Repo einbinden:
+      # - type: file
+      #   path: com.leon.l8git.metainfo.xml

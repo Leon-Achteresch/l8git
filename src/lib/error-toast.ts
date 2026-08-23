@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 
 import i18n from "@/lib/i18n";
+import { providerUnknownHost } from "@/lib/pr-provider";
 
 function translateKnownError(message: string): string {
   const markerIdx = message.indexOf("__LOCAL_CHANGES_BLOCK__|");
@@ -11,6 +12,10 @@ function translateKnownError(message: string): string {
       .map((f) => f.trim())
       .filter((f) => f.length > 0);
     return i18n.t("errors.localChangesBlockPull", { files: files.join(", ") });
+  }
+  const unknownHost = providerUnknownHost(message);
+  if (unknownHost !== null) {
+    return i18n.t("errors.providerUnknown", { host: unknownHost });
   }
   return message;
 }

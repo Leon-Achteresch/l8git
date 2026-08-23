@@ -1,0 +1,75 @@
+import type { Theme } from 'expo-router';
+
+export const palette = {
+  background: '#000000',
+  foreground: '#ffffff',
+  card: '#16161a',
+  cardForeground: '#ffffff',
+  elevated: '#1c1c20',
+  popover: '#1c1c20',
+  primary: '#ffffff',
+  primaryForeground: '#000000',
+  secondary: '#1c1c20',
+  muted: '#101013',
+  mutedForeground: '#8e8e93',
+  accent: '#1c1c20',
+  accentForeground: '#ffffff',
+  brand: '#ffffff',
+  destructive: '#ff453a',
+  success: '#34c759',
+  warning: '#ff9f0a',
+  border: '#26262c',
+  input: '#1c1c20',
+  ring: '#ffffff',
+  sidebar: '#000000',
+  cat: {
+    coral: '#ff6b57',
+    blue: '#0a84ff',
+    purple: '#bf5af2',
+    green: '#34c759',
+    orange: '#ff9f0a',
+    pink: '#ff2d92',
+    cyan: '#40c8e0',
+    yellow: '#ffd60a',
+  },
+  git: {
+    added: '#34c759',
+    addedSubtle: '#0f2a1c',
+    removed: '#ff453a',
+    removedSubtle: '#2e1213',
+    modified: '#ff9f0a',
+    modifiedSubtle: '#2a2200',
+    branch: '#0a84ff',
+    merge: '#bf5af2',
+    tag: '#ff9f0a',
+    hash: '#8e8e93',
+  },
+  chart: ['#0a84ff', '#bf5af2', '#34c759', '#ff9f0a', '#ff2d92'],
+} as const;
+
+export const fonts = {
+  sans: 'Geist_400Regular',
+  medium: 'Geist_500Medium',
+  semibold: 'Geist_600SemiBold',
+  bold: 'Geist_700Bold',
+  mono: 'GeistMono_400Regular',
+  monoMedium: 'GeistMono_500Medium',
+} as const;
+
+export const navigationTheme: Theme = {
+  dark: true,
+  colors: {
+    primary: palette.foreground,
+    background: palette.background,
+    card: palette.sidebar,
+    text: palette.foreground,
+    border: palette.border,
+    notification: palette.destructive,
+  },
+  fonts: {
+    regular: { fontFamily: fonts.sans, fontWeight: '400' },
+    medium: { fontFamily: fonts.medium, fontWeight: '500' },
+    bold: { fontFamily: fonts.semibold, fontWeight: '600' },
+    heavy: { fontFamily: fonts.bold, fontWeight: '700' },
+  },
+};

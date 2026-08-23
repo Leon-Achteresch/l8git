@@ -1,3 +1,5 @@
+import "./lib/platform/tauri";
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
@@ -5,6 +7,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 
 import "./lib/i18n";
+import "./lib/agents-desktop";
 import "./index.css";
 import { router } from "./lib/router";
 
@@ -17,6 +20,7 @@ if (isTauri()) {
       : (cb: () => void) => setTimeout(cb, 3000);
   whenIdle(() => {
     void import("@/lib/app-updater").then((m) => m.checkForAppUpdate());
+    void import("@/lib/notifications-wiring").then((m) => m.armNotifications());
   });
 
   void import("@/lib/secure-storage").then(({ secureGet, AI_KEY_KEYRING_KEY }) =>

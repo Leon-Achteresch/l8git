@@ -1,4 +1,6 @@
 import { BranchMultiSelect } from '@/components/repo/commit/branch-multi-select';
+import { UndoConfirmDialog } from '@/components/repo/undo/undo-confirm-dialog';
+import { isRemoteCanceled, runRemoteOp } from '@/lib/remote-ops';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +28,12 @@ import { useRepoToolsStore, type ToolAction } from '@/lib/repo-tools-store';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { Input } from '@/components/ui/input';
 import { toastError, toastGitError } from '@/lib/error-toast';
-import { useRepoStore, type Branch } from '@/lib/repo-store';
+import {
+  COMMIT_SEARCH_DEBOUNCE_MS,
+  COMMIT_SEARCH_MIN_CHARS,
+  useRepoStore,
+  type Branch,
+} from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import {
@@ -45,12 +52,14 @@ import {
   Code2,
   FileClock,
   FolderOpen,
+  History,
   Link,
   Loader2,
   Play,
   ScanSearch,
   Search,
   SquareTerminal,
+  Undo2,
   Wrench,
   X,
 } from 'lucide-react';
@@ -64,6 +73,8 @@ import { ToolbarButton } from './toolbar-button';
 import { ToolbarGroup } from './toolbar-group';
 
 type RemoteOp = 'fetch' | 'pull' | 'push';
+
+type GitRemoteRow = { name: string; url: string };
 
 const SPINNER_DELAY_MS = 200;
 const EMPTY_BRANCH_FILTER: ReadonlySet<string> = new Set();
@@ -93,6 +104,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const bisectVisible = useUiStore(s => s.bisectVisible);
   const setBisectVisible = useUiStore(s => s.setBisectVisible);
   const openBlameEditor = useUiStore(s => s.openBlameEditor);
+  const openReflogView = useUiStore(s => s.openReflogView);
   const ideLaunchCommand = useWorkspacePrefs(s => s.ideLaunchCommand);
   const repoTerminalKind = useWorkspacePrefs(s => s.repoTerminalKind);
   const terminalButtonMode = useWorkspacePrefs(s => s.terminalButtonMode);
@@ -127,7 +139,10 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const [pushDialogOpen, setPushDialogOpen] = useState(false);
   const [remoteDialogOpen, setRemoteDialogOpen] = useState(false);
   const [createRemoteOpen, setCreateRemoteOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
   const [draftQuery, setDraftQuery] = useState('');
+  const [remotes, setRemotes] = useState<GitRemoteRow[]>([]);
+  const [pushRemote, setPushRemote] = useState<string | null>(null);
 
   useEffect(() => {
     setDraftQuery('');
@@ -135,11 +150,43 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   }, [path, clearCommitSearch]);
 
   useEffect(() => {
+    let alive = true;
+    setRemotes([]);
+    setPushRemote(null);
+    void (async () => {
+      try {
+        const [list, preferred] = await Promise.all([
+          invoke<GitRemoteRow[]>('list_git_remotes', { path }),
+          invoke<string>('branch_push_remote', { path }).catch(() => 'origin'),
+        ]);
+        if (!alive) return;
+        setRemotes(list);
+        setPushRemote(
+          list.some(r => r.name === preferred) ? preferred : (list[0]?.name ?? null)
+        );
+      } catch {
+        if (alive) {
+          setRemotes([]);
+          setPushRemote(null);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [path, lackUpstream]);
+
+  useEffect(() => {
+    const q = draftQuery.trim();
+    if (q.length > 0 && q.length < COMMIT_SEARCH_MIN_CHARS) {
+      clearCommitSearch(path);
+      return;
+    }
     const timer = window.setTimeout(() => {
-      void searchCommits(path, draftQuery);
-    }, 320);
+      void searchCommits(path, q);
+    }, COMMIT_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [draftQuery, path, searchCommits]);
+  }, [draftQuery, path, searchCommits, clearCommitSearch]);
 
   useEffect(() => {
     if (!busy) return;
@@ -158,34 +205,49 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     async (op: RemoteOp) => {
       setBusy(op);
       try {
-        const out =
+        const out = await runRemoteOp(op, path, opId =>
           op === 'fetch'
-            ? await invoke<string>('git_fetch', {
+            ? invoke<string>('git_fetch', {
                 path,
                 pruneBranches: fetchPruneBranches,
                 pruneTags: fetchPruneTags,
+                opId,
               })
             : op === 'pull'
-              ? await invoke<string>('git_pull', { path, strategy: pullStrategy })
-              : await invoke<string>('git_push', {
+              ? invoke<string>('git_pull', {
+                  path,
+                  strategy: pullStrategy,
+                  opId,
+                })
+              : invoke<string>('git_push', {
                   path,
                   setUpstream: false,
+                  remote: remotes.length > 1 ? pushRemote : null,
                   forceMode: pushForceMode === 'none' ? null : pushForceMode,
                   tagsMode: pushTagsMode === 'none' ? null : pushTagsMode,
                   atomic: pushAtomic,
                   noVerify: pushNoVerify,
                   dryRun: pushDryRun,
-                });
+                  opId,
+                }),
+        );
         await Promise.all([reload(path), reloadStatus(path)]);
         toast.success(out.trim() || t("toolbar.actionSuccess"));
       } catch (e) {
+        if (isRemoteCanceled(e)) {
+          toast.info(t('remoteProgress.canceledToast'));
+          await Promise.all([reload(path), reloadStatus(path)]);
+          return;
+        }
         toastGitError(String(e), {
           repoPath: path,
           onPull: () => void run('pull'),
           onStashAndPull: () => void (async () => {
             try {
               await invoke<string>('git_stash_push', { path, message: null, includeUntracked: false });
-              await invoke<string>('git_pull', { path, strategy: pullStrategy });
+              await runRemoteOp('pull', path, opId =>
+                invoke<string>('git_pull', { path, strategy: pullStrategy, opId })
+              );
               await Promise.all([reload(path), reloadStatus(path)]);
               toast.success(t("toolbar.actionSuccess"));
             } catch (e2) {
@@ -209,6 +271,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       pushAtomic,
       pushNoVerify,
       pushDryRun,
+      pushRemote,
+      remotes,
       t,
     ]
   );
@@ -321,6 +385,26 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   const pushMenu = useMemo(
     () => (
       <>
+        {remotes.length > 1 && (
+          <>
+            <DropdownMenuLabel>{t("pushRemote.menuLabel")}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={pushRemote ?? ''}
+              onValueChange={(v) => setPushRemote(v)}
+            >
+              {remotes.map((r) => (
+                <DropdownMenuRadioItem
+                  key={r.name}
+                  value={r.name}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {r.name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuLabel>{t("toolbar.pushForceSection")}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={pushForceMode} onValueChange={(v) => setPushForceMode(v as PushForceMode)}>
           <DropdownMenuRadioItem value="none" onSelect={(e) => e.preventDefault()}>
@@ -376,7 +460,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
       pushDryRun,
       pushForceMode,
       pushNoVerify,
+      pushRemote,
       pushTagsMode,
+      remotes,
       setPushAtomic,
       setPushDryRun,
       setPushForceMode,
@@ -388,6 +474,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
 
   const pushTitle = useMemo(() => {
     const parts: string[] = [];
+    if (remotes.length > 1 && pushRemote) {
+      parts.push(t("pushRemote.pushTo", { remote: pushRemote }));
+    }
     if (pushCount > 0) parts.push(t("toolbar.pendingSuffix", { count: pushCount }));
     if (pushForceMode === "lease") parts.push(t("toolbar.forceWithLease"));
     else if (pushForceMode === "force") parts.push(t("toolbar.force"));
@@ -399,7 +488,9 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
     pushCount,
     pushDryRun,
     pushForceMode,
+    pushRemote,
     pushTagsMode,
+    remotes,
     t,
   ]);
 
@@ -460,8 +551,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
   };
 
   const trimmedQuery = draftQuery.trim();
+  const queryTooShort =
+    trimmedQuery.length > 0 && trimmedQuery.length < COMMIT_SEARCH_MIN_CHARS;
   const hitCount = searchSlice?.hits?.length ?? 0;
-  const searchLoading = !!searchSlice?.loading && !!searchSlice.query.trim();
+  const searchLoading =
+    !queryTooShort && !!searchSlice?.loading && !!searchSlice.query.trim();
   const canStepSearchMatches =
     !!trimmedQuery &&
     hitCount > 0 &&
@@ -565,6 +659,16 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               icon={<FileClock className='h-3.5 w-3.5' />}
             />
             <ToolbarButton
+              title={t("undo.buttonTitle")}
+              onClick={() => setUndoOpen(true)}
+              icon={<Undo2 className='h-3.5 w-3.5' />}
+            />
+            <ToolbarButton
+              title={t("reflog.openTitle")}
+              onClick={() => openReflogView(path)}
+              icon={<History className='h-3.5 w-3.5' />}
+            />
+            <ToolbarButton
               title={bisectToolbarTitle}
               isActive={bisectVisible}
               badge={bisect?.active && !bisect?.done ? (bisect.steps_remaining ?? undefined) : undefined}
@@ -656,7 +760,16 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                     <X className='size-3' />
                   </Button>
                 </PopIn>
-                {searchLoading ? (
+                {queryTooShort ? (
+                  <span
+                    title={t("toolbar.searchMinCharsTitle", {
+                      count: COMMIT_SEARCH_MIN_CHARS,
+                    })}
+                    className='flex h-[18px] min-w-[18px] items-center justify-center rounded-md bg-muted/70 px-1 text-[10px] font-semibold tabular-nums text-muted-foreground'
+                  >
+                    {`${COMMIT_SEARCH_MIN_CHARS}+`}
+                  </span>
+                ) : searchLoading ? (
                   <Loader2 className='mx-1 h-3 w-3 shrink-0 animate-spin text-muted-foreground' />
                 ) : (
                   <PopIn key={hitCount} title={t("toolbar.searchHitsTitle", { count: hitCount })}>
@@ -716,6 +829,11 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
         open={createRemoteOpen}
         onClose={() => setCreateRemoteOpen(false)}
         path={path}
+      />
+      <UndoConfirmDialog
+        open={undoOpen}
+        path={path}
+        onClose={() => setUndoOpen(false)}
       />
       <AlertDialog
         open={!!pendingTool}

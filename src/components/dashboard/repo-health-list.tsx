@@ -1,10 +1,20 @@
 import { useTranslation } from "react-i18next";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import type { HealthItem } from "@/lib/dashboard-aggregations";
 import { cn } from "@/lib/utils";
 
-export function RepoHealthList({ items }: { items: HealthItem[] }) {
+export function RepoHealthList({ items, loading }: { items: HealthItem[]; loading?: boolean }) {
   const { t } = useTranslation();
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {items.map((item) => (
+          <Skeleton key={item.key} className="h-9 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
   return (
     <ul className="space-y-2">
       {items.map((item) => {

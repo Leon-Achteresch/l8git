@@ -10,10 +10,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { UndoConfirmDialog } from "@/components/repo/undo/undo-confirm-dialog";
+import { LfsSection } from "./lfs-section";
 import { useRepoToolsStore, type ToolAction } from "@/lib/repo-tools-store";
 import { useTerminalStore } from "@/lib/terminal-store";
+import { useUiStore } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
-import { Play, Wrench } from "lucide-react";
+import { History, Play, ScrollText, Undo2, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -22,7 +25,10 @@ export function ToolsPanel({ path }: { path: string }) {
   const tools = useRepoToolsStore((s) => s.toolsByPath[path]);
   const loadTools = useRepoToolsStore((s) => s.loadTools);
   const openTab = useTerminalStore((s) => s.openTab);
+  const openReflogView = useUiStore((s) => s.openReflogView);
+  const openCommandLog = useUiStore((s) => s.openCommandLog);
   const [pendingConfirm, setPendingConfirm] = useState<ToolAction | null>(null);
+  const [undoOpen, setUndoOpen] = useState(false);
 
   useEffect(() => {
     void loadTools(path);
@@ -34,8 +40,7 @@ export function ToolsPanel({ path }: { path: string }) {
   };
 
   const onRun = (action: ToolAction) => {
-    if (action.confirm) setPendingConfirm(action);
-    else runAction(action);
+    setPendingConfirm(action);
   };
 
   return (
@@ -50,15 +55,55 @@ export function ToolsPanel({ path }: { path: string }) {
         </p>
       </div>
 
-      {tools && tools.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center">
-          <p className="text-sm text-muted-foreground">{t("tools.empty")}</p>
-          <p className="text-xs text-muted-foreground/70">
-            {t("tools.emptyHint")}
-          </p>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="shrink-0 border-b border-border/50 px-4 py-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {t("tools.gitSection")}
+          </h3>
+          <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="justify-start gap-2"
+              onClick={() => openReflogView(path)}
+            >
+              <History className="size-3.5" />
+              {t("reflog.openTitle")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="justify-start gap-2"
+              onClick={() => openCommandLog()}
+            >
+              <ScrollText className="size-3.5" />
+              {t("cmdLog.openTitle")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="justify-start gap-2"
+              onClick={() => setUndoOpen(true)}
+            >
+              <Undo2 className="size-3.5" />
+              {t("undo.buttonLabel")}
+            </Button>
+          </div>
         </div>
-      ) : (
-        <ScrollArea className="min-h-0 flex-1">
+
+        <LfsSection path={path} />
+
+        {tools && tools.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1 px-6 py-8 text-center">
+            <p className="text-sm text-muted-foreground">{t("tools.empty")}</p>
+            <p className="text-xs text-muted-foreground/70">
+              {t("tools.emptyHint")}
+            </p>
+          </div>
+        ) : (
           <div className="flex flex-col gap-3 p-4">
             {(tools ?? []).map((tool, ti) => (
               <div
@@ -109,8 +154,14 @@ export function ToolsPanel({ path }: { path: string }) {
               </div>
             ))}
           </div>
-        </ScrollArea>
-      )}
+        )}
+      </ScrollArea>
+
+      <UndoConfirmDialog
+        open={undoOpen}
+        path={path}
+        onClose={() => setUndoOpen(false)}
+      />
 
       <AlertDialog
         open={!!pendingConfirm}

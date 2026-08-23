@@ -18,23 +18,35 @@ import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
 import { useRepoPrefs } from "@/lib/repo-prefs";
 import { toastError } from "@/lib/error-toast";
+import { loadSigningInfo, type SigningInfo } from "@/lib/git-signing";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
+import { useSigningRevision } from "@/lib/signing-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
+import { parseDiffWithHunks, type ParsedDiff } from "@/lib/unified-diff";
+import { useCommitPanelHotkeys } from "@/lib/use-commit-panel-hotkeys";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
 import { VirtualFileList } from "./commit-panel-file-list";
 import { MergeStatusBanner } from "@/components/repo/merge/merge-status-banner";
+import { RebaseStatusBanner } from "@/components/repo/rebase/rebase-status-banner";
 import { CommitPanelConflictPlaceholder } from "@/components/repo/commit/commit-panel-conflict-placeholder";
 import { CommitComposer } from "@/components/repo/commit/commit-composer";
 import {
   buildChangeRows,
   checkState,
+  type FileDiffResponse,
 } from "./commit-panel-types";
 import { generateAiCommitMessage } from "@/lib/ai-commit";
+import { AiError } from "@/lib/ai/core";
+import { AiResultActions } from "@/components/ai/ai-result-actions";
+import { isAiConfigured } from "@/lib/ai-setup";
+import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
+import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog";
 import { useTranslation } from "react-i18next";
 
 const EMPTY_STATUS: StatusEntry[] = [];
+const EMPTY_LINES: ReadonlySet<string> = new Set();
 
 export function CommitPanel() {
   const { t } = useTranslation();
@@ -54,6 +66,9 @@ export function CommitPanel() {
   const discardWorktreeChanges = useRepoStore((s) => s.discardWorktreeChanges);
   const gitReset = useRepoStore((s) => s.gitReset);
 
+  const diffViewMode = useCommitPrefs((s) => s.diffViewMode);
+  const setDiffViewMode = useCommitPrefs((s) => s.setDiffViewMode);
+
   const globalAiLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
   const repoAiLanguage = useRepoPrefs((s) => activePath ? s.getAiOutputLanguage(activePath) : undefined);
   const setRepoAiLanguage = useRepoPrefs((s) => s.setAiOutputLanguage);
@@ -62,15 +77,29 @@ export function CommitPanel() {
   const [message, setMessage] = useState("");
   const [committing, setCommitting] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiResultShown, setAiResultShown] = useState(false);
+  const aiAbortRef = useRef<AbortController | null>(null);
+  const [aiSetupOpen, setAiSetupOpen] = useState(false);
   const [amendMode, setAmendMode] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const aiReady = useCommitPrefs(() => isAiConfigured());
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
   const [undoDialogOpen, setUndoDialogOpen] = useState(false);
+  const [signingInfo, setSigningInfo] = useState<SigningInfo | null>(null);
+  const signingRevision = useSigningRevision((s) => s.revision);
 
   const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
   const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
   const [discardDialog, setDiscardDialog] = useState<{ files: string[]; worktreeOnly: boolean } | null>(null);
+
+  const [diffPayload, setDiffPayload] = useState<FileDiffResponse | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffFailed, setDiffFailed] = useState(false);
+  const [focusedHunkIdx, setFocusedHunkIdx] = useState(-1);
+  const [selectedLines, setSelectedLines] = useState<ReadonlySet<string>>(EMPTY_LINES);
+  const [discardLinesDialog, setDiscardLinesDialog] = useState<{ patches: string[]; count: number } | null>(null);
 
   const subject = message.split("\n")[0] ?? "";
   const bodyStart = message.indexOf("\n\n");
@@ -117,6 +146,29 @@ export function CommitPanel() {
     }
     return useCommitPrefs.persist.onFinishHydration(run);
   }, [activePath, seedMessageFromTemplate]);
+
+  useEffect(() => {
+    setAiResultShown(false);
+    return () => aiAbortRef.current?.abort();
+  }, [activePath]);
+
+  useEffect(() => {
+    if (!activePath) {
+      setSigningInfo(null);
+      return;
+    }
+    let alive = true;
+    void loadSigningInfo(activePath)
+      .then((info) => {
+        if (alive) setSigningInfo(info);
+      })
+      .catch(() => {
+        if (alive) setSigningInfo(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [activePath, signingRevision]);
 
   useEffect(() => {
     let prev = useCommitPrefs.getState().messageTemplate;
@@ -171,10 +223,173 @@ export function CommitPanel() {
   const selectedPath = selectedRow?.path ?? null;
   const selectedBinary = !!selectedRow?.entry.binary;
   const selectedIsConflict = selectedRow?.sector === "conflict";
+  const selectedUntracked = !!selectedRow?.entry.untracked;
+  const selectedSector = selectedRow?.sector ?? null;
+  const selectedSignature = selectedRow
+    ? [
+        selectedRow.entry.index_status,
+        selectedRow.entry.worktree_status,
+        selectedRow.entry.additions_staged,
+        selectedRow.entry.deletions_staged,
+        selectedRow.entry.additions_unstaged,
+        selectedRow.entry.deletions_unstaged,
+      ].join("|")
+    : "";
+
+  const stagingMode = diffViewMode === "stage";
+
+  const loadDiff = useCallback(async () => {
+    if (!activePath || !selectedPath || !stagingMode || selectedIsConflict) {
+      setDiffPayload(null);
+      setDiffLoading(false);
+      setDiffFailed(false);
+      return;
+    }
+    if (selectedBinary) {
+      setDiffPayload({ staged: null, unstaged: null, untracked_plain: null, is_binary: true });
+      setDiffLoading(false);
+      setDiffFailed(false);
+      return;
+    }
+    setDiffLoading(true);
+    setDiffFailed(false);
+    try {
+      const r = await invoke<FileDiffResponse>("repo_file_diff", {
+        path: activePath,
+        file: selectedPath,
+        untracked: selectedUntracked,
+      });
+      setDiffPayload(r);
+    } catch (e) {
+      toastError(String(e));
+      setDiffFailed(true);
+      setDiffPayload(null);
+    } finally {
+      setDiffLoading(false);
+    }
+  }, [activePath, selectedPath, stagingMode, selectedIsConflict, selectedBinary, selectedUntracked]);
+
+  useEffect(() => {
+    void loadDiff();
+  }, [loadDiff, selectedSector, selectedSignature]);
 
   const stableOnReload = useCallback(() => {
     if (activePath) void reloadStatus(activePath);
-  }, [activePath, reloadStatus]);
+    void loadDiff();
+  }, [activePath, reloadStatus, loadDiff]);
+
+  const parsedDiff = useMemo<ParsedDiff | null>(() => {
+    if (!selectedRow || !diffPayload) return null;
+    const text =
+      selectedRow.sector === "staged" ? diffPayload.staged : diffPayload.unstaged;
+    if (!text?.trim()) return null;
+    return parseDiffWithHunks(text);
+  }, [diffPayload, selectedRow]);
+
+  useEffect(() => {
+    setFocusedHunkIdx(-1);
+    setSelectedLines(EMPTY_LINES);
+  }, [selectedRowId, stagingMode]);
+
+  const hunkCount = parsedDiff?.hunks.length ?? 0;
+
+  const onFocusPrevHunk = useCallback(() => {
+    setFocusedHunkIdx((i) => (hunkCount === 0 ? -1 : i <= 0 ? hunkCount - 1 : i - 1));
+  }, [hunkCount]);
+
+  const onFocusNextHunk = useCallback(() => {
+    setFocusedHunkIdx((i) => (hunkCount === 0 ? -1 : i >= hunkCount - 1 ? 0 : i + 1));
+  }, [hunkCount]);
+
+  const onToggleLine = useCallback((key: string) => {
+    setSelectedLines((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const onClearSelection = useCallback(() => {
+    setSelectedLines(EMPTY_LINES);
+  }, []);
+
+  const applyHunkPatches = useCallback(
+    (command: "stage_hunk" | "unstage_hunk" | "discard_hunk", patches: string[]) => {
+      if (!activePath || patches.length === 0) return;
+      void (async () => {
+        try {
+          for (const patch of patches) {
+            await invoke(command, { path: activePath, patch });
+          }
+        } catch (e) {
+          toastError(String(e));
+        } finally {
+          await reloadStatus(activePath);
+          await loadDiff();
+        }
+      })();
+    },
+    [activePath, reloadStatus, loadDiff],
+  );
+
+  const stageHunk = useCallback(
+    (patches: string[]) => applyHunkPatches("stage_hunk", patches),
+    [applyHunkPatches],
+  );
+
+  const unstageHunk = useCallback(
+    (patches: string[]) => applyHunkPatches("unstage_hunk", patches),
+    [applyHunkPatches],
+  );
+
+  const requestDiscardHunk = useCallback((patches: string[], count: number) => {
+    setDiscardLinesDialog({ patches, count });
+  }, []);
+
+  const confirmDiscardLines = useCallback(() => {
+    if (!discardLinesDialog) return;
+    const { patches } = discardLinesDialog;
+    setDiscardLinesDialog(null);
+    applyHunkPatches("discard_hunk", patches);
+  }, [discardLinesDialog, applyHunkPatches]);
+
+  const latestSelectedRowRef = useRef(selectedRow);
+  latestSelectedRowRef.current = selectedRow;
+
+  const stableOnToggleFile = useCallback(() => {
+    const row = latestSelectedRowRef.current;
+    if (!activePath || !row) return;
+    const state = checkState(row.entry);
+    void (async () => {
+      try {
+        if (state === "checked") {
+          await unstageFiles(activePath, [row.path]);
+        } else {
+          await stageFiles(activePath, [row.path]);
+        }
+      } catch (e) {
+        toastError(String(e));
+      }
+    })();
+  }, [activePath, unstageFiles, stageFiles]);
+
+  useCommitPanelHotkeys({
+    parsedDiff,
+    focusedHunkIdx,
+    selectedLines,
+    sector:
+      selectedRow?.sector === "staged" || selectedRow?.sector === "unstaged"
+        ? selectedRow.sector
+        : null,
+    enabled: stagingMode && !!selectedRow && !selectedIsConflict && !diffLoading,
+    onClearSelection,
+    onFocusPrevHunk,
+    onFocusNextHunk,
+    onStage: stageHunk,
+    onUnstage: unstageHunk,
+    onToggleFile: stableOnToggleFile,
+  });
 
   const totals = useMemo(() => {
     let additionsStaged = 0;
@@ -319,19 +534,48 @@ export function CommitPanel() {
     }
   }, [activePath, discardFiles, discardWorktreeChanges, discardDialog]);
 
-  const onGenerateAiMessage = useCallback(async () => {
+  const runAiGeneration = useCallback(async (hint?: string) => {
     if (!activePath || stagedRows.length === 0) return;
+    aiAbortRef.current?.abort();
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
     setAiGenerating(true);
     try {
       const stagedDiff = await invoke<string>("repo_staged_diff", { path: activePath });
-      const msg = await generateAiCommitMessage(stagedDiff, activePath);
+      const msg = await generateAiCommitMessage(stagedDiff, activePath, {
+        hint,
+        signal: controller.signal,
+        onDelta: (partial) => {
+          if (!controller.signal.aborted) setMessage(partial);
+        },
+      });
+      if (controller.signal.aborted) return;
       setMessage(msg);
+      setAiResultShown(true);
     } catch (e) {
-      toastError(String(e));
+      if (e instanceof AiError && e.kind === "aborted") return;
+      toastError(e instanceof Error ? e.message : String(e));
     } finally {
-      setAiGenerating(false);
+      if (aiAbortRef.current === controller) {
+        aiAbortRef.current = null;
+        setAiGenerating(false);
+      }
     }
   }, [activePath, stagedRows.length]);
+
+  const onGenerateAiMessage = useCallback((hint?: string) => {
+    if (!activePath || stagedRows.length === 0) return;
+    if (!isAiConfigured()) {
+      setAiSetupOpen(true);
+      return;
+    }
+    void runAiGeneration(hint);
+  }, [activePath, stagedRows.length, runAiGeneration]);
+
+  const cancelAiGeneration = useCallback(() => {
+    aiAbortRef.current?.abort();
+    setAiGenerating(false);
+  }, []);
 
   if (!activePath) return null;
 
@@ -398,6 +642,7 @@ export function CommitPanel() {
       )}
 
       <MergeStatusBanner path={activePath} />
+      <RebaseStatusBanner path={activePath} />
 
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup
@@ -452,11 +697,35 @@ export function CommitPanel() {
                 selectedRow={selectedRow}
                 isBinary={selectedBinary}
                 onReload={stableOnReload}
+                viewMode={diffViewMode}
+                onViewModeChange={setDiffViewMode}
+                diffPayload={diffPayload}
+                diffLoading={diffLoading}
+                diffFailed={diffFailed}
+                onStageHunk={stageHunk}
+                onUnstageHunk={unstageHunk}
+                onDiscardHunk={requestDiscardHunk}
+                parsedDiff={parsedDiff}
+                focusedHunkIdx={focusedHunkIdx}
+                selectedLines={selectedLines}
+                onToggleLine={onToggleLine}
+                onClearSelection={onClearSelection}
               />
             )}
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+
+      {aiResultShown && (aiGenerating || message.trim().length > 0) ? (
+        <AiResultActions
+          className="mx-2 mt-1"
+          busy={aiGenerating}
+          disabled={totals.stagedFiles === 0}
+          onRegenerate={() => onGenerateAiMessage()}
+          onRefine={(hint) => onGenerateAiMessage(hint)}
+          onCancel={cancelAiGeneration}
+        />
+      ) : null}
 
       <CommitComposer
         subject={subject}
@@ -475,8 +744,9 @@ export function CommitPanel() {
         repoAiLanguage={repoAiLanguage}
         globalAiLanguage={globalAiLanguage}
         canUndo={!!latestCommit && (!hasUpstream || aheadCount > 0)}
+        signingInfo={signingInfo}
         onCommit={() => void onCommit()}
-        onGenerateAi={() => void onGenerateAiMessage()}
+        onGenerateAi={() => onGenerateAiMessage()}
         onSetLanguage={(lang) => setRepoAiLanguage(activePath, lang)}
         onToggleAmend={() => {
           const next = !amendMode;
@@ -490,12 +760,27 @@ export function CommitPanel() {
         }}
         onStash={() => setStashOpen(true)}
         onUndo={() => setUndoDialogOpen(true)}
+        onSplitCommits={
+          activePath && aiReady && entries.length > 0
+            ? () => setSplitOpen(true)
+            : undefined
+        }
       />
+
+      {splitOpen && activePath ? (
+        <CommitSplitDialog open={splitOpen} onOpenChange={setSplitOpen} path={activePath} />
+      ) : null}
 
       <StashCreateDialog
         open={stashOpen}
         onClose={() => setStashOpen(false)}
         path={activePath}
+      />
+
+      <AiSetupDialog
+        open={aiSetupOpen}
+        onOpenChange={setAiSetupOpen}
+        onReady={() => void runAiGeneration()}
       />
 
       <AlertDialog
@@ -517,6 +802,32 @@ export function CommitPanel() {
               variant="destructive"
               size="sm"
               onClick={() => void confirmDiscard()}
+            >
+              {t("commitPanel.discardVerb")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={discardLinesDialog !== null}
+        onOpenChange={(open) => { if (!open) setDiscardLinesDialog(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("commitPanel.discardDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("commitPanel.discardLinesConfirm", {
+                count: discardLinesDialog?.count ?? 0,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              size="sm"
+              onClick={confirmDiscardLines}
             >
               {t("commitPanel.discardVerb")}
             </AlertDialogAction>

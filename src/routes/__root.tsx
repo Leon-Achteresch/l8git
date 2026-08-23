@@ -28,12 +28,26 @@ const AppIsland = lazy(() =>
   })),
 );
 import { HotkeysOverlay } from "@/components/app/hotkeys-overlay";
+import { RemoteProgressDock } from "@/components/app/remote-progress-dock";
+
+const ReflogPage = lazy(() =>
+  import("@/components/repo/reflog/reflog-page").then((m) => ({
+    default: m.ReflogPage,
+  })),
+);
+
+const GitCommandLogPage = lazy(() =>
+  import("@/components/repo/cmdlog/git-command-log-page").then((m) => ({
+    default: m.GitCommandLogPage,
+  })),
+);
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { useRepoStore } from "@/lib/repo-store";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
 import { useTheme } from "@/lib/use-theme";
 import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
+import { useUiStore } from "@/lib/ui-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { useState } from "react";
 
@@ -50,6 +64,10 @@ function RootLayout() {
   const islandEnabled = useUiVisibilityPrefs((s) => s.showHeaderIsland);
   const hasActiveRepo = useRepoStore((s) => !!s.activePath);
   const islandHandlesToasts = islandEnabled && hasActiveRepo;
+  const reflogViewPath = useUiStore((s) => s.reflogViewPath);
+  const closeReflogView = useUiStore((s) => s.closeReflogView);
+  const commandLogOpen = useUiStore((s) => s.commandLogOpen);
+  const closeCommandLog = useUiStore((s) => s.closeCommandLog);
 
   useEffect(() => {
     document.documentElement.style.fontSize = uiScale === 1 ? "" : `${uiScale * 100}%`;
@@ -87,6 +105,17 @@ function RootLayout() {
             theme={resolveTheme(theme)}
           />
         )}
+        {reflogViewPath && (
+          <Suspense fallback={null}>
+            <ReflogPage path={reflogViewPath} onClose={closeReflogView} />
+          </Suspense>
+        )}
+        {commandLogOpen && (
+          <Suspense fallback={null}>
+            <GitCommandLogPage onClose={closeCommandLog} />
+          </Suspense>
+        )}
+        <RemoteProgressDock />
         <HotkeysOverlay open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
         <Suspense fallback={null}>
           <AppUpdateToast />

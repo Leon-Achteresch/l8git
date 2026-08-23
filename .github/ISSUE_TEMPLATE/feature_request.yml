@@ -1,0 +1,64 @@
+name: Feature request
+description: Suggest an improvement or a new capability
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please check [ROADMAP.md](https://github.com/Leon-Achteresch/l8git/blob/main/ROADMAP.md) first — it may already be scheduled.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you run into, not only the solution you have in mind.
+      placeholder: When I rebase a long-lived branch I cannot tell which commits will be replayed before I start.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work from a user's point of view?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Commit and staging
+        - History and graph
+        - Branches, merge, rebase
+        - Stacks
+        - Pull requests and CI
+        - Inbox and notifications
+        - AI features
+        - Agents
+        - Terminal
+        - Undo, reflog, command log
+        - Settings and appearance
+        - Internationalization
+        - Packaging and platform support
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Other Git clients that solve this well, workarounds you use today, or approaches you rejected.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to work on this myself
+          required: false

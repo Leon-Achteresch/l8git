@@ -1,13 +1,17 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+
+import { platformStorage } from "@/lib/platform/kv";
 
 import { chatStoreFor } from "@/lib/agents/active-chat-store";
+import { threadCostKey } from "@/lib/agents/overview";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import { estimateCost } from "@/lib/agents/token-cost";
 import type { AgentTokenUsage } from "@/lib/agents/types";
 
 const PROVIDERS: NativeAgentProvider[] = ["codex", "claude", "cursor", "opencode"];
 const KEEP_DAYS = 30;
+const KEEP_THREADS = 400;
 
 export interface UsageBucket {
   inputTokens: number;
@@ -18,6 +22,10 @@ export interface UsageBucket {
 }
 
 export type UsageDay = Partial<Record<NativeAgentProvider, UsageBucket>>;
+
+export interface ThreadUsage extends UsageBucket {
+  updatedAt: number;
+}
 
 export interface UsageTotals {
   inputTokens: number;
@@ -70,6 +78,17 @@ export function pruneDays(days: Record<string, UsageDay>, today: string, keep: n
   return Object.fromEntries(Object.entries(days).filter(([key]) => recent.has(key)));
 }
 
+export function pruneThreads(
+  threads: Record<string, ThreadUsage>,
+  keep: number = KEEP_THREADS,
+): Record<string, ThreadUsage> {
+  const entries = Object.entries(threads);
+  if (entries.length <= keep) return threads;
+  return Object.fromEntries(
+    entries.sort(([, left], [, right]) => right.updatedAt - left.updatedAt).slice(0, keep),
+  );
+}
+
 export function sumDays(days: Record<string, UsageDay>, keys: string[]): UsageBucket {
   let total: UsageBucket = {
     inputTokens: 0,
@@ -97,14 +116,21 @@ export function lastDayKeys(count: number, today: Date = new Date()): string[] {
 
 interface UsageLedgerState {
   days: Record<string, UsageDay>;
-  record: (provider: NativeAgentProvider, model: string | null, delta: UsageTotals) => void;
+  threads: Record<string, ThreadUsage>;
+  record: (
+    provider: NativeAgentProvider,
+    model: string | null,
+    delta: UsageTotals,
+    threadKey?: string,
+  ) => void;
 }
 
 export const useUsageLedgerStore = create<UsageLedgerState>()(
   persist(
     (set) => ({
       days: {},
-      record: (provider, model, delta) => {
+      threads: {},
+      record: (provider, model, delta, threadKey) => {
         const cost = estimateCost(
           {
             totalTokens: delta.inputTokens + delta.outputTokens,
@@ -123,11 +149,23 @@ export const useUsageLedgerStore = create<UsageLedgerState>()(
             },
             today,
           );
-          return { days };
+          if (!threadKey) return { days };
+          const bucket = addToBucket(state.threads[threadKey], delta, cost?.totalUsd ?? 0);
+          return {
+            days,
+            threads: pruneThreads({
+              ...state.threads,
+              [threadKey]: { ...bucket, updatedAt: Date.now() },
+            }),
+          };
         });
       },
     }),
-    { name: "l8git-agent-usage", version: 1 },
+    {
+      name: "l8git-agent-usage",
+      version: 1,
+      storage: createJSONStorage(() => platformStorage),
+    },
   ),
 );
 
@@ -143,7 +181,11 @@ export function armUsageLedger(): () => void {
         const next = usageTotals(conversation.tokenUsage);
         const delta = usageDelta(previous.get(threadId), next);
         previous.set(threadId, next);
-        if (delta) useUsageLedgerStore.getState().record(provider, conversation.model || null, delta);
+        if (delta) {
+          useUsageLedgerStore
+            .getState()
+            .record(provider, conversation.model || null, delta, threadCostKey(provider, threadId));
+        }
       }
     });
   });

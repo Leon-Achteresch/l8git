@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
+import { usePrCapabilities } from "@/lib/pr-provider-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
   CheckCheck,
@@ -33,6 +34,9 @@ export function PullRequestOverviewTab({
   const [mergeMessage, setMergeMessage] = useState("");
   const [reviewBody, setReviewBody] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const caps = usePrCapabilities(path);
+  const strategies = caps?.merge_strategies ?? ["merge", "squash", "rebase"];
+  const canRequestChanges = caps ? caps.can_request_changes : true;
 
   const canAct = detail.state === "open" || detail.state === "draft";
 
@@ -76,6 +80,7 @@ export function PullRequestOverviewTab({
         number: detail.number,
         event,
         body: reviewBody.trim(),
+        comments: null,
       });
       setReviewBody("");
       onMutated();
@@ -195,17 +200,19 @@ export function PullRequestOverviewTab({
                     <CheckCheck className="mr-1 h-4 w-4" />
                     {busy === "APPROVE" ? t("pr.createSubmitBusy") : t("pr.approveButton")}
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void submitReview("REQUEST_CHANGES")}
-                    disabled={busy !== null}
-                  >
-                    <ThumbsDown className="mr-1 h-4 w-4" />
-                    {busy === "REQUEST_CHANGES"
-                      ? t("pr.createSubmitBusy")
-                      : t("pr.requestChangesButton")}
-                  </Button>
+                  {canRequestChanges && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void submitReview("REQUEST_CHANGES")}
+                      disabled={busy !== null}
+                    >
+                      <ThumbsDown className="mr-1 h-4 w-4" />
+                      {busy === "REQUEST_CHANGES"
+                        ? t("pr.createSubmitBusy")
+                        : t("pr.requestChangesButton")}
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -231,11 +238,11 @@ export function PullRequestOverviewTab({
                       setStrategy(e.target.value as MergeStrategy)
                     }
                   >
-                    <NativeSelectOption value="merge">{t("pr.strategyMergeCommit")}</NativeSelectOption>
-                    <NativeSelectOption value="squash">{t("pr.strategySquashOption")}</NativeSelectOption>
-                    <NativeSelectOption value="rebase">
-                      {t("pr.strategyRebaseOption")}
-                    </NativeSelectOption>
+                    {strategies.map((s) => (
+                      <NativeSelectOption key={s} value={s}>
+                        {mergeStrategyDisplay(s)}
+                      </NativeSelectOption>
+                    ))}
                   </NativeSelect>
                 </div>
                 <Textarea

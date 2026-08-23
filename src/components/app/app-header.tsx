@@ -2,18 +2,31 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bot,
   GitFork,
+  Inbox,
   Info,
   LayoutDashboard,
   Settings,
   User,
 } from "lucide-react";
-import { type CSSProperties } from "react";
+import { lazy, Suspense, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AppHeaderSearch } from "@/components/app/app-header-search";
 import { WindowControls } from "@/components/app/window-controls";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { cn } from "@/lib/utils";
+
+const AppAgentsIndicator = lazy(() =>
+  import("@/components/app/app-agents-indicator").then((m) => ({
+    default: m.AppAgentsIndicator,
+  })),
+);
+
+const InboxIndicator = lazy(() =>
+  import("@/components/inbox/inbox-indicator").then((m) => ({
+    default: m.InboxIndicator,
+  })),
+);
 
 const IS_MAC =
   typeof navigator !== "undefined" &&
@@ -29,6 +42,7 @@ export function AppHeader() {
   const navItems = [
     { to: "/" as const, label: t("header.repo"), icon: GitFork },
     { to: "/dashboard" as const, label: t("header.dashboard"), icon: LayoutDashboard },
+    { to: "/inbox" as const, label: t("header.inbox"), icon: Inbox },
     { to: "/agents" as const, label: t("header.agents"), icon: Bot },
     { to: "/info" as const, label: t("header.info"), icon: Info },
     { to: "/about" as const, label: t("header.about"), icon: User },
@@ -50,6 +64,14 @@ export function AppHeader() {
         style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
       >
         <AppHeaderSearch />
+
+        <Suspense fallback={null}>
+          <AppAgentsIndicator />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <InboxIndicator />
+        </Suspense>
 
         <div className="mx-1 h-4 w-px bg-border/60" aria-hidden />
 

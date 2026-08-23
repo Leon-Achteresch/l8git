@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+# Zielort: manifests/l/LeonAchteresch/l8git/<PackageVersion>/LeonAchteresch.l8git.locale.en-US.yaml
+# PRO RELEASE ZU AKTUALISIEREN: PackageVersion, ReleaseNotesUrl.
+
+PackageIdentifier: LeonAchteresch.l8git
+PackageVersion: 0.5.0
+PackageLocale: en-US
+Publisher: Leon Achteresch
+PublisherUrl: https://github.com/Leon-Achteresch
+PublisherSupportUrl: https://github.com/Leon-Achteresch/l8git/issues
+Author: Leon Achteresch
+PackageName: l8git
+PackageUrl: https://github.com/Leon-Achteresch/l8git
+License: MIT
+LicenseUrl: https://github.com/Leon-Achteresch/l8git/blob/main/LICENSE
+Copyright: Copyright (c) 2026 Leon
+ShortDescription: A fast, multi-repository Git desktop client built with Tauri 2, React 19 and Rust.
+Description: |-
+  l8git is a desktop Git client that manages multiple repositories simultaneously in a single,
+  tabbed workspace. It covers status, staging, commits, branches, merges, cherry-picks, stashes,
+  tags, remotes, submodules, worktrees, hooks and bisect, plus pull request and CI integration
+  for GitHub, GitHub Enterprise and Bitbucket, an embedded terminal, blame, diffs with syntax
+  highlighting and AI-generated commit messages.
+  Requires git to be installed and available in PATH.
+Moniker: l8git
+Tags:
+  - git
+  - vcs
+  - version-control
+  - developer-tools
+  - github
+  - bitbucket
+  - pull-request
+  - tauri
+ReleaseNotesUrl: https://github.com/Leon-Achteresch/l8git/releases/tag/v0.5.0
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

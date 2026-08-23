@@ -8,14 +8,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useExplainSheet } from "@/components/ai/explain-sheet";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
+import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitInspectHeader } from "./commit-inspect-header";
+import { CommitSignatureBadge } from "./commit-signature-badge";
 import { CommitInspectMessage } from "./commit-inspect-message";
 import { CommitInspectFileTabs } from "./commit-inspect-file-tabs";
 import { CommitInspectDiff, FileDiffPayload } from "./commit-inspect-diff";
@@ -42,6 +45,7 @@ export function CommitInspectDetail({
   const [diffFailed, setDiffFailed] = useState(false);
   const [blameActive, setBlameActive] = useState(false);
   const [restoreDialog, setRestoreDialog] = useState<{ files: string[] } | null>(null);
+  const explain = useExplainSheet();
 
   const loadInspect = useCallback(async () => {
     if (!commitHash) {
@@ -148,6 +152,20 @@ export function CommitInspectDetail({
     <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-sm">
       <CommitInspectHeader
         title={t("commitInspect.panelTitle")}
+        badge={<CommitSignatureBadge path={path} commitHash={commitHash} />}
+        actions={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+            onClick={() =>
+              explain.open({ kind: "commit", repoPath: path, commitHash })
+            }
+          >
+            <Sparkles className="h-4 w-4" />
+            {t("commitInspect.explainCommit")}
+          </Button>
+        }
         onRefresh={refreshAll}
         onClose={onClose}
         loading={loading}
@@ -198,6 +216,8 @@ export function CommitInspectDetail({
                   />
                 ) : (
                   <CommitInspectDiff
+                    repoPath={path}
+                    commitHash={commitHash}
                     selectedFile={selectedFile}
                     fileDiff={fileDiff}
                     loading={diffLoading}
@@ -227,6 +247,7 @@ export function CommitInspectDetail({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {explain.element}
     </div>
   );
 }

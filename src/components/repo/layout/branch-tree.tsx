@@ -1,6 +1,18 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { BranchCleanupDialog } from "@/components/repo/branch/branch-cleanup-dialog";
+import { useBranchCleanupPrefs } from "@/lib/branch-cleanup-prefs";
+import { useBranchCleanupStore } from "@/lib/branch-cleanup-store";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { BranchSection } from "@/components/repo/branch/branch-section";
+import { StackSection } from "@/components/repo/branch/stack-section";
+import { totalStackBranches } from "@/lib/stack";
+import { useStackStore } from "@/lib/stack-store";
 import { TagSection } from "@/components/repo/tag/tag-section";
 import {
   Accordion,
@@ -12,8 +24,8 @@ import { PopIn } from "@/components/motion/pop-in";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSidebarPrefs } from "@/lib/sidebar-prefs";
 import type { Branch, TagRef } from "@/lib/repo-store";
-import { Search, X } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { Brush, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 function SectionCount({ count }: { count: number }) {
@@ -30,21 +42,47 @@ function Section({
   value,
   label,
   count,
+  onCleanup,
+  cleanupCount,
   children,
 }: {
   value: string;
   label: string;
   count: number;
+  onCleanup?: () => void;
+  cleanupCount?: number;
   children: ReactNode;
 }) {
-  return (
-    <AccordionItem value={value} className="min-w-0 border-0">
-      <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
+  const { t } = useTranslation();
+  const trigger = (
+    <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
         <span className="min-w-0 flex-1 truncate text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
           {label}
         </span>
-        <SectionCount count={count} />
-      </AccordionTrigger>
+      <SectionCount count={count} />
+    </AccordionTrigger>
+  );
+
+  return (
+    <AccordionItem value={value} className="min-w-0 border-0">
+      {onCleanup ? (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem onSelect={onCleanup}>
+              <Brush className="h-3.5 w-3.5" aria-hidden />
+              <span>{t("branchCleanup.buttonLabel")}</span>
+              {cleanupCount ? (
+                <span className="ml-auto text-[10px] font-semibold tabular-nums text-git-modified">
+                  {cleanupCount > 99 ? "99+" : cleanupCount}
+                </span>
+              ) : null}
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        trigger
+      )}
       <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
         {children}
       </AccordionContent>
@@ -87,6 +125,20 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
   const hasAnyMatch =
     localBranches.length + remoteBranches.length + filteredTags.length > 0;
 
+  const stackList = useStackStore((s) => s.lists[path]);
+  const stackCount = stackList ? totalStackBranches(stackList) : 0;
+
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+  const staleDays = useBranchCleanupPrefs((s) => s.staleDays);
+  const hintOnRepoOpen = useBranchCleanupPrefs((s) => s.hintOnRepoOpen);
+  const loadCleanup = useBranchCleanupStore((s) => s.load);
+  const cleanupCount = useBranchCleanupStore((s) => s.candidates[path]?.length ?? 0);
+
+  useEffect(() => {
+    if (!hintOnRepoOpen || !path) return;
+    void loadCleanup(path, staleDays);
+  }, [hintOnRepoOpen, path, staleDays, loadCleanup]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {showBranchFilter && (
@@ -125,13 +177,15 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
         <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-1">
           <Accordion
             type="multiple"
-            defaultValue={defaultOpenSections}
+            defaultValue={[...defaultOpenSections, "stacks"]}
             className="w-full min-w-0"
           >
             <Section
               value="local"
               label={t("sidebar.local")}
               count={localBranches.length}
+              onCleanup={path ? () => setCleanupOpen(true) : undefined}
+              cleanupCount={cleanupCount}
             >
               <BranchSection
                 path={path}
@@ -143,11 +197,23 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
               />
             </Section>
 
+            {path ? (
+              <Section
+                value="stacks"
+                label={t("stack.sectionTitle")}
+                count={stackCount}
+              >
+                <StackSection path={path} />
+              </Section>
+            ) : null}
+
             {totalRemoteBranches > 0 && (
               <Section
                 value="remote"
                 label={t("sidebar.remote")}
                 count={remoteBranches.length}
+                onCleanup={path ? () => setCleanupOpen(true) : undefined}
+                cleanupCount={cleanupCount}
               >
                 <BranchSection
                   path={path}
@@ -164,6 +230,8 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
                 value="tags"
                 label={t("sidebar.tags")}
                 count={filteredTags.length}
+                onCleanup={path ? () => setCleanupOpen(true) : undefined}
+                cleanupCount={cleanupCount}
               >
                 <TagSection
                   path={path}
@@ -185,6 +253,14 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
           )}
         </div>
       </ScrollArea>
+
+      {path ? (
+        <BranchCleanupDialog
+          open={cleanupOpen}
+          onClose={() => setCleanupOpen(false)}
+          path={path}
+        />
+      ) : null}
     </div>
   );
 }

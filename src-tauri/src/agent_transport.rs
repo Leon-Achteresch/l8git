@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
@@ -75,6 +75,22 @@ pub struct AgentTransportOptions {
     sandbox: Option<String>,
     add_dirs: Option<Vec<String>>,
     worktree: Option<String>,
+    agents_trusted: Option<bool>,
+}
+
+impl AgentTransportOptions {
+    fn is_trusted(&self) -> bool {
+        self.agents_trusted.unwrap_or(false)
+    }
+
+    pub fn path_arguments(&self) -> Vec<&str> {
+        self.cwd
+            .iter()
+            .chain(self.worktree.iter())
+            .chain(self.add_dirs.iter().flatten())
+            .map(String::as_str)
+            .collect()
+    }
 }
 
 /// Ordered envelope used on the Tauri channel. `payload` is kept as JSON all
@@ -145,24 +161,147 @@ fn safe_prompt(value: &str) -> Result<String, String> {
     Ok(value.to_string())
 }
 
+fn spawn_pumps(
+    id: u32,
+    transport: &Arc<AgentTransport>,
+    stdout: ChildStdout,
+    stderr: ChildStderr,
+    on_event: Channel<AgentStreamEvent>,
+) -> Result<(), String> {
+    let stdout_process = Arc::downgrade(transport);
+    let stdout_events = on_event.clone();
+    thread::Builder::new()
+        .name(format!("l8git-agent-{id}-stdout"))
+        .spawn(move || {
+            for line in BufReader::new(stdout).lines() {
+                let Some(process) = stdout_process.upgrade() else {
+                    break;
+                };
+                match line {
+                    Ok(line) => {
+                        let event = match serde_json::from_str(&line) {
+                            Ok(payload) => stream_event(&process, "json", payload),
+                            Err(error) => stream_event(
+                                &process,
+                                "diagnostic",
+                                serde_json::Value::String(format!(
+                                    "Ungültige JSON-Stream-Antwort: {error}"
+                                )),
+                            ),
+                        };
+                        if stdout_events.send(event).is_err() {
+                            process.stop();
+                            break;
+                        }
+                    }
+                    Err(error) => {
+                        log::warn!("agent transport id={id} stdout failed: {error}");
+                        process.stop();
+                        break;
+                    }
+                }
+            }
+        })
+        .map_err(|error| {
+            transport.stop();
+            error.to_string()
+        })?;
+
+    let stderr_process = Arc::downgrade(transport);
+    let stderr_events = on_event.clone();
+    thread::Builder::new()
+        .name(format!("l8git-agent-{id}-stderr"))
+        .spawn(move || {
+            for line in BufReader::new(stderr).lines() {
+                let Some(process) = stderr_process.upgrade() else {
+                    break;
+                };
+                match line {
+                    Ok(line) => {
+                        let event = stream_event(
+                            &process,
+                            "diagnostic",
+                            serde_json::Value::String(line),
+                        );
+                        if stderr_events.send(event).is_err() {
+                            process.stop();
+                            break;
+                        }
+                    }
+                    Err(error) => {
+                        log::debug!("agent transport id={id} stderr failed: {error}");
+                        process.stop();
+                        break;
+                    }
+                }
+            }
+        })
+        .map_err(|error| {
+            transport.stop();
+            error.to_string()
+        })?;
+
+    let exit_process = Arc::downgrade(transport);
+    let exit_events = on_event;
+    thread::Builder::new()
+        .name(format!("l8git-agent-{id}-wait"))
+        .spawn(move || loop {
+            let Some(process) = exit_process.upgrade() else {
+                break;
+            };
+            let status = process.child.lock().unwrap().try_wait();
+            match status {
+                Ok(Some(status)) => {
+                    process.closed.store(true, Ordering::Release);
+                    let _ = exit_events.send(stream_event(
+                        &process,
+                        "exit",
+                        serde_json::Value::from(status.code().unwrap_or(-1)),
+                    ));
+                    break;
+                }
+                Ok(None) => {
+                    drop(process);
+                    thread::sleep(Duration::from_millis(120));
+                }
+                Err(error) => {
+                    log::warn!("agent transport id={id} wait failed: {error}");
+                    let _ = exit_events.send(stream_event(
+                        &process,
+                        "exit",
+                        serde_json::Value::from(-1),
+                    ));
+                    break;
+                }
+            }
+        })
+        .map_err(|error| {
+            transport.stop();
+            error.to_string()
+        })?;
+
+    Ok(())
+}
+
 fn cursor_process(options: &AgentTransportOptions) -> Result<Command, String> {
     let executable = crate::cursor::cursor_executable()?;
+    let trusted = options.is_trusted();
     let mut command = cli_command(executable);
     command.args([
         "--print",
         "--output-format",
         "stream-json",
         "--stream-partial-output",
-        "--trust",
-        "--approve-mcps",
     ]);
+    if trusted {
+        command.args(["--trust", "--approve-mcps"]);
+    }
     match options.permission_mode.as_deref() {
         Some("plan") => command.arg("--plan"),
         Some("ask") => command.args(["--mode", "ask"]),
         Some("auto-review") => command.arg("--auto-review"),
-        // Without an explicit policy the headless run would stall on the first
-        // approval prompt, so full access is the deliberate default here.
-        _ => command.arg("--force"),
+        _ if trusted => command.arg("--force"),
+        _ => command.args(["--mode", "ask"]),
     };
     if let Some(sandbox) = options.sandbox.as_deref() {
         let sandbox = safe_argument(sandbox, "Cursor-Sandbox")?;
@@ -222,6 +361,7 @@ fn provider_process(
         "claude" => {
             let executable = resolve_cli_path("claude")
                 .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+            let trusted = options.is_trusted();
             let mut command = cli_command(executable);
             command.args([
                 "--output-format",
@@ -235,11 +375,16 @@ fn provider_process(
                 "--include-hook-events",
                 "--replay-user-messages",
                 "--forward-subagent-text",
-                "--setting-sources",
-                "user,project,local",
                 "--prompt-suggestions",
                 "true",
-                "--allow-dangerously-skip-permissions",
+            ]);
+            if trusted {
+                command.args(["--setting-sources", "user,project,local"]);
+                command.arg("--allow-dangerously-skip-permissions");
+            } else {
+                command.args(["--setting-sources", "user"]);
+            }
+            command.args([
                 // In-Prozess-MCP-Server: die Tools laufen im Frontend, nicht als Kindprozess.
                 "--mcp-config",
                 r#"{"mcpServers":{"l8git":{"type":"sdk","name":"l8git"}}}"#,
@@ -267,10 +412,13 @@ fn provider_process(
                 command.args(["--effort", &safe_argument(effort, "Claude-Effort")?]);
             }
             if let Some(mode) = options.permission_mode.as_deref() {
-                command.args([
-                    "--permission-mode",
-                    &safe_argument(mode, "Claude-Berechtigungsmodus")?,
-                ]);
+                let mode = safe_argument(mode, "Claude-Berechtigungsmodus")?;
+                let mode = if !trusted && mode == "bypassPermissions" {
+                    "default".to_string()
+                } else {
+                    mode
+                };
+                command.args(["--permission-mode", &mode]);
             }
             if let Some(cwd) = options.cwd.as_deref() {
                 let cwd = PathBuf::from(cwd);
@@ -312,6 +460,16 @@ pub async fn agent_transport_open(
     options: Option<AgentTransportOptions>,
     on_event: Channel<AgentStreamEvent>,
 ) -> Result<AgentTransportHandle, String> {
+    agent_transport_open_inner(&state, provider, session_id, options, on_event).await
+}
+
+pub(crate) async fn agent_transport_open_inner(
+    state: &AgentTransportState,
+    provider: String,
+    session_id: String,
+    options: Option<AgentTransportOptions>,
+    on_event: Channel<AgentStreamEvent>,
+) -> Result<AgentTransportHandle, String> {
     let provider = provider.trim().to_ascii_lowercase();
     let session_id = session_id.trim().to_string();
     validate_session_id(&session_id)?;
@@ -348,105 +506,7 @@ pub async fn agent_transport_open(
             sequence: AtomicU64::new(1),
         });
 
-        let stdout_process = Arc::clone(&transport);
-        let stdout_events = on_event.clone();
-        thread::Builder::new()
-            .name(format!("l8git-agent-{id}-stdout"))
-            .spawn(move || {
-                for line in BufReader::new(stdout).lines() {
-                    match line {
-                        Ok(line) => {
-                            let event = match serde_json::from_str(&line) {
-                                Ok(payload) => stream_event(&stdout_process, "json", payload),
-                                Err(error) => stream_event(
-                                    &stdout_process,
-                                    "diagnostic",
-                                    serde_json::Value::String(format!(
-                                        "Ungültige JSON-Stream-Antwort: {error}"
-                                    )),
-                                ),
-                            };
-                            if stdout_events.send(event).is_err() {
-                                stdout_process.stop();
-                                break;
-                            }
-                        }
-                        Err(error) => {
-                            log::warn!("agent transport id={id} stdout failed: {error}");
-                            stdout_process.stop();
-                            break;
-                        }
-                    }
-                }
-            })
-            .map_err(|error| {
-                transport.stop();
-                error.to_string()
-            })?;
-
-        let stderr_process = Arc::clone(&transport);
-        let stderr_events = on_event.clone();
-        thread::Builder::new()
-            .name(format!("l8git-agent-{id}-stderr"))
-            .spawn(move || {
-                for line in BufReader::new(stderr).lines() {
-                    match line {
-                        Ok(line) => {
-                            let event = stream_event(
-                                &stderr_process,
-                                "diagnostic",
-                                serde_json::Value::String(line),
-                            );
-                            if stderr_events.send(event).is_err() {
-                                stderr_process.stop();
-                                break;
-                            }
-                        }
-                        Err(error) => {
-                            log::debug!("agent transport id={id} stderr failed: {error}");
-                            stderr_process.stop();
-                            break;
-                        }
-                    }
-                }
-            })
-            .map_err(|error| {
-                transport.stop();
-                error.to_string()
-            })?;
-
-        let process = Arc::clone(&transport);
-        let exit_events = on_event;
-        thread::Builder::new()
-            .name(format!("l8git-agent-{id}-wait"))
-            .spawn(move || loop {
-                let status = process.child.lock().unwrap().try_wait();
-                match status {
-                    Ok(Some(status)) => {
-                        process.closed.store(true, Ordering::Release);
-                        let _ = exit_events.send(stream_event(
-                            &process,
-                            "exit",
-                            serde_json::Value::from(status.code().unwrap_or(-1)),
-                        ));
-                        break;
-                    }
-                    Ok(None) => thread::sleep(Duration::from_millis(120)),
-                    Err(error) => {
-                        log::warn!("agent transport id={id} wait failed: {error}");
-                        let _ = exit_events.send(stream_event(
-                            &process,
-                            "exit",
-                            serde_json::Value::from(-1),
-                        ));
-                        break;
-                    }
-                }
-            })
-            .map_err(|error| {
-                transport.stop();
-                error.to_string()
-            })?;
+        spawn_pumps(id, &transport, stdout, stderr, on_event)?;
 
         Ok::<_, String>((transport, label))
     })
@@ -468,6 +528,15 @@ pub async fn agent_transport_open(
 #[tauri::command]
 pub fn agent_transport_send(
     state: tauri::State<AgentTransportState>,
+    id: u32,
+    session_id: String,
+    message: serde_json::Value,
+) -> Result<(), String> {
+    agent_transport_send_inner(&state, id, session_id, message)
+}
+
+pub(crate) fn agent_transport_send_inner(
+    state: &AgentTransportState,
     id: u32,
     session_id: String,
     message: serde_json::Value,
@@ -499,6 +568,14 @@ pub fn agent_transport_close(
     id: u32,
     session_id: String,
 ) -> Result<(), String> {
+    agent_transport_close_inner(&state, id, session_id)
+}
+
+pub(crate) fn agent_transport_close_inner(
+    state: &AgentTransportState,
+    id: u32,
+    session_id: String,
+) -> Result<(), String> {
     let mut sessions = state.sessions.write().unwrap();
     if let Some(transport) = sessions.get(&id) {
         if transport.session_id != session_id {
@@ -517,6 +594,12 @@ pub fn agent_transport_close(
 #[tauri::command]
 pub fn agent_transport_close_all(
     state: tauri::State<AgentTransportState>,
+) -> Result<usize, String> {
+    agent_transport_close_all_inner(&state)
+}
+
+pub(crate) fn agent_transport_close_all_inner(
+    state: &AgentTransportState,
 ) -> Result<usize, String> {
     let sessions: Vec<Arc<AgentTransport>> = {
         let mut guard = state.sessions.write().unwrap();
@@ -643,6 +726,7 @@ mod tests {
             model: Some("composer-2.5".into()),
             resume: Some(true),
             resume_session_id: Some("abc-123".into()),
+            agents_trusted: Some(true),
             ..Default::default()
         };
         // Skipped on machines without the Cursor CLI installed.
@@ -657,6 +741,44 @@ mod tests {
         assert!(args.windows(2).any(|pair| pair == ["--model", "composer-2.5"]));
         assert!(args.windows(2).any(|pair| pair == ["--resume", "abc-123"]));
         assert_eq!(args.last().map(String::as_str), Some("hallo"));
+    }
+
+    #[test]
+    fn cursor_untrusted_omits_trust_flags_and_forces_ask() {
+        let options = AgentTransportOptions {
+            prompt: Some("hallo".into()),
+            ..Default::default()
+        };
+        let Ok(command) = cursor_process(&options) else {
+            return;
+        };
+        let args: Vec<String> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+        assert!(!args.contains(&"--trust".to_string()));
+        assert!(!args.contains(&"--approve-mcps".to_string()));
+        assert!(!args.contains(&"--force".to_string()));
+        assert!(args.windows(2).any(|pair| pair == ["--mode", "ask"]));
+    }
+
+    #[test]
+    fn cursor_trusted_keeps_trust_flags_and_force() {
+        let options = AgentTransportOptions {
+            prompt: Some("hallo".into()),
+            agents_trusted: Some(true),
+            ..Default::default()
+        };
+        let Ok(command) = cursor_process(&options) else {
+            return;
+        };
+        let args: Vec<String> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.contains(&"--trust".to_string()));
+        assert!(args.contains(&"--approve-mcps".to_string()));
+        assert!(args.contains(&"--force".to_string()));
     }
 
     #[test]
@@ -675,6 +797,53 @@ mod tests {
             .collect();
         assert!(args.contains(&"--plan".to_string()));
         assert!(!args.contains(&"--force".to_string()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_pumps_release_a_transport_whose_open_call_was_canceled() {
+        use super::{spawn_pumps, AgentTransport};
+        use crate::cmd::cli_command;
+        use std::process::Stdio;
+        use std::sync::atomic::{AtomicBool, AtomicU64};
+        use std::sync::{Arc, Mutex};
+        use std::time::{Duration, Instant};
+
+        let mut child = cli_command("cat")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("cat is available");
+        let stdin = child.stdin.take().unwrap();
+        let stdout = child.stdout.take().unwrap();
+        let stderr = child.stderr.take().unwrap();
+        let transport = Arc::new(AgentTransport {
+            session_id: "canceled".into(),
+            child: Mutex::new(child),
+            stdin: Mutex::new(stdin),
+            closed: AtomicBool::new(false),
+            sequence: AtomicU64::new(1),
+        });
+        let weak = Arc::downgrade(&transport);
+        spawn_pumps(
+            1,
+            &transport,
+            stdout,
+            stderr,
+            tauri::ipc::Channel::new(|_| Ok(())),
+        )
+        .unwrap();
+
+        drop(transport);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while weak.upgrade().is_some() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            weak.upgrade().is_none(),
+            "the pump threads must not keep the agent child alive"
+        );
     }
 
     #[test]

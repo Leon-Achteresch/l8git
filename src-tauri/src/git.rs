@@ -6,6 +6,7 @@ use std::process::Stdio;
 use serde::Serialize;
 
 use crate::cmd::git_command;
+use crate::cmdlog;
 
 #[derive(Serialize)]
 pub struct Commit {
@@ -38,8 +39,11 @@ pub struct Branch {
 
 #[derive(Serialize)]
 pub struct TagRef {
-    name: String,
-    commit: String,
+    pub name: String,
+    pub commit: String,
+    pub kind: String,
+    pub message: Option<String>,
+    pub tagger: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -71,12 +75,15 @@ pub struct GitRemote {
 }
 
 pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
-    let output = git_command()
-        .arg("-C")
-        .arg(repo)
-        .args(args)
-        .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
+    let span = cmdlog::start(&repo.to_string_lossy(), args);
+    let output = match git_command().arg("-C").arg(repo).args(args).output() {
+        Ok(output) => output,
+        Err(e) => {
+            span.finish(false);
+            return Err(format!("failed to run git: {e}"));
+        }
+    };
+    span.finish(output.status.success());
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
@@ -84,48 +91,64 @@ pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+fn merged_failure_message(stdout: &str, stderr: &str) -> String {
+    let msg = match (stderr.is_empty(), stdout.is_empty()) {
+        (false, false) => format!("{stderr}\n{stdout}"),
+        (false, true) => stderr.to_string(),
+        (true, false) => stdout.to_string(),
+        (true, true) => "git: command failed".into(),
+    };
+    let trimmed = msg.trim().to_string();
+    if trimmed.contains("Your local changes to the following files would be overwritten")
+        || trimmed.contains("would be overwritten by merge")
+        || trimmed.contains("Please commit your changes or stash them before you")
+    {
+        let files: Vec<&str> = trimmed
+            .lines()
+            .filter(|l| l.starts_with('\t'))
+            .map(|l| l.trim())
+            .collect();
+        return format!("__LOCAL_CHANGES_BLOCK__|{}", files.join(","));
+    }
+    trimmed
+}
+
+fn merged_ok_message(stdout: &str, stderr: &str) -> String {
+    let ok = match (stdout.is_empty(), stderr.is_empty()) {
+        (false, false) => format!("{stdout}\n{stderr}"),
+        (false, true) => stdout.to_string(),
+        (true, false) => stderr.to_string(),
+        (true, true) => String::new(),
+    };
+    ok.trim().to_string()
+}
+
 fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<String, String> {
     let mut cmd = git_command();
     if let Some(dir) = cwd {
         cmd.arg("-C").arg(dir);
     }
-    let output = cmd
-        .args(args)
-        .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
+    let log_path = cwd
+        .map(|d| d.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let span = cmdlog::start(&log_path, args);
+    let output = match cmd.args(args).output() {
+        Ok(output) => output,
+        Err(e) => {
+            span.finish(false);
+            return Err(format!("failed to run git: {e}"));
+        }
+    };
+    span.finish(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
 
     if !output.status.success() {
-        let msg = match (stderr.is_empty(), stdout.is_empty()) {
-            (false, false) => format!("{stderr}\n{stdout}"),
-            (false, true) => stderr,
-            (true, false) => stdout,
-            (true, true) => "git: command failed".into(),
-        };
-        let trimmed = msg.trim().to_string();
-        if trimmed.contains("Your local changes to the following files would be overwritten")
-            || trimmed.contains("would be overwritten by merge")
-            || trimmed.contains("Please commit your changes or stash them before you")
-        {
-            let files: Vec<&str> = trimmed
-                .lines()
-                .filter(|l| l.starts_with('\t'))
-                .map(|l| l.trim())
-                .collect();
-            return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", files.join(",")));
-        }
-        return Err(trimmed);
+        return Err(merged_failure_message(&stdout, &stderr));
     }
 
-    let ok = match (stdout.is_empty(), stderr.is_empty()) {
-        (false, false) => format!("{stdout}\n{stderr}"),
-        (false, true) => stdout,
-        (true, false) => stderr,
-        (true, true) => String::new(),
-    };
-    Ok(ok.trim().to_string())
+    Ok(merged_ok_message(&stdout, &stderr))
 }
 
 pub(crate) fn run_git_merged_output(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
@@ -136,6 +159,361 @@ async fn spawn_git<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) ->
     tokio::task::spawn_blocking(f)
         .await
         .expect("git blocking task panicked")
+}
+
+pub const REMOTE_CANCELED: &str = "__REMOTE_CANCELED__";
+const PROGRESS_EVENT: &str = "git-progress";
+const PROGRESS_DONE_EVENT: &str = "git-progress-done";
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitProgressEvent {
+    pub op_id: String,
+    pub repo_path: String,
+    pub op: String,
+    pub phase: String,
+    pub percent: Option<u8>,
+    pub detail: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitProgressDone {
+    pub op_id: String,
+    pub repo_path: String,
+    pub op: String,
+    pub ok: bool,
+    pub canceled: bool,
+    pub message: String,
+}
+
+#[derive(Debug, PartialEq)]
+struct ProgressLine {
+    phase: String,
+    percent: Option<u8>,
+    detail: String,
+}
+
+#[derive(Clone)]
+struct RemoteOp {
+    child: std::sync::Arc<std::sync::Mutex<std::process::Child>>,
+    canceled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pid: u32,
+}
+
+struct StreamOutcome {
+    success: bool,
+    stdout: String,
+    stderr: String,
+    canceled: bool,
+}
+
+fn remote_ops() -> &'static std::sync::Mutex<HashMap<String, RemoteOp>> {
+    static REG: std::sync::OnceLock<std::sync::Mutex<HashMap<String, RemoteOp>>> =
+        std::sync::OnceLock::new();
+    REG.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+fn parse_progress_chunk(chunk: &str) -> Option<ProgressLine> {
+    let mut text = chunk.trim();
+    while let Some(rest) = text.strip_prefix("remote:") {
+        text = rest.trim_start();
+    }
+    let (phase, rest) = text.split_once(':')?;
+    let phase = phase.trim();
+    if phase.is_empty()
+        || !phase
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == ' ' || c == '-')
+    {
+        return None;
+    }
+    let rest = rest.trim();
+    if !rest.starts_with(|c: char| c.is_ascii_digit()) {
+        return None;
+    }
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    let after = &rest[digits.len()..];
+    let (percent, detail) = match after.strip_prefix('%') {
+        Some(tail) => (
+            digits.parse::<u32>().ok().map(|v| v.min(100) as u8),
+            tail.trim().to_string(),
+        ),
+        None => (None, rest.to_string()),
+    };
+    Some(ProgressLine {
+        phase: phase.to_string(),
+        percent,
+        detail,
+    })
+}
+
+fn flush_progress_chunk(
+    buf: &mut Vec<u8>,
+    kept: &mut Vec<String>,
+    on_progress: &mut impl FnMut(ProgressLine),
+) {
+    if buf.is_empty() {
+        return;
+    }
+    let text = String::from_utf8_lossy(buf).trim_end().to_string();
+    buf.clear();
+    if text.trim().is_empty() {
+        return;
+    }
+    match parse_progress_chunk(&text) {
+        Some(line) => {
+            let keep = line.percent.is_none() || line.detail.contains("done.");
+            on_progress(line);
+            if keep {
+                kept.push(text);
+            }
+        }
+        None => kept.push(text),
+    }
+}
+
+fn read_progress_stream<R: std::io::Read>(
+    stream: R,
+    mut on_progress: impl FnMut(ProgressLine),
+) -> String {
+    let mut reader = std::io::BufReader::new(stream);
+    let mut chunk: Vec<u8> = Vec::new();
+    let mut kept: Vec<String> = Vec::new();
+    let mut byte = [0u8; 1];
+    loop {
+        match std::io::Read::read(&mut reader, &mut byte) {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+        if byte[0] == b'\r' || byte[0] == b'\n' {
+            flush_progress_chunk(&mut chunk, &mut kept, &mut on_progress);
+            continue;
+        }
+        chunk.push(byte[0]);
+    }
+    flush_progress_chunk(&mut chunk, &mut kept, &mut on_progress);
+    kept.join("\n")
+}
+
+fn kill_remote_op(op: &RemoteOp) {
+    #[cfg(windows)]
+    {
+        let _ = crate::cmd::cli_command("taskkill")
+            .args(["/PID", &op.pid.to_string(), "/T", "/F"])
+            .status();
+    }
+    #[cfg(unix)]
+    {
+        unsafe {
+            libc::kill(-(op.pid as i32), libc::SIGTERM);
+        }
+    }
+    if let Ok(mut child) = op.child.lock() {
+        let _ = child.kill();
+    }
+}
+
+fn run_git_streamed(
+    cwd: Option<&PathBuf>,
+    args: &[String],
+    op_id: &str,
+    on_progress: impl FnMut(ProgressLine),
+) -> Result<StreamOutcome, String> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    let mut cmd = git_command();
+    if let Some(dir) = cwd {
+        cmd.arg("-C").arg(dir);
+    }
+    cmd.args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("failed to run git: {e}"))?;
+    let pid = child.id();
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let shared = Arc::new(Mutex::new(child));
+    let canceled = Arc::new(AtomicBool::new(false));
+
+    if let Ok(mut reg) = remote_ops().lock() {
+        reg.insert(
+            op_id.to_string(),
+            RemoteOp {
+                child: shared.clone(),
+                canceled: canceled.clone(),
+                pid,
+            },
+        );
+    }
+
+    let stdout_thread = std::thread::spawn(move || {
+        let mut raw: Vec<u8> = Vec::new();
+        if let Some(mut out) = stdout {
+            let _ = std::io::Read::read_to_end(&mut out, &mut raw);
+        }
+        String::from_utf8_lossy(&raw).to_string()
+    });
+
+    let stderr_text = match stderr {
+        Some(err) => read_progress_stream(err, on_progress),
+        None => String::new(),
+    };
+    let stdout_text = stdout_thread.join().unwrap_or_default();
+
+    let status = shared
+        .lock()
+        .map_err(|e| e.to_string())
+        .and_then(|mut child| child.wait().map_err(|e| e.to_string()));
+
+    if let Ok(mut reg) = remote_ops().lock() {
+        reg.remove(op_id);
+    }
+
+    Ok(StreamOutcome {
+        success: status.map(|s| s.success()).unwrap_or(false),
+        stdout: stdout_text.trim().to_string(),
+        stderr: stderr_text.trim().to_string(),
+        canceled: canceled.load(Ordering::Relaxed),
+    })
+}
+
+fn emit_progress(event: &GitProgressEvent) {
+    crate::sink::emit(PROGRESS_EVENT, event);
+}
+
+fn emit_progress_done(event: &GitProgressDone) {
+    crate::sink::emit(PROGRESS_DONE_EVENT, event);
+}
+
+fn run_remote_op(
+    op: &str,
+    repo_path: &str,
+    cwd: Option<&PathBuf>,
+    args: Vec<String>,
+    op_id: Option<String>,
+) -> Result<String, String> {
+    let op_id = op_id
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty());
+    let Some(op_id) = op_id else {
+        let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        return run_git_merged_output_at(cwd, &refs);
+    };
+
+    let mut args = args;
+    args.insert(1, "--progress".to_string());
+
+    let span = cmdlog::start(repo_path, &args);
+    let outcome = run_git_streamed(cwd, &args, &op_id, |line| {
+        emit_progress(&GitProgressEvent {
+            op_id: op_id.clone(),
+            repo_path: repo_path.to_string(),
+            op: op.to_string(),
+            phase: line.phase,
+            percent: line.percent,
+            detail: line.detail,
+        });
+    });
+
+    let done = |ok: bool, canceled: bool, message: &str| {
+        emit_progress_done(&GitProgressDone {
+            op_id: op_id.clone(),
+            repo_path: repo_path.to_string(),
+            op: op.to_string(),
+            ok,
+            canceled,
+            message: message.to_string(),
+        });
+    };
+
+    let outcome = match outcome {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            span.finish(false);
+            done(false, false, &e);
+            return Err(e);
+        }
+    };
+    span.finish(outcome.success);
+
+    if outcome.canceled {
+        done(false, true, REMOTE_CANCELED);
+        return Err(REMOTE_CANCELED.to_string());
+    }
+    if !outcome.success {
+        let message = merged_failure_message(&outcome.stdout, &outcome.stderr);
+        done(false, false, &message);
+        return Err(message);
+    }
+    let message = merged_ok_message(&outcome.stdout, &outcome.stderr);
+    done(true, false, &message);
+    Ok(message)
+}
+
+pub fn cancel_remote_op(op_id: &str) -> bool {
+    let key = op_id.trim().to_string();
+    let entry = match remote_ops().lock() {
+        Ok(registry) => registry.get(&key).cloned(),
+        Err(error) => {
+            log::warn!("remote-op registry poisoned: {error}");
+            None
+        }
+    };
+    let Some(entry) = entry else {
+        return false;
+    };
+    entry
+        .canceled
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+    kill_remote_op(&entry);
+    true
+}
+
+#[tauri::command]
+pub async fn git_remote_cancel(op_id: String) -> Result<bool, String> {
+    Ok(spawn_git(move || cancel_remote_op(&op_id)).await)
+}
+
+#[cfg(test)]
+pub(crate) fn track_remote_op_for_test(op_id: &str, child: std::process::Child) {
+    let pid = child.id();
+    if let Ok(mut registry) = remote_ops().lock() {
+        registry.insert(
+            op_id.to_string(),
+            RemoteOp {
+                child: std::sync::Arc::new(std::sync::Mutex::new(child)),
+                canceled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                pid,
+            },
+        );
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn remote_op_canceled_for_test(op_id: &str) -> Option<bool> {
+    remote_ops()
+        .lock()
+        .ok()?
+        .get(op_id)
+        .map(|op| op.canceled.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+#[cfg(test)]
+pub(crate) fn forget_remote_op_for_test(op_id: &str) {
+    if let Ok(mut registry) = remote_ops().lock() {
+        registry.remove(op_id);
+    }
 }
 
 fn tags_by_target(repo: &PathBuf) -> HashMap<String, Vec<String>> {
@@ -294,6 +672,14 @@ fn match_commit_record(
     Some(matched_paths)
 }
 
+const SEARCH_MIN_QUERY_LEN: usize = 2;
+const SEARCH_DEFAULT_SCAN_LIMIT: usize = 4000;
+const SEARCH_MAX_SCAN_LIMIT: usize = 50_000;
+
+fn query_needs_path_search(needle: &str) -> bool {
+    needle.contains('/') || needle.contains('\\') || needle.contains('.')
+}
+
 #[tauri::command]
 pub async fn repo_search_commits(
     path: String,
@@ -301,32 +687,43 @@ pub async fn repo_search_commits(
     skip: usize,
     limit: usize,
     hide_t3_checkpoints: Option<bool>,
+    search_paths: Option<bool>,
+    scan_limit: Option<usize>,
 ) -> Result<Vec<CommitSearchResult>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
         run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
             .map_err(|_| format!("'{path}' is not a git repository"))?;
         let needle = query.trim().to_lowercase();
-        if needle.is_empty() {
+        if needle.chars().count() < SEARCH_MIN_QUERY_LEN {
             return Ok(Vec::new());
         }
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
+        let with_paths = search_paths.unwrap_or_else(|| query_needs_path_search(&needle));
+        let capped = limit.clamp(1, 500);
+        let scan = scan_limit
+            .unwrap_or(SEARCH_DEFAULT_SCAN_LIMIT)
+            .clamp(1, SEARCH_MAX_SCAN_LIMIT)
+            .saturating_add(skip);
         let tag_map = tags_by_target(&repo);
         let sep = "\x1f";
-        let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
+        let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b%x00");
         let pretty = format!("--pretty=format:{format}");
-        let mut search_args: Vec<&str> = vec!["log", "-z"];
+        let max_count = format!("--max-count={scan}");
+        let mut search_args: Vec<&str> = vec!["log", "-z", max_count.as_str()];
         let exclude_arg = "--exclude=refs/t3/*".to_string();
         if hide_t3 {
             search_args.push(&exclude_arg);
         }
-        search_args.extend_from_slice(&["--all", "--date-order", "--name-only", pretty.as_str()]);
+        search_args.extend_from_slice(&["--all", "--date-order", pretty.as_str()]);
+        if with_paths {
+            search_args.push("--name-only");
+        }
         let out = run_git(
             &repo,
             &search_args,
         )?;
         let tokens: Vec<&str> = out.split('\0').filter(|t| !t.is_empty()).collect();
-        let capped = limit.clamp(1, 500);
         let mut matched_seen = 0usize;
         let mut out_results: Vec<CommitSearchResult> = Vec::new();
         let mut i = 0usize;
@@ -347,8 +744,18 @@ pub async fn repo_search_commits(
             let body = parts.next().unwrap_or_default().to_string();
             i += 1;
             let mut paths: Vec<String> = Vec::new();
+            let mut first_path_token = true;
             while i < tokens.len() && !is_commit_meta_token(tokens[i]) {
-                paths.push(tokens[i].to_string());
+                let raw = tokens[i];
+                let p = if first_path_token {
+                    raw.strip_prefix('\n').unwrap_or(raw)
+                } else {
+                    raw
+                };
+                first_path_token = false;
+                if !p.is_empty() {
+                    paths.push(p.to_string());
+                }
                 i += 1;
             }
             let Some(matched_paths) = match_commit_record(
@@ -412,7 +819,7 @@ pub async fn open_repo(path: String, hide_t3_checkpoints: Option<bool>) -> Resul
         let tag_map = tags_by_target(&repo);
         let commits = fetch_commits(&repo, 0, DEFAULT_INITIAL_COMMITS, &tag_map, hide_t3)?;
         let branches = list_branches(&repo).unwrap_or_default();
-        let tags = tags_from_map(&tag_map);
+        let tags = tag_refs(&repo);
 
         Ok(RepoInfo {
             path: repo.to_string_lossy().to_string(),
@@ -445,18 +852,80 @@ pub async fn git_init_repo(path: String) -> Result<String, String> {
     }).await
 }
 
-fn tags_from_map(tag_map: &HashMap<String, Vec<String>>) -> Vec<TagRef> {
-    let mut tags: Vec<TagRef> = tag_map
-        .iter()
-        .flat_map(|(commit, names)| {
-            names.iter().map(move |name| TagRef {
-                name: name.clone(),
-                commit: commit.clone(),
-            })
-        })
-        .collect();
+pub const TAG_KIND_LIGHTWEIGHT: &str = "lightweight";
+pub const TAG_KIND_ANNOTATED: &str = "annotated";
+pub const TAG_KIND_SIGNED: &str = "signed";
+
+const TAG_FIELD_SEP: char = '\u{001f}';
+const TAG_RECORD_SEP: char = '\u{001e}';
+
+pub fn parse_tag_refs(raw: &str) -> Vec<TagRef> {
+    let mut tags: Vec<TagRef> = Vec::new();
+    for record in raw.split(TAG_RECORD_SEP) {
+        let record = record.trim_start_matches(['\n', '\r']);
+        if record.trim().is_empty() {
+            continue;
+        }
+        let mut fields = record.splitn(5, TAG_FIELD_SEP);
+        let name = fields.next().unwrap_or("").trim();
+        let object_type = fields.next().unwrap_or("").trim();
+        let commit = fields.next().unwrap_or("").trim();
+        let tagger = fields.next().unwrap_or("").trim();
+        let contents = fields.next().unwrap_or("");
+        if name.is_empty() || commit.is_empty() {
+            continue;
+        }
+        if object_type != "tag" {
+            tags.push(TagRef {
+                name: name.to_string(),
+                commit: commit.to_string(),
+                kind: TAG_KIND_LIGHTWEIGHT.to_string(),
+                message: None,
+                tagger: None,
+            });
+            continue;
+        }
+        let signed = contents.contains("-----BEGIN PGP SIGNATURE-----")
+            || contents.contains("-----BEGIN SSH SIGNATURE-----")
+            || contents.contains("-----BEGIN SIGNED MESSAGE-----");
+        let message = strip_signature_block(contents);
+        tags.push(TagRef {
+            name: name.to_string(),
+            commit: commit.to_string(),
+            kind: if signed { TAG_KIND_SIGNED } else { TAG_KIND_ANNOTATED }.to_string(),
+            message: (!message.is_empty()).then_some(message),
+            tagger: (!tagger.is_empty()).then(|| tagger.to_string()),
+        });
+    }
     tags.sort_by(|a, b| a.name.cmp(&b.name));
     tags
+}
+
+fn strip_signature_block(contents: &str) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("-----BEGIN PGP SIGNATURE-----")
+            || trimmed.starts_with("-----BEGIN SSH SIGNATURE-----")
+            || trimmed.starts_with("-----BEGIN SIGNED MESSAGE-----")
+        {
+            break;
+        }
+        out.push(line);
+    }
+    out.join("\n").trim().to_string()
+}
+
+fn tag_refs(repo: &PathBuf) -> Vec<TagRef> {
+    let format = format!(
+        "%(refname:strip=2){s}%(objecttype){s}%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end){s}%(taggername){s}%(contents){r}",
+        s = TAG_FIELD_SEP,
+        r = TAG_RECORD_SEP
+    );
+    let Ok(out) = run_git(repo, &["for-each-ref", "refs/tags", &format!("--format={format}")]) else {
+        return Vec::new();
+    };
+    parse_tag_refs(&out)
 }
 
 /// Load additional commits beyond what `open_repo` returned. Used by the
@@ -477,24 +946,105 @@ pub async fn repo_log_page(
     }).await
 }
 
+pub const DEFAULT_REMOTE: &str = "origin";
+
+fn reject_dash_arg(value: &str, label: &str) -> Result<(), String> {
+    if value.starts_with('-') {
+        return Err(format!("Ungültiger {label}: Werte mit führendem '-' sind nicht erlaubt ({value})"));
+    }
+    Ok(())
+}
+
+fn normalized_remote(repo: &PathBuf, remote: Option<&str>) -> Result<Option<String>, String> {
+    let Some(r) = remote else {
+        return Ok(None);
+    };
+    let r = r.trim();
+    if r.is_empty() {
+        return Ok(None);
+    }
+    reject_dash_arg(r, "Remote-Name")?;
+    let known = remote_names(repo);
+    if !known.iter().any(|n| n == r) {
+        return Err(format!("Unbekannter Remote: {r}"));
+    }
+    Ok(Some(r.to_string()))
+}
+
+fn remote_names(repo: &PathBuf) -> Vec<String> {
+    run_git(repo, &["remote"])
+        .unwrap_or_default()
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect()
+}
+
+/// The remote a plain `git push` would target: the current branch's tracking
+/// remote, else `remote.pushDefault`, else the only configured remote, else
+/// `origin`.
+fn resolve_push_remote(repo: &PathBuf) -> String {
+    let branch = run_git(repo, &["symbolic-ref", "--short", "HEAD"])
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+    if !branch.is_empty() {
+        if let Ok(out) = run_git(repo, &["config", "--get", &format!("branch.{branch}.remote")]) {
+            let out = out.trim().to_string();
+            if !out.is_empty() {
+                return out;
+            }
+        }
+    }
+    if let Ok(out) = run_git(repo, &["config", "--get", "remote.pushDefault"]) {
+        let out = out.trim().to_string();
+        if !out.is_empty() {
+            return out;
+        }
+    }
+    let remotes = remote_names(repo);
+    if remotes.len() == 1 {
+        return remotes[0].clone();
+    }
+    DEFAULT_REMOTE.to_string()
+}
+
+#[tauri::command]
+pub async fn branch_push_remote(path: String) -> Result<String, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        Ok(resolve_push_remote(&repo))
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn git_fetch(
     path: String,
     prune_branches: Option<bool>,
     prune_tags: Option<bool>,
+    remote: Option<String>,
+    all_remotes: Option<bool>,
+    op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
         let prune_branches = prune_branches.unwrap_or(true);
         let prune_tags = prune_tags.unwrap_or(false);
-        let mut args: Vec<&str> = vec!["fetch"];
+        let mut args: Vec<String> = vec!["fetch".to_string()];
         if prune_branches || prune_tags {
-            args.push("--prune");
+            args.push("--prune".to_string());
         }
         if prune_tags {
-            args.push("--prune-tags");
+            args.push("--prune-tags".to_string());
         }
-        run_git_merged_output(&repo, &args)
+        if all_remotes.unwrap_or(false) {
+            args.push("--all".to_string());
+        } else if let Some(r) = normalized_remote(&repo, remote.as_deref())? {
+            args.push("--".to_string());
+            args.push(r);
+        }
+        let repo_path = repo.to_string_lossy().to_string();
+        run_remote_op("fetch", &repo_path, Some(&repo), args, op_id)
     }).await
 }
 
@@ -519,7 +1069,12 @@ fn dirty_tracked_files(repo: &PathBuf) -> Vec<String> {
 }
 
 #[tauri::command]
-pub async fn git_pull(path: String, strategy: Option<String>) -> Result<String, String> {
+pub async fn git_pull(
+    path: String,
+    strategy: Option<String>,
+    remote: Option<String>,
+    op_id: Option<String>,
+) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
         let autostash = strategy.as_deref() == Some("autostash");
@@ -529,14 +1084,28 @@ pub async fn git_pull(path: String, strategy: Option<String>) -> Result<String, 
                 return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
             }
         }
-        let mut args: Vec<&str> = vec!["pull"];
+        let mut args: Vec<String> = vec!["pull".to_string()];
         match strategy.as_deref() {
-            Some("rebase") => args.push("--rebase"),
-            Some("ff-only") => args.push("--ff-only"),
-            Some("autostash") => { args.push("--no-rebase"); args.push("--autostash"); }
-            _ => args.push("--no-rebase"),
+            Some("rebase") => args.push("--rebase".to_string()),
+            Some("ff-only") => args.push("--ff-only".to_string()),
+            Some("autostash") => {
+                args.push("--no-rebase".to_string());
+                args.push("--autostash".to_string());
+            }
+            _ => args.push("--no-rebase".to_string()),
         }
-        run_git_merged_output(&repo, &args)
+        if let Some(r) = normalized_remote(&repo, remote.as_deref())? {
+            args.push("--".to_string());
+            args.push(r);
+            if let Ok(branch) = run_git(&repo, &["symbolic-ref", "--short", "HEAD"]) {
+                let branch = branch.trim().to_string();
+                if !branch.is_empty() {
+                    args.push(branch);
+                }
+            }
+        }
+        let repo_path = repo.to_string_lossy().to_string();
+        run_remote_op("pull", &repo_path, Some(&repo), args, op_id)
     }).await
 }
 
@@ -544,11 +1113,13 @@ pub async fn git_pull(path: String, strategy: Option<String>) -> Result<String, 
 pub async fn git_push(
     path: String,
     set_upstream: bool,
+    remote: Option<String>,
     force_mode: Option<String>,
     tags_mode: Option<String>,
     atomic: Option<bool>,
     no_verify: Option<bool>,
     dry_run: Option<bool>,
+    op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
@@ -577,16 +1148,28 @@ pub async fn git_push(
             args.push("--dry-run".to_string());
         }
 
+        let target = normalized_remote(&repo, remote.as_deref())?;
         if set_upstream {
             let branch = run_git(&repo, &["symbolic-ref", "--short", "HEAD"])
                 .map(|s| s.trim().to_string())?;
+            if branch.is_empty() {
+                return Err("HEAD zeigt auf keinen Branch".into());
+            }
+            let target = match target {
+                Some(r) => r,
+                None => resolve_push_remote(&repo),
+            };
             args.push("-u".to_string());
-            args.push("origin".to_string());
+            args.push("--".to_string());
+            args.push(target);
             args.push(branch);
+        } else if let Some(r) = target {
+            args.push("--".to_string());
+            args.push(r);
         }
 
-        let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        run_git_merged_output(&repo, &arg_refs)
+        let repo_path = repo.to_string_lossy().to_string();
+        run_remote_op("push", &repo_path, Some(&repo), args, op_id)
     }).await
 }
 
@@ -677,7 +1260,11 @@ pub async fn repo_upstream_sync_counts(path: String) -> Result<UpstreamSyncCount
 }
 
 #[tauri::command]
-pub async fn git_clone(url: String, dest: String) -> Result<String, String> {
+pub async fn git_clone(
+    url: String,
+    dest: String,
+    op_id: Option<String>,
+) -> Result<String, String> {
     spawn_git(move || {
         let u = url.trim();
         let d = dest.trim();
@@ -687,7 +1274,8 @@ pub async fn git_clone(url: String, dest: String) -> Result<String, String> {
         if d.is_empty() {
             return Err("Zielpfad darf nicht leer sein".into());
         }
-        run_git_merged_output_at(None, &["clone", u, d])
+        let args = vec!["clone".to_string(), "--".to_string(), u.to_string(), d.to_string()];
+        run_remote_op("clone", d, None, args, op_id)
     }).await
 }
 
@@ -705,8 +1293,10 @@ pub async fn git_checkout(
         if name.is_empty() {
             return Err("Branch- oder Ref-Name darf nicht leer sein".into());
         }
+        reject_dash_arg(name, "Branch- oder Ref-Name")?;
         if let Some(remote) = from_remote.filter(|s| !s.trim().is_empty()) {
             let r = remote.trim();
+            reject_dash_arg(r, "Remote-Tracking-Ref")?;
             run_git(
                 &repo,
                 &["checkout", "-b", name, "--track", r],
@@ -716,13 +1306,15 @@ pub async fn git_checkout(
         if create {
             let mut args: Vec<String> = vec!["checkout".into(), "-b".into(), name.to_string()];
             if let Some(b) = base.filter(|s| !s.trim().is_empty()) {
-                args.push(b.trim().to_string());
+                let b = b.trim().to_string();
+                reject_dash_arg(&b, "Basis-Ref")?;
+                args.push(b);
             }
             let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
             run_git(&repo, &refs)?;
             return Ok(());
         }
-        run_git(&repo, &["checkout", name])?;
+        run_git(&repo, &["checkout", name, "--"])?;
         Ok(())
     }).await
 }
@@ -1075,7 +1667,14 @@ pub async fn git_merge_commit(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn git_tag_commit(path: String, name: String, commit: String) -> Result<(), String> {
+pub async fn git_tag_commit(
+    path: String,
+    name: String,
+    commit: String,
+    annotated: Option<bool>,
+    message: Option<String>,
+    sign: Option<bool>,
+) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
         let tag = name.trim();
@@ -1086,7 +1685,25 @@ pub async fn git_tag_commit(path: String, name: String, commit: String) -> Resul
         if c.is_empty() {
             return Err("Commit-Hash darf nicht leer sein".into());
         }
-        let parts = ["tag".to_string(), tag.to_string(), c.to_string()];
+        let sign = sign.unwrap_or(false);
+        let annotated = sign || annotated.unwrap_or(false);
+        let msg = message.unwrap_or_default().trim().to_string();
+        if annotated && msg.is_empty() {
+            return Err("Tag-Nachricht darf nicht leer sein".into());
+        }
+
+        let mut parts: Vec<String> = vec!["tag".to_string()];
+        if sign {
+            parts.push("-s".to_string());
+        } else if annotated {
+            parts.push("-a".to_string());
+        }
+        if annotated {
+            parts.push("-m".to_string());
+            parts.push(msg);
+        }
+        parts.push(tag.to_string());
+        parts.push(c.to_string());
         let args: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         run_git(&repo, &args)?;
         Ok(())
@@ -1202,8 +1819,12 @@ pub async fn git_restore_files_at_commit(
 pub async fn delete_branch(path: String, name: String, force: bool) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
+        let n = name.trim();
+        if n.is_empty() {
+            return Err("Branch-Name darf nicht leer sein".into());
+        }
         let flag = if force { "-D" } else { "-d" };
-        run_git(&repo, &["branch", flag, &name])?;
+        run_git(&repo, &["branch", flag, "--", n])?;
         Ok(())
     }).await
 }
@@ -1221,8 +1842,11 @@ pub async fn delete_remote_branch(path: String, remote_ref: String) -> Result<St
         if remote.is_empty() || branch.is_empty() {
             return Err("Ungültige Remote-Ref".into());
         }
-        let out = run_git_merged_output(&repo, &["push", remote, "--delete", branch])?;
-        let _ = run_git_merged_output(&repo, &["fetch", remote, "--prune"]);
+        let remote = normalized_remote(&repo, Some(remote))?
+            .ok_or_else(|| "Ungültige Remote-Ref".to_string())?;
+        reject_dash_arg(branch, "Branch-Name")?;
+        let out = run_git_merged_output(&repo, &["push", &remote, "--delete", "--", branch])?;
+        let _ = run_git_merged_output(&repo, &["fetch", "--prune", "--", &remote]);
         Ok(out)
     }).await
 }
@@ -1235,7 +1859,7 @@ pub async fn delete_tag(path: String, name: String) -> Result<(), String> {
         if tag.is_empty() {
             return Err("Tag-Name darf nicht leer sein".into());
         }
-        run_git(&repo, &["tag", "-d", tag])?;
+        run_git(&repo, &["tag", "-d", "--", tag])?;
         Ok(())
     }).await
 }
@@ -1252,8 +1876,11 @@ pub async fn delete_remote_tag(path: String, name: String, remote: String) -> Re
         if r.is_empty() {
             return Err("Remote darf nicht leer sein".into());
         }
-        let out = run_git_merged_output(&repo, &["push", r, "--delete", &format!("refs/tags/{tag}")])?;
-        let _ = run_git_merged_output(&repo, &["fetch", r, "--prune", "--prune-tags"]);
+        let r = normalized_remote(&repo, Some(r))?
+            .ok_or_else(|| "Remote darf nicht leer sein".to_string())?;
+        reject_dash_arg(tag, "Tag-Name")?;
+        let out = run_git_merged_output(&repo, &["push", &r, "--delete", "--", &format!("refs/tags/{tag}")])?;
+        let _ = run_git_merged_output(&repo, &["fetch", "--prune", "--prune-tags", "--", &r]);
         Ok(out)
     }).await
 }
@@ -1555,14 +2182,26 @@ pub async fn unstage_files(path: String, files: Vec<String>) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub async fn commit_changes(path: String, message: String) -> Result<(), String> {
+pub async fn commit_changes(
+    path: String,
+    message: String,
+    sign: Option<bool>,
+) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
         let trimmed = message.trim();
         if trimmed.is_empty() {
             return Err("Commit-Nachricht darf nicht leer sein".into());
         }
-        run_git(&repo, &["commit", "-m", trimmed])?;
+        let mut args: Vec<&str> = vec!["commit"];
+        match sign {
+            Some(true) => args.push("-S"),
+            Some(false) => args.push("--no-gpg-sign"),
+            None => {}
+        }
+        args.push("-m");
+        args.push(trimmed);
+        run_git(&repo, &args)?;
         Ok(())
     }).await
 }
@@ -1578,6 +2217,220 @@ pub async fn commit_amend(path: String, message: String) -> Result<(), String> {
         run_git(&repo, &["commit", "--amend", "-m", trimmed])?;
         Ok(())
     }).await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SigningScope {
+    pub commit_sign: Option<bool>,
+    pub tag_sign: Option<bool>,
+    pub format: Option<String>,
+    pub signing_key: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SigningInfo {
+    pub commit_sign: bool,
+    pub tag_sign: bool,
+    pub format: String,
+    pub signing_key: Option<String>,
+    pub program: String,
+    pub tool_available: bool,
+    pub tool_version: Option<String>,
+    pub local: SigningScope,
+    pub global: SigningScope,
+}
+
+fn config_value(repo: &PathBuf, scope: Option<&str>, key: &str) -> Option<String> {
+    let mut args: Vec<&str> = vec!["config"];
+    if let Some(s) = scope {
+        args.push(s);
+    }
+    args.push("--get");
+    args.push(key);
+    let value = run_git(repo, &args).ok()?;
+    let value = value.trim().to_string();
+    (!value.is_empty()).then_some(value)
+}
+
+fn config_bool(repo: &PathBuf, scope: Option<&str>, key: &str) -> Option<bool> {
+    let raw = config_value(repo, scope, key)?;
+    match raw.to_ascii_lowercase().as_str() {
+        "true" | "yes" | "on" | "1" => Some(true),
+        "false" | "no" | "off" | "0" | "" => Some(false),
+        _ => None,
+    }
+}
+
+fn signing_scope(repo: &PathBuf, scope: Option<&str>) -> SigningScope {
+    SigningScope {
+        commit_sign: config_bool(repo, scope, "commit.gpgsign"),
+        tag_sign: config_bool(repo, scope, "tag.gpgsign"),
+        format: config_value(repo, scope, "gpg.format"),
+        signing_key: config_value(repo, scope, "user.signingkey"),
+    }
+}
+
+fn probe_tool(program: &str, args: &[&str], read_version: bool) -> (bool, Option<String>) {
+    let mut cmd = std::process::Command::new(program);
+    cmd.args(args);
+    cmd.stdin(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+    let Ok(out) = cmd.output() else {
+        return (false, None);
+    };
+    if !read_version {
+        return (true, None);
+    }
+    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+    let version = stdout
+        .lines()
+        .map(|l| l.trim())
+        .find(|l| !l.is_empty() && l.chars().any(|c| c.is_ascii_digit()))
+        .map(|l| l.to_string());
+    (true, version)
+}
+
+pub fn signing_program(format: &str, configured: Option<String>) -> (String, Vec<&'static str>, bool) {
+    let ssh_probe = vec!["-Y", "check-novalidate"];
+    if let Some(p) = configured.filter(|p| !p.trim().is_empty()) {
+        let p = p.trim().to_string();
+        return if format == "ssh" {
+            (p, ssh_probe, false)
+        } else {
+            (p, vec!["--version"], true)
+        };
+    }
+    match format {
+        "ssh" => ("ssh-keygen".to_string(), ssh_probe, false),
+        "x509" => ("gpgsm".to_string(), vec!["--version"], true),
+        _ => ("gpg".to_string(), vec!["--version"], true),
+    }
+}
+
+#[tauri::command]
+pub async fn commit_signing_info(path: String) -> Result<SigningInfo, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let local = signing_scope(&repo, Some("--local"));
+        let global = signing_scope(&repo, Some("--global"));
+
+        let commit_sign = config_bool(&repo, None, "commit.gpgsign").unwrap_or(false);
+        let tag_sign = config_bool(&repo, None, "tag.gpgsign").unwrap_or(false);
+        let format = config_value(&repo, None, "gpg.format")
+            .map(|f| f.to_ascii_lowercase())
+            .unwrap_or_else(|| "openpgp".to_string());
+        let signing_key = config_value(&repo, None, "user.signingkey");
+
+        let configured_program = config_value(&repo, None, &format!("gpg.{format}.program"))
+            .or_else(|| config_value(&repo, None, "gpg.program"));
+        let (program, probe_args, read_version) = signing_program(&format, configured_program);
+        let (tool_available, tool_version) = probe_tool(&program, &probe_args, read_version);
+
+        Ok(SigningInfo {
+            commit_sign,
+            tag_sign,
+            format,
+            signing_key,
+            program,
+            tool_available,
+            tool_version,
+            local,
+            global,
+        })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn set_commit_signing(
+    path: String,
+    commit_sign: Option<bool>,
+    tag_sign: Option<bool>,
+    format: Option<String>,
+    signing_key: Option<String>,
+) -> Result<SigningInfo, String> {
+    let apply_path = path.clone();
+    spawn_git(move || {
+        let repo = PathBuf::from(apply_path.trim());
+        let set = |key: &str, value: Option<String>| -> Result<(), String> {
+            match value {
+                Some(v) if !v.trim().is_empty() => {
+                    run_git(&repo, &["config", "--local", key, v.trim()]).map(|_| ())
+                }
+                Some(_) => {
+                    let _ = run_git(&repo, &["config", "--local", "--unset-all", key]);
+                    Ok(())
+                }
+                None => Ok(()),
+            }
+        };
+        set("commit.gpgsign", commit_sign.map(|v| v.to_string()))?;
+        set("tag.gpgsign", tag_sign.map(|v| v.to_string()))?;
+        set("gpg.format", format)?;
+        set("user.signingkey", signing_key)?;
+        Ok::<(), String>(())
+    })
+    .await?;
+    commit_signing_info(path).await
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitSignature {
+    pub state: String,
+    pub code: String,
+    pub signer: Option<String>,
+    pub key: Option<String>,
+}
+
+pub fn parse_signature_status(raw: &str) -> CommitSignature {
+    let line = raw.lines().next().unwrap_or("");
+    let mut fields = line.splitn(3, '\u{001f}');
+    let code = fields.next().unwrap_or("").trim().to_string();
+    let signer = fields.next().unwrap_or("").trim().to_string();
+    let key = fields.next().unwrap_or("").trim().to_string();
+    let state = match code.as_str() {
+        "G" => "good",
+        "B" => "invalid",
+        "U" | "X" | "Y" | "R" => "untrusted",
+        "E" => "unknown_key",
+        _ => "unsigned",
+    };
+    CommitSignature {
+        state: state.to_string(),
+        code: if code.is_empty() { "N".to_string() } else { code },
+        signer: (!signer.is_empty()).then_some(signer),
+        key: (!key.is_empty()).then_some(key),
+    }
+}
+
+#[tauri::command]
+pub async fn commit_signature_status(path: String, hash: String) -> Result<CommitSignature, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let c = hash.trim();
+        if c.is_empty() {
+            return Err("Commit-Referenz fehlt".into());
+        }
+        let out = run_git(
+            &repo,
+            &[
+                "log",
+                "-1",
+                "--no-color",
+                "--format=%G?\u{001f}%GS\u{001f}%GK",
+                c,
+            ],
+        )?;
+        Ok(parse_signature_status(&out))
+    })
+    .await
 }
 
 #[derive(Serialize)]
@@ -1699,7 +2552,7 @@ fn apply_patch_to_index(repo: &PathBuf, patch: &str, reverse: bool) -> Result<()
 #[tauri::command]
 pub async fn repo_read_file(path: String, file: String) -> Result<String, String> {
     spawn_git(move || {
-        let abs = PathBuf::from(path.trim()).join(file.trim());
+        let abs = crate::pathsafe::resolve_in_root(&PathBuf::from(path.trim()), file.trim())?;
         std::fs::read_to_string(&abs)
             .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))
     }).await
@@ -1708,7 +2561,7 @@ pub async fn repo_read_file(path: String, file: String) -> Result<String, String
 #[tauri::command]
 pub async fn repo_write_file(path: String, file: String, content: String) -> Result<(), String> {
     spawn_git(move || {
-        let abs = PathBuf::from(path.trim()).join(file.trim());
+        let abs = crate::pathsafe::resolve_in_root(&PathBuf::from(path.trim()), file.trim())?;
         std::fs::write(&abs, content)
             .map_err(|e| format!("Datei konnte nicht geschrieben werden: {e}"))
     }).await
@@ -2170,11 +3023,11 @@ pub async fn git_stash_file_diff(
             return Err("Dateipfad fehlt".into());
         }
         let sref = stash_ref(index);
+        let parent = format!("{sref}^1");
         let diff = run_git(
             &repo,
-            &["stash", "show", "-p", "--no-color", &sref, "--", f],
-        )
-        .unwrap_or_default();
+            &["diff", "--no-color", "-M", &parent, &sref, "--", f],
+        )?;
         let trimmed = diff.trim();
         if diff_reports_binary(&diff) {
             return Ok(CommitFileDiffResponse {
@@ -2260,6 +3113,68 @@ fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
         .collect();
 
     Ok(branches)
+}
+
+#[derive(Serialize)]
+pub struct BranchActivity {
+    pub name: String,
+    pub is_remote: bool,
+    pub last_commit_at: String,
+}
+
+fn collect_branch_activity(repo: &PathBuf) -> Result<Vec<BranchActivity>, String> {
+    let sep = "\x1f";
+    let format = format!("%(refname){sep}%(committerdate:iso-strict)");
+    let out = run_git(
+        repo,
+        &[
+            "for-each-ref",
+            "--sort=-committerdate",
+            &format!("--format={format}"),
+            "refs/heads",
+            "refs/remotes",
+        ],
+    )?;
+
+    let branches = out
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.splitn(2, sep);
+            let refname = parts.next()?;
+            let last_commit_at = parts.next().unwrap_or("").trim().to_string();
+            if last_commit_at.is_empty() {
+                return None;
+            }
+
+            let (name, is_remote) = if let Some(rest) = refname.strip_prefix("refs/heads/") {
+                (rest.to_string(), false)
+            } else if let Some(rest) = refname.strip_prefix("refs/remotes/") {
+                if rest.ends_with("/HEAD") {
+                    return None;
+                }
+                (rest.to_string(), true)
+            } else {
+                return None;
+            };
+
+            Some(BranchActivity {
+                name,
+                is_remote,
+                last_commit_at,
+            })
+        })
+        .collect();
+
+    Ok(branches)
+}
+
+#[tauri::command]
+pub async fn repo_branch_activity(path: String) -> Result<Vec<BranchActivity>, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        collect_branch_activity(&repo)
+    })
+    .await
 }
 
 #[derive(Serialize)]
@@ -4703,7 +5618,7 @@ pub async fn git_reset(path: String, target: String, mode: String) -> Result<Str
     }).await
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct ContributorStat {
     pub name: String,
     pub email: String,
@@ -4712,12 +5627,58 @@ pub struct ContributorStat {
     pub deletions: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct ActivityBucket {
     pub bucket: String,
     pub commits: u32,
     pub insertions: u32,
     pub deletions: u32,
+}
+
+type AggCache<T> = HashMap<String, (String, T)>;
+
+const AGG_CACHE_MAX: usize = 50;
+
+fn contributor_cache() -> &'static std::sync::Mutex<AggCache<Vec<ContributorStat>>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<AggCache<Vec<ContributorStat>>>> =
+        std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+fn activity_cache() -> &'static std::sync::Mutex<AggCache<Vec<ActivityBucket>>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<AggCache<Vec<ActivityBucket>>>> =
+        std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+fn agg_head_oid(repo: &PathBuf) -> Option<String> {
+    run_git(repo, &["rev-parse", "HEAD"])
+        .ok()
+        .map(|out| out.trim().to_string())
+        .filter(|oid| !oid.is_empty())
+}
+
+fn agg_cache_get<T: Clone>(
+    cache: &'static std::sync::Mutex<AggCache<T>>,
+    key: &str,
+    head: &str,
+) -> Option<T> {
+    let map = cache.lock().ok()?;
+    let (cached_head, value) = map.get(key)?;
+    (cached_head == head).then(|| value.clone())
+}
+
+fn agg_cache_put<T>(
+    cache: &'static std::sync::Mutex<AggCache<T>>,
+    key: String,
+    head: String,
+    value: T,
+) {
+    let Ok(mut map) = cache.lock() else { return };
+    if map.len() >= AGG_CACHE_MAX && !map.contains_key(&key) {
+        map.clear();
+    }
+    map.insert(key, (head, value));
 }
 
 #[derive(Serialize)]
@@ -4737,18 +5698,18 @@ fn since_arg(days: u32) -> String {
     format!("--since={days}.days.ago")
 }
 
-fn collect_contributor_stats(repo: &PathBuf, days: u32) -> Result<Vec<ContributorStat>, String> {
+fn collect_contributor_stats(
+    repo: &PathBuf,
+    days: u32,
+    include_merges: bool,
+) -> Result<Vec<ContributorStat>, String> {
     let since = since_arg(days);
-    let out = run_git(
-        repo,
-        &[
-            "log",
-            "--no-merges",
-            &since,
-            "--numstat",
-            "--pretty=format:%x00%aN%x1f%aE",
-        ],
-    )?;
+    let mut args: Vec<&str> = vec!["log"];
+    if !include_merges {
+        args.push("--no-merges");
+    }
+    args.extend_from_slice(&[&since, "--numstat", "--pretty=format:%x00%aN%x1f%aE"]);
+    let out = run_git(repo, &args)?;
 
     let mut map: HashMap<(String, String), (u32, u32, u32)> = HashMap::new();
     let mut current: Option<(String, String)> = None;
@@ -4803,10 +5764,26 @@ pub async fn repo_contributor_stats(
     path: String,
     since_days: u32,
     limit: Option<u32>,
+    include_merges: Option<bool>,
 ) -> Result<Vec<ContributorStat>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
-        let mut stats = collect_contributor_stats(&repo, since_days)?;
+        let merges = include_merges.unwrap_or(false);
+        let head = agg_head_oid(&repo);
+        let key = format!("{}|{since_days}|{merges}", repo.to_string_lossy());
+        let mut stats = match head
+            .as_deref()
+            .and_then(|oid| agg_cache_get(contributor_cache(), &key, oid))
+        {
+            Some(hit) => hit,
+            None => {
+                let fresh = collect_contributor_stats(&repo, since_days, merges)?;
+                if let Some(oid) = head {
+                    agg_cache_put(contributor_cache(), key, oid, fresh.clone());
+                }
+                fresh
+            }
+        };
         if let Some(n) = limit {
             stats.truncate(n as usize);
         }
@@ -4858,18 +5835,15 @@ fn collect_activity_buckets(
     repo: &PathBuf,
     days: u32,
     bucket: &str,
+    include_merges: bool,
 ) -> Result<Vec<ActivityBucket>, String> {
     let since = since_arg(days);
-    let out = run_git(
-        repo,
-        &[
-            "log",
-            "--no-merges",
-            &since,
-            "--numstat",
-            "--pretty=format:%x00%ct",
-        ],
-    )?;
+    let mut args: Vec<&str> = vec!["log"];
+    if !include_merges {
+        args.push("--no-merges");
+    }
+    args.extend_from_slice(&[&since, "--numstat", "--pretty=format:%x00%ct"]);
+    let out = run_git(repo, &args)?;
 
     let mut by_key: std::collections::BTreeMap<String, (u32, u32, u32)> =
         std::collections::BTreeMap::new();
@@ -4920,6 +5894,7 @@ pub async fn repo_activity_buckets(
     path: String,
     since_days: u32,
     bucket: String,
+    include_merges: Option<bool>,
 ) -> Result<Vec<ActivityBucket>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path.trim());
@@ -4927,7 +5902,20 @@ pub async fn repo_activity_buckets(
             "month" | "week" | "day" => bucket.as_str(),
             _ => "day",
         };
-        collect_activity_buckets(&repo, since_days, kind)
+        let merges = include_merges.unwrap_or(false);
+        let head = agg_head_oid(&repo);
+        let key = format!("{}|{since_days}|{kind}|{merges}", repo.to_string_lossy());
+        if let Some(hit) = head
+            .as_deref()
+            .and_then(|oid| agg_cache_get(activity_cache(), &key, oid))
+        {
+            return Ok(hit);
+        }
+        let fresh = collect_activity_buckets(&repo, since_days, kind, merges)?;
+        if let Some(oid) = head {
+            agg_cache_put(activity_cache(), key, oid, fresh.clone());
+        }
+        Ok(fresh)
     })
     .await
 }
@@ -5028,6 +6016,188 @@ pub async fn repos_overview(paths: Vec<String>) -> Result<Vec<RepoOverview>, Str
     Ok(out)
 }
 
+#[derive(Serialize)]
+pub struct RangeCommitsResponse {
+    pub commits: Vec<Commit>,
+    pub files: Vec<CommitChangedFile>,
+    pub total_commits: u32,
+    pub additions: u32,
+    pub deletions: u32,
+    pub truncated: bool,
+}
+
+const RANGE_MAX_COMMITS: usize = 400;
+const RANGE_MAX_FILES: usize = 500;
+
+fn range_rev_exists(repo: &PathBuf, rev: &str) -> bool {
+    run_git(repo, &["rev-parse", "-q", "--verify", &format!("{rev}^{{commit}}")]).is_ok()
+}
+
+fn range_commits(repo: &PathBuf, spec: &str, limit: usize) -> Result<Vec<Commit>, String> {
+    let sep = "\x1f";
+    let format = format!("--pretty=format:%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
+    let max_count = format!("--max-count={limit}");
+    let out = run_git(repo, &["log", "-z", &max_count, &format, spec])?;
+    Ok(out
+        .split('\0')
+        .filter(|chunk| !chunk.is_empty())
+        .filter_map(|record| {
+            let mut parts = record.splitn(8, sep);
+            let hash = parts.next()?.to_string();
+            let short_hash = parts.next()?.to_string();
+            let author = parts.next()?.to_string();
+            let email = parts.next()?.to_string();
+            let date = parts.next()?.to_string();
+            let parents = parts
+                .next()?
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect();
+            let subject = parts.next()?.to_string();
+            let body = parts.next().unwrap_or_default().to_string();
+            Some(Commit {
+                hash,
+                short_hash,
+                author,
+                email,
+                date,
+                subject,
+                body,
+                parents,
+                tags: Vec::new(),
+                author_avatar: None,
+            })
+        })
+        .collect())
+}
+
+fn range_log_numstat(repo: &PathBuf, spec: &str, limit: usize) -> Vec<CommitChangedFile> {
+    let max_count = format!("--max-count={limit}");
+    let Ok(out) = run_git(
+        repo,
+        &[
+            "log",
+            "--no-renames",
+            "--numstat",
+            "--format=%x00",
+            &max_count,
+            spec,
+        ],
+    ) else {
+        return Vec::new();
+    };
+    let mut map: HashMap<String, (u32, u32, bool)> = HashMap::new();
+    for raw_line in out.split('\n') {
+        let line = raw_line.trim_end_matches('\r');
+        if line.is_empty() || line.starts_with('\u{0}') {
+            continue;
+        }
+        let mut fields = line.splitn(3, '\t');
+        let adds_s = fields.next().unwrap_or("");
+        let dels_s = fields.next().unwrap_or("");
+        let path = fields.next().unwrap_or("").trim();
+        if path.is_empty() {
+            continue;
+        }
+        let binary = adds_s == "-" || dels_s == "-";
+        let entry = map.entry(path.to_string()).or_insert((0, 0, false));
+        entry.0 += adds_s.parse::<u32>().unwrap_or(0);
+        entry.1 += dels_s.parse::<u32>().unwrap_or(0);
+        entry.2 = entry.2 || binary;
+    }
+    map.into_iter()
+        .map(|(path, (additions, deletions, binary))| CommitChangedFile {
+            path,
+            additions,
+            deletions,
+            binary,
+        })
+        .collect()
+}
+
+fn range_diff_numstat(repo: &PathBuf, base: &str, head: &str) -> Option<Vec<CommitChangedFile>> {
+    let out = run_git(
+        repo,
+        &[
+            "diff",
+            "--numstat",
+            "-z",
+            "--no-renames",
+            &format!("{base}...{head}"),
+        ],
+    )
+    .ok()?;
+    Some(
+        parse_numstat(&out)
+            .into_iter()
+            .map(|(path, (additions, deletions, binary))| CommitChangedFile {
+                path,
+                additions,
+                deletions,
+                binary,
+            })
+            .collect(),
+    )
+}
+
+#[tauri::command]
+pub async fn repo_range_commits(
+    path: String,
+    base: Option<String>,
+    head: String,
+    limit: Option<u32>,
+) -> Result<RangeCommitsResponse, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path.trim());
+        let head = head.trim().to_string();
+        if head.is_empty() {
+            return Err("Head-Referenz fehlt".into());
+        }
+        if !range_rev_exists(&repo, &head) {
+            return Err(format!("Referenz {head} existiert nicht"));
+        }
+        let base = base
+            .map(|b| b.trim().to_string())
+            .filter(|b| !b.is_empty() && range_rev_exists(&repo, b));
+        let limit = (limit.unwrap_or(60) as usize).clamp(1, RANGE_MAX_COMMITS);
+        let spec = match base.as_deref() {
+            Some(b) => format!("{b}..{head}"),
+            None => head.clone(),
+        };
+
+        let total_commits = run_git(&repo, &["rev-list", "--count", &spec])
+            .ok()
+            .and_then(|out| out.trim().parse::<u32>().ok())
+            .unwrap_or(0);
+        let commits = range_commits(&repo, &spec, limit)?;
+
+        let mut files = match base.as_deref() {
+            Some(b) => range_diff_numstat(&repo, b, &head)
+                .unwrap_or_else(|| range_log_numstat(&repo, &spec, limit)),
+            None => range_log_numstat(&repo, &spec, limit),
+        };
+        files.sort_by(|a, b| {
+            (b.additions + b.deletions)
+                .cmp(&(a.additions + a.deletions))
+                .then_with(|| a.path.cmp(&b.path))
+        });
+        let files_truncated = files.len() > RANGE_MAX_FILES;
+        files.truncate(RANGE_MAX_FILES);
+
+        let additions = files.iter().map(|f| f.additions).sum();
+        let deletions = files.iter().map(|f| f.deletions).sum();
+        Ok(RangeCommitsResponse {
+            truncated: files_truncated || total_commits as usize > commits.len(),
+            commits,
+            files,
+            total_commits,
+            additions,
+            deletions,
+        })
+    })
+    .await
+}
+
 #[cfg(test)]
 mod hook_run_tests {
     use super::*;
@@ -5053,5 +6223,210 @@ mod hook_run_tests {
         assert!(res.output.contains("hallo-hook"), "output: {}", res.output);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod remote_progress_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempPath {
+        path: PathBuf,
+    }
+
+    impl Drop for TempPath {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn temp_path(tag: &str) -> TempPath {
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let path = std::env::temp_dir().join(format!(
+            "l8git-progress-{tag}-{}-{id}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&path);
+        TempPath { path }
+    }
+
+    fn stream(cwd: Option<&PathBuf>, args: &[&str], op_id: &str) -> (StreamOutcome, Vec<ProgressLine>) {
+        let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+        let mut lines: Vec<ProgressLine> = Vec::new();
+        let outcome = run_git_streamed(cwd, &owned, op_id, |line| lines.push(line)).unwrap();
+        (outcome, lines)
+    }
+
+    fn phase_percent(lines: &[ProgressLine], phase: &str) -> Vec<Option<u8>> {
+        lines
+            .iter()
+            .filter(|l| l.phase == phase)
+            .map(|l| l.percent)
+            .collect()
+    }
+
+    #[test]
+    fn parses_captured_progress_stream() {
+        let captured = "remote: Enumerating objects: 62, done.        \rremote: Counting objects:  50% (31/62)        \rremote: Counting objects: 100% (62/62), done.        \rReceiving objects:  98% (61/62)\rReceiving objects: 100% (62/62), 1.16 MiB | 35.94 MiB/s, done.\nResolving deltas: 100% (10/10), done.\nTo /tmp/origin.git\n * [new branch]      HEAD -> main\n";
+
+        let mut lines: Vec<ProgressLine> = Vec::new();
+        let transcript = read_progress_stream(captured.as_bytes(), |line| lines.push(line));
+
+        assert_eq!(lines.len(), 6);
+        assert_eq!(lines[0].phase, "Enumerating objects");
+        assert_eq!(lines[0].percent, None);
+        assert_eq!(lines[0].detail, "62, done.");
+        assert_eq!(lines[1].phase, "Counting objects");
+        assert_eq!(lines[1].percent, Some(50));
+        assert_eq!(lines[1].detail, "(31/62)");
+        assert_eq!(lines[3].phase, "Receiving objects");
+        assert_eq!(lines[3].percent, Some(98));
+        assert_eq!(lines[4].percent, Some(100));
+        assert_eq!(lines[4].detail, "(62/62), 1.16 MiB | 35.94 MiB/s, done.");
+        assert_eq!(lines[5].phase, "Resolving deltas");
+
+        assert!(!transcript.contains("50%"), "transcript: {transcript}");
+        assert!(!transcript.contains("98%"), "transcript: {transcript}");
+        assert!(transcript.contains("To /tmp/origin.git"));
+        assert!(transcript.contains("[new branch]"));
+        assert!(transcript.lines().count() < 8);
+    }
+
+    #[test]
+    fn ignores_non_progress_output() {
+        assert!(parse_progress_chunk("Cloning into 'x'...").is_none());
+        assert!(parse_progress_chunk("remote: Total 62 (delta 0), reused 0").is_none());
+        assert!(parse_progress_chunk("To C:\\repos\\demo").is_none());
+        assert!(parse_progress_chunk("fatal: repository 'x' not found").is_none());
+        assert!(parse_progress_chunk("").is_none());
+        let updating = parse_progress_chunk("Updating files:  67% (2/3)").unwrap();
+        assert_eq!(updating.phase, "Updating files");
+        assert_eq!(updating.percent, Some(67));
+    }
+
+    #[test]
+    fn streams_progress_for_push_fetch_and_clone() {
+        let bare = temp_path("bare");
+        let work = temp_path("work");
+        let clone = temp_path("clone");
+        std::fs::create_dir_all(&bare.path).unwrap();
+        std::fs::create_dir_all(&work.path).unwrap();
+        run_git(&bare.path, &["-c", "init.defaultBranch=main", "init", "--bare", "-q", "."]).unwrap();
+        run_git(&work.path, &["-c", "init.defaultBranch=main", "init", "-q", "."]).unwrap();
+        run_git(&work.path, &["config", "user.email", "test@example.com"]).unwrap();
+        run_git(&work.path, &["config", "user.name", "Test"]).unwrap();
+        run_git(&work.path, &["config", "commit.gpgsign", "false"]).unwrap();
+        for n in 1..=8 {
+            std::fs::write(work.path.join(format!("f{n}.txt")), format!("{n}\n")).unwrap();
+        }
+        run_git(&work.path, &["add", "-A"]).unwrap();
+        run_git(&work.path, &["commit", "-q", "-m", "initial"]).unwrap();
+
+        let bare_url = bare.path.to_string_lossy().to_string();
+        let (pushed, push_lines) = stream(
+            Some(&work.path),
+            &["push", "--progress", "-u", &bare_url, "HEAD:main"],
+            "test-push",
+        );
+        assert!(pushed.success, "push failed: {}", pushed.stderr);
+        assert!(
+            phase_percent(&push_lines, "Writing objects").contains(&Some(100)),
+            "phases: {:?}",
+            push_lines.iter().map(|l| &l.phase).collect::<Vec<_>>()
+        );
+
+        let (cloned, clone_lines) = stream(
+            None,
+            &[
+                "clone",
+                "--progress",
+                "--no-local",
+                &bare_url,
+                &clone.path.to_string_lossy(),
+            ],
+            "test-clone",
+        );
+        assert!(cloned.success, "clone failed: {}", cloned.stderr);
+        assert!(
+            phase_percent(&clone_lines, "Receiving objects").contains(&Some(100)),
+            "phases: {:?}",
+            clone_lines.iter().map(|l| &l.phase).collect::<Vec<_>>()
+        );
+        assert!(clone_lines.len() > phase_percent(&clone_lines, "Receiving objects").len());
+
+        run_git(&clone.path, &["config", "user.email", "test@example.com"]).unwrap();
+        run_git(&clone.path, &["config", "user.name", "Test"]).unwrap();
+        run_git(&clone.path, &["config", "commit.gpgsign", "false"]).unwrap();
+        std::fs::write(clone.path.join("next.txt"), "next\n").unwrap();
+        run_git(&clone.path, &["add", "-A"]).unwrap();
+        run_git(&clone.path, &["commit", "-q", "-m", "second"]).unwrap();
+        run_git(&clone.path, &["push", "-q", "origin", "HEAD:main"]).unwrap();
+
+        let (fetched, fetch_lines) = stream(
+            Some(&work.path),
+            &["fetch", "--progress", &bare_url, "main"],
+            "test-fetch",
+        );
+        assert!(fetched.success, "fetch failed: {}", fetched.stderr);
+        assert!(
+            phase_percent(&fetch_lines, "Counting objects").contains(&Some(100)),
+            "phases: {:?}",
+            fetch_lines.iter().map(|l| &l.phase).collect::<Vec<_>>()
+        );
+        assert!(!fetched.canceled);
+    }
+
+    #[test]
+    fn registry_is_empty_after_completed_op() {
+        let repo = temp_path("registry");
+        std::fs::create_dir_all(&repo.path).unwrap();
+        run_git(&repo.path, &["init", "-q", "."]).unwrap();
+        let (outcome, _) = stream(Some(&repo.path), &["status", "--porcelain"], "test-registry");
+        assert!(outcome.success);
+        assert!(!remote_ops().lock().unwrap().contains_key("test-registry"));
+    }
+
+    #[tokio::test]
+    async fn cancel_reports_false_for_unknown_op() {
+        assert!(!git_remote_cancel("no-such-op".into()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn cancel_kills_running_op_and_its_children() {
+        let repo = temp_path("cancel");
+        std::fs::create_dir_all(&repo.path).unwrap();
+        run_git(&repo.path, &["init", "-q", "."]).unwrap();
+        let path = repo.path.clone();
+        let started = std::time::Instant::now();
+        let runner = tokio::task::spawn_blocking(move || {
+            stream(
+                Some(&path),
+                &["-c", "alias.slowop=!sleep 20", "slowop"],
+                "test-cancel",
+            )
+        });
+
+        let mut registered = false;
+        for _ in 0..150 {
+            if remote_ops().lock().unwrap().contains_key("test-cancel") {
+                registered = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(registered, "op was never registered");
+        assert!(git_remote_cancel("test-cancel".into()).await.unwrap());
+
+        let (outcome, _) = runner.await.unwrap();
+        assert!(outcome.canceled);
+        assert!(!outcome.success);
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(15),
+            "cancel did not stop the child process"
+        );
+        assert!(!remote_ops().lock().unwrap().contains_key("test-cancel"));
     }
 }

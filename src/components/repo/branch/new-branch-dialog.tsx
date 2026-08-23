@@ -6,26 +6,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toastError } from "@/lib/error-toast";
 import type { Branch } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
+import { useStackStore } from "@/lib/stack-store";
+import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+const COMMIT_BASE = "__commit__";
 
 export function NewBranchDialog({
   open,
   onClose,
   path,
   branches,
+  commitRef: initialCommitRef,
+  commitLabel,
 }: {
   open: boolean;
   onClose: () => void;
   path: string;
   branches: Branch[];
+  commitRef?: string;
+  commitLabel?: string;
 }) {
   const { t } = useTranslation();
   const createBranch = useRepoStore((s) => s.createBranch);
+  const createStackBranch = useStackStore((s) => s.createBranch);
   const [name, setName] = useState("");
   const [base, setBase] = useState("");
+  const [commitRef, setCommitRef] = useState("");
   const [checkoutAfter, setCheckoutAfter] = useState(true);
+  const [asStackBranch, setAsStackBranch] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const locals = useMemo(
@@ -43,16 +54,25 @@ export function NewBranchDialog({
     [locals, currentName],
   );
 
+  const fromCommit = base === COMMIT_BASE;
+
   useEffect(() => {
     if (!open) {
       setName("");
       setBase("");
+      setCommitRef("");
       setCheckoutAfter(true);
+      setAsStackBranch(false);
       setBusy(false);
       return;
     }
+    if (initialCommitRef) {
+      setBase(COMMIT_BASE);
+      setCommitRef((c) => c || initialCommitRef);
+      return;
+    }
     setBase((b) => b || currentName);
-  }, [open, currentName]);
+  }, [open, currentName, initialCommitRef]);
 
   function dismiss() {
     if (busy) return;
@@ -66,14 +86,24 @@ export function NewBranchDialog({
       toastError(t("newBranchDialog.toastEmptyName"));
       return;
     }
+    if (fromCommit && !commitRef.trim()) {
+      toastError(t("newBranchDialog.toastCommitMissing"));
+      return;
+    }
+    const parent = base.trim() || currentName;
+    if (asStackBranch && !parent) {
+      toastError(t("newBranchDialog.toastStackParentMissing"));
+      return;
+    }
     setBusy(true);
     try {
-      await createBranch(
-        path,
-        n,
-        base.trim() || undefined,
-        checkoutAfter,
-      );
+      if (fromCommit) {
+        await createBranch(path, n, commitRef.trim(), checkoutAfter);
+      } else if (asStackBranch) {
+        await createStackBranch(path, n, parent);
+      } else {
+        await createBranch(path, n, base.trim() || undefined, checkoutAfter);
+      }
       onClose();
     } catch (err) {
       toastError(String(err));
@@ -136,12 +166,50 @@ export function NewBranchDialog({
                 {baseOptions.map((b) => (
                   <SelectItem key={b} value={b}>{b}</SelectItem>
                 ))}
+                <SelectItem value={COMMIT_BASE}>
+                  {t("newBranchDialog.baseCommitOption")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
+          {fromCommit ? (
+            <div className="grid gap-1">
+              <Label htmlFor="nb-commit">{t("newBranchDialog.commitLabel")}</Label>
+              <Input
+                id="nb-commit"
+                value={commitRef}
+                onChange={(e) => setCommitRef(e.target.value)}
+                placeholder={t("newBranchDialog.commitPlaceholder")}
+                spellCheck={false}
+                autoComplete="off"
+                className="font-mono"
+              />
+              {commitLabel ? (
+                <p className="truncate text-xs text-muted-foreground" title={commitLabel}>
+                  {commitLabel}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          <label
+            className={cn(
+              "flex items-center gap-2 text-sm",
+              fromCommit ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+            )}
+          >
+            <Checkbox
+              checked={!fromCommit && asStackBranch}
+              disabled={fromCommit}
+              onCheckedChange={(checked) => setAsStackBranch(checked === true)}
+            />
+            {t("newBranchDialog.asStackBranch", {
+              parent: (fromCommit ? "" : base.trim()) || currentName || "HEAD",
+            })}
+          </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <Checkbox
-              checked={checkoutAfter}
+              checked={!fromCommit && asStackBranch ? true : checkoutAfter}
+              disabled={!fromCommit && asStackBranch}
               onCheckedChange={(checked) => setCheckoutAfter(checked === true)}
             />
             {t("newBranchDialog.checkoutAfter")}

@@ -955,10 +955,7 @@ pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> 
         if !repo.is_dir() {
             return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
         }
-        let name = name.trim();
-        if name.is_empty() || name.len() > 200 || name.chars().any(char::is_control) {
-            return Err("Ungültiger MCP-Servername.".into());
-        }
+        let name = cli_argument(&name)?;
         let executable = resolve_cli_path("claude")
             .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
         cli_command(executable)

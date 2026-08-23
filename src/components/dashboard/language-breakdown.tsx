@@ -27,20 +27,25 @@ export function LanguageBreakdown({ path }: { path: string | null }) {
   const { t } = useTranslation();
   const [stats, setStats] = useState<LanguageStat[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!path) {
       setStats([]);
+      setError(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
+    setError(null);
     invoke<LanguageStat[]>("repo_language_stats", { path })
       .then((res) => {
         if (!cancelled) setStats(res);
       })
-      .catch(() => {
-        if (!cancelled) setStats([]);
+      .catch((err) => {
+        if (cancelled) return;
+        setStats([]);
+        setError(String(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -58,6 +63,9 @@ export function LanguageBreakdown({ path }: { path: string | null }) {
         ))}
       </div>
     );
+  }
+  if (error) {
+    return <p className="text-xs text-git-removed">{t("dashboard.loadError")}</p>;
   }
   if (stats.length === 0) {
     return <p className="text-xs text-muted-foreground">{t("dashboard.languages.empty")}</p>;

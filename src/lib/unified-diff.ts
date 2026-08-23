@@ -137,6 +137,7 @@ function parseHunkHeader(header: string): {
  */
 export function parseDiffWithHunks(text: string): ParsedDiff {
   const rawLines = text.replace(/\r\n/g, '\n').split('\n');
+  if (rawLines.length > 0 && rawLines[rawLines.length - 1] === '') rawLines.pop();
   const metaLines: string[] = [];
   const hunks: ParsedHunk[] = [];
   let currentHunk: ParsedHunk | null = null;
@@ -266,10 +267,18 @@ export function buildPartialHunkPatch(
   const bodyLines: string[] = [];
   let oldCount = 0;
   let newCount = 0;
+  let previousSkipped = false;
 
   for (let i = 0; i < hunk.lines.length; i++) {
     const line = hunk.lines[i];
     const selected = selectedLineIndices.has(i);
+
+    if (line.raw.startsWith('\\')) {
+      if (!previousSkipped) bodyLines.push(line.raw);
+      continue;
+    }
+
+    previousSkipped = false;
 
     if (line.kind === 'ctx') {
       bodyLines.push(line.raw);
@@ -288,11 +297,11 @@ export function buildPartialHunkPatch(
       }
     } else if (line.kind === 'add') {
       if (selected) {
-        // Stage this addition
         bodyLines.push(line.raw);
         newCount++;
+      } else {
+        previousSkipped = true;
       }
-      // Unselected additions are simply skipped (don't appear in patch)
     }
   }
 
@@ -364,10 +373,18 @@ function buildPartialHunkPatchForDiscard(
   const bodyLines: string[] = [];
   let oldCount = 0;
   let newCount = 0;
+  let previousSkipped = false;
 
   for (let i = 0; i < hunk.lines.length; i++) {
     const line = hunk.lines[i];
     const selected = selectedLineIndices.has(i);
+
+    if (line.raw.startsWith('\\')) {
+      if (!previousSkipped) bodyLines.push(line.raw);
+      continue;
+    }
+
+    previousSkipped = false;
 
     if (line.kind === 'ctx') {
       bodyLines.push(line.raw);
@@ -377,8 +394,9 @@ function buildPartialHunkPatchForDiscard(
       if (selected) {
         bodyLines.push('+' + line.text);
         newCount++;
+      } else {
+        previousSkipped = true;
       }
-      // Unselected del lines don't exist in working tree — skip entirely
     } else if (line.kind === 'add') {
       if (selected) {
         bodyLines.push('-' + line.text);

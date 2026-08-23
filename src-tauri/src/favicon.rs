@@ -35,7 +35,7 @@ fn parse_size_value(s: &str) -> u32 {
         .unwrap_or(0)
 }
 
-fn favicon_from_manifest(manifest_path: &std::path::Path) -> Option<String> {
+fn favicon_from_manifest(root: &Path, manifest_path: &std::path::Path) -> Option<String> {
     let bytes = std::fs::read(manifest_path).ok()?;
     let json: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
     let icons = json.get("icons")?.as_array()?;
@@ -60,7 +60,7 @@ fn favicon_from_manifest(manifest_path: &std::path::Path) -> Option<String> {
     let (_, src, icon_type) = best?;
     let base_dir = manifest_path.parent()?;
     let trimmed = src.trim_start_matches('/');
-    let icon_path = base_dir.join(trimmed);
+    let icon_path = crate::pathsafe::contained(root, &base_dir.join(trimmed)).ok()?;
     let icon_bytes = std::fs::read(&icon_path).ok()?;
     if icon_bytes.is_empty() {
         return None;
@@ -76,7 +76,10 @@ fn favicon_from_manifest(manifest_path: &std::path::Path) -> Option<String> {
     Some(encode_image_data_url(&icon_bytes, &mime))
 }
 
-const ICO_SEARCH_MAX_DEPTH: usize = 12;
+const ICO_SEARCH_MAX_DEPTH: usize = 4;
+const ICO_SEARCH_MAX_DIRS: usize = 400;
+const ICO_SEARCH_MAX_ENTRIES_PER_DIR: usize = 400;
+const ICO_SEARCH_MAX_MATCHES: usize = 16;
 
 const ICO_SEARCH_SKIP_DIR_NAMES: &[&str] = &[
     ".git",
@@ -106,17 +109,24 @@ fn collect_ico_files(
     dir: &Path,
     rel_depth: usize,
     max_depth: usize,
+    budget: &mut usize,
     out: &mut Vec<PathBuf>,
 ) {
-    if rel_depth > max_depth {
+    if rel_depth > max_depth || *budget == 0 || out.len() >= ICO_SEARCH_MAX_MATCHES {
         return;
     }
+    *budget -= 1;
     let Ok(read) = std::fs::read_dir(dir) else {
         return;
     };
-    for entry in read.flatten() {
+    let mut sub_dirs: Vec<PathBuf> = Vec::new();
+    for entry in read.flatten().take(ICO_SEARCH_MAX_ENTRIES_PER_DIR) {
         let path = entry.path();
-        if path.is_dir() {
+        let is_dir = entry
+            .file_type()
+            .map(|t| t.is_dir())
+            .unwrap_or_else(|_| path.is_dir());
+        if is_dir {
             let name = path
                 .file_name()
                 .and_then(|n| n.to_str())
@@ -130,16 +140,26 @@ fn collect_ico_files(
             if name.starts_with('.') {
                 continue;
             }
-            collect_ico_files(&path, rel_depth + 1, max_depth, out);
+            sub_dirs.push(path);
         } else if is_ico_file(&path) {
             out.push(path);
+            if out.len() >= ICO_SEARCH_MAX_MATCHES {
+                return;
+            }
         }
+    }
+    for sub in sub_dirs {
+        if *budget == 0 || out.len() >= ICO_SEARCH_MAX_MATCHES {
+            return;
+        }
+        collect_ico_files(&sub, rel_depth + 1, max_depth, budget, out);
     }
 }
 
 fn any_ico_under_repo(root: &Path) -> Option<PathBuf> {
     let mut matches: Vec<PathBuf> = Vec::new();
-    collect_ico_files(root, 0, ICO_SEARCH_MAX_DEPTH, &mut matches);
+    let mut budget = ICO_SEARCH_MAX_DIRS;
+    collect_ico_files(root, 0, ICO_SEARCH_MAX_DEPTH, &mut budget, &mut matches);
     if matches.is_empty() {
         return None;
     }
@@ -156,8 +176,14 @@ fn any_ico_under_repo(root: &Path) -> Option<PathBuf> {
 }
 
 #[tauri::command]
-pub fn read_repo_favicon(path: String) -> Option<String> {
-    let root = PathBuf::from(&path);
+pub async fn read_repo_favicon(path: String) -> Option<String> {
+    tokio::task::spawn_blocking(move || read_repo_favicon_blocking(&path))
+        .await
+        .unwrap_or(None)
+}
+
+fn read_repo_favicon_blocking(path: &str) -> Option<String> {
+    let root = PathBuf::from(path);
     let favicon_candidates = [
         "favicon.ico",
         "public/favicon.ico",
@@ -193,7 +219,7 @@ pub fn read_repo_favicon(path: String) -> Option<String> {
 
     for rel in manifest_candidates {
         let p = root.join(rel);
-        if let Some(icon) = favicon_from_manifest(&p) {
+        if let Some(icon) = favicon_from_manifest(&root, &p) {
             return Some(icon);
         }
     }
@@ -201,7 +227,7 @@ pub fn read_repo_favicon(path: String) -> Option<String> {
     let expo_candidates = ["app.json", "app.config.json"];
     for rel in expo_candidates {
         let p = root.join(rel);
-        if let Some(icon) = favicon_from_expo_config(&p) {
+        if let Some(icon) = favicon_from_expo_config(&root, &p) {
             return Some(icon);
         }
     }
@@ -217,7 +243,7 @@ pub fn read_repo_favicon(path: String) -> Option<String> {
     None
 }
 
-fn favicon_from_expo_config(config_path: &std::path::Path) -> Option<String> {
+fn favicon_from_expo_config(root: &Path, config_path: &std::path::Path) -> Option<String> {
     let bytes = std::fs::read(config_path).ok()?;
     let json: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
     let expo = json.get("expo").unwrap_or(&json);
@@ -233,7 +259,10 @@ fn favicon_from_expo_config(config_path: &std::path::Path) -> Option<String> {
 
     let base_dir = config_path.parent()?;
     for rel in candidates.into_iter().flatten() {
-        let icon_path = base_dir.join(rel.trim_start_matches("./").trim_start_matches('/'));
+        let candidate = base_dir.join(rel.trim_start_matches("./").trim_start_matches('/'));
+        let Ok(icon_path) = crate::pathsafe::contained(root, &candidate) else {
+            continue;
+        };
         let Ok(icon_bytes) = std::fs::read(&icon_path) else {
             continue;
         };

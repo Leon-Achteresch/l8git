@@ -29,74 +29,6 @@ function parseCommitDate(value: string): Date | null {
   return null;
 }
 
-export type DayBucket = { date: string; commits: number };
-
-export function selectCommitsByDay(
-  commits: readonly Commit[] | undefined,
-  days: number,
-): DayBucket[] {
-  const buckets: DayBucket[] = [];
-  const today = startOfUtcDay(new Date());
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * DAY_MS);
-    buckets.push({ date: d.toISOString().slice(0, 10), commits: 0 });
-  }
-  if (!commits || commits.length === 0) return buckets;
-  const indexByDate = new Map(buckets.map((b, idx) => [b.date, idx]));
-  const cutoff = today.getTime() - (days - 1) * DAY_MS;
-  for (const c of commits) {
-    const dt = parseCommitDate(c.date);
-    if (!dt) continue;
-    const dayStart = startOfUtcDay(dt).getTime();
-    if (dayStart < cutoff) continue;
-    const key = new Date(dayStart).toISOString().slice(0, 10);
-    const idx = indexByDate.get(key);
-    if (idx !== undefined) buckets[idx].commits += 1;
-  }
-  return buckets;
-}
-
-export type BranchBuckets = {
-  total: number;
-  active: number;
-  stale: number;
-  remote: number;
-};
-
-export function selectBranchBuckets(
-  branches: readonly Branch[] | undefined,
-  commits: readonly Commit[] | undefined,
-  staleDays = 30,
-): BranchBuckets {
-  if (!branches || branches.length === 0) {
-    return { total: 0, active: 0, stale: 0, remote: 0 };
-  }
-  const tipDate = new Map<string, number>();
-  for (const c of commits ?? []) {
-    const dt = parseCommitDate(c.date);
-    if (dt) tipDate.set(c.hash, dt.getTime());
-  }
-  const cutoff = Date.now() - staleDays * DAY_MS;
-  let active = 0;
-  let stale = 0;
-  let remote = 0;
-  for (const b of branches) {
-    if (b.is_remote) {
-      remote += 1;
-      continue;
-    }
-    const ts = tipDate.get(b.tip);
-    if (ts === undefined) {
-      stale += 1;
-    } else if (ts >= cutoff) {
-      active += 1;
-    } else {
-      stale += 1;
-    }
-  }
-  return { total: branches.length, active, stale, remote };
-}
-
 export type RawActivityBucket = {
   bucket: string;
   commits: number;
@@ -245,39 +177,55 @@ export function selectWorkingCopy(
   return summary;
 }
 
-export type WeeklyPrPoint = { weekStart: string; count: number };
+export type BranchScopes = {
+  total: number;
+  local: number;
+  remote: number;
+};
 
-export function selectOpenPrTrend(
-  prs: readonly PullRequest[] | undefined,
-  weeks = 8,
-): WeeklyPrPoint[] {
-  const result: WeeklyPrPoint[] = [];
-  const today = startOfUtcDay(new Date());
-  const monday = new Date(today);
-  const dow = (monday.getUTCDay() + 6) % 7;
-  monday.setUTCDate(monday.getUTCDate() - dow);
-  for (let i = weeks - 1; i >= 0; i--) {
-    const start = new Date(monday.getTime() - i * 7 * DAY_MS);
-    result.push({ weekStart: start.toISOString().slice(0, 10), count: 0 });
+export function selectBranchScopes(branches: readonly Branch[] | undefined): BranchScopes {
+  let local = 0;
+  let remote = 0;
+  for (const b of branches ?? []) {
+    if (b.is_remote) remote += 1;
+    else local += 1;
   }
-  if (!prs || prs.length === 0) return result;
-  for (const pr of prs) {
-    if (pr.state !== "open") continue;
-    const created = parseCommitDate(pr.created_at);
-    if (!created) continue;
-    for (const point of result) {
-      const ts = new Date(point.weekStart + "T00:00:00Z").getTime();
-      if (created.getTime() <= ts + 7 * DAY_MS - 1) {
-        point.count += 1;
-      }
-    }
+  return { total: local + remote, local, remote };
+}
+
+export type BranchActivityEntry = {
+  name: string;
+  is_remote: boolean;
+  last_commit_at: string;
+};
+
+export type BranchActivitySummary = {
+  total: number;
+  active: number;
+  stale: number;
+};
+
+export const BRANCH_STALE_DAYS = 30;
+
+export function selectBranchActivity(
+  entries: readonly BranchActivityEntry[] | undefined,
+  staleDays: number = BRANCH_STALE_DAYS,
+  now: number = Date.now(),
+): BranchActivitySummary {
+  let active = 0;
+  let stale = 0;
+  const cutoff = now - staleDays * DAY_MS;
+  for (const e of entries ?? []) {
+    const dt = parseCommitDate(e.last_commit_at);
+    if (dt && dt.getTime() >= cutoff) active += 1;
+    else stale += 1;
   }
-  return result;
+  return { total: active + stale, active, stale };
 }
 
 export type RecentActivityItem = {
   id: string;
-  kind: "commit" | "stash" | "pr" | "branch";
+  kind: "commit" | "stash" | "pr";
   title: string;
   subtitle?: string;
   date: string;
@@ -287,7 +235,6 @@ export function selectRecentActivity(args: {
   commits?: readonly Commit[];
   stashes?: readonly StashEntry[];
   prs?: readonly PullRequest[];
-  branches?: readonly Branch[];
   limit?: number;
 }): RecentActivityItem[] {
   const items: (RecentActivityItem & { ts: number })[] = [];

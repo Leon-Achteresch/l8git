@@ -1,4 +1,4 @@
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { channel, invoke } from "@/lib/platform/ipc";
 
 export type AgentTransportProvider = "codex" | "claude" | (string & {});
 
@@ -15,6 +15,7 @@ export interface AgentTransportOpenOptions {
   sandbox?: string;
   addDirs?: string[];
   worktree?: string;
+  agentsTrusted?: boolean;
 }
 
 export interface AgentTransportHandlers {
@@ -42,23 +43,38 @@ interface AgentStreamEvent {
   payload: unknown;
 }
 
+const liveTransports = new Set<(code: number) => void>();
+
+export function failAgentTransports(code = -1): void {
+  for (const fail of [...liveTransports]) fail(code);
+}
+
 export async function openAgentTransport(
   provider: AgentTransportProvider,
   sessionId: string,
   handlers: AgentTransportHandlers,
   options?: AgentTransportOpenOptions,
 ): Promise<AgentTransport> {
-  const onEvent = new Channel<AgentStreamEvent>();
+  let handleEvent: (event: AgentStreamEvent) => void = () => {};
+  const onEvent = channel<AgentStreamEvent>((event) => handleEvent(event));
   let transportId: number | null = null;
   let exited = false;
   let released = false;
   const release = () => {
     if (released) return;
     released = true;
-    onEvent.onmessage = () => {};
+    handleEvent = () => {};
+    liveTransports.delete(fail);
   };
+  const fail = (code: number) => {
+    if (released || exited) return;
+    exited = true;
+    handlers.onExit?.(code);
+    release();
+  };
+  liveTransports.add(fail);
 
-  onEvent.onmessage = (event) => {
+  handleEvent = (event) => {
     if (event.sessionId !== sessionId) return;
     if (event.stream === "json") {
       handlers.onMessage(event.payload, event.sequence);

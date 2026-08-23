@@ -3,6 +3,12 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 export type AiProviderType = "openai" | "anthropic" | "google" | "openrouter" | "ollama" | "compatible";
 
+export type CommitDiffViewMode = "edit" | "stage";
+
+export type DiffLayoutMode = "inline" | "sideBySide";
+
+export type MergeEditorMode = "3way" | "2way";
+
 export const AI_PROVIDER_DEFAULT_MODELS: Record<AiProviderType, string> = {
   openai: "gpt-4o-mini",
   anthropic: "claude-3-5-haiku-latest",
@@ -19,6 +25,14 @@ type CommitPrefs = {
   setShowConventionalCommitIcons: (value: boolean) => void;
   showCommitDateGroups: boolean;
   setShowCommitDateGroups: (value: boolean) => void;
+  diffViewMode: CommitDiffViewMode;
+  setDiffViewMode: (value: CommitDiffViewMode) => void;
+  diffLayoutMode: DiffLayoutMode;
+  setDiffLayoutMode: (value: DiffLayoutMode) => void;
+  toggleDiffLayoutMode: () => void;
+  mergeEditorMode: MergeEditorMode;
+  setMergeEditorMode: (value: MergeEditorMode) => void;
+  toggleMergeEditorMode: () => void;
   aiPromptTemplate: string;
   setAiPromptTemplate: (value: string) => void;
   aiOutputLanguage: string;
@@ -49,6 +63,20 @@ export const useCommitPrefs = create<CommitPrefs>()(
       showCommitDateGroups: true,
       setShowCommitDateGroups: (showCommitDateGroups) =>
         set({ showCommitDateGroups }),
+      diffViewMode: "stage",
+      setDiffViewMode: (diffViewMode) => set({ diffViewMode }),
+      diffLayoutMode: "inline",
+      setDiffLayoutMode: (diffLayoutMode) => set({ diffLayoutMode }),
+      toggleDiffLayoutMode: () =>
+        set((s) => ({
+          diffLayoutMode: s.diffLayoutMode === "inline" ? "sideBySide" : "inline",
+        })),
+      mergeEditorMode: "3way",
+      setMergeEditorMode: (mergeEditorMode) => set({ mergeEditorMode }),
+      toggleMergeEditorMode: () =>
+        set((s) => ({
+          mergeEditorMode: s.mergeEditorMode === "3way" ? "2way" : "3way",
+        })),
       aiPromptTemplate: "",
       setAiPromptTemplate: (value) => set({ aiPromptTemplate: value }),
       aiOutputLanguage: "English",

@@ -18,11 +18,13 @@ import type { RangeKey } from "@/components/dashboard/ranges";
 import { RecentActivityFeed } from "@/components/dashboard/recent-activity-feed";
 import { RepoHealthList } from "@/components/dashboard/repo-health-list";
 import { StatusStrip } from "@/components/dashboard/status-strip";
+import { useDashboardPrs } from "@/components/dashboard/use-dashboard-prs";
+import { useDashboardRepoData } from "@/components/dashboard/use-dashboard-repo-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { selectRecentActivity, selectRepoHealth } from "@/lib/dashboard-aggregations";
-import { useRepoStore, type Branch, type Commit } from "@/lib/repo-store";
+import { useRepoStore, type Commit } from "@/lib/repo-store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 
 export const Route = createFileRoute("/dashboard")({
@@ -30,7 +32,6 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 const EMPTY_COMMITS: Commit[] = [];
-const EMPTY_BRANCHES: Branch[] = [];
 
 function DashboardPage() {
   const { t } = useTranslation();
@@ -100,11 +101,13 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
   const { t } = useTranslation();
   const [range, setRange] = useState<RangeKey>("1m");
 
+  const ready = useDashboardRepoData(path);
+  const prState = useDashboardPrs(path);
+
   const repo = useRepoStore((s) => (path ? s.repos[path] : undefined));
   const status = useRepoStore((s) => (path ? s.status[path] : undefined));
   const upstreamSync = useRepoStore((s) => (path ? s.upstreamSync[path] : undefined));
   const hasUpstream = useRepoStore((s) => (path ? s.hasUpstream[path] : undefined));
-  const prs = useRepoStore((s) => (path ? s.prs[path] : undefined));
   const stashes = useRepoStore((s) => (path ? s.stashes[path] : undefined));
   const worktrees = useRepoStore((s) => (path ? s.worktrees[path] : undefined));
   const bisect = useRepoStore((s) => (path ? s.bisect[path] : undefined));
@@ -112,11 +115,11 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
   const mergeState = useRepoStore((s) => (path ? s.mergeState[path] : undefined));
 
   const commits = repo?.commits ?? EMPTY_COMMITS;
-  const branches = repo?.branches ?? EMPTY_BRANCHES;
+  const prs = prState.data;
 
   const recent = useMemo(
-    () => selectRecentActivity({ commits, prs, stashes, branches, limit: 10 }),
-    [commits, prs, stashes, branches],
+    () => selectRecentActivity({ commits, prs: prs ?? undefined, stashes, limit: 10 }),
+    [commits, prs, stashes],
   );
 
   const health = useMemo(
@@ -166,7 +169,7 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
         <ContributorsPanel path={path} range={range} />
       </div>
 
-      <StatusStrip path={path} />
+      <StatusStrip path={path} prs={prState} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
@@ -188,7 +191,7 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <RecentActivityFeed items={recent} />
+            <RecentActivityFeed items={recent} loading={prState.loading && !prState.data} />
           </CardContent>
         </Card>
         <Card>
@@ -199,7 +202,7 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <RepoHealthList items={health} />
+            <RepoHealthList items={health} loading={!ready} />
           </CardContent>
         </Card>
       </div>

@@ -51,6 +51,19 @@ export function DeltaBadge({
   );
 }
 
+export function PanelError({ message, className }: { message: string; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-1 items-center justify-center text-center text-xs text-git-removed",
+        className,
+      )}
+    >
+      {message}
+    </div>
+  );
+}
+
 export function LegendDot({
   swatchClassName,
   label,

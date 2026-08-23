@@ -7,8 +7,9 @@ import type {
   AgentSandboxMode,
   AgentThreadSummary,
 } from "@/lib/agents/types";
+import { kvGet, kvSet } from "@/lib/platform/kv";
+import { AGENT_SESSION_CATALOG_KEY as STORAGE_KEY } from "@/lib/agents/storage-keys";
 
-const STORAGE_KEY = "l8git-agent-chat";
 const SAVE_DELAY_MS = 350;
 
 export interface AgentSessionCatalog {
@@ -118,9 +119,8 @@ function catalogFromUnknown(value: unknown): Partial<AgentSessionCatalog> {
 }
 
 export function loadAgentSessionCatalog(): Partial<AgentSessionCatalog> {
-  if (typeof localStorage === "undefined") return {};
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = kvGet(STORAGE_KEY);
     return raw ? catalogFromUnknown(JSON.parse(raw)) : {};
   } catch {
     return {};
@@ -138,12 +138,10 @@ export function flushAgentSessionCatalog(): void {
   saveTimer = null;
   const catalog = pendingCatalog;
   pendingCatalog = null;
-  if (!catalog || typeof localStorage === "undefined") return;
+  if (!catalog) return;
   try {
-    // Keep the old Zustand envelope readable so existing preferences migrate
-    // without importing any external Codex CLI history.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ state: catalog, version: 1 }));
+    kvSet(STORAGE_KEY, JSON.stringify({ state: catalog, version: 1 }));
   } catch {
-    // A full/disabled localStorage must never interrupt an active agent stream.
+    return;
   }
 }

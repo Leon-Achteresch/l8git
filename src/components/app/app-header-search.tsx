@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -12,24 +13,45 @@ import {
   Archive,
   ArrowDownToLine,
   ArrowUpToLine,
+  Bot,
+  ClipboardCopy,
   CloudDownload,
   Code2,
+  Compass,
+  Columns2,
+  Download,
+  FileClock,
   FolderGit2,
   FolderOpen,
+  FolderPlus,
   GitBranch,
+  GitBranchPlus,
   GitCommitHorizontal,
   GitFork,
+  GitMerge,
+  GitPullRequest,
   History,
+  Keyboard,
+  LayoutDashboard,
+  Layers,
   ListChecks,
+  ListOrdered,
+  Minus,
+  Plus,
+  ScrollText,
   Search,
   Settings,
+  Sparkles,
   Tag,
+  Terminal,
+  Undo2,
   Webhook,
   Wrench,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { useRouter } from "@tanstack/react-router";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
@@ -54,12 +76,29 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
+import { MergeDialog } from "@/components/repo/branch/merge-dialog";
+import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
+import { CommitTagDialog } from "@/components/repo/commit/commit-tag-dialog";
+import { RebaseDialog } from "@/components/repo/rebase/rebase-dialog";
+import { ResetDialog } from "@/components/repo/reset/reset-dialog";
+import { StashCreateDialog } from "@/components/repo/stash/stash-create-dialog";
+import { CloneRepoDialog } from "@/components/repo/tabs/clone-repo-dialog";
+import { InitRepoDialog } from "@/components/repo/tabs/init-repo-dialog";
+import { UndoConfirmDialog } from "@/components/repo/undo/undo-confirm-dialog";
+import { isRemoteCanceled, runRemoteOp } from "@/lib/remote-ops";
+import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interactive-editor";
 import { toastError } from "@/lib/error-toast";
+import { useCommitPrefs } from "@/lib/commit-prefs";
+import { useHotkeyBindings } from "@/lib/hotkey-prefs";
+import i18n from "@/lib/i18n";
 import { useRepoStore } from "@/lib/repo-store";
 import { useRepoToolsStore } from "@/lib/repo-tools-store";
+import { useHistorySelection } from "@/lib/use-history-hotkeys";
+import { startOnboardingTour } from "@/lib/onboarding-prefs";
 import { useUiStore, type SidebarTab } from "@/lib/ui-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { usePickRepo } from "@/lib/use-pick-repo";
+import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 
 const IS_MAC =
   typeof navigator !== "undefined" &&
@@ -67,8 +106,28 @@ const IS_MAC =
 
 const MOD_KEY = IS_MAC ? "⌘" : "Ctrl";
 
+const MERGE_SUGGESTION_LIMIT = 8;
+const REPO_SWITCH_LIMIT = 8;
+const PREVIEW_ACTIONS_PER_GROUP = 4;
+
+function reportRemoteError(error: unknown) {
+  if (isRemoteCanceled(error)) {
+    toast.info(i18n.t("remoteProgress.canceledToast"));
+    return;
+  }
+  toastError(String(error));
+}
+
+function repoLabel(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
+type ActionGroupId = "git" | "views" | "repo" | "prci";
+
 type ActionItem = {
   id: string;
+  group: ActionGroupId;
   label: string;
   icon: React.ReactNode;
   onSelect: () => void;
@@ -82,18 +141,18 @@ export function AppHeaderSearch() {
   const [query, setQuery] = useState("");
   const highlightedValue = useRef<string>("");
   const pickRepo = usePickRepo();
+  const bindings = useHotkeyBindings();
 
-  // ⌘K / Ctrl+K global shortcut
-  useEffect(() => {
-    function onKey(e: globalThis.KeyboardEvent) {
-      if ((IS_MAC ? e.metaKey : e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useHotkeys([
+    {
+      hotkey: bindings.commandPalette,
+      callback: () => setOpen((o) => !o),
+      options: {
+        preventDefault: true,
+        meta: { name: t("hotkeys.commandPalette") },
+      },
+    },
+  ]);
 
   const { activePath, repo } = useRepoStore(
     useShallow((s) => ({
@@ -101,16 +160,32 @@ export function AppHeaderSearch() {
       repo: s.activePath ? s.repos[s.activePath] : null,
     })),
   );
+  const openPaths = useRepoStore((s) => s.paths);
+  const setActiveRepo = useRepoStore((s) => s.setActive);
   const checkoutBranch = useRepoStore((s) => s.checkoutBranch);
+  const stashes = useRepoStore((s) =>
+    activePath ? s.stashes[activePath] : undefined,
+  );
+  const reloadStashes = useRepoStore((s) => s.reloadStashes);
+  const statusEntries = useRepoStore((s) =>
+    activePath ? s.status[activePath] : undefined,
+  );
   const focusCommitFromBranchTip = useUiStore(
     (s) => s.focusCommitFromBranchTip,
   );
   const requestCommitHistoryFocus = useUiStore(
     (s) => s.requestCommitHistoryFocus,
   );
+  const requestPrCreate = useUiStore((s) => s.requestPrCreate);
   const setSidebarTab = useUiStore((s) => s.setSidebarTab);
+  const openReflogView = useUiStore((s) => s.openReflogView);
+  const openCommandLog = useUiStore((s) => s.openCommandLog);
+  const openBlameEditor = useUiStore((s) => s.openBlameEditor);
   const toggleTerminal = useTerminalStore((s) => s.toggleVisible);
   const openTerminalTab = useTerminalStore((s) => s.openTab);
+  const ideLaunchCommand = useWorkspacePrefs((s) => s.ideLaunchCommand);
+  const repoTerminalKind = useWorkspacePrefs((s) => s.repoTerminalKind);
+  const historySelection = useHistorySelection();
   const tools = useRepoToolsStore((s) =>
     activePath ? s.toolsByPath[activePath] : undefined,
   );
@@ -119,12 +194,28 @@ export function AppHeaderSearch() {
     label: string;
     run: string;
   } | null>(null);
+  const [rebaseOpen, setRebaseOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
+  const [rebaseEditorOpen, setRebaseEditorOpen] = useState(false);
+  const [newBranchOpen, setNewBranchOpen] = useState(false);
+  const [stashCreateOpen, setStashCreateOpen] = useState(false);
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [initOpen, setInitOpen] = useState(false);
+  const [mergeSource, setMergeSource] = useState<string | null>(null);
+  const [tagTarget, setTagTarget] = useState<{
+    hash: string;
+    shortHash: string;
+  } | null>(null);
+  const [resetTarget, setResetTarget] = useState<string | null>(null);
   const totalCommits = repo?.commits.length ?? 0;
 
   // Refresh the repo's tool manifest whenever the palette opens.
   useEffect(() => {
-    if (open && activePath) void loadTools(activePath);
-  }, [open, activePath, loadTools]);
+    if (open && activePath) {
+      void loadTools(activePath);
+      void reloadStashes(activePath);
+    }
+  }, [open, activePath, loadTools, reloadStashes]);
 
   const branches = useMemo(() => repo?.branches ?? [], [repo]);
   const tags = useMemo(() => repo?.tags ?? [], [repo]);
@@ -158,152 +249,662 @@ export function AppHeaderSearch() {
       .slice(0, 15);
   }, [repo, query]);
 
-  // Actions — always shown, filtered by query
+  const selectedCommit = useMemo(() => {
+    if (!activePath || !historySelection) return null;
+    if (historySelection.path !== activePath) return null;
+    return historySelection;
+  }, [activePath, historySelection]);
+
+  const headCommit = repo?.commits[0] ?? null;
+  const currentBranch = repo?.branch ?? "";
+  const stagedCount =
+    statusEntries?.filter((entry) => entry.staged).length ?? 0;
+  const unstagedCount =
+    statusEntries?.filter((entry) => entry.unstaged || entry.untracked).length ??
+    0;
+  const stashCount = stashes?.length ?? 0;
+
   const allActions = useMemo((): ActionItem[] => {
-    const tabActions: { id: SidebarTab; label: string; icon: React.ReactNode; keywords: string }[] = [
-      { id: "commit", label: t("appSearch.actionTabCommit"), icon: <GitCommitHorizontal className="size-3.5" />, keywords: "commit stage" },
-      { id: "history", label: t("appSearch.actionTabHistory"), icon: <History className="size-3.5" />, keywords: "history log" },
-      { id: "pr", label: t("appSearch.actionTabPr"), icon: <GitBranch className="size-3.5" />, keywords: "pr pull request" },
-      { id: "ci", label: t("appSearch.actionTabCi"), icon: <ListChecks className="size-3.5" />, keywords: "ci pipeline" },
-      { id: "stash", label: t("appSearch.actionTabStash"), icon: <Archive className="size-3.5" />, keywords: "stash" },
-      { id: "worktrees", label: t("appSearch.actionTabWorktrees"), icon: <GitFork className="size-3.5" />, keywords: "worktree" },
-      { id: "hooks", label: t("appSearch.actionTabHooks"), icon: <Webhook className="size-3.5" />, keywords: "hooks git" },
-      { id: "submodules", label: t("appSearch.actionTabSubmodules"), icon: <FolderGit2 className="size-3.5" />, keywords: "submodule" },
+    const tabActions: {
+      id: SidebarTab;
+      group: ActionGroupId;
+      label: string;
+      icon: React.ReactNode;
+      keywords: string;
+    }[] = [
+      { id: "commit", group: "git", label: t("appSearch.actionTabCommit"), icon: <GitCommitHorizontal className="size-3.5" />, keywords: "commit stage panel arbeitskopie" },
+      { id: "history", group: "views", label: t("appSearch.actionTabHistory"), icon: <History className="size-3.5" />, keywords: "history log verlauf historie" },
+      { id: "pr", group: "prci", label: t("appSearch.actionTabPr"), icon: <GitPullRequest className="size-3.5" />, keywords: "pr pull request merge request liste list" },
+      { id: "ci", group: "prci", label: t("appSearch.actionTabCi"), icon: <ListChecks className="size-3.5" />, keywords: "ci pipeline build checks workflow actions" },
+      { id: "stash", group: "views", label: t("appSearch.actionTabStash"), icon: <Archive className="size-3.5" />, keywords: "stash stapel" },
+      { id: "worktrees", group: "views", label: t("appSearch.actionTabWorktrees"), icon: <GitFork className="size-3.5" />, keywords: "worktree arbeitsbaum" },
+      { id: "hooks", group: "views", label: t("appSearch.actionTabHooks"), icon: <Webhook className="size-3.5" />, keywords: "hooks git haken" },
+      { id: "submodules", group: "views", label: t("appSearch.actionTabSubmodules"), icon: <FolderGit2 className="size-3.5" />, keywords: "submodule untermodul" },
+      { id: "tools", group: "views", label: t("appSearch.actionTabTools"), icon: <Wrench className="size-3.5" />, keywords: "tools werkzeuge skripte scripts" },
     ];
 
-    const items: ActionItem[] = [
-      ...(activePath ? [
-        {
-          id: "action:push",
-          label: t("appSearch.actionPush"),
-          icon: <ArrowUpToLine className="size-3.5" />,
-          keywords: "push upload",
-          onSelect: () => {
-            setOpen(false);
-            void invoke<string>("git_push", { path: activePath, setUpstream: false, forceMode: null, tagsMode: null, atomic: false, noVerify: false, dryRun: false })
-              .then(() => toast.success(t("toolbar.actionSuccess")))
-              .catch((e) => toastError(String(e)));
+    const repoActions: ActionItem[] = activePath
+      ? [
+          {
+            id: "action:push",
+            group: "git",
+            label: t("appSearch.actionPush"),
+            icon: <ArrowUpToLine className="size-3.5" />,
+            keywords: "push upload hochladen senden",
+            onSelect: () => {
+              setOpen(false);
+              void runRemoteOp("push", activePath, (opId) =>
+                invoke<string>("git_push", { path: activePath, setUpstream: false, forceMode: null, tagsMode: null, atomic: false, noVerify: false, dryRun: false, opId }),
+              )
+                .then(() => toast.success(t("toolbar.actionSuccess")))
+                .catch((e) => reportRemoteError(e));
+            },
           },
-        },
-        {
-          id: "action:pull",
-          label: t("appSearch.actionPull"),
-          icon: <ArrowDownToLine className="size-3.5" />,
-          keywords: "pull download sync",
-          onSelect: () => {
-            setOpen(false);
-            void invoke<string>("git_pull", { path: activePath, strategy: "merge" })
-              .then(() => toast.success(t("toolbar.actionSuccess")))
-              .catch((e) => toastError(String(e)));
+          {
+            id: "action:pull",
+            group: "git",
+            label: t("appSearch.actionPull"),
+            icon: <ArrowDownToLine className="size-3.5" />,
+            keywords: "pull download sync holen aktualisieren",
+            onSelect: () => {
+              setOpen(false);
+              void runRemoteOp("pull", activePath, (opId) =>
+                invoke<string>("git_pull", { path: activePath, strategy: "merge", opId }),
+              )
+                .then(() => toast.success(t("toolbar.actionSuccess")))
+                .catch((e) => reportRemoteError(e));
+            },
           },
-        },
-        {
-          id: "action:fetch",
-          label: t("appSearch.actionFetch"),
-          icon: <CloudDownload className="size-3.5" />,
-          keywords: "fetch remote",
-          onSelect: () => {
-            setOpen(false);
-            void invoke<string>("git_fetch", { path: activePath, pruneBranches: true, pruneTags: false })
-              .then(() => toast.success(t("toolbar.actionSuccess")))
-              .catch((e) => toastError(String(e)));
+          {
+            id: "action:fetch",
+            group: "git",
+            label: t("appSearch.actionFetch"),
+            icon: <CloudDownload className="size-3.5" />,
+            keywords: "fetch remote abrufen",
+            onSelect: () => {
+              setOpen(false);
+              void runRemoteOp("fetch", activePath, (opId) =>
+                invoke<string>("git_fetch", { path: activePath, pruneBranches: true, pruneTags: false, opId }),
+              )
+                .then(() => toast.success(t("toolbar.actionSuccess")))
+                .catch((e) => reportRemoteError(e));
+            },
           },
-        },
-        {
-          id: "action:new-branch",
-          label: t("appSearch.actionNewBranch"),
-          icon: <GitBranch className="size-3.5" />,
-          keywords: "branch new create",
-          onSelect: () => {
-            setOpen(false);
-            setSidebarTab("commit");
+          {
+            id: "action:focus-commit-panel",
+            group: "git",
+            label: t("appSearch.actionFocusCommitPanel"),
+            icon: <GitCommitHorizontal className="size-3.5" />,
+            keywords: "commit message nachricht schreiben focus fokus eingabe compose",
+            onSelect: () => {
+              setOpen(false);
+              setSidebarTab("commit");
+              window.setTimeout(() => {
+                const el = document.querySelector<HTMLInputElement>(
+                  "[data-commit-message-input]",
+                );
+                el?.focus();
+              }, 60);
+            },
           },
-        },
-        ...tabActions.map((ta) => ({
-          id: `action:tab:${ta.id}`,
-          label: ta.label,
-          icon: ta.icon,
-          keywords: ta.keywords,
-          onSelect: () => {
-            setOpen(false);
-            setSidebarTab(ta.id);
+          {
+            id: "action:stage-all",
+            group: "git",
+            label: t("appSearch.actionStageAll"),
+            icon: <Plus className="size-3.5" />,
+            keywords: "stage all alles stagen index hinzufuegen hinzufügen add",
+            onSelect: () => {
+              setOpen(false);
+              const paths = (statusEntries ?? [])
+                .filter((entry) => entry.unstaged || entry.untracked)
+                .map((entry) => entry.path);
+              if (paths.length === 0) return;
+              void useRepoStore
+                .getState()
+                .stageFiles(activePath, paths)
+                .catch((e) => toastError(String(e)));
+            },
           },
-        })),
-        {
-          id: "action:terminal",
-          label: t("appSearch.actionToggleTerminal"),
-          icon: <Code2 className="size-3.5" />,
-          keywords: "terminal console",
-          onSelect: () => {
-            setOpen(false);
-            toggleTerminal(activePath);
+          {
+            id: "action:unstage-all",
+            group: "git",
+            label: t("appSearch.actionUnstageAll"),
+            icon: <Minus className="size-3.5" />,
+            keywords: "unstage all alles unstagen index entfernen reset",
+            onSelect: () => {
+              setOpen(false);
+              const paths = (statusEntries ?? [])
+                .filter((entry) => entry.staged)
+                .map((entry) => entry.path);
+              if (paths.length === 0) return;
+              void useRepoStore
+                .getState()
+                .unstageFiles(activePath, paths)
+                .catch((e) => toastError(String(e)));
+            },
           },
-        },
-        {
-          id: "action:reveal",
-          label: t("toolbar.revealLabel"),
-          icon: <FolderOpen className="size-3.5" />,
-          keywords: "folder reveal open finder explorer",
-          onSelect: () => {
-            setOpen(false);
-            void invoke("reveal_repo_folder", { path: activePath }).catch((e) => toastError(String(e)));
+          {
+            id: "action:stash-push",
+            group: "git",
+            label: t("appSearch.actionStashPush"),
+            icon: <Archive className="size-3.5" />,
+            keywords: "stash push save wegpacken sichern aenderungen änderungen",
+            onSelect: () => {
+              setOpen(false);
+              setStashCreateOpen(true);
+            },
           },
-        },
-        // Repo-declared tool actions (.l8git/tools.json)
-        ...(tools ?? [])
-          .filter((tool) => tool.available)
-          .flatMap((tool) =>
-            tool.actions.map((action) => ({
-              id: `tool:${tool.name}:${action.label}`,
-              label: action.label,
-              icon: <Wrench className="size-3.5" />,
-              keywords: `tool ${tool.name} ${action.label} ${action.run}`,
+          ...(stashCount > 0
+            ? [
+                {
+                  id: "action:stash-pop",
+                  group: "git" as const,
+                  label: t("appSearch.actionStashPop"),
+                  icon: <Archive className="size-3.5" />,
+                  keywords: "stash pop apply zurueckholen zurückholen wiederherstellen",
+                  onSelect: () => {
+                    setOpen(false);
+                    void useRepoStore
+                      .getState()
+                      .stashPop(activePath, 0)
+                      .then((out) =>
+                        toast.success(out.trim() || t("toolbar.actionSuccess")),
+                      )
+                      .catch((e) => toastError(String(e)));
+                  },
+                },
+              ]
+            : []),
+          {
+            id: "action:new-branch",
+            group: "git",
+            label: t("appSearch.actionNewBranch"),
+            icon: <GitBranch className="size-3.5" />,
+            keywords: "branch new create neuer zweig anlegen",
+            onSelect: () => {
+              setOpen(false);
+              setNewBranchOpen(true);
+            },
+          },
+          ...(selectedCommit || headCommit
+            ? [
+                {
+                  id: "action:new-tag",
+                  group: "git" as const,
+                  label: selectedCommit
+                    ? t("appSearch.actionNewTagOnCommit", {
+                        hash: selectedCommit.shortHash,
+                      })
+                    : t("appSearch.actionNewTag"),
+                  icon: <Tag className="size-3.5" />,
+                  keywords: "tag new create version release markieren",
+                  onSelect: () => {
+                    setOpen(false);
+                    const target = selectedCommit
+                      ? {
+                          hash: selectedCommit.hash,
+                          shortHash: selectedCommit.shortHash,
+                        }
+                      : headCommit
+                        ? { hash: headCommit.hash, shortHash: headCommit.short_hash }
+                        : null;
+                    if (target) setTagTarget(target);
+                  },
+                },
+              ]
+            : []),
+          ...branches
+            .filter((b) => !b.is_remote && !b.is_current)
+            .slice(0, MERGE_SUGGESTION_LIMIT)
+            .map((b) => ({
+              id: `action:merge:${b.name}`,
+              group: "git" as const,
+              label: t("appSearch.actionMergeBranch", {
+                source: b.name,
+                target: currentBranch,
+              }),
+              icon: <GitMerge className="size-3.5" />,
+              keywords: `merge zusammenfuehren zusammenführen ${b.name}`,
               onSelect: () => {
                 setOpen(false);
-                if (!activePath) return;
-                if (action.confirm) {
-                  setPendingTool({ label: action.label, run: action.run });
-                } else {
-                  openTerminalTab(activePath, action.label, action.run);
-                }
+                setMergeSource(b.name);
               },
             })),
-          ),
-      ] : []),
+          {
+            id: "action:rebase",
+            group: "git",
+            label: t("appSearch.actionRebase"),
+            icon: <Layers className="size-3.5" />,
+            keywords: "rebase onto upstream umbasieren",
+            onSelect: () => {
+              setOpen(false);
+              setRebaseOpen(true);
+            },
+          },
+          {
+            id: "action:rebase-interactive",
+            group: "git",
+            label: t("appSearch.actionRebaseInteractive"),
+            icon: <ListOrdered className="size-3.5" />,
+            keywords: "rebase interactive interaktiv todo squash fixup reword drop",
+            onSelect: () => {
+              setOpen(false);
+              setRebaseEditorOpen(true);
+            },
+          },
+          ...(selectedCommit
+            ? [
+                {
+                  id: "action:cherry-pick",
+                  group: "git" as const,
+                  label: t("appSearch.actionCherryPick", {
+                    hash: selectedCommit.shortHash,
+                  }),
+                  icon: <GitBranchPlus className="size-3.5" />,
+                  keywords: "cherry pick uebernehmen übernehmen commit",
+                  onSelect: () => {
+                    setOpen(false);
+                    void useRepoStore
+                      .getState()
+                      .cherryPick(activePath, [selectedCommit.hash])
+                      .then((out) =>
+                        toast.success(out.trim() || t("toolbar.actionSuccess")),
+                      )
+                      .catch((e) => toastError(String(e)));
+                  },
+                },
+                {
+                  id: "action:checkout-commit",
+                  group: "git" as const,
+                  label: t("appSearch.actionCheckoutCommit", {
+                    hash: selectedCommit.shortHash,
+                  }),
+                  icon: <GitCommitHorizontal className="size-3.5" />,
+                  keywords: "checkout detached commit auschecken",
+                  onSelect: () => {
+                    setOpen(false);
+                    void checkoutBranch(activePath, selectedCommit.hash)
+                      .then(() => toast.success(t("toolbar.actionSuccess")))
+                      .catch((e) => toastError(String(e)));
+                  },
+                },
+                {
+                  id: "action:copy-hash",
+                  group: "git" as const,
+                  label: t("appSearch.actionCopyHash", {
+                    hash: selectedCommit.shortHash,
+                  }),
+                  icon: <ClipboardCopy className="size-3.5" />,
+                  keywords: "copy hash kopieren sha commit id",
+                  onSelect: () => {
+                    setOpen(false);
+                    void navigator.clipboard
+                      ?.writeText(selectedCommit.hash)
+                      .then(() => toast.success(t("toolbar.actionSuccess")))
+                      .catch(() => {});
+                  },
+                },
+              ]
+            : []),
+          ...(selectedCommit || headCommit
+            ? [
+                {
+                  id: "action:reset",
+                  group: "git" as const,
+                  label: t("appSearch.actionReset"),
+                  icon: <Undo2 className="size-3.5" />,
+                  keywords: "reset soft mixed hard zuruecksetzen zurücksetzen",
+                  onSelect: () => {
+                    setOpen(false);
+                    setResetTarget(
+                      selectedCommit?.hash ?? headCommit?.hash ?? null,
+                    );
+                  },
+                },
+              ]
+            : []),
+          {
+            id: "action:undo-last",
+            group: "git",
+            label: t("appSearch.actionUndoLast"),
+            icon: <Undo2 className="size-3.5" />,
+            keywords: "undo rueckgaengig rückgängig revert last operation reflog",
+            onSelect: () => {
+              setOpen(false);
+              setUndoOpen(true);
+            },
+          },
+          {
+            id: "action:reflog",
+            group: "views",
+            label: t("appSearch.actionReflog"),
+            icon: <FileClock className="size-3.5" />,
+            keywords: "reflog history undo reset verlauf",
+            onSelect: () => {
+              setOpen(false);
+              openReflogView(activePath);
+            },
+          },
+          {
+            id: "action:command-log",
+            group: "views",
+            label: t("appSearch.actionCommandLog"),
+            icon: <ScrollText className="size-3.5" />,
+            keywords: "log kommando command transparenz transparency git",
+            onSelect: () => {
+              setOpen(false);
+              openCommandLog();
+            },
+          },
+          {
+            id: "action:blame",
+            group: "views",
+            label: t("appSearch.actionBlame"),
+            icon: <Search className="size-3.5" />,
+            keywords: "blame annotate schuld zeilen autor line author",
+            onSelect: () => {
+              setOpen(false);
+              openBlameEditor(activePath);
+            },
+          },
+          ...tabActions.map((ta) => ({
+            id: `action:tab:${ta.id}`,
+            group: ta.group,
+            label: ta.label,
+            icon: ta.icon,
+            keywords: ta.keywords,
+            onSelect: () => {
+              setOpen(false);
+              setSidebarTab(ta.id);
+            },
+          })),
+          {
+            id: "action:pr-create",
+            group: "prci",
+            label: t("appSearch.actionPrCreate"),
+            icon: <GitPullRequest className="size-3.5" />,
+            keywords: "pr pull request create erstellen neu merge request",
+            onSelect: () => {
+              setOpen(false);
+              requestPrCreate(activePath, currentBranch);
+            },
+          },
+          {
+            id: "action:terminal",
+            group: "views",
+            label: t("appSearch.actionToggleTerminal"),
+            icon: <Code2 className="size-3.5" />,
+            keywords: "terminal console konsole shell",
+            onSelect: () => {
+              setOpen(false);
+              toggleTerminal(activePath);
+            },
+          },
+          {
+            id: "action:diff-layout",
+            group: "views",
+            label: t("appSearch.actionToggleDiffLayout"),
+            icon: <Columns2 className="size-3.5" />,
+            keywords: "diff inline side by side nebeneinander split unified layout",
+            onSelect: () => {
+              setOpen(false);
+              useCommitPrefs.getState().toggleDiffLayoutMode();
+            },
+          },
+          {
+            id: "action:merge-editor-mode",
+            group: "views",
+            label: t("appSearch.actionToggleMergeEditor"),
+            icon: <GitMerge className="size-3.5" />,
+            keywords: "merge conflict editor 2way 3way wege konflikt",
+            onSelect: () => {
+              setOpen(false);
+              useCommitPrefs.getState().toggleMergeEditorMode();
+            },
+          },
+          {
+            id: "action:reveal",
+            group: "repo",
+            label: t("appSearch.actionRevealFolder"),
+            icon: <FolderOpen className="size-3.5" />,
+            keywords: "folder reveal open finder explorer ordner dateien",
+            onSelect: () => {
+              setOpen(false);
+              void invoke("reveal_repo_folder", { path: activePath }).catch((e) => toastError(String(e)));
+            },
+          },
+          {
+            id: "action:open-ide",
+            group: "repo",
+            label: t("appSearch.actionOpenIde"),
+            icon: <Code2 className="size-3.5" />,
+            keywords: "ide editor vscode oeffnen öffnen code",
+            onSelect: () => {
+              setOpen(false);
+              const ide = ideLaunchCommand.trim();
+              if (!ide) {
+                toastError(t("toolbar.noIdeCommand"));
+                return;
+              }
+              void invoke("open_repo_in_ide", { path: activePath, ideLaunch: ide }).catch((e) =>
+                toastError(String(e)),
+              );
+            },
+          },
+          {
+            id: "action:open-terminal-external",
+            group: "repo",
+            label: t("appSearch.actionOpenExternalTerminal"),
+            icon: <Terminal className="size-3.5" />,
+            keywords: "terminal external extern shell konsole oeffnen öffnen",
+            onSelect: () => {
+              setOpen(false);
+              void invoke("open_repo_terminal", {
+                path: activePath,
+                useGitBash: repoTerminalKind === "git_bash",
+              }).catch((e) => toastError(String(e)));
+            },
+          },
+          // Repo-declared tool actions (.l8git/tools.json)
+          ...(tools ?? [])
+            .filter((tool) => tool.available)
+            .flatMap((tool) =>
+              tool.actions.map((action) => ({
+                id: `tool:${tool.name}:${action.label}`,
+                group: "repo" as const,
+                label: action.label,
+                icon: <Wrench className="size-3.5" />,
+                keywords: `tool ${tool.name} ${action.label} ${action.run}`,
+                onSelect: () => {
+                  setOpen(false);
+                  if (!activePath) return;
+                  if (action.confirm) {
+                    setPendingTool({ label: action.label, run: action.run });
+                  } else {
+                    openTerminalTab(activePath, action.label, action.run);
+                  }
+                },
+              })),
+            ),
+        ]
+      : [];
+
+    const globalActions: ActionItem[] = [
       {
         id: "action:open-repo",
+        group: "repo",
         label: t("appSearch.actionOpenRepo"),
         icon: <FolderGit2 className="size-3.5" />,
-        keywords: "open repository folder",
+        keywords: "open repository folder hinzufuegen hinzufügen oeffnen öffnen add",
         onSelect: () => {
           setOpen(false);
           void pickRepo();
         },
       },
       {
+        id: "action:clone-repo",
+        group: "repo",
+        label: t("appSearch.actionCloneRepo"),
+        icon: <Download className="size-3.5" />,
+        keywords: "clone klonen git url remote herunterladen",
+        onSelect: () => {
+          setOpen(false);
+          setCloneOpen(true);
+        },
+      },
+      {
+        id: "action:init-repo",
+        group: "repo",
+        label: t("appSearch.actionInitRepo"),
+        icon: <FolderPlus className="size-3.5" />,
+        keywords: "init initialisieren neues repository anlegen create new",
+        onSelect: () => {
+          setOpen(false);
+          setInitOpen(true);
+        },
+      },
+      ...openPaths
+        .filter((p) => p !== activePath)
+        .slice(0, REPO_SWITCH_LIMIT)
+        .map((p) => ({
+          id: `action:switch-repo:${p}`,
+          group: "repo" as const,
+          label: t("appSearch.actionSwitchRepo", { name: repoLabel(p) }),
+          icon: <FolderGit2 className="size-3.5" />,
+          keywords: `repo switch wechseln open ${repoLabel(p)} ${p}`,
+          onSelect: () => {
+            setOpen(false);
+            setActiveRepo(p);
+          },
+        })),
+      {
+        id: "action:dashboard",
+        group: "views",
+        label: t("appSearch.actionDashboard"),
+        icon: <LayoutDashboard className="size-3.5" />,
+        keywords: "dashboard uebersicht übersicht start home",
+        onSelect: () => {
+          setOpen(false);
+          void router.navigate({ to: "/dashboard" });
+        },
+      },
+      {
+        id: "action:agents",
+        group: "views",
+        label: t("appSearch.actionAgents"),
+        icon: <Bot className="size-3.5" />,
+        keywords: "agents ai ki assistent chat",
+        onSelect: () => {
+          setOpen(false);
+          void router.navigate({
+            to: "/agents",
+            search: { path: activePath ?? undefined },
+          });
+        },
+      },
+      {
+        id: "action:changelog",
+        group: "views",
+        label: t("appSearch.actionChangelog"),
+        icon: <Sparkles className="size-3.5" />,
+        keywords: "changelog release notes neuerungen versionen",
+        onSelect: () => {
+          setOpen(false);
+          void router.navigate({ to: "/changelog" });
+        },
+      },
+      {
+        id: "action:shortcuts",
+        group: "views",
+        label: t("appSearch.actionShortcuts"),
+        icon: <Keyboard className="size-3.5" />,
+        keywords: "shortcuts hotkeys tastenkuerzel tastenkürzel keyboard tasten",
+        onSelect: () => {
+          setOpen(false);
+          void router.navigate({ to: "/info" });
+        },
+      },
+      {
         id: "action:settings",
+        group: "views",
         label: t("appSearch.actionSettings"),
         icon: <Settings className="size-3.5" />,
-        keywords: "settings preferences config",
+        keywords: "settings preferences config einstellungen optionen",
         onSelect: () => {
           setOpen(false);
           void router.navigate({ to: "/settings" });
         },
       },
+      {
+        id: "action:onboarding-tour",
+        group: "views",
+        label: t("appSearch.actionRestartTour"),
+        icon: <Compass className="size-3.5" />,
+        keywords: "tour onboarding einfuehrung einführung guide hilfe help",
+        onSelect: () => {
+          setOpen(false);
+          startOnboardingTour();
+        },
+      },
     ];
 
-    return items;
-  }, [activePath, t, setSidebarTab, toggleTerminal, openTerminalTab, tools, pickRepo, router]);
+    return [...repoActions, ...globalActions];
+  }, [
+    activePath,
+    branches,
+    checkoutBranch,
+    currentBranch,
+    headCommit,
+    ideLaunchCommand,
+    openBlameEditor,
+    openCommandLog,
+    openPaths,
+    openReflogView,
+    openTerminalTab,
+    pickRepo,
+    repoTerminalKind,
+    requestPrCreate,
+    router,
+    selectedCommit,
+    setActiveRepo,
+    setSidebarTab,
+    stashCount,
+    statusEntries,
+    t,
+    toggleTerminal,
+    tools,
+  ]);
 
   const filteredActions = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return allActions.slice(0, 6);
+    if (!q) return allActions;
     return allActions.filter(
       (a) =>
         a.label.toLowerCase().includes(q) ||
         a.keywords?.includes(q),
     );
   }, [allActions, query]);
+
+  const actionGroups = useMemo(() => {
+    const order: ActionGroupId[] = ["git", "views", "repo", "prci"];
+    const headings: Record<ActionGroupId, string> = {
+      git: t("appSearch.groupGit"),
+      views: t("appSearch.groupViews"),
+      repo: t("appSearch.groupRepo"),
+      prci: t("appSearch.groupPrCi"),
+    };
+    const previewOnly = query.trim().length === 0;
+    return order
+      .map((id) => {
+        const items = filteredActions.filter((a) => a.group === id);
+        return {
+          id,
+          heading: headings[id],
+          items: previewOnly ? items.slice(0, PREVIEW_ACTIONS_PER_GROUP) : items,
+        };
+      })
+      .filter((g) => g.items.length > 0);
+  }, [filteredActions, query, t]);
 
   // ─── primary action ───────────────────────────────────────────────────────
 
@@ -430,22 +1031,25 @@ export function AppHeaderSearch() {
               <CommandEmpty>{t("appSearch.empty")}</CommandEmpty>
             )}
 
-            {filteredActions.length > 0 && (
-              <CommandGroup heading={t("appSearch.groupActions")}>
-                {filteredActions.map((a) => (
-                  <CommandItem
-                    key={a.id}
-                    value={a.id}
-                    onSelect={a.onSelect}
-                  >
-                    {a.icon}
-                    <span className="min-w-0 flex-1 truncate text-xs">{a.label}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
+            {actionGroups.map((group, idx) => (
+              <Fragment key={group.id}>
+                {idx > 0 && <CommandSeparator />}
+                <CommandGroup heading={group.heading}>
+                  {group.items.map((a) => (
+                    <CommandItem
+                      key={a.id}
+                      value={a.id}
+                      onSelect={a.onSelect}
+                    >
+                      {a.icon}
+                      <span className="min-w-0 flex-1 truncate text-xs">{a.label}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Fragment>
+            ))}
 
-            {filteredActions.length > 0 &&
+            {actionGroups.length > 0 &&
               (filteredBranches.length > 0 || filteredTags.length > 0 || filteredCommits.length > 0) && (
                 <CommandSeparator />
               )}
@@ -536,6 +1140,14 @@ export function AppHeaderSearch() {
             <span>
               <kbd className="font-sans">{MOD_KEY}↵</kbd> {t("appSearch.footerCheckout")}
             </span>
+            {stagedCount + unstagedCount > 0 && (
+              <span className="text-muted-foreground/50">
+                {t("appSearch.footerChanges", {
+                  staged: stagedCount,
+                  unstaged: unstagedCount,
+                })}
+              </span>
+            )}
             {showDeepSearchHint && (
               <span className="ml-auto text-muted-foreground/50">
                 {t("appSearch.deepSearchHint")}
@@ -544,6 +1156,67 @@ export function AppHeaderSearch() {
           </div>
         </Command>
       </CommandDialog>
+
+      {activePath ? (
+        <>
+          <RebaseDialog
+            open={rebaseOpen}
+            onClose={() => setRebaseOpen(false)}
+            path={activePath}
+          />
+          <UndoConfirmDialog
+            open={undoOpen}
+            path={activePath}
+            onClose={() => setUndoOpen(false)}
+          />
+          <NewBranchDialog
+            open={newBranchOpen}
+            onClose={() => setNewBranchOpen(false)}
+            path={activePath}
+            branches={branches}
+          />
+          <StashCreateDialog
+            open={stashCreateOpen}
+            onClose={() => setStashCreateOpen(false)}
+            path={activePath}
+          />
+          {mergeSource ? (
+            <MergeDialog
+              open
+              onClose={() => setMergeSource(null)}
+              path={activePath}
+              sourceBranch={mergeSource}
+            />
+          ) : null}
+          {tagTarget ? (
+            <CommitTagDialog
+              open
+              onClose={() => setTagTarget(null)}
+              path={activePath}
+              commitHash={tagTarget.hash}
+              shortHash={tagTarget.shortHash}
+            />
+          ) : null}
+          {resetTarget ? (
+            <ResetDialog
+              open
+              onClose={() => setResetTarget(null)}
+              path={activePath}
+              commitHash={resetTarget}
+            />
+          ) : null}
+          {rebaseEditorOpen ? (
+            <RebaseInteractiveEditor
+              open
+              onClose={() => setRebaseEditorOpen(false)}
+              path={activePath}
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />
+      <InitRepoDialog open={initOpen} onClose={() => setInitOpen(false)} />
 
       {/* Confirm gate for destructive tool actions launched from the palette */}
       <AlertDialog

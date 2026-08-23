@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, m } from "motion/react";
+import { toast } from "sonner";
 
 import "@/components/agents/agents.css";
 import { AgentChatPane } from "@/components/agents/chat/agent-chat-pane";
@@ -11,8 +13,9 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { useAgentChatStore, chatStoreFor } from "@/lib/agents/active-chat-store";
 import { useAgentRepoPaths, useAgentRepoStore } from "@/lib/agents/agent-repo-store";
+import type { AgentOverviewEntry } from "@/lib/agents/overview";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { refreshProviderThreads } from "@/lib/agents/thread-refresh";
 import { armTurnAttention } from "@/lib/agents/turn-attention";
@@ -24,6 +27,10 @@ import { useTerminalStore } from "@/lib/terminal-store";
 import { SPRING_LAYOUT } from "@/lib/motion/ease";
 
 const EMPTY_THREADS: AgentThreadSummary[] = [];
+const AGENT_PROVIDERS = ["codex", "claude", "cursor", "opencode"] as const;
+const AgentsOverview = lazy(() => import("@/components/agents/overview/agents-overview").then(
+  (module) => ({ default: module.AgentsOverview }),
+));
 const AgentCapabilityCenter = lazy(() => import("@/components/agents/capabilities/agent-capability-center").then(
   (module) => ({ default: module.AgentCapabilityCenter }),
 ));
@@ -31,8 +38,16 @@ const ClaudeCapabilityCenter = lazy(() => import("@/components/agents/capabiliti
   (module) => ({ default: module.ClaudeCapabilityCenter }),
 ));
 
-export function AgentsPage({ initialPath }: { initialPath?: string }) {
+export function AgentsPage({
+  initialPath,
+  initialView,
+}: {
+  initialPath?: string;
+  initialView?: "overview";
+}) {
+  const navigate = useNavigate();
   const provider = useAgentProviderStore((state) => state.provider);
+  const setProvider = useAgentProviderStore((state) => state.setProvider);
   const activeRepoPath = useRepoStore((state) => state.activePath);
   const retainSurface = useAgentChatStore((state) => state.retainSurface);
   const setVisibleThread = useAgentChatStore((state) => state.setVisibleThread);
@@ -62,6 +77,37 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
   const handleToggleTerminal = useCallback(() => {
     toggleTerminal(selectedPath);
   }, [selectedPath, toggleTerminal]);
+
+  const overview = initialView === "overview";
+  const setOverview = useCallback(
+    (value: boolean) => {
+      void navigate({
+        to: "/agents",
+        search: { path: initialPath, view: value ? ("overview" as const) : undefined },
+        replace: true,
+      });
+    },
+    [initialPath, navigate],
+  );
+  const refreshOverview = useCallback(() => {
+    for (const id of AGENT_PROVIDERS) {
+      void chatStoreFor(id).getState().loadThreads(paths).catch(() => {});
+    }
+  }, [paths]);
+  const openOverviewEntry = useCallback(
+    (entry: AgentOverviewEntry) => {
+      setSelectedPath(entry.path);
+      setProvider(entry.provider);
+      setOverview(false);
+      void chatStoreFor(entry.provider)
+        .getState()
+        .openThread(entry.path, entry.threadId)
+        .catch((error: unknown) => {
+          toast.error(error instanceof Error ? error.message : String(error));
+        });
+    },
+    [setOverview, setProvider, setSelectedPath],
+  );
 
   const appliedInitialPath = useRef<string | undefined>(undefined);
   useEffect(() => {
@@ -112,6 +158,20 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
 
   if (paths.length === 0) return <AgentsEmpty />;
 
+  if (overview) {
+    return (
+      <div className="ag-stage flex h-full min-h-0 flex-col">
+        <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">…</div>}>
+          <AgentsOverview
+            onOpenThread={openOverviewEntry}
+            onClose={() => setOverview(false)}
+            onRefresh={refreshOverview}
+          />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0">
       <InAppTerminalLayout path={selectedPath}>
@@ -123,7 +183,7 @@ export function AgentsPage({ initialPath }: { initialPath?: string }) {
             maxSize="32%"
             className="ag-rail min-w-[264px] overflow-hidden"
           >
-            <AgentChatSidebar selectedPath={selectedPath} />
+            <AgentChatSidebar selectedPath={selectedPath} onOpenOverview={() => setOverview(true)} />
           </ResizablePanel>
           <ResizableHandle className="w-px bg-[var(--ag-line)] transition-colors hover:bg-[var(--ag-line-strong)]" />
           <ResizablePanel

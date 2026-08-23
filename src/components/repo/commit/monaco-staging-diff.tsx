@@ -3,11 +3,13 @@ import "@/lib/monaco-setup";
 import { DiffEditor, type DiffOnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { CheckCircle2, Loader2, Save } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { toastError } from "@/lib/error-toast";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
+import { useCommitPrefs } from "@/lib/commit-prefs";
+import { DiffLayoutToggle } from "./diff-layout-toggle";
 
 const EXT_MAP: Record<string, string> = {
   ts: "typescript", tsx: "typescript",
@@ -90,6 +92,11 @@ export function MonacoStagingDiff({
   const { t } = useTranslation();
   const theme = useMonacoTheme();
   const language = detectLanguage(filePath);
+  const layoutMode = useCommitPrefs((s) => s.diffLayoutMode);
+  const options = useMemo<Monaco.editor.IDiffEditorConstructionOptions>(
+    () => ({ ...BASE_OPTIONS, renderSideBySide: layoutMode === "sideBySide" }),
+    [layoutMode],
+  );
 
   const [original, setOriginal] = useState<string>("");
   const [modified, setModified] = useState<string>("");
@@ -166,6 +173,7 @@ export function MonacoStagingDiff({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-end gap-2 border-b border-border/60 px-3 py-1">
+        <DiffLayoutToggle className="mr-auto" />
         {isDirty && (
           <span className="h-1.5 w-1.5 rounded-full bg-git-modified" />
         )}
@@ -197,7 +205,7 @@ export function MonacoStagingDiff({
           original={original}
           modified={modified}
           theme={theme}
-          options={BASE_OPTIONS}
+          options={options}
           onMount={handleMount}
         />
       </div>

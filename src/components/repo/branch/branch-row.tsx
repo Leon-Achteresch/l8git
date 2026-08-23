@@ -8,6 +8,7 @@ import {
 import { toastError } from '@/lib/error-toast';
 import type { Branch } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
+import { useBranchFocusStore } from '@/lib/use-branch-hotkeys';
 import { useUiStore } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import {
@@ -16,10 +17,15 @@ import {
   GitBranch,
   GitMerge,
   GitPullRequest,
+  Layers,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useExplainSheet } from '@/components/ai/explain-sheet';
+import { pickDefaultBaseBranch } from '@/lib/ai/explain-inputs';
+import { RebaseDialog } from '../rebase/rebase-dialog';
 import { MergeDialog } from './merge-dialog';
 import { RemoteCheckoutDialog } from './remote-checkout-dialog';
 import { RemoteDeleteConfirmDialog } from './remote-delete-confirm-dialog';
@@ -45,6 +51,8 @@ function BranchRowInner({
 }) {
   const { t } = useTranslation();
   const checkoutBranch = useRepoStore(s => s.checkoutBranch);
+  const focusBranch = useBranchFocusStore(s => s.focusBranch);
+  const blurBranch = useBranchFocusStore(s => s.blurBranch);
   const focusCommitFromBranchTip = useUiStore(s => s.focusCommitFromBranchTip);
   const requestPrCreate = useUiStore(s => s.requestPrCreate);
   const [checkoutDraft, setCheckoutDraft] = useState<CheckoutDraft | null>(
@@ -52,6 +60,18 @@ function BranchRowInner({
   );
   const [deleteRemoteRef, setDeleteRemoteRef] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [rebaseOpen, setRebaseOpen] = useState(false);
+  const explain = useExplainSheet();
+
+  const openExplain = useCallback(() => {
+    const branches = useRepoStore.getState().repos[path]?.branches ?? [];
+    explain.open({
+      kind: 'branch',
+      repoPath: path,
+      branch: branch.name,
+      base: pickDefaultBaseBranch(branches, branch.name),
+    });
+  }, [explain, path, branch.name]);
 
   function defaultLocalFromRemote(remoteRef: string) {
     const slash = remoteRef.indexOf('/');
@@ -81,8 +101,12 @@ function BranchRowInner({
 
   const row = (
     <li
+      tabIndex={0}
+      onFocus={() => focusBranch(path, branch.name)}
+      onBlur={() => blurBranch(path, branch.name)}
       onClick={e => {
         if (e.button !== 0) return;
+        focusBranch(path, branch.name);
         focusCommitFromBranchTip(path, branch.tip);
       }}
       onDoubleClick={e => {
@@ -91,7 +115,7 @@ function BranchRowInner({
       }}
       title={branch.name}
       className={cn(
-        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] transition-all',
+        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] transition-all outline-none focus-visible:ring-1 focus-visible:ring-ring',
         branch.is_current
           ? 'bg-sidebar-accent/70 font-medium text-sidebar-accent-foreground shadow-2xs'
           : 'text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground hover:shadow-2xs'
@@ -178,6 +202,15 @@ function BranchRowInner({
         <ContextMenuContent>
           <ContextMenuItem
             onSelect={() => {
+              window.requestAnimationFrame(openExplain);
+            }}
+          >
+            <Sparkles className='h-3.5 w-3.5 text-primary' />
+            {t('branch.menuExplainBranch')}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() => {
               window.requestAnimationFrame(() =>
                 requestPrCreate(path, branch.name),
               );
@@ -212,6 +245,16 @@ function BranchRowInner({
                 {t('branch.menuMergeIntoCurrent')}
               </ContextMenuItem>
             </>
+          ) : null}
+          {!branch.is_current ? (
+            <ContextMenuItem
+              onSelect={() => {
+                window.requestAnimationFrame(() => setRebaseOpen(true));
+              }}
+            >
+              <Layers className='h-3.5 w-3.5' />
+              {t('branch.menuRebaseOnto')}
+            </ContextMenuItem>
           ) : null}
           {showRemoteCheckout ? (
             <ContextMenuItem onSelect={openRemoteCheckout}>
@@ -276,6 +319,13 @@ function BranchRowInner({
         path={path}
         sourceBranch={branch.name}
       />
+      <RebaseDialog
+        open={rebaseOpen}
+        onClose={() => setRebaseOpen(false)}
+        path={path}
+        upstream={branch.name}
+      />
+      {explain.element}
     </>
   );
 }

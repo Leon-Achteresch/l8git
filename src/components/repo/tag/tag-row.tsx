@@ -14,6 +14,7 @@ import { Tag as TagIcon, Trash2 } from 'lucide-react';
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RemoteTagDeleteDialog } from './remote-tag-delete-dialog';
+import { TagKindBadge } from './tag-kind-badge';
 
 function TagRowInner({
   path,
@@ -37,15 +38,26 @@ function TagRowInner({
     }
   }
 
+  const kind = tag.kind ?? 'lightweight';
+  const message = tag.message?.trim() ?? '';
+  const rowTitle = [
+    tag.name,
+    t(`tagKind.${kind}`),
+    tag.tagger ? t('tagRow.taggerPrefix', { name: tag.tagger }) : '',
+    message,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
   const row = (
     <li
       onClick={e => {
         if (e.button !== 0) return;
         focusCommitFromBranchTip(path, tag.commit);
       }}
-      title={tag.name}
+      title={rowTitle}
       className={cn(
-        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] text-muted-foreground transition-all hover:bg-sidebar-accent/40 hover:text-foreground hover:shadow-2xs'
+        'group/row relative flex min-w-0 max-w-full cursor-pointer items-start gap-2 rounded-md py-1 pl-2 pr-1.5 text-[13px] text-muted-foreground transition-all hover:bg-sidebar-accent/40 hover:text-foreground hover:shadow-2xs'
       )}
     >
       <span
@@ -54,17 +66,25 @@ function TagRowInner({
         style={{ backgroundColor: laneColor }}
       />
 
-      <span className='relative z-0 flex shrink-0 items-center justify-center'>
+      <span className='relative z-0 flex shrink-0 items-center justify-center pt-0.5'>
         <TagIcon
           className='h-3.5 w-3.5 text-muted-foreground/80'
           aria-hidden
         />
       </span>
 
-      <span className='flex min-w-0 flex-1 items-baseline gap-1'>
-        <span className='min-w-0 flex-1 truncate font-mono text-[12px] text-foreground/90'>
-          {tag.name}
+      <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
+        <span className='flex min-w-0 items-center gap-1.5'>
+          <span className='min-w-0 flex-1 truncate font-mono text-[12px] text-foreground/90'>
+            {tag.name}
+          </span>
+          {kind !== 'lightweight' && <TagKindBadge kind={kind} compact />}
         </span>
+        {message && (
+          <span className='min-w-0 truncate text-[11px] leading-snug text-muted-foreground/80'>
+            {message.split('\n')[0]}
+          </span>
+        )}
       </span>
     </li>
   );
@@ -111,5 +131,10 @@ function TagRowInner({
 export const TagRow = memo(TagRowInner, (a, b) => {
   if (a.path !== b.path) return false;
   if (a.laneColor !== b.laneColor) return false;
-  return a.tag.name === b.tag.name && a.tag.commit === b.tag.commit;
+  return (
+    a.tag.name === b.tag.name &&
+    a.tag.commit === b.tag.commit &&
+    a.tag.kind === b.tag.kind &&
+    a.tag.message === b.tag.message
+  );
 });

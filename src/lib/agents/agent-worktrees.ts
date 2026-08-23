@@ -1,6 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/platform/ipc";
+import { platformStorage } from "@/lib/platform/kv";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 export interface AgentWorktree {
   path: string;
@@ -116,6 +117,6 @@ export const useAgentWorktreeStore = create<AgentWorktreeState>()(
         });
       },
     }),
-    { name: "l8git-agent-worktrees" },
+    { name: "l8git-agent-worktrees", storage: createJSONStorage(() => platformStorage) },
   ),
 );

@@ -1,19 +1,12 @@
-import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { useCommitPrefs, AI_PROVIDER_DEFAULT_MODELS, type AiProviderType } from "@/lib/commit-prefs";
-import { useRepoPrefs } from "@/lib/repo-prefs";
+import { useCommitPrefs } from "@/lib/commit-prefs";
+import { generateAiText, resolveAiLanguage, truncateForPrompt } from "@/lib/ai/core";
+import { getPromptTemplate } from "@/lib/ai/prompt-prefs";
+import { defaultPromptTemplate, renderTemplate } from "@/lib/ai/prompts";
 import i18n from "@/lib/i18n";
-import type { LanguageModel } from "ai";
 
 const MAX_STAGED_DIFF_CHARS = 48_000;
 
-export const DEFAULT_AI_PROMPT_TEMPLATE = `You are an expert developer writing git commit messages.
-Subject line: Conventional Commits (type(scope): imperative summary), aim ~72 characters; types include feat, fix, docs, style, refactor, perf, test, build, ci, chore.
-After one blank line, add an explanatory body: summarize what changed file-wise if helpful, why it matters, breaking changes, risks, or follow-ups when relevant.
-Use imperative mood in the subject; body may use normal prose.
-Reply with only the final message text as for git commit: no preamble, no markdown fences, no quotes, no labels like "Subject:".`;
+export const DEFAULT_AI_PROMPT_TEMPLATE = defaultPromptTemplate("commitMessage");
 
 function stripMarkdownFence(text: string): string {
   const s = text.trim();
@@ -66,79 +59,46 @@ function normalizeCommitMessageText(text: string): string {
   return s.trim();
 }
 
-function buildLanguageModel(
-  type: AiProviderType,
-  apiKey: string,
-  model: string,
-  baseUrl: string,
-): LanguageModel {
-  const resolvedModel = model.trim() || AI_PROVIDER_DEFAULT_MODELS[type];
-
-  switch (type) {
-    case "openai":
-      return createOpenAI({ apiKey })(resolvedModel);
-
-    case "anthropic":
-      return createAnthropic({ apiKey })(resolvedModel);
-
-    case "google":
-      return createGoogleGenerativeAI({ apiKey })(resolvedModel);
-
-    case "openrouter": {
-      const key = apiKey || import.meta.env.VITE_OPENROUTER_API_KEY;
-      return createOpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: key,
-      })(resolvedModel);
-    }
-
-    case "ollama":
-      return createOpenAI({
-        baseURL: baseUrl.trim() || "http://localhost:11434/v1",
-        apiKey: "ollama",
-      })(resolvedModel);
-
-    case "compatible":
-      return createOpenAI({
-        baseURL: baseUrl.trim(),
-        apiKey,
-      })(resolvedModel);
-  }
+export interface AiCommitMessageOptions {
+  hint?: string;
+  signal?: AbortSignal;
+  onDelta?: (partial: string) => void;
 }
 
-export async function generateAiCommitMessage(stagedDiff: string, repoPath?: string): Promise<string> {
+export async function generateAiCommitMessage(
+  stagedDiff: string,
+  repoPath?: string,
+  options: AiCommitMessageOptions = {},
+): Promise<string> {
   const trimmedDiff = stagedDiff.trim();
   if (!trimmedDiff) throw new Error(i18n.t("errors.aiNoDiff"));
 
-  const prefs = useCommitPrefs.getState();
-  const repoLanguage = repoPath ? useRepoPrefs.getState().getAiOutputLanguage(repoPath) : undefined;
-
-  const { aiProviderType, aiProviderApiKey, aiProviderModel, aiProviderBaseUrl, aiPromptTemplate, aiOutputLanguage, messageTemplate } = prefs;
-
-  if (aiProviderType !== "ollama" && !aiProviderApiKey.trim() && !(aiProviderType === "openrouter" && import.meta.env.VITE_OPENROUTER_API_KEY)) {
-    throw new Error(i18n.t("errors.aiNoApiKey"));
-  }
-
-  const languageModel = buildLanguageModel(aiProviderType, aiProviderApiKey, aiProviderModel, aiProviderBaseUrl);
-
-  const basePrompt = aiPromptTemplate.trim() || DEFAULT_AI_PROMPT_TEMPLATE;
-  const language = (repoLanguage ?? aiOutputLanguage).trim() || "English";
-  const layout = messageTemplate.trim();
+  const language = resolveAiLanguage(repoPath);
+  const layout = useCommitPrefs.getState().messageTemplate.trim();
+  const diffBody = truncateForPrompt(trimmedDiff, MAX_STAGED_DIFF_CHARS);
 
   const layoutSection = layout
     ? `\n\nMandatory layout: reproduce this structure exactly — keep blank lines and bullet or section markers as shown; replace hints or empty lines with substantive explanatory content grounded in the diff.\n---\n${layout}\n---`
     : "";
 
-  const systemPrompt = `${basePrompt}${layoutSection}\n\nLanguage: write the entire commit message (subject and body) in ${language}.\n\nOutput: plain text only, exactly as it should be pasted into git commit; no preamble, no markdown code fences, no surrounding quotes.`;
-
-  const diffBody = trimmedDiff.slice(0, MAX_STAGED_DIFF_CHARS);
-
-  const { text } = await generateText({
-    model: languageModel,
-    system: systemPrompt,
-    prompt: `Write the commit message from this staged diff (all files):\n\n\`\`\`diff\n${diffBody}\n\`\`\``,
+  const basePrompt = renderTemplate(getPromptTemplate("commitMessage", { repoPath }), {
+    language,
+    layout,
+    diff: diffBody,
   });
 
-  if (!text) throw new Error(i18n.t("errors.aiNoResponse"));
+  const systemPrompt = `${basePrompt}${layoutSection}\n\nLanguage: write the entire commit message (subject and body) in ${language}.\n\nOutput: plain text only, exactly as it should be pasted into git commit; no preamble, no markdown code fences, no surrounding quotes.`;
+
+  const text = await generateAiText({
+    feature: "commitMessage",
+    system: systemPrompt,
+    prompt: `Write the commit message from this staged diff (all files):\n\n\`\`\`diff\n${diffBody}\n\`\`\``,
+    hint: options.hint,
+    signal: options.signal,
+    ...(options.onDelta
+      ? { onDelta: (full: string) => options.onDelta?.(normalizeCommitMessageText(full)) }
+      : {}),
+  });
+
   return normalizeCommitMessageText(text);
 }

@@ -4,6 +4,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { toastError } from '@/lib/error-toast';
 import i18n from '@/lib/i18n';
+import { trackPullRequests } from '@/lib/notifications';
+import { runRemoteOp } from '@/lib/remote-ops';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { useWorkspacePrefs } from '@/lib/workspace-prefs';
 
@@ -22,6 +24,8 @@ const stashesPending = new Map<string, number>();
 const loadMoreInFlight = new Map<string, boolean>();
 const loadMoreSearchInFlight = new Map<string, boolean>();
 const RELOAD_COALESCE_MS = 150;
+export const COMMIT_SEARCH_MIN_CHARS = 2;
+export const COMMIT_SEARCH_DEBOUNCE_MS = 300;
 
 function sameByJson(a: unknown, b: unknown): boolean {
   if (a === b) return true;
@@ -76,9 +80,20 @@ export type Branch = {
   behind?: number;
 };
 
+export type TagKind = 'lightweight' | 'annotated' | 'signed';
+
 export type TagRef = {
   name: string;
   commit: string;
+  kind: TagKind;
+  message: string | null;
+  tagger: string | null;
+};
+
+export type TagCreateOptions = {
+  annotated?: boolean;
+  message?: string | null;
+  sign?: boolean;
 };
 
 export type RepoInfo = {
@@ -121,6 +136,89 @@ export type MergeState = {
   in_progress: boolean;
   merge_head: string | null;
   conflicted_paths: string[];
+};
+
+export type RebaseStopped = {
+  hash: string;
+  short_hash: string;
+  subject: string;
+};
+
+export type RebaseTodoLine = {
+  action: string;
+  hash: string;
+  short_hash: string;
+  subject: string;
+};
+
+export type RebaseKind = 'none' | 'interactive' | 'normal';
+
+export type RebaseStatus = {
+  in_progress: boolean;
+  kind: RebaseKind;
+  step: number;
+  total: number;
+  head_name: string | null;
+  onto: string | null;
+  onto_short: string | null;
+  current_action: string | null;
+  stopped: RebaseStopped | null;
+  conflicted_paths: string[];
+  todo: RebaseTodoLine[];
+};
+
+export type RebaseResultStatus = 'completed' | 'conflict' | 'stopped' | 'aborted';
+
+export type RebaseResult = {
+  status: RebaseResultStatus;
+  message: string;
+  state: RebaseStatus;
+};
+
+export type RebaseCommit = {
+  hash: string;
+  short_hash: string;
+  subject: string;
+  author: string;
+  email: string;
+  date: string;
+};
+
+export type RebaseTodoAction =
+  | 'pick'
+  | 'reword'
+  | 'squash'
+  | 'fixup'
+  | 'drop'
+  | 'edit';
+
+export type RebaseTodoItem = {
+  action: RebaseTodoAction;
+  hash: string;
+  newMessage?: string | null;
+};
+
+export type FixupResult = {
+  status: 'committed' | 'completed' | 'conflict' | 'stopped';
+  message: string;
+  commit: string;
+  short_hash: string;
+  rebased: boolean;
+  state: RebaseStatus;
+};
+
+export const EMPTY_REBASE_STATUS: RebaseStatus = {
+  in_progress: false,
+  kind: 'none',
+  step: 0,
+  total: 0,
+  head_name: null,
+  onto: null,
+  onto_short: null,
+  current_action: null,
+  stopped: null,
+  conflicted_paths: [],
+  todo: [],
 };
 
 export type ConflictVersions = {
@@ -244,6 +342,7 @@ type RepoState = {
   prsLoading: Record<string, boolean>;
   cherryPickState: Record<string, CherryPickState>;
   mergeState: Record<string, MergeState>;
+  rebaseState: Record<string, RebaseStatus>;
   submodules: Record<string, SubmoduleEntry[]>;
   submodulesLoading: Record<string, boolean>;
   worktrees: Record<string, WorktreeEntry[]>;
@@ -322,11 +421,37 @@ type RepoState = {
   cherryPickAbort: (path: string) => Promise<string>;
   reloadCherryPickState: (path: string) => Promise<CherryPickState>;
   reloadMergeState: (path: string) => Promise<MergeState>;
+  reloadRebaseState: (path: string) => Promise<RebaseStatus>;
+  rebaseStart: (
+    path: string,
+    upstream: string,
+    opts?: { onto?: string | null; autostash?: boolean }
+  ) => Promise<RebaseResult>;
+  rebaseContinue: (path: string) => Promise<RebaseResult>;
+  rebaseSkip: (path: string) => Promise<RebaseResult>;
+  rebaseAbort: (path: string) => Promise<RebaseResult>;
+  rebaseTodoPreview: (path: string, base: string) => Promise<RebaseCommit[]>;
+  rebaseInteractive: (
+    path: string,
+    base: string,
+    todo: RebaseTodoItem[],
+    autostash?: boolean
+  ) => Promise<RebaseResult>;
+  commitFixup: (
+    path: string,
+    targetHash: string,
+    autosquash?: boolean
+  ) => Promise<FixupResult>;
   mergeAbort: (path: string) => Promise<string>;
   mergeCommit: (path: string) => Promise<string>;
   mergeGetConflictVersions: (path: string, file: string) => Promise<ConflictVersions>;
   mergeSaveResolved: (path: string, file: string, content: string) => Promise<void>;
-  tagCommit: (path: string, name: string, commit: string) => Promise<void>;
+  tagCommit: (
+    path: string,
+    name: string,
+    commit: string,
+    options?: TagCreateOptions
+  ) => Promise<void>;
   discardFiles: (path: string, files: string[]) => Promise<void>;
   discardWorktreeChanges: (path: string, files: string[]) => Promise<void>;
   restoreFilesAtCommit: (
@@ -442,6 +567,19 @@ async function mergeRemoteCommitAvatars(
   }
 }
 
+async function refreshAfterRebase(
+  get: () => RepoState,
+  path: string
+): Promise<void> {
+  const s = get();
+  await Promise.all([
+    s.reload(path),
+    s.reloadStatus(path),
+    s.reloadRebaseState(path),
+    s.reloadStashes(path),
+  ]);
+}
+
 export const useRepoStore = create<RepoState>()(
   persist(
     (set, get) => ({
@@ -459,6 +597,7 @@ export const useRepoStore = create<RepoState>()(
       prsLoading: {},
       cherryPickState: {},
       mergeState: {},
+      rebaseState: {},
       submodules: {},
       submodulesLoading: {},
       worktrees: {},
@@ -477,7 +616,7 @@ export const useRepoStore = create<RepoState>()(
 
       async searchCommits(path, query) {
         const q = query.trim();
-        if (!q) {
+        if (q.length < COMMIT_SEARCH_MIN_CHARS) {
           get().clearCommitSearch(path);
           return;
         }
@@ -505,6 +644,8 @@ export const useRepoStore = create<RepoState>()(
             skip: 0,
             limit: 80,
             hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
+            searchPaths: null,
+            scanLimit: null,
           });
           set(s => {
             const cur = s.commitSearchByPath[path];
@@ -573,6 +714,8 @@ export const useRepoStore = create<RepoState>()(
             skip,
             limit: count,
             hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
+            searchPaths: null,
+            scanLimit: null,
           });
           if (more.length === 0) {
             set(s => {
@@ -646,6 +789,7 @@ export const useRepoStore = create<RepoState>()(
         set(s => ({ prsLoading: { ...s.prsLoading, [path]: true } }));
         try {
           const list = await invoke<PullRequest[]>('pr_list', { path });
+          trackPullRequests(path, list);
           set(s => ({
             prs: { ...s.prs, [path]: list },
             prsLoading: { ...s.prsLoading, [path]: false },
@@ -824,7 +968,11 @@ export const useRepoStore = create<RepoState>()(
       },
 
       async refreshOpenRepo(path) {
-        await Promise.all([get().reload(path), get().reloadStatus(path)]);
+        await Promise.all([
+          get().reload(path),
+          get().reloadStatus(path),
+          get().reloadRebaseState(path),
+        ]);
       },
 
       async reloadAll() {
@@ -974,7 +1122,9 @@ export const useRepoStore = create<RepoState>()(
       },
 
       async cloneRepo(url, dest) {
-        const out = await invoke<string>('git_clone', { url, dest });
+        const out = await runRemoteOp('clone', dest, opId =>
+          invoke<string>('git_clone', { url, dest, opId })
+        );
         const opened = await get().addRepo(dest);
         if (!opened) {
           throw new Error(i18n.t('errors.cloneOpenFailed'));
@@ -1143,6 +1293,105 @@ export const useRepoStore = create<RepoState>()(
         }
       },
 
+      async reloadRebaseState(path) {
+        const apply = (next: RebaseStatus): RebaseStatus => {
+          const cur = get().rebaseState[path];
+          if (cur && sameByJson(cur, next)) return cur;
+          set(s => ({ rebaseState: { ...s.rebaseState, [path]: next } }));
+          return next;
+        };
+        try {
+          const next = await invoke<RebaseStatus>('rebase_status', { path });
+          return apply(next);
+        } catch {
+          return apply(EMPTY_REBASE_STATUS);
+        }
+      },
+
+      async rebaseStart(path, upstream, opts) {
+        try {
+          const res = await invoke<RebaseResult>('rebase_start', {
+            path,
+            upstream,
+            onto: opts?.onto ?? null,
+            autostash: opts?.autostash ?? false,
+          });
+          await refreshAfterRebase(get, path);
+          return res;
+        } catch (err) {
+          await refreshAfterRebase(get, path);
+          throw err;
+        }
+      },
+
+      async rebaseContinue(path) {
+        try {
+          const res = await invoke<RebaseResult>('rebase_continue', { path });
+          await refreshAfterRebase(get, path);
+          return res;
+        } catch (err) {
+          await refreshAfterRebase(get, path);
+          throw err;
+        }
+      },
+
+      async rebaseSkip(path) {
+        try {
+          const res = await invoke<RebaseResult>('rebase_skip', { path });
+          await refreshAfterRebase(get, path);
+          return res;
+        } catch (err) {
+          await refreshAfterRebase(get, path);
+          throw err;
+        }
+      },
+
+      async rebaseAbort(path) {
+        try {
+          const res = await invoke<RebaseResult>('rebase_abort', { path });
+          await refreshAfterRebase(get, path);
+          return res;
+        } catch (err) {
+          await refreshAfterRebase(get, path);
+          throw err;
+        }
+      },
+
+      async rebaseTodoPreview(path, base) {
+        return invoke<RebaseCommit[]>('rebase_todo_preview', { path, base });
+      },
+
+      async rebaseInteractive(path, base, todo, autostash = true) {
+        try {
+          const res = await invoke<RebaseResult>('rebase_interactive', {
+            path,
+            base,
+            todo,
+            autostash,
+          });
+          await refreshAfterRebase(get, path);
+          return res;
+        } catch (err) {
+          await refreshAfterRebase(get, path);
+          throw err;
+        }
+      },
+
+      async commitFixup(path, targetHash, autosquash = false) {
+        try {
+          const res = await invoke<FixupResult>('commit_fixup', {
+            path,
+            targetHash,
+            autosquash,
+          });
+          await refreshAfterRebase(get, path);
+          return res;
+        } catch (err) {
+          await refreshAfterRebase(get, path);
+          throw err;
+        }
+      },
+
       async mergeAbort(path) {
         const out = await invoke<string>('git_merge_abort', { path });
         await Promise.all([
@@ -1170,11 +1419,21 @@ export const useRepoStore = create<RepoState>()(
       async mergeSaveResolved(path, file, content) {
         await invoke('git_save_resolved_file', { path, file, content });
         await get().reloadStatus(path);
-        await get().reloadMergeState(path);
+        await Promise.all([
+          get().reloadMergeState(path),
+          get().reloadRebaseState(path),
+        ]);
       },
 
-      async tagCommit(path, name, commit) {
-        await invoke('git_tag_commit', { path, name, commit });
+      async tagCommit(path, name, commit, options) {
+        await invoke('git_tag_commit', {
+          path,
+          name,
+          commit,
+          annotated: options?.annotated ?? false,
+          message: options?.message ?? null,
+          sign: options?.sign ?? false,
+        });
         await get().reload(path);
       },
 

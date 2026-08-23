@@ -8,6 +8,15 @@ import { CiCheckDetails } from "./ci-check-details";
 import { CiCheckIcon } from "./ci-check-icon";
 import { RemoteCiCheck } from "./ci-types";
 
+const CI_KIND_LABELS: Record<string, string> = {
+  github_check_run: "GitHub Actions",
+  github_legacy_status: "GitHub",
+  bitbucket_commit_status: "Bitbucket",
+  gitlab_pipeline: "GitLab Pipeline",
+  gitlab_job: "GitLab Job",
+  gitlab_commit_status: "GitLab Status",
+};
+
 export function CiCheckRow({
   check,
   path,
@@ -20,13 +29,12 @@ export function CiCheckRow({
   const [rerunning, setRerunning] = useState(false);
 
   const metaParts: string[] = [];
-  if (check.ci_kind === "github_check_run") metaParts.push("GitHub Actions");
-  else if (check.ci_kind === "github_legacy_status") metaParts.push("GitHub");
-  else if (check.ci_kind === "bitbucket_commit_status")
-    metaParts.push("Bitbucket");
+  const kindLabel = check.ci_kind ? CI_KIND_LABELS[check.ci_kind] : undefined;
+  if (kindLabel) metaParts.push(kindLabel);
   else if (check.ci_kind) metaParts.push(check.ci_kind);
 
-  if (check.app_name) metaParts.push(check.app_name);
+  if (check.app_name && !metaParts.includes(check.app_name))
+    metaParts.push(check.app_name);
   if (check.key) metaParts.push(check.key);
   const meta = metaParts.join(" · ");
 

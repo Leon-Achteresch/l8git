@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 
 import { CloneRepoDialog } from "@/components/repo/tabs/clone-repo-dialog";
 import { InitRepoDialog } from "@/components/repo/tabs/init-repo-dialog";
+import { WelcomePanel } from "@/components/onboarding/welcome-panel";
+import { useOnboardingPrefs } from "@/lib/onboarding-prefs";
 import { FeatureCard } from "./feature-card";
 
 export function EmptyState() {
@@ -13,6 +15,7 @@ export function EmptyState() {
   const pickRepo = usePickRepo();
   const [cloneOpen, setCloneOpen] = useState(false);
   const [initOpen, setInitOpen] = useState(false);
+  const welcomeDismissed = useOnboardingPrefs((s) => s.welcomeDismissed);
 
   return (
     <div className="relative isolate flex h-full w-full flex-col items-center justify-center overflow-hidden bg-background p-8 animate-in fade-in duration-500">
@@ -74,6 +77,8 @@ export function EmptyState() {
           <br />
           {t("emptyState.subtitleLine2")}
         </p>
+
+        {!welcomeDismissed && <WelcomePanel onOpenRepo={() => void pickRepo()} />}
 
         {/* Primary CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-2">

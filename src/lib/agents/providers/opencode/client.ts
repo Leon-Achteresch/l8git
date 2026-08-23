@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/lib/platform/ipc";
 
 import { JsonRpcProcessClient, type RpcId } from "@/lib/agents/rpc-client";
 

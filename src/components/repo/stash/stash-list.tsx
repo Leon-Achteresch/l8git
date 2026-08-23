@@ -80,8 +80,8 @@ export function StashList({
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
               <Archive className="h-10 w-10 opacity-20" />
               <span className="text-sm font-medium">{t("stash.none")}</span>
-              <span className="max-w-[220px] text-xs opacity-80">
-                {t("stash.pickHint")}
+              <span className="max-w-[240px] text-xs opacity-80">
+                {t("stash.emptyHint")}
               </span>
             </div>
           ) : (

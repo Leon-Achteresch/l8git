@@ -60,6 +60,9 @@ type UiState = {
   prCreateRequest: PrCreateRequest | null;
   requestPrCreate: (path: string, head: string) => void;
   clearPrCreateRequest: () => void;
+  prFocusRequest: { path: string; number: number } | null;
+  requestPrFocus: (path: string, number: number) => void;
+  clearPrFocusRequest: () => void;
   branchFilterByPath: Record<string, ReadonlySet<string>>;
   setBranchFilter: (path: string, names: ReadonlySet<string>) => void;
   clearBranchFilter: (path: string) => void;
@@ -71,6 +74,12 @@ type UiState = {
   blameEditorFile: string | null;
   openBlameEditor: (path: string, file?: string) => void;
   closeBlameEditor: () => void;
+  reflogViewPath: string | null;
+  openReflogView: (path: string) => void;
+  closeReflogView: () => void;
+  commandLogOpen: boolean;
+  openCommandLog: () => void;
+  closeCommandLog: () => void;
   bisectVisible: boolean;
   setBisectVisible: (v: boolean) => void;
   bisectPending: Record<string, { bad: string | null; good: string | null }>;
@@ -135,6 +144,10 @@ export const useUiStore = create<UiState>()(
           },
         })),
       clearPrCreateRequest: () => set({ prCreateRequest: null }),
+      prFocusRequest: null,
+      requestPrFocus: (path, number) =>
+        set({ sidebarTab: 'pr', prFocusRequest: { path, number } }),
+      clearPrFocusRequest: () => set({ prFocusRequest: null }),
       branchFilterByPath: {},
       setBranchFilter: (path, names) =>
         set(s => ({
@@ -153,6 +166,12 @@ export const useUiStore = create<UiState>()(
       blameEditorFile: null,
       openBlameEditor: (path, file) => set({ blameEditorPath: path, blameEditorFile: file ?? null }),
       closeBlameEditor: () => set({ blameEditorPath: null, blameEditorFile: null }),
+      reflogViewPath: null,
+      openReflogView: path => set({ reflogViewPath: path }),
+      closeReflogView: () => set({ reflogViewPath: null }),
+      commandLogOpen: false,
+      openCommandLog: () => set({ commandLogOpen: true }),
+      closeCommandLog: () => set({ commandLogOpen: false }),
       bisectVisible: true,
       setBisectVisible: v => set({ bisectVisible: v }),
       bisectPending: {},

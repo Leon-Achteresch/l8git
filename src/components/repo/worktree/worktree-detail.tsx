@@ -1,4 +1,6 @@
+import { AgentReviewButton } from "@/components/agents/worktree-review/agent-review-launcher";
 import { Button } from "@/components/ui/button";
+import { isAgentSessionBranch } from "@/lib/agents/agent-review";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type WorktreeEntry } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
@@ -44,6 +46,9 @@ export function WorktreeDetail({
   const { t } = useTranslation();
   const worktreeRemove = useRepoStore((s) => s.worktreeRemove);
   const worktreeUnlock = useRepoStore((s) => s.worktreeUnlock);
+  const basePath = useRepoStore(
+    (s) => s.worktrees[path]?.find((e) => e.is_main)?.path ?? path,
+  );
   const [busy, setBusy] = useState(false);
 
   const { name, parent } = pathParts(entry.path);
@@ -207,6 +212,15 @@ export function WorktreeDetail({
         <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground">
           {t("worktree.detailActionsHeading")}
         </p>
+
+        {!entry.is_main && isAgentSessionBranch(entry.branch) && (
+          <AgentReviewButton
+            worktreePath={entry.path}
+            basePath={basePath}
+            branch={entry.branch ?? null}
+            className="w-full justify-start gap-2"
+          />
+        )}
 
         <Button
           type="button"
