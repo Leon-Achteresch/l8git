@@ -43,12 +43,12 @@ export function AgentAttentionSection({
         shadowOffset: { width: 0, height: 6 },
         elevation: 6,
       }}
-      className="border-warning/35 bg-card overflow-hidden rounded-3xl border">
+      className="bg-card overflow-hidden rounded-[28px]">
       <View className="flex-row items-center gap-3 px-3.5 pb-2 pt-3.5">
         <Image
           source={illustrations.agent}
           resizeMode="cover"
-          style={{ width: 44, height: 44, borderRadius: 14 }}
+          style={{ width: 44, height: 44, borderRadius: 22 }}
         />
         <View className="flex-1 gap-0.5">
           <Text className="text-warning text-base font-bold">Needs attention</Text>

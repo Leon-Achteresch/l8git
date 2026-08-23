@@ -45,7 +45,7 @@ export function AgentUsageFooter({
   return (
     <Animated.View
       layout={LinearTransition.duration(180)}
-      className="border-border/70 bg-background border-t">
+      className="">
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}

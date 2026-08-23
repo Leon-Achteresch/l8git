@@ -12,6 +12,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { Spinner } from '~/components/shared/spinner';
 import { useBottomInset } from '~/components/shared/use-bottom-inset';
 import { Button } from '~/components/ui/button';
+import { Glass, GlassCircle } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { pushAgentNotice } from '~/lib/agents/attention';
@@ -47,7 +48,7 @@ function Chip({
       disabled={disabled}
       onPress={onPress}
       className={cn(
-        'bg-secondary active:opacity-70 rounded-full px-2.5 py-1',
+        'bg-card/80 active:opacity-70 rounded-full px-3 py-1.5',
         disabled && 'opacity-50'
       )}>
       <Text numberOfLines={1} className="text-muted-foreground max-w-44 text-2xs font-medium">
@@ -92,7 +93,7 @@ export function AgentComposer({
     <Animated.View
       layout={LinearTransition.duration(180)}
       style={{ paddingBottom: bottomInset }}
-      className="border-border bg-background border-t px-3 pt-2.5">
+      className="px-4 pt-2">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -125,20 +126,11 @@ export function AgentComposer({
       </ScrollView>
 
       <View className="flex-row items-end gap-2">
-        <Button
-          size="icon"
-          variant="ghost"
-          accessibilityLabel="Composer settings"
-          onPress={onOpenSettings}
-          className="h-10 w-10 rounded-full">
-          <Icon as={Settings2} size={17} className="text-muted-foreground" />
-        </Button>
+        <GlassCircle icon={Settings2} size={44} label="Composer settings" onPress={onOpenSettings} />
 
-        <View
-          className={cn(
-            'border-border bg-secondary min-w-0 flex-1 rounded-3xl border px-4 py-1',
-            disabled && 'opacity-60'
-          )}>
+        <Glass
+          intensity={40}
+          style={{ flex: 1, minWidth: 0, borderRadius: 24, paddingHorizontal: 16, paddingVertical: 4, opacity: disabled ? 0.6 : 1 }}>
           <TextInput
             value={value}
             editable={!disabled}
@@ -149,16 +141,12 @@ export function AgentComposer({
                 Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, event.nativeEvent.contentSize.height + 16))
               )
             }
-            placeholder={
-              busy
-                ? 'Steer the running turn…'
-                : `Message ${providerLabel(provider)} about ${repoLabel}`
-            }
+            placeholder={busy ? 'Steer the running turn…' : 'Type a message…'}
             placeholderTextColor={palette.mutedForeground}
             style={{ height, textAlignVertical: 'top' }}
             className="text-foreground py-2 text-sm leading-5"
           />
-        </View>
+        </Glass>
 
         {busy && capabilities.interrupt ? (
           <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(120)}>
@@ -167,7 +155,7 @@ export function AgentComposer({
               variant="outline"
               accessibilityLabel="Interrupt the running turn"
               onPress={onInterrupt}
-              className="border-destructive/45 h-10 w-10 rounded-full">
+              className="border-destructive/45 h-11 w-11 rounded-full">
               <Icon as={Square} size={13} className="text-destructive" />
             </Button>
           </Animated.View>
@@ -178,7 +166,7 @@ export function AgentComposer({
           accessibilityLabel={busy ? 'Steer the agent' : 'Send message'}
           disabled={!canSend}
           onPress={onSend}
-          className="h-10 w-10 rounded-full">
+          className="h-11 w-11 rounded-full">
           {sending ? (
             <Spinner size={15} className="text-primary-foreground" />
           ) : (
@@ -199,9 +187,9 @@ export function AgentComposer({
             tone: 'info',
           })
         }
-        className="mt-1.5 flex-row items-center gap-1.5 self-start px-1 py-0.5">
+        className="mt-1.5 flex-row items-center gap-1.5 self-start px-2 py-0.5">
         <Icon as={Paperclip} size={10} className="text-muted-foreground/60" />
-        <Text className="text-muted-foreground/60 text-2xs">Attachments coming soon</Text>
+        <Text className="text-muted-foreground/60 text-2xs">{repoLabel} · attachments coming soon</Text>
       </Pressable>
     </Animated.View>
   );

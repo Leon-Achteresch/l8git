@@ -40,7 +40,7 @@ export function AgentRepoGroupCard({
         <Image
           source={illustrations.repo}
           resizeMode="cover"
-          style={{ width: 30, height: 30, borderRadius: 10 }}
+          style={{ width: 32, height: 32, borderRadius: 16 }}
         />
         <Text numberOfLines={1} className="text-foreground max-w-40 text-sm font-semibold">
           {group.repoName}

@@ -1,19 +1,15 @@
 import { formatUsd } from '@desktop/lib/agents/token-cost';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { FolderGit2, ListFilter, Plug, Plus, WifiOff } from 'lucide-react-native';
+import { FolderGit2, GitPullRequestArrow, ListFilter, Plug, Plus, ShieldAlert, WifiOff } from 'lucide-react-native';
 import * as React from 'react';
-import { Image, Platform, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Platform, RefreshControl, ScrollView, View } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 
 import { AgentAttentionSection } from '~/components/agents/agent-attention-section';
 import { AgentConnectionStrip } from '~/components/agents/agent-connection-strip';
 import { AgentFilterRow } from '~/components/agents/agent-filter-row';
 import { AgentRepoGroupCard } from '~/components/agents/agent-repo-group';
-import {
-  ApprovalsInboxIconButton,
-  WorktreeReviewsIconButton,
-} from '~/components/agents/approvals-link';
 import { NewThreadSheet } from '~/components/agents/new-thread-sheet';
 import {
   DEFAULT_AGENT_FILTERS,
@@ -31,31 +27,20 @@ import {
 import { EmptyState } from '~/components/empty-state';
 import { useBottomInset } from '~/components/shared/use-bottom-inset';
 import { Button } from '~/components/ui/button';
+import { GlassCircle } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { focusAgentHost, useFocusedAgentHostId } from '~/lib/agents/host-focus';
 import type { HostAgentEntry } from '~/lib/agents/overview-aggregator';
 import { refreshAgentThreads } from '~/lib/agents/overview-actions';
+import { usePendingApprovalCount } from '~/lib/agents/approvals';
 import { useActiveProvider } from '~/lib/agents/provider-selection';
 import { useOpenAgentThread, type AgentThreadTarget } from '~/components/agents/chat/route';
 import { useAgentConnection } from '~/lib/agents/use-agent-connection';
 import { useAgentOverview } from '~/lib/agents/use-agent-overview';
 import { useConnections } from '~/lib/connections';
 import { useHostRepoPaths, useRepoRegistry } from '~/lib/repo/registry';
-import { illustrations } from '~/lib/illustrations';
 import { palette } from '~/lib/theme';
-
-function HeaderPill({ label }: { label: string }) {
-  return (
-    <View className="bg-secondary rounded-full px-2.5 py-1">
-      <Text
-        style={{ fontVariant: ['tabular-nums'] }}
-        className="text-muted-foreground font-mono text-2xs">
-        {label}
-      </Text>
-    </View>
-  );
-}
 
 export function AgentsOverview() {
   const router = useRouter();
@@ -66,6 +51,7 @@ export function AgentsOverview() {
   const connection = useAgentConnection(focusedHostId);
   const provider = useActiveProvider();
   const summary = useAgentOverview();
+  const pendingApprovals = usePendingApprovalCount();
   const focusedPaths = useHostRepoPaths(focusedHostId);
   const pairedHosts = useConnections((state) => state.hosts.length);
   const trackedRepos = useRepoRegistry(
@@ -160,38 +146,33 @@ export function AgentsOverview() {
 
   return (
     <View className="flex-1">
-      <View className="flex-row items-start justify-between gap-3 px-4 pb-3 pt-1">
-        <View className="min-w-0 flex-1 flex-row items-center gap-3">
-          <Image
-            source={illustrations.agent}
-            resizeMode="cover"
-            style={{ width: 48, height: 48, borderRadius: 15 }}
-          />
-          <View className="min-w-0 flex-1 gap-0.5">
-            <Text className="text-foreground text-3xl font-bold tracking-tight">Agents</Text>
-            <Text numberOfLines={1} className="text-muted-foreground text-sm">
-              {subtitle}
-            </Text>
-          </View>
+      <View className="flex-row items-center justify-between gap-3 px-5 pb-4 pt-1">
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text className="text-foreground text-3xl font-bold tracking-tight">Agents</Text>
+          <Text numberOfLines={1} className="text-muted-foreground text-sm">
+            {[subtitle, tokens, cost > 0 ? formatUsd(cost) : null].filter(Boolean).join(' · ')}
+          </Text>
         </View>
-        <View className="flex-row items-center gap-2 pt-1">
-          {tokens ? <HeaderPill label={tokens} /> : null}
-          {cost > 0 ? <HeaderPill label={formatUsd(cost)} /> : null}
-          <ApprovalsInboxIconButton />
-          <WorktreeReviewsIconButton />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Start a new agent thread"
-            hitSlop={8}
-            onPress={() => openComposer()}
-            className="bg-primary active:opacity-80 h-9 w-9 items-center justify-center rounded-full">
-            <Icon as={Plus} size={17} className="text-primary-foreground" />
-          </Pressable>
+        <View className="flex-row items-center gap-2.5">
+          <GlassCircle
+            icon={ShieldAlert}
+            size={40}
+            label={pendingApprovals > 0 ? `Approvals inbox, ${pendingApprovals} waiting` : 'Approvals inbox'}
+            badge={pendingApprovals}
+            onPress={() => router.push('/agents/approvals')}
+          />
+          <GlassCircle
+            icon={GitPullRequestArrow}
+            size={40}
+            label="Worktree reviews"
+            onPress={() => router.push('/agents/reviews')}
+          />
+          <GlassCircle icon={Plus} size={40} label="Start a new agent thread" onPress={() => openComposer()} />
         </View>
       </View>
 
       {entries.length > 0 || !isDefaultFilters(filters) ? (
-        <View className="px-4 pb-2">
+        <View className="px-5 pb-2">
           <AgentFilterRow
             entries={entries}
             hosts={summary.hosts}
@@ -205,7 +186,7 @@ export function AgentsOverview() {
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-4 px-4 pb-24 pt-1"
+        contentContainerClassName="gap-4 px-5 pb-24 pt-1"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

@@ -47,7 +47,7 @@ export const AgentThreadRow = React.memo(function AgentThreadRow({
       accessibilityLabel={`${entry.title} on ${entry.repoName}`}
       onPress={() => onOpen(entry)}
       className={cn(attention && 'bg-warning/8', failed && 'bg-destructive/6')}>
-      <View className="flex-row items-start gap-3 px-3 py-3">
+      <View className="flex-row items-start gap-3 px-4 py-3.5">
         {attention ? (
           <View
             pointerEvents="none"
@@ -59,7 +59,7 @@ export const AgentThreadRow = React.memo(function AgentThreadRow({
           <Image
             source={illustrations.agent}
             resizeMode="cover"
-            style={{ width: 40, height: 40, borderRadius: 13 }}
+            style={{ width: 42, height: 42, borderRadius: 21 }}
           />
         </View>
 

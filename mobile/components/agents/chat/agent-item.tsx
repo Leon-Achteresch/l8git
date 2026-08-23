@@ -104,9 +104,9 @@ function UserMessage({ item }: { item: AgentItem }) {
 
   return (
     <Animated.View entering={FadeIn.duration(160)} className={cn('items-end', queued && 'opacity-60')}>
-      <View className="bg-secondary max-w-[86%] gap-2 rounded-2xl rounded-br-md px-3.5 py-2.5">
+      <View className="bg-primary max-w-[86%] gap-2 rounded-3xl rounded-br-lg px-4 py-2.5">
         {content.text ? (
-          <Text className="text-secondary-foreground text-sm leading-5">{content.text}</Text>
+          <Text className="text-primary-foreground text-sm leading-5">{content.text}</Text>
         ) : null}
         {content.images.length > 0 || content.mentions.length > 0 || content.audio.length > 0 ? (
           <View className="flex-row flex-wrap justify-end gap-1">

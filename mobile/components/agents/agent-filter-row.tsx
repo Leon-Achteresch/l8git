@@ -63,13 +63,13 @@ export function FilterChip({
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
       onPress={onPress}>
-      <View className="bg-secondary overflow-hidden rounded-full">
+      <View className="bg-card overflow-hidden rounded-full">
         <Animated.View
           pointerEvents="none"
           style={fillStyle}
           className="bg-primary absolute bottom-0 left-0 right-0 top-0"
         />
-        <View className="flex-row items-center gap-1.5 px-3 py-1.5">
+        <View className="flex-row items-center gap-1.5 px-3.5 py-2">
           {dot ? (
             <View
               style={{ backgroundColor: dotColor ?? palette.mutedForeground }}
