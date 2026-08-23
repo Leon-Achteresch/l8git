@@ -37,6 +37,7 @@ import { AddGitAccount } from "@/components/repo/git-account/add-git-account";
 import { GitAccountRow } from "@/components/repo/git-account/git-account-row";
 import { AnimationsCard } from "@/components/settings/animations-card";
 import { BranchCleanupCard } from "@/components/settings/branch-cleanup-card";
+import { RemoteServerCard } from "@/components/settings/remote-server-card";
 import { GitSigningCard } from "@/components/settings/git-signing-card";
 import { HotkeysSection } from "@/components/settings/hotkeys-section";
 import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
@@ -1221,6 +1222,10 @@ export function Settings() {
 
             <StaggerCard index={9} className="mt-4">
               <BranchCleanupCard />
+            </StaggerCard>
+
+            <StaggerCard index={10} className="mt-4">
+              <RemoteServerCard />
             </StaggerCard>
           </section>
 

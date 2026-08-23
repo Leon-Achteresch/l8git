@@ -14,6 +14,7 @@ pub mod pr;
 mod providers;
 pub mod pty;
 mod rebase;
+mod remote;
 mod repo_tools;
 mod secrets;
 #[cfg(feature = "headless")]
@@ -61,6 +62,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
+            remote::remote_status,
+            remote::remote_set_config,
+            remote::remote_start,
+            remote::remote_stop,
             agent_transport::agent_transport_open,
             agent_transport::agent_transport_send,
             agent_transport::agent_transport_close,

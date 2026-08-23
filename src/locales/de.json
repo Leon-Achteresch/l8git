@@ -2972,5 +2972,21 @@
     "confirmBody": "Beim Vertrauen werden im Repository definierte Agent-Hooks und MCP-Server ausgeführt und Freigabeabfragen übersprungen. Vertraue nur Repositories, die du kontrollierst oder vollständig geprüft hast.",
     "confirmAction": "Vertrauen",
     "cancel": "Abbrechen"
+  },
+  "remoteServer": {
+    "title": "Remote-Server",
+    "desc": "Headless-Host l8gitd für die Mobile-App — hier starten, stoppen und konfigurieren.",
+    "running": "Läuft",
+    "stopped": "Gestoppt",
+    "portLabel": "Port",
+    "relayLabel": "Relay-URL (optional)",
+    "save": "Speichern",
+    "start": "Starten",
+    "stop": "Stoppen",
+    "external": "Außerhalb dieser App gestartet — dort beenden.",
+    "binary": "Binary: {{path}}",
+    "binaryMissing": "l8gitd nicht gefunden — mit `cargo build --features headless --bin l8gitd` bauen und in den PATH legen.",
+    "roots": "{{count}} freigegebene Repo-Roots",
+    "noRoots": "keine freigegebenen Repo-Roots (`l8gitd allow <pfad>`)"
   }
 }

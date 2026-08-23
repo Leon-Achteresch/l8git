@@ -2972,5 +2972,21 @@
     "confirmBody": "Trusting runs agent hooks and MCP servers defined in this repository and skips approval prompts. Only trust repositories you control or have fully reviewed.",
     "confirmAction": "Trust",
     "cancel": "Cancel"
+  },
+  "remoteServer": {
+    "title": "Remote server",
+    "desc": "Headless l8gitd host for the mobile app — start, stop and configure it here.",
+    "running": "Running",
+    "stopped": "Stopped",
+    "portLabel": "Port",
+    "relayLabel": "Relay URL (optional)",
+    "save": "Save",
+    "start": "Start",
+    "stop": "Stop",
+    "external": "Started outside this app — stop it there.",
+    "binary": "Binary: {{path}}",
+    "binaryMissing": "l8gitd not found — build it with `cargo build --features headless --bin l8gitd` and put it on your PATH.",
+    "roots": "{{count}} released repo roots",
+    "noRoots": "no released repo roots (`l8gitd allow <path>`)"
   }
 }
