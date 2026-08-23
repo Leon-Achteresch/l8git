@@ -49,6 +49,7 @@ import { terminalLeafId } from "@/lib/terminal/leaf-id";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 const PROJECTS_VIEW = "projects";
 const MENU_VIEW = "menu";
@@ -671,7 +672,7 @@ function ToastIcon({ type }: { type?: ToastT["type"] }) {
   if (type === "warning")
     return <AlertTriangle className={cn(className, "text-git-modified")} />;
   if (type === "loading")
-    return <Loader2 className={cn(className, "animate-spin opacity-70")} />;
+    return <SpinIcon icon={Loader2} className={cn(className, "opacity-70")} />;
   return <Info className={cn(className, "opacity-70")} />;
 }
 
@@ -682,10 +683,16 @@ function ActivityBars({ className }: { className?: string }) {
       aria-hidden
     >
       {[0, 1, 2].map((i) => (
-        <span
+        <m.span
           key={i}
-          className="w-[2px] rounded-full bg-current animate-[island-bar_0.9s_ease-in-out_infinite]"
-          style={{ animationDelay: `${i * 0.15}s` }}
+          className="w-[2px] rounded-full bg-current"
+          animate={{ height: ["30%", "100%", "30%"], opacity: [0.55, 1, 0.55] }}
+          transition={{
+            repeat: Infinity,
+            duration: 0.9,
+            ease: "easeInOut",
+            delay: i * 0.15,
+          }}
         />
       ))}
     </span>

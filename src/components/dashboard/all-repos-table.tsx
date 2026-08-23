@@ -13,6 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatRelativeTime } from "@/lib/dashboard-aggregations";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
+import { motionize, staggerEnter } from "@/components/motion/kit";
+
+const MotionTableRow = motionize(TableRow);
 
 type RepoOverview = {
   path: string;
@@ -116,7 +120,7 @@ export function AllReposTable({ paths }: { paths: string[] }) {
             <p className="text-xs text-muted-foreground">{t("dashboard.all.subtitle")}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            <SpinIcon icon={RefreshCw} active={loading} className="size-3.5" />
             {t("dashboard.all.refresh")}
           </Button>
         </CardHeader>
@@ -144,9 +148,10 @@ export function AllReposTable({ paths }: { paths: string[] }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                  {rows.map((r) => (
-                    <TableRow
+                  {rows.map((r, i) => (
+                    <MotionTableRow
                       key={r.path}
+                      {...staggerEnter(i)}
                       onClick={() => onOpen(r.path)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -192,7 +197,7 @@ export function AllReposTable({ paths }: { paths: string[] }) {
                       <TableCell className="py-2.5">
                         <ActivityStrip data={r.commits_last_30d} />
                       </TableCell>
-                    </TableRow>
+                    </MotionTableRow>
                   ))}
               </TableBody>
             </Table>

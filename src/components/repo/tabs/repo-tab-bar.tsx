@@ -34,6 +34,7 @@ import { ISLAND_PAD, useIslandDocks } from "@/lib/island-store";
 import { AddRepoButton } from "./add-repo-button";
 import { ForestNodes } from "./repo-group";
 import { RepoWorkspaceSwitch } from "./repo-workspace-switch";
+import { m } from "motion/react";
 
 const TAB_GAP = 4;
 
@@ -193,7 +194,11 @@ export function RepoTabBar() {
           className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-0.5 overflow-hidden"
           aria-hidden
         >
-          <div className="h-full w-full animate-[shimmer_1.4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+          <m.div
+            className="h-full w-full bg-gradient-to-r from-transparent via-primary/60 to-transparent"
+            animate={{ x: ["-100%", "100%"] }}
+            transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
+          />
         </div>
       )}
 

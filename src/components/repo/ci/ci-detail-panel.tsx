@@ -28,6 +28,7 @@ import {
   timeAgo,
   workflowFileName,
 } from "./ci-types";
+import { SpinIcon } from "@/components/motion/kit";
 
 type Tab = "pipeline" | "yaml";
 
@@ -62,7 +63,7 @@ function StatusPill({
   if (["in_progress", "queued", "pending", "waiting"].includes(key))
     return (
       <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold capitalize text-primary">
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <SpinIcon icon={Loader2} className="h-3 w-3" />
         {label}
       </span>
     );
@@ -190,7 +191,7 @@ export function CiDetailPanel({
               disabled={jobsLoading}
               title={t("ci.refreshAria")}
             >
-              <RefreshCw className={jobsLoading ? "animate-spin" : undefined} />
+              <SpinIcon icon={RefreshCw} active={jobsLoading} />
             </Button>
             {run.html_url && (
               <Button
@@ -247,7 +248,7 @@ export function CiDetailPanel({
           // Graph view
           jobsLoading ? (
             <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+              <SpinIcon icon={Loader2} className="h-8 w-8 text-primary/40" />
             </div>
           ) : (
             <CiWorkflowGraph jobs={jobs ?? []} />

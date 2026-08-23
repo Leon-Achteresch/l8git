@@ -6,6 +6,7 @@ import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { formatUsd } from "@/lib/agents/token-cost";
 import type { AgentOverviewEntry, AgentOverviewStatus } from "@/lib/agents/overview";
 import type { WorktreeDiffStat } from "@/lib/agents/worktree-diff";
+import { AgDot } from "@/components/agents/ui/ag-dot";
 
 const STATUS_DOT: Record<AgentOverviewStatus, string> = {
   running: "working",
@@ -65,7 +66,7 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
         </span>
 
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
-          <span className="ag-dot shrink-0" data-state={STATUS_DOT[entry.status]} aria-hidden="true" />
+          <AgDot className="shrink-0" state={STATUS_DOT[entry.status]} />
           <span className={`shrink-0 text-[10px] font-medium ${STATUS_COLOR[entry.status]}`}>
             {statusLabel}
           </span>

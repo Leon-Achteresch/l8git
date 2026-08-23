@@ -22,6 +22,7 @@ import {
   generateDiffExplanation,
 } from "@/lib/ai/explain-sources";
 import { isAiConfigured } from "@/lib/ai-setup";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type ExplainRequest =
   | { kind: "commit"; repoPath: string; commitHash: string; subject?: string }
@@ -176,7 +177,7 @@ export function ExplainSheet({
               </div>
             ) : busy ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
+                <SpinIcon icon={Loader2} className="size-4" />
                 {t("explain.loading")}
               </p>
             ) : (

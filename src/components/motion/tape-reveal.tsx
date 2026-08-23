@@ -1,8 +1,6 @@
+import { m } from "motion/react";
 import type { ReactNode } from "react";
 
-// Replaces the former motion.span clip-path reveal. Virtualised commit lists
-// mount/unmount this component on every scroll; using a CSS keyframe avoids
-// the motion runtime cost per row. prefers-reduced-motion handled globally.
 export function TapeReveal({
   children,
   delay = 0,
@@ -13,16 +11,14 @@ export function TapeReveal({
   className?: string;
 }) {
   return (
-    <span
+    <m.span
       className={className}
-      style={{
-        display: "inline-block",
-        animation:
-          "l8git-tape-reveal 420ms cubic-bezier(0.22, 1, 0.36, 1) both",
-        animationDelay: delay ? `${delay}s` : undefined,
-      }}
+      style={{ display: "inline-block" }}
+      initial={{ opacity: 0, clipPath: "inset(0 100% 0 0)" }}
+      animate={{ opacity: 1, clipPath: "inset(0 0% 0 0)" }}
+      transition={{ duration: 0.42, delay, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
-    </span>
+    </m.span>
   );
 }

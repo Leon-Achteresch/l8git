@@ -2,12 +2,37 @@ import * as React from "react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import { CheckIcon, CircleIcon } from "lucide-react";
 
+import { AnimatePresence, m } from "motion/react";
+
 import { cn } from "@/lib/utils";
+import {
+  createOpenContext,
+  popperVariants,
+  springFast,
+  useControllableOpen,
+  type PopSide,
+} from "@/components/motion/kit";
+
+const [DropdownMenuOpenProvider, useDropdownMenuOpen] =
+  createOpenContext("DropdownMenu");
 
 function DropdownMenu({
+  open,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
+  const [value, change] = useControllableOpen({ open, defaultOpen, onOpenChange });
+  return (
+    <DropdownMenuOpenProvider value={value}>
+      <DropdownMenuPrimitive.Root
+        data-slot="dropdown-menu"
+        open={value}
+        onOpenChange={change}
+        {...props}
+      />
+    </DropdownMenuOpenProvider>
+  );
 }
 
 function DropdownMenuTrigger({
@@ -25,23 +50,47 @@ function DropdownMenuTrigger({
 
 function DropdownMenuContent({
   className,
+  side = "bottom",
   sideOffset = 4,
+  children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {
   sideOffset?: number;
 }) {
+  const isOpen = useDropdownMenuOpen();
   return (
-    <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.Content
-        data-slot="dropdown-menu-content"
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-40 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-border duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className,
-        )}
-        {...props}
-      />
-    </DropdownMenuPrimitive.Portal>
+    <AnimatePresence>
+      {isOpen ? (
+        <DropdownMenuPrimitive.Portal key="dropdown-menu-portal" forceMount>
+          <DropdownMenuPrimitive.Content
+            data-slot="dropdown-menu-content"
+            side={side}
+            sideOffset={sideOffset}
+            forceMount
+            asChild
+            {...props}
+          >
+            <m.div
+              className={cn(
+                "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-40 overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-border",
+                className,
+              )}
+              style={{
+                transformOrigin:
+                  "var(--radix-dropdown-menu-content-transform-origin)",
+              }}
+              variants={popperVariants(side as PopSide)}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={springFast}
+            >
+              {children}
+            </m.div>
+          </DropdownMenuPrimitive.Content>
+        </DropdownMenuPrimitive.Portal>
+      ) : null}
+    </AnimatePresence>
   );
 }
 

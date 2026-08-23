@@ -57,6 +57,7 @@ import {
   withFullMessage,
   type RebaseEntry,
 } from './rebase-todo';
+import { SpinIcon } from "@/components/motion/kit";
 
 const ACTION_TEXT: Record<RebaseTodoAction, string> = {
   pick: 'text-muted-foreground',
@@ -552,7 +553,7 @@ export function RebaseInteractiveEditor({
         <div className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
           {loading ? (
             <p className='flex items-center gap-2 py-6 text-xs text-muted-foreground'>
-              <Loader2 className='h-3.5 w-3.5 animate-spin' />
+              <SpinIcon icon={Loader2} className='h-3.5 w-3.5 ' />
               {t('rebaseEditor.loading')}
             </p>
           ) : loadError ? (

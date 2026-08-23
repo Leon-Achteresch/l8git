@@ -26,6 +26,7 @@ import {
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { SPRING_PRESS, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type FileDiffStatus = "streaming" | "complete";
 export type FileDiffLineType = "added" | "removed" | "context";
@@ -175,9 +176,9 @@ export function FileDiff({
         </span>
         <span className="ag-faint grid size-4 shrink-0 place-items-center">
           {streaming ? (
-            <LoaderCircle
+            <SpinIcon icon={LoaderCircle} active={!reduce} 
               aria-label="Applying changes"
-              className={cn("size-3.5", !reduce && "animate-spin")}
+              className="size-3.5"
             />
           ) : (
             <Check aria-label="Changes applied" className="size-3.5" />

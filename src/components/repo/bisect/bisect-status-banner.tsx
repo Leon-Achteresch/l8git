@@ -4,6 +4,7 @@ import { useUiStore } from "@/lib/ui-store";
 import { AlertTriangle, CheckCircle2, CircleDot, RotateCcw, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { PulseIcon } from "@/components/motion/kit";
 
 export function BisectStatusBanner({ path }: { path: string }) {
   const { t } = useTranslation();
@@ -63,7 +64,7 @@ export function BisectStatusBanner({ path }: { path: string }) {
         : "";
     return (
       <div className="flex items-center gap-2 border-b border-git-branch/30 bg-git-branch/10 px-3 py-2 text-xs">
-        <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-git-branch" />
+        <PulseIcon icon={CircleDot} className="h-3.5 w-3.5 shrink-0 text-git-branch" />
         <span className="font-medium text-git-branch">{t("bisect.running")}</span>
         {stepsHint !== "" ? (
           <span className="text-git-branch/70">{stepsHint}</span>

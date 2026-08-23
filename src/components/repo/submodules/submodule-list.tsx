@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { SubmoduleDetail } from "./submodule-detail";
 import { SubmoduleRow } from "./submodule-row";
 import { getDisplayStatus } from "./submodule-status-badge";
+import { SpinIcon, StaggerItem } from "@/components/motion/kit";
 
 const EMPTY: SubmoduleEntry[] = [];
 
@@ -161,7 +162,7 @@ export function SubmoduleList({
               )
             }
           >
-            <RefreshCw className={cn("h-3.5 w-3.5", bulkBusy && "animate-spin")} />
+            <SpinIcon icon={RefreshCw} active={bulkBusy} className="h-3.5 w-3.5" />
             {t("submodule.listSyncUrls")}
           </Button>
           {behindTotal > 0 && (
@@ -218,7 +219,7 @@ export function SubmoduleList({
             onClick={() => void reloadSubmodules(path)}
             aria-label={t("submodule.reloadAria")}
           >
-            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            <SpinIcon icon={RefreshCw} active={loading} className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
@@ -257,7 +258,7 @@ export function SubmoduleList({
           <ScrollArea className="min-h-0 flex-1">
             {loading && submodules.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
-                <Loader2 className="h-8 w-8 animate-spin opacity-40" />
+                <SpinIcon icon={Loader2} className="h-8 w-8 opacity-40" />
                 <span className="text-sm font-medium">{t("submodule.loading")}</span>
               </div>
             ) : submodules.length === 0 ? (
@@ -270,9 +271,9 @@ export function SubmoduleList({
               </div>
             ) : (
               <div className="divide-y divide-border/30">
-                {displayList.map((m) => (
+                {displayList.map((m, i) => (
+                  <StaggerItem key={m.path} index={i}>
                   <SubmoduleRow
-                    key={m.path}
                     path={path}
                     entry={m}
                     selected={selected === m.path}
@@ -280,6 +281,7 @@ export function SubmoduleList({
                       setSelected((p) => (p === m.path ? null : m.path))
                     }
                   />
+                  </StaggerItem>
                 ))}
               </div>
             )}

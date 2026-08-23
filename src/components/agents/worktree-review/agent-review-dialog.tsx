@@ -26,6 +26,7 @@ import {
   useAgentSessionBusy,
   type AgentReviewSession,
 } from "./use-agent-review";
+import { SpinIcon } from "@/components/motion/kit";
 
 const EMPTY_HUNKS: ReadonlySet<number> = new Set();
 
@@ -198,7 +199,7 @@ export function AgentReviewDialog({
             </div>
           ) : loading && !summary ? (
             <div className="flex flex-1 items-center justify-center">
-              <Loader2 className="size-6 animate-spin text-primary/50" />
+              <SpinIcon icon={Loader2} className="size-6 text-primary/50" />
             </div>
           ) : (
             <div className="flex min-h-0 flex-1">
@@ -234,7 +235,7 @@ export function AgentReviewDialog({
 
           <DialogFooter className="mx-0 mb-0 shrink-0 rounded-none">
             <Button type="button" variant="outline" size="sm" onClick={reload} disabled={loading}>
-              <RefreshCw className={loading ? "animate-spin" : undefined} />
+              <SpinIcon icon={RefreshCw} active={loading} />
               {t("agentReview.refresh")}
             </Button>
             <Button

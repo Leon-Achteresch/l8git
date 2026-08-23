@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CreateRemoteRepoDialog } from "./create-remote-repo-dialog";
+import { SpinIcon } from "@/components/motion/kit";
 
 type GitRemoteRow = { name: string; url: string };
 
@@ -140,7 +141,7 @@ export function EditRemoteDialog({
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <SpinIcon icon={Loader2} className="h-4 w-4" />
             {t("editRemote.loadingRemotes")}
           </div>
         ) : (

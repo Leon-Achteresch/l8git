@@ -9,6 +9,8 @@ import { writeLocalStorageDebounced } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { GitHooksDetail } from "./git-hooks-detail";
 import { GitHooksList } from "./git-hooks-list";
+import { spinTransition } from "@/components/motion/kit";
+import { m } from "motion/react";
 
 const layoutStorageKey = "l8git.hooks-split.layout.v1";
 
@@ -183,7 +185,7 @@ export function GitHooksPanel({ path }: { path: string }) {
           >
             {isContentLoading ? (
               <div className="flex h-full items-center justify-center">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-foreground" />
+                <m.div animate={{ rotate: 360 }} transition={spinTransition} className="h-5 w-5 rounded-full border-2 border-border border-t-foreground" />
               </div>
             ) : (
               <GitHooksDetail

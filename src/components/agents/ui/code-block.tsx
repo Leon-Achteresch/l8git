@@ -19,6 +19,7 @@ import {
 } from "@/components/agents/ui/agent-code";
 import { SPRING_PRESS } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type CodeBlockStatus = "streaming" | "complete";
 const EMPTY_HIGHLIGHT_LINES: number[] = [];
@@ -127,7 +128,7 @@ export function CodeBlock({
           )}
         >
           {streaming ? (
-            <LoaderCircle className={cn("size-3", !reduce && "animate-spin")} />
+            <SpinIcon icon={LoaderCircle} active={!reduce} className="size-3" />
           ) : (
             <Check className="size-3" />
           )}

@@ -69,6 +69,9 @@ import {
 } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
+import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import { m } from "motion/react";
+import { AgDot } from "@/components/agents/ui/ag-dot";
 
 const AgentFilePicker = lazy(() => import("@/components/agents/chat/agent-file-picker").then(
   (module) => ({ default: module.AgentFilePicker }),
@@ -222,7 +225,7 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
       <div ref={contentRef} className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-6 py-7">
         {conversation?.loading || (!threadId && connectionStatus === "connecting") ? (
           <div className="ag-muted m-auto flex items-center gap-2 text-[12px]">
-            <LoaderCircle className="size-3.5 animate-spin" />
+            <SpinIcon icon={LoaderCircle} className="size-3.5" />
             {t("agentChat.connecting", { agent })}
           </div>
         ) : !threadId && connectionError && connectionStatus === "error" ? (
@@ -264,7 +267,7 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
               disabled={loginStatus === "starting" || loginStatus === "waiting"}
             >
               {loginStatus === "starting" || loginStatus === "waiting" ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
+                <SpinIcon icon={LoaderCircle} className="size-3.5" />
               ) : null}
               {loginStatus === "waiting"
                 ? t("agentChat.loginWaiting")
@@ -325,7 +328,7 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
                 </button>
               </div>
             ) : null}
-            <Suspense fallback={<div className="ag-inset h-16 animate-pulse" />}>
+            <Suspense fallback={<m.div animate={pulseKeyframes} transition={pulseTransition} className="ag-inset h-16" />}>
               {visibleTurns.map((turn) => (
                 <div
                   key={turn.id}
@@ -1171,7 +1174,7 @@ export const AgentChatPane = memo(function AgentChatPane({
 
         {threadId || busy ? (
           <span className="ag-pill shrink-0" title={t("agentChat.streamIsolated")}>
-            <span className="ag-dot" data-state={statusState} aria-hidden="true" />
+            <AgDot state={statusState} />
             {statusLabel}
           </span>
         ) : null}

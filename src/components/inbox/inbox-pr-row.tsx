@@ -6,6 +6,7 @@ import { InboxRow } from "@/components/inbox/inbox-row";
 import { formatRelative } from "@/lib/format";
 import type { InboxCheckState, InboxPrItem } from "@/lib/inbox";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 const CHECK_ICON = {
   success: CircleCheck,
@@ -63,7 +64,7 @@ export const InboxPrRow = memo(function InboxPrRow({
               className={cn("inline-flex shrink-0 items-center gap-1", CHECK_COLOR[item.checks])}
               title={t(`inbox.checks.${item.checks}`)}
             >
-              <CheckIcon className={cn("size-3", item.checks === "running" && "animate-spin")} />
+              <SpinIcon icon={CheckIcon} active={item.checks === "running"} className="size-3" />
               {t(`inbox.checks.${item.checks}`)}
             </span>
           ) : null}

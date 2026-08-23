@@ -23,6 +23,7 @@ import {
   formatDuration,
   timeAgo,
 } from "./ci-types";
+import { PulseIcon, SpinIcon } from "@/components/motion/kit";
 
 // ── Status icon ───────────────────────────────────────────────────────────────
 
@@ -52,8 +53,8 @@ const RunStatusIcon = memo(function RunStatusIcon({
 
   if (["in_progress", "queued", "pending", "inprogress", "waiting"].includes(key))
     return (
-      <Loader2
-        className={`${cls} shrink-0 animate-spin text-primary`}
+      <SpinIcon icon={Loader2}
+        className={`${cls} shrink-0 text-primary`}
       />
     );
 
@@ -321,7 +322,7 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
               onClick={handleRerun}
               title={t("ci.rerun")}
             >
-              <RefreshCw className={actioning === "rerun" ? "animate-spin" : undefined} />
+              <SpinIcon icon={RefreshCw} active={actioning === "rerun"} />
             </Button>
           )}
           {canCancel && (
@@ -334,7 +335,7 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
               className="hover:bg-destructive/10 hover:text-destructive"
               title={t("ci.cancelRun")}
             >
-              <Square className={actioning === "cancel" ? "animate-pulse" : undefined} />
+              <PulseIcon icon={Square} active={actioning === "cancel"} />
             </Button>
           )}
           {run.html_url && (
@@ -366,7 +367,7 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
         <div className="border-t border-border/20 px-3 pb-2 pt-1.5">
           {jobsLoading ? (
             <div className="flex items-center justify-center py-3">
-              <Loader2 className="h-4 w-4 animate-spin text-primary/40" />
+              <SpinIcon icon={Loader2} className="h-4 w-4 text-primary/40" />
             </div>
           ) : !jobs || jobs.length === 0 ? (
             <p className="py-2 text-center text-xs text-muted-foreground/60">

@@ -28,6 +28,7 @@ import {
   formatDuration,
   groupJobsByStage,
 } from "./ci-types";
+import { SpinIcon } from "@/components/motion/kit";
 
 // ── Status icon (small, for use inside nodes) ──────────────────────────────
 
@@ -66,8 +67,8 @@ function NodeStatusIcon({
     ["in_progress", "queued", "pending", "inprogress", "waiting"].includes(key)
   )
     return (
-      <Loader2
-        className={`${cls} animate-spin`}
+      <SpinIcon icon={Loader2}
+        className={`${cls}`}
         style={s}
         color="hsl(var(--primary))"
       />

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Columns2, Layers, Loader2, Maximize2, MoveHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type ImageDiffSideStatus =
   | "ready"
@@ -76,7 +77,7 @@ function SidePlaceholder({ side }: { side: ImageDiffSide }) {
   if (side.status === "loading") {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-primary/50" />
+        <SpinIcon icon={Loader2} className="size-5 text-primary/50" />
       </div>
     );
   }

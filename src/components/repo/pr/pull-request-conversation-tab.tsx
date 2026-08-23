@@ -8,6 +8,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 type PrComment = {
   id: string;
@@ -122,7 +123,7 @@ export function PullRequestConversationTab({
         <div className="flex flex-col gap-3 p-4">
           {loading && !data ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-primary/50" />
+              <SpinIcon icon={Loader2} className="h-5 w-5 text-primary/50" />
             </div>
           ) : entries.length === 0 ? (
             <div className="py-8 text-center text-sm italic text-muted-foreground">

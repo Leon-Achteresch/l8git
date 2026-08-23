@@ -24,6 +24,7 @@ import {
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { SpinIcon } from "@/components/motion/kit";
 
 const MergeEditor3Way = lazy(() =>
   import("./merge-editor-3way").then((m) => ({ default: m.MergeEditor3Way })),
@@ -329,13 +330,13 @@ export function MergeConflictPage({
             </div>
           ) : current?.loading ? (
             <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+              <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
             </div>
           ) : current?.versions ? (
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+                  <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
                 </div>
               }
             >

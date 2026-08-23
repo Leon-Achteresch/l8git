@@ -51,6 +51,7 @@ import type {
   AgentSkillDraft,
   AgentSkillToolDependency,
 } from "@/lib/agents/capability-types";
+import { SpinIcon } from "@/components/motion/kit";
 
 function skillInitial(skill: AgentCapabilitySkill): string {
   return (skill.interface?.displayName || skill.name).slice(0, 1).toUpperCase();
@@ -129,7 +130,7 @@ function SkillEditor({
               {t("common.cancel")}
             </Button>
             <Button type="button" size="sm" className="rounded-lg" disabled={saving} onClick={onSave}>
-              {saving ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              {saving ? <SpinIcon icon={LoaderCircle} className="size-3.5" /> : <Save className="size-3.5" />}
               {t("common.save")}
             </Button>
           </>
@@ -476,7 +477,7 @@ export function AgentSkillStudio({ query }: { query: string }) {
                     aria-label={t("agentCapabilities.enabled")}
                   />
                   <Button type="button" variant="outline" size="sm" className="rounded-lg" disabled={loadingDraft} onClick={() => void editSkill(selected)}>
-                    {loadingDraft ? <LoaderCircle className="size-3.5 animate-spin" /> : <FileText className="size-3.5" />}
+                    {loadingDraft ? <SpinIcon icon={LoaderCircle} className="size-3.5" /> : <FileText className="size-3.5" />}
                     {t("agentCapabilities.edit")}
                   </Button>
                 </>

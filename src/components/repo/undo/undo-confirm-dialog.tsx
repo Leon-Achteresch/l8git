@@ -19,6 +19,7 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { SpinIcon } from "@/components/motion/kit";
 
 export function UndoConfirmDialog({
   open,
@@ -114,7 +115,7 @@ export function UndoConfirmDialog({
           <AlertDialogDescription>
             {loading || !preview ? (
               <span className='flex items-center gap-2'>
-                <Loader2 className='size-3.5 animate-spin' />
+                <SpinIcon icon={Loader2} className='size-3.5 ' />
                 {t('undo.previewLoading')}
               </span>
             ) : (

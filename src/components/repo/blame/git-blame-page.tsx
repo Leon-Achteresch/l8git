@@ -15,6 +15,7 @@ import { type ActiveCard, CommitCard } from "./commit-card";
 import { buildTree, FileTreeNode } from "./file-tree-node";
 import { detectLanguage, EDITOR_OPTIONS } from "./git-blame-utils";
 import { useMonacoTheme } from "./use-monaco-theme";
+import { SpinIcon } from "@/components/motion/kit";
 
 export function GitBlamePage({
   path,
@@ -161,7 +162,7 @@ export function GitBlamePage({
           <div className="min-h-0 flex-1 overflow-hidden">
             {blameLoading ? (
               <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin text-primary/50" />
+                <SpinIcon icon={Loader2} className="h-4 w-4 text-primary/50" />
                 <span className="text-[12px]">{t("blamePage.loading")}</span>
               </div>
             ) : !selectedFile ? (
@@ -191,7 +192,7 @@ export function GitBlamePage({
             </div>
           ) : blameLoading ? (
             <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+              <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/40" />
             </div>
           ) : (
             <Editor
@@ -244,7 +245,7 @@ export function GitBlamePage({
           <div className="min-h-0 flex-1 overflow-y-auto py-1">
             {filesLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-4 w-4 animate-spin text-primary/40" />
+                <SpinIcon icon={Loader2} className="h-4 w-4 text-primary/40" />
               </div>
             ) : tree.length === 0 ? (
               <div className="px-3 py-4 text-center text-[12px] text-muted-foreground/50">

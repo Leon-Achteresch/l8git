@@ -14,6 +14,7 @@ import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type { AgentBackgroundTerminal } from "@/lib/agents/types";
+import { SpinIcon } from "@/components/motion/kit";
 
 export function AgentBackgroundTerminalsDialog({
   threadId,
@@ -56,7 +57,7 @@ export function AgentBackgroundTerminalsDialog({
         <div className="max-h-80 space-y-2 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-              <LoaderCircle className="size-4 animate-spin" /> Loading…
+              <SpinIcon icon={LoaderCircle} className="size-4" /> Loading…
             </div>
           ) : terminals.length === 0 ? (
             <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">

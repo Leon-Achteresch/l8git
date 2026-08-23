@@ -48,6 +48,7 @@ import {
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 type Phase = "loading" | "planning" | "ready" | "applying" | "empty" | "failed";
 
@@ -223,7 +224,7 @@ export function CommitSplitDialog({
 
         {phase === "loading" || phase === "planning" ? (
           <div className="flex flex-1 items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
+            <SpinIcon icon={Loader2} className="size-4" />
             {phase === "loading" ? t("commitSplit.loading") : t("commitSplit.planning")}
           </div>
         ) : null}
@@ -256,7 +257,7 @@ export function CommitSplitDialog({
         {phase === "applying" ? (
           <div className="space-y-2 py-8 text-center">
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
+              <SpinIcon icon={Loader2} className="size-4" />
               {progress
                 ? t(`commitSplit.progress.${progress.phase}`, {
                     index: progress.groupIndex + 1,
