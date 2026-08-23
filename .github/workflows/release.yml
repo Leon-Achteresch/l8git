@@ -125,9 +125,9 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: --target universal-apple-darwin
+            args: --target universal-apple-darwin --features headless
           - platform: windows-latest
-            args: ""
+            args: --features headless
 
     runs-on: ${{ matrix.platform }}
     steps:
