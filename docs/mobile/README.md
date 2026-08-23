@@ -18,7 +18,7 @@ Die App scannt den QR-Code (oder fügt das JSON manuell ein) und verbindet sich 
 
 ## Screenshots
 
-Aufgenommen im iPhone-17-Pro-Simulator (Expo Go) gegen einen laufenden `l8gitd` mit Live-Git-Daten — via mobilewright (`MW_ROUTES=/,/repos bunx mobilewright test shots` in `mobile/`, Ausgabe `/tmp/mw-shots/`, dann hierher kopieren).
+Aufgenommen im iPhone-17-Pro-Simulator (Expo Go) gegen einen laufenden `l8gitd` mit Live-Git-Daten — via mobilewright (`MW_ROUTES=/,/repos bunx mobilewright test shots`, `bunx mobilewright test agents|details` in `mobile/`, Ausgabe `/tmp/mw-shots/`, dann hierher kopieren). Design-Regeln: [DESIGN.md](DESIGN.md).
 
 | Home | Repos | Repo-Detail | History |
 |---|---|---|---|
@@ -32,9 +32,9 @@ Aufgenommen im iPhone-17-Pro-Simulator (Expo Go) gegen einen laufenden `l8gitd` 
 |---|---|---|---|
 | ![Agents](screenshots/agents.png) | ![Agent-Chat](screenshots/agent-chat.png) | ![Approvals](screenshots/approvals.png) | ![Reviews](screenshots/reviews.png) |
 
-| Dashboard | Settings |
-|---|---|
-| ![Dashboard](screenshots/dashboard.png) | ![Settings](screenshots/settings.png) |
+| Dashboard | Settings | Commit-Detail | Diff |
+|---|---|---|---|
+| ![Dashboard](screenshots/dashboard.png) | ![Settings](screenshots/settings.png) | ![Commit](screenshots/commit-detail.png) | ![Diff](screenshots/diff.png) |
 
 - **Home** — Glass-Buttons, Hosts als Story-Avatare mit Status-Ring, „For you“-Karten pro Repo (Branch, ↑↓, Dirty, Open/History), „Needs you“ mit Reviews, roten Pipelines, Agent-Approvals und eigenen PRs; schwebende Pill-Tab-Bar.
 - **Repo-Detail** — Profil-Layout: geblurter Backdrop, rundes Repo-Avatar, Name + Branch, Stats-Reihe Ahead/Behind/Changes, Sektions-Chips (Status/History/Branches/Stash/PRs/CI), darunter Fetch/Pull/Push-Pills, Änderungsliste als Karte und Commit-Composer.
