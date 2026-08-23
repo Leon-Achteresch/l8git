@@ -222,6 +222,7 @@ export function AgentReviewFinishDialog({
                 onChange={(event) => setMessage(event.target.value)}
                 placeholder={t("agentReview.commitMessagePlaceholder")}
                 rows={3}
+                readOnly={aiBusy}
                 disabled={commitStep.status === "done" || commitStep.status === "running"}
                 className="text-xs"
               />

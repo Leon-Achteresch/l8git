@@ -184,6 +184,7 @@ export function CommitComposer({
             variant="bare"
             value={subject}
             onChange={(e) => onSubjectChange(e.target.value)}
+            readOnly={aiGenerating}
             onKeyDown={onKeyCommit}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
@@ -286,6 +287,7 @@ export function CommitComposer({
                 ref={bodyRef}
                 value={body}
                 onChange={(e) => onBodyChange(e.target.value)}
+                readOnly={aiGenerating}
                 onKeyDown={onKeyCommit}
                 onFocus={() => {
                   setFocused(true);
