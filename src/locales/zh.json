@@ -336,7 +336,22 @@
     "worktreeLanded": "{{name}} 已合并并清理",
     "usageToday": "今天：{{cost}} · {{tokens}} tokens",
     "usageWeek": "最近 7 天：{{cost}} · {{tokens}} tokens",
-    "chartLoading": "正在渲染图表…"
+    "chartLoading": "正在渲染图表…",
+    "plan": {
+      "title": "批准实施计划",
+      "empty": "未提供计划内容。",
+      "approve": "执行此计划",
+      "approveAuto": "执行并自动批准修改",
+      "keepPlanning": "继续规划",
+      "feedbackPlaceholder": "对计划的可选反馈…",
+      "hint": "批准后将退出计划模式，会话即可执行更改。",
+      "statusPending": "等待决定",
+      "statusApproved": "已批准",
+      "statusKeptPlanning": "继续规划中",
+      "bannerTitle": "计划模式已启用",
+      "bannerBody": "代理只进行调研和规划——在你批准计划之前，文件与命令保持锁定。",
+      "bannerAction": "退出计划模式"
+    }
   },
   "agentReview": {
     "openButton": "审查更改",

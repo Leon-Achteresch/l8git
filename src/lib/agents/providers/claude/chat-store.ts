@@ -11,6 +11,7 @@ import { createStore } from "zustand/vanilla";
 import type { AgentChatState } from "@/lib/agents/chat-store";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import { accumulateUsage } from "@/lib/agents/token-cost";
+import { classifyTranscriptUserText } from "@/lib/agents/transcript-text";
 import { ClaudeClient, type ClaudeControlRequest, type ClaudeInitializeResult } from "@/lib/agents/providers/claude/client";
 import type {
   AgentAttachment,
@@ -284,6 +285,19 @@ function patchDiff(patch: unknown): string {
     .join("\n");
 }
 
+/** Questions of an AskUserQuestion call, reduced to what the timeline shows. */
+function questionSummaries(input: UnknownRecord) {
+  return arrayValue(input.questions).filter(isRecord).map((question) => ({
+    header: stringValue(question.header),
+    question: stringValue(question.question),
+    multiSelect: question.multiSelect === true,
+    options: arrayValue(question.options).filter(isRecord).map((option) => ({
+      label: stringValue(option.label),
+      description: stringValue(option.description),
+    })),
+  }));
+}
+
 function toolItem(block: UnknownRecord, itemId: string): AgentItem {
   const name = stringValue(block.name, "Tool");
   const input = isRecord(block.input) ? block.input : {};
@@ -326,6 +340,24 @@ function toolItem(block: UnknownRecord, itemId: string): AgentItem {
         step: stringValue(todo.content, stringValue(todo.activeForm)),
         status: todo.status === "completed" ? "completed" : todo.status === "in_progress" ? "inProgress" : "pending",
       } : todo),
+      status: "inProgress",
+      toolUseId: block.id,
+    };
+  }
+  if (name === "ExitPlanMode") {
+    return {
+      id: itemId,
+      type: "planProposal",
+      plan: stringValue(input.plan),
+      status: "inProgress",
+      toolUseId: block.id,
+    };
+  }
+  if (name === "AskUserQuestion") {
+    return {
+      id: itemId,
+      type: "userQuestion",
+      questions: questionSummaries(input),
       status: "inProgress",
       toolUseId: block.id,
     };
@@ -405,15 +437,38 @@ function transcriptConversation(transcript: ClaudeSessionTranscript): AgentConve
         turns[turns.length - 1] = current;
         continue;
       }
-      const text = contentText(message.content);
-      if (!text || text === "[Request interrupted by user]") continue;
+      const classified = classifyTranscriptUserText(contentText(message.content));
+      if (classified.kind === "skip") continue;
+      // `/model` and friends log the invocation and its output as two entries
+      // in a row; fold the second into the command item it belongs to.
+      if (classified.kind === "commandOutput") {
+        const previous: AgentItem | undefined = current?.items[current.items.length - 1];
+        if (!current || previous?.type !== "localCommand" || previous.output) continue;
+        current = {
+          ...current,
+          items: [...current.items.slice(0, -1), { ...previous, output: classified.output }],
+        };
+        turns[turns.length - 1] = current;
+        continue;
+      }
+      const item: AgentItem = classified.kind === "command"
+        // Slash commands are CLI scaffolding rather than a prompt, so they
+        // render as a compact chip instead of a chat bubble.
+        ? {
+            id: stringValue(entry.uuid, `command-${entryIndex}`),
+            type: "localCommand",
+            command: classified.command,
+            args: classified.args,
+            output: classified.output,
+          }
+        : {
+            id: stringValue(entry.uuid, `user-${entryIndex}`),
+            type: "userMessage",
+            content: [{ type: "text", text: classified.text }],
+          };
       current = {
         id: stringValue(entry.promptId, stringValue(entry.uuid, `turn-${entryIndex}`)),
-        items: [{
-          id: stringValue(entry.uuid, `user-${entryIndex}`),
-          type: "userMessage",
-          content: [{ type: "text", text }],
-        }],
+        items: [item],
         status: "completed",
         startedAt: Date.parse(stringValue(entry.timestamp)) || null,
       };
@@ -444,6 +499,25 @@ function permissionMode(state = claudeChatStore.getState()): string {
   if (state.approvalPolicy === "never") return "dontAsk";
   if (state.sandboxMode === "workspace-write") return "acceptEdits";
   return "default";
+}
+
+/**
+ * Switches the session out of plan mode after a plan was approved and pushes
+ * the resulting permission mode to every live client.
+ */
+function leavePlanMode(autoAcceptEdits: boolean): void {
+  const state = claudeChatStore.getState();
+  if (state.collaborationMode !== "plan" && !autoAcceptEdits) return;
+  claudeChatStore.setState({
+    collaborationMode: "default",
+    permissionProfile: null,
+    sandboxMode: autoAcceptEdits ? "workspace-write" : state.sandboxMode,
+    approvalPolicy: autoAcceptEdits && state.approvalPolicy === "untrusted"
+      ? "on-request"
+      : state.approvalPolicy,
+  });
+  const mode = permissionMode();
+  for (const client of clients.values()) void client.setPermissionMode(mode).catch(() => {});
 }
 
 function updateCapabilities(result: ClaudeInitializeResult, path: string) {
@@ -592,12 +666,21 @@ function applyStreamEvents(
       if (typeof item.partialJson === "string") {
         try { argumentsValue = JSON.parse(item.partialJson); } catch { /* final assistant frame supplies canonical input */ }
       }
+      // A streamed tool_use starts with an empty input, so the fields derived
+      // from it have to be rebuilt once the arguments finished arriving.
+      const parsedArguments = isRecord(argumentsValue) ? argumentsValue : null;
       items[itemIndex] = {
         ...item,
         arguments: argumentsValue,
-        changes: item.type === "fileChange" && isRecord(argumentsValue)
-          ? editChanges(stringValue(item.tool), argumentsValue)
+        changes: item.type === "fileChange" && parsedArguments
+          ? editChanges(stringValue(item.tool), parsedArguments)
           : item.changes,
+        plan: item.type === "planProposal" && parsedArguments
+          ? stringValue(parsedArguments.plan)
+          : item.plan,
+        questions: item.type === "userQuestion" && parsedArguments
+          ? questionSummaries(parsedArguments)
+          : item.questions,
         __completed: true,
       };
       changed = true;
@@ -906,6 +989,9 @@ function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
   const input = isRecord(request.request.input) ? request.request.input : {};
   const tool = stringValue(request.request.tool_name, "Tool");
   const isQuestion = tool === "AskUserQuestion";
+  // Leaving plan mode is a decision about the plan itself, not a command
+  // approval, so it gets its own request kind and card.
+  const isPlan = tool === "ExitPlanMode";
   const questions = isQuestion ? arrayValue(input.questions).filter(isRecord).map((question, index) => ({
     id: `q-${index}`,
     header: stringValue(question.header, "Question"),
@@ -921,13 +1007,20 @@ function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
     sessionId: threadId,
     requestId: request.request_id,
     method: "claude/canUseTool",
-    kind: isQuestion ? "user-input" : ["Write", "Edit", "MultiEdit", "NotebookEdit"].includes(tool) ? "file-change" : "command",
+    kind: isQuestion
+      ? "user-input"
+      : isPlan
+        ? "plan"
+        : ["Write", "Edit", "MultiEdit", "NotebookEdit"].includes(tool)
+          ? "file-change"
+          : "command",
     threadId,
     itemId: stringValue(request.request.tool_use_id) || undefined,
     reason: stringValue(request.request.decision_reason, stringValue(request.request.description)),
     command: tool === "Bash" ? stringValue(input.command) : tool,
     cwd: stringValue(input.cwd) || undefined,
     questions,
+    plan: isPlan ? stringValue(input.plan) : undefined,
     raw: request.request,
   };
   claudeChatStore.setState((state) => ({
@@ -1440,6 +1533,25 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
       return;
     }
     const input = isRecord(raw.input) ? raw.input : {};
+    if (request.kind === "plan") {
+      const decision = isRecord(result) ? stringValue(result.decision) : "";
+      if (decision === "decline") {
+        const feedback = isRecord(result) ? stringValue(result.feedback).trim() : "";
+        await client.respond(String(request.requestId), {
+          behavior: "deny",
+          message: feedback || "Plan noch nicht freigegeben. Bitte weiter planen.",
+          interrupt: false,
+        });
+        removeRequest(request.threadId, request.requestId);
+        return;
+      }
+      await client.respond(String(request.requestId), { behavior: "allow", updatedInput: input });
+      // Approving a plan only takes effect once the session leaves plan mode —
+      // otherwise Claude stays read-only and cannot execute what was approved.
+      leavePlanMode(decision === "acceptEdits");
+      removeRequest(request.threadId, request.requestId);
+      return;
+    }
     if (request.kind === "user-input") {
       const resultAnswers = isRecord(result) && isRecord(result.answers) ? result.answers : {};
       const answers: Record<string, string> = {};
@@ -1448,6 +1560,21 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
         answers[stringValue(question.question)] = selected.map(String).join(", ");
       });
       await client.respond(String(request.requestId), { behavior: "allow", updatedInput: { ...input, answers } });
+      // Keep the chosen answers on the question item so the transcript shows
+      // what was decided instead of an opaque tool result.
+      if (request.itemId) {
+        updateConversation(request.threadId, (conversation) => ({
+          ...conversation,
+          turns: conversation.turns.map((turn) => ({
+            ...turn,
+            items: turn.items.map((item) =>
+              item.type === "userQuestion" && item.toolUseId === request.itemId
+                ? { ...item, answers }
+                : item,
+            ),
+          })),
+        }));
+      }
     } else {
       const decision = isRecord(result) ? stringValue(result.decision) : "";
       if (decision === "decline" || decision === "rejected") {
