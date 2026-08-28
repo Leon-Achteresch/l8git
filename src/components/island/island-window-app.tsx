@@ -38,11 +38,14 @@ export function IslandWindowApp() {
   );
   useTheme();
   useWindowPositionMemory();
-  const extra = showUsage ? 236 : 0;
-  const extraX = dock === "left" || dock === "right" || dock === "sidebar" ? extra : 0;
-  const extraY =
-    dock === "top" || dock === "bottom" || extraX === 0 ? extra : 0;
-  useWindowAutoSize(islandRef, extraX, extraY, dock);
+  const compactUsage = showUsage || isEdgeDock(dock);
+  const extra = compactUsage ? 236 : 0;
+  const verticalUsage = compactUsage && dock !== "top" && dock !== "bottom";
+  const extraLeft = verticalUsage && dock !== "left" && dock !== "sidebar" ? extra : 0;
+  const extraRight = verticalUsage && (dock === "left" || dock === "sidebar") ? extra : 0;
+  const extraTop = !verticalUsage && dock === "bottom" ? extra : 0;
+  const extraBottom = extra && !extraLeft && !extraRight && !extraTop ? extra : 0;
+  useWindowAutoSize(islandRef, extraLeft + extraRight, extraTop + extraBottom, dock);
 
   useEffect(() => {
     if (view === null) return;
@@ -69,10 +72,10 @@ export function IslandWindowApp() {
                 : "items-start justify-center",
         )}
         style={{
-          paddingTop: dock === "bottom" ? PAD + extra : PAD,
-          paddingBottom: dock === "top" ? PAD + extra : PAD,
-          paddingLeft: dock === "right" ? PAD + extra : PAD,
-          paddingRight: dock === "left" || dock === "sidebar" ? PAD + extra : PAD,
+          paddingTop: PAD + extraTop,
+          paddingBottom: PAD + extraBottom,
+          paddingLeft: PAD + extraLeft,
+          paddingRight: PAD + extraRight,
         }}
         onContextMenu={(e) => {
           e.preventDefault();

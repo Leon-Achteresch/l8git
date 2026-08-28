@@ -191,9 +191,9 @@ export function DynamicIsland({
                 keyId="compact"
                 className={
                   usage && vertical
-                    ? "min-h-0 min-w-[52px] flex-col gap-2 px-2 py-2.5 text-xs font-medium"
+                    ? "min-h-0 min-w-[56px] flex-col gap-2.5 px-2.5 py-3 text-xs font-medium"
                     : usage
-                      ? "min-h-0 min-w-0 gap-3.5 px-3.5 py-2 text-xs font-medium"
+                      ? "min-h-0 min-w-0 gap-4 px-4 py-2.5 text-xs font-medium"
                       : vertical
                         ? "min-h-0 min-w-[44px] flex-col gap-1.5 px-1.5 py-2 text-xs font-medium"
                         : "min-h-[37px] min-w-[126px] gap-2 px-4 py-1.5 text-xs font-medium"
