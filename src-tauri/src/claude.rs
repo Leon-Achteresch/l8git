@@ -1075,7 +1075,7 @@ pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> 
 mod tests {
     use super::{
         hooks_from_file, managed_path, project_dir_name, sanitize_entry, scan_skills,
-        summarize_file, SUMMARY_EDGE_BYTES,
+        summarize_file, summary_preview, BARE_CAVEAT_PREFIX, SUMMARY_EDGE_BYTES,
     };
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
