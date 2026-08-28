@@ -95,11 +95,17 @@ function cardPosition(rect: Rect | null): { top: number; left: number } | null {
     rect.left + rect.width + SPOTLIGHT_PADDING + 8 + CARD_WIDTH < window.innerWidth
       ? rect.left + rect.width + SPOTLIGHT_PADDING + 8
       : rect.left;
-  const left = Math.min(
-    Math.max(VIEWPORT_MARGIN, preferredLeft),
+  // On a window narrower than the card, the upper bound falls below the lower
+  // one - clamp it so the card never lands at a negative offset.
+  const maxLeft = Math.max(
+    VIEWPORT_MARGIN,
     window.innerWidth - CARD_WIDTH - VIEWPORT_MARGIN,
   );
-  return { top: Math.min(top, window.innerHeight - 200), left };
+  const left = Math.min(Math.max(VIEWPORT_MARGIN, preferredLeft), maxLeft);
+  return {
+    top: Math.max(VIEWPORT_MARGIN, Math.min(top, window.innerHeight - 200)),
+    left,
+  };
 }
 
 export function OnboardingTour() {
@@ -218,7 +224,7 @@ export function OnboardingTour() {
         aria-modal="true"
         aria-label={t("tour.ariaLabel")}
         className={cn(
-          "absolute w-[320px] rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-2xl",
+          "absolute w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-2xl",
           !position && "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
         )}
         style={position ? { top: position.top, left: position.left } : undefined}
@@ -252,11 +258,11 @@ export function OnboardingTour() {
           </p>
         )}
 
-        <div className="mt-4 flex items-center justify-between gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={close}>
-            {t("tour.dontShowAgain")}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <Button type="button" variant="ghost" size="sm" className="max-w-full" onClick={close}>
+            <span className="truncate">{t("tour.dontShowAgain")}</span>
           </Button>
-          <div className="flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1">
             <Button
               type="button"
               variant="ghost"
