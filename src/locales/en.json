@@ -3061,6 +3061,7 @@
     "linkDialogDesc": "The ticket applies to this conversation only. The agent may read linked tickets and nothing else.",
     "linkKeyLabel": "Issue key or Jira link",
     "linkedToast": "{{key}} linked to this conversation.",
-    "panelHint": "Tickets are linked per conversation: right-click a chat in the sidebar → “Link Jira ticket”. Key and status then show in the chat row."
+    "panelHint": "Tickets are linked per conversation: right-click a chat in the sidebar → “Link Jira ticket”. Key and status then show in the chat row.",
+    "sessionNote": "A linked ticket takes effect immediately, even in a chat that is already running. The switches above only apply to chats started afterwards — the CLI asks for the tool list once, when it connects."
   }
 }

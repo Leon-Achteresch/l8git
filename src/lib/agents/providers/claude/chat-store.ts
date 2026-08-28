@@ -958,7 +958,10 @@ async function handleMcpMessage(
     }
     if (method === "tools/call") {
       const params = isRecord(message.params) ? message.params : {};
-      const toolName = stringValue(params.name);
+      // MCP sends the bare name, but Claude Code also knows these tools as
+      // `mcp__l8git__<name>`; accept both rather than fall through to the
+      // chart reply and leave the agent thinking Jira is broken.
+      const toolName = stringValue(params.name).replace(/^mcp__l8git__/, "");
       if (isJiraToolName(toolName)) {
         if (useJiraStore.getState().enabled) await ensureJiraStatus();
         const args = isRecord(params.arguments) ? params.arguments : {};

@@ -60,8 +60,10 @@ impl JiraPolicy {
         self.thread_for(repo).map(|thread| self.keys_for_thread(thread)).unwrap_or(&[])
     }
 
-    /// Mirrors `jiraToolsFor` in the frontend: a repository with no pinned
-    /// ticket and no search permission gets no tools at all.
+    /// True while this repository could reach a ticket right now. Used by the
+    /// UI and by tests — deliberately *not* by `tools_for`, because the CLI
+    /// asks for the tool list once per session and a list that depended on the
+    /// pinned set could never catch up with a ticket linked later.
     pub fn offers_tools(&self, repo: &str) -> bool {
         self.enabled && (self.allow_search || !self.keys_for(repo).is_empty())
     }

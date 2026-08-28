@@ -3061,6 +3061,7 @@
     "linkDialogDesc": "O ticket vale apenas para esta conversa. O agente só pode ler tickets ligados.",
     "linkKeyLabel": "Chave do ticket ou link do Jira",
     "linkedToast": "{{key}} ligado a esta conversa.",
-    "panelHint": "Os tickets são ligados por conversa: clique com o botão direito num chat na barra lateral → «Ligar ticket do Jira». A chave e o estado passam a aparecer na linha do chat."
+    "panelHint": "Os tickets são ligados por conversa: clique com o botão direito num chat na barra lateral → «Ligar ticket do Jira». A chave e o estado passam a aparecer na linha do chat.",
+    "sessionNote": "Um ticket ligado tem efeito imediato, mesmo num chat já em curso. Os interruptores acima só se aplicam a chats iniciados depois — a CLI pede a lista de ferramentas apenas uma vez, ao ligar-se."
   }
 }
