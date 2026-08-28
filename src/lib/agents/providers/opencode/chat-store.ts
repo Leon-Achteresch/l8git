@@ -11,6 +11,7 @@ import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import { accumulateUsage } from "@/lib/agents/token-cost";
 import {
   OpenCodeClient,
+  isUnusedOpenCodeSession,
   openCodeCli,
   parseOpenCodeMcpServers,
   type OpenCodeConfigChoice,
@@ -673,6 +674,9 @@ export async function warmOpenCodeModelCatalog(path: string): Promise<void> {
     const config = await client.newSession();
     applyConfig(path, config);
     await client.closeSession(config.sessionId).catch(() => {});
+    // Ohne das Löschen bliebe für jeden Repo-Start eine leere Session im
+    // `session/list` von opencode zurück.
+    await invoke("opencode_delete_session", { path, sessionId: config.sessionId }).catch(() => {});
     // Antwort ohne configOptions darf den Warmup nicht dauerhaft blockieren.
     if (!openCodeChatStore.getState().models.length) catalogWarmups.delete(path);
   } catch (error) {
@@ -868,23 +872,42 @@ export const openCodeChatStore = createStore<AgentChatState>()((set, get) => ({
       await Promise.all(unique.map(async (path) => {
         const client = await ensureClient(path).catch(() => null);
         const sessions = client ? await client.listSessions().catch(() => []) : [];
-        grouped[path] = sortThreads(sessions.map((session): AgentThreadSummary => {
-          pathByThread.set(session.sessionId, path);
-          return {
-            id: session.sessionId,
-            path,
-            title: session.title?.trim() || "Neue Unterhaltung",
-            preview: session.title?.trim() ?? "",
-            createdAt: epochSeconds(session.updatedAt),
-            updatedAt: epochSeconds(session.updatedAt),
-            status: "idle",
-            modelProvider: "opencode",
-            isPinned: sessionPrefs.pinned.has(session.sessionId),
-            archived: sessionPrefs.archived.has(session.sessionId),
-          };
-        }));
+        grouped[path] = sessions.filter((session) => !isUnusedOpenCodeSession(session)).map(
+          (session): AgentThreadSummary => {
+            pathByThread.set(session.sessionId, path);
+            const title = session.title?.trim() ?? "";
+            return {
+              id: session.sessionId,
+              path,
+              title,
+              preview: title,
+              createdAt: epochSeconds(session.updatedAt),
+              updatedAt: epochSeconds(session.updatedAt),
+              status: "idle",
+              modelProvider: "opencode",
+              isPinned: sessionPrefs.pinned.has(session.sessionId),
+              archived: sessionPrefs.archived.has(session.sessionId),
+            };
+          },
+        );
       }));
-      set((state) => ({ threadsByPath: { ...state.threadsByPath, ...grouped } }));
+      set((state) => {
+        const merged: Record<string, AgentThreadSummary[]> = {};
+        for (const path of unique) {
+          const listed = grouped[path] ?? [];
+          const listedIds = new Set(listed.map((thread) => thread.id));
+          // Eine gerade geöffnete Unterhaltung hat in opencode noch keinen
+          // Titel und fällt oben raus — solange sie offen ist, bleibt sie hier.
+          const live = (state.threadsByPath[path] ?? []).filter(
+            (thread) =>
+              !listedIds.has(thread.id) &&
+              (state.activeThreadByPath[path] === thread.id ||
+                (state.conversations[thread.id]?.turns.length ?? 0) > 0),
+          );
+          merged[path] = sortThreads([...listed, ...live]);
+        }
+        return { threadsByPath: { ...state.threadsByPath, ...merged } };
+      });
     } finally {
       set((state) => ({
         loadingPaths: { ...state.loadingPaths, ...Object.fromEntries(unique.map((path) => [path, false])) },
@@ -892,6 +915,12 @@ export const openCodeChatStore = createStore<AgentChatState>()((set, get) => ({
     }
   },
   createThread: async (path) => {
+    const openId = get().activeThreadByPath[path];
+    const open = openId ? get().conversations[openId] : undefined;
+    // Jede `session/new` legt in opencode eine Session auf Platte an. Solange
+    // die offene Unterhaltung noch leer ist, wird sie wiederverwendet statt
+    // eine weitere leere Session zu hinterlassen.
+    if (openId && open && !open.loading && !open.activeTurnId && open.turns.length === 0) return openId;
     const client = await ensureClient(path);
     set((state) => ({ sessionStatusByThread: { ...state.sessionStatusByThread, [path]: "connecting" } }));
     const config = await client.newSession();

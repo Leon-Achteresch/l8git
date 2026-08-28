@@ -1,22 +1,27 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { isValidElement } from "react";
+import { isValidElement, memo, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { MarkdownBarcode } from "@/components/agents/ui/agent-barcode";
 import { MarkdownChart } from "@/components/agents/ui/agent-chart";
+import { splitMarkdownBlocks } from "@/lib/agents/markdown-blocks";
 
-function chartSource(children: unknown): string | null {
+/** Quelltext eines Codeblocks, wenn er die gesuchte Sprache trägt. */
+function fenceSource(children: unknown, language: string): string | null {
   if (!isValidElement(children)) return null;
   const props = children.props as { className?: string; children?: unknown };
-  if (!props.className?.includes("language-chart")) return null;
+  if (!props.className?.includes(`language-${language}`)) return null;
   return typeof props.children === "string" ? props.children : null;
 }
 
 const MARKDOWN_PLUGINS = [remarkGfm];
 const MARKDOWN_COMPONENTS: Components = {
   pre: ({ children, ...props }) => {
-    const source = chartSource(children);
-    if (source !== null) return <MarkdownChart source={source} />;
+    const chart = fenceSource(children, "chart");
+    if (chart !== null) return <MarkdownChart source={chart} />;
+    const barcode = fenceSource(children, "barcode");
+    if (barcode !== null) return <MarkdownBarcode source={barcode} />;
     return <pre {...props}>{children}</pre>;
   },
   a: ({ href, children, ...props }) => (
@@ -34,10 +39,23 @@ const MARKDOWN_COMPONENTS: Components = {
   ),
 };
 
-export function AgentMarkdown({ children }: { children: string }) {
+const MarkdownBlock = memo(function MarkdownBlock({ source }: { source: string }) {
   return (
     <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} components={MARKDOWN_COMPONENTS}>
-      {children}
+      {source}
     </ReactMarkdown>
   );
-}
+});
+
+export const AgentMarkdown = memo(function AgentMarkdown({ children }: { children: string }) {
+  const blocks = useMemo(() => splitMarkdownBlocks(children), [children]);
+  return (
+    <>
+      {blocks.map((block, index) => (
+        // Keyed by position: a settled block keeps its element and its
+        // memoized parse; only the block still being appended to re-renders.
+        <MarkdownBlock key={index} source={block} />
+      ))}
+    </>
+  );
+});

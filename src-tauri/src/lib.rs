@@ -1,3 +1,4 @@
+mod agent_addons;
 mod agent_review;
 pub mod agent_transport;
 mod claude;
@@ -7,6 +8,10 @@ mod credentials;
 mod cursor;
 mod favicon;
 pub mod git;
+mod island;
+pub mod jira;
+pub mod jira_mcp;
+pub mod jira_policy;
 mod lfs;
 mod media;
 pub mod pathsafe;
@@ -50,6 +55,7 @@ pub fn run() {
                     };
                     let _ = window.set_background_color(Some(color));
                 }
+                island::wire_lifecycle(app.handle());
             }
             sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
             Ok(())
@@ -69,6 +75,8 @@ pub fn run() {
             remote::remote_pair,
             remote::remote_add_root,
             remote::remote_remove_root,
+            agent_addons::agent_addon_config_read,
+            agent_addons::agent_addon_config_write,
             agent_transport::agent_transport_open,
             agent_transport::agent_transport_send,
             agent_transport::agent_transport_close,
@@ -252,6 +260,16 @@ pub fn run() {
             secrets::secret_set,
             secrets::secret_get,
             secrets::secret_delete,
+            jira::jira_save_credentials,
+            jira::jira_credentials_status,
+            jira::jira_delete_credentials,
+            jira::jira_test_connection,
+            jira::jira_fetch_issue,
+            jira::jira_fetch_comments,
+            jira::jira_search_issues,
+            jira_policy::jira_write_policy,
+            jira_policy::jira_mcp_command,
+            jira_policy::jira_sync_cursor_mcp,
             rebase::rebase_start,
             rebase::rebase_status,
             rebase::rebase_continue,
@@ -287,7 +305,15 @@ pub fn run() {
             pr::pr_review_threads,
             pr::pr_resolve_thread,
             git::repo_range_commits,
-            pr::pr_default_branch
+            pr::pr_default_branch,
+            island::island_window_open,
+            island::island_window_close,
+            island::island_window_state,
+            island::island_window_set_size,
+            island::island_window_set_always_on_top,
+            island::main_window_minimize,
+            island::main_window_restore,
+            island::main_window_toggle_minimize
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

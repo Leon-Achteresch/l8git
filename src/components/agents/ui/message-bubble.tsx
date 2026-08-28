@@ -4,7 +4,7 @@
 import { ChevronDown } from "lucide-react";
 import {
   type HTMLMotionProps,
-  motion,
+  m,
   useReducedMotion,
 } from "motion/react";
 import {
@@ -125,7 +125,7 @@ export function MessageBubble({
     <MessageBubbleContext.Provider
       value={{ align: resolvedAlign, animateIn, variant }}
     >
-      <motion.div
+      <m.div
         data-slot="message-bubble"
         data-align={resolvedAlign}
         data-variant={variant}
@@ -145,7 +145,7 @@ export function MessageBubble({
         {...props}
       >
         {children}
-      </motion.div>
+      </m.div>
     </MessageBubbleContext.Provider>
   );
 }
@@ -201,7 +201,7 @@ export function MessageBubbleContent({
   const composedChildren = (
     <>
       {variant !== "ghost" ? (
-        <motion.span
+        <m.span
           aria-hidden="true"
           layout={reduce ? false : "size"}
           layoutDependency={layoutVersion}
@@ -227,7 +227,7 @@ export function MessageBubbleContent({
         />
       ) : null}
       <MessageBubbleLayoutContext.Provider value={notifyLayout}>
-        <motion.div
+        <m.div
           initial={
             animateIn
               ? reduce
@@ -242,7 +242,7 @@ export function MessageBubbleContent({
           className="relative"
         >
           {children}
-        </motion.div>
+        </m.div>
       </MessageBubbleLayoutContext.Provider>
     </>
   );
@@ -357,13 +357,13 @@ export function MessageBubbleCollapsible({
         )}
       >
         <span>{currentOpen ? lessLabel : moreLabel}</span>
-        <motion.span
+        <m.span
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
         >
           <ChevronDown className="size-3.5" />
-        </motion.span>
+        </m.span>
       </button>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 // beui.dev/components/blocks/dynamic-island
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   createContext,
   useContext,
@@ -91,7 +91,7 @@ function Slot({
 }) {
   const reduce = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       key={keyId}
       initial={
         reduce
@@ -125,7 +125,7 @@ function Slot({
       className={cn("flex items-center justify-center", className)}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -152,7 +152,7 @@ export function DynamicIsland({
 
   return (
     <IslandContext.Provider value={contextValue}>
-      <motion.div
+      <m.div
         role="status"
         aria-live="polite"
         initial={false}
@@ -188,7 +188,7 @@ export function DynamicIsland({
           </AnimatePresence>
           {children}
         </div>
-      </motion.div>
+      </m.div>
     </IslandContext.Provider>
   );
 }

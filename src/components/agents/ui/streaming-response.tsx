@@ -2,7 +2,7 @@
 // beui.dev/components/agents/streaming-response
 
 import { Check, ChevronDown, Copy, RotateCcw } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -46,6 +46,10 @@ export interface StreamingResponseProps {
   actionsClassName?: string;
 }
 
+/** Shared markdown typography for agent-authored prose. */
+export const AGENT_PROSE_CLASS =
+  "text-sm leading-6 text-[var(--ag-text)] [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-4 [&_code]:rounded-[5px] [&_code]:bg-[var(--ag-surface-2)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_h1]:mt-5 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mt-5 [&_h2]:text-[15px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:text-[14px] [&_h3]:font-semibold [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p+p]:mt-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-[12px] [&_pre]:border [&_pre]:border-[var(--ag-line)] [&_pre]:bg-[var(--ag-surface-3)] [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5";
+
 function ResponseAction({
   label,
   onClick,
@@ -58,7 +62,7 @@ function ResponseAction({
   const reduce = useReducedMotion() ?? false;
 
   return (
-    <motion.button
+    <m.button
       type="button"
       aria-label={label}
       title={label}
@@ -68,7 +72,7 @@ function ResponseAction({
       className="ag-icon-btn"
     >
       {children}
-    </motion.button>
+    </m.button>
   );
 }
 
@@ -138,7 +142,7 @@ export function StreamingResponse({
       <div
         aria-live={announce ? "polite" : "off"}
         className={cn(
-          "text-sm leading-6 text-[var(--ag-text)] [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-4 [&_code]:rounded-[5px] [&_code]:bg-[var(--ag-surface-2)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_h1]:mt-5 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mt-5 [&_h2]:text-[15px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:text-[14px] [&_h3]:font-semibold [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p+p]:mt-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-[12px] [&_pre]:border [&_pre]:border-[var(--ag-line)] [&_pre]:bg-[var(--ag-surface-3)] [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5",
+          AGENT_PROSE_CLASS,
           contentClassName,
         )}
       >
@@ -147,7 +151,7 @@ export function StreamingResponse({
 
       <AnimatePresence initial={false}>
         {shouldShowActions ? (
-          <motion.div
+          <m.div
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -184,14 +188,14 @@ export function StreamingResponse({
                   <span className="tabular-nums">
                     {sources.length} {sources.length === 1 ? "source" : "sources"}
                   </span>
-                  <motion.span
+                  <m.span
                     aria-hidden="true"
                     animate={{ rotate: currentSourcesOpen ? 180 : 0 }}
                     transition={reduce ? { duration: 0 } : SPRING_SWAP}
                     className="text-muted-foreground/50 group-hover:text-muted-foreground"
                   >
                     <ChevronDown className="size-3" />
-                  </motion.span>
+                  </m.span>
                 </button>
               ) : null}
             </div>
@@ -208,7 +212,7 @@ export function StreamingResponse({
                 />
               </AgentDisclosure>
             ) : null}
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </div>
