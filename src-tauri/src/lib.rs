@@ -7,6 +7,7 @@ mod credentials;
 mod cursor;
 mod favicon;
 pub mod git;
+mod island;
 mod lfs;
 mod media;
 pub mod pathsafe;
@@ -50,6 +51,7 @@ pub fn run() {
                     };
                     let _ = window.set_background_color(Some(color));
                 }
+                island::wire_lifecycle(app.handle());
             }
             sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
             Ok(())
@@ -287,7 +289,15 @@ pub fn run() {
             pr::pr_review_threads,
             pr::pr_resolve_thread,
             git::repo_range_commits,
-            pr::pr_default_branch
+            pr::pr_default_branch,
+            island::island_window_open,
+            island::island_window_close,
+            island::island_window_state,
+            island::island_window_set_size,
+            island::island_window_set_always_on_top,
+            island::main_window_minimize,
+            island::main_window_restore,
+            island::main_window_toggle_minimize
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

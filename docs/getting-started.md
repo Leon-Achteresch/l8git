@@ -95,6 +95,15 @@ Every repository has an embedded terminal, opened from the dock at the bottom (o
 
 The floating island shows the current repository, its branch, the number of pending changes and running agents. It can be moved, reset to its default position, or hidden entirely under **Settings → Interface elements**.
 
+Click the island to switch repositories, right-click it for its menu. From there it opens two more surfaces:
+
+- **AI chat** — the same provider you configured under **Settings → AI**, but with tools: it reads repository state (status, branches, commits, diffs) and runs l8git actions for you. Actions that change something ask for approval first; the wrench icon in the chat header switches to running them straight away.
+- **Actions** — a searchable list of everything the island can do: push, pull, fetch, stage, commit, switch or create branches, stash, open any view of the app, reveal the folder, start an agent.
+
+### Detaching the island
+
+The island can leave the app. **Detach island** in its menu — or the picture-in-picture button in the header, which detaches it and minimizes l8git in one go — moves it into a small always-on-top window of its own. It keeps working while l8git is minimized: same repositories, same chat, same actions. **Show l8git** brings the main window back, **Dock island** returns the island into it. The detached window remembers where you left it, and closing l8git closes it too.
+
 ## Settings worth knowing early
 
 - **Appearance** — language (German/English), light/dark/system theme, UI scale.

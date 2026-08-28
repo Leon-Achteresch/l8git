@@ -128,6 +128,7 @@ State lives in Zustand stores (`repo-store.ts`, `ui-store.ts`, `stack-store.ts`,
 | `agent_transport.rs` | JSONL-over-stdio transport for the agent CLIs |
 | `claude.rs`, `cursor.rs` | Provider specific agent process handling |
 | `credentials.rs`, `secrets.rs` | Git credentials and secrets in the OS keychain |
+| `island.rs` | Detached Dynamic Island window and main window minimize/restore |
 | `watcher.rs` | Debounced filesystem watcher per repository |
 | `pty/`, `shell.rs` | Embedded terminal via `portable-pty`, shell resolution |
 | `repo_tools.rs` | Repository declared tools (`.l8git/tools.json`) |
