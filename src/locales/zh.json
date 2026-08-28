@@ -891,7 +891,11 @@
         "label": "拉取请求描述",
         "desc": "生成拉取请求描述所用的提示词。"
       }
-    }
+    },
+    "navGroupIntegrations": "集成",
+    "navJira": "Jira",
+    "jiraSectionTitle": "Jira",
+    "jiraSectionSubtitle": "关联工单并授予智能体只读访问权限"
   },
   "notifications": {
     "title": "通知",
@@ -2995,5 +2999,42 @@
     "pairDesc": "在 l8git 应用中扫描二维码，或手动输入 JSON。",
     "copyJson": "复制 JSON",
     "copied": "已复制"
+  },
+  "jira": {
+    "settingsTitle": "Jira 访问（自带密钥）",
+    "settingsDesc": "你自己的 Jira 实例的基础 URL、邮箱和 API 令牌。令牌加密保存在操作系统钥匙串中，绝不会回传到界面。",
+    "enabledLabel": "启用 Jira 集成",
+    "enabledHint": "关闭时智能体看不到任何 Jira 工具，因此不会为工具说明消耗 token。",
+    "baseUrlLabel": "基础 URL",
+    "baseUrlHint": "仅限 HTTPS。示例：https://acme.atlassian.net",
+    "emailLabel": "邮箱",
+    "tokenLabel": "API 令牌",
+    "tokenPlaceholder": "Atlassian API 令牌",
+    "tokenHint": "保存在操作系统钥匙串中，而非 localStorage。保存后输入框会清空，令牌不再显示。",
+    "tokenShow": "显示令牌",
+    "tokenHide": "隐藏令牌",
+    "configuredHint": "已为 {{email}} 保存（{{hint}}）",
+    "testButton": "测试连接",
+    "deleteButton": "删除访问凭据",
+    "savedToast": "Jira 访问凭据已保存。",
+    "deletedToast": "Jira 访问凭据已删除。",
+    "testOkToast": "已以 {{name}} 身份连接。",
+    "scopeTitle": "智能体的权限",
+    "allowCommentsLabel": "读取评论",
+    "allowCommentsHint": "额外开放读取工单最新评论的工具。",
+    "allowSearchLabel": "允许 JQL 搜索",
+    "allowSearchHint": "不开启时，智能体只能读取此处关联的工单；开启后可搜索并读取你的账号可见的任意工单。",
+    "readOnlyNote": "所有 Jira 工具均为只读：只会发送 HTTP GET 请求。创建、修改、评论和状态流转均未实现。",
+    "panelTitle": "Jira 工单",
+    "panelEmpty": "尚未关联工单。点击 + 添加。",
+    "linkTicket": "关联工单",
+    "linkPlaceholder": "ABC-123 或 Jira 链接，回车关联",
+    "invalidKey": "工单键无效，应为 ABC-123 形式。",
+    "notConfigured": "未保存 Jira 访问凭据 — 设置 → Jira。",
+    "refresh": "刷新工单",
+    "unlink": "移除 {{key}}",
+    "openInJira": "在 Jira 中打开 {{key}}",
+    "providerUnsupported": "仅 Claude Code 可调用工具 — 其他 CLI 不会加载 l8git 的进程内工具。",
+    "toolNote": "Jira 工具仅对 Claude Code 提供方可用；其他 CLI 不会加载 l8git 的进程内工具。"
   }
 }

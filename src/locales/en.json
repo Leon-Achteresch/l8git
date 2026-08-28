@@ -891,7 +891,11 @@
         "label": "Pull request description",
         "desc": "Prompt for generated pull request descriptions."
       }
-    }
+    },
+    "navGroupIntegrations": "Integrations",
+    "navJira": "Jira",
+    "jiraSectionTitle": "Jira",
+    "jiraSectionSubtitle": "Link tickets and give the agent read-only access"
   },
   "notifications": {
     "title": "Notifications",
@@ -2995,5 +2999,42 @@
     "pairDesc": "Scan the QR code in the l8git app or enter the JSON manually.",
     "copyJson": "Copy JSON",
     "copied": "Copied"
+  },
+  "jira": {
+    "settingsTitle": "Jira access (BYOK)",
+    "settingsDesc": "Base URL, email and API token of your own Jira instance. The token is stored encrypted in the OS keychain and is never handed back to the UI.",
+    "enabledLabel": "Jira integration enabled",
+    "enabledHint": "While it is off the agent sees no Jira tools at all, so no tokens are spent on tool descriptions.",
+    "baseUrlLabel": "Base URL",
+    "baseUrlHint": "HTTPS only. Example: https://acme.atlassian.net",
+    "emailLabel": "Email",
+    "tokenLabel": "API token",
+    "tokenPlaceholder": "Atlassian API token",
+    "tokenHint": "Stored in the OS keychain, not in localStorage. The field is cleared after saving and the token is never shown again.",
+    "tokenShow": "Show token",
+    "tokenHide": "Hide token",
+    "configuredHint": "Stored for {{email}} ({{hint}})",
+    "testButton": "Test connection",
+    "deleteButton": "Delete access",
+    "savedToast": "Jira access saved.",
+    "deletedToast": "Jira access deleted.",
+    "testOkToast": "Connected as {{name}}.",
+    "scopeTitle": "What the agent may do",
+    "allowCommentsLabel": "Read comments",
+    "allowCommentsHint": "Also exposes the tool that reads the latest comments on a ticket.",
+    "allowSearchLabel": "Allow JQL search",
+    "allowSearchHint": "Without this the agent may only read the tickets linked here. With it, it may search and read any ticket your account can see.",
+    "readOnlyNote": "Every Jira tool is read-only: only HTTP GET requests are sent. Creating, editing, commenting and transitioning are not implemented.",
+    "panelTitle": "Jira tickets",
+    "panelEmpty": "No ticket linked. Add one with +.",
+    "linkTicket": "Link ticket",
+    "linkPlaceholder": "ABC-123 or Jira link, Enter to link",
+    "invalidKey": "Invalid issue key. Expected the form ABC-123.",
+    "notConfigured": "No Jira access stored — Settings → Jira.",
+    "refresh": "Refresh tickets",
+    "unlink": "Remove {{key}}",
+    "openInJira": "Open {{key}} in Jira",
+    "providerUnsupported": "Tool access only with Claude Code — the other CLIs do not load l8git's in-process tools.",
+    "toolNote": "The Jira tools are available to the Claude Code provider only; the other CLIs do not load l8git's in-process tools."
   }
 }

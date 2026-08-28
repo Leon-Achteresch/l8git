@@ -49,6 +49,31 @@ The overview lists every agent thread across the whole workspace: how many are r
 
 Running and waiting agents also show up in the [Inbox](pull-requests.md#the-inbox).
 
+## Jira tickets
+
+Bring your own Jira: under **Settings → Jira** you store the base URL, your account e-mail and an Atlassian API token. The token goes into the operating system's keychain — never into `localStorage` — and is never handed back to the UI; the settings page only shows a masked hint such as `••••1a2b`.
+
+In the agents sidebar, **Jira tickets** pins tickets to the selected repository. Paste a key (`ABC-123`) or a Jira link; the ticket is resolved once and then shown with its status and title, with shortcuts to open it in Jira or to unpin it.
+
+### What the agent may do
+
+Everything here is read-only. Three tools exist — read a ticket, read its comments, search by JQL — and all three only ever issue HTTP GET requests. Creating, editing, commenting and transitioning are not implemented.
+
+The tools are also gated so an unused integration costs nothing:
+
+| Situation | What the agent sees |
+|---|---|
+| Jira switched off, or no credentials | no Jira tools at all |
+| No ticket pinned and JQL search off | no Jira tools at all |
+| Ticket pinned, JQL search off | read the pinned tickets (and their comments, if allowed) — and nothing else |
+| JQL search on | additionally search and read any ticket your Jira account can see |
+
+Tool schemas are paid for in input tokens on every turn, which is why the list is rebuilt for each request instead of being declared once. Responses are trimmed the same way: Atlassian's rich-text format is flattened to plain text, only the relevant fields are requested, long descriptions are cut off, and search results carry no descriptions at all.
+
+The master switch under **Settings → Jira** turns the whole feature off again at any time.
+
+Tool access works with the **Claude Code** provider; the other CLIs do not load l8git's in-process tools.
+
 ## Reviewing what an agent did
 
 **Review changes** opens the session review: the worktree's changes against the base branch, with counts for files, added and removed lines, commits, and uncommitted changes.

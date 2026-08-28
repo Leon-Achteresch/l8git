@@ -7,6 +7,7 @@ mod credentials;
 mod cursor;
 mod favicon;
 pub mod git;
+pub mod jira;
 mod lfs;
 mod media;
 pub mod pathsafe;
@@ -252,6 +253,13 @@ pub fn run() {
             secrets::secret_set,
             secrets::secret_get,
             secrets::secret_delete,
+            jira::jira_save_credentials,
+            jira::jira_credentials_status,
+            jira::jira_delete_credentials,
+            jira::jira_test_connection,
+            jira::jira_fetch_issue,
+            jira::jira_fetch_comments,
+            jira::jira_search_issues,
             rebase::rebase_start,
             rebase::rebase_status,
             rebase::rebase_continue,

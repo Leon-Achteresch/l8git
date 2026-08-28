@@ -37,6 +37,16 @@ export function providerSupportsCapabilityCenter(provider: NativeAgentProvider):
   return provider !== "cursor";
 }
 
+/**
+ * Only Claude Code is launched with l8git's in-process SDK MCP server
+ * (`agent_transport.rs`), so it is the only provider that can call app-provided
+ * tools such as the Jira readers. The other CLIs would need their own MCP
+ * server process, which l8git does not ship.
+ */
+export function providerSupportsAppTools(provider: NativeAgentProvider): boolean {
+  return provider === "claude";
+}
+
 export function providerSupportsSlashCommand(
   provider: NativeAgentProvider,
   command: string,

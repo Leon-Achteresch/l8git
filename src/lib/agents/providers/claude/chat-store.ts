@@ -1,5 +1,8 @@
 import { CHART_TOOL } from "@/lib/agents/chart-spec";
 import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
+import { callJiraTool } from "@/lib/jira/jira-runtime";
+import { ensureJiraStatus, jiraToolContextFor, useJiraStore } from "@/lib/jira/jira-store";
+import { isJiraToolName, jiraToolsFor } from "@/lib/jira/jira-tools";
 import { invoke } from "@/lib/platform/ipc";
 import { kvGet, kvSet } from "@/lib/platform/kv";
 import {
@@ -842,7 +845,78 @@ function handleClaudeMessage(threadId: string, path: string, event: UnknownRecor
   }
 }
 
-function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
+/**
+ * In-process MCP server ("l8git", declared in `agent_transport.rs`). The tool
+ * list is rebuilt per request so gated tools — currently Jira — only cost
+ * context tokens while they are actually usable.
+ */
+async function handleMcpMessage(
+  threadId: string,
+  path: string,
+  requestId: string,
+  message: Record<string, unknown>,
+) {
+  const method = stringValue(message.method);
+  const respond = (result: unknown) =>
+    clients.get(threadId)?.respond(requestId, {
+      mcp_response: { jsonrpc: "2.0", id: message.id, result },
+    });
+  try {
+    if (method === "initialize") {
+      await respond({
+        protocolVersion: "2024-11-05",
+        capabilities: { tools: {} },
+        serverInfo: { name: "l8git", version: "1.0.0" },
+      });
+      return;
+    }
+    if (method === "tools/list") {
+      await respond({ tools: [CHART_TOOL, ...(await gatedJiraTools(path))] });
+      return;
+    }
+    if (method === "tools/call") {
+      const params = isRecord(message.params) ? message.params : {};
+      const toolName = stringValue(params.name);
+      if (isJiraToolName(toolName)) {
+        if (useJiraStore.getState().enabled) await ensureJiraStatus();
+        const args = isRecord(params.arguments) ? params.arguments : {};
+        await respond(await callJiraTool(toolName, args, jiraToolContextFor(path)));
+        return;
+      }
+      await respond({ content: [{ type: "text", text: "Diagramm wurde in der l8git-UI gerendert." }] });
+      return;
+    }
+    await clients.get(threadId)?.respond(requestId, {
+      mcp_response: {
+        jsonrpc: "2.0",
+        id: message.id,
+        error: { code: -32601, message: `Unbekannte Methode: ${method}` },
+      },
+    });
+  } catch (error) {
+    try {
+      await clients.get(threadId)?.respond(requestId, {
+        mcp_response: {
+          jsonrpc: "2.0",
+          id: message.id,
+          error: { code: -32603, message: error instanceof Error ? error.message : String(error) },
+        },
+      });
+    } catch {
+      // The transport is already gone; nothing left to answer.
+    }
+  }
+}
+
+async function gatedJiraTools(path: string) {
+  // Skipping the keychain probe while the feature is off keeps `tools/list`
+  // free of both latency and tokens.
+  if (!useJiraStore.getState().enabled) return [];
+  await ensureJiraStatus();
+  return jiraToolsFor(jiraToolContextFor(path));
+}
+
+function handleControlRequest(threadId: string, path: string, request: ClaudeControlRequest) {
   const subtype = stringValue(request.request.subtype);
   if (subtype === "oauth_token_refresh") {
     void clients.get(threadId)?.respond(request.request_id, { accessToken: null });
@@ -879,24 +953,7 @@ function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
       void clients.get(threadId)?.respond(request.request_id, {});
       return;
     }
-    const method = stringValue(message.method);
-    const result =
-      method === "initialize"
-        ? {
-            protocolVersion: "2024-11-05",
-            capabilities: { tools: {} },
-            serverInfo: { name: "l8git", version: "1.0.0" },
-          }
-        : method === "tools/list"
-          ? { tools: [CHART_TOOL] }
-          : method === "tools/call"
-            ? { content: [{ type: "text", text: "Diagramm wurde in der l8git-UI gerendert." }] }
-            : null;
-    void clients.get(threadId)?.respond(request.request_id, {
-      mcp_response: result
-        ? { jsonrpc: "2.0", id: message.id, result }
-        : { jsonrpc: "2.0", id: message.id, error: { code: -32601, message: `Unbekannte Methode: ${method}` } },
-    });
+    void handleMcpMessage(threadId, path, request.request_id, message);
     return;
   }
   if (subtype !== "can_use_tool") {
@@ -958,7 +1015,7 @@ async function connectClient(
   }));
   const client = new ClaudeClient(threadId, {
     onMessage: (message) => handleClaudeMessage(threadId, path, message),
-    onControlRequest: (request) => handleControlRequest(threadId, request),
+    onControlRequest: (request) => handleControlRequest(threadId, path, request),
     onControlCancel: (requestId) => removeRequest(threadId, requestId),
     onDiagnostic: (line) => claudeChatStore.setState((state) => ({ diagnostics: [...state.diagnostics.slice(-99), line] })),
     onExit: (code) => {

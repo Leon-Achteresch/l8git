@@ -26,6 +26,7 @@ import {
   Sparkles,
   Sun,
   Terminal,
+  Ticket,
   Users,
   Zap,
 } from "lucide-react";
@@ -40,6 +41,7 @@ import { BranchCleanupCard } from "@/components/settings/branch-cleanup-card";
 import { RemoteServerCard } from "@/components/settings/remote-server-card";
 import { GitSigningCard } from "@/components/settings/git-signing-card";
 import { HotkeysSection } from "@/components/settings/hotkeys-section";
+import { JiraCard } from "@/components/settings/jira-card";
 import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
 import { NotificationsCard } from "@/components/settings/notifications-card";
 import { SidebarCustomizeSection } from "@/components/settings/sidebar-customize-section";
@@ -207,6 +209,12 @@ export function Settings() {
           { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal, accent: "bg-git-added" },
           { id: "signing", label: t("settings.navSigning"), icon: ShieldCheck, accent: "bg-git-branch" },
           { id: "ai", label: t("settings.navAi"), icon: Sparkles, accent: "bg-git-merge" },
+        ],
+      },
+      {
+        label: t("settings.navGroupIntegrations"),
+        items: [
+          { id: "jira", label: t("settings.navJira"), icon: Ticket, accent: "bg-git-branch" },
         ],
       },
       {
@@ -1046,6 +1054,21 @@ export function Settings() {
                 </Card>
               </StaggerCard>
             </div>
+          </section>
+
+          {/* ── INTEGRATIONS ──────────────────────────────────────────── */}
+          <section id="jira" ref={setRef("jira")} className="scroll-mt-10">
+            <SectionHeader
+              icon={Ticket}
+              title={t("settings.jiraSectionTitle")}
+              subtitle={t("settings.jiraSectionSubtitle")}
+              gradient="from-git-branch/25 to-git-branch/25"
+              iconColor="text-git-branch"
+            />
+
+            <StaggerCard index={0}>
+              <JiraCard />
+            </StaggerCard>
           </section>
 
           {/* ── WORKSPACE ─────────────────────────────────────────────── */}

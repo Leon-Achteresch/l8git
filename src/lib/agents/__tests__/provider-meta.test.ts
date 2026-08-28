@@ -4,6 +4,7 @@ import {
   AGENT_PROVIDERS,
   UNSUPPORTED_SLASH_COMMANDS,
   agentProviderMeta,
+  providerSupportsAppTools,
   providerSupportsCapabilityCenter,
   providerSupportsSlashCommand,
 } from "@/lib/agents/provider-meta";
@@ -54,6 +55,13 @@ describe("providerSupportsSlashCommand", () => {
       expect(providerSupportsSlashCommand("cursor", command)).toBe(false);
     }
     expect(providerSupportsSlashCommand("cursor", "mcp")).toBe(true);
+  });
+
+  it("limits app-provided tools to the provider that loads the in-process MCP server", () => {
+    expect(providerSupportsAppTools("claude")).toBe(true);
+    for (const provider of ["codex", "opencode", "cursor"] as const) {
+      expect(providerSupportsAppTools(provider)).toBe(false);
+    }
   });
 
   it("keeps shared commands available everywhere", () => {
