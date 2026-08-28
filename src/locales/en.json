@@ -2229,7 +2229,8 @@
     "menuTitle": "Workspaces",
     "add": "Add workspace…",
     "edit": "Edit “{{name}}”…",
-    "defaultPersonalName": "Personal"
+    "defaultPersonalName": "Personal",
+    "moveToWorkspace": "Move to workspace"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "The last workspace cannot be deleted",

@@ -2229,7 +2229,8 @@
     "menuTitle": "工作区",
     "add": "添加工作区…",
     "edit": "编辑“{{name}}”…",
-    "defaultPersonalName": "个人"
+    "defaultPersonalName": "个人",
+    "moveToWorkspace": "移动到工作区"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "最后一个工作区无法删除",

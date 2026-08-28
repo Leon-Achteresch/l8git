@@ -19,6 +19,7 @@ type WorkspaceState = {
   setActiveWorkspace: (id: string) => void;
   addRepoToActiveWorkspace: (path: string) => void;
   removeRepoFromAllWorkspaces: (path: string) => void;
+  moveReposToWorkspace: (paths: string[], workspaceId: string) => void;
   initDefaultWorkspace: (paths: string[]) => void;
 };
 
@@ -74,6 +75,25 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             repoPaths: w.repoPaths.filter((p) => p !== path),
           })),
         }));
+      },
+
+      moveReposToWorkspace: (paths, workspaceId) => {
+        if (paths.length === 0) return;
+        set((s) => {
+          if (!s.workspaces.some((w) => w.id === workspaceId)) return s;
+          const moving = new Set(paths);
+          return {
+            workspaces: s.workspaces.map((w) => {
+              const kept = w.repoPaths.filter((p) => !moving.has(p));
+              if (w.id !== workspaceId) {
+                return kept.length === w.repoPaths.length
+                  ? w
+                  : { ...w, repoPaths: kept };
+              }
+              return { ...w, repoPaths: [...kept, ...paths] };
+            }),
+          };
+        });
       },
 
       initDefaultWorkspace: (paths) => {

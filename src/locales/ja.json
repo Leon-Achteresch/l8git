@@ -2229,7 +2229,8 @@
     "menuTitle": "ワークスペース",
     "add": "ワークスペースを追加…",
     "edit": "「{{name}}」を編集…",
-    "defaultPersonalName": "個人"
+    "defaultPersonalName": "個人",
+    "moveToWorkspace": "ワークスペースへ移動"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "最後のワークスペースは削除できません",

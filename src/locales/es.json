@@ -2229,7 +2229,8 @@
     "menuTitle": "Espacios de trabajo",
     "add": "Añadir un espacio de trabajo…",
     "edit": "Editar «{{name}}»…",
-    "defaultPersonalName": "Personal"
+    "defaultPersonalName": "Personal",
+    "moveToWorkspace": "Mover al espacio de trabajo"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "No se puede eliminar el último espacio de trabajo",
