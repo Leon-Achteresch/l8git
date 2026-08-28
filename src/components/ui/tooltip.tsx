@@ -62,7 +62,7 @@ function TooltipContent({
           >
             <m.div
               className={cn(
-                "z-50 overflow-hidden rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md",
+                "z-50 max-w-[min(20rem,var(--radix-tooltip-content-available-width,20rem))] overflow-hidden rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs break-words text-popover-foreground shadow-md",
                 className,
               )}
               style={{

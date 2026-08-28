@@ -5,7 +5,7 @@ import { Slot } from "radix-ui";
 import { cn } from "@/lib/utils";
 
 const listRowVariants = cva(
-  "group/list-row relative flex w-full shrink-0 items-center gap-2 rounded-md text-left transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "group/list-row relative flex w-full min-w-0 shrink-0 items-center gap-2 rounded-md text-left transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {

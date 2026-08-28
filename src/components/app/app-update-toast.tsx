@@ -47,7 +47,7 @@ export function AppUpdateToast() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 12, scale: 0.97 }}
           transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.6 }}
-          className="fixed bottom-4 left-4 z-[200] w-[320px] overflow-hidden rounded-xl border border-border/80 bg-card/95 shadow-2xl backdrop-blur-xl"
+          className="fixed bottom-4 left-4 z-[200] w-[min(24rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border/80 bg-card/95 shadow-2xl backdrop-blur-xl"
         >
           {/* Progress bar for downloading */}
           {(phase === "downloading" || phase === "installing") && (
@@ -127,37 +127,39 @@ export function AppUpdateToast() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-1.5 border-t border-border/50 px-3.5 py-2.5">
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 px-3.5 py-2.5">
             {phase === "available" && (
               <>
                 <Button
                   type="button"
                   variant="ghost"
                   size="xs"
+                  className="max-w-full"
                   onClick={handleInfo}
                 >
                   <ExternalLink />
-                  {t("updates.toastInfo")}
+                  <span className="truncate">{t("updates.toastInfo")}</span>
                 </Button>
-                <div className="flex-1" />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2.5 text-xs"
-                  onClick={() => dismissAppUpdateDialog()}
-                >
-                  {t("common.later")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2.5 text-xs"
-                  onClick={() => void installAppUpdate()}
-                >
-                  <ArrowDownToLine className="size-3" />
-                  {t("updates.toastInstallNow")}
-                </Button>
+                <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 max-w-full px-2.5 text-xs"
+                    onClick={() => dismissAppUpdateDialog()}
+                  >
+                    <span className="truncate">{t("common.later")}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 max-w-full gap-1.5 px-2.5 text-xs"
+                    onClick={() => void installAppUpdate()}
+                  >
+                    <ArrowDownToLine className="size-3" />
+                    <span className="truncate">{t("updates.toastInstallNow")}</span>
+                  </Button>
+                </div>
               </>
             )}
 
@@ -167,50 +169,48 @@ export function AppUpdateToast() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2.5 text-xs"
+                  className="h-7 max-w-full px-2.5 text-xs"
                   onClick={() => dismissAppUpdateDialog()}
                 >
-                  {t("common.later")}
+                  <span className="truncate">{t("common.later")}</span>
                 </Button>
-                <div className="flex-1" />
                 <Button
                   type="button"
                   size="sm"
-                  className="h-7 gap-1.5 px-2.5 text-xs"
+                  className="ml-auto h-7 max-w-full gap-1.5 px-2.5 text-xs"
                   onClick={() => void restartToApplyAppUpdate()}
                 >
                   <RefreshCw className="size-3" />
-                  {t("updates.restartNow")}
+                  <span className="truncate">{t("updates.restartNow")}</span>
                 </Button>
               </>
             )}
 
             {phase === "error" && (
               <>
-                <div className="flex-1" />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 gap-1.5 px-2.5 text-xs"
+                  className="ml-auto h-7 max-w-full gap-1.5 px-2.5 text-xs"
                   onClick={() => void checkForAppUpdate({ manual: true })}
                 >
                   <RefreshCw className="size-3" />
-                  {t("common.retryCheck")}
+                  <span className="truncate">{t("common.retryCheck")}</span>
                 </Button>
                 <Button
                   type="button"
                   size="sm"
-                  className="h-7 px-2.5 text-xs"
+                  className="h-7 max-w-full px-2.5 text-xs"
                   onClick={() => dismissAppUpdateDialog()}
                 >
-                  {t("updates.close")}
+                  <span className="truncate">{t("updates.close")}</span>
                 </Button>
               </>
             )}
 
             {(phase === "downloading" || phase === "installing") && (
-              <p className="flex-1 text-xs text-muted-foreground">
+              <p className="min-w-0 flex-1 text-xs text-muted-foreground">
                 {t("updates.toastSubProgress")}
               </p>
             )}

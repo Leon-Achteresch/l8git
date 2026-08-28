@@ -68,7 +68,7 @@ function HoverCardContent({
           >
             <m.div
               className={cn(
-                "z-50 w-64 rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden",
+                "z-50 w-64 max-w-(--radix-hover-card-content-available-width) rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden",
                 className
               )}
               style={{

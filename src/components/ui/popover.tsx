@@ -62,7 +62,7 @@ function PopoverContent({
           >
             <m.div
               className={cn(
-                "z-50 flex w-72 flex-col gap-2.5 rounded-2xl bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden",
+                "z-50 flex w-72 max-w-(--radix-popover-content-available-width) flex-col gap-2.5 rounded-2xl bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden",
                 className
               )}
               style={{
