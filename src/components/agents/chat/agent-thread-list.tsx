@@ -1,5 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, ArchiveRestore, MessageSquare } from "lucide-react";
+import {
+  MessageSquare,
+} from "lucide-react";
 import { m } from "motion/react";
 import { useCallback, useEffect, useMemo, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,6 +19,8 @@ import {
   SharedLayoutBgItem,
   SharedLayoutBgRoot,
 } from "@/components/motion/shared-layout-bg";
+import { Archive as ArchiveData, ArchiveRestore as ArchiveRestoreData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 export type { SidebarThread } from "@/lib/agents/thread-grouping";
 
@@ -275,7 +279,7 @@ function ListHeader({
           aria-label={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
           title={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
         >
-          {showArchived ? <ArchiveRestore className="size-3" /> : <Archive className="size-3" />}
+          <MorphIcon icon={showArchived ? ArchiveRestoreData : ArchiveData} className="size-3" />
         </Button>
       ) : null}
     </div>

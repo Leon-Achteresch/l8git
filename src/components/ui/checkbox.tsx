@@ -2,8 +2,9 @@ import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { CheckIcon, MinusIcon } from "lucide-react"
 
+import { Check as CheckData, Minus as MinusData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 function Checkbox({
   className,
   ...props
@@ -21,7 +22,7 @@ function Checkbox({
         data-slot="checkbox-indicator"
         className="grid place-content-center text-current transition-none [&>svg]:size-3.5"
       >
-        {props.checked === "indeterminate" ? <MinusIcon /> : <CheckIcon />}
+        <MorphIcon icon={props.checked === "indeterminate" ? MinusData : CheckData} />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )

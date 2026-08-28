@@ -89,6 +89,14 @@
     --shadow-lg: var(--l8-shadow-lg);
     --shadow-xl: var(--l8-shadow-xl);
     --shadow-2xl: var(--l8-shadow-2xl);
+
+    --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+    --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+    --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+
+    --default-transition-timing-function: var(--ease-out-quint);
+    --default-transition-duration: 200ms;
 }
 
 /*
@@ -426,4 +434,13 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+html[data-animations="off"] *,
+html[data-animations="off"] *::before,
+html[data-animations="off"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
 }

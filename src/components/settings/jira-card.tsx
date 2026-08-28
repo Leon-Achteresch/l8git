@@ -1,4 +1,9 @@
-import { CheckCircle2, Eye, EyeOff, Loader2, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -17,6 +22,8 @@ import { Switch } from "@/components/ui/switch";
 import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import { useJiraStore } from "@/lib/jira/jira-store";
 import { resetJiraSyncCache, syncJiraExternalRegistration } from "@/lib/jira/jira-sync";
+import { Eye as EyeData, EyeOff as EyeOffData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -188,7 +195,7 @@ export function JiraCard() {
               onClick={() => setTokenVisible((visible) => !visible)}
               aria-label={tokenVisible ? t("jira.tokenHide") : t("jira.tokenShow")}
             >
-              {tokenVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              <MorphIcon icon={tokenVisible ? EyeOffData : EyeData} className="size-4" />
             </Button>
           </div>
           <p className="flex items-start gap-1.5 text-xs text-muted-foreground">

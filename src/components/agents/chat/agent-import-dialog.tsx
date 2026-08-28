@@ -33,6 +33,8 @@ import type {
 } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
 import { SpinIcon } from "@/components/motion/kit";
+import { CircleCheckBig as CheckCircle2Data, TriangleAlert as TriangleAlertData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 const ITEM_LABELS: Record<AgentExternalConfigItemType, string> = {
   AGENTS_MD: "Instructions",
@@ -307,7 +309,7 @@ export function AgentImportDialog({
                 totals.failures ? "border-amber-500/30 bg-amber-500/[0.07]" : "border-emerald-500/25 bg-emerald-500/[0.06]",
               )}>
                 <div className="flex items-center gap-2 font-medium">
-                  {totals.failures ? <TriangleAlert className="size-3.5 text-amber-600" /> : <CheckCircle2 className="size-3.5 text-emerald-600" />}
+                  <MorphIcon icon={totals.failures ? TriangleAlertData : CheckCircle2Data} className={cn("size-3.5", totals.failures ? "text-amber-600" : "text-emerald-600")} />
                   {totals.successes} imported · {totals.failures} failed
                 </div>
                 {completed.flatMap((result) => result.failures).map((failure, index) => (

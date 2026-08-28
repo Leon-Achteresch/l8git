@@ -17,6 +17,8 @@ import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SpinIcon } from "@/components/motion/kit";
+import { Minus as MinusData, Plus as PlusData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 const LINE_HEIGHT_PX = 18;
 const EMPTY_SET: ReadonlySet<string> = new Set();
@@ -261,7 +263,7 @@ function HunkActionButton({
       title={isStaged ? t("commitPanel.hunkUnstageTitle") : t("commitPanel.hunkStageTitle")}
       className="h-[14px] gap-0.5 px-1 text-[9px] uppercase tracking-wider"
     >
-      {isStaged ? <Minus /> : <Plus />}
+      <MorphIcon icon={isStaged ? MinusData : PlusData} />
       {isStaged ? t("commitPanel.hunkUnstageVerb") : t("commitPanel.hunkStageVerb")}
     </Button>
   );
