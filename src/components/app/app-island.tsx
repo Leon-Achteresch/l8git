@@ -5,9 +5,11 @@ import { useShallow } from "zustand/react/shallow";
 
 import { IslandShell } from "@/components/island/island-shell";
 import { ISLAND_VIEW, type IslandFlash } from "@/components/island/island-ui";
+import { IS_TAURI } from "@/lib/island/bridge";
 import { useIslandSnapshot } from "@/lib/island/client";
 import { useIslandFlash } from "@/lib/island/flash";
 import { useIslandUsage } from "@/lib/island/usage";
+import { detachIslandToEdge } from "@/lib/island/window-store";
 import {
   defaultIslandPosition,
   ISLAND_HEIGHT,
@@ -32,7 +34,6 @@ const SETTLE_MS = 320;
 /** The island as an overlay inside the main window: draggable and dockable. */
 export function AppIsland() {
   const [view, setView] = useState<string | null>(null);
-  const boundsRef = useRef<HTMLDivElement | null>(null);
   const islandRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
   const justDraggedRef = useRef(false);
@@ -43,7 +44,7 @@ export function AppIsland() {
   const activePath = useRepoStore((s) => s.activePath);
   const snapshot = useIslandSnapshot();
   const liveUsage = useIslandUsage();
-  const merged = liveUsage.length ? { ...snapshot, usage: liveUsage } : snapshot;
+  const merged = { ...snapshot, usage: liveUsage.length ? liveUsage : snapshot.usage };
 
   const { position, dock, hovered } = useIslandStore(
     useShallow((s) => ({
@@ -150,13 +151,23 @@ export function AppIsland() {
           onClick={() => setView(null)}
         />
       )}
-      <div ref={boundsRef} className="pointer-events-none fixed -inset-16 z-[70]">
+      <div className="pointer-events-none fixed inset-0 z-[70]">
+        {isDragging && hovered && isEdgeDock(hovered) ? (
+          <div
+            className={cn(
+              "absolute bg-primary/30",
+              hovered === "left" && "bottom-0 left-0 top-0 w-1.5",
+              hovered === "right" && "bottom-0 right-0 top-0 w-1.5",
+              hovered === "top" && "left-0 right-0 top-0 h-1.5",
+              hovered === "bottom" && "bottom-0 left-0 right-0 h-1.5",
+            )}
+          />
+        ) : null}
         <m.div
           ref={islandRef}
           drag
-          dragConstraints={boundsRef}
-          dragElastic={0.04}
           dragMomentum={false}
+          dragElastic={0.12}
           onDragStart={() => {
             draggingRef.current = true;
             setIsDragging(true);
@@ -185,9 +196,16 @@ export function AppIsland() {
               setDock(hit.id);
               if (isEdgeDock(hit.id)) {
                 setPosition({ x: Math.round(hit.x), y: Math.round(hit.y) });
+                if (IS_TAURI) {
+                  void detachIslandToEdge(hit.id, { x: hit.x, y: hit.y });
+                } else {
+                  void animate(x, hit.x, SNAP);
+                  void animate(y, hit.y, SNAP);
+                }
+              } else {
+                void animate(x, hit.x, SNAP);
+                void animate(y, hit.y, SNAP);
               }
-              void animate(x, hit.x, SNAP);
-              void animate(y, hit.y, SNAP);
             } else {
               setDock("free");
               setPosition({ x: Math.round(x.get()), y: Math.round(y.get()) });

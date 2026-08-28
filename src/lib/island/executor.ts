@@ -257,10 +257,9 @@ async function execute(
         ) {
           useAgentProviderStore.getState().setProvider(integration.id);
         }
-        void router.navigate({ to: "/agents" });
-      } else {
-        launchAgent(path!, integration);
+        return ok(i18n.t("islandActions.agentLaunched", { agent: integration.label }));
       }
+      launchAgent(path!, integration);
       await restoreMainWindow();
       return ok(i18n.t("islandActions.agentLaunched", { agent: integration.label }));
     }

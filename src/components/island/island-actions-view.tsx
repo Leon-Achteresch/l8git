@@ -102,6 +102,7 @@ export function IslandActionsView({
       if (action.id === "window.attach" && !detached) return false;
       if (action.id === "repo.activate") return false;
       if (action.id === "agent.launch") return false;
+      if (action.id === "view.agents") return false;
       if (!searching && (action.group === "view" || action.group === "window")) return false;
       return true;
     });

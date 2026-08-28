@@ -1,4 +1,6 @@
-import type { IslandUsageWindow } from "@/lib/island/types";
+import type { IslandProviderUsage, IslandUsageWindow } from "@/lib/island/types";
+
+export const USAGE_PROVIDER_IDS = ["codex", "claude", "opencode", "cursor"] as const;
 
 export const USAGE_SHORT_NAME: Record<string, string> = {
   claude: "Claude",
@@ -6,6 +8,15 @@ export const USAGE_SHORT_NAME: Record<string, string> = {
   opencode: "OpenCode",
   cursor: "Cursor",
 };
+
+export function usageRowsOrAll(rows: IslandProviderUsage[]): IslandProviderUsage[] {
+  if (rows.length) return rows;
+  return USAGE_PROVIDER_IDS.map((id) => ({
+    id,
+    primary: { usedPercent: 0, windowDurationMins: null, resetsAt: null },
+    secondary: null,
+  }));
+}
 
 export function usageRingColor(percent: number): string {
   if (percent >= 70) return "#ef4444";

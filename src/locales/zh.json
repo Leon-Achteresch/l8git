@@ -442,7 +442,7 @@
       "title": "{{name}} 用量",
       "session": "当前会话",
       "allModels": "全部模型",
-      "used": "已用 {{value}}%",
+      "used": "已用 {{value}}",
       "resetsIn": "{{count}} 分钟后重置",
       "resetsAt": "{{value}} 重置"
     },

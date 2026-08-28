@@ -35,9 +35,11 @@ import { RepoLogo } from "@/components/repo/repo-logo";
 import { Button } from "@/components/ui/button";
 import { ListRow } from "@/components/ui/list-row";
 import { AGENT_INTEGRATIONS } from "@/lib/agent-integrations";
+import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
 import { runIslandActionWithFlash } from "@/lib/island/flash";
-import { islandPopoverSide, isVerticalDock, useIslandStore } from "@/lib/island-store";
+import { islandPopoverSide, isEdgeDock, isVerticalDock, useIslandStore } from "@/lib/island-store";
 import { activeRepoOf, type IslandSnapshot } from "@/lib/island/types";
+import { usageRowsOrAll } from "@/lib/island/usage-format";
 import { cn } from "@/lib/utils";
 
 const IslandChatView = lazy(() =>
@@ -110,15 +112,11 @@ export function IslandShell({
 
   const openChat = () => {
     if (!idle()) return;
-    if (standalone) {
-      run("view.agents", t("islandActions.viewAgents"));
-      return;
-    }
     onViewChange(ISLAND_VIEW.chat);
   };
 
-  const usage = snapshot.usage ?? [];
-  const compactUsage = showUsage && usage.length > 0;
+  const usage = usageRowsOrAll(snapshot.usage ?? []);
+  const compactUsage = !!showUsage || isEdgeDock(dock);
   const vertical = compactUsage && isVerticalDock(dock);
 
   const resolved =
@@ -133,6 +131,7 @@ export function IslandShell({
     <DynamicIsland
       view={resolved}
       vertical={vertical}
+      usage={compactUsage}
       className={className}
       compact={
         compactUsage ? (
@@ -335,8 +334,7 @@ export function IslandShell({
         </IslandPanel>
       </DynamicIslandView>
 
-      {!standalone && (
-        <DynamicIslandView id={ISLAND_VIEW.chat} className="!px-2 !py-2">
+      <DynamicIslandView id={ISLAND_VIEW.chat} className="!px-2 !py-2">
           <Suspense fallback={null}>
             <IslandPanel>
             <IslandChatView
@@ -347,7 +345,6 @@ export function IslandShell({
             </IslandPanel>
           </Suspense>
         </DynamicIslandView>
-      )}
 
       <DynamicIslandView id={ISLAND_VIEW.actions} className="!px-2 !py-2">
         <IslandPanel>
@@ -531,6 +528,19 @@ export function IslandShell({
                   key={integration.id}
                   size="sm"
                   onClick={() => {
+                    if (
+                      integration.surface === "chat" &&
+                      (integration.id === "codex" ||
+                        integration.id === "claude" ||
+                        integration.id === "opencode" ||
+                        integration.id === "cursor")
+                    ) {
+                      useAgentProviderStore
+                        .getState()
+                        .setProvider(integration.id as NativeAgentProvider);
+                      onViewChange(ISLAND_VIEW.chat);
+                      return;
+                    }
                     void runIslandActionWithFlash(
                       {
                         actionId: "agent.launch",

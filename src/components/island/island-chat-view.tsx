@@ -2,7 +2,6 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowUp,
   ChevronLeft,
-  ExternalLink,
   Loader2,
   Square,
   X,
@@ -15,19 +14,15 @@ import { useShallow } from "zustand/react/shallow";
 import { ISLAND_ICON, ISLAND_ROW } from "@/components/island/island-ui";
 import { SpinIcon } from "@/components/motion/kit";
 import { Button } from "@/components/ui/button";
-import { ListRow } from "@/components/ui/list-row";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { AGENT_PROVIDERS, agentProviderMeta } from "@/lib/agents/provider-meta";
-import {
-  useAgentProviderStore,
-} from "@/lib/agents/provider-store";
+import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { parseTranscriptText } from "@/lib/agents/transcript-text";
 import type {
   AgentConversation,
   AgentItem,
   AgentPendingRequest,
 } from "@/lib/agents/types";
-import { runIslandActionWithFlash } from "@/lib/island/flash";
 import type { IslandSnapshot } from "@/lib/island/types";
 import { cn } from "@/lib/utils";
 
@@ -126,14 +121,6 @@ function approvalPayload(
   return { decision: allow ? "accept" : "decline" };
 }
 
-function canQuickApprove(request: AgentPendingRequest): boolean {
-  return (
-    request.kind === "command" ||
-    request.kind === "file-change" ||
-    request.kind === "permissions"
-  );
-}
-
 export function IslandChatView({
   snapshot,
   onClose,
@@ -219,14 +206,6 @@ export function IslandChatView({
     if (el) el.scrollTop = el.scrollHeight;
   }, [previews, busy, requests]);
 
-  const openAgents = () => {
-    void runIslandActionWithFlash(
-      { actionId: "view.agents" },
-      t("islandActions.viewAgents"),
-    );
-    onClose();
-  };
-
   const send = () => {
     const text = draft.trim();
     if (!text || !path || !ready) return;
@@ -261,16 +240,6 @@ export function IslandChatView({
           <ProviderLogo className="size-3.5 shrink-0" />
           <span className="truncate text-xs font-medium">{meta.label}</span>
         </span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={openAgents}
-          aria-label={t("islandChat.openAgents")}
-          title={t("islandChat.openAgents")}
-          className={ISLAND_ICON}
-        >
-          <ExternalLink />
-        </Button>
         <Button
           variant="ghost"
           size="icon-xs"
@@ -386,8 +355,7 @@ export function IslandChatView({
                     request.reason ||
                     t("agentChat.request.approveCommand")}
                 </span>
-                {canQuickApprove(request) ? (
-                  <span className="flex items-center gap-1 pt-0.5">
+                <span className="flex items-center gap-1 pt-0.5">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -421,18 +389,6 @@ export function IslandChatView({
                       {t("islandChat.deny")}
                     </Button>
                   </span>
-                ) : (
-                  <ListRow
-                    size="sm"
-                    onClick={openAgents}
-                    className={cn(
-                      ISLAND_ROW,
-                      "h-6 justify-center text-[11px] font-medium",
-                    )}
-                  >
-                    {t("islandChat.openAgents")}
-                  </ListRow>
-                )}
               </span>
             ))}
             {busy && (

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { chatStoreFor } from "@/lib/agents/active-chat-store";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { IslandProviderUsage } from "@/lib/island/types";
-import { useIslandStore } from "@/lib/island-store";
+import { isEdgeDock, useIslandStore } from "@/lib/island-store";
 
 const PROVIDERS: NativeAgentProvider[] = ["codex", "claude", "opencode", "cursor"];
 const INTERVAL_MS = 20_000;
@@ -13,10 +13,14 @@ export function collectIslandUsage(): IslandProviderUsage[] {
     const { rateLimits } = chatStoreFor(id).getState();
     return {
       id,
-      primary: rateLimits?.primary ?? null,
+      primary: rateLimits?.primary ?? {
+        usedPercent: 0,
+        windowDurationMins: null,
+        resetsAt: null,
+      },
       secondary: rateLimits?.secondary ?? null,
     };
-  }).filter((row) => row.primary || row.secondary);
+  });
 }
 
 export function islandUsageInputs(): unknown[] {
@@ -30,7 +34,9 @@ export function subscribeIslandUsage(cb: () => void): Array<() => void> {
 export function armIslandUsage(): () => void {
   let stopped = false;
   const tick = () => {
-    if (stopped || !useIslandStore.getState().showUsage) return;
+    if (stopped) return;
+    const island = useIslandStore.getState();
+    if (!island.showUsage && !isEdgeDock(island.dock)) return;
     for (const id of PROVIDERS) {
       const store = chatStoreFor(id);
       const state = store.getState();
@@ -51,6 +57,7 @@ export function armIslandUsage(): () => void {
   const interval = window.setInterval(tick, INTERVAL_MS);
   const unsub = useIslandStore.subscribe((state, prev) => {
     if (state.showUsage && !prev.showUsage) tick();
+    else if (isEdgeDock(state.dock) && state.dock !== prev.dock) tick();
   });
   return () => {
     stopped = true;

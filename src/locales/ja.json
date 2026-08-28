@@ -442,7 +442,7 @@
       "title": "{{name}} の使用量",
       "session": "現在のセッション",
       "allModels": "すべてのモデル",
-      "used": "{{value}}% 使用",
+      "used": "{{value}} 使用",
       "resetsIn": "{{count}} 分後にリセット",
       "resetsAt": "{{value}} にリセット"
     },

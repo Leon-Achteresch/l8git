@@ -1,4 +1,4 @@
-import { currentMonitor, getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
+import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -10,6 +10,7 @@ import { useIslandFlash } from "@/lib/island/flash";
 import {
   rememberIslandWindowPosition,
   setIslandWindowSize,
+  snapCurrentWindowToDock,
 } from "@/lib/island/window-store";
 import {
   isEdgeDock,
@@ -41,7 +42,7 @@ export function IslandWindowApp() {
   const extraX = dock === "left" || dock === "right" || dock === "sidebar" ? extra : 0;
   const extraY =
     dock === "top" || dock === "bottom" || extraX === 0 ? extra : 0;
-  useWindowAutoSize(islandRef, extraX, extraY);
+  useWindowAutoSize(islandRef, extraX, extraY, dock);
 
   useEffect(() => {
     if (view === null) return;
@@ -145,6 +146,7 @@ function useWindowAutoSize(
   ref: React.RefObject<HTMLDivElement | null>,
   extraX: number,
   extraY: number,
+  dock: IslandDock,
 ) {
   useEffect(() => {
     const el = ref.current;
@@ -159,7 +161,7 @@ function useWindowAutoSize(
       const key = `${width}x${height}`;
       if (key === last) return;
       last = key;
-      void setIslandWindowSize(width, height);
+      void setIslandWindowSize(width, height).then(() => snapCurrentWindowToDock(dock));
     };
 
     const observer = new ResizeObserver(() => {
@@ -173,7 +175,7 @@ function useWindowAutoSize(
       if (frame) cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [ref, extraX, extraY]);
+  }, [ref, extraX, extraY, dock]);
 }
 
 const POSITION_SETTLE_MS = 150;
@@ -226,8 +228,7 @@ function useWindowPositionMemory() {
   }, []);
 }
 
-const SNAP_REACH = 48;
-const SNAP_SINK = 8;
+const SNAP_REACH = 96;
 
 async function snapDetachedIsland(
   scale: number,
@@ -241,33 +242,21 @@ async function snapDetachedIsland(
     rememberIslandWindowPosition(logical);
     return;
   }
-  const mx = mon.position.x / scale;
-  const my = mon.position.y / scale;
-  const mw = mon.size.width / scale;
-  const mh = mon.size.height / scale;
-  const ww = size.width / scale;
-  const hh = size.height / scale;
+  const wx = mon.workArea.position.x / scale;
+  const wy = mon.workArea.position.y / scale;
+  const ww = mon.workArea.size.width / scale;
+  const wh = mon.workArea.size.height / scale;
+  const iw = size.width / scale;
+  const ih = size.height / scale;
   let dock: IslandDock = "free";
-  let nx = logical.x;
-  let ny = logical.y;
-  if (logical.x - mx < SNAP_REACH) {
-    dock = "left";
-    nx = mx - SNAP_SINK;
-  } else if (mx + mw - (logical.x + ww) < SNAP_REACH) {
-    dock = "right";
-    nx = mx + mw - ww + SNAP_SINK;
-  } else if (logical.y - my < SNAP_REACH) {
-    dock = "top";
-    ny = my - SNAP_SINK;
-  } else if (my + mh - (logical.y + hh) < SNAP_REACH) {
-    dock = "bottom";
-    ny = my + mh - hh + SNAP_SINK;
-  }
+  if (logical.x - wx < SNAP_REACH) dock = "left";
+  else if (wx + ww - (logical.x + iw) < SNAP_REACH) dock = "right";
+  else if (logical.y - wy < SNAP_REACH) dock = "top";
+  else if (wy + wh - (logical.y + ih) < SNAP_REACH) dock = "bottom";
   const current = useIslandStore.getState().dock;
   if (dock !== "free") {
     useIslandStore.getState().setDock(dock);
-    await win.setPosition(new LogicalPosition(nx, ny)).catch(() => {});
-    rememberIslandWindowPosition({ x: nx, y: ny });
+    await snapCurrentWindowToDock(dock);
     return;
   }
   if (isEdgeDock(current)) useIslandStore.getState().setDock("free");

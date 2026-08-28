@@ -11,6 +11,7 @@ import {
   isEdgeDock,
   isVerticalDock,
   magnetFor,
+  monitorEdgePosition,
 } from "@/lib/island-store";
 
 describe("clampIslandPanel", () => {
@@ -58,6 +59,31 @@ describe("island docks", () => {
     expect(isEdgeDock("right")).toBe(true);
     expect(islandTarget("right", { x: 600, y: 240 })).toEqual({ x: 1200, y: 240 });
     expect(islandTarget("top", { x: 400, y: 20 })).toEqual({ x: 400, y: 0 });
+  });
+
+  it("prefers a nearby window edge over in-app slots", () => {
+    stubWindow(1200, 800);
+    expect(magnetFor(50, 400)?.id).toBe("left");
+    expect(magnetFor(1100, 400)?.id).toBe("right");
+  });
+
+  it("places a window on the monitor work area edge", () => {
+    expect(
+      monitorEdgePosition(
+        "right",
+        { x: 0, y: 25, width: 1440, height: 875 },
+        { width: 80, height: 120 },
+        { x: 700, y: 300 },
+      ),
+    ).toEqual({ x: 1360, y: 300 });
+    expect(
+      monitorEdgePosition(
+        "top",
+        { x: 0, y: 25, width: 1440, height: 875 },
+        { width: 80, height: 40 },
+        { x: 200, y: 10 },
+      ),
+    ).toEqual({ x: 200, y: 25 });
   });
 });
 

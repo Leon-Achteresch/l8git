@@ -442,7 +442,7 @@
       "title": "{{name}}-Nutzung",
       "session": "Aktuelle Session",
       "allModels": "Alle Modelle",
-      "used": "{{value}} % genutzt",
+      "used": "{{value}} genutzt",
       "resetsIn": "Reset in {{count}} Min.",
       "resetsAt": "Reset {{value}}"
     },

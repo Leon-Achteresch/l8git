@@ -37,7 +37,7 @@ export const ISLAND_PANEL_MIN = { width: 280, height: 220 };
 export const ISLAND_PANEL_MAX = { width: 720, height: 800 };
 export const ISLAND_PANEL_DEFAULT = { width: 340, height: 440 };
 export const EDGE_SINK = 8;
-const EDGE_REACH = 56;
+const EDGE_REACH = 140;
 
 export function clampIslandPanel(size: IslandPanelSize): IslandPanelSize {
   return {
@@ -103,7 +103,7 @@ export const useIslandStore = create<IslandState>()(
       showBranch: true,
       showDirty: true,
       showAgents: true,
-      showUsage: false,
+      showUsage: true,
       panelSize: ISLAND_PANEL_DEFAULT,
       setPosition: (position) => set({ position }),
       setDock: (dock) => set({ dock }),
@@ -209,10 +209,38 @@ function clampAlong(value: number, span: number): number {
   return Math.min(Math.max(48, value), Math.max(48, span - 48));
 }
 
+export function monitorEdgePosition(
+  dock: IslandEdgeDock,
+  work: { x: number; y: number; width: number; height: number },
+  size: { width: number; height: number },
+  along: IslandPosition,
+): IslandPosition {
+  const maxX = work.x + Math.max(0, work.width - size.width);
+  const maxY = work.y + Math.max(0, work.height - size.height);
+  const x = Math.min(Math.max(work.x, along.x), maxX);
+  const y = Math.min(Math.max(work.y, along.y), maxY);
+  switch (dock) {
+    case "left":
+      return { x: work.x, y };
+    case "right":
+      return { x: maxX, y };
+    case "top":
+      return { x, y: work.y };
+    case "bottom":
+      return { x, y: maxY };
+    default: {
+      const _exhaustive: never = dock;
+      return _exhaustive;
+    }
+  }
+}
+
 export function magnetFor(centerX: number, centerY: number): MagnetHit | null {
+  const edge = edgeMagnet(centerX, centerY);
+  if (edge && edge.pull >= 0.4) return edge;
   const slot = slotMagnet(centerX, centerY);
   if (slot) return slot;
-  return edgeMagnet(centerX, centerY);
+  return edge;
 }
 
 function slotMagnet(centerX: number, centerY: number): MagnetHit | null {
