@@ -246,7 +246,7 @@ export function IslandChatView({
   };
 
   return (
-    <div className="flex w-[360px] flex-col">
+    <div className="flex h-full w-full flex-col">
       <div className="flex items-center gap-1 px-1 pb-1.5">
         <Button
           variant="ghost"
@@ -347,7 +347,7 @@ export function IslandChatView({
         <>
           <div
             ref={scrollRef}
-            className="flex max-h-72 min-h-[64px] flex-col gap-2 overflow-y-auto px-2 py-1 [scrollbar-width:thin]"
+            className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 py-1 [scrollbar-width:thin]"
           >
             {connectionStatus === "connecting" && previews.length === 0 && (
               <span className="flex items-center gap-1.5 px-1 py-3 text-[10px] opacity-55">
