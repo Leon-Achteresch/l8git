@@ -22,6 +22,8 @@ import { armTurnAttention } from "@/lib/agents/turn-attention";
 import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
+import { useJiraStore } from "@/lib/jira/jira-store";
+import { syncJiraExternalRegistration } from "@/lib/jira/jira-sync";
 import { useRepoStore } from "@/lib/repo-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { SPRING_LAYOUT } from "@/lib/motion/ease";
@@ -63,6 +65,8 @@ export function AgentsPage({
   const selectedPath = useAgentRepoStore((state) => state.path);
   const setSelectedPath = useAgentRepoStore((state) => state.setPath);
   const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
+  const jiraEnabled = useJiraStore((state) => state.enabled);
+  const jiraRegisterExternal = useJiraStore((state) => state.registerExternal);
   const terminalVisible = useTerminalStore((state) => !!state.visibleByPath[selectedPath]);
   const toggleTerminal = useTerminalStore((state) => state.toggleVisible);
   const activeThreadId = useAgentChatStore(
@@ -128,6 +132,13 @@ export function AgentsPage({
 
   useEffect(() => armTurnAttention(), []);
   useEffect(() => armUsageLedger(), []);
+
+  // Codex and Cursor learn about the Jira MCP server through their own config,
+  // so the registration has to follow the selected repository and the switches.
+  useEffect(() => {
+    if (!selectedPath) return;
+    void syncJiraExternalRegistration(selectedPath);
+  }, [jiraEnabled, jiraRegisterExternal, selectedPath]);
 
   useEffect(() => {
     if (!paths.length) return;

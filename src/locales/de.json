@@ -907,7 +907,11 @@
         "label": "Pull-Request-Beschreibung",
         "desc": "Prompt für generierte Pull-Request-Beschreibungen."
       }
-    }
+    },
+    "navGroupIntegrations": "Integrationen",
+    "navJira": "Jira",
+    "jiraSectionTitle": "Jira",
+    "jiraSectionSubtitle": "Tickets verknüpfen und dem Agenten lesenden Zugriff geben"
   },
   "notifications": {
     "title": "Benachrichtigungen",
@@ -3012,5 +3016,44 @@
     "pairDesc": "QR-Code in der l8git-App scannen oder das JSON manuell eingeben.",
     "copyJson": "JSON kopieren",
     "copied": "Kopiert"
+  },
+  "jira": {
+    "settingsTitle": "Jira-Zugang (BYOK)",
+    "settingsDesc": "Base-URL, E-Mail und API-Token deiner eigenen Jira-Instanz. Der Token wird im Schlüsselbund des Betriebssystems verschlüsselt abgelegt und verlässt ihn nie Richtung Oberfläche.",
+    "enabledLabel": "Jira-Integration aktiv",
+    "enabledHint": "Ist sie aus, sieht der Agent keine Jira-Tools — es werden also auch keine Tokens für Tool-Beschreibungen verbraucht.",
+    "baseUrlLabel": "Base-URL",
+    "baseUrlHint": "Nur HTTPS. Beispiel: https://acme.atlassian.net",
+    "emailLabel": "E-Mail",
+    "tokenLabel": "API-Token",
+    "tokenPlaceholder": "Atlassian API-Token",
+    "tokenHint": "Wird im OS-Schlüsselbund gespeichert, nicht im localStorage. Nach dem Speichern wird das Feld geleert und der Token nicht mehr angezeigt.",
+    "tokenShow": "Token anzeigen",
+    "tokenHide": "Token verbergen",
+    "configuredHint": "Hinterlegt für {{email}} ({{hint}})",
+    "testButton": "Verbindung testen",
+    "deleteButton": "Zugang löschen",
+    "savedToast": "Jira-Zugang gespeichert.",
+    "deletedToast": "Jira-Zugang gelöscht.",
+    "testOkToast": "Verbunden als {{name}}.",
+    "scopeTitle": "Was der Agent darf",
+    "allowCommentsLabel": "Kommentare lesen",
+    "allowCommentsHint": "Erlaubt zusätzlich das Tool, das die neuesten Kommentare eines Tickets liest.",
+    "allowSearchLabel": "JQL-Suche erlauben",
+    "allowSearchHint": "Ohne diese Option darf der Agent ausschließlich die hier verknüpften Tickets lesen. Mit ihr darf er jedes für dein Konto sichtbare Ticket suchen und lesen.",
+    "readOnlyNote": "Alle Jira-Tools sind ausschließlich lesend: es werden nur HTTP-GET-Anfragen gesendet. Anlegen, Ändern, Kommentieren oder Statuswechsel sind nicht implementiert.",
+    "panelTitle": "Jira-Tickets",
+    "panelEmpty": "Kein Ticket verknüpft. Mit + eines hinzufügen.",
+    "linkTicket": "Ticket verknüpfen",
+    "linkPlaceholder": "ABC-123 oder Jira-Link, Enter zum Verknüpfen",
+    "invalidKey": "Ungültiger Ticket-Schlüssel. Erwartet wird die Form ABC-123.",
+    "notConfigured": "Kein Jira-Zugang hinterlegt — Einstellungen → Jira.",
+    "refresh": "Tickets aktualisieren",
+    "unlink": "{{key}} entfernen",
+    "openInJira": "{{key}} in Jira öffnen",
+    "toolNote": "Claude Code bekommt die Tools in-process, OpenCode pro Sitzung über ACP. Codex und Cursor benötigen den Eintrag in ihrer Konfiguration.",
+    "registerExternalLabel": "Bei Codex und Cursor registrieren",
+    "registerExternalHint": "Codex und Cursor lesen MCP-Server nur aus ihrer eigenen Konfiguration. l8git trägt den Server dort ein (~/.codex/config.toml und ~/.cursor/mcp.json) und entfernt ihn wieder, sobald der Schalter aus ist. Der Eintrag ist dadurch auch in deinen eigenen Codex- und Cursor-Sitzungen sichtbar. Claude Code und OpenCode brauchen das nicht.",
+    "registrationOff": "Dieser Provider braucht den Registrierungs-Schalter in den Einstellungen, sonst sieht er die Tools nicht."
   }
 }

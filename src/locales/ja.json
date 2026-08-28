@@ -907,7 +907,11 @@
         "label": "プルリクエストの説明",
         "desc": "生成されるプルリクエスト説明のプロンプト。"
       }
-    }
+    },
+    "navGroupIntegrations": "連携",
+    "navJira": "Jira",
+    "jiraSectionTitle": "Jira",
+    "jiraSectionSubtitle": "チケットを紐付けてエージェントに読み取り専用アクセスを許可します"
   },
   "notifications": {
     "title": "通知",
@@ -3012,5 +3016,44 @@
     "pairDesc": "l8git アプリで QR コードをスキャンするか、JSON を手動で入力してください。",
     "copyJson": "JSON をコピー",
     "copied": "コピーしました"
+  },
+  "jira": {
+    "settingsTitle": "Jira アクセス（BYOK）",
+    "settingsDesc": "自分の Jira インスタンスのベース URL、メール、API トークン。トークンは OS のキーチェーンに暗号化して保存され、UI に返されることはありません。",
+    "enabledLabel": "Jira 連携を有効にする",
+    "enabledHint": "無効の間はエージェントに Jira ツールが一切見えないため、ツール説明にトークンを消費しません。",
+    "baseUrlLabel": "ベース URL",
+    "baseUrlHint": "HTTPS のみ。例: https://acme.atlassian.net",
+    "emailLabel": "メール",
+    "tokenLabel": "API トークン",
+    "tokenPlaceholder": "Atlassian API トークン",
+    "tokenHint": "localStorage ではなく OS のキーチェーンに保存されます。保存後は入力欄がクリアされ、トークンは再表示されません。",
+    "tokenShow": "トークンを表示",
+    "tokenHide": "トークンを隠す",
+    "configuredHint": "{{email}} 用に保存済み（{{hint}}）",
+    "testButton": "接続をテスト",
+    "deleteButton": "アクセス情報を削除",
+    "savedToast": "Jira のアクセス情報を保存しました。",
+    "deletedToast": "Jira のアクセス情報を削除しました。",
+    "testOkToast": "{{name}} として接続しました。",
+    "scopeTitle": "エージェントに許可する操作",
+    "allowCommentsLabel": "コメントを読む",
+    "allowCommentsHint": "チケットの最新コメントを読むツールも公開します。",
+    "allowSearchLabel": "JQL 検索を許可",
+    "allowSearchHint": "無効の場合、エージェントはここで紐付けたチケットしか読めません。有効にすると、アカウントで閲覧可能な任意のチケットを検索・閲覧できます。",
+    "readOnlyNote": "Jira ツールはすべて読み取り専用で、HTTP GET のみを送信します。作成・編集・コメント・ステータス変更は実装されていません。",
+    "panelTitle": "Jira チケット",
+    "panelEmpty": "チケットが未紐付けです。+ で追加してください。",
+    "linkTicket": "チケットを紐付ける",
+    "linkPlaceholder": "ABC-123 または Jira リンク、Enter で紐付け",
+    "invalidKey": "チケットキーが不正です。ABC-123 の形式が必要です。",
+    "notConfigured": "Jira のアクセス情報がありません — 設定 → Jira。",
+    "refresh": "チケットを更新",
+    "unlink": "{{key}} を削除",
+    "openInJira": "{{key}} を Jira で開く",
+    "toolNote": "Claude Code はインプロセスで、OpenCode は ACP 経由でセッションごとにツールを受け取ります。Codex と Cursor は設定への登録が必要です。",
+    "registerExternalLabel": "Codex と Cursor に登録する",
+    "registerExternalHint": "Codex と Cursor は MCP サーバーを自身の設定ファイルからのみ読み込みます。l8git がそこに追記し（~/.codex/config.toml と ~/.cursor/mcp.json）、スイッチを切ると再び削除します。そのため、この項目はあなた自身の Codex / Cursor セッションからも見えます。Claude Code と OpenCode には不要です。",
+    "registrationOff": "このプロバイダーは設定の登録スイッチが必要です。オフのままではツールが見えません。"
   }
 }

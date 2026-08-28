@@ -3,6 +3,7 @@ import { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from "
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { AgentJiraPanel } from "@/components/agents/chat/agent-jira-panel";
 import { AgentRepoPicker } from "@/components/agents/chat/agent-repo-picker";
 import { AgentSidebarActions } from "@/components/agents/chat/agent-sidebar-actions";
 import { AgentThreadList } from "@/components/agents/chat/agent-thread-list";
@@ -181,6 +182,8 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
           onNewThread={() => void newThread()}
         />
       </div>
+
+      <AgentJiraPanel path={selectedPath} />
 
       {/* Plain scroller rather than the Radix ScrollArea: the thread list is
           virtualized and the virtualizer needs the scroll element itself. */}
