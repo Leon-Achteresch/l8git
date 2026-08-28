@@ -21,6 +21,12 @@ export interface JiraPrefs {
   enabled: boolean;
   allowSearch: boolean;
   allowComments: boolean;
+  /**
+   * Register the stdio MCP server with Codex and Cursor. Both read it from
+   * their own config files, so this writes outside l8git — hence its own
+   * switch. OpenCode and Claude Code need no registration and ignore it.
+   */
+  registerExternal: boolean;
   linksByPath: JiraLinksByPath;
 }
 
@@ -32,6 +38,7 @@ export const DEFAULT_JIRA_PREFS: JiraPrefs = {
   enabled: false,
   allowSearch: false,
   allowComments: true,
+  registerExternal: true,
   linksByPath: {},
 };
 
@@ -78,6 +85,7 @@ export function parseJiraPrefs(raw: string | null): JiraPrefs {
     enabled: value.enabled === true,
     allowSearch: value.allowSearch === true,
     allowComments: value.allowComments !== false,
+    registerExternal: value.registerExternal !== false,
     linksByPath,
   };
 }
@@ -92,6 +100,7 @@ export interface JiraState extends JiraPrefs {
   setEnabled: (enabled: boolean) => void;
   setAllowSearch: (allowSearch: boolean) => void;
   setAllowComments: (allowComments: boolean) => void;
+  setRegisterExternal: (registerExternal: boolean) => void;
   refreshStatus: () => Promise<JiraCredentialStatus>;
   saveCredentials: (baseUrl: string, email: string, apiToken: string) => Promise<JiraCredentialStatus>;
   deleteCredentials: () => Promise<void>;
@@ -110,6 +119,13 @@ const EMPTY_STATUS: JiraCredentialStatus = {
 
 function persist(prefs: JiraPrefs): void {
   kvSet(JIRA_PREFS_KEY, serializeJiraPrefs(prefs));
+  // Mirror the gate to disk so a running out-of-process MCP server picks the
+  // change up on its next call instead of at the next session.
+  // Wrapped: a platform whose `invoke` is synchronous must not throw here —
+  // the policy mirror is best effort, the switch itself already took effect.
+  void Promise.resolve(invoke("jira_write_policy", { policy: policyPayload(prefs) })).catch(
+    () => undefined,
+  );
 }
 
 function prefsOf(state: JiraState): JiraPrefs {
@@ -117,7 +133,36 @@ function prefsOf(state: JiraState): JiraPrefs {
     enabled: state.enabled,
     allowSearch: state.allowSearch,
     allowComments: state.allowComments,
+    registerExternal: state.registerExternal,
     linksByPath: state.linksByPath,
+  };
+}
+
+/**
+ * The subset the out-of-process MCP server needs, in its own wire shape. It
+ * carries switches and issue keys only — never the credential, which the child
+ * reads from the OS keychain itself.
+ */
+export function policyPayload(prefs: JiraPrefs): {
+  version: number;
+  enabled: boolean;
+  allowSearch: boolean;
+  allowComments: boolean;
+  keysByPath: Record<string, string[]>;
+} {
+  const keysByPath: Record<string, string[]> = {};
+  for (const [path, links] of Object.entries(prefs.linksByPath)) {
+    const keys = links
+      .map((link) => normalizeIssueKey(link.key))
+      .filter((key): key is string => key !== null);
+    if (keys.length) keysByPath[path] = keys;
+  }
+  return {
+    version: 1,
+    enabled: prefs.enabled,
+    allowSearch: prefs.allowSearch,
+    allowComments: prefs.allowComments,
+    keysByPath,
   };
 }
 
@@ -147,6 +192,11 @@ export const useJiraStore = create<JiraState>((set, get) => ({
     const next = { ...prefsOf(get()), allowComments };
     persist(next);
     set({ allowComments });
+  },
+  setRegisterExternal: (registerExternal) => {
+    const next = { ...prefsOf(get()), registerExternal };
+    persist(next);
+    set({ registerExternal });
   },
 
   refreshStatus: async () => {

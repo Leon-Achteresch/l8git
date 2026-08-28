@@ -72,7 +72,20 @@ Tool schemas are paid for in input tokens on every turn, which is why the list i
 
 The master switch under **Settings → Jira** turns the whole feature off again at any time.
 
-Tool access works with the **Claude Code** provider; the other CLIs do not load l8git's in-process tools.
+### How each CLI gets the tools
+
+All four providers can use them, through whatever channel they support:
+
+| Provider | Channel | Writes to config you own |
+|---|---|---|
+| Claude Code | l8git's in-process MCP server | no |
+| OpenCode | handed the server per session over ACP | no |
+| Codex | `~/.codex/config.toml` | yes |
+| Cursor | `~/.cursor/mcp.json` | yes |
+
+Codex and Cursor only read MCP servers from their own configuration files, so l8git adds an `l8git-jira` entry there and removes it again when you switch the feature — or the **Register with Codex and Cursor** switch — off. Because those files are the same ones your own Codex and Cursor sessions read, the tools show up there too; that switch is how you decline.
+
+Under the hood the three of them talk to l8git's own binary, re-executed as a small MCP server. It reads your credentials from the keychain itself, so the token is never passed as an argument or an environment variable.
 
 ## Reviewing what an agent did
 

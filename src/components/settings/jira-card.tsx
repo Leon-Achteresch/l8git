@@ -1,5 +1,5 @@
 import { CheckCircle2, Eye, EyeOff, Loader2, ShieldCheck, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -14,7 +14,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import { useJiraStore } from "@/lib/jira/jira-store";
+import { resetJiraSyncCache, syncJiraExternalRegistration } from "@/lib/jira/jira-sync";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -28,6 +30,8 @@ export function JiraCard() {
   const setAllowSearch = useJiraStore((state) => state.setAllowSearch);
   const allowComments = useJiraStore((state) => state.allowComments);
   const setAllowComments = useJiraStore((state) => state.setAllowComments);
+  const registerExternal = useJiraStore((state) => state.registerExternal);
+  const setRegisterExternal = useJiraStore((state) => state.setRegisterExternal);
   const status = useJiraStore((state) => state.status);
   const statusLoaded = useJiraStore((state) => state.statusLoaded);
   const refreshStatus = useJiraStore((state) => state.refreshStatus);
@@ -40,6 +44,14 @@ export function JiraCard() {
   const [token, setToken] = useState("");
   const [tokenVisible, setTokenVisible] = useState(false);
   const [busy, setBusy] = useState<"save" | "test" | "delete" | null>(null);
+  const agentPath = useAgentRepoStore((state) => state.path);
+
+  // Toggling a switch here has to reach Codex and Cursor right away — the
+  // agents view, which normally drives the sync, may not even be mounted.
+  const resync = useCallback(() => {
+    resetJiraSyncCache();
+    void syncJiraExternalRegistration(agentPath ?? "");
+  }, [agentPath]);
 
   useEffect(() => {
     void refreshStatus();
@@ -60,6 +72,7 @@ export function JiraCard() {
       // The token is in the keychain now; drop the plaintext copy from the DOM.
       setToken("");
       setTokenVisible(false);
+      resync();
       toast.success(t("jira.savedToast"));
     } catch (error) {
       toast.error(errorMessage(error));
@@ -85,6 +98,7 @@ export function JiraCard() {
     try {
       await deleteCredentials();
       setToken("");
+      resync();
       toast.success(t("jira.deletedToast"));
     } catch (error) {
       toast.error(errorMessage(error));
@@ -107,7 +121,14 @@ export function JiraCard() {
             </Label>
             <p className="text-xs leading-relaxed text-muted-foreground">{t("jira.enabledHint")}</p>
           </div>
-          <Switch id="jira-enabled" checked={enabled} onCheckedChange={setEnabled} />
+          <Switch
+            id="jira-enabled"
+            checked={enabled}
+            onCheckedChange={(value: boolean) => {
+              setEnabled(value);
+              resync();
+            }}
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -236,6 +257,25 @@ export function JiraCard() {
               id="jira-allow-search"
               checked={allowSearch}
               onCheckedChange={setAllowSearch}
+              disabled={!enabled}
+            />
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="jira-register-external" className="text-sm font-medium text-foreground">
+                {t("jira.registerExternalLabel")}
+              </Label>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {t("jira.registerExternalHint")}
+              </p>
+            </div>
+            <Switch
+              id="jira-register-external"
+              checked={registerExternal}
+              onCheckedChange={(value: boolean) => {
+                setRegisterExternal(value);
+                resync();
+              }}
               disabled={!enabled}
             />
           </div>

@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { providerSupportsAppTools } from "@/lib/agents/provider-meta";
+import { providerNeedsToolRegistration } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { parseIssueRef } from "@/lib/jira/issue-key";
 import { ensureJiraStatus, useJiraLinks, useJiraStore } from "@/lib/jira/jira-store";
@@ -22,6 +22,7 @@ export const AgentJiraPanel = memo(function AgentJiraPanel({ path }: { path: str
   const { t } = useTranslation();
   const provider = useAgentProviderStore((state) => state.provider);
   const enabled = useJiraStore((state) => state.enabled);
+  const registerExternal = useJiraStore((state) => state.registerExternal);
   const configured = useJiraStore((state) => state.status.configured);
   const statusLoaded = useJiraStore((state) => state.statusLoaded);
   const links = useJiraLinks(path);
@@ -100,9 +101,9 @@ export const AgentJiraPanel = memo(function AgentJiraPanel({ path }: { path: str
         </p>
       ) : null}
 
-      {configured && !providerSupportsAppTools(provider) ? (
+      {configured && providerNeedsToolRegistration(provider) && !registerExternal ? (
         <p className="px-1.5 py-1 text-[11px] leading-relaxed text-[var(--ag-text-3)]">
-          {t("jira.providerUnsupported")}
+          {t("jira.registrationOff")}
         </p>
       ) : null}
 

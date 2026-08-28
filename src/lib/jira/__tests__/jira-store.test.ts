@@ -69,6 +69,7 @@ describe("parseJiraPrefs", () => {
       enabled: true,
       allowSearch: true,
       allowComments: false,
+      registerExternal: false,
       linksByPath: {
         [PATH]: [
           {
@@ -123,8 +124,10 @@ describe("parseJiraPrefs", () => {
       enabled: false,
       allowSearch: false,
       allowComments: true,
+      registerExternal: true,
     });
     expect(parseJiraPrefs('{"allowComments":false}').allowComments).toBe(false);
+    expect(parseJiraPrefs('{"registerExternal":false}').registerExternal).toBe(false);
     expect(parseJiraPrefs('{"enabled":"yes"}').enabled).toBe(false);
   });
 });

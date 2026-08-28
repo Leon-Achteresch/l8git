@@ -4,7 +4,8 @@ import {
   AGENT_PROVIDERS,
   UNSUPPORTED_SLASH_COMMANDS,
   agentProviderMeta,
-  providerSupportsAppTools,
+  agentToolChannel,
+  providerNeedsToolRegistration,
   providerSupportsCapabilityCenter,
   providerSupportsSlashCommand,
 } from "@/lib/agents/provider-meta";
@@ -57,11 +58,21 @@ describe("providerSupportsSlashCommand", () => {
     expect(providerSupportsSlashCommand("cursor", "mcp")).toBe(true);
   });
 
-  it("limits app-provided tools to the provider that loads the in-process MCP server", () => {
-    expect(providerSupportsAppTools("claude")).toBe(true);
-    for (const provider of ["codex", "opencode", "cursor"] as const) {
-      expect(providerSupportsAppTools(provider)).toBe(false);
+  it("gives every provider a channel for app-provided tools", () => {
+    expect(agentToolChannel("claude")).toBe("sdk");
+    expect(agentToolChannel("opencode")).toBe("acp");
+    expect(agentToolChannel("codex")).toBe("config");
+    expect(agentToolChannel("cursor")).toBe("config");
+    for (const entry of AGENT_PROVIDERS) {
+      expect(["sdk", "acp", "config"]).toContain(agentToolChannel(entry.value));
     }
+  });
+
+  it("flags only the providers whose own config has to be written", () => {
+    expect(providerNeedsToolRegistration("codex")).toBe(true);
+    expect(providerNeedsToolRegistration("cursor")).toBe(true);
+    expect(providerNeedsToolRegistration("claude")).toBe(false);
+    expect(providerNeedsToolRegistration("opencode")).toBe(false);
   });
 
   it("keeps shared commands available everywhere", () => {

@@ -8,6 +8,8 @@ mod cursor;
 mod favicon;
 pub mod git;
 pub mod jira;
+pub mod jira_mcp;
+pub mod jira_policy;
 mod lfs;
 mod media;
 pub mod pathsafe;
@@ -260,6 +262,9 @@ pub fn run() {
             jira::jira_fetch_issue,
             jira::jira_fetch_comments,
             jira::jira_search_issues,
+            jira_policy::jira_write_policy,
+            jira_policy::jira_mcp_command,
+            jira_policy::jira_sync_cursor_mcp,
             rebase::rebase_start,
             rebase::rebase_status,
             rebase::rebase_continue,

@@ -3034,7 +3034,9 @@
     "refresh": "Refresh tickets",
     "unlink": "Remove {{key}}",
     "openInJira": "Open {{key}} in Jira",
-    "providerUnsupported": "Tool access only with Claude Code — the other CLIs do not load l8git's in-process tools.",
-    "toolNote": "The Jira tools are available to the Claude Code provider only; the other CLIs do not load l8git's in-process tools."
+    "toolNote": "Claude Code gets the tools in-process, OpenCode per session over ACP. Codex and Cursor need the entry in their configuration.",
+    "registerExternalLabel": "Register with Codex and Cursor",
+    "registerExternalHint": "Codex and Cursor read MCP servers only from their own configuration. l8git adds the server there (~/.codex/config.toml and ~/.cursor/mcp.json) and removes it again once the switch is off. That also makes the entry visible in your own Codex and Cursor sessions. Claude Code and OpenCode do not need it.",
+    "registrationOff": "This provider needs the registration switch in the settings, otherwise it will not see the tools."
   }
 }

@@ -38,13 +38,35 @@ export function providerSupportsCapabilityCenter(provider: NativeAgentProvider):
 }
 
 /**
- * Only Claude Code is launched with l8git's in-process SDK MCP server
- * (`agent_transport.rs`), so it is the only provider that can call app-provided
- * tools such as the Jira readers. The other CLIs would need their own MCP
- * server process, which l8git does not ship.
+ * How a provider reaches l8git's own tools (currently the Jira readers).
+ *
+ * - `sdk`: the in-process MCP server Claude Code is launched with
+ *   (`agent_transport.rs`, `--mcp-config … "type":"sdk"`) — nothing to install.
+ * - `acp`: OpenCode is handed the stdio server per session through ACP's
+ *   `mcpServers` parameter — also nothing outside l8git.
+ * - `config`: Codex and Cursor only read MCP servers from their own config
+ *   files, so l8git registers the stdio server there and removes it again when
+ *   the feature is switched off.
  */
-export function providerSupportsAppTools(provider: NativeAgentProvider): boolean {
-  return provider === "claude";
+export type AgentToolChannel = "sdk" | "acp" | "config";
+
+const APP_TOOL_CHANNELS: Record<NativeAgentProvider, AgentToolChannel> = {
+  claude: "sdk",
+  opencode: "acp",
+  codex: "config",
+  cursor: "config",
+};
+
+export function agentToolChannel(provider: NativeAgentProvider): AgentToolChannel {
+  return APP_TOOL_CHANNELS[provider];
+}
+
+/**
+ * True when the provider needs an entry in a config file the user owns, rather
+ * than being handed the server by l8git directly.
+ */
+export function providerNeedsToolRegistration(provider: NativeAgentProvider): boolean {
+  return agentToolChannel(provider) === "config";
 }
 
 export function providerSupportsSlashCommand(

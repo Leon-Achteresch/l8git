@@ -729,24 +729,23 @@ pub async fn jira_test_connection() -> Result<JiraAccount, String> {
     })
 }
 
-#[tauri::command]
-pub async fn jira_fetch_issue(key: String) -> Result<JiraIssue, String> {
+/// Reads one issue. Shared by the Tauri command and the stdio MCP server.
+pub async fn fetch_issue(key: &str, max_body_chars: usize) -> Result<JiraIssue, String> {
     let credentials = load_credentials().await?;
-    let key = validate_issue_key(&key)?;
+    let key = validate_issue_key(key)?;
     let value = jira_get(
         &credentials,
         &format!("/rest/api/3/issue/{key}"),
         &[("fields", ISSUE_FIELDS.to_string())],
     )
     .await?;
-    Ok(summarize_issue(&value, &credentials.base_url, MAX_BODY_CHARS))
+    Ok(summarize_issue(&value, &credentials.base_url, max_body_chars))
 }
 
-#[tauri::command]
-pub async fn jira_fetch_comments(key: String, limit: Option<u32>) -> Result<Vec<JiraComment>, String> {
+pub async fn fetch_comments(key: &str, limit: u32) -> Result<Vec<JiraComment>, String> {
     let credentials = load_credentials().await?;
-    let key = validate_issue_key(&key)?;
-    let limit = clamp_limit(limit, MAX_COMMENTS);
+    let key = validate_issue_key(key)?;
+    let limit = clamp_limit(Some(limit), MAX_COMMENTS);
     let value = jira_get(
         &credentials,
         &format!("/rest/api/3/issue/{key}/comment"),
@@ -756,7 +755,7 @@ pub async fn jira_fetch_comments(key: String, limit: Option<u32>) -> Result<Vec<
         ],
     )
     .await?;
-    let comments = value
+    Ok(value
         .get("comments")
         .and_then(Value::as_array)
         .map(|items| {
@@ -766,8 +765,17 @@ pub async fn jira_fetch_comments(key: String, limit: Option<u32>) -> Result<Vec<
                 .map(|item| summarize_comment(item, MAX_BODY_CHARS))
                 .collect()
         })
-        .unwrap_or_default();
-    Ok(comments)
+        .unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn jira_fetch_issue(key: String) -> Result<JiraIssue, String> {
+    fetch_issue(&key, MAX_BODY_CHARS).await
+}
+
+#[tauri::command]
+pub async fn jira_fetch_comments(key: String, limit: Option<u32>) -> Result<Vec<JiraComment>, String> {
+    fetch_comments(&key, clamp_limit(limit, MAX_COMMENTS)).await
 }
 
 #[tauri::command]
@@ -775,9 +783,13 @@ pub async fn jira_search_issues(
     jql: String,
     limit: Option<u32>,
 ) -> Result<JiraSearchResult, String> {
+    search_issues(&jql, clamp_limit(limit, MAX_SEARCH_RESULTS)).await
+}
+
+pub async fn search_issues(jql: &str, limit: u32) -> Result<JiraSearchResult, String> {
     let credentials = load_credentials().await?;
-    let jql = validate_jql(&jql)?;
-    let limit = clamp_limit(limit, MAX_SEARCH_RESULTS);
+    let jql = validate_jql(jql)?;
+    let limit = clamp_limit(Some(limit), MAX_SEARCH_RESULTS);
     let query = [
         ("jql", jql),
         ("maxResults", limit.to_string()),

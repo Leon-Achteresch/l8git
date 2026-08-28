@@ -45,7 +45,13 @@ Der In-Process-MCP-Server `l8git`, mit dem Claude Code gestartet wird
 und `tools/call` in `providers/claude/chat-store.ts`. Neben `render_chart`
 liefert er die lesenden Jira-Tools — aber nur, solange sie etwas nützen: ist das
 Feature aus, fehlen Zugangsdaten oder ist weder ein Ticket verknüpft noch die
-JQL-Suche freigeschaltet, ist die Liste leer und kostet keine Tokens. Details in
+JQL-Suche freigeschaltet, ist die Liste leer und kostet keine Tokens.
+
+Codex, OpenCode und Cursor haben keinen In-Process-Kanal und bekommen stattdessen
+l8gits eigene Binary als Stdio-MCP-Server (`l8git mcp-jira`): OpenCode per ACP
+`mcpServers` pro Sitzung, Codex und Cursor über einen Eintrag in ihrer eigenen
+Konfiguration. Welcher Provider welchen Kanal hat, steht in `provider-meta.ts`
+(`agentToolChannel`), das Auf- und Abräumen in `../jira/jira-sync.ts`. Details in
 `../jira/README.md`.
 
 ## Konventionen

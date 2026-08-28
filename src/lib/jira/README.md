@@ -13,9 +13,13 @@ Sidenav-Panel / Einstellungen
       │
       ├─ Tauri-Commands (jira_*) → src-tauri/src/jira.rs → Jira REST v3 (nur GET)
       │
-      └─ jira-tools.ts (welche Tools sieht der Agent gerade?)
-           → In-Process-MCP-Server "l8git" in providers/claude/chat-store.ts
-             → jira-runtime.ts (Tool-Ausführung + kompakte Textausgabe)
+      ├─ jira-tools.ts (welche Tools sieht der Agent gerade?)
+      │    → In-Process-MCP-Server "l8git" in providers/claude/chat-store.ts
+      │      → jira-runtime.ts (Tool-Ausführung + kompakte Textausgabe)
+      │
+      └─ jira-policy.json + jira-sync.ts (Registrierung bei Codex/OpenCode/Cursor)
+           → l8git mcp-jira --repo <pfad>  (src-tauri/src/jira_mcp.rs)
+             → dieselben Funktionen in jira.rs
 ```
 
 ## Nur lesend
@@ -41,9 +45,42 @@ Zusätzlich schrumpfen die Antworten: ADF wird in Klartext geflacht, Felder
 werden serverseitig per `fields=`-Projektion begrenzt, Beschreibungen werden auf
 `MAX_BODY_CHARS` gekürzt und Trefferlisten enthalten gar keine Beschreibung.
 
-Nur der Provider **Claude Code** lädt l8gits In-Process-MCP-Server
-(`agent_transport.rs`), also sieht auch nur er die Tools — deklariert in
-`provider-meta.ts` (`providerSupportsAppTools`).
+## Wie die vier CLIs an die Tools kommen
+
+Jeder Provider hat einen anderen Kanal; `provider-meta.ts` deklariert ihn
+zentral (`agentToolChannel`), Aufbau und Abbau macht `jira-sync.ts`.
+
+| Provider | Kanal | Schreibt in fremde Konfiguration? |
+|---|---|---|
+| Claude Code | In-Process-SDK-Server (`--mcp-config … "type":"sdk"`) | nein |
+| OpenCode | `mcpServers` an ACP `session/new\|load\|resume\|fork` | nein |
+| Codex | `mcp_servers.l8git-jira` über die App-Server-Config-RPC | ja, `~/.codex/config.toml` |
+| Cursor | `~/.cursor/mcp.json` | ja |
+
+Die drei ohne In-Process-Kanal starten l8gits eigene Binary erneut als
+Stdio-MCP-Server: `l8git mcp-jira --repo <pfad>` (`jira_mcp.rs`, Dispatch in
+`main.rs`). Der Kindprozess liest die Zugangsdaten selbst aus dem
+Schlüsselbund — der Token wird nie über Argumente oder Umgebung übergeben.
+
+**Registrierung und Gate sind getrennt.** Registriert wird, sobald Jira
+aktiv ist und Zugangsdaten existieren („kann das je helfen?"); welche Tools
+erscheinen, entscheidet die Policy-Datei pro Aufruf („hilft es gerade?").
+Das ist nötig, weil ACP `mcpServers` beim Sitzungsstart festnagelt: der
+Server muss schon da sein, bevor das erste Ticket verknüpft wird. Tokens
+kostet das nicht — eine leere `tools/list` ist gratis.
+
+Codex und Cursor schreiben in Konfiguration, die dem Nutzer gehört, und die
+Einträge sind dadurch auch in dessen eigenen Sitzungen sichtbar. Deshalb
+hängen sie an einem eigenen Schalter (`registerExternal`) und werden wieder
+entfernt, sobald er ausgeht.
+
+## Policy-Datei (`jira_policy.rs`)
+
+`<config>/l8git/jira-policy.json` spiegelt Schalter und verknüpfte
+Ticket-Schlüssel — keine Geheimnisse. Der Kindprozess liest sie bei jedem
+Aufruf neu, damit ein neu verknüpftes Ticket sofort in einer laufenden
+Sitzung wirkt. Fehlt oder bricht die Datei, gilt alles als geschlossen:
+Der Gate fällt zu, nicht auf.
 
 ## Sicherheit
 
@@ -62,6 +99,11 @@ Nur der Provider **Claude Code** lädt l8gits In-Process-MCP-Server
 
 ## Tests
 
-`bun run test` für `__tests__/` (Gate-Logik, Argumentprüfung, Store, Parser),
-`cargo test --test jira` für URL-Normalisierung, Schlüsselprüfung,
-ADF-Flattening, Projektion und Redaktion.
+`bun run test` für `__tests__/` (Gate-Logik, Argumentprüfung, Store, Parser,
+Registrierung), `cargo test --test jira` für URL-Normalisierung,
+Schlüsselprüfung, ADF-Flattening, Projektion und Redaktion sowie
+`cargo test --test jira_mcp` für Gate, JSON-RPC-Oberfläche, Policy-Datei und
+das Zusammenführen von `~/.cursor/mcp.json`.
+
+Beide Gate-Implementierungen — `jiraToolsFor` in TypeScript und `tools_for`
+in Rust — haben denselben Testkatalog, damit sie nicht auseinanderlaufen.

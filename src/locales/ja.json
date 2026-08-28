@@ -3034,7 +3034,9 @@
     "refresh": "チケットを更新",
     "unlink": "{{key}} を削除",
     "openInJira": "{{key}} を Jira で開く",
-    "providerUnsupported": "ツール利用は Claude Code のみ — 他の CLI は l8git のインプロセスツールを読み込みません。",
-    "toolNote": "Jira ツールは Claude Code プロバイダーでのみ利用できます。他の CLI は l8git のインプロセスツールを読み込みません。"
+    "toolNote": "Claude Code はインプロセスで、OpenCode は ACP 経由でセッションごとにツールを受け取ります。Codex と Cursor は設定への登録が必要です。",
+    "registerExternalLabel": "Codex と Cursor に登録する",
+    "registerExternalHint": "Codex と Cursor は MCP サーバーを自身の設定ファイルからのみ読み込みます。l8git がそこに追記し（~/.codex/config.toml と ~/.cursor/mcp.json）、スイッチを切ると再び削除します。そのため、この項目はあなた自身の Codex / Cursor セッションからも見えます。Claude Code と OpenCode には不要です。",
+    "registrationOff": "このプロバイダーは設定の登録スイッチが必要です。オフのままではツールが見えません。"
   }
 }
