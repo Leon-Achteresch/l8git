@@ -308,7 +308,7 @@ export interface AgentPendingRequest {
   sessionId: string;
   requestId: RpcId;
   method: string;
-  kind: "command" | "file-change" | "user-input" | "permissions" | "elicitation" | "unknown";
+  kind: "command" | "file-change" | "user-input" | "plan" | "permissions" | "elicitation" | "unknown";
   threadId: string;
   turnId?: string;
   itemId?: string;
@@ -317,6 +317,8 @@ export interface AgentPendingRequest {
   cwd?: string;
   grantRoot?: string;
   questions?: AgentInputQuestion[];
+  /** Markdown plan awaiting approval — set when kind is "plan". */
+  plan?: string;
   raw: Record<string, unknown>;
 }
 

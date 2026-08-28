@@ -337,7 +337,22 @@
     "worktreeLanded": "{{name}} merged and cleaned up",
     "usageToday": "Today: {{cost}} · {{tokens}} tokens",
     "usageWeek": "Last 7 days: {{cost}} · {{tokens}} tokens",
-    "chartLoading": "Rendering chart…"
+    "chartLoading": "Rendering chart…",
+    "plan": {
+      "title": "Approve implementation plan",
+      "empty": "No plan content was provided.",
+      "approve": "Run this plan",
+      "approveAuto": "Run and auto-approve edits",
+      "keepPlanning": "Keep planning",
+      "feedbackPlaceholder": "Optional feedback on the plan…",
+      "hint": "Approving leaves plan mode so the session may apply changes.",
+      "statusPending": "Awaiting decision",
+      "statusApproved": "Approved",
+      "statusKeptPlanning": "Still planning",
+      "bannerTitle": "Plan mode active",
+      "bannerBody": "The agent only researches and plans — files and commands stay locked until you approve a plan.",
+      "bannerAction": "Leave plan mode"
+    }
   },
   "agentReview": {
     "openButton": "Review changes",
