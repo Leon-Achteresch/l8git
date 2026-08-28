@@ -96,7 +96,8 @@
     "maximize": "最大化",
     "restore": "还原窗口",
     "close": "关闭",
-    "minimizeToIsland": "最小化到灵动岛"
+    "minimizeToIsland": "最小化到灵动岛",
+    "minimizeToIslandFailed": "无法分离灵动岛。"
   },
   "inbox": {
     "title": "收件箱",

@@ -96,7 +96,8 @@
     "maximize": "Maximizar",
     "restore": "Restaurar",
     "close": "Fechar",
-    "minimizeToIsland": "Minimizar para a ilha"
+    "minimizeToIsland": "Minimizar para a ilha",
+    "minimizeToIslandFailed": "Não foi possível destacar a ilha."
   },
   "inbox": {
     "title": "Caixa de entrada",

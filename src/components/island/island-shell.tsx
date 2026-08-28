@@ -518,8 +518,17 @@ function ToggleRow({
   onClick: () => void;
 }) {
   return (
-    <ListRow size="sm" onClick={onClick} className={ISLAND_ROW}>
-      <span className="flex size-3.5 shrink-0 items-center justify-center">
+    <ListRow
+      size="sm"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      onClick={onClick}
+      className={ISLAND_ROW}
+    >
+      <span
+        aria-hidden
+        className="flex size-3.5 shrink-0 items-center justify-center"
+      >
         {checked && <Check className="size-3" />}
       </span>
       <span className="flex-1 truncate">{label}</span>

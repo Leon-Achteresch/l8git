@@ -60,9 +60,17 @@ export function AppIsland() {
   const magnetX = useSpring(0, MAGNET);
   const magnetY = useSpring(0, MAGNET);
 
-  const flash = useIslandFlashLine(enabled);
+  // Mirrors the render condition below: while the island is detached the root
+  // renders the normal toaster, and this must not dismiss its toasts.
+  const showsIsland = enabled && !!activePath && !snapshot.detached;
+  const flash = useIslandFlashLine(showsIsland);
 
   const compactRef = useRef(true);
+  // Written in an effect, not in render: a discarded render must not leave the
+  // ResizeObserver below publishing a size the user never saw.
+  useEffect(() => {
+    compactRef.current = view === null && !flash;
+  }, [view, flash]);
   const setSize = useIslandDocks((s) => s.setSize);
   useEffect(() => {
     const el = islandRef.current;
@@ -120,9 +128,7 @@ export function AppIsland() {
   }, [view]);
 
   // The detached window takes over while it is open.
-  if (!enabled || !activePath || snapshot.detached) return null;
-
-  compactRef.current = view === null && !flash;
+  if (!showsIsland) return null;
 
   return (
     <>

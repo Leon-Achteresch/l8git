@@ -96,7 +96,8 @@
     "maximize": "Agrandir",
     "restore": "Restaurer",
     "close": "Fermer",
-    "minimizeToIsland": "Réduire vers l’île"
+    "minimizeToIsland": "Réduire vers l’île",
+    "minimizeToIslandFailed": "Impossible de détacher l’île."
   },
   "inbox": {
     "title": "Boîte de réception",

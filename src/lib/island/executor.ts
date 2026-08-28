@@ -91,6 +91,11 @@ export async function runIslandAction(
   const repoState = useRepoStore.getState();
   const path = request.path ?? repoState.activePath;
   if (def.needsRepo && !path) return fail(i18n.t("islandActions.noRepo"));
+  // Requests can arrive from the detached window, so a caller-supplied path is
+  // only ever honoured when it names a repository the user has open.
+  if (request.path && !repoState.paths.includes(request.path)) {
+    return fail(i18n.t("islandActions.unknownRepo", { path: request.path }));
+  }
 
   try {
     return await execute(def.id, request, path);
@@ -144,7 +149,11 @@ async function execute(
 
     case "git.pull":
       await runRemoteOp("pull", path!, (opId) =>
-        invoke<string>("git_pull", { path, strategy: "merge", opId }),
+        invoke<string>("git_pull", {
+          path,
+          strategy: useWorkspacePrefs.getState().pullStrategy,
+          opId,
+        }),
       );
       await repo.reload(path!);
       return ok(i18n.t("islandActions.pulled"));
@@ -273,9 +282,12 @@ async function execute(
 
     case "read.status": {
       await repo.reloadStatus(path!);
-      const entries = useRepoStore.getState().status[path!] ?? [];
+      // Read both halves from the reloaded state so the branch cannot lag
+      // behind the file lists it is reported with.
+      const fresh = useRepoStore.getState();
+      const entries = fresh.status[path!] ?? [];
       return ok(done, {
-        branch: repo.repos[path!]?.branch ?? "",
+        branch: fresh.repos[path!]?.branch ?? "",
         staged: entries.filter((e) => e.staged).map((e) => e.path),
         unstaged: entries.filter((e) => e.unstaged).map((e) => e.path),
         untracked: entries.filter((e) => e.untracked).map((e) => e.path),

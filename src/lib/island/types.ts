@@ -19,6 +19,12 @@ export type IslandRepoSnapshot = {
 
 /** Everything the island renders, flattened so it can travel across windows. */
 export type IslandSnapshot = {
+  /**
+   * Identifies the host that produced this snapshot. A reload restarts the
+   * revision counter, so without this the island would reject every snapshot
+   * until the new counter caught up with the old one.
+   */
+  session: string;
   /** Bumped by the host on every publish so stale payloads can be dropped. */
   revision: number;
   repos: IslandRepoSnapshot[];
@@ -30,6 +36,7 @@ export type IslandSnapshot = {
 };
 
 export const EMPTY_ISLAND_SNAPSHOT: IslandSnapshot = {
+  session: "",
   revision: 0,
   repos: [],
   activePath: null,
@@ -54,6 +61,14 @@ export type IslandResult = {
   /** Structured payload for read-only actions. */
   data?: unknown;
 };
+
+/** True when `next` carries state at least as recent as `prev`. */
+export function acceptsIslandSnapshot(
+  prev: IslandSnapshot,
+  next: IslandSnapshot,
+): boolean {
+  return next.session !== prev.session || next.revision >= prev.revision;
+}
 
 /**
  * Structural equality for the island's view of the app. Cheaper than

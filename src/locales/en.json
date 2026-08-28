@@ -96,7 +96,8 @@
     "maximize": "Maximize",
     "restore": "Restore",
     "close": "Close",
-    "minimizeToIsland": "Minimize to island"
+    "minimizeToIsland": "Minimize to island",
+    "minimizeToIslandFailed": "Could not detach the island."
   },
   "inbox": {
     "title": "Inbox",

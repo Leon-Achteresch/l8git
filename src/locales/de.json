@@ -96,7 +96,8 @@
     "maximize": "Maximieren",
     "restore": "Wiederherstellen",
     "close": "Schließen",
-    "minimizeToIsland": "Auf Island minimieren"
+    "minimizeToIsland": "Auf Island minimieren",
+    "minimizeToIslandFailed": "Island konnte nicht abgelöst werden."
   },
   "inbox": {
     "title": "Inbox",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  acceptsIslandSnapshot,
   activeRepoOf,
   EMPTY_ISLAND_SNAPSHOT,
   findRepo,
@@ -102,5 +103,35 @@ describe("sameIslandSnapshot", () => {
       repos: [repo("/code/two"), repo("/code/one")],
     };
     expect(sameIslandSnapshot(two, flipped)).toBe(false);
+  });
+});
+
+describe("acceptsIslandSnapshot", () => {
+  const host = (session: string, revision: number): IslandSnapshot => ({
+    ...EMPTY_ISLAND_SNAPSHOT,
+    session,
+    revision,
+  });
+
+  it("accepts a newer revision from the same host", () => {
+    expect(acceptsIslandSnapshot(host("a", 4), host("a", 5))).toBe(true);
+  });
+
+  it("accepts a repeat of the current revision", () => {
+    expect(acceptsIslandSnapshot(host("a", 4), host("a", 4))).toBe(true);
+  });
+
+  it("drops a snapshot that overtook a newer one", () => {
+    expect(acceptsIslandSnapshot(host("a", 5), host("a", 4))).toBe(false);
+  });
+
+  it("accepts a restarted host whose counter began again", () => {
+    // The regression this guards: without the session the island would ignore
+    // every snapshot until the new counter passed the old one.
+    expect(acceptsIslandSnapshot(host("a", 120), host("b", 1))).toBe(true);
+  });
+
+  it("accepts the first snapshot after starting empty", () => {
+    expect(acceptsIslandSnapshot(EMPTY_ISLAND_SNAPSHOT, host("a", 1))).toBe(true);
   });
 });

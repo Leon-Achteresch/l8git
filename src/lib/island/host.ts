@@ -74,7 +74,9 @@ export function useIslandHost(): void {
       );
     };
 
-    const listeners = Promise.all([
+    // allSettled: a rejected window listener must not strand the ones that did
+    // register, nor surface as an unhandled rejection.
+    const listeners = Promise.allSettled([
       win.onResized(sync),
       win.onFocusChanged(sync),
       onSnapshotRequest(() => push(true)),
@@ -95,7 +97,11 @@ export function useIslandHost(): void {
       window.clearTimeout(timer.current);
       window.clearTimeout(windowTimer.current);
       for (const off of unsubscribes) off();
-      void listeners.then((fns) => fns.forEach((fn) => fn()));
+      void listeners.then((results) => {
+        for (const result of results) {
+          if (result.status === "fulfilled") result.value();
+        }
+      });
     };
   }, []);
 }

@@ -96,7 +96,8 @@
     "maximize": "最大化",
     "restore": "元のサイズに戻す",
     "close": "閉じる",
-    "minimizeToIsland": "アイランドに最小化"
+    "minimizeToIsland": "アイランドに最小化",
+    "minimizeToIslandFailed": "アイランドを切り離せませんでした。"
   },
   "inbox": {
     "title": "受信ボックス",

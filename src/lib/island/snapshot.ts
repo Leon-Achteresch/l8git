@@ -43,6 +43,9 @@ export function sameIslandSnapshotInputs(
 }
 
 let revision = 0;
+// New on every load of this module, so the island can tell a restarted host
+// from an out-of-order snapshot.
+const session = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 /** Reads the live stores into the flat shape the island renders. */
 export function buildIslandSnapshot(): IslandSnapshot {
@@ -55,6 +58,7 @@ export function buildIslandSnapshot(): IslandSnapshot {
   revision += 1;
 
   return {
+    session,
     revision,
     activePath: repoState.activePath,
     installedAgents: installed ? [...installed] : null,

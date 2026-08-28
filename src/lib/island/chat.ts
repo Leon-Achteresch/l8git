@@ -65,6 +65,10 @@ export const useIslandChat = create<ChatState>()(
       autoRun: false,
       setAutoRun: (autoRun) => set({ autoRun }),
       clear: () => {
+        // Abort first: a surviving stream would later clear `streaming` out
+        // from under whatever the user starts next.
+        active?.abort();
+        active = null;
         // Resolve instead of dropping: a pending gate would hang the stream.
         for (const resolve of approvals.values()) resolve(false);
         approvals.clear();
@@ -351,8 +355,11 @@ export async function sendIslandChatMessage(
       error: error.kind === "aborted" ? i18n.t("islandChat.stopped") : error.message,
     });
   } finally {
-    if (active === controller) active = null;
-    useIslandChat.setState({ streaming: false });
+    // Only the request that still owns the slot may release it.
+    if (active === controller) {
+      active = null;
+      useIslandChat.setState({ streaming: false });
+    }
   }
 }
 

@@ -5,7 +5,7 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import { m } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 import { SpinIcon } from "@/components/motion/kit";
@@ -51,6 +51,9 @@ export function FlashIcon({ type }: { type?: IslandFlashType }) {
 }
 
 export function ActivityBars({ className }: { className?: string }) {
+  // The rest of the island gates its motion the same way; an indefinite loop is
+  // exactly what the preference is meant to stop.
+  const reduce = useReducedMotion();
   return (
     <span
       className={cn("flex h-3 shrink-0 items-end gap-[2px]", className)}
@@ -60,13 +63,21 @@ export function ActivityBars({ className }: { className?: string }) {
         <m.span
           key={i}
           className="w-[2px] rounded-full bg-current"
-          animate={{ height: ["30%", "100%", "30%"], opacity: [0.55, 1, 0.55] }}
-          transition={{
-            repeat: Infinity,
-            duration: 0.9,
-            ease: "easeInOut",
-            delay: i * 0.15,
-          }}
+          animate={
+            reduce
+              ? { height: "70%", opacity: 0.8 }
+              : { height: ["30%", "100%", "30%"], opacity: [0.55, 1, 0.55] }
+          }
+          transition={
+            reduce
+              ? { duration: 0 }
+              : {
+                  repeat: Infinity,
+                  duration: 0.9,
+                  ease: "easeInOut",
+                  delay: i * 0.15,
+                }
+          }
         />
       ))}
     </span>

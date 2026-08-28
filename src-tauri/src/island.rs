@@ -30,8 +30,30 @@ fn clamp(value: f64, min: f64, max: f64) -> f64 {
     value.max(min).min(max)
 }
 
+/// True when the point sits on a monitor that is attached right now.
+///
+/// The remembered position comes from local storage and can outlive the
+/// display it was saved on. An island placed off screen would be unrecoverable:
+/// it has no decorations, no taskbar entry and no visible surface to drag.
+fn position_is_visible(app: &AppHandle, x: f64, y: f64) -> bool {
+    let Ok(monitors) = app.available_monitors() else {
+        return false;
+    };
+    monitors.iter().any(|monitor| {
+        let scale = monitor.scale_factor();
+        let origin = monitor.position().to_logical::<f64>(scale);
+        let size = monitor.size().to_logical::<f64>(scale);
+        x >= origin.x
+            && y >= origin.y
+            && x < origin.x + size.width
+            && y < origin.y + size.height
+    })
+}
+
 /// Creates the island window if it does not exist yet, otherwise shows it.
 fn ensure_island(app: &AppHandle, position: Option<(f64, f64)>) -> Result<(), String> {
+    let position = position.filter(|&(x, y)| position_is_visible(app, x, y));
+
     if let Some(window) = app.get_webview_window(ISLAND_LABEL) {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
@@ -185,11 +207,10 @@ pub fn main_window_restore(app: AppHandle) -> Result<IslandWindowState, String> 
 
 #[tauri::command]
 pub fn main_window_toggle_minimize(app: AppHandle) -> Result<IslandWindowState, String> {
-    let minimized = app
-        .get_webview_window(MAIN_LABEL)
-        .and_then(|w| w.is_minimized().ok())
-        .unwrap_or(false);
-    if minimized {
+    // Hiding the application (Cmd+H on macOS) leaves the window neither
+    // minimized nor visible, and minimizing it again would keep it away.
+    let state = window_state(&app);
+    if state.main_minimized || !state.main_visible {
         main_window_restore(app)
     } else {
         main_window_minimize(app)

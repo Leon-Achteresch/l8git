@@ -144,27 +144,52 @@ function useWindowAutoSize(ref: React.RefObject<HTMLDivElement | null>) {
   }, [ref]);
 }
 
-/** Remembers where the user parked the island between sessions. */
+const POSITION_SETTLE_MS = 150;
+
+/**
+ * Remembers where the user parked the island between sessions.
+ *
+ * `onMoved` fires for every step of a drag. Resolving the scale factor per
+ * event would let two writes land out of order, so it is cached and refreshed
+ * only when the window actually changes density — moving across displays.
+ */
 function useWindowPositionMemory() {
   useEffect(() => {
     const win = getCurrentWindow();
-    let unlisten: (() => void) | undefined;
+    const unlisteners: (() => void)[] = [];
     let disposed = false;
+    let scale = 1;
+    let settle = 0;
 
-    void win
-      .onMoved(({ payload }) => {
-        void win.scaleFactor().then((scale) => {
-          rememberIslandWindowPosition({ x: payload.x / scale, y: payload.y / scale });
-        });
-      })
-      .then((fn) => {
+    const listen = (pending: Promise<() => void>) => {
+      void pending.then((fn) => {
         if (disposed) fn();
-        else unlisten = fn;
+        else unlisteners.push(fn);
       });
+    };
+
+    void win.scaleFactor().then((value) => {
+      scale = value;
+    });
+
+    listen(
+      win.onMoved(({ payload }) => {
+        window.clearTimeout(settle);
+        settle = window.setTimeout(() => {
+          rememberIslandWindowPosition({ x: payload.x / scale, y: payload.y / scale });
+        }, POSITION_SETTLE_MS);
+      }),
+    );
+    listen(
+      win.onScaleChanged(({ payload }) => {
+        scale = payload.scaleFactor;
+      }),
+    );
 
     return () => {
       disposed = true;
-      unlisten?.();
+      window.clearTimeout(settle);
+      for (const off of unlisteners) off();
     };
   }, []);
 }

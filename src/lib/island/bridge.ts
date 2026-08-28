@@ -54,13 +54,19 @@ export function nextRequestId(): string {
   return `${Date.now().toString(36)}-${counter.toString(36)}`;
 }
 
-/** No-op outside Tauri so the bridge stays inert in a plain browser. */
-async function safeEmit(event: string, payload?: unknown): Promise<void> {
-  if (!IS_TAURI) return;
+/**
+ * Emits without throwing, reporting whether the event went out. The request
+ * path needs to know: a swallowed failure would leave the caller waiting for
+ * the full request timeout instead of failing immediately.
+ */
+async function safeEmit(event: string, payload?: unknown): Promise<boolean> {
+  if (!IS_TAURI) return false;
   try {
     await emit(event, payload);
+    return true;
   } catch {
-    // The other window may be gone — nothing to recover from here.
+    // The other window may be gone.
+    return false;
   }
 }
 

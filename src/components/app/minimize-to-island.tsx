@@ -1,5 +1,6 @@
 import { PictureInPicture2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { IS_TAURI } from "@/lib/island/bridge";
@@ -29,7 +30,9 @@ export function MinimizeToIsland() {
       onClick={() => {
         void openIslandWindow(storedIslandWindowPosition())
           .then(() => minimizeMainWindow())
-          .catch(() => {});
+          // Silence here would read as a dead button: nothing detaches and the
+          // window stays put.
+          .catch(() => toast.error(t("header.minimizeToIslandFailed")));
       }}
       className={cn(
         "size-7 text-muted-foreground",

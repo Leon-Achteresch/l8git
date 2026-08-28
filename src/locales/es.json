@@ -96,7 +96,8 @@
     "maximize": "Maximizar",
     "restore": "Restaurar",
     "close": "Cerrar",
-    "minimizeToIsland": "Minimizar a la isla"
+    "minimizeToIsland": "Minimizar a la isla",
+    "minimizeToIslandFailed": "No se ha podido separar la isla."
   },
   "inbox": {
     "title": "Bandeja",

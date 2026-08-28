@@ -17,6 +17,7 @@ import {
   type IslandSnapshotInputs,
 } from "@/lib/island/snapshot";
 import {
+  acceptsIslandSnapshot,
   EMPTY_ISLAND_SNAPSHOT,
   sameIslandSnapshot,
   type IslandRequest,
@@ -76,8 +77,9 @@ export function useIslandSnapshot(): IslandSnapshot {
 
     void onSnapshot((snapshot) => {
       seen.current = true;
-      // Snapshots can overtake each other; only newer revisions win.
-      setRemote((prev) => (snapshot.revision >= prev.revision ? snapshot : prev));
+      // Snapshots can overtake each other, and a restarted host begins counting
+      // again — both are handled by the accept rule.
+      setRemote((prev) => (acceptsIslandSnapshot(prev, snapshot) ? snapshot : prev));
     }).then((fn) => {
       if (disposed) fn();
       else unlisten = fn;
@@ -141,6 +143,11 @@ export async function dispatchIslandAction(
         if (settled) fn();
         else unlisten = fn;
         return sendRequest({ id, request });
+      })
+      .then((sent) => {
+        // Nothing will answer a request that never left, so do not sit out the
+        // timeout waiting for it.
+        if (!sent) finish({ ok: false, message: "Island bridge unavailable" });
       })
       .catch(() => finish({ ok: false, message: "Island bridge unavailable" }));
   });
