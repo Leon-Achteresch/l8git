@@ -1,3 +1,4 @@
+mod agent_addons;
 mod agent_review;
 pub mod agent_transport;
 mod claude;
@@ -69,6 +70,8 @@ pub fn run() {
             remote::remote_pair,
             remote::remote_add_root,
             remote::remote_remove_root,
+            agent_addons::agent_addon_config_read,
+            agent_addons::agent_addon_config_write,
             agent_transport::agent_transport_open,
             agent_transport::agent_transport_send,
             agent_transport::agent_transport_close,

@@ -336,7 +336,12 @@
     "worktreeLanded": "{{name}} をマージして後片付けしました",
     "usageToday": "今日: {{cost}} · {{tokens}} トークン",
     "usageWeek": "過去 7 日間: {{cost}} · {{tokens}} トークン",
-    "chartLoading": "グラフを描画中…"
+    "chartLoading": "グラフを描画中…",
+    "barcodeLoading": "バーコードを生成中…",
+    "barcodeZoom": "スキャン用に拡大",
+    "barcodeCopy": "値をコピー",
+    "barcodeCopied": "値をコピーしました",
+    "barcodeDownload": "SVG としてダウンロード"
   },
   "agentReview": {
     "openButton": "変更をレビュー",
@@ -2855,6 +2860,64 @@
       "deleted": "フックを削除しました",
       "empty": "ライフサイクルフックが設定されていません",
       "emptyHint": "リポジトリに hooks.json を作成して、Codex のライフサイクルイベントを自動化しましょう。"
+    }
+  },
+  "agentAddons": {
+    "title": "アドオンスタジオ",
+    "subtitle": "すべての CLI にバーコードとブラウザ操作を",
+    "open": "アドオンスタジオを開く",
+    "alwaysOn": "常に有効",
+    "barcode": {
+      "title": "バーコード生成",
+      "description": "MCP サーバー、データベース、リポジトリなどのデータを、エージェントがチャット内でそのままスキャン可能なコードにします。```barcode ブロックですべての CLI に対応し、Claude Code ではツールとしても呼び出せます。",
+      "format": "フォーマット",
+      "label": "ラベル",
+      "labelPlaceholder": "任意。コードの上に表示されます",
+      "value": "値",
+      "insert": "入力欄にブロックを挿入",
+      "inserted": "バーコードブロックを挿入しました",
+      "copyDoc": "フォーマット説明をコピー",
+      "docCopied": "フォーマット説明をコピーしました",
+      "usage": "{{count}} 種類のフォーマットをエージェント向けに文書化しています。/barcode <値> で直接依頼できます。",
+      "noPreview": "この値は選択したシンボル体系に適合しません。",
+      "kinds": {
+        "linear": "1D バーコード",
+        "matrix": "2D コード",
+        "postal": "郵便コード"
+      }
+    },
+    "browser": {
+      "title": "Claude in Browser",
+      "description": "Playwright MCP サーバー経由で CLI に実ブラウザを渡し、チャットから直接 E2E テストを実行します。移動・クリック・入力・検証に加えて、コンソールとネットワークも読み取れます。",
+      "active": "インストール済み",
+      "inactive": "未インストール",
+      "browser": "ブラウザ",
+      "viewport": "ウィンドウサイズ",
+      "viewportHint": "幅 x 高さ（例: 1280x720）。空欄は Playwright の既定値。",
+      "device": "デバイス",
+      "deviceHint": "Playwright のデバイス名（例: iPhone 15）。空欄はデスクトップ。",
+      "allowedOrigins": "許可するオリジン",
+      "allowedOriginsHint": "セミコロン区切り。空欄はすべて許可。",
+      "caps": "追加機能",
+      "capsHint": "カンマ区切り: vision, pdf, devtools。",
+      "baseUrl": "アプリの URL",
+      "baseUrlHint": "テスト対象アプリの稼働先。テストプロンプトに含まれます。",
+      "headless": "ヘッドレス",
+      "isolated": "セッションごとに新しいプロファイル",
+      "serverName": "MCP サーバー「{{name}}」",
+      "codexTarget": "Codex は独自の config.toml に保存します。",
+      "install": "アドオンをインストール",
+      "update": "設定を適用",
+      "remove": "削除",
+      "installed": "{{provider}} にブラウザアドオンをインストールしました",
+      "removed": "{{provider}} からブラウザアドオンを削除しました",
+      "approvalHint": "CLI は次回起動時にサーバーを読み込みます。Claude Code はプロジェクト設定の信頼を一度確認します。",
+      "scenario": "テストシナリオ",
+      "scenarioHint": "普通の文章で。エージェントがブラウザを操作し、各手順を報告します。",
+      "scenarioPlaceholder": "誤ったパスワードでログインし、エラーメッセージを確認する。",
+      "runTest": "テストを実行",
+      "scenarioMissing": "先にシナリオを記述してください。",
+      "wrongProvider": "そこでテストを実行するには、チャットで {{provider}} に切り替えてください。"
     }
   },
   "hotkeysOverlay": {

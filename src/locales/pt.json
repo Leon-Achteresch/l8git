@@ -336,7 +336,12 @@
     "worktreeLanded": "{{name}} mesclado e limpo",
     "usageToday": "Hoje: {{cost}} · {{tokens}} tokens",
     "usageWeek": "Últimos 7 dias: {{cost}} · {{tokens}} tokens",
-    "chartLoading": "Renderizando gráfico…"
+    "chartLoading": "Renderizando gráfico…",
+    "barcodeLoading": "Gerando código de barras…",
+    "barcodeZoom": "Ampliar para digitalizar",
+    "barcodeCopy": "Copiar valor",
+    "barcodeCopied": "Valor copiado",
+    "barcodeDownload": "Baixar como SVG"
   },
   "agentReview": {
     "openButton": "Revisar alterações",
@@ -2855,6 +2860,64 @@
       "deleted": "Hook excluído",
       "empty": "Nenhum hook de ciclo de vida configurado",
       "emptyHint": "Crie um hooks.json no repositório e automatize um evento do ciclo de vida do Codex."
+    }
+  },
+  "agentAddons": {
+    "title": "Estúdio de complementos",
+    "subtitle": "Códigos de barras e acesso ao navegador para cada CLI",
+    "open": "Abrir o estúdio de complementos",
+    "alwaysOn": "Sempre ativo",
+    "barcode": {
+      "title": "Gerador de códigos de barras",
+      "description": "O agente transforma dados — de um servidor MCP, de um banco ou do repositório — em códigos escaneáveis dentro do chat. Funciona em qualquer CLI pelo bloco ```barcode; no Claude Code também é chamado como ferramenta.",
+      "format": "Formato",
+      "label": "Rótulo",
+      "labelPlaceholder": "Opcional, aparece acima do código",
+      "value": "Valor",
+      "insert": "Inserir bloco no editor",
+      "inserted": "Bloco de código de barras inserido",
+      "copyDoc": "Copiar a documentação do formato",
+      "docCopied": "Documentação do formato copiada",
+      "usage": "{{count}} formatos documentados para o agente. /barcode <valores> os solicita diretamente.",
+      "noPreview": "Este valor não combina com a simbologia escolhida.",
+      "kinds": {
+        "linear": "Códigos 1D",
+        "matrix": "Códigos 2D",
+        "postal": "Códigos postais"
+      }
+    },
+    "browser": {
+      "title": "Claude no navegador",
+      "description": "Dá à CLI um navegador real pelo servidor MCP do Playwright, para rodar testes ponta a ponta direto do chat: navegar, clicar, digitar, verificar e ler console e rede.",
+      "active": "Instalado",
+      "inactive": "Não instalado",
+      "browser": "Navegador",
+      "viewport": "Janela",
+      "viewportHint": "Largura x altura, ex.: 1280x720. Vazio = padrão do Playwright.",
+      "device": "Dispositivo",
+      "deviceHint": "Nome de dispositivo do Playwright, ex.: iPhone 15. Vazio = desktop.",
+      "allowedOrigins": "Origens permitidas",
+      "allowedOriginsHint": "Separadas por ponto e vírgula. Vazio = todas permitidas.",
+      "caps": "Recursos extras",
+      "capsHint": "Separados por vírgula: vision, pdf, devtools.",
+      "baseUrl": "URL da aplicação",
+      "baseUrlHint": "Onde a aplicação testada roda. Entra no prompt de teste.",
+      "headless": "Sem janela",
+      "isolated": "Perfil novo por sessão",
+      "serverName": "Servidor MCP \"{{name}}\"",
+      "codexTarget": "O Codex guarda a entrada no próprio config.toml.",
+      "install": "Instalar complemento",
+      "update": "Aplicar ajustes",
+      "remove": "Remover",
+      "installed": "Complemento de navegador instalado para {{provider}}",
+      "removed": "Complemento de navegador removido de {{provider}}",
+      "approvalHint": "A CLI carrega o servidor na próxima inicialização; o Claude Code pergunta uma vez se confia na configuração do projeto.",
+      "scenario": "Cenário de teste",
+      "scenarioHint": "Em linguagem comum. O agente conduz o navegador e relata cada passo.",
+      "scenarioPlaceholder": "Entrar com a senha errada e conferir a mensagem de erro.",
+      "runTest": "Executar teste",
+      "scenarioMissing": "Descreva o cenário primeiro.",
+      "wrongProvider": "Mude para {{provider}} no chat para executar o teste lá."
     }
   },
   "hotkeysOverlay": {

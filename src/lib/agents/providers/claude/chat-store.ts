@@ -1,3 +1,4 @@
+import { BARCODE_TOOL } from "@/lib/agents/barcode-spec";
 import { CHART_TOOL } from "@/lib/agents/chart-spec";
 import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
 import { invoke } from "@/lib/platform/ipc";
@@ -842,6 +843,14 @@ function handleClaudeMessage(threadId: string, path: string, event: UnknownRecor
   }
 }
 
+/** Bestätigung für den In-App-MCP-Server; die Darstellung passiert in der UI. */
+function renderedToolAck(params: unknown): string {
+  const name = isRecord(params) ? stringValue(params.name) : "";
+  if (name === BARCODE_TOOL.name) return "Barcode wurde in der l8git-UI gerendert.";
+  if (name === CHART_TOOL.name) return "Diagramm wurde in der l8git-UI gerendert.";
+  return "Ausgabe wurde in der l8git-UI gerendert.";
+}
+
 function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
   const subtype = stringValue(request.request.subtype);
   if (subtype === "oauth_token_refresh") {
@@ -888,9 +897,9 @@ function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
             serverInfo: { name: "l8git", version: "1.0.0" },
           }
         : method === "tools/list"
-          ? { tools: [CHART_TOOL] }
+          ? { tools: [CHART_TOOL, BARCODE_TOOL] }
           : method === "tools/call"
-            ? { content: [{ type: "text", text: "Diagramm wurde in der l8git-UI gerendert." }] }
+            ? { content: [{ type: "text", text: renderedToolAck(message.params) }] }
             : null;
     void clients.get(threadId)?.respond(request.request_id, {
       mcp_response: result

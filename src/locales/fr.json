@@ -336,7 +336,12 @@
     "worktreeLanded": "{{name}} fusionné et nettoyé",
     "usageToday": "Aujourd'hui : {{cost}} · {{tokens}} tokens",
     "usageWeek": "7 derniers jours : {{cost}} · {{tokens}} tokens",
-    "chartLoading": "Rendu du graphique…"
+    "chartLoading": "Rendu du graphique…",
+    "barcodeLoading": "Génération du code-barres…",
+    "barcodeZoom": "Agrandir pour scanner",
+    "barcodeCopy": "Copier la valeur",
+    "barcodeCopied": "Valeur copiée",
+    "barcodeDownload": "Télécharger en SVG"
   },
   "agentReview": {
     "openButton": "Examiner les modifications",
@@ -2855,6 +2860,64 @@
       "deleted": "Hook supprimé",
       "empty": "Aucun hook de cycle de vie configuré",
       "emptyHint": "Créez un hooks.json de dépôt et automatisez un événement du cycle de vie Codex."
+    }
+  },
+  "agentAddons": {
+    "title": "Studio d'extensions",
+    "subtitle": "Codes-barres et accès navigateur pour chaque CLI",
+    "open": "Ouvrir le studio d'extensions",
+    "alwaysOn": "Toujours actif",
+    "barcode": {
+      "title": "Générateur de codes-barres",
+      "description": "L'agent transforme des données — d'un serveur MCP, d'une base ou du dépôt — en codes scannables directement dans le chat. Disponible pour toutes les CLI via le bloc ```barcode ; Claude Code l'appelle aussi comme outil.",
+      "format": "Format",
+      "label": "Libellé",
+      "labelPlaceholder": "Facultatif, affiché au-dessus du code",
+      "value": "Valeur",
+      "insert": "Insérer le bloc dans la saisie",
+      "inserted": "Bloc code-barres inséré",
+      "copyDoc": "Copier la documentation du format",
+      "docCopied": "Documentation du format copiée",
+      "usage": "{{count}} formats documentés pour l'agent. /barcode <valeurs> les demande directement.",
+      "noPreview": "Cette valeur ne convient pas à la symbologie choisie.",
+      "kinds": {
+        "linear": "Codes 1D",
+        "matrix": "Codes 2D",
+        "postal": "Codes postaux"
+      }
+    },
+    "browser": {
+      "title": "Claude dans le navigateur",
+      "description": "Donne à la CLI un vrai navigateur via le serveur MCP Playwright, pour lancer des tests de bout en bout depuis le chat : naviguer, cliquer, saisir, vérifier et lire la console et le réseau.",
+      "active": "Installé",
+      "inactive": "Non installé",
+      "browser": "Navigateur",
+      "viewport": "Fenêtre",
+      "viewportHint": "Largeur x hauteur, par ex. 1280x720. Vide = valeur par défaut de Playwright.",
+      "device": "Appareil",
+      "deviceHint": "Nom d'appareil Playwright, par ex. iPhone 15. Vide = bureau.",
+      "allowedOrigins": "Origines autorisées",
+      "allowedOriginsHint": "Séparées par des points-virgules. Vide = toutes autorisées.",
+      "caps": "Capacités supplémentaires",
+      "capsHint": "Séparées par des virgules : vision, pdf, devtools.",
+      "baseUrl": "URL de l'application",
+      "baseUrlHint": "Où tourne l'application testée. Reprise dans l'invite de test.",
+      "headless": "Sans fenêtre",
+      "isolated": "Profil neuf par session",
+      "serverName": "Serveur MCP « {{name}} »",
+      "codexTarget": "Codex enregistre l'entrée dans son propre config.toml.",
+      "install": "Installer l'extension",
+      "update": "Appliquer les réglages",
+      "remove": "Retirer",
+      "installed": "Extension navigateur installée pour {{provider}}",
+      "removed": "Extension navigateur retirée de {{provider}}",
+      "approvalHint": "La CLI chargera le serveur au prochain démarrage ; Claude Code demande une fois de faire confiance à la configuration du projet.",
+      "scenario": "Scénario de test",
+      "scenarioHint": "En langage courant. L'agent pilote le navigateur et rend compte de chaque étape.",
+      "scenarioPlaceholder": "Se connecter avec un mauvais mot de passe et vérifier le message d'erreur.",
+      "runTest": "Lancer le test",
+      "scenarioMissing": "Décris d'abord le scénario.",
+      "wrongProvider": "Passe à {{provider}} dans le chat pour y lancer le test."
     }
   },
   "hotkeysOverlay": {

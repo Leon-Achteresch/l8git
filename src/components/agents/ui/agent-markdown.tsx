@@ -3,20 +3,24 @@ import { isValidElement } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { MarkdownBarcode } from "@/components/agents/ui/agent-barcode";
 import { MarkdownChart } from "@/components/agents/ui/agent-chart";
 
-function chartSource(children: unknown): string | null {
+/** Quelltext eines Codeblocks, wenn er die gesuchte Sprache trägt. */
+function fenceSource(children: unknown, language: string): string | null {
   if (!isValidElement(children)) return null;
   const props = children.props as { className?: string; children?: unknown };
-  if (!props.className?.includes("language-chart")) return null;
+  if (!props.className?.includes(`language-${language}`)) return null;
   return typeof props.children === "string" ? props.children : null;
 }
 
 const MARKDOWN_PLUGINS = [remarkGfm];
 const MARKDOWN_COMPONENTS: Components = {
   pre: ({ children, ...props }) => {
-    const source = chartSource(children);
-    if (source !== null) return <MarkdownChart source={source} />;
+    const chart = fenceSource(children, "chart");
+    if (chart !== null) return <MarkdownChart source={chart} />;
+    const barcode = fenceSource(children, "barcode");
+    if (barcode !== null) return <MarkdownBarcode source={barcode} />;
     return <pre {...props}>{children}</pre>;
   },
   a: ({ href, children, ...props }) => (

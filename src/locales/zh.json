@@ -336,7 +336,12 @@
     "worktreeLanded": "{{name}} 已合并并清理",
     "usageToday": "今天：{{cost}} · {{tokens}} tokens",
     "usageWeek": "最近 7 天：{{cost}} · {{tokens}} tokens",
-    "chartLoading": "正在渲染图表…"
+    "chartLoading": "正在渲染图表…",
+    "barcodeLoading": "正在生成条码…",
+    "barcodeZoom": "放大以便扫描",
+    "barcodeCopy": "复制内容",
+    "barcodeCopied": "已复制内容",
+    "barcodeDownload": "下载为 SVG"
   },
   "agentReview": {
     "openButton": "审查更改",
@@ -2855,6 +2860,64 @@
       "deleted": "钩子已删除",
       "empty": "未配置生命周期钩子",
       "emptyHint": "创建仓库级 hooks.json，即可自动化某个 Codex 生命周期事件。"
+    }
+  },
+  "agentAddons": {
+    "title": "插件工作室",
+    "subtitle": "为每个 CLI 提供条码与浏览器访问",
+    "open": "打开插件工作室",
+    "alwaysOn": "始终启用",
+    "barcode": {
+      "title": "条码渲染",
+      "description": "让智能体把来自 MCP 服务器、数据库或仓库的数据，直接在聊天中变成可扫描的条码。通过 ```barcode 代码块适用于所有 CLI，Claude Code 还能作为工具调用。",
+      "format": "格式",
+      "label": "标签",
+      "labelPlaceholder": "可选，显示在条码上方",
+      "value": "内容",
+      "insert": "插入代码块到输入框",
+      "inserted": "已插入条码代码块",
+      "copyDoc": "复制格式说明",
+      "docCopied": "已复制格式说明",
+      "usage": "已为智能体记录 {{count}} 种格式。/barcode <内容> 可直接请求。",
+      "noPreview": "该内容不符合所选的条码类型。",
+      "kinds": {
+        "linear": "一维条码",
+        "matrix": "二维码",
+        "postal": "邮政条码"
+      }
+    },
+    "browser": {
+      "title": "Claude in Browser",
+      "description": "通过 Playwright MCP 服务器给 CLI 一个真实浏览器，端到端测试可直接从聊天运行：导航、点击、输入、断言，并读取控制台与网络记录。",
+      "active": "已安装",
+      "inactive": "未安装",
+      "browser": "浏览器",
+      "viewport": "视口",
+      "viewportHint": "宽 x 高，例如 1280x720。留空使用 Playwright 默认值。",
+      "device": "设备",
+      "deviceHint": "Playwright 设备名，例如 iPhone 15。留空表示桌面端。",
+      "allowedOrigins": "允许的来源",
+      "allowedOriginsHint": "以分号分隔。留空表示允许全部。",
+      "caps": "附加能力",
+      "capsHint": "以逗号分隔：vision、pdf、devtools。",
+      "baseUrl": "应用地址",
+      "baseUrlHint": "被测应用的运行地址，会写入测试提示。",
+      "headless": "无界面模式",
+      "isolated": "每次会话使用全新配置",
+      "serverName": "MCP 服务器“{{name}}”",
+      "codexTarget": "Codex 会写入自己的 config.toml。",
+      "install": "安装插件",
+      "update": "应用设置",
+      "remove": "移除",
+      "installed": "已为 {{provider}} 安装浏览器插件",
+      "removed": "已从 {{provider}} 移除浏览器插件",
+      "approvalHint": "CLI 会在下次启动时加载该服务器；Claude Code 会询问一次是否信任项目配置。",
+      "scenario": "测试场景",
+      "scenarioHint": "用日常语言描述。智能体会操作浏览器并逐步汇报。",
+      "scenarioPlaceholder": "用错误的密码登录并检查错误提示。",
+      "runTest": "运行测试",
+      "scenarioMissing": "请先描述测试场景。",
+      "wrongProvider": "请在聊天中切换到 {{provider}} 再运行测试。"
     }
   },
   "hotkeysOverlay": {

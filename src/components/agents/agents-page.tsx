@@ -37,6 +37,9 @@ const AgentCapabilityCenter = lazy(() => import("@/components/agents/capabilitie
 const ClaudeCapabilityCenter = lazy(() => import("@/components/agents/capabilities/claude-capability-center").then(
   (module) => ({ default: module.ClaudeCapabilityCenter }),
 ));
+const AgentAddonStudio = lazy(() => import("@/components/agents/capabilities/agent-addon-studio").then(
+  (module) => ({ default: module.AgentAddonStudio }),
+));
 
 export function AgentsPage({
   initialPath,
@@ -63,6 +66,9 @@ export function AgentsPage({
   const selectedPath = useAgentRepoStore((state) => state.path);
   const setSelectedPath = useAgentRepoStore((state) => state.setPath);
   const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
+  // Addons gelten für alle vier CLIs und liegen deshalb neben dem
+  // providerspezifischen Capability-Center, nicht darin.
+  const [addonsOpen, setAddonsOpen] = useState(false);
   const terminalVisible = useTerminalStore((state) => !!state.visibleByPath[selectedPath]);
   const toggleTerminal = useTerminalStore((state) => state.toggleVisible);
   const activeThreadId = useAgentChatStore(
@@ -194,7 +200,7 @@ export function AgentsPage({
           >
             <AnimatePresence initial={false} mode="popLayout">
               <m.div
-                key={capabilitySection ? `capabilities:${provider}` : "chat"}
+                key={addonsOpen ? "addons" : capabilitySection ? `capabilities:${provider}` : "chat"}
                 layout
                 layoutId="agents-workspace-surface"
                 initial={{ opacity: 0, x: 10 }}
@@ -203,7 +209,15 @@ export function AgentsPage({
                 transition={SPRING_LAYOUT}
                 className="h-full min-h-0"
               >
-                {capabilitySection ? (
+                {addonsOpen ? (
+                  <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Addon Studio…</div>}>
+                    <AgentAddonStudio
+                      key={`addons:${selectedPath}`}
+                      path={selectedPath}
+                      onBack={() => setAddonsOpen(false)}
+                    />
+                  </Suspense>
+                ) : capabilitySection ? (
                   <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Capability Studio…</div>}>
                     {provider === "claude" || provider === "opencode" ? (
                       <ClaudeCapabilityCenter
@@ -230,6 +244,7 @@ export function AgentsPage({
                     terminalVisible={terminalVisible}
                     onToggleTerminal={handleToggleTerminal}
                     onOpenCapabilities={(section = "skills") => setCapabilitySection(section)}
+                    onOpenAddons={() => setAddonsOpen(true)}
                   />
                 )}
               </m.div>
