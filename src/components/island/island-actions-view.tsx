@@ -18,6 +18,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Sparkles,
   Terminal,
   X,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ListRow } from "@/components/ui/list-row";
 import { ISLAND_ICON, ISLAND_ROW } from "@/components/island/island-ui";
+import { RepoLogo } from "@/components/repo/repo-logo";
 import {
   listedIslandActions,
   searchIslandActions,
@@ -34,7 +36,7 @@ import {
   type IslandActionGroup,
 } from "@/lib/island/actions";
 import { runIslandActionWithFlash } from "@/lib/island/flash";
-import type { IslandActionArgs, IslandSnapshot } from "@/lib/island/types";
+import { activeRepoOf, type IslandActionArgs, type IslandSnapshot } from "@/lib/island/types";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<{ className?: string }>;
@@ -66,7 +68,7 @@ const ACTION_ICON: Record<string, Icon> = {
   "window.attach": PictureInPicture2,
 };
 
-const GROUP_ORDER: IslandActionGroup[] = ["git", "view", "repo", "agents", "window"];
+const GROUP_ORDER: IslandActionGroup[] = ["git", "agents", "repo", "view", "window"];
 
 function iconOf(action: IslandActionDef): Icon {
   return ACTION_ICON[action.id] ?? GROUP_ICON[action.group];
@@ -75,34 +77,39 @@ function iconOf(action: IslandActionDef): Icon {
 export function IslandActionsView({
   snapshot,
   onClose,
-  onBack,
+  onOpenProjects,
+  onOpenChat,
 }: {
   snapshot: IslandSnapshot;
   onClose: () => void;
-  onBack: () => void;
+  onOpenProjects: () => void;
+  onOpenChat: () => void;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<IslandActionDef | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  const active = activeRepoOf(snapshot);
 
   const label = (action: IslandActionDef) => t(`islandActions.${action.labelKey}`);
 
   const available = useMemo(() => {
     const detached = snapshot.detached;
+    const searching = query.trim().length > 0;
     return listedIslandActions().filter((action) => {
       if (action.needsRepo && !snapshot.activePath) return false;
       if (action.id === "window.detach" && detached) return false;
       if (action.id === "window.attach" && !detached) return false;
-      if (action.id === "repo.activate") return false; // covered by the projects view
-      if (action.id === "agent.launch") return false; // covered by the integrations page
+      if (action.id === "repo.activate") return false;
+      if (action.id === "agent.launch") return false;
+      if (action.id === "view.agents") return false;
+      if (!searching && (action.group === "view" || action.group === "window")) return false;
       return true;
     });
-  }, [snapshot.activePath, snapshot.detached]);
+  }, [query, snapshot.activePath, snapshot.detached]);
 
   const matches = useMemo(
     () => searchIslandActions(available, query, label),
-    // `label` is stable enough — it only changes with the language.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [available, query, t],
   );
@@ -148,7 +155,7 @@ export function IslandActionsView({
       run(pending, args);
     };
     return (
-      <div className="flex w-[300px] flex-col gap-2">
+      <div className="flex h-full w-full flex-col gap-2">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -201,27 +208,33 @@ export function IslandActionsView({
   }
 
   return (
-    <div className="flex w-[300px] flex-col">
+    <div className="flex h-full w-full flex-col">
       <div className="flex items-center gap-1 px-1 pb-1.5">
+        <ListRow
+          onClick={onOpenProjects}
+          className={cn(ISLAND_ROW, "min-w-0 flex-1 gap-1.5 px-1")}
+        >
+          {active && (
+            <RepoLogo
+              path={active.path}
+              label={active.label}
+              className="size-4 text-[8px]"
+            />
+          )}
+          <span className="min-w-0 flex-1 truncate text-left text-xs font-medium">
+            {active?.label ?? t("island.projects", { count: snapshot.repos.length })}
+          </span>
+        </ListRow>
         <Button
           variant="ghost"
           size="icon-xs"
-          onClick={onBack}
-          aria-label={t("common.back")}
+          onClick={onOpenChat}
+          aria-label={t("island.chat")}
+          title={t("island.chat")}
           className={ISLAND_ICON}
         >
-          <ChevronLeft />
+          <Sparkles />
         </Button>
-        <span className="flex flex-1 items-center gap-1.5">
-          <Search className="size-3 shrink-0 opacity-50" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("islandActions.searchPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:opacity-40"
-          />
-        </span>
         <Button
           variant="ghost"
           size="icon-xs"
@@ -233,7 +246,18 @@ export function IslandActionsView({
         </Button>
       </div>
 
-      <div className="max-h-72 min-h-0 overflow-y-auto [scrollbar-width:thin]">
+      <div className="flex items-center gap-1.5 px-2 pb-1.5">
+        <Search className="size-3 shrink-0 opacity-50" />
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("islandActions.searchPlaceholder")}
+          className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:opacity-40"
+        />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
         {grouped.length === 0 && (
           <p className="px-2 py-3 text-center text-[11px] opacity-50">
             {t("islandActions.empty")}

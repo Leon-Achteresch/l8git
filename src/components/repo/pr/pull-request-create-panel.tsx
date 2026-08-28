@@ -29,6 +29,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  OverlayPortal,
+  useAnchorBox,
+} from "@/components/ui/overlay-portal";
 import { AiError } from "@/lib/ai/core";
 import { generatePrDescription } from "@/lib/ai/explain-sources";
 import { isAiConfigured } from "@/lib/ai-setup";
@@ -85,11 +89,16 @@ function BranchDropdown({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const box = useAnchorBox(open, triggerRef);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (containerRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -127,7 +136,7 @@ function BranchDropdown({
   return (
     <div className="grid gap-1" ref={containerRef}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className="relative">
+      <div className="relative" ref={triggerRef}>
         <Button
           type="button"
           variant="outline"
@@ -156,16 +165,23 @@ function BranchDropdown({
             <ChevronDown className="h-3 w-3" />
           </m.span>
         </Button>
+        <OverlayPortal>
         <AnimatePresence>
           {open ? (
             <m.div
+              ref={panelRef}
               initial={{ opacity: 0, y: -6, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.97 }}
               transition={{ duration: 0.16, ease: "easeOut" }}
               role="listbox"
-              className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-xl"
-              style={{ transformOrigin: "top center" }}
+              className="fixed z-[80] mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-xl"
+              style={{
+                transformOrigin: "top center",
+                top: box?.bottom ?? 0,
+                left: box?.left ?? 0,
+                width: box?.width,
+              }}
             >
               <div className="flex items-center gap-1.5 border-b border-border/60 px-2 py-1.5">
                 <Search className="h-3 w-3 opacity-50" />
@@ -203,6 +219,7 @@ function BranchDropdown({
             </m.div>
           ) : null}
         </AnimatePresence>
+        </OverlayPortal>
       </div>
     </div>
   );

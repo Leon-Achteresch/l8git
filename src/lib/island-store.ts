@@ -2,7 +2,10 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 export type IslandPosition = { x: number; y: number };
-export type IslandDockId = "header" | "sidebar";
+export type IslandPanelSize = { width: number; height: number };
+export type IslandSlotDock = "header" | "sidebar";
+export type IslandEdgeDock = "top" | "right" | "bottom" | "left";
+export type IslandDockId = IslandSlotDock | IslandEdgeDock;
 export type IslandDock = IslandDockId | "free";
 
 type IslandState = {
@@ -13,23 +16,81 @@ type IslandState = {
   showBranch: boolean;
   showDirty: boolean;
   showAgents: boolean;
+  showUsage: boolean;
+  panelSize: IslandPanelSize;
   setPosition: (position: IslandPosition) => void;
   setDock: (dock: IslandDock) => void;
   setDragging: (dragging: boolean) => void;
   setHovered: (hovered: IslandDockId | null) => void;
+  setPanelSize: (size: IslandPanelSize) => void;
   resetPosition: () => void;
   toggleBranch: () => void;
   toggleDirty: () => void;
   toggleAgents: () => void;
+  toggleUsage: () => void;
 };
 
 export const ISLAND_WIDTH = 126;
 export const ISLAND_HEIGHT = 28;
 export const ISLAND_PAD = 12;
+export const ISLAND_PANEL_MIN = { width: 280, height: 220 };
+export const ISLAND_PANEL_MAX = { width: 720, height: 800 };
+export const ISLAND_PANEL_DEFAULT = { width: 340, height: 440 };
+export const EDGE_SINK = 8;
+const EDGE_REACH = 140;
+
+export function clampIslandPanel(size: IslandPanelSize): IslandPanelSize {
+  return {
+    width: Math.min(ISLAND_PANEL_MAX.width, Math.max(ISLAND_PANEL_MIN.width, Math.round(size.width))),
+    height: Math.min(ISLAND_PANEL_MAX.height, Math.max(ISLAND_PANEL_MIN.height, Math.round(size.height))),
+  };
+}
 
 export function defaultIslandPosition(): IslandPosition {
   const width = typeof window === "undefined" ? 1200 : window.innerWidth;
   return { x: Math.max(ISLAND_WIDTH / 2 + 8, width - 260), y: 20 };
+}
+
+export function isEdgeDock(dock: IslandDock): dock is IslandEdgeDock {
+  return dock === "top" || dock === "right" || dock === "bottom" || dock === "left";
+}
+
+export function isVerticalDock(dock: IslandDock): boolean {
+  return dock === "left" || dock === "right" || dock === "sidebar";
+}
+
+export function isSlotDock(dock: IslandDock): dock is IslandSlotDock {
+  return dock === "header" || dock === "sidebar";
+}
+
+export function islandPopoverSide(
+  dock: IslandDock,
+): "top" | "right" | "bottom" | "left" {
+  if (dock === "right") return "left";
+  if (dock === "left" || dock === "sidebar") return "right";
+  if (dock === "bottom") return "top";
+  return "bottom";
+}
+
+export function islandOverlayClass(dock: IslandDock): string {
+  switch (dock) {
+    case "left":
+      return "[translate:-8px_-50%]";
+    case "right":
+      return "[translate:calc(-100%+8px)_-50%]";
+    case "top":
+      return "[translate:-50%_-8px]";
+    case "bottom":
+      return "[translate:-50%_calc(-100%+8px)]";
+    case "header":
+    case "sidebar":
+    case "free":
+      return "[translate:-50%_-18.5px]";
+    default: {
+      const _exhaustive: never = dock;
+      return _exhaustive;
+    }
+  }
 }
 
 export const useIslandStore = create<IslandState>()(
@@ -42,28 +103,36 @@ export const useIslandStore = create<IslandState>()(
       showBranch: true,
       showDirty: true,
       showAgents: true,
+      showUsage: true,
+      panelSize: ISLAND_PANEL_DEFAULT,
       setPosition: (position) => set({ position }),
       setDock: (dock) => set({ dock }),
       setDragging: (dragging) => set({ dragging }),
       setHovered: (hovered) => set({ hovered }),
+      setPanelSize: (size) => set({ panelSize: clampIslandPanel(size) }),
       resetPosition: () => set({ position: null, dock: "free" }),
       toggleBranch: () => set((s) => ({ showBranch: !s.showBranch })),
       toggleDirty: () => set((s) => ({ showDirty: !s.showDirty })),
       toggleAgents: () => set((s) => ({ showAgents: !s.showAgents })),
+      toggleUsage: () => set((s) => ({ showUsage: !s.showUsage })),
     }),
     {
       name: "l8git-island",
       storage: createJSONStorage(() => localStorage),
       partialize: ({ dragging: _dragging, hovered: _hovered, ...rest }) => rest,
+      merge: (persisted, current) => ({
+        ...current,
+        ...(typeof persisted === "object" && persisted ? persisted : {}),
+      }),
     },
   ),
 );
 
 type DockState = {
-  els: Partial<Record<IslandDockId, HTMLElement>>;
+  els: Partial<Record<IslandSlotDock, HTMLElement>>;
   size: { width: number; height: number };
   version: number;
-  register: (id: IslandDockId, el: HTMLElement | null) => void;
+  register: (id: IslandSlotDock, el: HTMLElement | null) => void;
   setSize: (size: { width: number; height: number }) => void;
   bump: () => void;
 };
@@ -88,7 +157,7 @@ export const useIslandDocks = create<DockState>((set) => ({
   bump: () => set((s) => ({ version: s.version + 1 })),
 }));
 
-export function dockRectFor(id: IslandDockId): DOMRect | null {
+export function dockRectFor(id: IslandSlotDock): DOMRect | null {
   const el = useIslandDocks.getState().els[id];
   return el ? el.getBoundingClientRect() : null;
 }
@@ -103,11 +172,82 @@ export type MagnetHit = {
   pull: number;
 };
 
+export function islandTarget(
+  dock: IslandDock,
+  position: IslandPosition | null,
+): IslandPosition {
+  if (isEdgeDock(dock)) return edgeTarget(dock, position);
+  if (isSlotDock(dock)) {
+    const rect = dockRectFor(dock);
+    if (rect) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+  return position ?? defaultIslandPosition();
+}
+
+function edgeTarget(dock: IslandEdgeDock, position: IslandPosition | null): IslandPosition {
+  const width = typeof window === "undefined" ? 1200 : window.innerWidth;
+  const height = typeof window === "undefined" ? 800 : window.innerHeight;
+  const alongX = position?.x ?? width / 2;
+  const alongY = position?.y ?? height / 2;
+  switch (dock) {
+    case "left":
+      return { x: 0, y: clampAlong(alongY, height) };
+    case "right":
+      return { x: width, y: clampAlong(alongY, height) };
+    case "top":
+      return { x: clampAlong(alongX, width), y: 0 };
+    case "bottom":
+      return { x: clampAlong(alongX, width), y: height };
+    default: {
+      const _exhaustive: never = dock;
+      return _exhaustive;
+    }
+  }
+}
+
+function clampAlong(value: number, span: number): number {
+  return Math.min(Math.max(48, value), Math.max(48, span - 48));
+}
+
+export function monitorEdgePosition(
+  dock: IslandEdgeDock,
+  work: { x: number; y: number; width: number; height: number },
+  size: { width: number; height: number },
+  along: IslandPosition,
+): IslandPosition {
+  const maxX = work.x + Math.max(0, work.width - size.width);
+  const maxY = work.y + Math.max(0, work.height - size.height);
+  const x = Math.min(Math.max(work.x, along.x), maxX);
+  const y = Math.min(Math.max(work.y, along.y), maxY);
+  switch (dock) {
+    case "left":
+      return { x: work.x, y };
+    case "right":
+      return { x: maxX, y };
+    case "top":
+      return { x, y: work.y };
+    case "bottom":
+      return { x, y: maxY };
+    default: {
+      const _exhaustive: never = dock;
+      return _exhaustive;
+    }
+  }
+}
+
 export function magnetFor(centerX: number, centerY: number): MagnetHit | null {
+  const edge = edgeMagnet(centerX, centerY);
+  if (edge && edge.pull >= 0.4) return edge;
+  const slot = slotMagnet(centerX, centerY);
+  if (slot) return slot;
+  return edge;
+}
+
+function slotMagnet(centerX: number, centerY: number): MagnetHit | null {
   const { els } = useIslandDocks.getState();
   let best: (MagnetHit & { distance: number }) | null = null;
 
-  for (const id of Object.keys(els) as IslandDockId[]) {
+  for (const id of Object.keys(els) as IslandSlotDock[]) {
     const r = els[id]!.getBoundingClientRect();
     if (
       centerX < r.left - MAGNET_MARGIN ||
@@ -130,4 +270,27 @@ export function magnetFor(centerX: number, centerY: number): MagnetHit | null {
   }
 
   return best;
+}
+
+function edgeMagnet(centerX: number, centerY: number): MagnetHit | null {
+  if (typeof window === "undefined") return null;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const candidates: MagnetHit[] = [
+    { id: "left", x: 0, y: centerY, pull: pullFor(centerX) },
+    { id: "right", x: width, y: centerY, pull: pullFor(width - centerX) },
+    { id: "top", x: centerX, y: 0, pull: pullFor(centerY) },
+    { id: "bottom", x: centerX, y: height, pull: pullFor(height - centerY) },
+  ];
+  let best: MagnetHit | null = null;
+  for (const hit of candidates) {
+    if (hit.pull <= 0) continue;
+    if (!best || hit.pull > best.pull) best = hit;
+  }
+  return best;
+}
+
+function pullFor(distance: number): number {
+  if (distance > EDGE_REACH) return 0;
+  return 1 - distance / EDGE_REACH;
 }

@@ -17,6 +17,18 @@ export type IslandRepoSnapshot = {
   behind: number;
 } & IslandAgentState;
 
+export type IslandUsageWindow = {
+  usedPercent: number;
+  windowDurationMins: number | null;
+  resetsAt: number | null;
+};
+
+export type IslandProviderUsage = {
+  id: string;
+  primary: IslandUsageWindow | null;
+  secondary: IslandUsageWindow | null;
+};
+
 /** Everything the island renders, flattened so it can travel across windows. */
 export type IslandSnapshot = {
   /**
@@ -33,6 +45,7 @@ export type IslandSnapshot = {
   installedAgents: string[] | null;
   mainMinimized: boolean;
   detached: boolean;
+  usage: IslandProviderUsage[];
 };
 
 export const EMPTY_ISLAND_SNAPSHOT: IslandSnapshot = {
@@ -43,6 +56,7 @@ export const EMPTY_ISLAND_SNAPSHOT: IslandSnapshot = {
   installedAgents: null,
   mainMinimized: false,
   detached: false,
+  usage: [],
 };
 
 export type IslandActionArgs = Record<string, string | boolean | number>;
@@ -81,11 +95,15 @@ export function sameIslandSnapshot(a: IslandSnapshot, b: IslandSnapshot): boolea
     a.activePath !== b.activePath ||
     a.mainMinimized !== b.mainMinimized ||
     a.detached !== b.detached ||
-    a.repos.length !== b.repos.length
+    a.repos.length !== b.repos.length ||
+    a.usage.length !== b.usage.length
   ) {
     return false;
   }
   if (!sameIds(a.installedAgents, b.installedAgents)) return false;
+  for (let i = 0; i < a.usage.length; i++) {
+    if (!sameUsage(a.usage[i], b.usage[i])) return false;
+  }
   for (let i = 0; i < a.repos.length; i++) {
     const x = a.repos[i];
     const y = b.repos[i];
@@ -110,6 +128,20 @@ function sameIds(a: string[] | null, b: string[] | null): boolean {
   if (!a || !b || a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+function sameUsage(a: IslandProviderUsage, b: IslandProviderUsage): boolean {
+  return a.id === b.id && sameWindow(a.primary, b.primary) && sameWindow(a.secondary, b.secondary);
+}
+
+function sameWindow(a: IslandUsageWindow | null, b: IslandUsageWindow | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.usedPercent === b.usedPercent &&
+    a.windowDurationMins === b.windowDurationMins &&
+    a.resetsAt === b.resetsAt
+  );
 }
 
 export function findRepo(

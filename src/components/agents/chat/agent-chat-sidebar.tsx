@@ -138,8 +138,8 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
   );
 
   return (
-    <aside className="flex h-full min-h-0 flex-col">
-      <header className="ag-line flex h-12 shrink-0 items-center gap-1 border-b px-3.5">
+    <aside className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-sidebar">
+      <header className="ag-line flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden border-b px-3.5">
         <AgentRepoPicker selectedPath={selectedPath} />
         {onOpenOverview ? (
           <button
@@ -154,12 +154,12 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
         ) : null}
       </header>
 
-      <div className="ag-line flex shrink-0 justify-center border-b px-2 py-2">
+      <div className="ag-line flex min-w-0 shrink-0 justify-center overflow-hidden border-b px-2 py-2">
         <Segmented
           value={provider}
           onValueChange={handleProviderChange}
           aria-label={t("agentChat.settings.agent")}
-          className="w-full justify-between"
+          className="w-full min-w-0"
         >
           {AGENT_PROVIDERS.map(({ value, label, Logo }) => (
             <Segment
@@ -167,18 +167,16 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
               value={value}
               title={label}
               aria-label={label}
-              className={value === provider ? "flex-1 px-2 py-1" : "px-2 py-1"}
+              className="min-w-0 px-1.5 py-1"
             >
               <Logo className="size-3.5 shrink-0" />
-              {/* Only the selected agent spells its name out. Four labels do
-                  not fit a 264px rail; the pill plus one label does. */}
-              {value === provider ? <span className="truncate">{label}</span> : null}
+              {value === provider ? <span className="min-w-0 truncate">{label}</span> : null}
             </Segment>
           ))}
         </Segmented>
       </div>
 
-      <div className="ag-line border-b py-2">
+      <div className="ag-line min-w-0 overflow-hidden border-b py-2">
         <AgentSidebarActions
           query={query}
           onQueryChange={setQuery}
@@ -188,7 +186,7 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
 
       {/* Plain scroller rather than the Radix ScrollArea: the thread list is
           virtualized and the virtualizer needs the scroll element itself. */}
-      <div ref={scrollRef} className="ag-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div ref={scrollRef} className="ag-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
         <div className="pt-3">
           <AgentThreadList
             path={selectedPath}

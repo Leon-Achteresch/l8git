@@ -87,7 +87,7 @@ function MenubarContent({
       >
         <m.div
           className={cn(
-            "z-50 max-w-(--radix-menubar-content-available-width) min-w-36 overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10",
+            "z-[80] max-w-(--radix-menubar-content-available-width) min-w-36 overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10",
             className
           )}
           style={{
@@ -280,7 +280,7 @@ function MenubarSubContent({
     >
       <m.div
         className={cn(
-          "z-50 max-w-(--radix-menubar-content-available-width) min-w-32 overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-foreground/10",
+          "z-[80] max-w-(--radix-menubar-content-available-width) min-w-32 overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-foreground/10",
           className
         )}
         style={{

@@ -54,7 +54,7 @@ export function AppHeader() {
       data-tauri-drag-region
       style={{ WebkitAppRegion: "drag" } as CSSProperties}
       className={cn(
-        "relative z-10 flex h-10 shrink-0 select-none items-stretch gap-1",
+        "relative z-10 flex h-11 shrink-0 select-none items-stretch gap-1 border-b border-border/50 bg-sidebar",
         IS_MAC ? "pl-[86px]" : "pl-2",
       )}
     >
@@ -92,19 +92,13 @@ export function AppHeader() {
                 title={label}
                 aria-label={label}
                 className={cn(
-                  "relative inline-flex size-7 items-center justify-center rounded-md transition-all duration-150",
+                  "relative inline-flex size-7 items-center justify-center rounded-lg transition-colors duration-150",
                   active
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground",
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                 )}
               >
-                <Icon className="size-4 shrink-0" strokeWidth={2} />
-                {active && (
-                  <span
-                    className="pointer-events-none absolute bottom-0.5 left-2 right-2 h-[1.5px] rounded-full bg-primary/70"
-                    aria-hidden
-                  />
-                )}
+                <Icon className="size-4 shrink-0" strokeWidth={1.75} />
               </Link>
             );
           })}
@@ -116,12 +110,12 @@ export function AppHeader() {
             aria-label={t("header.settingsAria")}
             title={t("header.settingsAria")}
             className={cn(
-              "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-all duration-150",
-              "hover:bg-foreground/10 hover:text-foreground",
-              pathname.startsWith("/settings") && "bg-foreground/10 text-foreground",
+              "inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150",
+              "hover:bg-muted/70 hover:text-foreground",
+              pathname.startsWith("/settings") && "bg-muted text-foreground",
             )}
           >
-            <Settings className="size-4" strokeWidth={2} />
+            <Settings className="size-4" strokeWidth={1.75} />
           </Link>
         </nav>
       </div>

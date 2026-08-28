@@ -97,13 +97,13 @@ export function RangePills<T extends string>({
       }}
       size="sm"
       spacing={2}
-      className="rounded-lg border border-border bg-background/40 p-0.5"
+      className="rounded-full border border-border/60 bg-muted/30 p-0.5"
     >
       {options.map((opt) => (
         <ToggleGroupItem
           key={opt.key}
           value={opt.key}
-          className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background"
+          className="rounded-full px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
           {opt.label}
         </ToggleGroupItem>

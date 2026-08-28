@@ -100,7 +100,7 @@ function RootLayout() {
   }, [addRepo]);
   return (
     <MotionProvider>
-      <div className="flex h-dvh min-h-0 flex-col bg-secondary text-foreground">
+      <div className="flex h-dvh min-h-0 flex-col bg-sidebar text-foreground">
         <AppHeader />
         <div className="min-h-0 flex-1 overflow-y-auto bg-background">
           <m.div

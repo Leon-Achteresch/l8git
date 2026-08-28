@@ -196,7 +196,7 @@ export const CommitGraphCell = memo(function CommitGraphCell({
       height="100%"
       viewBox={`0 0 ${colW} ${ROW_HEIGHT}`}
       preserveAspectRatio="none"
-      className="shrink-0 self-stretch min-h-[4.5rem] text-foreground"
+      className="shrink-0 self-stretch min-h-[4.5rem] overflow-hidden text-foreground"
       aria-hidden="true"
     >
       {segments.map((s, i) => (

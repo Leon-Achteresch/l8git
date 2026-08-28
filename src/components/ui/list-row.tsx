@@ -10,7 +10,7 @@ const listRowVariants = cva(
     variants: {
       variant: {
         default:
-          "text-muted-foreground hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:font-medium data-[active=true]:text-foreground",
+          "rounded-lg text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[active=true]:bg-muted data-[active=true]:font-medium data-[active=true]:text-foreground",
         accent:
           "text-muted-foreground hover:bg-muted hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:font-medium data-[active=true]:text-primary",
         ghost: "text-muted-foreground hover:text-foreground",

@@ -190,11 +190,6 @@ function CommitRowInner({
                 "0 1px 3px rgba(15,23,42,0.08)",
               ],
             }
-          : selected
-            ? {
-                boxShadow:
-                  "0 1px 3px rgba(15,23,42,0.09), 0 1px 2px rgba(15,23,42,0.05)",
-              }
             : { boxShadow: "0 0 0 0px transparent" }
       }
       transition={
@@ -203,7 +198,7 @@ function CommitRowInner({
           : { duration: 0.2 }
       }
       className={cn(
-        "relative mx-2 my-0.5 flex min-h-[4.5rem] cursor-pointer items-stretch rounded-[10px] outline-none transition-[background-color,box-shadow] duration-150 focus-visible:outline-none",
+        "relative mx-2 my-0.5 flex min-h-[4.5rem] cursor-pointer items-stretch rounded-xl outline-none transition-[background-color,box-shadow] duration-150 focus-visible:outline-none",
         "bg-card",
         !selected &&
           !multiSelected &&
@@ -213,7 +208,7 @@ function CommitRowInner({
           !multiSelected &&
           "bg-git-branch/10",
         selected &&
-          "bg-muted before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-[''] dark:before:bg-git-branch",
+          "bg-muted",
         multiSelected &&
           !selected &&
           "bg-git-branch/12 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-['']",

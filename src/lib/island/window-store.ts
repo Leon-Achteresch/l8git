@@ -2,6 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 
 import { IS_TAURI } from "@/lib/island/bridge";
+import {
+  isEdgeDock,
+  monitorEdgePosition,
+  useIslandStore,
+  type IslandDock,
+  type IslandEdgeDock,
+  type IslandPosition,
+} from "@/lib/island-store";
 
 /** Mirror of `IslandWindowState` in `src-tauri/src/island.rs`. */
 export type IslandWindowState = {
@@ -92,4 +100,74 @@ export function rememberIslandWindowPosition(position: IslandWindowPosition): vo
 export async function setIslandWindowAlwaysOnTop(value: boolean): Promise<void> {
   if (!IS_TAURI) return;
   await invoke("island_window_set_always_on_top", { value }).catch(() => {});
+}
+
+const EDGE_GUESS = { width: 80, height: 120 };
+
+export async function detachIslandToEdge(
+  dock: IslandEdgeDock,
+  alongClient: IslandPosition,
+): Promise<void> {
+  useIslandStore.getState().setDock(dock);
+  useIslandStore.getState().setPosition(alongClient);
+  if (!IS_TAURI) return;
+  try {
+    const { currentMonitor, getCurrentWindow } = await import("@tauri-apps/api/window");
+    const win = getCurrentWindow();
+    const scale = await win.scaleFactor();
+    const pos = await win.outerPosition();
+    const mon = await currentMonitor();
+    const along = {
+      x: pos.x / scale + alongClient.x,
+      y: pos.y / scale + alongClient.y,
+    };
+    let placed = along;
+    if (mon) {
+      placed = monitorEdgePosition(
+        dock,
+        {
+          x: mon.workArea.position.x / scale,
+          y: mon.workArea.position.y / scale,
+          width: mon.workArea.size.width / scale,
+          height: mon.workArea.size.height / scale,
+        },
+        EDGE_GUESS,
+        along,
+      );
+    }
+    rememberIslandWindowPosition(placed);
+    await openIslandWindow(placed);
+  } catch {
+    await openIslandWindow();
+  }
+}
+
+export async function snapCurrentWindowToDock(dock: IslandDock): Promise<void> {
+  if (!IS_TAURI || !isEdgeDock(dock)) return;
+  try {
+    const { currentMonitor, getCurrentWindow, LogicalPosition } = await import(
+      "@tauri-apps/api/window"
+    );
+    const win = getCurrentWindow();
+    const scale = await win.scaleFactor();
+    const pos = await win.outerPosition();
+    const size = await win.outerSize();
+    const mon = await currentMonitor();
+    if (!mon) return;
+    const placed = monitorEdgePosition(
+      dock,
+      {
+        x: mon.workArea.position.x / scale,
+        y: mon.workArea.position.y / scale,
+        width: mon.workArea.size.width / scale,
+        height: mon.workArea.size.height / scale,
+      },
+      { width: size.width / scale, height: size.height / scale },
+      { x: pos.x / scale, y: pos.y / scale },
+    );
+    await win.setPosition(new LogicalPosition(placed.x, placed.y));
+    rememberIslandWindowPosition(placed);
+  } catch {
+    return;
+  }
 }

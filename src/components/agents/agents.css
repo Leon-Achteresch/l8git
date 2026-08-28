@@ -16,16 +16,16 @@
    * Every step is one small value apart so borders still do the separating,
    * but a card or composer never sits on its own colour.
    */
-  --ag-canvas: #e6e3dd;
-  --ag-rail-bg: #f0eeea;
-  --ag-stage-bg: #faf9f7;
+  --ag-canvas: #f4f4f5;
+  --ag-rail-bg: #fafafa;
+  --ag-stage-bg: #f4f4f5;
   --ag-surface: #ffffff;
-  --ag-surface-2: #f1efeb;
-  --ag-surface-3: #f7f5f2;
-  --ag-dock-bg: #f1efeb;
+  --ag-surface-2: #f4f4f5;
+  --ag-surface-3: #ececee;
+  --ag-dock-bg: #f4f4f5;
 
-  --ag-line: rgb(17 17 17 / 0.09);
-  --ag-line-strong: rgb(17 17 17 / 0.16);
+  --ag-line: rgb(24 24 27 / 0.08);
+  --ag-line-strong: rgb(24 24 27 / 0.12);
 
   --ag-text: var(--foreground);
   --ag-text-2: color-mix(in oklab, var(--foreground) 66%, transparent);
@@ -168,6 +168,7 @@
   align-items: center;
   gap: 0.5rem;
   width: 100%;
+  min-width: 0;
   border-radius: var(--ag-r-sm);
   padding-inline: 0.5rem;
   text-align: start;

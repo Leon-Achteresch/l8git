@@ -4,7 +4,7 @@ import {
   useInstalledAgents,
 } from "@/lib/agent-integrations";
 import { useIslandWindow } from "@/lib/island/window-store";
-import type { IslandSnapshot } from "@/lib/island/types";
+import type { IslandProviderUsage, IslandSnapshot } from "@/lib/island/types";
 import { repoLabel, useRepoStore } from "@/lib/repo-store";
 import { useTerminalActivity } from "@/lib/terminal/activity";
 import { terminalLeafId } from "@/lib/terminal/leaf-id";
@@ -48,7 +48,7 @@ let revision = 0;
 const session = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 /** Reads the live stores into the flat shape the island renders. */
-export function buildIslandSnapshot(): IslandSnapshot {
+export function buildIslandSnapshot(usage: IslandProviderUsage[] = []): IslandSnapshot {
   const repoState = useRepoStore.getState();
   const tabsByPath = useTerminalStore.getState().tabsByPath;
   const busyLeaves = useTerminalActivity.getState().busy;
@@ -64,6 +64,7 @@ export function buildIslandSnapshot(): IslandSnapshot {
     installedAgents: installed ? [...installed] : null,
     mainMinimized: windowState.mainMinimized,
     detached: windowState.open,
+    usage,
     repos: repoState.paths.map((path) => {
       const tabs = agentTabs(tabsByPath[path] ?? []);
       const sync = repoState.upstreamSync[path];

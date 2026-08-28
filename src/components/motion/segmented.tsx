@@ -73,7 +73,7 @@ export function Segmented({
           role="tablist"
           aria-label={ariaLabel}
           className={cn(
-            "ag-inset inline-flex items-center gap-0 rounded-[var(--ag-r-sm)] p-0.5",
+            "ag-inset flex min-w-0 items-center gap-0 rounded-[var(--ag-r-sm)] p-0.5",
             className,
           )}
         >
@@ -105,7 +105,7 @@ export function Segment({
   const active = current === value;
 
   return (
-    <div className="relative">
+    <div className={cn("relative min-w-0", active ? "flex-1" : "shrink-0")}>
       {active ? (
         <m.span
           layoutId={layoutId}
@@ -123,7 +123,8 @@ export function Segment({
         title={title}
         onClick={() => setValue(value)}
         className={cn(
-          "relative z-10 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[calc(var(--ag-r-sm)-2px)] bg-transparent px-2 py-1 text-[11px] font-medium outline-none transition-colors",
+          "relative z-10 flex min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-[calc(var(--ag-r-sm)-2px)] bg-transparent px-2 py-1 text-[11px] font-medium outline-none transition-colors",
+          active && "w-full",
           active ? "text-[var(--ag-text)]" : "text-[var(--ag-text-3)] hover:text-[var(--ag-text-2)]",
           className,
         )}

@@ -79,7 +79,7 @@ function SelectContent({
       >
         <m.div
           className={cn(
-            "relative z-50 max-h-(--radix-select-content-available-height) max-w-(--radix-select-content-available-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10",
+            "relative z-[80] max-h-(--radix-select-content-available-height) max-w-(--radix-select-content-available-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10",
             className
           )}
           style={{

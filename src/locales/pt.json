@@ -426,7 +426,7 @@
     "splitCommits": "Dividir em commits lógicos"
   },
   "island": {
-    "open": "Mostrar projetos e integrações",
+    "open": "Mostrar ações",
     "close": "Fechar",
     "projects_one": "{{count}} projeto",
     "projects_other": "{{count}} projetos",
@@ -437,11 +437,21 @@
     "showBranch": "Mostrar branch",
     "showDirty": "Mostrar alterações",
     "showAgents": "Mostrar agentes",
+    "showUsage": "Mostrar uso",
+    "usage": {
+      "title": "Uso de {{name}}",
+      "session": "Sessão atual",
+      "allModels": "Todos os modelos",
+      "used": "{{value}} usado",
+      "resetsIn": "Reinicia em {{count}} min",
+      "resetsAt": "Reinicia {{value}}"
+    },
     "resetPosition": "Redefinir posição",
     "working": "Trabalhando em {{repo}}…",
-    "chat": "Chat de IA",
+    "chat": "Agentes",
     "actions": "Ações",
-    "window": "Janela"
+    "window": "Janela",
+    "resize": "Redimensionar"
   },
   "islandActions": {
     "group": {
@@ -528,22 +538,15 @@
     "agentLaunched": "{{agent}} iniciado"
   },
   "islandChat": {
-    "title": "Chat de IA",
-    "empty": "Pergunte o que quiser sobre seus repositórios — ou deixe que eu opere o l8git.",
+    "empty": "Escreva para {{agent}} neste repositório — a mesma CLI que /agents.",
     "placeholder": "Mensagem…",
-    "thinking": "Pensando…",
+    "thinking": "Trabalhando…",
     "send": "Enviar",
     "stop": "Parar",
-    "stopped": "Parado",
-    "clear": "Limpar conversa",
-    "approve": "Executar",
-    "deny": "Ignorar",
-    "denied": "Ignorado",
-    "autoRun": "Executar ações sem perguntar",
-    "autoRunHint": "Quando ativo, o assistente executa ações que alteram algo sem perguntar antes.",
-    "notConfigured": "Nenhum provedor de IA configurado ainda.",
-    "openSettings": "Abrir configurações",
-    "toolsOnly": "Concluído."
+    "approve": "Permitir",
+    "deny": "Recusar",
+    "openAgents": "Abrir /agents",
+    "noRepo": "Abra primeiro um repositório."
   },
   "dock": {
     "shell": "Shell",
@@ -1497,7 +1500,16 @@
     "close": "Fechar",
     "closeTabAria": "Fechar aba",
     "reload": "Recarregar",
-    "showLanguages": "Mostrar estatísticas de linguagens"
+    "showLanguages": "Mostrar estatísticas de linguagens",
+    "setIcon": "Definir ícone…",
+    "setIconTitle": "Escolher ícone do repositório",
+    "resetIcon": "Redefinir ícone",
+    "iconFilter": "Imagens"
+  },
+  "repoTabPicker": {
+    "openAria": "Navegar repositórios abertos",
+    "searchPlaceholder": "Filtrar repositórios…",
+    "empty": "Nenhum repositório"
   },
   "repoGroup": {
     "createTitle": "Criar grupo",

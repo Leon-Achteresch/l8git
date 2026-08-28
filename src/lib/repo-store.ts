@@ -332,6 +332,7 @@ type RepoState = {
   activePath: string | null;
   repos: Record<string, RepoInfo>;
   favicons: Record<string, string | null>;
+  customFavicons: Record<string, string>;
   loading: Record<string, boolean>;
   status: Record<string, StatusEntry[]>;
   upstreamSync: Record<string, UpstreamSyncCounts>;
@@ -367,6 +368,8 @@ type RepoState = {
   reorderRepos: (fromIndex: number, toIndex: number) => void;
   setActive: (path: string) => void;
   ensureFavicons: () => void;
+  setCustomFavicon: (path: string, dataUrl: string) => void;
+  clearCustomFavicon: (path: string) => void;
   reload: (path: string) => Promise<void>;
   refreshOpenRepo: (path: string) => Promise<void>;
   reloadAll: () => Promise<void>;
@@ -587,6 +590,7 @@ export const useRepoStore = create<RepoState>()(
       activePath: null,
       repos: {},
       favicons: {},
+      customFavicons: {},
       loading: {},
       status: {},
       upstreamSync: {},
@@ -848,6 +852,7 @@ export const useRepoStore = create<RepoState>()(
           const { [path]: _r, ...repos } = s.repos;
           const { [path]: _l, ...loading } = s.loading;
           const { [path]: _f, ...favicons } = s.favicons;
+          const { [path]: _cf, ...customFavicons } = s.customFavicons;
           const { [path]: _st, ...stashes } = s.stashes;
           const { [path]: _stl, ...stashesLoading } = s.stashesLoading;
           const { [path]: _hu, ...hasUpstream } = s.hasUpstream;
@@ -858,6 +863,7 @@ export const useRepoStore = create<RepoState>()(
             paths,
             repos,
             favicons,
+            customFavicons,
             loading,
             activePath,
             stashes,
@@ -915,6 +921,20 @@ export const useRepoStore = create<RepoState>()(
             set(s => (p in s.favicons ? s : { favicons: { ...s.favicons, [p]: icon } }));
           });
         }
+      },
+
+      setCustomFavicon(path, dataUrl) {
+        set(s => ({
+          customFavicons: { ...s.customFavicons, [path]: dataUrl },
+        }));
+      },
+
+      clearCustomFavicon(path) {
+        set(s => {
+          if (!(path in s.customFavicons)) return s;
+          const { [path]: _, ...customFavicons } = s.customFavicons;
+          return { customFavicons };
+        });
       },
 
       async reload(path) {
@@ -1836,6 +1856,7 @@ export const useRepoStore = create<RepoState>()(
       partialize: state => ({
         paths: state.paths,
         activePath: state.activePath,
+        customFavicons: state.customFavicons,
       }),
     }
   )

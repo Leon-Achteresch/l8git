@@ -5,7 +5,7 @@ import {
   ISLAND_PAD,
   useIslandDocks,
   useIslandStore,
-  type IslandDockId,
+  type IslandSlotDock,
 } from "@/lib/island-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 const OPEN = { type: "spring", stiffness: 520, damping: 36, mass: 0.6 } as const;
 
-export function useDockOpen(id: IslandDockId) {
+export function useDockOpen(id: IslandSlotDock) {
   const enabled = useUiVisibilityPrefs((s) => s.showHeaderIsland);
   const hasRepo = useRepoStore((s) => !!s.activePath);
   const dock = useIslandStore((s) => s.dock);
@@ -30,7 +30,7 @@ export function IslandDock({
   floatLeft = null,
   className,
 }: {
-  id: IslandDockId;
+  id: IslandSlotDock;
   axis?: "x" | "y";
   pad?: number;
   padEnd?: number;

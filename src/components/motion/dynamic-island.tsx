@@ -130,11 +130,10 @@ function Slot({
 }
 
 export interface DynamicIslandProps {
-  /** Active view id. `null` shows the compact pill. */
   view: string | null;
-  /** Compact pill content, shown when no view is active. */
   compact?: ReactNode;
-  /** DynamicIslandView elements. */
+  vertical?: boolean;
+  usage?: boolean;
   children?: ReactNode;
   className?: string;
 }
@@ -142,6 +141,8 @@ export interface DynamicIslandProps {
 export function DynamicIsland({
   view,
   compact,
+  vertical = false,
+  usage = false,
   children,
   className,
 }: DynamicIslandProps) {
@@ -149,6 +150,11 @@ export function DynamicIsland({
   const expanded = view !== null;
   const [sizerRef, size] = useContentSize();
   const contextValue = useMemo(() => ({ view }), [view]);
+  const prevView = useRef(view);
+  const viewChanged = prevView.current !== view;
+  useEffect(() => {
+    prevView.current = view;
+  }, [view]);
 
   return (
     <IslandContext.Provider value={contextValue}>
@@ -161,7 +167,11 @@ export function DynamicIsland({
             ? { width: size.width, height: size.height }
             : { width: PILL_WIDTH, height: PILL_HEIGHT }
         }
-        transition={reduce ? { duration: 0 } : SHELL_SPRING}
+        transition={
+          reduce || (size !== null && !viewChanged)
+            ? { duration: 0 }
+            : SHELL_SPRING
+        }
         style={{ borderRadius: RADIUS }}
         // items-start pins content to the top edge while the shell springs, so
         // expansion reads as unfurling downward out of the pill. Top-align the
@@ -179,8 +189,15 @@ export function DynamicIsland({
             {!expanded && compact ? (
               <Slot
                 keyId="compact"
-                // iPhone pill proportions: ~126 x 37.
-                className="min-h-[37px] min-w-[126px] gap-2 px-4 py-1.5 text-xs font-medium"
+                className={
+                  usage && vertical
+                    ? "min-h-0 min-w-[56px] flex-col gap-2.5 px-2.5 py-3 text-xs font-medium"
+                    : usage
+                      ? "min-h-0 min-w-0 gap-4 px-4 py-2.5 text-xs font-medium"
+                      : vertical
+                        ? "min-h-0 min-w-[44px] flex-col gap-1.5 px-1.5 py-2 text-xs font-medium"
+                        : "min-h-[37px] min-w-[126px] gap-2 px-4 py-1.5 text-xs font-medium"
+                }
               >
                 {compact}
               </Slot>
@@ -213,7 +230,7 @@ export function DynamicIslandView({
   return (
     <AnimatePresence mode="popLayout" initial={false}>
       {active ? (
-        <Slot keyId={id} className={cn("px-6 py-4", className)}>
+        <Slot keyId={id} className={cn("h-full w-full items-stretch px-6 py-4", className)}>
           {children}
         </Slot>
       ) : null}

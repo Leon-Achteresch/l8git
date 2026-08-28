@@ -10,6 +10,7 @@ const inputVariants = cva(
       variant: {
         default:
           "rounded-lg border border-border bg-background shadow-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+        pill: "rounded-full border border-border bg-muted/40 shadow-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/20",
         bare: "border-0 bg-transparent p-0 shadow-none focus-visible:ring-0",
       },
       inputSize: {
@@ -22,6 +23,7 @@ const inputVariants = cva(
       { variant: "bare", inputSize: "default", class: "px-0 py-0" },
       { variant: "bare", inputSize: "sm", class: "px-0 py-0" },
       { variant: "bare", inputSize: "xs", class: "px-0 py-0" },
+      { variant: "pill", inputSize: "default", class: "h-9 px-3.5" },
     ],
     defaultVariants: {
       variant: "default",

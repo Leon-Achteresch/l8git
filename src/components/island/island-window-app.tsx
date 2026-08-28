@@ -1,5 +1,6 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import { IslandShell } from "@/components/island/island-shell";
 import { ISLAND_VIEW, type IslandFlash } from "@/components/island/island-ui";
@@ -9,8 +10,15 @@ import { useIslandFlash } from "@/lib/island/flash";
 import {
   rememberIslandWindowPosition,
   setIslandWindowSize,
+  snapCurrentWindowToDock,
 } from "@/lib/island/window-store";
+import {
+  isEdgeDock,
+  useIslandStore,
+  type IslandDock,
+} from "@/lib/island-store";
 import { useTheme } from "@/lib/use-theme";
+import { cn } from "@/lib/utils";
 
 /** Breathing room around the island so its shadow is not clipped. */
 const PAD = 14;
@@ -25,9 +33,19 @@ export function IslandWindowApp() {
   const [view, setView] = useState<string | null>(null);
   const islandRef = useRef<HTMLDivElement | null>(null);
   const flash = useDetachedFlash();
+  const { dock, showUsage } = useIslandStore(
+    useShallow((s) => ({ dock: s.dock, showUsage: s.showUsage })),
+  );
   useTheme();
   useWindowPositionMemory();
-  useWindowAutoSize(islandRef);
+  const compactUsage = showUsage || isEdgeDock(dock);
+  const extra = compactUsage ? 236 : 0;
+  const verticalUsage = compactUsage && dock !== "top" && dock !== "bottom";
+  const extraLeft = verticalUsage && dock !== "left" && dock !== "sidebar" ? extra : 0;
+  const extraRight = verticalUsage && (dock === "left" || dock === "sidebar") ? extra : 0;
+  const extraTop = !verticalUsage && dock === "bottom" ? extra : 0;
+  const extraBottom = extra && !extraLeft && !extraRight && !extraTop ? extra : 0;
+  useWindowAutoSize(islandRef, extraLeft + extraRight, extraTop + extraBottom, dock);
 
   useEffect(() => {
     if (view === null) return;
@@ -43,8 +61,22 @@ export function IslandWindowApp() {
   return (
     <MotionProvider>
       <div
-        className="flex min-h-dvh w-full items-start justify-center bg-transparent"
-        style={{ padding: PAD }}
+        className={cn(
+          "flex min-h-dvh w-full bg-transparent",
+          dock === "left" || dock === "sidebar"
+            ? "items-center justify-start"
+            : dock === "right"
+              ? "items-center justify-end"
+              : dock === "bottom"
+                ? "items-end justify-center"
+                : "items-start justify-center",
+        )}
+        style={{
+          paddingTop: PAD + extraTop,
+          paddingBottom: PAD + extraBottom,
+          paddingLeft: PAD + extraLeft,
+          paddingRight: PAD + extraRight,
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           setView(ISLAND_VIEW.menu);
@@ -113,7 +145,12 @@ function useWindowDrag() {
 }
 
 /** Keeps the window exactly as large as the island, which animates its size. */
-function useWindowAutoSize(ref: React.RefObject<HTMLDivElement | null>) {
+function useWindowAutoSize(
+  ref: React.RefObject<HTMLDivElement | null>,
+  extraX: number,
+  extraY: number,
+  dock: IslandDock,
+) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -122,12 +159,12 @@ function useWindowAutoSize(ref: React.RefObject<HTMLDivElement | null>) {
 
     const apply = () => {
       frame = 0;
-      const width = Math.ceil(el.offsetWidth) + PAD * 2;
-      const height = Math.ceil(el.offsetHeight) + PAD * 2;
+      const width = Math.ceil(el.offsetWidth) + PAD * 2 + extraX;
+      const height = Math.ceil(el.offsetHeight) + PAD * 2 + extraY;
       const key = `${width}x${height}`;
       if (key === last) return;
       last = key;
-      void setIslandWindowSize(width, height);
+      void setIslandWindowSize(width, height).then(() => snapCurrentWindowToDock(dock));
     };
 
     const observer = new ResizeObserver(() => {
@@ -141,7 +178,7 @@ function useWindowAutoSize(ref: React.RefObject<HTMLDivElement | null>) {
       if (frame) cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [ref]);
+  }, [ref, extraX, extraY, dock]);
 }
 
 const POSITION_SETTLE_MS = 150;
@@ -176,7 +213,7 @@ function useWindowPositionMemory() {
       win.onMoved(({ payload }) => {
         window.clearTimeout(settle);
         settle = window.setTimeout(() => {
-          rememberIslandWindowPosition({ x: payload.x / scale, y: payload.y / scale });
+          void snapDetachedIsland(scale, payload);
         }, POSITION_SETTLE_MS);
       }),
     );
@@ -192,4 +229,39 @@ function useWindowPositionMemory() {
       for (const off of unlisteners) off();
     };
   }, []);
+}
+
+const SNAP_REACH = 96;
+
+async function snapDetachedIsland(
+  scale: number,
+  payload: { x: number; y: number },
+): Promise<void> {
+  const win = getCurrentWindow();
+  const logical = { x: payload.x / scale, y: payload.y / scale };
+  const size = await win.outerSize().catch(() => null);
+  const mon = await currentMonitor().catch(() => null);
+  if (!size || !mon) {
+    rememberIslandWindowPosition(logical);
+    return;
+  }
+  const wx = mon.workArea.position.x / scale;
+  const wy = mon.workArea.position.y / scale;
+  const ww = mon.workArea.size.width / scale;
+  const wh = mon.workArea.size.height / scale;
+  const iw = size.width / scale;
+  const ih = size.height / scale;
+  let dock: IslandDock = "free";
+  if (logical.x - wx < SNAP_REACH) dock = "left";
+  else if (wx + ww - (logical.x + iw) < SNAP_REACH) dock = "right";
+  else if (logical.y - wy < SNAP_REACH) dock = "top";
+  else if (wy + wh - (logical.y + ih) < SNAP_REACH) dock = "bottom";
+  const current = useIslandStore.getState().dock;
+  if (dock !== "free") {
+    useIslandStore.getState().setDock(dock);
+    await snapCurrentWindowToDock(dock);
+    return;
+  }
+  if (isEdgeDock(current)) useIslandStore.getState().setDock("free");
+  rememberIslandWindowPosition(logical);
 }

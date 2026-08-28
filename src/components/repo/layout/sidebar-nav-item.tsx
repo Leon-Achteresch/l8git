@@ -1,5 +1,4 @@
 import { ListRow } from "@/components/ui/list-row";
-import { MagicPill } from "@/components/motion/magic-pill";
 import { PopIn } from "@/components/motion/pop-in";
 import type { TabDisplayMode, TabLayout, TabSize } from "@/lib/sidebar-prefs";
 import { cn } from "@/lib/utils";
@@ -66,16 +65,9 @@ export function SidebarNavItem({
         className={cn(
           "group flex-col justify-center gap-0.5 overflow-hidden px-1 active:scale-[0.97]",
           gridHeightClass,
-          "hover:bg-sidebar-accent/40 data-[active=true]:bg-sidebar-accent/80 data-[active=true]:text-sidebar-accent-foreground",
+          "rounded-lg hover:bg-sidebar-accent/50 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
         )}
       >
-        {isActive && (
-          <MagicPill
-            layoutId="sidebar-tab-pill"
-            className="pointer-events-none absolute inset-x-[18%] top-0 h-[2px] rounded-full bg-primary"
-          />
-        )}
-
         {showIcon ? (
           <span
             className={cn(
@@ -118,15 +110,9 @@ export function SidebarNavItem({
         displayMode === "icons_only"
           ? "justify-center px-1"
           : "gap-2 pl-2.5 pr-2 text-[13px]",
-        "hover:bg-sidebar-accent/40 data-[active=true]:bg-sidebar-accent/80 data-[active=true]:text-sidebar-accent-foreground",
+        "rounded-lg hover:bg-sidebar-accent/50 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
       )}
     >
-      {isActive && (
-        <MagicPill
-          layoutId="sidebar-tab-pill"
-          className="pointer-events-none absolute inset-y-[18%] left-0 w-[2px] rounded-full bg-primary"
-        />
-      )}
 
       {showIcon ? (
         <span

@@ -112,6 +112,7 @@ pub fn run() {
             git::repo_log_page,
             git::repo_search_commits,
             favicon::read_repo_favicon,
+            favicon::read_image_data_url,
             shell::reveal_repo_folder,
             shell::open_repo_terminal,
             shell::open_repo_in_ide,

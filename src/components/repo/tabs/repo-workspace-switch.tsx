@@ -1,5 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { ListRow } from "@/components/ui/list-row";
+import {
+  OverlayPortal,
+  useAnchorBox,
+} from "@/components/ui/overlay-portal";
 import { useWorkspaceStore, type Workspace } from "@/lib/workspace-store";
 import { cn } from "@/lib/utils";
 import { Check, Pencil, Plus } from "lucide-react";
@@ -20,13 +24,13 @@ function wsInitial(name: string): string {
 }
 
 const panelVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.95, y: -8, filter: "blur(6px)" },
+  hidden: { opacity: 0, scale: 0.95, y: -8 },
   visible: {
-    opacity: 1, scale: 1, y: 0, filter: "blur(0px)",
+    opacity: 1, scale: 1, y: 0,
     transition: { type: "spring", stiffness: 480, damping: 32, mass: 0.38 },
   },
   exit: {
-    opacity: 0, scale: 0.96, y: -5, filter: "blur(3px)",
+    opacity: 0, scale: 0.96, y: -5,
     transition: { duration: 0.13, ease: [0.4, 0, 1, 1] },
   },
 };
@@ -53,12 +57,16 @@ export function RepoWorkspaceSwitch() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingWs, setEditingWs] = useState<Workspace | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const box = useAnchorBox(open, wrapRef);
   const activeWs = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -90,16 +98,22 @@ export function RepoWorkspaceSwitch() {
             {activeWs ? wsInitial(activeWs.name) : "?"}
           </m.button>
 
+          <OverlayPortal>
           <AnimatePresence>
             {open && (
               <m.div
                 key="ws-panel"
+                ref={panelRef}
                 variants={panelVariants}
                 initial="hidden"
                 animate="visible"
                 exit="exit"
-                style={{ transformOrigin: "top left" }}
-                className="absolute left-0 top-[calc(100%+6px)] z-50 w-[210px] overflow-hidden rounded-xl border border-border/70 bg-popover shadow-[0_10px_28px_rgba(0,0,0,0.13),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.45),0_2px_8px_rgba(0,0,0,0.3)]"
+                style={{
+                  transformOrigin: "top left",
+                  top: (box?.bottom ?? 0) + 6,
+                  left: box?.left ?? 0,
+                }}
+                className="fixed z-[80] w-[210px] overflow-hidden rounded-xl border border-border/70 bg-popover shadow-[0_10px_28px_rgba(0,0,0,0.13),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.45),0_2px_8px_rgba(0,0,0,0.3)]"
               >
                 <p className="px-3 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                   {t("repoWorkspaceSwitch.menuTitle")}
@@ -186,6 +200,7 @@ export function RepoWorkspaceSwitch() {
               </m.div>
             )}
           </AnimatePresence>
+          </OverlayPortal>
         </LayoutGroup>
       </div>
 

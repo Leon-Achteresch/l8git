@@ -211,6 +211,29 @@ export function flattenVisibleKeys(nodes: ForestNode[]): string[] {
   return out;
 }
 
+export function flattenRepoPaths(nodes: ForestNode[]): string[] {
+  const out: string[] = [];
+  for (const n of nodes) {
+    if (n.type === "repo") out.push(n.path);
+    else out.push(...flattenRepoPaths(n.children));
+  }
+  return out;
+}
+
+function applyActiveCollapse(
+  nodes: ForestNode[],
+  activePath: string | null,
+): ForestNode[] {
+  return nodes.map((n) => {
+    if (n.type === "repo") return n;
+    const hasActive = activePath != null && groupContainsPath(n, activePath);
+    const children = applyActiveCollapse(n.children, activePath);
+    const collapsed = !hasActive;
+    if (n.collapsed === collapsed && children === n.children) return n;
+    return { ...n, collapsed, children };
+  });
+}
+
 export type GroupListEntry = { id: string; name: string; depth: number; hue: number };
 
 export function listGroups(
@@ -247,6 +270,7 @@ type RepoGroupsState = {
   deleteGroup: (id: string) => void;
   toggleCollapse: (id: string) => void;
   setCollapsed: (id: string, collapsed: boolean) => void;
+  syncCollapseToActive: (activePath: string | null) => void;
   addToGroup: (path: string, groupId: string) => void;
   removeFromGroup: (path: string) => void;
   createSubgroup: (parentId: string, name: string) => string;
@@ -302,7 +326,7 @@ export const useRepoGroupsStore = create<RepoGroupsState>()(
             id,
             name,
             hue: pickHue(forest),
-            collapsed: false,
+            collapsed: true,
             children: members,
           };
           forest = insertNode(forest, target.containerId, target.index, group);
@@ -356,6 +380,13 @@ export const useRepoGroupsStore = create<RepoGroupsState>()(
         set((s) => ({
           forest: updateGroup(s.forest, id, (g) => ({ ...g, collapsed })),
         }));
+      },
+
+      syncCollapseToActive(activePath) {
+        set((s) => {
+          const forest = applyActiveCollapse(s.forest, activePath);
+          return forest === s.forest ? s : { forest };
+        });
       },
 
       addToGroup(path, groupId) {

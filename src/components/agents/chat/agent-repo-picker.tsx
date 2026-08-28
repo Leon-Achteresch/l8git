@@ -86,23 +86,18 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
   }
 
   return (
+    <div className="min-w-0 flex-1">
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="ag-row -ml-1.5 h-8 min-w-0 flex-1 text-[13px]"
+          className="ag-row -ml-1.5 h-8 min-w-0 w-full text-[13px]"
           aria-label={t("agentChat.switchRepo")}
           title={selectedPath}
         >
           <span className="min-w-0 flex-1 truncate text-left font-semibold tracking-[-0.01em]">
             {repoName(selectedPath)}
           </span>
-          {branch ? (
-            <span className="ag-faint hidden min-w-0 max-w-24 items-center gap-1 text-[11px] sm:flex">
-              <GitBranch className="size-3 shrink-0" />
-              <span className="truncate">{branch}</span>
-            </span>
-          ) : null}
           <ChevronsUpDown className="ag-faint size-3 shrink-0" />
         </button>
       </DropdownMenuTrigger>
@@ -183,5 +178,6 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   );
 }

@@ -1,36 +1,125 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowUp,
-  Check,
   ChevronLeft,
-  CircleSlash,
   Loader2,
-  Settings,
-  Sparkles,
   Square,
-  Trash2,
-  Wrench,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
-import { Button } from "@/components/ui/button";
 import { ISLAND_ICON, ISLAND_ROW } from "@/components/island/island-ui";
 import { SpinIcon } from "@/components/motion/kit";
-import { isAiConfigured } from "@/lib/ai-setup";
-import { useCommitPrefs } from "@/lib/commit-prefs";
-import { islandAction } from "@/lib/island/actions";
-import {
-  sendIslandChatMessage,
-  stopIslandChat,
-  useIslandChat,
-  type IslandChatMessage,
-  type IslandToolRun,
-} from "@/lib/island/chat";
-import { runIslandActionWithFlash } from "@/lib/island/flash";
+import { Button } from "@/components/ui/button";
+import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { AGENT_PROVIDERS, agentProviderMeta } from "@/lib/agents/provider-meta";
+import { useAgentProviderStore } from "@/lib/agents/provider-store";
+import { parseTranscriptText } from "@/lib/agents/transcript-text";
+import type {
+  AgentConversation,
+  AgentItem,
+  AgentPendingRequest,
+} from "@/lib/agents/types";
 import type { IslandSnapshot } from "@/lib/island/types";
 import { cn } from "@/lib/utils";
+
+const PREVIEW_LIMIT = 24;
+
+type Preview = {
+  key: string;
+  kind: "user" | "agent" | "tool" | "error";
+  text: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function userText(item: AgentItem): string {
+  const parts: string[] = [];
+  if (Array.isArray(item.content)) {
+    for (const block of item.content) {
+      const rec = asRecord(block);
+      if (rec?.type === "text") parts.push(asString(rec.text));
+    }
+  }
+  return parseTranscriptText(parts.join("\n") || asString(item.text)).text.trim();
+}
+
+function itemPreview(item: AgentItem): Omit<Preview, "key"> | null {
+  if (item.type === "userMessage") {
+    const text = userText(item);
+    return text ? { kind: "user", text } : null;
+  }
+  if (item.type === "agentMessage") {
+    const text = asString(item.text).trim();
+    return text ? { kind: "agent", text } : null;
+  }
+  if (item.type === "localCommand" || item.type === "commandExecution") {
+    return { kind: "tool", text: asString(item.command) || "command" };
+  }
+  if (item.type === "fileChange") {
+    return {
+      kind: "tool",
+      text: asString(item.path) || asString(item.file) || "file",
+    };
+  }
+  if (item.type === "mcpToolCall" || item.type === "dynamicToolCall") {
+    return {
+      kind: "tool",
+      text: asString(item.tool) || asString(item.name) || "tool",
+    };
+  }
+  if (item.type === "webSearch") {
+    return { kind: "tool", text: asString(item.query) || "search" };
+  }
+  return null;
+}
+
+function conversationPreviews(
+  conversation: AgentConversation | undefined,
+): Preview[] {
+  if (!conversation) return [];
+  const rows: Preview[] = [];
+  for (const turn of conversation.turns) {
+    for (const item of turn.items) {
+      const preview = itemPreview(item);
+      if (preview) rows.push({ key: `${turn.id}:${item.id}`, ...preview });
+    }
+    if (turn.status === "failed" && turn.error) {
+      rows.push({ key: `${turn.id}:error`, kind: "error", text: turn.error });
+    }
+  }
+  return rows.length > PREVIEW_LIMIT ? rows.slice(-PREVIEW_LIMIT) : rows;
+}
+
+function clip(text: string): string {
+  return text.length > 500 ? `${text.slice(0, 500)}…` : text;
+}
+
+function approvalPayload(
+  request: AgentPendingRequest,
+  allow: boolean,
+): unknown {
+  if (
+    request.method === "execCommandApproval" ||
+    request.method === "applyPatchApproval"
+  ) {
+    return allow
+      ? { decision: "approved" }
+      : { decision: { denied: { rejection: "Rejected by user" } } };
+  }
+  return { decision: allow ? "accept" : "decline" };
+}
 
 export function IslandChatView({
   snapshot,
@@ -43,32 +132,100 @@ export function IslandChatView({
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
-  const messages = useIslandChat((s) => s.messages);
-  const streaming = useIslandChat((s) => s.streaming);
-  const autoRun = useIslandChat((s) => s.autoRun);
-  const setAutoRun = useIslandChat((s) => s.setAutoRun);
-  const clear = useIslandChat((s) => s.clear);
-  // Subscribed so the view flips as soon as a provider is set up elsewhere.
-  useCommitPrefs(
-    useShallow((s) => [s.aiProviderType, s.aiProviderApiKey, s.aiProviderBaseUrl]),
+  const path = snapshot.activePath;
+  const provider = useAgentProviderStore((s) => s.provider);
+  const setProvider = useAgentProviderStore((s) => s.setProvider);
+  const meta = agentProviderMeta(provider);
+  const ProviderLogo = meta.Logo;
+
+  const {
+    connectionStatus,
+    connectionError,
+    requiresAuth,
+    loginStatus,
+    loginError,
+    threadId,
+    conversation,
+    requests,
+  } = useAgentChatStore(
+    useShallow((s) => {
+      const id = path ? (s.activeThreadByPath[path] ?? null) : null;
+      return {
+        connectionStatus: s.connectionStatus,
+        connectionError: s.connectionError,
+        requiresAuth: s.requiresAuth,
+        loginStatus: s.loginStatus,
+        loginError: s.loginError,
+        threadId: id,
+        conversation: id ? s.conversations[id] : undefined,
+        requests: id ? (s.requestsByThread[id] ?? []) : [],
+      };
+    }),
   );
-  const configured = isAiConfigured();
+
+  const connect = useAgentChatStore((s) => s.connect);
+  const loadThreads = useAgentChatStore((s) => s.loadThreads);
+  const openThread = useAgentChatStore((s) => s.openThread);
+  const sendMessage = useAgentChatStore((s) => s.sendMessage);
+  const interrupt = useAgentChatStore((s) => s.interrupt);
+  const startLogin = useAgentChatStore((s) => s.startLogin);
+  const respondToRequest = useAgentChatStore((s) => s.respondToRequest);
+  const retainSurface = useAgentChatStore((s) => s.retainSurface);
+  const setVisibleThread = useAgentChatStore((s) => s.setVisibleThread);
+
+  const busy = Boolean(conversation?.activeTurnId);
+  const ready = connectionStatus === "ready" && !requiresAuth;
+  const previews = conversationPreviews(conversation);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => retainSurface(), [retainSurface]);
+
+  useEffect(() => {
+    void connect().catch((error: unknown) => {
+      toast.error(error instanceof Error ? error.message : String(error));
+    });
+  }, [connect, provider]);
+
+  useEffect(() => {
+    if (!path) return;
+    void loadThreads([path]).catch(() => {});
+  }, [loadThreads, path]);
+
+  useEffect(() => {
+    if (!path || !threadId) return;
+    void openThread(path, threadId).catch(() => {});
+  }, [openThread, path, threadId]);
+
+  useEffect(() => {
+    setVisibleThread(threadId);
+    return () => setVisibleThread(null);
+  }, [setVisibleThread, threadId]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, streaming]);
+  }, [previews, busy, requests]);
 
   const send = () => {
     const text = draft.trim();
-    if (!text || streaming || !configured) return;
+    if (!text || !path || !ready) return;
     setDraft("");
-    void sendIslandChatMessage(text, snapshot);
+    void sendMessage(path, text).catch((error: unknown) => {
+      setDraft(text);
+      toast.error(error instanceof Error ? error.message : String(error));
+    });
+  };
+
+  const login = () => {
+    void startLogin()
+      .then((url) => (url ? openUrl(url) : undefined))
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : String(error));
+      });
   };
 
   return (
-    <div className="flex w-[340px] flex-col">
+    <div className="flex h-full w-full flex-col">
       <div className="flex items-center gap-1 px-1 pb-1.5">
         <Button
           variant="ghost"
@@ -80,28 +237,9 @@ export function IslandChatView({
           <ChevronLeft />
         </Button>
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
-          <Sparkles className="size-3 shrink-0 opacity-60" />
-          <span className="truncate text-xs font-medium">{t("islandChat.title")}</span>
+          <ProviderLogo className="size-3.5 shrink-0" />
+          <span className="truncate text-xs font-medium">{meta.label}</span>
         </span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => setAutoRun(!autoRun)}
-          aria-label={t("islandChat.autoRun")}
-          title={t("islandChat.autoRunHint")}
-          className={cn(ISLAND_ICON, autoRun && "opacity-100")}
-        >
-          <Wrench className={cn(autoRun && "text-git-modified")} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={clear}
-          aria-label={t("islandChat.clear")}
-          className={ISLAND_ICON}
-        >
-          <Trash2 />
-        </Button>
         <Button
           variant="ghost"
           size="icon-xs"
@@ -113,40 +251,147 @@ export function IslandChatView({
         </Button>
       </div>
 
-      {!configured ? (
+      <div className="flex items-center gap-0.5 px-1 pb-1.5">
+        {AGENT_PROVIDERS.map((entry) => (
+          <Button
+            key={entry.value}
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => setProvider(entry.value)}
+            aria-label={entry.label}
+            title={entry.label}
+            className={cn(
+              ISLAND_ICON,
+              provider === entry.value && "opacity-100",
+            )}
+          >
+            <entry.Logo className="size-3.5" />
+          </Button>
+        ))}
+      </div>
+
+      {!path ? (
+        <p className="px-3 py-4 text-center text-[11px] opacity-60">
+          {t("islandChat.noRepo")}
+        </p>
+      ) : requiresAuth ? (
         <div className="flex flex-col items-center gap-2 px-3 py-4 text-center">
-          <p className="text-[11px] opacity-60">{t("islandChat.notConfigured")}</p>
+          <p className="text-[11px] opacity-60">
+            {provider === "claude"
+              ? t("agentChat.loginTitleClaude")
+              : t("agentChat.loginTitle")}
+          </p>
+          {loginError ? (
+            <p className="text-[11px] text-git-removed">{loginError}</p>
+          ) : null}
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => {
-              void runIslandActionWithFlash(
-                { actionId: "view.settings" },
-                t("islandActions.viewSettings"),
-              );
-              onClose();
-            }}
+            disabled={loginStatus === "starting" || loginStatus === "waiting"}
+            onClick={login}
             className={cn(ISLAND_ROW, "gap-1.5 font-medium")}
           >
-            <Settings className="size-3.5" />
-            {t("islandChat.openSettings")}
+            {loginStatus === "waiting"
+              ? t("agentChat.loginWaiting")
+              : provider === "claude"
+                ? t("agentChat.loginActionClaude")
+                : t("agentChat.loginAction")}
+          </Button>
+        </div>
+      ) : connectionStatus === "error" ? (
+        <div className="flex flex-col items-center gap-2 px-3 py-4 text-center">
+          <p className="text-[11px] text-git-removed">
+            {connectionError || t("agentChat.startErrorTitle", { agent: meta.label })}
+          </p>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void connect()}
+            className={cn(ISLAND_ROW, "font-medium")}
+          >
+            {t("agentChat.retry")}
           </Button>
         </div>
       ) : (
         <>
           <div
             ref={scrollRef}
-            className="flex max-h-72 min-h-[64px] flex-col gap-2 overflow-y-auto px-2 py-1 [scrollbar-width:thin]"
+            className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 py-1 [scrollbar-width:thin]"
           >
-            {messages.length === 0 && (
+            {connectionStatus === "connecting" && previews.length === 0 && (
+              <span className="flex items-center gap-1.5 px-1 py-3 text-[10px] opacity-55">
+                <SpinIcon icon={Loader2} className="size-3" />
+                {t("agentChat.connecting", { agent: meta.label })}
+              </span>
+            )}
+            {ready && previews.length === 0 && !busy && (
               <p className="px-1 py-4 text-center text-[11px] leading-relaxed opacity-50">
-                {t("islandChat.empty")}
+                {t("islandChat.empty", { agent: meta.label })}
               </p>
             )}
-            {messages.map((message) => (
-              <ChatBubble key={message.id} message={message} />
+            {previews.map((row) => (
+              <span
+                key={row.key}
+                className={cn(
+                  "max-w-[92%] whitespace-pre-wrap break-words rounded-xl px-2.5 py-1.5 text-xs leading-relaxed",
+                  row.kind === "user" && "self-end bg-background/15",
+                  row.kind === "agent" && "self-start bg-background/8",
+                  row.kind === "tool" &&
+                    "self-start bg-background/8 font-mono text-[10px] opacity-70",
+                  row.kind === "error" &&
+                    "self-start bg-git-removed/15 text-[11px] text-git-removed",
+                )}
+              >
+                {clip(row.text)}
+              </span>
             ))}
-            {streaming && (
+            {requests.map((request) => (
+              <span
+                key={`${request.threadId}:${String(request.requestId)}`}
+                className="flex w-full max-w-[92%] flex-col gap-1 self-start rounded-xl bg-background/8 px-2.5 py-1.5"
+              >
+                <span className="truncate text-[11px] font-medium">
+                  {request.command ||
+                    request.reason ||
+                    t("agentChat.request.approveCommand")}
+                </span>
+                <span className="flex items-center gap-1 pt-0.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void respondToRequest(
+                          request,
+                          approvalPayload(request, true),
+                        )
+                      }
+                      className={cn(
+                        ISLAND_ROW,
+                        "h-6 flex-1 justify-center text-[11px] font-medium",
+                      )}
+                    >
+                      {t("islandChat.approve")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void respondToRequest(
+                          request,
+                          approvalPayload(request, false),
+                        )
+                      }
+                      className={cn(
+                        ISLAND_ROW,
+                        "h-6 flex-1 justify-center text-[11px]",
+                      )}
+                    >
+                      {t("islandChat.deny")}
+                    </Button>
+                  </span>
+              </span>
+            ))}
+            {busy && (
               <span className="flex items-center gap-1.5 px-1 text-[10px] opacity-55">
                 <SpinIcon icon={Loader2} className="size-3" />
                 {t("islandChat.thinking")}
@@ -166,13 +411,14 @@ export function IslandChatView({
                 }
               }}
               placeholder={t("islandChat.placeholder")}
-              className="max-h-24 min-h-[28px] flex-1 resize-none bg-transparent px-1.5 py-1 text-xs outline-none placeholder:opacity-40"
+              disabled={!ready}
+              className="max-h-24 min-h-[28px] flex-1 resize-none bg-transparent px-1.5 py-1 text-xs outline-none placeholder:opacity-40 disabled:opacity-40"
             />
-            {streaming ? (
+            {busy ? (
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={stopIslandChat}
+                onClick={() => threadId && void interrupt(threadId)}
                 aria-label={t("islandChat.stop")}
                 className={ISLAND_ICON}
               >
@@ -183,7 +429,7 @@ export function IslandChatView({
                 variant="ghost"
                 size="icon-sm"
                 onClick={send}
-                disabled={!draft.trim()}
+                disabled={!draft.trim() || !ready}
                 aria-label={t("islandChat.send")}
                 className={ISLAND_ICON}
               >
@@ -192,89 +438,6 @@ export function IslandChatView({
             )}
           </div>
         </>
-      )}
-    </div>
-  );
-}
-
-function ChatBubble({ message }: { message: IslandChatMessage }) {
-  const { t } = useTranslation();
-  const user = message.role === "user";
-  return (
-    <div className={cn("flex flex-col gap-1", user ? "items-end" : "items-start")}>
-      {message.text.trim() && (
-        <span
-          className={cn(
-            "max-w-[92%] whitespace-pre-wrap break-words rounded-xl px-2.5 py-1.5 text-xs leading-relaxed",
-            user ? "bg-background/15" : "bg-background/8",
-          )}
-        >
-          {message.text}
-        </span>
-      )}
-      {message.tools.map((run) => (
-        <ToolRow key={run.id} run={run} />
-      ))}
-      {message.error && (
-        <span className="max-w-[92%] rounded-xl bg-git-removed/15 px-2.5 py-1.5 text-[11px] text-git-removed">
-          {message.error}
-        </span>
-      )}
-      {!user && !message.text.trim() && message.tools.length === 0 && !message.error && (
-        <span className="px-1 text-[10px] opacity-40">{t("islandChat.thinking")}</span>
-      )}
-    </div>
-  );
-}
-
-function ToolRow({ run }: { run: IslandToolRun }) {
-  const { t } = useTranslation();
-  const resolveApproval = useIslandChat((s) => s.resolveApproval);
-  const def = islandAction(run.actionId);
-  const label = def ? t(`islandActions.${def.labelKey}`) : run.toolName;
-  const args = Object.entries(run.args)
-    .map(([key, value]) => `${key}: ${String(value)}`)
-    .join(", ");
-
-  return (
-    <div className="flex w-full max-w-[92%] flex-col gap-1 rounded-xl bg-background/8 px-2.5 py-1.5">
-      <span className="flex items-center gap-1.5 text-[11px]">
-        {run.state === "running" ? (
-          <SpinIcon icon={Loader2} className="size-3 shrink-0 opacity-70" />
-        ) : run.state === "done" ? (
-          <Check className="size-3 shrink-0 text-git-added" />
-        ) : run.state === "error" ? (
-          <X className="size-3 shrink-0 text-git-removed" />
-        ) : run.state === "denied" ? (
-          <CircleSlash className="size-3 shrink-0 opacity-50" />
-        ) : (
-          <Wrench className="size-3 shrink-0 text-git-modified" />
-        )}
-        <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
-      </span>
-      {args && <span className="truncate text-[10px] opacity-50">{args}</span>}
-      {run.detail && run.state !== "pending" && (
-        <span className="truncate text-[10px] opacity-50">{run.detail}</span>
-      )}
-      {run.state === "pending" && (
-        <span className="flex items-center gap-1 pt-0.5">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => resolveApproval(run.id, true)}
-            className={cn(ISLAND_ROW, "h-6 flex-1 justify-center text-[11px] font-medium")}
-          >
-            {t("islandChat.approve")}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => resolveApproval(run.id, false)}
-            className={cn(ISLAND_ROW, "h-6 flex-1 justify-center text-[11px]")}
-          >
-            {t("islandChat.deny")}
-          </Button>
-        </span>
       )}
     </div>
   );

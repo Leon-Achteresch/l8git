@@ -12,7 +12,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
@@ -21,7 +21,8 @@ import {
   DynamicIslandView,
 } from "@/components/motion/dynamic-island";
 import { IslandActionsView } from "@/components/island/island-actions-view";
-import { IslandChatView } from "@/components/island/island-chat-view";
+import { IslandPanel } from "@/components/island/island-panel";
+import { IslandUsage } from "@/components/island/island-usage";
 import {
   ActivityBars,
   FlashIcon,
@@ -34,10 +35,18 @@ import { RepoLogo } from "@/components/repo/repo-logo";
 import { Button } from "@/components/ui/button";
 import { ListRow } from "@/components/ui/list-row";
 import { AGENT_INTEGRATIONS } from "@/lib/agent-integrations";
+import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
 import { runIslandActionWithFlash } from "@/lib/island/flash";
-import { useIslandStore } from "@/lib/island-store";
+import { islandPopoverSide, isEdgeDock, useIslandStore } from "@/lib/island-store";
 import { activeRepoOf, type IslandSnapshot } from "@/lib/island/types";
+import { usageRowsOrAll } from "@/lib/island/usage-format";
 import { cn } from "@/lib/utils";
+
+const IslandChatView = lazy(() =>
+  import("@/components/island/island-chat-view").then((module) => ({
+    default: module.IslandChatView,
+  })),
+);
 
 export type IslandShellProps = {
   snapshot: IslandSnapshot;
@@ -68,16 +77,20 @@ export function IslandShell({
   const { t } = useTranslation();
   const [menuPage, setMenuPage] = useState<"root" | "integrations">("root");
 
-  const { showBranch, showDirty, showAgents } = useIslandStore(
+  const { showBranch, showDirty, showAgents, showUsage, dock, dragging } = useIslandStore(
     useShallow((s) => ({
       showBranch: s.showBranch,
       showDirty: s.showDirty,
       showAgents: s.showAgents,
+      showUsage: s.showUsage,
+      dock: s.dock,
+      dragging: s.dragging,
     })),
   );
   const toggleBranch = useIslandStore((s) => s.toggleBranch);
   const toggleDirty = useIslandStore((s) => s.toggleDirty);
   const toggleAgents = useIslandStore((s) => s.toggleAgents);
+  const toggleUsage = useIslandStore((s) => s.toggleUsage);
   const resetPosition = useIslandStore((s) => s.resetPosition);
 
   // Re-entering the menu always starts on its root page.
@@ -97,6 +110,21 @@ export function IslandShell({
     close();
   };
 
+  const openChat = () => {
+    if (!idle()) return;
+    onViewChange(ISLAND_VIEW.chat);
+  };
+
+  const usage = usageRowsOrAll(snapshot.usage ?? []);
+  const compactUsage = !!showUsage || isEdgeDock(dock);
+  const vertical = compactUsage && dock !== "top" && dock !== "bottom";
+  const usageSide =
+    vertical && (dock === "left" || dock === "sidebar")
+      ? "right"
+      : vertical
+        ? "left"
+        : islandPopoverSide(dock);
+
   const resolved =
     view ??
     (flash
@@ -108,13 +136,27 @@ export function IslandShell({
   return (
     <DynamicIsland
       view={resolved}
+      vertical={vertical}
+      usage={compactUsage}
       className={className}
       compact={
+        compactUsage ? (
+          <IslandUsage
+            usage={usage}
+            vertical={vertical}
+            side={usageSide}
+            dragging={dragging}
+            onOpenActions={() => {
+              if (!idle()) return;
+              onViewChange(ISLAND_VIEW.actions);
+            }}
+          />
+        ) : (
         <span className="flex min-w-[110px] max-w-[240px] items-center gap-1.5">
           <ListRow
             onClick={() => {
               if (!idle()) return;
-              onViewChange(ISLAND_VIEW.projects);
+              onViewChange(ISLAND_VIEW.actions);
             }}
             aria-label={t("island.open")}
             className={cn(ISLAND_ROW, "min-w-0 flex-1 px-0")}
@@ -127,7 +169,7 @@ export function IslandShell({
               />
             )}
             <span className="min-w-0 flex-1 truncate text-left">
-              {active?.label ?? t("islandChat.title")}
+              {active?.label ?? t("island.chat")}
             </span>
             {showDirty && (active?.dirty ?? 0) > 0 && (
               <span
@@ -148,10 +190,7 @@ export function IslandShell({
           <Button
             variant="ghost"
             size="icon-xs"
-            onClick={() => {
-              if (!idle()) return;
-              onViewChange(ISLAND_VIEW.chat);
-            }}
+            onClick={openChat}
             aria-label={t("island.chat")}
             title={t("island.chat")}
             className={ISLAND_ICON}
@@ -159,13 +198,14 @@ export function IslandShell({
             <Sparkles />
           </Button>
         </span>
+        )
       }
     >
       <DynamicIslandView id={ISLAND_VIEW.agent} className="!px-3 !py-2">
         <ListRow
           onClick={() => {
             if (!idle()) return;
-            onViewChange(ISLAND_VIEW.projects);
+            onViewChange(ISLAND_VIEW.actions);
           }}
           className={cn(ISLAND_ROW, "w-[240px] gap-2.5 px-0")}
         >
@@ -206,9 +246,19 @@ export function IslandShell({
       </DynamicIslandView>
 
       <DynamicIslandView id={ISLAND_VIEW.projects} className="!px-2 !py-2">
-        <div className="flex w-[300px] flex-col">
+        <IslandPanel>
+        <div className="flex h-full w-full flex-col">
           <div className="flex items-center justify-between px-2 pb-1.5">
-            <span className="text-[10px] font-medium uppercase tracking-wider opacity-50">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => onViewChange(ISLAND_VIEW.actions)}
+              aria-label={t("common.back")}
+              className={ISLAND_ICON}
+            >
+              <ChevronLeft />
+            </Button>
+            <span className="flex-1 truncate text-[10px] font-medium uppercase tracking-wider opacity-50">
               {t("island.projects", { count: snapshot.repos.length })}
             </span>
             <Button
@@ -222,7 +272,7 @@ export function IslandShell({
             </Button>
           </div>
 
-          <div className="max-h-64 min-h-0 overflow-y-auto [scrollbar-width:thin]">
+          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
             {snapshot.repos.map((repo) => {
               const isActive = repo.path === snapshot.activePath;
               return (
@@ -279,42 +329,43 @@ export function IslandShell({
           <div className="mt-1.5 flex items-center gap-1 border-t border-background/10 px-1 pt-1.5">
             <ListRow
               size="sm"
-              onClick={() => onViewChange(ISLAND_VIEW.chat)}
+              onClick={openChat}
               className={cn(ISLAND_ROW, "flex-1 justify-center gap-1.5 font-medium")}
             >
               <Sparkles />
               <span className="truncate">{t("island.chat")}</span>
             </ListRow>
-            <ListRow
-              size="sm"
-              onClick={() => onViewChange(ISLAND_VIEW.actions)}
-              className={cn(ISLAND_ROW, "flex-1 justify-center gap-1.5 font-medium")}
-            >
-              <ListTree />
-              <span className="truncate">{t("island.actions")}</span>
-            </ListRow>
           </div>
         </div>
+        </IslandPanel>
       </DynamicIslandView>
 
       <DynamicIslandView id={ISLAND_VIEW.chat} className="!px-2 !py-2">
-        <IslandChatView
-          snapshot={snapshot}
-          onClose={close}
-          onBack={() => onViewChange(ISLAND_VIEW.projects)}
-        />
-      </DynamicIslandView>
+          <Suspense fallback={null}>
+            <IslandPanel>
+            <IslandChatView
+              snapshot={snapshot}
+              onClose={close}
+              onBack={() => onViewChange(ISLAND_VIEW.actions)}
+            />
+            </IslandPanel>
+          </Suspense>
+        </DynamicIslandView>
 
       <DynamicIslandView id={ISLAND_VIEW.actions} className="!px-2 !py-2">
+        <IslandPanel>
         <IslandActionsView
           snapshot={snapshot}
           onClose={close}
-          onBack={() => onViewChange(ISLAND_VIEW.projects)}
+          onOpenProjects={() => onViewChange(ISLAND_VIEW.projects)}
+          onOpenChat={openChat}
         />
+        </IslandPanel>
       </DynamicIslandView>
 
       <DynamicIslandView id={ISLAND_VIEW.menu} className="!px-2 !py-2">
-        <div className="flex w-[260px] flex-col">
+        <IslandPanel>
+        <div className="flex h-full w-full flex-col overflow-y-auto [scrollbar-width:thin]">
           {menuPage === "root" ? (
             <>
               <div className="flex items-center justify-between px-2 pb-1.5">
@@ -345,7 +396,7 @@ export function IslandShell({
 
               <ListRow
                 size="sm"
-                onClick={() => onViewChange(ISLAND_VIEW.chat)}
+                onClick={openChat}
                 className={ISLAND_ROW}
               >
                 <Sparkles className="opacity-70" />
@@ -433,6 +484,7 @@ export function IslandShell({
               <ToggleRow label={t("island.showBranch")} checked={showBranch} onClick={toggleBranch} />
               <ToggleRow label={t("island.showDirty")} checked={showDirty} onClick={toggleDirty} />
               <ToggleRow label={t("island.showAgents")} checked={showAgents} onClick={toggleAgents} />
+              <ToggleRow label={t("island.showUsage")} checked={showUsage} onClick={toggleUsage} />
 
               {!standalone && (
                 <>
@@ -482,6 +534,19 @@ export function IslandShell({
                   key={integration.id}
                   size="sm"
                   onClick={() => {
+                    if (
+                      integration.surface === "chat" &&
+                      (integration.id === "codex" ||
+                        integration.id === "claude" ||
+                        integration.id === "opencode" ||
+                        integration.id === "cursor")
+                    ) {
+                      useAgentProviderStore
+                        .getState()
+                        .setProvider(integration.id as NativeAgentProvider);
+                      onViewChange(ISLAND_VIEW.chat);
+                      return;
+                    }
                     void runIslandActionWithFlash(
                       {
                         actionId: "agent.launch",
@@ -503,6 +568,7 @@ export function IslandShell({
             </>
           )}
         </div>
+        </IslandPanel>
       </DynamicIslandView>
     </DynamicIsland>
   );

@@ -1,9 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import { AGENT_INTEGRATIONS, launchAgent } from "@/lib/agent-integrations";
+import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import i18n from "@/lib/i18n";
 import { islandAction } from "@/lib/island/actions";
-import { buildIslandSnapshot } from "@/lib/island/snapshot";
 import type { IslandRequest, IslandResult } from "@/lib/island/types";
 import {
   closeIslandWindow,
@@ -25,19 +25,6 @@ function ok(message: string, data?: unknown): IslandResult {
 
 function fail(message: string): IslandResult {
   return { ok: false, message };
-}
-
-/** Diffs go into a prompt, so they get a hard ceiling. */
-const MAX_DIFF_CHARS = 12_000;
-
-function truncate(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max)}\n… (truncated)`;
-}
-
-function clampLimit(raw: string | undefined, fallback: number, max: number): number {
-  const parsed = Number.parseInt(raw ?? "", 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return Math.min(parsed, max);
 }
 
 function str(
@@ -261,76 +248,20 @@ async function execute(
       if (!integration) {
         return fail(i18n.t("islandActions.unknownAgent", { id: integrationId ?? "" }));
       }
+      if (integration.surface === "chat") {
+        if (
+          integration.id === "codex" ||
+          integration.id === "claude" ||
+          integration.id === "opencode" ||
+          integration.id === "cursor"
+        ) {
+          useAgentProviderStore.getState().setProvider(integration.id);
+        }
+        return ok(i18n.t("islandActions.agentLaunched", { agent: integration.label }));
+      }
       launchAgent(path!, integration);
       await restoreMainWindow();
       return ok(i18n.t("islandActions.agentLaunched", { agent: integration.label }));
-    }
-
-    case "read.repos":
-      return ok(
-        done,
-        buildIslandSnapshot().repos.map((entry) => ({
-          path: entry.path,
-          name: entry.label,
-          branch: entry.branch,
-          uncommittedChanges: entry.dirty,
-          ahead: entry.ahead,
-          behind: entry.behind,
-          active: entry.path === repo.activePath,
-        })),
-      );
-
-    case "read.status": {
-      await repo.reloadStatus(path!);
-      // Read both halves from the reloaded state so the branch cannot lag
-      // behind the file lists it is reported with.
-      const fresh = useRepoStore.getState();
-      const entries = fresh.status[path!] ?? [];
-      return ok(done, {
-        branch: fresh.repos[path!]?.branch ?? "",
-        staged: entries.filter((e) => e.staged).map((e) => e.path),
-        unstaged: entries.filter((e) => e.unstaged).map((e) => e.path),
-        untracked: entries.filter((e) => e.untracked).map((e) => e.path),
-      });
-    }
-
-    case "read.branches": {
-      const info = repo.repos[path!];
-      return ok(done, {
-        current: info?.branch ?? "",
-        branches: (info?.branches ?? []).map((branch) => ({
-          name: branch.name,
-          remote: branch.is_remote,
-          current: branch.is_current,
-        })),
-      });
-    }
-
-    case "read.commits": {
-      const limit = clampLimit(str(request, "limit"), 15, 50);
-      return ok(
-        done,
-        (repo.repos[path!]?.commits ?? []).slice(0, limit).map((commit) => ({
-          hash: commit.short_hash,
-          subject: commit.subject,
-          author: commit.author,
-          date: commit.date,
-        })),
-      );
-    }
-
-    case "read.diff": {
-      const file = str(request, "file");
-      if (!file) {
-        const diff = await invoke<string>("repo_staged_diff", { path });
-        return ok(done, truncate(diff, MAX_DIFF_CHARS));
-      }
-      const entry = (repo.status[path!] ?? []).find((e) => e.path === file);
-      const payload = await invoke<{ staged: string | null; unstaged: string | null }>(
-        "repo_file_diff",
-        { path, file, untracked: entry?.untracked ?? false },
-      );
-      return ok(done, truncate(payload.unstaged ?? payload.staged ?? "", MAX_DIFF_CHARS));
     }
 
     case "window.minimize":

@@ -1029,14 +1029,21 @@ export function AppHeaderSearch() {
       {/* ── Trigger button ───────────────────────────────────────────────────── */}
       <Button
         type="button"
-        variant="subtle"
-        size="icon-sm"
+        variant="ghost"
+        size="sm"
         onClick={() => setOpen(true)}
         style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
         aria-label={t("appSearch.triggerPlaceholder")}
         title={`${t("appSearch.triggerPlaceholder")} (${MOD_KEY}K)`}
+        className="h-7 max-w-[220px] gap-2 rounded-full border border-border/60 bg-muted/40 px-2.5 text-muted-foreground hover:bg-muted hover:text-foreground"
       >
-        <Search strokeWidth={2} />
+        <Search className="size-3.5" strokeWidth={1.75} />
+        <span className="hidden min-w-0 truncate text-[11px] font-normal lg:inline">
+          {t("appSearch.triggerPlaceholder")}
+        </span>
+        <kbd className="hidden rounded-md bg-background/80 px-1 py-px font-sans text-[10px] text-muted-foreground/80 lg:inline">
+          {MOD_KEY}K
+        </kbd>
       </Button>
 
       {/* ── Command dialog ───────────────────────────────────────────────────── */}

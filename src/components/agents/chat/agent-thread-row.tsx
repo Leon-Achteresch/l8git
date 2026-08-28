@@ -250,7 +250,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       }}
       aria-current={active ? "page" : undefined}
       data-active={active}
-      className="ag-row ag-row-shared min-h-11 items-start py-2 pr-8"
+      className="ag-row ag-row-shared min-h-11 min-w-0 items-start overflow-hidden py-2 pr-8"
     >
       <span
         className="mt-0.5 grid size-4 shrink-0 place-items-center"

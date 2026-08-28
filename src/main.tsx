@@ -30,10 +30,7 @@ function loadAiKey() {
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 
 if (island) {
-  // The detached island paints on a transparent window: no app chrome, no
-  // router, no background.
   document.documentElement.classList.add("island-window");
-  void loadAiKey();
   void import("./components/island/island-window-app").then(({ IslandWindowApp }) => {
     root.render(
       <React.StrictMode>

@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  aiCallableActions,
   islandAction,
-  islandActionForTool,
-  islandToolName,
   ISLAND_ACTIONS,
   listedIslandActions,
   searchIslandActions,
@@ -24,16 +21,10 @@ describe("island action registry", () => {
     expect(islandAction("nope.nope")).toBeUndefined();
   });
 
-  it("keeps hidden actions out of the command list but callable by the chat", () => {
-    const listed = listedIslandActions().map((action) => action.id);
-    expect(listed).not.toContain("read.status");
-    expect(aiCallableActions().map((action) => action.id)).toContain("read.status");
-  });
-
-  it("only exposes actions that describe themselves to the model", () => {
-    for (const action of aiCallableActions()) {
-      expect(action.ai?.trim()).toBeTruthy();
-    }
+  it("lists every registered action", () => {
+    expect(listedIslandActions().map((action) => action.id)).toEqual(
+      ISLAND_ACTIONS.map((action) => action.id),
+    );
   });
 
   it("describes every argument it accepts", () => {
@@ -43,24 +34,6 @@ describe("island action registry", () => {
         expect(arg.description.trim()).toBeTruthy();
       }
     }
-  });
-});
-
-describe("islandToolName", () => {
-  it("produces names the model providers accept", () => {
-    for (const action of aiCallableActions()) {
-      expect(islandToolName(action)).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
-    }
-  });
-
-  it("round-trips back to its action", () => {
-    for (const action of aiCallableActions()) {
-      expect(islandActionForTool(islandToolName(action))?.id).toBe(action.id);
-    }
-  });
-
-  it("returns nothing for an unknown tool", () => {
-    expect(islandActionForTool("definitely_not_a_tool")).toBeUndefined();
   });
 });
 

@@ -3,6 +3,7 @@ import { useRouterState } from "@tanstack/react-router";
 import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import {
   filterForest,
+  flattenRepoPaths,
   flattenVisibleKeys,
   useRepoGroupsStore,
 } from "@/lib/repo-groups-store";
@@ -33,6 +34,7 @@ import { IslandDock, useDockOpen } from "@/components/app/island-dock";
 import { ISLAND_PAD, useIslandDocks } from "@/lib/island-store";
 import { AddRepoButton } from "./add-repo-button";
 import { ForestNodes } from "./repo-group";
+import { RepoTabPicker } from "./repo-tab-picker";
 import { RepoWorkspaceSwitch } from "./repo-workspace-switch";
 import { m } from "motion/react";
 
@@ -91,6 +93,10 @@ export function RepoTabBar() {
     useRepoGroupsStore.getState().reconcile(paths);
   }, [paths]);
 
+  useEffect(() => {
+    useRepoGroupsStore.getState().syncCollapseToActive(activePath);
+  }, [activePath]);
+
   const filteredForest = useMemo(() => {
     const activeRepoPaths =
       workspaces.find((w) => w.id === activeWorkspaceId)?.repoPaths ?? [];
@@ -103,13 +109,28 @@ export function RepoTabBar() {
     [filteredForest],
   );
 
+  const pickerPaths = useMemo(
+    () => flattenRepoPaths(filteredForest),
+    [filteredForest],
+  );
+
   const stripRef = useRef<HTMLDivElement | null>(null);
   const [slotAt, setSlotAt] = useState(0);
   const [slotPad, setSlotPad] = useState(ISLAND_PAD);
   const [floatLeft, setFloatLeft] = useState<number | null>(0);
+  const [overflowing, setOverflowing] = useState(false);
   const islandWidth = useIslandDocks((s) => s.size.width);
   const dockVersion = useIslandDocks((s) => s.version);
   const slotOpen = useDockOpen("header");
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip || !activePath) return;
+    const el = strip.querySelector<HTMLElement>(
+      `[data-repo-path="${CSS.escape(activePath)}"]`,
+    );
+    el?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [activePath, filteredForest]);
 
   useEffect(() => {
     const strip = stripRef.current;
@@ -142,6 +163,8 @@ export function RepoTabBar() {
         slotEl.style.width = slotWidth;
         strip.scrollLeft = scrollLeft;
       }
+
+      setOverflowing(strip.scrollWidth > strip.clientWidth + 2);
 
       if (crossing < 0) {
         setSlotAt(index);
@@ -245,6 +268,11 @@ export function RepoTabBar() {
           className="flex shrink-0 items-center gap-1"
           style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
         >
+          <RepoTabPicker
+            paths={pickerPaths}
+            activePath={activePath}
+            overflowing={overflowing}
+          />
           <div className="h-4 w-0.5 rounded-full bg-foreground/5" aria-hidden />
           <AddRepoButton />
         </div>

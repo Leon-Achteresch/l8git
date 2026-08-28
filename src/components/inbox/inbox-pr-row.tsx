@@ -55,7 +55,7 @@ export const InboxPrRow = memo(function InboxPrRow({
       badges={
         <>
           {item.isDraft ? (
-            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               {t("inbox.badges.draft")}
             </span>
           ) : null}
