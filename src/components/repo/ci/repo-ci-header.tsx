@@ -3,6 +3,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CiMode } from "./repo-ci-panel";
+import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import { m } from "motion/react";
 
 export function RepoCiHeader({
   headSha,
@@ -38,9 +40,9 @@ export function RepoCiHeader({
                 {headSha.substring(0, 7)}
               </span>
             ) : loading ? (
-              <span className="animate-pulse text-[10px] text-muted-foreground/80">
+              <m.span animate={pulseKeyframes} transition={pulseTransition} className="text-[10px] text-muted-foreground/80">
                 {t("ci.headerLoading")}
-              </span>
+              </m.span>
             ) : null}
           </div>
         </div>
@@ -54,7 +56,7 @@ export function RepoCiHeader({
           aria-label={t("ci.refreshAria")}
           title={t("ci.refreshAria")}
         >
-          <RefreshCw className={refreshing ? "animate-spin" : undefined} />
+          <SpinIcon icon={RefreshCw} active={refreshing} />
         </Button>
       </div>
 

@@ -37,6 +37,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { SpinIcon } from "@/components/motion/kit";
 
 const EMPTY_PRS: PullRequest[] = [];
 
@@ -319,7 +320,7 @@ export function StackPrChainDialog({
                           onClick={() => void runAiBody(entry)}
                         >
                           {aiBranch === entry.branch ? (
-                            <LoaderCircle className="h-3 w-3 animate-spin" />
+                            <SpinIcon icon={LoaderCircle} className="h-3 w-3" />
                           ) : (
                             <Sparkles className="h-3 w-3 text-primary" />
                           )}

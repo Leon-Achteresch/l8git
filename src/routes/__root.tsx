@@ -1,4 +1,5 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
+import { m } from "motion/react";
 import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "sonner";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -42,6 +43,7 @@ const GitCommandLogPage = lazy(() =>
   })),
 );
 import { MotionProvider } from "@/components/motion/motion-provider";
+import { easeOutSoft } from "@/components/motion/kit";
 import { useRepoStore } from "@/lib/repo-store";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
@@ -57,6 +59,7 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
   const { theme } = useTheme();
   const addRepo = useRepoStore((s) => s.addRepo);
@@ -92,7 +95,15 @@ function RootLayout() {
       <div className="flex h-dvh min-h-0 flex-col bg-secondary text-foreground">
         <AppHeader />
         <div className="min-h-0 flex-1 overflow-y-auto bg-background">
-          <Outlet />
+          <m.div
+            key={pathname}
+            className="h-full"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={easeOutSoft}
+          >
+            <Outlet />
+          </m.div>
         </div>
         <Suspense fallback={null}>
           <AppIsland />

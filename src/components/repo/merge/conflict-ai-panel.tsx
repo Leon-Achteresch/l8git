@@ -15,6 +15,7 @@ import { useCommitPrefs } from "@/lib/commit-prefs";
 import type { ConflictBlock } from "@/lib/conflict-parser";
 import { cn } from "@/lib/utils";
 import type { ConflictAiController } from "./use-conflict-ai";
+import { SpinIcon } from "@/components/motion/kit";
 
 const RELATION_KEYS: Record<SuggestionRelation, string> = {
   ours: "mergeAi.relationOurs",
@@ -183,7 +184,7 @@ export function ConflictAiPreview({
 
         {entry.status === "loading" ? (
           <span className="flex items-center gap-1.5 text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <SpinIcon icon={Loader2} className="h-3.5 w-3.5" />
             {t("mergeAi.generating")}
             <Button type="button" size="sm" variant="ghost" onClick={ai.cancel}>
               <X className="h-3.5 w-3.5" />

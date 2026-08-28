@@ -3,6 +3,7 @@ import { looksLikeLfsPointerText } from "@/lib/media";
 import { FileCode2, Loader2 } from "lucide-react";
 import { Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 const MonacoDiffViewer = lazy(() =>
   import("./monaco-diff-viewer").then((m) => ({ default: m.MonacoDiffViewer })),
@@ -42,7 +43,7 @@ export function CommitInspectDiff({
           </div>
         ) : loading ? (
           <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+            <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
           </div>
         ) : failed ? (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -66,7 +67,7 @@ export function CommitInspectDiff({
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+                  <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
                 </div>
               }
             >

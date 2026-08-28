@@ -11,6 +11,7 @@ import { AnimatePresence } from "motion/react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { GitHooksCard } from "./git-hooks-card";
+import { SpinIcon } from "@/components/motion/kit";
 
 const HOOK_CATEGORY_DEFS: {
   labelKey:
@@ -117,8 +118,8 @@ export function GitHooksList({
               onClick={() => void reloadGitHooks(path)}
               aria-label={t("hooks.reloadTooltip")}
             >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              <SpinIcon icon={RefreshCw} active={loading} 
+                className={`h-3.5 w-3.5`}
               />
             </Button>
           </TooltipTrigger>

@@ -32,6 +32,7 @@ import { ActionSwapRollText } from "@/components/motion/action-swap-roll";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { SPRING_PRESS, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type ToolResultStatus = "running" | "success" | "error" | "cancelled";
 export type ToolResultKind = "terminal" | "request" | "custom";
@@ -103,7 +104,7 @@ function StatusIcon({
   reduce: boolean;
 }) {
   if (status === "running") {
-    return <LoaderCircle className={cn("size-3", !reduce && "animate-spin")} />;
+    return <SpinIcon icon={LoaderCircle} active={!reduce} className="size-3" />;
   }
   if (status === "success") return <CircleCheck className="size-3" />;
   if (status === "error") return <CircleX className="size-3" />;

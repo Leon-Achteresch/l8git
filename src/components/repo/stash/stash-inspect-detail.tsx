@@ -15,6 +15,8 @@ import { writeLocalStorageDebounced } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import { m } from "motion/react";
 
 type InspectPayload = { header: string; files: CommitChangedFile[] };
 
@@ -160,10 +162,10 @@ export function StashInspectDetail({
       <div className="min-h-0 flex-1">
         {loading ? (
           <div className="flex h-full flex-col items-center justify-center gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="animate-pulse text-sm font-medium tracking-wide text-muted-foreground">
+            <SpinIcon icon={Loader2} className="h-8 w-8 text-primary" />
+            <m.span animate={pulseKeyframes} transition={pulseTransition} className="text-sm font-medium tracking-wide text-muted-foreground">
               {t("stash.inspectLoading")}
-            </span>
+            </m.span>
           </div>
         ) : failed ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">

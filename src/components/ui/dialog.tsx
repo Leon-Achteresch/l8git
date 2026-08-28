@@ -2,15 +2,39 @@
 
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
+import { AnimatePresence, m } from "motion/react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+import {
+  createOpenContext,
+  overlayTransition,
+  overlayVariants,
+  popVariants,
+  springFast,
+  useControllableOpen,
+} from "@/components/motion/kit"
+
+const [DialogOpenProvider, useDialogOpen] = createOpenContext("Dialog")
 
 function Dialog({
+  open,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const [value, change] = useControllableOpen({ open, defaultOpen, onOpenChange })
+  return (
+    <DialogOpenProvider value={value}>
+      <DialogPrimitive.Root
+        data-slot="dialog"
+        open={value}
+        onOpenChange={change}
+        {...props}
+      />
+    </DialogOpenProvider>
+  )
 }
 
 function DialogTrigger({
@@ -36,14 +60,19 @@ function DialogOverlay({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
-    <DialogPrimitive.Overlay
-      data-slot="dialog-overlay"
-      className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
-      )}
-      {...props}
-    />
+    <DialogPrimitive.Overlay data-slot="dialog-overlay" forceMount asChild {...props}>
+      <m.div
+        className={cn(
+          "fixed inset-0 isolate z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs",
+          className
+        )}
+        variants={overlayVariants}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+        transition={overlayTransition}
+      />
+    </DialogPrimitive.Overlay>
   )
 }
 
@@ -55,33 +84,48 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const open = useDialogOpen()
   return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close data-slot="dialog-close" asChild>
-            <Button
-              variant="ghost"
-              className="absolute top-2 right-2"
-              size="icon-sm"
+    <AnimatePresence>
+      {open ? (
+        <DialogPortal key="dialog-portal" forceMount>
+          <DialogOverlay />
+          <DialogPrimitive.Content
+            data-slot="dialog-content"
+            forceMount
+            asChild
+            {...props}
+          >
+            <m.div
+              className={cn(
+                "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none sm:max-w-sm",
+                className
+              )}
+              style={{ x: "-50%", y: "-50%" }}
+              variants={popVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={springFast}
             >
-              <XIcon
-              />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Content>
-    </DialogPortal>
+              {children}
+              {showCloseButton && (
+                <DialogPrimitive.Close data-slot="dialog-close" asChild>
+                  <Button
+                    variant="ghost"
+                    className="absolute top-2 right-2"
+                    size="icon-sm"
+                  >
+                    <XIcon />
+                    <span className="sr-only">Close</span>
+                  </Button>
+                </DialogPrimitive.Close>
+              )}
+            </m.div>
+          </DialogPrimitive.Content>
+        </DialogPortal>
+      ) : null}
+    </AnimatePresence>
   )
 }
 

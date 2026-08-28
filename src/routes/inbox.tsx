@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { useAgentOverviewEntries } from "@/lib/agents/use-agent-overview";
 import { formatRelative } from "@/lib/format";
 import { INBOX_REFRESH_INTERVAL_MS, useInboxStore } from "@/lib/inbox-store";
-import { cn } from "@/lib/utils";
+
+import { SpinIcon } from "@/components/motion/kit";
 
 export const Route = createFileRoute("/inbox")({
   component: InboxPage,
@@ -61,7 +62,7 @@ function InboxPage() {
           disabled={loading}
           onClick={() => void refresh(paths)}
         >
-          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+          <SpinIcon icon={RefreshCw} active={loading} className="size-3.5" />
           {t("inbox.refresh")}
         </Button>
       </div>

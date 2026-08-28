@@ -38,6 +38,7 @@ export type {
   ApprovalCardQuestion,
   ApprovalCardStatus,
 } from "./types";
+import { SpinIcon } from "@/components/motion/kit";
 
 const EMPTY_ANSWER: ApprovalCardAnswer = { selected: [], custom: "" };
 
@@ -319,7 +320,7 @@ export function ApprovalCard({
           )}
         >
           {busy ? (
-            <LoaderCircle className={cn("size-4", !reduce && "animate-spin")} />
+            <SpinIcon icon={LoaderCircle} active={!reduce} className="size-4" />
           ) : interactive ? (
             questionMode ? (
               <CircleHelp className="size-4" />
@@ -442,7 +443,7 @@ export function ApprovalCard({
                   className={cn("rounded-full", !onReject && "ml-auto")}
                 >
                   {busy ? (
-                    <LoaderCircle className={cn("size-4", !reduce && "animate-spin")} />
+                    <SpinIcon icon={LoaderCircle} active={!reduce} className="size-4" />
                   ) : currentStep === questions.length - 1 ? (
                     <>
                       {submitLabel}

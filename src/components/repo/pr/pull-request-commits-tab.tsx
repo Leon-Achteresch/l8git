@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 type PrCommit = {
   hash: string;
@@ -52,7 +53,7 @@ export function PullRequestCommitsTab({
   if (loading && !commits) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+        <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
       </div>
     );
   }

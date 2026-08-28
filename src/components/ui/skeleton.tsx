@@ -1,10 +1,14 @@
 import { cn } from "@/lib/utils"
+import { m, type HTMLMotionProps } from "motion/react"
+import { pulseKeyframes, pulseTransition } from "@/components/motion/kit"
 
-function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
+function Skeleton({ className, ...props }: HTMLMotionProps<"div">) {
   return (
-    <div
+    <m.div
       data-slot="skeleton"
-      className={cn("animate-pulse rounded-md bg-muted", className)}
+      className={cn("rounded-md bg-muted", className)}
+      animate={pulseKeyframes}
+      transition={pulseTransition}
       {...props}
     />
   )

@@ -1,9 +1,11 @@
-import { ClipboardList, Loader2, PenLine, Play, Zap } from "lucide-react";
+import { ClipboardList, LoaderCircle, PenLine, Play, Zap } from "lucide-react";
+import { useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { AgentMarkdown } from "@/components/agents/ui/agent-markdown";
+import { SpinIcon } from "@/components/motion/kit";
 import { AGENT_PROSE_CLASS } from "@/components/agents/ui/streaming-response";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +26,7 @@ export function AgentPlanCard({ request }: { request: AgentPendingRequest }) {
   const [pending, setPending] = useState<PlanDecision | null>(null);
   const [resolved, setResolved] = useState<PlanDecision | null>(null);
   const [feedback, setFeedback] = useState("");
+  const reduce = useReducedMotion() ?? false;
   const plan = request.plan?.trim() || request.reason?.trim() || "";
 
   const decide = async (decision: PlanDecision) => {
@@ -87,7 +90,7 @@ export function AgentPlanCard({ request }: { request: AgentPendingRequest }) {
           <div className="flex flex-wrap gap-1.5">
             <Button size="sm" disabled={busy} onClick={() => void decide("accept")}>
               {pending === "accept" ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <SpinIcon icon={LoaderCircle} active={!reduce} className="size-3.5" />
               ) : (
                 <Play className="size-3.5" />
               )}
@@ -100,7 +103,7 @@ export function AgentPlanCard({ request }: { request: AgentPendingRequest }) {
               onClick={() => void decide("acceptEdits")}
             >
               {pending === "acceptEdits" ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <SpinIcon icon={LoaderCircle} active={!reduce} className="size-3.5" />
               ) : (
                 <Zap className="size-3.5" />
               )}
@@ -113,7 +116,7 @@ export function AgentPlanCard({ request }: { request: AgentPendingRequest }) {
               onClick={() => void decide("decline")}
             >
               {pending === "decline" ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <SpinIcon icon={LoaderCircle} active={!reduce} className="size-3.5" />
               ) : (
                 <PenLine className="size-3.5" />
               )}

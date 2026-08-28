@@ -16,6 +16,7 @@ import { Suspense, lazy, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { GitHookStatusBadge } from "./git-hooks-status-badge";
+import { SpinIcon } from "@/components/motion/kit";
 
 const LazyGitHookEditor = lazy(() =>
   import("./git-hook-editor").then((m) => ({ default: m.GitHookEditor })),
@@ -185,7 +186,7 @@ export function GitHooksDetail({
             onClick={() => void handleRun()}
           >
             {running ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <SpinIcon icon={Loader2} className="h-3 w-3" />
             ) : (
               <Play className="h-3 w-3" />
             )}
@@ -249,7 +250,7 @@ export function GitHooksDetail({
         <Suspense
           fallback={
             <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <SpinIcon icon={Loader2} className="h-5 w-5 text-muted-foreground" />
             </div>
           }
         >
@@ -283,7 +284,7 @@ export function GitHooksDetail({
             onClick={() => void handleSave()}
           >
             {saving ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <SpinIcon icon={Loader2} className="h-3 w-3" />
             ) : (
               <Save className="h-3 w-3" />
             )}

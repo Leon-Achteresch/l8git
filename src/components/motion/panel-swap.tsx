@@ -1,3 +1,4 @@
+import { AnimatePresence, m } from "motion/react";
 import type { ReactNode } from "react";
 
 export function PanelSwap({
@@ -10,15 +11,17 @@ export function PanelSwap({
   className?: string;
 }) {
   return (
-    <div
-      key={panelKey}
-      className={className}
-      style={{
-        animation:
-          "l8git-panel-swap 280ms cubic-bezier(0.22, 1, 0.36, 1) both",
-      }}
-    >
-      {children}
-    </div>
+    <AnimatePresence mode="wait" initial={false}>
+      <m.div
+        key={panelKey}
+        className={className}
+        initial={{ opacity: 0, x: 14 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -14 }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {children}
+      </m.div>
+    </AnimatePresence>
   );
 }

@@ -1,12 +1,35 @@
 import * as React from "react"
 import { HoverCard as HoverCardPrimitive } from "radix-ui"
+import { AnimatePresence, m } from "motion/react"
 
 import { cn } from "@/lib/utils"
+import {
+  createOpenContext,
+  popperVariants,
+  springFast,
+  useControllableOpen,
+  type PopSide,
+} from "@/components/motion/kit"
+
+const [HoverCardOpenProvider, useHoverCardOpen] = createOpenContext("HoverCard")
 
 function HoverCard({
+  open,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Root>) {
-  return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />
+  const [value, change] = useControllableOpen({ open, defaultOpen, onOpenChange })
+  return (
+    <HoverCardOpenProvider value={value}>
+      <HoverCardPrimitive.Root
+        data-slot="hover-card"
+        open={value}
+        onOpenChange={change}
+        {...props}
+      />
+    </HoverCardOpenProvider>
+  )
 }
 
 function HoverCardTrigger({
@@ -20,22 +43,50 @@ function HoverCardTrigger({
 function HoverCardContent({
   className,
   align = "center",
+  side = "bottom",
   sideOffset = 4,
+  children,
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Content>) {
+  const isOpen = useHoverCardOpen()
   return (
-    <HoverCardPrimitive.Portal data-slot="hover-card-portal">
-      <HoverCardPrimitive.Content
-        data-slot="hover-card-content"
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 w-64 origin-(--radix-hover-card-content-transform-origin) rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
-        {...props}
-      />
-    </HoverCardPrimitive.Portal>
+    <AnimatePresence>
+      {isOpen ? (
+        <HoverCardPrimitive.Portal
+          key="hover-card-portal"
+          data-slot="hover-card-portal"
+          forceMount
+        >
+          <HoverCardPrimitive.Content
+            data-slot="hover-card-content"
+            align={align}
+            side={side}
+            sideOffset={sideOffset}
+            forceMount
+            asChild
+            {...props}
+          >
+            <m.div
+              className={cn(
+                "z-50 w-64 rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden",
+                className
+              )}
+              style={{
+                transformOrigin:
+                  "var(--radix-hover-card-content-transform-origin)",
+              }}
+              variants={popperVariants(side as PopSide)}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={springFast}
+            >
+              {children}
+            </m.div>
+          </HoverCardPrimitive.Content>
+        </HoverCardPrimitive.Portal>
+      ) : null}
+    </AnimatePresence>
   )
 }
 

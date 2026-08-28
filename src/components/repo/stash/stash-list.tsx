@@ -4,6 +4,7 @@ import type { StashEntry } from "@/lib/repo-store";
 import { Archive, Loader2, Plus, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { StashRow } from "./stash-row";
+import { SpinIcon, StaggerItem } from "@/components/motion/kit";
 
 export function StashList({
   path,
@@ -63,8 +64,8 @@ export function StashList({
             disabled={loading}
             onClick={() => onRefresh()}
           >
-            <RefreshCw
-              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            <SpinIcon icon={RefreshCw} active={loading} 
+              className={`h-4 w-4`}
             />
           </Button>
         </div>
@@ -73,7 +74,7 @@ export function StashList({
         <div className="space-y-0.5 p-2">
           {loading && stashes.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin opacity-40" />
+              <SpinIcon icon={Loader2} className="h-8 w-8 opacity-40" />
               <span className="text-sm font-medium">{t("stash.loading")}</span>
             </div>
           ) : stashes.length === 0 ? (
@@ -85,15 +86,16 @@ export function StashList({
               </span>
             </div>
           ) : (
-            stashes.map((e) => (
+            stashes.map((e, i) => (
+              <StaggerItem key={e.refname} index={i}>
               <StashRow
-                key={e.refname}
                 path={path}
                 entry={e}
                 selected={selectedIndex === e.index}
                 onSelect={() => onSelectIndex(e.index)}
                 onOpenBranch={() => onOpenBranch(e.index)}
               />
+              </StaggerItem>
             ))
           )}
         </div>

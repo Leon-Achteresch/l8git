@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CloneRemoteRepoList } from "./clone-remote-repo-list";
+import { SpinIcon } from "@/components/motion/kit";
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -358,7 +359,7 @@ export function CloneRepoDialog({
                 </Button>
                 <Button type="button" onClick={() => void runClone()} disabled={busy}>
                   {busy && showSpinner ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <SpinIcon icon={Loader2} className="h-4 w-4" />
                   ) : (
                     t("clone.cloneVerb")
                   )}
@@ -385,7 +386,7 @@ export function CloneRepoDialog({
               </Button>
               {reposLoading ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <SpinIcon icon={Loader2} className="h-6 w-6" />
                   <span className="text-xs">{t("clone.loadingRepos")}</span>
                 </div>
               ) : (
@@ -455,7 +456,7 @@ export function CloneRepoDialog({
                 </Button>
                 <Button type="button" onClick={() => void runClone()} disabled={busy}>
                   {busy && showSpinner ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <SpinIcon icon={Loader2} className="h-4 w-4" />
                   ) : (
                     t("clone.cloneVerb")
                   )}

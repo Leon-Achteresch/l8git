@@ -14,6 +14,7 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 type Filter = "open" | "merged" | "closed" | "all";
 
@@ -422,7 +423,7 @@ export function PullRequestList({
         <div className="p-2">
           {loading && !prs ? (
               <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <SpinIcon icon={Loader2} className="mr-2 h-4 w-4" />
                 {t("pr.loading")}
               </div>
             ) : !prs || prs.length === 0 ? (

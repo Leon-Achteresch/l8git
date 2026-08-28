@@ -30,6 +30,7 @@ import {
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 const AI_LANGUAGES = [
   { label: "English", short: "EN" },
@@ -252,7 +253,7 @@ export function CommitComposer({
                     transition={{ duration: 0.15 }}
                     className="flex"
                   >
-                    <Loader2 className="size-3.5 animate-spin" />
+                    <SpinIcon icon={Loader2} className="size-3.5" />
                   </m.span>
                 ) : (
                   <m.span
@@ -433,7 +434,7 @@ export function CommitComposer({
                   transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                   className="flex items-center gap-1.5 truncate"
                 >
-                  {committing && <Loader2 className="size-3.5 shrink-0 animate-spin" />}
+                  {committing && <SpinIcon icon={Loader2} className="size-3.5 shrink-0" />}
                   <span className="truncate">{commitLabel}</span>
                 </m.span>
               </AnimatePresence>

@@ -32,6 +32,7 @@ import { chatStoreFor } from "@/lib/agents/active-chat-store";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { AgentThreadSummary } from "@/lib/agents/types";
+import { AgDot } from "@/components/agents/ui/ag-dot";
 
 export function isWorking(status: string): boolean {
   return status !== "idle" && status !== "notLoaded";
@@ -210,7 +211,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
         <span className="mt-0.5 flex items-center gap-1.5">
           {working ? (
             <>
-              <span className="ag-dot" data-state="working" aria-hidden="true" />
+              <AgDot state="working" />
               <span className="text-[10px] font-medium tabular-nums text-[var(--git-modified)]">
                 {t("agentChat.working")}
                 {workingSince ? <> <WorkingFor since={workingSince} /></> : null}

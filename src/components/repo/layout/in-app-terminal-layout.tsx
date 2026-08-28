@@ -13,6 +13,7 @@ import {
 import { useHotkeyBindings } from "@/lib/hotkey-prefs";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 const RepoTerminalPanel = lazy(() =>
   import("@/components/repo/remote/repo-terminal-panel").then((module) => ({
@@ -113,7 +114,7 @@ export function InAppTerminalLayout({
               <m.div layout transition={SPRING_LAYOUT} className="min-h-0 flex-1">
                 <Suspense fallback={(
                   <div className="flex h-full min-h-32 items-center justify-center text-xs text-muted-foreground">
-                    <LoaderCircle className="mr-2 size-3.5 animate-spin" />
+                    <SpinIcon icon={LoaderCircle} className="mr-2 size-3.5" />
                     {t("embeddedTerminal.starting")}
                   </div>
                 )}>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import { SPRING_PANEL } from "@/lib/motion/ease";
+import { pulseKeyframes, pulseTransition } from "@/components/motion/kit";
 
 export type SidebarThread = AgentThreadSummary & { provider: NativeAgentProvider };
 
@@ -135,7 +136,7 @@ export function AgentThreadList({
       {loading ? (
         <div className="space-y-px" aria-label={t("agentChat.loadingConversations")}>
           {[0, 1, 2, 3].map((index) => (
-            <div key={index} className="h-11 animate-pulse rounded-[9px] bg-[var(--ag-hover)]" />
+            <m.div animate={pulseKeyframes} transition={pulseTransition} key={index} className="h-11 rounded-[9px] bg-[var(--ag-hover)]" />
           ))}
         </div>
       ) : threads.length === 0 && hasQuery ? (

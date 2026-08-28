@@ -48,6 +48,7 @@ import type { AgentItem, AgentTurn } from "@/lib/agents/types";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { parseUnifiedDiff } from "@/lib/unified-diff";
+import { PulseIcon } from "@/components/motion/kit";
 import { cn } from "@/lib/utils";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -317,7 +318,7 @@ function UserMessage({ item }: { item: AgentItem }) {
     </MessageBubble>
     {queued ? (
       <div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
-        <Clock className="size-3 animate-pulse" />
+        <PulseIcon icon={Clock} className="size-3" />
         In Warteschlange – wird an die KI übermittelt
       </div>
     ) : null}

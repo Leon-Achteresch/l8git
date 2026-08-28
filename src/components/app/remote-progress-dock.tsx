@@ -10,6 +10,7 @@ import { repoLabel } from '@/lib/repo-store';
 import { Loader2, X } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SpinIcon } from "@/components/motion/kit";
 
 function RemoteOpCard({ op }: { op: RemoteOpEntry }) {
   const { t } = useTranslation();
@@ -18,7 +19,7 @@ function RemoteOpCard({ op }: { op: RemoteOpEntry }) {
   return (
     <div className='pointer-events-auto w-72 rounded-xl border border-border/60 bg-popover/95 p-2.5 shadow-lg backdrop-blur-sm'>
       <div className='flex items-center gap-2'>
-        <Loader2 className='size-3.5 shrink-0 animate-spin text-primary' />
+        <SpinIcon icon={Loader2} className='size-3.5 shrink-0 text-primary' />
         <span className='min-w-0 flex-1 truncate text-xs font-medium'>
           {t(`remoteProgress.op_${op.op}`)}
           {op.repoPath ? ` · ${repoLabel(op.repoPath)}` : ''}

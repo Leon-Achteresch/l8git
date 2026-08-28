@@ -23,6 +23,8 @@ import { CommitInspectMessage } from "./commit-inspect-message";
 import { CommitInspectFileTabs } from "./commit-inspect-file-tabs";
 import { CommitInspectDiff, FileDiffPayload } from "./commit-inspect-diff";
 import { CommitChangedFile } from "./commit-inspect-file-item";
+import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import { m } from "motion/react";
 
 type InspectPayload = { header: string; files: CommitChangedFile[] };
 
@@ -173,10 +175,10 @@ export function CommitInspectDetail({
       <div className="min-h-0 flex-1">
         {loading ? (
           <div className="flex h-full flex-col items-center justify-center gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="text-sm font-medium tracking-wide text-muted-foreground animate-pulse">
+            <SpinIcon icon={Loader2} className="h-8 w-8 text-primary" />
+            <m.span animate={pulseKeyframes} transition={pulseTransition} className="text-sm font-medium tracking-wide text-muted-foreground">
               {t("commitInspect.loadingDetails")}
-            </span>
+            </m.span>
           </div>
         ) : failed ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">

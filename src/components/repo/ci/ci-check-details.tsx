@@ -21,6 +21,8 @@ import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { toastError } from "@/lib/error-toast";
 import { RemoteCiCheck, CheckAnnotation } from "./ci-types";
+import { SpinIcon, springSoft } from "@/components/motion/kit";
+import { m } from "motion/react";
 
 const LEVEL_STYLE: Record<string, string> = {
   failure: "text-git-removed",
@@ -181,7 +183,12 @@ export function CiCheckDetails({
   }
 
   return (
-    <div className="mt-2 animate-in fade-in slide-in-from-top-2 rounded-xl bg-muted/20 p-4">
+    <m.div
+      className="mt-2 rounded-xl bg-muted/20 p-4"
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={springSoft}
+    >
       <div className="grid gap-3">
         {pairs.map((p, i) => (
           <div key={i} className="flex items-start gap-3 text-xs">
@@ -214,7 +221,7 @@ export function CiCheckDetails({
           className="mt-3"
         >
           {loadingAnnotations ? (
-            <Loader2 className="animate-spin" />
+            <SpinIcon icon={Loader2} />
           ) : (
             <MessageSquare />
           )}
@@ -240,6 +247,6 @@ export function CiCheckDetails({
           {t("ci.noAnnotations")}
         </p>
       )}
-    </div>
+    </m.div>
   );
 }

@@ -1,5 +1,6 @@
 import { CheckCircle2, CircleDashed, Clock, XCircle } from "lucide-react";
 import { RemoteCiCheck } from "./ci-types";
+import { PulseIcon } from "@/components/motion/kit";
 
 export function CiCheckIcon({ check }: { check: RemoteCiCheck }) {
   const key = (check.conclusion ?? check.status ?? "").toLowerCase();
@@ -27,7 +28,7 @@ export function CiCheckIcon({ check }: { check: RemoteCiCheck }) {
 
   if (["in_progress", "queued", "pending", "inprogress"].includes(key)) {
     return (
-      <Clock className="h-5 w-5 shrink-0 animate-pulse text-primary drop-shadow-sm" />
+      <PulseIcon icon={Clock} className="h-5 w-5 shrink-0 text-primary drop-shadow-sm" />
     );
   }
 

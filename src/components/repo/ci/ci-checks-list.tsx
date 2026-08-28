@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CiCheckRow } from "./ci-check-row";
 import { RemoteCiCheck } from "./ci-types";
+import { SpinIcon, StaggerItem } from "@/components/motion/kit";
 
 export type { RemoteCiCheck };
 
@@ -23,7 +24,7 @@ export function CiChecksList({
   if (loading && !checks) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+        <SpinIcon icon={Loader2} className="h-8 w-8 text-primary/40" />
       </div>
     );
   }
@@ -46,7 +47,11 @@ export function CiChecksList({
       <div className="flex flex-col gap-1">
         {checks.map((c, i) => {
           const keyId = `${c.check_run_id ?? ""}-${c.external_id ?? ""}-${c.name}-${c.key ?? ""}-${i}`;
-          return <CiCheckRow key={keyId} check={c} path={path} />;
+          return (
+            <StaggerItem key={keyId} index={i}>
+              <CiCheckRow check={c} path={path} />
+            </StaggerItem>
+          );
         })}
       </div>
     </ScrollArea>

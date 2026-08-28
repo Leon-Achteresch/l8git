@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { notifyRebaseResult } from './rebase-feedback';
 import { describeRebaseError, isLocalChangesBlock } from './rebase-errors';
+import { SpinIcon } from "@/components/motion/kit";
 
 const CUSTOM_REF = '__custom__';
 
@@ -224,7 +225,7 @@ export function RebaseDialog({
                 {t('rebase.previewHeading')}
               </span>
               {previewLoading ? (
-                <Loader2 className='h-3.5 w-3.5 animate-spin text-muted-foreground' />
+                <SpinIcon icon={Loader2} className='h-3.5 w-3.5 text-muted-foreground' />
               ) : preview ? (
                 <span className='text-[11px] text-muted-foreground'>
                   {t('rebase.previewCount', { count: previewCount })}

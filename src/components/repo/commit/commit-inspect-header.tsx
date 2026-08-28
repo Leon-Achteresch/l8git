@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 export function CommitInspectHeader({
   title,
@@ -36,8 +37,8 @@ export function CommitInspectHeader({
           onClick={onRefresh}
           disabled={loading}
         >
-          <RefreshCw
-            className={`h-4 w-4 ${loading ? "animate-spin text-primary" : ""}`}
+          <SpinIcon icon={RefreshCw} active={loading}
+            className={`h-4 w-4 ${loading ? "text-primary" : ""}`}
           />
         </Button>
         <Button

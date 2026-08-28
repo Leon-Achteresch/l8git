@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 export interface AiResultActionsProps {
   busy: boolean;
@@ -74,7 +75,7 @@ export function AiResultActions({
 
         {busy ? (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
+            <SpinIcon icon={Loader2} className="size-3.5" />
             {t("aiActions.running")}
             {onCancel ? (
               <Button type="button" variant="ghost" size="sm" onClick={onCancel}>

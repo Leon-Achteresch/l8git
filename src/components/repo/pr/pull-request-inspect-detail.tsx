@@ -22,6 +22,7 @@ import { PullRequestFilesTab } from "./pull-request-files-tab";
 import { PullRequestConversationTab } from "./pull-request-conversation-tab";
 import { PullRequestChecksTab } from "./pull-request-checks-tab";
 import { PullRequestReviewDraftsBar } from "./pull-request-review-drafts-bar";
+import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
 
 export type PullRequestDetail = PullRequest & {
   body_markdown: string;
@@ -465,7 +466,7 @@ function MergeStateBanner({
               onClick={() => void toggleAutoMerge()}
             >
               {autoMergeBusy ? (
-                <RotateCcw className="mr-1 h-3 w-3 animate-spin" />
+                <SpinIcon icon={RotateCcw} className="mr-1 h-3 w-3" />
               ) : (
                 <Zap className="mr-1 h-3 w-3" />
               )}
@@ -482,7 +483,7 @@ function MergeStateBanner({
   // mergeable === null (unknown)
   return (
     <m.div {...bannerMotion} className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <SpinIcon icon={Loader2} className="h-3.5 w-3.5" />
       {t("prInspect.checksMergeability")}
       <Button variant="outline" size="sm" className="ml-auto h-6 text-[10px]" onClick={onCheckout} disabled={busy !== null}>
         <Download className="mr-1 h-3 w-3" />
@@ -669,7 +670,7 @@ export function PullRequestInspectDetail({
           {detail ? (
             <StatusPill state={detail.state} isDraft={detail.is_draft} />
           ) : (
-            <span className="h-5 w-14 animate-pulse rounded bg-muted" />
+            <m.span animate={pulseKeyframes} transition={pulseTransition} className="h-5 w-14 rounded bg-muted" />
           )}
           <span className="font-mono text-[12px] text-muted-foreground">
             #{number}
@@ -705,7 +706,7 @@ export function PullRequestInspectDetail({
             disabled={loading}
             title={t("pr.reloadTitle")}
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : ""}`} />
+            <SpinIcon icon={RefreshCw} active={loading} className={`h-3.5 w-3.5 ${loading ? "text-primary" : ""}`} />
           </Button>
           <Button
             variant="ghost"
@@ -728,7 +729,7 @@ export function PullRequestInspectDetail({
             className="mt-2 text-[15px] font-semibold leading-snug tracking-tight text-foreground"
           >
             {detail?.title ?? (
-              <span className="inline-block h-5 w-64 animate-pulse rounded bg-muted" />
+              <m.span animate={pulseKeyframes} transition={pulseTransition} className="inline-block h-5 w-64 rounded bg-muted" />
             )}
           </m.h1>
         </AnimatePresence>
@@ -795,7 +796,7 @@ export function PullRequestInspectDetail({
           animate={{ opacity: 1 }}
           className="flex flex-1 items-center justify-center"
         >
-          <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+          <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
         </m.div>
       ) : !detail ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">

@@ -26,6 +26,7 @@ import {
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { SpinIcon } from "@/components/motion/kit";
 
 function SuggestionPreview({
   repoPath,
@@ -85,7 +86,7 @@ function SuggestionPreview({
           title={applyEnabled ? undefined : applyDisabledHint}
           onClick={() => void apply()}
         >
-          {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+          {busy ? <SpinIcon icon={Loader2} className="mr-1 h-3 w-3" /> : null}
           {t("prReview.suggestionApply")}
         </Button>
       </div>
@@ -204,7 +205,7 @@ export function InlineCommentComposer({
           disabled={busy || !body.trim()}
           onClick={() => onSubmit(body.trim())}
         >
-          {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+          {busy ? <SpinIcon icon={Loader2} className="mr-1 h-3 w-3" /> : null}
           {submitLabel}
         </Button>
       </div>
@@ -443,7 +444,7 @@ export function InlineThreadCard({
                   onClick={() => void toggleResolved()}
                 >
                   {resolving ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    <SpinIcon icon={Loader2} className="mr-1 h-3 w-3" />
                   ) : (
                     <Check className="mr-1 h-3 w-3" />
                   )}

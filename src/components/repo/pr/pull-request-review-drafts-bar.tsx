@@ -13,6 +13,7 @@ import { CheckCheck, Loader2, MessageSquare, ThumbsDown, Trash2 } from "lucide-r
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { SpinIcon } from "@/components/motion/kit";
 
 type ReviewEvent = "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
 
@@ -103,7 +104,7 @@ export function PullRequestReviewDraftsBar({
           onClick={() => void submit("COMMENT")}
         >
           {busy === "COMMENT" ? (
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            <SpinIcon icon={Loader2} className="mr-1 h-3 w-3" />
           ) : (
             <MessageSquare className="mr-1 h-3 w-3" />
           )}
@@ -119,7 +120,7 @@ export function PullRequestReviewDraftsBar({
             onClick={() => void submit("APPROVE")}
           >
             {busy === "APPROVE" ? (
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              <SpinIcon icon={Loader2} className="mr-1 h-3 w-3" />
             ) : (
               <CheckCheck className="mr-1 h-3 w-3" />
             )}
@@ -136,7 +137,7 @@ export function PullRequestReviewDraftsBar({
             onClick={() => void submit("REQUEST_CHANGES")}
           >
             {busy === "REQUEST_CHANGES" ? (
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              <SpinIcon icon={Loader2} className="mr-1 h-3 w-3" />
             ) : (
               <ThumbsDown className="mr-1 h-3 w-3" />
             )}

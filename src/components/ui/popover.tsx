@@ -1,12 +1,35 @@
 import * as React from "react"
 import { Popover as PopoverPrimitive } from "radix-ui"
+import { AnimatePresence, m } from "motion/react"
 
 import { cn } from "@/lib/utils"
+import {
+  createOpenContext,
+  popperVariants,
+  springFast,
+  useControllableOpen,
+  type PopSide,
+} from "@/components/motion/kit"
+
+const [PopoverOpenProvider, usePopoverOpen] = createOpenContext("Popover")
 
 function Popover({
+  open,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+  const [value, change] = useControllableOpen({ open, defaultOpen, onOpenChange })
+  return (
+    <PopoverOpenProvider value={value}>
+      <PopoverPrimitive.Root
+        data-slot="popover"
+        open={value}
+        onOpenChange={change}
+        {...props}
+      />
+    </PopoverOpenProvider>
+  )
 }
 
 function PopoverTrigger({
@@ -18,22 +41,45 @@ function PopoverTrigger({
 function PopoverContent({
   className,
   align = "center",
+  side = "bottom",
   sideOffset = 4,
+  children,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const isOpen = usePopoverOpen()
   return (
-    <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
-        data-slot="popover-content"
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 flex w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-2.5 rounded-2xl bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
-        {...props}
-      />
-    </PopoverPrimitive.Portal>
+    <AnimatePresence>
+      {isOpen ? (
+        <PopoverPrimitive.Portal key="popover-portal" forceMount>
+          <PopoverPrimitive.Content
+            data-slot="popover-content"
+            align={align}
+            side={side}
+            sideOffset={sideOffset}
+            forceMount
+            asChild
+            {...props}
+          >
+            <m.div
+              className={cn(
+                "z-50 flex w-72 flex-col gap-2.5 rounded-2xl bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden",
+                className
+              )}
+              style={{
+                transformOrigin: "var(--radix-popover-content-transform-origin)",
+              }}
+              variants={popperVariants(side as PopSide)}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={springFast}
+            >
+              {children}
+            </m.div>
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
+      ) : null}
+    </AnimatePresence>
   )
 }
 

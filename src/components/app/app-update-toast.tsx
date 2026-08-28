@@ -11,6 +11,7 @@ import { ArrowDownToLine, Download, ExternalLink, RefreshCw, X } from "lucide-re
 import { AnimatePresence, m } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
+import { pulseKeyframes, pulseTransition } from "@/components/motion/kit";
 
 export function AppUpdateToast() {
   const { t } = useTranslation();
@@ -59,7 +60,7 @@ export function AppUpdateToast() {
                   transition={{ duration: 0.3 }}
                 />
               ) : (
-                <div className="h-full w-2/5 animate-pulse bg-primary/70" />
+                <m.div animate={pulseKeyframes} transition={pulseTransition} className="h-full w-2/5 bg-primary/70" />
               )}
             </div>
           )}
