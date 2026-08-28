@@ -258,8 +258,17 @@ export function motionize<P>(component: React.ComponentType<P>) {
   const cached = motionComponentCache.get(key);
   if (cached) return cached as unknown as Motionized;
   const created = m.create(component) as unknown as React.ComponentType<never>;
-  motionComponentCache.set(key, created);
+  // Der Cast oben umgeht die Typpruefung: kommt hier ein fehlgeschlagener
+  // Import (undefined) oder ein String-Tag an, wirft WeakMap.set ein
+  // "Invalid value used as weak map key" und verdeckt damit die eigentliche
+  // Ursache. Ohne Objekt-Key wird nicht gecacht, und React meldet den echten
+  // Fehler ("Element type is invalid") an der Stelle, an der er entsteht.
+  if (isCacheableKey(key)) motionComponentCache.set(key, created);
   return created as unknown as Motionized;
+}
+
+function isCacheableKey(value: unknown): value is React.ComponentType<never> {
+  return value !== null && (typeof value === "object" || typeof value === "function");
 }
 
 type IconLike = React.ComponentType<React.SVGProps<SVGSVGElement>>;

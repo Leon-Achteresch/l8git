@@ -73,6 +73,14 @@
     "no": "Não",
     "refresh": "Atualizar"
   },
+  "crash": {
+    "title": "Esta vista falhou",
+    "body": "Um erro inesperado interrompeu a renderização. O resto da aplicação continua a funcionar.",
+    "retry": "Tentar novamente",
+    "copy": "Copiar detalhes",
+    "copied": "Detalhes do erro copiados",
+    "copyFailed": "Falha ao copiar"
+  },
   "header": {
     "repo": "Repositório",
     "dashboard": "Painel",

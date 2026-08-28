@@ -73,6 +73,14 @@
     "no": "Nein",
     "refresh": "Aktualisieren"
   },
+  "crash": {
+    "title": "Diese Ansicht ist abgestürzt",
+    "body": "Ein unerwarteter Fehler hat das Rendern abgebrochen. Der Rest der App läuft weiter.",
+    "retry": "Erneut versuchen",
+    "copy": "Details kopieren",
+    "copied": "Fehlerdetails kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen"
+  },
   "header": {
     "repo": "Repository",
     "dashboard": "Dashboard",
