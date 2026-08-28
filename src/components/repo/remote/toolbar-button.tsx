@@ -57,7 +57,11 @@ export function ToolbarButton({
         </PopIn>
       )}
       {icon}
-      {label && <span className="truncate">{label}</span>}
+      {/* Below 44rem of toolbar the labels are dropped entirely: a label
+          truncated to "F" reads as broken, an icon with its title does not.
+          The threshold sits just under the narrowest width where the widest
+          locale (ja) still fits; truncation remains the fallback above it. */}
+      {label && <span className="truncate @max-[44rem]:hidden">{label}</span>}
       {showBadge && (
         <PopIn key={badge} className="shrink-0">
           <span className="inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary/25 px-1 text-[10px] font-semibold tabular-nums leading-none text-primary">
