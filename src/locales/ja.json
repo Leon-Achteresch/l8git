@@ -439,7 +439,7 @@
     "showAgents": "エージェントを表示",
     "resetPosition": "位置をリセット",
     "working": "{{repo}} で作業中…",
-    "chat": "AI チャット",
+    "chat": "Agents",
     "actions": "アクション",
     "window": "ウィンドウ"
   },
@@ -528,22 +528,15 @@
     "agentLaunched": "{{agent}} を起動しました"
   },
   "islandChat": {
-    "title": "AI チャット",
-    "empty": "リポジトリについて何でも聞いてください。l8git の操作も任せられます。",
+    "empty": "{{agent}} にこのリポジトリでメッセージを送る — /agents と同じ CLI。",
     "placeholder": "メッセージ…",
-    "thinking": "考えています…",
+    "thinking": "作業中…",
     "send": "送信",
     "stop": "停止",
-    "stopped": "停止しました",
-    "clear": "チャットを消去",
-    "approve": "実行",
-    "deny": "スキップ",
-    "denied": "スキップしました",
-    "autoRun": "確認せずにアクションを実行",
-    "autoRunHint": "有効にすると、変更を伴うアクションも確認なしで実行します。",
-    "notConfigured": "AI プロバイダーがまだ設定されていません。",
-    "openSettings": "設定を開く",
-    "toolsOnly": "完了しました。"
+    "approve": "許可",
+    "deny": "拒否",
+    "openAgents": "/agents を開く",
+    "noRepo": "先にリポジトリを開いてください。"
   },
   "dock": {
     "shell": "シェル",
@@ -1497,7 +1490,11 @@
     "close": "閉じる",
     "closeTabAria": "タブを閉じる",
     "reload": "再読み込み",
-    "showLanguages": "言語の統計を表示"
+    "showLanguages": "言語の統計を表示",
+    "setIcon": "アイコンを設定…",
+    "setIconTitle": "リポジトリアイコンを選択",
+    "resetIcon": "アイコンをリセット",
+    "iconFilter": "画像"
   },
   "repoTabPicker": {
     "openAria": "開いているリポジトリを表示",

@@ -149,6 +149,11 @@ export function DynamicIsland({
   const expanded = view !== null;
   const [sizerRef, size] = useContentSize();
   const contextValue = useMemo(() => ({ view }), [view]);
+  const prevView = useRef(view);
+  const viewChanged = prevView.current !== view;
+  useEffect(() => {
+    prevView.current = view;
+  }, [view]);
 
   return (
     <IslandContext.Provider value={contextValue}>
@@ -161,7 +166,11 @@ export function DynamicIsland({
             ? { width: size.width, height: size.height }
             : { width: PILL_WIDTH, height: PILL_HEIGHT }
         }
-        transition={reduce ? { duration: 0 } : SHELL_SPRING}
+        transition={
+          reduce || (size !== null && !viewChanged)
+            ? { duration: 0 }
+            : SHELL_SPRING
+        }
         style={{ borderRadius: RADIUS }}
         // items-start pins content to the top edge while the shell springs, so
         // expansion reads as unfurling downward out of the pill. Top-align the
@@ -213,7 +222,7 @@ export function DynamicIslandView({
   return (
     <AnimatePresence mode="popLayout" initial={false}>
       {active ? (
-        <Slot keyId={id} className={cn("px-6 py-4", className)}>
+        <Slot keyId={id} className={cn("h-full w-full items-stretch px-6 py-4", className)}>
           {children}
         </Slot>
       ) : null}

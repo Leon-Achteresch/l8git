@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 export type IslandPosition = { x: number; y: number };
+export type IslandPanelSize = { width: number; height: number };
 export type IslandDockId = "header" | "sidebar";
 export type IslandDock = IslandDockId | "free";
 
@@ -13,10 +14,12 @@ type IslandState = {
   showBranch: boolean;
   showDirty: boolean;
   showAgents: boolean;
+  panelSize: IslandPanelSize;
   setPosition: (position: IslandPosition) => void;
   setDock: (dock: IslandDock) => void;
   setDragging: (dragging: boolean) => void;
   setHovered: (hovered: IslandDockId | null) => void;
+  setPanelSize: (size: IslandPanelSize) => void;
   resetPosition: () => void;
   toggleBranch: () => void;
   toggleDirty: () => void;
@@ -26,6 +29,16 @@ type IslandState = {
 export const ISLAND_WIDTH = 126;
 export const ISLAND_HEIGHT = 28;
 export const ISLAND_PAD = 12;
+export const ISLAND_PANEL_MIN = { width: 280, height: 220 };
+export const ISLAND_PANEL_MAX = { width: 720, height: 800 };
+export const ISLAND_PANEL_DEFAULT = { width: 340, height: 440 };
+
+export function clampIslandPanel(size: IslandPanelSize): IslandPanelSize {
+  return {
+    width: Math.min(ISLAND_PANEL_MAX.width, Math.max(ISLAND_PANEL_MIN.width, Math.round(size.width))),
+    height: Math.min(ISLAND_PANEL_MAX.height, Math.max(ISLAND_PANEL_MIN.height, Math.round(size.height))),
+  };
+}
 
 export function defaultIslandPosition(): IslandPosition {
   const width = typeof window === "undefined" ? 1200 : window.innerWidth;
@@ -42,10 +55,12 @@ export const useIslandStore = create<IslandState>()(
       showBranch: true,
       showDirty: true,
       showAgents: true,
+      panelSize: ISLAND_PANEL_DEFAULT,
       setPosition: (position) => set({ position }),
       setDock: (dock) => set({ dock }),
       setDragging: (dragging) => set({ dragging }),
       setHovered: (hovered) => set({ hovered }),
+      setPanelSize: (size) => set({ panelSize: clampIslandPanel(size) }),
       resetPosition: () => set({ position: null, dock: "free" }),
       toggleBranch: () => set((s) => ({ showBranch: !s.showBranch })),
       toggleDirty: () => set((s) => ({ showDirty: !s.showDirty })),

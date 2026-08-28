@@ -182,6 +182,25 @@ pub async fn read_repo_favicon(path: String) -> Option<String> {
         .unwrap_or(None)
 }
 
+const MAX_CUSTOM_ICON_BYTES: usize = 512_000;
+
+#[tauri::command]
+pub async fn read_image_data_url(path: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let p = PathBuf::from(&path);
+        let bytes = std::fs::read(&p).map_err(|e| e.to_string())?;
+        if bytes.is_empty() {
+            return Err("empty file".into());
+        }
+        if bytes.len() > MAX_CUSTOM_ICON_BYTES {
+            return Err("image too large".into());
+        }
+        Ok(encode_image_data_url(&bytes, mime_for_path(&p)))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 fn read_repo_favicon_blocking(path: &str) -> Option<String> {
     let root = PathBuf::from(path);
     let favicon_candidates = [

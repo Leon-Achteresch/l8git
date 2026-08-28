@@ -13,7 +13,9 @@ export function RepoLogo({
   label: string;
   className?: string;
 }) {
-  const favicon = useRepoStore((s) => s.favicons[path] ?? null);
+  const favicon = useRepoStore(
+    (s) => s.customFavicons?.[path] ?? s.favicons[path] ?? null,
+  );
   const [broken, setBroken] = useState(false);
 
   useEffect(() => {

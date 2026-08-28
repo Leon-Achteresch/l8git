@@ -439,7 +439,7 @@
     "showAgents": "Agents anzeigen",
     "resetPosition": "Position zurücksetzen",
     "working": "Arbeitet in {{repo}}…",
-    "chat": "KI-Chat",
+    "chat": "Agenten",
     "actions": "Aktionen",
     "window": "Fenster"
   },
@@ -528,22 +528,15 @@
     "agentLaunched": "{{agent}} gestartet"
   },
   "islandChat": {
-    "title": "KI-Chat",
-    "empty": "Frag alles zu deinen Repositories — oder lass mich l8git für dich bedienen.",
+    "empty": "Schreib {{agent}} in diesem Repository — dieselbe CLI wie unter /agents.",
     "placeholder": "Nachricht…",
-    "thinking": "Denkt nach…",
+    "thinking": "Arbeitet…",
     "send": "Senden",
     "stop": "Stoppen",
-    "stopped": "Gestoppt",
-    "clear": "Chat leeren",
-    "approve": "Ausführen",
-    "deny": "Überspringen",
-    "denied": "Übersprungen",
-    "autoRun": "Aktionen ohne Rückfrage ausführen",
-    "autoRunHint": "Wenn aktiv, führt der Assistent verändernde Aktionen ohne Rückfrage aus.",
-    "notConfigured": "Es ist noch kein KI-Anbieter eingerichtet.",
-    "openSettings": "Einstellungen öffnen",
-    "toolsOnly": "Erledigt."
+    "approve": "Erlauben",
+    "deny": "Ablehnen",
+    "openAgents": "/agents öffnen",
+    "noRepo": "Öffne zuerst ein Repository."
   },
   "dock": {
     "shell": "Shell",
@@ -1497,7 +1490,11 @@
     "close": "Schließen",
     "closeTabAria": "Tab schließen",
     "reload": "Neu laden",
-    "showLanguages": "Sprachen anzeigen"
+    "showLanguages": "Sprachen anzeigen",
+    "setIcon": "Icon setzen…",
+    "setIconTitle": "Repo-Icon wählen",
+    "resetIcon": "Icon zurücksetzen",
+    "iconFilter": "Bilder"
   },
   "repoTabPicker": {
     "openAria": "Offene Repositories durchsuchen",

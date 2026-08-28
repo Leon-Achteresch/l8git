@@ -439,7 +439,7 @@
     "showAgents": "Mostrar agentes",
     "resetPosition": "Restablecer posición",
     "working": "Trabajando en {{repo}}…",
-    "chat": "Chat de IA",
+    "chat": "Agentes",
     "actions": "Acciones",
     "window": "Ventana"
   },
@@ -528,22 +528,15 @@
     "agentLaunched": "{{agent}} iniciado"
   },
   "islandChat": {
-    "title": "Chat de IA",
-    "empty": "Pregunta lo que quieras sobre tus repositorios, o deja que maneje l8git por ti.",
+    "empty": "Escribe a {{agent}} en este repositorio — la misma CLI que /agents.",
     "placeholder": "Mensaje…",
-    "thinking": "Pensando…",
+    "thinking": "Trabajando…",
     "send": "Enviar",
     "stop": "Detener",
-    "stopped": "Detenido",
-    "clear": "Vaciar el chat",
-    "approve": "Ejecutar",
-    "deny": "Omitir",
-    "denied": "Omitido",
-    "autoRun": "Ejecutar acciones sin preguntar",
-    "autoRunHint": "Si está activo, el asistente ejecuta acciones que modifican algo sin preguntar antes.",
-    "notConfigured": "Todavía no hay ningún proveedor de IA configurado.",
-    "openSettings": "Abrir ajustes",
-    "toolsOnly": "Hecho."
+    "approve": "Permitir",
+    "deny": "Rechazar",
+    "openAgents": "Abrir /agents",
+    "noRepo": "Abre primero un repositorio."
   },
   "dock": {
     "shell": "Shell",
@@ -1497,7 +1490,11 @@
     "close": "Cerrar",
     "closeTabAria": "Cerrar la pestaña",
     "reload": "Recargar",
-    "showLanguages": "Mostrar las estadísticas de lenguajes"
+    "showLanguages": "Mostrar las estadísticas de lenguajes",
+    "setIcon": "Establecer icono…",
+    "setIconTitle": "Elegir icono del repositorio",
+    "resetIcon": "Restablecer icono",
+    "iconFilter": "Imágenes"
   },
   "repoTabPicker": {
     "openAria": "Explorar repositorios abiertos",

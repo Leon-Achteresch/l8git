@@ -6,11 +6,15 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { SpinIcon } from "@/components/motion/kit";
 import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
+import { toastError } from "@/lib/error-toast";
 import { repoAvatarHue, repoInitialChar } from "@/lib/repo-avatar";
 import { useRepoGroupsStore } from "@/lib/repo-groups-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
+import { invoke } from "@tauri-apps/api/core";
+import { open as pickFile } from "@tauri-apps/plugin-dialog";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
@@ -20,8 +24,10 @@ import {
   ArrowDown,
   ArrowUp,
   ChartPie,
+  ImageIcon,
   Loader2,
   RefreshCw,
+  RotateCcw,
   X,
 } from "lucide-react";
 import { m } from "motion/react";
@@ -32,7 +38,6 @@ import { RepoGroupDialog } from "./repo-group-dialog";
 import { RepoLanguageStats } from "./repo-language-stats";
 import { RepoTabGroupActions } from "./repo-tab-group-actions";
 import { RepoWorkspaceMoveActions } from "./repo-workspace-move-actions";
-import { SpinIcon } from "@/components/motion/kit";
 
 type RepoTabProps = {
   path: string;
@@ -95,6 +100,7 @@ export const RepoTab = memo(function RepoTab({
   const {
     loading,
     favicon,
+    hasCustomIcon,
     ahead,
     behind,
     hasUpstream,
@@ -109,7 +115,8 @@ export const RepoTab = memo(function RepoTab({
       const cc = c?.conflicted_paths?.length ?? 0;
       return {
         loading: !!s.loading[path],
-        favicon: s.favicons[path] ?? null,
+        favicon: s.customFavicons?.[path] ?? s.favicons[path] ?? null,
+        hasCustomIcon: !!s.customFavicons?.[path],
         ahead: sync?.ahead ?? 0,
         behind: sync?.behind ?? 0,
         hasUpstream: !!s.hasUpstream[path],
@@ -316,6 +323,49 @@ export const RepoTab = memo(function RepoTab({
             <ChartPie className="h-3.5 w-3.5" />
             {t("repoTab.showLanguages")}
           </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              void (async () => {
+                const picked = await pickFile({
+                  multiple: false,
+                  directory: false,
+                  title: t("repoTab.setIconTitle"),
+                  filters: [
+                    {
+                      name: t("repoTab.iconFilter"),
+                      extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"],
+                    },
+                  ],
+                });
+                const filePath =
+                  typeof picked === "string"
+                    ? picked
+                    : Array.isArray(picked)
+                      ? picked[0]
+                      : null;
+                if (!filePath) return;
+                try {
+                  const dataUrl = await invoke<string>("read_image_data_url", {
+                    path: filePath,
+                  });
+                  useRepoStore.getState().setCustomFavicon(path, dataUrl);
+                } catch (e) {
+                  toastError(String(e));
+                }
+              })();
+            }}
+          >
+            <ImageIcon className="h-3.5 w-3.5" />
+            {t("repoTab.setIcon")}
+          </ContextMenuItem>
+          {hasCustomIcon && (
+            <ContextMenuItem
+              onSelect={() => useRepoStore.getState().clearCustomFavicon(path)}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              {t("repoTab.resetIcon")}
+            </ContextMenuItem>
+          )}
           <RepoTabGroupActions
             path={path}
             onCreateGroup={() => setCreateGroupOpen(true)}

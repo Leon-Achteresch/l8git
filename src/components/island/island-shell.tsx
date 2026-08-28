@@ -12,7 +12,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
@@ -21,7 +21,7 @@ import {
   DynamicIslandView,
 } from "@/components/motion/dynamic-island";
 import { IslandActionsView } from "@/components/island/island-actions-view";
-import { IslandChatView } from "@/components/island/island-chat-view";
+import { IslandPanel } from "@/components/island/island-panel";
 import {
   ActivityBars,
   FlashIcon,
@@ -38,6 +38,12 @@ import { runIslandActionWithFlash } from "@/lib/island/flash";
 import { useIslandStore } from "@/lib/island-store";
 import { activeRepoOf, type IslandSnapshot } from "@/lib/island/types";
 import { cn } from "@/lib/utils";
+
+const IslandChatView = lazy(() =>
+  import("@/components/island/island-chat-view").then((module) => ({
+    default: module.IslandChatView,
+  })),
+);
 
 export type IslandShellProps = {
   snapshot: IslandSnapshot;
@@ -97,6 +103,15 @@ export function IslandShell({
     close();
   };
 
+  const openChat = () => {
+    if (!idle()) return;
+    if (standalone) {
+      run("view.agents", t("islandActions.viewAgents"));
+      return;
+    }
+    onViewChange(ISLAND_VIEW.chat);
+  };
+
   const resolved =
     view ??
     (flash
@@ -114,7 +129,7 @@ export function IslandShell({
           <ListRow
             onClick={() => {
               if (!idle()) return;
-              onViewChange(ISLAND_VIEW.projects);
+              onViewChange(ISLAND_VIEW.actions);
             }}
             aria-label={t("island.open")}
             className={cn(ISLAND_ROW, "min-w-0 flex-1 px-0")}
@@ -127,7 +142,7 @@ export function IslandShell({
               />
             )}
             <span className="min-w-0 flex-1 truncate text-left">
-              {active?.label ?? t("islandChat.title")}
+              {active?.label ?? t("island.chat")}
             </span>
             {showDirty && (active?.dirty ?? 0) > 0 && (
               <span
@@ -148,10 +163,7 @@ export function IslandShell({
           <Button
             variant="ghost"
             size="icon-xs"
-            onClick={() => {
-              if (!idle()) return;
-              onViewChange(ISLAND_VIEW.chat);
-            }}
+            onClick={openChat}
             aria-label={t("island.chat")}
             title={t("island.chat")}
             className={ISLAND_ICON}
@@ -165,7 +177,7 @@ export function IslandShell({
         <ListRow
           onClick={() => {
             if (!idle()) return;
-            onViewChange(ISLAND_VIEW.projects);
+            onViewChange(ISLAND_VIEW.actions);
           }}
           className={cn(ISLAND_ROW, "w-[240px] gap-2.5 px-0")}
         >
@@ -206,9 +218,19 @@ export function IslandShell({
       </DynamicIslandView>
 
       <DynamicIslandView id={ISLAND_VIEW.projects} className="!px-2 !py-2">
-        <div className="flex w-[300px] flex-col">
+        <IslandPanel>
+        <div className="flex h-full w-full flex-col">
           <div className="flex items-center justify-between px-2 pb-1.5">
-            <span className="text-[10px] font-medium uppercase tracking-wider opacity-50">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => onViewChange(ISLAND_VIEW.actions)}
+              aria-label={t("common.back")}
+              className={ISLAND_ICON}
+            >
+              <ChevronLeft />
+            </Button>
+            <span className="flex-1 truncate text-[10px] font-medium uppercase tracking-wider opacity-50">
               {t("island.projects", { count: snapshot.repos.length })}
             </span>
             <Button
@@ -222,7 +244,7 @@ export function IslandShell({
             </Button>
           </div>
 
-          <div className="max-h-64 min-h-0 overflow-y-auto [scrollbar-width:thin]">
+          <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
             {snapshot.repos.map((repo) => {
               const isActive = repo.path === snapshot.activePath;
               return (
@@ -279,42 +301,45 @@ export function IslandShell({
           <div className="mt-1.5 flex items-center gap-1 border-t border-background/10 px-1 pt-1.5">
             <ListRow
               size="sm"
-              onClick={() => onViewChange(ISLAND_VIEW.chat)}
+              onClick={openChat}
               className={cn(ISLAND_ROW, "flex-1 justify-center gap-1.5 font-medium")}
             >
               <Sparkles />
               <span className="truncate">{t("island.chat")}</span>
             </ListRow>
-            <ListRow
-              size="sm"
-              onClick={() => onViewChange(ISLAND_VIEW.actions)}
-              className={cn(ISLAND_ROW, "flex-1 justify-center gap-1.5 font-medium")}
-            >
-              <ListTree />
-              <span className="truncate">{t("island.actions")}</span>
-            </ListRow>
           </div>
         </div>
+        </IslandPanel>
       </DynamicIslandView>
 
-      <DynamicIslandView id={ISLAND_VIEW.chat} className="!px-2 !py-2">
-        <IslandChatView
-          snapshot={snapshot}
-          onClose={close}
-          onBack={() => onViewChange(ISLAND_VIEW.projects)}
-        />
-      </DynamicIslandView>
+      {!standalone && (
+        <DynamicIslandView id={ISLAND_VIEW.chat} className="!px-2 !py-2">
+          <Suspense fallback={null}>
+            <IslandPanel>
+            <IslandChatView
+              snapshot={snapshot}
+              onClose={close}
+              onBack={() => onViewChange(ISLAND_VIEW.actions)}
+            />
+            </IslandPanel>
+          </Suspense>
+        </DynamicIslandView>
+      )}
 
       <DynamicIslandView id={ISLAND_VIEW.actions} className="!px-2 !py-2">
+        <IslandPanel>
         <IslandActionsView
           snapshot={snapshot}
           onClose={close}
-          onBack={() => onViewChange(ISLAND_VIEW.projects)}
+          onOpenProjects={() => onViewChange(ISLAND_VIEW.projects)}
+          onOpenChat={openChat}
         />
+        </IslandPanel>
       </DynamicIslandView>
 
       <DynamicIslandView id={ISLAND_VIEW.menu} className="!px-2 !py-2">
-        <div className="flex w-[260px] flex-col">
+        <IslandPanel>
+        <div className="flex h-full w-full flex-col overflow-y-auto [scrollbar-width:thin]">
           {menuPage === "root" ? (
             <>
               <div className="flex items-center justify-between px-2 pb-1.5">
@@ -345,7 +370,7 @@ export function IslandShell({
 
               <ListRow
                 size="sm"
-                onClick={() => onViewChange(ISLAND_VIEW.chat)}
+                onClick={openChat}
                 className={ISLAND_ROW}
               >
                 <Sparkles className="opacity-70" />
@@ -503,6 +528,7 @@ export function IslandShell({
             </>
           )}
         </div>
+        </IslandPanel>
       </DynamicIslandView>
     </DynamicIsland>
   );

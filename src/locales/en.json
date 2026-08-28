@@ -439,7 +439,7 @@
     "showAgents": "Show agents",
     "resetPosition": "Reset position",
     "working": "Working in {{repo}}…",
-    "chat": "AI chat",
+    "chat": "Agents",
     "actions": "Actions",
     "window": "Window"
   },
@@ -528,22 +528,15 @@
     "agentLaunched": "{{agent}} started"
   },
   "islandChat": {
-    "title": "AI chat",
-    "empty": "Ask anything about your repositories — or let me drive l8git for you.",
+    "empty": "Message {{agent}} in this repository — same CLI as /agents.",
     "placeholder": "Message…",
-    "thinking": "Thinking…",
+    "thinking": "Working…",
     "send": "Send",
     "stop": "Stop",
-    "stopped": "Stopped",
-    "clear": "Clear chat",
-    "approve": "Run",
-    "deny": "Skip",
-    "denied": "Skipped",
-    "autoRun": "Run actions without asking",
-    "autoRunHint": "When on, the assistant runs actions that change something without asking first.",
-    "notConfigured": "No AI provider is configured yet.",
-    "openSettings": "Open settings",
-    "toolsOnly": "Done."
+    "approve": "Allow",
+    "deny": "Decline",
+    "openAgents": "Open /agents",
+    "noRepo": "Open a repository first."
   },
   "dock": {
     "shell": "Shell",
@@ -1497,7 +1490,11 @@
     "close": "Close",
     "closeTabAria": "Close tab",
     "reload": "Reload",
-    "showLanguages": "Show language stats"
+    "showLanguages": "Show language stats",
+    "setIcon": "Set icon…",
+    "setIconTitle": "Choose repository icon",
+    "resetIcon": "Reset icon",
+    "iconFilter": "Images"
   },
   "repoTabPicker": {
     "openAria": "Browse open repositories",
