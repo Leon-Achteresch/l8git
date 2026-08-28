@@ -1499,6 +1499,11 @@
     "reload": "重新加载",
     "showLanguages": "显示语言统计"
   },
+  "repoTabPicker": {
+    "openAria": "浏览已打开的仓库",
+    "searchPlaceholder": "筛选仓库…",
+    "empty": "没有仓库"
+  },
   "repoGroup": {
     "createTitle": "创建分组",
     "renameTitle": "重命名分组",

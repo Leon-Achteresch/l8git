@@ -146,10 +146,12 @@ export const RepoTab = memo(function RepoTab({
   const showBehind = hasUpstream && behind > 0 && !showConflictBadge;
   const showSyncMini = showConflictBadge || showAhead || showBehind;
 
+  const compact = isBar && !active;
+
   const content = (
     <>
       <span
-        className="flex size-[18px] shrink-0 items-center justify-center rounded font-mono text-[9px] font-bold text-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.18)]"
+        className="relative flex size-[18px] shrink-0 items-center justify-center rounded font-mono text-[9px] font-bold text-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.18)]"
         style={showFavicon ? undefined : { backgroundColor: avatarBg }}
       >
         {loading ? (
@@ -164,18 +166,23 @@ export const RepoTab = memo(function RepoTab({
         ) : (
           repoInitialChar(label)
         )}
-      </span>
-
-      <span
-        className={cn(
-          "min-w-[3ch] max-w-[160px] shrink truncate text-xs font-semibold",
-          active ? "text-foreground" : "text-foreground/85",
+        {compact && showConflictBadge && (
+          <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-git-modified" />
         )}
-      >
-        {label}
       </span>
 
-      {showSyncMini && (
+      {!compact && (
+        <span
+          className={cn(
+            "min-w-[3ch] max-w-[160px] shrink truncate text-xs font-semibold",
+            active ? "text-foreground" : "text-foreground/85",
+          )}
+        >
+          {label}
+        </span>
+      )}
+
+      {!compact && showSyncMini && (
         <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] text-muted-foreground">
           {showConflictBadge ? (
             <span className="inline-flex items-center gap-0.5 font-semibold text-git-modified">
@@ -201,24 +208,26 @@ export const RepoTab = memo(function RepoTab({
         </span>
       )}
 
-      <span
-        role="button"
-        tabIndex={-1}
-        aria-label={t("repoTab.closeTabAria")}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          useRepoStore.getState().removeRepo(path);
-        }}
-        className={cn(
-          "ms-auto flex size-5 shrink-0 items-center justify-center rounded-full transition-colors duration-100",
-          active
-            ? "text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
-            : "text-muted-foreground/70 hover:bg-foreground/10 hover:text-foreground",
-        )}
-      >
-        <X className="size-3" />
-      </span>
+      {!compact && (
+        <span
+          role="button"
+          tabIndex={-1}
+          aria-label={t("repoTab.closeTabAria")}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            useRepoStore.getState().removeRepo(path);
+          }}
+          className={cn(
+            "ms-auto flex size-5 shrink-0 items-center justify-center rounded-full transition-colors duration-100",
+            active
+              ? "text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+              : "text-muted-foreground/70 opacity-0 group-hover:opacity-100 hover:bg-foreground/10 hover:text-foreground",
+          )}
+        >
+          <X className="size-3" />
+        </span>
+      )}
     </>
   );
 
@@ -241,14 +250,18 @@ export const RepoTab = memo(function RepoTab({
             onAuxClick={(e) => {
               if (e.button === 1) useRepoStore.getState().removeRepo(path);
             }}
-            title={path}
+            title={`${label}\n${path}`}
+            data-repo-path={path}
             data-active={active || undefined}
             {...attributes}
             {...listeners}
             className={cn(
               "group relative isolate flex min-w-0 touch-none select-none items-center text-left text-xs font-medium transition-colors duration-150",
               isBar
-                ? "h-full min-w-[64px] max-w-[260px] shrink self-stretch rounded-t-2xl"
+                ? cn(
+                    "h-full shrink-0 self-stretch rounded-t-2xl",
+                    active ? "max-w-[260px]" : "w-8",
+                  )
                 : "h-7 max-w-[240px] shrink-0 gap-1.5 rounded-lg pl-1.5 pr-1.5",
               active ? "text-foreground" : "text-muted-foreground",
               isDragging && "z-10 cursor-grabbing opacity-40",
@@ -277,7 +290,8 @@ export const RepoTab = memo(function RepoTab({
             {isBar ? (
               <span
                 className={cn(
-                  "flex h-full w-full min-w-0 items-center gap-1.5 rounded-[12px] px-2",
+                  "flex h-full w-full min-w-0 items-center rounded-[12px]",
+                  compact ? "justify-center px-1" : "gap-1.5 px-2",
                   !active && "group-hover:bg-foreground/10",
                 )}
               >

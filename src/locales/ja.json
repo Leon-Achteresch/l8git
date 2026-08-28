@@ -1499,6 +1499,11 @@
     "reload": "再読み込み",
     "showLanguages": "言語の統計を表示"
   },
+  "repoTabPicker": {
+    "openAria": "開いているリポジトリを表示",
+    "searchPlaceholder": "リポジトリを絞り込む…",
+    "empty": "リポジトリなし"
+  },
   "repoGroup": {
     "createTitle": "グループを作成",
     "renameTitle": "グループ名を変更",

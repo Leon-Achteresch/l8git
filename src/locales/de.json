@@ -1499,6 +1499,11 @@
     "reload": "Neu laden",
     "showLanguages": "Sprachen anzeigen"
   },
+  "repoTabPicker": {
+    "openAria": "Offene Repositories durchsuchen",
+    "searchPlaceholder": "Repositories filtern…",
+    "empty": "Keine Repositories"
+  },
   "repoGroup": {
     "createTitle": "Gruppe erstellen",
     "renameTitle": "Gruppe umbenennen",
