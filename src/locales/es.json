@@ -336,7 +336,22 @@
     "worktreeLanded": "{{name}} fusionado y limpiado",
     "usageToday": "Hoy: {{cost}} · {{tokens}} tokens",
     "usageWeek": "Últimos 7 días: {{cost}} · {{tokens}} tokens",
-    "chartLoading": "Renderizando el gráfico…"
+    "chartLoading": "Renderizando el gráfico…",
+    "plan": {
+      "title": "Aprobar el plan de implementación",
+      "empty": "No se envió ningún contenido del plan.",
+      "approve": "Ejecutar este plan",
+      "approveAuto": "Ejecutar y aprobar cambios automáticamente",
+      "keepPlanning": "Seguir planificando",
+      "feedbackPlaceholder": "Comentario opcional sobre el plan…",
+      "hint": "Al aprobar, la sesión sale del modo plan y puede aplicar cambios.",
+      "statusPending": "Decisión pendiente",
+      "statusApproved": "Aprobado",
+      "statusKeptPlanning": "Sigue planificando",
+      "bannerTitle": "Modo plan activo",
+      "bannerBody": "El agente solo investiga y planifica: los archivos y comandos siguen bloqueados hasta que apruebes un plan.",
+      "bannerAction": "Salir del modo plan"
+    }
   },
   "agentReview": {
     "openButton": "Revisar cambios",

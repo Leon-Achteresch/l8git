@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import type {
   ApprovalCardAnswer,
   ApprovalCardAnswers,
+  ApprovalCardOption,
   ApprovalCardProps,
   ApprovalCardQuestion,
   ApprovalCardStatus,
@@ -77,6 +78,20 @@ function isAnswered(answer: ApprovalCardAnswer) {
   return answer.selected.length > 0 || Boolean(answer.custom?.trim());
 }
 
+/** Option label plus the rationale the agent supplied for it, when present. */
+function OptionLabel({ option }: { option: ApprovalCardOption }) {
+  return (
+    <span className="select-none">
+      <span className="block text-sm text-foreground">{option.label}</span>
+      {option.description ? (
+        <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+          {option.description}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function QuestionOptions({
   question,
   answer,
@@ -98,8 +113,9 @@ function QuestionOptions({
         question.multiple ? (
           <div className="grid gap-0.5">
             {question.options.map((option) => (
-              <label key={option.value} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 has-disabled:cursor-not-allowed has-disabled:opacity-60">
+              <label key={option.value} className="flex min-h-9 cursor-pointer items-start gap-3 rounded-lg px-1.5 py-1.5 has-disabled:cursor-not-allowed has-disabled:opacity-60">
                 <Checkbox
+                  className="mt-0.5"
                   checked={answer.selected.includes(option.value)}
                   disabled={disabled || option.disabled}
                   onCheckedChange={(checked) =>
@@ -111,7 +127,7 @@ function QuestionOptions({
                     })
                   }
                 />
-                <span className="select-none text-sm text-foreground">{option.label}</span>
+                <OptionLabel option={option} />
               </label>
             ))}
           </div>
@@ -125,12 +141,13 @@ function QuestionOptions({
             className="gap-0.5"
           >
             {question.options.map((option) => (
-              <label key={option.value} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 has-disabled:cursor-not-allowed has-disabled:opacity-60">
+              <label key={option.value} className="flex min-h-9 cursor-pointer items-start gap-3 rounded-lg px-1.5 py-1.5 has-disabled:cursor-not-allowed has-disabled:opacity-60">
                 <RadioGroupItem
+                  className="mt-0.5"
                   value={option.value}
                   disabled={disabled || option.disabled}
                 />
-                <span className="select-none text-sm text-foreground">{option.label}</span>
+                <OptionLabel option={option} />
               </label>
             ))}
           </RadioGroup>

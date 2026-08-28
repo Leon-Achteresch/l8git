@@ -336,7 +336,22 @@
     "worktreeLanded": "{{name}} をマージして後片付けしました",
     "usageToday": "今日: {{cost}} · {{tokens}} トークン",
     "usageWeek": "過去 7 日間: {{cost}} · {{tokens}} トークン",
-    "chartLoading": "グラフを描画中…"
+    "chartLoading": "グラフを描画中…",
+    "plan": {
+      "title": "実装プランを承認",
+      "empty": "プランの内容が送信されませんでした。",
+      "approve": "このプランを実行",
+      "approveAuto": "実行して編集を自動承認",
+      "keepPlanning": "計画を続ける",
+      "feedbackPlaceholder": "プランへの任意のフィードバック…",
+      "hint": "承認するとプランモードを終了し、セッションが変更を適用できるようになります。",
+      "statusPending": "判断待ち",
+      "statusApproved": "承認済み",
+      "statusKeptPlanning": "計画を継続",
+      "bannerTitle": "プランモード有効",
+      "bannerBody": "エージェントは調査と計画のみを行います。プランを承認するまでファイルとコマンドはロックされたままです。",
+      "bannerAction": "プランモードを終了"
+    }
   },
   "agentReview": {
     "openButton": "変更をレビュー",

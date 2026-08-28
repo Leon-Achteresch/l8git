@@ -11,6 +11,8 @@ export type ApprovalCardStatus =
 export interface ApprovalCardOption {
   value: string;
   label: string;
+  /** Optional one-line rationale shown beneath the label. */
+  description?: string;
   disabled?: boolean;
 }
 
