@@ -1,6 +1,7 @@
 import { Coins } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { estimateCost, formatTokens, formatUsd, modelPrice } from "@/lib/agents/token-cost";
 import type { AgentTokenUsage } from "@/lib/agents/types";
@@ -43,8 +44,15 @@ export function AgentUsagePill({
           title={t("agentChat.usage.title")}
         >
           <Coins className="size-3 shrink-0" />
-          <span className="tabular-nums">{formatTokens(billed)}</span>
-          {cost ? <span className="tabular-nums">· {formatUsd(cost.totalUsd)}</span> : null}
+          {/* Tokens and cost climb during a turn. Tweening between values
+              shows the spend accumulating instead of flickering through
+              unrelated numbers. */}
+          <AnimatedNumber value={billed} format={formatTokens} />
+          {cost ? (
+            <span className="tabular-nums">
+              · <AnimatedNumber value={cost.totalUsd} format={formatUsd} />
+            </span>
+          ) : null}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" side="top" sideOffset={8} className="ag-menu w-72 p-3 text-[12px]">

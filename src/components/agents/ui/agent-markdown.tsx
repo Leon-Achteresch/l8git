@@ -1,10 +1,11 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { isValidElement } from "react";
+import { isValidElement, memo, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { MarkdownBarcode } from "@/components/agents/ui/agent-barcode";
 import { MarkdownChart } from "@/components/agents/ui/agent-chart";
+import { splitMarkdownBlocks } from "@/lib/agents/markdown-blocks";
 
 /** Quelltext eines Codeblocks, wenn er die gesuchte Sprache trägt. */
 function fenceSource(children: unknown, language: string): string | null {
@@ -38,10 +39,23 @@ const MARKDOWN_COMPONENTS: Components = {
   ),
 };
 
-export function AgentMarkdown({ children }: { children: string }) {
+const MarkdownBlock = memo(function MarkdownBlock({ source }: { source: string }) {
   return (
     <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS} components={MARKDOWN_COMPONENTS}>
-      {children}
+      {source}
     </ReactMarkdown>
   );
-}
+});
+
+export const AgentMarkdown = memo(function AgentMarkdown({ children }: { children: string }) {
+  const blocks = useMemo(() => splitMarkdownBlocks(children), [children]);
+  return (
+    <>
+      {blocks.map((block, index) => (
+        // Keyed by position: a settled block keeps its element and its
+        // memoized parse; only the block still being appended to re-renders.
+        <MarkdownBlock key={index} source={block} />
+      ))}
+    </>
+  );
+});

@@ -22,6 +22,8 @@ import { armTurnAttention } from "@/lib/agents/turn-attention";
 import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
+import { jiraThreadKey, useJiraStore } from "@/lib/jira/jira-store";
+import { syncJiraExternalRegistration } from "@/lib/jira/jira-sync";
 import { useRepoStore } from "@/lib/repo-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { SPRING_LAYOUT } from "@/lib/motion/ease";
@@ -69,6 +71,9 @@ export function AgentsPage({
   // Addons gelten für alle vier CLIs und liegen deshalb neben dem
   // providerspezifischen Capability-Center, nicht darin.
   const [addonsOpen, setAddonsOpen] = useState(false);
+  const jiraEnabled = useJiraStore((state) => state.enabled);
+  const jiraRegisterExternal = useJiraStore((state) => state.registerExternal);
+  const setActiveJiraThread = useJiraStore((state) => state.setActiveThread);
   const terminalVisible = useTerminalStore((state) => !!state.visibleByPath[selectedPath]);
   const toggleTerminal = useTerminalStore((state) => state.toggleVisible);
   const activeThreadId = useAgentChatStore(
@@ -134,6 +139,24 @@ export function AgentsPage({
 
   useEffect(() => armTurnAttention(), []);
   useEffect(() => armUsageLedger(), []);
+
+  // Codex and Cursor learn about the Jira MCP server through their own config,
+  // so the registration has to follow the selected repository and the switches.
+  useEffect(() => {
+    if (!selectedPath) return;
+    void syncJiraExternalRegistration(selectedPath);
+  }, [jiraEnabled, jiraRegisterExternal, selectedPath]);
+
+  // Tickets hang off a conversation, but the MCP server Codex and Cursor spawn
+  // only knows the repository. Recording which chat is open is how it resolves
+  // one to the other.
+  useEffect(() => {
+    if (!selectedPath) return;
+    setActiveJiraThread(
+      selectedPath,
+      activeThreadId ? jiraThreadKey(provider, activeThreadId) : null,
+    );
+  }, [activeThreadId, provider, selectedPath, setActiveJiraThread]);
 
   useEffect(() => {
     if (!paths.length) return;

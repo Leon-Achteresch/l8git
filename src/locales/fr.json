@@ -73,6 +73,14 @@
     "no": "Non",
     "refresh": "Actualiser"
   },
+  "crash": {
+    "title": "Cette vue a planté",
+    "body": "Une erreur inattendue a interrompu le rendu. Le reste de l'application continue de fonctionner.",
+    "retry": "Réessayer",
+    "copy": "Copier les détails",
+    "copied": "Détails de l'erreur copiés",
+    "copyFailed": "Échec de la copie"
+  },
   "header": {
     "repo": "Dépôt",
     "dashboard": "Tableau de bord",
@@ -170,6 +178,7 @@
     "conversation": "Conversation",
     "loadingConversations": "Chargement des conversations…",
     "showOlder": "Afficher {{count}} tours plus anciens",
+    "jumpToLatest": "Aller au plus récent",
     "showMoreConversations": "Afficher {{count}} conversations de plus",
     "firstConversation": "Démarrer la première conversation",
     "manageConversation": "Gérer la conversation",
@@ -337,6 +346,21 @@
     "usageToday": "Aujourd'hui : {{cost}} · {{tokens}} tokens",
     "usageWeek": "7 derniers jours : {{cost}} · {{tokens}} tokens",
     "chartLoading": "Rendu du graphique…",
+    "plan": {
+      "title": "Approuver le plan de mise en œuvre",
+      "empty": "Aucun contenu de plan n'a été transmis.",
+      "approve": "Exécuter ce plan",
+      "approveAuto": "Exécuter et approuver les modifications automatiquement",
+      "keepPlanning": "Continuer à planifier",
+      "feedbackPlaceholder": "Retour facultatif sur le plan…",
+      "hint": "L'approbation quitte le mode plan afin que la session puisse appliquer des modifications.",
+      "statusPending": "Décision en attente",
+      "statusApproved": "Approuvé",
+      "statusKeptPlanning": "Planification poursuivie",
+      "bannerTitle": "Mode plan actif",
+      "bannerBody": "L'agent se contente de rechercher et de planifier : fichiers et commandes restent verrouillés jusqu'à l'approbation d'un plan.",
+      "bannerAction": "Quitter le mode plan"
+    },
     "barcodeLoading": "Génération du code-barres…",
     "barcodeZoom": "Agrandir pour scanner",
     "barcodeCopy": "Copier la valeur",
@@ -896,7 +920,11 @@
         "label": "Description de la pull request",
         "desc": "Prompt pour les descriptions de pull request générées."
       }
-    }
+    },
+    "navGroupIntegrations": "Intégrations",
+    "navJira": "Jira",
+    "jiraSectionTitle": "Jira",
+    "jiraSectionSubtitle": "Liez des tickets et donnez à l'agent un accès en lecture seule"
   },
   "notifications": {
     "title": "Notifications",
@@ -2218,7 +2246,8 @@
     "menuTitle": "Espaces de travail",
     "add": "Ajouter un espace de travail…",
     "edit": "Modifier « {{name}} »…",
-    "defaultPersonalName": "Personnel"
+    "defaultPersonalName": "Personnel",
+    "moveToWorkspace": "Déplacer vers l’espace de travail"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "Le dernier espace de travail ne peut pas être supprimé",
@@ -3058,5 +3087,44 @@
     "pairDesc": "Scannez le QR code dans l'app l8git ou saisissez le JSON manuellement.",
     "copyJson": "Copier le JSON",
     "copied": "Copié"
+  },
+  "jira": {
+    "settingsTitle": "Accès Jira (BYOK)",
+    "settingsDesc": "URL de base, e-mail et jeton d'API de votre propre instance Jira. Le jeton est chiffré dans le trousseau du système et n'est jamais renvoyé à l'interface.",
+    "enabledLabel": "Intégration Jira activée",
+    "enabledHint": "Désactivée, l'agent ne voit aucun outil Jira : aucun jeton n'est dépensé pour leurs descriptions.",
+    "baseUrlLabel": "URL de base",
+    "baseUrlHint": "HTTPS uniquement. Exemple : https://acme.atlassian.net",
+    "emailLabel": "E-mail",
+    "tokenLabel": "Jeton d'API",
+    "tokenPlaceholder": "Jeton d'API Atlassian",
+    "tokenHint": "Stocké dans le trousseau du système, pas dans localStorage. Le champ est vidé après l'enregistrement et le jeton n'est plus affiché.",
+    "tokenShow": "Afficher le jeton",
+    "tokenHide": "Masquer le jeton",
+    "configuredHint": "Enregistré pour {{email}} ({{hint}})",
+    "testButton": "Tester la connexion",
+    "deleteButton": "Supprimer l'accès",
+    "savedToast": "Accès Jira enregistré.",
+    "deletedToast": "Accès Jira supprimé.",
+    "testOkToast": "Connecté en tant que {{name}}.",
+    "scopeTitle": "Ce que l'agent peut faire",
+    "allowCommentsLabel": "Lire les commentaires",
+    "allowCommentsHint": "Expose en plus l'outil qui lit les derniers commentaires d'un ticket.",
+    "allowSearchLabel": "Autoriser la recherche JQL",
+    "allowSearchHint": "Sans cela l'agent ne peut lire que les tickets liés ici. Avec, il peut chercher et lire tout ticket visible par votre compte.",
+    "readOnlyNote": "Tous les outils Jira sont en lecture seule : seules des requêtes HTTP GET sont envoyées. Créer, modifier, commenter et changer de statut ne sont pas implémentés.",
+    "linkTicket": "Lier un ticket Jira",
+    "linkPlaceholder": "ABC-123 ou https://…/browse/ABC-123",
+    "invalidKey": "Clé de ticket invalide. Format attendu : ABC-123.",
+    "notConfigured": "Aucun accès Jira enregistré — Paramètres → Jira.",
+    "unlink": "Délier {{key}}",
+    "toolNote": "Claude Code reçoit les outils in-process, OpenCode par session via ACP. Codex et Cursor ont besoin de l'entrée dans leur configuration.",
+    "registerExternalLabel": "Enregistrer dans Codex et Cursor",
+    "registerExternalHint": "Codex et Cursor ne lisent les serveurs MCP que depuis leur propre configuration. l8git y ajoute le serveur (~/.codex/config.toml et ~/.cursor/mcp.json) et l'enlève dès que l'interrupteur est désactivé. L'entrée est donc aussi visible dans vos propres sessions Codex et Cursor. Claude Code et OpenCode n'en ont pas besoin.",
+    "linkDialogDesc": "Le ticket ne vaut que pour cette conversation. L'agent ne peut lire que les tickets liés.",
+    "linkKeyLabel": "Clé du ticket ou lien Jira",
+    "linkedToast": "{{key}} lié à cette conversation.",
+    "panelHint": "Les tickets se lient par conversation : clic droit sur un chat dans la barre latérale → « Lier un ticket Jira ». La clé et le statut apparaissent ensuite dans la ligne du chat.",
+    "sessionNote": "Un ticket lié prend effet immédiatement, même dans un chat déjà en cours. Les interrupteurs ci-dessus ne s'appliquent qu'aux chats démarrés ensuite : la CLI ne demande la liste des outils qu'une fois, à la connexion."
   }
 }

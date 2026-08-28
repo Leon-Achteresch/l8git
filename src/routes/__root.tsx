@@ -20,6 +20,7 @@ const AppUpdateToast = lazy(() =>
 );
 
 import { AppHeader } from "@/components/app/app-header";
+import { RouteErrorBoundary } from "@/components/app/route-error-boundary";
 
 // Lazy: the island drags the full motion animation engine (animate/useSpring/
 // DynamicIsland) with it — as an overlay it can appear a tick after first paint.
@@ -102,7 +103,9 @@ function RootLayout() {
             animate={{ opacity: 1, y: 0 }}
             transition={easeOutSoft}
           >
-            <Outlet />
+            <RouteErrorBoundary resetKey={pathname}>
+              <Outlet />
+            </RouteErrorBoundary>
           </m.div>
         </div>
         <Suspense fallback={null}>

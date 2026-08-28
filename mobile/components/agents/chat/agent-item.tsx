@@ -4,9 +4,11 @@ import {
   Boxes,
   Braces,
   Brain,
+  ClipboardList,
   FileImage,
   GitPullRequestArrow,
   Globe,
+  MessageCircleQuestion,
   Mic,
   SquareTerminal,
   Timer,
@@ -409,6 +411,72 @@ function ActivityRow({
   );
 }
 
+/** Slash commands run in the CLI — a chip, never a chat bubble. */
+function LocalCommandItem({ item }: { item: AgentItem }) {
+  const label = [stringValue(item.command), stringValue(item.args)].filter(Boolean).join(' ');
+  const output = stringValue(item.output);
+  if (!label && !output) {
+    return null;
+  }
+  if (!output) {
+    return <ActivityRow icon={SquareTerminal} label={label || 'Local command'} />;
+  }
+  return (
+    <ToolCard icon={SquareTerminal} tool="Command" title={label || 'Local command'} status="success">
+      <ToolOutput text={boundedTail(output, 20_000, 240)} />
+    </ToolCard>
+  );
+}
+
+/** A plan proposed via ExitPlanMode, kept readable in the transcript. */
+function PlanProposalItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
+  const plan = stringValue(item.plan);
+  const status = stringValue(item.status);
+  return (
+    <ToolCard
+      icon={ClipboardList}
+      tool="Plan"
+      title={
+        status === 'inProgress'
+          ? 'Plan proposed'
+          : status === 'failed'
+            ? 'Plan not approved'
+            : 'Plan approved'
+      }
+      status={turn.status === 'inProgress' && status === 'inProgress' ? 'running' : 'success'}
+      defaultOpen>
+      {plan ? <MarkdownView content={plan} /> : null}
+    </ToolCard>
+  );
+}
+
+/** Clarifying questions plus the answers that were given. */
+function UserQuestionItem({ item }: { item: AgentItem }) {
+  const questions = arrayValue(item.questions).filter(isRecord);
+  const answers = isRecord(item.answers) ? item.answers : {};
+  return (
+    <ToolCard
+      icon={MessageCircleQuestion}
+      tool="Question"
+      title={stringValue(item.status) === 'inProgress' ? 'Waiting for an answer' : 'Answered'}
+      status="success"
+      defaultOpen>
+      <View className="gap-2 px-4 pb-3">
+        {questions.map((question, index) => {
+          const text = stringValue(question.question);
+          const answer = stringValue(answers[text]);
+          return (
+            <View key={`${item.id}-q-${index}`} className="gap-0.5">
+              <Text className="text-muted-foreground text-2xs">{text}</Text>
+              {answer ? <Text className="text-foreground text-xs">{`→ ${answer}`}</Text> : null}
+            </View>
+          );
+        })}
+      </View>
+    </ToolCard>
+  );
+}
+
 function StatusItem({ item }: { item: AgentItem }) {
   return (
     <ActivityRow
@@ -457,6 +525,15 @@ const STATUS_TYPES = new Set([
 function AgentItemViewImpl({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
   if (item.type === 'userMessage') {
     return <UserMessage item={item} />;
+  }
+  if (item.type === 'localCommand') {
+    return <LocalCommandItem item={item} />;
+  }
+  if (item.type === 'planProposal') {
+    return <PlanProposalItem item={item} turn={turn} />;
+  }
+  if (item.type === 'userQuestion') {
+    return <UserQuestionItem item={item} />;
   }
   if (item.type === 'agentMessage') {
     return <AssistantMessage item={item} turn={turn} />;

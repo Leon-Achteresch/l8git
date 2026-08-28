@@ -33,6 +33,14 @@ Any agent can render **charts**: it emits a fenced ` ```chart ` block with JSON 
 
 Token usage from all four providers is accumulated per day and priced with a built-in model price table. The sidebar shows today's cost and token count, with the seven-day total in the tooltip. Loading old history does not count as new usage.
 
+## Addons
+
+Two additions that work the same way in all four CLIs. The puzzle icon in the chat header — or `/addons` — opens the **Addon Studio**.
+
+**Barcodes.** An agent can turn data into scannable codes: it emits a fenced ` ```barcode ` block with JSON (`format` and `value`, several codes via `items`), and the chat renders real barcodes. The data can come from anywhere the agent can reach, an MCP server included — ask for the open orders and get a pick list you can scan off the screen. 39 symbologies are documented for the agent, from Code 128, EAN-13 and ITF-14 through QR, Data Matrix and PDF417 to the postal 4-state codes. `/barcode <which values to encode>` appends the format documentation to the prompt, a click on a code enlarges it for a handheld scanner, and each code can be copied or downloaded as SVG. The studio has a live preview to try a format and value out.
+
+**Claude in Browser.** The studio installs the Playwright MCP server for the CLI you pick, which gives it a real browser: navigate, click, type, fill forms, assert what is visible, and read the console and network log. End-to-end tests then run straight from the chat instead of being written into a file for someone else to run. Options — browser, headless, a fresh profile per session, viewport, emulated device, allowed origins — are stored in the CLI's own configuration (`.mcp.json` for Claude Code, `.cursor/mcp.json` for Cursor, `opencode.json` for OpenCode, its own `config.toml` for Codex), so the CLI also has the browser outside of l8git. `/browser <what to test>` sends a scenario with the ground rules: act on the accessibility snapshot, assert explicitly, and back up every failure with a screenshot, the console and the network log.
+
 ## Worktree sessions
 
 Instead of letting agents fight over one working tree, l8git can give each session its own Git worktree.
@@ -48,6 +56,47 @@ Because several sessions can run in parallel, multiple agents can work on the sa
 The overview lists every agent thread across the whole workspace: how many are running, how many wait for approval, total cost, and per thread the repository, branch, worktree and the number of uncommitted files. It is searchable by thread, repository or branch, and each entry has a status — running, waiting for approval, failed, or done.
 
 Running and waiting agents also show up in the [Inbox](pull-requests.md#the-inbox).
+
+## Jira tickets
+
+Bring your own Jira: under **Settings → Jira** you store the base URL, your account e-mail and an Atlassian API token. The token goes into the operating system's keychain — never into `localStorage` — and is never handed back to the UI; the settings page only shows a masked hint such as `••••1a2b`.
+
+Tickets are linked **per conversation**, not per repository — two chats in the same repo are usually about different tickets. Right-click a chat in the agents sidebar and pick **Link Jira ticket**, then paste a key (`ABC-123`) or a Jira link. The ticket is resolved once, and its key and status then sit at the bottom right of that chat's row in the sidebar. The same menu unlinks it again.
+
+### What the agent may do
+
+Everything here is read-only. Three tools exist — read a ticket, read its comments, search by JQL — and all three only ever issue HTTP GET requests. Creating, editing, commenting and transitioning are not implemented.
+
+The tools are also gated so an unused integration costs nothing:
+
+| Situation | What the agent sees |
+|---|---|
+| Jira switched off, or no credentials | no Jira tools at all |
+| Jira on, JQL search off | tools to read this chat's tickets (and their comments, if allowed) — and nothing else |
+| JQL search on | additionally search and read any ticket your Jira account can see |
+
+Which tickets a tool will actually return is checked on every call against what is linked to that chat right now. That split matters in practice: **linking a ticket works immediately, even in a chat that is already running**, while switching Jira itself on or off only reaches chats started afterwards — the CLI asks for the tool list once, when it connects.
+
+Tool schemas are paid for in input tokens on every turn, which is why the list is rebuilt for each request instead of being declared once. Responses are trimmed the same way: Atlassian's rich-text format is flattened to plain text, only the relevant fields are requested, long descriptions are cut off, and search results carry no descriptions at all.
+
+The master switch under **Settings → Jira** turns the whole feature off again at any time.
+
+### How each CLI gets the tools
+
+All four providers can use them, through whatever channel they support:
+
+| Provider | Channel | Writes to config you own |
+|---|---|---|
+| Claude Code | l8git's in-process MCP server | no |
+| OpenCode | handed the server per session over ACP | no |
+| Codex | `~/.codex/config.toml` | yes |
+| Cursor | `~/.cursor/mcp.json` | yes |
+
+Codex and Cursor only read MCP servers from their own configuration files, so l8git adds an `l8git-jira` entry there and removes it again when you switch the feature — or the **Register with Codex and Cursor** switch — off. Because those files are the same ones your own Codex and Cursor sessions read, the tools show up there too; that switch is how you decline.
+
+Under the hood the three of them talk to l8git's own binary, re-executed as a small MCP server. It reads your credentials from the keychain itself, so the token is never passed as an argument or an environment variable.
+
+One caveat for Codex and Cursor: that server is started per repository and is never told which chat is asking, so it uses whichever conversation the repository currently has open. A chat running in the background therefore sees the tickets of the one on screen. Claude Code and OpenCode are handed the conversation directly and are not affected.
 
 ## Reviewing what an agent did
 

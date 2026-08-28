@@ -58,7 +58,7 @@ notify-debouncer-full = "0.3"
 tauri-plugin-process = "2"
 portable-pty = "0.9"
 once_cell = "1"
-keyring = { version = "3", features = ["windows-native"] }
+keyring = { version = "3", features = ["windows-native", "apple-native", "linux-native"] }
 dirs = "6"
 log = "0.4"
 
