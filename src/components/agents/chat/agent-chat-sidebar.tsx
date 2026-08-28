@@ -3,7 +3,6 @@ import { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from "
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { AgentJiraPanel } from "@/components/agents/chat/agent-jira-panel";
 import { AgentRepoPicker } from "@/components/agents/chat/agent-repo-picker";
 import { AgentSidebarActions } from "@/components/agents/chat/agent-sidebar-actions";
 import { AgentThreadList } from "@/components/agents/chat/agent-thread-list";
@@ -20,12 +19,16 @@ const EMPTY_THREADS: AgentThreadSummary[] = [];
 const taggedThreads = new WeakMap<AgentThreadSummary, AgentThreadSummary & { provider: NativeAgentProvider }>();
 
 function tagProvider(threads: AgentThreadSummary[], provider: NativeAgentProvider) {
-  return threads.map((thread) => {
+  // Der Cache braucht Objekt-Keys. Ein kaputter Eintrag (alter persistierter
+  // Katalog, unvollstaendige Provider-Antwort) wuerde die Sidebar sonst mit
+  // "Invalid value used as weak map key" abschiessen, statt nur zu fehlen.
+  return threads.flatMap((thread) => {
+    if (thread === null || typeof thread !== "object") return [];
     const known = taggedThreads.get(thread);
-    if (known) return known;
+    if (known) return [known];
     const tagged = { ...thread, provider };
     taggedThreads.set(thread, tagged);
-    return tagged;
+    return [tagged];
   });
 }
 
@@ -182,8 +185,6 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
           onNewThread={() => void newThread()}
         />
       </div>
-
-      <AgentJiraPanel path={selectedPath} />
 
       {/* Plain scroller rather than the Radix ScrollArea: the thread list is
           virtualized and the virtualizer needs the scroll element itself. */}

@@ -73,6 +73,14 @@
     "no": "No",
     "refresh": "Actualizar"
   },
+  "crash": {
+    "title": "Esta vista ha fallado",
+    "body": "Un error inesperado interrumpió el renderizado. El resto de la aplicación sigue funcionando.",
+    "retry": "Reintentar",
+    "copy": "Copiar detalles",
+    "copied": "Detalles del error copiados",
+    "copyFailed": "No se pudo copiar"
+  },
   "header": {
     "repo": "Repositorio",
     "dashboard": "Panel",
@@ -3042,18 +3050,17 @@
     "allowSearchLabel": "Permitir búsqueda JQL",
     "allowSearchHint": "Sin esto el agente solo puede leer los tickets vinculados aquí. Con esto puede buscar y leer cualquier ticket visible para tu cuenta.",
     "readOnlyNote": "Todas las herramientas de Jira son de solo lectura: únicamente se envían peticiones HTTP GET. Crear, editar, comentar y cambiar estado no están implementados.",
-    "panelTitle": "Tickets de Jira",
-    "panelEmpty": "Ningún ticket vinculado. Añade uno con +.",
-    "linkTicket": "Vincular ticket",
-    "linkPlaceholder": "ABC-123 o enlace de Jira, Enter para vincular",
+    "linkTicket": "Vincular ticket de Jira",
+    "linkPlaceholder": "ABC-123 o https://…/browse/ABC-123",
     "invalidKey": "Clave de ticket inválida. Se espera la forma ABC-123.",
     "notConfigured": "No hay acceso a Jira guardado — Ajustes → Jira.",
-    "refresh": "Actualizar tickets",
-    "unlink": "Quitar {{key}}",
-    "openInJira": "Abrir {{key}} en Jira",
+    "unlink": "Desvincular {{key}}",
     "toolNote": "Claude Code recibe las herramientas en proceso y OpenCode por sesión mediante ACP. Codex y Cursor necesitan la entrada en su configuración.",
     "registerExternalLabel": "Registrar en Codex y Cursor",
     "registerExternalHint": "Codex y Cursor leen los servidores MCP solo desde su propia configuración. l8git añade el servidor ahí (~/.codex/config.toml y ~/.cursor/mcp.json) y lo quita en cuanto se desactiva el interruptor. Eso hace que la entrada también sea visible en tus propias sesiones de Codex y Cursor. Claude Code y OpenCode no lo necesitan.",
-    "registrationOff": "Este proveedor necesita el interruptor de registro en los ajustes; si no, no verá las herramientas."
+    "linkDialogDesc": "El ticket se aplica solo a esta conversación. El agente puede leer los tickets vinculados y nada más.",
+    "linkKeyLabel": "Clave del ticket o enlace de Jira",
+    "linkedToast": "{{key}} vinculado a esta conversación.",
+    "panelHint": "Los tickets se vinculan por conversación: haz clic derecho en un chat de la barra lateral → «Vincular ticket de Jira». La clave y el estado aparecen luego en la fila del chat."
   }
 }

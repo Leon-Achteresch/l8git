@@ -133,7 +133,7 @@ Instead of switching between windows or terminals, l8git puts every repository o
 - **Session review** — hunk-level keep/discard of what the agent changed
 - **One-click finish** — commit, merge back into the base branch, clean up worktree and branch
 - **Agent overview** — every thread across every repository, with status and token cost
-- **Jira tickets (BYOK)** — pin tickets to a repository, see them in the agents sidebar, and let all four CLIs read them through read-only tools that are only advertised while they are actually usable
+- **Jira tickets (BYOK)** — link a ticket to a chat, see its key and status on that chat in the sidebar, and let all four CLIs read it through read-only tools that are only advertised while they are actually usable
 
 ### Quality of Life
 - **Command palette** — every action reachable without the mouse

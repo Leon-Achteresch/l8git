@@ -73,6 +73,14 @@
     "no": "否",
     "refresh": "刷新"
   },
+  "crash": {
+    "title": "此视图已崩溃",
+    "body": "意外错误中断了渲染。应用的其余部分仍在运行。",
+    "retry": "重试",
+    "copy": "复制详情",
+    "copied": "已复制错误详情",
+    "copyFailed": "复制失败"
+  },
   "header": {
     "repo": "仓库",
     "dashboard": "仪表盘",
@@ -3042,18 +3050,17 @@
     "allowSearchLabel": "允许 JQL 搜索",
     "allowSearchHint": "不开启时，智能体只能读取此处关联的工单；开启后可搜索并读取你的账号可见的任意工单。",
     "readOnlyNote": "所有 Jira 工具均为只读：只会发送 HTTP GET 请求。创建、修改、评论和状态流转均未实现。",
-    "panelTitle": "Jira 工单",
-    "panelEmpty": "尚未关联工单。点击 + 添加。",
-    "linkTicket": "关联工单",
-    "linkPlaceholder": "ABC-123 或 Jira 链接，回车关联",
+    "linkTicket": "关联 Jira 工单",
+    "linkPlaceholder": "ABC-123 或 https://…/browse/ABC-123",
     "invalidKey": "工单键无效，应为 ABC-123 形式。",
     "notConfigured": "未保存 Jira 访问凭据 — 设置 → Jira。",
-    "refresh": "刷新工单",
-    "unlink": "移除 {{key}}",
-    "openInJira": "在 Jira 中打开 {{key}}",
+    "unlink": "取消关联 {{key}}",
     "toolNote": "Claude Code 在进程内获得工具，OpenCode 通过 ACP 按会话获得。Codex 和 Cursor 需要写入各自的配置。",
     "registerExternalLabel": "注册到 Codex 和 Cursor",
     "registerExternalHint": "Codex 和 Cursor 只从各自的配置文件读取 MCP 服务器。l8git 会写入其中（~/.codex/config.toml 和 ~/.cursor/mcp.json），关闭开关后会再次移除。这也意味着该条目在你自己的 Codex 和 Cursor 会话中同样可见。Claude Code 和 OpenCode 不需要这一步。",
-    "registrationOff": "该提供方需要在设置中打开注册开关，否则看不到这些工具。"
+    "linkDialogDesc": "该工单仅对本次对话生效。智能体只能读取已关联的工单。",
+    "linkKeyLabel": "工单键或 Jira 链接",
+    "linkedToast": "已将 {{key}} 关联到本次对话。",
+    "panelHint": "工单按对话关联：在侧边栏右键点击某个聊天 →「关联 Jira 工单」。之后工单键和状态会显示在聊天行中。"
   }
 }

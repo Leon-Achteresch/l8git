@@ -12,12 +12,15 @@ use l8git_lib::jira_policy::{
 use serde_json::{json, Value};
 
 const REPO: &str = "/repos/app";
+const THREAD: &str = "claude:thread-1";
 
 fn policy(enabled: bool, search: bool, comments: bool, keys: &[&str]) -> JiraPolicy {
-    let mut keys_by_path = BTreeMap::new();
+    let mut keys_by_thread = BTreeMap::new();
+    let mut active_thread_by_path = BTreeMap::new();
+    active_thread_by_path.insert(REPO.to_string(), THREAD.to_string());
     if !keys.is_empty() {
-        keys_by_path.insert(
-            REPO.to_string(),
+        keys_by_thread.insert(
+            THREAD.to_string(),
             keys.iter().map(|key| key.to_string()).collect(),
         );
     }
@@ -26,7 +29,8 @@ fn policy(enabled: bool, search: bool, comments: bool, keys: &[&str]) -> JiraPol
         enabled,
         allow_search: search,
         allow_comments: comments,
-        keys_by_path,
+        active_thread_by_path,
+        keys_by_thread,
     }
 }
 
@@ -50,7 +54,8 @@ fn offers_nothing_while_the_feature_is_off() {
 #[test]
 fn offers_nothing_without_a_pinned_ticket_or_search() {
     assert!(tools_for(&policy(true, false, true, &[]), REPO).is_empty());
-    // A ticket pinned to a *different* repository does not open this one.
+    // A ticket pinned in a *different* repository's conversation does not open
+    // this one.
     assert!(tools_for(&policy(true, false, true, &["ABC-1"]), "/repos/other").is_empty());
 }
 
@@ -244,9 +249,9 @@ fn policy_defaults_are_closed() {
 
 #[test]
 fn policy_normalisation_drops_keys_that_are_not_issue_keys() {
-    let mut keys_by_path = BTreeMap::new();
-    keys_by_path.insert(
-        REPO.to_string(),
+    let mut keys_by_thread = BTreeMap::new();
+    keys_by_thread.insert(
+        THREAD.to_string(),
         vec![
             "abc-1".to_string(),
             "../etc/passwd".to_string(),
@@ -254,29 +259,66 @@ fn policy_normalisation_drops_keys_that_are_not_issue_keys() {
             "DEF-2".to_string(),
         ],
     );
-    keys_by_path.insert("".to_string(), vec!["ABC-1".to_string()]);
-    keys_by_path.insert("/repos/empty".to_string(), vec!["nope".to_string()]);
+    keys_by_thread.insert("".to_string(), vec!["ABC-1".to_string()]);
+    keys_by_thread.insert("codex:empty".to_string(), vec!["nope".to_string()]);
+    let mut active_thread_by_path = BTreeMap::new();
+    active_thread_by_path.insert(REPO.to_string(), THREAD.to_string());
+    active_thread_by_path.insert("".to_string(), THREAD.to_string());
+    active_thread_by_path.insert("/repos/blank".to_string(), String::new());
     let normalized = normalize_policy(JiraPolicy {
-        keys_by_path,
+        keys_by_thread,
+        active_thread_by_path,
         ..Default::default()
     });
     assert_eq!(normalized.keys_for(REPO), ["ABC-1", "DEF-2"]);
-    assert!(normalized.keys_by_path.get("").is_none());
-    assert!(normalized.keys_by_path.get("/repos/empty").is_none());
+    assert!(normalized.keys_by_thread.get("").is_none());
+    assert!(normalized.keys_by_thread.get("codex:empty").is_none());
+    assert!(normalized.active_thread_by_path.get("").is_none());
+    assert!(normalized.active_thread_by_path.get("/repos/blank").is_none());
     assert_eq!(normalized.version, POLICY_VERSION);
 }
 
 #[test]
 fn policy_round_trips_through_json_in_the_frontends_wire_shape() {
-    let raw = r#"{"version":1,"enabled":true,"allowSearch":false,"allowComments":true,"keysByPath":{"/repos/app":["ABC-1"]}}"#;
+    let raw = r#"{"version":2,"enabled":true,"allowSearch":false,"allowComments":true,"activeThreadByPath":{"/repos/app":"claude:thread-1"},"keysByThread":{"claude:thread-1":["ABC-1"]}}"#;
     let parsed: JiraPolicy = serde_json::from_str(raw).unwrap();
     assert!(parsed.enabled);
     assert!(!parsed.allow_search);
     assert!(parsed.allow_comments);
+    assert_eq!(parsed.thread_for("/repos/app"), Some("claude:thread-1"));
     assert_eq!(parsed.keys_for("/repos/app"), ["ABC-1"]);
     assert!(parsed.offers_tools("/repos/app"));
     assert!(parsed.allows_key("/repos/app", "ABC-1"));
     assert!(!parsed.allows_key("/repos/app", "XYZ-9"));
+}
+
+#[test]
+fn a_repository_reaches_only_the_conversation_it_has_open() {
+    let mut policy = policy(true, false, true, &["ABC-1"]);
+    policy
+        .keys_by_thread
+        .insert("claude:thread-2".to_string(), vec!["DEF-2".to_string()]);
+
+    // The open conversation's ticket is reachable, the other chat's is not.
+    assert!(policy.allows_key(REPO, "ABC-1"));
+    assert!(!policy.allows_key(REPO, "DEF-2"));
+
+    // Switching the open conversation switches the reachable set with it.
+    policy
+        .active_thread_by_path
+        .insert(REPO.to_string(), "claude:thread-2".to_string());
+    assert_eq!(policy.keys_for(REPO), ["DEF-2"]);
+    assert!(!policy.allows_key(REPO, "ABC-1"));
+}
+
+#[test]
+fn a_repository_with_no_open_conversation_reaches_nothing() {
+    let mut policy = policy(true, false, true, &["ABC-1"]);
+    policy.active_thread_by_path.clear();
+    assert!(policy.keys_for(REPO).is_empty());
+    assert!(!policy.offers_tools(REPO));
+    assert!(!policy.allows_key(REPO, "ABC-1"));
+    assert!(tools_for(&policy, REPO).is_empty());
 }
 
 // ---------------------------------------------------------------------------

@@ -138,7 +138,7 @@ describe("jiraAcpMcpServers", () => {
     // ahead of the first pin; the policy file keeps the tool list empty.
     configured();
     platform.invoke.mockResolvedValue(BASE);
-    expect(useJiraStore.getState().linksByPath[REPO]).toBeUndefined();
+    expect(useJiraStore.getState().linksByThread).toEqual({});
     await expect(jiraAcpMcpServers(REPO)).resolves.toHaveLength(1);
   });
 

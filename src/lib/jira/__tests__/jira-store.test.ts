@@ -6,12 +6,15 @@ import {
   JIRA_PREFS_KEY,
   jiraToolContextFor,
   parseJiraPrefs,
+  policyPayload,
   serializeJiraPrefs,
   useJiraStore,
 } from "@/lib/jira/jira-store";
 import type { JiraCredentialStatus, JiraIssue } from "@/lib/jira/types";
 
 const PATH = "/repos/app";
+const THREAD = "claude:thread-1";
+const OTHER_THREAD = "codex:thread-2";
 
 function issue(key = "ABC-1"): JiraIssue {
   return {
@@ -70,8 +73,9 @@ describe("parseJiraPrefs", () => {
       allowSearch: true,
       allowComments: false,
       registerExternal: false,
-      linksByPath: {
-        [PATH]: [
+      activeThreadByPath: { [PATH]: THREAD },
+      linksByThread: {
+        [THREAD]: [
           {
             key: "ABC-1",
             summary: "s",
@@ -98,17 +102,36 @@ describe("parseJiraPrefs", () => {
     const parsed = parseJiraPrefs(
       JSON.stringify({
         enabled: true,
-        linksByPath: { [PATH]: [{ key: "../etc" }, { key: "ABC-1" }, "nope", null] },
+        linksByThread: { [THREAD]: [{ key: "../etc" }, { key: "ABC-1" }, "nope", null] },
       }),
     );
-    expect(parsed.linksByPath[PATH].map((entry) => entry.key)).toEqual(["ABC-1"]);
+    expect(parsed.linksByThread[THREAD].map((entry) => entry.key)).toEqual(["ABC-1"]);
+  });
+
+  it("ignores repository-wide links from the first iteration", () => {
+    // A repo-wide pin has no conversation to belong to; migrating it would
+    // hand an agent a ticket nobody linked to its chat.
+    const parsed = parseJiraPrefs(
+      JSON.stringify({ enabled: true, linksByPath: { [PATH]: [{ key: "ABC-1" }] } }),
+    );
+    expect(parsed.linksByThread).toEqual({});
+    expect(parsed.enabled).toBe(true);
+  });
+
+  it("keeps only well-formed active-thread pointers", () => {
+    const parsed = parseJiraPrefs(
+      JSON.stringify({
+        activeThreadByPath: { [PATH]: THREAD, "": THREAD, "/repos/blank": "", "/repos/x": 42 },
+      }),
+    );
+    expect(parsed.activeThreadByPath).toEqual({ [PATH]: THREAD });
   });
 
   it("coerces missing metadata rather than trusting it", () => {
     const parsed = parseJiraPrefs(
-      JSON.stringify({ linksByPath: { [PATH]: [{ key: "abc-1", summary: 42, syncedAt: "x" }] } }),
+      JSON.stringify({ linksByThread: { [THREAD]: [{ key: "abc-1", summary: 42, syncedAt: "x" }] } }),
     );
-    expect(parsed.linksByPath[PATH][0]).toEqual({
+    expect(parsed.linksByThread[THREAD][0]).toEqual({
       key: "ABC-1",
       summary: "",
       status: "",
@@ -169,9 +192,9 @@ describe("credential handling", () => {
 });
 
 describe("ticket links", () => {
-  it("resolves and persists a linked ticket", async () => {
+  it("resolves and persists a ticket against one conversation", async () => {
     platform.invoke.mockResolvedValue(issue());
-    const link = await useJiraStore.getState().linkTicket(PATH, "abc-1");
+    const link = await useJiraStore.getState().linkTicket(THREAD, "abc-1");
     expect(link.key).toBe("ABC-1");
     expect(link.summary).toBe("Login schlaegt fehl");
     expect(platform.invoke).toHaveBeenCalledWith("jira_fetch_issue", { key: "ABC-1" });
@@ -179,7 +202,12 @@ describe("ticket links", () => {
   });
 
   it("rejects a malformed key before touching the backend", async () => {
-    await expect(useJiraStore.getState().linkTicket(PATH, "../etc/passwd")).rejects.toThrow();
+    await expect(useJiraStore.getState().linkTicket(THREAD, "../etc/passwd")).rejects.toThrow();
+    expect(platform.invoke).not.toHaveBeenCalled();
+  });
+
+  it("refuses to link without a conversation", async () => {
+    await expect(useJiraStore.getState().linkTicket("", "ABC-1")).rejects.toThrow();
     expect(platform.invoke).not.toHaveBeenCalled();
   });
 
@@ -187,61 +215,124 @@ describe("ticket links", () => {
     platform.invoke.mockImplementation((_cmd, args) =>
       Promise.resolve(issue((args as { key: string }).key)),
     );
-    await useJiraStore.getState().linkTicket(PATH, "DEF-2");
-    await useJiraStore.getState().linkTicket(PATH, "ABC-1");
-    await useJiraStore.getState().linkTicket(PATH, "abc-1");
-    expect(useJiraStore.getState().linksByPath[PATH].map((entry) => entry.key)).toEqual([
+    await useJiraStore.getState().linkTicket(THREAD, "DEF-2");
+    await useJiraStore.getState().linkTicket(THREAD, "ABC-1");
+    await useJiraStore.getState().linkTicket(THREAD, "abc-1");
+    expect(useJiraStore.getState().linksByThread[THREAD].map((entry) => entry.key)).toEqual([
       "ABC-1",
       "DEF-2",
     ]);
   });
 
-  it("keeps links of other repositories untouched", async () => {
+  it("keeps conversations independent of each other", async () => {
     platform.invoke.mockImplementation((_cmd, args) =>
       Promise.resolve(issue((args as { key: string }).key)),
     );
-    await useJiraStore.getState().linkTicket(PATH, "ABC-1");
-    await useJiraStore.getState().linkTicket("/repos/other", "DEF-2");
-    useJiraStore.getState().unlinkTicket(PATH, "ABC-1");
-    expect(useJiraStore.getState().linksByPath[PATH]).toBeUndefined();
-    expect(useJiraStore.getState().linksByPath["/repos/other"]).toHaveLength(1);
+    await useJiraStore.getState().linkTicket(THREAD, "ABC-1");
+    await useJiraStore.getState().linkTicket(OTHER_THREAD, "DEF-2");
+    useJiraStore.getState().unlinkTicket(THREAD, "ABC-1");
+    expect(useJiraStore.getState().linksByThread[THREAD]).toBeUndefined();
+    expect(useJiraStore.getState().linksByThread[OTHER_THREAD]).toHaveLength(1);
   });
 
   it("keeps the stale card when a refresh fails", async () => {
     platform.invoke.mockResolvedValue(issue());
-    await useJiraStore.getState().linkTicket(PATH, "ABC-1");
+    await useJiraStore.getState().linkTicket(THREAD, "ABC-1");
     useJiraStore.setState({ status: CONFIGURED, statusLoaded: true });
     platform.invoke.mockRejectedValue(new Error("offline"));
-    await useJiraStore.getState().refreshLinks(PATH);
-    expect(useJiraStore.getState().linksByPath[PATH][0].key).toBe("ABC-1");
+    await useJiraStore.getState().refreshLinks(THREAD);
+    expect(useJiraStore.getState().linksByThread[THREAD][0].key).toBe("ABC-1");
   });
 
   it("does not refresh without credentials", async () => {
     platform.invoke.mockResolvedValue(issue());
-    await useJiraStore.getState().linkTicket(PATH, "ABC-1");
+    await useJiraStore.getState().linkTicket(THREAD, "ABC-1");
     platform.invoke.mockClear();
-    await useJiraStore.getState().refreshLinks(PATH);
+    await useJiraStore.getState().refreshLinks(THREAD);
     expect(platform.invoke).not.toHaveBeenCalled();
   });
 });
 
-describe("jiraToolContextFor", () => {
-  it("mirrors the switches and the links of the given repository", async () => {
+describe("setActiveThread", () => {
+  it("records and clears which conversation a repository has open", () => {
+    useJiraStore.getState().setActiveThread(PATH, THREAD);
+    expect(useJiraStore.getState().activeThreadByPath).toEqual({ [PATH]: THREAD });
+    useJiraStore.getState().setActiveThread(PATH, null);
+    expect(useJiraStore.getState().activeThreadByPath).toEqual({});
+  });
+
+  it("ignores a repeated pointer so the policy file is not rewritten", () => {
+    useJiraStore.getState().setActiveThread(PATH, THREAD);
+    const writes = platform.invoke.mock.calls.filter((call) => call[0] === "jira_write_policy").length;
+    useJiraStore.getState().setActiveThread(PATH, THREAD);
+    expect(
+      platform.invoke.mock.calls.filter((call) => call[0] === "jira_write_policy").length,
+    ).toBe(writes);
+  });
+
+  it("ignores an empty repository path", () => {
+    useJiraStore.getState().setActiveThread("", THREAD);
+    expect(useJiraStore.getState().activeThreadByPath).toEqual({});
+  });
+});
+
+describe("policyPayload", () => {
+  it("carries the gate but never a credential", async () => {
     platform.invoke.mockResolvedValue(issue());
-    await useJiraStore.getState().linkTicket(PATH, "ABC-1");
+    await useJiraStore.getState().linkTicket(THREAD, "ABC-1");
+    useJiraStore.getState().setActiveThread(PATH, THREAD);
+    useJiraStore.getState().setEnabled(true);
+
+    const payload = policyPayload({
+      enabled: useJiraStore.getState().enabled,
+      allowSearch: useJiraStore.getState().allowSearch,
+      allowComments: useJiraStore.getState().allowComments,
+      registerExternal: useJiraStore.getState().registerExternal,
+      linksByThread: useJiraStore.getState().linksByThread,
+      activeThreadByPath: useJiraStore.getState().activeThreadByPath,
+    });
+    expect(payload).toEqual({
+      version: 2,
+      enabled: true,
+      allowSearch: false,
+      allowComments: true,
+      activeThreadByPath: { [PATH]: THREAD },
+      keysByThread: { [THREAD]: ["ABC-1"] },
+    });
+    expect(JSON.stringify(payload)).not.toContain("tokenHint");
+  });
+
+  it("drops conversations whose links are all unusable", () => {
+    const payload = policyPayload({
+      ...DEFAULT_JIRA_PREFS,
+      linksByThread: {
+        [THREAD]: [
+          { key: "not a key", summary: "", status: "", statusCategory: "", issueType: "", url: "", syncedAt: 0 },
+        ],
+      },
+    });
+    expect(payload.keysByThread).toEqual({});
+  });
+});
+
+describe("jiraToolContextFor", () => {
+  it("mirrors the switches and the links of the given conversation", async () => {
+    platform.invoke.mockResolvedValue(issue());
+    await useJiraStore.getState().linkTicket(THREAD, "ABC-1");
     useJiraStore.setState({ status: CONFIGURED, statusLoaded: true });
     useJiraStore.getState().setEnabled(true);
     useJiraStore.getState().setAllowSearch(true);
     useJiraStore.getState().setAllowComments(false);
 
-    expect(jiraToolContextFor(PATH)).toEqual({
+    expect(jiraToolContextFor(THREAD)).toEqual({
       enabled: true,
       configured: true,
       allowSearch: true,
       allowComments: false,
-      links: useJiraStore.getState().linksByPath[PATH],
+      links: useJiraStore.getState().linksByThread[THREAD],
     });
-    expect(jiraToolContextFor("/repos/unknown").links).toEqual([]);
+    // A sibling conversation in the same repository sees nothing.
+    expect(jiraToolContextFor(OTHER_THREAD).links).toEqual([]);
   });
 
   it("persists every switch", () => {

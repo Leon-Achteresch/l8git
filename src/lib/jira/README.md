@@ -1,9 +1,19 @@
 # Jira-Modul
 
 Lesender Jira-Zugriff (BYOK) für das Agents-Fenster. UI in
-`src/components/settings/jira-card.tsx` und
-`src/components/agents/chat/agent-jira-panel.tsx`, HTTP-Schicht in
-`src-tauri/src/jira.rs`.
+`src/components/settings/jira-card.tsx`,
+`src/components/agents/chat/agent-jira-link-dialog.tsx` und der Ticket-Anzeige
+in `agent-thread-row.tsx`; HTTP-Schicht in `src-tauri/src/jira.rs`.
+
+## Tickets hängen an einer Unterhaltung
+
+Verknüpft wird pro Chat, nicht pro Repository: zwei Chats im selben Repo
+arbeiten in der Regel an verschiedenen Tickets, und der Sinn des Gates ist
+gerade, dass ein Agent nur sieht, worum es in *seinem* Chat geht. Schlüssel
+sind `provider:threadId`, weil Thread-IDs nur je CLI eindeutig sind.
+
+Bedient wird das über das Kontextmenü einer Chat-Zeile in der Seitenleiste;
+Schlüssel und Status stehen danach rechts unten in derselben Zeile.
 
 ## Architektur
 
@@ -37,8 +47,8 @@ pro `tools/list` neu gebaut (`jiraToolsFor`):
 | Zustand | Tools |
 |---|---|
 | Feature aus, oder keine Zugangsdaten | keine |
-| Kein Ticket verknüpft und Suche aus | keine |
-| Ticket verknüpft, Suche aus | `jira_get_issue` (+ `jira_get_comments`), `key` als `enum` der verknüpften Keys |
+| Chat ohne Ticket und Suche aus | keine |
+| Ticket am Chat, Suche aus | `jira_get_issue` (+ `jira_get_comments`), `key` als `enum` der verknüpften Keys |
 | Suche an | zusätzlich `jira_search_issues`, `key` als freier String |
 
 Zusätzlich schrumpfen die Antworten: ADF wird in Klartext geflacht, Felder
@@ -76,11 +86,18 @@ entfernt, sobald er ausgeht.
 
 ## Policy-Datei (`jira_policy.rs`)
 
-`<config>/l8git/jira-policy.json` spiegelt Schalter und verknüpfte
-Ticket-Schlüssel — keine Geheimnisse. Der Kindprozess liest sie bei jedem
-Aufruf neu, damit ein neu verknüpftes Ticket sofort in einer laufenden
-Sitzung wirkt. Fehlt oder bricht die Datei, gilt alles als geschlossen:
-Der Gate fällt zu, nicht auf.
+`<config>/l8git/jira-policy.json` spiegelt Schalter, Ticket-Schlüssel je
+Unterhaltung und die pro Repository gerade geöffnete Unterhaltung — keine
+Geheimnisse. Der Kindprozess liest sie bei jedem Aufruf neu, damit ein neu
+verknüpftes Ticket sofort in einer laufenden Sitzung wirkt. Fehlt oder bricht
+die Datei, gilt alles als geschlossen: Der Gate fällt zu, nicht auf.
+
+Warum die aktive Unterhaltung mitgeführt wird: Tickets hängen am Chat, der
+Kindprozess wird aber pro Repository gestartet — Codex und Cursor sagen ihm
+nie, welcher Chat gerade fragt. Er löst also Repository → offene Unterhaltung
+→ Schlüssel auf. Ein im Hintergrund laufender Chat liest damit die Tickets des
+sichtbaren; das ist eine Grenze dieser beiden CLIs, nicht des Gates. Claude
+Code und OpenCode bekommen die Unterhaltung direkt und sind nicht betroffen.
 
 ## Sicherheit
 

@@ -5,7 +5,10 @@ import {
   parseCursorModels,
   parseCursorStatus,
 } from "@/lib/agents/providers/cursor/client";
-import { parseOpenCodeMcpServers } from "@/lib/agents/providers/opencode/client";
+import {
+  isUnusedOpenCodeSession,
+  parseOpenCodeMcpServers,
+} from "@/lib/agents/providers/opencode/client";
 
 describe("parseCursorModels", () => {
   it("parses id - label lines and strips the default marker", () => {
@@ -91,5 +94,23 @@ describe("parseOpenCodeMcpServers", () => {
 
   it("returns nothing for the empty-state message", () => {
     expect(parseOpenCodeMcpServers("No MCP servers configured")).toEqual([]);
+  });
+});
+
+describe("isUnusedOpenCodeSession", () => {
+  const session = (title: string | null | undefined) => ({ sessionId: "s1", cwd: "/repo", title });
+
+  it("flags sessions that never received a prompt", () => {
+    expect(isUnusedOpenCodeSession(session(undefined))).toBe(true);
+    expect(isUnusedOpenCodeSession(session(null))).toBe(true);
+    expect(isUnusedOpenCodeSession(session("   "))).toBe(true);
+    expect(isUnusedOpenCodeSession(session("New session"))).toBe(true);
+    expect(isUnusedOpenCodeSession(session("  NEW SESSION "))).toBe(true);
+    expect(isUnusedOpenCodeSession(session("Neue Unterhaltung"))).toBe(true);
+  });
+
+  it("keeps sessions with a real title", () => {
+    expect(isUnusedOpenCodeSession(session("Fix flaky rebase test"))).toBe(false);
+    expect(isUnusedOpenCodeSession(session("New session handling in the sidebar"))).toBe(false);
   });
 });

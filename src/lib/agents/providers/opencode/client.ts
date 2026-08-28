@@ -68,6 +68,27 @@ export interface OpenCodeSessionListEntry {
   updatedAt?: string | null;
 }
 
+/**
+ * opencode persists a session the moment `session/new` runs, so `session/list`
+ * keeps returning sessions that never received a prompt — the model-catalog
+ * warmup and every abandoned "new chat" leave one behind. They come back
+ * without a title or with opencode's placeholder, which is what the agents tab
+ * rendered as an endless list of empty "New session" rows.
+ */
+const PLACEHOLDER_SESSION_TITLES = new Set([
+  "new session",
+  "new chat",
+  "new conversation",
+  "untitled",
+  "untitled session",
+  "neue unterhaltung",
+]);
+
+export function isUnusedOpenCodeSession(session: OpenCodeSessionListEntry): boolean {
+  const title = session.title?.trim() ?? "";
+  return !title || PLACEHOLDER_SESSION_TITLES.has(title.toLocaleLowerCase());
+}
+
 export interface OpenCodeInitializeResult {
   protocolVersion: number;
   agentInfo?: { name?: string; version?: string } | null;
