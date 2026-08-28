@@ -144,14 +144,17 @@ export function StackSection({ path }: { path: string }) {
               type="button"
               variant="ghost"
               size="sm"
-              className="mt-1 h-6 text-[11px]"
+              className="mt-1 h-6 max-w-full text-[11px]"
               disabled={busy}
+              title={t("stack.startOnCurrent", { parent: currentBranch })}
               onClick={() =>
                 window.requestAnimationFrame(() => setCreateParent(currentBranch))
               }
             >
               <Plus className="h-3 w-3" />
-              {t("stack.startOnCurrent", { parent: currentBranch })}
+              <span className="truncate">
+                {t("stack.startOnCurrent", { parent: currentBranch })}
+              </span>
             </Button>
           ) : null}
         </div>
