@@ -4,8 +4,7 @@ import { Download, FolderGit2, FolderPlus, Plus, type LucideIcon } from "lucide-
 import { AnimatePresence, LayoutGroup, m, type Variants } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CloneRepoDialog } from "./clone-repo-dialog";
-import { InitRepoDialog } from "./init-repo-dialog";
+import { RepoSourceDialogs } from "./repo-source-dialogs";
 
 const REPO_ADD_MORPH_ID = "add-repo-dialog-surface";
 
@@ -175,8 +174,12 @@ export function AddRepoButton() {
             </m.div>
           ) : null}
         </AnimatePresence>
-        <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />
-        <InitRepoDialog open={initOpen} onClose={() => setInitOpen(false)} />
+        <RepoSourceDialogs
+          cloneOpen={cloneOpen}
+          initOpen={initOpen}
+          onCloseClone={() => setCloneOpen(false)}
+          onCloseInit={() => setInitOpen(false)}
+        />
       </LayoutGroup>
     </div>
   );

@@ -1,0 +1,107 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useRef } from "react";
+
+import { useInstalledAgents } from "@/lib/agent-integrations";
+import {
+  IS_TAURI,
+  isIslandWindow,
+  onRequest,
+  onSnapshotRequest,
+  publishSnapshot,
+  sendResponse,
+} from "@/lib/island/bridge";
+import {
+  buildIslandSnapshot,
+  islandSnapshotInputs,
+  sameIslandSnapshotInputs,
+  type IslandSnapshotInputs,
+} from "@/lib/island/snapshot";
+import {
+  syncIslandWindowState,
+  useIslandWindow,
+} from "@/lib/island/window-store";
+import { useRepoStore } from "@/lib/repo-store";
+import { useTerminalActivity } from "@/lib/terminal/activity";
+import { useTerminalStore } from "@/lib/terminal-store";
+
+const SNAPSHOT_DEBOUNCE_MS = 120;
+const WINDOW_SYNC_DEBOUNCE_MS = 200;
+
+/**
+ * Main-window half of the bridge: keeps the detached island fed with state and
+ * runs whatever it asks for. Inert in the island window and outside Tauri.
+ */
+export function useIslandHost(): void {
+  const timer = useRef<number | undefined>(undefined);
+  const windowTimer = useRef<number | undefined>(undefined);
+  const lastInputs = useRef<IslandSnapshotInputs>([]);
+
+  useEffect(() => {
+    if (!IS_TAURI || isIslandWindow()) return;
+
+    // Only the detached window consumes snapshots; in-app the island reads the
+    // stores directly, so publishing then would be pure event traffic.
+    const push = (force = false) => {
+      if (!force && !useIslandWindow.getState().open) return;
+      const inputs = islandSnapshotInputs();
+      // An unchanged snapshot is an IPC round trip and a re-render in the
+      // detached window for nothing.
+      if (!force && sameIslandSnapshotInputs(lastInputs.current, inputs)) return;
+      lastInputs.current = inputs;
+      void publishSnapshot(buildIslandSnapshot());
+    };
+    const schedule = () => {
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => push(), SNAPSHOT_DEBOUNCE_MS);
+    };
+
+    const unsubscribes = [
+      useRepoStore.subscribe(schedule),
+      useTerminalStore.subscribe(schedule),
+      useTerminalActivity.subscribe(schedule),
+      useIslandWindow.subscribe(schedule),
+      useInstalledAgents.subscribe(schedule),
+    ];
+
+    // Minimizing through the title bar bypasses our commands, so the window
+    // state is re-read whenever the main window is resized or (un)focused.
+    const win = getCurrentWindow();
+    const sync = () => {
+      window.clearTimeout(windowTimer.current);
+      windowTimer.current = window.setTimeout(
+        () => void syncIslandWindowState().catch(() => {}),
+        WINDOW_SYNC_DEBOUNCE_MS,
+      );
+    };
+
+    // allSettled: a rejected window listener must not strand the ones that did
+    // register, nor surface as an unhandled rejection.
+    const listeners = Promise.allSettled([
+      win.onResized(sync),
+      win.onFocusChanged(sync),
+      onSnapshotRequest(() => push(true)),
+      onRequest(async ({ id, request }) => {
+        // The executor pulls in the router, the git actions and the registry.
+        // Loading it on the first request keeps it out of the startup chunk.
+        const { runIslandAction } = await import("@/lib/island/executor");
+        const result = await runIslandAction(request);
+        await sendResponse({ id, result });
+        push(true);
+      }),
+    ]);
+
+    void syncIslandWindowState().catch(() => {});
+    push();
+
+    return () => {
+      window.clearTimeout(timer.current);
+      window.clearTimeout(windowTimer.current);
+      for (const off of unsubscribes) off();
+      void listeners.then((results) => {
+        for (const result of results) {
+          if (result.status === "fulfilled") result.value();
+        }
+      });
+    };
+  }, []);
+}

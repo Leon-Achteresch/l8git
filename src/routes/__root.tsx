@@ -45,6 +45,8 @@ const GitCommandLogPage = lazy(() =>
 );
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { easeOutSoft } from "@/components/motion/kit";
+import { useIslandHost } from "@/lib/island/host";
+import { useIslandWindow } from "@/lib/island/window-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
@@ -67,7 +69,12 @@ function RootLayout() {
   const uiScale = useWorkspacePrefs((s) => s.uiScale);
   const islandEnabled = useUiVisibilityPrefs((s) => s.showHeaderIsland);
   const hasActiveRepo = useRepoStore((s) => !!s.activePath);
-  const islandHandlesToasts = islandEnabled && hasActiveRepo;
+  const islandDetached = useIslandWindow((s) => s.open);
+  // While the island floats in its own window the app keeps its normal toaster.
+  const islandHandlesToasts = islandEnabled && hasActiveRepo && !islandDetached;
+
+  // Feeds the detached island and executes whatever it asks for.
+  useIslandHost();
   const reflogViewPath = useUiStore((s) => s.reflogViewPath);
   const closeReflogView = useUiStore((s) => s.closeReflogView);
   const commandLogOpen = useUiStore((s) => s.commandLogOpen);

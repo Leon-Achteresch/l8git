@@ -243,6 +243,21 @@
     @apply font-sans;
     }
 
+  /* The detached Dynamic Island lives in a transparent, borderless window —
+     nothing but the island itself may paint a background. */
+  html.island-window,
+  html.island-window body {
+    background: transparent;
+    overflow: hidden;
+    }
+  html.island-window body {
+    user-select: none;
+    }
+  html.island-window input,
+  html.island-window textarea {
+    user-select: text;
+    }
+
   /* hashes, refs, code-ish spans get mono automatically */
   code, kbd, samp, pre {
     font-family: var(--font-mono);

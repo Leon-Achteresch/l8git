@@ -565,7 +565,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
 
   return (
     <>
-      <div className='flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-2 pt-1'>
+      <div className='@container flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pb-2 pt-1'>
         <div className='flex min-w-0 flex-1 flex-wrap items-center gap-2'>
           <ToolbarGroup>
             <ToolbarButton
@@ -623,7 +623,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
             />
           </ToolbarGroup>
 
-          <div className='flex items-center gap-0.5'>
+          <div className='flex min-w-0 items-center gap-0.5'>
             <ToolbarButton
               title={t("toolbar.editRemoteTitle")}
               onClick={() => setRemoteDialogOpen(true)}

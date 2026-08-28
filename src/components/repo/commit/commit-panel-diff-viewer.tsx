@@ -118,15 +118,17 @@ export function DiffViewer({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-2.5">
-        <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/60 px-4 py-2.5">
+        <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5">
           <StatusIcon entry={selectedRow.entry} sector={selectedRow.sector} />
-          <span className="truncate text-sm font-medium">{selectedRow.path}</span>
+          <span className="truncate text-sm font-medium" title={selectedRow.path}>
+            {selectedRow.path}
+          </span>
           <span className="shrink-0 rounded-sm border border-border/80 bg-muted/40 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {selectedRow.sector === "staged" ? t("commitPanel.sectorStaged") : t("commitPanel.sectorUnstaged")}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <Button
             variant="ghost"
             size="sm"

@@ -12,6 +12,7 @@ import { lazy, Suspense, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AppHeaderSearch } from "@/components/app/app-header-search";
+import { MinimizeToIsland } from "@/components/app/minimize-to-island";
 import { WindowControls } from "@/components/app/window-controls";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,8 @@ export function AppHeader() {
         <Suspense fallback={null}>
           <InboxIndicator />
         </Suspense>
+
+        <MinimizeToIsland />
 
         <div className="mx-1 h-4 w-px bg-border/60" aria-hidden />
 
