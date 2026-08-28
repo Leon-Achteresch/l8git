@@ -43,7 +43,7 @@ export function ToolbarButton({
       title={title}
       onClick={onClick}
       className={cn(
-        "relative flex h-7 items-center gap-1.5 px-2 text-xs transition-all duration-200",
+        "relative flex h-7 min-w-0 shrink items-center gap-1.5 px-2 text-xs transition-all duration-200",
         menuContent ? "rounded-l-lg rounded-r-none" : "rounded-lg",
         label ? "px-2.5" : "px-2",
         isActive
@@ -57,7 +57,7 @@ export function ToolbarButton({
         </PopIn>
       )}
       {icon}
-      {label && <span>{label}</span>}
+      {label && <span className="truncate">{label}</span>}
       {showBadge && (
         <PopIn key={badge} className="shrink-0">
           <span className="inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary/25 px-1 text-[10px] font-semibold tabular-nums leading-none text-primary">
@@ -71,7 +71,7 @@ export function ToolbarButton({
   if (!menuContent) return button;
 
   return (
-    <div className="flex items-stretch">
+    <div className="flex min-w-0 items-stretch">
       {button}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -81,7 +81,7 @@ export function ToolbarButton({
             disabled={disabled}
             aria-label={menuAriaLabel ?? title}
             className={cn(
-              "h-7 w-4 min-w-0 rounded-l-none rounded-r-lg border-l border-border/40 px-0 transition-all duration-200",
+              "h-7 w-4 min-w-0 shrink-0 rounded-l-none rounded-r-lg border-l border-border/40 px-0 transition-all duration-200",
               isActive
                 ? "bg-primary/15 text-primary"
                 : "text-muted-foreground hover:bg-primary/10 hover:text-primary",
