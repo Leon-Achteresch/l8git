@@ -25,6 +25,7 @@ import { useRouter } from "@tanstack/react-router";
 import { Bot, Brain, Globe2, HardDrive, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 const SETUP_PROVIDERS = [
   { id: "ollama" as const, label: "Ollama", icon: HardDrive },
@@ -165,7 +166,7 @@ export function AiSetupDialog({
 
           {probing && (
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" />
+              <SpinIcon icon={Loader2} className="size-3" />
               {t("aiSetup.probing")}
             </p>
           )}
@@ -238,7 +239,7 @@ export function AiSetupDialog({
             {t("aiSetup.openSettings")}
           </Button>
           <Button type="button" disabled={!canSave} onClick={() => void save()}>
-            {saving && <Loader2 className="size-3.5 animate-spin" />}
+            {saving && <SpinIcon icon={Loader2} className="size-3.5" />}
             {t("aiSetup.saveAndGenerate")}
           </Button>
         </DialogFooter>

@@ -33,6 +33,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { capabilityPlugins, useAgentCapabilityStore } from "@/lib/agents/capability-store";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
+import { AgDot } from "@/components/agents/ui/ag-dot";
 
 const AgentImportDialog = lazy(() => import("@/components/agents/chat/agent-import-dialog").then(
   (module) => ({ default: module.AgentImportDialog }),
@@ -267,7 +269,7 @@ export function AgentCapabilityCenter({
           <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => setImportOpen(true)} title={t("agentCapabilities.import")} aria-label={t("agentCapabilities.import")}><Import className="size-4" /></Button>
           <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => void exportSnapshot().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("agentCapabilities.export")} aria-label={t("agentCapabilities.export")}><Download className="size-4" /></Button>
           <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => setConfigOpen(true)} title={t("agentCapabilities.config.title")} aria-label={t("agentCapabilities.config.title")}><SlidersHorizontal className="size-4" /></Button>
-          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("common.refresh")} aria-label={t("common.refresh")}><RefreshCw className={cn("size-4", loading && "animate-spin")} /></Button>
+          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("common.refresh")} aria-label={t("common.refresh")}><SpinIcon icon={RefreshCw} active={loading} className="size-4" /></Button>
         </div>
         <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={t("agentCapabilities.title")}>
           {SECTIONS.map(({ id, Icon }) => (
@@ -307,7 +309,7 @@ export function AgentCapabilityCenter({
         <DialogContent className="max-h-[min(760px,calc(100vh-2rem))] overflow-y-auto sm:max-w-2xl">
           <DialogHeader><DialogTitle>{configEditorPath ? t("agentCapabilities.config.rawEditor") : t("agentCapabilities.config.title")}</DialogTitle><DialogDescription>{configEditorPath || t("agentCapabilities.config.description")}</DialogDescription></DialogHeader>
           {configEditorPath ? (
-            configEditorLoading ? <div className="flex min-h-80 items-center justify-center"><LoaderCircle className="size-4 animate-spin" /></div> : <Textarea value={configEditorText} onChange={(event) => setConfigEditorText(event.target.value)} spellCheck={false} className="min-h-[30rem] resize-y font-mono text-[11px] leading-5" />
+            configEditorLoading ? <div className="flex min-h-80 items-center justify-center"><SpinIcon icon={LoaderCircle} className="size-4" /></div> : <Textarea value={configEditorText} onChange={(event) => setConfigEditorText(event.target.value)} spellCheck={false} className="min-h-[30rem] resize-y font-mono text-[11px] leading-5" />
           ) : (
             <div className="space-y-4">
               <div className="grid gap-2 sm:grid-cols-2">
@@ -319,7 +321,7 @@ export function AgentCapabilityCenter({
                 <div className="space-y-1.5">
                   {(config?.layers ?? []).map((layer, index) => (
                     <div key={`${layer.name.type}:${layer.version}:${index}`} className="ag-card flex items-start gap-3 px-3 py-2.5">
-                      <span className="ag-dot mt-1.5 shrink-0" data-state={layer.disabledReason ? "working" : "ready"} />
+                      <AgDot className="mt-1.5 shrink-0" state={layer.disabledReason ? "working" : "ready"} />
                       <div className="min-w-0 flex-1"><p className="text-[11px] font-medium">{layer.name.name || layer.name.type}</p><p className="mt-0.5 break-all font-mono text-[9px] leading-4 text-muted-foreground">{layer.name.file || layer.name.dotCodexFolder || layer.name.id || layer.version}</p>{layer.disabledReason ? <p className="mt-1 text-[9px] text-amber-600 dark:text-amber-400">{layer.disabledReason}</p> : null}</div>
                     </div>
                   ))}

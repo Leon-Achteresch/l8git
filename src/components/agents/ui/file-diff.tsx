@@ -8,7 +8,7 @@ import {
   FileCode2,
   LoaderCircle,
 } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -26,6 +26,7 @@ import {
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { SPRING_PRESS, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type FileDiffStatus = "streaming" | "complete";
 export type FileDiffLineType = "added" | "removed" | "context";
@@ -175,22 +176,22 @@ export function FileDiff({
         </span>
         <span className="ag-faint grid size-4 shrink-0 place-items-center">
           {streaming ? (
-            <LoaderCircle
+            <SpinIcon icon={LoaderCircle} active={!reduce} 
               aria-label="Applying changes"
-              className={cn("size-3.5", !reduce && "animate-spin")}
+              className="size-3.5"
             />
           ) : (
             <Check aria-label="Changes applied" className="size-3.5" />
           )}
         </span>
-        <motion.span
+        <m.span
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
           className="ag-faint shrink-0 transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
-        </motion.span>
+        </m.span>
       </button>
 
       <AgentDisclosure
@@ -255,7 +256,7 @@ export function FileDiff({
 
             {canCopy ? (
               <div className="flex justify-end px-2 pb-1.5 pt-1">
-                <motion.button
+                <m.button
                   type="button"
                   aria-label={copied ? "Copied" : "Copy diff"}
                   title={copied ? "Copied" : "Copy diff"}
@@ -269,7 +270,7 @@ export function FileDiff({
                   ) : (
                     <Copy className="size-3.5" />
                   )}
-                </motion.button>
+                </m.button>
               </div>
             ) : null}
           </div>

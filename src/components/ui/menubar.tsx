@@ -3,7 +3,10 @@
 import * as React from "react"
 import { Menubar as MenubarPrimitive } from "radix-ui"
 
+import { m } from "motion/react"
+
 import { cn } from "@/lib/utils"
+import { popperVariants, springFast } from "@/components/motion/kit"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 
 function Menubar({
@@ -69,6 +72,7 @@ function MenubarContent({
   align = "start",
   alignOffset = -4,
   sideOffset = 8,
+  children,
   ...props
 }: React.ComponentProps<typeof MenubarPrimitive.Content>) {
   return (
@@ -78,9 +82,25 @@ function MenubarContent({
         align={align}
         alignOffset={alignOffset}
         sideOffset={sideOffset}
-        className={cn("z-50 min-w-36 origin-(--radix-menubar-content-transform-origin) overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95", className )}
+        asChild
         {...props}
-      />
+      >
+        <m.div
+          className={cn(
+            "z-50 min-w-36 overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10",
+            className
+          )}
+          style={{
+            transformOrigin: "var(--radix-menubar-content-transform-origin)",
+          }}
+          variants={popperVariants("bottom")}
+          initial="hidden"
+          animate="visible"
+          transition={springFast}
+        >
+          {children}
+        </m.div>
+      </MenubarPrimitive.Content>
     </MenubarPortal>
   )
 }
@@ -249,14 +269,31 @@ function MenubarSubTrigger({
 
 function MenubarSubContent({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof MenubarPrimitive.SubContent>) {
   return (
     <MenubarPrimitive.SubContent
       data-slot="menubar-sub-content"
-      className={cn("z-50 min-w-32 origin-(--radix-menubar-content-transform-origin) overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+      asChild
       {...props}
-    />
+    >
+      <m.div
+        className={cn(
+          "z-50 min-w-32 overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-foreground/10",
+          className
+        )}
+        style={{
+          transformOrigin: "var(--radix-menubar-content-transform-origin)",
+        }}
+        variants={popperVariants("right")}
+        initial="hidden"
+        animate="visible"
+        transition={springFast}
+      >
+        {children}
+      </m.div>
+    </MenubarPrimitive.SubContent>
   )
 }
 

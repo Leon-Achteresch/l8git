@@ -50,6 +50,7 @@ import { CommitTagDialog } from "./commit-tag-dialog";
 import { CommitTags } from "./commit-tags";
 import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
 import type { CommitSelectMode } from "./commit-history-panel";
+import { PulseIcon } from "@/components/motion/kit";
 
 const EMPTY_BRANCHES: Branch[] = [];
 
@@ -222,7 +223,7 @@ function CommitRowInner({
         !selected && bisectRole === 'good' &&
           "bg-git-added/10 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-added before:content-['']",
         !selected && bisectRole === 'current' &&
-          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-[''] before:animate-pulse",
+          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-['']",
         !selected && bisectRole === 'result' &&
           "bg-git-modified/10 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-modified before:content-['']",
         !selected && bisectRole === 'pending-bad' &&
@@ -310,7 +311,7 @@ function CommitRowInner({
       <div className="flex shrink-0 items-center gap-1.5 pr-3 sm:pr-4">
         {bisectRole === 'bad' && <XCircle className="h-3.5 w-3.5 shrink-0 text-git-removed" />}
         {bisectRole === 'good' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-git-added" />}
-        {bisectRole === 'current' && <CircleDot className="h-3.5 w-3.5 shrink-0 animate-pulse text-git-branch" />}
+        {bisectRole === 'current' && <PulseIcon icon={CircleDot} className="h-3.5 w-3.5 shrink-0 text-git-branch" />}
         {bisectRole === 'result' && (
           <span className="rounded-sm bg-git-modified/15 px-1 py-0.5 text-[10px] font-semibold text-git-modified">
             {t("commitRow.firstBadBadge")}

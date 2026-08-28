@@ -60,6 +60,7 @@ import type {
   AgentCapabilityMarketplace,
   AgentCapabilityPlugin,
 } from "@/lib/agents/capability-types";
+import { SpinIcon } from "@/components/motion/kit";
 
 function pluginTitle(plugin: AgentCapabilityPlugin): string {
   return plugin.interface?.displayName || plugin.name || plugin.id;
@@ -220,7 +221,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
               <p className="text-[10px] text-muted-foreground">{t("agentCapabilities.itemCount", { count: filtered.length })}</p>
               <div className="flex items-center gap-1">
                 <Button type="button" variant="ghost" size="icon-xs" className="rounded-md" onClick={() => void upgradeMarketplace().then(() => toast.success(t("agentCapabilities.plugins.marketplacesUpgraded"))).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("agentCapabilities.plugins.upgradeAll")}>
-                  <RefreshCw className={`size-3.5 ${busyKey === "marketplace:all" ? "animate-spin" : ""}`} />
+                  <SpinIcon icon={RefreshCw} active={busyKey === "marketplace:all"} className={`size-3.5`} />
                 </Button>
                 <Button type="button" variant="ghost" size="icon-xs" className="rounded-md" onClick={() => setMarketplaceOpen(true)} title={t("agentCapabilities.plugins.addMarketplace")}>
                   <Plus className="size-3.5" />
@@ -286,7 +287,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
                     </>
                   ) : (
                     <Button type="button" size="sm" className="rounded-lg" disabled={busyKey === `plugin:${selected.id}`} onClick={() => void install(selected)}>
-                      {busyKey === `plugin:${selected.id}` ? <LoaderCircle className="size-3.5 animate-spin" /> : <PackagePlus className="size-3.5" />}
+                      {busyKey === `plugin:${selected.id}` ? <SpinIcon icon={LoaderCircle} className="size-3.5" /> : <PackagePlus className="size-3.5" />}
                       {t("agentCapabilities.plugins.install")}
                     </Button>
                   )}
@@ -318,7 +319,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
               </section>
 
               {busyKey === `plugin:${selected.id}:read` && !detail ? (
-                <div className="flex items-center gap-2 py-8 text-xs text-muted-foreground"><LoaderCircle className="size-3.5 animate-spin" />{t("agentCapabilities.plugins.loadingDetails")}</div>
+                <div className="flex items-center gap-2 py-8 text-xs text-muted-foreground"><SpinIcon icon={LoaderCircle} className="size-3.5" />{t("agentCapabilities.plugins.loadingDetails")}</div>
               ) : detail ? (
                 <section>
                   <div className="mb-3 flex items-center gap-2"><GitFork className="size-3.5 text-muted-foreground" /><h3 className="text-xs font-semibold">{t("agentCapabilities.plugins.bundleContents")}</h3></div>
@@ -383,7 +384,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setMarketplaceOpen(false)}>{t("common.cancel")}</Button>
             <Button type="button" disabled={busyKey === "marketplace:add" || !marketplaceSource.trim()} onClick={() => void addMarketplace(marketplaceSource, marketplaceRef || undefined, marketplaceSparse.split(",").map((item) => item.trim()).filter(Boolean)).then(() => { setMarketplaceOpen(false); setMarketplaceSource(""); setMarketplaceRef(""); setMarketplaceSparse(""); toast.success(t("agentCapabilities.plugins.marketplaceAdded")); }).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))}>
-              {busyKey === "marketplace:add" ? <LoaderCircle className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}{t("common.add")}
+              {busyKey === "marketplace:add" ? <SpinIcon icon={LoaderCircle} className="size-3.5" /> : <Plus className="size-3.5" />}{t("common.add")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -392,7 +393,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
       <Dialog open={manifestOpen} onOpenChange={setManifestOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>{t("agentCapabilities.plugins.editManifest")}</DialogTitle><DialogDescription>{selected ? localManifestPath(selected) : ""}</DialogDescription></DialogHeader>
-          {manifestLoading ? <div className="flex min-h-64 items-center justify-center"><LoaderCircle className="size-4 animate-spin" /></div> : <Textarea value={manifestText} onChange={(event) => setManifestText(event.target.value)} spellCheck={false} className="min-h-80 resize-y font-mono text-[11px] leading-5" />}
+          {manifestLoading ? <div className="flex min-h-64 items-center justify-center"><SpinIcon icon={LoaderCircle} className="size-4" /></div> : <Textarea value={manifestText} onChange={(event) => setManifestText(event.target.value)} spellCheck={false} className="min-h-80 resize-y font-mono text-[11px] leading-5" />}
           <DialogFooter><Button type="button" variant="outline" onClick={() => setManifestOpen(false)}>{t("common.cancel")}</Button><Button type="button" disabled={manifestLoading || Boolean(busyKey?.startsWith("file:"))} onClick={() => void saveManifest()}><Save className="size-3.5" />{t("common.save")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>

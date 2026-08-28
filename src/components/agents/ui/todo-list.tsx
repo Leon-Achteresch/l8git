@@ -2,7 +2,7 @@
 // beui.dev/components/agents/todo-list
 
 import { ChevronDown, ListTodo } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -63,7 +63,7 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
     >
       <AnimatePresence initial={false} mode="popLayout">
         {complete ? (
-          <motion.svg
+          <m.svg
             key="complete"
             viewBox="0 0 24 24"
             initial={reduce ? { opacity: 1 } : { opacity: 0, scale: 0.72 }}
@@ -73,7 +73,7 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
             className="absolute size-5.5 overflow-visible text-[var(--git-added)]"
           >
             <circle cx="12" cy="12" r="9" fill="currentColor" />
-            <motion.path
+            <m.path
               d="M7.5 12.25 10.5 15.25 16.75 8.75"
               fill="none"
               stroke="white"
@@ -86,9 +86,9 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
                 reduce ? { duration: 0 } : { duration: 0.24, ease: EASE_OUT }
               }
             />
-          </motion.svg>
+          </m.svg>
         ) : (
-          <motion.span
+          <m.span
             key="todo"
             initial={reduce ? { opacity: 1 } : { opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -97,7 +97,7 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
             className="absolute grid place-items-center text-muted-foreground"
           >
             <ListTodo className="size-4" />
-          </motion.span>
+          </m.span>
         )}
       </AnimatePresence>
     </span>
@@ -116,7 +116,7 @@ function TodoStatusIcon({
     progress === undefined ? 0.68 : Math.min(100, Math.max(0, progress)) / 100;
 
   return (
-    <motion.svg
+    <m.svg
       aria-hidden="true"
       viewBox="0 0 24 24"
       initial={false}
@@ -126,7 +126,7 @@ function TodoStatusIcon({
         status === "cancelled" && "text-[var(--git-removed)]",
       )}
     >
-      <motion.circle
+      <m.circle
         cx="12"
         cy="12"
         r="9"
@@ -140,7 +140,7 @@ function TodoStatusIcon({
         transition={reduce ? { duration: 0 } : { duration: 0.18, ease: EASE_OUT }}
         className={cn(status === "in-progress" && "opacity-20")}
       />
-      <motion.circle
+      <m.circle
         cx="12"
         cy="12"
         r="9"
@@ -167,7 +167,7 @@ function TodoStatusIcon({
         }
         style={{ transformOrigin: "12px 12px" }}
       />
-      <motion.path
+      <m.path
         d="M7.5 12.25 10.5 15.25 16.75 8.75"
         fill="none"
         stroke="currentColor"
@@ -181,7 +181,7 @@ function TodoStatusIcon({
         }}
         transition={reduce ? { duration: 0 } : { duration: 0.24, ease: EASE_OUT }}
       />
-      <motion.path
+      <m.path
         d="M8.5 8.5 15.5 15.5M15.5 8.5 8.5 15.5"
         fill="none"
         stroke="currentColor"
@@ -194,7 +194,7 @@ function TodoStatusIcon({
         }}
         transition={reduce ? { duration: 0 } : { duration: 0.2, ease: EASE_OUT }}
       />
-    </motion.svg>
+    </m.svg>
   );
 }
 
@@ -286,14 +286,14 @@ export function TodoList({
             <span>{items.length}</span>
           </span>
         </span>
-        <motion.span
+        <m.span
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
           className="ag-faint transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
-        </motion.span>
+        </m.span>
       </button>
 
       <AgentDisclosure
@@ -313,7 +313,7 @@ export function TodoList({
               {items.map((item) => {
                 const status = item.status ?? "pending";
                 return (
-                  <motion.li
+                  <m.li
                     layout="position"
                     key={item.id}
                     initial={reduce ? { opacity: 1 } : { opacity: 0, y: 6 }}
@@ -343,7 +343,7 @@ export function TodoList({
                     >
                       <span className="relative inline-block max-w-full">
                         {item.title}
-                        <motion.span
+                        <m.span
                           aria-hidden="true"
                           initial={false}
                           animate={{
@@ -364,7 +364,7 @@ export function TodoList({
                         {item.detail}
                       </span>
                     ) : null}
-                  </motion.li>
+                  </m.li>
                 );
               })}
             </AnimatePresence>

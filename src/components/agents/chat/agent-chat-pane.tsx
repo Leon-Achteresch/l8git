@@ -1,9 +1,11 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AlertCircle,
   AppWindow,
+  ArrowDown,
   Blocks,
   ChevronRight,
   File,
@@ -27,6 +29,7 @@ import {
   memo,
   type ReactNode,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -39,6 +42,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import { AgentAccountMenu } from "@/components/agents/chat/agent-account-menu";
 import { AgentComposerControls } from "@/components/agents/chat/agent-composer-controls";
+import { AgentPlanBanner } from "@/components/agents/chat/agent-plan-banner";
 import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
@@ -69,6 +73,16 @@ import {
 } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
+import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AgDot } from "@/components/agents/ui/ag-dot";
+import { useScrollMargin } from "@/hooks/use-scroll-margin";
+import {
+  ScrollProgressCircle,
+  useContainerScrollProgress,
+} from "@/components/motion/scroll-progress";
+import { SPRING_PANEL } from "@/lib/motion/ease";
+import { TextShimmer } from "@/components/motion/text-shimmer";
 
 const AgentFilePicker = lazy(() => import("@/components/agents/chat/agent-file-picker").then(
   (module) => ({ default: module.AgentFilePicker }),
@@ -92,6 +106,9 @@ function repoName(path: string): string {
 
 const INITIAL_VISIBLE_TURNS = 32;
 const TURN_PAGE_SIZE = 32;
+// Starting guess for an unmeasured turn. Real heights replace it as each turn
+// enters the viewport and reports its size.
+const TURN_ESTIMATE_PX = 320;
 const STARTER_ICONS = [
   { Icon: ScanSearch, color: "var(--git-branch)" },
   { Icon: Hammer, color: "var(--git-modified)" },
@@ -141,11 +158,33 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
   const contentRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const restoreBottomOffset = useRef<number | null>(null);
+  const restoreDeadline = useRef(0);
   const [visibleTurnCount, setVisibleTurnCount] = useState(INITIAL_VISIBLE_TURNS);
+  const [atBottom, setAtBottom] = useState(true);
+  const reduceMotion = useReducedMotion() ?? false;
+  const scrollProgress = useContainerScrollProgress(scrollRef);
   const turns = conversation?.turns ?? [];
   const hiddenTurnCount = Math.max(0, turns.length - visibleTurnCount);
   const visibleTurns = hiddenTurnCount > 0 ? turns.slice(-visibleTurnCount) : turns;
   const busy = Boolean(conversation?.activeTurnId);
+  const { scrollMargin: turnScrollMargin, listRef } = useScrollMargin(scrollRef);
+  const turnVirtualizer = useVirtualizer({
+    count: visibleTurns.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => TURN_ESTIMATE_PX,
+    // Turns are tall and expensive; a wide overscan keeps scrolling smooth
+    // without paying for the whole transcript.
+    overscan: 4,
+    useAnimationFrameWithResizeObserver: true,
+    getItemKey: (index) => visibleTurns[index]?.id ?? index,
+    // The transcript starts below the pager inside the same scroller.
+    scrollMargin: turnScrollMargin,
+  });
+  const measureTurn = useCallback(
+    (node: HTMLElement | null) => turnVirtualizer.measureElement(node),
+    [turnVirtualizer],
+  );
+  const totalTurnSize = turnVirtualizer.getTotalSize();
   const starters = useMemo(() => [
     t("agentChat.starterAnalyze"),
     t("agentChat.starterImplement"),
@@ -155,6 +194,7 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
   useEffect(() => {
     stickToBottom.current = true;
     restoreBottomOffset.current = null;
+    setAtBottom(true);
     setVisibleTurnCount(INITIAL_VISIBLE_TURNS);
   }, [threadId]);
 
@@ -165,13 +205,17 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
     if (viewport) viewport.scrollTop = viewport.scrollHeight;
   }, [scrollToBottomSignal]);
 
+  // Revealing older turns keeps the reader's place by pinning the distance to
+  // the bottom of the transcript. The turns arrive at an estimated height and
+  // correct themselves over the next few frames, so the anchor is re-applied
+  // on every size change until measurement settles rather than once.
   useLayoutEffect(() => {
     const viewport = scrollRef.current;
     const bottomOffset = restoreBottomOffset.current;
     if (!viewport || bottomOffset === null) return;
     viewport.scrollTop = viewport.scrollHeight - bottomOffset;
-    restoreBottomOffset.current = null;
-  }, [visibleTurnCount]);
+    if (Date.now() > restoreDeadline.current) restoreBottomOffset.current = null;
+  }, [visibleTurnCount, totalTurnSize]);
 
   useLayoutEffect(() => {
     const viewport = scrollRef.current;
@@ -180,7 +224,11 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
       viewport.scrollTop = viewport.scrollHeight;
     });
     return () => cancelAnimationFrame(frame);
-  }, [requests.length, busy, threadId]);
+    // totalTurnSize: turns start at an estimated height and correct themselves
+    // as they measure, so the bottom moves for a frame or two after a thread
+    // opens. Re-pinning on every size change keeps the view at the bottom
+    // through that settle.
+  }, [requests.length, busy, threadId, totalTurnSize]);
 
   useEffect(() => {
     const content = contentRef.current;
@@ -210,167 +258,232 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
     }
   };
 
+  const jumpToBottom = useCallback(() => {
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+    stickToBottom.current = true;
+    setAtBottom(true);
+    viewport.scrollTo({
+      top: viewport.scrollHeight,
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [reduceMotion]);
+
   return (
-    <div
-      ref={scrollRef}
-      onScroll={(event) => {
-        const node = event.currentTarget;
-        stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 96;
-      }}
-      className="ag-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
-    >
-      <div ref={contentRef} className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-6 py-7">
-        {conversation?.loading || (!threadId && connectionStatus === "connecting") ? (
-          <div className="ag-muted m-auto flex items-center gap-2 text-[12px]">
-            <LoaderCircle className="size-3.5 animate-spin" />
-            {t("agentChat.connecting", { agent })}
-          </div>
-        ) : !threadId && connectionError && connectionStatus === "error" ? (
-          <div className="ag-card m-auto flex max-w-md items-start gap-3 border-destructive/25 bg-destructive/[0.06] p-4">
-            <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium">{t("agentChat.startErrorTitle", { agent })}</p>
-              <p className="ag-muted mt-1 text-[12px] leading-5">{connectionError}</p>
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scrollRef}
+        onScroll={(event) => {
+          const node = event.currentTarget;
+          const bottom = node.scrollHeight - node.scrollTop - node.clientHeight < 96;
+          stickToBottom.current = bottom;
+          // Only flip on a real transition — a scroll event fires per frame and
+          // a set() per frame would re-render the whole transcript.
+          setAtBottom((current) => (current === bottom ? current : bottom));
+        }}
+        className="ag-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
+        <div ref={contentRef} className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-6 py-7">
+          {conversation?.loading || (!threadId && connectionStatus === "connecting") ? (
+            <div className="ag-muted m-auto flex items-center gap-2 text-[12px]">
+              <SpinIcon icon={LoaderCircle} className="size-3.5" />
+              {t("agentChat.connecting", { agent })}
+            </div>
+          ) : !threadId && connectionError && connectionStatus === "error" ? (
+            <div className="ag-card m-auto flex max-w-md items-start gap-3 border-destructive/25 bg-destructive/[0.06] p-4">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium">{t("agentChat.startErrorTitle", { agent })}</p>
+                <p className="ag-muted mt-1 text-[12px] leading-5">{connectionError}</p>
+                <button
+                  type="button"
+                  className="ag-pill mt-3"
+                  onClick={() => void connect().then(() => loadThreads([path])).catch(() => {})}
+                >
+                  {t("agentChat.retry")}
+                </button>
+              </div>
+            </div>
+          ) : requiresAuth ? (
+            <div className="ag-card m-auto max-w-sm p-6 text-center">
+              <span className="ag-inset mx-auto grid size-11 place-items-center rounded-[13px]">
+                <ProviderLogo className="size-5" />
+              </span>
+              <p className="mt-4 text-[14px] font-semibold tracking-tight">
+                {isClaude ? t("agentChat.loginTitleClaude") : t("agentChat.loginTitle")}
+              </p>
+              <p className="ag-muted mt-1.5 text-[12px] leading-5">
+                {isClaude ? t("agentChat.loginDescriptionClaude") : t("agentChat.loginDescription")}
+              </p>
+              {loginError ? (
+                <p className="mt-2 text-[12px] text-destructive">
+                  {t("agentChat.loginFailed")}: {loginError}
+                </p>
+              ) : null}
               <button
                 type="button"
-                className="ag-pill mt-3"
-                onClick={() => void connect().then(() => loadThreads([path])).catch(() => {})}
+                className="ag-pill mt-5 h-8 px-4"
+                data-active="true"
+                onClick={() => void login()}
+                disabled={loginStatus === "starting" || loginStatus === "waiting"}
+              >
+                {loginStatus === "starting" || loginStatus === "waiting" ? (
+                  <SpinIcon icon={LoaderCircle} className="size-3.5" />
+                ) : null}
+                {loginStatus === "waiting"
+                  ? t("agentChat.loginWaiting")
+                  : isClaude ? t("agentChat.loginActionClaude") : t("agentChat.loginAction")}
+              </button>
+            </div>
+          ) : centered ? (
+            <div className="m-auto w-full max-w-2xl py-8">
+              <div className="flex flex-col items-center text-center">
+                <span className="ag-inset grid size-11 place-items-center rounded-[13px]">
+                  <ProviderLogo className="size-5" />
+                </span>
+                <h2 className="mt-4 text-[17px] font-semibold tracking-[-0.015em]">
+                  {t("agentChat.emptyTitle", { agent })}
+                </h2>
+                <p className="ag-muted mt-1.5 max-w-sm text-[12px] leading-5">
+                  {t("agentChat.emptyDescription", { agent, repo: repoName(path) })}
+                </p>
+              </div>
+
+              <div className="ag-card mt-7 p-1.5">
+                <p className="ag-label px-2 py-1.5">{t("agentChat.shortcuts")}</p>
+                {starters.map((starter, index) => {
+                  const { Icon, color } = STARTER_ICONS[index] ?? STARTER_ICONS[0];
+                  return (
+                    <button
+                      key={starter}
+                      type="button"
+                      onClick={() => onStarter(starter)}
+                      className="ag-menu-item"
+                    >
+                      <Icon className="size-4 shrink-0" style={{ color }} />
+                      <span className="min-w-0 flex-1 truncate text-[13px]">{starter}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3">{composer}</div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {hiddenTurnCount > 0 ? (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    className="ag-pill"
+                    onClick={() => {
+                      const viewport = scrollRef.current;
+                      if (viewport) {
+                        restoreBottomOffset.current = viewport.scrollHeight - viewport.scrollTop;
+                        // Long enough for the revealed turns to measure, short
+                        // enough that it never fights a later user scroll.
+                        restoreDeadline.current = Date.now() + 600;
+                        stickToBottom.current = false;
+                      }
+                      setVisibleTurnCount((count) => count + TURN_PAGE_SIZE);
+                    }}
+                  >
+                    {t("agentChat.showOlder", { count: Math.min(TURN_PAGE_SIZE, hiddenTurnCount) })}
+                  </button>
+                </div>
+              ) : null}
+              {/* Only the turns near the viewport are mounted. Skipping the rest
+                  skips their markdown parses, diff renders and syntax
+                  highlighting too — the bulk of the cost of opening a long
+                  transcript. */}
+              <Suspense fallback={<m.div animate={pulseKeyframes} transition={pulseTransition} className="ag-inset h-16" />}>
+                <div
+                  ref={listRef}
+                  className="relative"
+                  style={{ height: turnVirtualizer.getTotalSize() }}
+                >
+                  {turnVirtualizer.getVirtualItems().map((virtualItem) => {
+                    const turn = visibleTurns[virtualItem.index];
+                    if (!turn) return null;
+                    return (
+                      <div
+                        key={virtualItem.key}
+                        ref={measureTurn}
+                        data-index={virtualItem.index}
+                        className="absolute inset-x-0 top-0 pb-6"
+                        style={{
+                          transform: `translateY(${
+                            virtualItem.start - turnVirtualizer.options.scrollMargin
+                          }px)`,
+                        }}
+                      >
+                        <AgentTurnView turn={turn} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </Suspense>
+            </div>
+          )}
+
+          {requests.length > 0 ? (
+            <div className="mt-6 space-y-3">
+              {requests.map((request) => (
+                <AgentRequestCard
+                  key={`${request.sessionId}:${String(request.requestId)}`}
+                  request={request}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {conversation?.error ? (
+            <div className="ag-card mt-4 flex items-start gap-2 border-destructive/25 bg-destructive/[0.06] px-3 py-2.5 text-[12px] text-destructive">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1">{conversation.error}</span>
+              <button
+                type="button"
+                onClick={() => void openThread(path, conversation.threadId)}
+                className="rounded-md px-1.5 py-0.5 font-medium hover:bg-destructive/10"
               >
                 {t("agentChat.retry")}
               </button>
+              <button
+                type="button"
+                onClick={() => clearError(conversation.threadId)}
+                aria-label={t("agentChat.dismissError")}
+                className="rounded-md p-0.5 hover:bg-destructive/10"
+              >
+                <X className="size-3" />
+              </button>
             </div>
-          </div>
-        ) : requiresAuth ? (
-          <div className="ag-card m-auto max-w-sm p-6 text-center">
-            <span className="ag-inset mx-auto grid size-11 place-items-center rounded-[13px]">
-              <ProviderLogo className="size-5" />
-            </span>
-            <p className="mt-4 text-[14px] font-semibold tracking-tight">
-              {isClaude ? t("agentChat.loginTitleClaude") : t("agentChat.loginTitle")}
-            </p>
-            <p className="ag-muted mt-1.5 text-[12px] leading-5">
-              {isClaude ? t("agentChat.loginDescriptionClaude") : t("agentChat.loginDescription")}
-            </p>
-            {loginError ? (
-              <p className="mt-2 text-[12px] text-destructive">
-                {t("agentChat.loginFailed")}: {loginError}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              className="ag-pill mt-5 h-8 px-4"
-              data-active="true"
-              onClick={() => void login()}
-              disabled={loginStatus === "starting" || loginStatus === "waiting"}
-            >
-              {loginStatus === "starting" || loginStatus === "waiting" ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
-              ) : null}
-              {loginStatus === "waiting"
-                ? t("agentChat.loginWaiting")
-                : isClaude ? t("agentChat.loginActionClaude") : t("agentChat.loginAction")}
-            </button>
-          </div>
-        ) : centered ? (
-          <div className="m-auto w-full max-w-2xl py-8">
-            <div className="flex flex-col items-center text-center">
-              <span className="ag-inset grid size-11 place-items-center rounded-[13px]">
-                <ProviderLogo className="size-5" />
-              </span>
-              <h2 className="mt-4 text-[17px] font-semibold tracking-[-0.015em]">
-                {t("agentChat.emptyTitle", { agent })}
-              </h2>
-              <p className="ag-muted mt-1.5 max-w-sm text-[12px] leading-5">
-                {t("agentChat.emptyDescription", { agent, repo: repoName(path) })}
-              </p>
-            </div>
-
-            <div className="ag-card mt-7 p-1.5">
-              <p className="ag-label px-2 py-1.5">{t("agentChat.shortcuts")}</p>
-              {starters.map((starter, index) => {
-                const { Icon, color } = STARTER_ICONS[index] ?? STARTER_ICONS[0];
-                return (
-                  <button
-                    key={starter}
-                    type="button"
-                    onClick={() => onStarter(starter)}
-                    className="ag-menu-item"
-                  >
-                    <Icon className="size-4 shrink-0" style={{ color }} />
-                    <span className="min-w-0 flex-1 truncate text-[13px]">{starter}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-3">{composer}</div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {hiddenTurnCount > 0 ? (
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  className="ag-pill"
-                  onClick={() => {
-                    const viewport = scrollRef.current;
-                    if (viewport) {
-                      restoreBottomOffset.current = viewport.scrollHeight - viewport.scrollTop;
-                      stickToBottom.current = false;
-                    }
-                    setVisibleTurnCount((count) => count + TURN_PAGE_SIZE);
-                  }}
-                >
-                  {t("agentChat.showOlder", { count: Math.min(TURN_PAGE_SIZE, hiddenTurnCount) })}
-                </button>
-              </div>
-            ) : null}
-            <Suspense fallback={<div className="ag-inset h-16 animate-pulse" />}>
-              {visibleTurns.map((turn) => (
-                <div
-                  key={turn.id}
-                  className="[contain-intrinsic-size:auto_320px] [content-visibility:auto]"
-                >
-                  <AgentTurnView turn={turn} />
-                </div>
-              ))}
-            </Suspense>
-          </div>
-        )}
-
-        {requests.length > 0 ? (
-          <div className="mt-6 space-y-3">
-            {requests.map((request) => (
-              <AgentRequestCard
-                key={`${request.sessionId}:${String(request.requestId)}`}
-                request={request}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {conversation?.error ? (
-          <div className="ag-card mt-4 flex items-start gap-2 border-destructive/25 bg-destructive/[0.06] px-3 py-2.5 text-[12px] text-destructive">
-            <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
-            <span className="min-w-0 flex-1">{conversation.error}</span>
-            <button
-              type="button"
-              onClick={() => void openThread(path, conversation.threadId)}
-              className="rounded-md px-1.5 py-0.5 font-medium hover:bg-destructive/10"
-            >
-              {t("agentChat.retry")}
-            </button>
-            <button
-              type="button"
-              onClick={() => clearError(conversation.threadId)}
-              aria-label={t("agentChat.dismissError")}
-              className="rounded-md p-0.5 hover:bg-destructive/10"
-            >
-              <X className="size-3" />
-            </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
+
+      {/* Jump-to-bottom. It appears only once the reader has scrolled away
+          from the live edge, and carries a progress ring so a long transcript
+          says how far back you are rather than just offering to leave. */}
+      <AnimatePresence>
+        {!atBottom && visibleTurns.length > 0 ? (
+          <m.button
+            type="button"
+            onClick={jumpToBottom}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.94 }}
+            transition={SPRING_PANEL}
+            className="ag-pill absolute bottom-4 left-1/2 z-20 -translate-x-1/2 gap-1.5 shadow-[var(--ag-shadow-pop)]"
+            aria-label={t("agentChat.jumpToLatest")}
+          >
+            <span className="relative grid size-4 place-items-center">
+              <ScrollProgressCircle progress={scrollProgress} size={16} thickness={2} />
+              <ArrowDown className="absolute size-2.5" />
+            </span>
+            {t("agentChat.jumpToLatest")}
+          </m.button>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 });
@@ -1171,8 +1284,14 @@ export const AgentChatPane = memo(function AgentChatPane({
 
         {threadId || busy ? (
           <span className="ag-pill shrink-0" title={t("agentChat.streamIsolated")}>
-            <span className="ag-dot" data-state={statusState} aria-hidden="true" />
-            {statusLabel}
+            <AgDot state={statusState} />
+            {/* A running turn reads as live text rather than a static word,
+                which is what distinguishes "working" from "idle" at a glance. */}
+            {busy ? (
+              <TextShimmer duration={2}>{statusLabel}</TextShimmer>
+            ) : (
+              statusLabel
+            )}
           </span>
         ) : null}
 
@@ -1209,6 +1328,7 @@ export const AgentChatPane = memo(function AgentChatPane({
 
       <div className="shrink-0 px-6">
         <AgentTrustBanner path={path} />
+        <AgentPlanBanner />
       </div>
 
       <AgentConversationViewport

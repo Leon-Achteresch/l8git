@@ -38,6 +38,22 @@ Beobachtet `conversation.tokenUsage` aller vier Provider-Stores, verbucht positi
 
 Alle vier CLIs können interaktive Charts rendern — provider-unabhängig über Markdown statt vier Tool-Protokolle: Der Agent gibt einen \`\`\`chart-Codeblock mit JSON aus (`type: bar|line|area`, `series[{label, data[{x,y}]}]`, optional `title`/`xLabel`/`yLabel`/`stacked`), der Markdown-Renderer ersetzt ihn durch ein TanStack-Chart (`@tanstack/charts` + `@tanstack/react-charts`, Tooltip und Legende inklusive). Der Slash-Command `/chart <was visualisieren>` hängt die Formatdokumentation (`CHART_FORMAT_DOC`) an den Prompt, damit jeder Agent das Format kennt. Während des Streamens zeigt unvollständiges JSON einen Platzhalter; ungültige Blöcke fallen auf normale Code-Darstellung zurück. Serienfarben: `--ag-chart-1..8` in `agents.css` (validierte Palette, eigene Dark-Stufung); maximal 8 Serien, Validierung in `parseChartSpec`.
 
+## Jira-Tools (`../jira`)
+
+Der In-Process-MCP-Server `l8git`, mit dem Claude Code gestartet wird
+(`agent_transport.rs`, `--mcp-config … "type":"sdk"`), beantwortet `tools/list`
+und `tools/call` in `providers/claude/chat-store.ts`. Neben `render_chart`
+liefert er die lesenden Jira-Tools — aber nur, solange sie etwas nützen: ist das
+Feature aus, fehlen Zugangsdaten oder ist weder ein Ticket verknüpft noch die
+JQL-Suche freigeschaltet, ist die Liste leer und kostet keine Tokens.
+
+Codex, OpenCode und Cursor haben keinen In-Process-Kanal und bekommen stattdessen
+l8gits eigene Binary als Stdio-MCP-Server (`l8git mcp-jira`): OpenCode per ACP
+`mcpServers` pro Sitzung, Codex und Cursor über einen Eintrag in ihrer eigenen
+Konfiguration. Welcher Provider welchen Kanal hat, steht in `provider-meta.ts`
+(`agentToolChannel`), das Auf- und Abräumen in `../jira/jira-sync.ts`. Details in
+`../jira/README.md`.
+
 ## Konventionen
 
 - Fehler aus Stores propagieren lassen — die UI toastet abgelehnte Promises. Nur Best-Effort-Cleanup (`close()`, Branch-Löschung nach Merge) darf still scheitern.

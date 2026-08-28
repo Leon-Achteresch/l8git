@@ -5,6 +5,7 @@ import { OTPInput, OTPInputContext } from "input-otp"
 
 import { cn } from "@/lib/utils"
 import { MinusIcon } from "lucide-react"
+import { m } from "motion/react";
 
 function InputOTP({
   className,
@@ -63,7 +64,11 @@ function InputOTPSlot({
       {char}
       {hasFakeCaret && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-4 w-px animate-caret-blink bg-foreground duration-1000" />
+          <m.div
+            className="h-4 w-px bg-foreground"
+            animate={{ opacity: [1, 1, 0, 0] }}
+            transition={{ repeat: Infinity, duration: 1, times: [0, 0.5, 0.5, 1], ease: "linear" }}
+          />
         </div>
       )}
     </div>

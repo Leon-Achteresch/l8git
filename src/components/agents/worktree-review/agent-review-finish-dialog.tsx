@@ -43,6 +43,7 @@ import { toastError, toastGitError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 const STEP_ICONS: Record<AgentReviewStepId, typeof Check> = {
   commit: Check,
@@ -51,7 +52,7 @@ const STEP_ICONS: Record<AgentReviewStepId, typeof Check> = {
 };
 
 function StepStatusIcon({ step }: { step: AgentReviewStep }) {
-  if (step.status === "running") return <Loader2 className="size-3.5 animate-spin text-primary" />;
+  if (step.status === "running") return <SpinIcon icon={Loader2} className="size-3.5 text-primary" />;
   if (step.status === "failed") return <TriangleAlert className="size-3.5 text-destructive" />;
   if (step.status === "done") return <Check className="size-3.5 text-git-added" />;
   const Icon = STEP_ICONS[step.id];
@@ -234,7 +235,7 @@ export function AgentReviewFinishDialog({
                   onClick={() => void suggestMessage()}
                   disabled={aiBusy || commitStep.status === "done"}
                 >
-                  {aiBusy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                  {aiBusy ? <SpinIcon icon={Loader2} /> : <Sparkles />}
                   {t("agentReview.aiSuggest")}
                 </Button>
                 <Button
@@ -386,7 +387,7 @@ function StepAction({
       onClick={onRun}
       disabled={!canRunStep(steps, step.id) || step.status === "running"}
     >
-      {step.status === "running" ? <Loader2 className="animate-spin" /> : null}
+      {step.status === "running" ? <SpinIcon icon={Loader2} /> : null}
       {label}
     </Button>
   );

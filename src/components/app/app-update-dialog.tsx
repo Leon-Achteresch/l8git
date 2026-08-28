@@ -21,6 +21,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import { m } from "motion/react";
 
 type Phase = ReturnType<typeof useAppUpdateStore.getState>["phase"];
 
@@ -260,7 +262,7 @@ export function AppUpdateDialog() {
                       style={{ width: `${percent}%` }}
                     />
                   ) : (
-                    <div className="h-full w-2/5 rounded-full bg-primary/70 animate-pulse" />
+                    <m.div animate={pulseKeyframes} transition={pulseTransition} className="h-full w-2/5 rounded-full bg-primary/70" />
                   )}
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">

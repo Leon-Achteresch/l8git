@@ -3,22 +3,27 @@ import {
   Boxes,
   Braces,
   AtSign,
+  ChevronDown,
+  ClipboardList,
   Clock,
   Copy,
   CornerUpLeft,
   FileCode2,
   FileImage,
   GitPullRequestArrow,
+  MessageCircleQuestion,
   Quote,
   Search,
+  Terminal,
   Timer,
   Undo2,
   Users,
   Volume2,
 } from "lucide-react";
-import { memo, type ReactNode, useMemo } from "react";
+import { memo, type ReactNode, useMemo, useState } from "react";
 
 import { AgentActivity, type AgentActivityItem } from "@/components/agents/ui/agent-activity";
+import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { AgentMarkdown } from "@/components/agents/ui/agent-markdown";
 import { MarkdownChart } from "@/components/agents/ui/agent-chart";
 import { CHART_TOOL_NAME } from "@/lib/agents/chart-spec";
@@ -35,7 +40,7 @@ import {
   MessageBubbleContent,
   MessageBubbleGroup,
 } from "@/components/agents/ui/message-bubble";
-import { StreamingResponse } from "@/components/agents/ui/streaming-response";
+import { AGENT_PROSE_CLASS, StreamingResponse } from "@/components/agents/ui/streaming-response";
 import { TodoList, type TodoItem } from "@/components/agents/ui/todo-list";
 import { ToolResult, ToolResultOutput } from "@/components/agents/ui/tool-result";
 import { ToolPluginView, useToolPlugin } from "@/components/agents/ui/tool-plugins";
@@ -43,6 +48,8 @@ import type { AgentItem, AgentTurn } from "@/lib/agents/types";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { parseUnifiedDiff } from "@/lib/unified-diff";
+import { PulseIcon } from "@/components/motion/kit";
+import { cn } from "@/lib/utils";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -191,6 +198,58 @@ function userContent(item: AgentItem): {
   };
 }
 
+/**
+ * Slash commands and their local output are CLI scaffolding rather than a
+ * prompt, so they collapse into one subdued pill instead of a chat bubble.
+ */
+function LocalCommandItem({ item }: { item: AgentItem }) {
+  const command = stringValue(item.command);
+  const args = stringValue(item.args);
+  const output = stringValue(item.output);
+  const [open, setOpen] = useState(false);
+  const label = [command, args].filter(Boolean).join(" ") || "Lokaler Befehl";
+
+  const pill = (
+    <>
+      <Terminal className="size-3 shrink-0 opacity-70" />
+      <span className="truncate">{label}</span>
+    </>
+  );
+
+  return (
+    <div className="flex justify-end">
+      <div className="flex max-w-[85%] flex-col items-end">
+        {output ? (
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            className="ag-chip max-w-full gap-1.5 font-mono text-[11px]"
+            title="Ausgabe ein- oder ausblenden"
+          >
+            {pill}
+            <ChevronDown
+              className="size-3 shrink-0 opacity-70 transition-transform"
+              style={{ transform: open ? "rotate(180deg)" : undefined }}
+            />
+          </button>
+        ) : (
+          <span className="ag-chip max-w-full gap-1.5 font-mono text-[11px]" title={label}>
+            {pill}
+          </span>
+        )}
+        {output ? (
+          <AgentDisclosure open={open} className="mt-1.5 w-full">
+            <pre className="ag-inset max-h-56 overflow-auto whitespace-pre-wrap p-2 font-mono text-[10px] leading-4">
+              {boundedTail(output, 20_000, 400)}
+            </pre>
+          </AgentDisclosure>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function quoted(text: string): string {
   return text
     .split("\n")
@@ -259,7 +318,7 @@ function UserMessage({ item }: { item: AgentItem }) {
     </MessageBubble>
     {queued ? (
       <div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
-        <Clock className="size-3 animate-pulse" />
+        <PulseIcon icon={Clock} className="size-3" />
         In Warteschlange – wird an die KI übermittelt
       </div>
     ) : null}
@@ -645,6 +704,117 @@ function PlanItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
   );
 }
 
+/**
+ * A plan the agent proposed via ExitPlanMode. The live approval lives in the
+ * request card; this item keeps the plan readable in the transcript afterwards.
+ */
+function PlanProposalItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
+  const plan = stringValue(item.plan);
+  const status = toolStatus(item);
+  const [open, setOpen] = useState(true);
+  const label = status === "running"
+    ? "Plan wird vorgeschlagen"
+    : status === "success"
+      ? "Plan freigegeben"
+      : "Plan nicht freigegeben — weiter geplant";
+
+  return (
+    <ItemMenu
+      entries={[
+        {
+          label: "Plan kopieren",
+          icon: <Copy className="size-3.5" />,
+          onSelect: () => copyToClipboard(plan, "Plan kopiert"),
+        },
+        {
+          label: "Als Zitat einfügen",
+          icon: <Quote className="size-3.5" />,
+          onSelect: () => insertIntoAgentComposer(quoted(plan)),
+        },
+      ]}
+    >
+      <div className="ag-card overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-2 px-3 py-2 text-left"
+        >
+          <ClipboardList className="size-4 shrink-0 text-muted-foreground" />
+          <span className="text-[13px] font-medium">Umsetzungsplan</span>
+          <span className="ag-faint ml-auto text-[10px]">{label}</span>
+          <ChevronDown
+            className="size-3.5 shrink-0 opacity-70 transition-transform"
+            style={{ transform: open ? "rotate(180deg)" : undefined }}
+          />
+        </button>
+        {plan ? (
+          <AgentDisclosure open={open}>
+            <div className={cn("ag-scroll max-h-[420px] overflow-auto px-3 pb-3", AGENT_PROSE_CLASS)}>
+              <AgentMarkdown>{plan}</AgentMarkdown>
+            </div>
+          </AgentDisclosure>
+        ) : (
+          <p className="ag-muted px-3 pb-3 text-[12px]">
+            {turn.status === "inProgress" ? "Plan wird erstellt …" : "Kein Planinhalt übermittelt."}
+          </p>
+        )}
+      </div>
+    </ItemMenu>
+  );
+}
+
+/**
+ * A round of clarifying questions. The answer picker lives in the request card;
+ * once answered the transcript keeps the question and what was chosen.
+ */
+function UserQuestionItem({ item }: { item: AgentItem }) {
+  const questions = arrayValue(item.questions).filter(isRecord);
+  const answers = isRecord(item.answers) ? item.answers : {};
+  const pending = stringValue(item.status) === "inProgress";
+
+  return (
+    <div className="ag-card overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <MessageCircleQuestion className="size-4 shrink-0 text-muted-foreground" />
+        <span className="text-[13px] font-medium">Rückfrage</span>
+        <span className="ag-faint ml-auto text-[10px]">
+          {pending ? "Wartet auf Antwort" : "Beantwortet"}
+        </span>
+      </div>
+      <div className="space-y-2.5 px-3 pb-3">
+        {questions.map((question, index) => {
+          const text = stringValue(question.question);
+          const header = stringValue(question.header);
+          const answer = stringValue(answers[text]);
+          return (
+            <div key={`${item.id}-q-${index}`} className="ag-inset p-2.5">
+              {header ? <p className="ag-label mb-1">{header}</p> : null}
+              <p className="text-[12px] leading-5">{text}</p>
+              {answer ? (
+                <p className="mt-1.5 text-[12px] font-medium leading-5 text-foreground">
+                  → {answer}
+                </p>
+              ) : (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {arrayValue(question.options).filter(isRecord).map((option, optionIndex) => (
+                    <span
+                      key={`${item.id}-q-${index}-o-${optionIndex}`}
+                      className="ag-faint rounded-[7px] bg-[var(--ag-surface-3)] px-1.5 py-0.5 text-[10px]"
+                    >
+                      {stringValue(option.label)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CollaborationItem({ item }: { item: AgentItem }) {
   const receivers = arrayValue(item.receiverThreadIds).filter((value): value is string => typeof value === "string");
   const agentStates = isRecord(item.agentsStates) ? Object.entries(item.agentsStates) : [];
@@ -767,6 +937,7 @@ function SleepItemView({ item }: { item: AgentItem }) {
 export const AgentItemView = memo(function AgentItemView({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
   const provider = useAgentProviderStore((state) => state.provider);
   if (item.type === "userMessage") return <UserMessage item={item} />;
+  if (item.type === "localCommand") return <LocalCommandItem item={item} />;
   if (item.type === "agentMessage") return <AgentMessage item={item} turn={turn} />;
   if (item.type === "reasoning") return <ReasoningItem item={item} turn={turn} />;
   if (item.type === "commandExecution") return <CommandItem item={item} />;
@@ -775,6 +946,8 @@ export const AgentItemView = memo(function AgentItemView({ item, turn }: { item:
   if (item.type === "mcpToolCall" || item.type === "dynamicToolCall") return <ToolCallItem item={item} />;
   if (item.type === "webSearch") return <WebSearchItemView item={item} turn={turn} />;
   if (item.type === "plan") return <PlanItem item={item} turn={turn} />;
+  if (item.type === "planProposal") return <PlanProposalItem item={item} turn={turn} />;
+  if (item.type === "userQuestion") return <UserQuestionItem item={item} />;
   if (item.type === "collabAgentToolCall") return <CollaborationItem item={item} />;
   if (item.type === "hookPrompt") return <HookPromptItem item={item} />;
   if (item.type === "sleep") return <SleepItemView item={item} />;

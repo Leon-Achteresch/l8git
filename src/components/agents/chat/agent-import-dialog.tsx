@@ -32,6 +32,7 @@ import type {
   AgentExternalConfigMigrationItem,
 } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 const ITEM_LABELS: Record<AgentExternalConfigItemType, string> = {
   AGENTS_MD: "Instructions",
@@ -210,7 +211,7 @@ export function AgentImportDialog({
             onClick={() => void refresh()}
             disabled={loading || importing}
           >
-            <RefreshCw className={cn("size-3", loading && "animate-spin")} />
+            <SpinIcon icon={RefreshCw} active={loading} className="size-3" />
             Scan again
           </Button>
         </div>
@@ -219,7 +220,7 @@ export function AgentImportDialog({
           <div className="space-y-2 p-4">
             {loading ? (
               <div className="flex min-h-48 items-center justify-center text-xs text-muted-foreground">
-                <LoaderCircle className="mr-2 size-4 animate-spin" />
+                <SpinIcon icon={LoaderCircle} className="mr-2 size-4" />
                 Scanning local Claude Code setup…
               </div>
             ) : error && !items.length ? (
@@ -291,7 +292,7 @@ export function AgentImportDialog({
             {importing ? (
               <div className="rounded-xl border border-primary/20 bg-primary/[0.05] p-3 text-xs">
                 <div className="flex items-center gap-2 font-medium">
-                  <LoaderCircle className="size-3.5 animate-spin" />
+                  <SpinIcon icon={LoaderCircle} className="size-3.5" />
                   Importing {selectedCount} items…
                 </div>
                 <p className="mt-1 pl-5 text-[10px] text-muted-foreground">
@@ -343,7 +344,7 @@ export function AgentImportDialog({
               onClick={() => void runImport()}
               disabled={loading || importing || !selectedItems.length}
             >
-              {importing ? <LoaderCircle className="size-3.5 animate-spin" /> : null}
+              {importing ? <SpinIcon icon={LoaderCircle} className="size-3.5" /> : null}
               Import {selectedCount || "selected"}
             </Button>
           ) : null}

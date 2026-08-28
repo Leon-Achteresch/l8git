@@ -7,6 +7,7 @@ import { toastError } from "@/lib/error-toast";
 import { CiCheckDetails } from "./ci-check-details";
 import { CiCheckIcon } from "./ci-check-icon";
 import { RemoteCiCheck } from "./ci-types";
+import { SpinIcon } from "@/components/motion/kit";
 
 const CI_KIND_LABELS: Record<string, string> = {
   github_check_run: "GitHub Actions",
@@ -108,7 +109,7 @@ export function CiCheckRow({
               onClick={(ev) => void handleRerun(ev)}
               title={t("ci.rerun")}
             >
-              <RotateCcw className={rerunning ? "animate-spin" : undefined} />
+              <SpinIcon icon={RotateCcw} active={rerunning} />
             </Button>
           )}
           {check.html_url && (

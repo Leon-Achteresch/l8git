@@ -26,6 +26,7 @@ import {
   Sparkles,
   Sun,
   Terminal,
+  Ticket,
   Users,
   Zap,
 } from "lucide-react";
@@ -40,6 +41,7 @@ import { BranchCleanupCard } from "@/components/settings/branch-cleanup-card";
 import { RemoteServerCard } from "@/components/settings/remote-server-card";
 import { GitSigningCard } from "@/components/settings/git-signing-card";
 import { HotkeysSection } from "@/components/settings/hotkeys-section";
+import { JiraCard } from "@/components/settings/jira-card";
 import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
 import { NotificationsCard } from "@/components/settings/notifications-card";
 import { SidebarCustomizeSection } from "@/components/settings/sidebar-customize-section";
@@ -70,6 +72,7 @@ import {
   useWorkspacePrefs,
   type RepoTerminalKind,
 } from "@/lib/workspace-prefs";
+import { SpinIcon } from "@/components/motion/kit";
 
 const UI_SCALE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5] as const;
 
@@ -207,6 +210,12 @@ export function Settings() {
           { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal, accent: "bg-git-added" },
           { id: "signing", label: t("settings.navSigning"), icon: ShieldCheck, accent: "bg-git-branch" },
           { id: "ai", label: t("settings.navAi"), icon: Sparkles, accent: "bg-git-merge" },
+        ],
+      },
+      {
+        label: t("settings.navGroupIntegrations"),
+        items: [
+          { id: "jira", label: t("settings.navJira"), icon: Ticket, accent: "bg-git-branch" },
         ],
       },
       {
@@ -1048,6 +1057,21 @@ export function Settings() {
             </div>
           </section>
 
+          {/* ── INTEGRATIONS ──────────────────────────────────────────── */}
+          <section id="jira" ref={setRef("jira")} className="scroll-mt-10">
+            <SectionHeader
+              icon={Ticket}
+              title={t("settings.jiraSectionTitle")}
+              subtitle={t("settings.jiraSectionSubtitle")}
+              gradient="from-git-branch/25 to-git-branch/25"
+              iconColor="text-git-branch"
+            />
+
+            <StaggerCard index={0}>
+              <JiraCard />
+            </StaggerCard>
+          </section>
+
           {/* ── WORKSPACE ─────────────────────────────────────────────── */}
           <section id="workspace" ref={setRef("workspace")} className="scroll-mt-10">
             <SectionHeader
@@ -1254,7 +1278,7 @@ export function Settings() {
                         aria-label={t("settings.refreshAria")}
                         disabled={loading || refreshing}
                       >
-                        <RefreshCw className={cn((loading || refreshing) && "animate-spin")} />
+                        <SpinIcon icon={RefreshCw} active={loading || refreshing} />
                       </Button>
                       <Button
                         type="button"
@@ -1334,8 +1358,8 @@ export function Settings() {
                     disabled={checkingForUpdates}
                     onClick={() => void handleUpdateCheck()}
                   >
-                    <RefreshCw
-                      className={cn("size-4", checkingForUpdates && "animate-spin")}
+                    <SpinIcon icon={RefreshCw} active={checkingForUpdates} 
+                      className="size-4"
                     />
                     {t("settings.checkUpdates")}
                   </Button>

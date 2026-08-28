@@ -21,6 +21,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { SpinIcon } from "@/components/motion/kit";
 
 type CreatedRepo = {
   clone_url: string;
@@ -401,7 +402,7 @@ export function CreateRemoteRepoDialog({
                   {t("createRemote.cancel")}
                 </Button>
                 <Button type="submit" size="sm" disabled={busy}>
-                  {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {busy && <SpinIcon icon={Loader2} className="h-3.5 w-3.5" />}
                   {busy
                     ? t("createRemote.creating")
                     : t("createRemote.createButton")}

@@ -170,6 +170,7 @@
     "conversation": "Conversación",
     "loadingConversations": "Cargando conversaciones…",
     "showOlder": "Mostrar {{count}} turnos anteriores",
+    "jumpToLatest": "Ir a lo más reciente",
     "showMoreConversations": "Mostrar {{count}} conversaciones más",
     "firstConversation": "Empezar la primera conversación",
     "manageConversation": "Gestionar conversación",
@@ -336,7 +337,22 @@
     "worktreeLanded": "{{name}} fusionado y limpiado",
     "usageToday": "Hoy: {{cost}} · {{tokens}} tokens",
     "usageWeek": "Últimos 7 días: {{cost}} · {{tokens}} tokens",
-    "chartLoading": "Renderizando el gráfico…"
+    "chartLoading": "Renderizando el gráfico…",
+    "plan": {
+      "title": "Aprobar el plan de implementación",
+      "empty": "No se envió ningún contenido del plan.",
+      "approve": "Ejecutar este plan",
+      "approveAuto": "Ejecutar y aprobar cambios automáticamente",
+      "keepPlanning": "Seguir planificando",
+      "feedbackPlaceholder": "Comentario opcional sobre el plan…",
+      "hint": "Al aprobar, la sesión sale del modo plan y puede aplicar cambios.",
+      "statusPending": "Decisión pendiente",
+      "statusApproved": "Aprobado",
+      "statusKeptPlanning": "Sigue planificando",
+      "bannerTitle": "Modo plan activo",
+      "bannerBody": "El agente solo investiga y planifica: los archivos y comandos siguen bloqueados hasta que apruebes un plan.",
+      "bannerAction": "Salir del modo plan"
+    }
   },
   "agentReview": {
     "openButton": "Revisar cambios",
@@ -891,7 +907,11 @@
         "label": "Descripción del pull request",
         "desc": "Prompt para las descripciones de pull request generadas."
       }
-    }
+    },
+    "navGroupIntegrations": "Integraciones",
+    "navJira": "Jira",
+    "jiraSectionTitle": "Jira",
+    "jiraSectionSubtitle": "Vincula tickets y da al agente acceso de solo lectura"
   },
   "notifications": {
     "title": "Notificaciones",
@@ -2213,7 +2233,8 @@
     "menuTitle": "Espacios de trabajo",
     "add": "Añadir un espacio de trabajo…",
     "edit": "Editar «{{name}}»…",
-    "defaultPersonalName": "Personal"
+    "defaultPersonalName": "Personal",
+    "moveToWorkspace": "Mover al espacio de trabajo"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "No se puede eliminar el último espacio de trabajo",
@@ -2995,5 +3016,44 @@
     "pairDesc": "Escanea el código QR en la app l8git o introduce el JSON manualmente.",
     "copyJson": "Copiar JSON",
     "copied": "Copiado"
+  },
+  "jira": {
+    "settingsTitle": "Acceso a Jira (BYOK)",
+    "settingsDesc": "URL base, correo y token de API de tu propia instancia de Jira. El token se guarda cifrado en el llavero del sistema y nunca vuelve a la interfaz.",
+    "enabledLabel": "Integración de Jira activa",
+    "enabledHint": "Mientras esté desactivada el agente no ve ninguna herramienta de Jira, así que no se gastan tokens en sus descripciones.",
+    "baseUrlLabel": "URL base",
+    "baseUrlHint": "Solo HTTPS. Ejemplo: https://acme.atlassian.net",
+    "emailLabel": "Correo",
+    "tokenLabel": "Token de API",
+    "tokenPlaceholder": "Token de API de Atlassian",
+    "tokenHint": "Se guarda en el llavero del sistema, no en localStorage. El campo se vacía al guardar y el token no se vuelve a mostrar.",
+    "tokenShow": "Mostrar token",
+    "tokenHide": "Ocultar token",
+    "configuredHint": "Guardado para {{email}} ({{hint}})",
+    "testButton": "Probar conexión",
+    "deleteButton": "Eliminar acceso",
+    "savedToast": "Acceso a Jira guardado.",
+    "deletedToast": "Acceso a Jira eliminado.",
+    "testOkToast": "Conectado como {{name}}.",
+    "scopeTitle": "Qué puede hacer el agente",
+    "allowCommentsLabel": "Leer comentarios",
+    "allowCommentsHint": "Expone además la herramienta que lee los últimos comentarios de un ticket.",
+    "allowSearchLabel": "Permitir búsqueda JQL",
+    "allowSearchHint": "Sin esto el agente solo puede leer los tickets vinculados aquí. Con esto puede buscar y leer cualquier ticket visible para tu cuenta.",
+    "readOnlyNote": "Todas las herramientas de Jira son de solo lectura: únicamente se envían peticiones HTTP GET. Crear, editar, comentar y cambiar estado no están implementados.",
+    "panelTitle": "Tickets de Jira",
+    "panelEmpty": "Ningún ticket vinculado. Añade uno con +.",
+    "linkTicket": "Vincular ticket",
+    "linkPlaceholder": "ABC-123 o enlace de Jira, Enter para vincular",
+    "invalidKey": "Clave de ticket inválida. Se espera la forma ABC-123.",
+    "notConfigured": "No hay acceso a Jira guardado — Ajustes → Jira.",
+    "refresh": "Actualizar tickets",
+    "unlink": "Quitar {{key}}",
+    "openInJira": "Abrir {{key}} en Jira",
+    "toolNote": "Claude Code recibe las herramientas en proceso y OpenCode por sesión mediante ACP. Codex y Cursor necesitan la entrada en su configuración.",
+    "registerExternalLabel": "Registrar en Codex y Cursor",
+    "registerExternalHint": "Codex y Cursor leen los servidores MCP solo desde su propia configuración. l8git añade el servidor ahí (~/.codex/config.toml y ~/.cursor/mcp.json) y lo quita en cuanto se desactiva el interruptor. Eso hace que la entrada también sea visible en tus propias sesiones de Codex y Cursor. Claude Code y OpenCode no lo necesitan.",
+    "registrationOff": "Este proveedor necesita el interruptor de registro en los ajustes; si no, no verá las herramientas."
   }
 }

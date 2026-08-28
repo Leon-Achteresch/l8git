@@ -51,6 +51,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAgentCapabilityStore } from "@/lib/agents/capability-store";
 import type { AgentCapabilityHook } from "@/lib/agents/capability-types";
+import { SpinIcon } from "@/components/motion/kit";
 
 interface HookDraft {
   eventName: string;
@@ -433,14 +434,14 @@ export function AgentHookStudio({ query }: { query: string }) {
             <div className="space-y-1.5"><Label htmlFor="hook-context">Context limit</Label><Input id="hook-context" type="number" min={0} value={draft.additionalContextLimit ?? ""} onChange={(event) => setDraft({ ...draft, additionalContextLimit: event.target.value ? Number(event.target.value) : null })} /></div>
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="hook-status">Status message</Label><Input id="hook-status" value={draft.statusMessage} onChange={(event) => setDraft({ ...draft, statusMessage: event.target.value })} /></div>
           </div>
-          <DialogFooter><Button type="button" variant="outline" onClick={() => setEditorOpen(false)}><X className="size-3.5" />{t("common.cancel")}</Button><Button type="button" disabled={sourceLoading || !draft.command.trim() || Boolean(busyKey?.startsWith("file:"))} onClick={() => void saveStructured()}>{busyKey?.startsWith("file:") ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}{t("common.save")}</Button></DialogFooter>
+          <DialogFooter><Button type="button" variant="outline" onClick={() => setEditorOpen(false)}><X className="size-3.5" />{t("common.cancel")}</Button><Button type="button" disabled={sourceLoading || !draft.command.trim() || Boolean(busyKey?.startsWith("file:"))} onClick={() => void saveStructured()}>{busyKey?.startsWith("file:") ? <SpinIcon icon={LoaderCircle} className="size-3.5" /> : <Save className="size-3.5" />}{t("common.save")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={rawOpen} onOpenChange={setRawOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader><DialogTitle>{t("agentCapabilities.hooks.source")}</DialogTitle><DialogDescription>{sourcePath}</DialogDescription></DialogHeader>
-          {sourceLoading ? <div className="flex min-h-80 items-center justify-center"><LoaderCircle className="size-4 animate-spin" /></div> : <Textarea value={sourceText} onChange={(event) => setSourceText(event.target.value)} spellCheck={false} className="min-h-[28rem] resize-y font-mono text-[11px] leading-5" />}
+          {sourceLoading ? <div className="flex min-h-80 items-center justify-center"><SpinIcon icon={LoaderCircle} className="size-4" /></div> : <Textarea value={sourceText} onChange={(event) => setSourceText(event.target.value)} spellCheck={false} className="min-h-[28rem] resize-y font-mono text-[11px] leading-5" />}
           <DialogFooter><Button type="button" variant="outline" onClick={() => setRawOpen(false)}>{t("common.cancel")}</Button><Button type="button" disabled={sourceLoading || Boolean(busyKey?.startsWith("file:"))} onClick={() => void saveRaw()}><Save className="size-3.5" />{t("common.save")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>

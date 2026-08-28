@@ -2,6 +2,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
@@ -30,6 +31,8 @@ import { useShallow } from "zustand/react/shallow";
 import { RepoGroupDialog } from "./repo-group-dialog";
 import { RepoLanguageStats } from "./repo-language-stats";
 import { RepoTabGroupActions } from "./repo-tab-group-actions";
+import { RepoWorkspaceMoveActions } from "./repo-workspace-move-actions";
+import { SpinIcon } from "@/components/motion/kit";
 
 type RepoTabProps = {
   path: string;
@@ -150,7 +153,7 @@ export const RepoTab = memo(function RepoTab({
         style={showFavicon ? undefined : { backgroundColor: avatarBg }}
       >
         {loading ? (
-          <Loader2 className="size-3 animate-spin text-white/90" />
+          <SpinIcon icon={Loader2} className="size-3 text-white/90" />
         ) : showFavicon ? (
           <img
             src={favicon ?? undefined}
@@ -303,6 +306,8 @@ export const RepoTab = memo(function RepoTab({
             path={path}
             onCreateGroup={() => setCreateGroupOpen(true)}
           />
+          <RepoWorkspaceMoveActions paths={[path]} />
+          <ContextMenuSeparator />
           <ContextMenuItem
             variant="destructive"
             onSelect={() => useRepoStore.getState().removeRepo(path)}

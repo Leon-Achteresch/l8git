@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { WorkflowRun } from "./ci-types";
 import { WorkflowRunRow } from "./workflow-run-row";
+import { SpinIcon } from "@/components/motion/kit";
 
 type StatusFilter = "all" | "running" | "failed" | "success";
 
@@ -72,7 +73,7 @@ export function WorkflowRunList({
   if (loading && !runs) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+        <SpinIcon icon={Loader2} className="h-8 w-8 text-primary/40" />
       </div>
     );
   }

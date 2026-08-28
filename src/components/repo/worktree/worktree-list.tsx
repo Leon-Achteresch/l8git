@@ -23,6 +23,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { WorktreeCard } from "./worktree-card";
+import { PulseIcon, SpinIcon } from "@/components/motion/kit";
 
 const EMPTY: WorktreeEntry[] = [];
 
@@ -97,7 +98,7 @@ export function WorktreeList({
                 disabled={pruning || loading}
                 onClick={() => void handlePrune()}
               >
-                <Scissors className={`h-4 w-4 ${pruning ? "animate-pulse" : ""}`} />
+                <PulseIcon icon={Scissors} active={pruning} className={`h-4 w-4`} />
               </Button>
             </TooltipTrigger>
             <TooltipContent className="text-xs">
@@ -128,8 +129,8 @@ export function WorktreeList({
                 disabled={loading}
                 onClick={() => void reloadWorktrees(path)}
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                <SpinIcon icon={RefreshCw} active={loading} 
+                  className={`h-4 w-4`}
                 />
               </Button>
             </TooltipTrigger>

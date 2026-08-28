@@ -22,6 +22,7 @@ import {
   parseChartSpec,
   type AgentChartSpec,
 } from "@/lib/agents/chart-spec";
+import { SpinIcon } from "@/components/motion/kit";
 
 const SERIES_COLORS = [
   "var(--ag-chart-1)",
@@ -171,7 +172,7 @@ export const MarkdownChart = memo(function MarkdownChart({ source }: { source: s
   if (looksLikeChartJson(source)) {
     return (
       <div className="ag-inset my-3 flex h-24 items-center justify-center gap-2 rounded-[12px] border border-[var(--ag-line)] text-[12px] text-[var(--ag-text-3)]">
-        <LoaderCircle className="size-3.5 animate-spin" />
+        <SpinIcon icon={LoaderCircle} className="size-3.5" />
         {t("agentChat.chartLoading")}
       </div>
     );

@@ -421,21 +421,10 @@
 
 .ag-dot[data-state="working"] {
   background: var(--git-modified);
-  animation: ag-pulse 1.4s ease-in-out infinite;
 }
 
 .ag-dot[data-state="error"] {
   background: var(--destructive);
-}
-
-@keyframes ag-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
 }
 
 /* ── Scrollbars ────────────────────────────────────────────────────────── */
@@ -468,8 +457,20 @@
   .agents-shell *::after {
     scroll-behavior: auto !important;
   }
+}
 
-  .ag-dot[data-state="working"] {
-    animation: none;
-  }
+/*
+ * Rows that sit on a shared hover pill.
+ *
+ * The thread rail paints one moving highlight for the whole list
+ * (SharedLayoutBg) instead of a background per row. A row's own :hover rule
+ * would stack a second, non-moving rectangle underneath it, so rows opting
+ * into the pill drop it and keep only the selected state.
+ */
+.ag-row-shared:hover {
+  background: transparent;
+}
+
+.ag-row-shared:active {
+  background: var(--ag-press);
 }

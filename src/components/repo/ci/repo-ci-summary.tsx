@@ -1,5 +1,6 @@
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { RemoteCiCheck } from "./ci-types";
+import { SpinIcon } from "@/components/motion/kit";
 
 export function RepoCiSummary({ checks }: { checks: RemoteCiCheck[] }) {
   if (!checks || checks.length === 0) return null;
@@ -28,7 +29,7 @@ export function RepoCiSummary({ checks }: { checks: RemoteCiCheck[] }) {
       )}
       {running > 0 && (
         <div className="flex items-center gap-1.5 text-git-branch">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <SpinIcon icon={Loader2} className="h-4 w-4" />
           <span>{running}</span>
         </div>
       )}

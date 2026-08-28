@@ -9,6 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 export function CapabilitySplit({
   list,
@@ -64,7 +65,7 @@ export function CapabilityError({ message }: { message: string }) {
 export function CapabilityLoading({ label }: { label: string }) {
   return (
     <div className="flex min-h-[24rem] items-center justify-center gap-2 text-xs text-muted-foreground">
-      <LoaderCircle className="size-3.5 animate-spin" />
+      <SpinIcon icon={LoaderCircle} className="size-3.5" />
       {label}
     </div>
   );

@@ -1,6 +1,8 @@
 import { invoke } from "@/lib/platform/ipc";
 
 import { JsonRpcProcessClient, type RpcId } from "@/lib/agents/rpc-client";
+import type { AcpMcpServer } from "@/lib/jira/jira-mcp";
+import { jiraAcpMcpServers } from "@/lib/jira/jira-sync";
 
 export function openCodeCli(args: string[], cwd?: string): Promise<string> {
   return invoke<string>("opencode_cli", { args, cwd });
@@ -154,20 +156,41 @@ export class OpenCodeClient {
     return this.rpc.request("logout");
   }
 
-  newSession(): Promise<OpenCodeSessionConfig & { sessionId: string }> {
-    return this.rpc.request("session/new", { cwd: this.cwd, mcpServers: [] });
+  /**
+   * ACP lets the client hand the agent its MCP servers per session, so l8git's
+   * Jira tools reach OpenCode without touching any config the user owns.
+   * Empty whenever the Jira gate is closed.
+   */
+  private mcpServers(): Promise<AcpMcpServer[]> {
+    return jiraAcpMcpServers(this.cwd);
   }
 
-  loadSession(sessionId: string): Promise<OpenCodeSessionConfig> {
-    return this.rpc.request("session/load", { sessionId, cwd: this.cwd, mcpServers: [] });
+  async newSession(): Promise<OpenCodeSessionConfig & { sessionId: string }> {
+    return this.rpc.request("session/new", { cwd: this.cwd, mcpServers: await this.mcpServers() });
   }
 
-  resumeSession(sessionId: string): Promise<OpenCodeSessionConfig> {
-    return this.rpc.request("session/resume", { sessionId, cwd: this.cwd, mcpServers: [] });
+  async loadSession(sessionId: string): Promise<OpenCodeSessionConfig> {
+    return this.rpc.request("session/load", {
+      sessionId,
+      cwd: this.cwd,
+      mcpServers: await this.mcpServers(),
+    });
   }
 
-  forkSession(sessionId: string): Promise<OpenCodeSessionConfig & { sessionId: string }> {
-    return this.rpc.request("session/fork", { sessionId, cwd: this.cwd, mcpServers: [] });
+  async resumeSession(sessionId: string): Promise<OpenCodeSessionConfig> {
+    return this.rpc.request("session/resume", {
+      sessionId,
+      cwd: this.cwd,
+      mcpServers: await this.mcpServers(),
+    });
+  }
+
+  async forkSession(sessionId: string): Promise<OpenCodeSessionConfig & { sessionId: string }> {
+    return this.rpc.request("session/fork", {
+      sessionId,
+      cwd: this.cwd,
+      mcpServers: await this.mcpServers(),
+    });
   }
 
   async listSessions(): Promise<OpenCodeSessionListEntry[]> {

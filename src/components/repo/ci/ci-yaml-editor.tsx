@@ -12,6 +12,7 @@ import {
   Save,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SpinIcon } from "@/components/motion/kit";
 
 // ── Monaco theme (mirrors git-hook-editor) ─────────────────────────────────
 
@@ -150,7 +151,7 @@ export function CiYamlEditor({
   if (loadingFiles) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+        <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/40" />
       </div>
     );
   }
@@ -200,7 +201,7 @@ export function CiYamlEditor({
           className="h-7 gap-1.5 px-2.5 text-xs"
         >
           {saving ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <SpinIcon icon={Loader2} className="h-3 w-3" />
           ) : saved ? (
             <CheckCircle2 className="h-3 w-3 text-git-added" />
           ) : (
@@ -214,7 +215,7 @@ export function CiYamlEditor({
       <div className="min-h-0 flex-1">
         {loadingContent ? (
           <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-primary/40" />
+            <SpinIcon icon={Loader2} className="h-5 w-5 text-primary/40" />
           </div>
         ) : (
           <Editor

@@ -1,57 +1,51 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Archive, ArchiveRestore, MessageSquare } from "lucide-react";
 import { m } from "motion/react";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AgentThreadRow, isWorking } from "@/components/agents/chat/agent-thread-row";
 import { Button } from "@/components/ui/button";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
-import type { AgentThreadSummary } from "@/lib/agents/types";
-import { SPRING_PANEL } from "@/lib/motion/ease";
+import {
+  flattenThreads,
+  type SidebarThread,
+} from "@/lib/agents/thread-grouping";
+import { pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import { useScrollMargin } from "@/hooks/use-scroll-margin";
+import {
+  SharedLayoutBgItem,
+  SharedLayoutBgRoot,
+} from "@/components/motion/shared-layout-bg";
 
-export type SidebarThread = AgentThreadSummary & { provider: NativeAgentProvider };
+export type { SidebarThread } from "@/lib/agents/thread-grouping";
 
-type GroupKey = "pinned" | "today" | "yesterday" | "last7Days" | "older";
-
-function groupOf(thread: SidebarThread, startOfToday: number): GroupKey {
-  if (thread.isPinned) return "pinned";
-  const updated = thread.updatedAt * 1000;
-  if (updated >= startOfToday) return "today";
-  if (updated >= startOfToday - 86_400_000) return "yesterday";
-  if (updated >= startOfToday - 6 * 86_400_000) return "last7Days";
-  return "older";
-}
-
-function groupThreads(threads: SidebarThread[]): Array<{ key: GroupKey; threads: SidebarThread[] }> {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const startOfToday = start.getTime();
-  const buckets = new Map<GroupKey, SidebarThread[]>();
-  for (const thread of threads) {
-    const key = groupOf(thread, startOfToday);
-    const bucket = buckets.get(key);
-    if (bucket) bucket.push(thread);
-    else buckets.set(key, [thread]);
-  }
-  const order: GroupKey[] = ["pinned", "today", "yesterday", "last7Days", "older"];
-  return order
-    .filter((key) => buckets.has(key))
-    .map((key) => ({ key, threads: buckets.get(key) ?? [] }));
-}
+// Starting guesses for the virtualizer; real heights replace them on measure.
+const HEADER_ESTIMATE_PX = 24;
+const ROW_ESTIMATE_PX = 48;
+const OVERSCAN = 8;
 
 const workingSince = new Map<string, number>();
 
-function trackWorking(threads: SidebarThread[]): void {
-  const live = new Set<string>();
-  for (const thread of threads) {
-    if (!isWorking(thread.status)) continue;
-    const key = `${thread.provider}:${thread.id}`;
-    live.add(key);
-    if (!workingSince.has(key)) workingSince.set(key, Date.now());
-  }
-  for (const key of [...workingSince.keys()]) {
-    if (!live.has(key)) workingSince.delete(key);
-  }
+/**
+ * Remembers when each thread started working so the row can show an elapsed
+ * timer. Runs in an effect — a render-phase mutation would fire again on every
+ * unrelated re-render and, under StrictMode, twice per commit.
+ */
+function useWorkingSince(threads: SidebarThread[]): Map<string, number> {
+  useEffect(() => {
+    const live = new Set<string>();
+    for (const thread of threads) {
+      if (!isWorking(thread.status)) continue;
+      const key = `${thread.provider}:${thread.id}`;
+      live.add(key);
+      if (!workingSince.has(key)) workingSince.set(key, Date.now());
+    }
+    for (const key of [...workingSince.keys()]) {
+      if (!live.has(key)) workingSince.delete(key);
+    }
+  }, [threads]);
+  return workingSince;
 }
 
 export function AgentThreadList({
@@ -66,6 +60,7 @@ export function AgentThreadList({
   locale,
   showArchived,
   archivedCount,
+  scrollRef,
   onOpenThread,
   onCreateThread,
   onRenameThread,
@@ -85,6 +80,8 @@ export function AgentThreadList({
   locale: string;
   showArchived: boolean;
   archivedCount: number;
+  /** Scroll container the virtualizer measures against. */
+  scrollRef: RefObject<HTMLDivElement | null>;
   onOpenThread: (provider: NativeAgentProvider, threadId: string) => void;
   onCreateThread: () => void;
   onRenameThread: (threadKey: string | null) => void;
@@ -94,7 +91,7 @@ export function AgentThreadList({
   onShowMore: () => void;
 }) {
   const { t } = useTranslation();
-  trackWorking(threads);
+  const since = useWorkingSince(threads);
 
   const relativeDate = useMemo(() => {
     const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
@@ -109,88 +106,178 @@ export function AgentThreadList({
     };
   }, [locale]);
 
-  const groups = useMemo(() => groupThreads(threads.slice(0, limit)), [threads, limit]);
+  const visible = useMemo(() => threads.slice(0, limit), [limit, threads]);
+  const items = useMemo(() => flattenThreads(visible), [visible]);
 
-  return (
-    <section className="px-2 pb-4">
-      <div className="flex h-5 items-center justify-between px-2">
-        <h2 className="ag-label">{showArchived ? t("agentChat.archived") : ""}</h2>
-        {showArchived || archivedCount > 0 ? (
+  const { scrollMargin, listRef } = useScrollMargin(scrollRef);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) =>
+      items[index]?.kind === "header" ? HEADER_ESTIMATE_PX : ROW_ESTIMATE_PX,
+    overscan: OVERSCAN,
+    useAnimationFrameWithResizeObserver: true,
+    getItemKey: (index) => items[index]?.key ?? index,
+    // The list is offset inside the scroller by the header/search chrome above
+    // it; without this the virtualizer places rows a fixed distance too high.
+    scrollMargin,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+  const measureRow = useCallback(
+    (node: HTMLElement | null) => virtualizer.measureElement(node),
+    [virtualizer],
+  );
+
+  if (loading) {
+    return (
+      <section className="px-2 pb-4">
+        <ListHeader
+          showArchived={showArchived}
+          archivedCount={archivedCount}
+          onToggleArchived={onToggleArchived}
+        />
+        <div className="space-y-px" aria-label={t("agentChat.loadingConversations")}>
+          {[0, 1, 2, 3].map((index) => (
+            <m.div
+              animate={pulseKeyframes}
+              transition={pulseTransition}
+              key={index}
+              className="h-11 rounded-[9px] bg-[var(--ag-hover)]"
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (threads.length === 0) {
+    return (
+      <section className="px-2 pb-4">
+        <ListHeader
+          showArchived={showArchived}
+          archivedCount={archivedCount}
+          onToggleArchived={onToggleArchived}
+        />
+        {hasQuery ? (
+          <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noMatchingChats")}</p>
+        ) : showArchived ? (
+          <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noArchivedChats")}</p>
+        ) : (
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
-            onClick={onToggleArchived}
-            data-active={showArchived}
-            className="ag-icon-btn size-5 rounded-full"
-            aria-pressed={showArchived}
-            aria-label={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
-            title={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
+            size="sm"
+            onClick={onCreateThread}
+            className="ag-row h-9 text-[11px]"
           >
-            {showArchived ? <ArchiveRestore className="size-3" /> : <Archive className="size-3" />}
+            <MessageSquare className="size-3.5 shrink-0" />
+            {t("agentChat.firstConversation")}
           </Button>
-        ) : null}
-      </div>
+        )}
+      </section>
+    );
+  }
 
-      {loading ? (
-        <div className="space-y-px" aria-label={t("agentChat.loadingConversations")}>
-          {[0, 1, 2, 3].map((index) => (
-            <div key={index} className="h-11 animate-pulse rounded-[9px] bg-[var(--ag-hover)]" />
-          ))}
-        </div>
-      ) : threads.length === 0 && hasQuery ? (
-        <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noMatchingChats")}</p>
-      ) : threads.length === 0 && showArchived ? (
-        <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noArchivedChats")}</p>
-      ) : threads.length === 0 ? (
-        <Button type="button" variant="ghost" size="sm" onClick={onCreateThread} className="ag-row h-9 text-[11px]">
-          <MessageSquare className="size-3.5 shrink-0" />
-          {t("agentChat.firstConversation")}
-        </Button>
-      ) : (
-        <div>
-          {groups.map((group, groupIndex) => (
-            <div key={group.key} className={groupIndex === 0 ? "space-y-px" : "mt-3 space-y-px"}>
-              <h3 className="ag-label px-2 pb-1">{t(`agentChat.${group.key}`)}</h3>
-              {group.threads.map((thread, index) => {
-                const threadKey = `${thread.provider}:${thread.id}`;
-                return (
-                  <m.div
-                    key={threadKey}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ ...SPRING_PANEL, delay: Math.min(index, 8) * 0.025 }}
-                  >
+  return (
+    <section className="px-2 pb-4">
+      <ListHeader
+        showArchived={showArchived}
+        archivedCount={archivedCount}
+        onToggleArchived={onToggleArchived}
+      />
+
+      {/* layoutRoot (inside SharedLayoutBgRoot) scopes the hover pill's layout
+          projection to this list, so scrolling the rail cannot smear its
+          scroll offset into the pill's travel. */}
+      <SharedLayoutBgRoot inset={4} className="relative">
+        <div
+          ref={listRef}
+          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+        >
+          {virtualItems.map((virtualItem) => {
+            const item = items[virtualItem.index];
+            if (!item) return null;
+            return (
+              <div
+                key={virtualItem.key}
+                ref={measureRow}
+                data-index={virtualItem.index}
+                className="absolute inset-x-0 top-0"
+                style={{
+                  transform: `translateY(${virtualItem.start - virtualizer.options.scrollMargin}px)`,
+                }}
+              >
+                {item.kind === "header" ? (
+                  <h3 className="ag-label px-2 pb-1 pt-2">{t(`agentChat.${item.group}`)}</h3>
+                ) : (
+                  <SharedLayoutBgItem id={item.key}>
                     <AgentThreadRow
                       path={path}
-                      thread={thread}
-                      active={thread.id === activeThreadId && thread.provider === activeProvider}
-                      relativeDate={relativeDate(thread.updatedAt)}
-                      workingSince={workingSince.get(threadKey)}
-                      renaming={renamingThreadKey === threadKey}
+                      thread={item.thread}
+                      active={
+                        item.thread.id === activeThreadId &&
+                        item.thread.provider === activeProvider
+                      }
+                      relativeDate={relativeDate(item.thread.updatedAt)}
+                      workingSince={since.get(item.key)}
+                      renaming={renamingThreadKey === item.key}
                       onOpen={onOpenThread}
                       onRename={onRenameThread}
                       onSetPinned={onSetPinned}
                       onArchive={onArchiveThread}
                     />
-                  </m.div>
-                );
-              })}
-            </div>
-          ))}
-          {threads.length > limit ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onShowMore}
-              className="ag-row mt-1 h-8 justify-center text-[11px] font-medium"
-            >
-              {t("agentChat.showMoreConversations", { count: Math.min(100, threads.length - limit) })}
-            </Button>
-          ) : null}
+                  </SharedLayoutBgItem>
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
+      </SharedLayoutBgRoot>
+
+      {threads.length > limit ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onShowMore}
+          className="ag-row mt-1 h-8 justify-center text-[11px] font-medium"
+        >
+          {t("agentChat.showMoreConversations", { count: Math.min(100, threads.length - limit) })}
+        </Button>
+      ) : null}
     </section>
+  );
+}
+
+function ListHeader({
+  showArchived,
+  archivedCount,
+  onToggleArchived,
+}: {
+  showArchived: boolean;
+  archivedCount: number;
+  onToggleArchived: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex h-5 items-center justify-between px-2">
+      <h2 className="ag-label">{showArchived ? t("agentChat.archived") : ""}</h2>
+      {showArchived || archivedCount > 0 ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={onToggleArchived}
+          data-active={showArchived}
+          className="ag-icon-btn size-5 rounded-full"
+          aria-pressed={showArchived}
+          aria-label={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
+          title={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
+        >
+          {showArchived ? <ArchiveRestore className="size-3" /> : <Archive className="size-3" />}
+        </Button>
+      ) : null}
+    </div>
   );
 }

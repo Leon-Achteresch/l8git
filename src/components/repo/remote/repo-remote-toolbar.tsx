@@ -71,6 +71,7 @@ import { EditRemoteDialog } from './edit-remote-dialog';
 import { PushUpstreamDialog } from './push-upstream-dialog';
 import { ToolbarButton } from './toolbar-button';
 import { ToolbarGroup } from './toolbar-group';
+import { SpinIcon } from "@/components/motion/kit";
 
 type RemoteOp = 'fetch' | 'pull' | 'push';
 
@@ -575,7 +576,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               onClick={() => void run('fetch')}
               icon={
                 busy === 'fetch' && showSpinner ? (
-                  <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                  <SpinIcon icon={Loader2} className='h-3.5 w-3.5 ' />
                 ) : (
                   <CloudDownload className='h-3.5 w-3.5' />
                 )
@@ -594,7 +595,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               onClick={() => void run('pull')}
               icon={
                 busy === 'pull' && showSpinner ? (
-                  <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                  <SpinIcon icon={Loader2} className='h-3.5 w-3.5 ' />
                 ) : (
                   <ArrowDownToLine className='h-3.5 w-3.5' />
                 )
@@ -612,7 +613,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
               onClick={() => void runPush()}
               icon={
                 busy === 'push' && showSpinner ? (
-                  <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                  <SpinIcon icon={Loader2} className='h-3.5 w-3.5 ' />
                 ) : (
                   <ArrowUpToLine className='h-3.5 w-3.5' />
                 )
@@ -770,7 +771,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
                     {`${COMMIT_SEARCH_MIN_CHARS}+`}
                   </span>
                 ) : searchLoading ? (
-                  <Loader2 className='mx-1 h-3 w-3 shrink-0 animate-spin text-muted-foreground' />
+                  <SpinIcon icon={Loader2} className='mx-1 h-3 w-3 shrink-0 text-muted-foreground' />
                 ) : (
                   <PopIn key={hitCount} title={t("toolbar.searchHitsTitle", { count: hitCount })}>
                     <span

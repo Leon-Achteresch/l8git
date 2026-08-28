@@ -10,6 +10,7 @@ import {
 } from "@/lib/agents/agent-review";
 import type { ParsedDiff } from "@/lib/unified-diff";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 const LINE_HEIGHT_PX = 18;
 const BODY_PADDING_PX = 16;
@@ -124,7 +125,7 @@ export function AgentReviewDiffPane({
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center">
-          <Loader2 className="size-5 animate-spin text-primary/50" />
+          <SpinIcon icon={Loader2} className="size-5 text-primary/50" />
         </div>
       ) : failed ? (
         <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-muted-foreground">
