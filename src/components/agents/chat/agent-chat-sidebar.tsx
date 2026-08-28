@@ -20,12 +20,16 @@ const EMPTY_THREADS: AgentThreadSummary[] = [];
 const taggedThreads = new WeakMap<AgentThreadSummary, AgentThreadSummary & { provider: NativeAgentProvider }>();
 
 function tagProvider(threads: AgentThreadSummary[], provider: NativeAgentProvider) {
-  return threads.map((thread) => {
+  // Der Cache braucht Objekt-Keys. Ein kaputter Eintrag (alter persistierter
+  // Katalog, unvollstaendige Provider-Antwort) wuerde die Sidebar sonst mit
+  // "Invalid value used as weak map key" abschiessen, statt nur zu fehlen.
+  return threads.flatMap((thread) => {
+    if (thread === null || typeof thread !== "object") return [];
     const known = taggedThreads.get(thread);
-    if (known) return known;
+    if (known) return [known];
     const tagged = { ...thread, provider };
     taggedThreads.set(thread, tagged);
-    return tagged;
+    return [tagged];
   });
 }
 

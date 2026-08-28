@@ -73,6 +73,14 @@
     "no": "Non",
     "refresh": "Actualiser"
   },
+  "crash": {
+    "title": "Cette vue a planté",
+    "body": "Une erreur inattendue a interrompu le rendu. Le reste de l'application continue de fonctionner.",
+    "retry": "Réessayer",
+    "copy": "Copier les détails",
+    "copied": "Détails de l'erreur copiés",
+    "copyFailed": "Échec de la copie"
+  },
   "header": {
     "repo": "Dépôt",
     "dashboard": "Tableau de bord",

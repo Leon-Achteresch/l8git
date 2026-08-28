@@ -73,6 +73,14 @@
     "no": "否",
     "refresh": "刷新"
   },
+  "crash": {
+    "title": "此视图已崩溃",
+    "body": "意外错误中断了渲染。应用的其余部分仍在运行。",
+    "retry": "重试",
+    "copy": "复制详情",
+    "copied": "已复制错误详情",
+    "copyFailed": "复制失败"
+  },
   "header": {
     "repo": "仓库",
     "dashboard": "仪表盘",

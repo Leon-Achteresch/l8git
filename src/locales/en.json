@@ -73,6 +73,14 @@
     "no": "No",
     "refresh": "Refresh"
   },
+  "crash": {
+    "title": "This view crashed",
+    "body": "An unexpected error stopped rendering. The rest of the app keeps running.",
+    "retry": "Try again",
+    "copy": "Copy details",
+    "copied": "Error details copied",
+    "copyFailed": "Copying failed"
+  },
   "header": {
     "repo": "Repository",
     "dashboard": "Dashboard",
