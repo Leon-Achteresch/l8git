@@ -3061,6 +3061,7 @@
     "linkDialogDesc": "Le ticket ne vaut que pour cette conversation. L'agent ne peut lire que les tickets liés.",
     "linkKeyLabel": "Clé du ticket ou lien Jira",
     "linkedToast": "{{key}} lié à cette conversation.",
-    "panelHint": "Les tickets se lient par conversation : clic droit sur un chat dans la barre latérale → « Lier un ticket Jira ». La clé et le statut apparaissent ensuite dans la ligne du chat."
+    "panelHint": "Les tickets se lient par conversation : clic droit sur un chat dans la barre latérale → « Lier un ticket Jira ». La clé et le statut apparaissent ensuite dans la ligne du chat.",
+    "sessionNote": "Un ticket lié prend effet immédiatement, même dans un chat déjà en cours. Les interrupteurs ci-dessus ne s'appliquent qu'aux chats démarrés ensuite : la CLI ne demande la liste des outils qu'une fois, à la connexion."
   }
 }

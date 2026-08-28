@@ -2,19 +2,25 @@
  * Jira tool surface for the in-process MCP server that l8git exposes to the
  * agent CLI (see `agent_transport.rs`, `--mcp-config … "type":"sdk"`).
  *
- * Every tool schema is paid for in input tokens on *every* turn of *every*
- * thread, so the surface is assembled per call rather than declared once:
+ * **The tool list is frozen for the lifetime of a session.** The CLI asks
+ * `tools/list` once, right after it connects, and this channel gives the
+ * server no way to push `notifications/tools/list_changed` back. So the list
+ * may only depend on state that cannot change while a chat is open —
+ * otherwise linking a ticket to a chat that is already running would never
+ * reach the agent, which is exactly the bug this shape avoids.
  *
- *  * feature off, or no credentials  → no tools at all
- *  * no linked ticket and no search  → no tools at all (nothing to look at)
- *  * linked tickets, search off      → `key` is an enum of exactly the linked
- *                                      keys, so the schema stays tiny and
- *                                      doubles as an allow-list
- *  * search on                       → `key` becomes a free string and
- *                                      `jira_search_issues` is added
+ * That splits the gate in two:
  *
- * `resolveIssueKeyArg` re-checks the key at call time. The schema is a hint to
- * the model; the check is what actually holds.
+ *  * **Listed** when the feature is on and credentials exist — plus the two
+ *    capability switches, which live in the settings and change rarely. An
+ *    unconfigured Jira still costs zero tokens.
+ *  * **Reachable** is decided per call against the live link set, in
+ *    `resolveIssueKeyArg`. That is the boundary that actually holds; the
+ *    schema is only a hint to the model.
+ *
+ * For the same reason the `key` schema is a pattern rather than an `enum` of
+ * the linked keys: an enum would bake in whatever was linked at connect time
+ * and silently contradict the check below it.
  */
 
 import { normalizeIssueKey } from "@/lib/jira/issue-key";
@@ -26,9 +32,6 @@ export const JIRA_SEARCH_ISSUES = "jira_search_issues";
 
 export const JIRA_TOOL_NAMES = [JIRA_GET_ISSUE, JIRA_GET_COMMENTS, JIRA_SEARCH_ISSUES] as const;
 export type JiraToolName = (typeof JIRA_TOOL_NAMES)[number];
-
-/** How many linked keys still fit into an `enum` before it costs more than it saves. */
-const MAX_ENUM_KEYS = 20;
 
 export interface JiraToolContext {
   /** Master switch from the settings page. */
@@ -67,44 +70,37 @@ export function allowsArbitraryKeys(context: JiraToolContext): boolean {
   return context.allowSearch;
 }
 
-function ticketRoster(context: JiraToolContext): string {
-  const roster = context.links
-    .slice(0, MAX_ENUM_KEYS)
-    .map((link) => (link.summary ? `${link.key} (${link.summary})` : link.key))
-    .join("; ");
-  return roster ? ` Verknüpfte Tickets: ${roster}.` : "";
-}
-
-function keySchema(context: JiraToolContext, keys: string[]): Record<string, unknown> {
-  if (!allowsArbitraryKeys(context) && keys.length > 0 && keys.length <= MAX_ENUM_KEYS) {
-    return { type: "string", enum: keys, description: "Schlüssel eines verknüpften Tickets." };
-  }
+/**
+ * Never an `enum` of the linked keys: the schema outlives every change to that
+ * set, so freezing it in would contradict the call-time check.
+ */
+function keySchema(): Record<string, unknown> {
   return {
     type: "string",
     pattern: "^[A-Za-z][A-Za-z0-9_]{0,49}-[0-9]{1,10}$",
-    description: "Ticket-Schlüssel wie ABC-123.",
+    description:
+      "Ticket-Schlüssel wie ABC-123. Ohne freigeschaltete Suche sind nur die mit dieser Unterhaltung verknüpften Tickets lesbar; das Tool nennt sie, wenn der Schlüssel nicht passt.",
   };
 }
 
 /**
- * The tools the agent should see right now. Returns `[]` whenever Jira cannot
- * possibly help, so an unused integration costs zero tokens.
+ * The tools this session may see. Empty while Jira is off or unconfigured, so
+ * an unused integration costs zero tokens — and stable for the whole session,
+ * so a ticket linked later still works.
  */
 export function jiraToolsFor(context: JiraToolContext): JiraToolDefinition[] {
   if (!context.enabled || !context.configured) return [];
-  const keys = linkedKeys(context);
-  if (keys.length === 0 && !context.allowSearch) return [];
 
   const tools: JiraToolDefinition[] = [
     {
       name: JIRA_GET_ISSUE,
       description:
-        `Liest ein Jira-Ticket (Titel, Status, Typ, Priorität, Zuweisung, Labels, Beschreibung). Nur lesend.${ticketRoster(context)}`,
+        "Liest ein Jira-Ticket (Titel, Status, Typ, Priorität, Zuweisung, Labels, Beschreibung). Nur lesend. Lesbar sind die Tickets, die der Nutzer mit dieser Unterhaltung verknüpft hat.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         required: ["key"],
-        properties: { key: keySchema(context, keys) },
+        properties: { key: keySchema() },
       },
     },
   ];
@@ -119,7 +115,7 @@ export function jiraToolsFor(context: JiraToolContext): JiraToolDefinition[] {
         additionalProperties: false,
         required: ["key"],
         properties: {
-          key: keySchema(context, keys),
+          key: keySchema(),
           limit: { type: "integer", minimum: 1, maximum: 25, description: "Anzahl Kommentare (Standard 10)." },
         },
       },
@@ -163,12 +159,19 @@ export function resolveIssueKeyArg(context: JiraToolContext, raw: unknown): Jira
   }
   if (allowsArbitraryKeys(context)) return { ok: true, value: key };
   const keys = linkedKeys(context);
+  if (keys.length === 0) {
+    return {
+      ok: false,
+      error:
+        "Jira: Mit dieser Unterhaltung ist kein Ticket verknüpft. Bitte den Nutzer, in der Seitenleiste per Rechtsklick auf diesen Chat ein Jira-Ticket zu verknüpfen — danach ist es sofort lesbar, ohne neuen Chat.",
+    };
+  }
   if (!keys.includes(key)) {
     return {
       ok: false,
       error:
-        `Jira: ${key} ist mit diesem Repository nicht verknüpft. Verfügbar: ${keys.join(", ") || "keine"}. ` +
-        "Der Nutzer kann das Ticket im Agents-Fenster verknüpfen oder die JQL-Suche in den Einstellungen freischalten.",
+        `Jira: ${key} ist mit dieser Unterhaltung nicht verknüpft. Verknüpft sind: ${keys.join(", ")}. ` +
+        "Der Nutzer kann das Ticket am Chat verknüpfen oder die JQL-Suche in den Einstellungen freischalten.",
     };
   }
   return { ok: true, value: key };

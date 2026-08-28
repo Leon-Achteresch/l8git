@@ -3061,6 +3061,7 @@
     "linkDialogDesc": "Das Ticket gilt nur für diese Unterhaltung. Der Agent darf ausschließlich verknüpfte Tickets lesen.",
     "linkKeyLabel": "Ticket-Schlüssel oder Jira-Link",
     "linkedToast": "{{key}} mit dieser Unterhaltung verknüpft.",
-    "panelHint": "Tickets werden pro Unterhaltung verknüpft: Rechtsklick auf einen Chat in der Seitenleiste → „Jira-Ticket verknüpfen“. Schlüssel und Status stehen danach in der Chat-Zeile."
+    "panelHint": "Tickets werden pro Unterhaltung verknüpft: Rechtsklick auf einen Chat in der Seitenleiste → „Jira-Ticket verknüpfen“. Schlüssel und Status stehen danach in der Chat-Zeile.",
+    "sessionNote": "Ein verknüpftes Ticket wirkt sofort, auch in einem schon laufenden Chat. Die Schalter oben wirken erst in Chats, die danach gestartet werden — die CLI fragt die Toolliste nur einmal beim Verbinden ab."
   }
 }

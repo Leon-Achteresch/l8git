@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use l8git_lib::jira::{JiraComment, JiraIssue, JiraSearchResult};
 use l8git_lib::jira_mcp::{
     format_comments, format_issue, format_search, handle_request, repo_from_args, resolve_key,
-    tools_for, SERVER_NAME, SUBCOMMAND,
+    strip_tool_prefix, tools_for, SERVER_NAME, SUBCOMMAND,
 };
 use l8git_lib::jira_policy::{
     cursor_mcp_entry, merge_cursor_mcp, normalize_policy, JiraPolicy, CURSOR_SERVER_KEY,
@@ -52,17 +52,29 @@ fn offers_nothing_while_the_feature_is_off() {
 }
 
 #[test]
-fn offers_nothing_without_a_pinned_ticket_or_search() {
-    assert!(tools_for(&policy(true, false, true, &[]), REPO).is_empty());
-    // A ticket pinned in a *different* repository's conversation does not open
-    // this one.
-    assert!(tools_for(&policy(true, false, true, &["ABC-1"]), "/repos/other").is_empty());
-}
-
-#[test]
 fn offers_the_read_tools_once_a_ticket_is_pinned() {
     let tools = tools_for(&policy(true, false, true, &["ABC-1"]), REPO);
     assert_eq!(names(&tools), vec!["jira_get_issue", "jira_get_comments"]);
+}
+
+#[test]
+fn offers_the_same_tools_before_any_ticket_is_pinned() {
+    // Regression: the CLI asks tools/list once per session, so a list that
+    // depended on the pinned set would leave a ticket linked mid-session
+    // permanently invisible to the agent.
+    let empty = tools_for(&policy(true, false, true, &[]), REPO);
+    let pinned = tools_for(&policy(true, false, true, &["ABC-1"]), REPO);
+    assert_eq!(empty, pinned);
+    assert_eq!(names(&empty), vec!["jira_get_issue", "jira_get_comments"]);
+}
+
+#[test]
+fn keeps_the_schema_identical_whatever_is_pinned() {
+    let one = tools_for(&policy(true, false, true, &["ABC-1"]), REPO);
+    let two = tools_for(&policy(true, false, true, &["ABC-1", "DEF-2"]), REPO);
+    assert_eq!(one, two);
+    // A repository whose conversation is unknown sees the same stable list.
+    assert_eq!(tools_for(&policy(true, false, true, &["ABC-1"]), "/repos/other"), one);
 }
 
 #[test]
@@ -92,32 +104,26 @@ fn never_offers_a_write_shaped_tool() {
 }
 
 #[test]
-fn narrows_the_key_to_an_enum_of_pinned_tickets() {
-    let tools = tools_for(&policy(true, false, true, &["ABC-1", "DEF-2"]), REPO);
-    let key = &tools[0]["inputSchema"]["properties"]["key"];
-    assert_eq!(key["enum"], json!(["ABC-1", "DEF-2"]));
-    assert!(tools[0]["description"]
-        .as_str()
-        .unwrap()
-        .contains("ABC-1, DEF-2"));
+fn never_bakes_the_pinned_keys_into_an_enum() {
+    // An enum would be frozen at connect time and contradict `resolve_key`,
+    // which reads the live policy file.
+    for keys in [vec![], vec!["ABC-1"], vec!["ABC-1", "DEF-2"]] {
+        for tool in tools_for(&policy(true, false, true, &keys), REPO) {
+            assert!(tool["inputSchema"]["properties"]["key"].get("enum").is_none());
+        }
+    }
 }
 
 #[test]
-fn widens_the_key_once_search_is_allowed() {
-    let tools = tools_for(&policy(true, true, true, &["ABC-1"]), REPO);
-    let key = &tools[0]["inputSchema"]["properties"]["key"];
-    assert!(key.get("enum").is_none());
-    assert!(key["pattern"].is_string());
+fn constrains_the_key_with_a_pattern_instead() {
+    let tools = tools_for(&policy(true, false, true, &["ABC-1"]), REPO);
+    assert!(tools[0]["inputSchema"]["properties"]["key"]["pattern"].is_string());
 }
 
 #[test]
-fn falls_back_to_a_pattern_when_the_enum_would_grow_too_large() {
-    let many: Vec<String> = (1..=40).map(|index| format!("ABC-{index}")).collect();
-    let keys: Vec<&str> = many.iter().map(String::as_str).collect();
-    let tools = tools_for(&policy(true, false, true, &keys), REPO);
-    assert!(tools[0]["inputSchema"]["properties"]["key"]
-        .get("enum")
-        .is_none());
+fn does_not_leak_pinned_keys_into_a_schema_that_outlives_them() {
+    let tools = tools_for(&policy(true, false, true, &["ZZZ-777"]), REPO);
+    assert!(!serde_json::to_string(&tools).unwrap().contains("ZZZ-777"));
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +145,28 @@ fn refuses_an_unpinned_key_while_search_is_off() {
     let error = resolve_key(&policy, REPO, &json!({ "key": "XYZ-9" })).unwrap_err();
     assert!(error.contains("XYZ-9"));
     assert!(error.contains("ABC-1"));
+}
+
+#[test]
+fn tells_the_agent_how_to_get_unblocked_when_nothing_is_pinned() {
+    let policy = policy(true, false, true, &[]);
+    let error = resolve_key(&policy, REPO, &json!({ "key": "ABC-1" })).unwrap_err();
+    assert!(error.to_lowercase().contains("verkn"));
+}
+
+#[test]
+fn accepts_a_client_prefixed_tool_name() {
+    // Some clients pass their own `mcp__<server>__` prefix through; falling
+    // through on it would look to the agent like Jira is broken.
+    assert_eq!(
+        strip_tool_prefix(&format!("mcp__{SERVER_NAME}__jira_get_issue")),
+        "jira_get_issue"
+    );
+    assert_eq!(strip_tool_prefix("mcp__l8git__jira_get_issue"), "jira_get_issue");
+    assert_eq!(strip_tool_prefix("jira_get_issue"), "jira_get_issue");
+    assert_eq!(strip_tool_prefix(""), "");
+    // Not a prefix, just a name that happens to start oddly.
+    assert_eq!(strip_tool_prefix("mcp__nothing"), "mcp__nothing");
 }
 
 #[test]
@@ -317,8 +345,10 @@ fn a_repository_with_no_open_conversation_reaches_nothing() {
     policy.active_thread_by_path.clear();
     assert!(policy.keys_for(REPO).is_empty());
     assert!(!policy.offers_tools(REPO));
-    assert!(!policy.allows_key(REPO, "ABC-1"));
-    assert!(tools_for(&policy, REPO).is_empty());
+    // The tool is still listed — the list is session-stable — but no key on it
+    // resolves, which is the boundary that matters.
+    assert!(policy.allows_key(REPO, "ABC-1") == false);
+    assert!(resolve_key(&policy, REPO, &json!({ "key": "ABC-1" })).is_err());
 }
 
 // ---------------------------------------------------------------------------
