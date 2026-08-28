@@ -9,6 +9,7 @@ import { repoLabel } from "@/lib/repo-store";
 import {
   countRepos,
   groupContainsPath,
+  groupRepoPaths,
   nodeKey,
   useRepoGroupsStore,
   type ForestNode,
@@ -24,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { RepoGroupDialog } from "./repo-group-dialog";
 import { RepoTab } from "./repo-tab";
+import { RepoWorkspaceMoveActions } from "./repo-workspace-move-actions";
 
 function nodeContainsActive(node: ForestNode, activePath: string | null) {
   if (!activePath) return false;
@@ -264,6 +266,7 @@ function RepoGroup({
               <FolderPlus className="h-3.5 w-3.5" />
               {t("repoGroup.newSubgroup")}
             </ContextMenuItem>
+            <RepoWorkspaceMoveActions paths={groupRepoPaths(group)} />
             <ContextMenuSeparator />
             <ContextMenuItem
               variant="destructive"

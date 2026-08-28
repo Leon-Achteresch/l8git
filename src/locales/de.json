@@ -2228,7 +2228,8 @@
     "menuTitle": "Arbeitsbereiche",
     "add": "Workspace hinzufügen…",
     "edit": "„{{name}}“ bearbeiten…",
-    "defaultPersonalName": "Persönlich"
+    "defaultPersonalName": "Persönlich",
+    "moveToWorkspace": "In Workspace verschieben"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "Letzter Workspace kann nicht gelöscht werden",
