@@ -380,7 +380,7 @@ export function CommitList({
   return (
     <div
       ref={scrollerRef}
-      className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden bg-white dark:bg-zinc-950"
+      className="relative isolate h-full min-h-0 overflow-y-auto overflow-x-hidden bg-white dark:bg-zinc-950"
     >
       <ul
         style={{
@@ -407,7 +407,7 @@ export function CommitList({
                   transform: `translateY(${vi.start}px)`,
                 }}
               >
-                <div className="bg-background px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="bg-card px-4 pb-1 pt-3 text-[11px] font-medium text-muted-foreground">
                   {item.label}
                 </div>
               </li>

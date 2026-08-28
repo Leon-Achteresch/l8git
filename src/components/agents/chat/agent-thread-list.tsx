@@ -131,7 +131,7 @@ export function AgentThreadList({
 
   if (loading) {
     return (
-      <section className="px-2 pb-4">
+      <section className="min-w-0 px-2 pb-4">
         <ListHeader
           showArchived={showArchived}
           archivedCount={archivedCount}
@@ -153,7 +153,7 @@ export function AgentThreadList({
 
   if (threads.length === 0) {
     return (
-      <section className="px-2 pb-4">
+      <section className="min-w-0 px-2 pb-4">
         <ListHeader
           showArchived={showArchived}
           archivedCount={archivedCount}
@@ -180,7 +180,7 @@ export function AgentThreadList({
   }
 
   return (
-    <section className="px-2 pb-4">
+    <section className="min-w-0 px-2 pb-4">
       <ListHeader
         showArchived={showArchived}
         archivedCount={archivedCount}

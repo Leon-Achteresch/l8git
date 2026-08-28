@@ -361,11 +361,11 @@ export function InlineThreadCard({
   const isResolved = resolveState?.resolved ?? false;
 
   return (
-    <div className={`rounded border bg-background/95 ${isResolved ? "opacity-70" : ""}`}>
+    <div className={`rounded-xl bg-card ring-1 ring-border/50 ${isResolved ? "opacity-70" : ""}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1.5 px-2 py-1 text-left"
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
       >
         {open ? (
           <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -382,7 +382,22 @@ export function InlineThreadCard({
             {first.body.split("\n")[0]}
           </span>
         )}
-        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+        <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
+          {canReply && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="h-6 text-[10px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(true);
+                setReplying(true);
+              }}
+            >
+              {t("prReview.reply")}
+            </Button>
+          )}
           {t("prReview.threadCount", { count: thread.comments.length })}
         </span>
       </button>
@@ -423,17 +438,6 @@ export function InlineThreadCard({
             />
           ) : (
             <div className="flex items-center gap-1.5">
-              {canReply && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="h-6 text-[10px]"
-                  onClick={() => setReplying(true)}
-                >
-                  {t("prReview.reply")}
-                </Button>
-              )}
               {resolveState && (
                 <Button
                   type="button"

@@ -322,7 +322,7 @@ export function RepoSidebar() {
   return (
     <aside
       ref={asideRef}
-      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm"
+      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
       style={{
         width:
           tabLayout === "grid"

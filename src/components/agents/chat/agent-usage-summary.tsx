@@ -19,7 +19,7 @@ export function AgentUsageSummary() {
   if (!todayTokens && !weekTokens) return null;
   return (
     <div
-      className="ag-line flex h-8 shrink-0 items-center border-t px-3.5 text-[11px]"
+      className="ag-line flex h-8 min-w-0 shrink-0 items-center overflow-hidden border-t px-3.5 text-[11px]"
       title={t("agentChat.usageWeek", {
         cost: formatUsd(week.costUsd),
         tokens: formatTokens(weekTokens),

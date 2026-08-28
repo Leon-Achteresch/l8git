@@ -65,7 +65,7 @@ export function PullRequestReviewDraftsBar({
   }
 
   return (
-    <div className="mt-2 flex flex-col gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+    <div className="mt-2 flex flex-col gap-1.5 rounded-xl bg-muted/40 px-3 py-2 ring-1 ring-border/50">
       <div className="flex items-center gap-2">
         <MessageSquare className="h-3.5 w-3.5 shrink-0 text-primary" />
         <span className="text-[12px] font-semibold">
@@ -113,8 +113,8 @@ export function PullRequestReviewDraftsBar({
         {(caps?.can_approve ?? true) && (
           <Button
             type="button"
-            variant="outline"
-            size="sm"
+            variant="default"
+            size="pill"
             className="h-7 shrink-0 text-[11px]"
             disabled={busy !== null}
             onClick={() => void submit("APPROVE")}
@@ -130,8 +130,8 @@ export function PullRequestReviewDraftsBar({
         {(caps?.can_request_changes ?? false) && (
           <Button
             type="button"
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="pill"
             className="h-7 shrink-0 text-[11px]"
             disabled={busy !== null}
             onClick={() => void submit("REQUEST_CHANGES")}

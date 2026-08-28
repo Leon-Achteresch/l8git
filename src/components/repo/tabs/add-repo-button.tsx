@@ -4,6 +4,10 @@ import { Download, FolderGit2, FolderPlus, Plus, type LucideIcon } from "lucide-
 import { AnimatePresence, LayoutGroup, m, type Variants } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  OverlayPortal,
+  useAnchorBox,
+} from "@/components/ui/overlay-portal";
 import { RepoSourceDialogs } from "./repo-source-dialogs";
 
 const REPO_ADD_MORPH_ID = "add-repo-dialog-surface";
@@ -45,13 +49,11 @@ const menuItemVariants: Variants = {
     opacity: 0,
     y: -14,
     scaleY: 0.45,
-    filter: "blur(4px)",
   },
   visible: {
     opacity: 1,
     y: 0,
     scaleY: 1,
-    filter: "blur(0px)",
     transition: {
       type: "spring",
       stiffness: 460,
@@ -63,7 +65,6 @@ const menuItemVariants: Variants = {
     opacity: 0,
     y: -6,
     scaleY: 0.88,
-    filter: "blur(2px)",
     transition: { duration: 0.11, ease: [0.4, 0, 1, 1] },
   },
 };
@@ -75,6 +76,8 @@ export function AddRepoButton() {
   const [cloneOpen, setCloneOpen] = useState(false);
   const [initOpen, setInitOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const box = useAnchorBox(menuOpen, wrapRef);
 
   const menuEntries = useMemo(
     () =>
@@ -113,7 +116,8 @@ export function AddRepoButton() {
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (wrapRef.current?.contains(e.target as Node)) return;
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return;
       setMenuOpen(false);
     };
     document.addEventListener("mousedown", onDown);
@@ -146,16 +150,22 @@ export function AddRepoButton() {
           <Plus className="h-4 w-4" />
         </m.button>
 
+        <OverlayPortal>
         <AnimatePresence>
           {menuOpen ? (
             <m.div
+              ref={panelRef}
               role="menu"
               variants={menuPanelVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              style={{ transformOrigin: "top right" }}
-              className="absolute right-0 top-full z-50 min-w-[200px] overflow-hidden rounded-b-lg rounded-t-none bg-popover py-1 shadow-lg"
+              style={{
+                transformOrigin: "top right",
+                top: box?.bottom ?? 0,
+                right: box ? window.innerWidth - box.right : 0,
+              }}
+              className="fixed z-[80] min-w-[200px] overflow-hidden rounded-b-lg rounded-t-none bg-popover py-1 shadow-lg"
             >
               {menuEntries.map(({ Icon, label, action, key }) => (
                 <m.button
@@ -174,6 +184,7 @@ export function AddRepoButton() {
             </m.div>
           ) : null}
         </AnimatePresence>
+        </OverlayPortal>
         <RepoSourceDialogs
           cloneOpen={cloneOpen}
           initOpen={initOpen}

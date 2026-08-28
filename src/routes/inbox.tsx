@@ -58,7 +58,7 @@ function InboxPage() {
         <Button
           type="button"
           variant="outline"
-          size="sm"
+          size="pill"
           disabled={loading}
           onClick={() => void refresh(paths)}
         >

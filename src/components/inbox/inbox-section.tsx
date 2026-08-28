@@ -41,7 +41,7 @@ export function InboxSection({
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="overflow-hidden rounded-xl border border-border/60 bg-card"
+      className="overflow-hidden rounded-2xl bg-card ring-1 ring-border/50"
     >
       <CollapsibleTrigger
         className={cn(

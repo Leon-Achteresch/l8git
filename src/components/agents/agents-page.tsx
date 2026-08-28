@@ -210,7 +210,7 @@ export function AgentsPage({
             defaultSize="23%"
             minSize="17%"
             maxSize="32%"
-            className="ag-rail min-w-[264px] overflow-hidden"
+            className="ag-rail min-w-0 overflow-hidden"
           >
             <AgentChatSidebar selectedPath={selectedPath} onOpenOverview={() => setOverview(true)} />
           </ResizablePanel>

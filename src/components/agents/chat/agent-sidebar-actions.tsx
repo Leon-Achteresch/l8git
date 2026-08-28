@@ -15,17 +15,17 @@ export function AgentSidebarActions({
   const searchRef = useRef<HTMLInputElement>(null);
 
   return (
-    <nav className="space-y-0.5 px-2" aria-label={t("header.agents")}>
-      <button type="button" onClick={onNewThread} className="ag-row h-8 text-[12px]">
+    <nav className="min-w-0 space-y-0.5 px-2" aria-label={t("header.agents")}>
+      <button type="button" onClick={onNewThread} className="ag-row h-8 min-w-0 text-[12px]">
         <PenSquare className="size-3.5 shrink-0" />
         <span className="flex-1 truncate">{t("agentChat.newConversation")}</span>
-        <kbd className="ag-faint rounded-[5px] bg-[var(--ag-hover)] px-1 py-px text-[9px] font-medium">
+        <kbd className="ag-faint shrink-0 rounded-[5px] bg-[var(--ag-hover)] px-1 py-px text-[9px] font-medium">
           ⌘N
         </kbd>
       </button>
 
       <div
-        className="ag-row h-8 cursor-text text-[12px] focus-within:bg-[var(--ag-hover)]"
+        className="ag-row h-8 min-w-0 cursor-text text-[12px] focus-within:bg-[var(--ag-hover)]"
         onClick={() => searchRef.current?.focus()}
       >
         <Search className="size-3.5 shrink-0" />

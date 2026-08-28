@@ -92,18 +92,13 @@ function SectionHeader({
   icon: Icon,
   title,
   subtitle,
-  gradient,
-  iconColor,
 }: SectionHeaderProps) {
   return (
     <div className="mb-7 flex items-center gap-4">
       <div
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-sm ring-1 ring-black/5 dark:ring-white/5",
-          gradient,
-        )}
+        className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted ring-1 ring-border/50"
       >
-        <Icon className={cn("size-5", iconColor)} />
+        <Icon className="size-4 text-muted-foreground" />
       </div>
       <div>
         <h2 className="text-base font-semibold leading-none tracking-tight">
@@ -136,25 +131,17 @@ interface NavItemProps extends NavItemDef {
   onClick: () => void;
 }
 
-function SettingsNavItem({ icon: Icon, label, accent, active, onClick }: NavItemProps) {
+function SettingsNavItem({ icon: Icon, label, active, onClick }: NavItemProps) {
   return (
     <ListRow
       active={active}
       onClick={onClick}
-      className="group gap-3 rounded-lg px-3 py-2 hover:bg-accent/50 data-[active=true]:bg-accent data-[active=true]:text-accent-foreground"
+      className="group gap-3 rounded-lg px-3 py-2 hover:bg-muted/70 data-[active=true]:bg-muted data-[active=true]:text-foreground"
     >
-      {active && (
-        <span
-          className={cn(
-            "absolute left-0 inset-y-[20%] w-0.5 rounded-full",
-            accent,
-          )}
-        />
-      )}
       <Icon
         className={cn(
           "h-4 w-4 shrink-0 transition-colors",
-          active ? accent.replace("bg-", "text-") : "text-muted-foreground/70",
+          active ? "text-foreground" : "text-muted-foreground/70",
         )}
       />
       <span className="truncate">{label}</span>
@@ -402,7 +389,7 @@ export function Settings() {
       {/* ═══════════════════════════════════════════════════════════════════
           LEFT SIDEBAR NAV
       ═══════════════════════════════════════════════════════════════════ */}
-      <aside className="flex w-60 shrink-0 flex-col border-r border-border/60 bg-muted/15">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-border/50 bg-sidebar">
 
         {/* Back button */}
         <div className="flex h-14 shrink-0 items-center border-b border-border/50 px-4">

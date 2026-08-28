@@ -97,7 +97,7 @@ function ContextMenuContent({
           >
             <m.div
               className={cn(
-                "z-50 max-h-(--radix-context-menu-content-available-height) max-w-(--radix-context-menu-content-available-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-border",
+                "z-[80] max-h-(--radix-context-menu-content-available-height) max-w-(--radix-context-menu-content-available-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-border",
                 className
               )}
               style={{
@@ -179,7 +179,7 @@ function ContextMenuSubContent({
     >
       <m.div
         className={cn(
-          "z-50 max-w-(--radix-context-menu-content-available-width) min-w-32 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg",
+          "z-[80] max-w-(--radix-context-menu-content-available-width) min-w-32 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg",
           className
         )}
         style={{

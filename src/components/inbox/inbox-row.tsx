@@ -43,7 +43,7 @@ export function InboxRow({
     >
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             {repoName}
           </span>
           <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground">

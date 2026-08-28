@@ -73,7 +73,7 @@ function StatusPill({ state, isDraft }: { state: string; isDraft: boolean }) {
   const lk = labelKeys[key] ?? "prInspect.pillOpen";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[11px] font-semibold ${pill.bg}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${pill.bg}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${pill.dot}`} />
       {t(lk)}
@@ -87,11 +87,11 @@ function StatusPill({ state, isDraft }: { state: string; isDraft: boolean }) {
 function BranchRoute({ head, base }: { head: string; base: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="rounded bg-muted px-2 py-0.5 font-mono text-[11px]">{head}</span>
+      <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[11px]">{head}</span>
       <svg width="16" height="11" viewBox="0 0 18 12" fill="none" className="text-muted-foreground/40">
         <path d="M0 2 Q 9 2 9 6 Q 9 10 18 10" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" />
       </svg>
-      <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">{base}</span>
+      <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">{base}</span>
     </span>
   );
 }

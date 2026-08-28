@@ -34,8 +34,8 @@ export const overlayVariants: Variants = {
 export const overlayTransition: Transition = { duration: 0.14, ease: "easeOut" };
 
 export const popVariants: Variants = {
-  hidden: { opacity: 0, scale: 0.96, filter: "blur(2px)" },
-  visible: { opacity: 1, scale: 1, filter: "blur(0px)" },
+  hidden: { opacity: 0, scale: 0.96 },
+  visible: { opacity: 1, scale: 1 },
 };
 
 const sideOffsets = {

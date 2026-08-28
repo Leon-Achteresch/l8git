@@ -76,7 +76,7 @@ function DashboardPage() {
       </div>
 
       <Tabs defaultValue="active" key={activeWorkspaceId}>
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="active">{t("dashboard.tabs.active")}</TabsTrigger>
           <TabsTrigger value="all">
             {t("dashboard.tabs.all")}
@@ -149,10 +149,14 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
 
   return (
     <div className="space-y-4">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        {t("dashboard.activeRepoLabel")}
-        <span className="ml-2 font-medium text-foreground">{repoName || path}</span>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>{t("dashboard.activeRepoLabel")}</span>
+        <span className="rounded-full bg-muted px-2.5 py-0.5 font-medium text-foreground">
+          {repoName || path}
+        </span>
       </div>
+
+      <StatusStrip path={path} prs={prState} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ActivityPanel
@@ -168,8 +172,6 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
         <HeatmapPanel path={path} className="lg:col-span-2" />
         <ContributorsPanel path={path} range={range} />
       </div>
-
-      <StatusStrip path={path} prs={prState} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>

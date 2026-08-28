@@ -184,11 +184,11 @@ function StatusTile({
   return (
     <Card size="sm">
       <CardContent className="flex h-full flex-col gap-2">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="text-[11px] text-muted-foreground">
           {label}
         </span>
         <div className="flex items-center justify-between gap-2">
-          <span className="font-heading text-xl font-semibold leading-none tracking-tight tabular-nums">
+          <span className="font-heading text-2xl font-semibold leading-none tracking-tight tabular-nums">
             {value}
           </span>
           {aside}

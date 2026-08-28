@@ -357,17 +357,17 @@ export function PullRequestList({
                   variant="ghost"
                   size="sm"
                   onClick={() => setFilterAndStore(id)}
-                  className="relative hover:bg-transparent"
+                  className="relative rounded-full hover:bg-transparent"
                   style={{ color: active ? "var(--color-primary)" : undefined }}
                 >
                   {active && (
                     <m.span
                       layoutId="pr-filter-pill"
-                      className="absolute inset-0 rounded bg-primary/10"
+                      className="absolute inset-0 rounded-full bg-muted"
                       transition={{ type: "spring", stiffness: 480, damping: 36, mass: 0.6 }}
                     />
                   )}
-                  <span className={`relative z-10 ${active ? "text-primary" : "text-muted-foreground"}`}>
+                  <span className={`relative z-10 ${active ? "text-foreground" : "text-muted-foreground"}`}>
                     {label}
                   </span>
                   <m.span
