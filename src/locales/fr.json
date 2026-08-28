@@ -3042,18 +3042,17 @@
     "allowSearchLabel": "Autoriser la recherche JQL",
     "allowSearchHint": "Sans cela l'agent ne peut lire que les tickets liés ici. Avec, il peut chercher et lire tout ticket visible par votre compte.",
     "readOnlyNote": "Tous les outils Jira sont en lecture seule : seules des requêtes HTTP GET sont envoyées. Créer, modifier, commenter et changer de statut ne sont pas implémentés.",
-    "panelTitle": "Tickets Jira",
-    "panelEmpty": "Aucun ticket lié. Ajoutez-en un avec +.",
-    "linkTicket": "Lier un ticket",
-    "linkPlaceholder": "ABC-123 ou lien Jira, Entrée pour lier",
+    "linkTicket": "Lier un ticket Jira",
+    "linkPlaceholder": "ABC-123 ou https://…/browse/ABC-123",
     "invalidKey": "Clé de ticket invalide. Format attendu : ABC-123.",
     "notConfigured": "Aucun accès Jira enregistré — Paramètres → Jira.",
-    "refresh": "Actualiser les tickets",
-    "unlink": "Retirer {{key}}",
-    "openInJira": "Ouvrir {{key}} dans Jira",
+    "unlink": "Délier {{key}}",
     "toolNote": "Claude Code reçoit les outils in-process, OpenCode par session via ACP. Codex et Cursor ont besoin de l'entrée dans leur configuration.",
     "registerExternalLabel": "Enregistrer dans Codex et Cursor",
     "registerExternalHint": "Codex et Cursor ne lisent les serveurs MCP que depuis leur propre configuration. l8git y ajoute le serveur (~/.codex/config.toml et ~/.cursor/mcp.json) et l'enlève dès que l'interrupteur est désactivé. L'entrée est donc aussi visible dans vos propres sessions Codex et Cursor. Claude Code et OpenCode n'en ont pas besoin.",
-    "registrationOff": "Ce fournisseur a besoin de l'interrupteur d'enregistrement dans les paramètres, sinon il ne verra pas les outils."
+    "linkDialogDesc": "Le ticket ne vaut que pour cette conversation. L'agent ne peut lire que les tickets liés.",
+    "linkKeyLabel": "Clé du ticket ou lien Jira",
+    "linkedToast": "{{key}} lié à cette conversation.",
+    "panelHint": "Les tickets se lient par conversation : clic droit sur un chat dans la barre latérale → « Lier un ticket Jira ». La clé et le statut apparaissent ensuite dans la ligne du chat."
   }
 }

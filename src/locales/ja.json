@@ -3042,18 +3042,17 @@
     "allowSearchLabel": "JQL 検索を許可",
     "allowSearchHint": "無効の場合、エージェントはここで紐付けたチケットしか読めません。有効にすると、アカウントで閲覧可能な任意のチケットを検索・閲覧できます。",
     "readOnlyNote": "Jira ツールはすべて読み取り専用で、HTTP GET のみを送信します。作成・編集・コメント・ステータス変更は実装されていません。",
-    "panelTitle": "Jira チケット",
-    "panelEmpty": "チケットが未紐付けです。+ で追加してください。",
-    "linkTicket": "チケットを紐付ける",
-    "linkPlaceholder": "ABC-123 または Jira リンク、Enter で紐付け",
+    "linkTicket": "Jira チケットを紐付ける",
+    "linkPlaceholder": "ABC-123 または https://…/browse/ABC-123",
     "invalidKey": "チケットキーが不正です。ABC-123 の形式が必要です。",
     "notConfigured": "Jira のアクセス情報がありません — 設定 → Jira。",
-    "refresh": "チケットを更新",
-    "unlink": "{{key}} を削除",
-    "openInJira": "{{key}} を Jira で開く",
+    "unlink": "{{key}} の紐付けを解除",
     "toolNote": "Claude Code はインプロセスで、OpenCode は ACP 経由でセッションごとにツールを受け取ります。Codex と Cursor は設定への登録が必要です。",
     "registerExternalLabel": "Codex と Cursor に登録する",
     "registerExternalHint": "Codex と Cursor は MCP サーバーを自身の設定ファイルからのみ読み込みます。l8git がそこに追記し（~/.codex/config.toml と ~/.cursor/mcp.json）、スイッチを切ると再び削除します。そのため、この項目はあなた自身の Codex / Cursor セッションからも見えます。Claude Code と OpenCode には不要です。",
-    "registrationOff": "このプロバイダーは設定の登録スイッチが必要です。オフのままではツールが見えません。"
+    "linkDialogDesc": "チケットはこの会話にのみ適用されます。エージェントは紐付けられたチケットしか読めません。",
+    "linkKeyLabel": "チケットキーまたは Jira リンク",
+    "linkedToast": "{{key}} をこの会話に紐付けました。",
+    "panelHint": "チケットは会話ごとに紐付けます。サイドバーのチャットを右クリック →「Jira チケットを紐付ける」。以降、キーとステータスがチャット行に表示されます。"
   }
 }

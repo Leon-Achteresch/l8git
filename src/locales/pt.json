@@ -3042,18 +3042,17 @@
     "allowSearchLabel": "Permitir pesquisa JQL",
     "allowSearchHint": "Sem isto o agente só pode ler os tickets ligados aqui. Com isto pode pesquisar e ler qualquer ticket visível para a sua conta.",
     "readOnlyNote": "Todas as ferramentas Jira são só de leitura: apenas pedidos HTTP GET são enviados. Criar, editar, comentar e transitar não estão implementados.",
-    "panelTitle": "Tickets do Jira",
-    "panelEmpty": "Nenhum ticket ligado. Adicione um com +.",
-    "linkTicket": "Ligar ticket",
-    "linkPlaceholder": "ABC-123 ou link do Jira, Enter para ligar",
+    "linkTicket": "Ligar ticket do Jira",
+    "linkPlaceholder": "ABC-123 ou https://…/browse/ABC-123",
     "invalidKey": "Chave de ticket inválida. Esperado o formato ABC-123.",
     "notConfigured": "Nenhum acesso ao Jira guardado — Definições → Jira.",
-    "refresh": "Atualizar tickets",
-    "unlink": "Remover {{key}}",
-    "openInJira": "Abrir {{key}} no Jira",
+    "unlink": "Desligar {{key}}",
     "toolNote": "O Claude Code recebe as ferramentas in-process e o OpenCode por sessão através de ACP. O Codex e o Cursor precisam da entrada na sua configuração.",
     "registerExternalLabel": "Registar no Codex e no Cursor",
     "registerExternalHint": "O Codex e o Cursor leem servidores MCP apenas da sua própria configuração. O l8git adiciona o servidor lá (~/.codex/config.toml e ~/.cursor/mcp.json) e remove-o assim que o interruptor for desligado. Isso torna a entrada visível também nas suas próprias sessões do Codex e do Cursor. O Claude Code e o OpenCode não precisam disso.",
-    "registrationOff": "Este fornecedor precisa do interruptor de registo nas definições, caso contrário não verá as ferramentas."
+    "linkDialogDesc": "O ticket vale apenas para esta conversa. O agente só pode ler tickets ligados.",
+    "linkKeyLabel": "Chave do ticket ou link do Jira",
+    "linkedToast": "{{key}} ligado a esta conversa.",
+    "panelHint": "Os tickets são ligados por conversa: clique com o botão direito num chat na barra lateral → «Ligar ticket do Jira». A chave e o estado passam a aparecer na linha do chat."
   }
 }

@@ -22,7 +22,7 @@ import { armTurnAttention } from "@/lib/agents/turn-attention";
 import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
-import { useJiraStore } from "@/lib/jira/jira-store";
+import { jiraThreadKey, useJiraStore } from "@/lib/jira/jira-store";
 import { syncJiraExternalRegistration } from "@/lib/jira/jira-sync";
 import { useRepoStore } from "@/lib/repo-store";
 import { useTerminalStore } from "@/lib/terminal-store";
@@ -67,6 +67,7 @@ export function AgentsPage({
   const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
   const jiraEnabled = useJiraStore((state) => state.enabled);
   const jiraRegisterExternal = useJiraStore((state) => state.registerExternal);
+  const setActiveJiraThread = useJiraStore((state) => state.setActiveThread);
   const terminalVisible = useTerminalStore((state) => !!state.visibleByPath[selectedPath]);
   const toggleTerminal = useTerminalStore((state) => state.toggleVisible);
   const activeThreadId = useAgentChatStore(
@@ -139,6 +140,17 @@ export function AgentsPage({
     if (!selectedPath) return;
     void syncJiraExternalRegistration(selectedPath);
   }, [jiraEnabled, jiraRegisterExternal, selectedPath]);
+
+  // Tickets hang off a conversation, but the MCP server Codex and Cursor spawn
+  // only knows the repository. Recording which chat is open is how it resolves
+  // one to the other.
+  useEffect(() => {
+    if (!selectedPath) return;
+    setActiveJiraThread(
+      selectedPath,
+      activeThreadId ? jiraThreadKey(provider, activeThreadId) : null,
+    );
+  }, [activeThreadId, provider, selectedPath, setActiveJiraThread]);
 
   useEffect(() => {
     if (!paths.length) return;

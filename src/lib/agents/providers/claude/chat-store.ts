@@ -1,7 +1,7 @@
 import { CHART_TOOL } from "@/lib/agents/chart-spec";
 import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
 import { callJiraTool } from "@/lib/jira/jira-runtime";
-import { ensureJiraStatus, jiraToolContextFor, useJiraStore } from "@/lib/jira/jira-store";
+import { ensureJiraStatus, jiraThreadKey, jiraToolContextFor, useJiraStore } from "@/lib/jira/jira-store";
 import { isJiraToolName, jiraToolsFor } from "@/lib/jira/jira-tools";
 import { invoke } from "@/lib/platform/ipc";
 import { kvGet, kvSet } from "@/lib/platform/kv";
@@ -935,7 +935,6 @@ function handleClaudeMessage(threadId: string, path: string, event: UnknownRecor
  */
 async function handleMcpMessage(
   threadId: string,
-  path: string,
   requestId: string,
   message: Record<string, unknown>,
 ) {
@@ -954,7 +953,7 @@ async function handleMcpMessage(
       return;
     }
     if (method === "tools/list") {
-      await respond({ tools: [CHART_TOOL, ...(await gatedJiraTools(path))] });
+      await respond({ tools: [CHART_TOOL, ...(await gatedJiraTools(threadId))] });
       return;
     }
     if (method === "tools/call") {
@@ -963,7 +962,8 @@ async function handleMcpMessage(
       if (isJiraToolName(toolName)) {
         if (useJiraStore.getState().enabled) await ensureJiraStatus();
         const args = isRecord(params.arguments) ? params.arguments : {};
-        await respond(await callJiraTool(toolName, args, jiraToolContextFor(path)));
+        const context = jiraToolContextFor(jiraThreadKey("claude", threadId));
+        await respond(await callJiraTool(toolName, args, context));
         return;
       }
       await respond({ content: [{ type: "text", text: "Diagramm wurde in der l8git-UI gerendert." }] });
@@ -991,15 +991,15 @@ async function handleMcpMessage(
   }
 }
 
-async function gatedJiraTools(path: string) {
+async function gatedJiraTools(threadId: string) {
   // Skipping the keychain probe while the feature is off keeps `tools/list`
   // free of both latency and tokens.
   if (!useJiraStore.getState().enabled) return [];
   await ensureJiraStatus();
-  return jiraToolsFor(jiraToolContextFor(path));
+  return jiraToolsFor(jiraToolContextFor(jiraThreadKey("claude", threadId)));
 }
 
-function handleControlRequest(threadId: string, path: string, request: ClaudeControlRequest) {
+function handleControlRequest(threadId: string, request: ClaudeControlRequest) {
   const subtype = stringValue(request.request.subtype);
   if (subtype === "oauth_token_refresh") {
     void clients.get(threadId)?.respond(request.request_id, { accessToken: null });
@@ -1036,7 +1036,7 @@ function handleControlRequest(threadId: string, path: string, request: ClaudeCon
       void clients.get(threadId)?.respond(request.request_id, {});
       return;
     }
-    void handleMcpMessage(threadId, path, request.request_id, message);
+    void handleMcpMessage(threadId, request.request_id, message);
     return;
   }
   if (subtype !== "can_use_tool") {
@@ -1108,7 +1108,7 @@ async function connectClient(
   }));
   const client = new ClaudeClient(threadId, {
     onMessage: (message) => handleClaudeMessage(threadId, path, message),
-    onControlRequest: (request) => handleControlRequest(threadId, path, request),
+    onControlRequest: (request) => handleControlRequest(threadId, request),
     onControlCancel: (requestId) => removeRequest(threadId, requestId),
     onDiagnostic: (line) => claudeChatStore.setState((state) => ({ diagnostics: [...state.diagnostics.slice(-99), line] })),
     onExit: (code) => {
