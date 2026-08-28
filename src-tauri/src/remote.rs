@@ -243,10 +243,18 @@ mod tests {
 
     #[test]
     fn listening_detects_open_and_closed_ports() {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let port = listener.local_addr().unwrap().port();
-        assert!(listening(port));
-        drop(listener);
-        assert!(!listening(port));
+        // Der Port ist nach `drop` wieder frei und kann im parallelen Testlauf
+        // sofort von jemand anderem belegt werden. Deshalb mehrere Anlaeufe mit
+        // frischen Ports, statt an diesem Rennen zu scheitern.
+        for _ in 0..16 {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            let port = listener.local_addr().unwrap().port();
+            assert!(listening(port));
+            drop(listener);
+            if !listening(port) {
+                return;
+            }
+        }
+        panic!("Kein Port blieb nach dem Schliessen geschlossen.");
     }
 }

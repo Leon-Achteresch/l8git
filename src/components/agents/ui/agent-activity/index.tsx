@@ -2,7 +2,7 @@
 // beui.dev/components/agents/agent-activity
 
 import { ChevronDown, Lightbulb } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -216,14 +216,14 @@ export function AgentActivity({
         >
           <Lightbulb className="size-3.5 shrink-0" />
           <span className="truncate">{completedSummary}</span>
-          <motion.span
+          <m.span
             aria-hidden="true"
             animate={{ rotate: expanded ? 180 : 0 }}
             transition={reduce ? { duration: 0 } : SPRING_SWAP}
             className="inline-flex shrink-0 text-muted-foreground/70 group-hover:text-foreground"
           >
             <ChevronDown className="size-3.5" />
-          </motion.span>
+          </m.span>
         </button>
       )}
 
@@ -242,7 +242,7 @@ export function AgentActivity({
           )}
           style={{ height: viewportHeight, maskImage, WebkitMaskImage: maskImage }}
         >
-          <motion.div
+          <m.div
             ref={contentRef}
             role="list"
             initial={false}
@@ -252,7 +252,7 @@ export function AgentActivity({
           >
             <AnimatePresence mode="popLayout">
               {items.map((item) => (
-                <motion.div
+                <m.div
                   layout={working ? false : "position"}
                   key={item.id}
                   role="listitem"
@@ -270,10 +270,10 @@ export function AgentActivity({
                   }
                 >
                   <ActivityRow item={item} />
-                </motion.div>
+                </m.div>
               ))}
             </AnimatePresence>
-          </motion.div>
+          </m.div>
         </div> : null}
       </AgentDisclosure>
     </div>

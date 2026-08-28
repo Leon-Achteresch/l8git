@@ -73,6 +73,14 @@
     "no": "Não",
     "refresh": "Atualizar"
   },
+  "crash": {
+    "title": "Esta vista falhou",
+    "body": "Um erro inesperado interrompeu a renderização. O resto da aplicação continua a funcionar.",
+    "retry": "Tentar novamente",
+    "copy": "Copiar detalhes",
+    "copied": "Detalhes do erro copiados",
+    "copyFailed": "Falha ao copiar"
+  },
   "header": {
     "repo": "Repositório",
     "dashboard": "Painel",
@@ -171,6 +179,7 @@
     "conversation": "Conversa",
     "loadingConversations": "Carregando conversas…",
     "showOlder": "Mostrar {{count}} turnos anteriores",
+    "jumpToLatest": "Ir para o mais recente",
     "showMoreConversations": "Mostrar mais {{count}} conversas",
     "firstConversation": "Iniciar a primeira conversa",
     "manageConversation": "Gerenciar conversa",
@@ -337,7 +346,27 @@
     "worktreeLanded": "{{name}} mesclado e limpo",
     "usageToday": "Hoje: {{cost}} · {{tokens}} tokens",
     "usageWeek": "Últimos 7 dias: {{cost}} · {{tokens}} tokens",
-    "chartLoading": "Renderizando gráfico…"
+    "chartLoading": "Renderizando gráfico…",
+    "plan": {
+      "title": "Aprovar o plano de implementação",
+      "empty": "Nenhum conteúdo de plano foi enviado.",
+      "approve": "Executar este plano",
+      "approveAuto": "Executar e aprovar alterações automaticamente",
+      "keepPlanning": "Continuar planejando",
+      "feedbackPlaceholder": "Comentário opcional sobre o plano…",
+      "hint": "Aprovar encerra o modo plano para que a sessão possa aplicar alterações.",
+      "statusPending": "Decisão pendente",
+      "statusApproved": "Aprovado",
+      "statusKeptPlanning": "Ainda planejando",
+      "bannerTitle": "Modo plano ativo",
+      "bannerBody": "O agente apenas pesquisa e planeja — arquivos e comandos ficam bloqueados até você aprovar um plano.",
+      "bannerAction": "Sair do modo plano"
+    },
+    "barcodeLoading": "Gerando código de barras…",
+    "barcodeZoom": "Ampliar para digitalizar",
+    "barcodeCopy": "Copiar valor",
+    "barcodeCopied": "Valor copiado",
+    "barcodeDownload": "Baixar como SVG"
   },
   "agentReview": {
     "openButton": "Revisar alterações",
@@ -997,7 +1026,11 @@
         "label": "Descrição do pull request",
         "desc": "Prompt para as descrições de pull request geradas."
       }
-    }
+    },
+    "navGroupIntegrations": "Integrações",
+    "navJira": "Jira",
+    "jiraSectionTitle": "Jira",
+    "jiraSectionSubtitle": "Vincule tickets e dê ao agente acesso somente leitura"
   },
   "notifications": {
     "title": "Notificações",
@@ -2319,7 +2352,8 @@
     "menuTitle": "Workspaces",
     "add": "Adicionar workspace…",
     "edit": "Editar “{{name}}”…",
-    "defaultPersonalName": "Pessoal"
+    "defaultPersonalName": "Pessoal",
+    "moveToWorkspace": "Mover para a área de trabalho"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "O último workspace não pode ser excluído",
@@ -2963,6 +2997,64 @@
       "emptyHint": "Crie um hooks.json no repositório e automatize um evento do ciclo de vida do Codex."
     }
   },
+  "agentAddons": {
+    "title": "Estúdio de complementos",
+    "subtitle": "Códigos de barras e acesso ao navegador para cada CLI",
+    "open": "Abrir o estúdio de complementos",
+    "alwaysOn": "Sempre ativo",
+    "barcode": {
+      "title": "Gerador de códigos de barras",
+      "description": "O agente transforma dados — de um servidor MCP, de um banco ou do repositório — em códigos escaneáveis dentro do chat. Funciona em qualquer CLI pelo bloco ```barcode; no Claude Code também é chamado como ferramenta.",
+      "format": "Formato",
+      "label": "Rótulo",
+      "labelPlaceholder": "Opcional, aparece acima do código",
+      "value": "Valor",
+      "insert": "Inserir bloco no editor",
+      "inserted": "Bloco de código de barras inserido",
+      "copyDoc": "Copiar a documentação do formato",
+      "docCopied": "Documentação do formato copiada",
+      "usage": "{{count}} formatos documentados para o agente. /barcode <valores> os solicita diretamente.",
+      "noPreview": "Este valor não combina com a simbologia escolhida.",
+      "kinds": {
+        "linear": "Códigos 1D",
+        "matrix": "Códigos 2D",
+        "postal": "Códigos postais"
+      }
+    },
+    "browser": {
+      "title": "Claude no navegador",
+      "description": "Dá à CLI um navegador real pelo servidor MCP do Playwright, para rodar testes ponta a ponta direto do chat: navegar, clicar, digitar, verificar e ler console e rede.",
+      "active": "Instalado",
+      "inactive": "Não instalado",
+      "browser": "Navegador",
+      "viewport": "Janela",
+      "viewportHint": "Largura x altura, ex.: 1280x720. Vazio = padrão do Playwright.",
+      "device": "Dispositivo",
+      "deviceHint": "Nome de dispositivo do Playwright, ex.: iPhone 15. Vazio = desktop.",
+      "allowedOrigins": "Origens permitidas",
+      "allowedOriginsHint": "Separadas por ponto e vírgula. Vazio = todas permitidas.",
+      "caps": "Recursos extras",
+      "capsHint": "Separados por vírgula: vision, pdf, devtools.",
+      "baseUrl": "URL da aplicação",
+      "baseUrlHint": "Onde a aplicação testada roda. Entra no prompt de teste.",
+      "headless": "Sem janela",
+      "isolated": "Perfil novo por sessão",
+      "serverName": "Servidor MCP \"{{name}}\"",
+      "codexTarget": "O Codex guarda a entrada no próprio config.toml.",
+      "install": "Instalar complemento",
+      "update": "Aplicar ajustes",
+      "remove": "Remover",
+      "installed": "Complemento de navegador instalado para {{provider}}",
+      "removed": "Complemento de navegador removido de {{provider}}",
+      "approvalHint": "A CLI carrega o servidor na próxima inicialização; o Claude Code pergunta uma vez se confia na configuração do projeto.",
+      "scenario": "Cenário de teste",
+      "scenarioHint": "Em linguagem comum. O agente conduz o navegador e relata cada passo.",
+      "scenarioPlaceholder": "Entrar com a senha errada e conferir a mensagem de erro.",
+      "runTest": "Executar teste",
+      "scenarioMissing": "Descreva o cenário primeiro.",
+      "wrongProvider": "Mude para {{provider}} no chat para executar o teste lá."
+    }
+  },
   "hotkeysOverlay": {
     "title": "Atalhos de teclado",
     "groupGlobal": "Global",
@@ -3101,5 +3193,44 @@
     "pairDesc": "Escaneie o QR code no app l8git ou insira o JSON manualmente.",
     "copyJson": "Copiar JSON",
     "copied": "Copiado"
+  },
+  "jira": {
+    "settingsTitle": "Acesso ao Jira (BYOK)",
+    "settingsDesc": "URL base, e-mail e token de API da sua própria instância Jira. O token é guardado cifrado no chaveiro do sistema e nunca volta para a interface.",
+    "enabledLabel": "Integração Jira ativa",
+    "enabledHint": "Desligada, o agente não vê nenhuma ferramenta Jira, portanto nenhum token é gasto com as suas descrições.",
+    "baseUrlLabel": "URL base",
+    "baseUrlHint": "Apenas HTTPS. Exemplo: https://acme.atlassian.net",
+    "emailLabel": "E-mail",
+    "tokenLabel": "Token de API",
+    "tokenPlaceholder": "Token de API da Atlassian",
+    "tokenHint": "Guardado no chaveiro do sistema, não no localStorage. O campo é limpo após guardar e o token não volta a ser mostrado.",
+    "tokenShow": "Mostrar token",
+    "tokenHide": "Ocultar token",
+    "configuredHint": "Guardado para {{email}} ({{hint}})",
+    "testButton": "Testar ligação",
+    "deleteButton": "Eliminar acesso",
+    "savedToast": "Acesso ao Jira guardado.",
+    "deletedToast": "Acesso ao Jira eliminado.",
+    "testOkToast": "Ligado como {{name}}.",
+    "scopeTitle": "O que o agente pode fazer",
+    "allowCommentsLabel": "Ler comentários",
+    "allowCommentsHint": "Expõe também a ferramenta que lê os comentários mais recentes de um ticket.",
+    "allowSearchLabel": "Permitir pesquisa JQL",
+    "allowSearchHint": "Sem isto o agente só pode ler os tickets ligados aqui. Com isto pode pesquisar e ler qualquer ticket visível para a sua conta.",
+    "readOnlyNote": "Todas as ferramentas Jira são só de leitura: apenas pedidos HTTP GET são enviados. Criar, editar, comentar e transitar não estão implementados.",
+    "linkTicket": "Ligar ticket do Jira",
+    "linkPlaceholder": "ABC-123 ou https://…/browse/ABC-123",
+    "invalidKey": "Chave de ticket inválida. Esperado o formato ABC-123.",
+    "notConfigured": "Nenhum acesso ao Jira guardado — Definições → Jira.",
+    "unlink": "Desligar {{key}}",
+    "toolNote": "O Claude Code recebe as ferramentas in-process e o OpenCode por sessão através de ACP. O Codex e o Cursor precisam da entrada na sua configuração.",
+    "registerExternalLabel": "Registar no Codex e no Cursor",
+    "registerExternalHint": "O Codex e o Cursor leem servidores MCP apenas da sua própria configuração. O l8git adiciona o servidor lá (~/.codex/config.toml e ~/.cursor/mcp.json) e remove-o assim que o interruptor for desligado. Isso torna a entrada visível também nas suas próprias sessões do Codex e do Cursor. O Claude Code e o OpenCode não precisam disso.",
+    "linkDialogDesc": "O ticket vale apenas para esta conversa. O agente só pode ler tickets ligados.",
+    "linkKeyLabel": "Chave do ticket ou link do Jira",
+    "linkedToast": "{{key}} ligado a esta conversa.",
+    "panelHint": "Os tickets são ligados por conversa: clique com o botão direito num chat na barra lateral → «Ligar ticket do Jira». A chave e o estado passam a aparecer na linha do chat.",
+    "sessionNote": "Um ticket ligado tem efeito imediato, mesmo num chat já em curso. Os interruptores acima só se aplicam a chats iniciados depois — a CLI pede a lista de ferramentas apenas uma vez, ao ligar-se."
   }
 }

@@ -451,10 +451,52 @@
   background-clip: padding-box;
 }
 
+/* ── Barcodes ──────────────────────────────────────────────────────────── */
+
+.ag-barcode {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Scanner brauchen Schwarz auf Weiß, deshalb bleibt das Panel auch im Dark
+   Mode hell — die Karte ringsum folgt weiter dem Theme. */
+.ag-barcode-panel {
+  border: 1px solid var(--ag-line);
+  border-radius: var(--ag-r-sm);
+  background: #ffffff;
+  padding: 0.5rem;
+  overflow: hidden;
+}
+
+.ag-barcode-panel svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 14rem;
+  object-fit: contain;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .agents-shell *,
   .agents-shell *::before,
   .agents-shell *::after {
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * Rows that sit on a shared hover pill.
+ *
+ * The thread rail paints one moving highlight for the whole list
+ * (SharedLayoutBg) instead of a background per row. A row's own :hover rule
+ * would stack a second, non-moving rectangle underneath it, so rows opting
+ * into the pill drop it and keep only the selected state.
+ */
+.ag-row-shared:hover {
+  background: transparent;
+}
+
+.ag-row-shared:active {
+  background: var(--ag-press);
 }
