@@ -437,6 +437,15 @@
     "showBranch": "Mostrar rama",
     "showDirty": "Mostrar cambios",
     "showAgents": "Mostrar agentes",
+    "showUsage": "Mostrar uso",
+    "usage": {
+      "title": "Uso de {{name}}",
+      "session": "Sesión actual",
+      "allModels": "Todos los modelos",
+      "used": "{{value}} % usado",
+      "resetsIn": "Se reinicia en {{count}} min",
+      "resetsAt": "Se reinicia {{value}}"
+    },
     "resetPosition": "Restablecer posición",
     "working": "Trabajando en {{repo}}…",
     "chat": "Agentes",

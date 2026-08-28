@@ -437,6 +437,15 @@
     "showBranch": "Show branch",
     "showDirty": "Show changes",
     "showAgents": "Show agents",
+    "showUsage": "Show usage",
+    "usage": {
+      "title": "{{name}} Usage",
+      "session": "Current session",
+      "allModels": "All models",
+      "used": "{{value}}% Used",
+      "resetsIn": "Resets in {{count}} min",
+      "resetsAt": "Resets {{value}}"
+    },
     "resetPosition": "Reset position",
     "working": "Working in {{repo}}…",
     "chat": "Agents",

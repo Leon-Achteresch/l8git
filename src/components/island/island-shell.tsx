@@ -22,6 +22,7 @@ import {
 } from "@/components/motion/dynamic-island";
 import { IslandActionsView } from "@/components/island/island-actions-view";
 import { IslandPanel } from "@/components/island/island-panel";
+import { IslandUsage } from "@/components/island/island-usage";
 import {
   ActivityBars,
   FlashIcon,
@@ -35,7 +36,7 @@ import { Button } from "@/components/ui/button";
 import { ListRow } from "@/components/ui/list-row";
 import { AGENT_INTEGRATIONS } from "@/lib/agent-integrations";
 import { runIslandActionWithFlash } from "@/lib/island/flash";
-import { useIslandStore } from "@/lib/island-store";
+import { islandPopoverSide, isVerticalDock, useIslandStore } from "@/lib/island-store";
 import { activeRepoOf, type IslandSnapshot } from "@/lib/island/types";
 import { cn } from "@/lib/utils";
 
@@ -74,16 +75,20 @@ export function IslandShell({
   const { t } = useTranslation();
   const [menuPage, setMenuPage] = useState<"root" | "integrations">("root");
 
-  const { showBranch, showDirty, showAgents } = useIslandStore(
+  const { showBranch, showDirty, showAgents, showUsage, dock, dragging } = useIslandStore(
     useShallow((s) => ({
       showBranch: s.showBranch,
       showDirty: s.showDirty,
       showAgents: s.showAgents,
+      showUsage: s.showUsage,
+      dock: s.dock,
+      dragging: s.dragging,
     })),
   );
   const toggleBranch = useIslandStore((s) => s.toggleBranch);
   const toggleDirty = useIslandStore((s) => s.toggleDirty);
   const toggleAgents = useIslandStore((s) => s.toggleAgents);
+  const toggleUsage = useIslandStore((s) => s.toggleUsage);
   const resetPosition = useIslandStore((s) => s.resetPosition);
 
   // Re-entering the menu always starts on its root page.
@@ -112,6 +117,10 @@ export function IslandShell({
     onViewChange(ISLAND_VIEW.chat);
   };
 
+  const usage = snapshot.usage ?? [];
+  const compactUsage = showUsage && usage.length > 0;
+  const vertical = compactUsage && isVerticalDock(dock);
+
   const resolved =
     view ??
     (flash
@@ -123,8 +132,21 @@ export function IslandShell({
   return (
     <DynamicIsland
       view={resolved}
+      vertical={vertical}
       className={className}
       compact={
+        compactUsage ? (
+          <IslandUsage
+            usage={usage}
+            vertical={vertical}
+            side={islandPopoverSide(dock)}
+            dragging={dragging}
+            onOpenActions={() => {
+              if (!idle()) return;
+              onViewChange(ISLAND_VIEW.actions);
+            }}
+          />
+        ) : (
         <span className="flex min-w-[110px] max-w-[240px] items-center gap-1.5">
           <ListRow
             onClick={() => {
@@ -171,6 +193,7 @@ export function IslandShell({
             <Sparkles />
           </Button>
         </span>
+        )
       }
     >
       <DynamicIslandView id={ISLAND_VIEW.agent} className="!px-3 !py-2">
@@ -458,6 +481,7 @@ export function IslandShell({
               <ToggleRow label={t("island.showBranch")} checked={showBranch} onClick={toggleBranch} />
               <ToggleRow label={t("island.showDirty")} checked={showDirty} onClick={toggleDirty} />
               <ToggleRow label={t("island.showAgents")} checked={showAgents} onClick={toggleAgents} />
+              <ToggleRow label={t("island.showUsage")} checked={showUsage} onClick={toggleUsage} />
 
               {!standalone && (
                 <>

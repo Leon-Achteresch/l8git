@@ -437,6 +437,15 @@
     "showBranch": "显示分支",
     "showDirty": "显示更改",
     "showAgents": "显示智能体",
+    "showUsage": "显示用量",
+    "usage": {
+      "title": "{{name}} 用量",
+      "session": "当前会话",
+      "allModels": "全部模型",
+      "used": "已用 {{value}}%",
+      "resetsIn": "{{count}} 分钟后重置",
+      "resetsAt": "{{value}} 重置"
+    },
     "resetPosition": "重置位置",
     "working": "正在 {{repo}} 中工作…",
     "chat": "Agents",

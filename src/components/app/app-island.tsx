@@ -7,19 +7,21 @@ import { IslandShell } from "@/components/island/island-shell";
 import { ISLAND_VIEW, type IslandFlash } from "@/components/island/island-ui";
 import { useIslandSnapshot } from "@/lib/island/client";
 import { useIslandFlash } from "@/lib/island/flash";
+import { useIslandUsage } from "@/lib/island/usage";
 import {
   defaultIslandPosition,
-  dockRectFor,
   ISLAND_HEIGHT,
   ISLAND_WIDTH,
+  islandOverlayClass,
+  islandTarget,
+  isEdgeDock,
   magnetFor,
   useIslandDocks,
   useIslandStore,
-  type IslandDock as IslandDockTarget,
-  type IslandPosition,
 } from "@/lib/island-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
+import { cn } from "@/lib/utils";
 
 const EDGE_MARGIN = 8;
 const DEFAULT_TOAST_MS = 4000;
@@ -40,6 +42,8 @@ export function AppIsland() {
   const enabled = useUiVisibilityPrefs((s) => s.showHeaderIsland);
   const activePath = useRepoStore((s) => s.activePath);
   const snapshot = useIslandSnapshot();
+  const liveUsage = useIslandUsage();
+  const merged = liveUsage.length ? { ...snapshot, usage: liveUsage } : snapshot;
 
   const { position, dock, hovered } = useIslandStore(
     useShallow((s) => ({
@@ -98,25 +102,32 @@ export function AppIsland() {
   }, [dock, position, dockVersion, x, y]);
 
   useEffect(() => {
-    if (dock !== "free") return;
-    const clamp = () => {
-      const { width, height } = islandSize(islandRef.current);
-      const minX = EDGE_MARGIN + width / 2;
-      const minY = height / 2;
-      const maxX = Math.max(minX, window.innerWidth - EDGE_MARGIN - width / 2);
-      const maxY = Math.max(minY, window.innerHeight - EDGE_MARGIN - height / 2);
-      const nextX = Math.min(Math.max(minX, x.get()), maxX);
-      const nextY = Math.min(Math.max(minY, y.get()), maxY);
-      if (nextX !== x.get() || nextY !== y.get()) {
-        x.set(nextX);
-        y.set(nextY);
-        setPosition({ x: nextX, y: nextY });
+    const onResize = () => {
+      if (draggingRef.current) return;
+      if (dock === "free") {
+        const { width, height } = islandSize(islandRef.current);
+        const minX = EDGE_MARGIN + width / 2;
+        const minY = height / 2;
+        const maxX = Math.max(minX, window.innerWidth - EDGE_MARGIN - width / 2);
+        const maxY = Math.max(minY, window.innerHeight - EDGE_MARGIN - height / 2);
+        const nextX = Math.min(Math.max(minX, x.get()), maxX);
+        const nextY = Math.min(Math.max(minY, y.get()), maxY);
+        if (nextX !== x.get() || nextY !== y.get()) {
+          x.set(nextX);
+          y.set(nextY);
+          setPosition({ x: nextX, y: nextY });
+        }
+        return;
       }
+      if (!isEdgeDock(dock)) return;
+      const target = islandTarget(dock, position);
+      x.set(target.x);
+      y.set(target.y);
     };
-    clamp();
-    window.addEventListener("resize", clamp);
-    return () => window.removeEventListener("resize", clamp);
-  }, [dock, x, y, setPosition]);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [dock, position, x, y, setPosition]);
 
   useEffect(() => {
     if (view === null) return;
@@ -139,7 +150,7 @@ export function AppIsland() {
           onClick={() => setView(null)}
         />
       )}
-      <div ref={boundsRef} className="pointer-events-none fixed inset-0 z-[70]">
+      <div ref={boundsRef} className="pointer-events-none fixed -inset-16 z-[70]">
         <m.div
           ref={islandRef}
           drag
@@ -172,6 +183,9 @@ export function AppIsland() {
             justDraggedRef.current = true;
             if (hit) {
               setDock(hit.id);
+              if (isEdgeDock(hit.id)) {
+                setPosition({ x: Math.round(hit.x), y: Math.round(hit.y) });
+              }
               void animate(x, hit.x, SNAP);
               void animate(y, hit.y, SNAP);
             } else {
@@ -185,7 +199,10 @@ export function AppIsland() {
           animate={{ scale: hovered ? 0.94 : isDragging ? 1.08 : 1 }}
           transition={SNAP}
           style={{ x, y }}
-          className="pointer-events-auto absolute left-0 top-0 cursor-grab [-webkit-app-region:no-drag] [translate:-50%_-18.5px] active:cursor-grabbing"
+          className={cn(
+            "pointer-events-auto absolute left-0 top-0 cursor-grab [-webkit-app-region:no-drag] active:cursor-grabbing",
+            islandOverlayClass(dock),
+          )}
         >
           <m.div
             style={{ x: magnetX, y: magnetY }}
@@ -195,13 +212,13 @@ export function AppIsland() {
               setView(ISLAND_VIEW.menu);
             }}
           >
-            <IslandShell
-              snapshot={snapshot}
-              view={view}
-              onViewChange={setView}
-              flash={flash}
-              canInteract={idle}
-            />
+          <IslandShell
+            snapshot={merged}
+            view={view}
+            onViewChange={setView}
+            flash={flash}
+            canInteract={idle}
+          />
           </m.div>
         </m.div>
       </div>
@@ -214,18 +231,6 @@ function islandSize(el: HTMLElement | null) {
     width: el?.offsetWidth || ISLAND_WIDTH,
     height: el?.offsetHeight || ISLAND_HEIGHT,
   };
-}
-
-function islandTarget(
-  dock: IslandDockTarget,
-  position: IslandPosition | null,
-): IslandPosition {
-  if (dock !== "free") {
-    const rect = dockRectFor(dock);
-    if (rect)
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-  }
-  return position ?? defaultIslandPosition();
 }
 
 /**

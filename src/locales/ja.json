@@ -437,6 +437,15 @@
     "showBranch": "ブランチを表示",
     "showDirty": "変更を表示",
     "showAgents": "エージェントを表示",
+    "showUsage": "使用量を表示",
+    "usage": {
+      "title": "{{name}} の使用量",
+      "session": "現在のセッション",
+      "allModels": "すべてのモデル",
+      "used": "{{value}}% 使用",
+      "resetsIn": "{{count}} 分後にリセット",
+      "resetsAt": "{{value}} にリセット"
+    },
     "resetPosition": "位置をリセット",
     "working": "{{repo}} で作業中…",
     "chat": "Agents",

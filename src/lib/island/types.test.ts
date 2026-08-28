@@ -73,6 +73,7 @@ describe("sameIslandSnapshot", () => {
     ["repository count", { repos: [] }],
     ["installed agents", { installedAgents: ["claude", "codex"] }],
     ["dropped agent detection", { installedAgents: null }],
+    ["usage rows", { usage: [{ id: "codex", primary: { usedPercent: 73, windowDurationMins: 300, resetsAt: 1 }, secondary: null }] }],
   ])("notices a change to the %s", (_label, patch) => {
     expect(sameIslandSnapshot(base, { ...base, ...patch })).toBe(false);
   });

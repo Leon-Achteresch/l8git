@@ -17,6 +17,12 @@ import {
   type IslandSnapshotInputs,
 } from "@/lib/island/snapshot";
 import {
+  armIslandUsage,
+  collectIslandUsage,
+  islandUsageInputs,
+  subscribeIslandUsage,
+} from "@/lib/island/usage";
+import {
   syncIslandWindowState,
   useIslandWindow,
 } from "@/lib/island/window-store";
@@ -37,18 +43,23 @@ export function useIslandHost(): void {
   const lastInputs = useRef<IslandSnapshotInputs>([]);
 
   useEffect(() => {
+    if (isIslandWindow()) return;
+    return armIslandUsage();
+  }, []);
+
+  useEffect(() => {
     if (!IS_TAURI || isIslandWindow()) return;
 
     // Only the detached window consumes snapshots; in-app the island reads the
     // stores directly, so publishing then would be pure event traffic.
     const push = (force = false) => {
       if (!force && !useIslandWindow.getState().open) return;
-      const inputs = islandSnapshotInputs();
+      const inputs = [...islandSnapshotInputs(), ...islandUsageInputs()];
       // An unchanged snapshot is an IPC round trip and a re-render in the
       // detached window for nothing.
       if (!force && sameIslandSnapshotInputs(lastInputs.current, inputs)) return;
       lastInputs.current = inputs;
-      void publishSnapshot(buildIslandSnapshot());
+      void publishSnapshot(buildIslandSnapshot(collectIslandUsage()));
     };
     const schedule = () => {
       window.clearTimeout(timer.current);
@@ -61,6 +72,7 @@ export function useIslandHost(): void {
       useTerminalActivity.subscribe(schedule),
       useIslandWindow.subscribe(schedule),
       useInstalledAgents.subscribe(schedule),
+      ...subscribeIslandUsage(schedule),
     ];
 
     // Minimizing through the title bar bypasses our commands, so the window

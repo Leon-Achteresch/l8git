@@ -134,6 +134,7 @@ export interface DynamicIslandProps {
   view: string | null;
   /** Compact pill content, shown when no view is active. */
   compact?: ReactNode;
+  vertical?: boolean;
   /** DynamicIslandView elements. */
   children?: ReactNode;
   className?: string;
@@ -142,6 +143,7 @@ export interface DynamicIslandProps {
 export function DynamicIsland({
   view,
   compact,
+  vertical = false,
   children,
   className,
 }: DynamicIslandProps) {
@@ -188,8 +190,11 @@ export function DynamicIsland({
             {!expanded && compact ? (
               <Slot
                 keyId="compact"
-                // iPhone pill proportions: ~126 x 37.
-                className="min-h-[37px] min-w-[126px] gap-2 px-4 py-1.5 text-xs font-medium"
+                className={
+                  vertical
+                    ? "min-h-0 min-w-[44px] flex-col gap-1.5 px-1.5 py-2 text-xs font-medium"
+                    : "min-h-[37px] min-w-[126px] gap-2 px-4 py-1.5 text-xs font-medium"
+                }
               >
                 {compact}
               </Slot>
