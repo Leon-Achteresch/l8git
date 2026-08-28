@@ -3061,6 +3061,7 @@
     "linkDialogDesc": "El ticket se aplica solo a esta conversación. El agente puede leer los tickets vinculados y nada más.",
     "linkKeyLabel": "Clave del ticket o enlace de Jira",
     "linkedToast": "{{key}} vinculado a esta conversación.",
-    "panelHint": "Los tickets se vinculan por conversación: haz clic derecho en un chat de la barra lateral → «Vincular ticket de Jira». La clave y el estado aparecen luego en la fila del chat."
+    "panelHint": "Los tickets se vinculan por conversación: haz clic derecho en un chat de la barra lateral → «Vincular ticket de Jira». La clave y el estado aparecen luego en la fila del chat.",
+    "sessionNote": "Un ticket vinculado surte efecto de inmediato, incluso en un chat ya en curso. Los interruptores de arriba solo se aplican a los chats iniciados después: la CLI pide la lista de herramientas una sola vez, al conectarse."
   }
 }

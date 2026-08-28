@@ -27,7 +27,6 @@ const PROTOCOL_VERSION: &str = "2024-11-05";
 
 const DEFAULT_COMMENT_LIMIT: u32 = 10;
 const DEFAULT_SEARCH_LIMIT: u32 = 10;
-const MAX_ENUM_KEYS: usize = 20;
 
 const TOOL_GET_ISSUE: &str = "jira_get_issue";
 const TOOL_GET_COMMENTS: &str = "jira_get_comments";
@@ -40,55 +39,31 @@ const CODE_INVALID_PARAMS: i64 = -32602;
 // Tool declarations — the same gate as `jiraToolsFor` in the frontend
 // ---------------------------------------------------------------------------
 
-fn key_schema(policy: &JiraPolicy, repo: &str) -> Value {
-    let keys = policy.keys_for(repo);
-    if !policy.allow_search && !keys.is_empty() && keys.len() <= MAX_ENUM_KEYS {
-        return json!({
-            "type": "string",
-            "enum": keys,
-            "description": "Schlüssel eines verknüpften Tickets.",
-        });
-    }
+/// Never an `enum` of the linked keys: the CLI asks `tools/list` once per
+/// session, so a frozen key set would contradict the call-time check below.
+fn key_schema() -> Value {
     json!({
         "type": "string",
         "pattern": "^[A-Za-z][A-Za-z0-9_]{0,49}-[0-9]{1,10}$",
-        "description": "Ticket-Schlüssel wie ABC-123.",
+        "description": "Ticket-Schlüssel wie ABC-123. Ohne freigeschaltete Suche sind nur die mit dieser Unterhaltung verknüpften Tickets lesbar; das Tool nennt sie, wenn der Schlüssel nicht passt.",
     })
 }
 
-fn ticket_roster(policy: &JiraPolicy, repo: &str) -> String {
-    let keys = policy.keys_for(repo);
-    if keys.is_empty() {
-        return String::new();
-    }
-    format!(
-        " Verknüpfte Tickets: {}.",
-        keys.iter()
-            .take(MAX_ENUM_KEYS)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(", ")
-    )
-}
-
-/// The tools this repository may see right now. Empty whenever Jira cannot
-/// help, so an unused integration costs no context tokens.
-pub fn tools_for(policy: &JiraPolicy, repo: &str) -> Vec<Value> {
-    if !policy.offers_tools(repo) {
+/// The tools this session may see. Empty while Jira is off, so an unused
+/// integration costs no context tokens — and stable for the whole session, so a
+/// ticket linked later still works.
+pub fn tools_for(policy: &JiraPolicy, _repo: &str) -> Vec<Value> {
+    if !policy.enabled {
         return Vec::new();
     }
-    let key = key_schema(policy, repo);
     let mut tools = vec![json!({
         "name": TOOL_GET_ISSUE,
-        "description": format!(
-            "Liest ein Jira-Ticket (Titel, Status, Typ, Priorität, Zuweisung, Labels, Beschreibung). Nur lesend.{}",
-            ticket_roster(policy, repo)
-        ),
+        "description": "Liest ein Jira-Ticket (Titel, Status, Typ, Priorität, Zuweisung, Labels, Beschreibung). Nur lesend. Lesbar sind die Tickets, die der Nutzer mit dieser Unterhaltung verknüpft hat.",
         "inputSchema": {
             "type": "object",
             "additionalProperties": false,
             "required": ["key"],
-            "properties": { "key": key },
+            "properties": { "key": key_schema() },
         },
     })];
 
@@ -101,7 +76,7 @@ pub fn tools_for(policy: &JiraPolicy, repo: &str) -> Vec<Value> {
                 "additionalProperties": false,
                 "required": ["key"],
                 "properties": {
-                    "key": key_schema(policy, repo),
+                    "key": key_schema(),
                     "limit": { "type": "integer", "minimum": 1, "maximum": MAX_COMMENTS, "description": "Anzahl Kommentare (Standard 10)." },
                 },
             },
@@ -247,14 +222,32 @@ pub fn resolve_key(policy: &JiraPolicy, repo: &str, arguments: &Value) -> Result
         .ok_or_else(|| "Jira: Es fehlt der Parameter \"key\".".to_string())?;
     let key = validate_issue_key(raw)?;
     if !policy.allows_key(repo, &key) {
-        let available = policy.keys_for(repo).join(", ");
+        let available = policy.keys_for(repo);
+        if available.is_empty() {
+            return Err(
+                "Jira: Mit dieser Unterhaltung ist kein Ticket verknüpft. Bitte den Nutzer, in der \
+                 Seitenleiste per Rechtsklick auf diesen Chat ein Jira-Ticket zu verknüpfen — danach \
+                 ist es sofort lesbar, ohne neuen Chat."
+                    .to_string(),
+            );
+        }
         return Err(format!(
-            "Jira: {key} ist mit diesem Repository nicht verknüpft. Verfügbar: {}. \
-             Der Nutzer kann das Ticket im Agents-Fenster verknüpfen oder die JQL-Suche in den Einstellungen freischalten.",
-            if available.is_empty() { "keine" } else { available.as_str() }
+            "Jira: {key} ist mit dieser Unterhaltung nicht verknüpft. Verknüpft sind: {}. \
+             Der Nutzer kann das Ticket am Chat verknüpfen oder die JQL-Suche in den Einstellungen freischalten.",
+            available.join(", ")
         ));
     }
     Ok(key)
+}
+
+/// MCP sends the bare tool name, but a client may pass its own
+/// `mcp__<server>__` prefix through. Falling through on that would look to the
+/// agent like Jira is broken, so strip it instead.
+pub fn strip_tool_prefix(name: &str) -> &str {
+    name.strip_prefix("mcp__")
+        .and_then(|rest| rest.split_once("__"))
+        .map(|(_, tool)| tool)
+        .unwrap_or(name)
 }
 
 fn limit_arg(arguments: &Value, fallback: u32, max: u32) -> u32 {
@@ -352,7 +345,7 @@ pub async fn handle_request(repo: &str, request: &Value) -> Option<Value> {
         "ping" => Some(success_response(id, json!({}))),
         "tools/list" => Some(success_response(id, json!({ "tools": tools_for(&policy, repo) }))),
         "tools/call" => {
-            let name = params.get("name").and_then(Value::as_str).unwrap_or("");
+            let name = strip_tool_prefix(params.get("name").and_then(Value::as_str).unwrap_or(""));
             if name.is_empty() {
                 return Some(error_response(
                     id,

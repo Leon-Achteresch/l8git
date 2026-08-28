@@ -64,9 +64,10 @@ The tools are also gated so an unused integration costs nothing:
 | Situation | What the agent sees |
 |---|---|
 | Jira switched off, or no credentials | no Jira tools at all |
-| Chat with no ticket and JQL search off | no Jira tools at all |
-| Ticket on the chat, JQL search off | read that chat's tickets (and their comments, if allowed) — and nothing else |
+| Jira on, JQL search off | tools to read this chat's tickets (and their comments, if allowed) — and nothing else |
 | JQL search on | additionally search and read any ticket your Jira account can see |
+
+Which tickets a tool will actually return is checked on every call against what is linked to that chat right now. That split matters in practice: **linking a ticket works immediately, even in a chat that is already running**, while switching Jira itself on or off only reaches chats started afterwards — the CLI asks for the tool list once, when it connects.
 
 Tool schemas are paid for in input tokens on every turn, which is why the list is rebuilt for each request instead of being declared once. Responses are trimmed the same way: Atlassian's rich-text format is flattened to plain text, only the relevant fields are requested, long descriptions are cut off, and search results carry no descriptions at all.
 

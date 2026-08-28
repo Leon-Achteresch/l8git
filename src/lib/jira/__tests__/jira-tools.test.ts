@@ -40,12 +40,25 @@ describe("jiraToolsFor — the token gate", () => {
     expect(jiraToolsFor(context({ configured: false }))).toEqual([]);
   });
 
-  it("offers nothing when there is neither a linked ticket nor search", () => {
-    expect(jiraToolsFor(context({ links: [], allowSearch: false }))).toEqual([]);
-  });
-
   it("offers the read tools once a ticket is linked", () => {
     expect(names(context())).toEqual([JIRA_GET_ISSUE, JIRA_GET_COMMENTS]);
+  });
+
+  it("offers the same tools before any ticket is linked", () => {
+    // Regression: the CLI asks tools/list once per session and this channel
+    // cannot push tools/list_changed, so a list that depended on the link set
+    // would leave a ticket linked mid-session permanently invisible.
+    expect(names(context({ links: [] }))).toEqual(names(context()));
+  });
+
+  it("keeps the schema identical whatever is linked", () => {
+    const empty = JSON.stringify(jiraToolsFor(context({ links: [] })));
+    const one = JSON.stringify(jiraToolsFor(context()));
+    const two = JSON.stringify(
+      jiraToolsFor(context({ links: [link("ABC-1"), link("DEF-2")] })),
+    );
+    expect(empty).toBe(one);
+    expect(one).toBe(two);
   });
 
   it("drops the comment tool when comments are not allowed", () => {
@@ -77,29 +90,28 @@ describe("jiraToolsFor — the token gate", () => {
 });
 
 describe("jiraToolsFor — schema shape", () => {
-  it("narrows the key to an enum of linked tickets when search is off", () => {
-    const [getIssue] = jiraToolsFor(context({ links: [link("ABC-1"), link("DEF-2")] }));
-    const key = (getIssue.inputSchema.properties as Record<string, Record<string, unknown>>).key;
-    expect(key.enum).toEqual(["ABC-1", "DEF-2"]);
+  it("never bakes the linked keys into an enum", () => {
+    // An enum would be frozen at connect time and contradict the call-time
+    // check, which reads the live link set.
+    for (const links of [[], [link("ABC-1")], [link("ABC-1"), link("DEF-2")]]) {
+      for (const tool of jiraToolsFor(context({ links }))) {
+        const properties = tool.inputSchema.properties as Record<string, Record<string, unknown>>;
+        expect(properties.key?.enum).toBeUndefined();
+      }
+    }
   });
 
-  it("widens the key to a pattern once search is allowed", () => {
-    const [getIssue] = jiraToolsFor(context({ allowSearch: true }));
+  it("constrains the key with a pattern instead", () => {
+    const [getIssue] = jiraToolsFor(context());
     const key = (getIssue.inputSchema.properties as Record<string, Record<string, unknown>>).key;
-    expect(key.enum).toBeUndefined();
     expect(typeof key.pattern).toBe("string");
+    expect(new RegExp(key.pattern as string).test("ABC-123")).toBe(true);
+    expect(new RegExp(key.pattern as string).test("../etc")).toBe(false);
   });
 
-  it("falls back to a pattern when the enum would grow too large", () => {
-    const many = Array.from({ length: 40 }, (_, index) => link(`ABC-${index + 1}`));
-    const [getIssue] = jiraToolsFor(context({ links: many }));
-    const key = (getIssue.inputSchema.properties as Record<string, Record<string, unknown>>).key;
-    expect(key.enum).toBeUndefined();
-  });
-
-  it("names the linked tickets in the description so no extra call is needed", () => {
+  it("does not leak ticket titles into a schema that outlives them", () => {
     const [getIssue] = jiraToolsFor(context({ links: [link("ABC-1", "Login kaputt")] }));
-    expect(getIssue.description).toContain("ABC-1 (Login kaputt)");
+    expect(getIssue.description).not.toContain("Login kaputt");
   });
 
   it("keeps the disabled surface at zero cost", () => {
@@ -121,10 +133,21 @@ describe("resolveIssueKeyArg — the allow-list the schema only hints at", () =>
     expect(resolveIssueKeyArg(context(), "abc-1")).toEqual({ ok: true, value: "ABC-1" });
   });
 
-  it("refuses an unlinked key while search is off", () => {
+  it("refuses an unlinked key while search is off and names what is linked", () => {
     const result = resolveIssueKeyArg(context(), "XYZ-9");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("XYZ-9");
+    if (!result.ok) {
+      expect(result.error).toContain("XYZ-9");
+      expect(result.error).toContain("ABC-1");
+    }
+  });
+
+  it("tells the agent how to get unblocked when nothing is linked", () => {
+    // This is the message the user sees relayed when the chat has no ticket,
+    // so it has to name the fix rather than just say no.
+    const result = resolveIssueKeyArg(context({ links: [] }), "ABC-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/verkn/i);
   });
 
   it("accepts any well-formed key once search is allowed", () => {

@@ -47,9 +47,28 @@ pro `tools/list` neu gebaut (`jiraToolsFor`):
 | Zustand | Tools |
 |---|---|
 | Feature aus, oder keine Zugangsdaten | keine |
-| Chat ohne Ticket und Suche aus | keine |
-| Ticket am Chat, Suche aus | `jira_get_issue` (+ `jira_get_comments`), `key` als `enum` der verknüpften Keys |
-| Suche an | zusätzlich `jira_search_issues`, `key` als freier String |
+| Feature an, Suche aus | `jira_get_issue` (+ `jira_get_comments`, wenn erlaubt) |
+| Suche an | zusätzlich `jira_search_issues` |
+
+**Die Toolliste ist pro Sitzung eingefroren.** Die CLI fragt `tools/list`
+genau einmal nach dem Verbinden ab, und über diesen Kanal kann der Server kein
+`notifications/tools/list_changed` nachschieben. Die Liste darf deshalb nur von
+Zustand abhängen, der sich während eines Chats nicht ändert — sonst wäre ein
+später verknüpftes Ticket für den Agenten nie erreichbar. Genau das war der
+Fehler hinter „der Agent kommt nicht an das Ticket".
+
+Der Gate zerfällt dadurch in zwei Teile:
+
+- **Gelistet** wird, wenn das Feature an ist und Zugangsdaten existieren (plus
+  die beiden Fähigkeitsschalter, die in den Einstellungen liegen und sich
+  selten ändern).
+- **Erreichbar** entscheidet sich pro Aufruf gegen die aktuelle Verknüpfung —
+  `resolveIssueKeyArg` bzw. `resolve_key`. Das ist die Grenze, die trägt; das
+  Schema ist nur ein Hinweis ans Modell.
+
+Aus demselben Grund ist `key` ein Pattern und kein `enum` der verknüpften
+Schlüssel: ein `enum` würde den Stand vom Verbindungszeitpunkt einfrieren und
+der Prüfung darunter widersprechen.
 
 Zusätzlich schrumpfen die Antworten: ADF wird in Klartext geflacht, Felder
 werden serverseitig per `fields=`-Projektion begrenzt, Beschreibungen werden auf
