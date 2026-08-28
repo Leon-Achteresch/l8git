@@ -279,6 +279,7 @@ export function JiraCard() {
               disabled={!enabled}
             />
           </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t("jira.panelHint")}</p>
           <p className="text-xs leading-relaxed text-muted-foreground">{t("jira.readOnlyNote")}</p>
           <p className="text-xs leading-relaxed text-muted-foreground">{t("jira.toolNote")}</p>
         </div>

@@ -8,15 +8,23 @@
 //! taking the policy as a spawn argument) is what makes pinning or unpinning a
 //! ticket take effect immediately in a session that is already running.
 //!
-//! The file holds no secrets: only switches and issue keys. The credential
-//! stays in the OS keychain, which the child opens itself.
+//! Tickets are pinned per conversation, but the child is spawned per
+//! repository — Codex and Cursor never tell it which chat is asking. So the
+//! file also records which conversation each repository currently has open,
+//! and the child resolves repository → conversation → keys. A background
+//! conversation therefore reads the tickets of the one on screen; that is a
+//! deliberate limit of those two CLIs, not of the gate. Claude Code and
+//! OpenCode are unaffected, because they are handed the conversation directly.
+//!
+//! The file holds no secrets: only switches, the active conversation and issue
+//! keys. The credential stays in the OS keychain, which the child opens itself.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-pub const POLICY_VERSION: u32 = 1;
+pub const POLICY_VERSION: u32 = 2;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,14 +37,27 @@ pub struct JiraPolicy {
     pub allow_search: bool,
     #[serde(default)]
     pub allow_comments: bool,
-    /// Repository path → the issue keys pinned to it.
+    /// Repository path → the conversation it currently has open.
     #[serde(default)]
-    pub keys_by_path: BTreeMap<String, Vec<String>>,
+    pub active_thread_by_path: BTreeMap<String, String>,
+    /// `provider:threadId` → the issue keys pinned to that conversation.
+    #[serde(default)]
+    pub keys_by_thread: BTreeMap<String, Vec<String>>,
 }
 
 impl JiraPolicy {
+    /// The conversation a repository currently has open, if any.
+    pub fn thread_for(&self, repo: &str) -> Option<&str> {
+        self.active_thread_by_path.get(repo).map(String::as_str)
+    }
+
+    pub fn keys_for_thread(&self, thread: &str) -> &[String] {
+        self.keys_by_thread.get(thread).map(Vec::as_slice).unwrap_or(&[])
+    }
+
+    /// Keys reachable from a repository: those of the conversation it has open.
     pub fn keys_for(&self, repo: &str) -> &[String] {
-        self.keys_by_path.get(repo).map(Vec::as_slice).unwrap_or(&[])
+        self.thread_for(repo).map(|thread| self.keys_for_thread(thread)).unwrap_or(&[])
     }
 
     /// Mirrors `jiraToolsFor` in the frontend: a repository with no pinned
@@ -76,20 +97,25 @@ pub fn load_policy() -> JiraPolicy {
 /// cannot widen the allow-list into a path segment.
 pub fn normalize_policy(mut policy: JiraPolicy) -> JiraPolicy {
     policy.version = POLICY_VERSION;
-    policy.keys_by_path = policy
-        .keys_by_path
+    policy.keys_by_thread = policy
+        .keys_by_thread
         .into_iter()
-        .filter(|(path, _)| !path.is_empty())
-        .map(|(path, keys)| {
+        .filter(|(thread, _)| !thread.is_empty())
+        .map(|(thread, keys)| {
             let mut valid: Vec<String> = keys
                 .iter()
                 .filter_map(|key| crate::jira::validate_issue_key(key).ok())
                 .collect();
             valid.sort();
             valid.dedup();
-            (path, valid)
+            (thread, valid)
         })
         .filter(|(_, keys)| !keys.is_empty())
+        .collect();
+    policy.active_thread_by_path = policy
+        .active_thread_by_path
+        .into_iter()
+        .filter(|(path, thread)| !path.is_empty() && !thread.is_empty())
         .collect();
     policy
 }

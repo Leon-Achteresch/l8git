@@ -7,6 +7,8 @@ import {
   Pencil,
   Pin,
   PinOff,
+  Ticket,
+  TicketX,
   Trash2,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
@@ -14,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
+import { AgentJiraLinkDialog } from "@/components/agents/chat/agent-jira-link-dialog";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -32,6 +35,8 @@ import { chatStoreFor } from "@/lib/agents/active-chat-store";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { AgentThreadSummary } from "@/lib/agents/types";
+import { jiraThreadKey, useJiraLinks, useJiraStore } from "@/lib/jira/jira-store";
+import type { JiraTicketLink } from "@/lib/jira/types";
 import { AgDot } from "@/components/agents/ui/ag-dot";
 
 export function isWorking(status: string): boolean {
@@ -62,6 +67,38 @@ function WorkingFor({ since }: { since: number }) {
   return <>{label}</>;
 }
 
+/**
+ * Status colour follows Jira's own three status categories rather than the
+ * status name, which is per-project and unbounded.
+ */
+function statusTone(link: JiraTicketLink): string {
+  const category = link.statusCategory.toLowerCase();
+  if (category.includes("done") || category.includes("complete")) return "text-[var(--git-added)]";
+  if (category.includes("progress")) return "text-[var(--git-modified)]";
+  return "text-[var(--ag-text-3)]";
+}
+
+function JiraBadge({ links }: { links: JiraTicketLink[] }) {
+  const [first, ...rest] = links;
+  if (!first) return null;
+  const title = [first.summary ? `${first.key}: ${first.summary}` : first.key, first.status]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <span
+      className="ml-auto flex min-w-0 shrink items-center gap-1 pl-1.5"
+      title={rest.length ? `${title} (+${rest.length})` : title}
+    >
+      <Ticket className="size-2.5 shrink-0 text-[var(--ag-text-3)]" />
+      <span className="truncate text-[10px] font-medium text-[var(--ag-text-2)]">{first.key}</span>
+      {first.status ? (
+        <span className={`truncate text-[10px] ${statusTone(first)}`}>{first.status}</span>
+      ) : null}
+      {rest.length ? <span className="ag-faint text-[10px]">+{rest.length}</span> : null}
+    </span>
+  );
+}
+
 export const AgentThreadRow = memo(function AgentThreadRow({
   path,
   thread,
@@ -87,6 +124,11 @@ export const AgentThreadRow = memo(function AgentThreadRow({
 }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const jiraEnabled = useJiraStore((state) => state.enabled);
+  const unlinkTicket = useJiraStore((state) => state.unlinkTicket);
+  const jiraKey = jiraThreadKey(thread.provider, thread.id);
+  const jiraLinks = useJiraLinks(jiraKey);
   // Renaming is driven from the menu, but can also arrive as a prop, so it
   // arms the row on its own.
   const armed = hovered || renaming;
@@ -145,6 +187,25 @@ export const AgentThreadRow = memo(function AgentThreadRow({
         <GitFork className="size-3.5" />
         {t("agentChat.thread.fork")}
       </Item>
+      {jiraEnabled ? (
+        <>
+          <Separator />
+          <Item className={itemClassName} onSelect={() => setLinking(true)}>
+            <Ticket className="size-3.5" />
+            {t("jira.linkTicket")}
+          </Item>
+          {jiraLinks.map((link) => (
+            <Item
+              key={link.key}
+              className={itemClassName}
+              onSelect={() => unlinkTicket(jiraKey, link.key)}
+            >
+              <TicketX className="size-3.5" />
+              {t("jira.unlink", { key: link.key })}
+            </Item>
+          ))}
+        </>
+      ) : null}
       <Separator />
       <Item className={itemClassName} onSelect={() => copy(thread.title, t("agentChat.titleCopied"))}>
         <Copy className="size-3.5" />
@@ -224,6 +285,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
             </>
           ) : null}
           <span className="ag-faint truncate text-[10px] tabular-nums">{relativeDate}</span>
+          {jiraEnabled ? <JiraBadge links={jiraLinks} /> : null}
         </span>
       </span>
     </div>
@@ -249,6 +311,10 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       ) : (
         row
       )}
+
+      {linking ? (
+        <AgentJiraLinkDialog threadKey={jiraKey} open onOpenChange={setLinking} />
+      ) : null}
 
       {armed ? (
         <DropdownMenu>
