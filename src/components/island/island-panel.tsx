@@ -1,9 +1,9 @@
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useIslandStore } from "@/lib/island-store";
 
-export function IslandPanel({ children }: { children: React.ReactNode }) {
+export function IslandPanel({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const size = useIslandStore((s) => s.panelSize);
   const setPanelSize = useIslandStore((s) => s.setPanelSize);

@@ -426,7 +426,7 @@
     "splitCommits": "論理的なコミットに分割"
   },
   "island": {
-    "open": "プロジェクトと連携を表示",
+    "open": "アクションを表示",
     "close": "閉じる",
     "projects_one": "{{count}} プロジェクト",
     "projects_other": "{{count}} プロジェクト",
@@ -441,7 +441,8 @@
     "working": "{{repo}} で作業中…",
     "chat": "Agents",
     "actions": "アクション",
-    "window": "ウィンドウ"
+    "window": "ウィンドウ",
+    "resize": "サイズ変更"
   },
   "islandActions": {
     "group": {

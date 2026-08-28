@@ -426,7 +426,7 @@
     "splitCommits": "拆分为多个逻辑提交"
   },
   "island": {
-    "open": "显示项目和集成",
+    "open": "显示操作",
     "close": "关闭",
     "projects_one": "{{count}} 个项目",
     "projects_other": "{{count}} 个项目",
@@ -441,7 +441,8 @@
     "working": "正在 {{repo}} 中工作…",
     "chat": "Agents",
     "actions": "操作",
-    "window": "窗口"
+    "window": "窗口",
+    "resize": "调整大小"
   },
   "islandActions": {
     "group": {

@@ -426,7 +426,7 @@
     "splitCommits": "In logische Commits aufteilen"
   },
   "island": {
-    "open": "Projekte und Integrationen anzeigen",
+    "open": "Aktionen anzeigen",
     "close": "Schließen",
     "projects_one": "{{count}} Projekt",
     "projects_other": "{{count}} Projekte",
@@ -441,7 +441,8 @@
     "working": "Arbeitet in {{repo}}…",
     "chat": "Agenten",
     "actions": "Aktionen",
-    "window": "Fenster"
+    "window": "Fenster",
+    "resize": "Größe ändern"
   },
   "islandActions": {
     "group": {
