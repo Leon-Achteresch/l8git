@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import {
   Fragment,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -76,18 +78,10 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { MergeDialog } from "@/components/repo/branch/merge-dialog";
-import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
-import { CommitTagDialog } from "@/components/repo/commit/commit-tag-dialog";
-import { RebaseDialog } from "@/components/repo/rebase/rebase-dialog";
-import { ResetDialog } from "@/components/repo/reset/reset-dialog";
-import { StashCreateDialog } from "@/components/repo/stash/stash-create-dialog";
-import { CloneRepoDialog } from "@/components/repo/tabs/clone-repo-dialog";
-import { InitRepoDialog } from "@/components/repo/tabs/init-repo-dialog";
-import { UndoConfirmDialog } from "@/components/repo/undo/undo-confirm-dialog";
 import { isRemoteCanceled, runRemoteOp } from "@/lib/remote-ops";
-import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interactive-editor";
+import { RepoSourceDialogs } from "@/components/repo/tabs/repo-source-dialogs";
 import { toastError } from "@/lib/error-toast";
+import { useEverTrue } from "@/lib/use-ever-true";
 import { useCommitPrefs } from "@/lib/commit-prefs";
 import { useHotkeyBindings } from "@/lib/hotkey-prefs";
 import i18n from "@/lib/i18n";
@@ -99,6 +93,37 @@ import { useUiStore, type SidebarTab } from "@/lib/ui-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
+
+// The palette's dialogs are the app's single largest eager import — the
+// interactive rebase editor alone drags all of dnd-kit into the startup chunk.
+// None of them can be on screen before the user picks a command, so each one
+// loads the first time it is opened.
+const MergeDialog = lazy(() =>
+  import("@/components/repo/branch/merge-dialog").then((m) => ({ default: m.MergeDialog })),
+);
+const NewBranchDialog = lazy(() =>
+  import("@/components/repo/branch/new-branch-dialog").then((m) => ({ default: m.NewBranchDialog })),
+);
+const CommitTagDialog = lazy(() =>
+  import("@/components/repo/commit/commit-tag-dialog").then((m) => ({ default: m.CommitTagDialog })),
+);
+const RebaseDialog = lazy(() =>
+  import("@/components/repo/rebase/rebase-dialog").then((m) => ({ default: m.RebaseDialog })),
+);
+const ResetDialog = lazy(() =>
+  import("@/components/repo/reset/reset-dialog").then((m) => ({ default: m.ResetDialog })),
+);
+const StashCreateDialog = lazy(() =>
+  import("@/components/repo/stash/stash-create-dialog").then((m) => ({ default: m.StashCreateDialog })),
+);
+const UndoConfirmDialog = lazy(() =>
+  import("@/components/repo/undo/undo-confirm-dialog").then((m) => ({ default: m.UndoConfirmDialog })),
+);
+const RebaseInteractiveEditor = lazy(() =>
+  import("@/components/repo/rebase/rebase-interactive-editor").then((m) => ({
+    default: m.RebaseInteractiveEditor,
+  })),
+);
 
 const IS_MAC =
   typeof navigator !== "undefined" &&
@@ -208,6 +233,13 @@ export function AppHeaderSearch() {
   } | null>(null);
   const [resetTarget, setResetTarget] = useState<string | null>(null);
   const totalCommits = repo?.commits.length ?? 0;
+
+  // A dialog that has been opened once stays mounted; before that it is absent
+  // from the tree and its chunk is never fetched.
+  const rebaseUsed = useEverTrue(rebaseOpen);
+  const undoUsed = useEverTrue(undoOpen);
+  const newBranchUsed = useEverTrue(newBranchOpen);
+  const stashCreateUsed = useEverTrue(stashCreateOpen);
 
   // Refresh the repo's tool manifest whenever the palette opens.
   useEffect(() => {
@@ -1157,66 +1189,84 @@ export function AppHeaderSearch() {
         </Command>
       </CommandDialog>
 
-      {activePath ? (
-        <>
-          <RebaseDialog
-            open={rebaseOpen}
-            onClose={() => setRebaseOpen(false)}
-            path={activePath}
-          />
-          <UndoConfirmDialog
-            open={undoOpen}
-            path={activePath}
-            onClose={() => setUndoOpen(false)}
-          />
-          <NewBranchDialog
-            open={newBranchOpen}
-            onClose={() => setNewBranchOpen(false)}
-            path={activePath}
-            branches={branches}
-          />
-          <StashCreateDialog
-            open={stashCreateOpen}
-            onClose={() => setStashCreateOpen(false)}
-            path={activePath}
-          />
-          {mergeSource ? (
-            <MergeDialog
-              open
-              onClose={() => setMergeSource(null)}
-              path={activePath}
-              sourceBranch={mergeSource}
-            />
-          ) : null}
-          {tagTarget ? (
-            <CommitTagDialog
-              open
-              onClose={() => setTagTarget(null)}
-              path={activePath}
-              commitHash={tagTarget.hash}
-              shortHash={tagTarget.shortHash}
-            />
-          ) : null}
-          {resetTarget ? (
-            <ResetDialog
-              open
-              onClose={() => setResetTarget(null)}
-              path={activePath}
-              commitHash={resetTarget}
-            />
-          ) : null}
-          {rebaseEditorOpen ? (
-            <RebaseInteractiveEditor
-              open
-              onClose={() => setRebaseEditorOpen(false)}
-              path={activePath}
-            />
-          ) : null}
-        </>
-      ) : null}
+      {/* Each dialog enters the tree on its first open and stays, so closing
+          still plays its exit animation. `fallback={null}` matches what a
+          closed dialog renders anyway. */}
+      <Suspense fallback={null}>
+        {activePath ? (
+          <>
+            {rebaseUsed ? (
+              <RebaseDialog
+                open={rebaseOpen}
+                onClose={() => setRebaseOpen(false)}
+                path={activePath}
+              />
+            ) : null}
+            {undoUsed ? (
+              <UndoConfirmDialog
+                open={undoOpen}
+                path={activePath}
+                onClose={() => setUndoOpen(false)}
+              />
+            ) : null}
+            {newBranchUsed ? (
+              <NewBranchDialog
+                open={newBranchOpen}
+                onClose={() => setNewBranchOpen(false)}
+                path={activePath}
+                branches={branches}
+              />
+            ) : null}
+            {stashCreateUsed ? (
+              <StashCreateDialog
+                open={stashCreateOpen}
+                onClose={() => setStashCreateOpen(false)}
+                path={activePath}
+              />
+            ) : null}
+            {mergeSource ? (
+              <MergeDialog
+                open
+                onClose={() => setMergeSource(null)}
+                path={activePath}
+                sourceBranch={mergeSource}
+              />
+            ) : null}
+            {tagTarget ? (
+              <CommitTagDialog
+                open
+                onClose={() => setTagTarget(null)}
+                path={activePath}
+                commitHash={tagTarget.hash}
+                shortHash={tagTarget.shortHash}
+              />
+            ) : null}
+            {resetTarget ? (
+              <ResetDialog
+                open
+                onClose={() => setResetTarget(null)}
+                path={activePath}
+                commitHash={resetTarget}
+              />
+            ) : null}
+            {rebaseEditorOpen ? (
+              <RebaseInteractiveEditor
+                open
+                onClose={() => setRebaseEditorOpen(false)}
+                path={activePath}
+              />
+            ) : null}
+          </>
+        ) : null}
 
-      <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />
-      <InitRepoDialog open={initOpen} onClose={() => setInitOpen(false)} />
+      </Suspense>
+
+      <RepoSourceDialogs
+        cloneOpen={cloneOpen}
+        initOpen={initOpen}
+        onCloseClone={() => setCloneOpen(false)}
+        onCloseInit={() => setInitOpen(false)}
+      />
 
       {/* Confirm gate for destructive tool actions launched from the palette */}
       <AlertDialog

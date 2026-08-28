@@ -5,8 +5,7 @@ import { useState } from "react";
 import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
-import { CloneRepoDialog } from "@/components/repo/tabs/clone-repo-dialog";
-import { InitRepoDialog } from "@/components/repo/tabs/init-repo-dialog";
+import { RepoSourceDialogs } from "@/components/repo/tabs/repo-source-dialogs";
 import { WelcomePanel } from "@/components/onboarding/welcome-panel";
 import { useOnboardingPrefs } from "@/lib/onboarding-prefs";
 import { FeatureCard } from "./feature-card";
@@ -115,8 +114,12 @@ export function EmptyState() {
         </div>
       </div>
 
-      <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />
-      <InitRepoDialog open={initOpen} onClose={() => setInitOpen(false)} />
+      <RepoSourceDialogs
+        cloneOpen={cloneOpen}
+        initOpen={initOpen}
+        onCloseClone={() => setCloneOpen(false)}
+        onCloseInit={() => setInitOpen(false)}
+      />
     </m.div>
   );
 }

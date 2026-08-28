@@ -664,6 +664,43 @@ async fn open_repo_reports_branch_commits_branches_and_tags() {
 }
 
 #[tokio::test]
+async fn open_repo_handles_a_repository_without_commits() {
+    // A freshly initialised repository has no resolvable HEAD. Opening it must
+    // still succeed and simply report nothing to show.
+    let repo = TestRepo::new("open-repo-empty");
+
+    let info = json(&git::open_repo(repo.s(), None).await.unwrap());
+    assert_eq!(info["commits"].as_array().unwrap().len(), 0);
+    assert_eq!(info["branches"].as_array().unwrap().len(), 0);
+    assert_eq!(info["tags"].as_array().unwrap().len(), 0);
+    assert!(
+        info["branch"].as_str().unwrap() == "main" || info["branch"].as_str().unwrap() == "HEAD",
+        "unexpected branch {}",
+        info["branch"]
+    );
+}
+
+#[tokio::test]
+async fn open_repo_tags_every_commit_a_tag_points_at() {
+    // Tags and the log are read concurrently and stitched together afterwards,
+    // so decoration must survive tags that are not on the tip.
+    let repo = TestRepo::new("open-repo-tag-decoration");
+    repo.commit("a.txt", "1\n", "first");
+    repo.git(&["tag", "-a", "annotated", "-m", "note"]);
+    repo.commit("b.txt", "2\n", "second");
+    repo.git(&["tag", "light"]);
+    repo.commit("c.txt", "3\n", "third");
+
+    let info = json(&git::open_repo(repo.s(), None).await.unwrap());
+    let commits = info["commits"].as_array().unwrap();
+    assert_eq!(commits.len(), 3);
+    assert_eq!(commits[0]["tags"].as_array().unwrap().len(), 0);
+    assert_eq!(commits[1]["tags"][0], "light");
+    // The annotated tag must be peeled to the commit it wraps.
+    assert_eq!(commits[2]["tags"][0], "annotated");
+}
+
+#[tokio::test]
 async fn open_repo_rejects_directories_that_are_not_repositories() {
     let dir = common::scratch_path("open-repo-invalid");
     std::fs::create_dir_all(&dir).unwrap();

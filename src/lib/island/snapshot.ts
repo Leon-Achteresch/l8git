@@ -10,6 +10,38 @@ import { useTerminalActivity } from "@/lib/terminal/activity";
 import { terminalLeafId } from "@/lib/terminal/leaf-id";
 import { useTerminalStore } from "@/lib/terminal-store";
 
+/**
+ * The store slices a snapshot is built from. Zustand replaces these
+ * immutably, so comparing references tells us whether rebuilding can produce
+ * anything new — without touching a single repository.
+ */
+export type IslandSnapshotInputs = readonly unknown[];
+
+export function islandSnapshotInputs(): IslandSnapshotInputs {
+  const repo = useRepoStore.getState();
+  return [
+    repo.paths,
+    repo.activePath,
+    repo.repos,
+    repo.status,
+    repo.upstreamSync,
+    useTerminalStore.getState().tabsByPath,
+    useTerminalActivity.getState().busy,
+    useInstalledAgents.getState().installed,
+    useIslandWindow.getState().open,
+    useIslandWindow.getState().mainMinimized,
+  ];
+}
+
+export function sameIslandSnapshotInputs(
+  a: IslandSnapshotInputs,
+  b: IslandSnapshotInputs,
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 let revision = 0;
 
 /** Reads the live stores into the flat shape the island renders. */

@@ -55,6 +55,48 @@ export type IslandResult = {
   data?: unknown;
 };
 
+/**
+ * Structural equality for the island's view of the app. Cheaper than
+ * serializing: the island sits on stores that churn for reasons it does not
+ * care about (commit pages, PR lists, terminal output), and this decides
+ * whether any of that actually reached the island.
+ */
+export function sameIslandSnapshot(a: IslandSnapshot, b: IslandSnapshot): boolean {
+  if (
+    a.activePath !== b.activePath ||
+    a.mainMinimized !== b.mainMinimized ||
+    a.detached !== b.detached ||
+    a.repos.length !== b.repos.length
+  ) {
+    return false;
+  }
+  if (!sameIds(a.installedAgents, b.installedAgents)) return false;
+  for (let i = 0; i < a.repos.length; i++) {
+    const x = a.repos[i];
+    const y = b.repos[i];
+    if (
+      x.path !== y.path ||
+      x.label !== y.label ||
+      x.branch !== y.branch ||
+      x.dirty !== y.dirty ||
+      x.ahead !== y.ahead ||
+      x.behind !== y.behind ||
+      !sameIds(x.running, y.running) ||
+      !sameIds(x.busy, y.busy)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sameIds(a: string[] | null, b: string[] | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 export function findRepo(
   snapshot: IslandSnapshot,
   path: string | null,

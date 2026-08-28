@@ -517,37 +517,19 @@ pub(crate) fn forget_remote_op_for_test(op_id: &str) {
 }
 
 fn tags_by_target(repo: &PathBuf) -> HashMap<String, Vec<String>> {
-    const FMT: &str = "%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end)\u{001f}%(refname:strip=2)";
-    let Ok(out) = run_git(
-        repo,
-        &[
-            "for-each-ref",
-            "refs/tags",
-            &format!("--format={FMT}"),
-        ],
-    ) else {
-        return HashMap::new();
-    };
+    tag_map_from_refs(&tag_refs(repo))
+}
+
+/// Groups tag names by the commit they point at. Annotated tags are already
+/// peeled in `TagRef::commit`, so this needs no git call of its own — callers
+/// that also want the full tag list get both from a single `for-each-ref`.
+fn tag_map_from_refs(tags: &[TagRef]) -> HashMap<String, Vec<String>> {
     let mut map: HashMap<String, Vec<String>> = HashMap::new();
-    for line in out.lines() {
-        if line.is_empty() {
+    for tag in tags {
+        if tag.commit.is_empty() || tag.name.is_empty() {
             continue;
         }
-        let mut parts = line.splitn(2, '\x1f');
-        let Some(oid) = parts.next() else {
-            continue;
-        };
-        let Some(name) = parts.next() else {
-            continue;
-        };
-        let oid = oid.trim();
-        let name = name.trim();
-        if oid.is_empty() || name.is_empty() {
-            continue;
-        }
-        map.entry(oid.to_string())
-            .or_default()
-            .push(name.to_string());
+        map.entry(tag.commit.clone()).or_default().push(tag.name.clone());
     }
     for names in map.values_mut() {
         names.sort();
@@ -570,6 +552,33 @@ fn fetch_commits(
     if run_git(repo, &["rev-parse", "-q", "--verify", "HEAD"]).is_err() {
         return Ok(vec![]);
     }
+    let mut commits = fetch_commits_raw(repo, skip, limit, hide_t3_checkpoints)?;
+    apply_tags(&mut commits, tag_map);
+    Ok(commits)
+}
+
+/// Writes tag names onto the commits they point at.
+fn apply_tags(commits: &mut [Commit], tag_map: &HashMap<String, Vec<String>>) {
+    if tag_map.is_empty() {
+        return;
+    }
+    for commit in commits.iter_mut() {
+        if let Some(names) = tag_map.get(&commit.hash) {
+            commit.tags = names.clone();
+        }
+    }
+}
+
+/// The log read on its own: no tag decoration, and no `rev-parse` guard for an
+/// empty repository. Callers that already know HEAD resolves save a process
+/// spawn, and callers that want tags can fetch them concurrently and decorate
+/// afterwards.
+fn fetch_commits_raw(
+    repo: &PathBuf,
+    skip: usize,
+    limit: usize,
+    hide_t3_checkpoints: bool,
+) -> Result<Vec<Commit>, String> {
     let sep = "\x1f";
     let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
     let max_count = format!("--max-count={limit}");
@@ -607,7 +616,6 @@ fn fetch_commits(
                 .split_whitespace()
                 .map(|s| s.to_string())
                 .collect();
-            let tags = tag_map.get(&hash).cloned().unwrap_or_default();
             Some(Commit {
                 hash,
                 short_hash,
@@ -617,7 +625,7 @@ fn fetch_commits(
                 subject,
                 body,
                 parents,
-                tags,
+                tags: Vec::new(),
                 author_avatar: None,
             })
         })
@@ -809,17 +817,54 @@ pub async fn open_repo(path: String, hide_t3_checkpoints: Option<bool>) -> Resul
         let repo = PathBuf::from(&path);
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
 
-        run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
-            .map_err(|_| format!("'{path}' is not a git repository"))?;
+        // One rev-parse answers both "is this a repository" and "what is HEAD".
+        // A repository without commits makes the HEAD half fail, so that case
+        // falls back to the plain repository check and reports no commits.
+        let (branch, head_exists) = match run_git(
+            &repo,
+            &["rev-parse", "--is-inside-work-tree", "--abbrev-ref", "HEAD"],
+        ) {
+            Ok(out) => {
+                let branch = out
+                    .lines()
+                    .nth(1)
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("HEAD")
+                    .to_string();
+                (branch, true)
+            }
+            Err(_) => {
+                run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
+                    .map_err(|_| format!("'{path}' is not a git repository"))?;
+                ("HEAD".to_string(), false)
+            }
+        };
 
-        let branch = run_git(&repo, &["rev-parse", "--abbrev-ref", "HEAD"])
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|_| "HEAD".into());
+        // Log, tags and branches are independent reads. Running them together
+        // costs one round of process spawns instead of three — process
+        // creation, not git itself, dominates opening a repository.
+        let repo_tags = repo.clone();
+        let repo_branches = repo.clone();
+        let tags_handle = std::thread::spawn(move || tag_refs(&repo_tags));
+        let branches_handle =
+            std::thread::spawn(move || list_branches(&repo_branches).unwrap_or_default());
 
-        let tag_map = tags_by_target(&repo);
-        let commits = fetch_commits(&repo, 0, DEFAULT_INITIAL_COMMITS, &tag_map, hide_t3)?;
-        let branches = list_branches(&repo).unwrap_or_default();
-        let tags = tag_refs(&repo);
+        let commits = if head_exists {
+            fetch_commits_raw(&repo, 0, DEFAULT_INITIAL_COMMITS, hide_t3)
+        } else {
+            Ok(Vec::new())
+        };
+
+        let tags = tags_handle
+            .join()
+            .map_err(|_| "tag thread panicked".to_string())?;
+        let branches = branches_handle
+            .join()
+            .map_err(|_| "branch thread panicked".to_string())?;
+
+        let mut commits = commits?;
+        apply_tags(&mut commits, &tag_map_from_refs(&tags));
 
         Ok(RepoInfo {
             path: repo.to_string_lossy().to_string(),

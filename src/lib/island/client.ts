@@ -10,9 +10,15 @@ import {
   requestSnapshot,
   sendRequest,
 } from "@/lib/island/bridge";
-import { buildIslandSnapshot } from "@/lib/island/snapshot";
+import {
+  buildIslandSnapshot,
+  islandSnapshotInputs,
+  sameIslandSnapshotInputs,
+  type IslandSnapshotInputs,
+} from "@/lib/island/snapshot";
 import {
   EMPTY_ISLAND_SNAPSHOT,
+  sameIslandSnapshot,
   type IslandRequest,
   type IslandResult,
   type IslandSnapshot,
@@ -37,17 +43,19 @@ export function useIslandSnapshot(): IslandSnapshot {
     detachedWindow ? EMPTY_ISLAND_SNAPSHOT : buildIslandSnapshot(),
   );
 
-  const lastLocal = useRef("");
+  const lastInputs = useRef<IslandSnapshotInputs>([]);
   useEffect(() => {
     if (detachedWindow) return;
-    // Store subscriptions fire on unrelated changes (terminal output, for one),
-    // so the island only re-renders when its own slice of state moved.
+    // Store subscriptions fire on unrelated changes (commit pages, PR lists,
+    // terminal output). Two gates keep that cheap: reference equality on the
+    // slices decides whether to rebuild at all, structural equality on the
+    // result decides whether to re-render.
     const refresh = () => {
+      const inputs = islandSnapshotInputs();
+      if (sameIslandSnapshotInputs(lastInputs.current, inputs)) return;
+      lastInputs.current = inputs;
       const next = buildIslandSnapshot();
-      const key = JSON.stringify({ ...next, revision: 0 });
-      if (key === lastLocal.current) return;
-      lastLocal.current = key;
-      setLocal(next);
+      setLocal((prev) => (sameIslandSnapshot(prev, next) ? prev : next));
     };
     const unsubscribes = [
       useRepoStore.subscribe(refresh),
@@ -101,7 +109,7 @@ export async function dispatchIslandAction(
   request: IslandRequest,
 ): Promise<IslandResult> {
   if (!isIslandWindow()) {
-    const { runIslandAction } = await import("@/lib/island/host");
+    const { runIslandAction } = await import("@/lib/island/executor");
     return runIslandAction(request);
   }
   if (!IS_TAURI) {
