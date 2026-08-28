@@ -55,6 +55,7 @@ import type {
   AgentCapabilityMcpServer,
   AgentMcpServerDraft,
 } from "@/lib/agents/capability-types";
+import { SpinIcon } from "@/components/motion/kit";
 
 function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -131,7 +132,7 @@ function McpEditor({
               {t("common.cancel")}
             </Button>
             <Button type="button" size="sm" className="rounded-lg" disabled={saving} onClick={onSave}>
-              {saving ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              {saving ? <SpinIcon icon={LoaderCircle} className="size-3.5" /> : <Save className="size-3.5" />}
               {t("common.save")}
             </Button>
           </>

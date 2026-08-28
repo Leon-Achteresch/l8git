@@ -174,6 +174,10 @@ export function countRepos(group: GroupNode): number {
   return c;
 }
 
+export function groupRepoPaths(group: GroupNode): string[] {
+  return [...collectRepoPaths(group.children, new Set<string>())];
+}
+
 export function groupContainsPath(group: GroupNode, path: string): boolean {
   return findNode(group.children, path) != null;
 }

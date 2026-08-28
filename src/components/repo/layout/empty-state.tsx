@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { Download, FolderGit2, GitBranch, GitCommitHorizontal, GitMerge, GitPullRequest, Plus } from "lucide-react";
 import { useState } from "react";
+import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
 import { CloneRepoDialog } from "@/components/repo/tabs/clone-repo-dialog";
@@ -18,7 +19,12 @@ export function EmptyState() {
   const welcomeDismissed = useOnboardingPrefs((s) => s.welcomeDismissed);
 
   return (
-    <div className="relative isolate flex h-full w-full flex-col items-center justify-center overflow-hidden bg-background p-8 animate-in fade-in duration-500">
+    <m.div
+      className="relative isolate flex h-full w-full flex-col items-center justify-center overflow-hidden bg-background p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+    >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,hsl(var(--foreground)/0.06)_1px,transparent_1px)] bg-[size:22px_22px]"
@@ -111,6 +117,6 @@ export function EmptyState() {
 
       <CloneRepoDialog open={cloneOpen} onClose={() => setCloneOpen(false)} />
       <InitRepoDialog open={initOpen} onClose={() => setInitOpen(false)} />
-    </div>
+    </m.div>
   );
 }

@@ -10,7 +10,7 @@ import {
   MessageSquareText,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import type {
   ApprovalCardAnswer,
   ApprovalCardAnswers,
+  ApprovalCardOption,
   ApprovalCardProps,
   ApprovalCardQuestion,
   ApprovalCardStatus,
@@ -37,6 +38,7 @@ export type {
   ApprovalCardQuestion,
   ApprovalCardStatus,
 } from "./types";
+import { SpinIcon } from "@/components/motion/kit";
 
 const EMPTY_ANSWER: ApprovalCardAnswer = { selected: [], custom: "" };
 
@@ -77,6 +79,20 @@ function isAnswered(answer: ApprovalCardAnswer) {
   return answer.selected.length > 0 || Boolean(answer.custom?.trim());
 }
 
+/** Option label plus the rationale the agent supplied for it, when present. */
+function OptionLabel({ option }: { option: ApprovalCardOption }) {
+  return (
+    <span className="select-none">
+      <span className="block text-sm text-foreground">{option.label}</span>
+      {option.description ? (
+        <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+          {option.description}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function QuestionOptions({
   question,
   answer,
@@ -98,8 +114,9 @@ function QuestionOptions({
         question.multiple ? (
           <div className="grid gap-0.5">
             {question.options.map((option) => (
-              <label key={option.value} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 has-disabled:cursor-not-allowed has-disabled:opacity-60">
+              <label key={option.value} className="flex min-h-9 cursor-pointer items-start gap-3 rounded-lg px-1.5 py-1.5 has-disabled:cursor-not-allowed has-disabled:opacity-60">
                 <Checkbox
+                  className="mt-0.5"
                   checked={answer.selected.includes(option.value)}
                   disabled={disabled || option.disabled}
                   onCheckedChange={(checked) =>
@@ -111,7 +128,7 @@ function QuestionOptions({
                     })
                   }
                 />
-                <span className="select-none text-sm text-foreground">{option.label}</span>
+                <OptionLabel option={option} />
               </label>
             ))}
           </div>
@@ -125,12 +142,13 @@ function QuestionOptions({
             className="gap-0.5"
           >
             {question.options.map((option) => (
-              <label key={option.value} className="flex min-h-9 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 has-disabled:cursor-not-allowed has-disabled:opacity-60">
+              <label key={option.value} className="flex min-h-9 cursor-pointer items-start gap-3 rounded-lg px-1.5 py-1.5 has-disabled:cursor-not-allowed has-disabled:opacity-60">
                 <RadioGroupItem
+                  className="mt-0.5"
                   value={option.value}
                   disabled={disabled || option.disabled}
                 />
-                <span className="select-none text-sm text-foreground">{option.label}</span>
+                <OptionLabel option={option} />
               </label>
             ))}
           </RadioGroup>
@@ -168,7 +186,7 @@ function ProgressDots({ current, ids }: { current: number; ids: string[] }) {
         {t("agentChat.request.questionProgress", { current: current + 1, total: ids.length })}
       </span>
       {ids.map((id, index) => (
-        <motion.span
+        <m.span
           key={id}
           aria-hidden="true"
           initial={{
@@ -302,7 +320,7 @@ export function ApprovalCard({
           )}
         >
           {busy ? (
-            <LoaderCircle className={cn("size-4", !reduce && "animate-spin")} />
+            <SpinIcon icon={LoaderCircle} active={!reduce} className="size-4" />
           ) : interactive ? (
             questionMode ? (
               <CircleHelp className="size-4" />
@@ -354,7 +372,7 @@ export function ApprovalCard({
           <AgentDisclosure open={interactive}>
             {questionMode && question ? (
               <AnimatePresence initial={false} mode="wait">
-                <motion.div
+                <m.div
                   key={question.id}
                   initial={reduce ? { opacity: 1 } : { opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -373,7 +391,7 @@ export function ApprovalCard({
                     onChange={updateCurrentAnswer}
                     onSingleSelect={queueAutoAdvance}
                   />
-                </motion.div>
+                </m.div>
               </AnimatePresence>
             ) : (
               <div>
@@ -425,7 +443,7 @@ export function ApprovalCard({
                   className={cn("rounded-full", !onReject && "ml-auto")}
                 >
                   {busy ? (
-                    <LoaderCircle className={cn("size-4", !reduce && "animate-spin")} />
+                    <SpinIcon icon={LoaderCircle} active={!reduce} className="size-4" />
                   ) : currentStep === questions.length - 1 ? (
                     <>
                       {submitLabel}

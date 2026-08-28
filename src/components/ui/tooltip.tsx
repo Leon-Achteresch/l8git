@@ -1,6 +1,16 @@
 import * as React from "react";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
+import { AnimatePresence, m } from "motion/react";
 import { cn } from "@/lib/utils";
+import {
+  createOpenContext,
+  popperVariants,
+  springFast,
+  useControllableOpen,
+  type PopSide,
+} from "@/components/motion/kit";
+
+const [TooltipOpenProvider, useTooltipOpen] = createOpenContext("Tooltip");
 
 function TooltipProvider({
   delayDuration = 400,
@@ -9,10 +19,18 @@ function TooltipProvider({
   return <TooltipPrimitive.Provider delayDuration={delayDuration} {...props} />;
 }
 
-function Tooltip(props: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+function Tooltip({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+  const [value, change] = useControllableOpen({ open, defaultOpen, onOpenChange });
   return (
     <TooltipProvider>
-      <TooltipPrimitive.Root {...props} />
+      <TooltipOpenProvider value={value}>
+        <TooltipPrimitive.Root open={value} onOpenChange={change} {...props} />
+      </TooltipOpenProvider>
     </TooltipProvider>
   );
 }
@@ -25,20 +43,43 @@ function TooltipTrigger(
 
 function TooltipContent({
   className,
+  side = "top",
   sideOffset = 4,
+  children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+  const isOpen = useTooltipOpen();
   return (
-    <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Content
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 overflow-hidden rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-          className,
-        )}
-        {...props}
-      />
-    </TooltipPrimitive.Portal>
+    <AnimatePresence>
+      {isOpen ? (
+        <TooltipPrimitive.Portal key="tooltip-portal" forceMount>
+          <TooltipPrimitive.Content
+            side={side}
+            sideOffset={sideOffset}
+            forceMount
+            asChild
+            {...props}
+          >
+            <m.div
+              className={cn(
+                "z-50 overflow-hidden rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md",
+                className,
+              )}
+              style={{
+                transformOrigin: "var(--radix-tooltip-content-transform-origin)",
+              }}
+              variants={popperVariants(side as PopSide)}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={springFast}
+            >
+              {children}
+            </m.div>
+          </TooltipPrimitive.Content>
+        </TooltipPrimitive.Portal>
+      ) : null}
+    </AnimatePresence>
   );
 }
 

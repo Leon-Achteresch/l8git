@@ -9,6 +9,7 @@ import {
   type ApprovalCardAnswers,
   type ApprovalCardQuestion,
 } from "@/components/agents/ui/approval-card";
+import { AgentPlanCard } from "@/components/agents/chat/agent-plan-card";
 import { CodeBlock } from "@/components/agents/ui/code-block";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import type { AgentPendingRequest } from "@/lib/agents/types";
@@ -76,7 +77,11 @@ function approvalQuestions(
       id: question.id,
       title: question.header || t("agentChat.request.inputRequired"),
       description: question.question,
-      options: question.options.map((option) => ({ value: option.label, label: option.label })),
+      options: question.options.map((option) => ({
+        value: option.label,
+        label: option.label,
+        description: option.description,
+      })),
       multiple: question.multiSelect,
       allowCustom: question.isOther || question.options.length === 0,
       customPlaceholder: question.isSecret
@@ -158,6 +163,9 @@ export const AgentRequestCard = memo(function AgentRequestCard({ request }: { re
   const [busy, setBusy] = useState(false);
   const [resolved, setResolved] = useState<"approved" | "rejected" | "answered" | null>(null);
   const questions = useMemo(() => approvalQuestions(request, t), [request, t]);
+
+  // A proposed plan is reviewed as prose, not picked from a list of options.
+  if (request.kind === "plan") return <AgentPlanCard request={request} />;
 
   const submit = async (answers: ApprovalCardAnswers) => {
     setBusy(true);

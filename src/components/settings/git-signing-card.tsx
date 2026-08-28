@@ -27,6 +27,7 @@ import { CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { SpinIcon } from "@/components/motion/kit";
 
 function scopeSummary(scope: SigningScope, fallback: string): string {
   const parts = [
@@ -109,7 +110,7 @@ export function GitSigningCard() {
 
         {activePath && loading && !info && (
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            <SpinIcon icon={Loader2} className="size-3.5" aria-hidden />
             {t("settings.signingLoading")}
           </p>
         )}

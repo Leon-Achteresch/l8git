@@ -20,6 +20,7 @@ import { History, Loader2, RefreshCw, Undo2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { SpinIcon } from "@/components/motion/kit";
 
 const EMPTY_ENTRIES: ReflogEntry[] = [];
 
@@ -129,7 +130,7 @@ export function ReflogPage({
               disabled={loading}
               onClick={() => void load(path)}
             >
-              <RefreshCw className={loading ? 'size-4 animate-spin' : 'size-4'} />
+              <SpinIcon icon={RefreshCw} active={loading} className='size-4' />
             </Button>
             <Button
               type='button'
@@ -151,7 +152,7 @@ export function ReflogPage({
             </p>
           ) : entries.length === 0 && loading ? (
             <div className='flex items-center justify-center gap-2 py-16 text-muted-foreground'>
-              <Loader2 className='size-4 animate-spin' />
+              <SpinIcon icon={Loader2} className='size-4 ' />
               <span className='text-sm'>{t('reflog.loading')}</span>
             </div>
           ) : entries.length === 0 ? (
@@ -183,7 +184,7 @@ export function ReflogPage({
                   onClick={() => void loadMore(path)}
                 >
                   {loading ? (
-                    <Loader2 className='size-3.5 animate-spin' />
+                    <SpinIcon icon={Loader2} className='size-3.5 ' />
                   ) : null}
                   {t('reflog.loadMore')}
                 </Button>

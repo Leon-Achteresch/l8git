@@ -14,7 +14,7 @@ import {
   SquareTerminal,
   Wrench,
 } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -32,6 +32,7 @@ import { ActionSwapRollText } from "@/components/motion/action-swap-roll";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { SPRING_PRESS, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type ToolResultStatus = "running" | "success" | "error" | "cancelled";
 export type ToolResultKind = "terminal" | "request" | "custom";
@@ -103,7 +104,7 @@ function StatusIcon({
   reduce: boolean;
 }) {
   if (status === "running") {
-    return <LoaderCircle className={cn("size-3", !reduce && "animate-spin")} />;
+    return <SpinIcon icon={LoaderCircle} active={!reduce} className="size-3" />;
   }
   if (status === "success") return <CircleCheck className="size-3" />;
   if (status === "error") return <CircleX className="size-3" />;
@@ -122,7 +123,7 @@ function ToolResultAction({
   const reduce = useReducedMotion() ?? false;
 
   return (
-    <motion.button
+    <m.button
       type="button"
       aria-label={label}
       title={label}
@@ -132,7 +133,7 @@ function ToolResultAction({
       className="ag-icon-btn"
     >
       {children}
-    </motion.button>
+    </m.button>
   );
 }
 
@@ -289,14 +290,14 @@ export function ToolResult({
           <StatusIcon status={status} reduce={reduce} />
           <ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
         </span>
-        <motion.span
+        <m.span
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
           className="ag-faint shrink-0 transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
-        </motion.span>
+        </m.span>
       </button>
 
       <AgentDisclosure

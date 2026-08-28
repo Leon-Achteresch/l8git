@@ -32,6 +32,7 @@ import { claudeCapabilitySnapshot } from "@/lib/agents/providers/claude/chat-sto
 import { openCodeCapabilitySnapshot } from "@/lib/agents/providers/opencode/chat-store";
 import type { AgentHook, AgentMcpServer, AgentPlugin, AgentSkill } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 type Section = "skills" | "commands" | "agents" | "mcp" | "plugins" | "hooks";
 type CapabilityProvider = "claude" | "opencode";
@@ -297,7 +298,7 @@ export function ClaudeCapabilityCenter({
           </div>
           <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" className="hidden h-8 w-52 rounded-full border-[var(--ag-line)] bg-[var(--ag-surface-2)] text-[11px] shadow-none sm:block" />
           <button type="button" className="ag-icon-btn" disabled={loading} onClick={() => void load(true)} title="Refresh" aria-label="Refresh">
-            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+            <SpinIcon icon={RefreshCw} active={loading} className="size-4" />
           </button>
         </div>
         <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none]" aria-label={`${providerLabel} capabilities`}>

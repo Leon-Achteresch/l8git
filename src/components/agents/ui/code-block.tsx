@@ -2,7 +2,7 @@
 // beui.dev/components/agents/code-block
 
 import { Check, Copy, FileCode2, LoaderCircle } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -19,6 +19,7 @@ import {
 } from "@/components/agents/ui/agent-code";
 import { SPRING_PRESS } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type CodeBlockStatus = "streaming" | "complete";
 const EMPTY_HIGHLIGHT_LINES: number[] = [];
@@ -127,14 +128,14 @@ export function CodeBlock({
           )}
         >
           {streaming ? (
-            <LoaderCircle className={cn("size-3", !reduce && "animate-spin")} />
+            <SpinIcon icon={LoaderCircle} active={!reduce} className="size-3" />
           ) : (
             <Check className="size-3" />
           )}
           {streaming ? "Writing" : "Ready"}
         </span>
         {copyable || onCopy ? (
-          <motion.button
+          <m.button
             type="button"
             aria-label={copied ? "Copied" : "Copy code"}
             title={copied ? "Copied" : "Copy code"}
@@ -148,7 +149,7 @@ export function CodeBlock({
             ) : (
               <Copy className="size-3.5" />
             )}
-          </motion.button>
+          </m.button>
         ) : null}
       </div>
 

@@ -10,6 +10,7 @@ import { toastError } from "@/lib/error-toast";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
 import { useCommitPrefs } from "@/lib/commit-prefs";
 import { DiffLayoutToggle } from "./diff-layout-toggle";
+import { SpinIcon } from "@/components/motion/kit";
 
 const EXT_MAP: Record<string, string> = {
   ts: "typescript", tsx: "typescript",
@@ -165,7 +166,7 @@ export function MonacoStagingDiff({
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-primary/40" />
+        <SpinIcon icon={Loader2} className="h-5 w-5 text-primary/40" />
       </div>
     );
   }
@@ -185,7 +186,7 @@ export function MonacoStagingDiff({
           onClick={handleSave}
         >
           {saving ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <SpinIcon icon={Loader2} className="h-3 w-3" />
           ) : savedFlash ? (
             <CheckCircle2 className="h-3 w-3 text-git-added" />
           ) : (

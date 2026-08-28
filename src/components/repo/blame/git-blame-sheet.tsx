@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 export type BlameEntry = {
   commit_hash: string;
@@ -388,7 +389,7 @@ export function GitBlameSheet({
       <div className="min-h-0 flex-1">
         {loading ? (
           <div className="flex h-full items-center justify-center gap-3 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin text-primary/50" />
+            <SpinIcon icon={Loader2} className="h-5 w-5 text-primary/50" />
             <span className="text-sm">{t("blame.loading")}</span>
           </div>
         ) : failed ? (

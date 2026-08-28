@@ -9,6 +9,7 @@ import { FolderOpen, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { SpinIcon } from "@/components/motion/kit";
 
 export function InitRepoDialog({
   open,
@@ -135,7 +136,7 @@ export function InitRepoDialog({
               {t("initRepo.cancel")}
             </Button>
             <Button type="button" onClick={() => void runInit()} disabled={busy}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t("initRepo.create")}
+              {busy ? <SpinIcon icon={Loader2} className="h-4 w-4" /> : t("initRepo.create")}
             </Button>
           </div>
         </div>

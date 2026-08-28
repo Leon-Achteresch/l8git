@@ -170,6 +170,7 @@
     "conversation": "Unterhaltung",
     "loadingConversations": "Unterhaltungen werden geladen…",
     "showOlder": "{{count}} ältere Turns anzeigen",
+    "jumpToLatest": "Zum Neuesten springen",
     "showMoreConversations": "{{count}} weitere Unterhaltungen anzeigen",
     "firstConversation": "Erste Unterhaltung starten",
     "manageConversation": "Unterhaltung verwalten",
@@ -336,7 +337,22 @@
     "worktreeLanded": "{{name}} gemergt und aufgeräumt",
     "usageToday": "Heute: {{cost}} · {{tokens}} Tokens",
     "usageWeek": "Letzte 7 Tage: {{cost}} · {{tokens}} Tokens",
-    "chartLoading": "Chart wird erstellt…"
+    "chartLoading": "Chart wird erstellt…",
+    "plan": {
+      "title": "Umsetzungsplan freigeben",
+      "empty": "Es wurde kein Planinhalt übermittelt.",
+      "approve": "Plan umsetzen",
+      "approveAuto": "Umsetzen & Änderungen automatisch freigeben",
+      "keepPlanning": "Weiter planen",
+      "feedbackPlaceholder": "Optionales Feedback zum Plan …",
+      "hint": "Nach der Freigabe verlässt die Sitzung den Plan-Modus und darf Änderungen ausführen.",
+      "statusPending": "Entscheidung offen",
+      "statusApproved": "Freigegeben",
+      "statusKeptPlanning": "Weiter geplant",
+      "bannerTitle": "Plan-Modus aktiv",
+      "bannerBody": "Der Agent recherchiert und plant nur — Dateien und Befehle bleiben gesperrt, bis du einen Plan freigibst.",
+      "bannerAction": "Plan-Modus beenden"
+    }
   },
   "agentReview": {
     "openButton": "Änderungen reviewen",
@@ -2217,7 +2233,8 @@
     "menuTitle": "Arbeitsbereiche",
     "add": "Workspace hinzufügen…",
     "edit": "„{{name}}“ bearbeiten…",
-    "defaultPersonalName": "Persönlich"
+    "defaultPersonalName": "Persönlich",
+    "moveToWorkspace": "In Workspace verschieben"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "Letzter Workspace kann nicht gelöscht werden",

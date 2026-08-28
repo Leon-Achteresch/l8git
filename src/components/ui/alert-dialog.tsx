@@ -1,13 +1,38 @@
 import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui"
+import { AnimatePresence, m } from "motion/react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  createOpenContext,
+  overlayTransition,
+  overlayVariants,
+  popVariants,
+  springFast,
+  useControllableOpen,
+} from "@/components/motion/kit"
+
+const [AlertDialogOpenProvider, useAlertDialogOpen] =
+  createOpenContext("AlertDialog")
 
 function AlertDialog({
+  open,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
+  const [value, change] = useControllableOpen({ open, defaultOpen, onOpenChange })
+  return (
+    <AlertDialogOpenProvider value={value}>
+      <AlertDialogPrimitive.Root
+        data-slot="alert-dialog"
+        open={value}
+        onOpenChange={change}
+        {...props}
+      />
+    </AlertDialogOpenProvider>
+  )
 }
 
 function AlertDialogTrigger({
@@ -33,35 +58,64 @@ function AlertDialogOverlay({
   return (
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
-      className={cn(
-        "fixed inset-0 z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
-      )}
+      forceMount
+      asChild
       {...props}
-    />
+    >
+      <m.div
+        className={cn(
+          "fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs",
+          className
+        )}
+        variants={overlayVariants}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+        transition={overlayTransition}
+      />
+    </AlertDialogPrimitive.Overlay>
   )
 }
 
 function AlertDialogContent({
   className,
   size = "default",
+  children,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: "default" | "sm"
 }) {
+  const isOpen = useAlertDialogOpen()
   return (
-    <AlertDialogPortal>
-      <AlertDialogOverlay />
-      <AlertDialogPrimitive.Content
-        data-slot="alert-dialog-content"
-        data-size={size}
-        className={cn(
-          "group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
-        {...props}
-      />
-    </AlertDialogPortal>
+    <AnimatePresence>
+      {isOpen ? (
+        <AlertDialogPortal key="alert-dialog-portal" forceMount>
+          <AlertDialogOverlay />
+          <AlertDialogPrimitive.Content
+            data-slot="alert-dialog-content"
+            data-size={size}
+            forceMount
+            asChild
+            {...props}
+          >
+            <m.div
+              className={cn(
+                "group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full gap-4 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm",
+                className
+              )}
+              style={{ x: "-50%", y: "-50%" }}
+              variants={popVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={springFast}
+            >
+              {children}
+            </m.div>
+          </AlertDialogPrimitive.Content>
+        </AlertDialogPortal>
+      ) : null}
+    </AnimatePresence>
   )
 }
 

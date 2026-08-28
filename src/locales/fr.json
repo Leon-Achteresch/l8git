@@ -170,6 +170,7 @@
     "conversation": "Conversation",
     "loadingConversations": "Chargement des conversations…",
     "showOlder": "Afficher {{count}} tours plus anciens",
+    "jumpToLatest": "Aller au plus récent",
     "showMoreConversations": "Afficher {{count}} conversations de plus",
     "firstConversation": "Démarrer la première conversation",
     "manageConversation": "Gérer la conversation",
@@ -336,7 +337,22 @@
     "worktreeLanded": "{{name}} fusionné et nettoyé",
     "usageToday": "Aujourd'hui : {{cost}} · {{tokens}} tokens",
     "usageWeek": "7 derniers jours : {{cost}} · {{tokens}} tokens",
-    "chartLoading": "Rendu du graphique…"
+    "chartLoading": "Rendu du graphique…",
+    "plan": {
+      "title": "Approuver le plan de mise en œuvre",
+      "empty": "Aucun contenu de plan n'a été transmis.",
+      "approve": "Exécuter ce plan",
+      "approveAuto": "Exécuter et approuver les modifications automatiquement",
+      "keepPlanning": "Continuer à planifier",
+      "feedbackPlaceholder": "Retour facultatif sur le plan…",
+      "hint": "L'approbation quitte le mode plan afin que la session puisse appliquer des modifications.",
+      "statusPending": "Décision en attente",
+      "statusApproved": "Approuvé",
+      "statusKeptPlanning": "Planification poursuivie",
+      "bannerTitle": "Mode plan actif",
+      "bannerBody": "L'agent se contente de rechercher et de planifier : fichiers et commandes restent verrouillés jusqu'à l'approbation d'un plan.",
+      "bannerAction": "Quitter le mode plan"
+    }
   },
   "agentReview": {
     "openButton": "Examiner les modifications",
@@ -2217,7 +2233,8 @@
     "menuTitle": "Espaces de travail",
     "add": "Ajouter un espace de travail…",
     "edit": "Modifier « {{name}} »…",
-    "defaultPersonalName": "Personnel"
+    "defaultPersonalName": "Personnel",
+    "moveToWorkspace": "Déplacer vers l’espace de travail"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "Le dernier espace de travail ne peut pas être supprimé",

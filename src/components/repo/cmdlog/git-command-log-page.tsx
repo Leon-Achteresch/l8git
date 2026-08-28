@@ -38,6 +38,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { SpinIcon } from "@/components/motion/kit";
 
 function CommandRow({ entry }: { entry: GitCommandEntry }) {
   const { t } = useTranslation();
@@ -172,7 +173,7 @@ export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
               disabled={loading}
               onClick={() => void load().catch((e) => toastError(String(e)))}
             >
-              <RefreshCw className={loading ? 'size-4 animate-spin' : 'size-4'} />
+              <SpinIcon icon={RefreshCw} active={loading} className='size-4' />
             </Button>
             <Button
               type='button'
@@ -200,7 +201,7 @@ export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
         <div className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
           {entries.length === 0 && loading ? (
             <div className='flex items-center justify-center gap-2 py-16 text-muted-foreground'>
-              <Loader2 className='size-4 animate-spin' />
+              <SpinIcon icon={Loader2} className='size-4 ' />
               <span className='text-sm'>{t('common.loading')}</span>
             </div>
           ) : visible.length === 0 ? (

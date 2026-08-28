@@ -1,13 +1,34 @@
 import * as React from "react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 
+import { AnimatePresence, m } from "motion/react"
+
 import { cn } from "@/lib/utils"
+import {
+  createOpenContext,
+  popperVariants,
+  springFast,
+  useControllableOpen,
+} from "@/components/motion/kit"
+
+const [ContextMenuOpenProvider, useContextMenuOpen] =
+  createOpenContext("ContextMenu")
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
 function ContextMenu({
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
-  return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
+  const [value, change] = useControllableOpen({ onOpenChange })
+  return (
+    <ContextMenuOpenProvider value={value}>
+      <ContextMenuPrimitive.Root
+        data-slot="context-menu"
+        onOpenChange={change}
+        {...props}
+      />
+    </ContextMenuOpenProvider>
+  )
 }
 
 function ContextMenuTrigger({
@@ -58,18 +79,43 @@ function ContextMenuRadioGroup({
 
 function ContextMenuContent({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
 }) {
+  const isOpen = useContextMenuOpen()
   return (
-    <ContextMenuPrimitive.Portal>
-      <ContextMenuPrimitive.Content
-        data-slot="context-menu-content"
-        className={cn("z-50 max-h-(--radix-context-menu-content-available-height) min-w-36 origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-border duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
-        {...props}
-      />
-    </ContextMenuPrimitive.Portal>
+    <AnimatePresence>
+      {isOpen ? (
+        <ContextMenuPrimitive.Portal key="context-menu-portal" forceMount>
+          <ContextMenuPrimitive.Content
+            data-slot="context-menu-content"
+            forceMount
+            asChild
+            {...props}
+          >
+            <m.div
+              className={cn(
+                "z-50 max-h-(--radix-context-menu-content-available-height) min-w-36 overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-border",
+                className
+              )}
+              style={{
+                transformOrigin:
+                  "var(--radix-context-menu-content-transform-origin)",
+              }}
+              variants={popperVariants("bottom")}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              transition={springFast}
+            >
+              {children}
+            </m.div>
+          </ContextMenuPrimitive.Content>
+        </ContextMenuPrimitive.Portal>
+      ) : null}
+    </AnimatePresence>
   )
 }
 
@@ -122,14 +168,31 @@ function ContextMenuSubTrigger({
 
 function ContextMenuSubContent({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
   return (
     <ContextMenuPrimitive.SubContent
       data-slot="context-menu-sub-content"
-      className={cn("z-50 min-w-32 origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+      asChild
       {...props}
-    />
+    >
+      <m.div
+        className={cn(
+          "z-50 min-w-32 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg",
+          className
+        )}
+        style={{
+          transformOrigin: "var(--radix-context-menu-content-transform-origin)",
+        }}
+        variants={popperVariants("right")}
+        initial="hidden"
+        animate="visible"
+        transition={springFast}
+      >
+        {children}
+      </m.div>
+    </ContextMenuPrimitive.SubContent>
   )
 }
 

@@ -170,6 +170,7 @@
     "conversation": "Conversa",
     "loadingConversations": "Carregando conversas…",
     "showOlder": "Mostrar {{count}} turnos anteriores",
+    "jumpToLatest": "Ir para o mais recente",
     "showMoreConversations": "Mostrar mais {{count}} conversas",
     "firstConversation": "Iniciar a primeira conversa",
     "manageConversation": "Gerenciar conversa",
@@ -336,7 +337,22 @@
     "worktreeLanded": "{{name}} mesclado e limpo",
     "usageToday": "Hoje: {{cost}} · {{tokens}} tokens",
     "usageWeek": "Últimos 7 dias: {{cost}} · {{tokens}} tokens",
-    "chartLoading": "Renderizando gráfico…"
+    "chartLoading": "Renderizando gráfico…",
+    "plan": {
+      "title": "Aprovar o plano de implementação",
+      "empty": "Nenhum conteúdo de plano foi enviado.",
+      "approve": "Executar este plano",
+      "approveAuto": "Executar e aprovar alterações automaticamente",
+      "keepPlanning": "Continuar planejando",
+      "feedbackPlaceholder": "Comentário opcional sobre o plano…",
+      "hint": "Aprovar encerra o modo plano para que a sessão possa aplicar alterações.",
+      "statusPending": "Decisão pendente",
+      "statusApproved": "Aprovado",
+      "statusKeptPlanning": "Ainda planejando",
+      "bannerTitle": "Modo plano ativo",
+      "bannerBody": "O agente apenas pesquisa e planeja — arquivos e comandos ficam bloqueados até você aprovar um plano.",
+      "bannerAction": "Sair do modo plano"
+    }
   },
   "agentReview": {
     "openButton": "Revisar alterações",
@@ -2217,7 +2233,8 @@
     "menuTitle": "Workspaces",
     "add": "Adicionar workspace…",
     "edit": "Editar “{{name}}”…",
-    "defaultPersonalName": "Pessoal"
+    "defaultPersonalName": "Pessoal",
+    "moveToWorkspace": "Mover para a área de trabalho"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "O último workspace não pode ser excluído",

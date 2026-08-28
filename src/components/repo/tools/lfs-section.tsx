@@ -30,6 +30,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { SpinIcon } from "@/components/motion/kit";
 
 const INSTALL_URL = "https://git-lfs.com";
 const PAGE_SIZE = 50;
@@ -276,7 +277,7 @@ export function LfsSection({ path }: { path: string }) {
             onClick={() => void pull()}
           >
             {pulling ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <SpinIcon icon={Loader2} className="size-3.5" />
             ) : (
               <CloudDownload className="size-3.5" />
             )}
@@ -369,7 +370,7 @@ export function LfsSection({ path }: { path: string }) {
           </div>
           {filesLoading && !fileList ? (
             <div className="mt-2 flex justify-center">
-              <Loader2 className="size-4 animate-spin text-primary/50" />
+              <SpinIcon icon={Loader2} className="size-4 text-primary/50" />
             </div>
           ) : shownFiles.length === 0 ? (
             <p className="mt-1.5 text-xs text-muted-foreground/80">
@@ -413,7 +414,7 @@ export function LfsSection({ path }: { path: string }) {
               onClick={() => setLimit((v) => v + PAGE_SIZE)}
             >
               {filesLoading ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <SpinIcon icon={Loader2} className="size-3.5" />
               ) : null}
               {t("lfs.loadMore")}
             </Button>

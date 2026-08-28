@@ -16,6 +16,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SpinIcon } from "@/components/motion/kit";
 
 const LINE_HEIGHT_PX = 18;
 const EMPTY_SET: ReadonlySet<string> = new Set();
@@ -699,7 +700,7 @@ export function UnifiedDiffBody({
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+        <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
       </div>
     );
   }

@@ -170,6 +170,7 @@
     "conversation": "会話",
     "loadingConversations": "会話を読み込み中…",
     "showOlder": "過去のターンを {{count}} 件表示",
+    "jumpToLatest": "最新へ移動",
     "showMoreConversations": "さらに {{count}} 件の会話を表示",
     "firstConversation": "最初の会話を始める",
     "manageConversation": "会話を管理",
@@ -336,7 +337,22 @@
     "worktreeLanded": "{{name}} をマージして後片付けしました",
     "usageToday": "今日: {{cost}} · {{tokens}} トークン",
     "usageWeek": "過去 7 日間: {{cost}} · {{tokens}} トークン",
-    "chartLoading": "グラフを描画中…"
+    "chartLoading": "グラフを描画中…",
+    "plan": {
+      "title": "実装プランを承認",
+      "empty": "プランの内容が送信されませんでした。",
+      "approve": "このプランを実行",
+      "approveAuto": "実行して編集を自動承認",
+      "keepPlanning": "計画を続ける",
+      "feedbackPlaceholder": "プランへの任意のフィードバック…",
+      "hint": "承認するとプランモードを終了し、セッションが変更を適用できるようになります。",
+      "statusPending": "判断待ち",
+      "statusApproved": "承認済み",
+      "statusKeptPlanning": "計画を継続",
+      "bannerTitle": "プランモード有効",
+      "bannerBody": "エージェントは調査と計画のみを行います。プランを承認するまでファイルとコマンドはロックされたままです。",
+      "bannerAction": "プランモードを終了"
+    }
   },
   "agentReview": {
     "openButton": "変更をレビュー",
@@ -2217,7 +2233,8 @@
     "menuTitle": "ワークスペース",
     "add": "ワークスペースを追加…",
     "edit": "「{{name}}」を編集…",
-    "defaultPersonalName": "個人"
+    "defaultPersonalName": "個人",
+    "moveToWorkspace": "ワークスペースへ移動"
   },
   "workspaceDialogs": {
     "lastWorkspaceDeleteTitle": "最後のワークスペースは削除できません",
