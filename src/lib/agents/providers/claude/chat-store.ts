@@ -1,3 +1,4 @@
+import { BARCODE_TOOL } from "@/lib/agents/barcode-spec";
 import { CHART_TOOL } from "@/lib/agents/chart-spec";
 import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
 import { callJiraTool } from "@/lib/jira/jira-runtime";
@@ -928,6 +929,13 @@ function handleClaudeMessage(threadId: string, path: string, event: UnknownRecor
   }
 }
 
+/** Bestätigung für den In-App-MCP-Server; gerendert wird in der UI. */
+function renderedToolAck(toolName: string): string {
+  if (toolName === BARCODE_TOOL.name) return "Barcode wurde in der l8git-UI gerendert.";
+  if (toolName === CHART_TOOL.name) return "Diagramm wurde in der l8git-UI gerendert.";
+  return "Ausgabe wurde in der l8git-UI gerendert.";
+}
+
 /**
  * In-process MCP server ("l8git", declared in `agent_transport.rs`). The tool
  * list is rebuilt per request so gated tools — currently Jira — only cost
@@ -953,7 +961,7 @@ async function handleMcpMessage(
       return;
     }
     if (method === "tools/list") {
-      await respond({ tools: [CHART_TOOL, ...(await gatedJiraTools(threadId))] });
+      await respond({ tools: [CHART_TOOL, BARCODE_TOOL, ...(await gatedJiraTools(threadId))] });
       return;
     }
     if (method === "tools/call") {
@@ -969,7 +977,7 @@ async function handleMcpMessage(
         await respond(await callJiraTool(toolName, args, context));
         return;
       }
-      await respond({ content: [{ type: "text", text: "Diagramm wurde in der l8git-UI gerendert." }] });
+      await respond({ content: [{ type: "text", text: renderedToolAck(toolName) }] });
       return;
     }
     await clients.get(threadId)?.respond(requestId, {

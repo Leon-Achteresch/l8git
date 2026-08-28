@@ -19,6 +19,14 @@ pub async fn dispatch(
 ) -> Option<Result<serde_json::Value, String>> {
     crate::dispatch_table! { cmd, args, ctx;
 
+        "agent_addon_config_read" (path: String, provider: String) => {
+            crate::agent_addons::agent_addon_config_read(path, provider).await
+        }
+
+        "agent_addon_config_write" (path: String, provider: String, contents: String) => {
+            crate::agent_addons::agent_addon_config_write(path, provider, contents).await
+        }
+
         "agent_transport_open" (
             provider: String,
             session_id: String,

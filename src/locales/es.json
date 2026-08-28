@@ -360,7 +360,12 @@
       "bannerTitle": "Modo plan activo",
       "bannerBody": "El agente solo investiga y planifica: los archivos y comandos siguen bloqueados hasta que apruebes un plan.",
       "bannerAction": "Salir del modo plan"
-    }
+    },
+    "barcodeLoading": "Generando código de barras…",
+    "barcodeZoom": "Ampliar para escanear",
+    "barcodeCopy": "Copiar valor",
+    "barcodeCopied": "Valor copiado",
+    "barcodeDownload": "Descargar como SVG"
   },
   "agentReview": {
     "openButton": "Revisar cambios",
@@ -2884,6 +2889,64 @@
       "deleted": "Hook eliminado",
       "empty": "No hay hooks de ciclo de vida configurados",
       "emptyHint": "Crea un hooks.json en el repositorio y automatiza un evento del ciclo de vida de Codex."
+    }
+  },
+  "agentAddons": {
+    "title": "Estudio de complementos",
+    "subtitle": "Códigos de barras y acceso al navegador para cada CLI",
+    "open": "Abrir el estudio de complementos",
+    "alwaysOn": "Siempre activo",
+    "barcode": {
+      "title": "Generador de códigos de barras",
+      "description": "El agente convierte datos —de un servidor MCP, una base de datos o el repositorio— en códigos escaneables dentro del chat. Funciona con cualquier CLI mediante el bloque ```barcode; Claude Code además lo llama como herramienta.",
+      "format": "Formato",
+      "label": "Etiqueta",
+      "labelPlaceholder": "Opcional, se muestra sobre el código",
+      "value": "Valor",
+      "insert": "Insertar bloque en el editor",
+      "inserted": "Bloque de código de barras insertado",
+      "copyDoc": "Copiar la documentación del formato",
+      "docCopied": "Documentación del formato copiada",
+      "usage": "{{count}} formatos documentados para el agente. /barcode <valores> los solicita directamente.",
+      "noPreview": "Este valor no encaja con la simbología seleccionada.",
+      "kinds": {
+        "linear": "Códigos 1D",
+        "matrix": "Códigos 2D",
+        "postal": "Códigos postales"
+      }
+    },
+    "browser": {
+      "title": "Claude en el navegador",
+      "description": "Da a la CLI un navegador real mediante el servidor MCP de Playwright, para ejecutar pruebas de extremo a extremo desde el chat: navegar, hacer clic, escribir, verificar y leer la consola y la red.",
+      "active": "Instalado",
+      "inactive": "No instalado",
+      "browser": "Navegador",
+      "viewport": "Ventana",
+      "viewportHint": "Ancho x alto, p. ej. 1280x720. Vacío = valor por defecto de Playwright.",
+      "device": "Dispositivo",
+      "deviceHint": "Nombre de dispositivo de Playwright, p. ej. iPhone 15. Vacío = escritorio.",
+      "allowedOrigins": "Orígenes permitidos",
+      "allowedOriginsHint": "Separados por punto y coma. Vacío = todos permitidos.",
+      "caps": "Capacidades adicionales",
+      "capsHint": "Separadas por comas: vision, pdf, devtools.",
+      "baseUrl": "URL de la aplicación",
+      "baseUrlHint": "Dónde se ejecuta la aplicación probada. Se incluye en el prompt de prueba.",
+      "headless": "Sin ventana",
+      "isolated": "Perfil nuevo por sesión",
+      "serverName": "Servidor MCP «{{name}}»",
+      "codexTarget": "Codex guarda la entrada en su propio config.toml.",
+      "install": "Instalar complemento",
+      "update": "Aplicar ajustes",
+      "remove": "Quitar",
+      "installed": "Complemento de navegador instalado para {{provider}}",
+      "removed": "Complemento de navegador eliminado de {{provider}}",
+      "approvalHint": "La CLI cargará el servidor en su próximo inicio; Claude Code pide una vez confiar en la configuración del proyecto.",
+      "scenario": "Escenario de prueba",
+      "scenarioHint": "En lenguaje natural. El agente maneja el navegador e informa de cada paso.",
+      "scenarioPlaceholder": "Iniciar sesión con una contraseña incorrecta y comprobar el mensaje de error.",
+      "runTest": "Ejecutar prueba",
+      "scenarioMissing": "Describe primero el escenario.",
+      "wrongProvider": "Cambia a {{provider}} en el chat para ejecutar la prueba allí."
     }
   },
   "hotkeysOverlay": {

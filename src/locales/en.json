@@ -360,7 +360,12 @@
       "bannerTitle": "Plan mode active",
       "bannerBody": "The agent only researches and plans — files and commands stay locked until you approve a plan.",
       "bannerAction": "Leave plan mode"
-    }
+    },
+    "barcodeLoading": "Rendering barcode…",
+    "barcodeZoom": "Enlarge for scanning",
+    "barcodeCopy": "Copy value",
+    "barcodeCopied": "Value copied",
+    "barcodeDownload": "Download as SVG"
   },
   "agentReview": {
     "openButton": "Review changes",
@@ -2884,6 +2889,64 @@
       "deleted": "Hook deleted",
       "empty": "No lifecycle hooks configured",
       "emptyHint": "Create a repository hooks.json and automate a Codex lifecycle event."
+    }
+  },
+  "agentAddons": {
+    "title": "Addon Studio",
+    "subtitle": "Barcodes and browser access for every CLI",
+    "open": "Open Addon Studio",
+    "alwaysOn": "Always on",
+    "barcode": {
+      "title": "Barcode renderer",
+      "description": "Lets the agent turn data — from an MCP server, a database or the repository — into scannable codes right in the chat. Works with every CLI through the ```barcode block; Claude Code can also call it as a tool.",
+      "format": "Format",
+      "label": "Label",
+      "labelPlaceholder": "Optional, shown above the code",
+      "value": "Value",
+      "insert": "Insert block into composer",
+      "inserted": "Barcode block inserted",
+      "copyDoc": "Copy format documentation",
+      "docCopied": "Format documentation copied",
+      "usage": "{{count}} formats documented for the agent. /barcode <values> asks for them directly.",
+      "noPreview": "This value does not fit the selected symbology.",
+      "kinds": {
+        "linear": "1D barcodes",
+        "matrix": "2D codes",
+        "postal": "Postal codes"
+      }
+    },
+    "browser": {
+      "title": "Claude in Browser",
+      "description": "Gives the CLI a real browser through the Playwright MCP server, so end-to-end tests run straight from the chat: navigate, click, type, assert, and read console and network output.",
+      "active": "Installed",
+      "inactive": "Not installed",
+      "browser": "Browser",
+      "viewport": "Viewport",
+      "viewportHint": "Width x height, e.g. 1280x720. Empty = Playwright default.",
+      "device": "Device",
+      "deviceHint": "Playwright device name, e.g. iPhone 15. Empty = desktop.",
+      "allowedOrigins": "Allowed origins",
+      "allowedOriginsHint": "Semicolon separated. Empty = all origins allowed.",
+      "caps": "Extra capabilities",
+      "capsHint": "Comma separated: vision, pdf, devtools.",
+      "baseUrl": "Application URL",
+      "baseUrlHint": "Where the app under test runs. Goes into the test prompt.",
+      "headless": "Headless",
+      "isolated": "Fresh profile per session",
+      "serverName": "MCP server \"{{name}}\"",
+      "codexTarget": "Codex stores this in its own config.toml.",
+      "install": "Install addon",
+      "update": "Apply settings",
+      "remove": "Remove",
+      "installed": "Browser addon installed for {{provider}}",
+      "removed": "Browser addon removed from {{provider}}",
+      "approvalHint": "The CLI picks the server up on its next start; Claude Code asks once to trust the project config.",
+      "scenario": "Test scenario",
+      "scenarioHint": "Plain language. The agent drives the browser and reports each step.",
+      "scenarioPlaceholder": "Log in with a wrong password and check the error message.",
+      "runTest": "Run test",
+      "scenarioMissing": "Describe the scenario first.",
+      "wrongProvider": "Switch to {{provider}} in the chat to run the test there."
     }
   },
   "hotkeysOverlay": {

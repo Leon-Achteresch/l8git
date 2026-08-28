@@ -1,4 +1,4 @@
-pub const EXPECTED_COMMAND_COUNT: usize = 219;
+pub const EXPECTED_COMMAND_COUNT: usize = 221;
 
 const LIB_RS: &str = include_str!("../../lib.rs");
 
@@ -195,7 +195,7 @@ mod tests {
             );
             claimed += 1;
         }
-        assert_eq!(claimed, 210, "unexpected number of probed commands");
+        assert_eq!(claimed, 212, "unexpected number of probed commands");
     }
 
     #[tokio::test]

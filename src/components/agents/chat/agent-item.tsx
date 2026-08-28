@@ -25,7 +25,9 @@ import { memo, type ReactNode, useMemo, useState } from "react";
 import { AgentActivity, type AgentActivityItem } from "@/components/agents/ui/agent-activity";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { AgentMarkdown } from "@/components/agents/ui/agent-markdown";
+import { MarkdownBarcode } from "@/components/agents/ui/agent-barcode";
 import { MarkdownChart } from "@/components/agents/ui/agent-chart";
+import { BARCODE_TOOL_NAME } from "@/lib/agents/barcode-spec";
 import { CHART_TOOL_NAME } from "@/lib/agents/chart-spec";
 import {
   copyToClipboard,
@@ -943,6 +945,7 @@ export const AgentItemView = memo(function AgentItemView({ item, turn }: { item:
   if (item.type === "commandExecution") return <CommandItem item={item} />;
   if (item.type === "fileChange") return <FileChangeItem item={item} />;
   if (item.tool === CHART_TOOL_NAME) return <MarkdownChart source={JSON.stringify(item.arguments ?? {})} />;
+  if (item.tool === BARCODE_TOOL_NAME) return <MarkdownBarcode source={JSON.stringify(item.arguments ?? {})} />;
   if (item.type === "mcpToolCall" || item.type === "dynamicToolCall") return <ToolCallItem item={item} />;
   if (item.type === "webSearch") return <WebSearchItemView item={item} turn={turn} />;
   if (item.type === "plan") return <PlanItem item={item} turn={turn} />;

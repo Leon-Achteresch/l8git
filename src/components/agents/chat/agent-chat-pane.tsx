@@ -19,6 +19,7 @@ import {
   LoaderCircle,
   Mic,
   Paperclip,
+  Puzzle,
   ScanSearch,
   Sparkles,
   SquareTerminal,
@@ -65,6 +66,8 @@ import {
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
 import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
+import { barcodePrompt } from "@/lib/agents/barcode-spec";
+import { browserE2ePrompt, readBrowserAddon } from "@/lib/agents/browser-addon";
 import { chartPrompt } from "@/lib/agents/chart-spec";
 import {
   agentProviderMeta,
@@ -494,12 +497,14 @@ export const AgentChatPane = memo(function AgentChatPane({
   terminalVisible = false,
   onToggleTerminal,
   onOpenCapabilities,
+  onOpenAddons,
 }: {
   path: string;
   threadId: string | null;
   terminalVisible?: boolean;
   onToggleTerminal?: () => void;
   onOpenCapabilities?: (section?: AgentCapabilitySection) => void;
+  onOpenAddons?: () => void;
 }) {
   const { t } = useTranslation();
   const provider = useAgentProviderStore((state) => state.provider);
@@ -847,6 +852,9 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "permissions", label: "Choose permissions", description: `Select a named ${providerLabel} permission profile`, acceptsArgument: true },
     { value: "memories", label: "Configure memory", description: "/memories enabled, disabled, or reset", acceptsArgument: true },
     { value: "chart", label: "Visualize data as a chart", description: "/chart what to visualize — renders an interactive chart", disabled: busy, acceptsArgument: true },
+    { value: "barcode", label: "Render scannable barcodes", description: "/barcode which values to encode — renders scannable codes", disabled: busy, acceptsArgument: true },
+    { value: "browser", label: "Run an end-to-end test in the browser", description: "/browser what to test — drives a real browser through the browser addon", disabled: busy, acceptsArgument: true },
+    { value: "addons", label: "Open Addon Studio", description: "Barcode rendering and browser access for every CLI" },
     { value: "init", label: `Create ${isClaude ? "CLAUDE.md" : "AGENTS.md"}`, description: `Ask ${providerLabel} to add repository instructions`, disabled: busy },
     { value: "capabilities", label: "Open Capability Studio", description: "Manage skills, MCP, plugins, apps, and hooks" },
     { value: "skills", label: "Manage skills", description: "Create, edit, enable, duplicate, and remove skills" },
@@ -983,6 +991,23 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (command === "chart") {
         if (!argument) throw new Error("Use /chart <what to visualize>.");
         await sendMessage(path, chartPrompt(argument));
+        return;
+      }
+      if (command === "barcode") {
+        if (!argument) throw new Error("Use /barcode <which values to encode>.");
+        await sendMessage(path, barcodePrompt(argument));
+        return;
+      }
+      if (command === "addons") return onOpenAddons?.();
+      if (command === "browser") {
+        if (!argument) throw new Error("Use /browser <what to test>.");
+        if (!onOpenAddons) throw new Error("The browser addon is unavailable here.");
+        const status = await readBrowserAddon(path, provider);
+        if (!status.installed) {
+          onOpenAddons();
+          throw new Error("Install the browser addon first — the Addon Studio is open.");
+        }
+        await sendMessage(path, browserE2ePrompt(argument));
         return;
       }
       if (command === "init") {
@@ -1318,6 +1343,18 @@ export const AgentChatPane = memo(function AgentChatPane({
             aria-label={t("agentCapabilities.open")}
           >
             <Blocks className="size-4" />
+          </button>
+        ) : null}
+
+        {onOpenAddons ? (
+          <button
+            type="button"
+            className="ag-icon-btn"
+            onClick={onOpenAddons}
+            title={t("agentAddons.open")}
+            aria-label={t("agentAddons.open")}
+          >
+            <Puzzle className="size-4" />
           </button>
         ) : null}
 

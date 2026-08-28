@@ -54,6 +54,14 @@ Konfiguration. Welcher Provider welchen Kanal hat, steht in `provider-meta.ts`
 (`agentToolChannel`), das Auf- und Abräumen in `../jira/jira-sync.ts`. Details in
 `../jira/README.md`.
 
+## Addons (`barcode-spec.ts`, `browser-addon.ts`, `capabilities/agent-addon-studio.tsx`)
+
+Zwei providerunabhängige Erweiterungen, erreichbar über den Puzzle-Knopf in der Chat-Kopfzeile oder `/addons`.
+
+**Barcode-Renderer** — analog zu den Charts über Markdown statt über vier Tool-Protokolle: Der Agent gibt einen \`\`\`barcode-Codeblock mit JSON aus (`format`, `value`, optional `label`/`caption`/`scale`/`height`/`includeText`; mehrere Codes über `items[]` mit optionalem `title`), der Markdown-Renderer ersetzt ihn durch scannbare SVGs (bwip-js, lazy geladen). Damit werden Daten aus beliebigen Quellen — typischerweise MCP-Tools — direkt am Scanner abgreifbar. 39 kuratierte Symbologien (1D, 2D, Post) sind in `BARCODE_FORMATS` mit Eingaberegeln und Beispielwert dokumentiert und fließen in `BARCODE_FORMAT_DOC`; weitere bwip-js-IDs sind erlaubt, aber nicht dokumentiert. Der Slash-Command `/barcode <was codieren>` hängt die Formatdoku an den Prompt, Claude Code bekommt zusätzlich `BARCODE_TOOL` über den In-App-MCP-Server. Das Code-Panel bleibt in beiden Themes weiß — Scanner brauchen den harten Kontrast —, Ruhezonen setzt `barcodeRenderOptions` (10 Module bei 1D, 4 bei 2D). Klick auf den Code öffnet ihn groß genug zum Abscannen vom Bildschirm.
+
+**Claude in Browser** — echter Browser-Zugriff für alle vier CLIs über den Playwright-MCP-Server (`npx -y @playwright/mcp@latest`), damit End-to-End-Tests direkt aus dem Chat laufen. Das Studio schreibt den Servereintrag ins jeweilige Format: `.mcp.json` (Claude Code), `.cursor/mcp.json` (Cursor), `opencode.json` (OpenCode) über `agent_addon_config_read`/`agent_addon_config_write`, Codex über `saveMcpServer` des Capability-Stores in seine eigene `config.toml`. `applyServerEntry` bearbeitet die Datei nur an dieser einen Stelle: fremde Schlüssel, andere Server und deren Reihenfolge bleiben erhalten, ungültiges JSON wird nicht überschrieben. Optionen (Browser, Headless, isoliertes Profil, Viewport, Gerät, erlaubte Origins, Zusatz-Caps) werden aus der bestehenden Argumentliste zurückgelesen, sind also nach einem Neustart wieder sichtbar. `/browser <was testen>` bzw. der Knopf im Studio schickt `browserE2ePrompt()` — die Anleitung nennt die tatsächlichen Playwright-Tool-Namen und verlangt Belege (Snapshot, Konsole, Netzwerk) statt „hat geklappt“.
+
 ## Konventionen
 
 - Fehler aus Stores propagieren lassen — die UI toastet abgelehnte Promises. Nur Best-Effort-Cleanup (`close()`, Branch-Löschung nach Merge) darf still scheitern.
