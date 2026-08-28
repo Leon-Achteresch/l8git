@@ -86,6 +86,10 @@ export const AgentThreadRow = memo(function AgentThreadRow({
   onArchive: (provider: NativeAgentProvider, threadId: string, archived: boolean) => Promise<void>;
 }) {
   const { t } = useTranslation();
+  const [hovered, setHovered] = useState(false);
+  // Renaming is driven from the menu, but can also arrive as a prop, so it
+  // arms the row on its own.
+  const armed = hovered || renaming;
   const working = isWorking(thread.status);
   const providerMeta = agentProviderMeta(thread.provider);
   const ProviderLogo = providerMeta.Logo;
@@ -185,7 +189,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       }}
       aria-current={active ? "page" : undefined}
       data-active={active}
-      className="ag-row min-h-11 items-start py-2 pr-8"
+      className="ag-row ag-row-shared min-h-11 items-start py-2 pr-8"
     >
       <span
         className="mt-0.5 grid size-4 shrink-0 place-items-center"
@@ -225,33 +229,47 @@ export const AgentThreadRow = memo(function AgentThreadRow({
     </div>
   );
 
+  // A sidebar can hold hundreds of rows, and mounting two Radix menu roots per
+  // row costs more than the row itself. Both menus stay out of the tree until
+  // the pointer or keyboard focus actually reaches this row.
   return (
-    <div className="group/thread relative">
-      <ContextMenu>
-        <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
-        <ContextMenuContent className="w-52">
-          {actions(ContextMenuItem, ContextMenuSeparator, "")}
-        </ContextMenuContent>
-      </ContextMenu>
+    <div
+      className="group/thread relative"
+      onPointerEnter={() => setHovered(true)}
+      onFocusCapture={() => setHovered(true)}
+      onContextMenu={() => setHovered(true)}
+    >
+      {armed ? (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+          <ContextMenuContent className="w-52">
+            {actions(ContextMenuItem, ContextMenuSeparator, "")}
+          </ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        row
+      )}
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="ag-icon-btn absolute right-1 top-1.5 size-6 opacity-0 transition-opacity group-hover/thread:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-            aria-label={t("agentChat.manageConversation")}
-          >
-            <MoreHorizontal className="size-3.5" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="ag-menu w-52 p-1.5">
-          {actions(
-            DropdownMenuItem,
-            DropdownMenuSeparator,
-            "ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]",
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {armed ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="ag-icon-btn absolute right-1 top-1.5 size-6 opacity-0 transition-opacity group-hover/thread:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+              aria-label={t("agentChat.manageConversation")}
+            >
+              <MoreHorizontal className="size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="ag-menu w-52 p-1.5">
+            {actions(
+              DropdownMenuItem,
+              DropdownMenuSeparator,
+              "ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]",
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   );
 });

@@ -170,6 +170,7 @@
     "conversation": "会話",
     "loadingConversations": "会話を読み込み中…",
     "showOlder": "過去のターンを {{count}} 件表示",
+    "jumpToLatest": "最新へ移動",
     "showMoreConversations": "さらに {{count}} 件の会話を表示",
     "firstConversation": "最初の会話を始める",
     "manageConversation": "会話を管理",

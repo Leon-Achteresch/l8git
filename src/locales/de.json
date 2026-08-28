@@ -170,6 +170,7 @@
     "conversation": "Unterhaltung",
     "loadingConversations": "Unterhaltungen werden geladen…",
     "showOlder": "{{count}} ältere Turns anzeigen",
+    "jumpToLatest": "Zum Neuesten springen",
     "showMoreConversations": "{{count}} weitere Unterhaltungen anzeigen",
     "firstConversation": "Erste Unterhaltung starten",
     "manageConversation": "Unterhaltung verwalten",

@@ -10,7 +10,7 @@ import {
   MessageSquareText,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
@@ -169,7 +169,7 @@ function ProgressDots({ current, ids }: { current: number; ids: string[] }) {
         {t("agentChat.request.questionProgress", { current: current + 1, total: ids.length })}
       </span>
       {ids.map((id, index) => (
-        <motion.span
+        <m.span
           key={id}
           aria-hidden="true"
           initial={{
@@ -355,7 +355,7 @@ export function ApprovalCard({
           <AgentDisclosure open={interactive}>
             {questionMode && question ? (
               <AnimatePresence initial={false} mode="wait">
-                <motion.div
+                <m.div
                   key={question.id}
                   initial={reduce ? { opacity: 1 } : { opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -374,7 +374,7 @@ export function ApprovalCard({
                     onChange={updateCurrentAnswer}
                     onSingleSelect={queueAutoAdvance}
                   />
-                </motion.div>
+                </m.div>
               </AnimatePresence>
             ) : (
               <div>

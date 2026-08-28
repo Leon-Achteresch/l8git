@@ -170,6 +170,7 @@
     "conversation": "Conversation",
     "loadingConversations": "Loading conversations…",
     "showOlder": "Show {{count}} older turns",
+    "jumpToLatest": "Jump to latest",
     "showMoreConversations": "Show {{count}} more conversations",
     "firstConversation": "Start the first conversation",
     "manageConversation": "Manage conversation",

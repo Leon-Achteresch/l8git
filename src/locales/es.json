@@ -170,6 +170,7 @@
     "conversation": "Conversación",
     "loadingConversations": "Cargando conversaciones…",
     "showOlder": "Mostrar {{count}} turnos anteriores",
+    "jumpToLatest": "Ir a lo más reciente",
     "showMoreConversations": "Mostrar {{count}} conversaciones más",
     "firstConversation": "Empezar la primera conversación",
     "manageConversation": "Gestionar conversación",

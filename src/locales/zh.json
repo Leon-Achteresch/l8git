@@ -170,6 +170,7 @@
     "conversation": "对话",
     "loadingConversations": "正在加载对话…",
     "showOlder": "显示更早的 {{count}} 轮",
+    "jumpToLatest": "跳到最新",
     "showMoreConversations": "再显示 {{count}} 个对话",
     "firstConversation": "开始第一个对话",
     "manageConversation": "管理对话",

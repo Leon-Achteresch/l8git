@@ -2,7 +2,7 @@
 // beui.dev/components/agents/streaming-response
 
 import { Check, ChevronDown, Copy, RotateCcw } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -58,7 +58,7 @@ function ResponseAction({
   const reduce = useReducedMotion() ?? false;
 
   return (
-    <motion.button
+    <m.button
       type="button"
       aria-label={label}
       title={label}
@@ -68,7 +68,7 @@ function ResponseAction({
       className="ag-icon-btn"
     >
       {children}
-    </motion.button>
+    </m.button>
   );
 }
 
@@ -147,7 +147,7 @@ export function StreamingResponse({
 
       <AnimatePresence initial={false}>
         {shouldShowActions ? (
-          <motion.div
+          <m.div
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -184,14 +184,14 @@ export function StreamingResponse({
                   <span className="tabular-nums">
                     {sources.length} {sources.length === 1 ? "source" : "sources"}
                   </span>
-                  <motion.span
+                  <m.span
                     aria-hidden="true"
                     animate={{ rotate: currentSourcesOpen ? 180 : 0 }}
                     transition={reduce ? { duration: 0 } : SPRING_SWAP}
                     className="text-muted-foreground/50 group-hover:text-muted-foreground"
                   >
                     <ChevronDown className="size-3" />
-                  </motion.span>
+                  </m.span>
                 </button>
               ) : null}
             </div>
@@ -208,7 +208,7 @@ export function StreamingResponse({
                 />
               </AgentDisclosure>
             ) : null}
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </div>
