@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, FolderGit2, GitBranch, GitMerge, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, FolderGit2, GitMerge, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -32,7 +32,6 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
   const removeWorktree = useAgentWorktreeStore((state) => state.removeWorktree);
   const landWorktree = useAgentWorktreeStore((state) => state.landWorktree);
   const [pending, setPending] = useState(false);
-  const branch = branches[selectedPath]?.branch;
   const basePath = worktrees[selectedPath]?.basePath ?? selectedPath;
   const repoPaths = paths.filter((path) => !worktrees[path]);
   const worktreeEntries = Object.values(worktrees).sort((a, b) => b.createdAt - a.createdAt);
