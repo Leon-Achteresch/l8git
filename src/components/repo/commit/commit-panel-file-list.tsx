@@ -13,8 +13,6 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   AlertTriangle,
   CheckSquare,
-  ChevronDown,
-  ChevronRight,
   GitMerge,
   Minus,
   MinusSquare,
@@ -29,6 +27,8 @@ import { memo, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileRow } from "./commit-panel-file-row";
 import type { ChangeRow, CheckState } from "./commit-panel-types";
+import { ChevronDown as ChevronDownData, ChevronRight as ChevronRightData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 type SectionId = "conflicts" | "staged" | "unstaged";
 
@@ -266,9 +266,10 @@ function VirtualFileListInner({
                       onClick={() => toggleSection(item.id)}
                     >
                       <span className="flex items-center gap-1.5">
-                        {isCollapsed
-                          ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
-                          : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/40" />}
+                        <MorphIcon
+                          icon={isCollapsed ? ChevronRightData : ChevronDownData}
+                          className="h-3.5 w-3.5 text-muted-foreground/40"
+                        />
                         <span
                           className={
                             "text-xs font-medium " +

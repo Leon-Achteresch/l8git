@@ -4,13 +4,13 @@ import {
   LoaderCircle,
   Plus,
   Save,
-  ShieldAlert,
   ShieldCheck,
   TerminalSquare,
   Trash2,
   X,
   Zap,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -52,6 +52,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAgentCapabilityStore } from "@/lib/agents/capability-store";
 import type { AgentCapabilityHook } from "@/lib/agents/capability-types";
 import { SpinIcon } from "@/components/motion/kit";
+import { ShieldAlert as ShieldAlertData, ShieldCheck as ShieldCheckData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 interface HookDraft {
   eventName: string;
@@ -395,7 +397,7 @@ export function AgentHookStudio({ query }: { query: string }) {
                   </dl>
                 </div>
                 <div className={`rounded-2xl p-4 ring-1 ${selected.trustStatus === "trusted" || selected.trustStatus === "managed" ? "bg-emerald-500/[0.05] ring-emerald-500/20" : "bg-amber-500/[0.06] ring-amber-500/25"}`}>
-                  {selected.trustStatus === "trusted" || selected.trustStatus === "managed" ? <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" /> : <ShieldAlert className="size-4 text-amber-600 dark:text-amber-400" />}
+                  <MorphIcon icon={selected.trustStatus === "trusted" || selected.trustStatus === "managed" ? ShieldCheckData : ShieldAlertData} className={cn("size-4", selected.trustStatus === "trusted" || selected.trustStatus === "managed" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")} />
                   <p className="mt-3 text-xs font-medium">{t(`agentCapabilities.hooks.trust_${selected.trustStatus}`, { defaultValue: selected.trustStatus })}</p>
                   <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{selected.isManaged ? t("agentCapabilities.hooks.managedHint") : t("agentCapabilities.hooks.trustHint")}</p>
                 </div>

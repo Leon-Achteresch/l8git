@@ -1,4 +1,7 @@
-import { Check, Copy, Loader2, Sparkles } from "lucide-react";
+import {
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
@@ -23,6 +26,8 @@ import {
 } from "@/lib/ai/explain-sources";
 import { isAiConfigured } from "@/lib/ai-setup";
 import { SpinIcon } from "@/components/motion/kit";
+import { Check as CheckData, Copy as CopyData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 export type ExplainRequest =
   | { kind: "commit"; repoPath: string; commitHash: string; subject?: string }
@@ -204,7 +209,7 @@ export function ExplainSheet({
               setCopied(true);
             }}
           >
-            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            <MorphIcon icon={copied ? CheckData : CopyData} className="size-3.5" />
             {copied ? t("explain.copied") : t("explain.copy")}
           </Button>
         </div>

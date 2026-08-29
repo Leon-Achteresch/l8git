@@ -28,8 +28,6 @@ import {
   Check,
   Copy,
   Loader2,
-  Pause,
-  Play,
   RefreshCw,
   ScrollText,
   Trash2,
@@ -39,6 +37,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { SpinIcon } from "@/components/motion/kit";
+import { Pause as PauseData, Play as PlayData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 function CommandRow({ entry }: { entry: GitCommandEntry }) {
   const { t } = useTranslation();
@@ -162,7 +162,7 @@ export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
               aria-label={paused ? t('cmdLog.resume') : t('cmdLog.pause')}
               onClick={() => setPaused(!paused)}
             >
-              {paused ? <Play className='size-4' /> : <Pause className='size-4' />}
+              <MorphIcon icon={paused ? PlayData : PauseData} className='size-4' />
             </Button>
             <Button
               type='button'

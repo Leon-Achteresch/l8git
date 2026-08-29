@@ -1,12 +1,9 @@
 import {
-  Archive,
-  ArchiveRestore,
   Copy,
   GitFork,
   MoreHorizontal,
   Pencil,
   Pin,
-  PinOff,
   Ticket,
   TicketX,
   Trash2,
@@ -38,6 +35,8 @@ import type { AgentThreadSummary } from "@/lib/agents/types";
 import { jiraThreadKey, useJiraLinks, useJiraStore } from "@/lib/jira/jira-store";
 import type { JiraTicketLink } from "@/lib/jira/types";
 import { AgDot } from "@/components/agents/ui/ag-dot";
+import { Archive as ArchiveData, ArchiveRestore as ArchiveRestoreData, Pin as PinData, PinOff as PinOffData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 export function isWorking(status: string): boolean {
   return status !== "idle" && status !== "notLoaded";
@@ -171,7 +170,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
   ) => (
     <>
       <Item className={itemClassName} onSelect={() => setPinned(!thread.isPinned)}>
-        {thread.isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+        <MorphIcon icon={thread.isPinned ? PinOffData : PinData} className="size-3.5" />
         {thread.isPinned ? t("agentChat.unpin") : t("agentChat.pin")}
       </Item>
       <Item className={itemClassName} onSelect={() => setRenaming(true)}>
@@ -221,7 +220,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
         className={itemClassName}
         onSelect={() => run(() => archive(!thread.archived))}
       >
-        {thread.archived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
+        <MorphIcon icon={thread.archived ? ArchiveRestoreData : ArchiveData} className="size-3.5" />
         {thread.archived ? t("agentChat.unarchive") : t("agentChat.archive")}
       </Item>
       <Item

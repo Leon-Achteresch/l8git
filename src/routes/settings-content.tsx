@@ -7,8 +7,6 @@ import {
   Bell,
   Bot,
   Brain,
-  Eye,
-  EyeOff,
   FolderOpen,
   GitCommitHorizontal,
   Globe2,
@@ -73,6 +71,8 @@ import {
   type RepoTerminalKind,
 } from "@/lib/workspace-prefs";
 import { SpinIcon } from "@/components/motion/kit";
+import { Eye as EyeData, EyeOff as EyeOffData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 const UI_SCALE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5] as const;
 
@@ -925,7 +925,7 @@ export function Settings() {
                             aria-label={aiApiKeyVisible ? t("settings.aiApiKeyHide") : t("settings.aiApiKeyShow")}
                             className="shrink-0"
                           >
-                            {aiApiKeyVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                            <MorphIcon icon={aiApiKeyVisible ? EyeOffData : EyeData} className="size-4" />
                           </Button>
                         </div>
                       </div>

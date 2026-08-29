@@ -46,8 +46,6 @@ import type { SidebarTab } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
 import {
   Archive,
-  Eye,
-  EyeOff,
   FolderGit2,
   GitCommitHorizontal,
   GitFork,
@@ -63,6 +61,8 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Eye as EyeData, EyeOff as EyeOffData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 /* -------------------------------------------------------------------------- */
 /*  Tab metadata                                                               */
@@ -205,7 +205,7 @@ function SortableTabItem({
         className={cn(isHidden && "opacity-50")}
         aria-label={isHidden ? "Tab einblenden" : "Tab ausblenden"}
       >
-        {isHidden ? <EyeOff /> : <Eye />}
+        <MorphIcon icon={isHidden ? EyeOffData : EyeData} />
       </Button>
     </div>
   );

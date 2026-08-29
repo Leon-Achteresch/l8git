@@ -1,8 +1,9 @@
-import { ArrowDown, ArrowUp } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
+import { ArrowDown as ArrowDownData, ArrowUp as ArrowUpData } from "lucide";
+import { MorphIcon } from "@/components/ui/morph-icon";
 
 export function PanelValue({
   value,
@@ -45,7 +46,7 @@ export function DeltaBadge({
         className,
       )}
     >
-      {up ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
+      <MorphIcon icon={up ? ArrowUpData : ArrowDownData} className="size-3" />
       {Math.abs(pct)}%{suffix ? <span className="font-normal text-muted-foreground">{suffix}</span> : null}
     </span>
   );
