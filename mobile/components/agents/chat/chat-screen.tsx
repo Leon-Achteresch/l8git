@@ -1,8 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { PlugZap, TriangleAlert, WifiOff } from 'lucide-react-native';
 import * as React from 'react';
-import { Image } from 'expo-image';
-import { KeyboardAvoidingView, Linking, Platform, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '~/components/empty-state';
@@ -10,7 +9,6 @@ import { SkeletonList } from '~/components/skeleton-list';
 import { repoName } from '~/components/shared/format';
 import { Button } from '~/components/ui/button';
 import { Text } from '~/components/ui/text';
-import { illustrationsLarge } from '~/lib/illustrations';
 import {
   agentApprovalHaptic,
   agentAttentionHaptic,
@@ -343,13 +341,6 @@ export function AgentChatScreen({
 
   return (
     <View className="bg-background flex-1">
-      <Image
-        source={illustrationsLarge.agent}
-        contentFit="cover"
-        blurRadius={60}
-        style={[StyleSheet.absoluteFill, { opacity: 0.55 }]}
-      />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
       <SafeAreaView edges={['top']} className="flex-1">
       <AgentChatHeader
         provider={provider}

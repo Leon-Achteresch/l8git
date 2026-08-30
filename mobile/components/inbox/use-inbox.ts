@@ -19,6 +19,8 @@ import {
   type InboxWorkflowRun,
 } from '~/lib/inbox';
 import { hostQueryKey } from '~/lib/query';
+import { usePendingApprovals } from '~/lib/agents/approvals';
+import type { NativeAgentProvider } from '~/lib/agents/stores';
 import { useRepoRegistry, useRepoRegistryHydration } from '~/lib/repo/registry';
 
 export const INBOX_DOMAIN = 'inbox';
@@ -31,7 +33,8 @@ export type InboxAgentItem = {
   path: string;
   repoName: string;
   title: string;
-  provider: string;
+  provider: NativeAgentProvider;
+  threadId: string;
   branch: string | null;
   pendingRequests: number;
   updatedAt: string;
@@ -120,7 +123,23 @@ export type InboxState = {
 };
 
 export function usePendingAgentApprovals(): InboxAgentItem[] {
-  return React.useMemo<InboxAgentItem[]>(() => [], []);
+  const approvals = usePendingApprovals();
+  return React.useMemo(
+    () =>
+      approvals.map((approval) => ({
+        key: approval.key,
+        hostId: approval.hostId,
+        path: approval.path,
+        repoName: approval.repoName,
+        title: approval.threadTitle,
+        provider: approval.provider,
+        threadId: approval.threadId,
+        branch: null,
+        pendingRequests: 1,
+        updatedAt: '',
+      })),
+    [approvals]
+  );
 }
 
 export type InboxRepoTarget = {
@@ -157,7 +176,7 @@ export function useInbox(): InboxState & { refresh: () => Promise<void> } {
   const agents = usePendingAgentApprovals();
   const queryClient = useQueryClient();
 
-  const state = useQueries({
+  const queried = useQueries({
     queries: repos.map((repo) => ({
       queryKey: hostQueryKey(repo.hostId, repo.path, INBOX_DOMAIN),
       queryFn: () => loadRepoInbox(repo.hostId, repo.path, repo.name),
@@ -165,7 +184,7 @@ export function useInbox(): InboxState & { refresh: () => Promise<void> } {
       refetchInterval: INBOX_REFETCH_MS,
       retry: 1,
     })),
-    combine: (results): InboxState => {
+    combine: (results) => {
       const inputs: InboxRepoInput[] = [];
       const errors: InboxRepoError[] = [];
       const providerHosts = new Set<string>();
@@ -200,24 +219,28 @@ export function useInbox(): InboxState & { refresh: () => Promise<void> } {
       });
 
       const sections = inputs.length > 0 ? buildInboxSections(inputs) : emptyInboxSections();
-      const badgeCount = inboxBadgeCount(sections, agents.length);
 
       return {
         sections,
-        agents,
         errors,
         loading: results.some((result) => result.isPending),
         fetching: results.some((result) => result.isFetching),
         failed,
         repoCount: repos.length,
         hostCount: new Set(repos.map((repo) => repo.hostId)).size,
-        badgeCount,
-        totalCount: sections.myPrs.length + badgeCount,
         providerHosts: [...providerHosts].sort(),
         unidentifiedHosts: [...unidentifiedHosts].sort(),
       };
     },
   });
+
+  const badgeCount = inboxBadgeCount(queried.sections, agents.length);
+  const state: InboxState = {
+    ...queried,
+    agents,
+    badgeCount,
+    totalCount: queried.sections.myPrs.length + badgeCount,
+  };
 
   const refresh = React.useCallback(async () => {
     await queryClient.refetchQueries({

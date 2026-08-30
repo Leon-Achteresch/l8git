@@ -1,10 +1,11 @@
-import type { LucideIcon } from 'lucide-react-native';
+import { Bot, ChartNoAxesColumn, FolderGit2, Inbox, Server, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 
+import { Glass } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { illustrationsLarge, type IllustrationName } from '~/lib/illustrations';
+import type { IllustrationName } from '~/lib/illustrations';
 import { palette } from '~/lib/theme';
 import { cn } from '~/lib/utils';
 
@@ -18,7 +19,13 @@ type EmptyStateProps = {
   className?: string;
 };
 
-const BUBBLE = 120;
+const ILLUSTRATION_ICON: Record<IllustrationName, LucideIcon> = {
+  repo: FolderGit2,
+  agent: Bot,
+  inbox: Inbox,
+  dashboard: ChartNoAxesColumn,
+  host: Server,
+};
 
 export function EmptyState({
   icon,
@@ -29,34 +36,27 @@ export function EmptyState({
   action,
   className,
 }: EmptyStateProps) {
+  const resolved = icon ?? (illustration ? ILLUSTRATION_ICON[illustration] : undefined);
   return (
-    <View className={cn('flex-1 items-center justify-center gap-5 px-8 py-12', className)}>
-      {illustration || icon ? (
-        <View
+    <View className={cn('items-center justify-center gap-5 px-8 py-12', className)}>
+      {resolved ? (
+        <Glass
           style={{
-            width: BUBBLE,
-            height: BUBBLE,
-            borderRadius: BUBBLE / 2,
-            overflow: 'hidden',
+            width: 72,
+            height: 72,
+            borderRadius: 36,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(255,255,255,0.08)',
           }}>
-          {illustration ? (
-            <Image
-              source={illustrationsLarge[illustration]}
-              resizeMode="cover"
-              style={{ width: BUBBLE, height: BUBBLE }}
-            />
-          ) : icon ? (
-            <Icon as={icon} size={44} color={iconColor} />
-          ) : null}
-        </View>
+          <Icon as={resolved} size={28} color={iconColor} />
+        </Glass>
       ) : null}
       <View className="items-center gap-1.5">
         <Text className="text-foreground text-center text-xl font-bold tracking-tight">{title}</Text>
         {description ? (
-          <Text className="text-muted-foreground max-w-72 text-center text-sm">{description}</Text>
+          <Text className="text-muted-foreground max-w-72 text-center text-sm leading-5">
+            {description}
+          </Text>
         ) : null}
       </View>
       {action ? <View className="items-center pt-1">{action}</View> : null}

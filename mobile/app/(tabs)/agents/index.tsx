@@ -11,11 +11,7 @@ export default function AgentsScreen() {
       <AgentRuntimeGate
         fallback={
           <View className="flex-1 px-4">
-            <ScreenTitle
-              title="Agents"
-              illustration="agent"
-              subtitle="Starting the agent runtime…"
-            />
+            <ScreenTitle title="Agents" subtitle="Starting the agent runtime…" />
             <AgentsOverviewSkeleton />
           </View>
         }>

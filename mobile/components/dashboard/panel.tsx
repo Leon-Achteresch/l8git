@@ -17,7 +17,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <View className={cn('bg-card gap-3 rounded-[28px] px-5 py-5', className)}>{children}</View>
+    <View className={cn('bg-card gap-3 rounded-[32px] px-5 py-5', className)}>{children}</View>
   );
 }
 

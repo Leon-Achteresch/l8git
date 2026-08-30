@@ -1,8 +1,9 @@
 import { formatUsd } from '@desktop/lib/agents/token-cost';
 import { CircleAlert, FolderGit2, GitBranch } from 'lucide-react-native';
 import * as React from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 
+import { ProviderMark } from '~/components/agents/provider-badge';
 import { providerMeta } from '~/components/agents/agent-meta';
 import { AgentStatusChip } from '~/components/agents/agent-status-chip';
 import { agentTimestampMs, formatTokens } from '~/components/agents/overview-model';
@@ -10,7 +11,6 @@ import { relativeTime } from '~/components/shared/format';
 import { PressableRow } from '~/components/shared/pressable-row';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { illustrations } from '~/lib/illustrations';
 import type { HostAgentEntry } from '~/lib/agents/overview-aggregator';
 import { cn } from '~/lib/utils';
 
@@ -56,11 +56,7 @@ export const AgentThreadRow = React.memo(function AgentThreadRow({
         ) : null}
 
         <View style={{ opacity: entry.stale ? 0.55 : 1 }}>
-          <Image
-            source={illustrations.agent}
-            resizeMode="cover"
-            style={{ width: 42, height: 42, borderRadius: 21 }}
-          />
+          <ProviderMark provider={entry.provider} size={42} />
         </View>
 
         <View className="min-w-0 flex-1 gap-1">

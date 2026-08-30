@@ -1,5 +1,4 @@
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import {
   Archive,
   ArrowLeft,
@@ -15,11 +14,10 @@ import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { initials } from '~/components/shared/format';
-import { Fade, Glass, GlassCircle } from '~/components/ui/glass';
+import { Glass, GlassCircle } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import { useHostMeta, useHostRuntime } from '~/lib/connections';
-import { illustrations, illustrationsLarge } from '~/lib/illustrations';
 import { useRepoStatus } from '~/lib/repo/queries';
 import { REPO_SECTIONS, REPO_SECTION_LABEL, type RepoSection } from '~/lib/repo/route';
 import { palette } from '~/lib/theme';
@@ -37,7 +35,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <View className="flex-1 items-center gap-0.5">
       <Text className="text-muted-foreground text-xs">{label}</Text>
-      <Text style={{ fontVariant: ['tabular-nums'] }} className="text-foreground text-xl font-bold">
+      <Text style={{ fontVariant: ['tabular-nums'] }} className="text-foreground text-2xl font-bold">
         {value}
       </Text>
     </View>
@@ -136,16 +134,7 @@ export function RepoHeader({
   );
 
   return (
-    <View style={{ paddingTop: insets.top, overflow: 'hidden' }}>
-      <Image
-        source={illustrationsLarge.repo}
-        contentFit="cover"
-        blurRadius={70}
-        style={[StyleSheet.absoluteFill, { opacity: 0.85 }]}
-      />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.25)' }]} />
-      <Fade height={180} />
-
+    <View className="bg-background" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-5 pt-2">
         <GlassCircle icon={ArrowLeft} label="Back" onPress={onBack} />
         <Glass
@@ -190,8 +179,10 @@ export function RepoHeader({
             borderColor: 'rgba(255,255,255,0.28)',
             overflow: 'hidden',
             backgroundColor: palette.card,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}>
-          <Image source={illustrations.repo} contentFit="cover" style={{ flex: 1 }} />
+          <Icon as={FileDiff} size={32} color={palette.foreground} />
         </View>
         <Text numberOfLines={1} className="text-foreground pt-2 text-2xl font-bold tracking-tight">
           {repoName}
@@ -208,9 +199,9 @@ export function RepoHeader({
         className="mx-5 mt-4 flex-row items-center py-3"
         style={{ borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)' }}>
         <Stat label="Ahead" value={ahead} />
-        <View style={{ width: StyleSheet.hairlineWidth, height: 28, backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <View style={{ width: StyleSheet.hairlineWidth, height: 36, backgroundColor: 'rgba(255,255,255,0.12)' }} />
         <Stat label="Behind" value={behind} />
-        <View style={{ width: StyleSheet.hairlineWidth, height: 28, backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <View style={{ width: StyleSheet.hairlineWidth, height: 36, backgroundColor: 'rgba(255,255,255,0.12)' }} />
         <Stat label="Changes" value={changes} />
       </View>
 

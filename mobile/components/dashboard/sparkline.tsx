@@ -1,11 +1,8 @@
 import * as React from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
-import { palette } from '~/lib/theme';
-
-const GAP = 1;
-const EMPTY_COLOR = palette.border;
+import { monotoneLine, type ChartPoint } from '~/components/dashboard/chart-path';
 
 export function Sparkline({
   values,
@@ -22,44 +19,32 @@ export function Sparkline({
     setWidth(Math.round(event.nativeEvent.layout.width));
   }, []);
 
-  const bars = React.useMemo(() => {
+  const line = React.useMemo(() => {
     if (width <= 0 || values.length === 0) {
-      return [];
+      return '';
     }
     const peak = Math.max(1, ...values);
-    const barWidth = Math.max(1.5, (width - GAP * (values.length - 1)) / values.length);
-    const radius = Math.min(1.5, barWidth / 2);
-    return values.map((value, index) => {
-      const scaled = value > 0 ? Math.max(3, (value / peak) * height) : 2;
-      return {
-        key: index,
-        x: index * (barWidth + GAP),
-        y: height - scaled,
-        width: barWidth,
-        height: scaled,
-        radius,
-        fill: value > 0 ? accent : EMPTY_COLOR,
-        opacity: value > 0 ? 0.35 + 0.65 * (value / peak) : 1,
-      };
-    });
-  }, [accent, height, values, width]);
+    const pad = 2;
+    const span = Math.max(1, width - pad * 2);
+    const coords: ChartPoint[] = values.map((value, index) => ({
+      x: values.length === 1 ? width / 2 : pad + (index * span) / (values.length - 1),
+      y: height - pad - (value / peak) * (height - pad * 2),
+    }));
+    return monotoneLine(coords);
+  }, [height, values, width]);
 
   return (
     <View onLayout={onLayout} style={{ height }} className="w-full justify-end">
-      {width > 0 ? (
+      {width > 0 && line ? (
         <Svg width={width} height={height}>
-          {bars.map((bar) => (
-            <Rect
-              key={bar.key}
-              x={bar.x}
-              y={bar.y}
-              width={bar.width}
-              height={bar.height}
-              rx={bar.radius}
-              fill={bar.fill}
-              fillOpacity={bar.opacity}
-            />
-          ))}
+          <Path
+            d={line}
+            stroke={accent}
+            strokeWidth={1.8}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </Svg>
       ) : null}
     </View>

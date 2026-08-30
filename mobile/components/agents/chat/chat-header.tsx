@@ -1,13 +1,12 @@
 import { ArrowLeft, Settings2 } from 'lucide-react-native';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 
 import { StatusPill, type PillTone } from '~/components/shared/status-pill';
 import { Glass, GlassCircle } from '~/components/ui/glass';
-import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { illustrations } from '~/lib/illustrations';
 import type { NativeAgentProvider } from '~/lib/agents/stores';
 
+import { ProviderMark } from '~/components/agents/provider-badge';
 import { providerLabel } from './capabilities';
 
 export type AgentTurnState = 'working' | 'ready' | 'connecting' | 'error' | 'idle' | 'offline';
@@ -60,11 +59,7 @@ export function AgentChatHeader({
           alignItems: 'center',
           gap: 10,
         }}>
-        <Image
-          source={illustrations.agent}
-          resizeMode="cover"
-          style={{ width: 34, height: 34, borderRadius: 17 }}
-        />
+        <ProviderMark provider={provider} size={34} />
         <View className="min-w-0 flex-1">
           <Text numberOfLines={1} className="text-foreground text-sm font-bold">
             {title || providerLabel(provider)}
