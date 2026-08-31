@@ -237,7 +237,7 @@ export function AppIsland() {
             onContextMenu={(e) => {
               e.preventDefault();
               if (!idle()) return;
-              setView(ISLAND_VIEW.menu);
+              setView((v) => (v === ISLAND_VIEW.menu ? null : ISLAND_VIEW.menu));
             }}
           >
           <IslandShell

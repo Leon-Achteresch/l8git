@@ -5,9 +5,10 @@ import { useShallow } from "zustand/react/shallow";
 import { IslandShell } from "@/components/island/island-shell";
 import { ISLAND_VIEW, type IslandFlash } from "@/components/island/island-ui";
 import { MotionProvider } from "@/components/motion/motion-provider";
-import { useIslandSnapshot } from "@/lib/island/client";
+import { dispatchIslandAction, useIslandSnapshot } from "@/lib/island/client";
 import { useIslandFlash } from "@/lib/island/flash";
 import {
+  mainWindowBounds,
   rememberIslandWindowPosition,
   setIslandWindowSize,
   snapCurrentWindowToDock,
@@ -83,7 +84,10 @@ export function IslandWindowApp() {
         }}
         onContextMenu={(e) => {
           e.preventDefault();
-          setView(ISLAND_VIEW.menu);
+          setView((v) => (v === ISLAND_VIEW.menu ? null : ISLAND_VIEW.menu));
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setView(null);
         }}
         {...drag}
       >
@@ -137,6 +141,7 @@ function useWindowDrag() {
         return;
       }
       origin.current = null;
+      lastUserDrag = Date.now();
       void getCurrentWindow().startDragging();
     },
     onPointerUp: () => {
@@ -208,7 +213,9 @@ function useWindowAutoSize(
   }, [ref, extraX, extraY, dock]);
 }
 
-const POSITION_SETTLE_MS = 150;
+const POSITION_SETTLE_MS = 400;
+const USER_DRAG_WINDOW_MS = 60_000;
+let lastUserDrag = 0;
 
 /**
  * Remembers where the user parked the island between sessions.
@@ -288,6 +295,28 @@ async function snapDetachedIsland(
     useIslandStore.getState().setDock(dock);
     await snapCurrentWindowToDock(dock);
     return;
+  }
+  if (Date.now() - lastUserDrag < USER_DRAG_WINDOW_MS) {
+    const cx = logical.x + iw / 2;
+    const cy = logical.y + ih / 2;
+    const main = await mainWindowBounds().catch(() => null);
+    if (
+      main &&
+      main.visible &&
+      !main.minimized &&
+      cx >= main.x &&
+      cx <= main.x + main.width &&
+      cy >= main.y &&
+      cy <= main.y + main.height
+    ) {
+      lastUserDrag = 0;
+      useIslandStore.getState().setDock("free");
+      void dispatchIslandAction({
+        actionId: "window.attach",
+        args: { x: cx - main.x, y: cy - main.y },
+      });
+      return;
+    }
   }
   if (isEdgeDock(current)) useIslandStore.getState().setDock("free");
   rememberIslandWindowPosition(logical);
