@@ -60,7 +60,9 @@ function WorkingFor({ since }: { since: number }) {
   const [label, setLabel] = useState(() => elapsedLabel(since));
   useEffect(() => {
     setLabel(elapsedLabel(since));
-    const timer = window.setInterval(() => setLabel(elapsedLabel(since)), 1_000);
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setLabel(elapsedLabel(since));
+    }, 1_000);
     return () => window.clearInterval(timer);
   }, [since]);
   return <>{label}</>;

@@ -185,7 +185,7 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
     }
 
     let (tx, rx) = channel();
-    let mut debouncer = new_debouncer(Duration::from_millis(250), None, tx)
+    let mut debouncer = new_debouncer(Duration::from_millis(600), None, tx)
         .map_err(|e| format!("watcher init failed: {e}"))?;
 
     let mut shallow: HashSet<PathBuf> = HashSet::new();

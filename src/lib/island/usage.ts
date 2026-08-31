@@ -34,7 +34,7 @@ export function subscribeIslandUsage(cb: () => void): Array<() => void> {
 export function armIslandUsage(): () => void {
   let stopped = false;
   const tick = () => {
-    if (stopped) return;
+    if (stopped || document.hidden) return;
     const island = useIslandStore.getState();
     if (!island.showUsage && !isEdgeDock(island.dock)) return;
     for (const id of PROVIDERS) {

@@ -62,11 +62,11 @@ export function ActivityBars({ className }: { className?: string }) {
       {[0, 1, 2].map((i) => (
         <m.span
           key={i}
-          className="w-[2px] rounded-full bg-current"
+          className="h-full w-[2px] origin-bottom rounded-full bg-current"
           animate={
             reduce
-              ? { height: "70%", opacity: 0.8 }
-              : { height: ["30%", "100%", "30%"], opacity: [0.55, 1, 0.55] }
+              ? { scaleY: 0.7, opacity: 0.8 }
+              : { scaleY: [0.3, 1, 0.3], opacity: [0.55, 1, 0.55] }
           }
           transition={
             reduce

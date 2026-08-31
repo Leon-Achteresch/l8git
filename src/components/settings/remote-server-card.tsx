@@ -52,13 +52,14 @@ export function RemoteServerCard() {
   useEffect(() => {
     let active = true;
     const poll = async () => {
+      if (document.hidden) return;
       const next = await invoke<RemoteStatus>("remote_status");
       if (active) setStatus(next);
     };
     void invoke<RemoteStatus>("remote_status").then((next) => {
       if (active) apply(next);
     });
-    const id = setInterval(() => void poll(), 5000);
+    const id = setInterval(() => void poll(), 15000);
     return () => {
       active = false;
       clearInterval(id);

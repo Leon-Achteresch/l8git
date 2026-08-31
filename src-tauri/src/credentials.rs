@@ -71,7 +71,7 @@ fn git_credential(
                 }
                 return Ok(String::from_utf8_lossy(&stdout_buf).to_string());
             }
-            None => thread::sleep(Duration::from_millis(5)),
+            None => thread::sleep(Duration::from_millis(60)),
         }
     }
 }
