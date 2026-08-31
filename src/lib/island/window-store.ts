@@ -102,6 +102,24 @@ export function rememberIslandWindowPosition(position: IslandWindowPosition): vo
   }
 }
 
+export type MainWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  visible: boolean;
+  minimized: boolean;
+};
+
+export async function mainWindowBounds(): Promise<MainWindowBounds | null> {
+  if (!IS_TAURI) return null;
+  try {
+    return (await invoke<MainWindowBounds | null>("main_window_bounds")) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function setIslandWindowAlwaysOnTop(value: boolean): Promise<void> {
   if (!IS_TAURI) return;
   await invoke("island_window_set_always_on_top", { value }).catch(() => {});

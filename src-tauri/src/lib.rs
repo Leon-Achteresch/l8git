@@ -312,6 +312,7 @@ pub fn run() {
             island::island_window_state,
             island::island_window_set_size,
             island::island_window_set_always_on_top,
+            island::main_window_bounds,
             island::main_window_minimize,
             island::main_window_restore,
             island::main_window_toggle_minimize
