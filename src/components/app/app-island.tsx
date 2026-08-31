@@ -11,7 +11,9 @@ import { useIslandFlash } from "@/lib/island/flash";
 import { useIslandUsage } from "@/lib/island/usage";
 import { detachIslandToEdge } from "@/lib/island/window-store";
 import {
+  beginMagnetDrag,
   defaultIslandPosition,
+  endMagnetDrag,
   ISLAND_HEIGHT,
   ISLAND_WIDTH,
   islandOverlayClass,
@@ -37,6 +39,7 @@ export function AppIsland() {
   const islandRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
   const justDraggedRef = useRef(false);
+  const hoveredRef = useRef<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const idle = () => !draggingRef.current && !justDraggedRef.current;
 
@@ -169,6 +172,7 @@ export function AppIsland() {
           dragMomentum={false}
           dragElastic={0.12}
           onDragStart={() => {
+            beginMagnetDrag();
             draggingRef.current = true;
             setIsDragging(true);
             setDragging(true);
@@ -176,13 +180,19 @@ export function AppIsland() {
           }}
           onDrag={() => {
             const hit = magnetFor(x.get(), y.get());
-            setHovered(hit?.id ?? null);
+            const id = hit?.id ?? null;
+            if (hoveredRef.current !== id) {
+              hoveredRef.current = id;
+              setHovered(id);
+            }
             const grip = hit ? hit.pull * hit.pull : 0;
             magnetX.set(hit ? (hit.x - x.get()) * grip : 0);
             magnetY.set(hit ? (hit.y - y.get()) * grip : 0);
           }}
           onDragEnd={() => {
             const hit = magnetFor(x.get(), y.get());
+            endMagnetDrag();
+            hoveredRef.current = null;
             x.jump(x.get() + magnetX.get());
             y.jump(y.get() + magnetY.get());
             magnetX.jump(0);

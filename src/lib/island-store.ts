@@ -13,6 +13,7 @@ type IslandState = {
   dock: IslandDock;
   dragging: boolean;
   hovered: IslandDockId | null;
+  usagePopover: boolean;
   showBranch: boolean;
   showDirty: boolean;
   showAgents: boolean;
@@ -22,6 +23,7 @@ type IslandState = {
   setDock: (dock: IslandDock) => void;
   setDragging: (dragging: boolean) => void;
   setHovered: (hovered: IslandDockId | null) => void;
+  setUsagePopover: (open: boolean) => void;
   setPanelSize: (size: IslandPanelSize) => void;
   resetPosition: () => void;
   toggleBranch: () => void;
@@ -100,6 +102,7 @@ export const useIslandStore = create<IslandState>()(
       dock: "free",
       dragging: false,
       hovered: null,
+      usagePopover: false,
       showBranch: true,
       showDirty: true,
       showAgents: true,
@@ -109,6 +112,7 @@ export const useIslandStore = create<IslandState>()(
       setDock: (dock) => set({ dock }),
       setDragging: (dragging) => set({ dragging }),
       setHovered: (hovered) => set({ hovered }),
+      setUsagePopover: (usagePopover) => set({ usagePopover }),
       setPanelSize: (size) => set({ panelSize: clampIslandPanel(size) }),
       resetPosition: () => set({ position: null, dock: "free" }),
       toggleBranch: () => set((s) => ({ showBranch: !s.showBranch })),
@@ -119,7 +123,12 @@ export const useIslandStore = create<IslandState>()(
     {
       name: "l8git-island",
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ dragging: _dragging, hovered: _hovered, ...rest }) => rest,
+      partialize: ({
+        dragging: _dragging,
+        hovered: _hovered,
+        usagePopover: _usagePopover,
+        ...rest
+      }) => rest,
       merge: (persisted, current) => ({
         ...current,
         ...(typeof persisted === "object" && persisted ? persisted : {}),
@@ -243,12 +252,31 @@ export function magnetFor(centerX: number, centerY: number): MagnetHit | null {
   return edge;
 }
 
-function slotMagnet(centerX: number, centerY: number): MagnetHit | null {
+let slotRectCache: Partial<Record<IslandSlotDock, DOMRect>> | null = null;
+
+function liveSlotRects(): Partial<Record<IslandSlotDock, DOMRect>> {
   const { els } = useIslandDocks.getState();
+  const rects: Partial<Record<IslandSlotDock, DOMRect>> = {};
+  for (const id of Object.keys(els) as IslandSlotDock[]) {
+    rects[id] = els[id]!.getBoundingClientRect();
+  }
+  return rects;
+}
+
+export function beginMagnetDrag(): void {
+  slotRectCache = liveSlotRects();
+}
+
+export function endMagnetDrag(): void {
+  slotRectCache = null;
+}
+
+function slotMagnet(centerX: number, centerY: number): MagnetHit | null {
+  const rects = slotRectCache ?? liveSlotRects();
   let best: (MagnetHit & { distance: number }) | null = null;
 
-  for (const id of Object.keys(els) as IslandSlotDock[]) {
-    const r = els[id]!.getBoundingClientRect();
+  for (const id of Object.keys(rects) as IslandSlotDock[]) {
+    const r = rects[id]!;
     if (
       centerX < r.left - MAGNET_MARGIN ||
       centerX > r.right + MAGNET_MARGIN ||

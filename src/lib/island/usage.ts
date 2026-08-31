@@ -69,7 +69,15 @@ export function armIslandUsage(): () => void {
 export function useIslandUsage(): IslandProviderUsage[] {
   const [rows, setRows] = useState(collectIslandUsage);
   useEffect(() => {
-    const sync = () => setRows(collectIslandUsage());
+    let last: unknown[] = [];
+    const sync = () => {
+      const inputs = islandUsageInputs();
+      if (inputs.length === last.length && inputs.every((v, i) => v === last[i])) {
+        return;
+      }
+      last = inputs;
+      setRows(collectIslandUsage());
+    };
     const offs = subscribeIslandUsage(sync);
     sync();
     return () => offs.forEach((off) => off());

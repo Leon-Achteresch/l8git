@@ -18,6 +18,19 @@ export function usageRowsOrAll(rows: IslandProviderUsage[]): IslandProviderUsage
   }));
 }
 
+export function usageWindowKnown(window: IslandUsageWindow | null): boolean {
+  return (
+    !!window &&
+    (window.usedPercent > 0 ||
+      window.resetsAt != null ||
+      window.windowDurationMins != null)
+  );
+}
+
+export function usageRowKnown(row: IslandProviderUsage): boolean {
+  return usageWindowKnown(row.primary) || usageWindowKnown(row.secondary);
+}
+
 export function usageRingColor(percent: number): string {
   if (percent >= 70) return "#ef4444";
   if (percent >= 40) return "#a3e635";
