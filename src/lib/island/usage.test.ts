@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { IslandUsageWindow } from "@/lib/island/types";
-import { usageBarHot, usageResetsLabel, usageRingColor } from "@/lib/island/usage-format";
+import {
+  usageBarHot,
+  usageResetsLabel,
+  usageRingColor,
+  usageRowKnown,
+} from "@/lib/island/usage-format";
 
 describe("usageRingColor", () => {
   it("maps high usage to red, mid to lime, low to teal", () => {
@@ -43,5 +48,31 @@ describe("usageResetsLabel", () => {
 
   it("returns null without a reset timestamp", () => {
     expect(usageResetsLabel(windowOf(null), 0, () => "x", () => "y")).toBeNull();
+  });
+});
+
+describe("usageRowKnown", () => {
+  it("treats fabricated zero rows as unknown and real data as known", () => {
+    const empty: IslandUsageWindow = {
+      usedPercent: 0,
+      windowDurationMins: null,
+      resetsAt: null,
+    };
+    expect(usageRowKnown({ id: "claude", primary: empty, secondary: null })).toBe(false);
+    expect(usageRowKnown({ id: "claude", primary: null, secondary: null })).toBe(false);
+    expect(
+      usageRowKnown({
+        id: "claude",
+        primary: { ...empty, usedPercent: 12 },
+        secondary: null,
+      }),
+    ).toBe(true);
+    expect(
+      usageRowKnown({
+        id: "claude",
+        primary: null,
+        secondary: { ...empty, resetsAt: 1_700_000_000 },
+      }),
+    ).toBe(true);
   });
 });

@@ -1,7 +1,6 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
 
@@ -19,21 +18,16 @@ import { RepoChips } from '~/components/dashboard/repo-chips';
 import { RepoTile } from '~/components/dashboard/repo-tile';
 import { StatTile } from '~/components/dashboard/stat-tile';
 import { EmptyState } from '~/components/empty-state';
-import { initials, repoName } from '~/components/shared/format';
+import { repoName } from '~/components/shared/format';
+import { HostAvatar } from '~/components/host-avatar';
 import { palette } from '~/lib/theme';
 import { Skeleton } from '~/components/ui/skeleton';
+import { SolidPill } from '~/components/ui/glass';
 import { Text } from '~/components/ui/text';
 import { useHostMeta, useHostRuntime } from '~/lib/connections';
 import { repoLink } from '~/lib/repo/route';
 
 const ACTIVE_BRANCH_WINDOW_DAYS = 14;
-
-const HOST_GRADIENTS: [string, string][] = [
-  ['#ff6b57', '#bf5af2'],
-  ['#0a84ff', '#40c8e0'],
-  ['#34c759', '#ffd60a'],
-  ['#ff2d92', '#ff9f0a'],
-];
 
 export function HostSection({
   hostId,
@@ -104,28 +98,7 @@ export function HostSection({
       layout={LinearTransition.duration(200)}
       className="gap-3 pt-3">
       <View className="flex-row items-center gap-3">
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            borderWidth: 2,
-            padding: 2,
-            borderColor:
-              runtime.status === 'online'
-                ? palette.success
-                : runtime.status === 'connecting' || runtime.status === 'reconnecting'
-                  ? palette.warning
-                  : 'rgba(255,255,255,0.18)',
-          }}>
-          <LinearGradient
-            colors={HOST_GRADIENTS[index % HOST_GRADIENTS.length]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ flex: 1, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
-            <Text className="text-2xs font-bold text-white">{initials(meta?.name ?? hostId)}</Text>
-          </LinearGradient>
-        </View>
+        <HostAvatar name={meta?.name ?? hostId} size={44} status={runtime.status} />
         <View className="min-w-0 flex-1">
           <Text numberOfLines={1} className="text-foreground text-lg font-bold">
             {meta?.name ?? hostId}
@@ -150,6 +123,7 @@ export function HostSection({
           illustration="repo"
           title="No repos tracked here"
           description="Add repos on the Repos tab to see this host's metrics."
+          action={<SolidPill label="Open Repos" onPress={() => router.push('/repos')} />}
           className="py-8"
         />
       ) : (

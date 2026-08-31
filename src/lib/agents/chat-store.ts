@@ -404,7 +404,7 @@ function normalizeAccountUsage(value: unknown): AgentAccountUsage | null {
 }
 
 let listenersAttached = false;
-const DELTA_FLUSH_MS = 32;
+const DELTA_FLUSH_MS = 100;
 let deltaTimer: ReturnType<typeof setTimeout> | null = null;
 const deltaQueue: DeltaUpdate[] = [];
 

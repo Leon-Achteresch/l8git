@@ -1,10 +1,11 @@
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, FolderGit2 } from 'lucide-react-native';
 import * as React from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { AgentThreadRow } from '~/components/agents/agent-thread-row';
 import type { AgentRepoGroup } from '~/components/agents/overview-model';
+import { Glyph } from '~/components/glyph';
 import { middleTruncate } from '~/components/shared/format';
 import { HostBadge } from '~/components/shared/host-badge';
 import { RowGroup } from '~/components/shared/pressable-row';
@@ -12,7 +13,6 @@ import { StatusPill } from '~/components/shared/status-pill';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
 import type { HostAgentEntry } from '~/lib/agents/overview-aggregator';
-import { illustrations } from '~/lib/illustrations';
 
 export function AgentRepoGroupCard({
   group,
@@ -37,11 +37,7 @@ export function AgentRepoGroupCard({
         accessibilityLabel={`Start a new thread in ${group.repoName}`}
         onPress={() => onNewThread(group)}
         className="active:opacity-70 flex-row items-center gap-2 px-1">
-        <Image
-          source={illustrations.repo}
-          resizeMode="cover"
-          style={{ width: 32, height: 32, borderRadius: 16 }}
-        />
+        <Glyph icon={FolderGit2} size={32} />
         <Text numberOfLines={1} className="text-foreground max-w-40 text-sm font-semibold">
           {group.repoName}
         </Text>

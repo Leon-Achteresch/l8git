@@ -33,13 +33,17 @@ export function IslandWindowApp() {
   const [view, setView] = useState<string | null>(null);
   const islandRef = useRef<HTMLDivElement | null>(null);
   const flash = useDetachedFlash();
-  const { dock, showUsage } = useIslandStore(
-    useShallow((s) => ({ dock: s.dock, showUsage: s.showUsage })),
+  const { dock, showUsage, usagePopover } = useIslandStore(
+    useShallow((s) => ({
+      dock: s.dock,
+      showUsage: s.showUsage,
+      usagePopover: s.usagePopover,
+    })),
   );
   useTheme();
   useWindowPositionMemory();
   const compactUsage = showUsage || isEdgeDock(dock);
-  const extra = compactUsage ? 236 : 0;
+  const extra = compactUsage && usagePopover ? 236 : 0;
   const verticalUsage = compactUsage && dock !== "top" && dock !== "bottom";
   const extraLeft = verticalUsage && dock !== "left" && dock !== "sidebar" ? extra : 0;
   const extraRight = verticalUsage && (dock === "left" || dock === "sidebar") ? extra : 0;
@@ -155,16 +159,38 @@ function useWindowAutoSize(
     const el = ref.current;
     if (!el) return;
     let frame = 0;
-    let last = "";
+    let settle = 0;
+    let sent = { width: 0, height: 0 };
+
+    const measure = () => {
+      const shell = el.firstElementChild as HTMLElement | null;
+      return {
+        width:
+          Math.ceil(Math.max(el.offsetWidth, shell?.scrollWidth ?? 0)) +
+          PAD * 2 +
+          extraX,
+        height:
+          Math.ceil(Math.max(el.offsetHeight, shell?.scrollHeight ?? 0)) +
+          PAD * 2 +
+          extraY,
+      };
+    };
+
+    const send = (size: { width: number; height: number }) => {
+      if (size.width === sent.width && size.height === sent.height) return;
+      sent = size;
+      void setIslandWindowSize(size.width, size.height, dock);
+    };
 
     const apply = () => {
       frame = 0;
-      const width = Math.ceil(el.offsetWidth) + PAD * 2 + extraX;
-      const height = Math.ceil(el.offsetHeight) + PAD * 2 + extraY;
-      const key = `${width}x${height}`;
-      if (key === last) return;
-      last = key;
-      void setIslandWindowSize(width, height).then(() => snapCurrentWindowToDock(dock));
+      const size = measure();
+      window.clearTimeout(settle);
+      if (size.width >= sent.width && size.height >= sent.height) {
+        send(size);
+        return;
+      }
+      settle = window.setTimeout(() => send(measure()), 120);
     };
 
     const observer = new ResizeObserver(() => {
@@ -176,6 +202,7 @@ function useWindowAutoSize(
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
       observer.disconnect();
     };
   }, [ref, extraX, extraY, dock]);

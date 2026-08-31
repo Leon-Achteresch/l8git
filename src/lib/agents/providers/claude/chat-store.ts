@@ -78,7 +78,7 @@ let surfaceReferences = 0;
 let surfaceReleaseTimer: ReturnType<typeof setTimeout> | null = null;
 let sequence = 1;
 
-const STREAM_FLUSH_MS = 32;
+const STREAM_FLUSH_MS = 100;
 const THREAD_LIST_CACHE_MS = 10_000;
 const REPO_FILE_CACHE_MS = 30_000;
 const MAX_REPO_FILE_CACHES = 3;

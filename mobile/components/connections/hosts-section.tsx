@@ -1,5 +1,4 @@
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Plus, Radio, Star, Trash2, Unplug } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert as RNAlert, Pressable, View } from 'react-native';
@@ -8,33 +7,13 @@ import { AddHostDialog } from '~/components/connections/add-host-dialog';
 import { HostDetailDialog } from '~/components/connections/host-detail-dialog';
 import { statusLabel } from '~/components/connections/status';
 import { EmptyState } from '~/components/empty-state';
-import { initials } from '~/components/shared/format';
+import { HostAvatar, hostRingColor } from '~/components/host-avatar';
 import { GlassPill, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
-import { useConnections, type HostMeta, type HostStatus } from '~/lib/connections';
+import { useConnections, type HostMeta } from '~/lib/connections';
 import { palette } from '~/lib/theme';
-
-const HOST_GRADIENTS: [string, string][] = [
-  ['#ff6b57', '#bf5af2'],
-  ['#0a84ff', '#40c8e0'],
-  ['#34c759', '#ffd60a'],
-  ['#ff2d92', '#ff9f0a'],
-];
-
-function ringColor(status: HostStatus): string {
-  if (status === 'online') {
-    return palette.success;
-  }
-  if (status === 'connecting' || status === 'reconnecting') {
-    return palette.warning;
-  }
-  if (status === 'error') {
-    return palette.destructive;
-  }
-  return 'rgba(255,255,255,0.18)';
-}
 
 export function HostsSection() {
   const hosts = useConnections((state) => state.hosts);
@@ -73,11 +52,10 @@ export function HostsSection() {
         </View>
       ) : (
         <View className="gap-3">
-          {hosts.map((host, index) => (
+          {hosts.map((host) => (
             <HostCard
               key={host.hostId}
               host={host}
-              index={index}
               onOpenDetail={() => setDetailHostId(host.hostId)}
             />
           ))}
@@ -95,11 +73,9 @@ export function HostsSection() {
 
 function HostCard({
   host,
-  index,
   onOpenDetail,
 }: {
   host: HostMeta;
-  index: number;
   onOpenDetail: () => void;
 }) {
   const runtime = useConnections((state) => state.runtime[host.hostId]);
@@ -148,28 +124,7 @@ function HostCard({
       onLongPress={() => setActiveHost(host.hostId)}
       className="bg-card active:bg-elevated gap-4 rounded-[28px] px-5 pb-4 pt-5">
       <View className="flex-row items-center gap-4">
-        <View
-          style={{
-            width: 66,
-            height: 66,
-            borderRadius: 33,
-            borderWidth: 2,
-            borderColor: ringColor(status),
-            padding: 3,
-          }}>
-          <LinearGradient
-            colors={HOST_GRADIENTS[index % HOST_GRADIENTS.length]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              flex: 1,
-              borderRadius: 28,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <Text className="text-base font-bold text-white">{initials(host.name)}</Text>
-          </LinearGradient>
-        </View>
+        <HostAvatar name={host.name} size={66} status={status} />
 
         <View className="min-w-0 flex-1 gap-0.5">
           <View className="flex-row items-center gap-2">
@@ -189,7 +144,7 @@ function HostCard({
                 width: 7,
                 height: 7,
                 borderRadius: 4,
-                backgroundColor: ringColor(status),
+                backgroundColor: hostRingColor(status),
               }}
             />
             <Text

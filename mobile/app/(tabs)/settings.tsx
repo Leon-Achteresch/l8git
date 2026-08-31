@@ -1,16 +1,15 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Bell, Info, Palette, Shapes, Vibrate, type LucideIcon } from 'lucide-react-native';
+import { Info, Shapes, UserRound, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HostsSection } from '~/components/connections/hosts-section';
 import { ListGroup, ListRow } from '~/components/list-row';
-import { Glass } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
-import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
+import { useConnections } from '~/lib/connections';
 import { palette } from '~/lib/theme';
 
 function RowIcon({ icon, color = palette.foreground }: { icon: LucideIcon; color?: string }) {
@@ -29,96 +28,86 @@ function RowIcon({ icon, color = palette.foreground }: { icon: LucideIcon; color
   );
 }
 
-function SectionLabel({ title, count }: { title: string; count?: number }) {
-  return (
-    <View className="flex-row items-center gap-2 pb-3 pt-2">
-      <Text className="text-foreground text-base font-semibold">{title}</Text>
-      {typeof count === 'number' && count > 0 ? (
-        <Text style={{ fontVariant: ['tabular-nums'] }} className="text-muted-foreground text-sm">
-          {count}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 export default function SettingsScreen() {
   const router = useRouter();
-  const [haptics, setHaptics] = React.useState(true);
-  const [notifications, setNotifications] = React.useState(true);
+  const hosts = useConnections((state) => state.hosts.length);
+  const online = useConnections(
+    (state) => Object.values(state.runtime).filter((runtime) => runtime.status === 'online').length
+  );
 
   return (
     <SafeAreaView edges={['top']} className="bg-background flex-1">
-      <View className="flex-row items-center justify-between px-5 pb-4 pt-2">
-        <Text className="text-foreground text-3xl font-bold tracking-tight">Settings</Text>
-        <Glass
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Text className="text-foreground font-mono text-sm font-semibold">l8</Text>
-        </Glass>
+      <View className="px-5 pb-2 pt-2">
+        <View className="bg-card items-center overflow-hidden rounded-[32px] px-5 pb-6 pt-4">
+          <Text className="text-foreground w-full text-[32px] font-bold tracking-tight">You</Text>
+          <View
+            style={{
+              width: 92,
+              height: 92,
+              borderRadius: 46,
+              borderWidth: 2,
+              borderColor: 'rgba(255,255,255,0.28)',
+              overflow: 'hidden',
+              marginTop: 16,
+              backgroundColor: palette.elevated,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            <Icon as={UserRound} size={36} color={palette.foreground} />
+          </View>
+            <Text className="text-foreground pt-3 text-xl font-bold">l8git Remote</Text>
+            <Text className="text-muted-foreground text-sm">
+              {`v${Constants.expoConfig?.version ?? '0.1.0'}`}
+            </Text>
+            <View
+              className="mt-5 w-full flex-row py-3"
+              style={{ borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)' }}>
+              <View className="flex-1 items-center gap-0.5">
+                <Text style={{ fontVariant: ['tabular-nums'] }} className="text-foreground text-lg font-bold">
+                  {hosts}
+                </Text>
+                <Text className="text-muted-foreground text-2xs">Hosts</Text>
+              </View>
+              <View className="flex-1 items-center gap-0.5">
+                <Text style={{ fontVariant: ['tabular-nums'] }} className="text-foreground text-lg font-bold">
+                  {online}
+                </Text>
+                <Text className="text-muted-foreground text-2xs">Online</Text>
+              </View>
+              <View className="flex-1 items-center gap-0.5">
+                <Text className="text-foreground text-lg font-bold">OLED</Text>
+                <Text className="text-muted-foreground text-2xs">Look</Text>
+              </View>
+            </View>
+        </View>
       </View>
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-4 px-5 pb-32"
+        contentContainerClassName="gap-5 px-5 pb-36"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <HostsSection />
 
-        <View>
-          <SectionLabel title="Preferences" />
+        {__DEV__ ? (
           <ListGroup>
             <ListRow
-              leading={<RowIcon icon={Vibrate} />}
-              title="Haptic feedback"
-              subtitle="Vibrate on approvals and tab changes"
-              trailing={<Switch checked={haptics} onCheckedChange={setHaptics} />}
-            />
-            <ListRow
-              leading={<RowIcon icon={Bell} />}
-              title="In-app notifications"
-              subtitle="Banner for pending agent approvals"
-              trailing={<Switch checked={notifications} onCheckedChange={setNotifications} />}
-            />
-            <ListRow
-              leading={<RowIcon icon={Palette} />}
-              title="Appearance"
-              subtitle="Dark (l8git)"
+              leading={<RowIcon icon={Shapes} />}
+              title="Component bench"
+              subtitle="Every shared primitive on one screen"
               chevron
+              onPress={() => router.push('/dev-components')}
             />
           </ListGroup>
-        </View>
-
-        {__DEV__ ? (
-          <View>
-            <SectionLabel title="Developer" />
-            <ListGroup>
-              <ListRow
-                leading={<RowIcon icon={Shapes} />}
-                title="Component bench"
-                subtitle="Every shared primitive on one screen"
-                chevron
-                onPress={() => router.push('/dev-components')}
-              />
-            </ListGroup>
-          </View>
         ) : null}
 
-        <View>
-          <SectionLabel title="About" />
-          <ListGroup>
-            <ListRow
-              leading={<RowIcon icon={Info} />}
-              title="l8git Remote"
-              subtitle={`v${Constants.expoConfig?.version ?? '0.1.0'}`}
-            />
-          </ListGroup>
-        </View>
+        <ListGroup>
+          <ListRow
+            leading={<RowIcon icon={Info} />}
+            title="l8git Remote"
+            subtitle={`v${Constants.expoConfig?.version ?? '0.1.0'}`}
+          />
+        </ListGroup>
       </ScrollView>
     </SafeAreaView>
   );

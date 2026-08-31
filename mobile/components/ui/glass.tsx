@@ -15,7 +15,7 @@ export const glassSurface: ViewStyle = {
   borderColor: 'rgba(255,255,255,0.18)',
 };
 
-export function Glass({ style, intensity = 30, children, ...props }: BlurViewProps) {
+export function Glass({ style, intensity = 42, children, ...props }: BlurViewProps) {
   return (
     <BlurView
       intensity={intensity}
@@ -53,7 +53,7 @@ export function GlassCircle({
       accessibilityLabel={label}
       hitSlop={6}
       onPress={onPress}
-      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }, style]}>
+      style={({ pressed }) => [{ opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] }, style]}>
       <Glass
         style={{
           width: size,
@@ -62,7 +62,7 @@ export function GlassCircle({
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <Icon as={icon} size={Math.round(size * 0.42)} color={color} />
+        <Icon as={icon} size={Math.round(size * 0.4)} color={color} strokeWidth={1.7} />
       </Glass>
       {badge ? (
         <View
@@ -105,18 +105,18 @@ export function GlassPill({
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }, style]}>
+      style={({ pressed }) => [{ opacity: pressed ? 0.72 : 1 }, style]}>
       <Glass
         style={{
-          height: 38,
-          borderRadius: 19,
+          height: 40,
+          borderRadius: 20,
           paddingHorizontal: 14,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           gap: 6,
         }}>
-        {icon ? <Icon as={icon} size={14} color={palette.foreground} /> : null}
+        {icon ? <Icon as={icon} size={14} color={palette.foreground} strokeWidth={1.7} /> : null}
         <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
           {label}
         </Text>
@@ -146,19 +146,20 @@ export function SolidPill({
       onPress={onPress}
       style={({ pressed }) => [
         {
-          height: 54,
-          borderRadius: 27,
-          paddingHorizontal: 22,
+          height: 48,
+          borderRadius: 24,
+          paddingHorizontal: 20,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           gap: 8,
           backgroundColor: palette.primary,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+          opacity: disabled ? 0.5 : pressed ? 0.88 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
         style,
       ]}>
-      {icon ? <Icon as={icon} size={17} color={palette.primaryForeground} /> : null}
+      {icon ? <Icon as={icon} size={16} color={palette.primaryForeground} strokeWidth={2} /> : null}
       <Text className="text-primary-foreground text-base font-semibold">{label}</Text>
     </Pressable>
   );

@@ -3,10 +3,8 @@ import { FolderPlus, Plug, RotateCw } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, View } from 'react-native';
 
-import { LinearGradient } from 'expo-linear-gradient';
-
+import { HostAvatar } from '~/components/host-avatar';
 import { RepoTile } from '~/components/repo/repo-row';
-import { initials } from '~/components/shared/format';
 import { GlassCircle } from '~/components/ui/glass';
 import { SkeletonList } from '~/components/skeleton-list';
 import { Button } from '~/components/ui/button';
@@ -109,27 +107,11 @@ export function HostReposSection({
     <View className="gap-2">
       <View className="flex-row items-center justify-between pb-2 pt-5">
         <View className="flex-row items-center gap-3">
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              borderWidth: 2,
-              padding: 2,
-              borderColor: online
-                ? '#34c759'
-                : connecting
-                  ? '#ff9f0a'
-                  : 'rgba(255,255,255,0.18)',
-            }}>
-            <LinearGradient
-              colors={['#ff6b57', '#bf5af2']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ flex: 1, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
-              <Text className="text-2xs font-bold text-white">{initials(hostName)}</Text>
-            </LinearGradient>
-          </View>
+          <HostAvatar
+            name={hostName}
+            size={44}
+            status={online ? 'online' : connecting ? 'connecting' : 'idle'}
+          />
           <View>
             <Text className="text-foreground text-lg font-bold">{hostName}</Text>
             <Text className="text-muted-foreground text-xs">

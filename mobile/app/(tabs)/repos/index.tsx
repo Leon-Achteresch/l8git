@@ -7,9 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddRepoDialog } from '~/components/repo/add-repo-dialog';
 import { HostReposSection } from '~/components/repo/host-repos-section';
+import { ConnectedHostCard } from '~/components/connected-host-card';
+import { statusLabel } from '~/components/connections/status';
 import { EmptyState } from '~/components/empty-state';
-import { Button } from '~/components/ui/button';
-import { Glass, GlassCircle } from '~/components/ui/glass';
+import { Glass, GlassCircle, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Input } from '~/components/ui/input';
 import { Text } from '~/components/ui/text';
@@ -66,12 +67,12 @@ export default function ReposScreen() {
   return (
     <SafeAreaView edges={['top']} className="bg-background flex-1">
       <View className="px-5 pt-1">
-        <View className="mb-3 flex-row items-center justify-between">
-          <Text className="text-foreground text-3xl font-bold">Repos</Text>
+        <View className="mb-4 flex-row items-center justify-between">
+          <Text className="text-foreground text-[32px] font-bold">Repos</Text>
           <GlassCircle icon={Plus} label="Add a repository" onPress={() => openDialog(null)} />
         </View>
 
-        <Glass style={{ height: 46, borderRadius: 23, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <Glass style={{ height: 48, borderRadius: 24, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <Icon as={Search} size={17} className="text-muted-foreground" />
           <Input
             value={query}
@@ -95,22 +96,53 @@ export default function ReposScreen() {
       </View>
 
       <ScrollView
-        contentContainerClassName="px-5 pb-28 pt-1"
+        contentContainerClassName="pb-36 pt-1"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={palette.mutedForeground} />
         }>
+        {hosts.length > 0 ? (
+          <View className="gap-3 pb-2 pt-4">
+            <View className="flex-row items-center justify-between px-5">
+              <Text className="text-muted-foreground text-sm">Connected hosts</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Pair another host"
+                onPress={() => router.push('/settings')}
+                hitSlop={8}>
+                <Text className="text-foreground text-sm font-semibold">Pair</Text>
+              </Pressable>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+              {ordered.map((host) => (
+                <ConnectedHostCard
+                  key={host.hostId}
+                  name={host.name}
+                  records={matches[host.hostId] ?? 0}
+                  recency={statusLabel(
+                    runtime[host.hostId]?.status ?? 'idle',
+                    runtime[host.hostId]?.latencyMs ?? null
+                  )}
+                  status={runtime[host.hostId]?.status ?? 'idle'}
+                  onPress={() => openDialog(host.hostId)}
+                />
+              ))}
+            </ScrollView>
+            <Text className="text-muted-foreground px-5 pt-2 text-sm">Your repositories</Text>
+          </View>
+        ) : null}
+
+        <View className="px-5">
         {hosts.length === 0 ? (
           <EmptyState
             icon={ServerOff}
             title="No hosts paired"
             description="Pair an l8gitd host to browse its working copies."
-            action={
-              <Button size="sm" variant="secondary" onPress={() => router.push('/settings')}>
-                <Text className="text-xs">Open Settings</Text>
-              </Button>
-            }
+            action={<SolidPill label="Open Settings" onPress={() => router.push('/settings')} />}
             className="py-24"
           />
         ) : !hydrated ? null : (
@@ -134,6 +166,7 @@ export default function ReposScreen() {
             className="py-20"
           />
         ) : null}
+        </View>
       </ScrollView>
 
       <AddRepoDialog

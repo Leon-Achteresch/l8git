@@ -34,7 +34,7 @@ export function subscribeIslandUsage(cb: () => void): Array<() => void> {
 export function armIslandUsage(): () => void {
   let stopped = false;
   const tick = () => {
-    if (stopped) return;
+    if (stopped || document.hidden) return;
     const island = useIslandStore.getState();
     if (!island.showUsage && !isEdgeDock(island.dock)) return;
     for (const id of PROVIDERS) {
@@ -69,7 +69,15 @@ export function armIslandUsage(): () => void {
 export function useIslandUsage(): IslandProviderUsage[] {
   const [rows, setRows] = useState(collectIslandUsage);
   useEffect(() => {
-    const sync = () => setRows(collectIslandUsage());
+    let last: unknown[] = [];
+    const sync = () => {
+      const inputs = islandUsageInputs();
+      if (inputs.length === last.length && inputs.every((v, i) => v === last[i])) {
+        return;
+      }
+      last = inputs;
+      setRows(collectIslandUsage());
+    };
     const offs = subscribeIslandUsage(sync);
     sync();
     return () => offs.forEach((off) => off());

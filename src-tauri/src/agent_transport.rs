@@ -262,7 +262,7 @@ fn spawn_pumps(
                 }
                 Ok(None) => {
                     drop(process);
-                    thread::sleep(Duration::from_millis(120));
+                    thread::sleep(Duration::from_millis(500));
                 }
                 Err(error) => {
                     log::warn!("agent transport id={id} wait failed: {error}");

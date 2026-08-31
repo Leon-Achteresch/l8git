@@ -18,7 +18,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { useHostOverviews, useHostRepoEntries } from '~/components/dashboard/queries';
-import { HostStories, RepoCard } from '~/components/home';
+import { EmptyState } from '~/components/empty-state';
+import { HostStories } from '~/components/host-stories';
+import { InboxAgentRow } from '~/components/inbox/inbox-agent-row';
 import { InboxCiRow } from '~/components/inbox/inbox-ci-row';
 import { InboxErrors } from '~/components/inbox/inbox-errors';
 import {
@@ -27,32 +29,22 @@ import {
 } from '~/components/inbox/inbox-identity-dialog';
 import { InboxPrRow } from '~/components/inbox/inbox-pr-row';
 import { InboxSection } from '~/components/inbox/inbox-section';
-import { useInbox } from '~/components/inbox/use-inbox';
-import { EmptyState } from '~/components/empty-state';
+import { useInbox, type InboxAgentItem } from '~/components/inbox/use-inbox';
+import { RepoCard, REPO_CARD_GAP, REPO_CARD_WIDTH } from '~/components/repo-card';
+import { SectionHeader } from '~/components/section-header';
 import { GlassCircle, SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { useOpenAgentThread } from '~/components/agents/chat/route';
 import { useConnections, useOnlineHostIds } from '~/lib/connections';
 import type { InboxCiItem, InboxPrItem } from '~/lib/inbox';
 import { ciLink, prLink } from '~/lib/repo/route';
 import { palette } from '~/lib/theme';
 
-function SectionLabel({ title, count }: { title: string; count?: number }) {
-  return (
-    <View className="flex-row items-center gap-2 px-5">
-      <Text className="text-foreground text-base font-semibold">{title}</Text>
-      {typeof count === 'number' && count > 0 ? (
-        <Text style={{ fontVariant: ['tabular-nums'] }} className="text-muted-foreground text-sm">
-          {count}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 export default function HomeScreen() {
   const router = useRouter();
   const inbox = useInbox();
+  const openAgentThread = useOpenAgentThread();
   const pairedHosts = useConnections((state) => state.hosts.length);
   const onlineHostIds = useOnlineHostIds();
   const entries = useHostRepoEntries(onlineHostIds);
@@ -103,6 +95,16 @@ export default function HomeScreen() {
     (item: InboxCiItem) => router.push(ciLink(item.hostId, item.path, item.runId)),
     [router]
   );
+  const openAgent = React.useCallback(
+    (item: InboxAgentItem) =>
+      openAgentThread({
+        hostId: item.hostId,
+        provider: item.provider,
+        threadId: item.threadId,
+        path: item.path,
+      }),
+    [openAgentThread]
+  );
 
   return (
     <SafeAreaView edges={['top']} className="bg-background flex-1">
@@ -127,7 +129,7 @@ export default function HomeScreen() {
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-4 pb-32"
+        contentContainerClassName="gap-6 pb-36"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -166,14 +168,20 @@ export default function HomeScreen() {
 
         {repoCards.length > 0 ? (
           <View className="gap-3">
-            <SectionLabel title="For you" />
+            <SectionHeader
+              title="For you"
+              count={repoCards.length}
+              actionLabel="See all"
+              onAction={() => router.push('/repos')}
+              className="px-5 pb-0 pt-0"
+            />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               decelerationRate="fast"
-              snapToInterval={248 + 12}
+              snapToInterval={REPO_CARD_WIDTH + REPO_CARD_GAP}
               snapToAlignment="start"
-              contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+              contentContainerStyle={{ paddingHorizontal: 20, gap: REPO_CARD_GAP }}>
               {repoCards.map(({ hostId, overview }, index) => (
                 <RepoCard
                   key={`${hostId}:${overview.path}`}
@@ -188,25 +196,25 @@ export default function HomeScreen() {
           <EmptyState
             icon={FolderGit2}
             title="No repos tracked yet"
-            description="Open a repo on the Repos tab and its reviews and pipelines land here."
+            description="Add a working copy on the Repos tab. Reviews and pipelines land here."
             action={<SolidPill label="Browse repos" onPress={() => router.push('/repos')} />}
           />
         ) : null}
 
         {hostCount > 0 && repoCount > 0 ? (
           totalCount === 0 && !loading ? (
-            <View className="gap-3">
-              <SectionLabel title="Needs you" />
-              <View className="bg-card mx-5 flex-row items-center gap-3 rounded-[28px] px-5 py-4">
+            <View className="gap-3 px-5">
+              <SectionHeader title="Needs you" className="px-0 pb-0 pt-0" />
+              <View className="flex-row items-center gap-3 rounded-[28px] bg-card px-5 py-5">
                 <Icon as={CircleCheck} size={18} color={palette.success} />
-                <Text className="text-muted-foreground flex-1 text-sm">
-                  No reviews waiting, no red pipelines, nothing needs you right now.
+                <Text className="text-muted-foreground flex-1 text-sm leading-5">
+                  Nothing waiting. Reviews, red pipelines, and agent approvals show up here.
                 </Text>
               </View>
             </View>
           ) : (
             <Animated.View layout={LinearTransition.duration(220)} className="gap-3">
-              <SectionLabel title="Needs you" count={totalCount} />
+              <SectionHeader title="Needs you" count={totalCount} className="px-5 pb-0 pt-0" />
               <View className="gap-3 px-5">
                 <InboxSection
                   icon={Eye}
@@ -241,9 +249,19 @@ export default function HomeScreen() {
                   icon={Bot}
                   title="Agents awaiting approval"
                   count={agents.length}
-                  hint="Approval requests from every connected host will appear here."
-                  index={2}
-                />
+                  hint="Approval requests from connected hosts appear here."
+                  index={2}>
+                  {agents.map((item, index) => (
+                    <Animated.View key={item.key} entering={FadeIn.duration(180)}>
+                      <InboxAgentRow
+                        item={item}
+                        showHost={showHost}
+                        divider={index > 0}
+                        onOpen={openAgent}
+                      />
+                    </Animated.View>
+                  ))}
+                </InboxSection>
 
                 <InboxSection
                   icon={GitPullRequest}

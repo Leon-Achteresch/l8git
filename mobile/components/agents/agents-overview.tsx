@@ -148,7 +148,7 @@ export function AgentsOverview() {
     <View className="flex-1">
       <View className="flex-row items-center justify-between gap-3 px-5 pb-4 pt-1">
         <View className="min-w-0 flex-1 gap-0.5">
-          <Text className="text-foreground text-3xl font-bold tracking-tight">Agents</Text>
+          <Text className="text-foreground text-[32px] font-bold tracking-tight">Agents</Text>
           <Text numberOfLines={1} className="text-muted-foreground text-sm">
             {[subtitle, tokens, cost > 0 ? formatUsd(cost) : null].filter(Boolean).join(' · ')}
           </Text>

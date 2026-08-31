@@ -75,13 +75,6 @@ export function InboxSection({
     <Animated.View
       entering={FadeInDown.duration(260).delay(index * 60)}
       layout={LinearTransition.duration(220)}
-      style={{
-        shadowColor: '#000',
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: 6,
-      }}
       className="bg-card overflow-hidden rounded-[28px]">
       <PressableRow
         flat

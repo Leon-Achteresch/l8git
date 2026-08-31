@@ -56,7 +56,6 @@ fn ensure_island(app: &AppHandle, position: Option<(f64, f64)>) -> Result<(), St
 
     if let Some(window) = app.get_webview_window(ISLAND_LABEL) {
         window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
         if let Some((x, y)) = position {
             let _ = window.set_position(LogicalPosition::new(x, y));
         }
@@ -75,7 +74,7 @@ fn ensure_island(app: &AppHandle, position: Option<(f64, f64)>) -> Result<(), St
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
-        .focused(true);
+        .focused(false);
 
     if let Some((x, y)) = position {
         builder = builder.position(x, y);
@@ -165,17 +164,57 @@ pub fn island_window_state(app: AppHandle) -> IslandWindowState {
     window_state(&app)
 }
 
-/// Resizes the island window to the natural size of its content.
+fn anchored_origin(
+    dock: Option<&str>,
+    old: (f64, f64, f64, f64),
+    new_size: (f64, f64),
+) -> (f64, f64) {
+    let (x, y, w, h) = old;
+    let (nw, nh) = new_size;
+    match dock {
+        Some("left") => (x, y + (h - nh) / 2.0),
+        Some("right") => (x + w - nw, y + (h - nh) / 2.0),
+        Some("bottom") => (x + (w - nw) / 2.0, y + h - nh),
+        Some("top") => (x + (w - nw) / 2.0, y),
+        _ => (x + (w - nw) / 2.0, y),
+    }
+}
+
 #[tauri::command]
-pub fn island_window_set_size(app: AppHandle, width: f64, height: f64) -> Result<(), String> {
+pub fn island_window_set_size(
+    app: AppHandle,
+    width: f64,
+    height: f64,
+    dock: Option<String>,
+) -> Result<(), String> {
     let Some(window) = app.get_webview_window(ISLAND_LABEL) else {
         return Ok(());
     };
+    let width = clamp(width, MIN_WIDTH, MAX_WIDTH);
+    let height = clamp(height, MIN_HEIGHT, MAX_HEIGHT);
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let old = window
+        .outer_position()
+        .ok()
+        .map(|p| p.to_logical::<f64>(scale))
+        .zip(window.outer_size().ok().map(|s| s.to_logical::<f64>(scale)));
+
+    if let Some((pos, size)) = old {
+        let (mut nx, mut ny) = anchored_origin(
+            dock.as_deref(),
+            (pos.x, pos.y, size.width, size.height),
+            (width, height),
+        );
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let origin = monitor.position().to_logical::<f64>(monitor.scale_factor());
+            let area = monitor.size().to_logical::<f64>(monitor.scale_factor());
+            nx = clamp(nx, origin.x, (origin.x + area.width - width).max(origin.x));
+            ny = clamp(ny, origin.y, (origin.y + area.height - height).max(origin.y));
+        }
+        let _ = window.set_position(LogicalPosition::new(nx, ny));
+    }
     window
-        .set_size(LogicalSize::new(
-            clamp(width, MIN_WIDTH, MAX_WIDTH),
-            clamp(height, MIN_HEIGHT, MAX_HEIGHT),
-        ))
+        .set_size(LogicalSize::new(width, height))
         .map_err(|e| e.to_string())
 }
 
@@ -219,8 +258,18 @@ pub fn main_window_toggle_minimize(app: AppHandle) -> Result<IslandWindowState, 
 
 #[cfg(test)]
 mod tests {
-    use super::clamp;
+    use super::{anchored_origin, clamp};
     use super::{MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
+
+    #[test]
+    fn anchored_origin_keeps_docked_edge() {
+        let old = (100.0, 100.0, 50.0, 40.0);
+        assert_eq!(anchored_origin(Some("right"), old, (80.0, 40.0)), (70.0, 100.0));
+        assert_eq!(anchored_origin(Some("left"), old, (80.0, 60.0)), (100.0, 90.0));
+        assert_eq!(anchored_origin(Some("bottom"), old, (50.0, 80.0)), (100.0, 60.0));
+        assert_eq!(anchored_origin(Some("top"), old, (70.0, 80.0)), (90.0, 100.0));
+        assert_eq!(anchored_origin(None, old, (70.0, 40.0)), (90.0, 100.0));
+    }
 
     #[test]
     fn clamp_keeps_values_inside_bounds() {

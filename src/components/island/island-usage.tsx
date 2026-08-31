@@ -9,7 +9,9 @@ import {
   usageBarHot,
   usageResetsLabel,
   usageRingColor,
+  usageRowKnown,
 } from "@/lib/island/usage-format";
+import { useIslandStore } from "@/lib/island-store";
 import { cn } from "@/lib/utils";
 
 const SIZE = 40;
@@ -35,17 +37,30 @@ export function IslandUsage({
   const rootRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef(0);
 
+  const setUsagePopover = useIslandStore((s) => s.setUsagePopover);
+
   useEffect(() => {
     if (dragging) setOpen(null);
   }, [dragging]);
+
+  useEffect(() => {
+    setUsagePopover(!!open && !dragging);
+  }, [open, dragging, setUsagePopover]);
+
+  useEffect(() => () => setUsagePopover(false), [setUsagePopover]);
 
   useEffect(() => {
     if (!open) {
       setAnchor(null);
       return;
     }
-    const node = rootRef.current?.querySelector(`[data-usage="${open}"]`);
-    if (node instanceof HTMLElement) setAnchor(node.getBoundingClientRect());
+    const sync = () => {
+      const node = rootRef.current?.querySelector(`[data-usage="${open}"]`);
+      if (node instanceof HTMLElement) setAnchor(node.getBoundingClientRect());
+    };
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
   }, [open, usage, vertical]);
 
   const keep = () => {
@@ -69,11 +84,12 @@ export function IslandUsage({
         onClick={() => onOpenActions?.()}
       >
         {usage.map((row) => {
+          const known = usageRowKnown(row);
           const percent = Math.round(row.primary?.usedPercent ?? row.secondary?.usedPercent ?? 0);
           const Logo = AGENT_PROVIDERS.find((entry) => entry.value === row.id)?.Logo;
           const color = usageRingColor(percent);
           const selected = open === row.id;
-          const dash = (Math.min(100, Math.max(0, percent)) / 100) * RING;
+          const dash = known ? (Math.min(100, Math.max(0, percent)) / 100) * RING : 0;
           return (
             <button
               key={row.id}
@@ -93,7 +109,10 @@ export function IslandUsage({
                 setOpen(row.id);
               }}
               onMouseLeave={delayClose}
-              className="flex flex-col items-center gap-1 text-background"
+              className={cn(
+                "flex flex-col items-center gap-1 text-background",
+                !known && "opacity-50",
+              )}
             >
               <span className="relative inline-flex size-10 items-center justify-center">
                 <svg
@@ -125,8 +144,11 @@ export function IslandUsage({
                 </svg>
                 {Logo ? <Logo className="size-4" /> : null}
               </span>
-              <span className="text-[10px] font-semibold tabular-nums leading-none tracking-tight opacity-90">
-                {percent}%
+              <span
+                className="text-[10px] font-semibold tabular-nums leading-none tracking-tight opacity-90"
+                style={known ? { color } : undefined}
+              >
+                {known ? `${percent}%` : "—"}
               </span>
             </button>
           );

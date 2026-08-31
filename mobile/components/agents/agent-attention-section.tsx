@@ -1,12 +1,13 @@
+import { ShieldAlert } from 'lucide-react-native';
 import * as React from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { AgentThreadRow } from '~/components/agents/agent-thread-row';
+import { Glyph } from '~/components/glyph';
 import { RowGroup } from '~/components/shared/pressable-row';
 import { Text } from '~/components/ui/text';
 import type { HostAgentEntry } from '~/lib/agents/overview-aggregator';
-import { illustrations } from '~/lib/illustrations';
 import { palette } from '~/lib/theme';
 
 export function AgentAttentionSection({
@@ -45,11 +46,7 @@ export function AgentAttentionSection({
       }}
       className="bg-card overflow-hidden rounded-[28px]">
       <View className="flex-row items-center gap-3 px-3.5 pb-2 pt-3.5">
-        <Image
-          source={illustrations.agent}
-          resizeMode="cover"
-          style={{ width: 44, height: 44, borderRadius: 22 }}
-        />
+        <Glyph icon={ShieldAlert} size={44} color={palette.warning} background="rgba(245,158,99,0.16)" />
         <View className="flex-1 gap-0.5">
           <Text className="text-warning text-base font-bold">Needs attention</Text>
           <Text className="text-muted-foreground text-xs">{hint}</Text>

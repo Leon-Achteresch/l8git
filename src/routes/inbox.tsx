@@ -38,8 +38,25 @@ function InboxPage() {
 
   useEffect(() => {
     void refresh(paths);
-    const timer = window.setInterval(() => void refresh(paths), INBOX_REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(timer);
+    let stale = false;
+    const timer = window.setInterval(() => {
+      if (document.hidden) {
+        stale = true;
+        return;
+      }
+      void refresh(paths);
+    }, INBOX_REFRESH_INTERVAL_MS);
+    const onVisible = () => {
+      if (!document.hidden && stale) {
+        stale = false;
+        void refresh(paths);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [paths, refresh]);
 
   return (

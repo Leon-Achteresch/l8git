@@ -34,7 +34,7 @@ export function StatTile({
   className?: string;
 }) {
   return (
-    <View className={cn('bg-card min-w-[46%] flex-1 gap-2 rounded-[28px] px-5 py-4', className)}>
+    <View className={cn('bg-card min-w-[46%] flex-1 gap-2 rounded-[28px] px-5 py-5', className)}>
       <View className="flex-row items-center justify-between gap-2">
         {loading ? (
           <Skeleton className="h-9 w-20 rounded-full" />

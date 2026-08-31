@@ -1,5 +1,5 @@
-import { ArrowDown, ArrowUp, GitBranch, TriangleAlert } from 'lucide-react-native';
-import { Image, Pressable, View } from 'react-native';
+import { ArrowDown, ArrowUp, FolderGit2, GitBranch, TriangleAlert } from 'lucide-react-native';
+import { Pressable, View } from 'react-native';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -10,7 +10,7 @@ import Animated, {
 import { Sparkline } from '~/components/dashboard/sparkline';
 import type { RepoOverview } from '~/components/dashboard/queries';
 import { relativeTime } from '~/components/shared/format';
-import { illustrations } from '~/lib/illustrations';
+import { Glyph } from '~/components/glyph';
 import { palette } from '~/lib/theme';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
@@ -78,11 +78,7 @@ export function RepoTile({
           { backgroundColor: selected ? 'rgba(255,255,255,0.12)' : palette.card },
         ]}>
         <View className="flex-row items-center gap-2">
-          <Image
-            source={illustrations.repo}
-            resizeMode="cover"
-            style={{ width: 34, height: 34, borderRadius: 17 }}
-          />
+          <Glyph icon={FolderGit2} size={32} />
           <View className="min-w-0 flex-1">
             <Text numberOfLines={1} className="text-foreground text-sm font-semibold">
               {repo.name || repo.path}

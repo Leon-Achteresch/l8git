@@ -62,9 +62,14 @@ export const toggleMainWindowMinimized = () => call("main_window_toggle_minimize
 export async function setIslandWindowSize(
   width: number,
   height: number,
+  dock?: IslandDock,
 ): Promise<void> {
   if (!IS_TAURI) return;
-  await invoke("island_window_set_size", { width, height }).catch(() => {});
+  await invoke("island_window_set_size", {
+    width,
+    height,
+    dock: dock && dock !== "free" ? dock : null,
+  }).catch(() => {});
 }
 
 const POSITION_KEY = "l8git-island-window-position";
