@@ -35,7 +35,7 @@ import {
   type MenuEntry,
 } from "@/components/agents/ui/item-context-menu";
 import { insertIntoAgentComposer } from "@/lib/agents/composer-insert";
-import type { AgentCodeLanguage } from "@/components/agents/ui/agent-code";
+import { languageFromPath } from "@/lib/agents/agent-code-types";
 import { FileDiff, type FileDiffLine } from "@/components/agents/ui/file-diff";
 import {
   MessageBubble,
@@ -160,15 +160,6 @@ function diffLines(diff: string): FileDiffLine[] {
     } satisfies FileDiffLine,
     ...lines.slice(-edge),
   ];
-}
-
-function languageForPath(path: string): AgentCodeLanguage {
-  const extension = path.split(".").pop()?.toLowerCase();
-  if (extension === "tsx" || extension === "jsx") return "tsx";
-  if (extension === "ts" || extension === "js") return "typescript";
-  if (extension === "json" || extension === "jsonc") return "json";
-  if (extension === "sh" || extension === "bash" || extension === "zsh") return "bash";
-  return "text";
 }
 
 function userContent(item: AgentItem): {
@@ -503,7 +494,7 @@ function FileChangeItem({ item }: { item: AgentItem }) {
   const changes = useMemo(() => arrayValue(item.changes).filter(isRecord).map((change, index) => {
     const path = stringValue(change.path, `Datei ${index + 1}`);
     const diff = stringValue(change.diff);
-    return { path, diff, lines: diffLines(diff), language: languageForPath(path) };
+    return { path, diff, lines: diffLines(diff), language: languageFromPath(path) };
   }), [item.changes]);
   const streaming = stringValue(item.status) === "inProgress";
   return (

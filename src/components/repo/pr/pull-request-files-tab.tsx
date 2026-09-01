@@ -450,6 +450,7 @@ export function PullRequestFilesTab({
                 : t("pr.noDiffLarge")
             }
             failedHint={t("diff.diffLoadFailedFallback")}
+            filePath={current.path}
             annotationsByNewLine={annotationsByNewLine}
             onAddComment={canComment ? handleAddComment : undefined}
             addCommentTitle={t("prReview.addCommentTitle")}
