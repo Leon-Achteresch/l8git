@@ -3,6 +3,10 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AgentOverviewRow } from "@/components/agents/overview/agent-overview-row";
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
+import { AgentStatusChip } from "@/components/agents/ui/agent-status-chip";
+import { AnimatedNumber } from "@/components/motion/animated-number";
+import { SharedLayoutBg } from "@/components/motion/shared-layout-bg";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { filterOverviewEntries, type AgentOverviewEntry } from "@/lib/agents/overview";
 import { formatUsd } from "@/lib/agents/token-cost";
@@ -78,6 +82,11 @@ export function AgentsOverview({
           })}
         </span>
         <div className="flex-1" />
+        {counts.running > 0 ? (
+          <AgentStatusChip tone="working" className="shrink-0">
+            <AnimatedNumber value={counts.running} />
+          </AgentStatusChip>
+        ) : null}
         {totalCost > 0 ? (
           <span className="ag-faint shrink-0 text-[11px] tabular-nums">
             {t("agentOverview.totalCost", { cost: formatUsd(totalCost) })}
@@ -103,7 +112,7 @@ export function AgentsOverview({
       </header>
 
       <div className="ag-line border-b px-3 py-2">
-        <div className="ag-row h-8 cursor-text text-[12px] focus-within:bg-[var(--ag-hover)]">
+        <div className="ag-inset ag-row h-8 cursor-text rounded-full text-[12px] focus-within:bg-[var(--ag-surface)]">
           <Search className="size-3.5 shrink-0" />
           <input
             value={query}
@@ -128,19 +137,23 @@ export function AgentsOverview({
       <ScrollArea className="ag-scroll min-h-0 flex-1">
         <div className="space-y-0.5 p-2">
           {visible.length === 0 ? (
-            <p className="ag-faint px-2 py-8 text-center text-[12px]">
-              {query ? t("agentOverview.noMatches") : t("agentOverview.empty")}
-            </p>
+            <AgentsEnter>
+              <p className="ag-faint px-2 py-8 text-center text-[12px]">
+                {query ? t("agentOverview.noMatches") : t("agentOverview.empty")}
+              </p>
+            </AgentsEnter>
           ) : (
-            visible.map((entry) => (
-              <AgentOverviewRow
-                key={entry.key}
-                entry={entry}
-                diffStat={entry.isWorktree ? statsByPath[entry.path] : undefined}
-                relativeDate={relativeDate(entry.updatedAt)}
-                onOpen={onOpenThread}
-              />
-            ))
+            <SharedLayoutBg inset={4}>
+              {visible.map((entry) => (
+                <AgentOverviewRow
+                  key={entry.key}
+                  entry={entry}
+                  diffStat={entry.isWorktree ? statsByPath[entry.path] : undefined}
+                  relativeDate={relativeDate(entry.updatedAt)}
+                  onOpen={onOpenThread}
+                />
+              ))}
+            </SharedLayoutBg>
           )}
         </div>
       </ScrollArea>

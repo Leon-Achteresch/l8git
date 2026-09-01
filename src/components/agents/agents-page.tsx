@@ -189,7 +189,7 @@ export function AgentsPage({
 
   if (overview) {
     return (
-      <div className="ag-stage flex h-full min-h-0 flex-col">
+      <div className="agents-shell ag-stage flex h-full min-h-0 flex-col">
         <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">…</div>}>
           <AgentsOverview
             onOpenThread={openOverviewEntry}
@@ -202,7 +202,7 @@ export function AgentsPage({
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="agents-shell flex h-full min-h-0">
       <InAppTerminalLayout path={selectedPath}>
         <ResizablePanelGroup orientation="horizontal" id="agents-chat-split">
           <ResizablePanel
@@ -226,9 +226,9 @@ export function AgentsPage({
                 key={addonsOpen ? "addons" : capabilitySection ? `capabilities:${provider}` : "chat"}
                 layout
                 layoutId="agents-workspace-surface"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
+                initial={{ opacity: 0, x: 14, scale: 0.992 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -14, scale: 0.992 }}
                 transition={SPRING_LAYOUT}
                 className="h-full min-h-0"
               >

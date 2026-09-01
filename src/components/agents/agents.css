@@ -54,6 +54,7 @@
   --ag-shadow-panel: 0 1px 2px rgb(17 17 17 / 0.04), 0 12px 40px -18px rgb(17 17 17 / 0.28);
   --ag-shadow-raise: 0 1px 2px rgb(17 17 17 / 0.05), 0 6px 16px -10px rgb(17 17 17 / 0.3);
   --ag-shadow-pop: 0 2px 4px rgb(17 17 17 / 0.04), 0 18px 48px -20px rgb(17 17 17 / 0.35);
+  --ag-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   --ag-chart-1: #2a78d6;
   --ag-chart-2: #eb6834;
@@ -118,7 +119,9 @@
 }
 
 .ag-stage {
-  background: var(--ag-stage-bg);
+  background:
+    radial-gradient(900px 420px at 88% -8%, color-mix(in oklab, var(--git-branch) 9%, transparent), transparent 62%),
+    var(--ag-stage-bg);
 }
 
 /* ── Surfaces ──────────────────────────────────────────────────────────── */
@@ -127,6 +130,19 @@
   border: 1px solid var(--ag-line);
   border-radius: var(--ag-r-md);
   background: var(--ag-surface);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
+  transition:
+    transform 220ms var(--ag-ease),
+    border-color 220ms var(--ag-ease),
+    box-shadow 220ms var(--ag-ease);
+}
+
+.dark .ag-card {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.ag-card:hover {
+  border-color: var(--ag-line-strong);
 }
 
 .ag-inset {
@@ -162,6 +178,62 @@
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
 /* Navigation / list row. Selected state is a filled pill, per reference. */
+.ag-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--ag-surface-2);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.62);
+  color: var(--ag-text);
+}
+
+.dark .ag-mark {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+
+.ag-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.375rem;
+  max-width: 100%;
+  border-radius: 999px;
+  padding-inline: 0.45rem 0.55rem;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.ag-status[data-tone="working"] {
+  background: color-mix(in oklab, var(--git-modified) 16%, transparent);
+  color: var(--git-modified);
+}
+
+.ag-status[data-tone="ready"] {
+  background: color-mix(in oklab, var(--git-added) 14%, transparent);
+  color: var(--git-added);
+}
+
+.ag-status[data-tone="error"] {
+  background: color-mix(in oklab, var(--destructive) 14%, transparent);
+  color: var(--destructive);
+}
+
+.ag-status[data-tone="waiting"] {
+  background: color-mix(in oklab, var(--git-branch) 16%, transparent);
+  color: var(--git-branch);
+}
+
+.ag-status[data-tone="idle"] {
+  background: var(--ag-hover);
+  color: var(--ag-text-2);
+}
+
 .ag-row {
   position: relative;
   display: flex;
@@ -169,14 +241,15 @@
   gap: 0.5rem;
   width: 100%;
   min-width: 0;
-  border-radius: var(--ag-r-sm);
+  border-radius: var(--ag-r-md);
   padding-inline: 0.5rem;
   text-align: start;
   color: var(--ag-text-2);
   outline: none;
   transition:
-    background-color 120ms ease,
-    color 120ms ease;
+    background-color 220ms var(--ag-ease),
+    color 220ms var(--ag-ease),
+    transform 220ms var(--ag-ease);
 }
 
 .ag-row:hover {
@@ -220,9 +293,10 @@
   white-space: nowrap;
   outline: none;
   transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
+    background-color 220ms var(--ag-ease),
+    border-color 220ms var(--ag-ease),
+    color 220ms var(--ag-ease),
+    transform 220ms var(--ag-ease);
 }
 
 .ag-pill:hover {
@@ -253,8 +327,9 @@
   color: var(--ag-text-2);
   outline: none;
   transition:
-    background-color 120ms ease,
-    color 120ms ease;
+    background-color 220ms var(--ag-ease),
+    color 220ms var(--ag-ease),
+    transform 220ms var(--ag-ease);
 }
 
 .ag-chip:hover {
@@ -280,8 +355,13 @@
   color: var(--ag-text-2);
   outline: none;
   transition:
-    background-color 120ms ease,
-    color 120ms ease;
+    background-color 220ms var(--ag-ease),
+    color 220ms var(--ag-ease),
+    transform 180ms var(--ag-ease);
+}
+
+.ag-icon-btn:active:not(:disabled) {
+  transform: scale(0.92);
 }
 
 .ag-icon-btn:hover {
@@ -308,9 +388,9 @@
   color: var(--ag-send-fg);
   outline: none;
   transition:
-    background-color 140ms ease,
-    opacity 140ms ease,
-    transform 140ms ease;
+    background-color 180ms var(--ag-ease),
+    opacity 180ms var(--ag-ease),
+    transform 180ms var(--ag-ease);
 }
 
 .ag-send:hover:not(:disabled) {
@@ -342,12 +422,14 @@
   background: var(--ag-surface);
   box-shadow: var(--ag-shadow-raise);
   transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease;
+    border-color 240ms var(--ag-ease),
+    box-shadow 240ms var(--ag-ease),
+    transform 240ms var(--ag-ease);
 }
 
 .ag-composer:focus-within {
-  border-color: var(--ag-line-strong);
+  border-color: color-mix(in oklab, var(--git-branch) 32%, var(--ag-line-strong));
+  box-shadow: var(--ag-shadow-panel), 0 0 0 4px color-mix(in oklab, var(--git-branch) 12%, transparent);
 }
 
 /* Strip docked under the composer — reads as one object, half a step back. */
@@ -499,5 +581,11 @@
 }
 
 .ag-row-shared:active {
-  background: var(--ag-press);
+  background: transparent;
+}
+
+.ag-row-shared[data-active="true"] {
+  background: transparent;
+  color: var(--ag-text);
+  font-weight: 500;
 }

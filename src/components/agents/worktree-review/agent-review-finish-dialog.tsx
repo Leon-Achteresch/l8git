@@ -42,8 +42,10 @@ import { isAiConfigured } from "@/lib/ai-setup";
 import { toastError, toastGitError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
+import { m } from "motion/react";
 import { cn } from "@/lib/utils";
 import { SpinIcon } from "@/components/motion/kit";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 
 const STEP_ICONS: Record<AgentReviewStepId, typeof Check> = {
   commit: Check,
@@ -334,12 +336,15 @@ function StepCard({
 }) {
   const { t } = useTranslation();
   return (
-    <section
+    <m.section
       className={cn(
         "ag-card space-y-2 rounded-lg p-3",
         step.status === "failed" && "ring-1 ring-destructive/40",
         step.status === "done" && "opacity-70",
       )}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={SPRING_PANEL}
     >
       <header className="flex items-center gap-2">
         <StepStatusIcon step={step} />
@@ -354,7 +359,7 @@ function StepCard({
           {step.error}
         </p>
       ) : null}
-    </section>
+    </m.section>
   );
 }
 

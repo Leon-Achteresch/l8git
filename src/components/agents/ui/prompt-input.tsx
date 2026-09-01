@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { SPRING_SWAP } from "@/lib/motion/ease";
+import { SPRING_LAYOUT, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
 export interface PromptModel {
@@ -115,6 +115,7 @@ export function PromptInput({
   ...textareaProps
 }: PromptInputProps) {
   const reduce = useReducedMotion() ?? false;
+  const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const measurementRef = useRef<HTMLDivElement>(null);
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -234,8 +235,14 @@ export function PromptInput({
   };
 
   return (
-    <form
+    <m.form
       onSubmit={submit}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
+      }}
+      animate={reduce ? undefined : { y: focused ? -2 : 0 }}
+      transition={SPRING_LAYOUT}
       className={cn("ag-composer relative w-full p-2", disabled && "opacity-60", className)}
     >
       {slashOpen ? (
@@ -446,6 +453,6 @@ export function PromptInput({
           </Button>
         </span>
       </div>
-    </form>
+    </m.form>
   );
 }
