@@ -1,20 +1,21 @@
-import { ListRow } from "@/components/ui/list-row";
+import { SpinIcon } from "@/components/motion/kit";
 import { UnifiedDiffBody } from "@/components/repo/commit/unified-diff-body";
 import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
-import { isImagePath, looksLikeLfsPointerText } from "@/lib/media";
+import { ListRow } from "@/components/ui/list-row";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { toastError } from "@/lib/error-toast";
+import { isImagePath, looksLikeLfsPointerText } from "@/lib/media";
+import { usePrCapabilities } from "@/lib/pr-provider-store";
 import {
   draftKey,
   draftsByLine,
   useReviewDraftStore,
   useReviewDrafts,
 } from "@/lib/pr-review-drafts";
-import { usePrCapabilities } from "@/lib/pr-provider-store";
 import {
   groupInlineThreads,
   threadsByLine,
@@ -22,9 +23,9 @@ import {
   type PrComment,
 } from "@/lib/pr-threads";
 import { useRepoStore } from "@/lib/repo-store";
-import { invoke } from "@tauri-apps/api/core";
-import { Loader2 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { invoke } from "@tauri-apps/api/core";
+import { FileCode2, Loader2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -40,7 +41,6 @@ import {
   InlineThreadCard,
   type ThreadResolveState,
 } from "./pull-request-inline-comments";
-import { SpinIcon } from "@/components/motion/kit";
 
 type GhReviewThread = {
   id: string;
@@ -57,10 +57,10 @@ type PrFile = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  added: "text-git-added",
-  modified: "text-git-modified",
-  removed: "text-git-removed",
-  renamed: "text-git-modified",
+  added: "text-emerald-400 font-bold",
+  modified: "text-amber-400 font-bold",
+  removed: "text-rose-400 font-bold",
+  renamed: "text-indigo-400 font-bold",
 };
 
 function refCandidates(
@@ -157,7 +157,7 @@ export function PullRequestFilesTab({
   const virtualizer = useVirtualizer({
     count: files?.length ?? 0,
     getScrollElement: () => listRef.current,
-    estimateSize: () => 30,
+    estimateSize: () => 36,
     overscan: 12,
     getItemKey: (i) => files?.[i]?.path ?? i,
   });
@@ -199,28 +199,33 @@ export function PullRequestFilesTab({
     if (cached !== undefined) {
       setPatch(cached);
       setPatchFailed(false);
-      setPatchLoading(false);
+      return;
+    }
+    const inline = files?.find((f) => f.path === selected)?.patch;
+    if (inline !== undefined) {
+      patchCache.current.set(selected, inline);
+      setPatch(inline);
+      setPatchFailed(false);
       return;
     }
     let cancelled = false;
     setPatchLoading(true);
     setPatchFailed(false);
-    invoke<string | null>("pr_file_patch", {
+    invoke<string>("pr_file_patch", {
       path,
       number,
       file: selected,
     })
-      .then((res) => {
+      .then((text) => {
         if (cancelled) return;
-        const value = res ?? "";
-        patchCache.current.set(selected, value);
-        setPatch(value);
+        patchCache.current.set(selected, text);
+        setPatch(text);
       })
       .catch((e) => {
         if (cancelled) return;
         toastError(String(e));
-        setPatchFailed(true);
         setPatch(null);
+        setPatchFailed(true);
       })
       .finally(() => {
         if (!cancelled) setPatchLoading(false);
@@ -228,25 +233,29 @@ export function PullRequestFilesTab({
     return () => {
       cancelled = true;
     };
-  }, [path, number, selected]);
-
-  useEffect(() => {
-    setComposer(null);
-  }, [selected]);
+  }, [path, number, selected, files]);
 
   const activePath = selected ?? files?.[0]?.path ?? "";
-
-  const threads = useMemo(
-    () => threadsForFile(groupInlineThreads(comments), activePath),
-    [comments, activePath],
+  const allInlineThreads = useMemo(
+    () => groupInlineThreads(comments),
+    [comments],
   );
-  const threadLines = useMemo(() => threadsByLine(threads), [threads]);
-
+  const fileThreads = useMemo(
+    () => threadsForFile(allInlineThreads, activePath),
+    [allInlineThreads, activePath],
+  );
+  const threadLines = useMemo(
+    () => threadsByLine(fileThreads),
+    [fileThreads],
+  );
   const resolveByCommentId = useMemo(() => {
     const map = new Map<string, ThreadResolveState>();
-    for (const entry of reviewThreads) {
-      for (const commentId of entry.comment_ids) {
-        map.set(commentId, { nodeId: entry.id, resolved: entry.resolved });
+    for (const thread of reviewThreads) {
+      for (const commentId of thread.comment_ids) {
+        map.set(commentId, {
+          nodeId: thread.id,
+          resolved: thread.resolved,
+        });
       }
     }
     return map;
@@ -336,14 +345,15 @@ export function PullRequestFilesTab({
   if (loading && !files) {
     return (
       <div className="flex h-full items-center justify-center">
-        <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
+        <SpinIcon icon={Loader2} className="h-6 w-6 text-primary" />
       </div>
     );
   }
   if (!files || files.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        {t("pr.noFiles")}
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        <FileCode2 className="h-8 w-8 text-muted-foreground/40" />
+        <span>{t("pr.noFiles")}</span>
       </div>
     );
   }
@@ -364,7 +374,7 @@ export function PullRequestFilesTab({
         defaultSize="35%"
         minSize="20%"
         maxSize="60%"
-        className="min-h-0 flex flex-col"
+        className="min-h-0 flex flex-col bg-muted/10 border-r border-border/60"
       >
         <div ref={listRef} className="h-full overflow-y-auto">
           <ul
@@ -383,7 +393,7 @@ export function PullRequestFilesTab({
                   key={vi.key}
                   data-index={vi.index}
                   ref={virtualizer.measureElement}
-                  className="border-b border-border/50"
+                  className="border-b border-border/40"
                   style={{
                     position: "absolute",
                     top: 0,
@@ -396,21 +406,21 @@ export function PullRequestFilesTab({
                     size="sm"
                     active={active}
                     onClick={() => setSelected(f.path)}
-                    className="rounded-none px-3"
+                    className="rounded-none px-3 py-2 cursor-pointer transition-colors"
                     title={f.path}
                   >
                     <span
-                      className={`shrink-0 font-mono uppercase ${status}`}
+                      className={`shrink-0 font-mono text-[11px] uppercase ${status}`}
                       title={f.status}
                     >
                       {f.status[0]?.toUpperCase() ?? "?"}
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-mono">
+                    <span className="min-w-0 flex-1 truncate font-mono text-[12px]">
                       {f.path}
                     </span>
-                    <span className="shrink-0 text-[10px] tabular-nums">
-                      <span className="text-git-added">+{f.additions}</span>{" "}
-                      <span className="text-git-removed">-{f.deletions}</span>
+                    <span className="shrink-0 font-mono text-[10px] tabular-nums font-semibold">
+                      <span className="text-emerald-400">+{f.additions}</span>{" "}
+                      <span className="text-rose-400">-{f.deletions}</span>
                     </span>
                   </ListRow>
                 </li>
@@ -419,12 +429,12 @@ export function PullRequestFilesTab({
           </ul>
         </div>
       </ResizablePanel>
-      <ResizableHandle withHandle className="bg-border/50" />
+      <ResizableHandle withHandle className="bg-border/60 hover:bg-primary/30 transition-colors" />
       <ResizablePanel
         id="pr-files-diff"
         defaultSize="65%"
         minSize="30%"
-        className="min-h-0 flex flex-col"
+        className="min-h-0 flex flex-col bg-background"
       >
         {showMedia && current ? (
           <MediaDiffPanel
@@ -450,7 +460,6 @@ export function PullRequestFilesTab({
                 : t("pr.noDiffLarge")
             }
             failedHint={t("diff.diffLoadFailedFallback")}
-            filePath={current.path}
             annotationsByNewLine={annotationsByNewLine}
             onAddComment={canComment ? handleAddComment : undefined}
             addCommentTitle={t("prReview.addCommentTitle")}
