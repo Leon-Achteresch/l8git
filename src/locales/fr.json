@@ -1036,7 +1036,9 @@
     "navGroupIntegrations": "Intégrations",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "Liez des tickets et donnez à l'agent un accès en lecture seule"
+    "jiraSectionSubtitle": "Liez des tickets et donnez à l'agent un accès en lecture seule",
+    "fileTreeViewLabel": "Afficher les modifications sous forme d'arborescence",
+    "fileTreeViewHint": "Regroupe par dossier les fichiers indexés et non indexés de l'onglet commit. Clic droit sur un dossier pour l'indexer, le désindexer, abandonner ses modifications ou l'ajouter au .gitignore."
   },
   "notifications": {
     "title": "Notifications",
@@ -1376,7 +1378,12 @@
     "undoLastCommitTitle": "Reset soft sur HEAD~1 — conserve les modifications indexées",
     "undoConfirmTitle": "Annuler le dernier commit ?",
     "undoConfirmDesc": "Le commit « {{subject}} » sera annulé et ses modifications replacées dans l'index. Cette action est irréversible si le commit a déjà été poussé.",
-    "undoVerb": "Annuler le commit"
+    "undoVerb": "Annuler le commit",
+    "fileRowIgnore": "Ajouter au .gitignore",
+    "folderStage": "Indexer le dossier",
+    "folderUnstage": "Désindexer le dossier",
+    "folderDiscard": "Abandonner les modifications du dossier",
+    "folderIgnore": "Ajouter le dossier au .gitignore"
   },
   "commitSplit": {
     "menuEntry": "Découper les modifications avec l'IA",

@@ -1036,7 +1036,9 @@
     "navGroupIntegrations": "Integrações",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "Vincule tickets e dê ao agente acesso somente leitura"
+    "jiraSectionSubtitle": "Vincule tickets e dê ao agente acesso somente leitura",
+    "fileTreeViewLabel": "Mostrar alterações como árvore de pastas",
+    "fileTreeViewHint": "Agrupa por pasta os arquivos preparados e não preparados na aba de commit. Clique com o botão direito em uma pasta para prepará-la, removê-la da preparação, descartá-la ou adicioná-la ao .gitignore."
   },
   "notifications": {
     "title": "Notificações",
@@ -1376,7 +1378,12 @@
     "undoLastCommitTitle": "Soft reset para HEAD~1 — mantém as alterações em stage",
     "undoConfirmTitle": "Desfazer o último commit?",
     "undoConfirmDesc": "O commit \"{{subject}}\" será desfeito e suas alterações voltam para o stage. Isso não pode ser revertido se o commit já tiver sido enviado.",
-    "undoVerb": "Desfazer commit"
+    "undoVerb": "Desfazer commit",
+    "fileRowIgnore": "Adicionar ao .gitignore",
+    "folderStage": "Preparar pasta",
+    "folderUnstage": "Remover pasta da preparação",
+    "folderDiscard": "Descartar alterações da pasta",
+    "folderIgnore": "Adicionar pasta ao .gitignore"
   },
   "commitSplit": {
     "menuEntry": "Dividir alterações com IA",

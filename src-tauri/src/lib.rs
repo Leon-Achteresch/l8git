@@ -173,6 +173,7 @@ pub fn run() {
             git::repo_commit_inspect,
             git::repo_commit_file_diff,
             git::stage_files,
+            git::add_to_gitignore,
             git::unstage_files,
             git::stage_hunk,
             git::unstage_hunk,

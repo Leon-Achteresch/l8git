@@ -1036,7 +1036,9 @@
     "navGroupIntegrations": "集成",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "关联工单并授予智能体只读访问权限"
+    "jiraSectionSubtitle": "关联工单并授予智能体只读访问权限",
+    "fileTreeViewLabel": "以文件夹树显示更改",
+    "fileTreeViewHint": "在提交标签页中按文件夹分组已暂存和未暂存的文件。右键点击文件夹可暂存、取消暂存、丢弃或添加到 .gitignore。"
   },
   "notifications": {
     "title": "通知",
@@ -1376,7 +1378,12 @@
     "undoLastCommitTitle": "软重置到 HEAD~1——更改仍保留在暂存区",
     "undoConfirmTitle": "撤销上一个提交？",
     "undoConfirmDesc": "提交“{{subject}}”将被撤销，其更改会回到暂存区。如果该提交已推送，此操作将无法撤销。",
-    "undoVerb": "撤销提交"
+    "undoVerb": "撤销提交",
+    "fileRowIgnore": "添加到 .gitignore",
+    "folderStage": "暂存文件夹",
+    "folderUnstage": "取消暂存文件夹",
+    "folderDiscard": "丢弃文件夹更改",
+    "folderIgnore": "将文件夹添加到 .gitignore"
   },
   "commitSplit": {
     "menuEntry": "用 AI 拆分更改",

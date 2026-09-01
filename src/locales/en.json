@@ -1036,7 +1036,9 @@
     "navGroupIntegrations": "Integrations",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "Link tickets and give the agent read-only access"
+    "jiraSectionSubtitle": "Link tickets and give the agent read-only access",
+    "fileTreeViewLabel": "Show changes as a folder tree",
+    "fileTreeViewHint": "Groups the staged and unstaged files in the commit tab by folder. Right-click a folder to stage, unstage, discard, or add it to .gitignore."
   },
   "notifications": {
     "title": "Notifications",
@@ -1376,7 +1378,12 @@
     "undoLastCommitTitle": "Soft-reset HEAD~1 — keeps changes staged",
     "undoConfirmTitle": "Undo last commit?",
     "undoConfirmDesc": "The commit \"{{subject}}\" will be undone and its changes moved back to staged. This cannot be undone if the commit was already pushed.",
-    "undoVerb": "Undo commit"
+    "undoVerb": "Undo commit",
+    "fileRowIgnore": "Add to .gitignore",
+    "folderStage": "Stage folder",
+    "folderUnstage": "Unstage folder",
+    "folderDiscard": "Discard folder changes",
+    "folderIgnore": "Add folder to .gitignore"
   },
   "commitSplit": {
     "menuEntry": "Split changes with AI",

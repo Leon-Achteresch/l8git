@@ -25,6 +25,8 @@ type CommitPrefs = {
   setShowConventionalCommitIcons: (value: boolean) => void;
   showCommitDateGroups: boolean;
   setShowCommitDateGroups: (value: boolean) => void;
+  fileTreeView: boolean;
+  setFileTreeView: (value: boolean) => void;
   diffViewMode: CommitDiffViewMode;
   setDiffViewMode: (value: CommitDiffViewMode) => void;
   diffLayoutMode: DiffLayoutMode;
@@ -63,6 +65,8 @@ export const useCommitPrefs = create<CommitPrefs>()(
       showCommitDateGroups: true,
       setShowCommitDateGroups: (showCommitDateGroups) =>
         set({ showCommitDateGroups }),
+      fileTreeView: true,
+      setFileTreeView: (fileTreeView) => set({ fileTreeView }),
       diffViewMode: "stage",
       setDiffViewMode: (diffViewMode) => set({ diffViewMode }),
       diffLayoutMode: "inline",

@@ -1036,7 +1036,9 @@
     "navGroupIntegrations": "連携",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "チケットを紐付けてエージェントに読み取り専用アクセスを許可します"
+    "jiraSectionSubtitle": "チケットを紐付けてエージェントに読み取り専用アクセスを許可します",
+    "fileTreeViewLabel": "変更をフォルダーツリーで表示",
+    "fileTreeViewHint": "コミットタブのステージ済み・未ステージのファイルをフォルダー単位でまとめます。フォルダーを右クリックしてステージ、アンステージ、破棄、.gitignore への追加ができます。"
   },
   "notifications": {
     "title": "通知",
@@ -1376,7 +1378,12 @@
     "undoLastCommitTitle": "HEAD~1 へのソフトリセット — 変更はステージ済みのまま残ります",
     "undoConfirmTitle": "直前のコミットを取り消しますか？",
     "undoConfirmDesc": "コミット「{{subject}}」を取り消し、その変更をステージ済みに戻します。すでにプッシュ済みの場合は元に戻せません。",
-    "undoVerb": "コミットを取り消す"
+    "undoVerb": "コミットを取り消す",
+    "fileRowIgnore": ".gitignore に追加",
+    "folderStage": "フォルダーをステージ",
+    "folderUnstage": "フォルダーをアンステージ",
+    "folderDiscard": "フォルダーの変更を破棄",
+    "folderIgnore": "フォルダーを .gitignore に追加"
   },
   "commitSplit": {
     "menuEntry": "AI で変更を分割",

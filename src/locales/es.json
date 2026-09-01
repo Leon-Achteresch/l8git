@@ -1036,7 +1036,9 @@
     "navGroupIntegrations": "Integraciones",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "Vincula tickets y da al agente acceso de solo lectura"
+    "jiraSectionSubtitle": "Vincula tickets y da al agente acceso de solo lectura",
+    "fileTreeViewLabel": "Mostrar los cambios como árbol de carpetas",
+    "fileTreeViewHint": "Agrupa por carpeta los archivos preparados y sin preparar de la pestaña de commit. Haz clic derecho en una carpeta para prepararla, quitarla, descartarla o añadirla a .gitignore."
   },
   "notifications": {
     "title": "Notificaciones",
@@ -1376,7 +1378,12 @@
     "undoLastCommitTitle": "Soft reset a HEAD~1: mantiene los cambios preparados",
     "undoConfirmTitle": "¿Deshacer el último commit?",
     "undoConfirmDesc": "El commit «{{subject}}» se deshará y sus cambios volverán al área de preparados. Esto no se puede revertir si el commit ya se había enviado.",
-    "undoVerb": "Deshacer el commit"
+    "undoVerb": "Deshacer el commit",
+    "fileRowIgnore": "Añadir a .gitignore",
+    "folderStage": "Preparar carpeta",
+    "folderUnstage": "Quitar carpeta del área de preparación",
+    "folderDiscard": "Descartar cambios de la carpeta",
+    "folderIgnore": "Añadir carpeta a .gitignore"
   },
   "commitSplit": {
     "menuEntry": "Dividir los cambios con IA",

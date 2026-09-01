@@ -2194,6 +2194,40 @@ pub async fn repo_full_status(path: String) -> Result<FullStatus, String> {
 }
 
 #[tauri::command]
+pub async fn add_to_gitignore(path: String, patterns: Vec<String>) -> Result<(), String> {
+    spawn_git(move || {
+        let file = PathBuf::from(&path).join(".gitignore");
+        let existing = std::fs::read_to_string(&file).unwrap_or_default();
+        let known: std::collections::HashSet<String> =
+            existing.lines().map(|l| l.trim().to_string()).collect();
+        let mut added: Vec<String> = Vec::new();
+        for pattern in &patterns {
+            let pattern = pattern.trim();
+            if pattern.is_empty() || pattern.contains('\n') {
+                continue;
+            }
+            if known.contains(pattern) || added.iter().any(|p| p == pattern) {
+                continue;
+            }
+            added.push(pattern.to_string());
+        }
+        if added.is_empty() {
+            return Ok(());
+        }
+        let mut out = existing;
+        if !out.is_empty() && !out.ends_with('\n') {
+            out.push('\n');
+        }
+        for pattern in added {
+            out.push_str(&pattern);
+            out.push('\n');
+        }
+        std::fs::write(&file, out).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn stage_files(path: String, files: Vec<String>) -> Result<(), String> {
     spawn_git(move || {
         if files.is_empty() {

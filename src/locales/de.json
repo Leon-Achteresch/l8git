@@ -1036,7 +1036,9 @@
     "navGroupIntegrations": "Integrationen",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "Tickets verknüpfen und dem Agenten lesenden Zugriff geben"
+    "jiraSectionSubtitle": "Tickets verknüpfen und dem Agenten lesenden Zugriff geben",
+    "fileTreeViewLabel": "Änderungen als Ordnerbaum anzeigen",
+    "fileTreeViewHint": "Gruppiert die gestagten und ungestagten Dateien im Commit-Tab nach Ordner. Per Rechtsklick auf einen Ordner stagen, unstagen, verwerfen oder zu .gitignore hinzufügen."
   },
   "notifications": {
     "title": "Benachrichtigungen",
@@ -1376,7 +1378,12 @@
     "undoLastCommitTitle": "Soft-Reset HEAD~1 — Änderungen bleiben gestagt",
     "undoConfirmTitle": "Letzten Commit rückgängig machen?",
     "undoConfirmDesc": "Der Commit \"{{subject}}\" wird rückgängig gemacht und seine Änderungen wieder gestagt. Falls der Commit bereits gepusht wurde, kann dies nicht rückgängig gemacht werden.",
-    "undoVerb": "Commit rückgängig"
+    "undoVerb": "Commit rückgängig",
+    "fileRowIgnore": "Zu .gitignore hinzufügen",
+    "folderStage": "Ordner stagen",
+    "folderUnstage": "Ordner unstagen",
+    "folderDiscard": "Ordneränderungen verwerfen",
+    "folderIgnore": "Ordner zu .gitignore hinzufügen"
   },
   "commitSplit": {
     "menuEntry": "Änderungen per AI aufteilen",
