@@ -164,7 +164,6 @@ export const AgentRequestCard = memo(function AgentRequestCard({ request }: { re
   const [resolved, setResolved] = useState<"approved" | "rejected" | "answered" | null>(null);
   const questions = useMemo(() => approvalQuestions(request, t), [request, t]);
 
-  // A proposed plan is reviewed as prose, not picked from a list of options.
   if (request.kind === "plan") return <AgentPlanCard request={request} />;
 
   const submit = async (answers: ApprovalCardAnswers) => {

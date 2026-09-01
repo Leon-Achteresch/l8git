@@ -66,23 +66,18 @@ export interface PromptInputProps extends Omit<
   onSlashCommand?: (command: string, argument: string) => void | Promise<void>;
   onSubmit?: (value: string, model?: string) => void | Promise<void>;
   loading?: boolean;
-  /** Keep Enter-to-submit active while the stop button represents an active turn. */
   allowSubmitWhileLoading?: boolean;
   allowEmptySubmit?: boolean;
   onStop?: () => void;
   minRows?: number;
   maxRows?: number;
-  /** Controls rendered after the model picker. */
   leadingAction?: ReactNode;
-  /** Controls rendered before the send button. */
   trailingAction?: ReactNode;
-  /** Content pinned above the textarea — attachment chips, context cards. */
   header?: ReactNode;
   className?: string;
 }
 
 const LINE_HEIGHT = 24;
-/* Matches the textarea's pt-1; the mirror carries it so scrollHeight lines up. */
 const TEXTAREA_PADDING = 4;
 
 export function PromptInput({

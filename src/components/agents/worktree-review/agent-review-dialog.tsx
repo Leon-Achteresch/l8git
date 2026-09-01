@@ -21,7 +21,8 @@ import {
 } from "@/lib/agents/agent-review";
 import { toastError } from "@/lib/error-toast";
 import { AgentReviewDiffPane } from "./agent-review-diff";
-import { AgentReviewFileList, AgentReviewStat } from "./agent-review-file-list";
+import { AgentReviewFileList } from "./agent-review-file-list";
+import { AgentReviewStat } from "./agent-review-stat";
 import { AgentReviewFinishDialog } from "./agent-review-finish-dialog";
 import {
   useAgentReviewFileDiff,

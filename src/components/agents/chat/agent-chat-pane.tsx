@@ -1,14 +1,10 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
-  AlertCircle,
   AppWindow,
-  ArrowDown,
   Blocks,
   ChevronRight,
-  Command,
   File,
   FileDiff,
   FileImage,
@@ -16,12 +12,9 @@ import {
   FolderGit2,
   GitBranch,
   GitPullRequestArrow,
-  Hammer,
-  LoaderCircle,
   Mic,
   Paperclip,
   Puzzle,
-  ScanSearch,
   Sparkles,
   SquareTerminal,
   X,
@@ -29,13 +22,9 @@ import {
 import {
   lazy,
   memo,
-  type ReactNode,
   Suspense,
-  useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -45,11 +34,11 @@ import { useShallow } from "zustand/react/shallow";
 import { AgentAccountMenu } from "@/components/agents/chat/agent-account-menu";
 import { AgentCommandPicker, type AgentCommandPickerState } from "@/components/agents/chat/agent-command-picker";
 import { AgentComposerControls } from "@/components/agents/chat/agent-composer-controls";
+import { AgentConversationViewport } from "@/components/agents/chat/agent-conversation-viewport";
 import { AgentPlanBanner } from "@/components/agents/chat/agent-plan-banner";
 import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
-import { AgentRequestCard } from "@/components/agents/chat/agent-request-card";
 import { AgentThreadMenu } from "@/components/agents/chat/agent-thread-menu";
 import { AgentReviewButton } from "@/components/agents/worktree-review/agent-review-launcher";
 import { useAgentReviewSession } from "@/components/agents/worktree-review/use-agent-review";
@@ -86,18 +75,11 @@ import {
 } from "@/lib/agents/slash-commands";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
-import { SpinIcon, StaggerItem, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { m } from "motion/react";
+import { TextShimmer } from "@/components/motion/text-shimmer";
 import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
 import { AgentStatusChip, type AgentStatusTone } from "@/components/agents/ui/agent-status-chip";
-import { AgentsEnter } from "@/components/agents/ui/agents-enter";
-import { useScrollMargin } from "@/hooks/use-scroll-margin";
-import {
-  ScrollProgressCircle,
-  useContainerScrollProgress,
-} from "@/components/motion/scroll-progress";
 import { SPRING_PANEL } from "@/lib/motion/ease";
-import { TextShimmer } from "@/components/motion/text-shimmer";
 
 const AgentFilePicker = lazy(() => import("@/components/agents/chat/agent-file-picker").then(
   (module) => ({ default: module.AgentFilePicker }),
@@ -110,9 +92,6 @@ const AgentImportDialog = lazy(() => import("@/components/agents/chat/agent-impo
 ));
 const AgentResourcePicker = lazy(() => import("@/components/agents/chat/agent-resource-picker").then(
   (module) => ({ default: module.AgentResourcePicker }),
-));
-const AgentTurnView = lazy(() => import("@/components/agents/chat/agent-item").then(
-  (module) => ({ default: module.AgentTurnView }),
 ));
 
 function repoName(path: string): string {
@@ -136,423 +115,6 @@ function chatStatusTone(busy: boolean, sessionStatus: AgentConnectionStatus): Ag
     }
   }
 }
-
-const INITIAL_VISIBLE_TURNS = 32;
-const TURN_PAGE_SIZE = 32;
-// Starting guess for an unmeasured turn. Real heights replace it as each turn
-// enters the viewport and reports its size.
-const TURN_ESTIMATE_PX = 320;
-const STARTER_ICONS = [
-  { Icon: ScanSearch, color: "var(--git-branch)" },
-  { Icon: Hammer, color: "var(--git-modified)" },
-  { Icon: GitPullRequestArrow, color: "var(--git-added)" },
-] as const;
-
-const AgentConversationViewport = memo(function AgentConversationViewport({
-  path,
-  threadId,
-  centered,
-  composer,
-  onStarter,
-  cliCommands,
-  onCliCommand,
-  scrollToBottomSignal,
-}: {
-  path: string;
-  threadId: string | null;
-  centered: boolean;
-  composer: ReactNode;
-  onStarter: (text: string) => void;
-  cliCommands: AgentCliCommand[];
-  onCliCommand: (command: AgentCliCommand) => void;
-  scrollToBottomSignal: number;
-}) {
-  const { t } = useTranslation();
-  const provider = useAgentProviderStore((state) => state.provider);
-  const isClaude = provider === "claude";
-  const ProviderLogo = agentProviderMeta(provider).Logo;
-  const agent = agentProviderMeta(provider).label;
-  const conversation = useAgentChatStore((state) =>
-    threadId ? state.conversations[threadId] : undefined,
-  );
-  const requests = useAgentChatStore(
-    useShallow((state) => [
-      ...(threadId ? (state.requestsByThread[threadId] ?? []) : []),
-      ...(state.requestsByThread.__global ?? []),
-    ]),
-  );
-  const connectionStatus = useAgentChatStore((state) => state.connectionStatus);
-  const connectionError = useAgentChatStore((state) => state.connectionError);
-  const requiresAuth = useAgentChatStore((state) => state.requiresAuth);
-  const loginStatus = useAgentChatStore((state) => state.loginStatus);
-  const loginError = useAgentChatStore((state) => state.loginError);
-  const connect = useAgentChatStore((state) => state.connect);
-  const loadThreads = useAgentChatStore((state) => state.loadThreads);
-  const openThread = useAgentChatStore((state) => state.openThread);
-  const startLogin = useAgentChatStore((state) => state.startLogin);
-  const clearError = useAgentChatStore((state) => state.clearError);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const stickToBottom = useRef(true);
-  const restoreBottomOffset = useRef<number | null>(null);
-  const restoreDeadline = useRef(0);
-  const [visibleTurnCount, setVisibleTurnCount] = useState(INITIAL_VISIBLE_TURNS);
-  const [atBottom, setAtBottom] = useState(true);
-  const reduceMotion = useReducedMotion() ?? false;
-  const scrollProgress = useContainerScrollProgress(scrollRef);
-  const turns = conversation?.turns ?? [];
-  const hiddenTurnCount = Math.max(0, turns.length - visibleTurnCount);
-  const visibleTurns = hiddenTurnCount > 0 ? turns.slice(-visibleTurnCount) : turns;
-  const busy = Boolean(conversation?.activeTurnId);
-  const { scrollMargin: turnScrollMargin, listRef } = useScrollMargin(scrollRef);
-  const turnVirtualizer = useVirtualizer({
-    count: visibleTurns.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => TURN_ESTIMATE_PX,
-    // Turns are tall and expensive; a wide overscan keeps scrolling smooth
-    // without paying for the whole transcript.
-    overscan: 4,
-    useAnimationFrameWithResizeObserver: true,
-    getItemKey: (index) => visibleTurns[index]?.id ?? index,
-    // The transcript starts below the pager inside the same scroller.
-    scrollMargin: turnScrollMargin,
-  });
-  const measureTurn = useCallback(
-    (node: HTMLElement | null) => turnVirtualizer.measureElement(node),
-    [turnVirtualizer],
-  );
-  const totalTurnSize = turnVirtualizer.getTotalSize();
-  const starters = useMemo(() => [
-    t("agentChat.starterAnalyze"),
-    t("agentChat.starterImplement"),
-    t("agentChat.starterReview"),
-  ], [t]);
-
-  useEffect(() => {
-    stickToBottom.current = true;
-    restoreBottomOffset.current = null;
-    setAtBottom(true);
-    setVisibleTurnCount(INITIAL_VISIBLE_TURNS);
-  }, [threadId]);
-
-  useLayoutEffect(() => {
-    if (scrollToBottomSignal === 0) return;
-    const viewport = scrollRef.current;
-    stickToBottom.current = true;
-    if (viewport) viewport.scrollTop = viewport.scrollHeight;
-  }, [scrollToBottomSignal]);
-
-  // Revealing older turns keeps the reader's place by pinning the distance to
-  // the bottom of the transcript. The turns arrive at an estimated height and
-  // correct themselves over the next few frames, so the anchor is re-applied
-  // on every size change until measurement settles rather than once.
-  useLayoutEffect(() => {
-    const viewport = scrollRef.current;
-    const bottomOffset = restoreBottomOffset.current;
-    if (!viewport || bottomOffset === null) return;
-    viewport.scrollTop = viewport.scrollHeight - bottomOffset;
-    if (Date.now() > restoreDeadline.current) restoreBottomOffset.current = null;
-  }, [visibleTurnCount, totalTurnSize]);
-
-  useLayoutEffect(() => {
-    const viewport = scrollRef.current;
-    if (!viewport || !stickToBottom.current) return;
-    const frame = requestAnimationFrame(() => {
-      viewport.scrollTop = viewport.scrollHeight;
-    });
-    return () => cancelAnimationFrame(frame);
-    // totalTurnSize: turns start at an estimated height and correct themselves
-    // as they measure, so the bottom moves for a frame or two after a thread
-    // opens. Re-pinning on every size change keeps the view at the bottom
-    // through that settle.
-  }, [requests.length, busy, threadId, totalTurnSize]);
-
-  useEffect(() => {
-    const content = contentRef.current;
-    const viewport = scrollRef.current;
-    if (!content || !viewport || typeof ResizeObserver === "undefined") return;
-    let frame: number | null = null;
-    const observer = new ResizeObserver(() => {
-      if (!stickToBottom.current || frame !== null) return;
-      frame = requestAnimationFrame(() => {
-        frame = null;
-        viewport.scrollTop = viewport.scrollHeight;
-      });
-    });
-    observer.observe(content);
-    return () => {
-      observer.disconnect();
-      if (frame !== null) cancelAnimationFrame(frame);
-    };
-  }, [threadId]);
-
-  const login = async () => {
-    try {
-      const url = await startLogin();
-      if (url) await openUrl(url);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
-  };
-
-  const jumpToBottom = useCallback(() => {
-    const viewport = scrollRef.current;
-    if (!viewport) return;
-    stickToBottom.current = true;
-    setAtBottom(true);
-    viewport.scrollTo({
-      top: viewport.scrollHeight,
-      behavior: reduceMotion ? "auto" : "smooth",
-    });
-  }, [reduceMotion]);
-
-  return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div
-        ref={scrollRef}
-        onScroll={(event) => {
-          const node = event.currentTarget;
-          const bottom = node.scrollHeight - node.scrollTop - node.clientHeight < 96;
-          stickToBottom.current = bottom;
-          // Only flip on a real transition — a scroll event fires per frame and
-          // a set() per frame would re-render the whole transcript.
-          setAtBottom((current) => (current === bottom ? current : bottom));
-        }}
-        className="ag-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
-      >
-        <div ref={contentRef} className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-6 py-7">
-          {conversation?.loading || (!threadId && connectionStatus === "connecting") ? (
-            <div className="ag-muted m-auto flex items-center gap-2 text-[12px]">
-              <SpinIcon icon={LoaderCircle} className="size-3.5" />
-              {t("agentChat.connecting", { agent })}
-            </div>
-          ) : !threadId && connectionError && connectionStatus === "error" ? (
-            <div className="ag-card m-auto flex max-w-md items-start gap-3 border-destructive/25 bg-destructive/[0.06] p-4">
-              <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium">{t("agentChat.startErrorTitle", { agent })}</p>
-                <p className="ag-muted mt-1 text-[12px] leading-5">{connectionError}</p>
-                <button
-                  type="button"
-                  className="ag-pill mt-3"
-                  onClick={() => void connect().then(() => loadThreads([path])).catch(() => {})}
-                >
-                  {t("agentChat.retry")}
-                </button>
-              </div>
-            </div>
-          ) : requiresAuth ? (
-            <div className="ag-card m-auto max-w-sm p-6 text-center">
-              <span className="ag-inset mx-auto grid size-11 place-items-center rounded-[13px]">
-                <ProviderLogo className="size-5" />
-              </span>
-              <p className="mt-4 text-[14px] font-semibold tracking-tight">
-                {isClaude ? t("agentChat.loginTitleClaude") : t("agentChat.loginTitle")}
-              </p>
-              <p className="ag-muted mt-1.5 text-[12px] leading-5">
-                {isClaude ? t("agentChat.loginDescriptionClaude") : t("agentChat.loginDescription")}
-              </p>
-              {loginError ? (
-                <p className="mt-2 text-[12px] text-destructive">
-                  {t("agentChat.loginFailed")}: {loginError}
-                </p>
-              ) : null}
-              <button
-                type="button"
-                className="ag-pill mt-5 h-8 px-4"
-                data-active="true"
-                onClick={() => void login()}
-                disabled={loginStatus === "starting" || loginStatus === "waiting"}
-              >
-                {loginStatus === "starting" || loginStatus === "waiting" ? (
-                  <SpinIcon icon={LoaderCircle} className="size-3.5" />
-                ) : null}
-                {loginStatus === "waiting"
-                  ? t("agentChat.loginWaiting")
-                  : isClaude ? t("agentChat.loginActionClaude") : t("agentChat.loginAction")}
-              </button>
-            </div>
-          ) : centered ? (
-            <AgentsEnter className="m-auto w-full max-w-2xl py-8">
-              <div className="flex flex-col items-center text-center">
-                <m.span
-                  className="ag-inset grid size-12 place-items-center rounded-[14px]"
-                  animate={reduceMotion ? undefined : { y: [0, -4, 0] }}
-                  transition={{ repeat: Infinity, duration: 4.4, ease: "easeInOut" }}
-                >
-                  <ProviderLogo className="size-5" />
-                </m.span>
-                <h2 className="mt-4 text-[17px] font-semibold tracking-[-0.015em]">
-                  {t("agentChat.emptyTitle", { agent })}
-                </h2>
-                <p className="ag-muted mt-1.5 max-w-sm text-[12px] leading-5">
-                  {t("agentChat.emptyDescription", { agent, repo: repoName(path) })}
-                </p>
-              </div>
-
-              <div className="ag-card mt-7 max-h-80 overflow-y-auto p-1.5">
-                <p className="ag-label px-2 py-1.5">{t("agentChat.shortcuts")}</p>
-                {starters.map((starter, index) => {
-                  const { Icon, color } = STARTER_ICONS[index] ?? STARTER_ICONS[0];
-                  return (
-                    <StaggerItem key={starter} index={index}>
-                      <button
-                        type="button"
-                        onClick={() => onStarter(starter)}
-                        className="ag-menu-item"
-                      >
-                        <Icon className="size-4 shrink-0" style={{ color }} />
-                        <span className="min-w-0 flex-1 truncate text-[13px]">{starter}</span>
-                      </button>
-                    </StaggerItem>
-                  );
-                })}
-                {cliCommands.length ? (
-                  <>
-                    <p className="ag-label px-2 pb-1.5 pt-2">{t("agentChat.cliCommands")}</p>
-                    {cliCommands.map((command, index) => (
-                      <StaggerItem key={command.name} index={starters.length + index}>
-                        <button
-                          type="button"
-                          onClick={() => onCliCommand(command)}
-                          className="ag-menu-item"
-                        >
-                          <Command className="size-4 shrink-0 text-[var(--git-branch)]" />
-                          <span className="min-w-0 flex-1 truncate font-mono text-[13px]">
-                            /{command.name}
-                          </span>
-                          {command.description ? (
-                            <span className="ag-faint hidden min-w-0 max-w-[46%] truncate text-[11px] sm:block">
-                              {command.description}
-                            </span>
-                          ) : null}
-                        </button>
-                      </StaggerItem>
-                    ))}
-                  </>
-                ) : null}
-              </div>
-
-              <div className="mt-3">{composer}</div>
-            </AgentsEnter>
-          ) : (
-            <div className="space-y-6">
-              {hiddenTurnCount > 0 ? (
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    className="ag-pill"
-                    onClick={() => {
-                      const viewport = scrollRef.current;
-                      if (viewport) {
-                        restoreBottomOffset.current = viewport.scrollHeight - viewport.scrollTop;
-                        // Long enough for the revealed turns to measure, short
-                        // enough that it never fights a later user scroll.
-                        restoreDeadline.current = Date.now() + 600;
-                        stickToBottom.current = false;
-                      }
-                      setVisibleTurnCount((count) => count + TURN_PAGE_SIZE);
-                    }}
-                  >
-                    {t("agentChat.showOlder", { count: Math.min(TURN_PAGE_SIZE, hiddenTurnCount) })}
-                  </button>
-                </div>
-              ) : null}
-              {/* Only the turns near the viewport are mounted. Skipping the rest
-                  skips their markdown parses, diff renders and syntax
-                  highlighting too — the bulk of the cost of opening a long
-                  transcript. */}
-              <Suspense fallback={<m.div animate={pulseKeyframes} transition={pulseTransition} className="ag-inset h-16" />}>
-                <div
-                  ref={listRef}
-                  className="relative"
-                  style={{ height: turnVirtualizer.getTotalSize() }}
-                >
-                  {turnVirtualizer.getVirtualItems().map((virtualItem) => {
-                    const turn = visibleTurns[virtualItem.index];
-                    if (!turn) return null;
-                    return (
-                      <div
-                        key={virtualItem.key}
-                        ref={measureTurn}
-                        data-index={virtualItem.index}
-                        className="absolute inset-x-0 top-0 pb-6"
-                        style={{
-                          transform: `translateY(${
-                            virtualItem.start - turnVirtualizer.options.scrollMargin
-                          }px)`,
-                        }}
-                      >
-                        <AgentTurnView turn={turn} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </Suspense>
-            </div>
-          )}
-
-          {requests.length > 0 ? (
-            <div className="mt-6 space-y-3">
-              {requests.map((request) => (
-                <AgentRequestCard
-                  key={`${request.sessionId}:${String(request.requestId)}`}
-                  request={request}
-                />
-              ))}
-            </div>
-          ) : null}
-
-          {conversation?.error ? (
-            <div className="ag-card mt-4 flex items-start gap-2 border-destructive/25 bg-destructive/[0.06] px-3 py-2.5 text-[12px] text-destructive">
-              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1">{conversation.error}</span>
-              <button
-                type="button"
-                onClick={() => void openThread(path, conversation.threadId)}
-                className="rounded-md px-1.5 py-0.5 font-medium hover:bg-destructive/10"
-              >
-                {t("agentChat.retry")}
-              </button>
-              <button
-                type="button"
-                onClick={() => clearError(conversation.threadId)}
-                aria-label={t("agentChat.dismissError")}
-                className="rounded-md p-0.5 hover:bg-destructive/10"
-              >
-                <X className="size-3" />
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Jump-to-bottom. It appears only once the reader has scrolled away
-          from the live edge, and carries a progress ring so a long transcript
-          says how far back you are rather than just offering to leave. */}
-      <AnimatePresence>
-        {!atBottom && visibleTurns.length > 0 ? (
-          <m.button
-            type="button"
-            onClick={jumpToBottom}
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.94 }}
-            transition={SPRING_PANEL}
-            className="ag-pill absolute bottom-4 left-1/2 z-20 -translate-x-1/2 gap-1.5 shadow-[var(--ag-shadow-pop)]"
-            aria-label={t("agentChat.jumpToLatest")}
-          >
-            <span className="relative grid size-4 place-items-center">
-              <ScrollProgressCircle progress={scrollProgress} size={16} thickness={2} />
-              <ArrowDown className="absolute size-2.5" />
-            </span>
-            {t("agentChat.jumpToLatest")}
-          </m.button>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
-});
 
 export const AgentChatPane = memo(function AgentChatPane({
   path,
@@ -662,9 +224,6 @@ export const AgentChatPane = memo(function AgentChatPane({
   const [scrollToBottomSignal, setScrollToBottomSignal] = useState(0);
 
   const busy = Boolean(conversationMeta.activeTurnId);
-  // Mirrors the viewport's blocking branches exactly: whenever it shows a
-  // connecting / error / sign-in card instead of the transcript, the composer
-  // stays docked at the bottom rather than moving into the middle.
   const viewportBlocked =
     requiresAuth ||
     conversationMeta.loading ||

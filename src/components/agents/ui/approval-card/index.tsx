@@ -1,5 +1,4 @@
 "use client";
-// beui.dev/components/agents/approval-card
 
 import {
   ArrowLeft,
@@ -14,19 +13,17 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
+import { ApprovalProgressDots } from "@/components/agents/ui/approval-card/progress-dots";
+import { QuestionOptions } from "@/components/agents/ui/approval-card/question-options";
 import { ActionSwapRollText } from "@/components/motion/action-swap-roll";
+import { SpinIcon } from "@/components/motion/kit";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { EASE_OUT, SPRING_SWAP } from "@/lib/motion/ease";
+import { EASE_OUT } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 import type {
   ApprovalCardAnswer,
   ApprovalCardAnswers,
-  ApprovalCardOption,
   ApprovalCardProps,
-  ApprovalCardQuestion,
   ApprovalCardStatus,
 } from "./types";
 
@@ -38,15 +35,18 @@ export type {
   ApprovalCardQuestion,
   ApprovalCardStatus,
 } from "./types";
-import { SpinIcon } from "@/components/motion/kit";
 
 const EMPTY_ANSWER: ApprovalCardAnswer = { selected: [], custom: "" };
 
-function getStatusLabel(status: ApprovalCardStatus, t: (key: string) => string) {
+function getStatusLabel(
+  status: ApprovalCardStatus,
+  t: (key: string) => string,
+) {
   if (status === "submitting") return t("agentChat.request.statusSubmitting");
   if (status === "approved") return t("agentChat.request.statusApproved");
   if (status === "rejected") return t("agentChat.request.statusRejected");
-  if (status === "changes-requested") return t("agentChat.request.statusChangesRequested");
+  if (status === "changes-requested")
+    return t("agentChat.request.statusChangesRequested");
   if (status === "answered") return t("agentChat.request.statusAnswered");
   return t("agentChat.request.statusRequired");
 }
@@ -77,132 +77,6 @@ function getStatusBadgeClass(status: ApprovalCardStatus) {
 
 function isAnswered(answer: ApprovalCardAnswer) {
   return answer.selected.length > 0 || Boolean(answer.custom?.trim());
-}
-
-/** Option label plus the rationale the agent supplied for it, when present. */
-function OptionLabel({ option }: { option: ApprovalCardOption }) {
-  return (
-    <span className="select-none">
-      <span className="block text-sm text-foreground">{option.label}</span>
-      {option.description ? (
-        <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
-          {option.description}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-function QuestionOptions({
-  question,
-  answer,
-  disabled,
-  onChange,
-  onSingleSelect,
-}: {
-  question: ApprovalCardQuestion;
-  answer: ApprovalCardAnswer;
-  disabled: boolean;
-  onChange: (answer: ApprovalCardAnswer) => void;
-  onSingleSelect?: () => void;
-}) {
-  const custom = answer.custom ?? "";
-
-  return (
-    <div className="mt-3">
-      {question.options?.length ? (
-        question.multiple ? (
-          <div className="grid gap-0.5">
-            {question.options.map((option) => (
-              <label key={option.value} className="flex min-h-9 cursor-pointer items-start gap-3 rounded-lg px-1.5 py-1.5 has-disabled:cursor-not-allowed has-disabled:opacity-60">
-                <Checkbox
-                  className="mt-0.5"
-                  checked={answer.selected.includes(option.value)}
-                  disabled={disabled || option.disabled}
-                  onCheckedChange={(checked) =>
-                    onChange({
-                      ...answer,
-                      selected: checked === true
-                        ? [...answer.selected, option.value]
-                        : answer.selected.filter((value) => value !== option.value),
-                    })
-                  }
-                />
-                <OptionLabel option={option} />
-              </label>
-            ))}
-          </div>
-        ) : (
-          <RadioGroup
-            value={answer.selected[0] ?? ""}
-            onValueChange={(value) => {
-              onChange({ selected: [value], custom: "" });
-              onSingleSelect?.();
-            }}
-            className="gap-0.5"
-          >
-            {question.options.map((option) => (
-              <label key={option.value} className="flex min-h-9 cursor-pointer items-start gap-3 rounded-lg px-1.5 py-1.5 has-disabled:cursor-not-allowed has-disabled:opacity-60">
-                <RadioGroupItem
-                  className="mt-0.5"
-                  value={option.value}
-                  disabled={disabled || option.disabled}
-                />
-                <OptionLabel option={option} />
-              </label>
-            ))}
-          </RadioGroup>
-        )
-      ) : null}
-
-      {question.allowCustom ? (
-        <Input
-          type={question.secret ? "password" : "text"}
-          autoComplete={question.secret ? "off" : undefined}
-          value={custom}
-          disabled={disabled}
-          placeholder={question.customPlaceholder ?? "Add another response…"}
-          onChange={(event) =>
-            onChange({
-              selected: question.multiple ? answer.selected : [],
-              custom: event.target.value,
-            })
-          }
-          className={cn(
-            "h-10 rounded-xl border-0 bg-background/70 px-3 text-sm focus-visible:bg-background",
-            question.options?.length && "mt-1.5",
-          )}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function ProgressDots({ current, ids }: { current: number; ids: string[] }) {
-  const { t } = useTranslation();
-  return (
-    <span className="flex gap-1.5">
-      <span className="sr-only">
-        {t("agentChat.request.questionProgress", { current: current + 1, total: ids.length })}
-      </span>
-      {ids.map((id, index) => (
-        <m.span
-          key={id}
-          aria-hidden="true"
-          initial={{
-            scale: index === current ? 1 : 0.75,
-            opacity: index <= current ? 1 : 0.35,
-          }}
-          animate={{
-            scale: index === current ? 1 : 0.75,
-            opacity: index <= current ? 1 : 0.35,
-          }}
-          transition={SPRING_SWAP}
-          className="size-1.5 rounded-full bg-current"
-        />
-      ))}
-    </span>
-  );
 }
 
 export function ApprovalCard({
@@ -396,9 +270,7 @@ export function ApprovalCard({
             ) : (
               <div>
                 {description ? (
-                  <p className="ag-muted mt-1 leading-5">
-                    {description}
-                  </p>
+                  <p className="ag-muted mt-1 leading-5">{description}</p>
                 ) : null}
                 {children ? <div className="mt-3">{children}</div> : null}
               </div>
@@ -416,7 +288,7 @@ export function ApprovalCard({
                 >
                   <ArrowLeft className="size-4" />
                 </Button>
-                <ProgressDots
+                <ApprovalProgressDots
                   current={currentStep}
                   ids={questions.map((item) => item.id)}
                 />
@@ -438,12 +310,18 @@ export function ApprovalCard({
                       ? t("agentChat.request.sendAnswer")
                       : t("agentChat.request.nextQuestion")
                   }
-                  disabled={busy || (!question?.optional && !isAnswered(currentAnswer))}
+                  disabled={
+                    busy || (!question?.optional && !isAnswered(currentAnswer))
+                  }
                   onClick={continueQuestion}
                   className={cn("rounded-full", !onReject && "ml-auto")}
                 >
                   {busy ? (
-                    <SpinIcon icon={LoaderCircle} active={!reduce} className="size-4" />
+                    <SpinIcon
+                      icon={LoaderCircle}
+                      active={!reduce}
+                      className="size-4"
+                    />
                   ) : currentStep === questions.length - 1 ? (
                     <>
                       {submitLabel}
@@ -490,11 +368,7 @@ export function ApprovalCard({
             )}
           </AgentDisclosure>
 
-          {!interactive ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {result ?? statusLabel}
-            </p>
-          ) : null}
+          {result ? <div className="mt-3">{result}</div> : null}
         </div>
       </div>
     </div>

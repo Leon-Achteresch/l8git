@@ -15,11 +15,6 @@ import { cn } from "@/lib/utils";
 
 export type PlanDecision = "accept" | "acceptEdits" | "decline";
 
-/**
- * Approval surface for a plan the agent proposed via ExitPlanMode. Unlike a
- * command approval the plan itself is the subject, so it is rendered as
- * markdown with one-click decisions instead of a radio list.
- */
 export function AgentPlanCard({ request }: { request: AgentPendingRequest }) {
   const { t } = useTranslation();
   const respond = useAgentChatStore((state) => state.respondToRequest);

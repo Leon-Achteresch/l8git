@@ -137,8 +137,6 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
 
   useEffect(() => {
     if (!market.result && !market.loading) void market.search();
-    // Erste Suche beim Öffnen; danach steuert der Nutzer.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const detail = market.detail;
@@ -154,7 +152,6 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
       setChosenAssets(new Set());
       const loaded = await market.inspect(repo.fullName, repo.defaultBranch || undefined);
       if (loaded) {
-        // Vorauswahl: alles, was zur gerade gewählten Kategorie passt.
         setChosenAssets(
           new Set(assetsFor(loaded, market.kind).slice(0, 20).map((asset) => `${asset.kind}:${asset.path}`)),
         );

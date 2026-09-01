@@ -5,10 +5,6 @@ import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { Button } from "@/components/ui/button";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 
-/**
- * Plan mode keeps the agent read-only, which is easy to forget once a chat is
- * scrolled. The banner keeps that state visible and one click away from ending.
- */
 export function AgentPlanBanner() {
   const { t } = useTranslation();
   const collaborationMode = useAgentChatStore((state) => state.collaborationMode);

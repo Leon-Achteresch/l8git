@@ -68,8 +68,6 @@ export function AgentsPage({
   const selectedPath = useAgentRepoStore((state) => state.path);
   const setSelectedPath = useAgentRepoStore((state) => state.setPath);
   const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
-  // Addons gelten für alle vier CLIs und liegen deshalb neben dem
-  // providerspezifischen Capability-Center, nicht darin.
   const [addonsOpen, setAddonsOpen] = useState(false);
   const jiraEnabled = useJiraStore((state) => state.enabled);
   const jiraRegisterExternal = useJiraStore((state) => state.registerExternal);
@@ -140,16 +138,11 @@ export function AgentsPage({
   useEffect(() => armTurnAttention(), []);
   useEffect(() => armUsageLedger(), []);
 
-  // Codex and Cursor learn about the Jira MCP server through their own config,
-  // so the registration has to follow the selected repository and the switches.
   useEffect(() => {
     if (!selectedPath) return;
     void syncJiraExternalRegistration(selectedPath);
   }, [jiraEnabled, jiraRegisterExternal, selectedPath]);
 
-  // Tickets hang off a conversation, but the MCP server Codex and Cursor spawn
-  // only knows the repository. Recording which chat is open is how it resolves
-  // one to the other.
   useEffect(() => {
     if (!selectedPath) return;
     setActiveJiraThread(
@@ -177,9 +170,6 @@ export function AgentsPage({
   }, [activeThreadId, setVisibleThread]);
 
   useEffect(() => {
-    // Restoring an explicitly selected conversation is useful. Automatically
-    // opening the newest history entry is not: it parses a potentially huge
-    // transcript before the user has selected it.
     if (!selectedPath || !activeThreadId || !activeThreadIsKnown) return;
     const timer = window.setTimeout(() => void openThread(selectedPath, activeThreadId), 0);
     return () => window.clearTimeout(timer);
@@ -207,8 +197,8 @@ export function AgentsPage({
         <ResizablePanelGroup orientation="horizontal" id="agents-chat-split">
           <ResizablePanel
             id="agents-chat-sidebar"
-            defaultSize="23%"
-            minSize="17%"
+            defaultSize="22%"
+            minSize="16%"
             maxSize="32%"
             className="ag-rail min-w-0 overflow-hidden"
           >
@@ -217,7 +207,7 @@ export function AgentsPage({
           <ResizableHandle className="w-px bg-[var(--ag-line)] transition-colors hover:bg-[var(--ag-line-strong)]" />
           <ResizablePanel
             id="agents-chat-main"
-            defaultSize="77%"
+            defaultSize="78%"
             minSize="45%"
             className="ag-stage min-w-0 overflow-hidden"
           >

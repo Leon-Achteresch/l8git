@@ -27,11 +27,6 @@ export function scopeLabel(scope: CapabilityScope, t: (key: string) => string): 
   return t(`agentCapabilities.hub.scopes.${scope}`);
 }
 
-/**
- * Auswahl „welche CLI auf welcher Ebene“ – global, User oder Projekt.
- * Nicht beschreibbare Ebenen (z. B. `/etc` ohne Adminrechte) bleiben sichtbar,
- * damit klar wird, warum dort nichts landet.
- */
 export function CapabilityTargetPicker({
   targets,
   selected,
@@ -45,7 +40,6 @@ export function CapabilityTargetPicker({
   selected: CapabilityTargetRef[];
   onToggle: (target: CapabilityTargetRef) => void;
   mode?: "multi" | "single";
-  /** Ein Ziel gilt als möglich, sobald es *eine* dieser Arten beherrscht. */
   requiredKinds?: CapabilityKind[] | null;
   disabled?: boolean;
   emptyLabel?: string;

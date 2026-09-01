@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import type { AgentReviewFile } from "@/lib/agents/agent-review";
 import { SPRING_LAYOUT } from "@/lib/motion/ease";
-import { cn } from "@/lib/utils";
 
 export function AgentReviewFileList({
   files,
@@ -51,11 +50,13 @@ export function AgentReviewFileList({
                 />
               ) : null}
               <Icon className="relative z-[1] size-3 shrink-0 text-muted-foreground" />
-              <span className="relative z-[1] min-w-0 flex-1 truncate font-mono">{file.path}</span>
+              <span className="relative z-[1] min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--ag-text)]">
+                {file.path}
+              </span>
               {accepted.has(file.path) ? (
                 <Check className="relative z-[1] size-3 shrink-0 text-git-added" />
               ) : null}
-              <span className="relative z-[1] shrink-0 tabular-nums">
+              <span className="relative z-[1] shrink-0 tabular-nums text-[10px]">
                 {file.binary ? (
                   <span className="text-muted-foreground">{t("agentReview.binary")}</span>
                 ) : (
@@ -70,22 +71,5 @@ export function AgentReviewFileList({
         );
       })}
     </m.ul>
-  );
-}
-
-export function AgentReviewStat({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <span className="ag-inset inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px]">
-      <span className="ag-faint">{label}</span>
-      <span className={cn("font-medium tabular-nums", className)}>{value}</span>
-    </span>
   );
 }

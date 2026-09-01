@@ -242,8 +242,6 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
     try {
       const next = await readBrowserAddon(path, provider);
       setStatus(next);
-      // Die Basisadresse steht in keiner Konfiguration — sie ist reine
-      // Prompt-Zutat und überlebt deshalb jedes Neuladen.
       if (next.installed) setOptions((current) => ({ ...next.options, baseUrl: current.baseUrl }));
     } finally {
       setLoading(false);

@@ -1,17 +1,23 @@
 import { FolderGit2, GitBranch } from "lucide-react";
+import { m, useReducedMotion } from "motion/react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
 import { AgentStatusChip } from "@/components/agents/ui/agent-status-chip";
+import type {
+  AgentOverviewEntry,
+  AgentOverviewStatus,
+} from "@/lib/agents/overview";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { formatUsd } from "@/lib/agents/token-cost";
-import type { AgentOverviewEntry, AgentOverviewStatus } from "@/lib/agents/overview";
 import type { WorktreeDiffStat } from "@/lib/agents/worktree-diff";
-import { m, useReducedMotion } from "motion/react";
 import { SPRING_PRESS } from "@/lib/motion/ease";
 
-const STATUS_TONE: Record<AgentOverviewStatus, "working" | "waiting" | "error" | "ready"> = {
+const STATUS_TONE: Record<
+  AgentOverviewStatus,
+  "working" | "waiting" | "error" | "ready"
+> = {
   running: "working",
   awaitingApproval: "waiting",
   failed: "error",
@@ -34,7 +40,8 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
   const providerMeta = agentProviderMeta(entry.provider);
   const ProviderLogo = providerMeta.Logo;
   const statusLabel = t(`agentOverview.status.${entry.status}`);
-  const working = entry.status === "running" || entry.status === "awaitingApproval";
+  const working =
+    entry.status === "running" || entry.status === "awaitingApproval";
 
   return (
     <m.div
@@ -49,41 +56,62 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
       title={entry.path}
       whileTap={reduce ? undefined : { scale: 0.99 }}
       transition={SPRING_PRESS}
-      initial={reduce ? false : { opacity: 0, y: 8 }}
+      initial={reduce ? false : { opacity: 0, y: 6 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.35 }}
-      className="ag-row ag-row-shared relative min-h-14 items-start gap-2.5 px-3 py-2.5"
+      className="ag-row ag-row-shared relative min-h-14 items-start gap-3 rounded-[var(--ag-r-md)] border border-transparent px-3.5 py-3 hover:border-[var(--ag-line)] hover:bg-[var(--ag-surface)] hover:shadow-[var(--ag-shadow-raise)]"
     >
-      <AgentProviderMark working={working} label={providerMeta.label} className="relative z-[1] mt-0.5">
+      <AgentProviderMark
+        working={working}
+        label={providerMeta.label}
+        className="relative z-[1] mt-0.5"
+      >
         <ProviderLogo />
       </AgentProviderMark>
 
       <span className="relative z-[1] min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-[12px] font-medium tracking-[-0.01em]">{entry.title}</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium tracking-[-0.01em] text-[var(--ag-text)]">
+            {entry.title}
+          </span>
           <AgentStatusChip tone={STATUS_TONE[entry.status]} className="shrink-0">
             {statusLabel}
           </AgentStatusChip>
-          <span className="ag-faint shrink-0 text-[10px] tabular-nums">{relativeDate}</span>
+          <span className="ag-faint shrink-0 text-[10px] tabular-nums">
+            {relativeDate}
+          </span>
         </span>
 
-        <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
-          <span className="ag-faint min-w-0 max-w-40 truncate text-[10px]">{entry.repoName}</span>
+        <span className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+          <span className="ag-faint min-w-0 max-w-48 truncate text-[11px] font-medium">
+            {entry.repoName}
+          </span>
           {entry.isWorktree ? (
             <span
-              className="ag-chip h-4 shrink-0 gap-1 px-1 text-[9px]"
+              className="ag-chip h-4.5 shrink-0 gap-1 rounded-full px-1.5 text-[9px] font-medium"
               title={entry.branch ?? undefined}
             >
-              <FolderGit2 className="size-2.5 shrink-0" />
+              <FolderGit2 className="size-2.5 shrink-0 text-[var(--git-branch)]" />
               <GitBranch className="size-2.5 shrink-0" />
-              <span className="max-w-28 truncate">{entry.branch ?? t("agentOverview.worktree")}</span>
+              <span className="max-w-28 truncate">
+                {entry.branch ?? t("agentOverview.worktree")}
+              </span>
             </span>
           ) : null}
           {diffStat && diffStat.files > 0 ? (
-            <span className="shrink-0 text-[10px] tabular-nums" title={t("agentOverview.diffStatHint")}>
-              <span className="ag-faint">{t("agentOverview.files", { count: diffStat.files })}</span>{" "}
-              <span className="text-[var(--git-added)]">+{diffStat.additions}</span>{" "}
-              <span className="text-[var(--git-removed)]">−{diffStat.deletions}</span>
+            <span
+              className="shrink-0 text-[10px] font-medium tabular-nums"
+              title={t("agentOverview.diffStatHint")}
+            >
+              <span className="ag-faint">
+                {t("agentOverview.files", { count: diffStat.files })}
+              </span>{" "}
+              <span className="text-[var(--git-added)]">
+                +{diffStat.additions}
+              </span>{" "}
+              <span className="text-[var(--git-removed)]">
+                −{diffStat.deletions}
+              </span>
             </span>
           ) : null}
           {entry.costUsd ? (
@@ -94,7 +122,7 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
         </span>
 
         {entry.preview ? (
-          <span className="ag-faint mt-1 line-clamp-1 block text-[11px] leading-4">
+          <span className="ag-faint mt-1 line-clamp-1 block text-[11px] leading-4 text-[var(--ag-text-3)]">
             {entry.preview}
           </span>
         ) : null}

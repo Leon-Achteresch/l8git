@@ -1,5 +1,4 @@
 "use client";
-// beui.dev/components/agents/file-diff
 
 import {
   Check,

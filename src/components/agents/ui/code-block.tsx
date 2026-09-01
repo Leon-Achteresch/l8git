@@ -1,5 +1,4 @@
 "use client";
-// beui.dev/components/agents/code-block
 
 import { Check, Copy, FileCode2, LoaderCircle } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";

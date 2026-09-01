@@ -65,9 +65,6 @@ export function useAgentCodeTokens(
     }
 
     let cancelled = false;
-    // Debounce: while a block streams in, its text changes on every token
-    // batch. Tokenizing each intermediate value would keep the worker busy
-    // producing output nobody sees.
     const timer = window.setTimeout(() => {
       void tokenizeAgentCode(code, language)
         .then((lines) => {
@@ -79,9 +76,7 @@ export function useAgentCodeTokens(
           tokenCache.set(key, lines);
           setResult({ key, code, language, lines });
         })
-        .catch(() => {
-          // Highlighting is decoration; plain text is a fine result.
-        });
+        .catch(() => {});
     }, HIGHLIGHT_DEBOUNCE_MS);
     return () => {
       cancelled = true;
@@ -91,8 +86,6 @@ export function useAgentCodeTokens(
 
   if (!enabled) return null;
   if (result?.key === key) return result.lines;
-  // While a block grows, keep painting the tokens of the prefix already
-  // highlighted instead of dropping back to unstyled text.
   if (result?.language === language && code.startsWith(result.code)) {
     return result.lines;
   }

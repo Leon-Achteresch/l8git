@@ -191,10 +191,6 @@ function userContent(item: AgentItem): {
   };
 }
 
-/**
- * Slash commands and their local output are CLI scaffolding rather than a
- * prompt, so they collapse into one subdued pill instead of a chat bubble.
- */
 function LocalCommandItem({ item }: { item: AgentItem }) {
   const command = stringValue(item.command);
   const args = stringValue(item.args);
@@ -697,10 +693,6 @@ function PlanItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
   );
 }
 
-/**
- * A plan the agent proposed via ExitPlanMode. The live approval lives in the
- * request card; this item keeps the plan readable in the transcript afterwards.
- */
 function PlanProposalItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
   const plan = stringValue(item.plan);
   const status = toolStatus(item);
@@ -757,10 +749,6 @@ function PlanProposalItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) 
   );
 }
 
-/**
- * A round of clarifying questions. The answer picker lives in the request card;
- * once answered the transcript keeps the question and what was chosen.
- */
 function UserQuestionItem({ item }: { item: AgentItem }) {
   const questions = arrayValue(item.questions).filter(isRecord);
   const answers = isRecord(item.answers) ? item.answers : {};

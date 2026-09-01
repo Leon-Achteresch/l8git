@@ -1,17 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
-  Check,
-  CircleDashed,
   GitMerge,
   Loader2,
-  Split,
   Sparkles,
-  TriangleAlert,
+  Split,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { SpinIcon } from "@/components/motion/kit";
+import {
+  CommitSplitDialog,
+  type CommitSplitResult,
+} from "@/components/repo/commit/commit-split-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,7 +25,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  canRunStep,
   commitReviewChanges,
   createFinishSteps,
   deleteSessionBranchIfMerged,
@@ -36,30 +37,13 @@ import {
   type AgentReviewStepId,
 } from "@/lib/agents/agent-review";
 import { useAgentWorktreeStore } from "@/lib/agents/agent-worktrees";
-import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog";
 import { generateAiCommitMessage } from "@/lib/ai-commit";
 import { isAiConfigured } from "@/lib/ai-setup";
 import { toastError, toastGitError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
-import { m } from "motion/react";
-import { cn } from "@/lib/utils";
-import { SpinIcon } from "@/components/motion/kit";
-import { SPRING_PANEL } from "@/lib/motion/ease";
-
-const STEP_ICONS: Record<AgentReviewStepId, typeof Check> = {
-  commit: Check,
-  merge: GitMerge,
-  cleanup: CircleDashed,
-};
-
-function StepStatusIcon({ step }: { step: AgentReviewStep }) {
-  if (step.status === "running") return <SpinIcon icon={Loader2} className="size-3.5 text-primary" />;
-  if (step.status === "failed") return <TriangleAlert className="size-3.5 text-destructive" />;
-  if (step.status === "done") return <Check className="size-3.5 text-git-added" />;
-  const Icon = STEP_ICONS[step.id];
-  return <Icon className="size-3.5 text-muted-foreground" />;
-}
+import { AgentReviewStepAction } from "@/components/agents/worktree-review/agent-review-step-action";
+import { AgentReviewStepCard } from "@/components/agents/worktree-review/agent-review-step-card";
 
 export function AgentReviewFinishDialog({
   open,
@@ -88,14 +72,12 @@ export function AgentReviewFinishDialog({
   );
   const [message, setMessage] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
-  const [branchKept, setBranchKept] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const announcedRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
     setSteps(createFinishSteps({ hasUncommitted }));
-    setBranchKept(false);
     announcedRef.current = false;
   }, [open, hasUncommitted]);
 
@@ -116,93 +98,84 @@ export function AgentReviewFinishDialog({
 
   const runCleanup = useCallback(async () => {
     const known = useAgentWorktreeStore.getState().worktrees[worktreePath];
-    if (known) await useAgentWorktreeStore.getState().removeWorktree(worktreePath);
+    if (known)
+      await useAgentWorktreeStore.getState().removeWorktree(worktreePath);
     else await removeSessionWorktree(basePath, worktreePath);
-    const deleted = await deleteSessionBranchIfMerged(basePath, sessionBranch);
-    setBranchKept(!deleted);
-    await useRepoStore.getState().reloadWorktrees(basePath);
-    await useRepoStore.getState().reload(basePath);
-  }, [basePath, sessionBranch, worktreePath]);
+
+    if (sessionBranch !== baseBranch) {
+      await deleteSessionBranchIfMerged(
+        basePath,
+        sessionBranch,
+      );
+    }
+  }, [baseBranch, basePath, sessionBranch, worktreePath]);
 
   const runStep = useCallback(
     async (id: AgentReviewStepId) => {
-      if (id === "commit" && !message.trim()) {
-        toastError(t("agentReview.commitMessageRequired"));
-        return;
-      }
       setSteps((current) => setStepStatus(current, id, "running"));
       try {
         if (id === "commit") await runCommit();
         else if (id === "merge") await runMerge();
-        else await runCleanup();
+        else if (id === "cleanup") await runCleanup();
         setSteps((current) => setStepStatus(current, id, "done"));
-      } catch (cause) {
-        const text = cause instanceof Error ? cause.message : String(cause);
+      } catch (error) {
+        const text =
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : t("agentReview.unknownError");
         setSteps((current) => setStepStatus(current, id, "failed", text));
-        if (id === "merge") toastGitError(text, { repoPath: basePath });
-        else toastError(text);
+        toastGitError(text);
       }
     },
-    [basePath, message, runCleanup, runCommit, runMerge, t],
+    [runCleanup, runCommit, runMerge, t],
   );
 
   useEffect(() => {
-    if (!open || flowStatus !== "done" || announcedRef.current) return;
+    if (flowStatus !== "done" || announcedRef.current) return;
     announcedRef.current = true;
-    toast.success(t("agentReview.finishedToast", { branch: baseBranch }), {
-      description: branchKept
-        ? t("agentReview.branchKeptHint", { branch: sessionBranch })
-        : t("agentReview.undoHint"),
-    });
+    toast.success(t("agentReview.flowFinished"));
     onFinished();
-    onOpenChange(false);
-  }, [
-    baseBranch,
-    branchKept,
-    flowStatus,
-    onFinished,
-    onOpenChange,
-    open,
-    sessionBranch,
-    t,
-  ]);
+  }, [flowStatus, onFinished, t]);
 
-  const suggestMessage = useCallback(async () => {
-    if (!isAiConfigured()) {
-      toastError(t("agentReview.aiNotConfigured"));
-      return;
-    }
+  const generateCommitMessage = async () => {
     setAiBusy(true);
     try {
-      await invoke("stage_files", { path: worktreePath, files: ["."] });
       const diff = await stagedReviewDiff(worktreePath);
-      setMessage(await generateAiCommitMessage(diff, worktreePath, { onDelta: setMessage }));
-    } catch (cause) {
-      toastError(cause instanceof Error ? cause.message : String(cause));
+      const generated = await generateAiCommitMessage(diff);
+      if (generated) setMessage(generated);
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : String(error));
     } finally {
       setAiBusy(false);
     }
-  }, [t, worktreePath]);
+  };
 
-  const onSplitApplied = useCallback(
-    async (result: { committed: number }) => {
-      if (result.committed <= 0) return;
-      await useRepoStore.getState().reloadStatus(worktreePath);
-      const entries = useRepoStore.getState().status[worktreePath] ?? [];
-      if (entries.length === 0) {
+  const onSplitApplied = async (result: CommitSplitResult) => {
+    if (result.committed === 0) return;
+    try {
+      const status = await invoke<{ staged: number; unstaged: number }>(
+        "git_status_counts",
+        { path: worktreePath },
+      );
+      if (status.staged === 0 && status.unstaged === 0) {
         setSteps((current) => setStepStatus(current, "commit", "done"));
       }
-    },
-    [worktreePath],
-  );
+      await useRepoStore.getState().reloadStatus(worktreePath);
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   const commitStep = stepById("commit");
   const mergeStep = stepById("merge");
   const cleanupStep = stepById("cleanup");
+  const aiAvailable = isAiConfigured();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[min(560px,94vw)] max-w-[min(560px,94vw)] flex-col gap-3 overflow-y-auto">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{t("agentReview.finishTitle")}</DialogTitle>
           <DialogDescription>
@@ -213,67 +186,70 @@ export function AgentReviewFinishDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <StepCard step={commitStep} title={t("agentReview.stepCommit")}>
-          {commitStep.status === "skipped" ? (
+        {hasUncommitted ? (
+          <AgentReviewStepCard step={commitStep} title={t("agentReview.stepCommit")}>
             <p className="text-[11px] text-muted-foreground">
-              {t("agentReview.stepCommitSkipped")}
+              {t("agentReview.stepCommitHint")}
             </p>
-          ) : (
-            <>
-              <Textarea
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder={t("agentReview.commitMessagePlaceholder")}
-                rows={3}
-                readOnly={aiBusy}
-                disabled={commitStep.status === "done" || commitStep.status === "running"}
-                className="text-xs"
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => void suggestMessage()}
-                  disabled={aiBusy || commitStep.status === "done"}
-                >
-                  {aiBusy ? <SpinIcon icon={Loader2} /> : <Sparkles />}
-                  {t("agentReview.aiSuggest")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => {
-                    if (!isAiConfigured()) {
-                      toastError(t("agentReview.aiNotConfigured"));
-                      return;
-                    }
-                    setSplitOpen(true);
-                  }}
-                  disabled={aiBusy || commitStep.status === "done" || commitStep.status === "running"}
-                >
-                  <Split />
-                  {t("agentReview.splitCommits")}
-                </Button>
-                <StepAction
-                  step={commitStep}
-                  steps={steps}
-                  label={t("agentReview.runCommit")}
-                  onRun={() => void runStep("commit")}
-                  onRetry={() => setSteps((current) => retryStep(current, "commit"))}
+            {commitStep.status !== "done" ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  placeholder={t("agentReview.commitMessagePlaceholder")}
+                  className="min-h-16 text-xs"
                 />
+                <div className="flex items-center gap-2">
+                  <AgentReviewStepAction
+                    step={commitStep}
+                    steps={steps}
+                    label={t("agentReview.runCommit")}
+                    onRun={() => void runStep("commit")}
+                    onRetry={() =>
+                      setSteps((current) => retryStep(current, "commit"))
+                    }
+                  />
+                  {aiAvailable ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={aiBusy}
+                      onClick={() => void generateCommitMessage()}
+                      className="h-7 text-xs"
+                    >
+                      <SpinIcon
+                        icon={aiBusy ? Loader2 : Sparkles}
+                        className="mr-1.5 size-3"
+                      />
+                      {t("agentReview.generateAiMessage")}
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSplitOpen(true)}
+                    className="h-7 text-xs"
+                  >
+                    <Split className="mr-1.5 size-3" />
+                    {t("agentReview.splitCommit")}
+                  </Button>
+                </div>
               </div>
-            </>
-          )}
-        </StepCard>
+            ) : null}
+          </AgentReviewStepCard>
+        ) : null}
 
-        <StepCard step={mergeStep} title={t("agentReview.stepMerge")}>
+        <AgentReviewStepCard step={mergeStep} title={t("agentReview.stepMerge")}>
           <p className="text-[11px] text-muted-foreground">
-            {t("agentReview.stepMergeHint", { session: sessionBranch, base: baseBranch })}
+            {t("agentReview.stepMergeHint", {
+              session: sessionBranch,
+              base: baseBranch,
+            })}
           </p>
           <div className="flex items-center gap-2">
-            <StepAction
+            <AgentReviewStepAction
               step={mergeStep}
               steps={steps}
               label={t("agentReview.runMerge")}
@@ -283,31 +259,40 @@ export function AgentReviewFinishDialog({
             {mergeStep.status === "failed" ? (
               <Button
                 type="button"
+                size="sm"
                 variant="outline"
-                size="xs"
-                onClick={() => openMergeEditor(basePath)}
+                onClick={() => {
+                  openMergeEditor(basePath);
+                  onOpenChange(false);
+                }}
+                className="h-7 text-xs"
               >
+                <GitMerge className="mr-1.5 size-3" />
                 {t("agentReview.openConflictEditor")}
               </Button>
             ) : null}
           </div>
-        </StepCard>
+        </AgentReviewStepCard>
 
-        <StepCard step={cleanupStep} title={t("agentReview.stepCleanup")}>
+        <AgentReviewStepCard step={cleanupStep} title={t("agentReview.stepCleanup")}>
           <p className="text-[11px] text-muted-foreground">
             {t("agentReview.stepCleanupHint")}
           </p>
-          <StepAction
+          <AgentReviewStepAction
             step={cleanupStep}
             steps={steps}
             label={t("agentReview.runCleanup")}
             onRun={() => void runStep("cleanup")}
             onRetry={() => setSteps((current) => retryStep(current, "cleanup"))}
           />
-        </StepCard>
+        </AgentReviewStepCard>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             {t("agentReview.close")}
           </Button>
         </DialogFooter>
@@ -322,78 +307,5 @@ export function AgentReviewFinishDialog({
         ) : null}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function StepCard({
-  step,
-  title,
-  children,
-}: {
-  step: AgentReviewStep;
-  title: string;
-  children: React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  return (
-    <m.section
-      className={cn(
-        "ag-card space-y-2 rounded-lg p-3",
-        step.status === "failed" && "ring-1 ring-destructive/40",
-        step.status === "done" && "opacity-70",
-      )}
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={SPRING_PANEL}
-    >
-      <header className="flex items-center gap-2">
-        <StepStatusIcon step={step} />
-        <span className="flex-1 text-xs font-medium">{title}</span>
-        <span className="ag-faint text-[10.5px] uppercase tracking-wide">
-          {t(`agentReview.status.${step.status}`)}
-        </span>
-      </header>
-      {children}
-      {step.error ? (
-        <p className="rounded-md bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
-          {step.error}
-        </p>
-      ) : null}
-    </m.section>
-  );
-}
-
-function StepAction({
-  step,
-  steps,
-  label,
-  onRun,
-  onRetry,
-}: {
-  step: AgentReviewStep;
-  steps: readonly AgentReviewStep[];
-  label: string;
-  onRun: () => void;
-  onRetry: () => void;
-}) {
-  const { t } = useTranslation();
-  if (step.status === "done" || step.status === "skipped") return null;
-  if (step.status === "failed") {
-    return (
-      <Button type="button" variant="outline" size="xs" onClick={onRetry}>
-        {t("agentReview.retry")}
-      </Button>
-    );
-  }
-  return (
-    <Button
-      type="button"
-      size="xs"
-      onClick={onRun}
-      disabled={!canRunStep(steps, step.id) || step.status === "running"}
-    >
-      {step.status === "running" ? <SpinIcon icon={Loader2} /> : null}
-      {label}
-    </Button>
   );
 }
