@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, Blocks, Bot, Command, Pencil, PlugZap, Power, RefreshCw, Sparkles, Trash2, Webhook } from "lucide-react";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRightLeft, Blocks, Bot, Command, Pencil, PlugZap, Power, RefreshCw, Sparkles, Store, Trash2, Webhook } from "lucide-react";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ClaudeCodeLogo, OpenCodeLogo } from "@/components/brand/agent-logos";
@@ -34,7 +34,14 @@ import type { AgentHook, AgentMcpServer, AgentPlugin, AgentSkill } from "@/lib/a
 import { cn } from "@/lib/utils";
 import { SpinIcon } from "@/components/motion/kit";
 
-type Section = "skills" | "commands" | "agents" | "mcp" | "plugins" | "hooks";
+const CapabilitySyncStudio = lazy(() => import("@/components/agents/capabilities/capability-sync-studio").then(
+  (module) => ({ default: module.CapabilitySyncStudio }),
+));
+const CapabilityMarketplace = lazy(() => import("@/components/agents/capabilities/capability-marketplace").then(
+  (module) => ({ default: module.CapabilityMarketplace }),
+));
+
+type Section = "skills" | "commands" | "agents" | "mcp" | "plugins" | "hooks" | "sync" | "market";
 type CapabilityProvider = "claude" | "opencode";
 type Entry = {
   id: string;
@@ -111,6 +118,8 @@ const sections: Array<{ id: Section; label: string; Icon: typeof Sparkles }> = [
   { id: "mcp", label: "MCP", Icon: PlugZap },
   { id: "plugins", label: "Plugins", Icon: Blocks },
   { id: "hooks", label: "Hooks", Icon: Webhook },
+  { id: "sync", label: "Sync", Icon: ArrowRightLeft },
+  { id: "market", label: "Marktplatz", Icon: Store },
 ];
 
 function repoName(path: string) {
@@ -133,6 +142,10 @@ export function ClaudeCapabilityCenter({
   const providerLabel = isOpenCode ? "OpenCode" : "Claude Code";
   const listPlugins = useAgentChatStore((state) => state.listPlugins);
   const [section, setSection] = useState<Section>(initialSection === "apps" ? "agents" : initialSection);
+
+  useEffect(() => {
+    setSection(initialSection === "apps" ? "agents" : initialSection);
+  }, [initialSection]);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [loading, setLoading] = useState(true);
@@ -183,6 +196,7 @@ export function ClaudeCapabilityCenter({
   }, [path]);
 
   const entries = useMemo<Entry[]>(() => {
+    if (section === "sync" || section === "market") return [];
     const managed = provider === "claude";
     const fileFor = (kind: "commands" | "agents", name: string) =>
       managed ? data.files[kind].find((file) => file.name === name)?.path : undefined;
@@ -275,7 +289,7 @@ export function ClaudeCapabilityCenter({
     return normalized ? raw.filter((item) => `${item.title} ${item.description} ${item.meta ?? ""}`.toLocaleLowerCase().includes(normalized)) : raw;
   }, [data, deferredQuery, isOpenCode, path, provider, section]);
 
-  const counts: Record<Section, number> = {
+  const counts: Partial<Record<Section, number>> = {
     skills: data.skills.length,
     commands: data.commands.length,
     agents: data.agents.length,
@@ -314,11 +328,22 @@ export function ClaudeCapabilityCenter({
               )}
             >
               <Icon className="size-3.5" /> {label}
-              <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
+              {counts[id] === undefined ? null : (
+                <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
+              )}
             </button>
           ))}
         </nav>
       </header>
+      {section === "sync" || section === "market" ? (
+        <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Capability Studio…</div>}>
+          {section === "sync" ? (
+            <CapabilitySyncStudio path={path} query={deferredQuery} />
+          ) : (
+            <CapabilityMarketplace path={path} query={deferredQuery} />
+          )}
+        </Suspense>
+      ) : (
       <div className="ag-scroll min-h-0 flex-1 overflow-y-auto p-5">
         <div className="mx-auto grid max-w-4xl gap-2 sm:grid-cols-2">
           <ProgressiveCapabilityList
@@ -395,6 +420,7 @@ export function ClaudeCapabilityCenter({
           </div>
         ) : null}
       </div>
+      )}
 
       <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="max-w-3xl">

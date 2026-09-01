@@ -26,6 +26,7 @@ Open the **Agents** view from the header, pick a repository and a provider, and 
 - Thread actions: review the working tree, fork the conversation, compact the context.
 - Where a provider exposes them, agent settings are editable inline — sandbox level (read only / write workspace / full access), approval policy, model, thinking effort, and mode (build or plan).
 - Codex additionally has a **Capability Studio** for skills, MCP servers, plugins, apps and hooks, including an escape hatch to edit the raw `config.toml`, and an account menu showing usage against the short and weekly windows.
+- Every capability surface (Codex, Claude Code, OpenCode) also has the **Sync** and **Marketplace** tabs described below.
 
 Any agent can render **charts**: it emits a fenced ` ```chart ` block with JSON (`bar`, `line` or `area`, one or more series), and the chat renders it as an interactive chart with tooltip and legend. The `/chart <what to visualize>` slash command appends the format documentation to the prompt so the agent knows how.
 
@@ -40,6 +41,36 @@ Two additions that work the same way in all four CLIs. The puzzle icon in the ch
 **Barcodes.** An agent can turn data into scannable codes: it emits a fenced ` ```barcode ` block with JSON (`format` and `value`, several codes via `items`), and the chat renders real barcodes. The data can come from anywhere the agent can reach, an MCP server included — ask for the open orders and get a pick list you can scan off the screen. 39 symbologies are documented for the agent, from Code 128, EAN-13 and ITF-14 through QR, Data Matrix and PDF417 to the postal 4-state codes. `/barcode <which values to encode>` appends the format documentation to the prompt, a click on a code enlarges it for a handheld scanner, and each code can be copied or downloaded as SVG. The studio has a live preview to try a format and value out.
 
 **Claude in Browser.** The studio installs the Playwright MCP server for the CLI you pick, which gives it a real browser: navigate, click, type, fill forms, assert what is visible, and read the console and network log. End-to-end tests then run straight from the chat instead of being written into a file for someone else to run. Options — browser, headless, a fresh profile per session, viewport, emulated device, allowed origins — are stored in the CLI's own configuration (`.mcp.json` for Claude Code, `.cursor/mcp.json` for Cursor, `opencode.json` for OpenCode, its own `config.toml` for Codex), so the CLI also has the browser outside of l8git. `/browser <what to test>` sends a scenario with the ground rules: act on the accessibility snapshot, assert explicitly, and back up every failure with a screenshot, the console and the network log.
+
+## Sharing capabilities between CLIs
+
+Each CLI keeps its skills, slash commands, subagents, MCP servers and hooks in its own folder and its own file format. The **Sync** tab of the Capability Studio (`/sync`) puts all of them into one list and moves them around.
+
+Three levels are handled everywhere:
+
+| Level | Where it lives | Example |
+|-------|----------------|---------|
+| **Global** | machine-wide configuration | `/etc/claude-code`, `/Library/Application Support/ClaudeCode`, `%ProgramData%\ClaudeCode` |
+| **User** | your home directory | `~/.claude`, `~/.codex`, `~/.config/opencode`, `~/.cursor`, `~/.gemini`, `~/.copilot` |
+| **Project** | the repository | `<repo>/.claude`, `<repo>/.codex`, `<repo>/.opencode`, `<repo>/.cursor` |
+
+- **Copy** — pick a source (CLI + level), tick what should move, pick one or more targets, copy. File name conventions are translated on the way: a Claude subagent becomes a `.mdc` rule for Cursor, a command becomes a `.prompt.md` file for Copilot.
+- **MCP servers** are translated between formats, not just copied: `mcpServers` JSON (Claude, Cursor, Gemini, Copilot), OpenCode's `mcp` block and Codex's `[mcp_servers.*]` TOML all describe the same server afterwards.
+- **Delete** — removes an entry from a CLI. A backup is written to `.l8git-backups` next to the source first.
+- **Sync** — compares source and targets and shows a plan: what is new, what differs, what exists only in the target. Untick what should stay, apply the rest, optionally deleting the target-only leftovers.
+- Levels you cannot write to (a global folder without administrator rights) stay visible but are marked read-only instead of failing silently.
+
+## The capability marketplace
+
+The **Marketplace** tab (`/marketplace`) searches GitHub for ready-made capabilities and shows how popular each repository is.
+
+- Categories for skills, MCP servers, plugins, hooks and commands, each backed by the common topics plus a free-text search.
+- Results carry stars, forks, language, license, last push and a plain-language popularity label, sortable by stars, recency or forks, filterable by a minimum star count.
+- Opening a result scans the repository and lists what can actually be installed: `SKILL.md` folders, commands, subagents, `.mcp.json` bundles, hook definitions and hook scripts, plugin sources. An npm package with a binary is offered as a ready-made `npx` MCP server entry.
+- Pick the target CLI and level, install. Existing files are backed up before they are overwritten, and everything downloaded is size- and count-limited.
+- Searches are cached for a few minutes. Signing in to GitHub in the settings raises the API rate limit considerably.
+
+Installed files come from public repositories and run with your permissions — the install dialog says so, and lists exactly what it is about to write.
 
 ## Worktree sessions
 

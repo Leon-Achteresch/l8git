@@ -331,7 +331,7 @@ pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
     None
 }
 
-fn cli_in_path(name: &str) -> bool {
+pub(crate) fn cli_in_path(name: &str) -> bool {
     resolve_cli_path(name).is_some()
 }
 

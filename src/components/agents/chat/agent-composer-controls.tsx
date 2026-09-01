@@ -1,6 +1,7 @@
-import { Bot, ChevronDown, Compass, Gauge, ShieldCheck } from "lucide-react";
+import { Bot, ChevronDown, Compass, Gauge, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useStore } from "zustand";
 
 import {
   DropdownMenu,
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AgentModelPicker } from "@/components/agents/chat/agent-model-picker";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
+import { openCodeChatStore } from "@/lib/agents/providers/opencode/chat-store";
 import { codexReasoningEffortLabel } from "@/lib/agents/codex-labels";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type {
@@ -75,6 +77,73 @@ function ControlPill({
 }
 
 const RADIO_CLASS = "rounded-[9px] py-1.5 text-[12px]";
+
+const BOOLEAN_ON = "__on";
+const BOOLEAN_OFF = "__off";
+
+/**
+ * opencode meldet neben Modell, Agent und Denk-Aufwand weitere Session-Optionen
+ * – aktuell vor allem die Modell-Variante. Welche das sind, haengt von CLI und
+ * Provider ab, also wird der gemeldete Katalog generisch als Pill gerendert.
+ */
+function OpenCodeConfigPills() {
+  const { t } = useTranslation();
+  const selections = useStore(openCodeChatStore, (state) => state.configSelections);
+  const setSelection = useStore(openCodeChatStore, (state) => state.setConfigSelection);
+
+  return (
+    <>
+      {selections.map((selection) => {
+        const label =
+          selection.type === "boolean"
+            ? selection.value
+              ? t("agentChat.settings.on")
+              : t("agentChat.settings.off")
+            : (selection.choices.find((choice) => choice.value === selection.value)?.label ??
+              String(selection.value || t("agentChat.settings.default")));
+        return (
+          <ControlPill
+            key={selection.id}
+            icon={<SlidersHorizontal />}
+            label={label}
+            title={selection.description || selection.name}
+          >
+            <DropdownMenuLabel className="ag-label">{selection.name}</DropdownMenuLabel>
+            {selection.type === "boolean" ? (
+              <DropdownMenuRadioGroup
+                value={selection.value ? BOOLEAN_ON : BOOLEAN_OFF}
+                onValueChange={(value) => setSelection(selection.id, value === BOOLEAN_ON)}
+              >
+                <DropdownMenuRadioItem value={BOOLEAN_ON} className={RADIO_CLASS}>
+                  {t("agentChat.settings.on")}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value={BOOLEAN_OFF} className={RADIO_CLASS}>
+                  {t("agentChat.settings.off")}
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            ) : (
+              <DropdownMenuRadioGroup
+                value={typeof selection.value === "string" ? selection.value : ""}
+                onValueChange={(value) => setSelection(selection.id, value)}
+              >
+                {selection.choices.map((choice) => (
+                  <DropdownMenuRadioItem
+                    key={choice.value}
+                    value={choice.value}
+                    className={RADIO_CLASS}
+                    title={choice.description || undefined}
+                  >
+                    {choice.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            )}
+          </ControlPill>
+        );
+      })}
+    </>
+  );
+}
 
 export function AgentComposerControls({
   path,
@@ -201,6 +270,8 @@ export function AgentComposerControls({
         ) : null}
       </ControlPill>
       ) : null}
+
+      {provider === "opencode" ? <OpenCodeConfigPills /> : null}
 
       {agentModePill ? (
         <ControlPill

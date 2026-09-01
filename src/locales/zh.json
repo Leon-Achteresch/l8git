@@ -254,7 +254,9 @@
       "mode": "模式",
       "defaultMode": "构建",
       "planMode": "规划",
-      "agent": "智能体"
+      "agent": "智能体",
+      "on": "开",
+      "off": "关"
     },
     "request": {
       "inputRequired": "需要输入",
@@ -2847,7 +2849,9 @@
       "mcp": "MCP",
       "plugins": "插件",
       "apps": "应用",
-      "hooks": "钩子"
+      "hooks": "钩子",
+      "sync": "同步",
+      "market": "市场"
     },
     "skills": {
       "create": "创建技能",
@@ -3008,6 +3012,121 @@
       "deleted": "钩子已删除",
       "empty": "未配置生命周期钩子",
       "emptyHint": "创建仓库级 hooks.json，即可自动化某个 Codex 生命周期事件。"
+    },
+    "hub": {
+      "title": "在各个 CLI 之间复制、删除与同步",
+      "explainer": "把各个智能体 CLI 的技能、命令、子智能体、MCP 服务器和钩子放进同一个列表。选好来源，选好目标，就这么简单。",
+      "step1": "选择来源：哪个 CLI、哪一层（全局 / 用户 / 项目）。",
+      "step2": "勾选要搬的内容，或者干脆全选。",
+      "step3": "选择目标后点击复制；想整体保持一致就用同步。",
+      "loading": "正在读取所有 CLI 的能力…",
+      "source": "1. 来源",
+      "targets": "2. 目标",
+      "overwrite": "覆盖已存在的条目",
+      "noTargets": "没有找到智能体 CLI。",
+      "notInstalled": "未安装",
+      "notInstalledHint": "命令「{{command}}」不在 PATH 中，但仍然可以写入文件。",
+      "kindUnsupported": "{{label}} 不支持这一类能力。",
+      "noPath": "没有可用路径",
+      "readOnly": "只读（需要管理员权限）",
+      "scopes": {
+        "global": "全局",
+        "user": "用户",
+        "repo": "项目"
+      },
+      "kinds": {
+        "skill": "技能",
+        "command": "命令",
+        "agent": "子智能体",
+        "mcp": "MCP",
+        "hook": "钩子"
+      },
+      "selectAll": "全选",
+      "selectNone": "取消选择",
+      "selection": "已选 {{count}} 项 · 来源：{{source}}",
+      "files": "{{count}} 个文件",
+      "noDescription": "没有描述",
+      "emptyTitle": "这里还是空的",
+      "emptyDescription": "该 CLI 在所选层级上没有内容，或者被筛选条件挡住了。",
+      "copy": "复制",
+      "sync": "同步…",
+      "delete": "删除",
+      "deleteTitle": "删除 {{count}} 个条目？",
+      "deleteDescription": "删除前会在来源旁的 .l8git-backups 中留一份备份。",
+      "planTitle": "同步计划",
+      "planDescription": "以下是会发生的改动。想保持原样的请取消勾选。",
+      "applyPlan": "应用（{{count}}）",
+      "deleteExtras": "同时删除只存在于目标中的条目",
+      "actions": {
+        "create": "新增",
+        "update": "有差异",
+        "same": "相同",
+        "extra": "仅目标有",
+        "unsupported": "不支持"
+      },
+      "results": "结果",
+      "copied": "已复制 {{count}} 个条目",
+      "deleted": "已删除 {{count}} 个条目",
+      "synced": "已同步 {{count}} 个条目",
+      "resultWithErrors": "成功 {{ok}} 个，失败 {{failed}} 个",
+      "backup": "备份：{{path}}"
+    },
+    "market": {
+      "title": "市场",
+      "explainer": "按星标数在 GitHub 上搜索现成的技能、MCP 服务器、钩子、命令和插件。打开条目，勾选需要的部分，选择 CLI，直接安装。",
+      "search": "搜索",
+      "searchPlaceholder": "例如：代码评审、postgres、测试…",
+      "loading": "正在搜索 GitHub…",
+      "inspecting": "正在读取仓库…",
+      "kinds": {
+        "skill": "技能",
+        "mcp": "MCP 服务器",
+        "plugin": "插件",
+        "hook": "钩子",
+        "command": "命令"
+      },
+      "sorts": {
+        "stars": "星标最多",
+        "updated": "最近更新",
+        "forks": "复刻最多"
+      },
+      "anyStars": "不限星标数",
+      "minStars": "{{stars}} 星以上",
+      "anonymousHint": "当前为匿名搜索，GitHub 每分钟只允许少量请求。在设置中登录 GitHub 可以放宽限制。",
+      "popularity": {
+        "hot": "非常热门",
+        "popular": "热门",
+        "growing": "上升中",
+        "fresh": "新项目",
+        "small": "小项目"
+      },
+      "updated": "更新于 {{date}}",
+      "archived": "已归档",
+      "noDescription": "没有描述",
+      "inspect": "打开",
+      "emptyTitle": "没有结果",
+      "emptyDescription": "换个关键词或换个分类再试试。",
+      "detailDescription": "{{stars}} 星 · 分支 {{ref}}",
+      "trustWarning": "这些文件来自公开仓库，并会以你的权限运行。请只安装你信任的内容；被覆盖的文件会先备份。",
+      "readme": "仓库说明",
+      "assets": "可安装的内容",
+      "noAssets": "在这个仓库里没有找到可安装的内容。",
+      "truncated": "仓库较大，只扫描了一部分。",
+      "assetKinds": {
+        "skill": "技能",
+        "command": "命令",
+        "agent": "子智能体",
+        "mcp": "MCP",
+        "hook": "钩子",
+        "hookScript": "钩子脚本",
+        "pluginMarketplace": "插件来源"
+      },
+      "mcpSuggestion": "也可以直接添加为 MCP 服务器",
+      "addMcp": "添加 MCP 服务器",
+      "installTargets": "安装到",
+      "install": "安装（{{count}}）",
+      "installed": "已安装 {{count}} 个条目",
+      "installedWithErrors": "已安装 {{ok}} 个，失败 {{failed}} 个"
     }
   },
   "agentAddons": {

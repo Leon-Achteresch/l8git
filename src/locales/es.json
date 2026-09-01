@@ -254,7 +254,9 @@
       "mode": "Modo",
       "defaultMode": "Construir",
       "planMode": "Planificar",
-      "agent": "Agente"
+      "agent": "Agente",
+      "on": "Activado",
+      "off": "Desactivado"
     },
     "request": {
       "inputRequired": "Se requiere una respuesta",
@@ -2847,7 +2849,9 @@
       "mcp": "MCP",
       "plugins": "Plugins",
       "apps": "Apps",
-      "hooks": "Hooks"
+      "hooks": "Hooks",
+      "sync": "Sincronizar",
+      "market": "Mercado"
     },
     "skills": {
       "create": "Crear una skill",
@@ -3008,6 +3012,121 @@
       "deleted": "Hook eliminado",
       "empty": "No hay hooks de ciclo de vida configurados",
       "emptyHint": "Crea un hooks.json en el repositorio y automatiza un evento del ciclo de vida de Codex."
+    },
+    "hub": {
+      "title": "Copiar, borrar y sincronizar entre CLIs",
+      "explainer": "Todo lo que conocen tus CLIs de agentes — skills, comandos, subagentes, servidores MCP, hooks — en una sola lista. Elige el origen, elige el destino, listo.",
+      "step1": "Elige el origen: qué CLI y qué nivel (global, usuario, proyecto).",
+      "step2": "Marca lo que quieras mover, o déjalo todo marcado.",
+      "step3": "Elige los destinos y pulsa Copiar, o usa Sincronizar para reflejarlo todo.",
+      "loading": "Leyendo las capacidades de todas las CLIs…",
+      "source": "1. Origen",
+      "targets": "2. Destinos",
+      "overwrite": "Sobrescribir entradas existentes",
+      "noTargets": "No se encontró ninguna CLI de agente.",
+      "notInstalled": "no instalada",
+      "notInstalledHint": "El comando «{{command}}» no está en el PATH. Aun así se pueden escribir archivos.",
+      "kindUnsupported": "{{label}} no conoce este tipo de capacidad.",
+      "noPath": "Sin ruta disponible",
+      "readOnly": "solo lectura (requiere permisos de administrador)",
+      "scopes": {
+        "global": "Global",
+        "user": "Usuario",
+        "repo": "Proyecto"
+      },
+      "kinds": {
+        "skill": "Skills",
+        "command": "Comandos",
+        "agent": "Subagentes",
+        "mcp": "MCP",
+        "hook": "Hooks"
+      },
+      "selectAll": "Seleccionar todo",
+      "selectNone": "Quitar selección",
+      "selection": "{{count}} seleccionados · origen: {{source}}",
+      "files": "{{count}} archivos",
+      "noDescription": "Sin descripción",
+      "emptyTitle": "Aquí todavía no hay nada",
+      "emptyDescription": "Esta CLI no tiene nada en el nivel elegido, o el filtro lo oculta todo.",
+      "copy": "Copiar",
+      "sync": "Sincronizar…",
+      "delete": "Borrar",
+      "deleteTitle": "¿Borrar {{count}} entradas?",
+      "deleteDescription": "Antes se guarda una copia en .l8git-backups junto al origen.",
+      "planTitle": "Plan de sincronización",
+      "planDescription": "Todo lo que cambiaría. Desmarca lo que deba quedarse igual.",
+      "applyPlan": "Aplicar ({{count}})",
+      "deleteExtras": "Borrar también lo que solo existe en el destino",
+      "actions": {
+        "create": "nuevo",
+        "update": "distinto",
+        "same": "idéntico",
+        "extra": "solo destino",
+        "unsupported": "no posible"
+      },
+      "results": "Resultado",
+      "copied": "{{count}} entradas copiadas",
+      "deleted": "{{count}} entradas borradas",
+      "synced": "{{count}} entradas sincronizadas",
+      "resultWithErrors": "{{ok}} correctas, {{failed}} con error",
+      "backup": "Copia de seguridad: {{path}}"
+    },
+    "market": {
+      "title": "Mercado",
+      "explainer": "Busca en GitHub skills, servidores MCP, hooks, comandos y plugins ya hechos, ordenados por estrellas. Abre una entrada, marca lo que necesites, elige la CLI e instala.",
+      "search": "Buscar",
+      "searchPlaceholder": "p. ej. revisión de código, postgres, testing…",
+      "loading": "Buscando en GitHub…",
+      "inspecting": "Leyendo el repositorio…",
+      "kinds": {
+        "skill": "Skills",
+        "mcp": "Servidores MCP",
+        "plugin": "Plugins",
+        "hook": "Hooks",
+        "command": "Comandos"
+      },
+      "sorts": {
+        "stars": "Más estrellas",
+        "updated": "Actualizados hace poco",
+        "forks": "Más forks"
+      },
+      "anyStars": "Cualquier número de estrellas",
+      "minStars": "Desde {{stars}} estrellas",
+      "anonymousHint": "La búsqueda es anónima: GitHub permite pocas consultas por minuto. Inicia sesión en GitHub en los ajustes para tener más.",
+      "popularity": {
+        "hot": "muy popular",
+        "popular": "popular",
+        "growing": "en crecimiento",
+        "fresh": "nuevo",
+        "small": "pequeño"
+      },
+      "updated": "actualizado {{date}}",
+      "archived": "archivado",
+      "noDescription": "Sin descripción",
+      "inspect": "Abrir",
+      "emptyTitle": "Sin resultados",
+      "emptyDescription": "Prueba con otro término o con otra categoría.",
+      "detailDescription": "{{stars}} estrellas · rama {{ref}}",
+      "trustWarning": "Estos archivos vienen de un repositorio público y se ejecutan con tus permisos. Instala solo lo que conozcas; lo que se sobrescriba se guarda antes.",
+      "readme": "Lo que dice el repositorio",
+      "assets": "Qué se puede instalar",
+      "noAssets": "No se encontró nada instalable en este repositorio.",
+      "truncated": "El repositorio es grande y solo se pudo analizar en parte.",
+      "assetKinds": {
+        "skill": "Skill",
+        "command": "Comando",
+        "agent": "Subagente",
+        "mcp": "MCP",
+        "hook": "Hooks",
+        "hookScript": "Script de hook",
+        "pluginMarketplace": "Fuente de plugins"
+      },
+      "mcpSuggestion": "También se puede añadir directamente como servidor MCP",
+      "addMcp": "Añadir servidor MCP",
+      "installTargets": "Instalar en",
+      "install": "Instalar ({{count}})",
+      "installed": "{{count}} entradas instaladas",
+      "installedWithErrors": "{{ok}} instaladas, {{failed}} con error"
     }
   },
   "agentAddons": {

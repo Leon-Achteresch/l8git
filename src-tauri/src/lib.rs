@@ -1,6 +1,8 @@
 mod agent_addons;
 mod agent_review;
 pub mod agent_transport;
+mod capability_market;
+mod capability_sync;
 mod claude;
 mod cmd;
 mod cmdlog;
@@ -83,6 +85,17 @@ pub fn run() {
             agent_transport::agent_transport_close_all,
             agent_transport::opencode_delete_session,
             agent_transport::opencode_cli,
+            capability_market::agent_market_search,
+            capability_market::agent_market_inspect,
+            capability_market::agent_market_install,
+            capability_market::agent_market_add_mcp,
+            capability_market::agent_market_preview,
+            capability_market::agent_market_target_path,
+            capability_sync::agent_cap_inventory,
+            capability_sync::agent_cap_copy,
+            capability_sync::agent_cap_delete,
+            capability_sync::agent_cap_sync_plan,
+            capability_sync::agent_cap_sync_apply,
             claude::claude_list_sessions,
             claude::claude_read_session,
             claude::claude_rename_session,

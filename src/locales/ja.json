@@ -254,7 +254,9 @@
       "mode": "モード",
       "defaultMode": "実装",
       "planMode": "計画",
-      "agent": "エージェント"
+      "agent": "エージェント",
+      "on": "オン",
+      "off": "オフ"
     },
     "request": {
       "inputRequired": "入力が必要です",
@@ -2847,7 +2849,9 @@
       "mcp": "MCP",
       "plugins": "プラグイン",
       "apps": "アプリ",
-      "hooks": "フック"
+      "hooks": "フック",
+      "sync": "同期",
+      "market": "マーケット"
     },
     "skills": {
       "create": "スキルを作成",
@@ -3008,6 +3012,121 @@
       "deleted": "フックを削除しました",
       "empty": "ライフサイクルフックが設定されていません",
       "emptyHint": "リポジトリに hooks.json を作成して、Codex のライフサイクルイベントを自動化しましょう。"
+    },
+    "hub": {
+      "title": "CLI 間でコピー・削除・同期",
+      "explainer": "各エージェント CLI が持つスキル・コマンド・サブエージェント・MCP サーバー・フックを 1 つのリストに。コピー元とコピー先を選ぶだけです。",
+      "step1": "コピー元を選びます: どの CLI の、どの階層 (グローバル / ユーザー / プロジェクト) か。",
+      "step2": "移したい項目にチェックを入れます。全部のままでも構いません。",
+      "step3": "コピー先を選んで「コピー」。まるごと揃えたいときは「同期」。",
+      "loading": "すべての CLI の機能を読み込み中…",
+      "source": "1. コピー元",
+      "targets": "2. コピー先",
+      "overwrite": "既存の項目を上書きする",
+      "noTargets": "エージェント CLI が見つかりません。",
+      "notInstalled": "未インストール",
+      "notInstalledHint": "コマンド「{{command}}」は PATH にありません。ファイルの書き込みは可能です。",
+      "kindUnsupported": "{{label}} はこの種類に対応していません。",
+      "noPath": "パスがありません",
+      "readOnly": "読み取り専用 (管理者権限が必要)",
+      "scopes": {
+        "global": "グローバル",
+        "user": "ユーザー",
+        "repo": "プロジェクト"
+      },
+      "kinds": {
+        "skill": "スキル",
+        "command": "コマンド",
+        "agent": "サブエージェント",
+        "mcp": "MCP",
+        "hook": "フック"
+      },
+      "selectAll": "すべて選択",
+      "selectNone": "選択を解除",
+      "selection": "{{count}} 件選択中 · コピー元: {{source}}",
+      "files": "{{count}} ファイル",
+      "noDescription": "説明なし",
+      "emptyTitle": "まだ何もありません",
+      "emptyDescription": "選択した階層にはまだ何もないか、フィルターで隠れています。",
+      "copy": "コピー",
+      "sync": "同期…",
+      "delete": "削除",
+      "deleteTitle": "{{count}} 件を削除しますか？",
+      "deleteDescription": "削除前に .l8git-backups にバックアップを作成します。",
+      "planTitle": "同期プラン",
+      "planDescription": "変更される内容の一覧です。そのままにしたい項目はチェックを外してください。",
+      "applyPlan": "適用 ({{count}})",
+      "deleteExtras": "コピー先にしかない項目も削除する",
+      "actions": {
+        "create": "新規",
+        "update": "差分あり",
+        "same": "同一",
+        "extra": "コピー先のみ",
+        "unsupported": "非対応"
+      },
+      "results": "結果",
+      "copied": "{{count}} 件をコピーしました",
+      "deleted": "{{count}} 件を削除しました",
+      "synced": "{{count}} 件を同期しました",
+      "resultWithErrors": "成功 {{ok}} 件 / 失敗 {{failed}} 件",
+      "backup": "バックアップ: {{path}}"
+    },
+    "market": {
+      "title": "マーケット",
+      "explainer": "GitHub 上のスキル・MCP サーバー・フック・コマンド・プラグインをスター順に検索します。開いて選び、CLI を指定してインストールできます。",
+      "search": "検索",
+      "searchPlaceholder": "例: コードレビュー、postgres、テスト…",
+      "loading": "GitHub を検索中…",
+      "inspecting": "リポジトリを読み込み中…",
+      "kinds": {
+        "skill": "スキル",
+        "mcp": "MCP サーバー",
+        "plugin": "プラグイン",
+        "hook": "フック",
+        "command": "コマンド"
+      },
+      "sorts": {
+        "stars": "スターが多い順",
+        "updated": "最近更新された順",
+        "forks": "フォークが多い順"
+      },
+      "anyStars": "スター数は問わない",
+      "minStars": "{{stars}} スター以上",
+      "anonymousHint": "匿名で検索しています。GitHub の制限により 1 分あたりの回数は少なめです。設定から GitHub にサインインすると増えます。",
+      "popularity": {
+        "hot": "非常に人気",
+        "popular": "人気",
+        "growing": "伸びている",
+        "fresh": "新着",
+        "small": "小規模"
+      },
+      "updated": "更新 {{date}}",
+      "archived": "アーカイブ済み",
+      "noDescription": "説明なし",
+      "inspect": "開く",
+      "emptyTitle": "該当なし",
+      "emptyDescription": "別のキーワードやカテゴリーを試してください。",
+      "detailDescription": "{{stars}} スター · ブランチ {{ref}}",
+      "trustWarning": "これらのファイルは公開リポジトリのもので、あなたの権限で実行されます。信頼できるものだけをインストールしてください。上書き前にバックアップを作成します。",
+      "readme": "リポジトリの説明",
+      "assets": "インストールできるもの",
+      "noAssets": "このリポジトリにはインストールできるものが見つかりませんでした。",
+      "truncated": "リポジトリが大きいため、一部のみを解析しました。",
+      "assetKinds": {
+        "skill": "スキル",
+        "command": "コマンド",
+        "agent": "サブエージェント",
+        "mcp": "MCP",
+        "hook": "フック",
+        "hookScript": "フックスクリプト",
+        "pluginMarketplace": "プラグイン提供元"
+      },
+      "mcpSuggestion": "MCP サーバーとして直接追加することもできます",
+      "addMcp": "MCP サーバーを追加",
+      "installTargets": "インストール先",
+      "install": "インストール ({{count}})",
+      "installed": "{{count}} 件をインストールしました",
+      "installedWithErrors": "インストール {{ok}} 件 / 失敗 {{failed}} 件"
     }
   },
   "agentAddons": {
