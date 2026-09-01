@@ -9,6 +9,7 @@ import { warmClaudeModelCatalog } from "@/lib/agents/providers/claude/chat-store
 import { warmCursorModelCatalog } from "@/lib/agents/providers/cursor/chat-store";
 import { warmOpenCodeModelCatalog } from "@/lib/agents/providers/opencode/chat-store";
 import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
+import { detectInstalledAgents, useInstalledAgents } from "@/lib/agent-integrations";
 import type { AgentModelOption } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
 
@@ -33,11 +34,22 @@ export function AgentModelPicker({
   const claudeStatus = useProviderChatStore("claude", (state) => state.connectionStatus);
   const openCodeStatus = useProviderChatStore("opencode", (state) => state.connectionStatus);
   const cursorStatus = useProviderChatStore("cursor", (state) => state.connectionStatus);
+  const installed = useInstalledAgents((state) => state.installed);
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<NativeAgentProvider>(provider);
   const [query, setQuery] = useState("");
   const [warming, setWarming] = useState(false);
   const [warmError, setWarmError] = useState<string | null>(null);
+
+  useEffect(() => {
+    detectInstalledAgents();
+  }, []);
+
+  const visibleProviders = useMemo(() => {
+    if (!installed) return AGENT_PROVIDERS;
+    const filtered = AGENT_PROVIDERS.filter((entry) => installed.has(entry.value));
+    return filtered.length > 0 ? filtered : AGENT_PROVIDERS;
+  }, [installed]);
 
   const activeMeta = agentProviderMeta(provider);
   const ActiveLogo = activeMeta.Logo;
@@ -121,7 +133,10 @@ export function AgentModelPicker({
       onOpenChange={(next) => {
         setOpen(next);
         if (next) {
-          setPane(provider);
+          const defaultPane = visibleProviders.some((p) => p.value === provider)
+            ? provider
+            : visibleProviders[0]?.value ?? provider;
+          setPane(defaultPane);
           setQuery("");
         }
       }}
@@ -143,9 +158,9 @@ export function AgentModelPicker({
         className="ag-menu w-[336px] gap-0 p-0"
       >
         <div className="flex min-h-0">
-          {providerLocked ? null : (
+          {providerLocked || visibleProviders.length <= 1 ? null : (
             <div className="ag-line flex w-11 shrink-0 flex-col items-center gap-1 border-r py-2">
-              {AGENT_PROVIDERS.map(({ value, label, Logo }) => (
+              {visibleProviders.map(({ value, label, Logo }) => (
                 <button
                   key={value}
                   type="button"

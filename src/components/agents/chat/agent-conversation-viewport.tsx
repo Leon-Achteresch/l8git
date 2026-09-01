@@ -298,7 +298,7 @@ export const AgentConversationViewport = memo(
         >
           <div
             ref={contentRef}
-            className={`mx-auto flex min-h-full flex-col px-4 pb-4 pt-4 md:px-8 ${centered ? "max-w-2xl justify-center" : "max-w-3xl justify-start"}`}
+            className={`mx-auto flex min-h-full w-full flex-col px-4 pb-4 pt-4 md:px-8 ${centered ? "justify-center" : "justify-start"}`}
           >
             {centered ? (
               <div className="w-full pb-4">
@@ -322,7 +322,7 @@ export const AgentConversationViewport = memo(
                   </p>
                 </AgentsEnter>
 
-                <div className="w-full">{composer}</div>
+                <div className="mx-auto w-[86%]">{composer}</div>
 
                 <div className="mt-5 space-y-3">
                   <div className="flex flex-wrap items-center justify-center gap-1.5">

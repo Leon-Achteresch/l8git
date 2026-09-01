@@ -1140,7 +1140,7 @@ export const AgentChatPane = memo(function AgentChatPane({
 
       {centeredComposer ? null : (
         <div className="shrink-0 px-6 pb-4 pt-2">
-          <div className="mx-auto w-full max-w-3xl">{composer}</div>
+          <div className="mx-auto w-[86%]">{composer}</div>
         </div>
       )}
 

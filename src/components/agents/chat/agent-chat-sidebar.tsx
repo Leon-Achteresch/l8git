@@ -3,6 +3,7 @@ import {
   memo,
   useCallback,
   useDeferredValue,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -26,6 +27,10 @@ import {
   useAgentProviderStore,
   type NativeAgentProvider,
 } from "@/lib/agents/provider-store";
+import {
+  detectInstalledAgents,
+  useInstalledAgents,
+} from "@/lib/agent-integrations";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 
 const INITIAL_THREAD_LIMIT = 60;
@@ -92,6 +97,29 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
     (state) => state.activeThreadByPath,
   );
   const createThread = useAgentChatStore((state) => state.createThread);
+  const installed = useInstalledAgents((state) => state.installed);
+
+  useEffect(() => {
+    detectInstalledAgents();
+  }, []);
+
+  const visibleProviders = useMemo(() => {
+    if (!installed) return AGENT_PROVIDERS;
+    const filtered = AGENT_PROVIDERS.filter((entry) =>
+      installed.has(entry.value),
+    );
+    return filtered.length > 0 ? filtered : AGENT_PROVIDERS;
+  }, [installed]);
+
+  useEffect(() => {
+    if (
+      visibleProviders.length > 0 &&
+      !visibleProviders.some((entry) => entry.value === provider)
+    ) {
+      setProvider(visibleProviders[0].value);
+    }
+  }, [provider, setProvider, visibleProviders]);
+
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [renamingThreadKey, setRenamingThreadKey] = useState<string | null>(
@@ -231,7 +259,7 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
           aria-label={t("agentChat.settings.agent")}
           className="w-full min-w-0"
         >
-          {AGENT_PROVIDERS.map(({ value, label, Logo }) => {
+          {visibleProviders.map(({ value, label, Logo }) => {
             const workingCount = workingCountByProvider[value] ?? 0;
             return (
               <Segment
