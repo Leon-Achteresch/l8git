@@ -13,6 +13,7 @@ export function IslandPanel({ children }: { children: ReactNode }) {
 
   return (
     <div
+      data-no-drag
       className="relative flex flex-col"
       style={{ width: size.width, height: size.height }}
     >

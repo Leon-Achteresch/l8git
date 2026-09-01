@@ -43,7 +43,7 @@ export function IslandWindowApp() {
   );
   useTheme();
   useWindowPositionMemory();
-  const compactUsage = showUsage || isEdgeDock(dock);
+  const compactUsage = !!showUsage;
   const extra = compactUsage && usagePopover ? 236 : 0;
   const verticalUsage = compactUsage && dock !== "top" && dock !== "bottom";
   const extraLeft = verticalUsage && dock !== "left" && dock !== "sidebar" ? extra : 0;
@@ -91,7 +91,7 @@ export function IslandWindowApp() {
         }}
         {...drag}
       >
-        <div ref={islandRef} className="w-max">
+        <div ref={islandRef} className="h-max w-max shrink-0">
           <IslandShell
             snapshot={snapshot}
             view={view}
@@ -169,13 +169,26 @@ function useWindowAutoSize(
 
     const measure = () => {
       const shell = el.firstElementChild as HTMLElement | null;
+      const sizer = shell?.firstElementChild as HTMLElement | null;
       return {
         width:
-          Math.ceil(Math.max(el.offsetWidth, shell?.scrollWidth ?? 0)) +
+          Math.ceil(
+            Math.max(
+              el.offsetWidth,
+              shell?.scrollWidth ?? 0,
+              sizer?.scrollWidth ?? 0,
+            ),
+          ) +
           PAD * 2 +
           extraX,
         height:
-          Math.ceil(Math.max(el.offsetHeight, shell?.scrollHeight ?? 0)) +
+          Math.ceil(
+            Math.max(
+              el.offsetHeight,
+              shell?.scrollHeight ?? 0,
+              sizer?.scrollHeight ?? 0,
+            ),
+          ) +
           PAD * 2 +
           extraY,
       };
@@ -265,7 +278,7 @@ function useWindowPositionMemory() {
   }, []);
 }
 
-const SNAP_REACH = 96;
+const SNAP_REACH = 40;
 
 async function snapDetachedIsland(
   scale: number,

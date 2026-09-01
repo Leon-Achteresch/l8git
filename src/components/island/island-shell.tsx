@@ -37,7 +37,7 @@ import { ListRow } from "@/components/ui/list-row";
 import { AGENT_INTEGRATIONS } from "@/lib/agent-integrations";
 import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
 import { runIslandActionWithFlash } from "@/lib/island/flash";
-import { islandPopoverSide, isEdgeDock, useIslandStore } from "@/lib/island-store";
+import { islandPopoverSide, isVerticalDock, useIslandStore } from "@/lib/island-store";
 import { activeRepoOf, type IslandSnapshot } from "@/lib/island/types";
 import { usageRowsOrAll } from "@/lib/island/usage-format";
 import { cn } from "@/lib/utils";
@@ -116,8 +116,8 @@ export function IslandShell({
   };
 
   const usage = usageRowsOrAll(snapshot.usage ?? []);
-  const compactUsage = !!showUsage || isEdgeDock(dock);
-  const vertical = compactUsage && dock !== "top" && dock !== "bottom";
+  const compactUsage = !!showUsage && usage.length > 0;
+  const vertical = isVerticalDock(dock);
   const usageSide =
     vertical && (dock === "left" || dock === "sidebar")
       ? "right"

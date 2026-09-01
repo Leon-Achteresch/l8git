@@ -54,6 +54,12 @@ describe("island docks", () => {
     expect(hit?.x).toBe(1200);
   });
 
+  it("does not snap from the middle of the window", () => {
+    stubWindow(1200, 800);
+    expect(magnetFor(1100, 400)).toBeNull();
+    expect(magnetFor(80, 400)).toBeNull();
+  });
+
   it("keeps an edge-docked island on that edge", () => {
     stubWindow(1200, 800);
     expect(isEdgeDock("right")).toBe(true);
@@ -63,8 +69,8 @@ describe("island docks", () => {
 
   it("prefers a nearby window edge over in-app slots", () => {
     stubWindow(1200, 800);
-    expect(magnetFor(50, 400)?.id).toBe("left");
-    expect(magnetFor(1100, 400)?.id).toBe("right");
+    expect(magnetFor(20, 400)?.id).toBe("left");
+    expect(magnetFor(1180, 400)?.id).toBe("right");
   });
 
   it("places a window on the monitor work area edge", () => {

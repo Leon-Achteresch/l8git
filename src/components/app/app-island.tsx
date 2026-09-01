@@ -168,9 +168,9 @@ export function AppIsland() {
         ) : null}
         <m.div
           ref={islandRef}
-          drag
+          drag={view === null}
           dragMomentum={false}
-          dragElastic={0.12}
+          dragElastic={0.06}
           onDragStart={() => {
             beginMagnetDrag();
             draggingRef.current = true;

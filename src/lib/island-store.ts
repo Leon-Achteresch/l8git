@@ -39,7 +39,7 @@ export const ISLAND_PANEL_MIN = { width: 280, height: 220 };
 export const ISLAND_PANEL_MAX = { width: 720, height: 800 };
 export const ISLAND_PANEL_DEFAULT = { width: 340, height: 440 };
 export const EDGE_SINK = 8;
-const EDGE_REACH = 140;
+const EDGE_REACH = 52;
 
 export function clampIslandPanel(size: IslandPanelSize): IslandPanelSize {
   return {
@@ -171,8 +171,8 @@ export function dockRectFor(id: IslandSlotDock): DOMRect | null {
   return el ? el.getBoundingClientRect() : null;
 }
 
-export const MAGNET_MARGIN = 32;
-const MAGNET_REACH = 200;
+export const MAGNET_MARGIN = 16;
+const MAGNET_REACH = 80;
 
 export type MagnetHit = {
   id: IslandDockId;
@@ -246,10 +246,8 @@ export function monitorEdgePosition(
 
 export function magnetFor(centerX: number, centerY: number): MagnetHit | null {
   const edge = edgeMagnet(centerX, centerY);
-  if (edge && edge.pull >= 0.4) return edge;
-  const slot = slotMagnet(centerX, centerY);
-  if (slot) return slot;
-  return edge;
+  if (edge) return edge;
+  return slotMagnet(centerX, centerY);
 }
 
 let slotRectCache: Partial<Record<IslandSlotDock, DOMRect>> | null = null;

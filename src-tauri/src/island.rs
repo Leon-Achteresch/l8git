@@ -59,6 +59,7 @@ fn ensure_island(app: &AppHandle, position: Option<(f64, f64)>) -> Result<(), St
         if let Some((x, y)) = position {
             let _ = window.set_position(LogicalPosition::new(x, y));
         }
+        keep_island_visible(app);
         return Ok(());
     }
 
@@ -94,7 +95,17 @@ fn ensure_island(app: &AppHandle, position: Option<(f64, f64)>) -> Result<(), St
         let _ = window.set_visible_on_all_workspaces(true);
     }
 
+    keep_island_visible(app);
     Ok(())
+}
+
+fn keep_island_visible(app: &AppHandle) {
+    let Some(island) = app.get_webview_window(ISLAND_LABEL) else {
+        return;
+    };
+    let _ = island.unminimize();
+    let _ = island.show();
+    let _ = island.set_always_on_top(true);
 }
 
 /// The island outlives nothing: when the main window goes away, so does it.
@@ -106,10 +117,22 @@ pub fn wire_lifecycle(app: &AppHandle) {
     };
     let handle = app.clone();
     main.on_window_event(move |event| {
-        if matches!(event, tauri::WindowEvent::Destroyed) {
-            if let Some(island) = handle.get_webview_window(ISLAND_LABEL) {
-                let _ = island.close();
+        match event {
+            tauri::WindowEvent::Destroyed => {
+                if let Some(island) = handle.get_webview_window(ISLAND_LABEL) {
+                    let _ = island.close();
+                }
             }
+            tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
+                let minimized = handle
+                    .get_webview_window(MAIN_LABEL)
+                    .and_then(|w| w.is_minimized().ok())
+                    .unwrap_or(false);
+                if minimized {
+                    keep_island_visible(&handle);
+                }
+            }
+            _ => {}
         }
     });
 }
@@ -258,6 +281,7 @@ pub fn main_window_minimize(app: AppHandle) -> Result<IslandWindowState, String>
     if let Some(window) = app.get_webview_window(MAIN_LABEL) {
         window.minimize().map_err(|e| e.to_string())?;
     }
+    keep_island_visible(&app);
     Ok(window_state(&app))
 }
 

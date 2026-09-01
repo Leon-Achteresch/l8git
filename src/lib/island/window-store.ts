@@ -10,6 +10,7 @@ import {
   type IslandEdgeDock,
   type IslandPosition,
 } from "@/lib/island-store";
+import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
 
 /** Mirror of `IslandWindowState` in `src-tauri/src/island.rs`. */
 export type IslandWindowState = {
@@ -45,8 +46,12 @@ async function call(command: string, args?: Record<string, unknown>) {
   return state;
 }
 
-export const openIslandWindow = (position?: { x: number; y: number }) =>
-  call("island_window_open", position ? { x: position.x, y: position.y } : {});
+export const openIslandWindow = (position?: { x: number; y: number }) => {
+  if (!useUiVisibilityPrefs.getState().showHeaderIsland) {
+    return closeIslandWindow();
+  }
+  return call("island_window_open", position ? { x: position.x, y: position.y } : {});
+};
 
 export const closeIslandWindow = () => call("island_window_close");
 
