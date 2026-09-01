@@ -1,13 +1,16 @@
 import { AlertCircle, Copy, Inbox, LoaderCircle } from "lucide-react";
 import { Fragment, useState, type ReactNode } from "react";
+import { m, useReducedMotion } from "motion/react";
 
 import {
   copyToClipboard,
   ItemContextMenu,
   type MenuEntry,
 } from "@/components/agents/ui/item-context-menu";
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SPRING_PRESS } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 import { SpinIcon } from "@/components/motion/kit";
 
@@ -40,16 +43,18 @@ export function CapabilityEmpty({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-[22rem] items-center justify-center px-8 py-12">
-      <div className="max-w-sm text-center">
-        <span className="mx-auto grid size-11 place-items-center rounded-2xl bg-foreground/[0.055] ring-1 ring-border/45">
-          <Inbox className="size-4 text-muted-foreground" />
-        </span>
-        <h3 className="mt-4 text-sm font-semibold tracking-tight">{title}</h3>
-        <p className="mx-auto mt-1.5 max-w-[34ch] text-xs leading-5 text-muted-foreground">{description}</p>
-        {action ? <div className="mt-4">{action}</div> : null}
+    <AgentsEnter>
+      <div className="flex min-h-[22rem] items-center justify-center px-8 py-12">
+        <div className="max-w-sm text-center">
+          <span className="mx-auto grid size-11 place-items-center rounded-2xl bg-foreground/[0.055] ring-1 ring-border/45">
+            <Inbox className="size-4 text-muted-foreground" />
+          </span>
+          <h3 className="mt-4 text-sm font-semibold tracking-tight">{title}</h3>
+          <p className="mx-auto mt-1.5 max-w-[34ch] text-xs leading-5 text-muted-foreground">{description}</p>
+          {action ? <div className="mt-4">{action}</div> : null}
+        </div>
       </div>
-    </div>
+    </AgentsEnter>
   );
 }
 
@@ -64,10 +69,10 @@ export function CapabilityError({ message }: { message: string }) {
 
 export function CapabilityLoading({ label }: { label: string }) {
   return (
-    <div className="flex min-h-[24rem] items-center justify-center gap-2 text-xs text-muted-foreground">
+    <AgentsEnter className="flex min-h-[24rem] items-center justify-center gap-2 text-xs text-muted-foreground">
       <SpinIcon icon={LoaderCircle} className="size-3.5" />
       {label}
-    </div>
+    </AgentsEnter>
   );
 }
 
@@ -129,6 +134,7 @@ export function CapabilityListButton({
   onClick: () => void;
   menuEntries?: MenuEntry[];
 }) {
+  const reduce = useReducedMotion();
   const entries: MenuEntry[] = [
     {
       label: "Name kopieren",
@@ -150,13 +156,15 @@ export function CapabilityListButton({
 
   return (
     <ItemContextMenu entries={entries}>
-    <button
+    <m.button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
+      whileTap={reduce ? undefined : { scale: 0.985 }}
+      transition={SPRING_PRESS}
       className={cn(
         "group flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-        selected ? "bg-foreground/[0.075]" : "hover:bg-foreground/[0.04]",
+        selected ? "bg-foreground/[0.075] shadow-[var(--ag-shadow-raise)]" : "hover:bg-foreground/[0.04]",
       )}
     >
       <span className={cn(
@@ -177,7 +185,7 @@ export function CapabilityListButton({
         ) : null}
       </span>
       {trailing ? <span className="mt-1 shrink-0">{trailing}</span> : null}
-    </button>
+    </m.button>
     </ItemContextMenu>
   );
 }
@@ -217,26 +225,31 @@ export function CapabilitySectionTitle({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex items-start gap-4 border-b border-border/45 px-5 py-4">
-      <div className="min-w-0 flex-1">
-        {eyebrow ? (
-          <p className="text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{eyebrow}</p>
-        ) : null}
-        <h2 className="mt-0.5 truncate text-base font-semibold tracking-tight">{title}</h2>
-        {description ? (
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">{description}</p>
-        ) : null}
-      </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-    </header>
+    <AgentsEnter>
+      <header className="flex items-start gap-4 border-b border-border/45 px-5 py-4">
+        <div className="min-w-0 flex-1">
+          {eyebrow ? (
+            <p className="text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{eyebrow}</p>
+          ) : null}
+          <h2 className="mt-0.5 truncate text-base font-semibold tracking-tight">{title}</h2>
+          {description ? (
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">{description}</p>
+          ) : null}
+        </div>
+        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      </header>
+    </AgentsEnter>
   );
 }
 
 export function CapabilityStat({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-xl bg-foreground/[0.035] px-3 py-2.5 ring-1 ring-border/35">
+    <m.div
+      whileHover={{ y: -1 }}
+      className="min-w-0 rounded-xl bg-foreground/[0.035] px-3 py-2.5 ring-1 ring-border/35"
+    >
       <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
       <div className="mt-1 truncate text-xs font-medium tabular-nums">{value}</div>
-    </div>
+    </m.div>
   );
 }

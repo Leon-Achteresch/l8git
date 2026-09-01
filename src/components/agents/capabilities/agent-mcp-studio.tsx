@@ -43,7 +43,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -146,11 +146,10 @@ function McpEditor({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="mcp-transport" className="text-[10px]">{t("agentCapabilities.mcp.transport")}</Label>
-            <NativeSelect
-              id="mcp-transport"
+            <Select
               value={draft.transport}
-              onChange={(event) => {
-                const transport = event.target.value as "http" | "stdio";
+              onValueChange={(value) => {
+                const transport = value as "http" | "stdio";
                 onChange({
                   ...draft,
                   transport,
@@ -158,11 +157,15 @@ function McpEditor({
                   remoteEnvVars: transport === "http" ? [] : draft.remoteEnvVars,
                 });
               }}
-              className="w-full"
             >
-              <NativeSelectOption value="http">Streamable HTTP</NativeSelectOption>
-              <NativeSelectOption value="stdio">STDIO</NativeSelectOption>
-            </NativeSelect>
+              <SelectTrigger id="mcp-transport" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="http">Streamable HTTP</SelectItem>
+                <SelectItem value="stdio">STDIO</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <label className="ag-card flex items-center justify-between px-3 py-2.5">
             <span>
@@ -193,10 +196,15 @@ function McpEditor({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="mcp-auth-mode" className="text-[10px]">{t("agentCapabilities.mcp.authMode")}</Label>
-                <NativeSelect id="mcp-auth-mode" value={draft.auth} onChange={(event) => onChange({ ...draft, auth: event.target.value as "oauth" | "chatgpt" })} className="w-full">
-                  <NativeSelectOption value="oauth">OAuth</NativeSelectOption>
-                  <NativeSelectOption value="chatgpt">ChatGPT</NativeSelectOption>
-                </NativeSelect>
+                <Select value={draft.auth} onValueChange={(value) => onChange({ ...draft, auth: value as "oauth" | "chatgpt" })}>
+                  <SelectTrigger id="mcp-auth-mode" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="oauth">OAuth</SelectItem>
+                    <SelectItem value="chatgpt">ChatGPT</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="mcp-oauth-resource" className="text-[10px]">OAuth resource (RFC 8707)</Label>
@@ -263,31 +271,39 @@ function McpEditor({
         <section className="grid gap-3 ag-card p-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="mcp-default-approval" className="text-[10px]">{t("agentCapabilities.mcp.defaultApproval")}</Label>
-            <NativeSelect id="mcp-default-approval" value={draft.defaultApprovalMode} onChange={(event) => onChange({ ...draft, defaultApprovalMode: event.target.value as AgentMcpServerDraft["defaultApprovalMode"] })} className="w-full">
-              <NativeSelectOption value="auto">Auto</NativeSelectOption>
-              <NativeSelectOption value="prompt">Prompt</NativeSelectOption>
-              <NativeSelectOption value="writes">Writes</NativeSelectOption>
-              <NativeSelectOption value="approve">Approve</NativeSelectOption>
-            </NativeSelect>
+            <Select value={draft.defaultApprovalMode} onValueChange={(value) => onChange({ ...draft, defaultApprovalMode: value as AgentMcpServerDraft["defaultApprovalMode"] })}>
+              <SelectTrigger id="mcp-default-approval" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="prompt">Prompt</SelectItem>
+                <SelectItem value="writes">Writes</SelectItem>
+                <SelectItem value="approve">Approve</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="mcp-environment-placement" className="text-[10px]">{t("agentCapabilities.mcp.placement")}</Label>
-            <NativeSelect
-              id="mcp-environment-placement"
+            <Select
               value={draft.experimentalEnvironment}
-              onChange={(event) => {
-                const experimentalEnvironment = event.target.value as "local" | "remote";
+              onValueChange={(value) => {
+                const experimentalEnvironment = value as "local" | "remote";
                 onChange({
                   ...draft,
                   experimentalEnvironment,
                   remoteEnvVars: experimentalEnvironment === "remote" ? draft.remoteEnvVars : [],
                 });
               }}
-              className="w-full"
             >
-              <NativeSelectOption value="local">Local</NativeSelectOption>
-              <NativeSelectOption value="remote" disabled={draft.transport === "http"}>Remote executor</NativeSelectOption>
-            </NativeSelect>
+              <SelectTrigger id="mcp-environment-placement" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="local">Local</SelectItem>
+                <SelectItem value="remote" disabled={draft.transport === "http"}>Remote executor</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="mcp-startup-timeout" className="text-[10px]">{t("agentCapabilities.mcp.startupTimeout")}</Label>
@@ -482,18 +498,21 @@ export function AgentMcpStudio({ query }: { query: string }) {
                             <p className="truncate font-mono text-[11px] font-medium">{tool.title || name}</p>
                             <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-muted-foreground">{tool.description || name}</p>
                           </div>
-                          <NativeSelect
-                            size="sm"
+                          <Select
                             value={policy.mode}
                             disabled={toolBusy}
-                            onChange={(event) => void setMcpToolPolicy(selected.name, name, policy.enabled, event.target.value as typeof policy.mode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))}
-                            className="w-full"
+                            onValueChange={(value) => void setMcpToolPolicy(selected.name, name, policy.enabled, value as typeof policy.mode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))}
                           >
-                            <NativeSelectOption value="auto">Auto</NativeSelectOption>
-                            <NativeSelectOption value="prompt">Prompt</NativeSelectOption>
-                            <NativeSelectOption value="writes">Writes</NativeSelectOption>
-                            <NativeSelectOption value="approve">Approve</NativeSelectOption>
-                          </NativeSelect>
+                            <SelectTrigger size="sm" className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="auto">Auto</SelectItem>
+                              <SelectItem value="prompt">Prompt</SelectItem>
+                              <SelectItem value="writes">Writes</SelectItem>
+                              <SelectItem value="approve">Approve</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <Switch size="sm" checked={policy.enabled} disabled={toolBusy} onCheckedChange={(checked) => void setMcpToolPolicy(selected.name, name, checked, policy.mode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} />
                         </div>
                       );

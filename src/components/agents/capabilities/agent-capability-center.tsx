@@ -34,7 +34,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { capabilityPlugins, useAgentCapabilityStore } from "@/lib/agents/capability-store";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
-import { cn } from "@/lib/utils";
+import { CodexLogo } from "@/components/brand/agent-logos";
+import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
+import { AgentSectionTabs } from "@/components/agents/ui/agent-section-tabs";
+import { AnimatePresence, m } from "motion/react";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 import { SpinIcon } from "@/components/motion/kit";
 import { AgDot } from "@/components/agents/ui/ag-dot";
 
@@ -271,7 +275,9 @@ export function AgentCapabilityCenter({
       <header className="ag-line shrink-0 border-b">
         <div className="flex h-12 items-center gap-2 px-3">
           <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={onBack} title={t("agentCapabilities.backToChat")} aria-label={t("agentCapabilities.backToChat")}><ArrowLeft className="size-4" /></Button>
-          <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]"><Blocks className="size-3.5" /></span>
+          <AgentProviderMark working={loading} label={t("agentCapabilities.title")} className="shrink-0">
+            <CodexLogo />
+          </AgentProviderMark>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{t("agentCapabilities.title")}</p>
             <p className="ag-faint truncate text-[10px]">{repoName(path)} · {t("agentCapabilities.subtitle")}</p>
@@ -285,33 +291,36 @@ export function AgentCapabilityCenter({
           <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => setConfigOpen(true)} title={t("agentCapabilities.config.title")} aria-label={t("agentCapabilities.config.title")}><SlidersHorizontal className="size-4" /></Button>
           <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("common.refresh")} aria-label={t("common.refresh")}><SpinIcon icon={RefreshCw} active={loading} className="size-4" /></Button>
         </div>
-        <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={t("agentCapabilities.title")}>
-          {SECTIONS.map(({ id, Icon }) => (
-            <Button
-              key={id}
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-pressed={section === id}
-              onClick={() => { setSection(id); setQuery(""); }}
-              className={cn(
-"ag-pill h-8 shrink-0 gap-1.5 border-0 bg-transparent px-2.5 text-[11px] font-medium",
-                section === id && "bg-[var(--ag-selected)] text-[var(--ag-text)]",
-              )}
-            >
-              <Icon className="size-3.5" />
-              {t(`agentCapabilities.sections.${id}`)}
-              {counts[id] === undefined ? null : (
-                <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
-              )}
-            </Button>
-          ))}
-        </nav>
+        <AgentSectionTabs
+          value={section}
+          onChange={(id) => {
+            setSection(id as AgentCapabilitySection);
+            setQuery("");
+          }}
+          label={t("agentCapabilities.title")}
+          items={SECTIONS.map(({ id, Icon }) => ({
+            id,
+            label: t(`agentCapabilities.sections.${id}`),
+            icon: <Icon className="size-3.5" />,
+            count: counts[id],
+          }))}
+        />
       </header>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         {loading && (!loadedAt || storePath !== path) ? <CapabilityLoading label={t("agentCapabilities.loading")} /> : (
-          <Suspense fallback={<CapabilityLoading label={t("agentCapabilities.loading")} />}>{content}</Suspense>
+          <AnimatePresence mode="wait" initial={false}>
+            <m.div
+              key={section}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={SPRING_PANEL}
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              <Suspense fallback={<CapabilityLoading label={t("agentCapabilities.loading")} />}>{content}</Suspense>
+            </m.div>
+          </AnimatePresence>
         )}
       </div>
 

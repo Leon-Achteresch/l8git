@@ -46,7 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAgentCapabilityStore } from "@/lib/agents/capability-store";
@@ -429,7 +429,18 @@ export function AgentHookStudio({ query }: { query: string }) {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>{editingHook ? t("agentCapabilities.hooks.edit") : t("agentCapabilities.hooks.create")}</DialogTitle><DialogDescription>{sourcePath}</DialogDescription></DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label htmlFor="hook-event">Event</Label><NativeSelect id="hook-event" value={draft.eventName} onChange={(event) => setDraft({ ...draft, eventName: event.target.value })} className="w-full">{EVENT_NAMES.map((eventName) => <NativeSelectOption key={eventName} value={eventName}>{eventName}</NativeSelectOption>)}</NativeSelect></div>
+            <div className="space-y-1.5"><Label htmlFor="hook-event">Event</Label>
+              <Select value={draft.eventName} onValueChange={(value) => setDraft({ ...draft, eventName: value })}>
+                <SelectTrigger id="hook-event" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EVENT_NAMES.map((eventName) => (
+                    <SelectItem key={eventName} value={eventName}>{eventName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5"><Label htmlFor="hook-matcher">Matcher</Label><Input id="hook-matcher" value={draft.matcher} onChange={(event) => setDraft({ ...draft, matcher: event.target.value })} placeholder="Bash|apply_patch" className="font-mono text-xs" /></div>
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="hook-command">{t("agentCapabilities.hooks.command")}</Label><Textarea id="hook-command" value={draft.command} onChange={(event) => setDraft({ ...draft, command: event.target.value })} className="min-h-24 font-mono text-[11px] leading-5" /></div>
             <div className="space-y-1.5"><Label htmlFor="hook-timeout">{t("agentCapabilities.hooks.timeout")}</Label><Input id="hook-timeout" type="number" min={1} value={draft.timeout} onChange={(event) => setDraft({ ...draft, timeout: Number(event.target.value) || 1 })} /></div>

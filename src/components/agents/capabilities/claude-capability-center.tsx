@@ -31,6 +31,10 @@ import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { claudeCapabilitySnapshot } from "@/lib/agents/providers/claude/chat-store";
 import { openCodeCapabilitySnapshot } from "@/lib/agents/providers/opencode/chat-store";
 import type { AgentHook, AgentMcpServer, AgentPlugin, AgentSkill } from "@/lib/agents/types";
+import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
+import { AgentSectionTabs } from "@/components/agents/ui/agent-section-tabs";
+import { AnimatePresence, m } from "motion/react";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 import { SpinIcon } from "@/components/motion/kit";
 
@@ -305,7 +309,9 @@ export function ClaudeCapabilityCenter({
           <button type="button" className="ag-icon-btn" onClick={onBack} title="Back to chat" aria-label="Back to chat">
             <ArrowLeft className="size-4" />
           </button>
-          <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]"><ProviderLogo className="size-3.5" /></span>
+          <AgentProviderMark working={loading} label={providerLabel} className="shrink-0">
+            <ProviderLogo />
+          </AgentProviderMark>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{providerLabel} capabilities</p>
             <p className="ag-faint truncate text-[10px]">{repoName(path)} · live from the installed CLI</p>
@@ -315,33 +321,36 @@ export function ClaudeCapabilityCenter({
             <SpinIcon icon={RefreshCw} active={loading} className="size-4" />
           </button>
         </div>
-        <nav className="flex h-11 items-center gap-1 overflow-x-auto px-3 pb-1.5 [scrollbar-width:none]" aria-label={`${providerLabel} capabilities`}>
-          {sections.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={section === id}
-              onClick={() => setSection(id)}
-              className={cn(
-"ag-pill h-8 shrink-0 gap-1.5 border-0 bg-transparent px-2.5 text-[11px] font-medium",
-                section === id && "bg-[var(--ag-selected)] text-[var(--ag-text)]",
-              )}
-            >
-              <Icon className="size-3.5" /> {label}
-              {counts[id] === undefined ? null : (
-                <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
-              )}
-            </button>
-          ))}
-        </nav>
+        <AgentSectionTabs
+          value={section}
+          onChange={(id) => setSection(id as Section)}
+          label={`${providerLabel} capabilities`}
+          items={sections.map(({ id, label, Icon }) => ({
+            id,
+            label,
+            icon: <Icon className="size-3.5" />,
+            count: counts[id],
+          }))}
+        />
       </header>
       {section === "sync" || section === "market" ? (
         <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Capability Studio…</div>}>
-          {section === "sync" ? (
-            <CapabilitySyncStudio path={path} query={deferredQuery} />
-          ) : (
-            <CapabilityMarketplace path={path} query={deferredQuery} />
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            <m.div
+              key={section}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={SPRING_PANEL}
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              {section === "sync" ? (
+                <CapabilitySyncStudio path={path} query={deferredQuery} />
+              ) : (
+                <CapabilityMarketplace path={path} query={deferredQuery} />
+              )}
+            </m.div>
+          </AnimatePresence>
         </Suspense>
       ) : (
       <div className="ag-scroll min-h-0 flex-1 overflow-y-auto p-5">
@@ -352,7 +361,14 @@ export function ClaudeCapabilityCenter({
             resetKey={`${section}:${deferredQuery}:${entries.length}`}
             moreLabel={(count) => `Show ${count} more`}
             renderItem={(entry) => (
-            <article key={entry.id} className="ag-card p-3.5">
+            <m.article
+              key={entry.id}
+              className="ag-card p-3.5"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -1 }}
+              transition={SPRING_PANEL}
+            >
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-[#d97757]/10 text-[#d97757]">
                   {(() => { const Icon = sections.find((item) => item.id === section)?.Icon ?? Blocks; return <Icon className="size-4" />; })()}
@@ -410,7 +426,7 @@ export function ClaudeCapabilityCenter({
                   </div>
                 ) : null}
               </div>
-            </article>
+            </m.article>
             )}
           />
         </div>

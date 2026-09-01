@@ -7,10 +7,16 @@ import type {
 } from "@/lib/agents/capability-hub";
 import {
   CAPABILITY_SCOPES,
+  assetLocalPresence,
+  coverageSummary,
+  defaultTargets,
+  gapsToward,
   itemRef,
   itemStatusForTarget,
   itemStatusSummary,
   matchKey,
+  preferredWritableScope,
+  presenceColumns,
   scopeInfo,
   summarizeResults,
   targetKey,
@@ -170,6 +176,47 @@ describe("capability comparison", () => {
       inventory,
     );
     expect(totals).toEqual({ missing: 1, same: 1, different: 0, unsupported: 1 });
+  });
+
+  it("picks the fullest writable scope and other CLIs as default targets", () => {
+    const codex = target({
+      cli: "codex",
+      label: "Codex",
+      kinds: ["skill", "command", "agent", "mcp"],
+      scopes: [
+        { scope: "global", root: null, exists: false, writable: false, itemCount: 0 },
+        { scope: "user", root: "/home/dev/.codex", exists: true, writable: true, itemCount: 2 },
+        { scope: "repo", root: "/repo/.codex", exists: false, writable: true, itemCount: 0 },
+      ],
+    });
+    expect(preferredWritableScope(target())).toBe("user");
+    expect(defaultTargets([target(), codex], { cli: "claude", scope: "user" })).toEqual([
+      { cli: "codex", scope: "user" },
+    ]);
+    expect(presenceColumns([target(), codex], [{ cli: "codex", scope: "repo" }], { cli: "claude", scope: "user" })).toEqual([
+      { cli: "claude", scope: "user" },
+      { cli: "codex", scope: "repo" },
+    ]);
+  });
+
+  it("counts what a copy from the source would add or replace", () => {
+    const source = item();
+    const cursor = item({ cli: "cursor", rel: "planner.mdc", id: "cursor:user:agent:planner.mdc" });
+    const infos = [
+      target(),
+      target({ cli: "cursor", label: "Cursor CLI", kinds: ["command", "agent", "mcp"] }),
+    ];
+    expect(gapsToward([source, cursor], { cli: "claude", scope: "user" }, { cli: "cursor", scope: "user" }, infos, ["agent"]).missing).toHaveLength(0);
+    expect(gapsToward([source, cursor], { cli: "claude", scope: "user" }, { cli: "cursor", scope: "user" }, infos, ["agent"]).different).toHaveLength(0);
+    expect(gapsToward([source], { cli: "claude", scope: "user" }, { cli: "cursor", scope: "repo" }, infos, ["agent"]).missing.map((entry) => entry.name)).toEqual(["planner"]);
+    expect(coverageSummary([source, cursor], { cli: "claude", scope: "user" }, [{ cli: "cursor", scope: "user" }], infos, ["agent"])).toEqual({
+      missing: 0,
+      different: 0,
+      same: 1,
+      unsupported: 0,
+      total: 1,
+    });
+    expect(assetLocalPresence("planner", "agent", [source, cursor])).toEqual(["claude", "cursor"]);
   });
 });
 

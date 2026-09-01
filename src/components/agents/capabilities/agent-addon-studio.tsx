@@ -15,15 +15,12 @@ import { toast } from "sonner";
 
 import { CapabilityPill } from "@/components/agents/capabilities/capability-ui";
 import { AgentBarcode } from "@/components/agents/ui/agent-barcode";
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { copyToClipboard } from "@/components/agents/ui/item-context-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOptGroup,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
@@ -50,6 +47,8 @@ import { insertIntoAgentComposer } from "@/lib/agents/composer-insert";
 import { AGENT_PROVIDERS, agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
 import { SpinIcon } from "@/components/motion/kit";
+import { m } from "motion/react";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
 function repoName(path: string): string {
@@ -74,7 +73,13 @@ function AddonCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border/45 bg-background/60 p-4">
+    <m.section
+      className="rounded-2xl border border-border/45 bg-background/60 p-4"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -1 }}
+      transition={SPRING_PANEL}
+    >
       <header className="flex items-start gap-3">
         <span className="ag-inset grid size-8 shrink-0 place-items-center rounded-[10px]">{icon}</span>
         <div className="min-w-0 flex-1">
@@ -86,7 +91,7 @@ function AddonCard({
         </div>
       </header>
       <div className="mt-4">{children}</div>
-    </section>
+    </m.section>
   );
 }
 
@@ -144,22 +149,23 @@ function BarcodeAddonCard() {
         <div className="min-w-0 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t("agentAddons.barcode.format")} hint={selected?.hint}>
-              <NativeSelect
-                size="sm"
-                className="w-full"
-                value={format}
-                onChange={(event) => pickFormat(event.target.value)}
-              >
-                {KIND_ORDER.map((kind) => (
-                  <NativeSelectOptGroup key={kind} label={t(`agentAddons.barcode.kinds.${kind}`)}>
-                    {BARCODE_FORMATS.filter((entry) => entry.kind === kind).map((entry) => (
-                      <NativeSelectOption key={entry.id} value={entry.id}>
-                        {entry.label}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelectOptGroup>
-                ))}
-              </NativeSelect>
+              <Select value={format} onValueChange={pickFormat}>
+                <SelectTrigger size="sm" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {KIND_ORDER.map((kind) => (
+                    <SelectGroup key={kind}>
+                      <SelectLabel>{t(`agentAddons.barcode.kinds.${kind}`)}</SelectLabel>
+                      {BARCODE_FORMATS.filter((entry) => entry.kind === kind).map((entry) => (
+                        <SelectItem key={entry.id} value={entry.id}>
+                          {entry.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label={t("agentAddons.barcode.label")}>
               <Input
@@ -351,18 +357,21 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label={t("agentAddons.browser.browser")}>
-            <NativeSelect
-              size="sm"
-              className="w-full"
-              value={options.browser}
-              onChange={(event) => update("browser", event.target.value as BrowserAddonBrowser)}
+            <Select
+              value={options.browser || "__default__"}
+              onValueChange={(value) => update("browser", (value === "__default__" ? "" : value) as BrowserAddonBrowser)}
             >
-              {BROWSER_ADDON_BROWSERS.map((entry) => (
-                <NativeSelectOption key={entry.value || "default"} value={entry.value}>
-                  {entry.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BROWSER_ADDON_BROWSERS.map((entry) => (
+                  <SelectItem key={entry.value || "default"} value={entry.value || "__default__"}>
+                    {entry.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label={t("agentAddons.browser.viewport")} hint={t("agentAddons.browser.viewportHint")}>
             <Input
@@ -511,10 +520,10 @@ export function AgentAddonStudio({ path, onBack }: { path: string; onBack: () =>
         </div>
       </header>
       <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-4 p-4">
+        <AgentsEnter className="space-y-4 p-4">
           <BarcodeAddonCard />
           <BrowserAddonCard path={path} onBack={onBack} />
-        </div>
+        </AgentsEnter>
       </ScrollArea>
     </section>
   );

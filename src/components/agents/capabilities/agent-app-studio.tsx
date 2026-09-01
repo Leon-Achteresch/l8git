@@ -22,7 +22,7 @@ import {
   CapabilityStat,
 } from "@/components/agents/capabilities/capability-ui";
 import { Button } from "@/components/ui/button";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useAgentCapabilityStore } from "@/lib/agents/capability-store";
 import type { AgentCapabilityApp } from "@/lib/agents/capability-types";
@@ -167,16 +167,29 @@ export function AgentAppStudio({ query }: { query: string }) {
                   </label>
                   <div className="ag-card flex items-center justify-between gap-3 px-3 py-2.5">
                     <span><span className="block text-[11px] font-medium">{t("agentCapabilities.apps.defaultApproval")}</span><span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.apps.defaultApprovalHint")}</span></span>
-                    <NativeSelect size="sm" value={defaultMode} disabled={busyKey === `app:${selected.id}:policy`} onChange={(event) => void savePolicy("default_tools_approval_mode", event.target.value)} className="w-32">
-                      <NativeSelectOption value="auto">Auto</NativeSelectOption><NativeSelectOption value="prompt">Prompt</NativeSelectOption><NativeSelectOption value="writes">Writes</NativeSelectOption><NativeSelectOption value="approve">Approve</NativeSelectOption>
-                    </NativeSelect>
+                    <Select value={defaultMode} disabled={busyKey === `app:${selected.id}:policy`} onValueChange={(value) => void savePolicy("default_tools_approval_mode", value)}>
+                      <SelectTrigger size="sm" className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto</SelectItem>
+                        <SelectItem value="prompt">Prompt</SelectItem>
+                        <SelectItem value="writes">Writes</SelectItem>
+                        <SelectItem value="approve">Approve</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="ag-card flex items-center justify-between gap-3 px-3 py-2.5">
                     <span><span className="block text-[11px] font-medium">{t("agentCapabilities.apps.reviewer")}</span><span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.apps.reviewerHint")}</span></span>
-                    <NativeSelect size="sm" value={reviewer} disabled={busyKey === `app:${selected.id}:policy`} onChange={(event) => void savePolicy("approvals_reviewer", event.target.value)} className="w-32">
-                      <NativeSelectOption value="user">{t("agentCapabilities.apps.reviewerUser")}</NativeSelectOption>
-                      <NativeSelectOption value="auto_review">{t("agentCapabilities.apps.reviewerAuto")}</NativeSelectOption>
-                    </NativeSelect>
+                    <Select value={reviewer} disabled={busyKey === `app:${selected.id}:policy`} onValueChange={(value) => void savePolicy("approvals_reviewer", value)}>
+                      <SelectTrigger size="sm" className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">{t("agentCapabilities.apps.reviewerUser")}</SelectItem>
+                        <SelectItem value="auto_review">{t("agentCapabilities.apps.reviewerAuto")}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -204,9 +217,17 @@ export function AgentAppStudio({ query }: { query: string }) {
                           <div className="flex min-w-0 items-center gap-2"><p className="truncate font-mono text-[11px] font-medium">{tool.title || tool.name}</p>{tool.isReadOnly ? <CapabilityPill tone="good">Read only</CapabilityPill> : <CapabilityPill tone="warning">Writes</CapabilityPill>}</div>
                           <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-muted-foreground">{tool.disabledReason || tool.description}</p>
                         </div>
-                        <NativeSelect size="sm" value={mode} disabled={toolBusy} onChange={(event) => void updateAppToolPolicy(selected.id, tool.name, enabled, event.target.value as ApprovalMode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} className="w-full">
-                          <NativeSelectOption value="auto">Auto</NativeSelectOption><NativeSelectOption value="prompt">Prompt</NativeSelectOption><NativeSelectOption value="writes">Writes</NativeSelectOption><NativeSelectOption value="approve">Approve</NativeSelectOption>
-                        </NativeSelect>
+                        <Select value={mode} disabled={toolBusy} onValueChange={(value) => void updateAppToolPolicy(selected.id, tool.name, enabled, value as ApprovalMode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))}>
+                          <SelectTrigger size="sm" className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">Auto</SelectItem>
+                            <SelectItem value="prompt">Prompt</SelectItem>
+                            <SelectItem value="writes">Writes</SelectItem>
+                            <SelectItem value="approve">Approve</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <Switch size="sm" checked={enabled} disabled={toolBusy} onCheckedChange={(checked) => void updateAppToolPolicy(selected.id, tool.name, checked, mode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} />
                       </div>
                     );

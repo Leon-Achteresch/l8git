@@ -14,10 +14,12 @@ import {
   TriangleAlert,
   Webhook,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { CapabilityEcosystemBoard } from "@/components/agents/capabilities/capability-ecosystem-board";
+import { CapabilityCliMark } from "@/components/agents/capabilities/capability-cli-mark";
 import { CapabilityTargetPicker } from "@/components/agents/capabilities/capability-targets";
 import {
   CapabilityEmpty,
@@ -37,11 +39,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { CapabilityOpResult, CapabilityTargetRef } from "@/lib/agents/capability-hub";
-import { summarizeResults, targetKey, useCapabilityHubStore } from "@/lib/agents/capability-hub";
+import type { CapabilityItem, CapabilityKind, CapabilityOpResult, CapabilityTargetRef } from "@/lib/agents/capability-hub";
+import { assetLocalPresence, defaultTargets, summarizeResults, targetKey, useCapabilityHubStore } from "@/lib/agents/capability-hub";
 import type { MarketAsset, MarketKind, MarketRepo, MarketSort } from "@/lib/agents/capability-market";
 import {
   MARKET_KINDS,
@@ -50,7 +52,11 @@ import {
   assetsFor,
   useCapabilityMarketStore,
 } from "@/lib/agents/capability-market";
+import { AgentSectionTabs } from "@/components/agents/ui/agent-section-tabs";
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
+import { m } from "motion/react";
 
 const KIND_ICONS: Record<MarketKind, typeof Sparkles> = {
   skill: Sparkles,
@@ -89,6 +95,23 @@ function shortDate(value: string): string {
   return Number.isNaN(parsed) ? "" : new Date(parsed).toLocaleDateString();
 }
 
+function marketRequiredKinds(kind: MarketKind): CapabilityKind[] {
+  if (kind === "plugin") return ["mcp"];
+  if (kind === "command") return ["command", "agent"];
+  return [kind];
+}
+
+function repoPresence(repo: MarketRepo, kind: MarketKind, items: CapabilityItem[]): string[] {
+  const names = [repo.name, repo.name.replace(/-skills?$/iu, "").replace(/-mcp$/iu, "")];
+  const found = new Set<string>();
+  for (const capKind of marketRequiredKinds(kind)) {
+    for (const name of names) {
+      for (const cli of assetLocalPresence(name, capKind, items)) found.add(cli);
+    }
+  }
+  return [...found];
+}
+
 export function CapabilityMarketplace({ path, query }: { path: string; query: string }) {
   const { t } = useTranslation();
   const market = useCapabilityMarketStore();
@@ -100,10 +123,17 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
   const [chosenAssets, setChosenAssets] = useState<Set<string>>(new Set());
   const [overwrite, setOverwrite] = useState(false);
   const [results, setResults] = useState<CapabilityOpResult[]>([]);
+  const didInitTargets = useRef(false);
 
   useEffect(() => {
     void loadInventory(path);
   }, [loadInventory, path]);
+
+  useEffect(() => {
+    if (didInitTargets.current || !inventory.targets.length) return;
+    didInitTargets.current = true;
+    setTargets(defaultTargets(inventory.targets, null));
+  }, [inventory.targets]);
 
   useEffect(() => {
     if (!market.result && !market.loading) void market.search();
@@ -173,41 +203,51 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
 
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <div className="mx-auto w-full max-w-5xl space-y-4 p-5">
-        <section className="ag-card p-4">
-          <div className="flex items-start gap-3">
-            <span className="ag-inset mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg">
-              <Blocks className="size-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-[13px] font-semibold tracking-tight">{t("agentCapabilities.market.title")}</h2>
-              <p className="ag-muted mt-1 text-[11px] leading-5">{t("agentCapabilities.market.explainer")}</p>
-            </div>
+      <AgentsEnter className="mx-auto w-full max-w-6xl space-y-4 p-5">
+        <section className="ag-card overflow-hidden">
+          <div className="border-b border-[var(--ag-line)] p-4">
+            <h2 className="text-[13px] font-semibold tracking-tight">{t("agentCapabilities.market.title")}</h2>
+            <p className="ag-muted mt-1 max-w-2xl text-[11px] leading-5">{t("agentCapabilities.market.explainer")}</p>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {MARKET_KINDS.map((kind) => {
-              const Icon = KIND_ICONS[kind];
-              return (
-                <button
-                  key={kind}
-                  type="button"
-                  aria-pressed={market.kind === kind}
-                  onClick={() => {
-                    market.setKind(kind);
-                    void market.search();
-                  }}
-                  className={cn(
-                    "ag-pill h-8 gap-1.5 px-2.5 text-[11px] font-medium",
-                    market.kind === kind && "bg-[var(--ag-selected)] text-[var(--ag-text)]",
-                  )}
-                >
-                  <Icon className="size-3.5" />
-                  {t(`agentCapabilities.market.kinds.${kind}`)}
-                </button>
-              );
-            })}
+          <div className="space-y-3 p-4">
+            <p className="ag-label">{t("agentCapabilities.market.installInto")}</p>
+            <CapabilityEcosystemBoard
+              targets={inventory.targets}
+              items={inventory.items}
+              selected={targets}
+              onToggleTarget={(target) =>
+                setTargets((current) =>
+                  current.some((entry) => targetKey(entry) === targetKey(target))
+                    ? current.filter((entry) => targetKey(entry) !== targetKey(target))
+                    : [...current, target],
+                )
+              }
+              requiredKinds={marketRequiredKinds(market.kind)}
+            />
+            <p className="ag-faint text-[10px]">
+              {targets.length ? t("agentCapabilities.market.destinationsHint") : t("agentCapabilities.market.pickDestinations")}
+            </p>
           </div>
+
+          <div className="space-y-3 border-t border-[var(--ag-line)] p-4">
+          <AgentSectionTabs
+            value={market.kind}
+            onChange={(id) => {
+              market.setKind(id as MarketKind);
+              void market.search();
+            }}
+            label={t("agentCapabilities.market.title")}
+            layoutId="market-kind-tab"
+            items={MARKET_KINDS.map((kind) => {
+              const Icon = KIND_ICONS[kind];
+              return {
+                id: kind,
+                label: t(`agentCapabilities.market.kinds.${kind}`),
+                icon: <Icon className="size-3.5" />,
+              };
+            })}
+          />
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="relative min-w-[12rem] flex-1">
@@ -222,34 +262,42 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
                 className="h-8 rounded-full border-[var(--ag-line)] bg-[var(--ag-surface-2)] pl-8 text-[11px] shadow-none"
               />
             </div>
-            <NativeSelect
+            <Select
               value={market.sort}
-              onChange={(event) => {
-                market.setSort(event.target.value as MarketSort);
+              onValueChange={(value) => {
+                market.setSort(value as MarketSort);
                 void market.search();
               }}
-              className="h-8 w-36 text-[11px]"
             >
-              {MARKET_SORTS.map((sort) => (
-                <option key={sort} value={sort}>
-                  {t(`agentCapabilities.market.sorts.${sort}`)}
-                </option>
-              ))}
-            </NativeSelect>
-            <NativeSelect
+              <SelectTrigger className="h-8 w-36 text-[11px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MARKET_SORTS.map((sort) => (
+                  <SelectItem key={sort} value={sort}>
+                    {t(`agentCapabilities.market.sorts.${sort}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
               value={String(market.minStars)}
-              onChange={(event) => {
-                market.setMinStars(Number(event.target.value));
+              onValueChange={(value) => {
+                market.setMinStars(Number(value));
                 void market.search();
               }}
-              className="h-8 w-44 text-[11px]"
             >
-              {[0, 10, 100, 1000].map((stars) => (
-                <option key={stars} value={stars}>
-                  {stars === 0 ? t("agentCapabilities.market.anyStars") : t("agentCapabilities.market.minStars", { stars })}
-                </option>
-              ))}
-            </NativeSelect>
+              <SelectTrigger className="h-8 w-44 text-[11px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[0, 10, 100, 1000].map((stars) => (
+                  <SelectItem key={stars} value={String(stars)}>
+                    {stars === 0 ? t("agentCapabilities.market.anyStars") : t("agentCapabilities.market.minStars", { stars })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button type="button" size="sm" className="h-8" disabled={market.loading} onClick={runSearch}>
               {t("agentCapabilities.market.search")}
             </Button>
@@ -259,10 +307,11 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
             <p className="ag-faint mt-2 text-[10px]">{t("agentCapabilities.market.anonymousHint")}</p>
           ) : null}
           {market.result?.notes.map((note) => (
-            <p key={note} className="mt-2 text-[10px] text-amber-600 dark:text-amber-400">
+            <p key={note} className="text-[10px] text-amber-600 dark:text-amber-400">
               {note}
             </p>
           ))}
+          </div>
         </section>
 
         {market.error ? <CapabilityError message={market.error} /> : null}
@@ -276,8 +325,14 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
               getKey={(repo) => repo.fullName}
               resetKey={`${market.kind}:${market.sort}:${market.minStars}:${market.result?.queries.join("|") ?? ""}`}
               moreLabel={(count) => t("agentCapabilities.showMore", { count })}
-              renderItem={(repo: MarketRepo) => (
-                <article className="ag-card flex flex-col gap-2 p-3.5">
+              renderItem={(repo: MarketRepo) => {
+                const present = repoPresence(repo, market.kind, inventory.items);
+                return (
+                <m.article
+                  className="ag-card flex flex-col gap-2 p-3.5"
+                  whileHover={{ y: -1 }}
+                  transition={SPRING_PANEL}
+                >
                   <div className="flex items-start gap-2.5">
                     {repo.avatarUrl ? (
                       <img
@@ -343,9 +398,17 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
                       <ExternalLink className="size-3" />
                       GitHub
                     </a>
+                    {present.length ? (
+                      <span className="ml-auto inline-flex items-center gap-1" title={t("agentCapabilities.market.alreadyOn", { clis: present.join(", ") })}>
+                        {present.map((cli) => (
+                          <CapabilityCliMark key={cli} cli={cli} logoClassName="size-3" />
+                        ))}
+                      </span>
+                    ) : null}
                   </div>
-                </article>
-              )}
+                </m.article>
+                );
+              }}
             />
           </div>
         ) : (
@@ -354,7 +417,7 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
             description={t("agentCapabilities.market.emptyDescription")}
           />
         )}
-      </div>
+      </AgentsEnter>
 
       <Dialog
         open={Boolean(detail)}
@@ -445,6 +508,9 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
                                 <Badge variant="outline" className="h-4 rounded px-1 text-[8px]">
                                   {t(`agentCapabilities.market.assetKinds.${asset.kind}`)}
                                 </Badge>
+                                {assetLocalPresence(asset.name, assetTargetKind(asset.kind), inventory.items).map((cli) => (
+                                  <CapabilityCliMark key={cli} cli={cli} logoClassName="size-2.5" />
+                                ))}
                               </span>
                               <span className="ag-faint block truncate font-mono text-[9px]">{asset.path}</span>
                             </span>

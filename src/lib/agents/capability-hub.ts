@@ -184,6 +184,115 @@ export function itemStatusSummary(
   return totals;
 }
 
+export function preferredWritableScope(target: CapabilityTargetInfo): CapabilityScope {
+  const ranked = [...target.scopes]
+    .filter((scope) => scope.writable)
+    .sort((a, b) => b.itemCount - a.itemCount);
+  return ranked[0]?.scope ?? "user";
+}
+
+export function defaultTargets(
+  infos: CapabilityTargetInfo[],
+  source: CapabilityTargetRef | null,
+): CapabilityTargetRef[] {
+  return infos.flatMap((info) => {
+    if (source && info.cli === source.cli) return [];
+    const scope = source?.scope ?? preferredWritableScope(info);
+    const reference: CapabilityTargetRef = { cli: info.cli, scope };
+    return targetWritable(infos, reference) ? [reference] : [];
+  });
+}
+
+export function presenceColumns(
+  infos: CapabilityTargetInfo[],
+  selected: CapabilityTargetRef[],
+  source: CapabilityTargetRef | null,
+): CapabilityTargetRef[] {
+  return infos.map((info) => {
+    const picked = selected.find((entry) => entry.cli === info.cli);
+    if (picked) return picked;
+    if (source?.cli === info.cli) return source;
+    return { cli: info.cli, scope: preferredWritableScope(info) };
+  });
+}
+
+export function kindCountsForCli(
+  items: CapabilityItem[],
+  cli: string,
+  kinds: readonly CapabilityKind[] = CAPABILITY_KINDS,
+): Record<CapabilityKind, number> {
+  const counts = {
+    skill: 0,
+    command: 0,
+    agent: 0,
+    mcp: 0,
+    hook: 0,
+  } satisfies Record<CapabilityKind, number>;
+  for (const item of items) {
+    if (item.cli !== cli || !kinds.includes(item.kind)) continue;
+    counts[item.kind] += 1;
+  }
+  return counts;
+}
+
+export function gapsToward(
+  items: CapabilityItem[],
+  source: CapabilityTargetRef,
+  target: CapabilityTargetRef,
+  infos: CapabilityTargetInfo[],
+  kinds: readonly CapabilityKind[],
+): { missing: CapabilityItem[]; different: CapabilityItem[] } {
+  const missing: CapabilityItem[] = [];
+  const different: CapabilityItem[] = [];
+  for (const item of items) {
+    if (item.cli !== source.cli || item.scope !== source.scope || !kinds.includes(item.kind)) continue;
+    const status = itemStatusForTarget(item, target, infos, items);
+    if (status === "missing") missing.push(item);
+    else if (status === "different") different.push(item);
+  }
+  return { missing, different };
+}
+
+export function coverageSummary(
+  items: CapabilityItem[],
+  source: CapabilityTargetRef,
+  selected: CapabilityTargetRef[],
+  infos: CapabilityTargetInfo[],
+  kinds: readonly CapabilityKind[],
+): { missing: number; different: number; same: number; unsupported: number; total: number } {
+  let missing = 0;
+  let different = 0;
+  let same = 0;
+  let unsupported = 0;
+  let total = 0;
+  for (const item of items) {
+    if (item.cli !== source.cli || item.scope !== source.scope || !kinds.includes(item.kind)) continue;
+    total += 1;
+    const totals = itemStatusSummary(item, selected, infos, items);
+    if (totals.missing) missing += 1;
+    else if (totals.different) different += 1;
+    else if (totals.same) same += 1;
+    else unsupported += 1;
+  }
+  return { missing, different, same, unsupported, total };
+}
+
+export function assetLocalPresence(
+  name: string,
+  kind: CapabilityKind,
+  items: CapabilityItem[],
+): string[] {
+  const key = matchKey(kind, name);
+  const clis = new Set<string>();
+  for (const item of items) {
+    if (item.kind !== kind) continue;
+    if (matchKey(item.kind, item.rel) === key || matchKey(item.kind, item.name) === key) {
+      clis.add(item.cli);
+    }
+  }
+  return [...clis];
+}
+
 export function summarizeResults(results: CapabilityOpResult[]): {
   ok: number;
   skipped: number;

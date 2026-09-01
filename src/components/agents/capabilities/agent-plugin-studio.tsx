@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -351,7 +351,17 @@ export function AgentPluginStudio({ query }: { query: string }) {
                                 return (
                                   <div key={toolName} className="grid gap-2 border-b border-border/25 px-3 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_7rem_2rem]">
                                     <div className="min-w-0"><p className="truncate font-mono text-[10px] font-medium">{tool.title || toolName}</p><p className="truncate text-[9px] text-muted-foreground">{tool.description}</p></div>
-                                    <NativeSelect size="sm" value={policy.mode} disabled={toolBusy} onChange={(event) => void setPluginMcpToolPolicy(selected.id, serverName, toolName, policy.enabled, event.target.value as typeof policy.mode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} className="w-full"><NativeSelectOption value="auto">Auto</NativeSelectOption><NativeSelectOption value="prompt">Prompt</NativeSelectOption><NativeSelectOption value="writes">Writes</NativeSelectOption><NativeSelectOption value="approve">Approve</NativeSelectOption></NativeSelect>
+                                    <Select value={policy.mode} disabled={toolBusy} onValueChange={(value) => void setPluginMcpToolPolicy(selected.id, serverName, toolName, policy.enabled, value as typeof policy.mode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))}>
+                                      <SelectTrigger size="sm" className="w-full">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="auto">Auto</SelectItem>
+                                        <SelectItem value="prompt">Prompt</SelectItem>
+                                        <SelectItem value="writes">Writes</SelectItem>
+                                        <SelectItem value="approve">Approve</SelectItem>
+                                      </SelectContent>
+                                    </Select>
                                     <Switch size="sm" checked={policy.enabled} disabled={toolBusy} onCheckedChange={(checked) => void setPluginMcpToolPolicy(selected.id, serverName, toolName, checked, policy.mode).catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} />
                                   </div>
                                 );

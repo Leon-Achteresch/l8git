@@ -1,5 +1,4 @@
 import {
-  ArrowRight,
   Bot,
   CheckCircle2,
   Copy,
@@ -13,17 +12,21 @@ import {
   TriangleAlert,
   Webhook,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { CapabilityTargetPicker, scopeLabel } from "@/components/agents/capabilities/capability-targets";
+import { CapabilityEcosystemBoard } from "@/components/agents/capabilities/capability-ecosystem-board";
+import { CapabilityPresence } from "@/components/agents/capabilities/capability-presence";
+import { scopeLabel } from "@/components/agents/capabilities/capability-targets";
 import {
   CapabilityEmpty,
   CapabilityError,
   CapabilityLoading,
   ProgressiveCapabilityList,
 } from "@/components/agents/capabilities/capability-ui";
+import { AgentSectionTabs } from "@/components/agents/ui/agent-section-tabs";
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { SpinIcon } from "@/components/motion/kit";
 import {
   AlertDialog,
@@ -46,7 +49,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { NativeSelect } from "@/components/ui/native-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import type {
@@ -55,20 +57,22 @@ import type {
   CapabilityKind,
   CapabilityOpResult,
   CapabilityPlanEntry,
-  CapabilityScope,
   CapabilityTargetRef,
 } from "@/lib/agents/capability-hub";
 import {
   CAPABILITY_KINDS,
-  CAPABILITY_SCOPES,
+  coverageSummary,
+  defaultTargets,
   itemRef,
   itemStatusSummary,
-  scopeInfo,
+  presenceColumns,
   summarizeResults,
   targetKey,
   useCapabilityHubStore,
 } from "@/lib/agents/capability-hub";
 import { cn } from "@/lib/utils";
+import { m, useReducedMotion } from "motion/react";
+import { SPRING_PRESS } from "@/lib/motion/ease";
 
 const KIND_ICONS: Record<CapabilityKind, typeof Sparkles> = {
   skill: Sparkles,
@@ -92,6 +96,23 @@ const PLAN_TONE: Record<string, string> = {
   extra: "border-sky-500/30 text-sky-600 dark:text-sky-400",
   unsupported: STATUS_TONE.unsupported,
 };
+
+type ItemView = "all" | "gaps" | "different";
+
+function matchesView(view: ItemView, totals: Record<CapabilityItemStatus, number>): boolean {
+  switch (view) {
+    case "all":
+      return true;
+    case "gaps":
+      return totals.missing > 0;
+    case "different":
+      return totals.different > 0;
+    default: {
+      const _never: never = view;
+      return _never;
+    }
+  }
+}
 
 function relativeTime(timestamp: number): string {
   if (!timestamp) return "";
@@ -121,6 +142,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
   const [source, setSource] = useState<CapabilityTargetRef | null>(null);
   const [targets, setTargets] = useState<CapabilityTargetRef[]>([]);
   const [kinds, setKinds] = useState<CapabilityKind[]>([...CAPABILITY_KINDS]);
+  const [view, setView] = useState<ItemView>("gaps");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [overwrite, setOverwrite] = useState(false);
   const [deleteExtras, setDeleteExtras] = useState(false);
@@ -128,18 +150,28 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
   const [planSelection, setPlanSelection] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<CapabilityOpResult[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const targetsTouched = useRef(false);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     void load(path);
   }, [load, path]);
 
-  // Vorbelegung: die Ebene mit den meisten Einträgen ist fast immer gemeint.
   useEffect(() => {
     if (source || !inventory.targets.length) return;
     const fullest = inventory.targets
       .flatMap((target) => target.scopes.map((scope) => ({ cli: target.cli, scope: scope.scope, count: scope.itemCount })))
       .sort((a, b) => b.count - a.count)[0];
     if (fullest) setSource({ cli: fullest.cli, scope: fullest.scope });
+  }, [inventory.targets, source]);
+
+  useEffect(() => {
+    if (!source) return;
+    if (!targetsTouched.current) {
+      setTargets(defaultTargets(inventory.targets, source));
+      return;
+    }
+    setTargets((current) => current.filter((entry) => entry.cli !== source.cli));
   }, [inventory.targets, source]);
 
   const sourceInfo = inventory.targets.find((entry) => entry.cli === source?.cli);
@@ -161,17 +193,40 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
     });
   }, [inventory.items, kinds, query, source]);
 
+  const visibleItems = useMemo(() => {
+    if (!targets.length) return sourceItems;
+    return sourceItems.filter((item) =>
+      matchesView(view, itemStatusSummary(item, targets, inventory.targets, inventory.items)),
+    );
+  }, [inventory.items, inventory.targets, sourceItems, targets, view]);
+
+  const coverage = source
+    ? coverageSummary(inventory.items, source, targets, inventory.targets, kinds)
+    : null;
+
+  const columns = useMemo(() => {
+    const next = presenceColumns(inventory.targets, targets, source);
+    if (!source) return next;
+    return [...next].sort((a, b) => Number(b.cli === source.cli) - Number(a.cli === source.cli));
+  }, [inventory.targets, source, targets]);
+
   const selectedItems = useMemo(
     () => sourceItems.filter((item) => selected.has(item.id)),
     [selected, sourceItems],
   );
 
   const toggleTarget = useCallback((target: CapabilityTargetRef) => {
+    targetsTouched.current = true;
     setTargets((current) =>
       current.some((entry) => targetKey(entry) === targetKey(target))
         ? current.filter((entry) => targetKey(entry) !== targetKey(target))
         : [...current, target],
     );
+  }, []);
+
+  const changeSource = useCallback((next: CapabilityTargetRef) => {
+    setSource(next);
+    setSelected(new Set());
   }, []);
 
   const showResults = useCallback(
@@ -197,6 +252,30 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
       toast.error(candidate instanceof Error ? candidate.message : String(candidate));
     }
   }, [copy, overwrite, selectedItems, showResults, targets]);
+
+  const runFillGaps = useCallback(async (target: CapabilityTargetRef, missing: CapabilityItem[]) => {
+    if (!missing.length) return;
+    try {
+      const outcome = await copy(missing.map(itemRef), [target], false);
+      showResults(outcome, "agentCapabilities.hub.copied");
+    } catch (candidate) {
+      toast.error(candidate instanceof Error ? candidate.message : String(candidate));
+    }
+  }, [copy, showResults]);
+
+  const runFillAll = useCallback(async () => {
+    if (!targets.length) return;
+    const missing = sourceItems.filter(
+      (item) => itemStatusSummary(item, targets, inventory.targets, inventory.items).missing > 0,
+    );
+    if (!missing.length) return;
+    try {
+      const outcome = await copy(missing.map(itemRef), targets, false);
+      showResults(outcome, "agentCapabilities.hub.copied");
+    } catch (candidate) {
+      toast.error(candidate instanceof Error ? candidate.message : String(candidate));
+    }
+  }, [copy, inventory.items, inventory.targets, showResults, sourceItems, targets]);
 
   const runDelete = useCallback(async () => {
     if (!selectedItems.length) return;
@@ -245,17 +324,19 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
 
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <div className="mx-auto w-full max-w-5xl space-y-4 p-5">
+      <AgentsEnter className="mx-auto w-full max-w-6xl space-y-4 p-5">
         {error ? <CapabilityError message={error} /> : null}
+        {inventory.warnings.map((warning) => (
+          <CapabilityError key={warning} message={warning} />
+        ))}
 
-        {/* Richtung: von einer Quelle in ein oder mehrere Ziele. */}
         <section className="ag-card overflow-hidden">
-          <header className="flex items-start gap-2 border-b border-[var(--ag-line)] px-4 py-2.5">
+          <header className="flex items-start gap-2 border-b border-[var(--ag-line)] px-4 py-3">
             <div className="mr-auto min-w-0">
-              <p className="text-[12px] font-semibold tracking-tight">
+              <p className="text-[13px] font-semibold tracking-tight">
                 {t("agentCapabilities.hub.title")}
               </p>
-              <p className="ag-muted mt-0.5 text-[10px] leading-4">
+              <p className="ag-muted mt-1 max-w-2xl text-[11px] leading-5">
                 {t("agentCapabilities.hub.explainer")}
               </p>
             </div>
@@ -273,95 +354,48 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
             </Button>
           </header>
 
-          <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,20rem)_auto_minmax(0,1fr)] lg:items-start">
-            <div>
-              <p className="ag-label mb-2">{t("agentCapabilities.hub.from")}</p>
-              <div className="flex flex-wrap gap-2">
-                <NativeSelect
-                  value={source?.cli ?? ""}
-                  onChange={(event) => {
-                    const cli = event.target.value;
-                    setSource((current) => ({ cli, scope: current?.scope ?? "user" }));
-                    setSelected(new Set());
-                  }}
-                  className="h-8 w-40 text-[11px]"
-                  aria-label={t("agentCapabilities.hub.cli")}
-                >
-                  {inventory.targets.map((target) => (
-                    <option key={target.cli} value={target.cli}>
-                      {target.label}
-                    </option>
-                  ))}
-                </NativeSelect>
-                <NativeSelect
-                  value={source?.scope ?? "user"}
-                  onChange={(event) => {
-                    const scope = event.target.value as CapabilityScope;
-                    setSource((current) => ({ cli: current?.cli ?? inventory.targets[0]?.cli ?? "claude", scope }));
-                    setSelected(new Set());
-                  }}
-                  className="h-8 w-32 text-[11px]"
-                  aria-label={t("agentCapabilities.hub.level")}
-                >
-                  {CAPABILITY_SCOPES.map((scope) => (
-                    <option key={scope} value={scope}>
-                      {scopeLabel(scope, t)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </div>
-              <p className="ag-faint mt-2 text-[10px]">
-                {t("agentCapabilities.hub.itemsInSource", { count: sourceItems.length })}
-              </p>
-              {source && scopeInfo(sourceInfo, source.scope)?.root ? (
-                <p className="ag-faint mt-0.5 break-all font-mono text-[9px]">
-                  {scopeInfo(sourceInfo, source.scope)?.root}
+          <div className="space-y-3 p-4">
+            <p className="ag-label">{t("agentCapabilities.hub.ecosystemTitle")}</p>
+            <CapabilityEcosystemBoard
+              targets={inventory.targets}
+              items={inventory.items}
+              source={source}
+              onSourceChange={changeSource}
+              selected={targets}
+              onToggleTarget={toggleTarget}
+              kinds={kinds}
+              busy={busy}
+              onFillGaps={(target, missing) => void runFillGaps(target, missing)}
+            />
+            {coverage && targets.length ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-[12px] bg-[var(--ag-surface-2)] px-3 py-2">
+                <p className="mr-auto text-[11px] leading-5 text-[var(--ag-text-2)]">
+                  {coverage.missing || coverage.different
+                    ? t("agentCapabilities.hub.coverage", {
+                        missing: coverage.missing,
+                        different: coverage.different,
+                        same: coverage.same,
+                      })
+                    : t("agentCapabilities.hub.coverageClean")}
                 </p>
-              ) : null}
-              <ul className="mt-3 space-y-1">
-                {CAPABILITY_KINDS.map((kind) => {
-                  const Icon = KIND_ICONS[kind];
-                  const count = sourceItems.filter((item) => item.kind === kind).length;
-                  return (
-                    <li
-                      key={kind}
-                      className={cn(
-                        "flex items-center gap-2 text-[10px]",
-                        count ? "text-[var(--ag-text-2)]" : "opacity-40",
-                      )}
-                    >
-                      <Icon className="size-3 shrink-0" />
-                      <span className="flex-1 truncate">{t(`agentCapabilities.hub.kinds.${kind}`)}</span>
-                      <span className="tabular-nums">{count}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            <div className="hidden shrink-0 items-center justify-center self-center lg:flex">
-              <span className="ag-inset grid size-7 place-items-center rounded-full">
-                <ArrowRight className="size-3.5" />
-              </span>
-            </div>
-
-            <div>
-              <p className="ag-label mb-2">{t("agentCapabilities.hub.to")}</p>
-              <CapabilityTargetPicker
-                targets={inventory.targets}
-                selected={targets}
-                onToggle={toggleTarget}
-              />
-              <p className="ag-faint mt-2 text-[10px]">
-                {targets.length
-                  ? t("agentCapabilities.hub.toHint")
-                  : t("agentCapabilities.hub.noTargetSelected")}
-              </p>
-            </div>
+                {coverage.missing ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 px-2 text-[10px]"
+                    disabled={busy}
+                    onClick={() => void runFillAll()}
+                  >
+                    {t("agentCapabilities.hub.fillGaps")}
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <p className="ag-faint text-[10px]">{t("agentCapabilities.hub.noTargetSelected")}</p>
+            )}
           </div>
         </section>
 
-        {/* Auswahl: was übernommen werden soll. */}
         <section className="ag-card">
           <header className="flex flex-wrap items-center gap-2 border-b border-[var(--ag-line)] px-4 py-2.5">
             <div className="mr-auto flex flex-wrap items-center gap-1">
@@ -370,10 +404,12 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                 const active = kinds.includes(kind);
                 const count = sourceItems.filter((item) => item.kind === kind).length;
                 return (
-                  <button
+                  <m.button
                     key={kind}
                     type="button"
                     aria-pressed={active}
+                    whileTap={reduce ? undefined : { scale: 0.96 }}
+                    transition={SPRING_PRESS}
                     onClick={() =>
                       setKinds((current) =>
                         current.includes(kind) ? current.filter((entry) => entry !== kind) : [...current, kind],
@@ -387,10 +423,20 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                     <Icon className="size-3" />
                     {t(`agentCapabilities.hub.kinds.${kind}`)}
                     {active ? <span className="ag-faint tabular-nums">{count}</span> : null}
-                  </button>
+                  </m.button>
                 );
               })}
             </div>
+            <AgentSectionTabs
+              value={view}
+              onChange={(id) => setView(id as ItemView)}
+              label={t("agentCapabilities.hub.title")}
+              layoutId="sync-view-tab"
+              items={(["gaps", "different", "all"] as const).map((entry) => ({
+                id: entry,
+                label: t(`agentCapabilities.hub.views.${entry}`),
+              }))}
+            />
             <Button
               type="button"
               variant="ghost"
@@ -398,28 +444,27 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
               className="h-7 px-2 text-[10px]"
               onClick={() =>
                 setSelected((current) =>
-                  current.size === sourceItems.length ? new Set() : new Set(sourceItems.map((item) => item.id)),
+                  current.size === visibleItems.length ? new Set() : new Set(visibleItems.map((item) => item.id)),
                 )
               }
             >
-              {selected.size === sourceItems.length && sourceItems.length
+              {selected.size === visibleItems.length && visibleItems.length
                 ? t("agentCapabilities.hub.selectNone")
                 : t("agentCapabilities.hub.selectAll")}
             </Button>
           </header>
 
           <div className="p-3">
-            {sourceItems.length ? (
+            {visibleItems.length ? (
               <div className="grid gap-1.5 sm:grid-cols-2">
                 <ProgressiveCapabilityList
-                  items={sourceItems}
+                  items={visibleItems}
                   getKey={(item) => item.id}
-                  resetKey={`${source ? targetKey(source) : "none"}:${kinds.join(",")}:${query}:${targets.map(targetKey).join(",")}`}
+                  resetKey={`${source ? targetKey(source) : "none"}:${kinds.join(",")}:${view}:${query}:${targets.map(targetKey).join(",")}`}
                   moreLabel={(count) => t("agentCapabilities.showMore", { count })}
                   renderItem={(item: CapabilityItem) => {
                     const Icon = KIND_ICONS[item.kind];
                     const checked = selected.has(item.id);
-                    const totals = itemStatusSummary(item, targets, inventory.targets, inventory.items);
                     return (
                       <label
                         className={cn(
@@ -448,22 +493,27 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                                 {t("agentCapabilities.hub.files", { count: item.fileCount })}
                               </Badge>
                             ) : null}
-                            {(["missing", "different", "same", "unsupported"] as const)
-                              .filter((status) => totals[status] > 0)
-                              .map((status) => (
-                                <Badge
-                                  key={status}
-                                  variant="outline"
-                                  className={cn("h-4 rounded px-1 text-[8px]", STATUS_TONE[status])}
-                                >
-                                  {targets.length > 1
-                                    ? t(`agentCapabilities.hub.statusCount.${status}`, { count: totals[status] })
-                                    : t(`agentCapabilities.hub.status.${status}`)}
-                                </Badge>
-                              ))}
                           </span>
                           <span className="ag-muted mt-0.5 line-clamp-2 block text-[10px] leading-4">
                             {item.description || t("agentCapabilities.hub.noDescription")}
+                          </span>
+                          <span className="mt-2 block">
+                            <CapabilityPresence
+                              item={item}
+                              columns={columns}
+                              infos={inventory.targets}
+                              items={inventory.items}
+                              sourceCli={source?.cli}
+                              onPick={(target) => {
+                                targetsTouched.current = true;
+                                setTargets((current) =>
+                                  current.some((entry) => targetKey(entry) === targetKey(target))
+                                    ? current
+                                    : [...current, target],
+                                );
+                                setSelected((current) => new Set(current).add(item.id));
+                              }}
+                            />
                           </span>
                           <span className="ag-faint mt-1 block truncate font-mono text-[9px]">
                             {item.rel} · {relativeTime(item.updatedAtMs)}
@@ -476,14 +526,13 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
               </div>
             ) : (
               <CapabilityEmpty
-                title={t("agentCapabilities.hub.emptyTitle")}
-                description={t("agentCapabilities.hub.emptyDescription")}
+                title={sourceItems.length ? t("agentCapabilities.hub.filterEmptyTitle") : t("agentCapabilities.hub.emptyTitle")}
+                description={sourceItems.length ? t("agentCapabilities.hub.filterEmptyDescription") : t("agentCapabilities.hub.emptyDescription")}
               />
             )}
           </div>
         </section>
 
-        {/* Aktionen: jede Schaltfläche sagt im Klartext, was sie tut. */}
         <div className="ag-card sticky bottom-0 space-y-2 p-3 backdrop-blur">
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -558,7 +607,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
             </ul>
           </section>
         ) : null}
-      </div>
+      </AgentsEnter>
 
       <Dialog open={Boolean(planEntries)} onOpenChange={(open) => !open && setPlanEntries(null)}>
         <DialogContent className="flex h-[min(88vh,820px)] w-full flex-col gap-3 overflow-hidden sm:max-w-[min(96vw,980px)]">
