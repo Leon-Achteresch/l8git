@@ -8,6 +8,9 @@ import type {
 import {
   CAPABILITY_SCOPES,
   itemRef,
+  itemStatusForTarget,
+  itemStatusSummary,
+  matchKey,
   scopeInfo,
   summarizeResults,
   targetKey,
@@ -97,6 +100,76 @@ describe("capability hub helpers", () => {
       result("error"),
     ]);
     expect(totals).toEqual({ ok: 2, skipped: 2, failed: 1 });
+  });
+});
+
+describe("capability comparison", () => {
+  function item(overrides: Partial<CapabilityItem> = {}): CapabilityItem {
+    return {
+      id: "claude:user:agent:planner.md",
+      cli: "claude",
+      scope: "user",
+      kind: "agent",
+      name: "planner",
+      rel: "planner.md",
+      description: "",
+      path: "/home/dev/.claude/agents/planner.md",
+      isDirectory: false,
+      fileCount: 1,
+      sizeBytes: 10,
+      updatedAtMs: 0,
+      fingerprint: "aaa",
+      ...overrides,
+    };
+  }
+
+  const targets = [
+    target(),
+    target({ cli: "cursor", label: "Cursor CLI", kinds: ["command", "agent", "mcp"] }),
+    target({ cli: "gemini", label: "Gemini CLI", kinds: ["command", "mcp"] }),
+  ];
+
+  it("ignores the CLI file name conventions when comparing", () => {
+    expect(matchKey("agent", "planner.md")).toBe(matchKey("agent", "planner.mdc"));
+    expect(matchKey("command", "ship.md")).toBe(matchKey("command", "ship.prompt.md"));
+    expect(matchKey("command", "team/ship.md")).toBe("team:ship");
+    expect(matchKey("skill", "review/")).toBe("review");
+    expect(matchKey("mcp", "Docs")).toBe("docs");
+  });
+
+  it("says per target whether a copy would add, replace, or change nothing", () => {
+    const source = item();
+    const cursorSame = item({ cli: "cursor", rel: "planner.mdc", id: "cursor:user:agent:planner.mdc" });
+    const cursorOther = item({
+      cli: "cursor",
+      rel: "planner.mdc",
+      id: "cursor:user:agent:planner.mdc",
+      fingerprint: "bbb",
+    });
+    const inventory = [source, cursorSame];
+
+    expect(itemStatusForTarget(source, { cli: "cursor", scope: "user" }, targets, inventory)).toBe("same");
+    expect(itemStatusForTarget(source, { cli: "cursor", scope: "user" }, targets, [source, cursorOther])).toBe(
+      "different",
+    );
+    expect(itemStatusForTarget(source, { cli: "cursor", scope: "repo" }, targets, inventory)).toBe("missing");
+    expect(itemStatusForTarget(source, { cli: "gemini", scope: "user" }, targets, inventory)).toBe("unsupported");
+  });
+
+  it("counts the states across all chosen targets", () => {
+    const source = item();
+    const inventory = [source, item({ cli: "cursor", rel: "planner.mdc", id: "cursor:user:agent:planner.mdc" })];
+    const totals = itemStatusSummary(
+      source,
+      [
+        { cli: "cursor", scope: "user" },
+        { cli: "cursor", scope: "repo" },
+        { cli: "gemini", scope: "user" },
+      ],
+      targets,
+      inventory,
+    );
+    expect(totals).toEqual({ missing: 1, same: 1, different: 0, unsupported: 1 });
   });
 });
 

@@ -242,7 +242,7 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
                 market.setMinStars(Number(event.target.value));
                 void market.search();
               }}
-              className="h-8 w-36 text-[11px]"
+              className="h-8 w-44 text-[11px]"
             >
               {[0, 10, 100, 1000].map((stars) => (
                 <option key={stars} value={stars}>
@@ -279,12 +279,18 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
               renderItem={(repo: MarketRepo) => (
                 <article className="ag-card flex flex-col gap-2 p-3.5">
                   <div className="flex items-start gap-2.5">
-                    <img
-                      src={repo.avatarUrl}
-                      alt=""
-                      loading="lazy"
-                      className="mt-0.5 size-8 shrink-0 rounded-lg object-cover"
-                    />
+                    {repo.avatarUrl ? (
+                      <img
+                        src={repo.avatarUrl}
+                        alt=""
+                        loading="lazy"
+                        className="mt-0.5 size-8 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <span className="ag-inset mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg text-[11px] font-medium uppercase">
+                        {repo.owner.slice(0, 1)}
+                      </span>
+                    )}
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate text-[12px] font-medium">{repo.fullName}</h3>
                       <p className="ag-muted mt-1 line-clamp-2 text-[11px] leading-4">
@@ -359,8 +365,8 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
           }
         }}
       >
-        <DialogContent className="max-h-[min(820px,calc(100vh-2rem))] overflow-hidden sm:max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="flex h-[min(92vh,940px)] w-full flex-col gap-3 overflow-hidden sm:max-w-[min(96vw,1180px)]">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               {detail?.repo.fullName}
               {detail ? (
@@ -387,7 +393,8 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
           {market.inspecting ? (
             <CapabilityLoading label={t("agentCapabilities.market.inspecting")} />
           ) : detail ? (
-            <ScrollArea className="max-h-[52vh] pr-2">
+            <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <ScrollArea className="min-h-0 pr-2">
               <div className="space-y-4">
                 <div className="flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-[11px] text-amber-700 dark:text-amber-300">
                   <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
@@ -397,12 +404,16 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
                 {detail.readmeExcerpt ? (
                   <section>
                     <p className="ag-label mb-1.5">{t("agentCapabilities.market.readme")}</p>
-                    <p className="ag-muted line-clamp-6 whitespace-pre-wrap text-[11px] leading-5">
+                    <p className="ag-muted whitespace-pre-wrap text-[11px] leading-5">
                       {detail.readmeExcerpt}
                     </p>
                   </section>
                 ) : null}
+              </div>
+              </ScrollArea>
 
+              <ScrollArea className="min-h-0 pr-2">
+              <div className="space-y-4">
                 <section>
                   <p className="ag-label mb-1.5">{t("agentCapabilities.market.assets")}</p>
                   {detail.assets.length ? (
@@ -474,7 +485,7 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
                   <CapabilityTargetPicker
                     targets={inventory.targets}
                     selected={targets}
-                    requiredKind={selectedAssets.length ? assetTargetKind(selectedAssets[0].kind) : null}
+                    requiredKinds={[...new Set(selectedAssets.map((asset) => assetTargetKind(asset.kind)))]}
                     onToggle={(target) =>
                       setTargets((current) =>
                         current.some((entry) => targetKey(entry) === targetKey(target))
@@ -501,10 +512,11 @@ export function CapabilityMarketplace({ path, query }: { path: string; query: st
                   </section>
                 ) : null}
               </div>
-            </ScrollArea>
+              </ScrollArea>
+            </div>
           ) : null}
 
-          <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <DialogFooter className="shrink-0 flex-col items-stretch gap-2 border-t border-[var(--ag-line)] pt-3 sm:flex-row sm:items-center">
             <label className="mr-auto flex items-center gap-2 text-[11px]">
               <Switch checked={overwrite} onCheckedChange={setOverwrite} />
               {t("agentCapabilities.hub.overwrite")}
