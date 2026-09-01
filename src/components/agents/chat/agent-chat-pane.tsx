@@ -39,6 +39,7 @@ import { AgentPlanBanner } from "@/components/agents/chat/agent-plan-banner";
 import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
+import { AgentContextMeter } from "@/components/agents/ui/agent-context-meter";
 import { AgentThreadMenu } from "@/components/agents/chat/agent-thread-menu";
 import { AgentReviewButton } from "@/components/agents/worktree-review/agent-review-launcher";
 import { useAgentReviewSession } from "@/components/agents/worktree-review/use-agent-review";
@@ -177,9 +178,6 @@ export const AgentChatPane = memo(function AgentChatPane({
         goalObjective: conversation?.goal?.objective ?? null,
         usage: usage ?? null,
         usageModel: conversation?.model ?? null,
-        contextPercent: usage?.modelContextWindow
-          ? Math.min(100, Math.round((usage.totalTokens / usage.modelContextWindow) * 100))
-          : null,
       };
     }),
   );
@@ -1034,11 +1032,7 @@ export const AgentChatPane = memo(function AgentChatPane({
             usage={conversationMeta.usage}
             model={conversationMeta.usageModel || model}
           />
-          {conversationMeta.contextPercent !== null ? (
-            <span className="tabular-nums">
-              {t("agentChat.contextUsed", { value: conversationMeta.contextPercent })}
-            </span>
-          ) : null}
+          <AgentContextMeter usage={conversationMeta.usage} />
         </span>
       </div>
     </m.div>
