@@ -1,6 +1,6 @@
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
 import { usePrCapabilities } from "@/lib/pr-provider-store";
@@ -231,19 +231,21 @@ export function PullRequestOverviewTab({
                   <label className="text-xs text-muted-foreground">
                     {t("pr.mergeStrategyLabel")}
                   </label>
-                  <NativeSelect
-                    size="sm"
+                  <Select
                     value={strategy}
-                    onChange={(e) =>
-                      setStrategy(e.target.value as MergeStrategy)
-                    }
+                    onValueChange={(value) => setStrategy(value as MergeStrategy)}
                   >
-                    {strategies.map((s) => (
-                      <NativeSelectOption key={s} value={s}>
-                        {mergeStrategyDisplay(s)}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
+                    <SelectTrigger size="sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {strategies.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {mergeStrategyDisplay(s)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Textarea
                   value={mergeMessage}

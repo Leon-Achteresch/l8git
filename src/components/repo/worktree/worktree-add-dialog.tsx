@@ -1,7 +1,7 @@
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type Branch } from "@/lib/repo-store";
 import { open as pickDirectory } from "@tauri-apps/plugin-dialog";
@@ -149,20 +149,22 @@ export function WorktreeAddDialog({
           {mode === "existing" ? (
             <div className="grid gap-1">
               <Label htmlFor="wt-existing-branch">{t("worktreeAdd.branchLabel")}</Label>
-              <NativeSelect
-                id="wt-existing-branch"
-                className="w-full"
-                value={existingBranch}
-                onChange={(e) => setExistingBranch(e.target.value)}
-                required
+              <Select
+                value={existingBranch || "__none__"}
+                onValueChange={(value) => setExistingBranch(value === "__none__" ? "" : value)}
               >
-                <NativeSelectOption value="">{t("worktreeAdd.branchUnset")}</NativeSelectOption>
-                {localBranches.map((b) => (
-                  <NativeSelectOption key={b.name} value={b.name}>
-                    {b.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+                <SelectTrigger id="wt-existing-branch" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{t("worktreeAdd.branchUnset")}</SelectItem>
+                  {localBranches.map((b) => (
+                    <SelectItem key={b.name} value={b.name}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-[11px] text-muted-foreground">{t("worktreeAdd.existingBranchHint")}</p>
             </div>
           ) : (
@@ -173,22 +175,25 @@ export function WorktreeAddDialog({
               </div>
               <div className="grid gap-1">
                 <Label htmlFor="wt-base-branch">{t("worktreeAdd.baseBranchLabel")}</Label>
-                <NativeSelect
-                  id="wt-base-branch"
-                  className="w-full"
-                  value={baseBranch}
-                  onChange={(e) => setBaseBranch(e.target.value)}
+                <Select
+                  value={baseBranch || "__none__"}
+                  onValueChange={(value) => setBaseBranch(value === "__none__" ? "" : value)}
                 >
-                  <NativeSelectOption value="">{t("worktreeAdd.baseFromHead")}</NativeSelectOption>
-                  {branches
-                    .filter((b) => !b.is_remote)
-                    .map((b) => (
-                      <NativeSelectOption key={b.name} value={b.name}>
-                        {b.name}
-                        {b.is_current ? ` (${t("pr.branchCurrentBadge")})` : ""}
-                      </NativeSelectOption>
-                    ))}
-                </NativeSelect>
+                  <SelectTrigger id="wt-base-branch" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{t("worktreeAdd.baseFromHead")}</SelectItem>
+                    {branches
+                      .filter((b) => !b.is_remote)
+                      .map((b) => (
+                        <SelectItem key={b.name} value={b.name}>
+                          {b.name}
+                          {b.is_current ? ` (${t("pr.branchCurrentBadge")})` : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-[11px] text-muted-foreground">{t("worktreeAdd.basisHint")}</p>
               </div>
             </>

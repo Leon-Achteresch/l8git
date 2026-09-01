@@ -3,9 +3,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { RebaseCommit } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
 import { cn } from '@/lib/utils';
@@ -184,26 +187,29 @@ export function RebaseDialog({
         <form onSubmit={e => void submit(e)} className='grid gap-3'>
           <div className='grid gap-1'>
             <Label htmlFor='rebase-target'>{t('rebase.targetLabel')}</Label>
-            <NativeSelect
-              id='rebase-target'
-              className='w-full'
-              value={selected}
-              onChange={e => setSelected(e.target.value)}
+            <Select
+              value={selected || '__none__'}
+              onValueChange={value => setSelected(value === '__none__' ? '' : value)}
               disabled={busy}
             >
-              <NativeSelectOption value=''>
-                {t('rebase.targetUnset')}
-              </NativeSelectOption>
-              {selectableBranches.map(b => (
-                <NativeSelectOption key={b.name} value={b.name}>
-                  {b.name}
-                  {b.is_remote ? ` (${t('appSearch.badgeRemote')})` : ''}
-                </NativeSelectOption>
-              ))}
-              <NativeSelectOption value={CUSTOM_REF}>
-                {t('rebase.customRefOption')}
-              </NativeSelectOption>
-            </NativeSelect>
+              <SelectTrigger id='rebase-target' className='w-full'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='__none__'>
+                  {t('rebase.targetUnset')}
+                </SelectItem>
+                {selectableBranches.map(b => (
+                  <SelectItem key={b.name} value={b.name}>
+                    {b.name}
+                    {b.is_remote ? ` (${t('appSearch.badgeRemote')})` : ''}
+                  </SelectItem>
+                ))}
+                <SelectItem value={CUSTOM_REF}>
+                  {t('rebase.customRefOption')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
             {selected === CUSTOM_REF ? (
               <Input
                 value={customRef}

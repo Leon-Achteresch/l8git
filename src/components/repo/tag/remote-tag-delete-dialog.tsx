@@ -1,5 +1,5 @@
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
@@ -130,18 +130,22 @@ export function RemoteTagDeleteDialog({
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               {t("editRemote.nameLabelExisting")}
             </label>
-            <NativeSelect
-              className="w-full"
+            <Select
               value={selected}
-              onChange={(e) => setSelected(e.target.value)}
+              onValueChange={setSelected}
               disabled={busy}
             >
-              {remotes.map((r) => (
-                <NativeSelectOption key={r.name} value={r.name}>
-                  {r.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {remotes.map((r) => (
+                  <SelectItem key={r.name} value={r.name}>
+                    {r.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
         <div className="flex justify-end gap-2">
