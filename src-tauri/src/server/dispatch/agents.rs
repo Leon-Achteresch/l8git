@@ -154,6 +154,96 @@ pub async fn dispatch(
             crate::claude::claude_mcp_login(path, name).await
         }
 
+        "agent_cap_inventory" (path: String) => {
+            crate::capability_sync::agent_cap_inventory(path).await
+        }
+
+        "agent_cap_copy" (
+            path: String,
+            items: Vec<crate::capability_sync::CapabilityRef>,
+            targets: Vec<crate::capability_sync::CapabilityTargetRef>,
+            overwrite: bool
+        ) => {
+            crate::capability_sync::agent_cap_copy(path, items, targets, overwrite).await
+        }
+
+        "agent_cap_delete" (
+            path: String,
+            items: Vec<crate::capability_sync::CapabilityRef>
+        ) => {
+            crate::capability_sync::agent_cap_delete(path, items).await
+        }
+
+        "agent_cap_sync_plan" (
+            path: String,
+            source: crate::capability_sync::CapabilityTargetRef,
+            targets: Vec<crate::capability_sync::CapabilityTargetRef>,
+            kinds: Vec<String>,
+            include_extras: bool
+        ) => {
+            crate::capability_sync::agent_cap_sync_plan(path, source, targets, kinds, include_extras).await
+        }
+
+        "agent_cap_sync_apply" (
+            path: String,
+            entries: Vec<crate::capability_sync::CapabilityPlanEntry>,
+            delete_extras: bool
+        ) => {
+            crate::capability_sync::agent_cap_sync_apply(path, entries, delete_extras).await
+        }
+
+        "agent_market_search" (
+            kind: String,
+            query: String,
+            sort: String,
+            min_stars: Option<u64>
+        ) => {
+            crate::capability_market::agent_market_search(kind, query, sort, min_stars).await
+        }
+
+        "agent_market_inspect" (full_name: String, ref_name: Option<String>) => {
+            crate::capability_market::agent_market_inspect(full_name, ref_name).await
+        }
+
+        "agent_market_install" (
+            path: String,
+            full_name: String,
+            ref_name: String,
+            assets: Vec<crate::capability_market::MarketAsset>,
+            targets: Vec<crate::capability_sync::CapabilityTargetRef>,
+            overwrite: bool
+        ) => {
+            crate::capability_market::agent_market_install(
+                path,
+                full_name,
+                ref_name,
+                assets,
+                targets,
+                overwrite,
+            )
+            .await
+        }
+
+        "agent_market_add_mcp" (
+            path: String,
+            spec: crate::capability_sync::McpSpec,
+            targets: Vec<crate::capability_sync::CapabilityTargetRef>
+        ) => {
+            crate::capability_market::agent_market_add_mcp(path, spec, targets).await
+        }
+
+        "agent_market_preview" (full_name: String, ref_name: String, file: String) => {
+            crate::capability_market::agent_market_preview(full_name, ref_name, file).await
+        }
+
+        "agent_market_target_path" (
+            path: String,
+            target: crate::capability_sync::CapabilityTargetRef,
+            kind: String
+        ) => {
+            crate::capability_market::agent_market_target_path(path, target, kind).await
+        }
+
         "cursor_list_sessions" (paths: Vec<String>) => {
             crate::cursor::cursor_list_sessions(paths).await
         }

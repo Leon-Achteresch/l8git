@@ -20,7 +20,14 @@ export function agentProviderMeta(provider: NativeAgentProvider) {
 const CODEX_ONLY_COMMANDS = ["apps", "memories", "import", "fast", "personality", "usage"] as const;
 const BACKGROUND_TERMINAL_COMMANDS = ["ps", "stop"] as const;
 
-const CAPABILITY_CENTER_COMMANDS = ["capabilities", "skills", "hooks", "plugins"] as const;
+const CAPABILITY_CENTER_COMMANDS = [
+  "capabilities",
+  "skills",
+  "hooks",
+  "plugins",
+  "marketplace",
+  "sync",
+] as const;
 
 export const UNSUPPORTED_SLASH_COMMANDS: Record<NativeAgentProvider, readonly string[]> = {
   codex: [],

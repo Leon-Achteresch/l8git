@@ -1,6 +1,7 @@
 import {
   AppWindow,
   ArrowLeft,
+  ArrowRightLeft,
   Blocks,
   Download,
   FileCode2,
@@ -12,6 +13,7 @@ import {
   Save,
   SlidersHorizontal,
   Sparkles,
+  Store,
   Webhook,
 } from "lucide-react";
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -54,6 +56,12 @@ const AgentAppStudio = lazy(() => import("@/components/agents/capabilities/agent
 const AgentHookStudio = lazy(() => import("@/components/agents/capabilities/agent-hook-studio").then(
   (module) => ({ default: module.AgentHookStudio }),
 ));
+const CapabilitySyncStudio = lazy(() => import("@/components/agents/capabilities/capability-sync-studio").then(
+  (module) => ({ default: module.CapabilitySyncStudio }),
+));
+const CapabilityMarketplace = lazy(() => import("@/components/agents/capabilities/capability-marketplace").then(
+  (module) => ({ default: module.CapabilityMarketplace }),
+));
 
 const SECTIONS: Array<{
   id: AgentCapabilitySection;
@@ -64,6 +72,8 @@ const SECTIONS: Array<{
   { id: "plugins", Icon: Blocks },
   { id: "apps", Icon: AppWindow },
   { id: "hooks", Icon: Webhook },
+  { id: "sync", Icon: ArrowRightLeft },
+  { id: "market", Icon: Store },
 ];
 
 function repoName(path: string): string {
@@ -142,7 +152,7 @@ export function AgentCapabilityCenter({
   const readSkillDraft = useAgentCapabilityStore((state) => state.readSkillDraft);
   const readTextFile = useAgentCapabilityStore((state) => state.readTextFile);
   const plugins = useMemo(() => capabilityPlugins(marketplaces), [marketplaces]);
-  const counts: Record<AgentCapabilitySection, number> = {
+  const counts: Partial<Record<AgentCapabilitySection, number>> = {
     skills: skills.length,
     mcp: mcpServers.length,
     plugins: plugins.length,
@@ -250,7 +260,11 @@ export function AgentCapabilityCenter({
         ? <AgentPluginStudio query={deferredQuery} />
         : section === "apps"
           ? <AgentAppStudio query={deferredQuery} />
-          : <AgentHookStudio query={deferredQuery} />;
+          : section === "sync"
+            ? <CapabilitySyncStudio path={path} query={deferredQuery} />
+            : section === "market"
+              ? <CapabilityMarketplace path={path} query={deferredQuery} />
+              : <AgentHookStudio query={deferredQuery} />;
 
   return (
     <section className="flex h-full min-h-0 flex-col">
@@ -287,7 +301,9 @@ export function AgentCapabilityCenter({
             >
               <Icon className="size-3.5" />
               {t(`agentCapabilities.sections.${id}`)}
-              <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
+              {counts[id] === undefined ? null : (
+                <span className="ag-faint text-[10px] tabular-nums">{counts[id]}</span>
+              )}
             </Button>
           ))}
         </nav>

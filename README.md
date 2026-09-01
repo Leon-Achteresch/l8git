@@ -134,6 +134,8 @@ Instead of switching between windows or terminals, l8git puts every repository o
 - **One-click finish** — commit, merge back into the base branch, clean up worktree and branch
 - **Agent overview** — every thread across every repository, with status and token cost
 - **Jira tickets (BYOK)** — link a ticket to a chat, see its key and status on that chat in the sidebar, and let all four CLIs read it through read-only tools that are only advertised while they are actually usable
+- **Capability sync** — copy, delete or mirror skills, slash commands, subagents, MCP servers and hooks between the agent CLIs, on the global, user and project level
+- **Capability marketplace** — search GitHub for skills, MCP servers, hooks, commands and plugins, sorted by stars, and install them into the CLI of your choice
 
 ### Quality of Life
 - **Command palette** — every action reachable without the mouse

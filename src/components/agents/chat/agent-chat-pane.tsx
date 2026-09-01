@@ -862,6 +862,8 @@ export const AgentChatPane = memo(function AgentChatPane({
     { value: "mcp", label: "Show or authenticate MCP servers", description: "/mcp [server-name|verbose]", acceptsArgument: true },
     { value: "hooks", label: "Show lifecycle hooks", description: `Inspect configured ${providerLabel} hooks` },
     { value: "plugins", label: "Show plugins", description: "Inspect installed and discoverable plugins" },
+    { value: "marketplace", label: "Open capability marketplace", description: "Browse GitHub for skills, MCP servers, hooks, and plugins" },
+    { value: "sync", label: "Sync capabilities across CLIs", description: "Copy, delete, or mirror skills and servers between agent CLIs" },
     { value: "import", label: "Import from Claude Code", description: "Preview setup, skills, and recent chats" },
     { value: "terminal", label: "Toggle in-app terminal", description: "Open it beside or below the chat", disabled: !onToggleTerminal },
     { value: "feedback", label: `Send ${providerLabel} feedback`, description: isCodex ? "Optionally include diagnostic logs" : `Report a ${providerLabel} issue` },
@@ -922,6 +924,8 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (command === "hooks") {
         return onOpenCapabilities?.("hooks");
       }
+      if (command === "marketplace") return onOpenCapabilities?.("market");
+      if (command === "sync") return onOpenCapabilities?.("sync");
       if (command === "plugins") {
         return onOpenCapabilities?.("plugins");
       }

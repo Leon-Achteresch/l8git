@@ -2847,7 +2847,9 @@
       "mcp": "MCP",
       "plugins": "Plugins",
       "apps": "Apps",
-      "hooks": "Hooks"
+      "hooks": "Hooks",
+      "sync": "Sync",
+      "market": "Marktplatz"
     },
     "skills": {
       "create": "Skill erstellen",
@@ -3008,6 +3010,121 @@
       "deleted": "Hook gelöscht",
       "empty": "Keine Lifecycle-Hooks konfiguriert",
       "emptyHint": "Erstelle eine hooks.json im Repository und automatisiere ein Codex-Lifecycle-Ereignis."
+    },
+    "hub": {
+      "title": "Kopieren, löschen und abgleichen zwischen CLIs",
+      "explainer": "Alles, was deine Agent-CLIs kennen – Skills, Slash-Commands, Subagents, MCP-Server, Hooks – in einer Liste. Quelle wählen, Ziel wählen, fertig.",
+      "step1": "Quelle wählen: welche CLI und welche Ebene (global, User, Projekt).",
+      "step2": "Ankreuzen, was mit soll – oder einfach alles ausgewählt lassen.",
+      "step3": "Ziele wählen und auf Kopieren drücken, oder mit Sync alles spiegeln.",
+      "loading": "Capabilities aller CLIs werden gelesen…",
+      "source": "1. Quelle",
+      "targets": "2. Ziele",
+      "overwrite": "Vorhandene Einträge überschreiben",
+      "noTargets": "Keine Agent-CLI gefunden.",
+      "notInstalled": "nicht installiert",
+      "notInstalledHint": "Der Befehl „{{command}}“ liegt nicht im PATH. Dateien lassen sich trotzdem schreiben.",
+      "kindUnsupported": "{{label}} kennt diese Capability-Art nicht.",
+      "noPath": "Kein Pfad vorhanden",
+      "readOnly": "schreibgeschützt (Adminrechte nötig)",
+      "scopes": {
+        "global": "Global",
+        "user": "User",
+        "repo": "Projekt"
+      },
+      "kinds": {
+        "skill": "Skills",
+        "command": "Commands",
+        "agent": "Subagents",
+        "mcp": "MCP",
+        "hook": "Hooks"
+      },
+      "selectAll": "Alle auswählen",
+      "selectNone": "Auswahl aufheben",
+      "selection": "{{count}} ausgewählt · Quelle: {{source}}",
+      "files": "{{count}} Dateien",
+      "noDescription": "Keine Beschreibung",
+      "emptyTitle": "Hier ist noch nichts",
+      "emptyDescription": "Diese CLI hat auf der gewählten Ebene nichts – oder der Filter blendet alles aus.",
+      "copy": "Kopieren",
+      "sync": "Abgleichen…",
+      "delete": "Löschen",
+      "deleteTitle": "{{count}} Einträge löschen?",
+      "deleteDescription": "Vorher landet eine Sicherung in .l8git-backups neben der Quelle.",
+      "planTitle": "Abgleich-Plan",
+      "planDescription": "Alles, was sich ändern würde. Abwählen, was so bleiben soll.",
+      "applyPlan": "Übernehmen ({{count}})",
+      "deleteExtras": "Einträge löschen, die es nur im Ziel gibt",
+      "actions": {
+        "create": "neu",
+        "update": "abweichend",
+        "same": "identisch",
+        "extra": "nur im Ziel",
+        "unsupported": "nicht möglich"
+      },
+      "results": "Ergebnis",
+      "copied": "{{count}} Einträge kopiert",
+      "deleted": "{{count}} Einträge gelöscht",
+      "synced": "{{count}} Einträge abgeglichen",
+      "resultWithErrors": "{{ok}} erledigt, {{failed}} fehlgeschlagen",
+      "backup": "Sicherung: {{path}}"
+    },
+    "market": {
+      "title": "Marktplatz",
+      "explainer": "Durchsucht GitHub nach fertigen Skills, MCP-Servern, Hooks, Commands und Plugins – sortiert nach Sternen. Eintrag öffnen, auswählen, CLI wählen, installieren.",
+      "search": "Suchen",
+      "searchPlaceholder": "z. B. Code-Review, Postgres, Testing…",
+      "loading": "GitHub wird durchsucht…",
+      "inspecting": "Repository wird gelesen…",
+      "kinds": {
+        "skill": "Skills",
+        "mcp": "MCP-Server",
+        "plugin": "Plugins",
+        "hook": "Hooks",
+        "command": "Commands"
+      },
+      "sorts": {
+        "stars": "Meiste Sterne",
+        "updated": "Zuletzt aktualisiert",
+        "forks": "Meiste Forks"
+      },
+      "anyStars": "Beliebig viele Sterne",
+      "minStars": "Ab {{stars}} Sternen",
+      "anonymousHint": "Suche läuft anonym – GitHub erlaubt nur wenige Anfragen pro Minute. Mit GitHub-Login in den Einstellungen sind es deutlich mehr.",
+      "popularity": {
+        "hot": "sehr beliebt",
+        "popular": "beliebt",
+        "growing": "im Kommen",
+        "fresh": "neu",
+        "small": "klein"
+      },
+      "updated": "aktualisiert {{date}}",
+      "archived": "archiviert",
+      "noDescription": "Keine Beschreibung",
+      "inspect": "Öffnen",
+      "emptyTitle": "Keine Treffer",
+      "emptyDescription": "Anderer Suchbegriff oder andere Kategorie hilft meistens.",
+      "detailDescription": "{{stars}} Sterne · Branch {{ref}}",
+      "trustWarning": "Diese Dateien stammen aus einem öffentlichen Repository und laufen mit deinen Rechten. Nur installieren, was du kennst – überschriebene Dateien werden vorher gesichert.",
+      "readme": "Was das Repository sagt",
+      "assets": "Was installiert werden kann",
+      "noAssets": "In diesem Repository wurde nichts Installierbares gefunden.",
+      "truncated": "Das Repository ist groß, es konnte nur teilweise durchsucht werden.",
+      "assetKinds": {
+        "skill": "Skill",
+        "command": "Command",
+        "agent": "Subagent",
+        "mcp": "MCP",
+        "hook": "Hooks",
+        "hookScript": "Hook-Skript",
+        "pluginMarketplace": "Plugin-Quelle"
+      },
+      "mcpSuggestion": "Lässt sich auch direkt als MCP-Server eintragen",
+      "addMcp": "MCP-Server eintragen",
+      "installTargets": "Installieren nach",
+      "install": "Installieren ({{count}})",
+      "installed": "{{count}} Einträge installiert",
+      "installedWithErrors": "{{ok}} installiert, {{failed}} fehlgeschlagen"
     }
   },
   "agentAddons": {

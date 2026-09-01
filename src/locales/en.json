@@ -2847,7 +2847,9 @@
       "mcp": "MCP",
       "plugins": "Plugins",
       "apps": "Apps",
-      "hooks": "Hooks"
+      "hooks": "Hooks",
+      "sync": "Sync",
+      "market": "Marketplace"
     },
     "skills": {
       "create": "Create skill",
@@ -3008,6 +3010,121 @@
       "deleted": "Hook deleted",
       "empty": "No lifecycle hooks configured",
       "emptyHint": "Create a repository hooks.json and automate a Codex lifecycle event."
+    },
+    "hub": {
+      "title": "Copy, delete, and sync across CLIs",
+      "explainer": "Everything your agent CLIs know — skills, slash commands, subagents, MCP servers, hooks — in one list. Pick where it comes from, pick where it should go, done.",
+      "step1": "Pick the source: which CLI and which level (global, user, project).",
+      "step2": "Tick what you want to move — or leave everything ticked.",
+      "step3": "Pick the targets and press Copy, or use Sync for a full mirror.",
+      "loading": "Reading capabilities of all CLIs…",
+      "source": "1. Source",
+      "targets": "2. Targets",
+      "overwrite": "Overwrite existing entries",
+      "noTargets": "No agent CLI found.",
+      "notInstalled": "not installed",
+      "notInstalledHint": "The command \"{{command}}\" is not on your PATH. Files can still be written.",
+      "kindUnsupported": "{{label}} does not know this kind of capability.",
+      "noPath": "No path available",
+      "readOnly": "read-only (needs admin rights)",
+      "scopes": {
+        "global": "Global",
+        "user": "User",
+        "repo": "Project"
+      },
+      "kinds": {
+        "skill": "Skills",
+        "command": "Commands",
+        "agent": "Subagents",
+        "mcp": "MCP",
+        "hook": "Hooks"
+      },
+      "selectAll": "Select all",
+      "selectNone": "Clear selection",
+      "selection": "{{count}} selected · source: {{source}}",
+      "files": "{{count}} files",
+      "noDescription": "No description",
+      "emptyTitle": "Nothing here yet",
+      "emptyDescription": "This CLI has no capabilities on the selected level, or the filter hides them all.",
+      "copy": "Copy",
+      "sync": "Sync…",
+      "delete": "Delete",
+      "deleteTitle": "Delete {{count}} entries?",
+      "deleteDescription": "A backup is written to .l8git-backups next to the source before anything is removed.",
+      "planTitle": "Sync plan",
+      "planDescription": "Everything that would change. Untick whatever should stay as it is.",
+      "applyPlan": "Apply ({{count}})",
+      "deleteExtras": "Also delete entries that only exist in the target",
+      "actions": {
+        "create": "new",
+        "update": "differs",
+        "same": "identical",
+        "extra": "target only",
+        "unsupported": "unsupported"
+      },
+      "results": "Result",
+      "copied": "{{count}} entries copied",
+      "deleted": "{{count}} entries deleted",
+      "synced": "{{count}} entries synced",
+      "resultWithErrors": "{{ok}} succeeded, {{failed}} failed",
+      "backup": "Backup: {{path}}"
+    },
+    "market": {
+      "title": "Marketplace",
+      "explainer": "Searches GitHub for ready-made skills, MCP servers, hooks, commands, and plugins — sorted by stars. Open an entry, tick what you need, choose the CLI, install.",
+      "search": "Search",
+      "searchPlaceholder": "e.g. code review, postgres, testing…",
+      "loading": "Searching GitHub…",
+      "inspecting": "Reading repository…",
+      "kinds": {
+        "skill": "Skills",
+        "mcp": "MCP servers",
+        "plugin": "Plugins",
+        "hook": "Hooks",
+        "command": "Commands"
+      },
+      "sorts": {
+        "stars": "Most stars",
+        "updated": "Recently updated",
+        "forks": "Most forks"
+      },
+      "anyStars": "Any number of stars",
+      "minStars": "From {{stars}} stars",
+      "anonymousHint": "Searching anonymously — GitHub allows only a few requests per minute. Sign in to GitHub in the settings for more.",
+      "popularity": {
+        "hot": "very popular",
+        "popular": "popular",
+        "growing": "growing",
+        "fresh": "new",
+        "small": "small"
+      },
+      "updated": "updated {{date}}",
+      "archived": "archived",
+      "noDescription": "No description",
+      "inspect": "Open",
+      "emptyTitle": "No results",
+      "emptyDescription": "Try another search term or a different category.",
+      "detailDescription": "{{stars}} stars · branch {{ref}}",
+      "trustWarning": "These files come from a public repository and run with your permissions. Only install what you trust — a backup of anything overwritten is kept.",
+      "readme": "What this repository says",
+      "assets": "What can be installed",
+      "noAssets": "No installable capabilities found in this repository.",
+      "truncated": "The repository is large; only part of it could be scanned.",
+      "assetKinds": {
+        "skill": "Skill",
+        "command": "Command",
+        "agent": "Subagent",
+        "mcp": "MCP",
+        "hook": "Hooks",
+        "hookScript": "Hook script",
+        "pluginMarketplace": "Plugin source"
+      },
+      "mcpSuggestion": "Can also be added directly as an MCP server",
+      "addMcp": "Add MCP server",
+      "installTargets": "Install into",
+      "install": "Install ({{count}})",
+      "installed": "{{count}} entries installed",
+      "installedWithErrors": "{{ok}} installed, {{failed}} failed"
     }
   },
   "agentAddons": {

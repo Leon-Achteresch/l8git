@@ -1,4 +1,11 @@
-export type AgentCapabilitySection = "skills" | "mcp" | "plugins" | "apps" | "hooks";
+export type AgentCapabilitySection =
+  | "skills"
+  | "mcp"
+  | "plugins"
+  | "apps"
+  | "hooks"
+  | "sync"
+  | "market";
 
 export type AgentSkillScope = "user" | "repo" | "system" | "admin";
 

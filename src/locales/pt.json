@@ -2847,7 +2847,9 @@
       "mcp": "MCP",
       "plugins": "Plugins",
       "apps": "Apps",
-      "hooks": "Hooks"
+      "hooks": "Hooks",
+      "sync": "Sincronizar",
+      "market": "Mercado"
     },
     "skills": {
       "create": "Criar skill",
@@ -3008,6 +3010,121 @@
       "deleted": "Hook excluído",
       "empty": "Nenhum hook de ciclo de vida configurado",
       "emptyHint": "Crie um hooks.json no repositório e automatize um evento do ciclo de vida do Codex."
+    },
+    "hub": {
+      "title": "Copiar, apagar e sincronizar entre CLIs",
+      "explainer": "Tudo o que as suas CLIs de agente conhecem — skills, comandos, subagentes, servidores MCP, hooks — numa só lista. Escolha a origem, escolha o destino, pronto.",
+      "step1": "Escolha a origem: qual CLI e qual nível (global, utilizador, projeto).",
+      "step2": "Marque o que quer mover — ou deixe tudo marcado.",
+      "step3": "Escolha os destinos e carregue em Copiar, ou use Sincronizar para espelhar tudo.",
+      "loading": "A ler as capacidades de todas as CLIs…",
+      "source": "1. Origem",
+      "targets": "2. Destinos",
+      "overwrite": "Substituir entradas existentes",
+      "noTargets": "Nenhuma CLI de agente encontrada.",
+      "notInstalled": "não instalada",
+      "notInstalledHint": "O comando «{{command}}» não está no PATH. Mesmo assim é possível escrever ficheiros.",
+      "kindUnsupported": "{{label}} não conhece este tipo de capacidade.",
+      "noPath": "Sem caminho disponível",
+      "readOnly": "só leitura (precisa de permissões de administrador)",
+      "scopes": {
+        "global": "Global",
+        "user": "Utilizador",
+        "repo": "Projeto"
+      },
+      "kinds": {
+        "skill": "Skills",
+        "command": "Comandos",
+        "agent": "Subagentes",
+        "mcp": "MCP",
+        "hook": "Hooks"
+      },
+      "selectAll": "Selecionar tudo",
+      "selectNone": "Limpar seleção",
+      "selection": "{{count}} selecionados · origem: {{source}}",
+      "files": "{{count}} ficheiros",
+      "noDescription": "Sem descrição",
+      "emptyTitle": "Ainda não há nada aqui",
+      "emptyDescription": "Esta CLI não tem nada no nível escolhido, ou o filtro esconde tudo.",
+      "copy": "Copiar",
+      "sync": "Sincronizar…",
+      "delete": "Apagar",
+      "deleteTitle": "Apagar {{count}} entradas?",
+      "deleteDescription": "Antes é guardada uma cópia em .l8git-backups junto à origem.",
+      "planTitle": "Plano de sincronização",
+      "planDescription": "Tudo o que mudaria. Desmarque o que deve ficar como está.",
+      "applyPlan": "Aplicar ({{count}})",
+      "deleteExtras": "Apagar também o que só existe no destino",
+      "actions": {
+        "create": "novo",
+        "update": "diferente",
+        "same": "idêntico",
+        "extra": "só no destino",
+        "unsupported": "não possível"
+      },
+      "results": "Resultado",
+      "copied": "{{count}} entradas copiadas",
+      "deleted": "{{count}} entradas apagadas",
+      "synced": "{{count}} entradas sincronizadas",
+      "resultWithErrors": "{{ok}} com sucesso, {{failed}} com erro",
+      "backup": "Cópia de segurança: {{path}}"
+    },
+    "market": {
+      "title": "Mercado",
+      "explainer": "Procura no GitHub skills, servidores MCP, hooks, comandos e plugins já prontos, ordenados por estrelas. Abra uma entrada, marque o que precisa, escolha a CLI, instale.",
+      "search": "Procurar",
+      "searchPlaceholder": "p. ex. revisão de código, postgres, testes…",
+      "loading": "A procurar no GitHub…",
+      "inspecting": "A ler o repositório…",
+      "kinds": {
+        "skill": "Skills",
+        "mcp": "Servidores MCP",
+        "plugin": "Plugins",
+        "hook": "Hooks",
+        "command": "Comandos"
+      },
+      "sorts": {
+        "stars": "Mais estrelas",
+        "updated": "Atualizados há pouco",
+        "forks": "Mais forks"
+      },
+      "anyStars": "Qualquer número de estrelas",
+      "minStars": "A partir de {{stars}} estrelas",
+      "anonymousHint": "A pesquisa é anónima: o GitHub permite poucos pedidos por minuto. Inicie sessão no GitHub nas definições para ter mais.",
+      "popularity": {
+        "hot": "muito popular",
+        "popular": "popular",
+        "growing": "a crescer",
+        "fresh": "novo",
+        "small": "pequeno"
+      },
+      "updated": "atualizado {{date}}",
+      "archived": "arquivado",
+      "noDescription": "Sem descrição",
+      "inspect": "Abrir",
+      "emptyTitle": "Sem resultados",
+      "emptyDescription": "Experimente outro termo ou outra categoria.",
+      "detailDescription": "{{stars}} estrelas · ramo {{ref}}",
+      "trustWarning": "Estes ficheiros vêm de um repositório público e correm com as suas permissões. Instale apenas o que conhece; o que for substituído é guardado antes.",
+      "readme": "O que diz o repositório",
+      "assets": "O que pode ser instalado",
+      "noAssets": "Não foi encontrado nada instalável neste repositório.",
+      "truncated": "O repositório é grande e só foi possível analisar uma parte.",
+      "assetKinds": {
+        "skill": "Skill",
+        "command": "Comando",
+        "agent": "Subagente",
+        "mcp": "MCP",
+        "hook": "Hooks",
+        "hookScript": "Script de hook",
+        "pluginMarketplace": "Fonte de plugins"
+      },
+      "mcpSuggestion": "Também pode ser adicionado diretamente como servidor MCP",
+      "addMcp": "Adicionar servidor MCP",
+      "installTargets": "Instalar em",
+      "install": "Instalar ({{count}})",
+      "installed": "{{count}} entradas instaladas",
+      "installedWithErrors": "{{ok}} instaladas, {{failed}} com erro"
     }
   },
   "agentAddons": {
