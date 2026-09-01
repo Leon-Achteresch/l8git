@@ -8,6 +8,7 @@ import {
   ArrowDown,
   Blocks,
   ChevronRight,
+  Command,
   File,
   FileDiff,
   FileImage,
@@ -42,6 +43,7 @@ import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
 import { AgentAccountMenu } from "@/components/agents/chat/agent-account-menu";
+import { AgentCommandPicker, type AgentCommandPickerState } from "@/components/agents/chat/agent-command-picker";
 import { AgentComposerControls } from "@/components/agents/chat/agent-composer-controls";
 import { AgentPlanBanner } from "@/components/agents/chat/agent-plan-banner";
 import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
@@ -64,21 +66,31 @@ import {
   saveAgentComposerDraft,
 } from "@/lib/agents/composer-drafts";
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
-import type { AgentAttachment } from "@/lib/agents/types";
+import type { AgentAttachment, AgentConnectionStatus } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { barcodePrompt } from "@/lib/agents/barcode-spec";
 import { browserE2ePrompt, readBrowserAddon } from "@/lib/agents/browser-addon";
 import { chartPrompt } from "@/lib/agents/chart-spec";
+import { listProviderCommands } from "@/lib/agents/cli-commands";
 import {
   agentProviderMeta,
   providerSupportsCapabilityCenter,
-  providerSupportsSlashCommand,
 } from "@/lib/agents/provider-meta";
+import {
+  isNativeSlashCommand,
+  mergeSlashCommands,
+  nativeSlashCommands,
+  shouldRunNativeSlash,
+  slashCommandLine,
+  type AgentCliCommand,
+} from "@/lib/agents/slash-commands";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
-import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import { SpinIcon, StaggerItem, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { AgDot } from "@/components/agents/ui/ag-dot";
+import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
+import { AgentStatusChip, type AgentStatusTone } from "@/components/agents/ui/agent-status-chip";
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { useScrollMargin } from "@/hooks/use-scroll-margin";
 import {
   ScrollProgressCircle,
@@ -107,6 +119,24 @@ function repoName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
+function chatStatusTone(busy: boolean, sessionStatus: AgentConnectionStatus): AgentStatusTone {
+  if (busy) return "working";
+  switch (sessionStatus) {
+    case "ready":
+      return "ready";
+    case "connecting":
+      return "working";
+    case "error":
+      return "error";
+    case "idle":
+      return "idle";
+    default: {
+      const _never: never = sessionStatus;
+      return _never;
+    }
+  }
+}
+
 const INITIAL_VISIBLE_TURNS = 32;
 const TURN_PAGE_SIZE = 32;
 // Starting guess for an unmeasured turn. Real heights replace it as each turn
@@ -124,6 +154,8 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
   centered,
   composer,
   onStarter,
+  cliCommands,
+  onCliCommand,
   scrollToBottomSignal,
 }: {
   path: string;
@@ -131,6 +163,8 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
   centered: boolean;
   composer: ReactNode;
   onStarter: (text: string) => void;
+  cliCommands: AgentCliCommand[];
+  onCliCommand: (command: AgentCliCommand) => void;
   scrollToBottomSignal: number;
 }) {
   const { t } = useTranslation();
@@ -339,11 +373,15 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
               </button>
             </div>
           ) : centered ? (
-            <div className="m-auto w-full max-w-2xl py-8">
+            <AgentsEnter className="m-auto w-full max-w-2xl py-8">
               <div className="flex flex-col items-center text-center">
-                <span className="ag-inset grid size-11 place-items-center rounded-[13px]">
+                <m.span
+                  className="ag-inset grid size-12 place-items-center rounded-[14px]"
+                  animate={reduceMotion ? undefined : { y: [0, -4, 0] }}
+                  transition={{ repeat: Infinity, duration: 4.4, ease: "easeInOut" }}
+                >
                   <ProviderLogo className="size-5" />
-                </span>
+                </m.span>
                 <h2 className="mt-4 text-[17px] font-semibold tracking-[-0.015em]">
                   {t("agentChat.emptyTitle", { agent })}
                 </h2>
@@ -352,26 +390,51 @@ const AgentConversationViewport = memo(function AgentConversationViewport({
                 </p>
               </div>
 
-              <div className="ag-card mt-7 p-1.5">
+              <div className="ag-card mt-7 max-h-80 overflow-y-auto p-1.5">
                 <p className="ag-label px-2 py-1.5">{t("agentChat.shortcuts")}</p>
                 {starters.map((starter, index) => {
                   const { Icon, color } = STARTER_ICONS[index] ?? STARTER_ICONS[0];
                   return (
-                    <button
-                      key={starter}
-                      type="button"
-                      onClick={() => onStarter(starter)}
-                      className="ag-menu-item"
-                    >
-                      <Icon className="size-4 shrink-0" style={{ color }} />
-                      <span className="min-w-0 flex-1 truncate text-[13px]">{starter}</span>
-                    </button>
+                    <StaggerItem key={starter} index={index}>
+                      <button
+                        type="button"
+                        onClick={() => onStarter(starter)}
+                        className="ag-menu-item"
+                      >
+                        <Icon className="size-4 shrink-0" style={{ color }} />
+                        <span className="min-w-0 flex-1 truncate text-[13px]">{starter}</span>
+                      </button>
+                    </StaggerItem>
                   );
                 })}
+                {cliCommands.length ? (
+                  <>
+                    <p className="ag-label px-2 pb-1.5 pt-2">{t("agentChat.cliCommands")}</p>
+                    {cliCommands.map((command, index) => (
+                      <StaggerItem key={command.name} index={starters.length + index}>
+                        <button
+                          type="button"
+                          onClick={() => onCliCommand(command)}
+                          className="ag-menu-item"
+                        >
+                          <Command className="size-4 shrink-0 text-[var(--git-branch)]" />
+                          <span className="min-w-0 flex-1 truncate font-mono text-[13px]">
+                            /{command.name}
+                          </span>
+                          {command.description ? (
+                            <span className="ag-faint hidden min-w-0 max-w-[46%] truncate text-[11px] sm:block">
+                              {command.description}
+                            </span>
+                          ) : null}
+                        </button>
+                      </StaggerItem>
+                    ))}
+                  </>
+                ) : null}
               </div>
 
               <div className="mt-3">{composer}</div>
-            </div>
+            </AgentsEnter>
           ) : (
             <div className="space-y-6">
               {hiddenTurnCount > 0 ? (
@@ -573,6 +636,7 @@ export const AgentChatPane = memo(function AgentChatPane({
   const setMemoryMode = useAgentChatStore((state) => state.setMemoryMode);
   const resetMemory = useAgentChatStore((state) => state.resetMemory);
   const listBackgroundTerminals = useAgentChatStore((state) => state.listBackgroundTerminals);
+  const terminateBackgroundTerminal = useAgentChatStore((state) => state.terminateBackgroundTerminal);
   const listMcpServers = useAgentChatStore((state) => state.listMcpServers);
   const loginMcpServer = useAgentChatStore((state) => state.loginMcpServer);
   const stopBackgroundTerminals = useAgentChatStore((state) => state.stopBackgroundTerminals);
@@ -593,6 +657,8 @@ export const AgentChatPane = memo(function AgentChatPane({
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [commandPicker, setCommandPicker] = useState<AgentCommandPickerState | null>(null);
+  const [cliCommands, setCliCommands] = useState<AgentCliCommand[]>([]);
   const [scrollToBottomSignal, setScrollToBottomSignal] = useState(0);
 
   const busy = Boolean(conversationMeta.activeTurnId);
@@ -630,6 +696,20 @@ export const AgentChatPane = memo(function AgentChatPane({
     }, 250);
     return () => clearTimeout(timer);
   }, [attachments, composerDraftKey, draft]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listProviderCommands(provider, path)
+      .then((commands) => {
+        if (!cancelled) setCliCommands(commands);
+      })
+      .catch(() => {
+        if (!cancelled) setCliCommands([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path, provider, threadId]);
 
   useEffect(
     () =>
@@ -839,55 +919,36 @@ export const AgentChatPane = memo(function AgentChatPane({
     }
   };
 
-  const slashCommands = useMemo<PromptSlashCommand[]>(() => [
-    { value: "new", label: "Start a new chat", description: "Fresh context in this repository" },
-    { value: "clear", label: "Clear into a new chat", description: `${providerLabel}-compatible alias for /new` },
-    { value: "rename", label: "Rename this chat", description: "Use /rename New title or edit inline", disabled: !threadId, acceptsArgument: true },
-    { value: "review", label: "Review working tree", description: "Optionally add custom review instructions", disabled: !threadId || busy, acceptsArgument: true },
-    { value: "fork", label: "Fork this chat", description: "Continue from a copy", disabled: !threadId || busy },
-    { value: "compact", label: "Compact context", description: "Summarize older context", disabled: !threadId || busy },
-    { value: "plan", label: "Toggle Plan mode", description: "Switch between Default and Plan" },
-    { value: "goal", label: "Set or clear a goal", description: "/goal objective or /goal clear", disabled: !threadId, acceptsArgument: true },
-    { value: "model", label: "Choose model and effort", description: "/model model-id [effort]", acceptsArgument: true },
-    { value: "permissions", label: "Choose permissions", description: `Select a named ${providerLabel} permission profile`, acceptsArgument: true },
-    { value: "memories", label: "Configure memory", description: "/memories enabled, disabled, or reset", acceptsArgument: true },
-    { value: "chart", label: "Visualize data as a chart", description: "/chart what to visualize — renders an interactive chart", disabled: busy, acceptsArgument: true },
-    { value: "barcode", label: "Render scannable barcodes", description: "/barcode which values to encode — renders scannable codes", disabled: busy, acceptsArgument: true },
-    { value: "browser", label: "Run an end-to-end test in the browser", description: "/browser what to test — drives a real browser through the browser addon", disabled: busy, acceptsArgument: true },
-    { value: "addons", label: "Open Addon Studio", description: "Barcode rendering and browser access for every CLI" },
-    { value: "init", label: `Create ${isClaude ? "CLAUDE.md" : "AGENTS.md"}`, description: `Ask ${providerLabel} to add repository instructions`, disabled: busy },
-    { value: "capabilities", label: "Open Capability Studio", description: "Manage skills, MCP, plugins, apps, and hooks" },
-    { value: "skills", label: "Manage skills", description: "Create, edit, enable, duplicate, and remove skills" },
-    { value: "apps", label: "Manage apps", description: "Configure apps, tools, and approval policies" },
-    { value: "mcp", label: "Show or authenticate MCP servers", description: "/mcp [server-name|verbose]", acceptsArgument: true },
-    { value: "hooks", label: "Show lifecycle hooks", description: `Inspect configured ${providerLabel} hooks` },
-    { value: "plugins", label: "Show plugins", description: "Inspect installed and discoverable plugins" },
-    { value: "marketplace", label: "Open capability marketplace", description: "Browse GitHub for skills, MCP servers, hooks, and plugins" },
-    { value: "sync", label: "Sync capabilities across CLIs", description: "Copy, delete, or mirror skills and servers between agent CLIs" },
-    { value: "import", label: "Import from Claude Code", description: "Preview setup, skills, and recent chats" },
-    { value: "terminal", label: "Toggle in-app terminal", description: "Open it beside or below the chat", disabled: !onToggleTerminal },
-    { value: "feedback", label: `Send ${providerLabel} feedback`, description: isCodex ? "Optionally include diagnostic logs" : `Report a ${providerLabel} issue` },
-    { value: "mention", label: "Mention files", description: "Attach exact local paths" },
-    { value: "browse", label: "Browse any file", description: "Attach a path outside the repository" },
-    { value: "folder", label: "Mention a folder", description: "Attach a local directory" },
-    { value: "image", label: "Attach images", description: "PNG, JPEG, GIF or WebP" },
-    { value: "audio", label: "Attach audio", description: "Voice note or audio file" },
-    { value: "ps", label: "Background terminals", description: "List running shell processes", disabled: !threadId },
-    { value: "stop", label: "Stop background terminals", description: "Terminate all background shells", disabled: !threadId },
-    { value: "fast", label: "Toggle Fast mode", description: "Use the catalog-provided Fast service tier", disabled: !(models.find((option) => option.id === model)?.serviceTiers.length) },
-    { value: "personality", label: "Set personality", description: "friendly, pragmatic, or none", disabled: !models.find((option) => option.id === model)?.supportsPersonality, acceptsArgument: true },
-    { value: "copy", label: "Copy latest response", description: `Copy the last ${providerLabel} message`, disabled: !conversationMeta.exists },
-    { value: "status", label: "Show chat status", description: "Model, effort, permissions, and context" },
-    { value: "usage", label: "Show usage limits", description: "Current account rate limits" },
-    { value: "archive", label: "Archive this chat", description: "Remove it from the active list", disabled: !threadId || busy },
-    { value: "delete", label: "Delete this chat", description: "Permanently delete the transcript", disabled: !threadId || busy },
-    { value: "logout", label: `Log out of ${providerLabel}`, description: `Disconnect the current ${isClaude ? "Anthropic" : isCodex ? "OpenAI" : "OpenCode"} account` },
-  ].filter((command) => providerSupportsSlashCommand(provider, command.value)), [busy, conversationMeta.exists, isClaude, isCodex, model, models, onOpenCapabilities, onToggleTerminal, provider, providerLabel, threadId]);
+  const extraCliCommands = useMemo(
+    () => cliCommands.filter((command) => !isNativeSlashCommand(command.name)),
+    [cliCommands],
+  );
+
+  const slashCommands = useMemo<PromptSlashCommand[]>(
+    () =>
+      mergeSlashCommands(
+        nativeSlashCommands({
+          provider,
+          providerLabel,
+          isClaude,
+          isCodex,
+          threadId,
+          busy,
+          conversationExists: conversationMeta.exists,
+          model,
+          models,
+          hasTerminalToggle: Boolean(onToggleTerminal),
+        }),
+        cliCommands,
+      ),
+    [busy, cliCommands, conversationMeta.exists, isClaude, isCodex, model, models, onToggleTerminal, provider, providerLabel, threadId],
+  );
 
   const runSlashCommand = async (command: string, argument: string) => {
     try {
-      if (!providerSupportsSlashCommand(provider, command)) {
-        throw new Error(`/${command} is not available with ${providerLabel}.`);
+      if (!shouldRunNativeSlash(command, provider)) {
+        await sendMessage(path, slashCommandLine(command, argument));
+        return;
       }
       if (command === "new") return await newThread();
       if (command === "clear") return await newThread();
@@ -914,11 +975,32 @@ export const AgentChatPane = memo(function AgentChatPane({
           toast.success(`${server.name} authentication started`);
           return;
         }
-        toast.info(servers.length
-          ? servers.map((server) => argument.toLocaleLowerCase() === "verbose"
-            ? `${server.name} · ${server.authStatus}\n${server.tools.join(", ") || "No tools"}`
-            : `${server.name} · ${server.tools.length} tools · ${server.authStatus}`).join("\n")
-          : "No MCP servers configured");
+        const verbose = argument.toLocaleLowerCase() === "verbose";
+        if (!servers.length) {
+          setCommandPicker({ title: "MCP", detail: "No MCP servers configured" });
+          return;
+        }
+        if (verbose) {
+          setCommandPicker({
+            title: "MCP",
+            detail: servers.map((server) =>
+              `${server.name} · ${server.authStatus}\n${server.tools.join(", ") || "No tools"}`,
+            ).join("\n\n"),
+          });
+          return;
+        }
+        setCommandPicker({
+          title: "MCP",
+          items: servers.map((server) => ({
+            id: server.name,
+            label: server.name,
+            description: `${server.tools.length} tools · ${server.authStatus}`,
+          })),
+          onSelect: (name) => {
+            setCommandPicker(null);
+            void runSlashCommand("mcp", name);
+          },
+        });
         return;
       }
       if (command === "hooks") {
@@ -934,7 +1016,19 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (command === "feedback") return setFeedbackOpen(true);
       if (command === "model") {
         if (!argument) {
-          toast.info(models.map((option) => `${option.id} · ${codexReasoningEffortLabel(option.defaultReasoningEffort)}`).join("\n"));
+          setCommandPicker({
+            title: "Model",
+            items: models.map((option) => ({
+              id: option.id,
+              label: option.label,
+              description: `${option.id} · ${codexReasoningEffortLabel(option.defaultReasoningEffort)}`,
+            })),
+            onSelect: (id) => {
+              setModel(id);
+              setCommandPicker(null);
+              toast.success(models.find((option) => option.id === id)?.label ?? id);
+            },
+          });
           return;
         }
         const [requestedModel, requestedEffort] = argument.split(/\s+/u);
@@ -956,9 +1050,25 @@ export const AgentChatPane = memo(function AgentChatPane({
       }
       if (command === "permissions") {
         if (!argument) {
-          toast.info(permissionProfiles.length
-            ? permissionProfiles.map((profile) => `${profile.allowed ? "Available" : "Blocked"} · ${profile.id}`).join("\n")
-            : "Open the settings menu to choose custom sandbox and approval rules.");
+          setCommandPicker({
+            title: "Permissions",
+            description: permissionProfiles.length
+              ? undefined
+              : "Open the settings menu to choose custom sandbox and approval rules.",
+            items: [
+              { id: "custom", label: "Custom" },
+              ...permissionProfiles.map((profile) => ({
+                id: profile.id,
+                label: profile.id.replace(/^:/u, ""),
+                description: profile.allowed ? "Available" : "Blocked",
+                disabled: !profile.allowed,
+              })),
+            ],
+            onSelect: (id) => {
+              setCommandPicker(null);
+              void runSlashCommand("permissions", id);
+            },
+          });
           return;
         }
         if (argument.toLocaleLowerCase() === "custom") {
@@ -978,6 +1088,21 @@ export const AgentChatPane = memo(function AgentChatPane({
       }
       if (command === "memories") {
         const value = argument.toLocaleLowerCase();
+        if (!argument) {
+          setCommandPicker({
+            title: "Memory",
+            items: [
+              { id: "enabled", label: "Enabled" },
+              { id: "disabled", label: "Disabled" },
+              { id: "reset", label: "Reset all memories" },
+            ],
+            onSelect: (id) => {
+              setCommandPicker(null);
+              void runSlashCommand("memories", id);
+            },
+          });
+          return;
+        }
         if (value === "reset") {
           if (!window.confirm("Reset all Codex memories? This cannot be undone.")) return;
           await resetMemory();
@@ -993,19 +1118,49 @@ export const AgentChatPane = memo(function AgentChatPane({
         return;
       }
       if (command === "chart") {
-        if (!argument) throw new Error("Use /chart <what to visualize>.");
+        if (!argument) {
+          setCommandPicker({
+            title: "Chart",
+            input: { placeholder: "What to visualize", submitLabel: "Run" },
+            onSubmit: (value) => {
+              setCommandPicker(null);
+              void sendMessage(path, chartPrompt(value));
+            },
+          });
+          return;
+        }
         await sendMessage(path, chartPrompt(argument));
         return;
       }
       if (command === "barcode") {
-        if (!argument) throw new Error("Use /barcode <which values to encode>.");
+        if (!argument) {
+          setCommandPicker({
+            title: "Barcode",
+            input: { placeholder: "Which values to encode", submitLabel: "Run" },
+            onSubmit: (value) => {
+              setCommandPicker(null);
+              void sendMessage(path, barcodePrompt(value));
+            },
+          });
+          return;
+        }
         await sendMessage(path, barcodePrompt(argument));
         return;
       }
       if (command === "addons") return onOpenAddons?.();
       if (command === "browser") {
-        if (!argument) throw new Error("Use /browser <what to test>.");
         if (!onOpenAddons) throw new Error("The browser addon is unavailable here.");
+        if (!argument) {
+          setCommandPicker({
+            title: "Browser",
+            input: { placeholder: "What to test", submitLabel: "Run" },
+            onSubmit: (value) => {
+              setCommandPicker(null);
+              void runSlashCommand("browser", value);
+            },
+          });
+          return;
+        }
         const status = await readBrowserAddon(path, provider);
         if (!status.installed) {
           onOpenAddons();
@@ -1039,6 +1194,21 @@ export const AgentChatPane = memo(function AgentChatPane({
         return;
       }
       if (command === "personality") {
+        if (!argument) {
+          setCommandPicker({
+            title: "Personality",
+            items: [
+              { id: "friendly", label: "Friendly" },
+              { id: "pragmatic", label: "Pragmatic" },
+              { id: "none", label: "None" },
+            ],
+            onSelect: (id) => {
+              setCommandPicker(null);
+              void runSlashCommand("personality", id);
+            },
+          });
+          return;
+        }
         const value = argument.toLocaleLowerCase();
         if (value !== "friendly" && value !== "pragmatic" && value !== "none") {
           throw new Error("Use /personality friendly, /personality pragmatic, or /personality none.");
@@ -1068,18 +1238,41 @@ export const AgentChatPane = memo(function AgentChatPane({
           await setGoal(threadId, argument);
           toast.success("Goal updated");
         } else {
-          toast.info(
-            useAgentChatStore.getState().conversations[threadId]?.goal?.objective ??
-              "No active goal",
-          );
+          const current = useAgentChatStore.getState().conversations[threadId]?.goal?.objective ?? "";
+          setCommandPicker({
+            title: "Goal",
+            description: current || "No active goal",
+            items: current ? [{ id: "clear", label: "Clear goal" }] : undefined,
+            input: { placeholder: "Objective", submitLabel: "Set goal" },
+            onSelect: (id) => {
+              setCommandPicker(null);
+              if (id === "clear") void runSlashCommand("goal", "clear");
+            },
+            onSubmit: (value) => {
+              setCommandPicker(null);
+              void runSlashCommand("goal", value);
+            },
+          });
         }
         return;
       }
       if (command === "ps") {
         const terminals = await listBackgroundTerminals(threadId);
-        toast.info(terminals.length
-          ? terminals.map((terminal) => `${terminal.processId} · ${terminal.command}`).join("\n")
-          : "No background terminals");
+        setCommandPicker({
+          title: "Background terminals",
+          detail: terminals.length ? undefined : "No background terminals",
+          items: terminals.map((terminal) => ({
+            id: terminal.processId,
+            label: terminal.command,
+            description: terminal.processId,
+          })),
+          onSelect: (processId) => {
+            setCommandPicker(null);
+            void terminateBackgroundTerminal(threadId, processId)
+              .then(() => toast.success("Terminal stopped"))
+              .catch((error: unknown) => toast.error(error instanceof Error ? error.message : String(error)));
+          },
+        });
         return;
       }
       if (command === "stop") {
@@ -1100,20 +1293,31 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (command === "status") {
         const usage = useAgentChatStore.getState().conversations[threadId]?.tokenUsage;
         const context = usage?.modelContextWindow
-          ? ` · ${Math.round((usage.totalTokens / usage.modelContextWindow) * 100)}% context`
-          : "";
-        toast.info(`${model ?? "Default model"} · ${codexReasoningEffortLabel(useAgentChatStore.getState().reasoningEffort)} · ${useAgentChatStore.getState().permissionProfile ?? useAgentChatStore.getState().sandboxMode}${context}`);
+          ? `${Math.round((usage.totalTokens / usage.modelContextWindow) * 100)}% context`
+          : null;
+        setCommandPicker({
+          title: "Status",
+          detail: [
+            model ?? "Default model",
+            codexReasoningEffortLabel(useAgentChatStore.getState().reasoningEffort),
+            useAgentChatStore.getState().permissionProfile ?? useAgentChatStore.getState().sandboxMode,
+            context,
+          ].filter(Boolean).join(" · "),
+        });
         return;
       }
       if (command === "usage") {
         const state = useAgentChatStore.getState();
         const primary = state.rateLimits?.primary;
         const lifetime = state.accountUsage?.lifetimeTokens;
-        toast.info([
-          primary ? `${Math.round(primary.usedPercent)}% of current limit used` : null,
-          lifetime !== null && lifetime !== undefined ? `${lifetime.toLocaleString()} lifetime tokens` : null,
-          state.accountUsage?.currentStreakDays ? `${state.accountUsage.currentStreakDays}-day streak` : null,
-        ].filter(Boolean).join(" · ") || "No usage data available");
+        setCommandPicker({
+          title: "Usage",
+          detail: [
+            primary ? `${Math.round(primary.usedPercent)}% of current limit used` : null,
+            lifetime !== null && lifetime !== undefined ? `${lifetime.toLocaleString()} lifetime tokens` : null,
+            state.accountUsage?.currentStreakDays ? `${state.accountUsage.currentStreakDays}-day streak` : null,
+          ].filter(Boolean).join("\n") || "No usage data available",
+        });
         return;
       }
       if (command === "archive") return await archiveThread(path, threadId);
@@ -1126,15 +1330,7 @@ export const AgentChatPane = memo(function AgentChatPane({
     }
   };
 
-  const statusState = busy
-    ? "working"
-    : sessionStatus === "ready"
-      ? "ready"
-      : sessionStatus === "connecting"
-        ? "working"
-        : sessionStatus === "error"
-          ? "error"
-          : "idle";
+  const statusState = chatStatusTone(busy, sessionStatus);
   const statusLabel = busy
     ? t("agentChat.working")
     : sessionStatus === "ready"
@@ -1177,7 +1373,11 @@ export const AgentChatPane = memo(function AgentChatPane({
   ) : null;
 
   const composer = (
-    <div className="w-full">
+    <m.div
+      layout
+      className="w-full"
+      transition={SPRING_PANEL}
+    >
       <PromptInput
         value={draft}
         onValueChange={setDraft}
@@ -1282,15 +1482,15 @@ export const AgentChatPane = memo(function AgentChatPane({
           ) : null}
         </span>
       </div>
-    </div>
+    </m.div>
   );
 
   return (
     <section className="flex h-full min-h-0 flex-1 flex-col">
       <header className="ag-line flex h-12 shrink-0 items-center gap-2 border-b px-3">
-        <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]">
-          <ProviderLogo className="size-3.5" />
-        </span>
+        <AgentProviderMark working={busy} label={providerLabel}>
+          <ProviderLogo />
+        </AgentProviderMark>
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <span className="ag-faint hidden shrink-0 truncate text-[12px] sm:block">
             {repoName(path)}
@@ -1312,16 +1512,9 @@ export const AgentChatPane = memo(function AgentChatPane({
         </div>
 
         {threadId || busy ? (
-          <span className="ag-pill shrink-0" title={t("agentChat.streamIsolated")}>
-            <AgDot state={statusState} />
-            {/* A running turn reads as live text rather than a static word,
-                which is what distinguishes "working" from "idle" at a glance. */}
-            {busy ? (
-              <TextShimmer duration={2}>{statusLabel}</TextShimmer>
-            ) : (
-              statusLabel
-            )}
-          </span>
+          <AgentStatusChip tone={statusState} className="shrink-0">
+            {busy ? <TextShimmer duration={2}>{statusLabel}</TextShimmer> : statusLabel}
+          </AgentStatusChip>
         ) : null}
 
         {onToggleTerminal ? (
@@ -1378,6 +1571,11 @@ export const AgentChatPane = memo(function AgentChatPane({
         centered={centeredComposer}
         composer={composer}
         onStarter={setDraft}
+        cliCommands={extraCliCommands}
+        onCliCommand={(command) => {
+          if (command.argumentHint) setDraft(`/${command.name} `);
+          else void runSlashCommand(command.name, "");
+        }}
         scrollToBottomSignal={scrollToBottomSignal}
       />
 
@@ -1441,6 +1639,12 @@ export const AgentChatPane = memo(function AgentChatPane({
           />
         ) : null}
       </Suspense>
+      <AgentCommandPicker
+        picker={commandPicker}
+        onOpenChange={(open) => {
+          if (!open) setCommandPicker(null);
+        }}
+      />
     </section>
   );
 });

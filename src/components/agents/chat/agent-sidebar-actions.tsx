@@ -1,6 +1,9 @@
-import { PenSquare, Search, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
+import { m, useReducedMotion } from "motion/react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
+
+import { SPRING_PRESS } from "@/lib/motion/ease";
 
 export function AgentSidebarActions({
   query,
@@ -13,22 +16,33 @@ export function AgentSidebarActions({
 }) {
   const { t } = useTranslation();
   const searchRef = useRef<HTMLInputElement>(null);
+  const reduce = useReducedMotion();
 
   return (
-    <nav className="min-w-0 space-y-0.5 px-2" aria-label={t("header.agents")}>
-      <button type="button" onClick={onNewThread} className="ag-row h-8 min-w-0 text-[12px]">
-        <PenSquare className="size-3.5 shrink-0" />
-        <span className="flex-1 truncate">{t("agentChat.newConversation")}</span>
-        <kbd className="ag-faint shrink-0 rounded-[5px] bg-[var(--ag-hover)] px-1 py-px text-[9px] font-medium">
+    <nav className="min-w-0 space-y-1.5 px-2" aria-label={t("header.agents")}>
+      <m.button
+        type="button"
+        onClick={onNewThread}
+        whileTap={reduce ? undefined : { scale: 0.985 }}
+        transition={SPRING_PRESS}
+        className="ag-card flex h-8.5 w-full min-w-0 items-center gap-2 rounded-[var(--ag-r-md)] border-[var(--ag-line)] bg-[var(--ag-surface)] px-3 text-[12px] font-medium text-[var(--ag-text)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
+      >
+        <span className="grid size-4.5 place-items-center rounded-full bg-[var(--ag-hover)] text-[var(--git-branch)]">
+          <Plus className="size-3 stroke-[2.5]" />
+        </span>
+        <span className="flex-1 truncate text-left">
+          {t("agentChat.newConversation")}
+        </span>
+        <kbd className="ag-faint shrink-0 rounded-[5px] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] px-1.5 py-0.5 text-[9px] font-medium tracking-wide">
           ⌘N
         </kbd>
-      </button>
+      </m.button>
 
       <div
-        className="ag-row h-8 min-w-0 cursor-text text-[12px] focus-within:bg-[var(--ag-hover)]"
+        className="ag-inset flex h-8 min-w-0 cursor-text items-center gap-2 rounded-[var(--ag-r-md)] border border-transparent px-2.5 text-[12px] transition-all focus-within:border-[var(--ag-line-strong)] focus-within:bg-[var(--ag-surface)] focus-within:shadow-[var(--ag-shadow-raise)]"
         onClick={() => searchRef.current?.focus()}
       >
-        <Search className="size-3.5 shrink-0" />
+        <Search className="size-3.5 shrink-0 text-[var(--ag-text-3)]" />
         <input
           ref={searchRef}
           value={query}
@@ -46,7 +60,7 @@ export function AgentSidebarActions({
               searchRef.current?.focus();
             }}
             aria-label={t("agentChat.clearSearch")}
-            className="ag-icon-btn size-5"
+            className="ag-icon-btn size-5 text-[var(--ag-text-3)] hover:text-[var(--ag-text)]"
           >
             <X className="size-3" />
           </button>

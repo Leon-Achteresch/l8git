@@ -1,41 +1,37 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  MessageSquare,
-} from "lucide-react";
+import { MessageSquare, MessageSquarePlus } from "lucide-react";
 import { m } from "motion/react";
 import { useCallback, useEffect, useMemo, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { AgentThreadRow, isWorking } from "@/components/agents/chat/agent-thread-row";
+import { AgentThreadListHeader } from "@/components/agents/chat/agent-thread-list-header";
+import {
+  AgentThreadRow,
+  isWorking,
+} from "@/components/agents/chat/agent-thread-row";
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
+import { pulseKeyframes, pulseTransition } from "@/components/motion/kit";
+import {
+  SharedLayoutBgItem,
+  SharedLayoutBgRoot,
+} from "@/components/motion/shared-layout-bg";
 import { Button } from "@/components/ui/button";
+import { useScrollMargin } from "@/hooks/use-scroll-margin";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import {
   flattenThreads,
   type SidebarThread,
 } from "@/lib/agents/thread-grouping";
-import { pulseKeyframes, pulseTransition } from "@/components/motion/kit";
-import { useScrollMargin } from "@/hooks/use-scroll-margin";
-import {
-  SharedLayoutBgItem,
-  SharedLayoutBgRoot,
-} from "@/components/motion/shared-layout-bg";
-import { Archive as ArchiveData, ArchiveRestore as ArchiveRestoreData } from "lucide";
-import { MorphIcon } from "@/components/ui/morph-icon";
+import { SPRING_PRESS } from "@/lib/motion/ease";
 
 export type { SidebarThread } from "@/lib/agents/thread-grouping";
 
-// Starting guesses for the virtualizer; real heights replace them on measure.
-const HEADER_ESTIMATE_PX = 24;
-const ROW_ESTIMATE_PX = 48;
+const HEADER_ESTIMATE_PX = 28;
+const ROW_ESTIMATE_PX = 58;
 const OVERSCAN = 8;
 
 const workingSince = new Map<string, number>();
 
-/**
- * Remembers when each thread started working so the row can show an elapsed
- * timer. Runs in an effect — a render-phase mutation would fire again on every
- * unrelated re-render and, under StrictMode, twice per commit.
- */
 function useWorkingSince(threads: SidebarThread[]): Map<string, number> {
   useEffect(() => {
     const live = new Set<string>();
@@ -84,13 +80,20 @@ export function AgentThreadList({
   locale: string;
   showArchived: boolean;
   archivedCount: number;
-  /** Scroll container the virtualizer measures against. */
   scrollRef: RefObject<HTMLDivElement | null>;
   onOpenThread: (provider: NativeAgentProvider, threadId: string) => void;
   onCreateThread: () => void;
   onRenameThread: (threadKey: string | null) => void;
-  onSetPinned: (provider: NativeAgentProvider, threadId: string, pinned: boolean) => Promise<void>;
-  onArchiveThread: (provider: NativeAgentProvider, threadId: string, archived: boolean) => Promise<void>;
+  onSetPinned: (
+    provider: NativeAgentProvider,
+    threadId: string,
+    pinned: boolean,
+  ) => Promise<void>;
+  onArchiveThread: (
+    provider: NativeAgentProvider,
+    threadId: string,
+    archived: boolean,
+  ) => Promise<void>;
   onToggleArchived: () => void;
   onShowMore: () => void;
 }) {
@@ -99,13 +102,19 @@ export function AgentThreadList({
 
   const relativeDate = useMemo(() => {
     const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-    const dateFormatter = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short" });
+    const dateFormatter = new Intl.DateTimeFormat(locale, {
+      day: "2-digit",
+      month: "short",
+    });
     return (timestamp: number) => {
       const seconds = Math.round(Date.now() / 1000 - timestamp);
       if (seconds < 60) return formatter.format(0, "second");
-      if (seconds < 3600) return formatter.format(-Math.round(seconds / 60), "minute");
-      if (seconds < 86400) return formatter.format(-Math.round(seconds / 3600), "hour");
-      if (seconds < 604800) return formatter.format(-Math.round(seconds / 86400), "day");
+      if (seconds < 3600)
+        return formatter.format(-Math.round(seconds / 60), "minute");
+      if (seconds < 86400)
+        return formatter.format(-Math.round(seconds / 3600), "hour");
+      if (seconds < 604800)
+        return formatter.format(-Math.round(seconds / 86400), "day");
       return dateFormatter.format(timestamp * 1000);
     };
   }, [locale]);
@@ -122,8 +131,6 @@ export function AgentThreadList({
     overscan: OVERSCAN,
     useAnimationFrameWithResizeObserver: true,
     getItemKey: (index) => items[index]?.key ?? index,
-    // The list is offset inside the scroller by the header/search chrome above
-    // it; without this the virtualizer places rows a fixed distance too high.
     scrollMargin,
   });
 
@@ -136,19 +143,28 @@ export function AgentThreadList({
   if (loading) {
     return (
       <section className="min-w-0 px-2 pb-4">
-        <ListHeader
+        <AgentThreadListHeader
           showArchived={showArchived}
           archivedCount={archivedCount}
           onToggleArchived={onToggleArchived}
         />
-        <div className="space-y-px" aria-label={t("agentChat.loadingConversations")}>
-          {[0, 1, 2, 3].map((index) => (
+        <div
+          className="space-y-1.5 pt-1"
+          aria-label={t("agentChat.loadingConversations")}
+        >
+          {[0, 1, 2, 3, 4, 5].map((index) => (
             <m.div
               animate={pulseKeyframes}
-              transition={pulseTransition}
+              transition={{ ...pulseTransition, delay: index * 0.07 }}
               key={index}
-              className="h-11 rounded-[9px] bg-[var(--ag-hover)]"
-            />
+              className="flex h-14 items-center gap-2.5 rounded-[var(--ag-r-md)] border border-transparent px-2.5"
+            >
+              <span className="size-7 shrink-0 rounded-[10px] bg-[var(--ag-hover)]" />
+              <span className="min-w-0 flex-1 space-y-1.5">
+                <span className="block h-2.5 w-[68%] rounded-full bg-[var(--ag-hover)]" />
+                <span className="block h-2 w-[38%] rounded-full bg-[var(--ag-hover)]" />
+              </span>
+            </m.div>
           ))}
         </div>
       </section>
@@ -158,26 +174,42 @@ export function AgentThreadList({
   if (threads.length === 0) {
     return (
       <section className="min-w-0 px-2 pb-4">
-        <ListHeader
+        <AgentThreadListHeader
           showArchived={showArchived}
           archivedCount={archivedCount}
           onToggleArchived={onToggleArchived}
         />
         {hasQuery ? (
-          <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noMatchingChats")}</p>
+          <AgentsEnter className="flex flex-col items-center justify-center px-4 py-8 text-center">
+            <span className="mb-2 grid size-9 place-items-center rounded-xl bg-[var(--ag-surface-2)] text-[var(--ag-text-3)]">
+              <MessageSquare className="size-4" />
+            </span>
+            <p className="text-[12px] font-medium text-[var(--ag-text-2)]">
+              {t("agentChat.noMatchingChats")}
+            </p>
+          </AgentsEnter>
         ) : showArchived ? (
-          <p className="ag-faint px-2 py-3 text-[11px]">{t("agentChat.noArchivedChats")}</p>
+          <AgentsEnter className="flex flex-col items-center justify-center px-4 py-8 text-center">
+            <span className="mb-2 grid size-9 place-items-center rounded-xl bg-[var(--ag-surface-2)] text-[var(--ag-text-3)]">
+              <MessageSquare className="size-4" />
+            </span>
+            <p className="text-[12px] font-medium text-[var(--ag-text-2)]">
+              {t("agentChat.noArchivedChats")}
+            </p>
+          </AgentsEnter>
         ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onCreateThread}
-            className="ag-row h-9 text-[11px]"
-          >
-            <MessageSquare className="size-3.5 shrink-0" />
-            {t("agentChat.firstConversation")}
-          </Button>
+          <AgentsEnter className="px-1 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onCreateThread}
+              className="ag-card flex h-11 w-full items-center justify-center gap-2 border-[var(--ag-line)] bg-[var(--ag-surface)] text-[12px] font-medium text-[var(--ag-text)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
+            >
+              <MessageSquarePlus className="size-4 text-[var(--git-branch)]" />
+              {t("agentChat.firstConversation")}
+            </Button>
+          </AgentsEnter>
         )}
       </section>
     );
@@ -185,16 +217,17 @@ export function AgentThreadList({
 
   return (
     <section className="min-w-0 px-2 pb-4">
-      <ListHeader
+      <AgentThreadListHeader
         showArchived={showArchived}
         archivedCount={archivedCount}
         onToggleArchived={onToggleArchived}
       />
 
-      {/* layoutRoot (inside SharedLayoutBgRoot) scopes the hover pill's layout
-          projection to this list, so scrolling the rail cannot smear its
-          scroll offset into the pill's travel. */}
-      <SharedLayoutBgRoot inset={4} className="relative">
+      <SharedLayoutBgRoot
+        inset={4}
+        pillClassName="rounded-[var(--ag-r-md)]"
+        className="relative"
+      >
         <div
           ref={listRef}
           style={{ height: virtualizer.getTotalSize(), position: "relative" }}
@@ -213,7 +246,12 @@ export function AgentThreadList({
                 }}
               >
                 {item.kind === "header" ? (
-                  <h3 className="ag-label px-2 pb-1 pt-2">{t(`agentChat.${item.group}`)}</h3>
+                  <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-3">
+                    <h3 className="ag-label text-[10px] font-semibold uppercase tracking-wider text-[var(--ag-text-3)]">
+                      {t(`agentChat.${item.group}`)}
+                    </h3>
+                    <div className="h-px flex-1 bg-[var(--ag-line)]" />
+                  </div>
                 ) : (
                   <SharedLayoutBgItem id={item.key}>
                     <AgentThreadRow
@@ -240,48 +278,18 @@ export function AgentThreadList({
       </SharedLayoutBgRoot>
 
       {threads.length > limit ? (
-        <Button
+        <m.button
           type="button"
-          variant="ghost"
-          size="sm"
           onClick={onShowMore}
-          className="ag-row mt-1 h-8 justify-center text-[11px] font-medium"
+          whileTap={{ scale: 0.98 }}
+          transition={SPRING_PRESS}
+          className="ag-row mt-2 flex h-8 w-full items-center justify-center rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] text-[11px] font-medium text-[var(--ag-text-2)] hover:border-[var(--ag-line-strong)] hover:text-[var(--ag-text)]"
         >
-          {t("agentChat.showMoreConversations", { count: Math.min(100, threads.length - limit) })}
-        </Button>
+          {t("agentChat.showMoreConversations", {
+            count: Math.min(100, threads.length - limit),
+          })}
+        </m.button>
       ) : null}
     </section>
-  );
-}
-
-function ListHeader({
-  showArchived,
-  archivedCount,
-  onToggleArchived,
-}: {
-  showArchived: boolean;
-  archivedCount: number;
-  onToggleArchived: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex h-5 items-center justify-between px-2">
-      <h2 className="ag-label">{showArchived ? t("agentChat.archived") : ""}</h2>
-      {showArchived || archivedCount > 0 ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          onClick={onToggleArchived}
-          data-active={showArchived}
-          className="ag-icon-btn size-5 rounded-full"
-          aria-pressed={showArchived}
-          aria-label={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
-          title={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
-        >
-          <MorphIcon icon={showArchived ? ArchiveRestoreData : ArchiveData} className="size-3" />
-        </Button>
-      ) : null}
-    </div>
   );
 }

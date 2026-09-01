@@ -1,4 +1,5 @@
 import { Bot, ChevronDown, Compass, Gauge, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { m, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
@@ -17,6 +18,7 @@ import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { openCodeChatStore } from "@/lib/agents/providers/opencode/chat-store";
 import { codexReasoningEffortLabel } from "@/lib/agents/codex-labels";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
+import { SPRING_PRESS } from "@/lib/motion/ease";
 import type {
   AgentApprovalPolicy,
   AgentCollaborationMode,
@@ -54,10 +56,18 @@ function ControlPill({
   tone?: "default" | "warning";
   children: ReactNode;
 }) {
+  const reduce = useReducedMotion();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="ag-chip" title={title} aria-label={title}>
+        <m.button
+          type="button"
+          className="ag-chip"
+          title={title}
+          aria-label={title}
+          whileTap={reduce ? undefined : { scale: 0.97 }}
+          transition={SPRING_PRESS}
+        >
           <span
             className={`grid size-3.5 shrink-0 place-items-center ${
               tone === "warning" ? "text-[var(--destructive)]" : ""
@@ -67,7 +77,7 @@ function ControlPill({
           </span>
           <span className="max-w-32 truncate">{label}</span>
           <ChevronDown className="ag-faint size-3 shrink-0" />
-        </button>
+        </m.button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top" sideOffset={8} className="ag-menu w-60 p-1.5">
         {children}

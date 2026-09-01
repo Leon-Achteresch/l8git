@@ -90,10 +90,13 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="ag-row -ml-1.5 h-8 min-w-0 w-full text-[13px]"
+          className="ag-row -ml-0.5 h-8 min-w-0 w-full gap-2 text-[13px]"
           aria-label={t("agentChat.switchRepo")}
           title={selectedPath}
         >
+          <span className="ag-mark size-6">
+            <FolderGit2 className="size-3" />
+          </span>
           <span className="min-w-0 flex-1 truncate text-left font-semibold tracking-[-0.01em]">
             {repoName(selectedPath)}
           </span>
