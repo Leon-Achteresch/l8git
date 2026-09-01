@@ -308,6 +308,7 @@
     "noArchivedChats": "Keine archivierten Chats",
     "unarchive": "Wiederherstellen",
     "shortcuts": "Kurzbefehle",
+    "cliCommands": "Befehle",
     "statusReady": "Bereit",
     "statusConnecting": "Verbinde",
     "statusError": "Fehler",
@@ -725,7 +726,12 @@
   },
   "about": {
     "title": "Über",
-    "body": "l8git — ein einfacher Git-Frontend-Client, gebaut mit Tauri, React, TanStack Router und shadcn/ui."
+    "body": "l8git — ein einfacher Git-Frontend-Client, gebaut mit Tauri, React, TanStack Router und shadcn/ui.",
+    "version": "Version {{version}}",
+    "releasesTitle": "Release Notes",
+    "releasesError": "Release Notes konnten nicht geladen werden.",
+    "currentRelease": "Aktuell",
+    "prerelease": "Vorab"
   },
   "commitHistory": {
     "today": "HEUTE",
@@ -1137,6 +1143,10 @@
     "filesApplying": "Dateien werden angewendet",
     "installedHint": "Die neue Version ist bereits installiert. Ein Neustart schließt den Vorgang ab.",
     "noReleaseNotes": "Für dieses Release wurden keine Release Notes hinterlegt.",
+    "highlight1": "Verbesserte Git-Performance und Stabilität",
+    "highlight2": "Optimierte Benutzeroberfläche und Workflows",
+    "highlight3": "Neueste Fehlerbehebungen und Verbesserungen",
+    "readyToInstall": "Bereit zur Installation",
     "changelogTitle": "Änderungsprotokoll",
     "restartNow": "Jetzt neu starten",
     "close": "Schließen",
@@ -3021,8 +3031,29 @@
       "emptyHint": "Erstelle eine hooks.json im Repository und automatisiere ein Codex-Lifecycle-Ereignis."
     },
     "hub": {
-      "title": "Kopieren, löschen und abgleichen zwischen CLIs",
-      "explainer": "Wähle, woher etwas kommt und wohin es soll — die Liste zeigt dann, was sich ändern würde.",
+      "title": "Zwischen deinen CLIs abgleichen",
+      "explainer": "Jede CLI speichert Skills, Commands und MCP für sich. Was in Claude liegt, kennt Codex nicht — solange du es nicht rüberschiebst.",
+      "ecosystemTitle": "Deine CLIs",
+      "sourceBadge": "Quelle",
+      "emptyCli": "noch leer",
+      "gapsToward": "{{count}} fehlen hier",
+      "differsToward": "{{count}} anders",
+      "fillGaps": "Fehlende übertragen",
+      "coverage": "{{missing}} fehlen woanders · {{different}} weichen ab · {{same}} überall gleich",
+      "coverageClean": "Die Ziele haben alles aus der Quelle.",
+      "filterEmptyTitle": "Keine Einträge in dieser Ansicht",
+      "filterEmptyDescription": "Wechsle auf „Alle“, oder wähle andere Ziele auf den CLI-Karten.",
+      "views": {
+        "gaps": "Nur Lücken",
+        "different": "Nur Abweichungen",
+        "all": "Alle"
+      },
+      "presence": {
+        "missing": "fehlt",
+        "same": "identisch",
+        "different": "anders",
+        "unsupported": "nicht möglich"
+      },
       "loading": "Capabilities aller CLIs werden gelesen…",
       "overwrite": "Vorhandene Einträge überschreiben",
       "noTargets": "Keine Agent-CLI gefunden.",
@@ -3077,7 +3108,7 @@
       "level": "Ebene",
       "itemsInSource": "{{count}} Einträge hier",
       "targetCount": "{{count}} Ziele",
-      "noTargetSelected": "Rechts mindestens ein Ziel auswählen.",
+      "noTargetSelected": "Auf den Karten mindestens ein Ziel anwählen.",
       "status": {
         "missing": "fehlt dort",
         "same": "schon identisch",
@@ -3097,8 +3128,12 @@
       "overwriteOffHint": "Einträge, die es im Ziel schon gibt, bleiben unangetastet. Zum Ersetzen das Überschreiben einschalten."
     },
     "market": {
-      "title": "Marktplatz",
-      "explainer": "Durchsucht GitHub nach fertigen Skills, MCP-Servern, Hooks, Commands und Plugins – sortiert nach Sternen. Eintrag öffnen, auswählen, CLI wählen, installieren.",
+      "title": "In deine CLIs holen",
+      "explainer": "GitHub-Repos mit fertigen Skills und MCP-Servern. Oben wählst du, in welche deiner CLIs sie sollen — dann suchen und installieren.",
+      "installInto": "Landet in",
+      "destinationsHint": "Installiert wird auf den angehakten Ebenen. Logos auf einem Treffer heißen: das liegt dort schon.",
+      "pickDestinations": "Mindestens eine CLI-Ebene anwählen — dort wird installiert.",
+      "alreadyOn": "schon auf {{clis}}",
       "search": "Suchen",
       "searchPlaceholder": "z. B. Code-Review, Postgres, Testing…",
       "loading": "GitHub wird durchsucht…",

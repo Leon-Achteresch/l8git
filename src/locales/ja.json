@@ -308,6 +308,7 @@
     "noArchivedChats": "アーカイブされたチャットはありません",
     "unarchive": "元に戻す",
     "shortcuts": "ショートカット",
+    "cliCommands": "コマンド",
     "statusReady": "準備完了",
     "statusConnecting": "接続中",
     "statusError": "エラー",
@@ -725,7 +726,12 @@
   },
   "about": {
     "title": "このアプリについて",
-    "body": "l8git — Tauri、React、TanStack Router、shadcn/ui で作られたシンプルな Git フロントエンドクライアント。"
+    "body": "l8git — Tauri、React、TanStack Router、shadcn/ui で作られたシンプルな Git フロントエンドクライアント。",
+    "version": "バージョン {{version}}",
+    "releasesTitle": "リリースノート",
+    "releasesError": "リリースノートを読み込めませんでした。",
+    "currentRelease": "使用中",
+    "prerelease": "プレリリース"
   },
   "commitHistory": {
     "today": "今日",
@@ -1134,6 +1140,11 @@
     "connecting": "接続中…",
     "almostDone": "もうすぐ完了",
     "releaseDownloading": "リリースをダウンロード中",
+    "highlight1": "Gitのパフォーマンスと安定性の向上",
+    "highlight2": "UIとワークフローの最適化",
+    "highlight3": "最新のバグ修正と改善",
+    "readyToInstall": "インストール準備完了",
+    "noReleaseNotes": "リリースノートはありません。",
     "filesApplying": "ファイルを適用中",
     "installedHint": "新しいバージョンはインストール済みです。再起動して完了してください。",
     "noReleaseNotes": "このリリースにはリリースノートがありません。",
@@ -3023,6 +3034,27 @@
     "hub": {
       "title": "CLI 間でコピー・削除・同期",
       "explainer": "どこから、どこへ — それだけ選べば、何が変わるかが一覧に出ます。",
+      "ecosystemTitle": "あなたの CLI",
+      "sourceBadge": "コピー元",
+      "emptyCli": "まだ空",
+      "gapsToward": "ここには {{count}} 件不足",
+      "differsToward": "{{count}} 件が異なる",
+      "fillGaps": "不足分をコピー",
+      "coverage": "他で不足 {{missing}} · 相違 {{different}} · すべて同一 {{same}}",
+      "coverageClean": "コピー先には元の内容がすべてあります。",
+      "filterEmptyTitle": "この表示には何もありません",
+      "filterEmptyDescription": "「すべて」に切り替えるか、カードで別のコピー先を選んでください。",
+      "views": {
+        "gaps": "不足のみ",
+        "different": "相違のみ",
+        "all": "すべて"
+      },
+      "presence": {
+        "missing": "不足",
+        "same": "同一",
+        "different": "相違",
+        "unsupported": "不可"
+      },
       "loading": "すべての CLI の機能を読み込み中…",
       "overwrite": "既存の項目を上書きする",
       "noTargets": "エージェント CLI が見つかりません。",
@@ -3097,8 +3129,12 @@
       "overwriteOffHint": "コピー先にすでにある項目はそのままです。置き換えるには上書きを有効にしてください。"
     },
     "market": {
-      "title": "マーケット",
-      "explainer": "GitHub 上のスキル・MCP サーバー・フック・コマンド・プラグインをスター順に検索します。開いて選び、CLI を指定してインストールできます。",
+      "title": "CLI に入れる",
+      "explainer": "完成済みスキルや MCP サーバーの GitHub リポジトリ。先に入れる CLI を選び、検索してインストールします。",
+      "installInto": "インストール先",
+      "destinationsHint": "チェックしたレベルに入ります。結果のロゴは、すでにそこにあるという意味です。",
+      "pickDestinations": "CLI のレベルを少なくとも1つ選んでください。そこにインストールされます。",
+      "alreadyOn": "すでに {{clis}} にあり",
       "search": "検索",
       "searchPlaceholder": "例: コードレビュー、postgres、テスト…",
       "loading": "GitHub を検索中…",

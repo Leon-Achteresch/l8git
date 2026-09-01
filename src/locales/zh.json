@@ -308,6 +308,7 @@
     "noArchivedChats": "没有已归档的对话",
     "unarchive": "恢复",
     "shortcuts": "快捷键",
+    "cliCommands": "命令",
     "statusReady": "就绪",
     "statusConnecting": "连接中",
     "statusError": "错误",
@@ -725,7 +726,12 @@
   },
   "about": {
     "title": "关于",
-    "body": "l8git——一个基于 Tauri、React、TanStack Router 和 shadcn/ui 构建的简洁 Git 客户端。"
+    "body": "l8git——一个基于 Tauri、React、TanStack Router 和 shadcn/ui 构建的简洁 Git 客户端。",
+    "version": "版本 {{version}}",
+    "releasesTitle": "更新说明",
+    "releasesError": "无法加载更新说明。",
+    "currentRelease": "当前",
+    "prerelease": "预发布"
   },
   "commitHistory": {
     "today": "今天",
@@ -1134,6 +1140,11 @@
     "connecting": "正在连接…",
     "almostDone": "即将完成",
     "releaseDownloading": "正在下载发布包",
+    "highlight1": "提升 Git 性能与稳定性",
+    "highlight2": "优化用户界面与操作体验",
+    "highlight3": "最新的问题修复与改进",
+    "readyToInstall": "准备安装",
+    "noReleaseNotes": "此版本未提供更新说明。",
     "filesApplying": "正在应用文件",
     "installedHint": "新版本已安装完成。重启即可生效。",
     "noReleaseNotes": "此版本未提供发布说明。",
@@ -3023,6 +3034,27 @@
     "hub": {
       "title": "在各个 CLI 之间复制、删除与同步",
       "explainer": "选好来源和目标，列表就会告诉你会发生什么变化。",
+      "ecosystemTitle": "你的 CLI",
+      "sourceBadge": "来源",
+      "emptyCli": "还是空的",
+      "gapsToward": "这里缺 {{count}} 项",
+      "differsToward": "{{count}} 项不同",
+      "fillGaps": "补上缺失项",
+      "coverage": "{{missing}} 项在别处缺失 · {{different}} 项不同 · {{same}} 项处处相同",
+      "coverageClean": "目标里已经有来源的全部内容。",
+      "filterEmptyTitle": "此视图没有条目",
+      "filterEmptyDescription": "切换到“全部”，或在卡片上选择其他目标。",
+      "views": {
+        "gaps": "仅缺口",
+        "different": "仅差异",
+        "all": "全部"
+      },
+      "presence": {
+        "missing": "缺失",
+        "same": "相同",
+        "different": "不同",
+        "unsupported": "不可用"
+      },
       "loading": "正在读取所有 CLI 的能力…",
       "overwrite": "覆盖已存在的条目",
       "noTargets": "没有找到智能体 CLI。",
@@ -3097,8 +3129,12 @@
       "overwriteOffHint": "目标中已存在的条目保持不变。要替换请打开覆盖开关。"
     },
     "market": {
-      "title": "市场",
-      "explainer": "按星标数在 GitHub 上搜索现成的技能、MCP 服务器、钩子、命令和插件。打开条目，勾选需要的部分，选择 CLI，直接安装。",
+      "title": "装进你的 CLI",
+      "explainer": "GitHub 上现成的技能和 MCP 服务器。先选要装进哪些 CLI，再搜索并安装。",
+      "installInto": "装到",
+      "destinationsHint": "会装到勾选的层级。结果上的徽标表示那里已经有了。",
+      "pickDestinations": "至少勾选一个 CLI 层级，会安装到那里。",
+      "alreadyOn": "已在 {{clis}}",
       "search": "搜索",
       "searchPlaceholder": "例如：代码评审、postgres、测试…",
       "loading": "正在搜索 GitHub…",

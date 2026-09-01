@@ -308,6 +308,7 @@
     "noArchivedChats": "Aucune discussion archivée",
     "unarchive": "Restaurer",
     "shortcuts": "Raccourcis",
+    "cliCommands": "Commandes",
     "statusReady": "Prêt",
     "statusConnecting": "Connexion",
     "statusError": "Erreur",
@@ -725,7 +726,12 @@
   },
   "about": {
     "title": "À propos",
-    "body": "l8git — un client Git simple conçu avec Tauri, React, TanStack Router et shadcn/ui."
+    "body": "l8git — un client Git simple conçu avec Tauri, React, TanStack Router et shadcn/ui.",
+    "version": "Version {{version}}",
+    "releasesTitle": "Notes de version",
+    "releasesError": "Impossible de charger les notes de version.",
+    "currentRelease": "Actuelle",
+    "prerelease": "Préversion"
   },
   "commitHistory": {
     "today": "AUJOURD'HUI",
@@ -1137,6 +1143,10 @@
     "filesApplying": "Application des fichiers",
     "installedHint": "La nouvelle version est déjà installée. Redémarrez pour terminer.",
     "noReleaseNotes": "Aucune note de version n'a été fournie pour cette release.",
+    "highlight1": "Performances et stabilité Git améliorées",
+    "highlight2": "Interface utilisateur et flux de travail optimisés",
+    "highlight3": "Dernières corrections de bugs et améliorations",
+    "readyToInstall": "Prêt à être installé",
     "changelogTitle": "Journal des modifications",
     "restartNow": "Redémarrer maintenant",
     "close": "Fermer",
@@ -3023,6 +3033,27 @@
     "hub": {
       "title": "Copier, supprimer et synchroniser entre CLIs",
       "explainer": "Choisissez d'où vient une chose et où elle doit aller — la liste montre alors ce qui changerait.",
+      "ecosystemTitle": "Vos CLIs",
+      "sourceBadge": "Source",
+      "emptyCli": "encore vide",
+      "gapsToward": "{{count}} manquent ici",
+      "differsToward": "{{count}} différent",
+      "fillGaps": "Copier les manquants",
+      "coverage": "{{missing}} manquent ailleurs · {{different}} diffèrent · {{same}} identiques partout",
+      "coverageClean": "Les destinations ont déjà tout ce qui est dans la source.",
+      "filterEmptyTitle": "Rien dans cette vue",
+      "filterEmptyDescription": "Passez à « Tous » ou choisissez d'autres destinations sur les cartes.",
+      "views": {
+        "gaps": "Écarts seulement",
+        "different": "Différences seulement",
+        "all": "Tous"
+      },
+      "presence": {
+        "missing": "absent",
+        "same": "identique",
+        "different": "différent",
+        "unsupported": "impossible"
+      },
       "loading": "Lecture des capacités de toutes les CLIs…",
       "overwrite": "Écraser les entrées existantes",
       "noTargets": "Aucune CLI d'agent trouvée.",
@@ -3097,8 +3128,12 @@
       "overwriteOffHint": "Les entrées déjà présentes dans la destination ne sont pas touchées. Activez l'écrasement pour les remplacer."
     },
     "market": {
-      "title": "Marché",
-      "explainer": "Cherche sur GitHub des skills, serveurs MCP, hooks, commandes et plugins déjà prêts, triés par étoiles. Ouvrez une entrée, cochez ce qu'il vous faut, choisissez la CLI, installez.",
+      "title": "Installer dans vos CLIs",
+      "explainer": "Dépôts GitHub avec skills et serveurs MCP prêts à l'emploi. Choisissez d'abord dans quelles CLIs ils doivent atterrir, puis cherchez et installez.",
+      "installInto": "Arrive dans",
+      "destinationsHint": "L'installation va sur les niveaux cochés. Des logos sur un résultat signifient qu'il y est déjà.",
+      "pickDestinations": "Cochez au moins un niveau de CLI — c'est là que ce sera installé.",
+      "alreadyOn": "déjà sur {{clis}}",
       "search": "Rechercher",
       "searchPlaceholder": "p. ex. revue de code, postgres, tests…",
       "loading": "Recherche sur GitHub…",

@@ -308,6 +308,7 @@
     "noArchivedChats": "Nenhum chat arquivado",
     "unarchive": "Restaurar",
     "shortcuts": "Atalhos",
+    "cliCommands": "Comandos",
     "statusReady": "Pronto",
     "statusConnecting": "Conectando",
     "statusError": "Erro",
@@ -725,7 +726,12 @@
   },
   "about": {
     "title": "Sobre",
-    "body": "l8git — um cliente Git simples construído com Tauri, React, TanStack Router e shadcn/ui."
+    "body": "l8git — um cliente Git simples construído com Tauri, React, TanStack Router e shadcn/ui.",
+    "version": "Versão {{version}}",
+    "releasesTitle": "Notas de versão",
+    "releasesError": "Não foi possível carregar as notas de versão.",
+    "currentRelease": "Atual",
+    "prerelease": "Pré-lançamento"
   },
   "commitHistory": {
     "today": "HOJE",
@@ -1137,6 +1143,10 @@
     "filesApplying": "Aplicando arquivos",
     "installedHint": "A nova versão já está instalada. Reinicie para concluir.",
     "noReleaseNotes": "Nenhuma nota de versão foi fornecida para este release.",
+    "highlight1": "Desempenho e estabilidade do Git aprimorados",
+    "highlight2": "Interface de usuário e fluxos de trabalho otimizados",
+    "highlight3": "Últimas correções de bugs e melhorias",
+    "readyToInstall": "Pronto para instalar",
     "changelogTitle": "Changelog",
     "restartNow": "Reiniciar agora",
     "close": "Fechar",
@@ -3023,6 +3033,27 @@
     "hub": {
       "title": "Copiar, apagar e sincronizar entre CLIs",
       "explainer": "Escolha de onde vem algo e para onde deve ir — a lista mostra então o que mudaria.",
+      "ecosystemTitle": "As tuas CLIs",
+      "sourceBadge": "Origem",
+      "emptyCli": "ainda vazia",
+      "gapsToward": "{{count}} em falta aqui",
+      "differsToward": "{{count}} diferentes",
+      "fillGaps": "Copiar as em falta",
+      "coverage": "{{missing}} em falta noutros · {{different}} diferem · {{same}} iguais em todos",
+      "coverageClean": "Os destinos já têm tudo da origem.",
+      "filterEmptyTitle": "Nada nesta vista",
+      "filterEmptyDescription": "Muda para «Todas» ou escolhe outros destinos nos cartões.",
+      "views": {
+        "gaps": "Só falhas",
+        "different": "Só diferenças",
+        "all": "Todas"
+      },
+      "presence": {
+        "missing": "em falta",
+        "same": "igual",
+        "different": "diferente",
+        "unsupported": "impossível"
+      },
       "loading": "A ler as capacidades de todas as CLIs…",
       "overwrite": "Substituir entradas existentes",
       "noTargets": "Nenhuma CLI de agente encontrada.",
@@ -3097,8 +3128,12 @@
       "overwriteOffHint": "As entradas que já existem no destino ficam intactas. Ligue a substituição para as trocar."
     },
     "market": {
-      "title": "Mercado",
-      "explainer": "Procura no GitHub skills, servidores MCP, hooks, comandos e plugins já prontos, ordenados por estrelas. Abra uma entrada, marque o que precisa, escolha a CLI, instale.",
+      "title": "Instalar nas tuas CLIs",
+      "explainer": "Repositórios GitHub com skills e servidores MCP prontos. Escolhe primeiro em que CLIs devem ficar, depois procura e instala.",
+      "installInto": "Fica em",
+      "destinationsHint": "A instalação vai para os níveis marcados. Logos num resultado significam que já está lá.",
+      "pickDestinations": "Marca pelo menos um nível de CLI — é aí que será instalado.",
+      "alreadyOn": "já em {{clis}}",
       "search": "Procurar",
       "searchPlaceholder": "p. ex. revisão de código, postgres, testes…",
       "loading": "A procurar no GitHub…",

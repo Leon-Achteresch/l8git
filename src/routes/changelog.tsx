@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { stripLeadingChangelogHeading } from "@/lib/app-releases";
 import {
   installAppUpdate,
   restartToApplyAppUpdate,
@@ -24,15 +25,6 @@ import { useMemo } from "react";
 export const Route = createFileRoute("/changelog")({
   component: ChangelogPage,
 });
-
-function stripLeadingChangelogHeading(markdown: string): string {
-  return markdown
-    .replace(
-      /^\s*#{1,2}\s+(changelog|\u00e4nderungsprotokoll|\u00c4nderungsprotokoll)\s*(\n+|$)/im,
-      "",
-    )
-    .trim();
-}
 
 function formatPublishedAt(value: string | null, localeTag: string) {
   if (!value) return null;

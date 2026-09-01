@@ -12,10 +12,9 @@ const RouterDevtools = import.meta.env.DEV
     )
   : null;
 
-// Loads off the critical path together with the updater plugin code.
-const AppUpdateToast = lazy(() =>
-  import("@/components/app/app-update-toast").then((m) => ({
-    default: m.AppUpdateToast,
+const AppUpdateDialog = lazy(() =>
+  import("@/components/app/app-update-dialog").then((m) => ({
+    default: m.AppUpdateDialog,
   })),
 );
 
@@ -139,7 +138,7 @@ function RootLayout() {
         <RemoteProgressDock />
         <HotkeysOverlay open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
         <Suspense fallback={null}>
-          <AppUpdateToast />
+          <AppUpdateDialog />
         </Suspense>
         {RouterDevtools ? (
           <Suspense fallback={null}>
