@@ -41,6 +41,7 @@ type Command = { name: string; description: string; argumentHint: string };
 const MODEL_CATEGORY = "model";
 const MODE_CATEGORY = "mode";
 const EFFORT_CATEGORY = "thought_level";
+const RESERVED_CATEGORIES = new Set([MODEL_CATEGORY, MODE_CATEGORY, EFFORT_CATEGORY]);
 const STREAM_FLUSH_MS = 100;
 const MAX_CACHED_CONVERSATIONS = 6;
 const clients = new Map<string, OpenCodeClient>();
@@ -57,6 +58,25 @@ const updateQueue = new Map<string, UnknownRecord[]>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let surfaceReferences = 0;
 let sequence = 1;
+
+/**
+ * Alles, was opencode ausser Modell, Modus und Denk-Aufwand als `configOption`
+ * meldet – z. B. Modell-Varianten. Der Katalog ist versionsabhaengig, deshalb
+ * rendern wir ihn generisch statt einzelne Kategorien fest zu verdrahten.
+ */
+export interface OpenCodeConfigSelection {
+  id: string;
+  name: string;
+  description: string;
+  type: "select" | "boolean";
+  value: string | boolean;
+  choices: Array<{ value: string; label: string; description: string }>;
+}
+
+export type OpenCodeChatState = AgentChatState & {
+  configSelections: OpenCodeConfigSelection[];
+  setConfigSelection: (id: string, value: string | boolean) => void;
+};
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null;
@@ -109,6 +129,32 @@ const persistedSettings = (() => {
   } catch {
     return {} as UnknownRecord;
   }
+})();
+
+/**
+ * Der zuletzt gewaehlte Varianten-/Options-Satz. Die Choices kommen beim
+ * naechsten Katalog-Refresh aus opencode nach, gespeichert wird nur die Wahl.
+ */
+const persistedConfigSelections: OpenCodeConfigSelection[] = (() => {
+  const stored = persistedSettings.configSelections;
+  if (!Array.isArray(stored)) return [];
+  return stored.flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry.id !== "string") return [];
+    const value = entry.value;
+    if (typeof value !== "string" && typeof value !== "boolean") return [];
+    return [{
+      id: entry.id,
+      name: stringValue(entry.name, entry.id),
+      description: stringValue(entry.description),
+      type: entry.type === "boolean" ? ("boolean" as const) : ("select" as const),
+      value,
+      choices: arrayValue(entry.choices).flatMap((choice) =>
+        isRecord(choice) && typeof choice.value === "string"
+          ? [{ value: choice.value, label: stringValue(choice.name ?? choice.label, choice.value), description: stringValue(choice.description) }]
+          : [],
+      ),
+    }];
+  });
 })();
 
 function sortThreads(threads: AgentThreadSummary[]): AgentThreadSummary[] {
@@ -184,6 +230,10 @@ function flatChoices(option: OpenCodeConfigOption): OpenCodeConfigChoice[] {
   });
 }
 
+function optionKey(option: OpenCodeConfigOption): string {
+  return option.category ?? option.id;
+}
+
 function optionByCategory(
   options: OpenCodeConfigOption[],
   category: string,
@@ -247,22 +297,63 @@ function catalogFromConfig(options: OpenCodeConfigOption[], config: OpenCodeSess
   const currentMode = typeof modeOption?.currentValue === "string"
     ? modeOption.currentValue
     : config.modes?.currentModeId ?? null;
-  return { models, currentModel, efforts, defaultEffort, profiles, currentMode };
+  const selections: OpenCodeConfigSelection[] = options
+    .filter((option) => !RESERVED_CATEGORIES.has(optionKey(option)) && !RESERVED_CATEGORIES.has(option.id))
+    .map((option) => ({
+      id: option.id,
+      name: option.name || option.id,
+      description: option.description ?? "",
+      type: option.type === "boolean" ? ("boolean" as const) : ("select" as const),
+      value: option.currentValue,
+      choices: flatChoices(option).map((choice) => ({
+        value: choice.value,
+        label: choice.name,
+        description: choice.description ?? "",
+      })),
+    }))
+    .filter((selection) => selection.type === "boolean" || selection.choices.length > 0);
+  return { models, currentModel, efforts, defaultEffort, profiles, currentMode, selections };
 }
 
 function applyConfig(path: string, config: OpenCodeSessionConfig): void {
-  const options = (config.configOptions ?? []) as OpenCodeConfigOption[];
-  if (options.length) configByPath.set(path, options);
-  const catalog = catalogFromConfig(options.length ? options : configByPath.get(path) ?? [], config);
+  const incoming = (config.configOptions ?? []) as OpenCodeConfigOption[];
+  // Antworten auf `set_config_option` koennen nur die geaenderten Optionen
+  // enthalten, deshalb mergen statt ersetzen.
+  const merged = incoming.length
+    ? [
+        ...incoming,
+        ...(configByPath.get(path) ?? []).filter(
+          (previous) => !incoming.some((option) => option.id === previous.id),
+        ),
+      ]
+    : configByPath.get(path) ?? [];
+  if (merged.length) configByPath.set(path, merged);
+  const options = merged;
+  const catalog = catalogFromConfig(options, config);
   if (catalog.models.length) saveModelCatalog("opencode", catalog.models);
   openCodeChatStore.setState((state) => {
     const models = catalog.models.length ? catalog.models : state.models;
+    // Die Auswahl des Nutzers ueberlebt einen Katalog-Refresh, solange sie in
+    // den gemeldeten Choices noch vorkommt – opencode meldet pro Session den
+    // Default, nicht unsere Einstellung.
+    const configSelections = catalog.selections.length
+      ? catalog.selections.map((selection) => {
+          const previous = state.configSelections.find((item) => item.id === selection.id);
+          const keep =
+            previous !== undefined &&
+            (selection.type === "boolean"
+              ? typeof previous.value === "boolean"
+              : selection.choices.some((choice) => choice.value === previous.value));
+          return keep ? { ...selection, value: previous.value } : selection;
+        })
+      : state.configSelections;
     const keepModel = state.model && models.some((model) => model.id === state.model);
     const model = keepModel ? state.model : catalog.currentModel ?? models[0]?.id ?? state.model;
     const efforts = catalog.efforts.length ? catalog.efforts : models[0]?.reasoningEfforts ?? [];
     const keepEffort = efforts.some((effort) => effort.value === state.reasoningEffort);
     return {
       models,
+      configSelections,
       defaultModel: catalog.currentModel ?? models[0]?.id ?? state.defaultModel,
       model,
       reasoningEffort: keepEffort ? state.reasoningEffort : catalog.defaultEffort || state.reasoningEffort,
@@ -629,6 +720,9 @@ async function applySessionSettings(client: OpenCodeClient, sessionId: string): 
   if (state.reasoningEffort) {
     await client.setConfigOption(sessionId, EFFORT_CATEGORY, state.reasoningEffort).catch(() => {});
   }
+  for (const selection of state.configSelections) {
+    await client.setConfigOption(sessionId, selection.id, selection.value).catch(() => {});
+  }
 }
 
 function loadRepoFiles(path: string): Promise<Array<{ path: string; lowerPath: string; fileName: string }>> {
@@ -792,7 +886,7 @@ async function submitPrompt(
   }
 }
 
-export const openCodeChatStore = createStore<AgentChatState>()((set, get) => ({
+export const openCodeChatStore = createStore<OpenCodeChatState>()((set, get) => ({
   connectionStatus: "idle",
   connectionError: null,
   diagnostics: [],
@@ -812,6 +906,7 @@ export const openCodeChatStore = createStore<AgentChatState>()((set, get) => ({
   activeThreadByPath: {},
   requestsByThread: {},
   model: typeof persistedSettings.model === "string" ? persistedSettings.model : null,
+  configSelections: persistedConfigSelections,
   reasoningEffort: typeof persistedSettings.reasoningEffort === "string" ? persistedSettings.reasoningEffort : "",
   serviceTier: null,
   personality: "none",
@@ -1201,13 +1296,46 @@ export const openCodeChatStore = createStore<AgentChatState>()((set, get) => ({
   setModel: (model) => {
     set({ model });
     for (const [threadId, path] of pathByThread) {
-      void clients.get(path)?.setModel(threadId, model).catch(() => {});
+      const client = clients.get(path);
+      if (!client) continue;
+      // Varianten und Denk-Aufwand haengen am Modell. Wo opencode das Modell
+      // als configOption fuehrt, liefert der Setter den neuen Katalog mit.
+      const modelOption = optionByCategory(configByPath.get(path) ?? [], MODEL_CATEGORY);
+      if (modelOption) {
+        void client
+          .setConfigOption(threadId, modelOption.id, model)
+          .then((result) => {
+            if (result?.configOptions?.length) applyConfig(path, { configOptions: result.configOptions });
+          })
+          .catch(() => {});
+        continue;
+      }
+      void client.setModel(threadId, model).catch(() => {});
     }
   },
   setReasoningEffort: (reasoningEffort) => {
     set({ reasoningEffort });
     for (const [threadId, path] of pathByThread) {
       void clients.get(path)?.setConfigOption(threadId, EFFORT_CATEGORY, reasoningEffort).catch(() => {});
+    }
+  },
+  setConfigSelection: (id, value) => {
+    set((state) => ({
+      configSelections: state.configSelections.map((selection) =>
+        selection.id === id ? { ...selection, value } : selection,
+      ),
+    }));
+    for (const [threadId, path] of pathByThread) {
+      const client = clients.get(path);
+      if (!client) continue;
+      // Eine Variante kann den restlichen Katalog aendern (andere Efforts,
+      // andere Optionen), deshalb die Antwort direkt zurueckspielen.
+      void client
+        .setConfigOption(threadId, id, value)
+        .then((result) => {
+          if (result?.configOptions?.length) applyConfig(path, { configOptions: result.configOptions });
+        })
+        .catch(() => {});
     }
   },
   setServiceTier: (serviceTier) => set({ serviceTier }),
@@ -1246,6 +1374,7 @@ openCodeChatStore.subscribe((state) => {
   const value = JSON.stringify({
     model: state.model,
     reasoningEffort: state.reasoningEffort,
+    configSelections: state.configSelections,
     collaborationMode: state.collaborationMode,
     permissionProfile: state.permissionProfile,
     approvalPolicy: state.approvalPolicy,

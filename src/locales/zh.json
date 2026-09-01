@@ -254,7 +254,9 @@
       "mode": "模式",
       "defaultMode": "构建",
       "planMode": "规划",
-      "agent": "智能体"
+      "agent": "智能体",
+      "on": "开",
+      "off": "关"
     },
     "request": {
       "inputRequired": "需要输入",

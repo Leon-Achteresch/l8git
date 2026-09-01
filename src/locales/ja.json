@@ -254,7 +254,9 @@
       "mode": "モード",
       "defaultMode": "実装",
       "planMode": "計画",
-      "agent": "エージェント"
+      "agent": "エージェント",
+      "on": "オン",
+      "off": "オフ"
     },
     "request": {
       "inputRequired": "入力が必要です",

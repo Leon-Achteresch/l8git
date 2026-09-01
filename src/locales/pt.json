@@ -254,7 +254,9 @@
       "mode": "Modo",
       "defaultMode": "Construir",
       "planMode": "Planejar",
-      "agent": "Agente"
+      "agent": "Agente",
+      "on": "Ligado",
+      "off": "Desligado"
     },
     "request": {
       "inputRequired": "Entrada necessária",

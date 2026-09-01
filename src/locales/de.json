@@ -254,7 +254,9 @@
       "mode": "Modus",
       "defaultMode": "Build",
       "planMode": "Plan",
-      "agent": "Agent"
+      "agent": "Agent",
+      "on": "An",
+      "off": "Aus"
     },
     "request": {
       "inputRequired": "Eingabe benötigt",

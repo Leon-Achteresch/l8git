@@ -254,7 +254,9 @@
       "mode": "Mode",
       "defaultMode": "Développement",
       "planMode": "Plan",
-      "agent": "Agent"
+      "agent": "Agent",
+      "on": "Activé",
+      "off": "Désactivé"
     },
     "request": {
       "inputRequired": "Saisie requise",
