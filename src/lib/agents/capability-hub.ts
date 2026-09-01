@@ -125,6 +125,65 @@ export function targetSupports(
   return targets.find((entry) => entry.cli === cli)?.kinds.includes(kind) ?? false;
 }
 
+/**
+ * Vergleichsschlüssel, der die Dateinamens-Konventionen der CLIs ausblendet –
+ * spiegelt `match_key` in `capability_sync.rs`, damit die Anzeige und der
+ * serverseitige Abgleich dieselben Einträge als „gleich" behandeln.
+ */
+export function matchKey(kind: CapabilityKind, rel: string): string {
+  if (kind === "skill") {
+    return rel.replace(/\.md$/u, "").replace(/\/$/u, "").toLocaleLowerCase();
+  }
+  if (kind === "command" || kind === "agent") {
+    return rel
+      .replace(/\.prompt\.md$|\.md$|\.mdc$|\.toml$/u, "")
+      .replace(/\//gu, ":")
+      .toLocaleLowerCase();
+  }
+  return rel.toLocaleLowerCase();
+}
+
+/** Was ein Kopieren dieses Eintrags in dieses Ziel bewirken würde. */
+export type CapabilityItemStatus = "missing" | "same" | "different" | "unsupported";
+
+export function itemStatusForTarget(
+  item: CapabilityItem,
+  target: CapabilityTargetRef,
+  targets: CapabilityTargetInfo[],
+  items: CapabilityItem[],
+): CapabilityItemStatus {
+  if (!targetSupports(targets, target.cli, item.kind)) return "unsupported";
+  const key = matchKey(item.kind, item.rel);
+  const existing = items.find(
+    (candidate) =>
+      candidate.cli === target.cli &&
+      candidate.scope === target.scope &&
+      candidate.kind === item.kind &&
+      matchKey(candidate.kind, candidate.rel) === key,
+  );
+  if (!existing) return "missing";
+  return existing.fingerprint === item.fingerprint ? "same" : "different";
+}
+
+/** Zählt die Ziel-Zustände eines Eintrags über alle gewählten Ziele. */
+export function itemStatusSummary(
+  item: CapabilityItem,
+  selected: CapabilityTargetRef[],
+  targets: CapabilityTargetInfo[],
+  items: CapabilityItem[],
+): Record<CapabilityItemStatus, number> {
+  const totals: Record<CapabilityItemStatus, number> = {
+    missing: 0,
+    same: 0,
+    different: 0,
+    unsupported: 0,
+  };
+  for (const target of selected) {
+    totals[itemStatusForTarget(item, target, targets, items)] += 1;
+  }
+  return totals;
+}
+
 export function summarizeResults(results: CapabilityOpResult[]): {
   ok: number;
   skipped: number;

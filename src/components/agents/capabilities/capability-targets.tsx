@@ -36,7 +36,7 @@ export function CapabilityTargetPicker({
   selected,
   onToggle,
   mode = "multi",
-  requiredKind,
+  requiredKinds,
   disabled = false,
   emptyLabel,
 }: {
@@ -44,7 +44,8 @@ export function CapabilityTargetPicker({
   selected: CapabilityTargetRef[];
   onToggle: (target: CapabilityTargetRef) => void;
   mode?: "multi" | "single";
-  requiredKind?: CapabilityKind | null;
+  /** Ein Ziel gilt als möglich, sobald es *eine* dieser Arten beherrscht. */
+  requiredKinds?: CapabilityKind[] | null;
   disabled?: boolean;
   emptyLabel?: string;
 }) {
@@ -59,7 +60,9 @@ export function CapabilityTargetPicker({
   return (
     <div className="space-y-1.5">
       {targets.map((target) => {
-        const supports = !requiredKind || targetSupports(targets, target.cli, requiredKind);
+        const supports =
+          !requiredKinds?.length ||
+          requiredKinds.some((kind) => targetSupports(targets, target.cli, kind));
         return (
           <div key={target.cli} className="flex items-center gap-2">
             <div className="flex w-32 shrink-0 items-center gap-1.5">
