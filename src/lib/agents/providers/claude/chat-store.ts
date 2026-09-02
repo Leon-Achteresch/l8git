@@ -75,6 +75,8 @@ const repoFilePromises = new Map<string, Promise<Array<{ path: string; lowerPath
 const conversationLastUsed = new Map<string, number>();
 let authPromise: Promise<void> | null = null;
 let surfaceReferences = 0;
+let hiddenIdleTimer: ReturnType<typeof setTimeout> | null = null;
+const HIDDEN_CLIENT_IDLE_MS = 60_000;
 let surfaceReleaseTimer: ReturnType<typeof setTimeout> | null = null;
 let sequence = 1;
 
@@ -190,10 +192,12 @@ function cacheConversation(
   return conversations;
 }
 
-function closeIdleClients(): void {
+function closeIdleClients(keepVisible = false): void {
   const state = claudeChatStore.getState();
   const closedThreadIds: string[] = [];
   for (const [threadId, client] of clients) {
+    if (keepVisible && threadId === state.visibleThreadId) continue;
+    if (clientConnectPromises.has(threadId)) continue;
     if (state.conversations[threadId]?.activeTurnId || (state.requestsByThread[threadId]?.length ?? 0) > 0) continue;
     clients.delete(threadId);
     clientLastUsed.delete(threadId);
@@ -1388,6 +1392,11 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
   setVisibleThread: (visibleThreadId) => {
     if (visibleThreadId) conversationLastUsed.set(visibleThreadId, Date.now());
     set({ visibleThreadId });
+    if (hiddenIdleTimer) clearTimeout(hiddenIdleTimer);
+    hiddenIdleTimer = setTimeout(() => {
+      hiddenIdleTimer = null;
+      closeIdleClients(true);
+    }, HIDDEN_CLIENT_IDLE_MS);
   },
   connect: async () => {
     if (get().connectionStatus === "ready") return;
