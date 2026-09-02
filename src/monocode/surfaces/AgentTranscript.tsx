@@ -1,3 +1,9 @@
+import { lazy, Suspense } from "react";
+import { parseSqlTable } from "@/lib/agents/plugins/sql-table";
+
+const SqlTableView = lazy(() =>
+  import("@/components/agents/ui/sql-table-view").then((m) => ({ default: m.SqlTableView })),
+);
 import {
   Check,
   ChevronRight,
@@ -1514,9 +1520,7 @@ function ToolCall({
         </div>
       )}
       {open && expandable ? (
-        <pre className="mt-1.5 min-w-0 whitespace-pre-wrap break-words px-2.5 font-mono text-[12px] leading-5 text-content/55">
-          {expanded}
-        </pre>
+        <ToolDetail text={expanded} />
       ) : null}
       <ApprovalControls block={block} onApproval={onApproval} />
     </div>
@@ -1763,4 +1767,28 @@ function syncTranscriptViewport(el: HTMLElement | null) {
   const next = `${Math.max(0, el.clientHeight - pad)}px`;
   if (el.style.getPropertyValue("--transcript-viewport") === next) return;
   el.style.setProperty("--transcript-viewport", next);
+}
+
+function ToolDetail({ text }: { text: string }) {
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = null;
+  }
+  const table = parsed ? parseSqlTable(parsed) : null;
+  if (table) {
+    return (
+      <div className="mt-1.5 px-2.5">
+        <Suspense fallback={null}>
+          <SqlTableView table={table} />
+        </Suspense>
+      </div>
+    );
+  }
+  return (
+    <pre className="mt-1.5 min-w-0 whitespace-pre-wrap break-words px-2.5 font-mono text-[12px] leading-5 text-content/55">
+      {text}
+    </pre>
+  );
 }

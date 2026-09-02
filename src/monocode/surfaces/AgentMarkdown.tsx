@@ -21,6 +21,14 @@ import {
 import type { PluggableList } from "unified";
 import { FileTypeIcon } from "../chrome/FileTypeIcon";
 import { createLazyMermaidPlugin } from "./mermaidPlugin";
+import { lazy, Suspense } from "react";
+
+const MarkdownBarcode = lazy(() =>
+  import("@/components/agents/ui/agent-barcode").then((m) => ({ default: m.MarkdownBarcode })),
+);
+const MarkdownChart = lazy(() =>
+  import("@/components/agents/ui/agent-chart").then((m) => ({ default: m.MarkdownChart })),
+);
 import { resolveWorkspacePath } from "../lib/paths";
 import { isAtxHeadingLine } from "../lib/markdownSource";
 import { useColorScheme } from "../hooks/useColorScheme";
@@ -197,7 +205,16 @@ function MarkdownCode({
 
   const meta = codeMeta(node);
   const fence = parseCodeFence(className, meta);
-  if (fence.language.toLowerCase() === "mermaid") {
+  const fenceLang = fence.language.toLowerCase();
+  if (fenceLang === "barcode" || fenceLang === "chart") {
+    const Rich = fenceLang === "barcode" ? MarkdownBarcode : MarkdownChart;
+    return (
+      <Suspense fallback={<pre className="text-[12px] text-content/50">{textContent(children)}</pre>}>
+        <Rich source={textContent(children)} />
+      </Suspense>
+    );
+  }
+  if (fenceLang === "mermaid") {
     return (
       <MermaidBlock code={textContent(children)} incomplete={incomplete} />
     );

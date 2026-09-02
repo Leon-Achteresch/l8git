@@ -127,8 +127,6 @@ pub fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     harness::reap_orphaned_harness_processes();
     session_store::init(app)?;
     checkpoint::init(app)?;
-    #[cfg(target_os = "macos")]
-    macos::request_badge_authorization();
     Ok(())
 }
 

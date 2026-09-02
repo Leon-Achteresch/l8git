@@ -238,6 +238,7 @@ import {
   type TabVisitHistory,
 } from "./lib/tabVisitHistory";
 import { preparePrompt } from "./lib/promptPreparation";
+import { setActiveJiraSession } from "./lib/jiraMcp";
 import { warmPiSkills } from "./lib/skills";
 import { piSkillContextForSession } from "./lib/sessionSkills";
 import {
@@ -706,6 +707,9 @@ export default function App({
       (session) => activeTab && leafIds(activeTab.layout).includes(session.id),
     );
   const sessionDefaults = active ?? sessions[0];
+  useEffect(() => {
+    setActiveJiraSession(active?.cwd, active?.id);
+  }, [active?.cwd, active?.id]);
   const activeSkillContext = active
     ? piSkillContextForSession(active)
     : null;

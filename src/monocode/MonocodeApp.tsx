@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import App from "./App";
+import "@/components/agents/agents.css";
 import { initAppearance } from "./lib/appearance";
 import { initSounds } from "./lib/sounds";
 import { loadBootWorkspace, type BootWorkspace } from "./lib/appLifecycle";

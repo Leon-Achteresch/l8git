@@ -348,23 +348,3 @@ fn dlsym_fn<T>(symbol: &[u8]) -> Option<T> {
         }
     }
 }
-
-/// Since macOS 12, `NSDockTile` badge updates are ignored unless the app has
-/// requested `UNUserNotificationCenter` authorization with the badge option.
-/// Must run on the main thread after launch (`RunEvent::Ready`), not in setup.
-pub(crate) fn request_badge_authorization() {
-    let Some(mtm) = MainThreadMarker::new() else {
-        return;
-    };
-
-    use block2::RcBlock;
-    use objc2::runtime::Bool;
-    use objc2_foundation::NSError;
-    use objc2_user_notifications::{UNAuthorizationOptions, UNUserNotificationCenter};
-
-    let center = UNUserNotificationCenter::currentNotificationCenter();
-    let options = UNAuthorizationOptions::Badge;
-    let handler = RcBlock::new(|_granted: Bool, _error: *mut NSError| {});
-    center.requestAuthorizationWithOptions_completionHandler(options, &handler);
-    let _ = mtm;
-}
