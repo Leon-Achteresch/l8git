@@ -175,9 +175,8 @@ export function AgentModelPicker({
 
       <PopoverContent
         align="start"
-        side="bottom"
+        side="top"
         sideOffset={8}
-        avoidCollisions={false}
         className="ag-menu w-[336px] gap-0 p-0"
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
