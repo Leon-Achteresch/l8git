@@ -1,4 +1,3 @@
-import { JIRA_MCP_NAME, codexMcpValue, codexRegistrationAllowed, jiraMcpServer } from "../jiraMcp";
 import { nativeModelId } from "../models";
 import type { Attachment, RuntimeMode } from "../session";
 import {
@@ -252,23 +251,6 @@ async function ensureLive(input: SendTurnInput): Promise<Live> {
       },
     });
     await rpc.notify("initialized", undefined);
-    if (codexRegistrationAllowed()) {
-      const jira = await jiraMcpServer(input.cwd);
-      if (jira) {
-        try {
-          await rpc.request("config/value/write", {
-            keyPath: `mcp_servers.${JIRA_MCP_NAME}`,
-            value: codexMcpValue(jira),
-            mergeStrategy: "upsert",
-            filePath: null,
-            expectedVersion: null,
-          });
-          await rpc.request("config/mcpServer/reload", undefined);
-        } catch {
-          // Codex without config RPC support just runs without Jira
-        }
-      }
-    }
 
     const model = nativeModelId(input.model);
     const serviceTier = input.modelSettings?.serviceTier;

@@ -1,4 +1,3 @@
-import { claudeMcpConfig, jiraMcpServer } from "../jiraMcp";
 import { nativeModelId } from "../models";
 import type { RuntimeMode } from "../session";
 import { loadClaudeHooks } from "../settings";
@@ -344,11 +343,10 @@ async function ensureLive(input: SendTurnInput): Promise<Live> {
     },
   );
 
-  const jira = await jiraMcpServer(input.cwd);
   await spawnChild(
     input.sessionId,
     path,
-    buildClaudeSpawnArgs({ ...launch, ...(jira ? { mcpConfig: claudeMcpConfig(jira) } : {}) }),
+    buildClaudeSpawnArgs(launch),
     input.cwd,
   );
 

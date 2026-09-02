@@ -58,7 +58,6 @@ import {
 import { AccessPicker } from "./AccessPicker";
 import { ComposerRunner } from "./ComposerRunner";
 import { ContextMeter } from "./ContextMeter";
-import { JiraChip } from "./JiraChip";
 import { AttachmentChip } from "./AttachmentChip";
 import { BranchPicker } from "./BranchPicker";
 import { CwdPicker } from "./CwdPicker";
@@ -859,7 +858,6 @@ export function Composer({
               onChange={onBranchChange}
               onClose={() => ref.current?.focus()}
             />
-            <JiraChip sessionId={sessionId} enabled={enabled} />
             <div className="ml-auto flex shrink-0 items-center">
               <ContextMeter usage={context} sessionId={sessionId} model={model} />
             </div>

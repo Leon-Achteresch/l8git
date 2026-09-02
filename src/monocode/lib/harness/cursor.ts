@@ -1,4 +1,3 @@
-import { acpMcpServers, jiraMcpServer } from "../jiraMcp";
 import { nativeModelId } from "../models";
 import type { RuntimeMode } from "../session";
 import { promptBlocks } from "../attachments";
@@ -265,7 +264,6 @@ async function ensureLive(input: SendTurnInput): Promise<Live> {
     let setup: SessionSetupResult | undefined;
     let acpSessionId: string | undefined;
     let didLoad = false;
-    const mcpServers = acpMcpServers(await jiraMcpServer(input.cwd));
 
     if (canLoad && resume) {
       muteGate.current = true;
@@ -273,7 +271,7 @@ async function ensureLive(input: SendTurnInput): Promise<Live> {
         setup = await acp.request<SessionSetupResult>("session/load", {
           sessionId: resume.acpSessionId,
           cwd: input.cwd,
-          mcpServers,
+          mcpServers: [],
         });
         acpSessionId = resume.acpSessionId;
         didLoad = true;
@@ -289,7 +287,7 @@ async function ensureLive(input: SendTurnInput): Promise<Live> {
     if (!acpSessionId) {
       setup = await acp.request<SessionSetupResult>("session/new", {
         cwd: input.cwd,
-        mcpServers,
+        mcpServers: [],
       });
       acpSessionId = setup.sessionId?.trim();
     }
