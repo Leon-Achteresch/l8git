@@ -5,7 +5,7 @@ import { useStackStore } from "@/lib/stack-store";
 import { useUiStore } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
 import { Layers } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 export function StackGraphLegend({ path }: { path: string }) {
@@ -13,11 +13,14 @@ export function StackGraphLegend({ path }: { path: string }) {
   const list = useStackStore((s) => s.lists[path]) ?? EMPTY_STACK_LIST;
   const load = useStackStore((s) => s.load);
   const focusCommitFromBranchTip = useUiStore((s) => s.focusCommitFromBranchTip);
-  const branchKey = useRepoStore((s) =>
-    (s.repos[path]?.branches ?? [])
-      .filter((b) => !b.is_remote)
-      .map((b) => `${b.name}:${b.tip}`)
-      .join("|"),
+  const branches = useRepoStore((s) => s.repos[path]?.branches);
+  const branchKey = useMemo(
+    () =>
+      (branches ?? [])
+        .filter((b) => !b.is_remote)
+        .map((b) => `${b.name}:${b.tip}`)
+        .join("|"),
+    [branches],
   );
 
   useEffect(() => {

@@ -4,6 +4,7 @@ pub mod agent_transport;
 mod capability_market;
 mod capability_sync;
 mod claude;
+mod claude_usage;
 mod cmd;
 mod cmdlog;
 mod credentials;
@@ -37,7 +38,7 @@ struct TauriSink(tauri::AppHandle);
 impl sink::EventSink for TauriSink {
     fn emit(&self, name: &str, payload: serde_json::Value) {
         use tauri::Emitter;
-        let _ = self.0.emit(name, payload);
+        let _ = self.0.emit_to("main", name, payload);
     }
 }
 
@@ -96,6 +97,7 @@ pub fn run() {
             capability_sync::agent_cap_delete,
             capability_sync::agent_cap_sync_plan,
             capability_sync::agent_cap_sync_apply,
+            claude_usage::fetch_claude_usage,
             claude::claude_list_sessions,
             claude::claude_read_session,
             claude::claude_rename_session,
@@ -296,6 +298,7 @@ pub fn run() {
             git::git_remote_cancel,
             cmdlog::git_command_log,
             cmdlog::git_command_log_clear,
+            cmdlog::git_command_log_live,
             media::repo_file_bytes_at,
             lfs::lfs_available,
             lfs::lfs_tracked_patterns,

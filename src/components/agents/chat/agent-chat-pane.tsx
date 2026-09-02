@@ -39,6 +39,7 @@ import { AgentPlanBanner } from "@/components/agents/chat/agent-plan-banner";
 import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
+import { AgentRateLimitChips } from "@/components/agents/chat/agent-rate-limit-chips";
 import { AgentContextMeter } from "@/components/agents/ui/agent-context-meter";
 import { AgentThreadMenu } from "@/components/agents/chat/agent-thread-menu";
 import { AgentReviewButton } from "@/components/agents/worktree-review/agent-review-launcher";
@@ -1033,6 +1034,7 @@ export const AgentChatPane = memo(function AgentChatPane({
             model={conversationMeta.usageModel || model}
           />
           <AgentContextMeter usage={conversationMeta.usage} />
+          <AgentRateLimitChips />
         </span>
       </div>
     </m.div>

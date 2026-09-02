@@ -15,6 +15,7 @@ import { toastError } from '@/lib/error-toast';
 import { formatDate } from '@/lib/format';
 import {
   ensureGitCommandLogListener,
+  releaseGitCommandLogListener,
   useGitCommandLog,
 } from '@/lib/git-command-log-store';
 import {
@@ -110,6 +111,7 @@ export function GitCommandLogPage({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     ensureGitCommandLogListener();
     void load().catch((e) => toastError(String(e)));
+    return () => releaseGitCommandLogListener();
   }, [load]);
 
   useEffect(() => {

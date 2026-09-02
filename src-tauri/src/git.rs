@@ -6029,7 +6029,7 @@ fn collect_repo_overview(path: String) -> RepoOverview {
 
     let sync = compute_upstream_sync(&repo);
 
-    let dirty_count = match run_git(&repo, &["status", "--porcelain=v1", "-z", "--untracked-files=all"]) {
+    let dirty_count = match run_git(&repo, &["status", "--porcelain=v1", "-z", "--untracked-files=normal"]) {
         Ok(out) => out.split('\0').filter(|s| !s.is_empty()).count() as u32,
         Err(_) => 0,
     };

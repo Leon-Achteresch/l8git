@@ -34,7 +34,7 @@ export function AgentsEmpty() {
           initial={{ opacity: 0, y: 16, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={SPRING_PANEL}
-          className="ag-card flex w-full flex-col items-center rounded-[var(--ag-r-xl)] border-[var(--ag-line)] bg-[var(--ag-surface)]/90 p-10 text-center shadow-[var(--ag-shadow-panel)] backdrop-blur-xl"
+          className="ag-card flex w-full flex-col items-center rounded-[var(--ag-r-xl)] border-[var(--ag-line)] bg-[var(--ag-surface)]/90 p-10 text-center shadow-[var(--ag-shadow-panel)]"
         >
           <div className="relative mb-6 flex items-center justify-center">
             <m.div

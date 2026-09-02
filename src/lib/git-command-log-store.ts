@@ -49,9 +49,14 @@ export const useGitCommandLog = create<GitCommandLogState>((set, get) => ({
 let listenerAttached = false;
 
 export function ensureGitCommandLogListener() {
+  void invoke('git_command_log_live', { active: true }).catch(() => {});
   if (listenerAttached) return;
   listenerAttached = true;
   void listen<GitCommandEntry>('git-command', (event) => {
     useGitCommandLog.getState().push(event.payload);
   });
+}
+
+export function releaseGitCommandLogListener() {
+  void invoke('git_command_log_live', { active: false }).catch(() => {});
 }

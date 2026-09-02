@@ -225,6 +225,7 @@ export function FileTree({
   );
   const items = useMemo(() => itemsFromChildren(children), [children]);
   const rows = useMemo(() => flattenItems(items, expanded), [expanded, items]);
+  const still = reduce || rows.length > 80;
 
   // Keep a real row tabbable in the first commit and immediately after a
   // collapse removes the previously focused descendant.
@@ -326,20 +327,20 @@ export function FileTree({
 
         return (
           <motion.div
-            layout={reduce ? false : "position"}
+            layout={still ? false : "position"}
             key={row.item.value}
-            initial={reduce ? false : { opacity: 0, y: -6 }}
+            initial={still ? false : { opacity: 0, y: -6 }}
             animate={{
               opacity: row.item.disabled ? 0.42 : 1,
               y: 0,
-              transition: reduce
+              transition: still
                 ? { duration: 0 }
                 : {
                     ...ROW_ENTER,
                     delay: Math.min(row.position * 0.025, 0.1),
                   },
             }}
-            transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
+            transition={still ? { duration: 0 } : SPRING_LAYOUT}
           >
             <button
               ref={(node) => {

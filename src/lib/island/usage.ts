@@ -30,7 +30,7 @@ export function subscribeIslandUsage(cb: () => void): Array<() => void> {
 export function armIslandUsage(): () => void {
   let stopped = false;
   const tick = () => {
-    if (stopped) return;
+    if (stopped || document.hidden) return;
     if (!useIslandStore.getState().showUsage) return;
     for (const id of PROVIDERS) {
       const store = chatStoreFor(id);
@@ -53,10 +53,15 @@ export function armIslandUsage(): () => void {
   const unsub = useIslandStore.subscribe((state, prev) => {
     if (state.showUsage && !prev.showUsage) tick();
   });
+  const onVisible = () => {
+    if (!document.hidden) tick();
+  };
+  document.addEventListener("visibilitychange", onVisible);
   return () => {
     stopped = true;
     window.clearInterval(interval);
     unsub();
+    document.removeEventListener("visibilitychange", onVisible);
   };
 }
 
