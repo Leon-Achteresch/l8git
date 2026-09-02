@@ -44,7 +44,7 @@ headless = [
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = ["macos-private-api", "protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
@@ -61,6 +61,8 @@ once_cell = "1"
 keyring = { version = "3", features = ["windows-native", "apple-native", "linux-native"] }
 dirs = "6"
 log = "0.4"
+rusqlite = { version = "0.40.2", features = ["bundled"], default-features = false }
+ureq = { version = "2.12.1", default-features = false, features = ["tls", "gzip"] }
 
 axum = { version = "0.8", features = ["ws"], optional = true }
 x25519-dalek = { version = "2", optional = true }
@@ -99,3 +101,11 @@ windows-sys = { version = "0.61", features = [
 	"Win32_System_Threading",
 	"Win32_System_Diagnostics_ToolHelp",
 ] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6.2"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSButton", "NSColor", "NSControl", "NSDockTile", "NSImage", "NSLayoutAnchor", "NSLayoutConstraint", "NSMenu", "NSMenuItem", "NSResponder", "NSView", "NSWindow", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSError", "NSString"] }
+objc2-user-notifications = { version = "0.3.2", features = ["UNUserNotificationCenter", "block2"] }
+raw-window-handle = "0.6"

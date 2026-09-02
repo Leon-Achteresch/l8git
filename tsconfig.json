@@ -25,5 +25,6 @@
     }
   },
   "include": ["src"],
+  "exclude": ["src/monocode/**/*.test.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

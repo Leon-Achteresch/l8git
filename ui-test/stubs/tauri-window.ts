@@ -1,5 +1,10 @@
-export async function getCurrentWindow() {
+export function getCurrentWindow() {
   return {
+    onFocusChanged: async () => () => undefined,
+    onCloseRequested: async () => () => undefined,
+    onResized: async () => () => undefined,
+    setTitle: async () => undefined,
+    isFocused: async () => true,
     label: "main",
     setIgnoreCursorEvents: async () => undefined,
     setSize: async () => undefined,
