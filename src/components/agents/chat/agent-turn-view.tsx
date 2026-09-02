@@ -14,7 +14,7 @@ export const AgentTurnView = memo(function AgentTurnView({
   turn: AgentTurn;
 }) {
   return (
-    <MessageBubbleGroup spacing="default" className="gap-3">
+    <MessageBubbleGroup spacing="default" className="items-start gap-3">
       {turn.items.map((item) => (
         <AgentItemView key={item.id} item={item} turn={turn} />
       ))}

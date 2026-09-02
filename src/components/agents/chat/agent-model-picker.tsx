@@ -42,6 +42,22 @@ export function AgentModelPicker({
   const [warmError, setWarmError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!open) return;
+    const closeForPrompt = (event: Event) => {
+      if (!(event.target instanceof Element) || !event.target.closest("[data-agent-prompt]")) {
+        return;
+      }
+      setOpen(false);
+    };
+    document.addEventListener("focusin", closeForPrompt);
+    document.addEventListener("pointerdown", closeForPrompt, true);
+    return () => {
+      document.removeEventListener("focusin", closeForPrompt);
+      document.removeEventListener("pointerdown", closeForPrompt, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
     detectInstalledAgents();
   }, []);
 
@@ -129,6 +145,7 @@ export function AgentModelPicker({
 
   return (
     <Popover
+      modal={false}
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
@@ -142,7 +159,12 @@ export function AgentModelPicker({
       }}
     >
       <PopoverTrigger asChild>
-        <button type="button" className="ag-chip" title={t("agentChat.settings.model")}>
+        <button
+          type="button"
+          className="ag-chip"
+          title={t("agentChat.settings.model")}
+          aria-label={t("agentChat.settings.model")}
+        >
           <span className="grid size-3.5 shrink-0 place-items-center [&_svg]:size-3.5">
             <ActiveLogo />
           </span>
@@ -153,9 +175,11 @@ export function AgentModelPicker({
 
       <PopoverContent
         align="start"
-        side="top"
+        side="bottom"
         sideOffset={8}
+        avoidCollisions={false}
         className="ag-menu w-[336px] gap-0 p-0"
+        onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <div className="flex min-h-0">
           {providerLocked || visibleProviders.length <= 1 ? null : (

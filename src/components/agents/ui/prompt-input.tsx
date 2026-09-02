@@ -231,14 +231,11 @@ export function PromptInput({
 
   return (
     <m.form
+      data-agent-composer=""
       onSubmit={submit}
-      onFocusCapture={() => setFocused(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
-      }}
       animate={reduce ? undefined : { y: focused ? -2 : 0 }}
       transition={SPRING_LAYOUT}
-      className={cn("ag-composer relative w-full p-2", disabled && "opacity-60", className)}
+      className={cn("ag-composer relative min-w-0 w-full p-2", disabled && "opacity-60", className)}
     >
       {slashOpen ? (
         <div
@@ -307,14 +304,24 @@ export function PromptInput({
           {...textareaProps}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => {
+            setFocused(true);
+            setActionsOpen(false);
+          }}
+          onBlur={() => setFocused(false)}
+          data-agent-prompt=""
           className="scrollbar-hide relative block min-h-0 w-full resize-none overflow-y-auto border-0 bg-transparent px-2 pt-1 text-sm leading-6 text-[var(--ag-text)] shadow-none outline-none placeholder:text-[var(--ag-text-3)] focus-visible:ring-0"
         />
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1.5">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+      <div
+        data-agent-composer-toolbar=""
+        className="mt-1.5 flex min-w-0 items-end gap-1.5"
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-max flex-nowrap items-center gap-1">
           {actions.length ? (
-            <Popover open={actionsOpen} onOpenChange={setActionsOpen}>
+            <Popover open={actionsOpen} onOpenChange={setActionsOpen} modal={false}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
@@ -336,10 +343,12 @@ export function PromptInput({
               </PopoverTrigger>
 
               <PopoverContent
-                side="top"
+                side="bottom"
                 align="start"
                 sideOffset={8}
+                avoidCollisions={false}
                 className="ag-menu w-64 p-1.5"
+                onCloseAutoFocus={(event) => event.preventDefault()}
               >
                 {actions.map((action) => (
                   <Button
@@ -418,9 +427,10 @@ export function PromptInput({
           ) : null}
 
           {leadingAction}
+          </div>
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1 self-end">
+        <div className="flex shrink-0 items-center gap-1">
           {trailingAction}
           <Button
             type={loading ? "button" : "submit"}

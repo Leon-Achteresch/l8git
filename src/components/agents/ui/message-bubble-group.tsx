@@ -14,7 +14,7 @@ export function MessageBubbleGroup({
     <div
       data-slot="message-bubble-group"
       className={cn(
-        "flex w-full flex-col",
+        "flex w-full min-w-0 flex-col",
         spacing === "compact" ? "gap-1.5" : "gap-3",
         className,
       )}

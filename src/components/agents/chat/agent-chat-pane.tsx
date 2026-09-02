@@ -77,11 +77,9 @@ import {
 } from "@/lib/agents/slash-commands";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
-import { m } from "motion/react";
 import { TextShimmer } from "@/components/motion/text-shimmer";
 import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
 import { AgentStatusChip, type AgentStatusTone } from "@/components/agents/ui/agent-status-chip";
-import { SPRING_PANEL } from "@/lib/motion/ease";
 
 const AgentFilePicker = lazy(() => import("@/components/agents/chat/agent-file-picker").then(
   (module) => ({ default: module.AgentFilePicker }),
@@ -931,11 +929,7 @@ export const AgentChatPane = memo(function AgentChatPane({
   ) : null;
 
   const composer = (
-    <m.div
-      layout
-      className="w-full"
-      transition={SPRING_PANEL}
-    >
+    <div className="min-w-0 w-full">
       <PromptInput
         value={draft}
         onValueChange={setDraft}
@@ -964,8 +958,11 @@ export const AgentChatPane = memo(function AgentChatPane({
         aria-label={t("agentChat.promptAria", { agent: providerLabel })}
       />
 
-      <div className="ag-dock flex items-center gap-2 px-3 py-1.5 text-[11px]">
-        <span className="ag-faint flex min-w-0 items-center gap-1.5">
+      <div
+        data-agent-composer-dock=""
+        className="ag-dock flex min-w-0 items-center gap-2 overflow-hidden px-3 py-1.5 text-[11px]"
+      >
+        <span className="ag-faint flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
           <span className="truncate">{repoName(path)}</span>
           {branch ? (
             <>
@@ -1027,7 +1024,7 @@ export const AgentChatPane = memo(function AgentChatPane({
           </span>
         ) : null}
 
-        <span className="ag-faint ml-auto flex shrink-0 items-center gap-2">
+        <span className="ag-faint ml-auto flex min-w-0 max-w-[58%] shrink items-center justify-end gap-1.5 overflow-hidden">
           {account?.email ? <span className="max-w-48 truncate">{account.email}</span> : null}
           <AgentUsagePill
             usage={conversationMeta.usage}
@@ -1037,11 +1034,14 @@ export const AgentChatPane = memo(function AgentChatPane({
           <AgentRateLimitChips />
         </span>
       </div>
-    </m.div>
+    </div>
   );
 
   return (
-    <section className="flex h-full min-h-0 flex-1 flex-col">
+    <section
+      data-agent-chat=""
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    >
       <header className="ag-line flex h-12 shrink-0 items-center gap-2 border-b px-3">
         <AgentProviderMark working={busy} label={providerLabel}>
           <ProviderLogo />
@@ -1135,8 +1135,11 @@ export const AgentChatPane = memo(function AgentChatPane({
       />
 
       {centeredComposer ? null : (
-        <div className="shrink-0 px-6 pb-4 pt-2">
-          <div className="mx-auto w-[86%]">{composer}</div>
+        <div
+          data-agent-composer-shell=""
+          className="relative z-10 min-w-0 shrink-0 px-6 pb-4 pt-2"
+        >
+          <div className="mx-auto min-w-0 w-[86%] max-w-full">{composer}</div>
         </div>
       )}
 

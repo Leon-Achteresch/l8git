@@ -85,7 +85,7 @@ export function MessageBubble({
         }
         transition={transition ?? (reduce ? { duration: 0.12 } : SPRING_LAYOUT)}
         className={cn(
-          "group/bubble flex w-full flex-col",
+          "group/bubble flex min-w-0 w-full flex-col",
           resolvedAlign === "end" ? "items-end" : "items-start",
           className,
         )}

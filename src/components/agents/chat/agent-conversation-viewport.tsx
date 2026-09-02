@@ -1,4 +1,3 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   AlertCircle,
   ArrowDown,
@@ -12,9 +11,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
-  lazy,
   memo,
-  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -27,6 +24,7 @@ import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
 import { AgentRequestCard } from "@/components/agents/chat/agent-request-card";
+import { AgentTurnView } from "@/components/agents/chat/agent-turn-view";
 import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
 import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import {
@@ -38,22 +36,14 @@ import {
   useContainerScrollProgress,
 } from "@/components/motion/scroll-progress";
 import { TextShimmer } from "@/components/motion/text-shimmer";
-import { useScrollMargin } from "@/hooks/use-scroll-margin";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type { AgentCliCommand } from "@/lib/agents/slash-commands";
 import { SPRING_PANEL } from "@/lib/motion/ease";
 
-const AgentTurnView = lazy(() =>
-  import("@/components/agents/chat/agent-turn-view").then((module) => ({
-    default: module.AgentTurnView,
-  })),
-);
-
 const INITIAL_VISIBLE_TURNS = 32;
 const TURN_PAGE_SIZE = 32;
-const TURN_ESTIMATE_PX = 320;
 const STARTER_ICONS = [
   { Icon: ScanSearch, color: "var(--git-branch)" },
   { Icon: Hammer, color: "var(--git-modified)" },
@@ -120,22 +110,6 @@ export const AgentConversationViewport = memo(
     const visibleTurns =
       hiddenTurnCount > 0 ? turns.slice(-visibleTurnCount) : turns;
     const busy = Boolean(conversation?.activeTurnId);
-    const { scrollMargin: turnScrollMargin, listRef } =
-      useScrollMargin(scrollRef);
-    const turnVirtualizer = useVirtualizer({
-      count: visibleTurns.length,
-      getScrollElement: () => scrollRef.current,
-      estimateSize: () => TURN_ESTIMATE_PX,
-      overscan: 4,
-      useAnimationFrameWithResizeObserver: true,
-      getItemKey: (index) => visibleTurns[index]?.id ?? index,
-      scrollMargin: turnScrollMargin,
-    });
-    const measureTurn = useCallback(
-      (node: HTMLElement | null) => turnVirtualizer.measureElement(node),
-      [turnVirtualizer],
-    );
-    const totalTurnSize = turnVirtualizer.getTotalSize();
     const starters = useMemo(
       () => [
         t("agentChat.starterAnalyze"),
@@ -166,7 +140,7 @@ export const AgentConversationViewport = memo(
       viewport.scrollTop = viewport.scrollHeight - bottomOffset;
       if (Date.now() > restoreDeadline.current)
         restoreBottomOffset.current = null;
-    }, [visibleTurnCount, totalTurnSize]);
+    }, [visibleTurnCount]);
 
     useLayoutEffect(() => {
       const viewport = scrollRef.current;
@@ -175,7 +149,7 @@ export const AgentConversationViewport = memo(
         viewport.scrollTop = viewport.scrollHeight;
       });
       return () => cancelAnimationFrame(frame);
-    }, [requests.length, busy, threadId, totalTurnSize]);
+    }, [requests.length, busy, threadId, visibleTurns.length]);
 
     const handleScroll = useCallback(() => {
       const viewport = scrollRef.current;
@@ -196,8 +170,11 @@ export const AgentConversationViewport = memo(
 
     if (connectionStatus === "connecting") {
       return (
-        <AgentsEnter className="flex h-full min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
-          <div className="ag-card flex w-full max-w-sm flex-col items-center p-6 shadow-[var(--ag-shadow-panel)]">
+        <AgentsEnter className="flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
+          <div
+            data-agent-status-card=""
+            className="ag-card flex w-full max-w-sm flex-col items-center p-6 shadow-[var(--ag-shadow-panel)]"
+          >
             <AgentProviderMark
               working
               label={agent}
@@ -218,8 +195,11 @@ export const AgentConversationViewport = memo(
 
     if (connectionStatus === "error") {
       return (
-        <AgentsEnter className="flex h-full min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
-          <div className="ag-card flex w-full max-w-md flex-col items-center p-6 text-center shadow-[var(--ag-shadow-panel)]">
+        <AgentsEnter className="flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
+          <div
+            data-agent-status-card=""
+            className="ag-card flex w-full max-w-md flex-col items-center p-6 text-center shadow-[var(--ag-shadow-panel)]"
+          >
             <AgentProviderMark
               label={agent}
               className="size-11 rounded-[14px] border-destructive/25 bg-destructive/[0.06] text-destructive"
@@ -251,8 +231,11 @@ export const AgentConversationViewport = memo(
 
     if (requiresAuth) {
       return (
-        <AgentsEnter className="flex h-full min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
-          <div className="ag-card flex w-full max-w-sm flex-col items-center p-6 text-center shadow-[var(--ag-shadow-panel)]">
+        <AgentsEnter className="flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
+          <div
+            data-agent-status-card=""
+            className="ag-card flex w-full max-w-sm flex-col items-center p-6 text-center shadow-[var(--ag-shadow-panel)]"
+          >
             <AgentProviderMark
               label={agent}
               className="size-11 rounded-[14px]"
@@ -290,15 +273,19 @@ export const AgentConversationViewport = memo(
     }
 
     return (
-      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        data-agent-conversation=""
+        className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      >
         <div
           ref={scrollRef}
+          data-agent-transcript-scroll=""
           onScroll={handleScroll}
-          className="ag-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+          className="ag-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
         >
           <div
             ref={contentRef}
-            className={`mx-auto flex min-h-full w-full flex-col px-4 pb-4 pt-4 md:px-8 ${centered ? "justify-center" : "justify-start"}`}
+            className={`mx-auto flex min-h-full min-w-0 w-full flex-col px-4 pb-4 pt-4 md:px-8 ${centered ? "justify-center" : "justify-start"}`}
           >
             {centered ? (
               <div className="w-full pb-4">
@@ -322,7 +309,7 @@ export const AgentConversationViewport = memo(
                   </p>
                 </AgentsEnter>
 
-                <div className="mx-auto w-[86%]">{composer}</div>
+                <div className="mx-auto min-w-0 w-[86%] max-w-full">{composer}</div>
 
                 <div className="mt-5 space-y-3">
                   <div className="flex flex-wrap items-center justify-center gap-1.5">
@@ -397,39 +384,12 @@ export const AgentConversationViewport = memo(
             ) : null}
 
             {!centered ? (
-              <div
-                ref={listRef}
-                style={{
-                  height: totalTurnSize,
-                  position: "relative",
-                  width: "100%",
-                }}
-              >
-                {turnVirtualizer.getVirtualItems().map((virtualItem) => {
-                  const turn = visibleTurns[virtualItem.index];
-                  if (!turn) return null;
-                  return (
-                    <div
-                      key={virtualItem.key}
-                      ref={measureTurn}
-                      data-index={virtualItem.index}
-                      className="absolute inset-x-0 top-0 pb-4"
-                      style={{
-                        transform: `translateY(${virtualItem.start - turnVirtualizer.options.scrollMargin}px)`,
-                      }}
-                    >
-                      <Suspense
-                        fallback={
-                          <div className="ag-card flex h-24 items-center justify-center text-xs text-muted-foreground">
-                            …
-                          </div>
-                        }
-                      >
-                        <AgentTurnView turn={turn} />
-                      </Suspense>
-                    </div>
-                  );
-                })}
+              <div data-agent-turn-list="" className="flex min-w-0 flex-col gap-4">
+                {visibleTurns.map((turn) => (
+                  <div key={turn.id} data-agent-turn={turn.id} className="min-w-0">
+                    <AgentTurnView turn={turn} />
+                  </div>
+                ))}
               </div>
             ) : null}
 
