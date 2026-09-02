@@ -79,8 +79,9 @@ export function AgentControlPill({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        side="top"
+        side="bottom"
         sideOffset={8}
+        avoidCollisions={false}
         className="ag-menu w-60 p-1.5"
         onCloseAutoFocus={(event) => event.preventDefault()}
         onClick={(event) => {

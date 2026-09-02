@@ -343,9 +343,10 @@ export function PromptInput({
               </PopoverTrigger>
 
               <PopoverContent
-                side="top"
+                side="bottom"
                 align="start"
                 sideOffset={8}
+                avoidCollisions={false}
                 className="ag-menu w-64 p-1.5"
                 onCloseAutoFocus={(event) => event.preventDefault()}
               >
