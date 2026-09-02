@@ -1,6 +1,5 @@
 import {
   Bot,
-  Boxes,
   Braces,
   AtSign,
   ChevronDown,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { memo, type ReactNode, useMemo, useState } from "react";
 
+import { AgentCompactNotice } from "@/components/agents/chat/agent-compact-notice";
 import { AgentActivity, type AgentActivityItem } from "@/components/agents/ui/agent-activity";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { AgentMarkdown } from "@/components/agents/ui/agent-markdown";
@@ -40,7 +40,6 @@ import { FileDiff, type FileDiffLine } from "@/components/agents/ui/file-diff";
 import {
   MessageBubble,
   MessageBubbleContent,
-  MessageBubbleGroup,
 } from "@/components/agents/ui/message-bubble";
 import { AGENT_PROSE_CLASS, StreamingResponse } from "@/components/agents/ui/streaming-response";
 import { TodoList, type TodoItem } from "@/components/agents/ui/todo-list";
@@ -825,10 +824,12 @@ function CollaborationItem({ item }: { item: AgentItem }) {
 }
 
 function StatusItem({ item }: { item: AgentItem }) {
+  if (item.type === "contextCompaction") {
+    return <AgentCompactNotice label="Kontext wurde komprimiert" />;
+  }
   const labels: Record<string, string> = {
     enteredReviewMode: "Code-Review gestartet",
     exitedReviewMode: "Code-Review abgeschlossen",
-    contextCompaction: "Kontext wurde komprimiert",
     imageView: `Bild geöffnet: ${stringValue(item.path)}`,
     imageGeneration: "Bildgenerierung",
     subAgentActivity: "Sub-Agent-Aktivität",
@@ -836,7 +837,6 @@ function StatusItem({ item }: { item: AgentItem }) {
   const icons: Record<string, React.ReactNode> = {
     enteredReviewMode: <GitPullRequestArrow className="size-4" />,
     exitedReviewMode: <GitPullRequestArrow className="size-4" />,
-    contextCompaction: <Boxes className="size-4" />,
     imageView: <FileImage className="size-4" />,
     imageGeneration: <FileImage className="size-4" />,
     subAgentActivity: <Bot className="size-4" />,
@@ -961,18 +961,3 @@ export const AgentItemView = memo(function AgentItemView({ item, turn }: { item:
   previous.turn.durationMs === next.turn.durationMs &&
   previous.turn.error === next.turn.error,
 );
-
-export const AgentTurnView = memo(function AgentTurnView({ turn }: { turn: AgentTurn }) {
-  return (
-    <MessageBubbleGroup spacing="default" className="gap-3">
-      {turn.items.map((item) => (
-        <AgentItemView key={item.id} item={item} turn={turn} />
-      ))}
-      {turn.status === "failed" && turn.error ? (
-        <MessageBubble align="start" variant="danger">
-          <MessageBubbleContent>{turn.error}</MessageBubbleContent>
-        </MessageBubble>
-      ) : null}
-    </MessageBubbleGroup>
-  );
-});

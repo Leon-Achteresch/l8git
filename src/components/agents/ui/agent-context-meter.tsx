@@ -31,7 +31,7 @@ export function AgentContextMeter({ usage }: { usage: AgentTokenUsage | null }) 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="inline-flex shrink-0 items-center gap-1 tabular-nums">
+        <span className="inline-flex min-w-0 shrink-0 items-center gap-1 tabular-nums">
           <svg
             width={SIZE}
             height={SIZE}

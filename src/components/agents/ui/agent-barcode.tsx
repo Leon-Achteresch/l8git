@@ -46,7 +46,7 @@ export const AgentBarcode = memo(function AgentBarcode({
   const multiple = spec.items.length > 1;
 
   return (
-    <section className="my-3 rounded-[12px] border border-[var(--ag-line)] bg-[var(--ag-surface)] p-3">
+    <section className="ag-barcode my-3 min-w-0 max-w-full rounded-[12px] border border-[var(--ag-line)] bg-[var(--ag-surface)] p-3">
       {spec.title ? (
         <h4 className="mb-2 text-[12px] font-semibold text-[var(--ag-text)]">
           {spec.title}

@@ -11,6 +11,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:ui": "playwright test",
     "tauri": "tauri",
     "tauri:icon": "bunx tauri icon \"public/icons/ios/AppIcon~ios-marketing.png\""
   },
@@ -83,6 +84,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@tanstack/router-plugin": "^1.167.22",
     "@tauri-apps/cli": "~2.11",
