@@ -462,14 +462,16 @@
       "allModels": "Alle Modelle",
       "used": "{{value}} genutzt",
       "resetsIn": "Reset in {{count}} Min.",
-      "resetsAt": "Reset {{value}}"
+      "resetsAt": "Reset {{value}}",
+      "unknown": "Noch keine Nutzungsdaten"
     },
     "resetPosition": "Position zurücksetzen",
     "working": "Arbeitet in {{repo}}…",
     "chat": "Agenten",
     "actions": "Aktionen",
     "window": "Fenster",
-    "resize": "Größe ändern"
+    "resize": "Größe ändern",
+    "menu": "Menü"
   },
   "islandActions": {
     "group": {

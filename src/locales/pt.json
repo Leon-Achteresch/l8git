@@ -462,14 +462,16 @@
       "allModels": "Todos os modelos",
       "used": "{{value}} usado",
       "resetsIn": "Reinicia em {{count}} min",
-      "resetsAt": "Reinicia {{value}}"
+      "resetsAt": "Reinicia {{value}}",
+      "unknown": "Ainda não há dados de uso"
     },
     "resetPosition": "Redefinir posição",
     "working": "Trabalhando em {{repo}}…",
     "chat": "Agentes",
     "actions": "Ações",
     "window": "Janela",
-    "resize": "Redimensionar"
+    "resize": "Redimensionar",
+    "menu": "Menu"
   },
   "islandActions": {
     "group": {

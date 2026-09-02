@@ -462,14 +462,16 @@
       "allModels": "すべてのモデル",
       "used": "{{value}} 使用",
       "resetsIn": "{{count}} 分後にリセット",
-      "resetsAt": "{{value}} にリセット"
+      "resetsAt": "{{value}} にリセット",
+      "unknown": "使用状況データはまだありません"
     },
     "resetPosition": "位置をリセット",
     "working": "{{repo}} で作業中…",
     "chat": "Agents",
     "actions": "アクション",
     "window": "ウィンドウ",
-    "resize": "サイズ変更"
+    "resize": "サイズ変更",
+    "menu": "メニュー"
   },
   "islandActions": {
     "group": {
@@ -1159,10 +1161,9 @@
     "highlight2": "UIとワークフローの最適化",
     "highlight3": "最新のバグ修正と改善",
     "readyToInstall": "インストール準備完了",
-    "noReleaseNotes": "リリースノートはありません。",
+    "noReleaseNotes": "このリリースにはリリースノートがありません。",
     "filesApplying": "ファイルを適用中",
     "installedHint": "新しいバージョンはインストール済みです。再起動して完了してください。",
-    "noReleaseNotes": "このリリースにはリリースノートがありません。",
     "changelogTitle": "変更履歴",
     "restartNow": "今すぐ再起動",
     "close": "閉じる",

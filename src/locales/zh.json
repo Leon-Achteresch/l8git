@@ -462,14 +462,16 @@
       "allModels": "全部模型",
       "used": "已用 {{value}}",
       "resetsIn": "{{count}} 分钟后重置",
-      "resetsAt": "{{value}} 重置"
+      "resetsAt": "{{value}} 重置",
+      "unknown": "暂无使用数据"
     },
     "resetPosition": "重置位置",
     "working": "正在 {{repo}} 中工作…",
     "chat": "Agents",
     "actions": "操作",
     "window": "窗口",
-    "resize": "调整大小"
+    "resize": "调整大小",
+    "menu": "菜单"
   },
   "islandActions": {
     "group": {
@@ -1159,10 +1161,9 @@
     "highlight2": "优化用户界面与操作体验",
     "highlight3": "最新的问题修复与改进",
     "readyToInstall": "准备安装",
-    "noReleaseNotes": "此版本未提供更新说明。",
+    "noReleaseNotes": "此版本未提供发布说明。",
     "filesApplying": "正在应用文件",
     "installedHint": "新版本已安装完成。重启即可生效。",
-    "noReleaseNotes": "此版本未提供发布说明。",
     "changelogTitle": "更新日志",
     "restartNow": "立即重启",
     "close": "关闭",

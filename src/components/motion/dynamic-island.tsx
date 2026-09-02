@@ -141,6 +141,7 @@ export interface DynamicIslandProps {
   compact?: ReactNode;
   vertical?: boolean;
   usage?: boolean;
+  onContentSize?: (size: { width: number; height: number }) => void;
   children?: ReactNode;
   className?: string;
 }
@@ -150,12 +151,16 @@ export function DynamicIsland({
   compact,
   vertical = false,
   usage = false,
+  onContentSize,
   children,
   className,
 }: DynamicIslandProps) {
   const reduce = useReducedMotion();
   const expanded = view !== null;
   const [sizerRef, size] = useContentSize();
+  useEffect(() => {
+    if (size) onContentSize?.(size);
+  }, [size, onContentSize]);
   const contextValue = useMemo(() => ({ view }), [view]);
   const prevView = useRef(view);
   const viewChanged = prevView.current !== view;
