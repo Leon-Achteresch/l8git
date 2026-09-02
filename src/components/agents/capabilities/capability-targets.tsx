@@ -1,6 +1,7 @@
 import { Check, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { CapabilityCliMark } from "@/components/agents/capabilities/capability-cli-mark";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -26,11 +27,6 @@ export function scopeLabel(scope: CapabilityScope, t: (key: string) => string): 
   return t(`agentCapabilities.hub.scopes.${scope}`);
 }
 
-/**
- * Auswahl „welche CLI auf welcher Ebene“ – global, User oder Projekt.
- * Nicht beschreibbare Ebenen (z. B. `/etc` ohne Adminrechte) bleiben sichtbar,
- * damit klar wird, warum dort nichts landet.
- */
 export function CapabilityTargetPicker({
   targets,
   selected,
@@ -44,7 +40,6 @@ export function CapabilityTargetPicker({
   selected: CapabilityTargetRef[];
   onToggle: (target: CapabilityTargetRef) => void;
   mode?: "multi" | "single";
-  /** Ein Ziel gilt als möglich, sobald es *eine* dieser Arten beherrscht. */
   requiredKinds?: CapabilityKind[] | null;
   disabled?: boolean;
   emptyLabel?: string;
@@ -65,10 +60,12 @@ export function CapabilityTargetPicker({
           requiredKinds.some((kind) => targetSupports(targets, target.cli, kind));
         return (
           <div key={target.cli} className="flex items-center gap-2">
-            <div className="flex w-32 shrink-0 items-center gap-1.5">
-              <span className={cn("truncate text-[11px] font-medium", !supports && "text-muted-foreground line-through")}>
-                {target.label}
-              </span>
+            <div className="flex w-36 shrink-0 items-center gap-1.5">
+              <CapabilityCliMark
+                cli={target.cli}
+                label={target.label}
+                className={cn("min-w-0 text-[11px] font-medium", !supports && "text-muted-foreground line-through")}
+              />
               {target.installed ? null : (
                 <Tooltip>
                   <TooltipTrigger asChild>

@@ -1,6 +1,6 @@
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
 import { usePrCapabilities } from "@/lib/pr-provider-store";
@@ -198,9 +198,9 @@ export function PullRequestOverviewTab({
                     disabled={busy !== null}
                   >
                     <CheckCheck className="mr-1 h-4 w-4" />
-                    {busy === "APPROVE" ? t("pr.createSubmitBusy") : t("pr.approveButton")}
+                    {t("pr.reviewApprove")}
                   </Button>
-                  {canRequestChanges && (
+                  {canRequestChanges ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -208,42 +208,47 @@ export function PullRequestOverviewTab({
                       disabled={busy !== null}
                     >
                       <ThumbsDown className="mr-1 h-4 w-4" />
-                      {busy === "REQUEST_CHANGES"
-                        ? t("pr.createSubmitBusy")
-                        : t("pr.requestChangesButton")}
+                      {t("pr.reviewRequestChanges")}
                     </Button>
-                  )}
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => void submitReview("COMMENT")}
-                    disabled={busy !== null || !reviewBody.trim()}
+                    disabled={busy !== null}
                   >
                     <MessageSquarePlus className="mr-1 h-4 w-4" />
-                    {t("pr.commentReviewButton")}
+                    {t("pr.reviewCommentOnly")}
                   </Button>
                 </div>
               </div>
 
-              <div className="mt-2 flex flex-col gap-2 rounded border bg-background p-3">
+              <div className="flex flex-col gap-2 rounded border bg-background p-3">
                 <span className="text-xs font-medium">{t("pr.mergeHeading")}</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="text-xs text-muted-foreground">
-                    {t("pr.mergeStrategyLabel")}
-                  </label>
-                  <NativeSelect
-                    size="sm"
+                <div className="flex items-center gap-2">
+                  <Select
                     value={strategy}
-                    onChange={(e) =>
-                      setStrategy(e.target.value as MergeStrategy)
-                    }
+                    onValueChange={(v) => setStrategy(v as MergeStrategy)}
                   >
-                    {strategies.map((s) => (
-                      <NativeSelectOption key={s} value={s}>
-                        {mergeStrategyDisplay(s)}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {strategies.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {mergeStrategyDisplay(s)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={doMerge}
+                    disabled={busy !== null}
+                  >
+                    <GitMerge className="mr-1 h-4 w-4" />
+                    {busy === "merge" ? t("pr.mergeBusy") : t("pr.mergeButton")}
+                  </Button>
                 </div>
                 <Textarea
                   value={mergeMessage}
@@ -251,23 +256,9 @@ export function PullRequestOverviewTab({
                   placeholder={t("pr.mergeMessagePlaceholder")}
                   className="min-h-[60px] text-sm"
                 />
-                <div>
-                  <Button
-                    size="sm"
-                    onClick={doMerge}
-                    disabled={busy !== null}
-                  >
-                    <GitMerge className="mr-1 h-4 w-4" />
-                    {busy === "merge" ? t("pr.mergeRunningShort") : t("pr.mergeButton")}
-                  </Button>
-                </div>
               </div>
             </>
-          ) : (
-            <p className="text-xs italic text-muted-foreground">
-              {t("pr.prStateReadOnly", { state: detail.state })}
-            </p>
-          )}
+          ) : null}
         </section>
       </div>
     </ScrollArea>

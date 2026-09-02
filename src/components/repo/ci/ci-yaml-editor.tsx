@@ -1,5 +1,5 @@
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import "@/lib/monaco-setup";
@@ -172,18 +172,21 @@ export function CiYamlEditor({
         {/* File selector */}
         <div className="relative flex min-w-0 flex-1 items-center gap-1.5">
           <FileCode2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-          <NativeSelect
-            size="sm"
-            className="min-w-0 flex-1"
-            value={selectedFile ?? ""}
-            onChange={(e) => setSelectedFile(e.target.value)}
+          <Select
+            value={selectedFile ?? files[0]}
+            onValueChange={setSelectedFile}
           >
-            {files.map((f) => (
-              <NativeSelectOption key={f} value={f}>
-                {f}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            <SelectTrigger size="sm" className="min-w-0 flex-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {files.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {f}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Dirty indicator */}

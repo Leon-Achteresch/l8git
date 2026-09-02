@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -21,6 +21,7 @@ pub struct GitCommandEntry {
 }
 
 static SEQ: AtomicU64 = AtomicU64::new(1);
+static LIVE: AtomicBool = AtomicBool::new(false);
 
 fn buffer() -> &'static Mutex<VecDeque<GitCommandEntry>> {
     static BUF: OnceLock<Mutex<VecDeque<GitCommandEntry>>> = OnceLock::new();
@@ -131,9 +132,18 @@ impl CommandSpan {
             duration_ms: self.started.elapsed().as_millis() as u64,
             started_at: self.started_at,
         };
-        push_entry(&mut lock_buffer(), entry.clone());
-        crate::sink::emit(EVENT_NAME, &entry);
+        if LIVE.load(Ordering::Relaxed) {
+            push_entry(&mut lock_buffer(), entry.clone());
+            crate::sink::emit(EVENT_NAME, &entry);
+        } else {
+            push_entry(&mut lock_buffer(), entry);
+        }
     }
+}
+
+#[tauri::command]
+pub fn git_command_log_live(active: bool) {
+    LIVE.store(active, Ordering::Relaxed);
 }
 
 #[tauri::command]

@@ -39,7 +39,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -158,16 +158,19 @@ function SkillEditor({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="skill-scope" className="text-[10px]">{t("agentCapabilities.scope")}</Label>
-                <NativeSelect
-                  id="skill-scope"
+                <Select
                   value={draft.scope}
                   disabled={Boolean(draft.originalPath)}
-                  onChange={(event) => onChange({ ...draft, scope: event.target.value as "repo" | "user" })}
-                  className="w-full"
+                  onValueChange={(value) => onChange({ ...draft, scope: value as "repo" | "user" })}
                 >
-                  <NativeSelectOption value="repo">{t("agentCapabilities.scopeRepo")}</NativeSelectOption>
-                  <NativeSelectOption value="user">{t("agentCapabilities.scopeUser")}</NativeSelectOption>
-                </NativeSelect>
+                  <SelectTrigger id="skill-scope" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="repo">{t("agentCapabilities.scopeRepo")}</SelectItem>
+                    <SelectItem value="user">{t("agentCapabilities.scopeUser")}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-1.5">
@@ -220,16 +223,19 @@ function SkillEditor({
                 {draft.dependencies.map((dependency, index) => (
                   <div key={index} className="ag-card space-y-2 p-2.5">
                     <div className="grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(0,1fr)_2rem]">
-                      <NativeSelect
+                      <Select
                         value={dependency.type}
-                        onChange={(event) => updateDependency(index, { type: event.target.value })}
-                        className="w-full"
-                        size="sm"
+                        onValueChange={(value) => updateDependency(index, { type: value })}
                       >
-                        <NativeSelectOption value="mcp">MCP</NativeSelectOption>
-                        <NativeSelectOption value="env_var">Env var</NativeSelectOption>
-                        <NativeSelectOption value="tool">Tool</NativeSelectOption>
-                      </NativeSelect>
+                        <SelectTrigger size="sm" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mcp">MCP</SelectItem>
+                          <SelectItem value="env_var">Env var</SelectItem>
+                          <SelectItem value="tool">Tool</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Input
                         value={dependency.value}
                         onChange={(event) => updateDependency(index, { value: event.target.value })}
@@ -258,10 +264,15 @@ function SkillEditor({
                     </div>
                     {dependency.type === "mcp" ? (
                       <div className="grid gap-2 pl-0 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(0,1fr)] sm:pl-[7.5rem]">
-                        <NativeSelect value={dependency.transport ?? "streamable_http"} onChange={(event) => updateDependency(index, { transport: event.target.value })} size="sm" className="w-full">
-                          <NativeSelectOption value="streamable_http">HTTP</NativeSelectOption>
-                          <NativeSelectOption value="stdio">STDIO</NativeSelectOption>
-                        </NativeSelect>
+                        <Select value={dependency.transport ?? "streamable_http"} onValueChange={(value) => updateDependency(index, { transport: value })}>
+                          <SelectTrigger size="sm" className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="streamable_http">HTTP</SelectItem>
+                            <SelectItem value="stdio">STDIO</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <Input value={dependency.url ?? ""} onChange={(event) => updateDependency(index, { url: event.target.value })} placeholder="https://example.com/mcp" className="h-7 rounded-md font-mono text-[10px]" />
                         <Input value={dependency.command ?? ""} onChange={(event) => updateDependency(index, { command: event.target.value })} placeholder="npx server" className="h-7 rounded-md font-mono text-[10px]" />
                       </div>

@@ -22,6 +22,8 @@ export function ClaudeCodeLogo({ className }: AgentLogoProps) {
   );
 }
 
+export const ClaudeLogo = ClaudeCodeLogo;
+
 export function CodexLogo({ className }: AgentLogoProps) {
   return (
     <svg

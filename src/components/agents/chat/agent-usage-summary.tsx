@@ -1,6 +1,8 @@
+import { Coins } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { formatTokens, formatUsd } from "@/lib/agents/token-cost";
 import {
   dayKey,
@@ -16,21 +18,26 @@ export function AgentUsageSummary() {
   const week = useMemo(() => sumDays(days, lastDayKeys(7)), [days]);
   const todayTokens = today.inputTokens + today.outputTokens;
   const weekTokens = week.inputTokens + week.outputTokens;
+
   if (!todayTokens && !weekTokens) return null;
+
   return (
-    <div
-      className="ag-line flex h-8 min-w-0 shrink-0 items-center overflow-hidden border-t px-3.5 text-[11px]"
-      title={t("agentChat.usageWeek", {
-        cost: formatUsd(week.costUsd),
-        tokens: formatTokens(weekTokens),
-      })}
-    >
-      <span className="ag-faint truncate">
-        {t("agentChat.usageToday", {
-          cost: formatUsd(today.costUsd),
-          tokens: formatTokens(todayTokens),
+    <AgentsEnter>
+      <div
+        className="ag-line flex h-8.5 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-t bg-[var(--ag-surface-2)]/40 px-3 text-[11px]"
+        title={t("agentChat.usageWeek", {
+          cost: formatUsd(week.costUsd),
+          tokens: formatTokens(weekTokens),
         })}
-      </span>
-    </div>
+      >
+        <Coins className="size-3 shrink-0 text-[var(--ag-text-3)]" />
+        <span className="ag-faint truncate font-medium">
+          {t("agentChat.usageToday", {
+            cost: formatUsd(today.costUsd),
+            tokens: formatTokens(todayTokens),
+          })}
+        </span>
+      </div>
+    </AgentsEnter>
   );
 }

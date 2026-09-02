@@ -24,6 +24,7 @@ export const ISLAND_VIEW = {
   agent: "agent",
   chat: "chat",
   actions: "actions",
+  usage: "usage",
 } as const;
 
 export type IslandFlashType = "success" | "error" | "warning" | "info" | "loading";

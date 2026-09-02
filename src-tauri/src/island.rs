@@ -59,6 +59,7 @@ fn ensure_island(app: &AppHandle, position: Option<(f64, f64)>) -> Result<(), St
         if let Some((x, y)) = position {
             let _ = window.set_position(LogicalPosition::new(x, y));
         }
+        keep_island_visible(app);
         return Ok(());
     }
 
@@ -74,6 +75,7 @@ fn ensure_island(app: &AppHandle, position: Option<(f64, f64)>) -> Result<(), St
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
+        .accept_first_mouse(true)
         .focused(false);
 
     if let Some((x, y)) = position {
@@ -94,7 +96,17 @@ fn ensure_island(app: &AppHandle, position: Option<(f64, f64)>) -> Result<(), St
         let _ = window.set_visible_on_all_workspaces(true);
     }
 
+    keep_island_visible(app);
     Ok(())
+}
+
+fn keep_island_visible(app: &AppHandle) {
+    let Some(island) = app.get_webview_window(ISLAND_LABEL) else {
+        return;
+    };
+    let _ = island.unminimize();
+    let _ = island.show();
+    let _ = island.set_always_on_top(true);
 }
 
 /// The island outlives nothing: when the main window goes away, so does it.
@@ -106,10 +118,22 @@ pub fn wire_lifecycle(app: &AppHandle) {
     };
     let handle = app.clone();
     main.on_window_event(move |event| {
-        if matches!(event, tauri::WindowEvent::Destroyed) {
-            if let Some(island) = handle.get_webview_window(ISLAND_LABEL) {
-                let _ = island.close();
+        match event {
+            tauri::WindowEvent::Destroyed => {
+                if let Some(island) = handle.get_webview_window(ISLAND_LABEL) {
+                    let _ = island.close();
+                }
             }
+            tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) => {
+                let minimized = handle
+                    .get_webview_window(MAIN_LABEL)
+                    .and_then(|w| w.is_minimized().ok())
+                    .unwrap_or(false);
+                if minimized {
+                    keep_island_visible(&handle);
+                }
+            }
+            _ => {}
         }
     });
 }
@@ -206,8 +230,10 @@ pub fn island_window_set_size(
             (width, height),
         );
         if let Ok(Some(monitor)) = window.current_monitor() {
-            let origin = monitor.position().to_logical::<f64>(monitor.scale_factor());
-            let area = monitor.size().to_logical::<f64>(monitor.scale_factor());
+            let scale = monitor.scale_factor();
+            let work = monitor.work_area();
+            let origin = work.position.to_logical::<f64>(scale);
+            let area = work.size.to_logical::<f64>(scale);
             nx = clamp(nx, origin.x, (origin.x + area.width - width).max(origin.x));
             ny = clamp(ny, origin.y, (origin.y + area.height - height).max(origin.y));
         }
@@ -219,45 +245,11 @@ pub fn island_window_set_size(
 }
 
 #[tauri::command]
-pub fn island_window_set_always_on_top(app: AppHandle, value: bool) -> Result<(), String> {
-    let Some(window) = app.get_webview_window(ISLAND_LABEL) else {
-        return Ok(());
-    };
-    window.set_always_on_top(value).map_err(|e| e.to_string())
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MainWindowBounds {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-    pub visible: bool,
-    pub minimized: bool,
-}
-
-#[tauri::command]
-pub fn main_window_bounds(app: AppHandle) -> Option<MainWindowBounds> {
-    let window = app.get_webview_window(MAIN_LABEL)?;
-    let scale = window.scale_factor().ok()?;
-    let position = window.inner_position().ok()?.to_logical::<f64>(scale);
-    let size = window.inner_size().ok()?.to_logical::<f64>(scale);
-    Some(MainWindowBounds {
-        x: position.x,
-        y: position.y,
-        width: size.width,
-        height: size.height,
-        visible: window.is_visible().unwrap_or(false),
-        minimized: window.is_minimized().unwrap_or(false),
-    })
-}
-
-#[tauri::command]
 pub fn main_window_minimize(app: AppHandle) -> Result<IslandWindowState, String> {
     if let Some(window) = app.get_webview_window(MAIN_LABEL) {
         window.minimize().map_err(|e| e.to_string())?;
     }
+    keep_island_visible(&app);
     Ok(window_state(&app))
 }
 

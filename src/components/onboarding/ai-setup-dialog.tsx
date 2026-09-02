@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ListRow } from "@/components/ui/list-row";
-import { NativeSelect } from "@/components/ui/native-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AI_PROVIDER_DEFAULT_MODELS,
   useCommitPrefs,
@@ -194,17 +194,18 @@ export function AiSetupDialog({
               <Label htmlFor="ai-setup-model" className="text-sm font-medium">
                 {t("aiSetup.modelLabel")}
               </Label>
-              <NativeSelect
-                id="ai-setup-model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                {ollamaModels.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </NativeSelect>
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger id="ai-setup-model" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ollamaModels.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ) : (
             <div className="space-y-1.5">

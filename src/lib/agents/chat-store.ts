@@ -1122,8 +1122,8 @@ export const useAgentChatStore = create<AgentChatState>()(
             requiresAuth: accountResponse.requiresOpenaiAuth && !accountResponse.account,
             loginStatus: "idle",
             loginError: null,
-            rateLimits: normalizeRateLimits(rateResponse?.rateLimits),
-            accountUsage: normalizeAccountUsage(usageResponse?.summary),
+            rateLimits: normalizeRateLimits(rateResponse?.rateLimits) ?? (accountResponse.account ? get().rateLimits : null),
+            accountUsage: normalizeAccountUsage(usageResponse?.summary) ?? (accountResponse.account ? get().accountUsage : null),
           });
         } finally {
           codexSessionManager.releaseControl();

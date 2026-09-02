@@ -32,6 +32,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 const EMPTY_COMMITS: Commit[] = [];
+const EMPTY_PATHS: string[] = [];
 
 function DashboardPage() {
   const { t } = useTranslation();
@@ -43,7 +44,7 @@ function DashboardPage() {
 
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const workspacePaths = useWorkspaceStore(
-    (s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.repoPaths ?? [],
+    (s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.repoPaths ?? EMPTY_PATHS,
   );
   const knownPaths = useRepoStore((s) => s.paths);
   const allPaths = useMemo(() => {

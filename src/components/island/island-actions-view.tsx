@@ -14,6 +14,7 @@ import {
   Maximize2,
   Minimize2,
   Minus,
+  MoreHorizontal,
   PictureInPicture2,
   Plus,
   RotateCcw,
@@ -79,11 +80,13 @@ export function IslandActionsView({
   onClose,
   onOpenProjects,
   onOpenChat,
+  onOpenMenu,
 }: {
   snapshot: IslandSnapshot;
   onClose: () => void;
   onOpenProjects: () => void;
   onOpenChat: () => void;
+  onOpenMenu: () => void;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -234,6 +237,16 @@ export function IslandActionsView({
           className={ISLAND_ICON}
         >
           <Sparkles />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onOpenMenu}
+          aria-label={t("island.menu")}
+          title={t("island.menu")}
+          className={ISLAND_ICON}
+        >
+          <MoreHorizontal />
         </Button>
         <Button
           variant="ghost"

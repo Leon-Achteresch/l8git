@@ -1,7 +1,5 @@
 import type { IslandProviderUsage, IslandUsageWindow } from "@/lib/island/types";
 
-export const USAGE_PROVIDER_IDS = ["codex", "claude", "opencode", "cursor"] as const;
-
 export const USAGE_SHORT_NAME: Record<string, string> = {
   claude: "Claude",
   codex: "Codex",
@@ -10,12 +8,7 @@ export const USAGE_SHORT_NAME: Record<string, string> = {
 };
 
 export function usageRowsOrAll(rows: IslandProviderUsage[]): IslandProviderUsage[] {
-  if (rows.length) return rows;
-  return USAGE_PROVIDER_IDS.map((id) => ({
-    id,
-    primary: { usedPercent: 0, windowDurationMins: null, resetsAt: null },
-    secondary: null,
-  }));
+  return rows.filter(usageRowKnown);
 }
 
 export function usageWindowKnown(window: IslandUsageWindow | null): boolean {

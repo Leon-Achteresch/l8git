@@ -1,7 +1,7 @@
 {
   "name": "l8git",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "workspaces": [
     "mobile"
@@ -58,10 +58,10 @@
     "i18next": "^26.1.0",
     "input-otp": "^1.5.0",
     "lucide": "1.35.0",
-    "lucide-react": "^1.28.0",
+    "lucide-react": "^1.39.0",
     "monaco-editor": "^0.55.1",
     "morphicons": "^1.7.1",
-    "motion": "^13.0.0",
+    "motion": "^13.1.1",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.4.3",
     "react": "^19.2.8",

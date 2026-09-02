@@ -1,4 +1,10 @@
 import {
+  Archive as ArchiveData,
+  ArchiveRestore as ArchiveRestoreData,
+  Pin as PinData,
+  PinOff as PinOffData,
+} from "lucide";
+import {
   Copy,
   GitFork,
   MoreHorizontal,
@@ -8,12 +14,23 @@ import {
   TicketX,
   Trash2,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { m, useReducedMotion } from "motion/react";
+import {
+  memo,
+  useCallback,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentJiraLinkDialog } from "@/components/agents/chat/agent-jira-link-dialog";
+import { AgentThreadJiraBadge } from "@/components/agents/chat/agent-thread-jira-badge";
+import { AgentThreadWorkingTimer } from "@/components/agents/chat/agent-thread-working-timer";
+import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
+import { AgentStatusChip } from "@/components/agents/ui/agent-status-chip";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -28,15 +45,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MorphIcon } from "@/components/ui/morph-icon";
 import { chatStoreFor } from "@/lib/agents/active-chat-store";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import type { AgentThreadSummary } from "@/lib/agents/types";
-import { jiraThreadKey, useJiraLinks, useJiraStore } from "@/lib/jira/jira-store";
-import type { JiraTicketLink } from "@/lib/jira/types";
-import { AgDot } from "@/components/agents/ui/ag-dot";
-import { Archive as ArchiveData, ArchiveRestore as ArchiveRestoreData, Pin as PinData, PinOff as PinOffData } from "lucide";
-import { MorphIcon } from "@/components/ui/morph-icon";
+import {
+  jiraThreadKey,
+  useJiraLinks,
+  useJiraStore,
+} from "@/lib/jira/jira-store";
+import { SPRING_LAYOUT, SPRING_PRESS } from "@/lib/motion/ease";
 
 export function isWorking(status: string): boolean {
   return status !== "idle" && status !== "notLoaded";
@@ -48,57 +67,6 @@ type MenuItemProps = {
   onSelect?: () => void;
   children: ReactNode;
 };
-
-function elapsedLabel(startedAt: number): string {
-  const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-}
-
-function WorkingFor({ since }: { since: number }) {
-  const [label, setLabel] = useState(() => elapsedLabel(since));
-  useEffect(() => {
-    setLabel(elapsedLabel(since));
-    const timer = window.setInterval(() => {
-      if (!document.hidden) setLabel(elapsedLabel(since));
-    }, 1_000);
-    return () => window.clearInterval(timer);
-  }, [since]);
-  return <>{label}</>;
-}
-
-/**
- * Status colour follows Jira's own three status categories rather than the
- * status name, which is per-project and unbounded.
- */
-function statusTone(link: JiraTicketLink): string {
-  const category = link.statusCategory.toLowerCase();
-  if (category.includes("done") || category.includes("complete")) return "text-[var(--git-added)]";
-  if (category.includes("progress")) return "text-[var(--git-modified)]";
-  return "text-[var(--ag-text-3)]";
-}
-
-function JiraBadge({ links }: { links: JiraTicketLink[] }) {
-  const [first, ...rest] = links;
-  if (!first) return null;
-  const title = [first.summary ? `${first.key}: ${first.summary}` : first.key, first.status]
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    <span
-      className="ml-auto flex min-w-0 shrink items-center gap-1 pl-1.5"
-      title={rest.length ? `${title} (+${rest.length})` : title}
-    >
-      <Ticket className="size-2.5 shrink-0 text-[var(--ag-text-3)]" />
-      <span className="truncate text-[10px] font-medium text-[var(--ag-text-2)]">{first.key}</span>
-      {first.status ? (
-        <span className={`truncate text-[10px] ${statusTone(first)}`}>{first.status}</span>
-      ) : null}
-      {rest.length ? <span className="ag-faint text-[10px]">+{rest.length}</span> : null}
-    </span>
-  );
-}
 
 export const AgentThreadRow = memo(function AgentThreadRow({
   path,
@@ -120,24 +88,35 @@ export const AgentThreadRow = memo(function AgentThreadRow({
   renaming: boolean;
   onOpen: (provider: NativeAgentProvider, threadId: string) => void;
   onRename: (threadKey: string | null) => void;
-  onSetPinned: (provider: NativeAgentProvider, threadId: string, pinned: boolean) => Promise<void>;
-  onArchive: (provider: NativeAgentProvider, threadId: string, archived: boolean) => Promise<void>;
+  onSetPinned: (
+    provider: NativeAgentProvider,
+    threadId: string,
+    pinned: boolean,
+  ) => Promise<void>;
+  onArchive: (
+    provider: NativeAgentProvider,
+    threadId: string,
+    archived: boolean,
+  ) => Promise<void>;
 }) {
   const { t } = useTranslation();
+  const reduce = useReducedMotion();
   const [hovered, setHovered] = useState(false);
   const [linking, setLinking] = useState(false);
   const jiraEnabled = useJiraStore((state) => state.enabled);
   const unlinkTicket = useJiraStore((state) => state.unlinkTicket);
   const jiraKey = jiraThreadKey(thread.provider, thread.id);
   const jiraLinks = useJiraLinks(jiraKey);
-  // Renaming is driven from the menu, but can also arrive as a prop, so it
-  // arms the row on its own.
   const armed = hovered || renaming;
   const working = isWorking(thread.status);
   const providerMeta = agentProviderMeta(thread.provider);
   const ProviderLogo = providerMeta.Logo;
   const { provider, id: threadId } = thread;
-  const open = useCallback(() => onOpen(provider, threadId), [onOpen, provider, threadId]);
+
+  const open = useCallback(
+    () => onOpen(provider, threadId),
+    [onOpen, provider, threadId],
+  );
   const setRenaming = useCallback(
     (value: boolean) => onRename(value ? `${provider}:${threadId}` : null),
     [onRename, provider, threadId],
@@ -171,8 +150,14 @@ export const AgentThreadRow = memo(function AgentThreadRow({
     itemClassName: string,
   ) => (
     <>
-      <Item className={itemClassName} onSelect={() => setPinned(!thread.isPinned)}>
-        <MorphIcon icon={thread.isPinned ? PinOffData : PinData} className="size-3.5" />
+      <Item
+        className={itemClassName}
+        onSelect={() => setPinned(!thread.isPinned)}
+      >
+        <MorphIcon
+          icon={thread.isPinned ? PinOffData : PinData}
+          className="size-3.5"
+        />
         {thread.isPinned ? t("agentChat.unpin") : t("agentChat.pin")}
       </Item>
       <Item className={itemClassName} onSelect={() => setRenaming(true)}>
@@ -182,7 +167,9 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       <Item
         className={itemClassName}
         onSelect={() =>
-          run(() => chatStoreFor(thread.provider).getState().forkThread(path, thread.id))
+          run(() =>
+            chatStoreFor(thread.provider).getState().forkThread(path, thread.id),
+          )
         }
       >
         <GitFork className="size-3.5" />
@@ -208,11 +195,17 @@ export const AgentThreadRow = memo(function AgentThreadRow({
         </>
       ) : null}
       <Separator />
-      <Item className={itemClassName} onSelect={() => copy(thread.title, t("agentChat.titleCopied"))}>
+      <Item
+        className={itemClassName}
+        onSelect={() => copy(thread.title, t("agentChat.titleCopied"))}
+      >
         <Copy className="size-3.5" />
         {t("agentChat.copyTitle")}
       </Item>
-      <Item className={itemClassName} onSelect={() => copy(thread.id, t("agentChat.idCopied"))}>
+      <Item
+        className={itemClassName}
+        onSelect={() => copy(thread.id, t("agentChat.idCopied"))}
+      >
         <Copy className="size-3.5" />
         {t("agentChat.copyId")}
       </Item>
@@ -222,15 +215,27 @@ export const AgentThreadRow = memo(function AgentThreadRow({
         className={itemClassName}
         onSelect={() => run(() => archive(!thread.archived))}
       >
-        <MorphIcon icon={thread.archived ? ArchiveRestoreData : ArchiveData} className="size-3.5" />
+        <MorphIcon
+          icon={thread.archived ? ArchiveRestoreData : ArchiveData}
+          className="size-3.5"
+        />
         {thread.archived ? t("agentChat.unarchive") : t("agentChat.archive")}
       </Item>
       <Item
         variant="destructive"
         className={itemClassName}
         onSelect={() => {
-          if (!window.confirm(t("agentChat.confirmDeleteThread", { title: thread.title }))) return;
-          run(() => chatStoreFor(thread.provider).getState().deleteThread(path, thread.id));
+          if (
+            !window.confirm(
+              t("agentChat.confirmDeleteThread", { title: thread.title }),
+            )
+          )
+            return;
+          run(() =>
+            chatStoreFor(thread.provider)
+              .getState()
+              .deleteThread(path, thread.id),
+          );
         }}
       >
         <Trash2 className="size-3.5" />
@@ -240,7 +245,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
   );
 
   const row = (
-    <div
+    <m.div
       role="button"
       tabIndex={0}
       onClick={open}
@@ -251,18 +256,29 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       }}
       aria-current={active ? "page" : undefined}
       data-active={active}
-      className="ag-row ag-row-shared min-h-11 min-w-0 items-start overflow-hidden py-2 pr-8"
+      whileTap={reduce ? undefined : { scale: 0.985 }}
+      transition={SPRING_PRESS}
+      className="ag-row ag-row-shared min-h-14 min-w-0 items-start overflow-hidden py-2.5 pr-8 transition-colors duration-150"
     >
-      <span
-        className="mt-0.5 grid size-4 shrink-0 place-items-center"
-        title={providerMeta.label}
-        aria-label={providerMeta.label}
+      {active ? (
+        <m.span
+          layoutId="agents-active-thread"
+          className="pointer-events-none absolute inset-0 rounded-[var(--ag-r-md)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-raise)] ring-1 ring-[var(--ag-line-strong)]"
+          transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
+        />
+      ) : null}
+      <AgentProviderMark
+        working={working}
+        label={providerMeta.label}
+        className="relative z-[1] mt-0.5"
       >
-        <ProviderLogo className="size-3.5" />
-      </span>
-      <span className="min-w-0 flex-1">
+        <ProviderLogo />
+      </AgentProviderMark>
+      <span className="relative z-[1] min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
-          {thread.isPinned ? <Pin className="ag-faint size-2.5 shrink-0" /> : null}
+          {thread.isPinned ? (
+            <Pin className="size-2.5 shrink-0 text-[var(--git-branch)]" />
+          ) : null}
           <AgentInlineTitle
             path={path}
             provider={thread.provider}
@@ -270,31 +286,31 @@ export const AgentThreadRow = memo(function AgentThreadRow({
             title={thread.title}
             editing={renaming}
             onEditingChange={setRenaming}
-            className="min-w-0 flex-1 truncate text-[12px]"
+            className="min-w-0 flex-1 truncate text-[12px] font-medium tracking-[-0.01em]"
             inputClassName="text-[12px]"
           />
+          {working ? (
+            <AgentStatusChip tone="working" className="ml-auto shrink-0">
+              {t("agentChat.working")}
+              {workingSince ? (
+                <>
+                  {" "}
+                  <AgentThreadWorkingTimer since={workingSince} />
+                </>
+              ) : null}
+            </AgentStatusChip>
+          ) : null}
         </span>
         <span className="mt-0.5 flex items-center gap-1.5">
-          {working ? (
-            <>
-              <AgDot state="working" />
-              <span className="text-[10px] font-medium tabular-nums text-[var(--git-modified)]">
-                {t("agentChat.working")}
-                {workingSince ? <> <WorkingFor since={workingSince} /></> : null}
-              </span>
-              <span className="ag-faint text-[10px]">·</span>
-            </>
-          ) : null}
-          <span className="ag-faint truncate text-[10px] tabular-nums">{relativeDate}</span>
-          {jiraEnabled ? <JiraBadge links={jiraLinks} /> : null}
+          <span className="ag-faint truncate text-[10px] tabular-nums">
+            {relativeDate}
+          </span>
+          {jiraEnabled ? <AgentThreadJiraBadge links={jiraLinks} /> : null}
         </span>
       </span>
-    </div>
+    </m.div>
   );
 
-  // A sidebar can hold hundreds of rows, and mounting two Radix menu roots per
-  // row costs more than the row itself. Both menus stay out of the tree until
-  // the pointer or keyboard focus actually reaches this row.
   return (
     <div
       className="group/thread relative"
@@ -314,7 +330,11 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       )}
 
       {linking ? (
-        <AgentJiraLinkDialog threadKey={jiraKey} open onOpenChange={setLinking} />
+        <AgentJiraLinkDialog
+          threadKey={jiraKey}
+          open
+          onOpenChange={setLinking}
+        />
       ) : null}
 
       {armed ? (
@@ -322,7 +342,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="ag-icon-btn absolute right-1 top-1.5 size-6 opacity-0 transition-opacity group-hover/thread:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+              className="ag-icon-btn absolute right-1.5 top-2.5 size-6 opacity-0 transition-opacity group-hover/thread:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
               aria-label={t("agentChat.manageConversation")}
             >
               <MoreHorizontal className="size-3.5" />

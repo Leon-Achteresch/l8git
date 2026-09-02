@@ -61,6 +61,7 @@ const IGNORED_DIR_NAMES: &[&str] = &[
     "cmake-build-release",
 ];
 
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 const MAX_SPLIT_DEPTH: usize = 2;
 const POLL_INTERVAL: Duration = Duration::from_millis(300);
 
@@ -87,6 +88,9 @@ fn is_ignored_path(roots: &[PathBuf], path: &Path) -> bool {
         if in_git_dir && (name == "objects" || name == "logs") {
             return true;
         }
+        if in_git_dir && name.ends_with(".lock") {
+            return true;
+        }
         if is_ignored_dir_name(name) {
             return true;
         }
@@ -95,10 +99,12 @@ fn is_ignored_path(roots: &[PathBuf], path: &Path) -> bool {
     false
 }
 
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 fn depth_from_root(roots: &[PathBuf], path: &Path) -> Option<usize> {
     relative_to_roots(roots, path).map(|rel| rel.components().count())
 }
 
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 fn attach_dir<W: Watcher>(
     watcher: &mut W,
     roots: &[PathBuf],
@@ -136,6 +142,7 @@ fn attach_dir<W: Watcher>(
     }
 }
 
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 fn attach_git_dir<W: Watcher>(watcher: &mut W, root: &Path) {
     let git_dir = root.join(".git");
     if !git_dir.is_dir() {
@@ -188,12 +195,25 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
     let mut debouncer = new_debouncer(Duration::from_millis(600), None, tx)
         .map_err(|e| format!("watcher init failed: {e}"))?;
 
+    #[allow(unused_mut)]
     let mut shallow: HashSet<PathBuf> = HashSet::new();
-    attach_dir(debouncer.watcher(), &roots, &repo_path, 0, &mut shallow);
-    if shallow.is_empty() {
-        return Err("watcher attach failed".into());
+    #[cfg(target_os = "macos")]
+    {
+        // ponytail: FSEvents streams are always recursive; notify emulates
+        // NonRecursive by filtering, so split watches only multiply events.
+        debouncer
+            .watcher()
+            .watch(&repo_path, RecursiveMode::Recursive)
+            .map_err(|e| format!("watcher attach failed: {e}"))?;
     }
-    attach_git_dir(debouncer.watcher(), &repo_path);
+    #[cfg(not(target_os = "macos"))]
+    {
+        attach_dir(debouncer.watcher(), &roots, &repo_path, 0, &mut shallow);
+        if shallow.is_empty() {
+            return Err("watcher attach failed".into());
+        }
+        attach_git_dir(debouncer.watcher(), &repo_path);
+    }
 
     std::thread::spawn(move || {
         let mut debouncer = debouncer;
@@ -260,4 +280,21 @@ pub(crate) fn unwatch_repo_inner(path: String) -> Result<(), String> {
         reg.remove(&key);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ignores_git_noise_but_keeps_index_and_refs() {
+        let roots = vec![PathBuf::from("/r")];
+        assert!(is_ignored_path(&roots, Path::new("/r/.git/index.lock")));
+        assert!(is_ignored_path(&roots, Path::new("/r/.git/objects/ab/cd")));
+        assert!(is_ignored_path(&roots, Path::new("/r/node_modules/x/y.js")));
+        assert!(!is_ignored_path(&roots, Path::new("/r/.git/index")));
+        assert!(!is_ignored_path(&roots, Path::new("/r/Cargo.lock")));
+        assert!(!is_ignored_path(&roots, Path::new("/r/.git/refs/heads/main")));
+        assert!(!is_ignored_path(&roots, Path::new("/r/src/main.rs")));
+    }
 }

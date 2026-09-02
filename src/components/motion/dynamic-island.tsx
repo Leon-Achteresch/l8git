@@ -64,15 +64,22 @@ function useContentSize() {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    setSize({ width: el.offsetWidth, height: el.offsetHeight });
+    setSize({
+      width: Math.max(el.offsetWidth, el.scrollWidth),
+      height: Math.max(el.offsetHeight, el.scrollHeight),
+    });
   }, []);
 
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      setSize({ width: el.offsetWidth, height: el.offsetHeight });
-    });
+    const read = () => {
+      setSize({
+        width: Math.max(el.offsetWidth, el.scrollWidth),
+        height: Math.max(el.offsetHeight, el.scrollHeight),
+      });
+    };
+    const observer = new ResizeObserver(read);
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -134,6 +141,7 @@ export interface DynamicIslandProps {
   compact?: ReactNode;
   vertical?: boolean;
   usage?: boolean;
+  onContentSize?: (size: { width: number; height: number }) => void;
   children?: ReactNode;
   className?: string;
 }
@@ -143,12 +151,16 @@ export function DynamicIsland({
   compact,
   vertical = false,
   usage = false,
+  onContentSize,
   children,
   className,
 }: DynamicIslandProps) {
   const reduce = useReducedMotion();
   const expanded = view !== null;
   const [sizerRef, size] = useContentSize();
+  useEffect(() => {
+    if (size) onContentSize?.(size);
+  }, [size, onContentSize]);
   const contextValue = useMemo(() => ({ view }), [view]);
   const prevView = useRef(view);
   const viewChanged = prevView.current !== view;
@@ -184,16 +196,16 @@ export function DynamicIsland({
       >
         {/* w-max keeps this at the natural size of the active content; the
             shell springs toward it. */}
-        <div ref={sizerRef} className="w-max">
+        <div ref={sizerRef} className="h-max w-max shrink-0">
           <AnimatePresence mode="popLayout" initial={false}>
             {!expanded && compact ? (
               <Slot
                 keyId="compact"
                 className={
                   usage && vertical
-                    ? "min-h-0 min-w-[56px] flex-col gap-2.5 px-2.5 py-3 text-xs font-medium"
+                    ? "min-w-[56px] flex-col gap-2.5 px-2.5 py-3 text-xs font-medium"
                     : usage
-                      ? "min-h-0 min-w-0 gap-4 px-4 py-2.5 text-xs font-medium"
+                      ? "min-h-[76px] min-w-0 gap-4 px-4 py-2.5 text-xs font-medium"
                       : vertical
                         ? "min-h-0 min-w-[44px] flex-col gap-1.5 px-1.5 py-2 text-xs font-medium"
                         : "min-h-[37px] min-w-[126px] gap-2 px-4 py-1.5 text-xs font-medium"

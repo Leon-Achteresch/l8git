@@ -17,6 +17,10 @@ import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SpinIcon } from "@/components/motion/kit";
+import { useAgentCodeTokens } from "@/components/agents/ui/agent-code";
+import type { AgentCodeToken } from "@/lib/agents/agent-code-types";
+import { languageFromPath } from "@/lib/agents/agent-code-types";
+import { cn } from "@/lib/utils";
 import { Minus as MinusData, Plus as PlusData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
 
@@ -27,6 +31,120 @@ const lineWrap =
   "box-border block w-max min-w-full whitespace-pre px-4 py-0.5 font-mono text-[11px]";
 
 type WordDiffLookup = (index: number) => WordDiffSegment[] | null;
+type SyntaxLookup = (index: number) => AgentCodeToken[] | undefined;
+
+// Shiki tokenizes the diff's content lines as one document, so a multi-line
+// string or comment still ends up in the right state. Structural lines are
+// blanked out to keep the token line indices aligned with the diff rows.
+function useSyntaxLookup(
+  lines: readonly { kind: string; text: string }[],
+  filePath: string | null | undefined,
+): SyntaxLookup {
+  const language = useMemo(() => languageFromPath(filePath), [filePath]);
+  const code = useMemo(
+    () =>
+      lines
+        .map((line) => (line.kind === "meta" || line.kind === "hunk" ? "" : line.text))
+        .join("\n"),
+    [lines],
+  );
+  const tokens = useAgentCodeTokens(code, language, language !== "text");
+  return useCallback((index: number) => tokens?.[index], [tokens]);
+}
+
+type CodePiece = {
+  text: string;
+  light?: string;
+  dark?: string;
+  changed: boolean;
+};
+
+function codePieces(
+  tokens: AgentCodeToken[],
+  segments: WordDiffSegment[] | null,
+): CodePiece[] {
+  const ranges: [number, number][] = [];
+  if (segments) {
+    let at = 0;
+    for (const segment of segments) {
+      if (segment.changed) ranges.push([at, at + segment.text.length]);
+      at += segment.text.length;
+    }
+  }
+
+  const pieces: CodePiece[] = [];
+  let pos = 0;
+  for (const token of tokens) {
+    const cuts = new Set([0, token.content.length]);
+    for (const [from, to] of ranges) {
+      if (from > pos && from < pos + token.content.length) cuts.add(from - pos);
+      if (to > pos && to < pos + token.content.length) cuts.add(to - pos);
+    }
+    const bounds = [...cuts].sort((a, b) => a - b);
+    for (let i = 0; i < bounds.length - 1; i++) {
+      const start = bounds[i] as number;
+      const end = bounds[i + 1] as number;
+      const absolute = pos + start;
+      pieces.push({
+        text: token.content.slice(start, end),
+        light: token.light,
+        dark: token.dark,
+        changed: ranges.some(([from, to]) => absolute >= from && absolute < to),
+      });
+    }
+    pos += token.content.length;
+  }
+  return pieces;
+}
+
+function CodeText({
+  text,
+  segments,
+  kind,
+  tokens,
+}: {
+  text: string;
+  segments: WordDiffSegment[] | null;
+  kind: "add" | "del" | "ctx";
+  tokens: AgentCodeToken[] | undefined;
+}) {
+  const usable =
+    tokens?.length &&
+    tokens.reduce((sum, token) => sum + token.content.length, 0) === text.length;
+  if (!usable) {
+    if (kind === "ctx") return <>{text}</>;
+    return <WordDiffText text={text} segments={segments} kind={kind} />;
+  }
+
+  const highlight =
+    kind === "add"
+      ? "rounded-[2px] bg-git-added/25"
+      : kind === "del"
+        ? "rounded-[2px] bg-git-removed/25"
+        : undefined;
+
+  return (
+    <>
+      {codePieces(tokens, segments).map((piece, i) => (
+        <span
+          key={i}
+          style={
+            {
+              "--code-light": piece.light ?? "currentColor",
+              "--code-dark": piece.dark ?? piece.light ?? "currentColor",
+            } as React.CSSProperties
+          }
+          className={cn(
+            "text-[var(--code-light)] dark:text-[var(--code-dark)]",
+            piece.changed && highlight,
+          )}
+        >
+          {piece.text}
+        </span>
+      ))}
+    </>
+  );
+}
 
 function useWordDiffLookup(
   lines: readonly { kind: string; text: string }[],
@@ -89,7 +207,11 @@ function WordDiffText({
   );
 }
 
-function diffLineNode(line: DiffLine, segments: WordDiffSegment[] | null) {
+function diffLineNode(
+  line: DiffLine,
+  segments: WordDiffSegment[] | null,
+  tokens: AgentCodeToken[] | undefined,
+) {
   if (line.kind === "meta" || line.kind === "hunk") {
     return (
       <div className={`${lineWrap} bg-muted/5 text-muted-foreground/70`}>
@@ -100,7 +222,7 @@ function diffLineNode(line: DiffLine, segments: WordDiffSegment[] | null) {
   if (line.kind === "ctx") {
     return (
       <div className={`${lineWrap} text-foreground/80 transition-colors hover:bg-muted/10`}>
-        {line.text}
+        <CodeText text={line.text} segments={null} kind="ctx" tokens={tokens} />
       </div>
     );
   }
@@ -109,7 +231,7 @@ function diffLineNode(line: DiffLine, segments: WordDiffSegment[] | null) {
       <div
         className={`${lineWrap} border-l-[3px] border-git-added bg-git-added-subtle/40 text-git-added transition-colors hover:bg-git-added-subtle/60`}
       >
-        <WordDiffText text={line.text} segments={segments} kind="add" />
+        <CodeText text={line.text} segments={segments} kind="add" tokens={tokens} />
       </div>
     );
   }
@@ -117,13 +239,20 @@ function diffLineNode(line: DiffLine, segments: WordDiffSegment[] | null) {
     <div
       className={`${lineWrap} border-l-[3px] border-git-removed bg-git-removed-subtle/40 text-git-removed transition-colors hover:bg-git-removed-subtle/60`}
     >
-      <WordDiffText text={line.text} segments={segments} kind="del" />
+      <CodeText text={line.text} segments={segments} kind="del" tokens={tokens} />
     </div>
   );
 }
 
-function VirtualDiffList({ lines }: { lines: DiffLine[] }) {
+function VirtualDiffList({
+  lines,
+  filePath,
+}: {
+  lines: DiffLine[];
+  filePath?: string | null;
+}) {
   const wordDiffAt = useWordDiffLookup(lines);
+  const syntaxAt = useSyntaxLookup(lines, filePath);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: lines.length,
@@ -155,7 +284,7 @@ function VirtualDiffList({ lines }: { lines: DiffLine[] }) {
                 height: LINE_HEIGHT_PX,
               }}
             >
-              {diffLineNode(line, wordDiffAt(vi.index))}
+              {diffLineNode(line, wordDiffAt(vi.index), syntaxAt(vi.index))}
             </div>
           );
         })}
@@ -171,16 +300,19 @@ export type DiffCommentAnchor = {
 
 function AnnotatedVirtualDiffList({
   lines,
+  filePath,
   annotationsByNewLine,
   onAddComment,
   addCommentTitle,
 }: {
   lines: DiffLine[];
+  filePath?: string | null;
   annotationsByNewLine?: ReadonlyMap<number, React.ReactNode>;
   onAddComment?: (anchor: DiffCommentAnchor) => void;
   addCommentTitle?: string;
 }) {
   const wordDiffAt = useWordDiffLookup(lines);
+  const syntaxAt = useSyntaxLookup(lines, filePath);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: lines.length,
@@ -228,7 +360,7 @@ function AnnotatedVirtualDiffList({
                     <Plus className="h-3 w-3" />
                   </button>
                 )}
-                {diffLineNode(line, wordDiffAt(vi.index))}
+                {diffLineNode(line, wordDiffAt(vi.index), syntaxAt(vi.index))}
               </div>
               {annotation ? <div className="px-3 py-1">{annotation}</div> : null}
             </div>
@@ -303,6 +435,7 @@ function interactiveLineNode(
   onStageHunk: (hunkIdx: number) => void,
   onUnstageHunk: (hunkIdx: number) => void,
   segments: WordDiffSegment[] | null,
+  tokens: AgentCodeToken[] | undefined,
 ) {
   if (line.kind === "meta") {
     return (
@@ -340,7 +473,7 @@ function interactiveLineNode(
       <div className="flex h-full items-center">
         <div className="w-5 shrink-0" />
         <div className="whitespace-pre font-mono text-[11px] text-foreground/80">
-          {line.text}
+          <CodeText text={line.text} segments={null} kind="ctx" tokens={tokens} />
         </div>
       </div>
     );
@@ -367,10 +500,11 @@ function interactiveLineNode(
       <div
         className={`whitespace-pre font-mono text-[11px] ${isAdd ? "text-git-added" : "text-git-removed"}`}
       >
-        <WordDiffText
+        <CodeText
           text={line.text}
           segments={segments}
           kind={isAdd ? "add" : "del"}
+          tokens={tokens}
         />
       </div>
     </div>
@@ -387,9 +521,11 @@ function InteractiveVirtualDiffList({
   onStageHunk,
   onUnstageHunk,
   onDiscardHunk,
+  filePath,
 }: {
   parsed: ParsedDiff;
   sector: "staged" | "unstaged";
+  filePath?: string | null;
   focusedHunkIdx: number;
   selectedLines: ReadonlySet<SelectionKey>;
   onToggleLine: (key: SelectionKey) => void;
@@ -401,6 +537,7 @@ function InteractiveVirtualDiffList({
   const { t } = useTranslation();
   const flatLines = useMemo(() => flattenParsedDiff(parsed), [parsed]);
   const wordDiffAt = useWordDiffLookup(flatLines);
+  const syntaxAt = useSyntaxLookup(flatLines, filePath);
 
   const stageableIndices = useMemo(
     () =>
@@ -609,6 +746,7 @@ function InteractiveVirtualDiffList({
                   handleStageHunk,
                   handleUnstageHunk,
                   wordDiffAt(vi.index),
+                  syntaxAt(vi.index),
                 )}
               </div>
             );
@@ -639,6 +777,7 @@ export function UnifiedDiffBody({
   annotationsByNewLine,
   onAddComment,
   addCommentTitle,
+  filePath,
 }: {
   loading: boolean;
   failed: boolean;
@@ -659,6 +798,7 @@ export function UnifiedDiffBody({
   annotationsByNewLine?: ReadonlyMap<number, React.ReactNode>;
   onAddComment?: (anchor: DiffCommentAnchor) => void;
   addCommentTitle?: string;
+  filePath?: string | null;
 }) {
   const { t } = useTranslation();
   const interactive = !!(sector && (onStageHunk ?? onUnstageHunk));
@@ -738,6 +878,7 @@ export function UnifiedDiffBody({
         onStageHunk={stableOnStageHunk}
         onUnstageHunk={stableOnUnstageHunk}
         onDiscardHunk={onDiscardHunk ? stableOnDiscardHunk : undefined}
+        filePath={filePath}
       />
     );
   }
@@ -754,13 +895,14 @@ export function UnifiedDiffBody({
       return (
         <AnnotatedVirtualDiffList
           lines={lines}
+          filePath={filePath}
           annotationsByNewLine={annotationsByNewLine}
           onAddComment={onAddComment}
           addCommentTitle={addCommentTitle}
         />
       );
     }
-    return <VirtualDiffList lines={lines} />;
+    return <VirtualDiffList lines={lines} filePath={filePath} />;
   }
 
   return (

@@ -1,6 +1,9 @@
-import { GitBranch, GitMerge, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { GitBranch, GitMerge, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
+import { AgentStatusChip } from "@/components/agents/ui/agent-status-chip";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +21,8 @@ import {
 } from "@/lib/agents/agent-review";
 import { toastError } from "@/lib/error-toast";
 import { AgentReviewDiffPane } from "./agent-review-diff";
-import { AgentReviewFileList, AgentReviewStat } from "./agent-review-file-list";
+import { AgentReviewFileList } from "./agent-review-file-list";
+import { AgentReviewStat } from "./agent-review-stat";
 import { AgentReviewFinishDialog } from "./agent-review-finish-dialog";
 import {
   useAgentReviewFileDiff,
@@ -188,8 +192,7 @@ export function AgentReviewDialog({
 
           {busy ? (
             <div className="flex shrink-0 items-start gap-2 border-b border-git-modified/25 bg-git-modified/8 px-4 py-2 text-[11px]">
-              <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-git-modified" />
-              <p className="text-muted-foreground">{t("agentReview.agentBusy")}</p>
+              <AgentStatusChip tone="waiting">{t("agentReview.agentBusy")}</AgentStatusChip>
             </div>
           ) : null}
 
@@ -202,7 +205,7 @@ export function AgentReviewDialog({
               <SpinIcon icon={Loader2} className="size-6 text-primary/50" />
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1">
+            <AgentsEnter className="flex min-h-0 flex-1">
               <div className="ag-line w-64 shrink-0 border-r">
                 <AgentReviewFileList
                   files={files}
@@ -230,7 +233,7 @@ export function AgentReviewDialog({
                   onDiscardHunk={handleDiscardHunk}
                 />
               </div>
-            </div>
+            </AgentsEnter>
           )}
 
           <DialogFooter className="mx-0 mb-0 shrink-0 rounded-none">

@@ -206,6 +206,7 @@ export function DiffViewer({
             untrackedPlain={untrackedPlain}
             emptyHint={t("commitInspect.noTextChanges")}
             failedHint={t("commitPanel.diffLoadFailed")}
+            filePath={selectedRow?.path}
             sector={sector}
             onStageHunk={onStageHunk}
             onUnstageHunk={onUnstageHunk}

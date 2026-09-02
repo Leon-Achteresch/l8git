@@ -3,9 +3,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { commitFullMessage } from '@/lib/reflog-store';
 import type { RebaseTodoAction } from '@/lib/repo-store';
@@ -185,20 +188,26 @@ function EntryRow({
         >
           {entry.subject}
         </span>
-        <NativeSelect
-          size='sm'
+        <Select
           value={entry.action}
-          onChange={e => onAction(index, e.target.value as RebaseTodoAction)}
+          onValueChange={value => onAction(index, value as RebaseTodoAction)}
           disabled={disabled}
-          aria-label={t('rebaseEditor.actionAria')}
-          className={cn('w-44 shrink-0', ACTION_TEXT[entry.action])}
         >
-          {REBASE_ACTIONS.map(a => (
-            <NativeSelectOption key={a} value={a}>
-              {t(`rebaseEditor.action_${a}`)}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          <SelectTrigger
+            size='sm'
+            aria-label={t('rebaseEditor.actionAria')}
+            className={cn('w-44 shrink-0', ACTION_TEXT[entry.action])}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {REBASE_ACTIONS.map(a => (
+              <SelectItem key={a} value={a}>
+                {t(`rebaseEditor.action_${a}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className='flex shrink-0 items-center'>
           <Button
             type='button'

@@ -308,6 +308,7 @@
     "noArchivedChats": "没有已归档的对话",
     "unarchive": "恢复",
     "shortcuts": "快捷键",
+    "cliCommands": "命令",
     "statusReady": "就绪",
     "statusConnecting": "连接中",
     "statusError": "错误",
@@ -369,7 +370,15 @@
     "barcodeZoom": "放大以便扫描",
     "barcodeCopy": "复制内容",
     "barcodeCopied": "已复制内容",
-    "barcodeDownload": "下载为 SVG"
+    "barcodeDownload": "下载为 SVG",
+    "connectingHint": "正在初始化 {{agent}} 并准备工作区。",
+    "connectionFailed": "连接 {{agent}} 失败",
+    "signInRequired": "使用 {{agent}} 需要登录",
+    "signInHint": "请登录以在此仓库中使用 {{agent}}。",
+    "signingIn": "正在登录…",
+    "signIn": "登录",
+    "emptySubtitle": "请选择初始提示词或在下方输入你的需求。",
+    "showOlderTurns": "显示 {{count}} 条较早的消息"
   },
   "agentReview": {
     "openButton": "审查更改",
@@ -401,10 +410,13 @@
     "finishDescription": "{{session}} 将合入 {{base}}。每一步都独立执行，可随时取消。",
     "stepCommit": "1 · 提交剩余更改",
     "stepCommitSkipped": "工作树是干净的——没有需要提交的内容。",
+    "stepCommitHint": "未提交的更改将被提交到会话分支。",
     "commitMessagePlaceholder": "剩余更改的提交信息",
     "commitMessageRequired": "请先输入提交信息。",
     "aiSuggest": "AI 建议",
     "aiNotConfigured": "尚未为提交信息配置 AI 服务商。",
+    "generateAiMessage": "生成 AI 提交信息",
+    "splitCommit": "拆分提交",
     "runCommit": "提交",
     "stepMerge": "2 · 合并回基础分支",
     "stepMergeHint": "{{session}} 将合并到 {{base}}。出现冲突时会打开冲突编辑器。",
@@ -415,6 +427,10 @@
     "runCleanup": "清理",
     "retry": "重试",
     "close": "关闭",
+    "flowFinished": "会话处理成功完成",
+    "unknownError": "发生未知错误。",
+    "generateMessageFailed": "生成提交信息失败。",
+    "statusReloadFailed": "重新加载 Git 状态失败。",
     "finishedToast": "会话已合入 {{branch}}。",
     "undoHint": "可在历史中使用「撤销」回退此操作。",
     "branchKeptHint": "{{branch}} 未完全合并，因此予以保留。",
@@ -446,14 +462,16 @@
       "allModels": "全部模型",
       "used": "已用 {{value}}",
       "resetsIn": "{{count}} 分钟后重置",
-      "resetsAt": "{{value}} 重置"
+      "resetsAt": "{{value}} 重置",
+      "unknown": "暂无使用数据"
     },
     "resetPosition": "重置位置",
     "working": "正在 {{repo}} 中工作…",
     "chat": "Agents",
     "actions": "操作",
     "window": "窗口",
-    "resize": "调整大小"
+    "resize": "调整大小",
+    "menu": "菜单"
   },
   "islandActions": {
     "group": {
@@ -725,7 +743,12 @@
   },
   "about": {
     "title": "关于",
-    "body": "l8git——一个基于 Tauri、React、TanStack Router 和 shadcn/ui 构建的简洁 Git 客户端。"
+    "body": "l8git——一个基于 Tauri、React、TanStack Router 和 shadcn/ui 构建的简洁 Git 客户端。",
+    "version": "版本 {{version}}",
+    "releasesTitle": "更新说明",
+    "releasesError": "无法加载更新说明。",
+    "currentRelease": "当前",
+    "prerelease": "预发布"
   },
   "commitHistory": {
     "today": "今天",
@@ -1036,7 +1059,9 @@
     "navGroupIntegrations": "集成",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "关联工单并授予智能体只读访问权限"
+    "jiraSectionSubtitle": "关联工单并授予智能体只读访问权限",
+    "fileTreeViewLabel": "以文件夹树显示更改",
+    "fileTreeViewHint": "在提交标签页中按文件夹分组已暂存和未暂存的文件。右键点击文件夹可暂存、取消暂存、丢弃或添加到 .gitignore。"
   },
   "notifications": {
     "title": "通知",
@@ -1132,9 +1157,13 @@
     "connecting": "正在连接…",
     "almostDone": "即将完成",
     "releaseDownloading": "正在下载发布包",
+    "highlight1": "提升 Git 性能与稳定性",
+    "highlight2": "优化用户界面与操作体验",
+    "highlight3": "最新的问题修复与改进",
+    "readyToInstall": "准备安装",
+    "noReleaseNotes": "此版本未提供发布说明。",
     "filesApplying": "正在应用文件",
     "installedHint": "新版本已安装完成。重启即可生效。",
-    "noReleaseNotes": "此版本未提供发布说明。",
     "changelogTitle": "更新日志",
     "restartNow": "立即重启",
     "close": "关闭",
@@ -1376,7 +1405,12 @@
     "undoLastCommitTitle": "软重置到 HEAD~1——更改仍保留在暂存区",
     "undoConfirmTitle": "撤销上一个提交？",
     "undoConfirmDesc": "提交“{{subject}}”将被撤销，其更改会回到暂存区。如果该提交已推送，此操作将无法撤销。",
-    "undoVerb": "撤销提交"
+    "undoVerb": "撤销提交",
+    "fileRowIgnore": "添加到 .gitignore",
+    "folderStage": "暂存文件夹",
+    "folderUnstage": "取消暂存文件夹",
+    "folderDiscard": "丢弃文件夹更改",
+    "folderIgnore": "将文件夹添加到 .gitignore"
   },
   "commitSplit": {
     "menuEntry": "用 AI 拆分更改",
@@ -3016,6 +3050,27 @@
     "hub": {
       "title": "在各个 CLI 之间复制、删除与同步",
       "explainer": "选好来源和目标，列表就会告诉你会发生什么变化。",
+      "ecosystemTitle": "你的 CLI",
+      "sourceBadge": "来源",
+      "emptyCli": "还是空的",
+      "gapsToward": "这里缺 {{count}} 项",
+      "differsToward": "{{count}} 项不同",
+      "fillGaps": "补上缺失项",
+      "coverage": "{{missing}} 项在别处缺失 · {{different}} 项不同 · {{same}} 项处处相同",
+      "coverageClean": "目标里已经有来源的全部内容。",
+      "filterEmptyTitle": "此视图没有条目",
+      "filterEmptyDescription": "切换到“全部”，或在卡片上选择其他目标。",
+      "views": {
+        "gaps": "仅缺口",
+        "different": "仅差异",
+        "all": "全部"
+      },
+      "presence": {
+        "missing": "缺失",
+        "same": "相同",
+        "different": "不同",
+        "unsupported": "不可用"
+      },
       "loading": "正在读取所有 CLI 的能力…",
       "overwrite": "覆盖已存在的条目",
       "noTargets": "没有找到智能体 CLI。",
@@ -3090,8 +3145,12 @@
       "overwriteOffHint": "目标中已存在的条目保持不变。要替换请打开覆盖开关。"
     },
     "market": {
-      "title": "市场",
-      "explainer": "按星标数在 GitHub 上搜索现成的技能、MCP 服务器、钩子、命令和插件。打开条目，勾选需要的部分，选择 CLI，直接安装。",
+      "title": "装进你的 CLI",
+      "explainer": "GitHub 上现成的技能和 MCP 服务器。先选要装进哪些 CLI，再搜索并安装。",
+      "installInto": "装到",
+      "destinationsHint": "会装到勾选的层级。结果上的徽标表示那里已经有了。",
+      "pickDestinations": "至少勾选一个 CLI 层级，会安装到那里。",
+      "alreadyOn": "已在 {{clis}}",
       "search": "搜索",
       "searchPlaceholder": "例如：代码评审、postgres、测试…",
       "loading": "正在搜索 GitHub…",

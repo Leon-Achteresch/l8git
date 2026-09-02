@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { SPRING_SWAP } from "@/lib/motion/ease";
+import { SPRING_LAYOUT, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
 export interface PromptModel {
@@ -66,23 +66,18 @@ export interface PromptInputProps extends Omit<
   onSlashCommand?: (command: string, argument: string) => void | Promise<void>;
   onSubmit?: (value: string, model?: string) => void | Promise<void>;
   loading?: boolean;
-  /** Keep Enter-to-submit active while the stop button represents an active turn. */
   allowSubmitWhileLoading?: boolean;
   allowEmptySubmit?: boolean;
   onStop?: () => void;
   minRows?: number;
   maxRows?: number;
-  /** Controls rendered after the model picker. */
   leadingAction?: ReactNode;
-  /** Controls rendered before the send button. */
   trailingAction?: ReactNode;
-  /** Content pinned above the textarea — attachment chips, context cards. */
   header?: ReactNode;
   className?: string;
 }
 
 const LINE_HEIGHT = 24;
-/* Matches the textarea's pt-1; the mirror carries it so scrollHeight lines up. */
 const TEXTAREA_PADDING = 4;
 
 export function PromptInput({
@@ -115,6 +110,7 @@ export function PromptInput({
   ...textareaProps
 }: PromptInputProps) {
   const reduce = useReducedMotion() ?? false;
+  const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const measurementRef = useRef<HTMLDivElement>(null);
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -234,8 +230,14 @@ export function PromptInput({
   };
 
   return (
-    <form
+    <m.form
       onSubmit={submit}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
+      }}
+      animate={reduce ? undefined : { y: focused ? -2 : 0 }}
+      transition={SPRING_LAYOUT}
       className={cn("ag-composer relative w-full p-2", disabled && "opacity-60", className)}
     >
       {slashOpen ? (
@@ -309,114 +311,116 @@ export function PromptInput({
         />
       </div>
 
-      <div className="mt-1 flex min-h-8 items-center gap-0.5">
-        {actions.length ? (
-          <Popover open={actionsOpen} onOpenChange={setActionsOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                disabled={disabled || loading}
-                aria-label="Add to prompt"
-                className="ag-icon-btn rounded-full"
-              >
-                <m.span
-                  aria-hidden="true"
-                  animate={{ rotate: actionsOpen ? 45 : 0 }}
-                  transition={reduce ? { duration: 0 } : SPRING_SWAP}
-                  className="grid place-items-center"
-                >
-                  <Plus className="size-4" />
-                </m.span>
-              </Button>
-            </PopoverTrigger>
-
-            <PopoverContent
-              side="top"
-              align="start"
-              sideOffset={8}
-              className="ag-menu w-64 p-1.5"
-            >
-              {actions.map((action) => (
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+          {actions.length ? (
+            <Popover open={actionsOpen} onOpenChange={setActionsOpen}>
+              <PopoverTrigger asChild>
                 <Button
-                  key={action.value}
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  disabled={action.disabled}
-                  onClick={() => {
-                    onAction?.(action.value);
-                    setActionsOpen(false);
-                  }}
-                  className="ag-menu-item items-start py-2"
+                  size="icon-sm"
+                  disabled={disabled || loading}
+                  aria-label="Add to prompt"
+                  className="ag-icon-btn rounded-full"
                 >
-                  {action.icon ? (
-                    <span className="ag-faint mt-px grid size-4 shrink-0 place-items-center [&_svg]:size-4">
-                      {action.icon}
-                    </span>
-                  ) : null}
-                  <span className="min-w-0">
-                    <span className="block truncate text-[12px] text-[var(--ag-text)]">
-                      {action.label}
-                    </span>
-                    {action.description ? (
-                      <span className="ag-faint mt-px block text-[11px] leading-4">
-                        {action.description}
+                  <m.span
+                    aria-hidden="true"
+                    animate={{ rotate: actionsOpen ? 45 : 0 }}
+                    transition={reduce ? { duration: 0 } : SPRING_SWAP}
+                    className="grid place-items-center"
+                  >
+                    <Plus className="size-4" />
+                  </m.span>
+                </Button>
+              </PopoverTrigger>
+
+              <PopoverContent
+                side="top"
+                align="start"
+                sideOffset={8}
+                className="ag-menu w-64 p-1.5"
+              >
+                {actions.map((action) => (
+                  <Button
+                    key={action.value}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={action.disabled}
+                    onClick={() => {
+                      onAction?.(action.value);
+                      setActionsOpen(false);
+                    }}
+                    className="ag-menu-item items-start py-2"
+                  >
+                    {action.icon ? (
+                      <span className="ag-faint mt-px grid size-4 shrink-0 place-items-center [&_svg]:size-4">
+                        {action.icon}
                       </span>
                     ) : null}
-                  </span>
-                </Button>
-              ))}
-            </PopoverContent>
-          </Popover>
-        ) : null}
-
-        {models.length ? (
-          <div className="min-w-0">
-            <Select
-              value={currentModelValue}
-              onValueChange={setModel}
-              disabled={disabled || loading}
-            >
-              <SelectTrigger className="ag-chip h-7 w-auto max-w-56 border-0 bg-transparent px-2 py-0 text-[12px] shadow-none focus-visible:ring-0">
-                <span className="flex min-w-0 items-center gap-1.5">
-                  {currentModel?.icon ? (
-                    <span className="grid size-3.5 shrink-0 place-items-center [&_svg]:size-3.5">
-                      {currentModel.icon}
-                    </span>
-                  ) : null}
-                  <span className="truncate font-medium text-[var(--ag-text)]">
-                    {currentModel?.label ?? "Choose model"}
-                  </span>
-                </span>
-              </SelectTrigger>
-              <SelectContent className="ag-menu right-auto w-56 p-1.5 shadow-none">
-                {models.map((option) => (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                    disabled={option.disabled}
-                    className="rounded-[9px] py-1.5"
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      {option.icon ? (
-                        <span className="grid size-4 shrink-0 place-items-center [&_svg]:size-4">
-                          {option.icon}
+                    <span className="min-w-0">
+                      <span className="block truncate text-[12px] text-[var(--ag-text)]">
+                        {action.label}
+                      </span>
+                      {action.description ? (
+                        <span className="ag-faint mt-px block text-[11px] leading-4">
+                          {action.description}
                         </span>
                       ) : null}
-                      <span className="min-w-0 truncate text-[12px]">{option.label}</span>
                     </span>
-                  </SelectItem>
+                  </Button>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
+              </PopoverContent>
+            </Popover>
+          ) : null}
 
-        {leadingAction}
+          {models.length ? (
+            <div className="min-w-0">
+              <Select
+                value={currentModelValue}
+                onValueChange={setModel}
+                disabled={disabled || loading}
+              >
+                <SelectTrigger className="ag-chip h-7 w-auto max-w-56 border-0 bg-transparent px-2 py-0 text-[12px] shadow-none focus-visible:ring-0">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    {currentModel?.icon ? (
+                      <span className="grid size-3.5 shrink-0 place-items-center [&_svg]:size-3.5">
+                        {currentModel.icon}
+                      </span>
+                    ) : null}
+                    <span className="truncate font-medium text-[var(--ag-text)]">
+                      {currentModel?.label ?? "Choose model"}
+                    </span>
+                  </span>
+                </SelectTrigger>
+                <SelectContent className="ag-menu right-auto w-56 p-1.5 shadow-none">
+                  {models.map((option) => (
+                    <SelectItem
+                      key={option.value}
+                      value={option.value}
+                      disabled={option.disabled}
+                      className="rounded-[9px] py-1.5"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        {option.icon ? (
+                          <span className="grid size-4 shrink-0 place-items-center [&_svg]:size-4">
+                            {option.icon}
+                          </span>
+                        ) : null}
+                        <span className="min-w-0 truncate text-[12px]">{option.label}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
 
-        <span className="ml-auto flex items-center gap-1">
+          {leadingAction}
+        </div>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1 self-end">
           {trailingAction}
           <Button
             type={loading ? "button" : "submit"}
@@ -425,7 +429,7 @@ export function PromptInput({
             data-stop={loading || undefined}
             aria-label={loading ? "Stop generating" : "Send prompt"}
             onClick={loading ? onStop : undefined}
-            className="ag-send"
+            className="ag-send shrink-0"
           >
             <AnimatePresence initial={false} mode="popLayout">
               <m.span
@@ -444,8 +448,8 @@ export function PromptInput({
               </m.span>
             </AnimatePresence>
           </Button>
-        </span>
+        </div>
       </div>
-    </form>
+    </m.form>
   );
 }

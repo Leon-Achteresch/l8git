@@ -244,6 +244,8 @@ export function Settings() {
   const setShowConventionalCommitIcons = useCommitPrefs((s) => s.setShowConventionalCommitIcons);
   const showCommitDateGroups = useCommitPrefs((s) => s.showCommitDateGroups);
   const setShowCommitDateGroups = useCommitPrefs((s) => s.setShowCommitDateGroups);
+  const fileTreeView = useCommitPrefs((s) => s.fileTreeView);
+  const setFileTreeView = useCommitPrefs((s) => s.setFileTreeView);
   const aiOutputLanguage = useCommitPrefs((s) => s.aiOutputLanguage);
   const setAiOutputLanguage = useCommitPrefs((s) => s.setAiOutputLanguage);
   const aiProviderType = useCommitPrefs((s) => s.aiProviderType);
@@ -663,6 +665,25 @@ export function Settings() {
                         </Label>
                         <p className="text-xs leading-relaxed text-muted-foreground">
                           {t("settings.conventionalIconsHint")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="commit-file-tree-view"
+                        checked={fileTreeView}
+                        onCheckedChange={(v) => setFileTreeView(v === true)}
+                        className="mt-0.5"
+                      />
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="commit-file-tree-view"
+                          className="cursor-pointer text-sm font-medium text-foreground"
+                        >
+                          {t("settings.fileTreeViewLabel")}
+                        </Label>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {t("settings.fileTreeViewHint")}
                         </p>
                       </div>
                     </div>

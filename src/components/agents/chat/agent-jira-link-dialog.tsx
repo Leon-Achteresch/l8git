@@ -17,11 +17,6 @@ import { Label } from "@/components/ui/label";
 import { parseIssueRef } from "@/lib/jira/issue-key";
 import { useJiraStore } from "@/lib/jira/jira-store";
 
-/**
- * Links a Jira ticket to one conversation. Accepts a bare key or anything
- * pasted out of Jira, and resolves it once so the row can show a real title
- * and status instead of just the key.
- */
 export function AgentJiraLinkDialog({
   threadKey,
   open,

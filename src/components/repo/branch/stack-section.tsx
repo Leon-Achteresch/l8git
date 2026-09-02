@@ -22,11 +22,14 @@ export function StackSection({ path }: { path: string }) {
   const restack = useStackStore((s) => s.restack);
   const restackStack = useStackStore((s) => s.restackStack);
 
-  const branchKey = useRepoStore((s) =>
-    (s.repos[path]?.branches ?? [])
-      .filter((b) => !b.is_remote)
-      .map((b) => `${b.name}:${b.tip}`)
-      .join("|"),
+  const branches = useRepoStore((s) => s.repos[path]?.branches);
+  const branchKey = useMemo(
+    () =>
+      (branches ?? [])
+        .filter((b) => !b.is_remote)
+        .map((b) => `${b.name}:${b.tip}`)
+        .join("|"),
+    [branches],
   );
   const currentBranch = useRepoStore(
     (s) => s.repos[path]?.branches?.find((b) => b.is_current && !b.is_remote)?.name ?? null,

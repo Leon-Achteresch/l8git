@@ -22,7 +22,7 @@ import {
 } from "@/components/motion/dynamic-island";
 import { IslandActionsView } from "@/components/island/island-actions-view";
 import { IslandPanel } from "@/components/island/island-panel";
-import { IslandUsage } from "@/components/island/island-usage";
+import { IslandUsage, IslandUsageDetails } from "@/components/island/island-usage";
 import {
   ActivityBars,
   FlashIcon,
@@ -37,7 +37,7 @@ import { ListRow } from "@/components/ui/list-row";
 import { AGENT_INTEGRATIONS } from "@/lib/agent-integrations";
 import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
 import { runIslandActionWithFlash } from "@/lib/island/flash";
-import { islandPopoverSide, isEdgeDock, useIslandStore } from "@/lib/island-store";
+import { useIslandStore } from "@/lib/island-store";
 import { activeRepoOf, type IslandSnapshot } from "@/lib/island/types";
 import { usageRowsOrAll } from "@/lib/island/usage-format";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,9 @@ export type IslandShellProps = {
   canInteract?: () => boolean;
   /** Rendered inside its own window — position controls do not apply. */
   standalone?: boolean;
+  /** Stacks the compact pill vertically (sidebar slot, left/right screen edge). */
+  vertical?: boolean;
+  onContentSize?: (size: { width: number; height: number }) => void;
   className?: string;
 };
 
@@ -72,19 +75,20 @@ export function IslandShell({
   flash = null,
   canInteract,
   standalone = false,
+  vertical = false,
+  onContentSize,
   className,
 }: IslandShellProps) {
   const { t } = useTranslation();
   const [menuPage, setMenuPage] = useState<"root" | "integrations">("root");
+  const [usageId, setUsageId] = useState<string | null>(null);
 
-  const { showBranch, showDirty, showAgents, showUsage, dock, dragging } = useIslandStore(
+  const { showBranch, showDirty, showAgents, showUsage } = useIslandStore(
     useShallow((s) => ({
       showBranch: s.showBranch,
       showDirty: s.showDirty,
       showAgents: s.showAgents,
       showUsage: s.showUsage,
-      dock: s.dock,
-      dragging: s.dragging,
     })),
   );
   const toggleBranch = useIslandStore((s) => s.toggleBranch);
@@ -116,14 +120,12 @@ export function IslandShell({
   };
 
   const usage = usageRowsOrAll(snapshot.usage ?? []);
-  const compactUsage = !!showUsage || isEdgeDock(dock);
-  const vertical = compactUsage && dock !== "top" && dock !== "bottom";
-  const usageSide =
-    vertical && (dock === "left" || dock === "sidebar")
-      ? "right"
-      : vertical
-        ? "left"
-        : islandPopoverSide(dock);
+  const compactUsage = !!showUsage && usage.length > 0;
+  const usageRow = usage.find((row) => row.id === usageId) ?? null;
+  const openMenu = () => {
+    if (!idle()) return;
+    onViewChange(ISLAND_VIEW.menu);
+  };
 
   const resolved =
     view ??
@@ -138,17 +140,21 @@ export function IslandShell({
       view={resolved}
       vertical={vertical}
       usage={compactUsage}
+      onContentSize={onContentSize}
       className={className}
       compact={
         compactUsage ? (
           <IslandUsage
             usage={usage}
             vertical={vertical}
-            side={usageSide}
-            dragging={dragging}
             onOpenActions={() => {
               if (!idle()) return;
               onViewChange(ISLAND_VIEW.actions);
+            }}
+            onSelect={(id) => {
+              if (!idle()) return;
+              setUsageId(id);
+              onViewChange(ISLAND_VIEW.usage);
             }}
           />
         ) : (
@@ -220,6 +226,16 @@ export function IslandShell({
           </span>
           <ActivityBars />
         </ListRow>
+      </DynamicIslandView>
+
+      <DynamicIslandView id={ISLAND_VIEW.usage} className="!px-3 !py-2">
+        {usageRow ? (
+          <IslandUsageDetails
+            row={usageRow}
+            onBack={() => onViewChange(ISLAND_VIEW.actions)}
+            onClose={close}
+          />
+        ) : null}
       </DynamicIslandView>
 
       <DynamicIslandView id={ISLAND_VIEW.toast} className="!px-3 !py-2">
@@ -359,6 +375,7 @@ export function IslandShell({
           onClose={close}
           onOpenProjects={() => onViewChange(ISLAND_VIEW.projects)}
           onOpenChat={openChat}
+          onOpenMenu={openMenu}
         />
         </IslandPanel>
       </DynamicIslandView>

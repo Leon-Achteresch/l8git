@@ -7,6 +7,7 @@ import {
 import type { StatusEntry } from "@/lib/repo-store";
 import {
   CheckSquare,
+  EyeOff,
   GitCommitHorizontal,
   MinusSquare,
   Square,
@@ -26,6 +27,8 @@ function FileRowInner({
   onToggle,
   onDiscard,
   onBlame,
+  onIgnore,
+  depth,
 }: {
   row: ChangeRow;
   selected: boolean;
@@ -35,6 +38,8 @@ function FileRowInner({
   onToggle: (entry: StatusEntry, rowId: string) => void;
   onDiscard: (rowId: string) => void;
   onBlame: (path: string) => void;
+  onIgnore?: (patterns: string[]) => void;
+  depth?: number;
 }) {
   const { t } = useTranslation();
   const state = checkState(row.entry);
@@ -58,6 +63,7 @@ function FileRowInner({
         onSelect(row.id, e.shiftKey);
       }}
       className={rowClass + " select-none"}
+      style={depth === undefined ? undefined : { paddingLeft: 16 + depth * 14 }}
     >
       <div
         className="flex items-center justify-center"
@@ -82,9 +88,11 @@ function FileRowInner({
             {t("commitPanel.embeddedRepo")}
           </span>
         )}
-        <span className="ml-2 truncate text-[11px] opacity-50">
-          {row.path.split("/").slice(0, -1).join("/")}
-        </span>
+        {depth === undefined && (
+          <span className="ml-2 truncate text-[11px] opacity-50">
+            {row.path.split("/").slice(0, -1).join("/")}
+          </span>
+        )}
       </span>
       <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] tabular-nums">
         {!row.entry.binary && (
@@ -107,6 +115,12 @@ function FileRowInner({
           <ContextMenuItem onSelect={() => onBlame(row.path)}>
             <GitCommitHorizontal className="h-3.5 w-3.5" />
             {t("commitPanel.fileRowBlame")}
+          </ContextMenuItem>
+        )}
+        {onIgnore && (
+          <ContextMenuItem onSelect={() => onIgnore([row.path])}>
+            <EyeOff className="h-3.5 w-3.5" />
+            {t("commitPanel.fileRowIgnore")}
           </ContextMenuItem>
         )}
         <ContextMenuItem variant="destructive" onSelect={() => onDiscard(row.id)}>

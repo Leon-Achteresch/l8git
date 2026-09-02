@@ -4,6 +4,7 @@ pub mod agent_transport;
 mod capability_market;
 mod capability_sync;
 mod claude;
+mod claude_usage;
 mod cmd;
 mod cmdlog;
 mod credentials;
@@ -37,7 +38,7 @@ struct TauriSink(tauri::AppHandle);
 impl sink::EventSink for TauriSink {
     fn emit(&self, name: &str, payload: serde_json::Value) {
         use tauri::Emitter;
-        let _ = self.0.emit(name, payload);
+        let _ = self.0.emit_to("main", name, payload);
     }
 }
 
@@ -96,6 +97,7 @@ pub fn run() {
             capability_sync::agent_cap_delete,
             capability_sync::agent_cap_sync_plan,
             capability_sync::agent_cap_sync_apply,
+            claude_usage::fetch_claude_usage,
             claude::claude_list_sessions,
             claude::claude_read_session,
             claude::claude_rename_session,
@@ -173,6 +175,7 @@ pub fn run() {
             git::repo_commit_inspect,
             git::repo_commit_file_diff,
             git::stage_files,
+            git::add_to_gitignore,
             git::unstage_files,
             git::stage_hunk,
             git::unstage_hunk,
@@ -295,6 +298,7 @@ pub fn run() {
             git::git_remote_cancel,
             cmdlog::git_command_log,
             cmdlog::git_command_log_clear,
+            cmdlog::git_command_log_live,
             media::repo_file_bytes_at,
             lfs::lfs_available,
             lfs::lfs_tracked_patterns,
@@ -324,8 +328,6 @@ pub fn run() {
             island::island_window_close,
             island::island_window_state,
             island::island_window_set_size,
-            island::island_window_set_always_on_top,
-            island::main_window_bounds,
             island::main_window_minimize,
             island::main_window_restore,
             island::main_window_toggle_minimize

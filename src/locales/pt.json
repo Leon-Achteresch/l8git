@@ -308,6 +308,7 @@
     "noArchivedChats": "Nenhum chat arquivado",
     "unarchive": "Restaurar",
     "shortcuts": "Atalhos",
+    "cliCommands": "Comandos",
     "statusReady": "Pronto",
     "statusConnecting": "Conectando",
     "statusError": "Erro",
@@ -369,7 +370,15 @@
     "barcodeZoom": "Ampliar para digitalizar",
     "barcodeCopy": "Copiar valor",
     "barcodeCopied": "Valor copiado",
-    "barcodeDownload": "Baixar como SVG"
+    "barcodeDownload": "Baixar como SVG",
+    "connectingHint": "Inicializando {{agent}} e preparando o workspace.",
+    "connectionFailed": "Falha na conexão com {{agent}}",
+    "signInRequired": "Login necessário para {{agent}}",
+    "signInHint": "Faça login para usar {{agent}} neste repositório.",
+    "signingIn": "Entrando…",
+    "signIn": "Entrar",
+    "emptySubtitle": "Selecione um prompt inicial ou digite seu pedido abaixo.",
+    "showOlderTurns": "Mostrar {{count}} mensagens anteriores"
   },
   "agentReview": {
     "openButton": "Revisar alterações",
@@ -401,10 +410,13 @@
     "finishDescription": "{{session}} vai para {{base}}. Cada etapa roda por conta própria e pode ser cancelada.",
     "stepCommit": "1 · Commitar as alterações restantes",
     "stepCommitSkipped": "O worktree está limpo – nada a commitar.",
+    "stepCommitHint": "As alterações não commitadas serão commitadas na branch da sessão.",
     "commitMessagePlaceholder": "Mensagem de commit para as alterações restantes",
     "commitMessageRequired": "Escreva uma mensagem de commit primeiro.",
     "aiSuggest": "Sugestão da IA",
     "aiNotConfigured": "Nenhum provedor de IA configurado para mensagens de commit.",
+    "generateAiMessage": "Gerar mensagem por IA",
+    "splitCommit": "Dividir commit",
     "runCommit": "Commitar",
     "stepMerge": "2 · Fazer merge de volta no branch base",
     "stepMergeHint": "{{session}} é mesclado em {{base}}. Em caso de conflito, o editor de conflitos abre.",
@@ -415,6 +427,10 @@
     "runCleanup": "Limpar",
     "retry": "Tentar de novo",
     "close": "Fechar",
+    "flowFinished": "Sessão concluída com sucesso",
+    "unknownError": "Ocorreu um erro desconhecido.",
+    "generateMessageFailed": "Falha ao gerar mensagem de commit.",
+    "statusReloadFailed": "Falha ao recarregar o status git.",
     "finishedToast": "Sessão integrada em {{branch}}.",
     "undoHint": "Use Desfazer no histórico para reverter isso.",
     "branchKeptHint": "{{branch}} foi mantido porque não está totalmente mesclado.",
@@ -446,14 +462,16 @@
       "allModels": "Todos os modelos",
       "used": "{{value}} usado",
       "resetsIn": "Reinicia em {{count}} min",
-      "resetsAt": "Reinicia {{value}}"
+      "resetsAt": "Reinicia {{value}}",
+      "unknown": "Ainda não há dados de uso"
     },
     "resetPosition": "Redefinir posição",
     "working": "Trabalhando em {{repo}}…",
     "chat": "Agentes",
     "actions": "Ações",
     "window": "Janela",
-    "resize": "Redimensionar"
+    "resize": "Redimensionar",
+    "menu": "Menu"
   },
   "islandActions": {
     "group": {
@@ -725,7 +743,12 @@
   },
   "about": {
     "title": "Sobre",
-    "body": "l8git — um cliente Git simples construído com Tauri, React, TanStack Router e shadcn/ui."
+    "body": "l8git — um cliente Git simples construído com Tauri, React, TanStack Router e shadcn/ui.",
+    "version": "Versão {{version}}",
+    "releasesTitle": "Notas de versão",
+    "releasesError": "Não foi possível carregar as notas de versão.",
+    "currentRelease": "Atual",
+    "prerelease": "Pré-lançamento"
   },
   "commitHistory": {
     "today": "HOJE",
@@ -1036,7 +1059,9 @@
     "navGroupIntegrations": "Integrações",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "Vincule tickets e dê ao agente acesso somente leitura"
+    "jiraSectionSubtitle": "Vincule tickets e dê ao agente acesso somente leitura",
+    "fileTreeViewLabel": "Mostrar alterações como árvore de pastas",
+    "fileTreeViewHint": "Agrupa por pasta os arquivos preparados e não preparados na aba de commit. Clique com o botão direito em uma pasta para prepará-la, removê-la da preparação, descartá-la ou adicioná-la ao .gitignore."
   },
   "notifications": {
     "title": "Notificações",
@@ -1135,6 +1160,10 @@
     "filesApplying": "Aplicando arquivos",
     "installedHint": "A nova versão já está instalada. Reinicie para concluir.",
     "noReleaseNotes": "Nenhuma nota de versão foi fornecida para este release.",
+    "highlight1": "Desempenho e estabilidade do Git aprimorados",
+    "highlight2": "Interface de usuário e fluxos de trabalho otimizados",
+    "highlight3": "Últimas correções de bugs e melhorias",
+    "readyToInstall": "Pronto para instalar",
     "changelogTitle": "Changelog",
     "restartNow": "Reiniciar agora",
     "close": "Fechar",
@@ -1376,7 +1405,12 @@
     "undoLastCommitTitle": "Soft reset para HEAD~1 — mantém as alterações em stage",
     "undoConfirmTitle": "Desfazer o último commit?",
     "undoConfirmDesc": "O commit \"{{subject}}\" será desfeito e suas alterações voltam para o stage. Isso não pode ser revertido se o commit já tiver sido enviado.",
-    "undoVerb": "Desfazer commit"
+    "undoVerb": "Desfazer commit",
+    "fileRowIgnore": "Adicionar ao .gitignore",
+    "folderStage": "Preparar pasta",
+    "folderUnstage": "Remover pasta da preparação",
+    "folderDiscard": "Descartar alterações da pasta",
+    "folderIgnore": "Adicionar pasta ao .gitignore"
   },
   "commitSplit": {
     "menuEntry": "Dividir alterações com IA",
@@ -3016,6 +3050,27 @@
     "hub": {
       "title": "Copiar, apagar e sincronizar entre CLIs",
       "explainer": "Escolha de onde vem algo e para onde deve ir — a lista mostra então o que mudaria.",
+      "ecosystemTitle": "As tuas CLIs",
+      "sourceBadge": "Origem",
+      "emptyCli": "ainda vazia",
+      "gapsToward": "{{count}} em falta aqui",
+      "differsToward": "{{count}} diferentes",
+      "fillGaps": "Copiar as em falta",
+      "coverage": "{{missing}} em falta noutros · {{different}} diferem · {{same}} iguais em todos",
+      "coverageClean": "Os destinos já têm tudo da origem.",
+      "filterEmptyTitle": "Nada nesta vista",
+      "filterEmptyDescription": "Muda para «Todas» ou escolhe outros destinos nos cartões.",
+      "views": {
+        "gaps": "Só falhas",
+        "different": "Só diferenças",
+        "all": "Todas"
+      },
+      "presence": {
+        "missing": "em falta",
+        "same": "igual",
+        "different": "diferente",
+        "unsupported": "impossível"
+      },
       "loading": "A ler as capacidades de todas as CLIs…",
       "overwrite": "Substituir entradas existentes",
       "noTargets": "Nenhuma CLI de agente encontrada.",
@@ -3090,8 +3145,12 @@
       "overwriteOffHint": "As entradas que já existem no destino ficam intactas. Ligue a substituição para as trocar."
     },
     "market": {
-      "title": "Mercado",
-      "explainer": "Procura no GitHub skills, servidores MCP, hooks, comandos e plugins já prontos, ordenados por estrelas. Abra uma entrada, marque o que precisa, escolha a CLI, instale.",
+      "title": "Instalar nas tuas CLIs",
+      "explainer": "Repositórios GitHub com skills e servidores MCP prontos. Escolhe primeiro em que CLIs devem ficar, depois procura e instala.",
+      "installInto": "Fica em",
+      "destinationsHint": "A instalação vai para os níveis marcados. Logos num resultado significam que já está lá.",
+      "pickDestinations": "Marca pelo menos um nível de CLI — é aí que será instalado.",
+      "alreadyOn": "já em {{clis}}",
       "search": "Procurar",
       "searchPlaceholder": "p. ex. revisão de código, postgres, testes…",
       "loading": "A procurar no GitHub…",

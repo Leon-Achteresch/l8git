@@ -1,5 +1,4 @@
 "use client";
-// beui.dev/components/agents/agent-activity
 
 import { ChevronDown, Lightbulb } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";

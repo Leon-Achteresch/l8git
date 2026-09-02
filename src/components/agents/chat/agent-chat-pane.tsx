@@ -1,11 +1,8 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
-  AlertCircle,
   AppWindow,
-  ArrowDown,
   Blocks,
   ChevronRight,
   File,
@@ -15,12 +12,9 @@ import {
   FolderGit2,
   GitBranch,
   GitPullRequestArrow,
-  Hammer,
-  LoaderCircle,
   Mic,
   Paperclip,
   Puzzle,
-  ScanSearch,
   Sparkles,
   SquareTerminal,
   X,
@@ -28,13 +22,9 @@ import {
 import {
   lazy,
   memo,
-  type ReactNode,
   Suspense,
-  useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -42,12 +32,15 @@ import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
 import { AgentAccountMenu } from "@/components/agents/chat/agent-account-menu";
+import { AgentCommandPicker, type AgentCommandPickerState } from "@/components/agents/chat/agent-command-picker";
 import { AgentComposerControls } from "@/components/agents/chat/agent-composer-controls";
+import { AgentConversationViewport } from "@/components/agents/chat/agent-conversation-viewport";
 import { AgentPlanBanner } from "@/components/agents/chat/agent-plan-banner";
 import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
-import { AgentRequestCard } from "@/components/agents/chat/agent-request-card";
+import { AgentRateLimitChips } from "@/components/agents/chat/agent-rate-limit-chips";
+import { AgentContextMeter } from "@/components/agents/ui/agent-context-meter";
 import { AgentThreadMenu } from "@/components/agents/chat/agent-thread-menu";
 import { AgentReviewButton } from "@/components/agents/worktree-review/agent-review-launcher";
 import { useAgentReviewSession } from "@/components/agents/worktree-review/use-agent-review";
@@ -64,28 +57,31 @@ import {
   saveAgentComposerDraft,
 } from "@/lib/agents/composer-drafts";
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
-import type { AgentAttachment } from "@/lib/agents/types";
+import type { AgentAttachment, AgentConnectionStatus } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { barcodePrompt } from "@/lib/agents/barcode-spec";
 import { browserE2ePrompt, readBrowserAddon } from "@/lib/agents/browser-addon";
 import { chartPrompt } from "@/lib/agents/chart-spec";
+import { listProviderCommands } from "@/lib/agents/cli-commands";
 import {
   agentProviderMeta,
   providerSupportsCapabilityCenter,
-  providerSupportsSlashCommand,
 } from "@/lib/agents/provider-meta";
+import {
+  isNativeSlashCommand,
+  mergeSlashCommands,
+  nativeSlashCommands,
+  shouldRunNativeSlash,
+  slashCommandLine,
+  type AgentCliCommand,
+} from "@/lib/agents/slash-commands";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
-import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import { AgDot } from "@/components/agents/ui/ag-dot";
-import { useScrollMargin } from "@/hooks/use-scroll-margin";
-import {
-  ScrollProgressCircle,
-  useContainerScrollProgress,
-} from "@/components/motion/scroll-progress";
-import { SPRING_PANEL } from "@/lib/motion/ease";
+import { m } from "motion/react";
 import { TextShimmer } from "@/components/motion/text-shimmer";
+import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
+import { AgentStatusChip, type AgentStatusTone } from "@/components/agents/ui/agent-status-chip";
+import { SPRING_PANEL } from "@/lib/motion/ease";
 
 const AgentFilePicker = lazy(() => import("@/components/agents/chat/agent-file-picker").then(
   (module) => ({ default: module.AgentFilePicker }),
@@ -99,397 +95,28 @@ const AgentImportDialog = lazy(() => import("@/components/agents/chat/agent-impo
 const AgentResourcePicker = lazy(() => import("@/components/agents/chat/agent-resource-picker").then(
   (module) => ({ default: module.AgentResourcePicker }),
 ));
-const AgentTurnView = lazy(() => import("@/components/agents/chat/agent-item").then(
-  (module) => ({ default: module.AgentTurnView }),
-));
 
 function repoName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
-const INITIAL_VISIBLE_TURNS = 32;
-const TURN_PAGE_SIZE = 32;
-// Starting guess for an unmeasured turn. Real heights replace it as each turn
-// enters the viewport and reports its size.
-const TURN_ESTIMATE_PX = 320;
-const STARTER_ICONS = [
-  { Icon: ScanSearch, color: "var(--git-branch)" },
-  { Icon: Hammer, color: "var(--git-modified)" },
-  { Icon: GitPullRequestArrow, color: "var(--git-added)" },
-] as const;
-
-const AgentConversationViewport = memo(function AgentConversationViewport({
-  path,
-  threadId,
-  centered,
-  composer,
-  onStarter,
-  scrollToBottomSignal,
-}: {
-  path: string;
-  threadId: string | null;
-  centered: boolean;
-  composer: ReactNode;
-  onStarter: (text: string) => void;
-  scrollToBottomSignal: number;
-}) {
-  const { t } = useTranslation();
-  const provider = useAgentProviderStore((state) => state.provider);
-  const isClaude = provider === "claude";
-  const ProviderLogo = agentProviderMeta(provider).Logo;
-  const agent = agentProviderMeta(provider).label;
-  const conversation = useAgentChatStore((state) =>
-    threadId ? state.conversations[threadId] : undefined,
-  );
-  const requests = useAgentChatStore(
-    useShallow((state) => [
-      ...(threadId ? (state.requestsByThread[threadId] ?? []) : []),
-      ...(state.requestsByThread.__global ?? []),
-    ]),
-  );
-  const connectionStatus = useAgentChatStore((state) => state.connectionStatus);
-  const connectionError = useAgentChatStore((state) => state.connectionError);
-  const requiresAuth = useAgentChatStore((state) => state.requiresAuth);
-  const loginStatus = useAgentChatStore((state) => state.loginStatus);
-  const loginError = useAgentChatStore((state) => state.loginError);
-  const connect = useAgentChatStore((state) => state.connect);
-  const loadThreads = useAgentChatStore((state) => state.loadThreads);
-  const openThread = useAgentChatStore((state) => state.openThread);
-  const startLogin = useAgentChatStore((state) => state.startLogin);
-  const clearError = useAgentChatStore((state) => state.clearError);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const stickToBottom = useRef(true);
-  const restoreBottomOffset = useRef<number | null>(null);
-  const restoreDeadline = useRef(0);
-  const [visibleTurnCount, setVisibleTurnCount] = useState(INITIAL_VISIBLE_TURNS);
-  const [atBottom, setAtBottom] = useState(true);
-  const reduceMotion = useReducedMotion() ?? false;
-  const scrollProgress = useContainerScrollProgress(scrollRef);
-  const turns = conversation?.turns ?? [];
-  const hiddenTurnCount = Math.max(0, turns.length - visibleTurnCount);
-  const visibleTurns = hiddenTurnCount > 0 ? turns.slice(-visibleTurnCount) : turns;
-  const busy = Boolean(conversation?.activeTurnId);
-  const { scrollMargin: turnScrollMargin, listRef } = useScrollMargin(scrollRef);
-  const turnVirtualizer = useVirtualizer({
-    count: visibleTurns.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => TURN_ESTIMATE_PX,
-    // Turns are tall and expensive; a wide overscan keeps scrolling smooth
-    // without paying for the whole transcript.
-    overscan: 4,
-    useAnimationFrameWithResizeObserver: true,
-    getItemKey: (index) => visibleTurns[index]?.id ?? index,
-    // The transcript starts below the pager inside the same scroller.
-    scrollMargin: turnScrollMargin,
-  });
-  const measureTurn = useCallback(
-    (node: HTMLElement | null) => turnVirtualizer.measureElement(node),
-    [turnVirtualizer],
-  );
-  const totalTurnSize = turnVirtualizer.getTotalSize();
-  const starters = useMemo(() => [
-    t("agentChat.starterAnalyze"),
-    t("agentChat.starterImplement"),
-    t("agentChat.starterReview"),
-  ], [t]);
-
-  useEffect(() => {
-    stickToBottom.current = true;
-    restoreBottomOffset.current = null;
-    setAtBottom(true);
-    setVisibleTurnCount(INITIAL_VISIBLE_TURNS);
-  }, [threadId]);
-
-  useLayoutEffect(() => {
-    if (scrollToBottomSignal === 0) return;
-    const viewport = scrollRef.current;
-    stickToBottom.current = true;
-    if (viewport) viewport.scrollTop = viewport.scrollHeight;
-  }, [scrollToBottomSignal]);
-
-  // Revealing older turns keeps the reader's place by pinning the distance to
-  // the bottom of the transcript. The turns arrive at an estimated height and
-  // correct themselves over the next few frames, so the anchor is re-applied
-  // on every size change until measurement settles rather than once.
-  useLayoutEffect(() => {
-    const viewport = scrollRef.current;
-    const bottomOffset = restoreBottomOffset.current;
-    if (!viewport || bottomOffset === null) return;
-    viewport.scrollTop = viewport.scrollHeight - bottomOffset;
-    if (Date.now() > restoreDeadline.current) restoreBottomOffset.current = null;
-  }, [visibleTurnCount, totalTurnSize]);
-
-  useLayoutEffect(() => {
-    const viewport = scrollRef.current;
-    if (!viewport || !stickToBottom.current) return;
-    const frame = requestAnimationFrame(() => {
-      viewport.scrollTop = viewport.scrollHeight;
-    });
-    return () => cancelAnimationFrame(frame);
-    // totalTurnSize: turns start at an estimated height and correct themselves
-    // as they measure, so the bottom moves for a frame or two after a thread
-    // opens. Re-pinning on every size change keeps the view at the bottom
-    // through that settle.
-  }, [requests.length, busy, threadId, totalTurnSize]);
-
-  useEffect(() => {
-    const content = contentRef.current;
-    const viewport = scrollRef.current;
-    if (!content || !viewport || typeof ResizeObserver === "undefined") return;
-    let frame: number | null = null;
-    const observer = new ResizeObserver(() => {
-      if (!stickToBottom.current || frame !== null) return;
-      frame = requestAnimationFrame(() => {
-        frame = null;
-        viewport.scrollTop = viewport.scrollHeight;
-      });
-    });
-    observer.observe(content);
-    return () => {
-      observer.disconnect();
-      if (frame !== null) cancelAnimationFrame(frame);
-    };
-  }, [threadId]);
-
-  const login = async () => {
-    try {
-      const url = await startLogin();
-      if (url) await openUrl(url);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+function chatStatusTone(busy: boolean, sessionStatus: AgentConnectionStatus): AgentStatusTone {
+  if (busy) return "working";
+  switch (sessionStatus) {
+    case "ready":
+      return "ready";
+    case "connecting":
+      return "working";
+    case "error":
+      return "error";
+    case "idle":
+      return "idle";
+    default: {
+      const _never: never = sessionStatus;
+      return _never;
     }
-  };
-
-  const jumpToBottom = useCallback(() => {
-    const viewport = scrollRef.current;
-    if (!viewport) return;
-    stickToBottom.current = true;
-    setAtBottom(true);
-    viewport.scrollTo({
-      top: viewport.scrollHeight,
-      behavior: reduceMotion ? "auto" : "smooth",
-    });
-  }, [reduceMotion]);
-
-  return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div
-        ref={scrollRef}
-        onScroll={(event) => {
-          const node = event.currentTarget;
-          const bottom = node.scrollHeight - node.scrollTop - node.clientHeight < 96;
-          stickToBottom.current = bottom;
-          // Only flip on a real transition — a scroll event fires per frame and
-          // a set() per frame would re-render the whole transcript.
-          setAtBottom((current) => (current === bottom ? current : bottom));
-        }}
-        className="ag-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"
-      >
-        <div ref={contentRef} className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-6 py-7">
-          {conversation?.loading || (!threadId && connectionStatus === "connecting") ? (
-            <div className="ag-muted m-auto flex items-center gap-2 text-[12px]">
-              <SpinIcon icon={LoaderCircle} className="size-3.5" />
-              {t("agentChat.connecting", { agent })}
-            </div>
-          ) : !threadId && connectionError && connectionStatus === "error" ? (
-            <div className="ag-card m-auto flex max-w-md items-start gap-3 border-destructive/25 bg-destructive/[0.06] p-4">
-              <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium">{t("agentChat.startErrorTitle", { agent })}</p>
-                <p className="ag-muted mt-1 text-[12px] leading-5">{connectionError}</p>
-                <button
-                  type="button"
-                  className="ag-pill mt-3"
-                  onClick={() => void connect().then(() => loadThreads([path])).catch(() => {})}
-                >
-                  {t("agentChat.retry")}
-                </button>
-              </div>
-            </div>
-          ) : requiresAuth ? (
-            <div className="ag-card m-auto max-w-sm p-6 text-center">
-              <span className="ag-inset mx-auto grid size-11 place-items-center rounded-[13px]">
-                <ProviderLogo className="size-5" />
-              </span>
-              <p className="mt-4 text-[14px] font-semibold tracking-tight">
-                {isClaude ? t("agentChat.loginTitleClaude") : t("agentChat.loginTitle")}
-              </p>
-              <p className="ag-muted mt-1.5 text-[12px] leading-5">
-                {isClaude ? t("agentChat.loginDescriptionClaude") : t("agentChat.loginDescription")}
-              </p>
-              {loginError ? (
-                <p className="mt-2 text-[12px] text-destructive">
-                  {t("agentChat.loginFailed")}: {loginError}
-                </p>
-              ) : null}
-              <button
-                type="button"
-                className="ag-pill mt-5 h-8 px-4"
-                data-active="true"
-                onClick={() => void login()}
-                disabled={loginStatus === "starting" || loginStatus === "waiting"}
-              >
-                {loginStatus === "starting" || loginStatus === "waiting" ? (
-                  <SpinIcon icon={LoaderCircle} className="size-3.5" />
-                ) : null}
-                {loginStatus === "waiting"
-                  ? t("agentChat.loginWaiting")
-                  : isClaude ? t("agentChat.loginActionClaude") : t("agentChat.loginAction")}
-              </button>
-            </div>
-          ) : centered ? (
-            <div className="m-auto w-full max-w-2xl py-8">
-              <div className="flex flex-col items-center text-center">
-                <span className="ag-inset grid size-11 place-items-center rounded-[13px]">
-                  <ProviderLogo className="size-5" />
-                </span>
-                <h2 className="mt-4 text-[17px] font-semibold tracking-[-0.015em]">
-                  {t("agentChat.emptyTitle", { agent })}
-                </h2>
-                <p className="ag-muted mt-1.5 max-w-sm text-[12px] leading-5">
-                  {t("agentChat.emptyDescription", { agent, repo: repoName(path) })}
-                </p>
-              </div>
-
-              <div className="ag-card mt-7 p-1.5">
-                <p className="ag-label px-2 py-1.5">{t("agentChat.shortcuts")}</p>
-                {starters.map((starter, index) => {
-                  const { Icon, color } = STARTER_ICONS[index] ?? STARTER_ICONS[0];
-                  return (
-                    <button
-                      key={starter}
-                      type="button"
-                      onClick={() => onStarter(starter)}
-                      className="ag-menu-item"
-                    >
-                      <Icon className="size-4 shrink-0" style={{ color }} />
-                      <span className="min-w-0 flex-1 truncate text-[13px]">{starter}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-3">{composer}</div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {hiddenTurnCount > 0 ? (
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    className="ag-pill"
-                    onClick={() => {
-                      const viewport = scrollRef.current;
-                      if (viewport) {
-                        restoreBottomOffset.current = viewport.scrollHeight - viewport.scrollTop;
-                        // Long enough for the revealed turns to measure, short
-                        // enough that it never fights a later user scroll.
-                        restoreDeadline.current = Date.now() + 600;
-                        stickToBottom.current = false;
-                      }
-                      setVisibleTurnCount((count) => count + TURN_PAGE_SIZE);
-                    }}
-                  >
-                    {t("agentChat.showOlder", { count: Math.min(TURN_PAGE_SIZE, hiddenTurnCount) })}
-                  </button>
-                </div>
-              ) : null}
-              {/* Only the turns near the viewport are mounted. Skipping the rest
-                  skips their markdown parses, diff renders and syntax
-                  highlighting too — the bulk of the cost of opening a long
-                  transcript. */}
-              <Suspense fallback={<m.div animate={pulseKeyframes} transition={pulseTransition} className="ag-inset h-16" />}>
-                <div
-                  ref={listRef}
-                  className="relative"
-                  style={{ height: turnVirtualizer.getTotalSize() }}
-                >
-                  {turnVirtualizer.getVirtualItems().map((virtualItem) => {
-                    const turn = visibleTurns[virtualItem.index];
-                    if (!turn) return null;
-                    return (
-                      <div
-                        key={virtualItem.key}
-                        ref={measureTurn}
-                        data-index={virtualItem.index}
-                        className="absolute inset-x-0 top-0 pb-6"
-                        style={{
-                          transform: `translateY(${
-                            virtualItem.start - turnVirtualizer.options.scrollMargin
-                          }px)`,
-                        }}
-                      >
-                        <AgentTurnView turn={turn} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </Suspense>
-            </div>
-          )}
-
-          {requests.length > 0 ? (
-            <div className="mt-6 space-y-3">
-              {requests.map((request) => (
-                <AgentRequestCard
-                  key={`${request.sessionId}:${String(request.requestId)}`}
-                  request={request}
-                />
-              ))}
-            </div>
-          ) : null}
-
-          {conversation?.error ? (
-            <div className="ag-card mt-4 flex items-start gap-2 border-destructive/25 bg-destructive/[0.06] px-3 py-2.5 text-[12px] text-destructive">
-              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1">{conversation.error}</span>
-              <button
-                type="button"
-                onClick={() => void openThread(path, conversation.threadId)}
-                className="rounded-md px-1.5 py-0.5 font-medium hover:bg-destructive/10"
-              >
-                {t("agentChat.retry")}
-              </button>
-              <button
-                type="button"
-                onClick={() => clearError(conversation.threadId)}
-                aria-label={t("agentChat.dismissError")}
-                className="rounded-md p-0.5 hover:bg-destructive/10"
-              >
-                <X className="size-3" />
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Jump-to-bottom. It appears only once the reader has scrolled away
-          from the live edge, and carries a progress ring so a long transcript
-          says how far back you are rather than just offering to leave. */}
-      <AnimatePresence>
-        {!atBottom && visibleTurns.length > 0 ? (
-          <m.button
-            type="button"
-            onClick={jumpToBottom}
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.94 }}
-            transition={SPRING_PANEL}
-            className="ag-pill absolute bottom-4 left-1/2 z-20 -translate-x-1/2 gap-1.5 shadow-[var(--ag-shadow-pop)]"
-            aria-label={t("agentChat.jumpToLatest")}
-          >
-            <span className="relative grid size-4 place-items-center">
-              <ScrollProgressCircle progress={scrollProgress} size={16} thickness={2} />
-              <ArrowDown className="absolute size-2.5" />
-            </span>
-            {t("agentChat.jumpToLatest")}
-          </m.button>
-        ) : null}
-      </AnimatePresence>
-    </div>
-  );
-});
+  }
+}
 
 export const AgentChatPane = memo(function AgentChatPane({
   path,
@@ -552,9 +179,6 @@ export const AgentChatPane = memo(function AgentChatPane({
         goalObjective: conversation?.goal?.objective ?? null,
         usage: usage ?? null,
         usageModel: conversation?.model ?? null,
-        contextPercent: usage?.modelContextWindow
-          ? Math.min(100, Math.round((usage.totalTokens / usage.modelContextWindow) * 100))
-          : null,
       };
     }),
   );
@@ -573,6 +197,7 @@ export const AgentChatPane = memo(function AgentChatPane({
   const setMemoryMode = useAgentChatStore((state) => state.setMemoryMode);
   const resetMemory = useAgentChatStore((state) => state.resetMemory);
   const listBackgroundTerminals = useAgentChatStore((state) => state.listBackgroundTerminals);
+  const terminateBackgroundTerminal = useAgentChatStore((state) => state.terminateBackgroundTerminal);
   const listMcpServers = useAgentChatStore((state) => state.listMcpServers);
   const loginMcpServer = useAgentChatStore((state) => state.loginMcpServer);
   const stopBackgroundTerminals = useAgentChatStore((state) => state.stopBackgroundTerminals);
@@ -593,12 +218,11 @@ export const AgentChatPane = memo(function AgentChatPane({
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [commandPicker, setCommandPicker] = useState<AgentCommandPickerState | null>(null);
+  const [cliCommands, setCliCommands] = useState<AgentCliCommand[]>([]);
   const [scrollToBottomSignal, setScrollToBottomSignal] = useState(0);
 
   const busy = Boolean(conversationMeta.activeTurnId);
-  // Mirrors the viewport's blocking branches exactly: whenever it shows a
-  // connecting / error / sign-in card instead of the transcript, the composer
-  // stays docked at the bottom rather than moving into the middle.
   const viewportBlocked =
     requiresAuth ||
     conversationMeta.loading ||
@@ -630,6 +254,20 @@ export const AgentChatPane = memo(function AgentChatPane({
     }, 250);
     return () => clearTimeout(timer);
   }, [attachments, composerDraftKey, draft]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listProviderCommands(provider, path)
+      .then((commands) => {
+        if (!cancelled) setCliCommands(commands);
+      })
+      .catch(() => {
+        if (!cancelled) setCliCommands([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path, provider, threadId]);
 
   useEffect(
     () =>
@@ -839,55 +477,36 @@ export const AgentChatPane = memo(function AgentChatPane({
     }
   };
 
-  const slashCommands = useMemo<PromptSlashCommand[]>(() => [
-    { value: "new", label: "Start a new chat", description: "Fresh context in this repository" },
-    { value: "clear", label: "Clear into a new chat", description: `${providerLabel}-compatible alias for /new` },
-    { value: "rename", label: "Rename this chat", description: "Use /rename New title or edit inline", disabled: !threadId, acceptsArgument: true },
-    { value: "review", label: "Review working tree", description: "Optionally add custom review instructions", disabled: !threadId || busy, acceptsArgument: true },
-    { value: "fork", label: "Fork this chat", description: "Continue from a copy", disabled: !threadId || busy },
-    { value: "compact", label: "Compact context", description: "Summarize older context", disabled: !threadId || busy },
-    { value: "plan", label: "Toggle Plan mode", description: "Switch between Default and Plan" },
-    { value: "goal", label: "Set or clear a goal", description: "/goal objective or /goal clear", disabled: !threadId, acceptsArgument: true },
-    { value: "model", label: "Choose model and effort", description: "/model model-id [effort]", acceptsArgument: true },
-    { value: "permissions", label: "Choose permissions", description: `Select a named ${providerLabel} permission profile`, acceptsArgument: true },
-    { value: "memories", label: "Configure memory", description: "/memories enabled, disabled, or reset", acceptsArgument: true },
-    { value: "chart", label: "Visualize data as a chart", description: "/chart what to visualize — renders an interactive chart", disabled: busy, acceptsArgument: true },
-    { value: "barcode", label: "Render scannable barcodes", description: "/barcode which values to encode — renders scannable codes", disabled: busy, acceptsArgument: true },
-    { value: "browser", label: "Run an end-to-end test in the browser", description: "/browser what to test — drives a real browser through the browser addon", disabled: busy, acceptsArgument: true },
-    { value: "addons", label: "Open Addon Studio", description: "Barcode rendering and browser access for every CLI" },
-    { value: "init", label: `Create ${isClaude ? "CLAUDE.md" : "AGENTS.md"}`, description: `Ask ${providerLabel} to add repository instructions`, disabled: busy },
-    { value: "capabilities", label: "Open Capability Studio", description: "Manage skills, MCP, plugins, apps, and hooks" },
-    { value: "skills", label: "Manage skills", description: "Create, edit, enable, duplicate, and remove skills" },
-    { value: "apps", label: "Manage apps", description: "Configure apps, tools, and approval policies" },
-    { value: "mcp", label: "Show or authenticate MCP servers", description: "/mcp [server-name|verbose]", acceptsArgument: true },
-    { value: "hooks", label: "Show lifecycle hooks", description: `Inspect configured ${providerLabel} hooks` },
-    { value: "plugins", label: "Show plugins", description: "Inspect installed and discoverable plugins" },
-    { value: "marketplace", label: "Open capability marketplace", description: "Browse GitHub for skills, MCP servers, hooks, and plugins" },
-    { value: "sync", label: "Sync capabilities across CLIs", description: "Copy, delete, or mirror skills and servers between agent CLIs" },
-    { value: "import", label: "Import from Claude Code", description: "Preview setup, skills, and recent chats" },
-    { value: "terminal", label: "Toggle in-app terminal", description: "Open it beside or below the chat", disabled: !onToggleTerminal },
-    { value: "feedback", label: `Send ${providerLabel} feedback`, description: isCodex ? "Optionally include diagnostic logs" : `Report a ${providerLabel} issue` },
-    { value: "mention", label: "Mention files", description: "Attach exact local paths" },
-    { value: "browse", label: "Browse any file", description: "Attach a path outside the repository" },
-    { value: "folder", label: "Mention a folder", description: "Attach a local directory" },
-    { value: "image", label: "Attach images", description: "PNG, JPEG, GIF or WebP" },
-    { value: "audio", label: "Attach audio", description: "Voice note or audio file" },
-    { value: "ps", label: "Background terminals", description: "List running shell processes", disabled: !threadId },
-    { value: "stop", label: "Stop background terminals", description: "Terminate all background shells", disabled: !threadId },
-    { value: "fast", label: "Toggle Fast mode", description: "Use the catalog-provided Fast service tier", disabled: !(models.find((option) => option.id === model)?.serviceTiers.length) },
-    { value: "personality", label: "Set personality", description: "friendly, pragmatic, or none", disabled: !models.find((option) => option.id === model)?.supportsPersonality, acceptsArgument: true },
-    { value: "copy", label: "Copy latest response", description: `Copy the last ${providerLabel} message`, disabled: !conversationMeta.exists },
-    { value: "status", label: "Show chat status", description: "Model, effort, permissions, and context" },
-    { value: "usage", label: "Show usage limits", description: "Current account rate limits" },
-    { value: "archive", label: "Archive this chat", description: "Remove it from the active list", disabled: !threadId || busy },
-    { value: "delete", label: "Delete this chat", description: "Permanently delete the transcript", disabled: !threadId || busy },
-    { value: "logout", label: `Log out of ${providerLabel}`, description: `Disconnect the current ${isClaude ? "Anthropic" : isCodex ? "OpenAI" : "OpenCode"} account` },
-  ].filter((command) => providerSupportsSlashCommand(provider, command.value)), [busy, conversationMeta.exists, isClaude, isCodex, model, models, onOpenCapabilities, onToggleTerminal, provider, providerLabel, threadId]);
+  const extraCliCommands = useMemo(
+    () => cliCommands.filter((command) => !isNativeSlashCommand(command.name)),
+    [cliCommands],
+  );
+
+  const slashCommands = useMemo<PromptSlashCommand[]>(
+    () =>
+      mergeSlashCommands(
+        nativeSlashCommands({
+          provider,
+          providerLabel,
+          isClaude,
+          isCodex,
+          threadId,
+          busy,
+          conversationExists: conversationMeta.exists,
+          model,
+          models,
+          hasTerminalToggle: Boolean(onToggleTerminal),
+        }),
+        cliCommands,
+      ),
+    [busy, cliCommands, conversationMeta.exists, isClaude, isCodex, model, models, onToggleTerminal, provider, providerLabel, threadId],
+  );
 
   const runSlashCommand = async (command: string, argument: string) => {
     try {
-      if (!providerSupportsSlashCommand(provider, command)) {
-        throw new Error(`/${command} is not available with ${providerLabel}.`);
+      if (!shouldRunNativeSlash(command, provider)) {
+        await sendMessage(path, slashCommandLine(command, argument));
+        return;
       }
       if (command === "new") return await newThread();
       if (command === "clear") return await newThread();
@@ -914,11 +533,32 @@ export const AgentChatPane = memo(function AgentChatPane({
           toast.success(`${server.name} authentication started`);
           return;
         }
-        toast.info(servers.length
-          ? servers.map((server) => argument.toLocaleLowerCase() === "verbose"
-            ? `${server.name} · ${server.authStatus}\n${server.tools.join(", ") || "No tools"}`
-            : `${server.name} · ${server.tools.length} tools · ${server.authStatus}`).join("\n")
-          : "No MCP servers configured");
+        const verbose = argument.toLocaleLowerCase() === "verbose";
+        if (!servers.length) {
+          setCommandPicker({ title: "MCP", detail: "No MCP servers configured" });
+          return;
+        }
+        if (verbose) {
+          setCommandPicker({
+            title: "MCP",
+            detail: servers.map((server) =>
+              `${server.name} · ${server.authStatus}\n${server.tools.join(", ") || "No tools"}`,
+            ).join("\n\n"),
+          });
+          return;
+        }
+        setCommandPicker({
+          title: "MCP",
+          items: servers.map((server) => ({
+            id: server.name,
+            label: server.name,
+            description: `${server.tools.length} tools · ${server.authStatus}`,
+          })),
+          onSelect: (name) => {
+            setCommandPicker(null);
+            void runSlashCommand("mcp", name);
+          },
+        });
         return;
       }
       if (command === "hooks") {
@@ -934,7 +574,19 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (command === "feedback") return setFeedbackOpen(true);
       if (command === "model") {
         if (!argument) {
-          toast.info(models.map((option) => `${option.id} · ${codexReasoningEffortLabel(option.defaultReasoningEffort)}`).join("\n"));
+          setCommandPicker({
+            title: "Model",
+            items: models.map((option) => ({
+              id: option.id,
+              label: option.label,
+              description: `${option.id} · ${codexReasoningEffortLabel(option.defaultReasoningEffort)}`,
+            })),
+            onSelect: (id) => {
+              setModel(id);
+              setCommandPicker(null);
+              toast.success(models.find((option) => option.id === id)?.label ?? id);
+            },
+          });
           return;
         }
         const [requestedModel, requestedEffort] = argument.split(/\s+/u);
@@ -956,9 +608,25 @@ export const AgentChatPane = memo(function AgentChatPane({
       }
       if (command === "permissions") {
         if (!argument) {
-          toast.info(permissionProfiles.length
-            ? permissionProfiles.map((profile) => `${profile.allowed ? "Available" : "Blocked"} · ${profile.id}`).join("\n")
-            : "Open the settings menu to choose custom sandbox and approval rules.");
+          setCommandPicker({
+            title: "Permissions",
+            description: permissionProfiles.length
+              ? undefined
+              : "Open the settings menu to choose custom sandbox and approval rules.",
+            items: [
+              { id: "custom", label: "Custom" },
+              ...permissionProfiles.map((profile) => ({
+                id: profile.id,
+                label: profile.id.replace(/^:/u, ""),
+                description: profile.allowed ? "Available" : "Blocked",
+                disabled: !profile.allowed,
+              })),
+            ],
+            onSelect: (id) => {
+              setCommandPicker(null);
+              void runSlashCommand("permissions", id);
+            },
+          });
           return;
         }
         if (argument.toLocaleLowerCase() === "custom") {
@@ -978,6 +646,21 @@ export const AgentChatPane = memo(function AgentChatPane({
       }
       if (command === "memories") {
         const value = argument.toLocaleLowerCase();
+        if (!argument) {
+          setCommandPicker({
+            title: "Memory",
+            items: [
+              { id: "enabled", label: "Enabled" },
+              { id: "disabled", label: "Disabled" },
+              { id: "reset", label: "Reset all memories" },
+            ],
+            onSelect: (id) => {
+              setCommandPicker(null);
+              void runSlashCommand("memories", id);
+            },
+          });
+          return;
+        }
         if (value === "reset") {
           if (!window.confirm("Reset all Codex memories? This cannot be undone.")) return;
           await resetMemory();
@@ -993,19 +676,49 @@ export const AgentChatPane = memo(function AgentChatPane({
         return;
       }
       if (command === "chart") {
-        if (!argument) throw new Error("Use /chart <what to visualize>.");
+        if (!argument) {
+          setCommandPicker({
+            title: "Chart",
+            input: { placeholder: "What to visualize", submitLabel: "Run" },
+            onSubmit: (value) => {
+              setCommandPicker(null);
+              void sendMessage(path, chartPrompt(value));
+            },
+          });
+          return;
+        }
         await sendMessage(path, chartPrompt(argument));
         return;
       }
       if (command === "barcode") {
-        if (!argument) throw new Error("Use /barcode <which values to encode>.");
+        if (!argument) {
+          setCommandPicker({
+            title: "Barcode",
+            input: { placeholder: "Which values to encode", submitLabel: "Run" },
+            onSubmit: (value) => {
+              setCommandPicker(null);
+              void sendMessage(path, barcodePrompt(value));
+            },
+          });
+          return;
+        }
         await sendMessage(path, barcodePrompt(argument));
         return;
       }
       if (command === "addons") return onOpenAddons?.();
       if (command === "browser") {
-        if (!argument) throw new Error("Use /browser <what to test>.");
         if (!onOpenAddons) throw new Error("The browser addon is unavailable here.");
+        if (!argument) {
+          setCommandPicker({
+            title: "Browser",
+            input: { placeholder: "What to test", submitLabel: "Run" },
+            onSubmit: (value) => {
+              setCommandPicker(null);
+              void runSlashCommand("browser", value);
+            },
+          });
+          return;
+        }
         const status = await readBrowserAddon(path, provider);
         if (!status.installed) {
           onOpenAddons();
@@ -1039,6 +752,21 @@ export const AgentChatPane = memo(function AgentChatPane({
         return;
       }
       if (command === "personality") {
+        if (!argument) {
+          setCommandPicker({
+            title: "Personality",
+            items: [
+              { id: "friendly", label: "Friendly" },
+              { id: "pragmatic", label: "Pragmatic" },
+              { id: "none", label: "None" },
+            ],
+            onSelect: (id) => {
+              setCommandPicker(null);
+              void runSlashCommand("personality", id);
+            },
+          });
+          return;
+        }
         const value = argument.toLocaleLowerCase();
         if (value !== "friendly" && value !== "pragmatic" && value !== "none") {
           throw new Error("Use /personality friendly, /personality pragmatic, or /personality none.");
@@ -1068,18 +796,41 @@ export const AgentChatPane = memo(function AgentChatPane({
           await setGoal(threadId, argument);
           toast.success("Goal updated");
         } else {
-          toast.info(
-            useAgentChatStore.getState().conversations[threadId]?.goal?.objective ??
-              "No active goal",
-          );
+          const current = useAgentChatStore.getState().conversations[threadId]?.goal?.objective ?? "";
+          setCommandPicker({
+            title: "Goal",
+            description: current || "No active goal",
+            items: current ? [{ id: "clear", label: "Clear goal" }] : undefined,
+            input: { placeholder: "Objective", submitLabel: "Set goal" },
+            onSelect: (id) => {
+              setCommandPicker(null);
+              if (id === "clear") void runSlashCommand("goal", "clear");
+            },
+            onSubmit: (value) => {
+              setCommandPicker(null);
+              void runSlashCommand("goal", value);
+            },
+          });
         }
         return;
       }
       if (command === "ps") {
         const terminals = await listBackgroundTerminals(threadId);
-        toast.info(terminals.length
-          ? terminals.map((terminal) => `${terminal.processId} · ${terminal.command}`).join("\n")
-          : "No background terminals");
+        setCommandPicker({
+          title: "Background terminals",
+          detail: terminals.length ? undefined : "No background terminals",
+          items: terminals.map((terminal) => ({
+            id: terminal.processId,
+            label: terminal.command,
+            description: terminal.processId,
+          })),
+          onSelect: (processId) => {
+            setCommandPicker(null);
+            void terminateBackgroundTerminal(threadId, processId)
+              .then(() => toast.success("Terminal stopped"))
+              .catch((error: unknown) => toast.error(error instanceof Error ? error.message : String(error)));
+          },
+        });
         return;
       }
       if (command === "stop") {
@@ -1100,20 +851,31 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (command === "status") {
         const usage = useAgentChatStore.getState().conversations[threadId]?.tokenUsage;
         const context = usage?.modelContextWindow
-          ? ` · ${Math.round((usage.totalTokens / usage.modelContextWindow) * 100)}% context`
-          : "";
-        toast.info(`${model ?? "Default model"} · ${codexReasoningEffortLabel(useAgentChatStore.getState().reasoningEffort)} · ${useAgentChatStore.getState().permissionProfile ?? useAgentChatStore.getState().sandboxMode}${context}`);
+          ? `${Math.round((usage.totalTokens / usage.modelContextWindow) * 100)}% context`
+          : null;
+        setCommandPicker({
+          title: "Status",
+          detail: [
+            model ?? "Default model",
+            codexReasoningEffortLabel(useAgentChatStore.getState().reasoningEffort),
+            useAgentChatStore.getState().permissionProfile ?? useAgentChatStore.getState().sandboxMode,
+            context,
+          ].filter(Boolean).join(" · "),
+        });
         return;
       }
       if (command === "usage") {
         const state = useAgentChatStore.getState();
         const primary = state.rateLimits?.primary;
         const lifetime = state.accountUsage?.lifetimeTokens;
-        toast.info([
-          primary ? `${Math.round(primary.usedPercent)}% of current limit used` : null,
-          lifetime !== null && lifetime !== undefined ? `${lifetime.toLocaleString()} lifetime tokens` : null,
-          state.accountUsage?.currentStreakDays ? `${state.accountUsage.currentStreakDays}-day streak` : null,
-        ].filter(Boolean).join(" · ") || "No usage data available");
+        setCommandPicker({
+          title: "Usage",
+          detail: [
+            primary ? `${Math.round(primary.usedPercent)}% of current limit used` : null,
+            lifetime !== null && lifetime !== undefined ? `${lifetime.toLocaleString()} lifetime tokens` : null,
+            state.accountUsage?.currentStreakDays ? `${state.accountUsage.currentStreakDays}-day streak` : null,
+          ].filter(Boolean).join("\n") || "No usage data available",
+        });
         return;
       }
       if (command === "archive") return await archiveThread(path, threadId);
@@ -1126,15 +888,7 @@ export const AgentChatPane = memo(function AgentChatPane({
     }
   };
 
-  const statusState = busy
-    ? "working"
-    : sessionStatus === "ready"
-      ? "ready"
-      : sessionStatus === "connecting"
-        ? "working"
-        : sessionStatus === "error"
-          ? "error"
-          : "idle";
+  const statusState = chatStatusTone(busy, sessionStatus);
   const statusLabel = busy
     ? t("agentChat.working")
     : sessionStatus === "ready"
@@ -1177,7 +931,11 @@ export const AgentChatPane = memo(function AgentChatPane({
   ) : null;
 
   const composer = (
-    <div className="w-full">
+    <m.div
+      layout
+      className="w-full"
+      transition={SPRING_PANEL}
+    >
       <PromptInput
         value={draft}
         onValueChange={setDraft}
@@ -1275,22 +1033,19 @@ export const AgentChatPane = memo(function AgentChatPane({
             usage={conversationMeta.usage}
             model={conversationMeta.usageModel || model}
           />
-          {conversationMeta.contextPercent !== null ? (
-            <span className="tabular-nums">
-              {t("agentChat.contextUsed", { value: conversationMeta.contextPercent })}
-            </span>
-          ) : null}
+          <AgentContextMeter usage={conversationMeta.usage} />
+          <AgentRateLimitChips />
         </span>
       </div>
-    </div>
+    </m.div>
   );
 
   return (
     <section className="flex h-full min-h-0 flex-1 flex-col">
       <header className="ag-line flex h-12 shrink-0 items-center gap-2 border-b px-3">
-        <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]">
-          <ProviderLogo className="size-3.5" />
-        </span>
+        <AgentProviderMark working={busy} label={providerLabel}>
+          <ProviderLogo />
+        </AgentProviderMark>
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <span className="ag-faint hidden shrink-0 truncate text-[12px] sm:block">
             {repoName(path)}
@@ -1312,16 +1067,9 @@ export const AgentChatPane = memo(function AgentChatPane({
         </div>
 
         {threadId || busy ? (
-          <span className="ag-pill shrink-0" title={t("agentChat.streamIsolated")}>
-            <AgDot state={statusState} />
-            {/* A running turn reads as live text rather than a static word,
-                which is what distinguishes "working" from "idle" at a glance. */}
-            {busy ? (
-              <TextShimmer duration={2}>{statusLabel}</TextShimmer>
-            ) : (
-              statusLabel
-            )}
-          </span>
+          <AgentStatusChip tone={statusState} className="shrink-0">
+            {busy ? <TextShimmer duration={2}>{statusLabel}</TextShimmer> : statusLabel}
+          </AgentStatusChip>
         ) : null}
 
         {onToggleTerminal ? (
@@ -1378,12 +1126,17 @@ export const AgentChatPane = memo(function AgentChatPane({
         centered={centeredComposer}
         composer={composer}
         onStarter={setDraft}
+        cliCommands={extraCliCommands}
+        onCliCommand={(command) => {
+          if (command.argumentHint) setDraft(`/${command.name} `);
+          else void runSlashCommand(command.name, "");
+        }}
         scrollToBottomSignal={scrollToBottomSignal}
       />
 
       {centeredComposer ? null : (
         <div className="shrink-0 px-6 pb-4 pt-2">
-          <div className="mx-auto w-full max-w-3xl">{composer}</div>
+          <div className="mx-auto w-[86%]">{composer}</div>
         </div>
       )}
 
@@ -1441,6 +1194,12 @@ export const AgentChatPane = memo(function AgentChatPane({
           />
         ) : null}
       </Suspense>
+      <AgentCommandPicker
+        picker={commandPicker}
+        onOpenChange={(open) => {
+          if (!open) setCommandPicker(null);
+        }}
+      />
     </section>
   );
 });

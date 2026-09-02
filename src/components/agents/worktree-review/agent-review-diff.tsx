@@ -1,6 +1,7 @@
 import { Check, Loader2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { UnifiedDiffBody } from "@/components/repo/commit/unified-diff-body";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,9 +96,9 @@ export function AgentReviewDiffPane({
 
   if (!file) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
+      <AgentsEnter className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
         {t("agentReview.selectFile")}
-      </div>
+      </AgentsEnter>
     );
   }
 
@@ -150,6 +151,7 @@ export function AgentReviewDiffPane({
                 untrackedPlain={untrackedPlain}
                 emptyHint={t("agentReview.emptyDiff")}
                 failedHint={t("agentReview.diffFailed")}
+                filePath={file.path}
               />
             </div>
           </div>
@@ -200,6 +202,7 @@ export function AgentReviewDiffPane({
                     untrackedPlain={null}
                     emptyHint={t("agentReview.emptyDiff")}
                     failedHint={t("agentReview.diffFailed")}
+                    filePath={file.path}
                   />
                 </div>
               </div>

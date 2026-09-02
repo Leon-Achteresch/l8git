@@ -490,6 +490,40 @@ export function CommitPanel() {
     void unstageFiles(activePath, paths).catch((e) => toastError(String(e)));
   }, [activePath, stagedRows, unstageFiles]);
 
+  const stableOnStagePaths = useCallback(
+    (paths: string[]) => {
+      if (!activePath || paths.length === 0) return;
+      void stageFiles(activePath, [...new Set(paths)]).catch((e) => toastError(String(e)));
+    },
+    [activePath, stageFiles],
+  );
+
+  const stableOnUnstagePaths = useCallback(
+    (paths: string[]) => {
+      if (!activePath || paths.length === 0) return;
+      void unstageFiles(activePath, [...new Set(paths)]).catch((e) => toastError(String(e)));
+    },
+    [activePath, unstageFiles],
+  );
+
+  const stableOnDiscardPaths = useCallback(
+    (paths: string[], worktreeOnly: boolean) => {
+      if (!activePath || paths.length === 0) return;
+      setDiscardDialog({ files: [...new Set(paths)], worktreeOnly });
+    },
+    [activePath],
+  );
+
+  const stableOnIgnore = useCallback(
+    (patterns: string[]) => {
+      if (!activePath || patterns.length === 0) return;
+      void invoke("add_to_gitignore", { path: activePath, patterns })
+        .then(() => reloadStatus(activePath))
+        .catch((e) => toastError(String(e)));
+    },
+    [activePath, reloadStatus],
+  );
+
   const stableOnDiscardAllStaged = useCallback(() => {
     if (!activePath) return;
     const files = [...new Set(stagedRows.map((r) => r.path))];
@@ -677,6 +711,10 @@ export function CommitPanel() {
               onToggle={stableOnToggleRow}
               onDiscard={discardOne}
               onBlame={stableOnBlame}
+              onIgnore={stableOnIgnore}
+              onStagePaths={stableOnStagePaths}
+              onUnstagePaths={stableOnUnstagePaths}
+              onDiscardPaths={stableOnDiscardPaths}
             />
           </ResizablePanel>
 

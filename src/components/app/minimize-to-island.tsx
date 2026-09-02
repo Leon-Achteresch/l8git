@@ -4,11 +4,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { IS_TAURI } from "@/lib/island/bridge";
-import {
-  minimizeMainWindow,
-  openIslandWindow,
-  storedIslandWindowPosition,
-} from "@/lib/island/window-store";
+import { minimizeMainWindow } from "@/lib/island/window-store";
 import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
 import { cn } from "@/lib/utils";
 
@@ -28,11 +24,9 @@ export function MinimizeToIsland() {
       aria-label={t("header.minimizeToIsland")}
       title={t("header.minimizeToIsland")}
       onClick={() => {
-        void openIslandWindow(storedIslandWindowPosition())
-          .then(() => minimizeMainWindow())
-          // Silence here would read as a dead button: nothing detaches and the
-          // window stays put.
-          .catch(() => toast.error(t("header.minimizeToIslandFailed")));
+        void minimizeMainWindow().catch(() =>
+          toast.error(t("header.minimizeToIslandFailed")),
+        );
       }}
       className={cn(
         "size-7 text-muted-foreground",

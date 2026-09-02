@@ -5,20 +5,17 @@ import { useShallow } from "zustand/react/shallow";
 
 import { IslandShell } from "@/components/island/island-shell";
 import { ISLAND_VIEW, type IslandFlash } from "@/components/island/island-ui";
-import { IS_TAURI } from "@/lib/island/bridge";
 import { useIslandSnapshot } from "@/lib/island/client";
 import { useIslandFlash } from "@/lib/island/flash";
 import { useIslandUsage } from "@/lib/island/usage";
-import { detachIslandToEdge } from "@/lib/island/window-store";
 import {
   beginMagnetDrag,
   defaultIslandPosition,
   endMagnetDrag,
   ISLAND_HEIGHT,
+  ISLAND_OVERLAY_CLASS,
   ISLAND_WIDTH,
-  islandOverlayClass,
   islandTarget,
-  isEdgeDock,
   magnetFor,
   useIslandDocks,
   useIslandStore,
@@ -33,7 +30,6 @@ const SNAP = { type: "spring", stiffness: 620, damping: 30, mass: 0.6 } as const
 const MAGNET = { stiffness: 700, damping: 26, mass: 0.4 } as const;
 const SETTLE_MS = 320;
 
-/** The island as an overlay inside the main window: draggable and dockable. */
 export function AppIsland() {
   const [view, setView] = useState<string | null>(null);
   const islandRef = useRef<HTMLDivElement | null>(null);
@@ -50,11 +46,7 @@ export function AppIsland() {
   const merged = { ...snapshot, usage: liveUsage.length ? liveUsage : snapshot.usage };
 
   const { position, dock, hovered } = useIslandStore(
-    useShallow((s) => ({
-      position: s.position,
-      dock: s.dock,
-      hovered: s.hovered,
-    })),
+    useShallow((s) => ({ position: s.position, dock: s.dock, hovered: s.hovered })),
   );
   const setPosition = useIslandStore((s) => s.setPosition);
   const setDock = useIslandStore((s) => s.setDock);
@@ -68,14 +60,10 @@ export function AppIsland() {
   const magnetX = useSpring(0, MAGNET);
   const magnetY = useSpring(0, MAGNET);
 
-  // Mirrors the render condition below: while the island is detached the root
-  // renders the normal toaster, and this must not dismiss its toasts.
   const showsIsland = enabled && !!activePath && !snapshot.detached;
   const flash = useIslandFlashLine(showsIsland);
 
   const compactRef = useRef(true);
-  // Written in an effect, not in render: a discarded render must not leave the
-  // ResizeObserver below publishing a size the user never saw.
   useEffect(() => {
     compactRef.current = view === null && !flash;
   }, [view, flash]);
@@ -107,26 +95,19 @@ export function AppIsland() {
 
   useEffect(() => {
     const onResize = () => {
-      if (draggingRef.current) return;
-      if (dock === "free") {
-        const { width, height } = islandSize(islandRef.current);
-        const minX = EDGE_MARGIN + width / 2;
-        const minY = height / 2;
-        const maxX = Math.max(minX, window.innerWidth - EDGE_MARGIN - width / 2);
-        const maxY = Math.max(minY, window.innerHeight - EDGE_MARGIN - height / 2);
-        const nextX = Math.min(Math.max(minX, x.get()), maxX);
-        const nextY = Math.min(Math.max(minY, y.get()), maxY);
-        if (nextX !== x.get() || nextY !== y.get()) {
-          x.set(nextX);
-          y.set(nextY);
-          setPosition({ x: nextX, y: nextY });
-        }
-        return;
+      if (draggingRef.current || dock !== "free") return;
+      const { width, height } = islandSize(islandRef.current);
+      const minX = EDGE_MARGIN + width / 2;
+      const minY = height / 2;
+      const maxX = Math.max(minX, window.innerWidth - EDGE_MARGIN - width / 2);
+      const maxY = Math.max(minY, window.innerHeight - EDGE_MARGIN - height / 2);
+      const nextX = Math.min(Math.max(minX, x.get()), maxX);
+      const nextY = Math.min(Math.max(minY, y.get()), maxY);
+      if (nextX !== x.get() || nextY !== y.get()) {
+        x.set(nextX);
+        y.set(nextY);
+        setPosition({ x: nextX, y: nextY });
       }
-      if (!isEdgeDock(dock)) return;
-      const target = islandTarget(dock, position);
-      x.set(target.x);
-      y.set(target.y);
     };
     onResize();
     window.addEventListener("resize", onResize);
@@ -142,35 +123,19 @@ export function AppIsland() {
     return () => window.removeEventListener("keydown", onKey);
   }, [view]);
 
-  // The detached window takes over while it is open.
   if (!showsIsland) return null;
 
   return (
     <>
       {view !== null && (
-        <div
-          className="fixed inset-0 z-[60]"
-          aria-hidden
-          onClick={() => setView(null)}
-        />
+        <div className="fixed inset-0 z-[60]" aria-hidden onClick={() => setView(null)} />
       )}
       <div className="pointer-events-none fixed inset-0 z-[70]">
-        {isDragging && hovered && isEdgeDock(hovered) ? (
-          <div
-            className={cn(
-              "absolute bg-primary/30",
-              hovered === "left" && "bottom-0 left-0 top-0 w-1.5",
-              hovered === "right" && "bottom-0 right-0 top-0 w-1.5",
-              hovered === "top" && "left-0 right-0 top-0 h-1.5",
-              hovered === "bottom" && "bottom-0 left-0 right-0 h-1.5",
-            )}
-          />
-        ) : null}
         <m.div
           ref={islandRef}
-          drag
+          drag={view === null}
           dragMomentum={false}
-          dragElastic={0.12}
+          dragElastic={0.06}
           onDragStart={() => {
             beginMagnetDrag();
             draggingRef.current = true;
@@ -204,18 +169,8 @@ export function AppIsland() {
             justDraggedRef.current = true;
             if (hit) {
               setDock(hit.id);
-              if (isEdgeDock(hit.id)) {
-                setPosition({ x: Math.round(hit.x), y: Math.round(hit.y) });
-                if (IS_TAURI) {
-                  void detachIslandToEdge(hit.id, { x: hit.x, y: hit.y });
-                } else {
-                  void animate(x, hit.x, SNAP);
-                  void animate(y, hit.y, SNAP);
-                }
-              } else {
-                void animate(x, hit.x, SNAP);
-                void animate(y, hit.y, SNAP);
-              }
+              void animate(x, hit.x, SNAP);
+              void animate(y, hit.y, SNAP);
             } else {
               setDock("free");
               setPosition({ x: Math.round(x.get()), y: Math.round(y.get()) });
@@ -229,7 +184,7 @@ export function AppIsland() {
           style={{ x, y }}
           className={cn(
             "pointer-events-auto absolute left-0 top-0 cursor-grab [-webkit-app-region:no-drag] active:cursor-grabbing",
-            islandOverlayClass(dock),
+            ISLAND_OVERLAY_CLASS,
           )}
         >
           <m.div
@@ -240,13 +195,14 @@ export function AppIsland() {
               setView((v) => (v === ISLAND_VIEW.menu ? null : ISLAND_VIEW.menu));
             }}
           >
-          <IslandShell
-            snapshot={merged}
-            view={view}
-            onViewChange={setView}
-            flash={flash}
-            canInteract={idle}
-          />
+            <IslandShell
+              snapshot={merged}
+              view={view}
+              onViewChange={setView}
+              flash={flash}
+              canInteract={idle}
+              vertical={dock === "sidebar"}
+            />
           </m.div>
         </m.div>
       </div>
@@ -261,10 +217,6 @@ function islandSize(el: HTMLElement | null) {
   };
 }
 
-/**
- * The island's status line. Its own action results win over app toasts, which
- * it otherwise takes over from sonner while it is visible.
- */
 function useIslandFlashLine(enabled: boolean): IslandFlash | null {
   const own = useIslandFlash((s) => s.current);
   const dismissOwn = useIslandFlash((s) => s.dismiss);
@@ -306,8 +258,6 @@ function toastType(type: ToastT["type"]): IslandFlash["type"] {
   return "info";
 }
 
-function renderToastNode(
-  node: ToastT["title"] | ToastT["description"],
-): ReactNode {
+function renderToastNode(node: ToastT["title"] | ToastT["description"]): ReactNode {
   return typeof node === "function" ? node() : node;
 }

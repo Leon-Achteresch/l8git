@@ -2,6 +2,8 @@ import { ShieldAlert } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { AgentsEnter } from "@/components/agents/ui/agents-enter";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,7 +29,8 @@ export function AgentTrustBanner({ path }: { path: string }) {
   if (!path || trusted) return null;
 
   return (
-    <div className="ag-card mx-auto mt-2 flex w-full max-w-3xl items-start gap-2.5 border-amber-500/30 bg-amber-500/[0.07] px-3 py-2.5 text-[12px]">
+    <AgentsEnter>
+    <div className="ag-card mt-2 flex w-full items-start gap-2.5 border-amber-500/30 bg-amber-500/[0.07] px-3 py-2.5 text-[12px]">
       <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
       <div className="min-w-0 flex-1">
         <p className="font-medium">{t("agentTrust.bannerTitle")}</p>
@@ -63,5 +66,6 @@ export function AgentTrustBanner({ path }: { path: string }) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </AgentsEnter>
   );
 }

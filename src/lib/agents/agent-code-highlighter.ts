@@ -85,9 +85,17 @@ async function tokenizeInline(
   language: AgentCodeLanguage,
 ): Promise<AgentCodeTokenLines> {
   const highlighter = await getInlineHighlighter();
+  if (!highlighter.getLoadedLanguages().includes(language)) {
+    try {
+      await highlighter.loadLanguage(language as never);
+    } catch {
+      // Unknown grammar: fall through and render the code unstyled.
+    }
+  }
+  const lang = (highlighter.getLoadedLanguages().includes(language) ? language : "text") as never;
   return highlighter
     .codeToTokensWithThemes(code, {
-      lang: language,
+      lang,
       themes: { light: AGENT_CODE_LIGHT_THEME, dark: AGENT_CODE_DARK_THEME },
     })
     .map((line) =>

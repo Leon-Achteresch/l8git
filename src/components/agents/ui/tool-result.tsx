@@ -1,5 +1,4 @@
 "use client";
-// beui.dev/components/agents/tool-result
 
 import {
   Ban,
@@ -24,22 +23,23 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  AgentCode,
-  type AgentCodeLanguage,
-} from "@/components/agents/ui/agent-code";
 import { ActionSwapRollText } from "@/components/motion/action-swap-roll";
 import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
-import { SPRING_PRESS, SPRING_SWAP } from "@/lib/motion/ease";
+import { ToolResultAction } from "@/components/agents/ui/tool-result-action";
+import { ToolResultOutput } from "@/components/agents/ui/tool-result-output";
+import { SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 import { SpinIcon } from "@/components/motion/kit";
+
+export { ToolResultOutput };
+export type { ToolResultOutputProps } from "@/components/agents/ui/tool-result-output";
 
 export type ToolResultStatus = "running" | "success" | "error" | "cancelled";
 export type ToolResultKind = "terminal" | "request" | "custom";
 
 export interface ToolResultProps {
-  tool: ReactNode;
-  title: ReactNode;
+  tool: string;
+  title: string;
   children: ReactNode;
   status?: ToolResultStatus;
   kind?: ToolResultKind;
@@ -49,19 +49,12 @@ export interface ToolResultProps {
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   collapseOnComplete?: boolean;
-  maxHeight?: number;
+  maxHeight?: number | string;
   copyText?: string;
   onCopy?: () => void | Promise<void>;
   onRetry?: () => void;
   className?: string;
   contentClassName?: string;
-}
-
-export interface ToolResultOutputProps {
-  children: string;
-  language?: AgentCodeLanguage;
-  highlight?: boolean;
-  className?: string;
 }
 
 function getStatusLabel(status: ToolResultStatus) {
@@ -111,51 +104,6 @@ function StatusIcon({
   return <Ban className="size-3" />;
 }
 
-function ToolResultAction({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  const reduce = useReducedMotion() ?? false;
-
-  return (
-    <m.button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      whileTap={reduce ? undefined : { scale: 0.9 }}
-      transition={SPRING_PRESS}
-      className="ag-icon-btn"
-    >
-      {children}
-    </m.button>
-  );
-}
-
-export function ToolResultOutput({
-  children,
-  language = "bash",
-  highlight = true,
-  className,
-}: ToolResultOutputProps) {
-  return (
-    <AgentCode
-      code={children}
-      language={language}
-      highlight={highlight}
-      className={cn(
-        "whitespace-pre-wrap break-words text-foreground/80",
-        className,
-      )}
-    />
-  );
-}
-
 export function ToolResult({
   tool,
   title,
@@ -165,10 +113,10 @@ export function ToolResult({
   meta,
   icon,
   open,
-  defaultOpen = true,
+  defaultOpen = false,
   onOpenChange,
-  collapseOnComplete = true,
-  maxHeight = 220,
+  collapseOnComplete = false,
+  maxHeight = 280,
   copyText,
   onCopy,
   onRetry,
@@ -176,29 +124,36 @@ export function ToolResult({
   contentClassName,
 }: ToolResultProps) {
   const reduce = useReducedMotion() ?? false;
-  const baseId = useId();
-  const triggerId = `${baseId}-trigger`;
-  const contentId = `${baseId}-content`;
+  const contentId = useId();
+  const triggerId = useId();
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(
+    open ?? (status === "running" ? true : defaultOpen),
+  );
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef<number | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const previousStatus = useRef(status);
-  const copyTimer = useRef<number | undefined>(undefined);
-  const [copied, setCopied] = useState(false);
-  const [internalOpen, setInternalOpen] = useState(defaultOpen);
-  const currentOpen = open ?? internalOpen;
+
+  const isControlled = open !== undefined;
+  const currentOpen = isControlled ? open : uncontrolledOpen;
   const running = status === "running";
-  const canCopy = Boolean(copyText || onCopy);
-  const titleKey = getSwapKey(title, status);
-  const metaKey = getSwapKey(meta, `${status}-meta`);
-  const toolKey = getSwapKey(tool, `${status}-tool`);
+  const canCopy = Boolean(onCopy || copyText);
   const statusLabel = getStatusLabel(status);
+  const titleKey = getSwapKey(title, "title");
+  const metaKey = getSwapKey(meta, "meta");
+  const toolKey = getSwapKey(tool, "tool");
 
   const setOpen = useCallback(
     (next: boolean) => {
-      if (open === undefined) setInternalOpen(next);
+      if (!isControlled) setUncontrolledOpen(next);
       onOpenChange?.(next);
     },
-    [onOpenChange, open],
+    [isControlled, onOpenChange],
   );
+
+  useEffect(() => {
+    if (open !== undefined) setUncontrolledOpen(open);
+  }, [open]);
 
   useEffect(() => {
     if (previousStatus.current !== "running" && status === "running") {
@@ -226,8 +181,6 @@ export function ToolResult({
     if (!viewport || !currentOpen || !running) return;
 
     const frame = requestAnimationFrame(() => {
-      // Repeated smooth-scroll animations stack up while output streams and
-      // are a major source of dropped frames. Follow the tail directly.
       viewport.scrollTop = viewport.scrollHeight;
     });
     return () => cancelAnimationFrame(frame);
@@ -264,21 +217,15 @@ export function ToolResult({
         </span>
         <span className="flex min-w-0 flex-1 items-baseline gap-2">
           <span className="min-w-0 truncate text-[12px] font-medium">
-            <ActionSwapRollText value={titleKey}>
-              {title}
-            </ActionSwapRollText>
+            <ActionSwapRollText value={titleKey}>{title}</ActionSwapRollText>
           </span>
           {meta ? (
             <span className="ag-faint shrink-0 truncate text-[11px]">
-              <ActionSwapRollText value={metaKey}>
-                {meta}
-              </ActionSwapRollText>
+              <ActionSwapRollText value={metaKey}>{meta}</ActionSwapRollText>
             </span>
           ) : null}
           <span className="ag-faint hidden min-w-0 truncate font-mono text-[10px] sm:block">
-            <ActionSwapRollText value={toolKey}>
-              {tool}
-            </ActionSwapRollText>
+            <ActionSwapRollText value={toolKey}>{tool}</ActionSwapRollText>
           </span>
         </span>
         <span

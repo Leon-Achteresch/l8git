@@ -308,6 +308,7 @@
     "noArchivedChats": "No archived chats",
     "unarchive": "Restore",
     "shortcuts": "Shortcuts",
+    "cliCommands": "Commands",
     "statusReady": "Ready",
     "statusConnecting": "Connecting",
     "statusError": "Error",
@@ -369,7 +370,15 @@
     "barcodeZoom": "Enlarge for scanning",
     "barcodeCopy": "Copy value",
     "barcodeCopied": "Value copied",
-    "barcodeDownload": "Download as SVG"
+    "barcodeDownload": "Download as SVG",
+    "connectingHint": "Initializing {{agent}} and preparing workspace.",
+    "connectionFailed": "Connection to {{agent}} failed",
+    "signInRequired": "Sign-in required for {{agent}}",
+    "signInHint": "Sign in to use {{agent}} in this repository.",
+    "signingIn": "Signing in…",
+    "signIn": "Sign in",
+    "emptySubtitle": "Select a starter prompt or type your request below.",
+    "showOlderTurns": "Show {{count}} older messages"
   },
   "agentReview": {
     "openButton": "Review changes",
@@ -401,10 +410,13 @@
     "finishDescription": "{{session}} moves into {{base}}. Every step runs on its own and can be cancelled.",
     "stepCommit": "1 · Commit remaining changes",
     "stepCommitSkipped": "The worktree is clean – nothing to commit.",
+    "stepCommitHint": "Uncommitted changes will be committed to the session branch.",
     "commitMessagePlaceholder": "Commit message for the remaining changes",
     "commitMessageRequired": "Enter a commit message first.",
     "aiSuggest": "AI suggestion",
     "aiNotConfigured": "No AI provider is configured for commit messages.",
+    "generateAiMessage": "Generate AI message",
+    "splitCommit": "Split commit",
     "runCommit": "Commit",
     "stepMerge": "2 · Merge back into the base branch",
     "stepMergeHint": "{{session}} is merged into {{base}}. On conflicts the conflict editor opens.",
@@ -415,6 +427,10 @@
     "runCleanup": "Clean up",
     "retry": "Try again",
     "close": "Close",
+    "flowFinished": "Session completed successfully",
+    "unknownError": "An unknown error occurred.",
+    "generateMessageFailed": "Failed to generate commit message.",
+    "statusReloadFailed": "Failed to reload git status.",
     "finishedToast": "Session landed in {{branch}}.",
     "undoHint": "Use Undo in the history to roll this back.",
     "branchKeptHint": "{{branch}} was kept because it is not fully merged.",
@@ -446,14 +462,16 @@
       "allModels": "All models",
       "used": "{{value}} Used",
       "resetsIn": "Resets in {{count}} min",
-      "resetsAt": "Resets {{value}}"
+      "resetsAt": "Resets {{value}}",
+      "unknown": "No usage data yet"
     },
     "resetPosition": "Reset position",
     "working": "Working in {{repo}}…",
     "chat": "Agents",
     "actions": "Actions",
     "window": "Window",
-    "resize": "Resize"
+    "resize": "Resize",
+    "menu": "Menu"
   },
   "islandActions": {
     "group": {
@@ -725,7 +743,12 @@
   },
   "about": {
     "title": "About",
-    "body": "l8git — a simple Git front-end client built with Tauri, React, TanStack Router, and shadcn/ui."
+    "body": "l8git — a simple Git front-end client built with Tauri, React, TanStack Router, and shadcn/ui.",
+    "version": "Version {{version}}",
+    "releasesTitle": "Release notes",
+    "releasesError": "Release notes could not be loaded.",
+    "currentRelease": "Current",
+    "prerelease": "Pre-release"
   },
   "commitHistory": {
     "today": "TODAY",
@@ -1036,7 +1059,9 @@
     "navGroupIntegrations": "Integrations",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "Link tickets and give the agent read-only access"
+    "jiraSectionSubtitle": "Link tickets and give the agent read-only access",
+    "fileTreeViewLabel": "Show changes as a folder tree",
+    "fileTreeViewHint": "Groups the staged and unstaged files in the commit tab by folder. Right-click a folder to stage, unstage, discard, or add it to .gitignore."
   },
   "notifications": {
     "title": "Notifications",
@@ -1135,6 +1160,10 @@
     "filesApplying": "Applying files",
     "installedHint": "The new version is already installed. Restart to finish.",
     "noReleaseNotes": "No release notes were provided for this release.",
+    "highlight1": "Improved Git performance and stability",
+    "highlight2": "Optimized user interface and workflows",
+    "highlight3": "Latest bug fixes and improvements",
+    "readyToInstall": "Ready to install",
     "changelogTitle": "Changelog",
     "restartNow": "Restart now",
     "close": "Close",
@@ -1376,7 +1405,12 @@
     "undoLastCommitTitle": "Soft-reset HEAD~1 — keeps changes staged",
     "undoConfirmTitle": "Undo last commit?",
     "undoConfirmDesc": "The commit \"{{subject}}\" will be undone and its changes moved back to staged. This cannot be undone if the commit was already pushed.",
-    "undoVerb": "Undo commit"
+    "undoVerb": "Undo commit",
+    "fileRowIgnore": "Add to .gitignore",
+    "folderStage": "Stage folder",
+    "folderUnstage": "Unstage folder",
+    "folderDiscard": "Discard folder changes",
+    "folderIgnore": "Add folder to .gitignore"
   },
   "commitSplit": {
     "menuEntry": "Split changes with AI",
@@ -3014,8 +3048,29 @@
       "emptyHint": "Create a repository hooks.json and automate a Codex lifecycle event."
     },
     "hub": {
-      "title": "Copy, delete, and sync across CLIs",
-      "explainer": "Pick where something comes from, pick where it should go — the list then shows what would change.",
+      "title": "Keep your CLIs in sync",
+      "explainer": "Each CLI keeps skills, commands, and MCP on its own. What lives in Claude is unknown to Codex until you copy it over.",
+      "ecosystemTitle": "Your CLIs",
+      "sourceBadge": "Source",
+      "emptyCli": "still empty",
+      "gapsToward": "{{count}} missing here",
+      "differsToward": "{{count}} differ",
+      "fillGaps": "Copy missing",
+      "coverage": "{{missing}} missing elsewhere · {{different}} differ · {{same}} identical everywhere",
+      "coverageClean": "The targets already have everything from the source.",
+      "filterEmptyTitle": "Nothing in this view",
+      "filterEmptyDescription": "Switch to “All”, or pick different targets on the CLI cards.",
+      "views": {
+        "gaps": "Gaps only",
+        "different": "Differences only",
+        "all": "All"
+      },
+      "presence": {
+        "missing": "missing",
+        "same": "identical",
+        "different": "differs",
+        "unsupported": "not possible"
+      },
       "loading": "Reading capabilities of all CLIs…",
       "overwrite": "Overwrite existing entries",
       "noTargets": "No agent CLI found.",
@@ -3070,7 +3125,7 @@
       "level": "Level",
       "itemsInSource": "{{count}} entries here",
       "targetCount": "{{count}} targets",
-      "noTargetSelected": "Pick at least one target on the right.",
+      "noTargetSelected": "Tick at least one target on the CLI cards.",
       "status": {
         "missing": "missing there",
         "same": "already identical",
@@ -3090,8 +3145,12 @@
       "overwriteOffHint": "Entries that already exist in the target are left untouched. Turn on overwriting to replace them."
     },
     "market": {
-      "title": "Marketplace",
-      "explainer": "Searches GitHub for ready-made skills, MCP servers, hooks, commands, and plugins — sorted by stars. Open an entry, tick what you need, choose the CLI, install.",
+      "title": "Install into your CLIs",
+      "explainer": "GitHub repos with ready-made skills and MCP servers. Choose which of your CLIs they should land in, then search and install.",
+      "installInto": "Installs into",
+      "destinationsHint": "Installs go to the ticked levels. Logos on a result mean it is already there.",
+      "pickDestinations": "Tick at least one CLI level — that is where it will be installed.",
+      "alreadyOn": "already on {{clis}}",
       "search": "Search",
       "searchPlaceholder": "e.g. code review, postgres, testing…",
       "loading": "Searching GitHub…",

@@ -6,13 +6,11 @@ import i18n from "@/lib/i18n";
 import { islandAction } from "@/lib/island/actions";
 import type { IslandRequest, IslandResult } from "@/lib/island/types";
 import {
-  closeIslandWindow,
+  attachIslandWindow,
+  detachIslandWindow,
   minimizeMainWindow,
-  openIslandWindow,
   restoreMainWindow,
-  storedIslandWindowPosition,
 } from "@/lib/island/window-store";
-import { useIslandStore } from "@/lib/island-store";
 import { isRemoteCanceled, runRemoteOp } from "@/lib/remote-ops";
 import { repoLabel, useRepoStore } from "@/lib/repo-store";
 import { router } from "@/lib/router";
@@ -34,11 +32,6 @@ function str(
 ): string | undefined {
   const value = request.args?.[name];
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function num(request: IslandRequest, name: string): number | undefined {
-  const value = request.args?.[name];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function bool(request: IslandRequest, name: string): boolean | undefined {
@@ -279,19 +272,12 @@ async function execute(
       return ok(done);
 
     case "window.detach":
-      await openIslandWindow(storedIslandWindowPosition());
+      await detachIslandWindow();
       return ok(done);
 
-    case "window.attach": {
-      const x = num(request, "x");
-      const y = num(request, "y");
-      if (x !== undefined && y !== undefined) {
-        useIslandStore.getState().setDock("free");
-        useIslandStore.getState().setPosition({ x, y });
-      }
-      await closeIslandWindow();
+    case "window.attach":
+      await attachIslandWindow();
       return ok(done);
-    }
 
     default:
       return fail(i18n.t("islandActions.unknown", { id }));

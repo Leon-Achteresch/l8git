@@ -308,6 +308,7 @@
     "noArchivedChats": "Aucune discussion archivée",
     "unarchive": "Restaurer",
     "shortcuts": "Raccourcis",
+    "cliCommands": "Commandes",
     "statusReady": "Prêt",
     "statusConnecting": "Connexion",
     "statusError": "Erreur",
@@ -369,7 +370,15 @@
     "barcodeZoom": "Agrandir pour scanner",
     "barcodeCopy": "Copier la valeur",
     "barcodeCopied": "Valeur copiée",
-    "barcodeDownload": "Télécharger en SVG"
+    "barcodeDownload": "Télécharger en SVG",
+    "connectingHint": "Initialisation de {{agent}} et préparation de l'espace de travail.",
+    "connectionFailed": "Échec de connexion à {{agent}}",
+    "signInRequired": "Connexion requise pour {{agent}}",
+    "signInHint": "Connectez-vous pour utiliser {{agent}} dans ce dépôt.",
+    "signingIn": "Connexion en cours…",
+    "signIn": "Se connecter",
+    "emptySubtitle": "Sélectionnez une invite de départ ou saisissez votre demande.",
+    "showOlderTurns": "Afficher {{count}} messages plus anciens"
   },
   "agentReview": {
     "openButton": "Examiner les modifications",
@@ -401,10 +410,13 @@
     "finishDescription": "{{session}} est intégrée dans {{base}}. Chaque étape s'exécute séparément et peut être annulée.",
     "stepCommit": "1 · Commiter les modifications restantes",
     "stepCommitSkipped": "Le worktree est propre – rien à commiter.",
+    "stepCommitHint": "Les modifications non commitées seront commitées sur la branche de session.",
     "commitMessagePlaceholder": "Message de commit pour les modifications restantes",
     "commitMessageRequired": "Saisissez d'abord un message de commit.",
     "aiSuggest": "Suggestion IA",
     "aiNotConfigured": "Aucun fournisseur d'IA n'est configuré pour les messages de commit.",
+    "generateAiMessage": "Générer un message par IA",
+    "splitCommit": "Découper le commit",
     "runCommit": "Commiter",
     "stepMerge": "2 · Fusionner dans la branche de base",
     "stepMergeHint": "{{session}} est fusionnée dans {{base}}. En cas de conflit, l'éditeur de conflits s'ouvre.",
@@ -415,6 +427,10 @@
     "runCleanup": "Nettoyer",
     "retry": "Réessayer",
     "close": "Fermer",
+    "flowFinished": "Session terminée avec succès",
+    "unknownError": "Une erreur inconnue s'est produite.",
+    "generateMessageFailed": "Échec de génération du message de commit.",
+    "statusReloadFailed": "Échec de l'actualisation de l'état git.",
     "finishedToast": "Session intégrée dans {{branch}}.",
     "undoHint": "Utilisez Annuler dans l'historique pour revenir en arrière.",
     "branchKeptHint": "{{branch}} a été conservée car elle n'est pas entièrement fusionnée.",
@@ -446,14 +462,16 @@
       "allModels": "Tous les modèles",
       "used": "{{value}} utilisés",
       "resetsIn": "Réinit. dans {{count}} min",
-      "resetsAt": "Réinit. {{value}}"
+      "resetsAt": "Réinit. {{value}}",
+      "unknown": "Pas encore de données d’utilisation"
     },
     "resetPosition": "Réinitialiser la position",
     "working": "Travail en cours dans {{repo}}…",
     "chat": "Agents",
     "actions": "Actions",
     "window": "Fenêtre",
-    "resize": "Redimensionner"
+    "resize": "Redimensionner",
+    "menu": "Menu"
   },
   "islandActions": {
     "group": {
@@ -725,7 +743,12 @@
   },
   "about": {
     "title": "À propos",
-    "body": "l8git — un client Git simple conçu avec Tauri, React, TanStack Router et shadcn/ui."
+    "body": "l8git — un client Git simple conçu avec Tauri, React, TanStack Router et shadcn/ui.",
+    "version": "Version {{version}}",
+    "releasesTitle": "Notes de version",
+    "releasesError": "Impossible de charger les notes de version.",
+    "currentRelease": "Actuelle",
+    "prerelease": "Préversion"
   },
   "commitHistory": {
     "today": "AUJOURD'HUI",
@@ -1036,7 +1059,9 @@
     "navGroupIntegrations": "Intégrations",
     "navJira": "Jira",
     "jiraSectionTitle": "Jira",
-    "jiraSectionSubtitle": "Liez des tickets et donnez à l'agent un accès en lecture seule"
+    "jiraSectionSubtitle": "Liez des tickets et donnez à l'agent un accès en lecture seule",
+    "fileTreeViewLabel": "Afficher les modifications sous forme d'arborescence",
+    "fileTreeViewHint": "Regroupe par dossier les fichiers indexés et non indexés de l'onglet commit. Clic droit sur un dossier pour l'indexer, le désindexer, abandonner ses modifications ou l'ajouter au .gitignore."
   },
   "notifications": {
     "title": "Notifications",
@@ -1135,6 +1160,10 @@
     "filesApplying": "Application des fichiers",
     "installedHint": "La nouvelle version est déjà installée. Redémarrez pour terminer.",
     "noReleaseNotes": "Aucune note de version n'a été fournie pour cette release.",
+    "highlight1": "Performances et stabilité Git améliorées",
+    "highlight2": "Interface utilisateur et flux de travail optimisés",
+    "highlight3": "Dernières corrections de bugs et améliorations",
+    "readyToInstall": "Prêt à être installé",
     "changelogTitle": "Journal des modifications",
     "restartNow": "Redémarrer maintenant",
     "close": "Fermer",
@@ -1376,7 +1405,12 @@
     "undoLastCommitTitle": "Reset soft sur HEAD~1 — conserve les modifications indexées",
     "undoConfirmTitle": "Annuler le dernier commit ?",
     "undoConfirmDesc": "Le commit « {{subject}} » sera annulé et ses modifications replacées dans l'index. Cette action est irréversible si le commit a déjà été poussé.",
-    "undoVerb": "Annuler le commit"
+    "undoVerb": "Annuler le commit",
+    "fileRowIgnore": "Ajouter au .gitignore",
+    "folderStage": "Indexer le dossier",
+    "folderUnstage": "Désindexer le dossier",
+    "folderDiscard": "Abandonner les modifications du dossier",
+    "folderIgnore": "Ajouter le dossier au .gitignore"
   },
   "commitSplit": {
     "menuEntry": "Découper les modifications avec l'IA",
@@ -3016,6 +3050,27 @@
     "hub": {
       "title": "Copier, supprimer et synchroniser entre CLIs",
       "explainer": "Choisissez d'où vient une chose et où elle doit aller — la liste montre alors ce qui changerait.",
+      "ecosystemTitle": "Vos CLIs",
+      "sourceBadge": "Source",
+      "emptyCli": "encore vide",
+      "gapsToward": "{{count}} manquent ici",
+      "differsToward": "{{count}} différent",
+      "fillGaps": "Copier les manquants",
+      "coverage": "{{missing}} manquent ailleurs · {{different}} diffèrent · {{same}} identiques partout",
+      "coverageClean": "Les destinations ont déjà tout ce qui est dans la source.",
+      "filterEmptyTitle": "Rien dans cette vue",
+      "filterEmptyDescription": "Passez à « Tous » ou choisissez d'autres destinations sur les cartes.",
+      "views": {
+        "gaps": "Écarts seulement",
+        "different": "Différences seulement",
+        "all": "Tous"
+      },
+      "presence": {
+        "missing": "absent",
+        "same": "identique",
+        "different": "différent",
+        "unsupported": "impossible"
+      },
       "loading": "Lecture des capacités de toutes les CLIs…",
       "overwrite": "Écraser les entrées existantes",
       "noTargets": "Aucune CLI d'agent trouvée.",
@@ -3090,8 +3145,12 @@
       "overwriteOffHint": "Les entrées déjà présentes dans la destination ne sont pas touchées. Activez l'écrasement pour les remplacer."
     },
     "market": {
-      "title": "Marché",
-      "explainer": "Cherche sur GitHub des skills, serveurs MCP, hooks, commandes et plugins déjà prêts, triés par étoiles. Ouvrez une entrée, cochez ce qu'il vous faut, choisissez la CLI, installez.",
+      "title": "Installer dans vos CLIs",
+      "explainer": "Dépôts GitHub avec skills et serveurs MCP prêts à l'emploi. Choisissez d'abord dans quelles CLIs ils doivent atterrir, puis cherchez et installez.",
+      "installInto": "Arrive dans",
+      "destinationsHint": "L'installation va sur les niveaux cochés. Des logos sur un résultat signifient qu'il y est déjà.",
+      "pickDestinations": "Cochez au moins un niveau de CLI — c'est là que ce sera installé.",
+      "alreadyOn": "déjà sur {{clis}}",
       "search": "Rechercher",
       "searchPlaceholder": "p. ex. revue de code, postgres, tests…",
       "loading": "Recherche sur GitHub…",

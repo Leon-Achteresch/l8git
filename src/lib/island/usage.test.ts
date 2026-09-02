@@ -6,6 +6,7 @@ import {
   usageResetsLabel,
   usageRingColor,
   usageRowKnown,
+  usageRowsOrAll,
 } from "@/lib/island/usage-format";
 
 describe("usageRingColor", () => {
@@ -74,5 +75,22 @@ describe("usageRowKnown", () => {
         secondary: { ...empty, resetsAt: 1_700_000_000 },
       }),
     ).toBe(true);
+  });
+});
+
+describe("usageRowsOrAll", () => {
+  const empty = {
+    usedPercent: 0,
+    windowDurationMins: null,
+    resetsAt: null,
+  };
+
+  it("drops fabricated zero rows and keeps real usage", () => {
+    expect(
+      usageRowsOrAll([
+        { id: "claude", primary: empty, secondary: null },
+        { id: "codex", primary: { ...empty, usedPercent: 41 }, secondary: null },
+      ]),
+    ).toEqual([{ id: "codex", primary: { ...empty, usedPercent: 41 }, secondary: null }]);
   });
 });

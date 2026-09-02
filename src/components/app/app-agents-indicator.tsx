@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Bot } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { AgentWorkingRing } from "@/components/agents/ui/agent-working-ring";
 import { useActiveAgentCount, useAwaitingApprovalCount } from "@/lib/agents/use-agent-overview";
 import { cn } from "@/lib/utils";
 
@@ -30,13 +31,9 @@ export function AppAgentsIndicator() {
     >
       <span className="relative inline-flex size-4 items-center justify-center">
         <Bot className="size-4 shrink-0" strokeWidth={2} />
-        <span
-          className={cn(
-            "absolute -right-0.5 -top-0.5 size-1.5 rounded-full",
-            waiting ? "bg-[var(--git-modified)]" : "bg-primary/80",
-          )}
-          aria-hidden
-        />
+        <span className="absolute -right-1 -top-1 text-[var(--git-modified)]" aria-hidden>
+          <AgentWorkingRing size={10} thickness={1.3} />
+        </span>
       </span>
       {active}
     </Link>

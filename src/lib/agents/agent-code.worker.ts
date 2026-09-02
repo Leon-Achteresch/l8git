@@ -41,13 +41,28 @@ function getHighlighter(): Promise<Highlighter> {
   return highlighter;
 }
 
+async function loadedHighlighter(language: AgentCodeLanguage): Promise<Highlighter> {
+  const instance = await getHighlighter();
+  if (!instance.getLoadedLanguages().includes(language)) {
+    // A grammar outside the preloaded set is fetched on first use; an unknown
+    // id just means the file gets rendered unstyled.
+    try {
+      await instance.loadLanguage(language as never);
+    } catch {
+      return instance;
+    }
+  }
+  return instance;
+}
+
 self.onmessage = (event: MessageEvent<AgentCodeWorkerRequest>) => {
   const { id, code, language } = event.data;
-  void getHighlighter()
+  void loadedHighlighter(language)
     .then((instance) => {
+      const lang = (instance.getLoadedLanguages().includes(language) ? language : "text") as never;
       const lines: AgentCodeTokenLines = instance
         .codeToTokensWithThemes(code, {
-          lang: language,
+          lang,
           themes: { light: AGENT_CODE_LIGHT_THEME, dark: AGENT_CODE_DARK_THEME },
         })
         .map((line) =>

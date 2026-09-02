@@ -26,6 +26,9 @@ import {
 import { memo, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileRow } from "./commit-panel-file-row";
+import { FolderRow } from "./commit-panel-folder-row";
+import { changeTreeItems, type ChangeTreeItem } from "@/lib/change-tree";
+import { useCommitPrefs } from "@/lib/commit-prefs";
 import type { ChangeRow, CheckState } from "./commit-panel-types";
 import { ChevronDown as ChevronDownData, ChevronRight as ChevronRightData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
@@ -34,18 +37,52 @@ type SectionId = "conflicts" | "staged" | "unstaged";
 
 type ListItem =
   | { type: "header"; id: SectionId; label: string; count: number; conflict?: boolean }
-  | { type: "row"; row: ChangeRow }
+  | { type: "row"; row: ChangeRow; depth?: number }
+  | {
+      type: "folder";
+      id: string;
+      path: string;
+      name: string;
+      depth: number;
+      paths: string[];
+      sector: "staged" | "unstaged";
+      fileCount: number;
+    }
   | { type: "conflict-row"; row: ChangeRow };
 
 const HEADER_HEIGHT_PX = 34;
 const ROW_HEIGHT_PX = 36;
 const CONFLICT_ROW_HEIGHT_PX = 36;
+const FOLDER_ROW_HEIGHT_PX = 28;
 
 function estimateItemSize(item: ListItem | undefined): number {
   if (!item) return ROW_HEIGHT_PX;
   if (item.type === "header") return HEADER_HEIGHT_PX;
+  if (item.type === "folder") return FOLDER_ROW_HEIGHT_PX;
   if (item.type === "conflict-row") return CONFLICT_ROW_HEIGHT_PX;
   return ROW_HEIGHT_PX;
+}
+
+function treeListItems(
+  rows: ChangeRow[],
+  sector: "staged" | "unstaged",
+  collapsedFolders: ReadonlySet<string>,
+): ListItem[] {
+  return changeTreeItems(rows, collapsedFolders, `${sector}:`).map(
+    (item: ChangeTreeItem): ListItem =>
+      item.type === "folder"
+        ? {
+            type: "folder",
+            id: item.id,
+            path: item.path,
+            name: item.name,
+            depth: item.depth,
+            paths: item.paths,
+            sector,
+            fileCount: item.paths.length,
+          }
+        : { type: "row", row: item.row, depth: item.depth },
+  );
 }
 
 function buildListItems(
@@ -54,6 +91,8 @@ function buildListItems(
   unstagedRows: ChangeRow[],
   collapsed: ReadonlySet<SectionId>,
   labels: { conflicts: string; staged: string; unstaged: string },
+  treeView: boolean,
+  collapsedFolders: ReadonlySet<string>,
 ): ListItem[] {
   const items: ListItem[] = [];
 
@@ -67,14 +106,16 @@ function buildListItems(
   if (stagedRows.length > 0) {
     items.push({ type: "header", id: "staged", label: labels.staged, count: stagedRows.length });
     if (!collapsed.has("staged")) {
-      for (const row of stagedRows) items.push({ type: "row", row });
+      if (treeView) items.push(...treeListItems(stagedRows, "staged", collapsedFolders));
+      else for (const row of stagedRows) items.push({ type: "row", row });
     }
   }
 
   if (unstagedRows.length > 0) {
     items.push({ type: "header", id: "unstaged", label: labels.unstaged, count: unstagedRows.length });
     if (!collapsed.has("unstaged")) {
-      for (const row of unstagedRows) items.push({ type: "row", row });
+      if (treeView) items.push(...treeListItems(unstagedRows, "unstaged", collapsedFolders));
+      else for (const row of unstagedRows) items.push({ type: "row", row });
     }
   }
 
@@ -98,6 +139,10 @@ function VirtualFileListInner({
   onToggle,
   onDiscard,
   onBlame,
+  onIgnore,
+  onStagePaths,
+  onUnstagePaths,
+  onDiscardPaths,
 }: {
   conflictRows: ChangeRow[];
   stagedRows: ChangeRow[];
@@ -115,12 +160,27 @@ function VirtualFileListInner({
   onToggle: (entry: StatusEntry, rowId: string) => void;
   onDiscard: (rowId: string) => void;
   onBlame: (path: string) => void;
+  onIgnore?: (patterns: string[]) => void;
+  onStagePaths?: (paths: string[]) => void;
+  onUnstagePaths?: (paths: string[]) => void;
+  onDiscardPaths?: (paths: string[], worktreeOnly: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const openMergeEditor = useUiStore((s) => s.openMergeEditor);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<SectionId>>(new Set<SectionId>());
+  const [collapsedFolders, setCollapsedFolders] = useState<ReadonlySet<string>>(new Set<string>());
+  const treeView = useCommitPrefs((s) => s.fileTreeView);
+
+  const toggleFolder = (id: string) => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const filterRows = (rows: ChangeRow[]) => {
     const q = searchQuery.trim().toLowerCase();
@@ -147,8 +207,17 @@ function VirtualFileListInner({
         conflicts: t("commitPanel.fileSectionConflicts"),
         staged: t("commitPanel.sectorStaged"),
         unstaged: t("commitPanel.sectorUnstaged"),
-      }),
-    [filteredConflictRows, filteredStagedRows, filteredUnstagedRows, collapsed, t, i18n.language],
+      }, treeView, collapsedFolders),
+    [
+      filteredConflictRows,
+      filteredStagedRows,
+      filteredUnstagedRows,
+      collapsed,
+      treeView,
+      collapsedFolders,
+      t,
+      i18n.language,
+    ],
   );
 
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -164,6 +233,7 @@ function VirtualFileListInner({
       const item = listItems[index];
       if (!item) return index;
       if (item.type === "header") return `h-${item.id}`;
+      if (item.type === "folder") return item.id;
       return item.row.id;
     },
   });
@@ -329,6 +399,27 @@ function VirtualFileListInner({
                 return headerNode;
               }
 
+              if (item.type === "folder") {
+                return (
+                  <div key={vi.key} style={style}>
+                    <FolderRow
+                      name={item.name}
+                      path={item.path}
+                      depth={item.depth}
+                      paths={item.paths}
+                      collapsed={collapsedFolders.has(item.id)}
+                      sector={item.sector}
+                      fileCount={item.fileCount}
+                      onToggleCollapsed={() => toggleFolder(item.id)}
+                      onStage={onStagePaths}
+                      onUnstage={onUnstagePaths}
+                      onDiscard={onDiscardPaths}
+                      onIgnore={onIgnore}
+                    />
+                  </div>
+                );
+              }
+
               if (item.type === "conflict-row") {
                 return (
                   <div key={vi.key} style={style}>
@@ -353,6 +444,8 @@ function VirtualFileListInner({
                     onToggle={onToggle}
                     onDiscard={onDiscard}
                     onBlame={onBlame}
+                    onIgnore={onIgnore}
+                    depth={item.depth}
                   />
                 </div>
               );
