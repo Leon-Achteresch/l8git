@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
 
-const MonocodeApp = lazy(() =>
-  import("@/monocode/MonocodeApp").then((m) => ({ default: m.MonocodeApp })),
-);
+import { AgentsPage } from "@/components/agents/agents-page";
 
 export const Route = createFileRoute("/agents")({
-  component: () => (
-    <Suspense fallback={null}>
-      <MonocodeApp />
-    </Suspense>
-  ),
+  validateSearch: (search: Record<string, unknown>): { path?: string; view?: "overview" } => ({
+    path: typeof search.path === "string" ? search.path : undefined,
+    view: search.view === "overview" ? "overview" : undefined,
+  }),
+  component: AgentsRoute,
 });
+
+function AgentsRoute() {
+  const { path, view } = Route.useSearch();
+  return <AgentsPage initialPath={path} initialView={view} />;
+}

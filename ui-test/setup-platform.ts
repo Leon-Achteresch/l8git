@@ -4,7 +4,7 @@ const storage = window.localStorage;
 
 const platform: PlatformIpc = {
   invoke: async (cmd) => {
-    if (cmd === "agent_cap_inventory") return { targets: [], items: [], warnings: [] } as never;
+    if (cmd === "agent_cap_inventory") return { items: [] } as never;
     if (cmd === "detect_clis") return ["codex"] as never;
     return null as never;
   },

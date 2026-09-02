@@ -17,7 +17,6 @@ pub mod jira_mcp;
 pub mod jira_policy;
 mod lfs;
 mod media;
-mod monocode;
 pub mod pathsafe;
 pub mod pr;
 mod providers;
@@ -62,14 +61,10 @@ pub fn run() {
                 island::wire_lifecycle(app.handle());
             }
             sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
-            monocode::setup(app.handle())?;
             Ok(())
         })
         .manage(agent_transport::AgentTransportState::default())
         .manage(pty::PtyState::default())
-        .manage(monocode::harness::HarnessHost::new())
-        .manage(monocode::pty::PtyHost::new())
-        .manage(monocode::window_transfer::WindowTransferState::new())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -335,126 +330,8 @@ pub fn run() {
             island::island_window_set_size,
             island::main_window_minimize,
             island::main_window_restore,
-            island::main_window_toggle_minimize,
-            monocode::default_cwd,
-            monocode::home_dir,
-            monocode::fs::list_dir,
-            monocode::fs::list_project_files,
-            monocode::fs::git_diff_stats,
-            monocode::fs::git_diff_index,
-            monocode::fs::git_file_diff,
-            monocode::fs::git_stage_file,
-            monocode::fs::git_stage_contents,
-            monocode::fs::git_unstage_file,
-            monocode::fs::git_discard_file,
-            monocode::fs::git_stage_all,
-            monocode::fs::git_unstage_all,
-            monocode::fs::git_commit,
-            monocode::fs::git_staged_context,
-            monocode::fs::mono_git_push,
-            monocode::fs::mono_git_pull,
-            monocode::fs::git_sync,
-            monocode::fs::git_range_context,
-            monocode::fs::git_pr_status,
-            monocode::fs::git_pr_create,
-            monocode::fs::git_github_repo,
-            monocode::fs::git_github_work_items,
-            monocode::fs::git_github_work_item_details,
-            monocode::fs::git_github_work_item_thread,
-            monocode::fs::git_github_work_item_comment,
-            monocode::fs::git_github_pr_diff,
-            monocode::linear::linear_status,
-            monocode::linear::linear_set_token,
-            monocode::linear::linear_list_teams,
-            monocode::linear::linear_list_issues,
-            monocode::linear::linear_issue_details,
-            monocode::linear::linear_issue_thread,
-            monocode::linear::linear_issue_comment,
-            monocode::fs::git_branches,
-            monocode::fs::mono_git_checkout,
-            monocode::fs::mono_git_create_branch,
-            monocode::fs::git_stash,
-            monocode::fs::create_path,
-            monocode::fs::rename_path,
-            monocode::fs::delete_path,
-            monocode::fs::copy_path,
-            monocode::fs::move_path,
-            monocode::fs::reveal_path,
-            monocode::fs::clone_repo,
-            monocode::fs::read_file_preview,
-            monocode::fs::stat_files,
-            monocode::fs::inspect_paths,
-            monocode::fs::read_file_base64,
-            monocode::fs::write_attachment,
-            monocode::fs::read_text_file,
-            monocode::fs::write_text_file,
-            monocode::skills::list_skills,
-            monocode::search::search_project,
-            monocode::cursor_store::cursor_tool_calls,
-            monocode::harness::harness_resolve_cursor,
-            monocode::harness::harness_resolve_codex,
-            monocode::harness::harness_resolve_opencode,
-            monocode::harness::harness_resolve_claude,
-            monocode::harness::harness_resolve_omp,
-            monocode::harness::harness_resolve_pi,
-            monocode::harness::harness_resolve_fx,
-            monocode::harness::harness_resolve_grok,
-            monocode::harness::harness_free_port,
-            monocode::harness::harness_spawn,
-            monocode::harness::harness_write,
-            monocode::harness::harness_kill,
-            monocode::harness::harness_kill_all,
-            monocode::harness::harness_http,
-            monocode::harness::harness_sse_open,
-            monocode::harness::harness_sse_close,
-            monocode::harness::harness_exec,
-            monocode::rate_limits::mono_fetch_claude_usage,
-            monocode::pty::pty_spawn,
-            monocode::pty::mono_pty_write,
-            monocode::pty::mono_pty_resize,
-            monocode::pty::pty_status,
-            monocode::pty::pty_kill,
-            monocode::pty::pty_kill_all,
-            monocode::session_store::session_upsert,
-            monocode::session_store::session_list_by_project,
-            monocode::session_store::session_search,
-            monocode::session_store::session_get,
-            monocode::session_store::session_delete,
-            monocode::session_store::session_set_archived,
-            monocode::session_store::session_set_pinned,
-            monocode::session_store::session_set_in_flight,
-            monocode::session_store::session_list_in_flight,
-            monocode::session_store::session_take_in_flight,
-            monocode::session_store::workspace_set_snapshot,
-            monocode::session_store::workspace_get_snapshot,
-            monocode::notes::notes_list,
-            monocode::notes::notes_get,
-            monocode::notes::notes_upsert,
-            monocode::notes::notes_delete,
-            monocode::checkpoint::session_checkpoint_ensure,
-            monocode::checkpoint::session_checkpoint_capture,
-            monocode::checkpoint::session_checkpoint_sync,
-            monocode::checkpoint::session_checkpoint_status,
-            monocode::checkpoint::session_checkpoint_undo,
-            monocode::checkpoint::session_checkpoint_keep,
-            monocode::set_traffic_lights_visible,
-            monocode::set_window_background_blur,
-            monocode::set_dock_badge,
-            monocode::open_new_window,
-            monocode::window::hide_window,
-            monocode::window::destroy_window,
-            monocode::window::confirm_quit,
-            monocode::window::enable_window_glass,
-            monocode::window_transfer::stage_window_transfer,
-            monocode::window_transfer::take_window_transfer,
-            monocode::project_logo::save_project_logo,
-            monocode::project_logo::remove_project_logo
+            island::main_window_toggle_minimize
         ])
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|handle, event| {
-            if matches!(event, tauri::RunEvent::Exit) {
-                monocode::reap(handle);
-            }
-        });
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
