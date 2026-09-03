@@ -335,7 +335,7 @@ export function AgentHookStudio({ query }: { query: string }) {
     <>
       <CapabilitySplit
         list={(
-          <div className="p-2.5">
+          <div className="p-3.5">
             <div className="mb-2 flex items-center justify-between px-1">
               <p className="text-[10px] text-muted-foreground">{t("agentCapabilities.itemCount", { count: filtered.length })}</p>
               <Button type="button" variant="ghost" size="icon-xs" className="rounded-md" onClick={() => setCreateOpen(true)} title={t("agentCapabilities.hooks.create")}><Plus className="size-3.5" /></Button>

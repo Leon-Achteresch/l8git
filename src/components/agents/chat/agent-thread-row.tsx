@@ -6,6 +6,7 @@ import {
 } from "lucide";
 import {
   Copy,
+  GitBranch,
   GitFork,
   MoreHorizontal,
   Pencil,
@@ -29,8 +30,7 @@ import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentJiraLinkDialog } from "@/components/agents/chat/agent-jira-link-dialog";
 import { AgentThreadJiraBadge } from "@/components/agents/chat/agent-thread-jira-badge";
 import { AgentThreadWorkingTimer } from "@/components/agents/chat/agent-thread-working-timer";
-import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
-import { AgentStatusChip } from "@/components/agents/ui/agent-status-chip";
+import { AgentWorkingRing } from "@/components/agents/ui/agent-working-ring";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -46,16 +46,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MorphIcon } from "@/components/ui/morph-icon";
-import { chatStoreFor } from "@/lib/agents/active-chat-store";
+import { chatStoreFor, useProviderChatStore } from "@/lib/agents/active-chat-store";
+import { useAgentWorktreeStore } from "@/lib/agents/agent-worktrees";
+import { overviewRepoName } from "@/lib/agents/overview";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
+import { diffFromConversation } from "@/lib/agents/thread-diff";
 import type { AgentThreadSummary } from "@/lib/agents/types";
 import {
   jiraThreadKey,
   useJiraLinks,
   useJiraStore,
 } from "@/lib/jira/jira-store";
-import { SPRING_LAYOUT, SPRING_PRESS } from "@/lib/motion/ease";
+import { SPRING_PRESS } from "@/lib/motion/ease";
+import { useRepoStore } from "@/lib/repo-store";
 
 export function isWorking(status: string): boolean {
   return status !== "idle" && status !== "notLoaded";
@@ -112,6 +116,27 @@ export const AgentThreadRow = memo(function AgentThreadRow({
   const providerMeta = agentProviderMeta(thread.provider);
   const ProviderLogo = providerMeta.Logo;
   const { provider, id: threadId } = thread;
+  const modelName = useProviderChatStore(provider, (state) => {
+    const modelId = state.conversations[threadId]?.model;
+    if (!modelId) return null;
+    return state.models.find((model) => model.id === modelId)?.label ?? modelId;
+  });
+  const conversation = useProviderChatStore(
+    provider,
+    (state) => state.conversations[threadId],
+  );
+  const worktree = useAgentWorktreeStore((state) => state.worktrees[thread.path]);
+  const repoBranch = useRepoStore(
+    (state) =>
+      state.repos[thread.path]?.branch ?? state.repos[path]?.branch ?? "",
+  );
+  const liveDiff = diffFromConversation(conversation);
+  const additions = liveDiff?.additions ?? thread.additions ?? 0;
+  const deletions = liveDiff?.deletions ?? thread.deletions ?? 0;
+  const repoName = overviewRepoName(worktree?.basePath ?? thread.path);
+  const branch = worktree?.branch || repoBranch;
+  const repoLabel = branch ? `${repoName}/${branch}` : repoName;
+  const hasDiff = additions > 0 || deletions > 0;
 
   const open = useCallback(
     () => onOpen(provider, threadId),
@@ -256,56 +281,64 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       }}
       aria-current={active ? "page" : undefined}
       data-active={active}
-      whileTap={reduce ? undefined : { scale: 0.985 }}
+      data-agent-thread={thread.id}
+      whileTap={reduce ? undefined : { scale: 0.99 }}
       transition={SPRING_PRESS}
-      className="ag-row ag-row-shared min-h-14 min-w-0 items-start overflow-hidden py-2.5 pr-8 transition-colors duration-150"
+      className="ag-row ag-thread"
     >
-      {active ? (
-        <m.span
-          layoutId="agents-active-thread"
-          className="pointer-events-none absolute inset-0 rounded-[var(--ag-r-md)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-raise)] ring-1 ring-[var(--ag-line-strong)]"
-          transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
-        />
-      ) : null}
-      <AgentProviderMark
-        working={working}
-        label={providerMeta.label}
-        className="relative z-[1] mt-0.5"
-      >
-        <ProviderLogo />
-      </AgentProviderMark>
-      <span className="relative z-[1] min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-1.5">
-          {thread.isPinned ? (
-            <Pin className="size-2.5 shrink-0 text-[var(--git-branch)]" />
-          ) : null}
-          <AgentInlineTitle
-            path={path}
-            provider={thread.provider}
-            threadId={thread.id}
-            title={thread.title}
-            editing={renaming}
-            onEditingChange={setRenaming}
-            className="min-w-0 flex-1 truncate text-[12px] font-medium tracking-[-0.01em]"
-            inputClassName="text-[12px]"
-          />
+      <span className="ag-thread-line ag-thread-meta">
+        <span className="ag-thread-mark">
+          <ProviderLogo />
           {working ? (
-            <AgentStatusChip tone="working" className="ml-auto shrink-0">
-              {t("agentChat.working")}
-              {workingSince ? (
-                <>
-                  {" "}
-                  <AgentThreadWorkingTimer since={workingSince} />
-                </>
-              ) : null}
-            </AgentStatusChip>
+            <span className="ag-thread-busy">
+              <AgentWorkingRing size={18} thickness={1.5} className="size-full" />
+            </span>
           ) : null}
         </span>
-        <span className="mt-0.5 flex items-center gap-1.5">
-          <span className="ag-faint truncate text-[10px] tabular-nums">
-            {relativeDate}
+        <span className="ag-thread-meta-label">
+          {modelName ?? providerMeta.label}
+        </span>
+        <span className="ag-thread-meta-time">
+          {working && workingSince ? (
+            <AgentThreadWorkingTimer since={workingSince} />
+          ) : (
+            relativeDate
+          )}
+        </span>
+      </span>
+      <span className="ag-thread-line">
+        {thread.isPinned ? (
+          <Pin className="size-2.5 shrink-0 text-[var(--git-branch)]" />
+        ) : null}
+        <AgentInlineTitle
+          path={path}
+          provider={thread.provider}
+          threadId={thread.id}
+          title={thread.title}
+          editing={renaming}
+          onEditingChange={setRenaming}
+          className="ag-thread-name"
+          inputClassName="text-[13px]"
+        />
+      </span>
+      <span className="ag-thread-line ag-thread-foot">
+        <GitBranch className="ag-thread-logo shrink-0 opacity-70" />
+        <span className="ag-thread-repo">{repoLabel}</span>
+        {jiraEnabled ? <AgentThreadJiraBadge links={jiraLinks} /> : null}
+        <span className="ag-thread-trail">
+          {hasDiff ? (
+            <span className="ag-thread-diff">
+              {additions > 0 ? (
+                <span className="ag-thread-diff-add">+{additions}</span>
+              ) : null}
+              {deletions > 0 ? (
+                <span className="ag-thread-diff-del">-{deletions}</span>
+              ) : null}
+            </span>
+          ) : null}
+          <span className="ag-thread-mark">
+            {armed ? null : <ProviderLogo className="opacity-55" />}
           </span>
-          {jiraEnabled ? <AgentThreadJiraBadge links={jiraLinks} /> : null}
         </span>
       </span>
     </m.div>
@@ -342,7 +375,7 @@ export const AgentThreadRow = memo(function AgentThreadRow({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="ag-icon-btn absolute right-1.5 top-2.5 size-6 opacity-0 transition-opacity group-hover/thread:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+              className="ag-icon-btn absolute right-1.5 bottom-1.5 size-6 opacity-0 transition-opacity group-hover/thread:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
               aria-label={t("agentChat.manageConversation")}
             >
               <MoreHorizontal className="size-3.5" />

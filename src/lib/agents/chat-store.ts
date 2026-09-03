@@ -54,6 +54,7 @@ import {
   type AgentSessionCatalog,
 } from "@/lib/agents/session-catalog";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
+import { conversationDiffPatch, diffFromTurns, keepThreadDiff } from "@/lib/agents/thread-diff";
 import { onAppSuspend } from "@/lib/platform/lifecycle";
 import i18n from "@/lib/i18n";
 
@@ -176,6 +177,7 @@ function threadStatus(status: CodexThread["status"]): string {
 }
 
 function threadSummary(thread: CodexThread): AgentThreadSummary {
+  const diff = diffFromTurns(Array.isArray(thread.turns) ? thread.turns : []);
   return {
     id: thread.id,
     path: thread.cwd,
@@ -186,6 +188,9 @@ function threadSummary(thread: CodexThread): AgentThreadSummary {
     status: threadStatus(thread.status),
     modelProvider: thread.modelProvider,
     isPinned: thread.isPinned,
+    ...(diff.additions || diff.deletions
+      ? { additions: diff.additions, deletions: diff.deletions }
+      : {}),
   };
 }
 
@@ -794,22 +799,24 @@ function handleEvent(context: CodexSessionContext, event: RpcNotification): void
       const merged = mergeCompletedTurn(existing >= 0 ? turns[existing] : undefined, incoming);
       if (existing >= 0) turns[existing] = merged;
       else turns.push(merged);
+      const mergedConversation = {
+        ...conversation,
+        turns,
+        activeTurnId: null,
+        loading: false,
+        error: merged.error ?? null,
+      };
+      const threadsByPath = updateThreadSummary(state.threadsByPath, threadId, (thread) => ({
+        ...thread,
+        status: "idle",
+        updatedAt: Math.floor(Date.now() / 1000),
+      }));
       return {
         conversations: {
           ...state.conversations,
-          [threadId]: {
-            ...conversation,
-            turns,
-            activeTurnId: null,
-            loading: false,
-            error: merged.error ?? null,
-          },
+          [threadId]: mergedConversation,
         },
-        threadsByPath: updateThreadSummary(state.threadsByPath, threadId, (thread) => ({
-          ...thread,
-          status: "idle",
-          updatedAt: Math.floor(Date.now() / 1000),
-        })),
+        threadsByPath: conversationDiffPatch(threadsByPath, mergedConversation) ?? threadsByPath,
       };
     }
     if (event.method === "serverRequest/resolved") {
@@ -1235,8 +1242,13 @@ export const useAgentChatStore = create<AgentChatState>()(
               const newThreads = (state.threadsByPath[path] ?? []).filter(
                 (thread) => !trackedIds.has(thread.id),
               );
+              const previous = new Map(
+                (state.threadsByPath[path] ?? []).map((thread) => [thread.id, thread]),
+              );
               const reconciled = sortThreadSummaries([
-                ...threads.map(threadSummary),
+                ...threads.map((thread) =>
+                  keepThreadDiff(threadSummary(thread), previous.get(thread.id)),
+                ),
                 ...newThreads,
               ]);
               threadsByPath[path] = reconciled;
@@ -1364,11 +1376,14 @@ export const useAgentChatStore = create<AgentChatState>()(
             return;
           }
           const goal = await client.getGoal(threadId).then((response) => response.goal).catch(() => null);
+          const conversation = { ...conversationFromRuntime(runtime), goal };
           set((state) => ({
             conversations: {
               ...state.conversations,
-              [threadId]: { ...conversationFromRuntime(runtime), goal },
+              [threadId]: conversation,
             },
+            threadsByPath:
+              conversationDiffPatch(state.threadsByPath, conversation) ?? state.threadsByPath,
           }));
         } catch (error) {
           if (isMissingRolloutError(error)) {

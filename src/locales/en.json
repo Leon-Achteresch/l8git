@@ -2842,6 +2842,7 @@
   },
   "agentCapabilities": {
     "title": "Capability Studio",
+    "liveFromCli": "{{repo}} · live from the installed CLI",
     "subtitle": "Skills, MCP, plugins, apps, and hooks",
     "open": "Open Capability Studio",
     "backToChat": "Back to chat",
@@ -3049,7 +3050,7 @@
     },
     "hub": {
       "title": "Keep your CLIs in sync",
-      "explainer": "Each CLI keeps skills, commands, and MCP on its own. What lives in Claude is unknown to Codex until you copy it over.",
+      "explainer": "Step by step: pick a source, tick the targets, copy what’s missing.",
       "ecosystemTitle": "Your CLIs",
       "sourceBadge": "Source",
       "emptyCli": "still empty",
@@ -3142,11 +3143,26 @@
       "preview": "Preview differences",
       "deleteFromSource": "Delete from {{source}}",
       "overwriteOnHint": "Existing entries in the target are replaced — the old version is backed up to .l8git-backups first.",
-      "overwriteOffHint": "Entries that already exist in the target are left untouched. Turn on overwriting to replace them."
+      "overwriteOffHint": "Entries that already exist in the target are left untouched. Turn on overwriting to replace them.",
+      "stepSource": "Source",
+      "stepTargets": "Targets",
+      "stepCopy": "Copy",
+      "stepDone": "Done",
+      "stepSourceTitle": "Where do these capabilities already live?",
+      "stepSourceHint": "Pick the CLI to copy from. The files stay there — you only make a copy.",
+      "stepTargetTitle": "Where should they go?",
+      "stepTargetHint": "These CLIs receive the copy from {{source}}. You can pick more than one.",
+      "stepCopyTitle": "What should be copied?",
+      "stepCopyHint": "{{missing}} entries from {{source}} are missing on {{target}}. Keep the selection or uncheck what should not go there.",
+      "stepDoneTitle": "Done",
+      "stepDoneHint": "The selected entries are now on the target CLIs. You can start over if you need another copy.",
+      "scopeHint": "Which level should we copy from?",
+      "moreOptions": "More options",
+      "again": "Start over"
     },
     "market": {
       "title": "Install into your CLIs",
-      "explainer": "GitHub repos with ready-made skills and MCP servers. Choose which of your CLIs they should land in, then search and install.",
+      "explainer": "Step by step: pick a type, search GitHub, review the files and destination CLI, then install.",
       "installInto": "Installs into",
       "destinationsHint": "Installs go to the ticked levels. Logos on a result mean it is already there.",
       "pickDestinations": "Tick at least one CLI level — that is where it will be installed.",
@@ -3203,7 +3219,29 @@
       "installTargets": "Install into",
       "install": "Install ({{count}})",
       "installed": "{{count}} entries installed",
-      "installedWithErrors": "{{ok}} installed, {{failed}} failed"
+      "installedWithErrors": "{{ok}} installed, {{failed}} failed",
+      "stepKind": "Type",
+      "stepSearch": "Search",
+      "stepInstall": "Install",
+      "stepDone": "Done",
+      "stepKindTitle": "What do you want to add?",
+      "stepKindHint": "Pick a type. Next you search GitHub for a ready-made package and choose which CLI it should land in.",
+      "kindHints": {
+        "skill": "Instructions the agent loads on its own when the task matches.",
+        "mcp": "External tools and data sources the agent can call.",
+        "plugin": "Ready-made extensions for the CLI.",
+        "hook": "Automatic actions when something happens in the CLI.",
+        "command": "Slash commands and subagents you start yourself."
+      },
+      "stepSearchTitle": "Find {{kind}} on GitHub",
+      "stepSearchHint": "Pick a package. Next you see exactly what gets installed and where.",
+      "stepInstallTitle": "Review and install",
+      "stepInstallHint": "Check what you want and which CLI it should land in. Only install unknown repos if you trust them.",
+      "stepDoneTitle": "Installed",
+      "stepDoneHint": "The selected files are now in your CLIs.",
+      "chooseThis": "Use this",
+      "again": "Pick another type",
+      "moreFromSearch": "Keep searching"
     }
   },
   "agentAddons": {

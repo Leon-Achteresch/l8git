@@ -138,7 +138,7 @@ function McpEditor({
           </>
         )}
       />
-      <div className="mx-auto max-w-4xl space-y-6 p-5">
+      <div className="ag-studio-page space-y-6">
         <section className="grid gap-4 ag-card p-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="mcp-name" className="text-[10px]">{t("agentCapabilities.mcp.name")}</Label>
@@ -390,7 +390,7 @@ export function AgentMcpStudio({ query }: { query: string }) {
     <>
       <CapabilitySplit
         list={(
-          <div className="p-2.5">
+          <div className="p-3.5">
             <div className="mb-2 flex items-center justify-between px-1">
               <p className="text-[10px] text-muted-foreground">{t("agentCapabilities.itemCount", { count: filtered.length })}</p>
               <Button type="button" variant="ghost" size="icon-xs" className="rounded-md" onClick={() => setDraft(emptyMcpServerDraft())} title={t("agentCapabilities.mcp.create")}>

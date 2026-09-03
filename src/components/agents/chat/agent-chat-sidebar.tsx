@@ -1,4 +1,3 @@
-import { LayoutGrid } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -11,17 +10,15 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { AgentRepoPicker } from "@/components/agents/chat/agent-repo-picker";
 import { AgentSidebarActions } from "@/components/agents/chat/agent-sidebar-actions";
 import { AgentThreadList } from "@/components/agents/chat/agent-thread-list";
-import { isWorking } from "@/components/agents/chat/agent-thread-row";
 import { AgentUsageSummary } from "@/components/agents/chat/agent-usage-summary";
-import { Segment, Segmented } from "@/components/motion/segmented";
 import {
   chatStoreFor,
   useAgentChatStore,
   useProviderChatStore,
 } from "@/lib/agents/active-chat-store";
+import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import { AGENT_PROVIDERS } from "@/lib/agents/provider-meta";
 import {
   useAgentProviderStore,
@@ -35,11 +32,18 @@ import type { AgentThreadSummary } from "@/lib/agents/types";
 
 const INITIAL_THREAD_LIMIT = 60;
 const THREAD_PAGE_SIZE = 100;
-const EMPTY_THREADS: AgentThreadSummary[] = [];
 const taggedThreads = new WeakMap<
   AgentThreadSummary,
   AgentThreadSummary & { provider: NativeAgentProvider }
 >();
+
+function flattenCatalog(threadsByPath: Record<string, AgentThreadSummary[]>) {
+  return Object.values(threadsByPath).flat();
+}
+
+function anyLoading(loadingPaths: Record<string, boolean>) {
+  return Object.values(loadingPaths).some(Boolean);
+}
 
 function tagProvider(
   threads: AgentThreadSummary[],
@@ -48,7 +52,13 @@ function tagProvider(
   return threads.flatMap((thread) => {
     if (thread === null || typeof thread !== "object") return [];
     const known = taggedThreads.get(thread);
-    if (known) return [known];
+    if (
+      known &&
+      known.additions === thread.additions &&
+      known.deletions === thread.deletions
+    ) {
+      return [known];
+    }
     const tagged = { ...thread, provider };
     taggedThreads.set(thread, tagged);
     return [tagged];
@@ -62,37 +72,27 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
   selectedPath: string;
   onOpenOverview?: () => void;
 }) {
-  const { i18n, t } = useTranslation();
+  const { i18n } = useTranslation();
   const provider = useAgentProviderStore((state) => state.provider);
   const setProvider = useAgentProviderStore((state) => state.setProvider);
-  const codexThreads = useProviderChatStore(
-    "codex",
-    (state) => state.threadsByPath[selectedPath] ?? EMPTY_THREADS,
-  );
-  const claudeThreads = useProviderChatStore(
-    "claude",
-    (state) => state.threadsByPath[selectedPath] ?? EMPTY_THREADS,
-  );
-  const cursorThreads = useProviderChatStore(
-    "cursor",
-    (state) => state.threadsByPath[selectedPath] ?? EMPTY_THREADS,
-  );
-  const openCodeThreads = useProviderChatStore(
-    "opencode",
-    (state) => state.threadsByPath[selectedPath] ?? EMPTY_THREADS,
-  );
-  const codexLoading = useProviderChatStore("codex", (state) =>
-    Boolean(state.loadingPaths[selectedPath]),
-  );
-  const claudeLoading = useProviderChatStore("claude", (state) =>
-    Boolean(state.loadingPaths[selectedPath]),
-  );
-  const cursorLoading = useProviderChatStore("cursor", (state) =>
-    Boolean(state.loadingPaths[selectedPath]),
-  );
-  const openCodeLoading = useProviderChatStore("opencode", (state) =>
-    Boolean(state.loadingPaths[selectedPath]),
-  );
+  const setSelectedPath = useAgentRepoStore((state) => state.setPath);
+  const codexByPath = useProviderChatStore("codex", (state) => state.threadsByPath);
+  const claudeByPath = useProviderChatStore("claude", (state) => state.threadsByPath);
+  const cursorByPath = useProviderChatStore("cursor", (state) => state.threadsByPath);
+  const openCodeByPath = useProviderChatStore("opencode", (state) => state.threadsByPath);
+  const codexLoadingPaths = useProviderChatStore("codex", (state) => state.loadingPaths);
+  const claudeLoadingPaths = useProviderChatStore("claude", (state) => state.loadingPaths);
+  const cursorLoadingPaths = useProviderChatStore("cursor", (state) => state.loadingPaths);
+  const openCodeLoadingPaths = useProviderChatStore("opencode", (state) => state.loadingPaths);
+  const codexThreads = useMemo(() => flattenCatalog(codexByPath), [codexByPath]);
+  const claudeThreads = useMemo(() => flattenCatalog(claudeByPath), [claudeByPath]);
+  const cursorThreads = useMemo(() => flattenCatalog(cursorByPath), [cursorByPath]);
+  const openCodeThreads = useMemo(() => flattenCatalog(openCodeByPath), [openCodeByPath]);
+  const loading =
+    anyLoading(codexLoadingPaths) ||
+    anyLoading(claudeLoadingPaths) ||
+    anyLoading(cursorLoadingPaths) ||
+    anyLoading(openCodeLoadingPaths);
   const activeThreadByPath = useAgentChatStore(
     (state) => state.activeThreadByPath,
   );
@@ -128,7 +128,7 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
   const scrollRef = useRef<HTMLDivElement>(null);
   const deferredQuery = useDeferredValue(query);
   const normalizedQuery = deferredQuery.trim().toLocaleLowerCase();
-  const paginationKey = `${selectedPath}\u0000${normalizedQuery}\u0000${showArchived}`;
+  const paginationKey = `${normalizedQuery}\u0000${showArchived}`;
   const [threadPagination, setThreadPagination] = useState({
     key: paginationKey,
     limit: INITIAL_THREAD_LIMIT,
@@ -137,17 +137,6 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
     threadPagination.key === paginationKey
       ? threadPagination.limit
       : INITIAL_THREAD_LIMIT;
-
-  const workingCountByProvider = useMemo(() => {
-    const countWorking = (threads: AgentThreadSummary[]) =>
-      threads.filter((item) => isWorking(item.status)).length;
-    return {
-      codex: countWorking(codexThreads),
-      claude: countWorking(claudeThreads),
-      cursor: countWorking(cursorThreads),
-      opencode: countWorking(openCodeThreads),
-    };
-  }, [codexThreads, claudeThreads, cursorThreads, openCodeThreads]);
 
   const selectedThreads = useMemo(
     () =>
@@ -187,31 +176,44 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
   }, [createThread, selectedPath]);
 
   const openThread = useCallback(
-    async (threadProvider: NativeAgentProvider, threadId: string) => {
+    async (
+      threadProvider: NativeAgentProvider,
+      threadId: string,
+      threadPath: string,
+    ) => {
+      setSelectedPath(threadPath);
       setProvider(threadProvider);
       try {
         await chatStoreFor(threadProvider)
           .getState()
-          .openThread(selectedPath, threadId);
+          .openThread(threadPath, threadId);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : String(error));
       }
     },
-    [selectedPath, setProvider],
+    [setProvider, setSelectedPath],
   );
 
   const handleOpenThread = useCallback(
-    (threadProvider: NativeAgentProvider, threadId: string) =>
-      void openThread(threadProvider, threadId),
+    (
+      threadProvider: NativeAgentProvider,
+      threadId: string,
+      threadPath: string,
+    ) => void openThread(threadProvider, threadId, threadPath),
     [openThread],
   );
 
   const handleSetPinned = useCallback(
-    (threadProvider: NativeAgentProvider, threadId: string, pinned: boolean) =>
+    (
+      threadProvider: NativeAgentProvider,
+      threadId: string,
+      pinned: boolean,
+      threadPath: string,
+    ) =>
       chatStoreFor(threadProvider)
         .getState()
-        .setThreadPinned(selectedPath, threadId, pinned),
-    [selectedPath],
+        .setThreadPinned(threadPath, threadId, pinned),
+    [],
   );
 
   const handleArchive = useCallback(
@@ -219,74 +221,29 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
       threadProvider: NativeAgentProvider,
       threadId: string,
       archived: boolean,
+      threadPath: string,
     ) =>
       archived
         ? chatStoreFor(threadProvider)
             .getState()
-            .archiveThread(selectedPath, threadId)
+            .archiveThread(threadPath, threadId)
         : chatStoreFor(threadProvider)
             .getState()
-            .unarchiveThread(selectedPath, threadId),
-    [selectedPath],
-  );
-
-  const handleProviderChange = useCallback(
-    (value: string) => setProvider(value as NativeAgentProvider),
-    [setProvider],
+            .unarchiveThread(threadPath, threadId),
+    [],
   );
 
   return (
     <aside className="ag-rail flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <header className="ag-line flex h-13 min-w-0 shrink-0 items-center justify-between gap-2 overflow-hidden border-b px-3">
-        <AgentRepoPicker selectedPath={selectedPath} />
-        {onOpenOverview ? (
-          <button
-            type="button"
-            onClick={onOpenOverview}
-            className="ag-icon-btn size-7 shrink-0 rounded-[var(--ag-r-sm)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-surface)]"
-            aria-label={t("agentOverview.title")}
-            title={t("agentOverview.title")}
-          >
-            <LayoutGrid className="size-3.5" />
-          </button>
-        ) : null}
-      </header>
-
-      <div className="ag-line flex min-w-0 shrink-0 justify-center overflow-hidden border-b p-2">
-        <Segmented
-          value={provider}
-          onValueChange={handleProviderChange}
-          aria-label={t("agentChat.settings.agent")}
-          className="w-full min-w-0"
-        >
-          {visibleProviders.map(({ value, label, Logo }) => {
-            const workingCount = workingCountByProvider[value] ?? 0;
-            return (
-              <Segment
-                key={value}
-                value={value}
-                title={label}
-                aria-label={label}
-                className="relative min-w-0 px-2 py-1.5"
-              >
-                <Logo className="size-3.5 shrink-0" />
-                {value === provider ? (
-                  <span className="min-w-0 truncate font-medium">{label}</span>
-                ) : null}
-                {workingCount > 0 ? (
-                  <span className="ml-0.5 flex size-1.5 shrink-0 rounded-full bg-[var(--git-modified)] ring-2 ring-[var(--ag-surface)]" />
-                ) : null}
-              </Segment>
-            );
-          })}
-        </Segmented>
-      </div>
-
       <div className="ag-line min-w-0 overflow-hidden border-b py-2.5">
         <AgentSidebarActions
           query={query}
           onQueryChange={setQuery}
           onNewThread={() => void newThread()}
+          onOpenOverview={onOpenOverview}
+          showArchived={showArchived}
+          archivedCount={archivedCount}
+          onToggleArchived={() => setShowArchived((value) => !value)}
         />
       </div>
 
@@ -294,23 +251,19 @@ export const AgentChatSidebar = memo(function AgentChatSidebar({
         ref={scrollRef}
         className="ag-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
       >
-        <div className="pt-2">
+        <div className="pt-1">
           <AgentThreadList
             path={selectedPath}
             threads={visibleThreads}
             activeProvider={provider}
             activeThreadId={activeThreadByPath[selectedPath] ?? null}
-            loading={
-              codexLoading || claudeLoading || cursorLoading || openCodeLoading
-            }
+            loading={selectedThreads.length === 0 && loading}
             hasQuery={Boolean(normalizedQuery)}
             limit={threadLimit}
             renamingThreadKey={renamingThreadKey}
             locale={i18n.language}
             showArchived={showArchived}
-            archivedCount={archivedCount}
             scrollRef={scrollRef}
-            onToggleArchived={() => setShowArchived((value) => !value)}
             onOpenThread={handleOpenThread}
             onCreateThread={() => void newThread()}
             onRenameThread={setRenamingThreadKey}

@@ -10,6 +10,10 @@ use serde_json::{json, Value};
 use crate::cmd::cli_command;
 use crate::shell::resolve_cli_path;
 
+fn skip_zero(value: &u32) -> bool {
+    *value == 0
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeSessionSummary {
@@ -21,6 +25,10 @@ pub struct ClaudeSessionSummary {
     updated_at: u64,
     model: Option<String>,
     permission_mode: Option<String>,
+    #[serde(skip_serializing_if = "skip_zero")]
+    additions: u32,
+    #[serde(skip_serializing_if = "skip_zero")]
+    deletions: u32,
 }
 
 #[derive(Serialize)]
@@ -330,6 +338,29 @@ struct SummaryFields {
     preview: Option<String>,
     model: Option<String>,
     permission_mode: Option<String>,
+    additions: u32,
+    deletions: u32,
+}
+
+fn count_structured_patch(value: &Value, additions: &mut u32, deletions: &mut u32) {
+    let Some(patch) = value.get("structuredPatch").and_then(Value::as_array) else {
+        return;
+    };
+    for hunk in patch {
+        let Some(lines) = hunk.get("lines").and_then(Value::as_array) else {
+            continue;
+        };
+        for line in lines {
+            let Some(text) = line.as_str() else {
+                continue;
+            };
+            if text.starts_with('+') {
+                *additions += 1;
+            } else if text.starts_with('-') {
+                *deletions += 1;
+            }
+        }
+    }
 }
 
 fn update_summary_fields(entry: &Value, fields: &mut SummaryFields) {
@@ -374,6 +405,9 @@ fn update_summary_fields(entry: &Value, fields: &mut SummaryFields) {
         .and_then(Value::as_str)
         .map(str::to_string)
         .or_else(|| fields.permission_mode.take());
+    if let Some(result) = entry.get("toolUseResult") {
+        count_structured_patch(result, &mut fields.additions, &mut fields.deletions);
+    }
 }
 
 fn scan_summary_bytes(
@@ -448,6 +482,8 @@ fn summarize_file(file_path: &Path, accepted_paths: &[String]) -> Option<ClaudeS
         updated_at,
         model: fields.model,
         permission_mode: fields.permission_mode,
+        additions: fields.additions,
+        deletions: fields.deletions,
     })
 }
 
@@ -1170,6 +1206,29 @@ mod tests {
         let summary = summarize_file(&file, &["/repo".into()]).unwrap();
         assert_eq!(summary.preview, "Bitte aufräumen");
         assert_eq!(summary.title, "Bitte aufräumen");
+        fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn summary_counts_structured_patch_lines() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("l8git-claude-diff-{suffix}"));
+        fs::create_dir_all(&directory).unwrap();
+        let file = directory.join("22222222-2222-2222-2222-222222222222.jsonl");
+        fs::write(
+            &file,
+            concat!(
+                "{\"type\":\"user\",\"cwd\":\"/repo\",\"message\":{\"content\":\"Edit\"}}\n",
+                "{\"type\":\"user\",\"cwd\":\"/repo\",\"toolUseResult\":{\"structuredPatch\":[{\"lines\":[\" context\",\"-old\",\"+new\",\"+more\"]}]}}\n"
+            ),
+        )
+        .unwrap();
+        let summary = summarize_file(&file, &["/repo".into()]).unwrap();
+        assert_eq!(summary.additions, 2);
+        assert_eq!(summary.deletions, 1);
         fs::remove_dir_all(&directory).ok();
     }
 

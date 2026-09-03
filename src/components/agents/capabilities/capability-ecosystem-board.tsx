@@ -1,4 +1,4 @@
-import { ArrowRight, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 
@@ -52,7 +52,7 @@ export function CapabilityEcosystemBoard({
   const isSelected = (target: CapabilityTargetRef) =>
     selected.some((entry) => targetKey(entry) === targetKey(target));
 
-  if (!targets.length) {
+  if (!targets?.length) {
     return <p className="ag-faint px-1 text-[11px]">{t("agentCapabilities.hub.noTargets")}</p>;
   }
 
@@ -61,8 +61,8 @@ export function CapabilityEcosystemBoard({
     : targets;
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-      {ordered.map((target, index) => {
+    <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(16rem,1fr))]">
+      {ordered.map((target) => {
         const supports =
           !requiredKinds?.length ||
           requiredKinds.some((kind) => targetSupports(targets, target.cli, kind));
@@ -74,25 +74,19 @@ export function CapabilityEcosystemBoard({
         const gap = source && !isSource
           ? gapsToward(items, source, destination, targets, kinds)
           : null;
-        const showArrow = Boolean(onSourceChange) && index === 1;
 
         return (
-          <div key={target.cli} className="flex min-w-0 items-stretch gap-2">
-            {showArrow ? (
-              <span className="hidden w-4 shrink-0 items-center justify-center self-center sm:flex" aria-hidden>
-                <ArrowRight className="size-3.5 text-[var(--ag-text-3)]" />
-              </span>
-            ) : null}
-            <m.article
-              className={cn(
-                "ag-card relative flex w-[11.5rem] shrink-0 flex-col gap-2.5 p-3",
-                isSource && "border-[var(--ag-text)]/25 bg-[var(--ag-selected)]",
-                !supports && "opacity-50",
-                !target.installed && "border-dashed",
-              )}
-              whileHover={{ y: -1 }}
-              transition={SPRING_PANEL}
-            >
+          <m.article
+            key={target.cli}
+            className={cn(
+              "ag-card relative flex min-w-0 flex-col gap-3 p-4",
+              isSource && "border-[var(--ag-text)]/25 bg-[var(--ag-selected)]",
+              !supports && "opacity-50",
+              !target.installed && "border-dashed",
+            )}
+            whileHover={{ y: -1 }}
+            transition={SPRING_PANEL}
+          >
               <button
                 type="button"
                 disabled={!onSourceChange}
@@ -206,7 +200,6 @@ export function CapabilityEcosystemBoard({
                 </div>
               ) : null}
             </m.article>
-          </div>
         );
       })}
     </div>

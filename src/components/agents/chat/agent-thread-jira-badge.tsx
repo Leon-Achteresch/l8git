@@ -18,7 +18,7 @@ export function AgentThreadJiraBadge({ links }: { links: JiraTicketLink[] }) {
 
   return (
     <span
-      className="ml-auto flex min-w-0 shrink items-center gap-1 pl-1.5"
+      className="flex min-w-0 shrink items-center gap-1"
       title={rest.length ? `${title} (+${rest.length})` : title}
     >
       <Ticket className="size-2.5 shrink-0 text-[var(--ag-text-3)]" />

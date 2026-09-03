@@ -103,7 +103,7 @@ export function AgentAppStudio({ query }: { query: string }) {
   return (
     <CapabilitySplit
       list={(
-        <div className="p-2.5">
+        <div className="p-3.5">
           <p className="mb-2 px-1 text-[10px] text-muted-foreground">{t("agentCapabilities.itemCount", { count: filtered.length })}</p>
           {error ? <CapabilityError message={error} /> : null}
           <div className="space-y-0.5">

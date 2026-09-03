@@ -1,11 +1,12 @@
 import {
+  ArrowLeft,
+  ArrowRight,
   Bot,
   CheckCircle2,
   Copy,
   Eye,
   FileWarning,
   PlugZap,
-  RefreshCw,
   Sparkles,
   SquareTerminal,
   Trash2,
@@ -16,8 +17,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { CapabilityEcosystemBoard } from "@/components/agents/capabilities/capability-ecosystem-board";
-import { CapabilityPresence } from "@/components/agents/capabilities/capability-presence";
+import { CapabilityGuideChoice } from "@/components/agents/capabilities/capability-guide-choice";
+import { CapabilityGuideSteps } from "@/components/agents/capabilities/capability-guide-steps";
+import { CapabilityCliMark } from "@/components/agents/capabilities/capability-cli-mark";
 import { scopeLabel } from "@/components/agents/capabilities/capability-targets";
 import {
   CapabilityEmpty,
@@ -25,9 +27,6 @@ import {
   CapabilityLoading,
   ProgressiveCapabilityList,
 } from "@/components/agents/capabilities/capability-ui";
-import { AgentSectionTabs } from "@/components/agents/ui/agent-section-tabs";
-import { AgentsEnter } from "@/components/agents/ui/agents-enter";
-import { SpinIcon } from "@/components/motion/kit";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,18 +60,21 @@ import type {
 } from "@/lib/agents/capability-hub";
 import {
   CAPABILITY_KINDS,
+  CAPABILITY_SCOPES,
   coverageSummary,
   defaultTargets,
+  gapsToward,
   itemRef,
   itemStatusSummary,
-  presenceColumns,
+  kindCountsForCli,
+  preferredWritableScope,
+  scopeInfo,
   summarizeResults,
   targetKey,
+  targetWritable,
   useCapabilityHubStore,
 } from "@/lib/agents/capability-hub";
 import { cn } from "@/lib/utils";
-import { m, useReducedMotion } from "motion/react";
-import { SPRING_PRESS } from "@/lib/motion/ease";
 
 const KIND_ICONS: Record<CapabilityKind, typeof Sparkles> = {
   skill: Sparkles,
@@ -82,45 +84,17 @@ const KIND_ICONS: Record<CapabilityKind, typeof Sparkles> = {
   hook: Webhook,
 };
 
-const STATUS_TONE: Record<CapabilityItemStatus, string> = {
-  missing: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
-  different: "border-amber-500/30 text-amber-600 dark:text-amber-400",
+const PLAN_TONE: Record<string, string> = {
+  create: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+  update: "border-amber-500/30 text-amber-600 dark:text-amber-400",
   same: "border-border/60 text-muted-foreground",
+  extra: "border-sky-500/30 text-sky-600 dark:text-sky-400",
   unsupported: "border-destructive/30 text-destructive",
 };
 
-const PLAN_TONE: Record<string, string> = {
-  create: STATUS_TONE.missing,
-  update: STATUS_TONE.different,
-  same: STATUS_TONE.same,
-  extra: "border-sky-500/30 text-sky-600 dark:text-sky-400",
-  unsupported: STATUS_TONE.unsupported,
-};
-
-type ItemView = "all" | "gaps" | "different";
-
-function matchesView(view: ItemView, totals: Record<CapabilityItemStatus, number>): boolean {
-  switch (view) {
-    case "all":
-      return true;
-    case "gaps":
-      return totals.missing > 0;
-    case "different":
-      return totals.different > 0;
-    default: {
-      const _never: never = view;
-      return _never;
-    }
-  }
-}
-
-function relativeTime(timestamp: number): string {
-  if (!timestamp) return "";
-  const days = Math.floor((Date.now() - timestamp) / 86_400_000);
-  if (days <= 0) return "heute";
-  if (days === 1) return "gestern";
-  if (days < 30) return `vor ${days} Tagen`;
-  return new Date(timestamp).toLocaleDateString();
+function matchesGaps(totals: Record<CapabilityItemStatus, number>, gapsOnly: boolean): boolean {
+  if (!gapsOnly) return true;
+  return totals.missing > 0 || totals.different > 0;
 }
 
 function planKey(entry: CapabilityPlanEntry): string {
@@ -139,10 +113,11 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
   const error = useCapabilityHubStore((state) => state.error);
   const inventory = useCapabilityHubStore((state) => state.inventory);
 
+  const [step, setStep] = useState(0);
   const [source, setSource] = useState<CapabilityTargetRef | null>(null);
   const [targets, setTargets] = useState<CapabilityTargetRef[]>([]);
   const [kinds, setKinds] = useState<CapabilityKind[]>([...CAPABILITY_KINDS]);
-  const [view, setView] = useState<ItemView>("gaps");
+  const [gapsOnly, setGapsOnly] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [overwrite, setOverwrite] = useState(false);
   const [deleteExtras, setDeleteExtras] = useState(false);
@@ -151,7 +126,6 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
   const [results, setResults] = useState<CapabilityOpResult[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const targetsTouched = useRef(false);
-  const reduce = useReducedMotion();
 
   useEffect(() => {
     void load(path);
@@ -160,7 +134,9 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
   useEffect(() => {
     if (source || !inventory.targets.length) return;
     const fullest = inventory.targets
-      .flatMap((target) => target.scopes.map((scope) => ({ cli: target.cli, scope: scope.scope, count: scope.itemCount })))
+      .flatMap((target) =>
+        (target.scopes ?? []).map((scope) => ({ cli: target.cli, scope: scope.scope, count: scope.itemCount })),
+      )
       .sort((a, b) => b.count - a.count)[0];
     if (fullest) setSource({ cli: fullest.cli, scope: fullest.scope });
   }, [inventory.targets, source]);
@@ -178,9 +154,10 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
   const sourceLabel = source
     ? `${sourceInfo?.label ?? source.cli} · ${scopeLabel(source.scope, t)}`
     : "";
-  const targetLabel = targets.length === 1
-    ? `${inventory.targets.find((entry) => entry.cli === targets[0].cli)?.label ?? targets[0].cli} · ${scopeLabel(targets[0].scope, t)}`
-    : t("agentCapabilities.hub.targetCount", { count: targets.length });
+  const targetLabel =
+    targets.length === 1
+      ? `${inventory.targets.find((entry) => entry.cli === targets[0].cli)?.label ?? targets[0].cli} · ${scopeLabel(targets[0].scope, t)}`
+      : t("agentCapabilities.hub.targetCount", { count: targets.length });
 
   const sourceItems = useMemo(() => {
     if (!source) return [];
@@ -196,19 +173,13 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
   const visibleItems = useMemo(() => {
     if (!targets.length) return sourceItems;
     return sourceItems.filter((item) =>
-      matchesView(view, itemStatusSummary(item, targets, inventory.targets, inventory.items)),
+      matchesGaps(itemStatusSummary(item, targets, inventory.targets, inventory.items), gapsOnly),
     );
-  }, [inventory.items, inventory.targets, sourceItems, targets, view]);
+  }, [gapsOnly, inventory.items, inventory.targets, sourceItems, targets]);
 
   const coverage = source
     ? coverageSummary(inventory.items, source, targets, inventory.targets, kinds)
     : null;
-
-  const columns = useMemo(() => {
-    const next = presenceColumns(inventory.targets, targets, source);
-    if (!source) return next;
-    return [...next].sort((a, b) => Number(b.cli === source.cli) - Number(a.cli === source.cli));
-  }, [inventory.targets, source, targets]);
 
   const selectedItems = useMemo(
     () => sourceItems.filter((item) => selected.has(item.id)),
@@ -232,6 +203,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
   const showResults = useCallback(
     (outcome: CapabilityOpResult[], successKey: string) => {
       setResults(outcome);
+      setStep(3);
       const totals = summarizeResults(outcome);
       if (totals.failed) {
         toast.error(t("agentCapabilities.hub.resultWithErrors", { ok: totals.ok, failed: totals.failed }));
@@ -252,30 +224,6 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
       toast.error(candidate instanceof Error ? candidate.message : String(candidate));
     }
   }, [copy, overwrite, selectedItems, showResults, targets]);
-
-  const runFillGaps = useCallback(async (target: CapabilityTargetRef, missing: CapabilityItem[]) => {
-    if (!missing.length) return;
-    try {
-      const outcome = await copy(missing.map(itemRef), [target], false);
-      showResults(outcome, "agentCapabilities.hub.copied");
-    } catch (candidate) {
-      toast.error(candidate instanceof Error ? candidate.message : String(candidate));
-    }
-  }, [copy, showResults]);
-
-  const runFillAll = useCallback(async () => {
-    if (!targets.length) return;
-    const missing = sourceItems.filter(
-      (item) => itemStatusSummary(item, targets, inventory.targets, inventory.items).missing > 0,
-    );
-    if (!missing.length) return;
-    try {
-      const outcome = await copy(missing.map(itemRef), targets, false);
-      showResults(outcome, "agentCapabilities.hub.copied");
-    } catch (candidate) {
-      toast.error(candidate instanceof Error ? candidate.message : String(candidate));
-    }
-  }, [copy, inventory.items, inventory.targets, showResults, sourceItems, targets]);
 
   const runDelete = useCallback(async () => {
     if (!selectedItems.length) return;
@@ -318,101 +266,241 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
     }
   }, [apply, deleteExtras, planEntries, planSelection, showResults]);
 
+  const goToCopy = useCallback(() => {
+    const missing = sourceItems.filter(
+      (item) => itemStatusSummary(item, targets, inventory.targets, inventory.items).missing > 0,
+    );
+    setSelected(new Set((missing.length ? missing : sourceItems).map((item) => item.id)));
+    setGapsOnly(Boolean(missing.length));
+    setStep(2);
+  }, [inventory.items, inventory.targets, sourceItems, targets]);
+
+  const steps = [
+    t("agentCapabilities.hub.stepSource"),
+    t("agentCapabilities.hub.stepTargets"),
+    t("agentCapabilities.hub.stepCopy"),
+    t("agentCapabilities.hub.stepDone"),
+  ];
+
   if (loading && !inventory.targets.length) {
     return <CapabilityLoading label={t("agentCapabilities.hub.loading")} />;
   }
 
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <AgentsEnter className="mx-auto w-full max-w-6xl space-y-4 p-5">
+        <div className="ag-studio-page space-y-5">
         {error ? <CapabilityError message={error} /> : null}
         {inventory.warnings.map((warning) => (
           <CapabilityError key={warning} message={warning} />
         ))}
 
-        <section className="ag-card overflow-hidden">
-          <header className="flex items-start gap-2 border-b border-[var(--ag-line)] px-4 py-3">
-            <div className="mr-auto min-w-0">
-              <p className="text-[13px] font-semibold tracking-tight">
-                {t("agentCapabilities.hub.title")}
-              </p>
-              <p className="ag-muted mt-1 max-w-2xl text-[11px] leading-5">
-                {t("agentCapabilities.hub.explainer")}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="ag-icon-btn rounded-full"
-              disabled={loading}
-              onClick={() => void load(path, true)}
-              title={t("common.refresh")}
-              aria-label={t("common.refresh")}
-            >
-              <SpinIcon icon={RefreshCw} active={loading} className="size-4" />
-            </Button>
-          </header>
+        <CapabilityGuideSteps
+          steps={steps}
+          current={step}
+          onChange={(index) => {
+            if (index < 3) setResults([]);
+            setStep(index);
+          }}
+        />
 
-          <div className="space-y-3 p-4">
-            <p className="ag-label">{t("agentCapabilities.hub.ecosystemTitle")}</p>
-            <CapabilityEcosystemBoard
-              targets={inventory.targets}
-              items={inventory.items}
-              source={source}
-              onSourceChange={changeSource}
-              selected={targets}
-              onToggleTarget={toggleTarget}
-              kinds={kinds}
-              busy={busy}
-              onFillGaps={(target, missing) => void runFillGaps(target, missing)}
-            />
-            {coverage && targets.length ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-[12px] bg-[var(--ag-surface-2)] px-3 py-2">
-                <p className="mr-auto text-[11px] leading-5 text-[var(--ag-text-2)]">
-                  {coverage.missing || coverage.different
-                    ? t("agentCapabilities.hub.coverage", {
-                        missing: coverage.missing,
-                        different: coverage.different,
-                        same: coverage.same,
+        {step === 0 ? (
+          <section className="ag-guide-panel">
+            <h2 className="ag-guide-title">{t("agentCapabilities.hub.stepSourceTitle")}</h2>
+            <p className="ag-guide-hint">{t("agentCapabilities.hub.stepSourceHint")}</p>
+            <div className="ag-guide-choices">
+              {inventory.targets.map((target) => {
+                const counts = kindCountsForCli(inventory.items, target.cli);
+                const total = CAPABILITY_KINDS.reduce((sum, kind) => sum + counts[kind], 0);
+                const active = source?.cli === target.cli;
+                return (
+                  <CapabilityGuideChoice
+                    key={target.cli}
+                    selected={active}
+                    onSelect={() =>
+                      changeSource({
+                        cli: target.cli,
+                        scope: source?.cli === target.cli ? source.scope : preferredWritableScope(target),
                       })
-                    : t("agentCapabilities.hub.coverageClean")}
-                </p>
-                {coverage.missing ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-7 px-2 text-[10px]"
-                    disabled={busy}
-                    onClick={() => void runFillAll()}
-                  >
-                    {t("agentCapabilities.hub.fillGaps")}
-                  </Button>
-                ) : null}
+                    }
+                    mark={
+                      <span className="ag-inset grid size-9 place-items-center rounded-[10px]">
+                        <CapabilityCliMark cli={target.cli} logoClassName="size-4" />
+                      </span>
+                    }
+                    title={target.label}
+                    description={
+                      target.installed
+                        ? t("agentCapabilities.hub.itemsInSource", { count: total })
+                        : t("agentCapabilities.hub.notInstalled")
+                    }
+                    badge={active ? t("agentCapabilities.hub.sourceBadge") : undefined}
+                  />
+                );
+              })}
+            </div>
+            {source && sourceInfo ? (
+              <div className="ag-guide-follow">
+                <p className="ag-label">{t("agentCapabilities.hub.scopeHint")}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {CAPABILITY_SCOPES.map((scope) => {
+                    const info = scopeInfo(sourceInfo, scope);
+                    return (
+                      <button
+                        key={scope}
+                        type="button"
+                        aria-pressed={source.scope === scope}
+                        onClick={() => changeSource({ cli: source.cli, scope })}
+                        className={cn(
+                          "ag-pill h-7 gap-1.5 px-2.5 text-[11px] font-medium",
+                          source.scope === scope && "bg-[var(--ag-solid)] text-[var(--ag-solid-fg)]",
+                        )}
+                      >
+                        {scopeLabel(scope, t)}
+                        <span className="tabular-nums">{info?.itemCount ?? 0}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            ) : (
-              <p className="ag-faint text-[10px]">{t("agentCapabilities.hub.noTargetSelected")}</p>
-            )}
-          </div>
-        </section>
+            ) : null}
+            <div className="ag-guide-nav">
+              <span />
+              <Button type="button" disabled={!source} onClick={() => setStep(1)}>
+                {t("tour.next")}
+                <ArrowRight className="size-3.5" />
+              </Button>
+            </div>
+          </section>
+        ) : null}
 
-        <section className="ag-card">
-          <header className="flex flex-wrap items-center gap-2 border-b border-[var(--ag-line)] px-4 py-2.5">
-            <div className="mr-auto flex flex-wrap items-center gap-1">
+        {step === 1 ? (
+          <section className="ag-guide-panel">
+            <h2 className="ag-guide-title">{t("agentCapabilities.hub.stepTargetTitle")}</h2>
+            <p className="ag-guide-hint">
+              {t("agentCapabilities.hub.stepTargetHint", { source: sourceLabel })}
+            </p>
+            <div className="ag-guide-choices">
+              {inventory.targets
+                .filter((target) => target.cli !== source?.cli)
+                .map((target) => {
+                  const destination =
+                    targets.find((entry) => entry.cli === target.cli) ?? {
+                      cli: target.cli,
+                      scope:
+                        source && targetWritable(inventory.targets, { cli: target.cli, scope: source.scope })
+                          ? source.scope
+                          : preferredWritableScope(target),
+                    };
+                  const picked = targets.some((entry) => entry.cli === target.cli);
+                  const gap =
+                    source && picked
+                      ? gapsToward(inventory.items, source, destination, inventory.targets, kinds)
+                      : source
+                        ? gapsToward(
+                            inventory.items,
+                            source,
+                            { cli: target.cli, scope: preferredWritableScope(target) },
+                            inventory.targets,
+                            kinds,
+                          )
+                        : null;
+                      const counts = kindCountsForCli(inventory.items, target.cli);
+                      const total = CAPABILITY_KINDS.reduce((sum, kind) => sum + counts[kind], 0);
+                      const writable = targetWritable(inventory.targets, destination);
+                      return (
+                        <div key={target.cli} className="space-y-2">
+                          <CapabilityGuideChoice
+                            selected={picked}
+                            disabled={!writable}
+                            onSelect={() => toggleTarget(destination)}
+                            mark={
+                              <span className="ag-inset grid size-9 place-items-center rounded-[10px]">
+                                <CapabilityCliMark cli={target.cli} logoClassName="size-4" />
+                              </span>
+                            }
+                            title={target.label}
+                            description={
+                              gap?.missing.length
+                                ? t("agentCapabilities.hub.gapsToward", { count: gap.missing.length })
+                                : t("agentCapabilities.hub.itemsInSource", { count: total })
+                            }
+                        badge={picked ? t("agentCapabilities.hub.to") : undefined}
+                      />
+                      {picked ? (
+                        <div className="flex flex-wrap gap-1.5 pl-1">
+                          {CAPABILITY_SCOPES.map((scope) => {
+                            const reference: CapabilityTargetRef = { cli: target.cli, scope };
+                            if (!targetWritable(inventory.targets, reference)) return null;
+                            const info = scopeInfo(target, scope);
+                            const active = destination.scope === scope;
+                            return (
+                              <button
+                                key={scope}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() => {
+                                  targetsTouched.current = true;
+                                  setTargets((current) => [
+                                    ...current.filter((entry) => entry.cli !== target.cli),
+                                    reference,
+                                  ]);
+                                }}
+                                className={cn(
+                                  "ag-pill h-6 gap-1 px-2 text-[10px] font-medium",
+                                  active && "bg-[var(--ag-solid)] text-[var(--ag-solid-fg)]",
+                                )}
+                              >
+                                {scopeLabel(scope, t)}
+                                <span className="tabular-nums">{info?.itemCount ?? 0}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+            </div>
+            <div className="ag-guide-nav">
+              <Button type="button" variant="ghost" onClick={() => setStep(0)}>
+                <ArrowLeft className="size-3.5" />
+                {t("tour.back")}
+              </Button>
+              <Button type="button" disabled={!targets.length} onClick={goToCopy}>
+                {t("tour.next")}
+                <ArrowRight className="size-3.5" />
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
+        {step === 2 ? (
+          <section className="ag-guide-panel">
+            <h2 className="ag-guide-title">{t("agentCapabilities.hub.stepCopyTitle")}</h2>
+            <p className="ag-guide-hint">
+              {coverage?.missing
+                ? t("agentCapabilities.hub.stepCopyHint", {
+                    missing: coverage.missing,
+                    source: sourceLabel,
+                    target: targetLabel,
+                  })
+                : t("agentCapabilities.hub.coverageClean")}
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
               {CAPABILITY_KINDS.map((kind) => {
                 const Icon = KIND_ICONS[kind];
                 const active = kinds.includes(kind);
                 const count = sourceItems.filter((item) => item.kind === kind).length;
                 return (
-                  <m.button
+                  <button
                     key={kind}
                     type="button"
                     aria-pressed={active}
-                    whileTap={reduce ? undefined : { scale: 0.96 }}
-                    transition={SPRING_PRESS}
                     onClick={() =>
                       setKinds((current) =>
-                        current.includes(kind) ? current.filter((entry) => entry !== kind) : [...current, kind],
+                        current.includes(kind)
+                          ? current.filter((entry) => entry !== kind)
+                          : [...current, kind],
                       )
                     }
                     className={cn(
@@ -423,44 +511,27 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                     <Icon className="size-3" />
                     {t(`agentCapabilities.hub.kinds.${kind}`)}
                     {active ? <span className="ag-faint tabular-nums">{count}</span> : null}
-                  </m.button>
+                  </button>
                 );
               })}
+              <button
+                type="button"
+                aria-pressed={gapsOnly}
+                onClick={() => setGapsOnly((value) => !value)}
+                className={cn(
+                  "ag-pill ml-auto h-7 px-2 text-[10px] font-medium",
+                  gapsOnly && "bg-[var(--ag-selected)]",
+                )}
+              >
+                {t("agentCapabilities.hub.views.gaps")}
+              </button>
             </div>
-            <AgentSectionTabs
-              value={view}
-              onChange={(id) => setView(id as ItemView)}
-              label={t("agentCapabilities.hub.title")}
-              layoutId="sync-view-tab"
-              items={(["gaps", "different", "all"] as const).map((entry) => ({
-                id: entry,
-                label: t(`agentCapabilities.hub.views.${entry}`),
-              }))}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-[10px]"
-              onClick={() =>
-                setSelected((current) =>
-                  current.size === visibleItems.length ? new Set() : new Set(visibleItems.map((item) => item.id)),
-                )
-              }
-            >
-              {selected.size === visibleItems.length && visibleItems.length
-                ? t("agentCapabilities.hub.selectNone")
-                : t("agentCapabilities.hub.selectAll")}
-            </Button>
-          </header>
-
-          <div className="p-3">
             {visibleItems.length ? (
-              <div className="grid gap-1.5 sm:grid-cols-2">
+              <div className="ag-studio-cards">
                 <ProgressiveCapabilityList
                   items={visibleItems}
                   getKey={(item) => item.id}
-                  resetKey={`${source ? targetKey(source) : "none"}:${kinds.join(",")}:${view}:${query}:${targets.map(targetKey).join(",")}`}
+                  resetKey={`${source ? targetKey(source) : "none"}:${kinds.join(",")}:${gapsOnly}:${query}:${targets.map(targetKey).join(",")}`}
                   moreLabel={(count) => t("agentCapabilities.showMore", { count })}
                   renderItem={(item: CapabilityItem) => {
                     const Icon = KIND_ICONS[item.kind];
@@ -486,37 +557,9 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                         />
                         <Icon className="ag-faint mt-0.5 size-3.5 shrink-0" />
                         <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-1.5">
-                            <span className="truncate text-[12px] font-medium">{item.name}</span>
-                            {item.isDirectory ? (
-                              <Badge variant="outline" className="h-4 rounded px-1 text-[8px]">
-                                {t("agentCapabilities.hub.files", { count: item.fileCount })}
-                              </Badge>
-                            ) : null}
-                          </span>
+                          <span className="truncate text-[12px] font-medium">{item.name}</span>
                           <span className="ag-muted mt-0.5 line-clamp-2 block text-[10px] leading-4">
                             {item.description || t("agentCapabilities.hub.noDescription")}
-                          </span>
-                          <span className="mt-2 block">
-                            <CapabilityPresence
-                              item={item}
-                              columns={columns}
-                              infos={inventory.targets}
-                              items={inventory.items}
-                              sourceCli={source?.cli}
-                              onPick={(target) => {
-                                targetsTouched.current = true;
-                                setTargets((current) =>
-                                  current.some((entry) => targetKey(entry) === targetKey(target))
-                                    ? current
-                                    : [...current, target],
-                                );
-                                setSelected((current) => new Set(current).add(item.id));
-                              }}
-                            />
-                          </span>
-                          <span className="ag-faint mt-1 block truncate font-mono text-[9px]">
-                            {item.rel} · {relativeTime(item.updatedAtMs)}
                           </span>
                         </span>
                       </label>
@@ -526,88 +569,121 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
               </div>
             ) : (
               <CapabilityEmpty
-                title={sourceItems.length ? t("agentCapabilities.hub.filterEmptyTitle") : t("agentCapabilities.hub.emptyTitle")}
-                description={sourceItems.length ? t("agentCapabilities.hub.filterEmptyDescription") : t("agentCapabilities.hub.emptyDescription")}
+                title={
+                  sourceItems.length
+                    ? t("agentCapabilities.hub.filterEmptyTitle")
+                    : t("agentCapabilities.hub.emptyTitle")
+                }
+                description={
+                  sourceItems.length
+                    ? t("agentCapabilities.hub.filterEmptyDescription")
+                    : t("agentCapabilities.hub.emptyDescription")
+                }
               />
             )}
-          </div>
-        </section>
-
-        <div className="ag-card sticky bottom-0 space-y-2 p-3 backdrop-blur">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              disabled={busy || !selected.size || !targets.length}
-              onClick={() => void runCopy()}
-            >
-              <Copy className="size-3.5" />
-              {selected.size && targets.length
-                ? t("agentCapabilities.hub.copyAction", { count: selected.size, target: targetLabel })
-                : t("agentCapabilities.hub.copy")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={busy || !targets.length}
-              onClick={() => void runPlan()}
-            >
-              <Eye className="size-3.5" />
-              {t("agentCapabilities.hub.preview")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="text-destructive"
-              disabled={busy || !selected.size}
-              onClick={() => setConfirmDelete(true)}
-            >
-              <Trash2 className="size-3.5" />
-              {t("agentCapabilities.hub.deleteFromSource", { source: sourceLabel })}
-            </Button>
-            <label className="ml-auto flex items-center gap-2 text-[11px]">
-              <Switch checked={overwrite} onCheckedChange={setOverwrite} />
-              {t("agentCapabilities.hub.overwrite")}
-            </label>
-          </div>
-          <p className="ag-faint text-[10px] leading-4">
-            {overwrite
-              ? t("agentCapabilities.hub.overwriteOnHint")
-              : t("agentCapabilities.hub.overwriteOffHint")}
-          </p>
-        </div>
-
-        {results.length ? (
-          <section className="ag-card p-4">
-            <p className="ag-label mb-2">{t("agentCapabilities.hub.results")}</p>
-            <ul className="space-y-1">
-              {results.map((entry, index) => (
-                <li key={`${entry.kind}:${entry.name}:${entry.target}:${index}`} className="flex items-start gap-2 text-[11px]">
-                  {entry.status === "error" ? (
-                    <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-                  ) : entry.status === "skipped" || entry.status === "unsupported" ? (
-                    <FileWarning className="mt-0.5 size-3.5 shrink-0 text-amber-500" />
-                  ) : (
-                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="font-medium">{entry.name}</span>
-                    <span className="ag-faint"> → {entry.target}</span>
-                    <span className="ag-muted block break-all text-[10px]">{entry.message}</span>
-                    {entry.backup ? (
-                      <span className="ag-faint block break-all font-mono text-[9px]">
-                        {t("agentCapabilities.hub.backup", { path: entry.backup })}
-                      </span>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <details className="ag-guide-more">
+              <summary>{t("agentCapabilities.hub.moreOptions")}</summary>
+              <label className="mt-2 flex items-center gap-2 text-[12px]">
+                <Switch checked={overwrite} onCheckedChange={setOverwrite} />
+                {t("agentCapabilities.hub.overwrite")}
+              </label>
+              <p className="ag-faint mt-1 text-[11px] leading-4">
+                {overwrite
+                  ? t("agentCapabilities.hub.overwriteOnHint")
+                  : t("agentCapabilities.hub.overwriteOffHint")}
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-2 h-8 text-destructive"
+                disabled={busy || !selectedItems.length}
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="size-3.5" />
+                {t("agentCapabilities.hub.deleteFromSource", { source: sourceLabel })}
+              </Button>
+            </details>
+            <div className="ag-guide-nav">
+              <Button type="button" variant="ghost" onClick={() => setStep(1)}>
+                <ArrowLeft className="size-3.5" />
+                {t("tour.back")}
+              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy || !targets.length}
+                  onClick={() => void runPlan()}
+                >
+                  <Eye className="size-3.5" />
+                  {t("agentCapabilities.hub.preview")}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={busy || !selectedItems.length || !targets.length}
+                  onClick={() => void runCopy()}
+                >
+                  <Copy className="size-3.5" />
+                  {selectedItems.length
+                    ? t("agentCapabilities.hub.copyAction", { count: selectedItems.length, target: targetLabel })
+                    : t("agentCapabilities.hub.copy")}
+                </Button>
+              </div>
+            </div>
           </section>
         ) : null}
-      </AgentsEnter>
+
+        {step === 3 ? (
+          <section className="ag-guide-panel">
+            <h2 className="ag-guide-title">{t("agentCapabilities.hub.stepDoneTitle")}</h2>
+            <p className="ag-guide-hint">{t("agentCapabilities.hub.stepDoneHint")}</p>
+            {results.length ? (
+              <ul className="space-y-1.5">
+                {results.map((entry, index) => (
+                  <li
+                    key={`${entry.kind}:${entry.name}:${entry.target}:${index}`}
+                    className="flex items-start gap-2 text-[12px]"
+                  >
+                    {entry.status === "error" ? (
+                      <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                    ) : entry.status === "skipped" || entry.status === "unsupported" ? (
+                      <FileWarning className="mt-0.5 size-3.5 shrink-0 text-amber-500" />
+                    ) : (
+                      <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{entry.name}</span>
+                      <span className="ag-faint"> → {entry.target}</span>
+                      <span className="ag-muted block break-all text-[11px]">{entry.message}</span>
+                      {entry.backup ? (
+                        <span className="ag-faint block break-all font-mono text-[10px]">
+                          {t("agentCapabilities.hub.backup", { path: entry.backup })}
+                        </span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="ag-guide-nav">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setResults([]);
+                  setStep(0);
+                }}
+              >
+                {t("agentCapabilities.hub.again")}
+              </Button>
+              <Button type="button" onClick={() => setStep(2)}>
+                {t("tour.back")}
+              </Button>
+            </div>
+          </section>
+        ) : null}
+        </div>
 
       <Dialog open={Boolean(planEntries)} onOpenChange={(open) => !open && setPlanEntries(null)}>
         <DialogContent className="flex h-[min(88vh,820px)] w-full flex-col gap-3 overflow-hidden sm:max-w-[min(96vw,980px)]">
@@ -646,7 +722,8 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[11px] font-medium">{entry.name}</span>
                       <span className="ag-faint block truncate text-[10px]">
-                        {t(`agentCapabilities.hub.kinds.${entry.kind}`)} · {entry.targetCli} · {scopeLabel(entry.targetScope, t)} · {entry.detail}
+                        {t(`agentCapabilities.hub.kinds.${entry.kind}`)} · {entry.targetCli} ·{" "}
+                        {scopeLabel(entry.targetScope, t)} · {entry.detail}
                       </span>
                     </span>
                   </label>
@@ -672,7 +749,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("agentCapabilities.hub.deleteTitle", { count: selected.size })}</AlertDialogTitle>
+            <AlertDialogTitle>{t("agentCapabilities.hub.deleteTitle", { count: selectedItems.length })}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("agentCapabilities.hub.deleteDescription", { source: sourceLabel })}
             </AlertDialogDescription>

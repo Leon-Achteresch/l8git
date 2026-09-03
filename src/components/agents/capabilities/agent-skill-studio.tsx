@@ -137,7 +137,7 @@ function SkillEditor({
         )}
       />
 
-      <div className="grid gap-6 p-5 xl:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="grid gap-8 p-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <section className="space-y-3">
             <div>
@@ -429,7 +429,7 @@ export function AgentSkillStudio({ query }: { query: string }) {
     <>
       <CapabilitySplit
         list={(
-          <div className="p-2.5">
+          <div className="p-3.5">
             <div className="mb-2 flex items-center justify-between px-1">
               <p className="text-[10px] font-medium text-muted-foreground">
                 {t("agentCapabilities.itemCount", { count: filtered.length })}

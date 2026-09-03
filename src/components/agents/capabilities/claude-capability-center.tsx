@@ -1,10 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, ArrowRightLeft, Blocks, Bot, Command, Pencil, PlugZap, Power, RefreshCw, Sparkles, Store, Trash2, Webhook } from "lucide-react";
+import { ArrowRightLeft, Blocks, Bot, Command, Pencil, PlugZap, Power, RefreshCw, Sparkles, Store, Trash2, Webhook } from "lucide-react";
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { ClaudeCodeLogo, OpenCodeLogo } from "@/components/brand/agent-logos";
 import { ProgressiveCapabilityList } from "@/components/agents/capabilities/capability-ui";
+import { CapabilityStudioShell } from "@/components/agents/capabilities/capability-studio-shell";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
@@ -32,7 +33,6 @@ import { claudeCapabilitySnapshot } from "@/lib/agents/providers/claude/chat-sto
 import { openCodeCapabilitySnapshot } from "@/lib/agents/providers/opencode/chat-store";
 import type { AgentHook, AgentMcpServer, AgentPlugin, AgentSkill } from "@/lib/agents/types";
 import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
-import { AgentSectionTabs } from "@/components/agents/ui/agent-section-tabs";
 import { AnimatePresence, m } from "motion/react";
 import { SPRING_PANEL } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
@@ -141,6 +141,7 @@ export function ClaudeCapabilityCenter({
   provider?: CapabilityProvider;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const isOpenCode = provider === "opencode";
   const ProviderLogo = isOpenCode ? OpenCodeLogo : ClaudeCodeLogo;
   const providerLabel = isOpenCode ? "OpenCode" : "Claude Code";
@@ -303,36 +304,35 @@ export function ClaudeCapabilityCenter({
   };
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
-      <header className="ag-line shrink-0 border-b">
-        <div className="flex h-12 items-center gap-2 px-3">
-          <button type="button" className="ag-icon-btn" onClick={onBack} title="Back to chat" aria-label="Back to chat">
-            <ArrowLeft className="size-4" />
-          </button>
-          <AgentProviderMark working={loading} label={providerLabel} className="shrink-0">
-            <ProviderLogo />
-          </AgentProviderMark>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{providerLabel} capabilities</p>
-            <p className="ag-faint truncate text-[10px]">{repoName(path)} · live from the installed CLI</p>
-          </div>
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search capabilities…" className="hidden h-8 w-52 rounded-full border-[var(--ag-line)] bg-[var(--ag-surface-2)] text-[11px] shadow-none sm:block" />
-          <button type="button" className="ag-icon-btn" disabled={loading} onClick={() => void load(true)} title="Refresh" aria-label="Refresh">
-            <SpinIcon icon={RefreshCw} active={loading} className="size-4" />
-          </button>
-        </div>
-        <AgentSectionTabs
-          value={section}
-          onChange={(id) => setSection(id as Section)}
-          label={`${providerLabel} capabilities`}
-          items={sections.map(({ id, label, Icon }) => ({
-            id,
-            label,
-            icon: <Icon className="size-3.5" />,
-            count: counts[id],
-          }))}
-        />
-      </header>
+    <CapabilityStudioShell
+      title={`${providerLabel} Capabilities`}
+      subtitle={t("agentCapabilities.liveFromCli", { repo: repoName(path) })}
+      mark={(
+        <AgentProviderMark working={loading} label={providerLabel} className="shrink-0">
+          <ProviderLogo />
+        </AgentProviderMark>
+      )}
+      query={query}
+      onQueryChange={setQuery}
+      searchPlaceholder={t("agentCapabilities.search")}
+      onBack={onBack}
+      backLabel={t("agentCapabilities.backToChat")}
+      actions={(
+        <Button type="button" variant="ghost" size="sm" className="h-9 gap-1.5 rounded-lg px-2.5 text-[12px]" disabled={loading} onClick={() => void load(true)}>
+          <SpinIcon icon={RefreshCw} active={loading} className="size-3.5" />
+          {t("common.refresh")}
+        </Button>
+      )}
+      tabs={sections.map(({ id, label, Icon }) => ({
+        id,
+        label,
+        icon: <Icon className="size-3.5" />,
+        count: counts[id],
+      }))}
+      tabValue={section}
+      onTabChange={(id) => setSection(id as Section)}
+      tabsLabel={`${providerLabel} capabilities`}
+    >
       {section === "sync" || section === "market" ? (
         <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Capability Studio…</div>}>
           <AnimatePresence mode="wait" initial={false}>
@@ -354,7 +354,7 @@ export function ClaudeCapabilityCenter({
         </Suspense>
       ) : (
       <div className="ag-scroll min-h-0 flex-1 overflow-y-auto p-5">
-        <div className="mx-auto grid max-w-4xl gap-2 sm:grid-cols-2">
+        <div className="ag-studio-cards">
           <ProgressiveCapabilityList
             items={entries}
             getKey={(entry) => entry.id}
@@ -363,20 +363,19 @@ export function ClaudeCapabilityCenter({
             renderItem={(entry) => (
             <m.article
               key={entry.id}
-              className="ag-card p-3.5"
+              className="ag-studio-card"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ y: -1 }}
               transition={SPRING_PANEL}
             >
-              <div className="flex items-start gap-3">
-                <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-[#d97757]/10 text-[#d97757]">
+              <div className="flex min-h-0 flex-1 items-start gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#d97757]/10 text-[#d97757]">
                   {(() => { const Icon = sections.find((item) => item.id === section)?.Icon ?? Blocks; return <Icon className="size-4" />; })()}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-[12px] font-medium">{entry.title}</h3>
-                  <p className="ag-muted mt-1 line-clamp-3 text-[11px] leading-4">{entry.description || "No description"}</p>
-                  {entry.meta ? <p className="ag-faint mt-2 truncate font-mono text-[10px]">{entry.meta}</p> : null}
+                  <h3 className="truncate text-[14px] font-semibold tracking-tight">{entry.title}</h3>
+                  <p className="ag-muted mt-1.5 line-clamp-3 text-[12px] leading-5">{entry.description || "No description"}</p>
                 </div>
                 {entry.filePath || entry.toggle || entry.remove ? (
                   <div className="flex shrink-0 items-center gap-0.5">
@@ -426,6 +425,7 @@ export function ClaudeCapabilityCenter({
                   </div>
                 ) : null}
               </div>
+              {entry.meta ? <p className="ag-faint mt-auto truncate pt-3 font-mono text-[11px]">{entry.meta}</p> : null}
             </m.article>
             )}
           />
@@ -497,6 +497,6 @@ export function ClaudeCapabilityCenter({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </CapabilityStudioShell>
   );
 }

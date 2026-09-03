@@ -1,6 +1,5 @@
 import {
   AppWindow,
-  ArrowLeft,
   ArrowRightLeft,
   Blocks,
   Download,
@@ -9,7 +8,6 @@ import {
   LoaderCircle,
   PlugZap,
   RefreshCw,
-  Search,
   Save,
   SlidersHorizontal,
   Sparkles,
@@ -21,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { CapabilityLoading } from "@/components/agents/capabilities/capability-ui";
+import { CapabilityStudioShell } from "@/components/agents/capabilities/capability-studio-shell";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,13 +29,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { capabilityPlugins, useAgentCapabilityStore } from "@/lib/agents/capability-store";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { CodexLogo } from "@/components/brand/agent-logos";
 import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
-import { AgentSectionTabs } from "@/components/agents/ui/agent-section-tabs";
 import { AnimatePresence, m } from "motion/react";
 import { SPRING_PANEL } from "@/lib/motion/ease";
 import { SpinIcon } from "@/components/motion/kit";
@@ -271,58 +268,66 @@ export function AgentCapabilityCenter({
               : <AgentHookStudio query={deferredQuery} />;
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
-      <header className="ag-line shrink-0 border-b">
-        <div className="flex h-12 items-center gap-2 px-3">
-          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={onBack} title={t("agentCapabilities.backToChat")} aria-label={t("agentCapabilities.backToChat")}><ArrowLeft className="size-4" /></Button>
-          <AgentProviderMark working={loading} label={t("agentCapabilities.title")} className="shrink-0">
-            <CodexLogo />
-          </AgentProviderMark>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{t("agentCapabilities.title")}</p>
-            <p className="ag-faint truncate text-[10px]">{repoName(path)} · {t("agentCapabilities.subtitle")}</p>
-          </div>
-          <div className="relative hidden w-52 sm:block">
-            <Search className="ag-faint pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2" />
-            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("agentCapabilities.search")} className="h-8 rounded-full border-[var(--ag-line)] bg-[var(--ag-surface-2)] pl-8 text-[11px] shadow-none" />
-          </div>
-          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => setImportOpen(true)} title={t("agentCapabilities.import")} aria-label={t("agentCapabilities.import")}><Import className="size-4" /></Button>
-          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => void exportSnapshot().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("agentCapabilities.export")} aria-label={t("agentCapabilities.export")}><Download className="size-4" /></Button>
-          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" onClick={() => setConfigOpen(true)} title={t("agentCapabilities.config.title")} aria-label={t("agentCapabilities.config.title")}><SlidersHorizontal className="size-4" /></Button>
-          <Button type="button" variant="ghost" size="icon-sm" className="ag-icon-btn rounded-full" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))} title={t("common.refresh")} aria-label={t("common.refresh")}><SpinIcon icon={RefreshCw} active={loading} className="size-4" /></Button>
-        </div>
-        <AgentSectionTabs
-          value={section}
-          onChange={(id) => {
-            setSection(id as AgentCapabilitySection);
-            setQuery("");
-          }}
-          label={t("agentCapabilities.title")}
-          items={SECTIONS.map(({ id, Icon }) => ({
-            id,
-            label: t(`agentCapabilities.sections.${id}`),
-            icon: <Icon className="size-3.5" />,
-            count: counts[id],
-          }))}
-        />
-      </header>
-
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {loading && (!loadedAt || storePath !== path) ? <CapabilityLoading label={t("agentCapabilities.loading")} /> : (
-          <AnimatePresence mode="wait" initial={false}>
-            <m.div
-              key={section}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={SPRING_PANEL}
-              className="flex min-h-0 flex-1 flex-col overflow-hidden"
-            >
-              <Suspense fallback={<CapabilityLoading label={t("agentCapabilities.loading")} />}>{content}</Suspense>
-            </m.div>
-          </AnimatePresence>
-        )}
-      </div>
+    <CapabilityStudioShell
+      title={t("agentCapabilities.title")}
+      subtitle={`${repoName(path)} · ${t("agentCapabilities.subtitle")}`}
+      mark={(
+        <AgentProviderMark working={loading} label={t("agentCapabilities.title")} className="shrink-0">
+          <CodexLogo />
+        </AgentProviderMark>
+      )}
+      query={query}
+      onQueryChange={section === "sync" || section === "market" ? undefined : setQuery}
+      searchPlaceholder={t("agentCapabilities.search")}
+      onBack={onBack}
+      backLabel={t("agentCapabilities.backToChat")}
+      actions={(
+        <>
+          <Button type="button" variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[12px]" onClick={() => setImportOpen(true)}>
+            <Import className="size-3.5" />
+            {t("agentCapabilities.import")}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[12px]" onClick={() => void exportSnapshot().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))}>
+            <Download className="size-3.5" />
+            {t("agentCapabilities.export")}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[12px]" onClick={() => setConfigOpen(true)}>
+            <SlidersHorizontal className="size-3.5" />
+            {t("agentCapabilities.config.title")}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[12px]" disabled={loading} onClick={() => void refresh().catch((candidate) => toast.error(candidate instanceof Error ? candidate.message : String(candidate)))}>
+            <SpinIcon icon={RefreshCw} active={loading} className="size-3.5" />
+            {t("common.refresh")}
+          </Button>
+        </>
+      )}
+      tabs={SECTIONS.map(({ id, Icon }) => ({
+        id,
+        label: t(`agentCapabilities.sections.${id}`),
+        icon: <Icon className="size-3.5" />,
+        count: counts[id],
+      }))}
+      tabValue={section}
+      onTabChange={(id) => {
+        setSection(id as AgentCapabilitySection);
+        setQuery("");
+      }}
+      tabsLabel={t("agentCapabilities.title")}
+    >
+      {loading && (!loadedAt || storePath !== path) ? <CapabilityLoading label={t("agentCapabilities.loading")} /> : (
+        <AnimatePresence mode="wait" initial={false}>
+          <m.div
+            key={section}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={SPRING_PANEL}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <Suspense fallback={<CapabilityLoading label={t("agentCapabilities.loading")} />}>{content}</Suspense>
+          </m.div>
+        </AnimatePresence>
+      )}
 
       {importOpen ? (
         <Suspense fallback={null}>
@@ -359,6 +364,6 @@ export function AgentCapabilityCenter({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </CapabilityStudioShell>
   );
 }

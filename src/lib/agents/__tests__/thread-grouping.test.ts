@@ -12,6 +12,7 @@ const startOfToday = (() => {
 function thread(overrides: Partial<SidebarThread> & { id: string }): SidebarThread {
   return {
     provider: "codex",
+    path: "/repo",
     title: overrides.id,
     preview: "",
     status: "idle",
@@ -64,11 +65,11 @@ describe("flattenThreads", () => {
     ]);
     expect(items.map((item) => (item.kind === "header" ? `#${item.group}` : item.key))).toEqual([
       "#pinned",
-      "codex:pin",
+      "codex:/repo:pin",
       "#today",
-      "codex:now",
+      "codex:/repo:now",
       "#older",
-      "codex:old",
+      "codex:/repo:old",
     ]);
   });
 
@@ -106,7 +107,7 @@ describe("flattenThreads", () => {
     ]);
     expect(
       items.filter((item) => item.kind === "thread").map((item) => item.key),
-    ).toEqual(["codex:first", "codex:second", "codex:third"]);
+    ).toEqual(["codex:/repo:first", "codex:/repo:second", "codex:/repo:third"]);
   });
 
   it("returns nothing for an empty list", () => {

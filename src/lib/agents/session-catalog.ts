@@ -59,6 +59,8 @@ function normalizeThreads(value: unknown): Record<string, AgentThreadSummary[]> 
           : "openai",
         isPinned: candidate.isPinned === true,
         archived: candidate.archived === true,
+        additions: typeof candidate.additions === "number" ? candidate.additions : undefined,
+        deletions: typeof candidate.deletions === "number" ? candidate.deletions : undefined,
       } satisfies AgentThreadSummary];
     });
   }

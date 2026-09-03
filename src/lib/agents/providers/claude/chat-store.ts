@@ -15,6 +15,7 @@ import { createStore } from "zustand/vanilla";
 import type { AgentChatState } from "@/lib/agents/chat-store";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import { accumulateUsage } from "@/lib/agents/token-cost";
+import { conversationDiffPatch, keepThreadDiff } from "@/lib/agents/thread-diff";
 import { classifyTranscriptUserText } from "@/lib/agents/transcript-text";
 import { ClaudeClient, type ClaudeControlRequest, type ClaudeInitializeResult } from "@/lib/agents/providers/claude/client";
 import type {
@@ -41,6 +42,8 @@ interface ClaudeSessionSummary {
   updatedAt: number;
   model?: string | null;
   permissionMode?: string | null;
+  additions?: number;
+  deletions?: number;
 }
 
 interface ClaudeSessionTranscript {
@@ -75,6 +78,8 @@ const repoFilePromises = new Map<string, Promise<Array<{ path: string; lowerPath
 const conversationLastUsed = new Map<string, number>();
 let authPromise: Promise<void> | null = null;
 let surfaceReferences = 0;
+let hiddenIdleTimer: ReturnType<typeof setTimeout> | null = null;
+const HIDDEN_CLIENT_IDLE_MS = 60_000;
 let surfaceReleaseTimer: ReturnType<typeof setTimeout> | null = null;
 let sequence = 1;
 
@@ -190,10 +195,12 @@ function cacheConversation(
   return conversations;
 }
 
-function closeIdleClients(): void {
+function closeIdleClients(keepVisible = false): void {
   const state = claudeChatStore.getState();
   const closedThreadIds: string[] = [];
   for (const [threadId, client] of clients) {
+    if (keepVisible && threadId === state.visibleThreadId) continue;
+    if (clientConnectPromises.has(threadId)) continue;
     if (state.conversations[threadId]?.activeTurnId || (state.requestsByThread[threadId]?.length ?? 0) > 0) continue;
     clients.delete(threadId);
     clientLastUsed.delete(threadId);
@@ -215,6 +222,8 @@ function summary(value: ClaudeSessionSummary): AgentThreadSummary {
     ...value,
     status: "idle",
     modelProvider: "anthropic",
+    additions: value.additions,
+    deletions: value.deletions,
   };
 }
 
@@ -605,7 +614,13 @@ function updateConversation(threadId: string, updater: (conversation: AgentConve
   conversationLastUsed.set(threadId, Date.now());
   claudeChatStore.setState((state) => {
     const conversation = state.conversations[threadId];
-    return conversation ? { conversations: { ...state.conversations, [threadId]: updater(conversation) } } : {};
+    if (!conversation) return {};
+    const next = updater(conversation);
+    const threadsByPath = conversationDiffPatch(state.threadsByPath, next);
+    return {
+      conversations: { ...state.conversations, [threadId]: next },
+      ...(threadsByPath ? { threadsByPath } : {}),
+    };
   });
 }
 
@@ -1388,6 +1403,11 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
   setVisibleThread: (visibleThreadId) => {
     if (visibleThreadId) conversationLastUsed.set(visibleThreadId, Date.now());
     set({ visibleThreadId });
+    if (hiddenIdleTimer) clearTimeout(hiddenIdleTimer);
+    hiddenIdleTimer = setTimeout(() => {
+      hiddenIdleTimer = null;
+      closeIdleClients(true);
+    }, HIDDEN_CLIENT_IDLE_MS);
   },
   connect: async () => {
     if (get().connectionStatus === "ready") return;
@@ -1465,7 +1485,18 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
         });
       }
       for (const path of unique) grouped[path] = sortThreads(grouped[path]);
-      set((state) => ({ threadsByPath: { ...state.threadsByPath, ...grouped } }));
+      set((state) => {
+        const merged: Record<string, AgentThreadSummary[]> = {};
+        for (const path of unique) {
+          const previous = new Map(
+            (state.threadsByPath[path] ?? []).map((thread) => [thread.id, thread]),
+          );
+          merged[path] = sortThreads(
+            (grouped[path] ?? []).map((thread) => keepThreadDiff(thread, previous.get(thread.id))),
+          );
+        }
+        return { threadsByPath: { ...state.threadsByPath, ...merged } };
+      });
     } finally {
       set((state) => ({ loadingPaths: { ...state.loadingPaths, ...Object.fromEntries(unique.map((path) => [path, false])) } }));
     }
@@ -1495,7 +1526,14 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
     set((state) => ({ activeThreadByPath: { ...state.activeThreadByPath, [path]: threadId } }));
     if (!get().conversations[threadId]) {
       const transcript = await loadTranscript(path, threadId);
-      set((state) => ({ conversations: cacheConversation(state, threadId, transcriptConversation(transcript)) }));
+      set((state) => {
+        const conversation = transcriptConversation(transcript);
+        return {
+          conversations: cacheConversation(state, threadId, conversation),
+          threadsByPath:
+            conversationDiffPatch(state.threadsByPath, conversation) ?? state.threadsByPath,
+        };
+      });
     }
   },
   sendMessage: async (path, text, attachments = []) => {

@@ -55,10 +55,10 @@ export function CapabilityListButton({
         type="button"
         onClick={onClick}
         aria-pressed={selected}
-        whileTap={reduce ? undefined : { scale: 0.985 }}
+        whileTap={reduce ? undefined : { scale: 0.99 }}
         transition={SPRING_PRESS}
         className={cn(
-          "group flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2.5 text-left outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring",
+          "group flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring",
           selected
             ? "border border-[var(--ag-line-strong)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-raise)]"
             : "border border-transparent hover:bg-[var(--ag-hover)]",
@@ -66,7 +66,7 @@ export function CapabilityListButton({
       >
         <span
           className={cn(
-            "mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg border",
+            "mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg border",
             selected
               ? "border-[var(--ag-line-strong)] bg-[var(--ag-surface-2)] text-[var(--ag-text)]"
               : "border-[var(--ag-line)] bg-[var(--ag-surface-2)]/60 text-[var(--ag-text-2)]",
@@ -76,11 +76,11 @@ export function CapabilityListButton({
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[12px] font-medium text-[var(--ag-text)]">{title}</span>
+            <span className="truncate text-[13px] font-semibold tracking-tight text-[var(--ag-text)]">{title}</span>
             {meta}
           </span>
           {description ? (
-            <span className="mt-0.5 line-clamp-2 block text-[10px] leading-4 text-[var(--ag-text-3)]">
+            <span className="mt-1 line-clamp-2 block text-[12px] leading-5 text-[var(--ag-text-2)]">
               {description}
             </span>
           ) : null}

@@ -34,6 +34,8 @@ impl Default for AgentTransportState {
 struct AgentTransport {
     session_id: String,
     child: Mutex<Child>,
+    #[cfg(windows)]
+    job: Mutex<Option<crate::pty::job::PtyJob>>,
     stdin: Mutex<ChildStdin>,
     closed: AtomicBool,
     sequence: AtomicU64,
@@ -50,7 +52,16 @@ impl AgentTransport {
                 log::debug!("agent transport kill returned {error}");
             }
         }
+        #[cfg(windows)]
+        drop(self.job.lock().unwrap().take());
     }
+}
+
+#[cfg(windows)]
+fn process_job(child: &Child) -> Option<crate::pty::job::PtyJob> {
+    crate::pty::job::PtyJob::create_for(child.id())
+        .map_err(|error| log::warn!("agent job-object setup failed for pid={}: {error}", child.id()))
+        .ok()
 }
 
 #[derive(Clone, Serialize)]
@@ -498,9 +509,13 @@ pub(crate) async fn agent_transport_open_inner(
             return Err(format!("{label}: stderr ist nicht verfügbar."));
         };
 
+        #[cfg(windows)]
+        let job = process_job(&child);
         let transport = Arc::new(AgentTransport {
             session_id,
             child: Mutex::new(child),
+            #[cfg(windows)]
+            job: Mutex::new(job),
             stdin: Mutex::new(stdin),
             closed: AtomicBool::new(false),
             sequence: AtomicU64::new(1),
