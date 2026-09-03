@@ -256,7 +256,8 @@
       "planMode": "Planejar",
       "agent": "Agente",
       "on": "Ligado",
-      "off": "Desligado"
+      "off": "Desligado",
+      "variants": "Variante"
     },
     "request": {
       "inputRequired": "Entrada necessária",
@@ -378,7 +379,10 @@
     "signingIn": "Entrando…",
     "signIn": "Entrar",
     "emptySubtitle": "Selecione um prompt inicial ou digite seu pedido abaixo.",
-    "showOlderTurns": "Mostrar {{count}} mensagens anteriores"
+    "showOlderTurns": "Mostrar {{count}} mensagens anteriores",
+    "allProviders": "Todos os agentes",
+    "filterProvider": "Mostrar apenas conversas do {{agent}}",
+    "noRepoChats": "Ainda não há conversas neste repositório"
   },
   "agentReview": {
     "openButton": "Revisar alterações",

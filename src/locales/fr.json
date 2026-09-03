@@ -256,7 +256,8 @@
       "planMode": "Plan",
       "agent": "Agent",
       "on": "Activé",
-      "off": "Désactivé"
+      "off": "Désactivé",
+      "variants": "Variante"
     },
     "request": {
       "inputRequired": "Saisie requise",
@@ -378,7 +379,10 @@
     "signingIn": "Connexion en cours…",
     "signIn": "Se connecter",
     "emptySubtitle": "Sélectionnez une invite de départ ou saisissez votre demande.",
-    "showOlderTurns": "Afficher {{count}} messages plus anciens"
+    "showOlderTurns": "Afficher {{count}} messages plus anciens",
+    "allProviders": "Tous les agents",
+    "filterProvider": "Afficher uniquement les discussions {{agent}}",
+    "noRepoChats": "Aucune discussion dans ce dépôt"
   },
   "agentReview": {
     "openButton": "Examiner les modifications",

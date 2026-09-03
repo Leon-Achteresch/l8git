@@ -256,7 +256,8 @@
       "planMode": "計画",
       "agent": "エージェント",
       "on": "オン",
-      "off": "オフ"
+      "off": "オフ",
+      "variants": "バリアント"
     },
     "request": {
       "inputRequired": "入力が必要です",
@@ -378,7 +379,10 @@
     "signingIn": "サインイン中…",
     "signIn": "サインイン",
     "emptySubtitle": "スタータープロンプトを選択するか、以下にリクエストを入力してください。",
-    "showOlderTurns": "{{count}} 件の古いメッセージを表示"
+    "showOlderTurns": "{{count}} 件の古いメッセージを表示",
+    "allProviders": "すべてのエージェント",
+    "filterProvider": "{{agent}} のチャットのみ表示",
+    "noRepoChats": "このリポジトリにはまだチャットがありません"
   },
   "agentReview": {
     "openButton": "変更をレビュー",
