@@ -52,3 +52,15 @@ export function flattenThreads(threads: SidebarThread[]): FlatItem[] {
   }
   return flat;
 }
+
+export function repoThreadPaths(
+  selectedPath: string,
+  worktrees: Record<string, { basePath: string }>,
+): string[] {
+  if (!selectedPath) return [];
+  const paths = [selectedPath];
+  for (const [path, worktree] of Object.entries(worktrees)) {
+    if (worktree.basePath === selectedPath && path !== selectedPath) paths.push(path);
+  }
+  return paths;
+}

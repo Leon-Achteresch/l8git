@@ -126,9 +126,7 @@ export function ToolResult({
   const reduce = useReducedMotion() ?? false;
   const contentId = useId();
   const triggerId = useId();
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(
-    open ?? (status === "running" ? true : defaultOpen),
-  );
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(open ?? defaultOpen);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<number | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -156,12 +154,13 @@ export function ToolResult({
   }, [open]);
 
   useEffect(() => {
-    if (previousStatus.current !== "running" && status === "running") {
+    if (previousStatus.current === "running" && status === "error") {
       setOpen(true);
     }
     if (
       previousStatus.current === "running" &&
       status !== "running" &&
+      status !== "error" &&
       collapseOnComplete
     ) {
       setOpen(false);
@@ -207,7 +206,7 @@ export function ToolResult({
         aria-expanded={currentOpen}
         aria-controls={contentId}
         onClick={() => setOpen(!currentOpen)}
-        className="group flex h-9 w-full items-center gap-2 px-2.5 text-left outline-none transition-colors hover:bg-[var(--ag-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="group flex h-8 w-full items-center gap-2 px-2.5 text-left outline-none transition-colors hover:bg-[var(--ag-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span
           aria-hidden="true"
@@ -229,13 +228,18 @@ export function ToolResult({
           </span>
         </span>
         <span
+          title={statusLabel}
           className={cn(
             "inline-flex shrink-0 items-center gap-1 text-[11px] font-medium",
             getStatusClass(status),
           )}
         >
           <StatusIcon status={status} reduce={reduce} />
-          <ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
+          {status === "success" ? (
+            <span className="sr-only">{statusLabel}</span>
+          ) : (
+            <ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
+          )}
         </span>
         <m.span
           aria-hidden="true"

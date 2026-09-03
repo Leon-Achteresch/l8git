@@ -61,4 +61,22 @@ describe("slash commands", () => {
       acceptsArgument: true,
     });
   });
+
+  it("offers /variants only on opencode", () => {
+    const base = {
+      providerLabel: "OpenCode",
+      isClaude: false,
+      isCodex: false,
+      threadId: "t1",
+      busy: false,
+      conversationExists: true,
+      model: "m",
+      models: [{ id: "m", label: "M", reasoningEfforts: [{ value: "high", label: "High" }], serviceTiers: [] }],
+      hasTerminalToggle: false,
+    };
+    const opencode = nativeSlashCommands({ ...base, provider: "opencode" } as never);
+    expect(opencode.find((command) => command.value === "variants")?.disabled).toBe(false);
+    const claude = nativeSlashCommands({ ...base, provider: "claude", isClaude: true } as never);
+    expect(claude.some((command) => command.value === "variants")).toBe(false);
+  });
 });

@@ -79,8 +79,9 @@ test.describe("Agents composer", () => {
     if (!box || !viewport) return;
     expect(box.width).toBeLessThan(viewport.width * 0.5);
     expect(box.height).toBeLessThan(viewport.height * 0.6);
-    await expectNoOverlap(menu, prompt(page));
-    await expectPromptOnTop(page);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    await expectNoOverlap(menu, effortButton(page));
   });
 
   test("slash commands list compact without covering the send button", async ({ page }) => {

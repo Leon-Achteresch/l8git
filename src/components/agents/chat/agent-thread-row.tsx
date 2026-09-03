@@ -19,6 +19,7 @@ import { m, useReducedMotion } from "motion/react";
 import {
   memo,
   useCallback,
+  useMemo,
   useState,
   type ComponentType,
   type ReactNode,
@@ -48,7 +49,6 @@ import {
 import { MorphIcon } from "@/components/ui/morph-icon";
 import { chatStoreFor, useProviderChatStore } from "@/lib/agents/active-chat-store";
 import { useAgentWorktreeStore } from "@/lib/agents/agent-worktrees";
-import { overviewRepoName } from "@/lib/agents/overview";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import { diffFromConversation } from "@/lib/agents/thread-diff";
@@ -59,7 +59,6 @@ import {
   useJiraStore,
 } from "@/lib/jira/jira-store";
 import { SPRING_PRESS } from "@/lib/motion/ease";
-import { useRepoStore } from "@/lib/repo-store";
 
 export function isWorking(status: string): boolean {
   return status !== "idle" && status !== "notLoaded";
@@ -126,16 +125,10 @@ export const AgentThreadRow = memo(function AgentThreadRow({
     (state) => state.conversations[threadId],
   );
   const worktree = useAgentWorktreeStore((state) => state.worktrees[thread.path]);
-  const repoBranch = useRepoStore(
-    (state) =>
-      state.repos[thread.path]?.branch ?? state.repos[path]?.branch ?? "",
-  );
-  const liveDiff = diffFromConversation(conversation);
+  const liveDiff = useMemo(() => diffFromConversation(conversation), [conversation]);
   const additions = liveDiff?.additions ?? thread.additions ?? 0;
   const deletions = liveDiff?.deletions ?? thread.deletions ?? 0;
-  const repoName = overviewRepoName(worktree?.basePath ?? thread.path);
-  const branch = worktree?.branch || repoBranch;
-  const repoLabel = branch ? `${repoName}/${branch}` : repoName;
+  const branch = worktree?.branch ?? "";
   const hasDiff = additions > 0 || deletions > 0;
 
   const open = useCallback(
@@ -286,26 +279,6 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       transition={SPRING_PRESS}
       className="ag-row ag-thread"
     >
-      <span className="ag-thread-line ag-thread-meta">
-        <span className="ag-thread-mark">
-          <ProviderLogo />
-          {working ? (
-            <span className="ag-thread-busy">
-              <AgentWorkingRing size={18} thickness={1.5} className="size-full" />
-            </span>
-          ) : null}
-        </span>
-        <span className="ag-thread-meta-label">
-          {modelName ?? providerMeta.label}
-        </span>
-        <span className="ag-thread-meta-time">
-          {working && workingSince ? (
-            <AgentThreadWorkingTimer since={workingSince} />
-          ) : (
-            relativeDate
-          )}
-        </span>
-      </span>
       <span className="ag-thread-line">
         {thread.isPinned ? (
           <Pin className="size-2.5 shrink-0 text-[var(--git-branch)]" />
@@ -320,13 +293,33 @@ export const AgentThreadRow = memo(function AgentThreadRow({
           className="ag-thread-name"
           inputClassName="text-[13px]"
         />
+        <span className="ag-thread-meta ag-thread-meta-time">
+          {working && workingSince ? (
+            <AgentThreadWorkingTimer since={workingSince} />
+          ) : (
+            relativeDate
+          )}
+        </span>
       </span>
       <span className="ag-thread-line ag-thread-foot">
-        <GitBranch className="ag-thread-logo shrink-0 opacity-70" />
-        <span className="ag-thread-repo">{repoLabel}</span>
+        <span className="ag-thread-mark">
+          <ProviderLogo />
+          {working ? (
+            <span className="ag-thread-busy">
+              <AgentWorkingRing size={18} thickness={1.5} className="size-full" />
+            </span>
+          ) : null}
+        </span>
+        <span className="ag-thread-repo">{modelName ?? providerMeta.label}</span>
+        {branch ? (
+          <>
+            <GitBranch className="ag-thread-logo shrink-0 opacity-70" />
+            <span className="ag-thread-repo">{branch}</span>
+          </>
+        ) : null}
         {jiraEnabled ? <AgentThreadJiraBadge links={jiraLinks} /> : null}
-        <span className="ag-thread-trail">
-          {hasDiff ? (
+        {hasDiff ? (
+          <span className="ag-thread-trail">
             <span className="ag-thread-diff">
               {additions > 0 ? (
                 <span className="ag-thread-diff-add">+{additions}</span>
@@ -335,11 +328,8 @@ export const AgentThreadRow = memo(function AgentThreadRow({
                 <span className="ag-thread-diff-del">-{deletions}</span>
               ) : null}
             </span>
-          ) : null}
-          <span className="ag-thread-mark">
-            {armed ? null : <ProviderLogo className="opacity-55" />}
           </span>
-        </span>
+        ) : null}
       </span>
     </m.div>
   );

@@ -23,7 +23,7 @@ import { SPRING_PRESS } from "@/lib/motion/ease";
 export type { SidebarThread } from "@/lib/agents/thread-grouping";
 
 const HEADER_ESTIMATE_PX = 28;
-const ROW_ESTIMATE_PX = 62;
+const ROW_ESTIMATE_PX = 52;
 const OVERSCAN = 8;
 
 const workingSince = new Map<string, number>();

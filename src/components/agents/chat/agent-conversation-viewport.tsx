@@ -1,3 +1,4 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   AlertCircle,
   ArrowDown,
@@ -23,10 +24,14 @@ import {
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
+import { AgentItemView } from "@/components/agents/chat/agent-item";
 import { AgentRequestCard } from "@/components/agents/chat/agent-request-card";
-import { AgentTurnView } from "@/components/agents/chat/agent-turn-view";
 import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
 import { AgentsEnter } from "@/components/agents/ui/agents-enter";
+import {
+  MessageBubble,
+  MessageBubbleContent,
+} from "@/components/agents/ui/message-bubble";
 import {
   SpinIcon,
   StaggerItem,
@@ -36,19 +41,29 @@ import {
   useContainerScrollProgress,
 } from "@/components/motion/scroll-progress";
 import { TextShimmer } from "@/components/motion/text-shimmer";
+import { useScrollMargin } from "@/hooks/use-scroll-margin";
 import { useAgentChatStore } from "@/lib/agents/active-chat-store";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type { AgentCliCommand } from "@/lib/agents/slash-commands";
+import { flattenTurnRows, type TranscriptRow } from "@/lib/agents/transcript-rows";
+import type { AgentTurn } from "@/lib/agents/types";
 import { SPRING_PANEL } from "@/lib/motion/ease";
 
-const INITIAL_VISIBLE_TURNS = 32;
-const TURN_PAGE_SIZE = 32;
+const EMPTY_TURNS: AgentTurn[] = [];
+const NEAR_BOTTOM_PX = 96;
 const STARTER_ICONS = [
   { Icon: ScanSearch, color: "var(--git-branch)" },
   { Icon: Hammer, color: "var(--git-modified)" },
   { Icon: GitPullRequestArrow, color: "var(--git-added)" },
 ] as const;
+
+function estimateRow(row: TranscriptRow | undefined): number {
+  if (!row || row.kind === "error") return 48;
+  if (row.item.type === "agentMessage") return 140;
+  if (row.item.type === "userMessage") return 64;
+  return 44;
+}
 
 export const AgentConversationViewport = memo(
   function AgentConversationViewport({
@@ -96,19 +111,13 @@ export const AgentConversationViewport = memo(
     const clearError = useAgentChatStore((state) => state.clearError);
     const scrollRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
+    const lastScrollTop = useRef(0);
     const stickToBottom = useRef(true);
-    const restoreBottomOffset = useRef<number | null>(null);
-    const restoreDeadline = useRef(0);
-    const [visibleTurnCount, setVisibleTurnCount] = useState(
-      INITIAL_VISIBLE_TURNS,
-    );
     const [atBottom, setAtBottom] = useState(true);
     const reduceMotion = useReducedMotion() ?? false;
     const scrollProgress = useContainerScrollProgress(scrollRef);
-    const turns = conversation?.turns ?? [];
-    const hiddenTurnCount = Math.max(0, turns.length - visibleTurnCount);
-    const visibleTurns =
-      hiddenTurnCount > 0 ? turns.slice(-visibleTurnCount) : turns;
+    const turns = conversation?.turns ?? EMPTY_TURNS;
+    const rows = useMemo(() => flattenTurnRows(turns), [turns]);
     const busy = Boolean(conversation?.activeTurnId);
     const starters = useMemo(
       () => [
@@ -119,54 +128,74 @@ export const AgentConversationViewport = memo(
       [t],
     );
 
+    const { scrollMargin, listRef } = useScrollMargin(scrollRef);
+    const virtualizer = useVirtualizer({
+      count: rows.length,
+      getScrollElement: () => scrollRef.current,
+      estimateSize: (index) => estimateRow(rows[index]),
+      overscan: 6,
+      useAnimationFrameWithResizeObserver: true,
+      getItemKey: (index) => rows[index]?.key ?? index,
+      scrollMargin,
+    });
+    const virtualRows = virtualizer.getVirtualItems();
+    const measureRow = useCallback(
+      (node: HTMLElement | null) => virtualizer.measureElement(node),
+      [virtualizer],
+    );
+
+    const scrollToEnd = useCallback((behavior?: ScrollBehavior) => {
+      const viewport = scrollRef.current;
+      if (!viewport) return;
+      if (behavior === "smooth") viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+      else viewport.scrollTop = viewport.scrollHeight;
+    }, []);
+
     useEffect(() => {
       stickToBottom.current = true;
-      restoreBottomOffset.current = null;
       setAtBottom(true);
-      setVisibleTurnCount(INITIAL_VISIBLE_TURNS);
     }, [threadId]);
 
     useLayoutEffect(() => {
       if (scrollToBottomSignal === 0) return;
-      const viewport = scrollRef.current;
       stickToBottom.current = true;
-      if (viewport) viewport.scrollTop = viewport.scrollHeight;
-    }, [scrollToBottomSignal]);
+      scrollToEnd();
+    }, [scrollToBottomSignal, scrollToEnd]);
 
     useLayoutEffect(() => {
-      const viewport = scrollRef.current;
-      const bottomOffset = restoreBottomOffset.current;
-      if (!viewport || bottomOffset === null) return;
-      viewport.scrollTop = viewport.scrollHeight - bottomOffset;
-      if (Date.now() > restoreDeadline.current)
-        restoreBottomOffset.current = null;
-    }, [visibleTurnCount]);
+      if (stickToBottom.current) scrollToEnd();
+    }, [busy, requests.length, rows.length, scrollToEnd, threadId]);
 
     useLayoutEffect(() => {
-      const viewport = scrollRef.current;
-      if (!viewport || !stickToBottom.current) return;
-      const frame = requestAnimationFrame(() => {
-        viewport.scrollTop = viewport.scrollHeight;
+      const content = contentRef.current;
+      if (!content || typeof ResizeObserver === "undefined") return;
+      const observer = new ResizeObserver(() => {
+        if (stickToBottom.current) scrollToEnd();
       });
-      return () => cancelAnimationFrame(frame);
-    }, [requests.length, busy, threadId, visibleTurns.length]);
+      observer.observe(content);
+      return () => observer.disconnect();
+    }, [scrollToEnd, connectionStatus, requiresAuth]);
 
     const handleScroll = useCallback(() => {
       const viewport = scrollRef.current;
       if (!viewport) return;
-      const distance =
-        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-      const nearBottom = distance < 96;
-      stickToBottom.current = nearBottom;
+      const top = viewport.scrollTop;
+      const distance = viewport.scrollHeight - top - viewport.clientHeight;
+      const nearBottom = distance < NEAR_BOTTOM_PX;
+      if (nearBottom) stickToBottom.current = true;
+      else if (top < lastScrollTop.current - 1) stickToBottom.current = false;
+      lastScrollTop.current = top;
       setAtBottom((current) => (current === nearBottom ? current : nearBottom));
     }, []);
 
-    const jumpToBottom = useCallback(() => {
-      const viewport = scrollRef.current;
-      stickToBottom.current = true;
-      if (!viewport) return;
-      viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
+    const handleWheel = useCallback((event: React.WheelEvent) => {
+      if (event.deltaY < 0) stickToBottom.current = false;
     }, []);
+
+    const jumpToBottom = useCallback(() => {
+      stickToBottom.current = true;
+      scrollToEnd("smooth");
+    }, [scrollToEnd]);
 
     if (connectionStatus === "connecting") {
       return (
@@ -281,11 +310,12 @@ export const AgentConversationViewport = memo(
           ref={scrollRef}
           data-agent-transcript-scroll=""
           onScroll={handleScroll}
+          onWheel={handleWheel}
           className="ag-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
         >
           <div
             ref={contentRef}
-            className={`mx-auto flex min-h-full min-w-0 w-full flex-col px-4 pb-4 pt-4 md:px-8 ${centered ? "justify-center" : "justify-start"}`}
+            className={`ag-column mx-auto flex min-h-full min-w-0 w-full flex-col px-4 pb-4 pt-4 md:px-6 ${centered ? "justify-center" : "justify-start"}`}
           >
             {centered ? (
               <div className="w-full pb-4">
@@ -309,7 +339,7 @@ export const AgentConversationViewport = memo(
                   </p>
                 </AgentsEnter>
 
-                <div className="mx-auto min-w-0 w-[86%] max-w-full">{composer}</div>
+                <div className="mx-auto min-w-0 w-full">{composer}</div>
 
                 <div className="mt-5 space-y-3">
                   <div className="flex flex-wrap items-center justify-center gap-1.5">
@@ -359,37 +389,36 @@ export const AgentConversationViewport = memo(
               </div>
             ) : null}
 
-            {hiddenTurnCount > 0 ? (
-              <div className="mb-3 flex justify-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const viewport = scrollRef.current;
-                    if (viewport) {
-                      restoreBottomOffset.current =
-                        viewport.scrollHeight - viewport.scrollTop;
-                      restoreDeadline.current = Date.now() + 600;
-                    }
-                    setVisibleTurnCount(
-                      (count) => count + TURN_PAGE_SIZE,
-                    );
-                  }}
-                  className="ag-pill h-7 gap-1.5 px-3 text-[11px] font-medium"
-                >
-                  {t("agentChat.showOlderTurns", {
-                    count: Math.min(hiddenTurnCount, TURN_PAGE_SIZE),
-                  })}
-                </button>
-              </div>
-            ) : null}
-
-            {!centered ? (
-              <div data-agent-turn-list="" className="flex min-w-0 flex-col gap-4">
-                {visibleTurns.map((turn) => (
-                  <div key={turn.id} data-agent-turn={turn.id} className="min-w-0">
-                    <AgentTurnView turn={turn} />
-                  </div>
-                ))}
+            {!centered && rows.length > 0 ? (
+              <div
+                ref={listRef}
+                data-agent-turn-list=""
+                style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+              >
+                {virtualRows.map((virtualRow) => {
+                  const row = rows[virtualRow.index];
+                  if (!row) return null;
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      ref={measureRow}
+                      data-index={virtualRow.index}
+                      data-agent-turn={row.turn.id}
+                      className="absolute inset-x-0 top-0 min-w-0 pb-3"
+                      style={{
+                        transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                      }}
+                    >
+                      {row.kind === "item" ? (
+                        <AgentItemView item={row.item} turn={row.turn} />
+                      ) : (
+                        <MessageBubble align="start" variant="danger">
+                          <MessageBubbleContent>{row.error}</MessageBubbleContent>
+                        </MessageBubble>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
 
@@ -398,7 +427,7 @@ export const AgentConversationViewport = memo(
                 initial={reduceMotion ? false : { opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={SPRING_PANEL}
-                className="mt-2 flex items-center gap-2 px-1 text-[11px] text-[var(--ag-text-2)]"
+                className="mt-1 flex items-center gap-2 px-1 text-[11px] text-[var(--ag-text-2)]"
               >
                 <span className="size-2 rounded-full bg-[var(--git-branch)] animate-pulse" />
                 <TextShimmer className="font-medium">
@@ -443,7 +472,7 @@ export const AgentConversationViewport = memo(
         </div>
 
         <AnimatePresence>
-          {!atBottom && visibleTurns.length > 0 ? (
+          {!atBottom && rows.length > 0 ? (
             <m.button
               type="button"
               onClick={jumpToBottom}

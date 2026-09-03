@@ -279,10 +279,10 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   min-height: 0;
   height: auto;
-  padding: 6px 8px;
+  padding: 7px 10px;
   border-radius: 10px;
   overflow: hidden;
 }
@@ -323,8 +323,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   line-height: 18px;
   color: var(--ag-text);
 }
@@ -383,6 +383,38 @@
 }
 
 /* ── Controls ──────────────────────────────────────────────────────────── */
+
+.ag-filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  font-weight: 500;
+  color: var(--ag-text-3);
+  outline: none;
+  transition:
+    background-color 220ms var(--ag-ease),
+    color 220ms var(--ag-ease);
+}
+
+.ag-filter:hover {
+  background: var(--ag-hover);
+  color: var(--ag-text);
+}
+
+.ag-filter:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.ag-filter[data-active="true"] {
+  background: var(--ag-selected);
+  color: var(--ag-text);
+}
+
+.ag-column {
+  max-width: 56rem;
+}
 
 .ag-pill {
   display: inline-flex;

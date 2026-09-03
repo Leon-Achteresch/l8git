@@ -256,7 +256,8 @@
       "planMode": "Plan",
       "agent": "Agent",
       "on": "On",
-      "off": "Off"
+      "off": "Off",
+      "variants": "Variant"
     },
     "request": {
       "inputRequired": "Input required",
@@ -378,7 +379,10 @@
     "signingIn": "Signing in…",
     "signIn": "Sign in",
     "emptySubtitle": "Select a starter prompt or type your request below.",
-    "showOlderTurns": "Show {{count}} older messages"
+    "showOlderTurns": "Show {{count}} older messages",
+    "allProviders": "All agents",
+    "filterProvider": "Show only {{agent}} chats",
+    "noRepoChats": "No chats in this repository yet"
   },
   "agentReview": {
     "openButton": "Review changes",

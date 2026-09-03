@@ -718,14 +718,35 @@ function clientForThread(threadId: string): OpenCodeClient | undefined {
   return path ? clients.get(path) : undefined;
 }
 
+async function setOptionAndRefresh(
+  client: OpenCodeClient,
+  sessionId: string,
+  configId: string,
+  value: string | boolean,
+): Promise<void> {
+  const result = await client.setConfigOption(sessionId, configId, value).catch(() => null);
+  if (result?.configOptions?.length) applyConfig(client.cwd, { configOptions: result.configOptions });
+}
+
+function effortOptionFor(path: string): OpenCodeConfigOption | undefined {
+  return optionByCategory(configByPath.get(path) ?? [], EFFORT_CATEGORY);
+}
+
 async function applySessionSettings(client: OpenCodeClient, sessionId: string): Promise<void> {
   const state = openCodeChatStore.getState();
-  if (state.model) await client.setModel(sessionId, state.model).catch(() => {});
-  if (state.permissionProfile) await client.setMode(sessionId, state.permissionProfile).catch(() => {});
-  if (state.reasoningEffort) {
-    await client.setConfigOption(sessionId, EFFORT_CATEGORY, state.reasoningEffort).catch(() => {});
+  const path = client.cwd;
+  if (state.model) {
+    const modelOption = optionByCategory(configByPath.get(path) ?? [], MODEL_CATEGORY);
+    if (modelOption) await setOptionAndRefresh(client, sessionId, modelOption.id, state.model);
+    else await client.setModel(sessionId, state.model).catch(() => {});
   }
-  for (const selection of state.configSelections) {
+  if (state.permissionProfile) await client.setMode(sessionId, state.permissionProfile).catch(() => {});
+  const effort = openCodeChatStore.getState().reasoningEffort;
+  const effortOption = effortOptionFor(path);
+  if (effort && effortOption && flatChoices(effortOption).some((choice) => choice.value === effort)) {
+    await setOptionAndRefresh(client, sessionId, effortOption.id, effort);
+  }
+  for (const selection of openCodeChatStore.getState().configSelections) {
     await client.setConfigOption(sessionId, selection.id, selection.value).catch(() => {});
   }
 }
@@ -1323,7 +1344,10 @@ export const openCodeChatStore = createStore<OpenCodeChatState>()((set, get) => 
   setReasoningEffort: (reasoningEffort) => {
     set({ reasoningEffort });
     for (const [threadId, path] of pathByThread) {
-      void clients.get(path)?.setConfigOption(threadId, EFFORT_CATEGORY, reasoningEffort).catch(() => {});
+      const client = clients.get(path);
+      const effortOption = effortOptionFor(path);
+      if (!client || !effortOption) continue;
+      void setOptionAndRefresh(client, threadId, effortOption.id, reasoningEffort);
     }
   },
   setConfigSelection: (id, value) => {

@@ -144,7 +144,7 @@ export function AgentActivity({
     onOpenChange,
   });
   const working = status === "working";
-  const expanded = working || currentOpen;
+  const expanded = currentOpen;
   const contentType = items.length
     ? getContentType(items)
     : (initialContentType ?? "mixed");
@@ -195,36 +195,30 @@ export function AgentActivity({
       aria-busy={working}
       className={cn("w-full text-sm", className)}
     >
-      {working ? (
-        <div
-          id={triggerId}
-          role="status"
-          className="flex h-7 min-w-0 items-center gap-1.5 text-[var(--ag-text-2)]"
-        >
-          <Lightbulb className="size-3.5 shrink-0" />
+      <button
+        id={triggerId}
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={contentId}
+        aria-busy={working}
+        onClick={toggle}
+        className="ag-chip group -ml-2 text-[12px] font-medium"
+      >
+        <Lightbulb className="size-3.5 shrink-0" />
+        {working ? (
           <ThinkingShimmer>{liveLabel}</ThinkingShimmer>
-        </div>
-      ) : (
-        <button
-          id={triggerId}
-          type="button"
-          aria-expanded={expanded}
-          aria-controls={contentId}
-          onClick={toggle}
-          className="ag-chip group -ml-2 text-[12px] font-medium"
-        >
-          <Lightbulb className="size-3.5 shrink-0" />
+        ) : (
           <span className="truncate">{completedSummary}</span>
-          <m.span
-            aria-hidden="true"
-            animate={{ rotate: expanded ? 180 : 0 }}
-            transition={reduce ? { duration: 0 } : SPRING_SWAP}
-            className="inline-flex shrink-0 text-muted-foreground/70 group-hover:text-foreground"
-          >
-            <ChevronDown className="size-3.5" />
-          </m.span>
-        </button>
-      )}
+        )}
+        <m.span
+          aria-hidden="true"
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={reduce ? { duration: 0 } : SPRING_SWAP}
+          className="inline-flex shrink-0 text-muted-foreground/70 group-hover:text-foreground"
+        >
+          <ChevronDown className="size-3.5" />
+        </m.span>
+      </button>
 
       <AgentDisclosure
         id={contentId}

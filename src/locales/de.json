@@ -256,7 +256,8 @@
       "planMode": "Plan",
       "agent": "Agent",
       "on": "An",
-      "off": "Aus"
+      "off": "Aus",
+      "variants": "Variante"
     },
     "request": {
       "inputRequired": "Eingabe benötigt",
@@ -378,7 +379,10 @@
     "signingIn": "Anmeldung läuft…",
     "signIn": "Anmelden",
     "emptySubtitle": "Wähle einen Starter-Prompt oder tippe eine eigene Anfrage ein.",
-    "showOlderTurns": "{{count}} ältere Nachrichten anzeigen"
+    "showOlderTurns": "{{count}} ältere Nachrichten anzeigen",
+    "allProviders": "Alle Agenten",
+    "filterProvider": "Nur {{agent}}-Chats anzeigen",
+    "noRepoChats": "Noch keine Chats in diesem Repository"
   },
   "agentReview": {
     "openButton": "Änderungen reviewen",

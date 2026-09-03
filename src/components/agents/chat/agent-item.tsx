@@ -472,7 +472,7 @@ function CommandItem({ item }: { item: AgentItem }) {
       status={status}
       kind="terminal"
       copyText={output || command}
-      defaultOpen={status !== "success"}
+      defaultOpen={status === "error"}
     >
       <ToolResultOutput highlight={status !== "running"}>
         {displayedOutput || "Noch keine Ausgabe"}
@@ -529,7 +529,6 @@ function FileChangeItem({ item }: { item: AgentItem }) {
               language={change.language}
               status={streaming ? "streaming" : "complete"}
               copyText={change.diff}
-              defaultOpen={changes.length === 1}
             />
           </ItemMenu>
         );
