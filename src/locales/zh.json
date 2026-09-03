@@ -3142,7 +3142,22 @@
       "preview": "查看差异",
       "deleteFromSource": "从 {{source}} 删除",
       "overwriteOnHint": "目标中已存在的条目会被替换，旧版本会先备份到 .l8git-backups。",
-      "overwriteOffHint": "目标中已存在的条目保持不变。要替换请打开覆盖开关。"
+      "overwriteOffHint": "目标中已存在的条目保持不变。要替换请打开覆盖开关。",
+      "stepSource": "来源",
+      "stepTargets": "目标",
+      "stepCopy": "复制",
+      "stepDone": "完成",
+      "stepSourceTitle": "这些能力现在在哪里？",
+      "stepSourceHint": "选择要复制的来源 CLI。文件会保留在那里，你只是复制一份。",
+      "stepTargetTitle": "要复制到哪里？",
+      "stepTargetHint": "这些 CLI 会收到来自 {{source}} 的副本。可以选择多个。",
+      "stepCopyTitle": "要复制什么？",
+      "stepCopyHint": "{{target}} 上缺少 {{source}} 的 {{missing}} 个条目。保留当前选择，或取消勾选不需要的项。",
+      "stepDoneTitle": "完成",
+      "stepDoneHint": "所选条目已添加到目标 CLI。如果还需要复制，可以重新开始。",
+      "scopeHint": "从哪个级别复制？",
+      "moreOptions": "更多选项",
+      "again": "重新开始"
     },
     "market": {
       "title": "装进你的 CLI",
@@ -3203,8 +3218,31 @@
       "installTargets": "安装到",
       "install": "安装（{{count}}）",
       "installed": "已安装 {{count}} 个条目",
-      "installedWithErrors": "已安装 {{ok}} 个，失败 {{failed}} 个"
-    }
+      "installedWithErrors": "已安装 {{ok}} 个，失败 {{failed}} 个",
+      "stepKind": "类型",
+      "stepSearch": "搜索",
+      "stepInstall": "安装",
+      "stepDone": "完成",
+      "stepKindTitle": "你想添加什么？",
+      "stepKindHint": "先选择类型。接着在 GitHub 上搜索现成的包，并选择要安装到哪个 CLI。",
+      "kindHints": {
+        "skill": "当任务匹配时，智能体会自行加载的说明。",
+        "mcp": "智能体可以调用的外部工具和数据源。",
+        "plugin": "面向 CLI 的现成扩展。",
+        "hook": "CLI 中发生某些事件时的自动操作。",
+        "command": "由你自己启动的斜杠命令和子智能体。"
+      },
+      "stepSearchTitle": "在 GitHub 上查找 {{kind}}",
+      "stepSearchHint": "选择一个包。接下来会显示具体安装什么以及安装到哪里。",
+      "stepInstallTitle": "检查并安装",
+      "stepInstallHint": "勾选需要的内容和目标 CLI。只有在信任的情况下才安装陌生仓库。",
+      "stepDoneTitle": "已安装",
+      "stepDoneHint": "所选文件已添加到你的 CLI 中。",
+      "chooseThis": "使用这个",
+      "again": "选择其他类型",
+      "moreFromSearch": "继续搜索"
+    },
+    "liveFromCli": "{{repo}} · 来自已安装 CLI 的实时数据"
   },
   "agentAddons": {
     "title": "插件工作室",

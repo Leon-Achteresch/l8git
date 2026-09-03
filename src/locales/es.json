@@ -3142,7 +3142,22 @@
       "preview": "Ver diferencias",
       "deleteFromSource": "Borrar de {{source}}",
       "overwriteOnHint": "Las entradas existentes en el destino se reemplazan; antes se guarda la versión anterior en .l8git-backups.",
-      "overwriteOffHint": "Las entradas que ya existen en el destino no se tocan. Activa la sobrescritura para reemplazarlas."
+      "overwriteOffHint": "Las entradas que ya existen en el destino no se tocan. Activa la sobrescritura para reemplazarlas.",
+      "stepSource": "Origen",
+      "stepTargets": "Destinos",
+      "stepCopy": "Copiar",
+      "stepDone": "Listo",
+      "stepSourceTitle": "¿Dónde están ya estas capacidades?",
+      "stepSourceHint": "Elige la CLI desde la que copiar. Los archivos se quedan ahí: solo haces una copia.",
+      "stepTargetTitle": "¿A dónde deben ir?",
+      "stepTargetHint": "Estas CLI reciben la copia de {{source}}. Puedes elegir más de una.",
+      "stepCopyTitle": "¿Qué se debe copiar?",
+      "stepCopyHint": "Faltan {{missing}} entradas de {{source}} en {{target}}. Mantén la selección o desmarca lo que no deba ir ahí.",
+      "stepDoneTitle": "Listo",
+      "stepDoneHint": "Las entradas seleccionadas ya están en las CLI de destino. Puedes empezar de nuevo si necesitas otra copia.",
+      "scopeHint": "¿Desde qué nivel copiamos?",
+      "moreOptions": "Más opciones",
+      "again": "Empezar de nuevo"
     },
     "market": {
       "title": "Instalar en tus CLIs",
@@ -3203,8 +3218,31 @@
       "installTargets": "Instalar en",
       "install": "Instalar ({{count}})",
       "installed": "{{count}} entradas instaladas",
-      "installedWithErrors": "{{ok}} instaladas, {{failed}} con error"
-    }
+      "installedWithErrors": "{{ok}} instaladas, {{failed}} con error",
+      "stepKind": "Tipo",
+      "stepSearch": "Buscar",
+      "stepInstall": "Instalar",
+      "stepDone": "Listo",
+      "stepKindTitle": "¿Qué quieres añadir?",
+      "stepKindHint": "Elige un tipo. Después buscas en GitHub un paquete listo y eliges en qué CLI debe quedar.",
+      "kindHints": {
+        "skill": "Instrucciones que el agente carga por su cuenta cuando la tarea encaja.",
+        "mcp": "Herramientas y fuentes de datos externas que el agente puede llamar.",
+        "plugin": "Extensiones listas para la CLI.",
+        "hook": "Acciones automáticas cuando algo ocurre en la CLI.",
+        "command": "Comandos de barra y subagentes que inicias tú."
+      },
+      "stepSearchTitle": "Encuentra {{kind}} en GitHub",
+      "stepSearchHint": "Elige un paquete. Después verás exactamente qué se instala y dónde.",
+      "stepInstallTitle": "Revisar e instalar",
+      "stepInstallHint": "Marca lo que quieras y en qué CLI debe quedar. Instala repos desconocidos solo si confías en ellos.",
+      "stepDoneTitle": "Instalado",
+      "stepDoneHint": "Los archivos seleccionados ya están en tus CLI.",
+      "chooseThis": "Usar este",
+      "again": "Elegir otro tipo",
+      "moreFromSearch": "Seguir buscando"
+    },
+    "liveFromCli": "{{repo}} · en vivo desde la CLI instalada"
   },
   "agentAddons": {
     "title": "Estudio de complementos",
