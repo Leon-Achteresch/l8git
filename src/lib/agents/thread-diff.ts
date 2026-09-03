@@ -84,7 +84,7 @@ export function diffFromItem(item: AgentItem): ThreadDiff {
   return { additions, deletions };
 }
 
-export function diffFromTurns(turns: AgentTurn[]): ThreadDiff {
+export function diffFromTurns(turns: Pick<AgentTurn, "items">[]): ThreadDiff {
   let additions = 0;
   let deletions = 0;
   for (const turn of turns) {

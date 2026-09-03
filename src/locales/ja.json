@@ -3142,7 +3142,22 @@
       "preview": "差分を見る",
       "deleteFromSource": "{{source}} から削除",
       "overwriteOnHint": "コピー先の既存項目を置き換えます。置き換え前に .l8git-backups へバックアップします。",
-      "overwriteOffHint": "コピー先にすでにある項目はそのままです。置き換えるには上書きを有効にしてください。"
+      "overwriteOffHint": "コピー先にすでにある項目はそのままです。置き換えるには上書きを有効にしてください。",
+      "stepSource": "コピー元",
+      "stepTargets": "コピー先",
+      "stepCopy": "コピー",
+      "stepDone": "完了",
+      "stepSourceTitle": "これらの機能はどこにありますか？",
+      "stepSourceHint": "コピー元の CLI を選びます。ファイルはそのまま残り、コピーが作られるだけです。",
+      "stepTargetTitle": "どこにコピーしますか？",
+      "stepTargetHint": "これらの CLI が {{source}} からのコピーを受け取ります。複数選択できます。",
+      "stepCopyTitle": "何をコピーしますか？",
+      "stepCopyHint": "{{source}} の {{missing}} 件のエントリが {{target}} にありません。選択をそのままにするか、不要なものを外してください。",
+      "stepDoneTitle": "完了",
+      "stepDoneHint": "選択したエントリがコピー先の CLI に追加されました。別のコピーが必要なら最初からやり直せます。",
+      "scopeHint": "どのレベルからコピーしますか？",
+      "moreOptions": "その他のオプション",
+      "again": "最初からやり直す"
     },
     "market": {
       "title": "CLI に入れる",
@@ -3203,8 +3218,31 @@
       "installTargets": "インストール先",
       "install": "インストール ({{count}})",
       "installed": "{{count}} 件をインストールしました",
-      "installedWithErrors": "インストール {{ok}} 件 / 失敗 {{failed}} 件"
-    }
+      "installedWithErrors": "インストール {{ok}} 件 / 失敗 {{failed}} 件",
+      "stepKind": "種類",
+      "stepSearch": "検索",
+      "stepInstall": "インストール",
+      "stepDone": "完了",
+      "stepKindTitle": "何を追加しますか？",
+      "stepKindHint": "種類を選びます。次に GitHub で既成のパッケージを検索し、どの CLI に入れるかを選びます。",
+      "kindHints": {
+        "skill": "タスクに合致したときにエージェントが自分で読み込む指示。",
+        "mcp": "エージェントが呼び出せる外部ツールとデータソース。",
+        "plugin": "CLI 用の既成の拡張機能。",
+        "hook": "CLI で何かが起きたときの自動アクション。",
+        "command": "自分で実行するスラッシュコマンドとサブエージェント。"
+      },
+      "stepSearchTitle": "GitHub で {{kind}} を探す",
+      "stepSearchHint": "パッケージを選びます。次に何がどこにインストールされるかが正確に表示されます。",
+      "stepInstallTitle": "確認してインストール",
+      "stepInstallHint": "必要なものと入れる CLI を選んでください。信頼できない不明なリポジトリはインストールしないでください。",
+      "stepDoneTitle": "インストール済み",
+      "stepDoneHint": "選択したファイルが CLI に追加されました。",
+      "chooseThis": "これを使う",
+      "again": "別の種類を選ぶ",
+      "moreFromSearch": "検索を続ける"
+    },
+    "liveFromCli": "{{repo}} · インストール済み CLI からライブ取得"
   },
   "agentAddons": {
     "title": "アドオンスタジオ",
