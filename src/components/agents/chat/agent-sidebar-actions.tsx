@@ -5,6 +5,8 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { MorphIcon } from "@/components/ui/morph-icon";
+import type { AGENT_PROVIDERS } from "@/lib/agents/provider-meta";
+import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import { SPRING_PRESS } from "@/lib/motion/ease";
 
 export function AgentSidebarActions({
@@ -15,6 +17,9 @@ export function AgentSidebarActions({
   showArchived,
   archivedCount,
   onToggleArchived,
+  providers,
+  providerFilter,
+  onProviderFilterChange,
 }: {
   query: string;
   onQueryChange: (query: string) => void;
@@ -23,6 +28,9 @@ export function AgentSidebarActions({
   showArchived: boolean;
   archivedCount: number;
   onToggleArchived: () => void;
+  providers: ReadonlyArray<(typeof AGENT_PROVIDERS)[number]>;
+  providerFilter: NativeAgentProvider | null;
+  onProviderFilterChange: (provider: NativeAgentProvider | null) => void;
 }) {
   const { t } = useTranslation();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -99,6 +107,40 @@ export function AgentSidebarActions({
           </button>
         ) : null}
       </div>
+
+      {providers.length > 1 ? (
+        <div
+          role="group"
+          aria-label={t("agentChat.allProviders")}
+          className="flex min-w-0 items-center gap-1"
+        >
+          <button
+            type="button"
+            data-active={providerFilter === null}
+            aria-pressed={providerFilter === null}
+            onClick={() => onProviderFilterChange(null)}
+            className="ag-filter h-6 px-2.5 text-[11px]"
+          >
+            {t("agentChat.allProviders")}
+          </button>
+          {providers.map(({ value, label, Logo }) => (
+            <button
+              key={value}
+              type="button"
+              data-active={providerFilter === value}
+              aria-pressed={providerFilter === value}
+              aria-label={t("agentChat.filterProvider", { agent: label })}
+              title={t("agentChat.filterProvider", { agent: label })}
+              onClick={() =>
+                onProviderFilterChange(providerFilter === value ? null : value)
+              }
+              className="ag-filter size-6"
+            >
+              <Logo className="size-3.5" />
+            </button>
+          ))}
+        </div>
+      ) : null}
     </nav>
   );
 }

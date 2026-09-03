@@ -256,7 +256,8 @@
       "planMode": "规划",
       "agent": "智能体",
       "on": "开",
-      "off": "关"
+      "off": "关",
+      "variants": "变体"
     },
     "request": {
       "inputRequired": "需要输入",
@@ -378,7 +379,10 @@
     "signingIn": "正在登录…",
     "signIn": "登录",
     "emptySubtitle": "请选择初始提示词或在下方输入你的需求。",
-    "showOlderTurns": "显示 {{count}} 条较早的消息"
+    "showOlderTurns": "显示 {{count}} 条较早的消息",
+    "allProviders": "所有智能体",
+    "filterProvider": "仅显示 {{agent}} 的对话",
+    "noRepoChats": "此仓库中暂无对话"
   },
   "agentReview": {
     "openButton": "审查更改",

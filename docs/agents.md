@@ -19,12 +19,13 @@ Open the **Agents** view from the header, pick a repository and a provider, and 
 
 ## Chatting
 
-- Conversations are listed per repository and can be renamed, pinned or archived. Older turns and older conversations load on demand.
+- The sidebar lists only the conversations of the repository selected in the header (including its agent worktrees), across all installed agents; the chips under the search box narrow it to one agent. Conversations can be renamed, pinned or archived.
+- Long transcripts are virtualized; tool calls, diffs and reasoning stay collapsed until you open them (errors open themselves). The view follows new output until you scroll up.
 - **Enter** sends, **Shift+Enter** adds a line. While a turn is running, Enter *steers* it instead of queuing a new message.
 - Images can be attached (PNG, JPEG, GIF, WebP).
 - Starter prompts are offered for an empty conversation: analyze the working tree, implement the next improvement, review the uncommitted changes.
 - Thread actions: review the working tree, fork the conversation, compact the context.
-- Where a provider exposes them, agent settings are editable inline — sandbox level (read only / write workspace / full access), approval policy, model, thinking effort, and mode (build or plan).
+- Where a provider exposes them, agent settings are editable inline — sandbox level (read only / write workspace / full access), approval policy, model, thinking effort (`/variants` on OpenCode), and mode (build or plan).
 - Codex additionally has a **Capability Studio** for skills, MCP servers, plugins, apps and hooks, including an escape hatch to edit the raw `config.toml`, and an account menu showing usage against the short and weekly windows.
 - Every capability surface (Codex, Claude Code, OpenCode) also has the **Sync** and **Marketplace** tabs described below.
 

@@ -39,6 +39,7 @@ const NATIVE_SLASH_COMMANDS = [
   "plan",
   "goal",
   "model",
+  "variants",
   "permissions",
   "memories",
   "chart",
@@ -110,6 +111,9 @@ export function nativeSlashCommands(input: NativeSlashInput): SlashCommandEntry[
     { value: "plan", label: "Toggle Plan mode", description: "Switch between Default and Plan" },
     { value: "goal", label: "Set or clear a goal", description: "/goal objective or /goal clear", disabled: !input.threadId, acceptsArgument: true },
     { value: "model", label: "Choose model and effort", description: "/model model-id [effort]", acceptsArgument: true },
+    ...(input.provider === "opencode"
+      ? [{ value: "variants", label: "Switch model variant", description: "Effort variant of the current model, e.g. /variants high", disabled: !selected?.reasoningEfforts.length, acceptsArgument: true }]
+      : []),
     { value: "permissions", label: "Choose permissions", description: `Select a named ${input.providerLabel} permission profile`, acceptsArgument: true },
     { value: "memories", label: "Configure memory", description: "/memories enabled, disabled, or reset", acceptsArgument: true },
     { value: "chart", label: "Visualize data as a chart", description: "/chart what to visualize — renders an interactive chart", disabled: input.busy, acceptsArgument: true },

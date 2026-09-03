@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { flattenThreads, groupOf, type SidebarThread } from "@/lib/agents/thread-grouping";
+import { flattenThreads, groupOf, repoThreadPaths, type SidebarThread } from "@/lib/agents/thread-grouping";
 
 const NOW = new Date("2026-03-12T15:30:00Z");
 const startOfToday = (() => {
@@ -112,5 +112,16 @@ describe("flattenThreads", () => {
 
   it("returns nothing for an empty list", () => {
     expect(flattenThreads([])).toEqual([]);
+  });
+});
+
+describe("repoThreadPaths", () => {
+  it("returns the repo plus its worktrees, never other repos", () => {
+    const worktrees = {
+      "/repo/.wt/a": { basePath: "/repo" },
+      "/other/.wt/b": { basePath: "/other" },
+    };
+    expect(repoThreadPaths("/repo", worktrees)).toEqual(["/repo", "/repo/.wt/a"]);
+    expect(repoThreadPaths("", worktrees)).toEqual([]);
   });
 });

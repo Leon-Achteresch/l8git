@@ -4,7 +4,6 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AppWindow,
   Blocks,
-  ChevronRight,
   File,
   FileDiff,
   FileImage,
@@ -141,7 +140,6 @@ export const AgentChatPane = memo(function AgentChatPane({
   const connectionError = useAgentChatStore((state) => state.connectionError);
   const requiresAuth = useAgentChatStore((state) => state.requiresAuth);
   const loginStatus = useAgentChatStore((state) => state.loginStatus);
-  const account = useAgentChatStore((state) => state.account);
   const models = useAgentChatStore((state) => state.models);
   const model = useAgentChatStore((state) => state.model);
   const branch = useRepoStore((state) => state.repos[path]?.branch);
@@ -604,6 +602,34 @@ export const AgentChatPane = memo(function AgentChatPane({
         toast.success(`${option.label}${requestedEffort ? ` · ${codexReasoningEffortLabel(requestedEffort)}` : ""}`);
         return;
       }
+      if (command === "variants") {
+        const selected = models.find((option) => option.id === model);
+        const variants = selected?.reasoningEfforts ?? [];
+        if (!variants.length) throw new Error("The selected model does not offer any variants.");
+        if (!argument) {
+          const current = useAgentChatStore.getState().reasoningEffort;
+          setCommandPicker({
+            title: "Variants",
+            items: variants.map((variant) => ({
+              id: variant.value,
+              label: codexReasoningEffortLabel(variant.value),
+              description: variant.value === current ? "Current" : variant.description || undefined,
+            })),
+            onSelect: (id) => {
+              setCommandPicker(null);
+              void runSlashCommand("variants", id);
+            },
+          });
+          return;
+        }
+        const variant = variants.find((candidate) =>
+          candidate.value.toLocaleLowerCase() === argument.toLocaleLowerCase(),
+        );
+        if (!variant) throw new Error(`Unknown variant: ${argument}`);
+        setReasoningEffort(variant.value);
+        toast.success(`${selected?.label ?? model} · ${codexReasoningEffortLabel(variant.value)}`);
+        return;
+      }
       if (command === "permissions") {
         if (!argument) {
           setCommandPicker({
@@ -963,7 +989,6 @@ export const AgentChatPane = memo(function AgentChatPane({
         className="ag-dock flex min-w-0 items-center gap-2 overflow-hidden px-3 py-1.5 text-[11px]"
       >
         <span className="ag-faint flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-          <span className="truncate">{repoName(path)}</span>
           {branch ? (
             <>
               <GitBranch className="size-3 shrink-0" />
@@ -1025,7 +1050,6 @@ export const AgentChatPane = memo(function AgentChatPane({
         ) : null}
 
         <span className="ag-faint ml-auto flex min-w-0 max-w-[58%] shrink items-center justify-end gap-1.5 overflow-hidden">
-          {account?.email ? <span className="max-w-48 truncate">{account.email}</span> : null}
           <AgentUsagePill
             usage={conversationMeta.usage}
             model={conversationMeta.usageModel || model}
@@ -1047,10 +1071,6 @@ export const AgentChatPane = memo(function AgentChatPane({
           <ProviderLogo />
         </AgentProviderMark>
         <div className="flex min-w-0 flex-1 items-center gap-1">
-          <span className="ag-faint hidden shrink-0 truncate text-[12px] sm:block">
-            {repoName(path)}
-          </span>
-          <ChevronRight className="ag-faint hidden size-3 shrink-0 sm:block" />
           {conversationMeta.exists && threadId ? (
             <AgentInlineTitle
               path={path}
@@ -1139,7 +1159,7 @@ export const AgentChatPane = memo(function AgentChatPane({
           data-agent-composer-shell=""
           className="relative z-10 min-w-0 shrink-0 px-6 pb-4 pt-2"
         >
-          <div className="mx-auto min-w-0 w-[86%] max-w-full">{composer}</div>
+          <div className="ag-column mx-auto min-w-0 w-full">{composer}</div>
         </div>
       )}
 

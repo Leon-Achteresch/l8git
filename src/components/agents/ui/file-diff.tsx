@@ -75,7 +75,7 @@ export function FileDiff({
   lines,
   status = "streaming",
   open,
-  defaultOpen = true,
+  defaultOpen = false,
   onOpenChange,
   collapseOnComplete = true,
   maxHeight = 220,
@@ -111,9 +111,6 @@ export function FileDiff({
   );
 
   useEffect(() => {
-    if (previousStatus.current !== "streaming" && status === "streaming") {
-      setOpen(true);
-    }
     if (
       previousStatus.current === "streaming" &&
       status === "complete" &&
