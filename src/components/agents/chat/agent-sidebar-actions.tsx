@@ -1,18 +1,28 @@
-import { Plus, Search, X } from "lucide-react";
+import { Archive as ArchiveData, ArchiveRestore as ArchiveRestoreData } from "lucide";
+import { LayoutGrid, Plus, Search, X } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { MorphIcon } from "@/components/ui/morph-icon";
 import { SPRING_PRESS } from "@/lib/motion/ease";
 
 export function AgentSidebarActions({
   query,
   onQueryChange,
   onNewThread,
+  onOpenOverview,
+  showArchived,
+  archivedCount,
+  onToggleArchived,
 }: {
   query: string;
   onQueryChange: (query: string) => void;
   onNewThread: () => void;
+  onOpenOverview?: () => void;
+  showArchived: boolean;
+  archivedCount: number;
+  onToggleArchived: () => void;
 }) {
   const { t } = useTranslation();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -20,23 +30,46 @@ export function AgentSidebarActions({
 
   return (
     <nav className="min-w-0 space-y-1.5 px-2" aria-label={t("header.agents")}>
-      <m.button
-        type="button"
-        onClick={onNewThread}
-        whileTap={reduce ? undefined : { scale: 0.985 }}
-        transition={SPRING_PRESS}
-        className="ag-card flex h-8.5 w-full min-w-0 items-center gap-2 rounded-[var(--ag-r-md)] border-[var(--ag-line)] bg-[var(--ag-surface)] px-3 text-[12px] font-medium text-[var(--ag-text)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
-      >
-        <span className="grid size-4.5 place-items-center rounded-full bg-[var(--ag-hover)] text-[var(--git-branch)]">
-          <Plus className="size-3 stroke-[2.5]" />
-        </span>
-        <span className="flex-1 truncate text-left">
-          {t("agentChat.newConversation")}
-        </span>
-        <kbd className="ag-faint shrink-0 rounded-[5px] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] px-1.5 py-0.5 text-[9px] font-medium tracking-wide">
-          ⌘N
-        </kbd>
-      </m.button>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <m.button
+          type="button"
+          onClick={onNewThread}
+          whileTap={reduce ? undefined : { scale: 0.985 }}
+          transition={SPRING_PRESS}
+          className="ag-card flex h-8.5 min-w-0 flex-1 items-center gap-2 rounded-[var(--ag-r-md)] border-[var(--ag-line)] bg-[var(--ag-surface)] px-3 text-[12px] font-medium text-[var(--ag-text)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
+        >
+          <span className="grid size-4.5 place-items-center rounded-full bg-[var(--ag-hover)] text-[var(--git-branch)]">
+            <Plus className="size-3 stroke-[2.5]" />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-left">
+            {t("agentChat.newConversation")}
+          </span>
+        </m.button>
+        {onOpenOverview ? (
+          <button
+            type="button"
+            onClick={onOpenOverview}
+            className="ag-icon-btn size-8.5 shrink-0 rounded-[var(--ag-r-sm)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-surface)]"
+            aria-label={t("agentOverview.title")}
+            title={t("agentOverview.title")}
+          >
+            <LayoutGrid className="size-3.5" />
+          </button>
+        ) : null}
+        {showArchived || archivedCount > 0 ? (
+          <button
+            type="button"
+            onClick={onToggleArchived}
+            data-active={showArchived}
+            className="ag-icon-btn size-8.5 shrink-0 rounded-[var(--ag-r-sm)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)]"
+            aria-pressed={showArchived}
+            aria-label={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
+            title={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
+          >
+            <MorphIcon icon={showArchived ? ArchiveRestoreData : ArchiveData} className="size-3.5" />
+          </button>
+        ) : null}
+      </div>
 
       <div
         className="ag-inset flex h-8 min-w-0 cursor-text items-center gap-2 rounded-[var(--ag-r-md)] border border-transparent px-2.5 text-[12px] transition-all focus-within:border-[var(--ag-line-strong)] focus-within:bg-[var(--ag-surface)] focus-within:shadow-[var(--ag-shadow-raise)]"

@@ -3049,7 +3049,7 @@
     },
     "hub": {
       "title": "Zwischen deinen CLIs abgleichen",
-      "explainer": "Jede CLI speichert Skills, Commands und MCP für sich. Was in Claude liegt, kennt Codex nicht — solange du es nicht rüberschiebst.",
+      "explainer": "Schritt für Schritt: Quelle wählen, Ziele anhaken, fehlende Einträge übertragen.",
       "ecosystemTitle": "Deine CLIs",
       "sourceBadge": "Quelle",
       "emptyCli": "noch leer",
@@ -3142,11 +3142,26 @@
       "preview": "Unterschiede ansehen",
       "deleteFromSource": "Aus {{source}} löschen",
       "overwriteOnHint": "Vorhandene Einträge im Ziel werden ersetzt — die alte Fassung landet vorher in .l8git-backups.",
-      "overwriteOffHint": "Einträge, die es im Ziel schon gibt, bleiben unangetastet. Zum Ersetzen das Überschreiben einschalten."
+      "overwriteOffHint": "Einträge, die es im Ziel schon gibt, bleiben unangetastet. Zum Ersetzen das Überschreiben einschalten.",
+      "stepSource": "Quelle",
+      "stepTargets": "Ziele",
+      "stepCopy": "Übertragen",
+      "stepDone": "Fertig",
+      "stepSourceTitle": "Wo liegen die Fähigkeiten schon?",
+      "stepSourceHint": "Wähle die CLI, von der kopiert werden soll. Die Dateien bleiben dort — du machst nur eine Kopie.",
+      "stepTargetTitle": "Wohin sollen sie?",
+      "stepTargetHint": "Diese CLIs bekommen die Kopie aus {{source}}. Du kannst mehrere anwählen.",
+      "stepCopyTitle": "Was soll rüber?",
+      "stepCopyHint": "{{missing}} Einträge aus {{source}} fehlen bei {{target}}. Übernimm die Auswahl oder streiche, was dort nicht hin soll.",
+      "stepDoneTitle": "Erledigt",
+      "stepDoneHint": "Die gewählten Einträge sind in den Ziel-CLIs angekommen. Du kannst noch einmal von vorn beginnen.",
+      "scopeHint": "Aus welcher Ebene kopieren?",
+      "moreOptions": "Weitere Optionen",
+      "again": "Noch einmal von vorn"
     },
     "market": {
       "title": "In deine CLIs holen",
-      "explainer": "GitHub-Repos mit fertigen Skills und MCP-Servern. Oben wählst du, in welche deiner CLIs sie sollen — dann suchen und installieren.",
+      "explainer": "Schritt für Schritt: Art wählen, auf GitHub suchen, Dateien und Ziel-CLI prüfen, dann installieren.",
       "installInto": "Landet in",
       "destinationsHint": "Installiert wird auf den angehakten Ebenen. Logos auf einem Treffer heißen: das liegt dort schon.",
       "pickDestinations": "Mindestens eine CLI-Ebene anwählen — dort wird installiert.",
@@ -3203,7 +3218,29 @@
       "installTargets": "Installieren nach",
       "install": "Installieren ({{count}})",
       "installed": "{{count}} Einträge installiert",
-      "installedWithErrors": "{{ok}} installiert, {{failed}} fehlgeschlagen"
+      "installedWithErrors": "{{ok}} installiert, {{failed}} fehlgeschlagen",
+      "stepKind": "Art",
+      "stepSearch": "Suchen",
+      "stepInstall": "Installieren",
+      "stepDone": "Fertig",
+      "stepKindTitle": "Was möchtest du hinzufügen?",
+      "stepKindHint": "Eine Art wählen. Danach suchst du ein fertiges Paket auf GitHub und sagst, in welche CLI es soll.",
+      "kindHints": {
+        "skill": "Anleitungen, die der Agent bei passenden Aufgaben selbst lädt.",
+        "mcp": "Externe Tools und Datenquellen, die der Agent aufrufen kann.",
+        "plugin": "Fertige Erweiterungen für die CLI.",
+        "hook": "Automatische Aktionen, wenn etwas in der CLI passiert.",
+        "command": "Slash-Befehle und Subagents, die du selbst startest."
+      },
+      "stepSearchTitle": "{{kind}} auf GitHub finden",
+      "stepSearchHint": "Ein Paket wählen. Im nächsten Schritt siehst du genau, was installiert wird und wohin.",
+      "stepInstallTitle": "Prüfen und installieren",
+      "stepInstallHint": "Hake an, was du willst, und auf welcher CLI es landen soll. Unbekannte Repos nur installieren, wenn du ihnen vertraust.",
+      "stepDoneTitle": "Installiert",
+      "stepDoneHint": "Die gewählten Dateien liegen jetzt in deinen CLIs.",
+      "chooseThis": "Dieses nehmen",
+      "again": "Andere Art wählen",
+      "moreFromSearch": "Weiter suchen"
     }
   },
   "agentAddons": {

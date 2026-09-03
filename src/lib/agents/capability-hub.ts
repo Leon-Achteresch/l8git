@@ -185,7 +185,7 @@ export function itemStatusSummary(
 }
 
 export function preferredWritableScope(target: CapabilityTargetInfo): CapabilityScope {
-  const ranked = [...target.scopes]
+  const ranked = [...(target.scopes ?? [])]
     .filter((scope) => scope.writable)
     .sort((a, b) => b.itemCount - a.itemCount);
   return ranked[0]?.scope ?? "user";
@@ -356,7 +356,16 @@ export const useCapabilityHubStore = create<CapabilityHubState>((set, get) => ({
       set({ loading: true, error: null });
       try {
         const inventory = await invoke<CapabilityInventory>("agent_cap_inventory", { path });
-        set({ inventory, path, loadedAt: Date.now(), loading: false });
+        set({
+          inventory: {
+            targets: inventory.targets ?? [],
+            items: inventory.items ?? [],
+            warnings: inventory.warnings ?? [],
+          },
+          path,
+          loadedAt: Date.now(),
+          loading: false,
+        });
       } catch (error) {
         set({
           loading: false,

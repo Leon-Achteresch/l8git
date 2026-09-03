@@ -1,14 +1,20 @@
 import { useInstalledAgents } from "@/lib/agent-integrations";
 import { setRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
 import { chatStoreFor } from "@/lib/agents/active-chat-store";
+import type { CapabilityItem, CapabilityKind, CapabilityScope, CapabilityTargetInfo } from "@/lib/agents/capability-hub";
+import { useCapabilityHubStore } from "@/lib/agents/capability-hub";
+import { useAgentCapabilityStore } from "@/lib/agents/capability-store";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import type {
   AgentConversation,
   AgentModelOption,
+  AgentThreadSummary,
   AgentTurn,
 } from "@/lib/agents/types";
+import { useRepoStore } from "@/lib/repo-store";
 
 export const AGENT_UI_PATH = "/tmp/l8git";
+export const AGENT_UI_OTHER_PATH = "/tmp/vault";
 export const AGENT_UI_THREAD = "thread-ui";
 
 const MODEL: AgentModelOption = {
@@ -30,6 +36,51 @@ const MODEL: AgentModelOption = {
 };
 
 const noop = async () => undefined;
+
+function hubTarget(
+  cli: string,
+  label: string,
+  kinds: CapabilityKind[],
+  userCount: number,
+): CapabilityTargetInfo {
+  return {
+    cli,
+    label,
+    command: cli,
+    installed: true,
+    kinds,
+    scopes: [
+      { scope: "global", root: null, exists: false, writable: false, itemCount: 0 },
+      { scope: "user", root: `/tmp/.${cli}`, exists: true, writable: true, itemCount: userCount },
+      { scope: "repo", root: `${AGENT_UI_PATH}/.${cli}`, exists: true, writable: true, itemCount: 0 },
+    ],
+  };
+}
+
+function hubItem(
+  cli: string,
+  kind: CapabilityKind,
+  name: string,
+  fingerprint: string,
+  description: string,
+): CapabilityItem {
+  const scope: CapabilityScope = "user";
+  return {
+    id: `${cli}:${scope}:${kind}:${name}`,
+    cli,
+    scope,
+    kind,
+    name,
+    rel: name,
+    description,
+    path: `/tmp/.${cli}/${kind}s/${name}`,
+    isDirectory: kind === "skill",
+    fileCount: kind === "skill" ? 2 : 1,
+    sizeBytes: 120,
+    updatedAtMs: 0,
+    fingerprint,
+  };
+}
 
 function turn(
   id: string,
@@ -94,8 +145,69 @@ function transcriptTurns(): AgentTurn[] {
   return turns;
 }
 
+function threadSummary(
+  id: string,
+  title: string,
+  updatedAt: number,
+  status = "idle",
+  path = AGENT_UI_PATH,
+  additions?: number,
+  deletions?: number,
+): AgentThreadSummary {
+  return {
+    id,
+    path,
+    title,
+    preview: title,
+    createdAt: updatedAt - 3600,
+    updatedAt,
+    status,
+    modelProvider: "openai",
+    additions,
+    deletions,
+  };
+}
+
+function editTurn(id: string, additions: number, deletions: number): AgentTurn {
+  return turn(id, [
+    {
+      id: `${id}-edit`,
+      type: "fileChange",
+      linesAdded: additions,
+      linesRemoved: deletions,
+      changes: [{ path: "file.ts", additions, deletions }],
+    },
+  ]);
+}
+
+function modelConversation(
+  id: string,
+  title: string,
+  model: string,
+  additions?: number,
+  deletions?: number,
+): AgentConversation {
+  return {
+    threadId: id,
+    path: AGENT_UI_PATH,
+    title,
+    model,
+    reasoningEffort: null,
+    approvalPolicy: "on-request",
+    sandboxMode: "workspace-write",
+    turns:
+      additions || deletions
+        ? [editTurn("edit", additions ?? 0, deletions ?? 0)]
+        : [],
+    activeTurnId: null,
+    loading: false,
+    error: null,
+  };
+}
+
 export function agentUiThreadId(scene: string): string | null {
   if (scene === "chat" || scene === "busy") return AGENT_UI_THREAD;
+  if (scene === "sidebar") return "thread-cursor";
   return null;
 }
 
@@ -124,6 +236,189 @@ export function seedAgentUi(scene: string): void {
       : scene === "error"
         ? "error"
         : "ready";
+
+  if (scene === "capabilities") {
+    document.documentElement.classList.add("dark");
+    useAgentCapabilityStore.setState({
+      path: AGENT_UI_PATH,
+      loading: false,
+      loadedAt: Date.now(),
+      skills: [
+        {
+          name: "review",
+          description: "Review pull requests against the repo conventions.",
+          path: `${AGENT_UI_PATH}/.agents/skills/review`,
+          scope: "repo",
+          enabled: true,
+        },
+        {
+          name: "commit",
+          description: "Draft precise commit messages from the staged diff.",
+          path: `${AGENT_UI_PATH}/.agents/skills/commit`,
+          scope: "user",
+          enabled: true,
+        },
+        {
+          name: "debug",
+          description: "Hunt regressions from failing tests and logs.",
+          path: `${AGENT_UI_PATH}/.agents/skills/debug`,
+          scope: "repo",
+          enabled: false,
+        },
+      ],
+      mcpServers: [],
+      apps: [],
+      hooks: { hooks: [], warnings: [], errors: [] },
+      marketplaces: [],
+      load: async () => undefined,
+      refresh: async () => undefined,
+    });
+    useCapabilityHubStore.setState({
+      path: AGENT_UI_PATH,
+      loading: false,
+      busy: false,
+      loadedAt: Date.now(),
+      error: null,
+      inventory: {
+        targets: [
+          hubTarget("codex", "Codex", ["skill", "command", "agent", "mcp", "hook"], 3),
+          hubTarget("claude", "Claude Code", ["skill", "command", "agent", "mcp", "hook"], 2),
+          hubTarget("cursor", "Cursor CLI", ["skill", "command", "agent", "mcp"], 0),
+        ],
+        items: [
+          hubItem("codex", "skill", "review", "rev-a", "Review pull requests against the repo conventions."),
+          hubItem("codex", "skill", "commit", "cmt-a", "Draft precise commit messages from the staged diff."),
+          hubItem("codex", "skill", "debug", "dbg-a", "Hunt regressions from failing tests and logs."),
+          hubItem("claude", "skill", "review", "rev-a", "Review pull requests against the repo conventions."),
+          hubItem("claude", "command", "ship", "shp-a", "Open a PR from the current branch."),
+        ],
+        warnings: [],
+      },
+      load: async () => undefined,
+    });
+    return;
+  }
+
+  if (scene === "sidebar") {
+    document.documentElement.classList.add("dark");
+    const now = Math.floor(Date.now() / 1000);
+    useAgentProviderStore.setState({ provider: "cursor" });
+    useRepoStore.setState((state) => ({
+      repos: {
+        ...state.repos,
+        [AGENT_UI_PATH]: {
+          path: AGENT_UI_PATH,
+          branch: "main",
+          commits: [],
+          branches: [],
+          tags: [],
+        },
+        [AGENT_UI_OTHER_PATH]: {
+          path: AGENT_UI_OTHER_PATH,
+          branch: "feat/scanner",
+          commits: [],
+          branches: [],
+          tags: [],
+        },
+      },
+    }));
+    chatStoreFor("codex").setState({
+      connectionStatus: "ready",
+      models: [MODEL],
+      conversations: {
+        "thread-readme": modelConversation(
+          "thread-readme",
+          "Replace public README...",
+          MODEL.id,
+          340,
+          133,
+        ),
+      },
+      threadsByPath: {
+        [AGENT_UI_PATH]: [
+          threadSummary(
+            "thread-readme",
+            "Replace public README...",
+            now - 180,
+            "idle",
+            AGENT_UI_PATH,
+            340,
+            133,
+          ),
+        ],
+      },
+      loadingPaths: {},
+    });
+    chatStoreFor("claude").setState({
+      models: [{ ...MODEL, id: "claude-opus-4", label: "Claude Opus 4" }],
+      conversations: {
+        "thread-arcade": modelConversation(
+          "thread-arcade",
+          "Benchmark arcade games",
+          "claude-opus-4",
+          12,
+          3,
+        ),
+      },
+      threadsByPath: {
+        [AGENT_UI_PATH]: [
+          threadSummary(
+            "thread-arcade",
+            "Benchmark arcade games",
+            now - 22 * 60,
+            "idle",
+            AGENT_UI_PATH,
+            12,
+            3,
+          ),
+        ],
+        [AGENT_UI_OTHER_PATH]: [
+          threadSummary(
+            "thread-vault",
+            "Wire vault scanner",
+            now - 8 * 3600,
+            "idle",
+            AGENT_UI_OTHER_PATH,
+            88,
+            21,
+          ),
+        ],
+      },
+      loadingPaths: {},
+    });
+    chatStoreFor("cursor").setState({
+      connectionStatus: "ready",
+      models: [{ ...MODEL, id: "grok-4.6", label: "Cursor Grok 4.6" }],
+      conversations: {
+        "thread-cursor": {
+          ...conversation([...turns, editTurn("cursor-edit", 471, 8)]),
+          threadId: "thread-cursor",
+          title: "Empty chat dots spell the wait",
+          model: "grok-4.6",
+        },
+      },
+      threadsByPath: {
+        [AGENT_UI_PATH]: [
+          threadSummary(
+            "thread-cursor",
+            "Empty chat dots spell the wait",
+            now - 7 * 3600 - 59 * 60,
+            "idle",
+            AGENT_UI_PATH,
+            471,
+            8,
+          ),
+        ],
+      },
+      activeThreadByPath: { [AGENT_UI_PATH]: "thread-cursor" },
+      loadingPaths: {},
+      sendMessage: noop,
+      openThread: noop,
+      connect: noop,
+      createThread: async () => "thread-cursor",
+    });
+    return;
+  }
 
   chatStoreFor("codex").setState({
     connectionStatus,

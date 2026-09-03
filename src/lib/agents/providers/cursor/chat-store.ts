@@ -12,6 +12,7 @@ import { isRepoAgentsTrusted } from "@/lib/agent-trust-prefs";
 import type { AgentChatState } from "@/lib/agents/chat-store";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import { accumulateUsage } from "@/lib/agents/token-cost";
+import { conversationDiffPatch, keepThreadDiff } from "@/lib/agents/thread-diff";
 import {
   CursorClient,
   cursorCli,
@@ -202,7 +203,11 @@ function updateConversation(
     const conversation = state.conversations[threadId];
     if (!conversation) return {};
     const next = updater(conversation);
-    return { conversations: { ...state.conversations, [threadId]: next } };
+    const threadsByPath = conversationDiffPatch(state.threadsByPath, next);
+    return {
+      conversations: { ...state.conversations, [threadId]: next },
+      ...(threadsByPath ? { threadsByPath } : {}),
+    };
   });
 }
 
@@ -667,10 +672,15 @@ export const cursorChatStore = createStore<AgentChatState>()((set, get) => ({
         const merged: Record<string, AgentThreadSummary[]> = {};
         for (const path of unique) {
           const known = state.threadsByPath[path] ?? [];
-          const listed = grouped[path];
+          const knownById = new Map(known.map((thread) => [thread.id, thread]));
+          const listed = grouped[path].map((thread) =>
+            keepThreadDiff(thread, knownById.get(thread.id)),
+          );
           const listedIds = new Set(listed.map((thread) => thread.id));
-          // Chats without a first turn are not on disk yet — keep ours.
-          merged[path] = sortThreads([...listed, ...known.filter((thread) => !listedIds.has(thread.id))]);
+          merged[path] = sortThreads([
+            ...listed,
+            ...known.filter((thread) => !listedIds.has(thread.id)),
+          ]);
         }
         return { threadsByPath: { ...state.threadsByPath, ...merged } };
       });
@@ -713,7 +723,11 @@ export const cursorChatStore = createStore<AgentChatState>()((set, get) => ({
       status: "idle",
       modelProvider: "cursor",
     };
-    set((state) => ({ conversations: { ...state.conversations, [threadId]: emptyConversation(thread) } }));
+    const conversation = emptyConversation(thread);
+    set((state) => ({
+      conversations: { ...state.conversations, [threadId]: conversation },
+      threadsByPath: conversationDiffPatch(state.threadsByPath, conversation) ?? state.threadsByPath,
+    }));
   },
   sendMessage: async (path, text, attachments = []) => {
     let threadId = get().activeThreadByPath[path];

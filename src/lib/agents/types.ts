@@ -243,6 +243,8 @@ export interface AgentThreadSummary {
   modelProvider: string;
   isPinned?: boolean;
   archived?: boolean;
+  additions?: number;
+  deletions?: number;
 }
 
 export type AgentItem = {

@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Barcode,
   Blocks,
   Copy,
@@ -14,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { CapabilityPill } from "@/components/agents/capabilities/capability-ui";
+import { CapabilityStudioShell } from "@/components/agents/capabilities/capability-studio-shell";
 import { AgentBarcode } from "@/components/agents/ui/agent-barcode";
 import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { copyToClipboard } from "@/components/agents/ui/item-context-menu";
@@ -74,7 +74,7 @@ function AddonCard({
 }) {
   return (
     <m.section
-      className="rounded-2xl border border-border/45 bg-background/60 p-4"
+      className="ag-studio-card"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -1 }}
@@ -87,7 +87,7 @@ function AddonCard({
             <h3 className="text-[13px] font-semibold tracking-tight">{title}</h3>
             {status}
           </div>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">{description}</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
         </div>
       </header>
       <div className="mt-4">{children}</div>
@@ -494,35 +494,25 @@ export function AgentAddonStudio({ path, onBack }: { path: string; onBack: () =>
   const { t } = useTranslation();
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
-      <header className="ag-line shrink-0 border-b">
-        <div className="flex h-12 items-center gap-2 px-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="ag-icon-btn rounded-full"
-            onClick={onBack}
-            title={t("agentCapabilities.backToChat")}
-            aria-label={t("agentCapabilities.backToChat")}
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
-          <span className="ag-inset grid size-6 shrink-0 place-items-center rounded-[7px]">
-            <Blocks className="size-3.5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{t("agentAddons.title")}</p>
-            <p className="ag-faint truncate text-[10px]">{repoName(path)} · {t("agentAddons.subtitle")}</p>
-          </div>
-        </div>
-      </header>
+    <CapabilityStudioShell
+      title={t("agentAddons.title")}
+      subtitle={`${repoName(path)} · ${t("agentAddons.subtitle")}`}
+      mark={(
+        <span className="ag-inset grid size-9 shrink-0 place-items-center rounded-xl">
+          <Blocks className="size-4" />
+        </span>
+      )}
+      onBack={onBack}
+      backLabel={t("agentCapabilities.backToChat")}
+    >
       <ScrollArea className="min-h-0 flex-1">
-        <AgentsEnter className="space-y-4 p-4">
-          <BarcodeAddonCard />
-          <BrowserAddonCard path={path} onBack={onBack} />
+        <AgentsEnter className="ag-studio-page">
+          <div className="ag-studio-cards">
+            <BarcodeAddonCard />
+            <BrowserAddonCard path={path} onBack={onBack} />
+          </div>
         </AgentsEnter>
       </ScrollArea>
-    </section>
+    </CapabilityStudioShell>
   );
 }

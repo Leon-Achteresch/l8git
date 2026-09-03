@@ -216,7 +216,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
     <>
       <CapabilitySplit
         list={(
-          <div className="p-2.5">
+          <div className="p-3.5">
             <div className="mb-2 flex items-center justify-between gap-2 px-1">
               <p className="text-[10px] text-muted-foreground">{t("agentCapabilities.itemCount", { count: filtered.length })}</p>
               <div className="flex items-center gap-1">

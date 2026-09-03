@@ -43,7 +43,11 @@ export function flattenThreads(threads: SidebarThread[]): FlatItem[] {
     if (!bucket?.length) continue;
     flat.push({ kind: "header", key: `header:${group}`, group });
     for (const thread of bucket) {
-      flat.push({ kind: "thread", key: `${thread.provider}:${thread.id}`, thread });
+      flat.push({
+        kind: "thread",
+        key: `${thread.provider}:${thread.path}:${thread.id}`,
+        thread,
+      });
     }
   }
   return flat;

@@ -4,19 +4,15 @@ import { m } from "motion/react";
 import { useCallback, useEffect, useMemo, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { AgentThreadListHeader } from "@/components/agents/chat/agent-thread-list-header";
 import {
   AgentThreadRow,
   isWorking,
 } from "@/components/agents/chat/agent-thread-row";
 import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { pulseKeyframes, pulseTransition } from "@/components/motion/kit";
-import {
-  SharedLayoutBgItem,
-  SharedLayoutBgRoot,
-} from "@/components/motion/shared-layout-bg";
 import { Button } from "@/components/ui/button";
 import { useScrollMargin } from "@/hooks/use-scroll-margin";
+import { compactAge } from "@/lib/agents/compact-age";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import {
   flattenThreads,
@@ -27,7 +23,7 @@ import { SPRING_PRESS } from "@/lib/motion/ease";
 export type { SidebarThread } from "@/lib/agents/thread-grouping";
 
 const HEADER_ESTIMATE_PX = 28;
-const ROW_ESTIMATE_PX = 58;
+const ROW_ESTIMATE_PX = 62;
 const OVERSCAN = 8;
 
 const workingSince = new Map<string, number>();
@@ -37,7 +33,7 @@ function useWorkingSince(threads: SidebarThread[]): Map<string, number> {
     const live = new Set<string>();
     for (const thread of threads) {
       if (!isWorking(thread.status)) continue;
-      const key = `${thread.provider}:${thread.id}`;
+      const key = `${thread.provider}:${thread.path}:${thread.id}`;
       live.add(key);
       if (!workingSince.has(key)) workingSince.set(key, Date.now());
     }
@@ -59,14 +55,12 @@ export function AgentThreadList({
   renamingThreadKey,
   locale,
   showArchived,
-  archivedCount,
   scrollRef,
   onOpenThread,
   onCreateThread,
   onRenameThread,
   onSetPinned,
   onArchiveThread,
-  onToggleArchived,
   onShowMore,
 }: {
   path: string;
@@ -79,45 +73,35 @@ export function AgentThreadList({
   renamingThreadKey: string | null;
   locale: string;
   showArchived: boolean;
-  archivedCount: number;
   scrollRef: RefObject<HTMLDivElement | null>;
-  onOpenThread: (provider: NativeAgentProvider, threadId: string) => void;
+  onOpenThread: (
+    provider: NativeAgentProvider,
+    threadId: string,
+    path: string,
+  ) => void;
   onCreateThread: () => void;
   onRenameThread: (threadKey: string | null) => void;
   onSetPinned: (
     provider: NativeAgentProvider,
     threadId: string,
     pinned: boolean,
+    path: string,
   ) => Promise<void>;
   onArchiveThread: (
     provider: NativeAgentProvider,
     threadId: string,
     archived: boolean,
+    path: string,
   ) => Promise<void>;
-  onToggleArchived: () => void;
   onShowMore: () => void;
 }) {
   const { t } = useTranslation();
   const since = useWorkingSince(threads);
 
-  const relativeDate = useMemo(() => {
-    const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-    const dateFormatter = new Intl.DateTimeFormat(locale, {
-      day: "2-digit",
-      month: "short",
-    });
-    return (timestamp: number) => {
-      const seconds = Math.round(Date.now() / 1000 - timestamp);
-      if (seconds < 60) return formatter.format(0, "second");
-      if (seconds < 3600)
-        return formatter.format(-Math.round(seconds / 60), "minute");
-      if (seconds < 86400)
-        return formatter.format(-Math.round(seconds / 3600), "hour");
-      if (seconds < 604800)
-        return formatter.format(-Math.round(seconds / 86400), "day");
-      return dateFormatter.format(timestamp * 1000);
-    };
-  }, [locale]);
+  const relativeDate = useMemo(
+    () => (timestamp: number) => compactAge(timestamp, locale),
+    [locale],
+  );
 
   const visible = useMemo(() => threads.slice(0, limit), [limit, threads]);
   const items = useMemo(() => flattenThreads(visible), [visible]);
@@ -143,11 +127,6 @@ export function AgentThreadList({
   if (loading) {
     return (
       <section className="min-w-0 px-2 pb-4">
-        <AgentThreadListHeader
-          showArchived={showArchived}
-          archivedCount={archivedCount}
-          onToggleArchived={onToggleArchived}
-        />
         <div
           className="space-y-1.5 pt-1"
           aria-label={t("agentChat.loadingConversations")}
@@ -157,13 +136,14 @@ export function AgentThreadList({
               animate={pulseKeyframes}
               transition={{ ...pulseTransition, delay: index * 0.07 }}
               key={index}
-              className="flex h-14 items-center gap-2.5 rounded-[var(--ag-r-md)] border border-transparent px-2.5"
+              className="flex min-h-[3.75rem] flex-col justify-center gap-1 rounded-[10px] px-2 py-1.5"
             >
-              <span className="size-7 shrink-0 rounded-[10px] bg-[var(--ag-hover)]" />
-              <span className="min-w-0 flex-1 space-y-1.5">
-                <span className="block h-2.5 w-[68%] rounded-full bg-[var(--ag-hover)]" />
-                <span className="block h-2 w-[38%] rounded-full bg-[var(--ag-hover)]" />
+              <span className="flex items-center justify-between">
+                <span className="h-2 w-24 rounded-full bg-[var(--ag-hover)]" />
+                <span className="h-2 w-8 rounded-full bg-[var(--ag-hover)]" />
               </span>
+              <span className="block h-2.5 w-[72%] rounded-full bg-[var(--ag-hover)]" />
+              <span className="block h-2 w-[44%] rounded-full bg-[var(--ag-hover)]" />
             </m.div>
           ))}
         </div>
@@ -174,11 +154,6 @@ export function AgentThreadList({
   if (threads.length === 0) {
     return (
       <section className="min-w-0 px-2 pb-4">
-        <AgentThreadListHeader
-          showArchived={showArchived}
-          archivedCount={archivedCount}
-          onToggleArchived={onToggleArchived}
-        />
         {hasQuery ? (
           <AgentsEnter className="flex flex-col items-center justify-center px-4 py-8 text-center">
             <span className="mb-2 grid size-9 place-items-center rounded-xl bg-[var(--ag-surface-2)] text-[var(--ag-text-3)]">
@@ -217,65 +192,58 @@ export function AgentThreadList({
 
   return (
     <section className="min-w-0 px-2 pb-4">
-      <AgentThreadListHeader
-        showArchived={showArchived}
-        archivedCount={archivedCount}
-        onToggleArchived={onToggleArchived}
-      />
-
-      <SharedLayoutBgRoot
-        inset={4}
-        pillClassName="rounded-[var(--ag-r-md)]"
-        className="relative"
+      <div
+        ref={listRef}
+        style={{ height: virtualizer.getTotalSize(), position: "relative" }}
       >
-        <div
-          ref={listRef}
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-        >
-          {virtualItems.map((virtualItem) => {
-            const item = items[virtualItem.index];
-            if (!item) return null;
-            return (
-              <div
-                key={virtualItem.key}
-                ref={measureRow}
-                data-index={virtualItem.index}
-                className="absolute inset-x-0 top-0"
-                style={{
-                  transform: `translateY(${virtualItem.start - virtualizer.options.scrollMargin}px)`,
-                }}
-              >
-                {item.kind === "header" ? (
-                  <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-3">
-                    <h3 className="ag-label text-[10px] font-semibold uppercase tracking-wider text-[var(--ag-text-3)]">
-                      {t(`agentChat.${item.group}`)}
-                    </h3>
-                    <div className="h-px flex-1 bg-[var(--ag-line)]" />
-                  </div>
-                ) : (
-                  <SharedLayoutBgItem id={item.key}>
-                    <AgentThreadRow
-                      path={path}
-                      thread={item.thread}
-                      active={
-                        item.thread.id === activeThreadId &&
-                        item.thread.provider === activeProvider
-                      }
-                      relativeDate={relativeDate(item.thread.updatedAt)}
-                      workingSince={since.get(item.key)}
-                      renaming={renamingThreadKey === item.key}
-                      onOpen={onOpenThread}
-                      onRename={onRenameThread}
-                      onSetPinned={onSetPinned}
-                      onArchive={onArchiveThread}
-                    />
-                  </SharedLayoutBgItem>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </SharedLayoutBgRoot>
+        {virtualItems.map((virtualItem) => {
+          const item = items[virtualItem.index];
+          if (!item) return null;
+          return (
+            <div
+              key={virtualItem.key}
+              ref={measureRow}
+              data-index={virtualItem.index}
+              className="absolute inset-x-0 top-0"
+              style={{
+                transform: `translateY(${virtualItem.start - virtualizer.options.scrollMargin}px)`,
+              }}
+            >
+              {item.kind === "header" ? (
+                <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-3">
+                  <h3 className="ag-label text-[10px] font-semibold uppercase tracking-wider text-[var(--ag-text-3)]">
+                    {t(`agentChat.${item.group}`)}
+                  </h3>
+                  <div className="h-px flex-1 bg-[var(--ag-line)]" />
+                </div>
+              ) : (
+                <AgentThreadRow
+                  path={item.thread.path}
+                  thread={item.thread}
+                  active={
+                    item.thread.id === activeThreadId &&
+                    item.thread.provider === activeProvider &&
+                    item.thread.path === path
+                  }
+                  relativeDate={relativeDate(item.thread.updatedAt)}
+                  workingSince={since.get(item.key)}
+                  renaming={renamingThreadKey === item.key}
+                  onOpen={(provider, threadId) =>
+                    onOpenThread(provider, threadId, item.thread.path)
+                  }
+                  onRename={onRenameThread}
+                  onSetPinned={(provider, threadId, pinned) =>
+                    onSetPinned(provider, threadId, pinned, item.thread.path)
+                  }
+                  onArchive={(provider, threadId, archived) =>
+                    onArchiveThread(provider, threadId, archived, item.thread.path)
+                  }
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {threads.length > limit ? (
         <m.button

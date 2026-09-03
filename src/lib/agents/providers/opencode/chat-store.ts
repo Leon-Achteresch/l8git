@@ -9,6 +9,7 @@ import { createStore } from "zustand/vanilla";
 import type { AgentChatState } from "@/lib/agents/chat-store";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import { accumulateUsage } from "@/lib/agents/token-cost";
+import { conversationDiffPatch, keepThreadDiff } from "@/lib/agents/thread-diff";
 import {
   OpenCodeClient,
   isUnusedOpenCodeSession,
@@ -216,9 +217,13 @@ function updateConversation(
   conversationLastUsed.set(threadId, Date.now());
   openCodeChatStore.setState((state) => {
     const conversation = state.conversations[threadId];
-    return conversation
-      ? { conversations: { ...state.conversations, [threadId]: updater(conversation) } }
-      : {};
+    if (!conversation) return {};
+    const next = updater(conversation);
+    const threadsByPath = conversationDiffPatch(state.threadsByPath, next);
+    return {
+      conversations: { ...state.conversations, [threadId]: next },
+      ...(threadsByPath ? { threadsByPath } : {}),
+    };
   });
 }
 
@@ -989,11 +994,13 @@ export const openCodeChatStore = createStore<OpenCodeChatState>()((set, get) => 
       set((state) => {
         const merged: Record<string, AgentThreadSummary[]> = {};
         for (const path of unique) {
-          const listed = grouped[path] ?? [];
+          const previous = state.threadsByPath[path] ?? [];
+          const previousById = new Map(previous.map((thread) => [thread.id, thread]));
+          const listed = (grouped[path] ?? []).map((thread) =>
+            keepThreadDiff(thread, previousById.get(thread.id)),
+          );
           const listedIds = new Set(listed.map((thread) => thread.id));
-          // Eine gerade geöffnete Unterhaltung hat in opencode noch keinen
-          // Titel und fällt oben raus — solange sie offen ist, bleibt sie hier.
-          const live = (state.threadsByPath[path] ?? []).filter(
+          const live = previous.filter(
             (thread) =>
               !listedIds.has(thread.id) &&
               (state.activeThreadByPath[path] === thread.id ||
