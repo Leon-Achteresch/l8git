@@ -2842,6 +2842,7 @@
   },
   "agentCapabilities": {
     "title": "Capability Studio",
+    "liveFromCli": "{{repo}} · live from the installed CLI",
     "subtitle": "Skills, MCP, plugins, apps, and hooks",
     "open": "Open Capability Studio",
     "backToChat": "Back to chat",

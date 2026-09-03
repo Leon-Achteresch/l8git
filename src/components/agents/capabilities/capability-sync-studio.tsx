@@ -386,7 +386,10 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                   const destination =
                     targets.find((entry) => entry.cli === target.cli) ?? {
                       cli: target.cli,
-                      scope: source?.scope ?? preferredWritableScope(target),
+                      scope:
+                        source && targetWritable(inventory.targets, { cli: target.cli, scope: source.scope })
+                          ? source.scope
+                          : preferredWritableScope(target),
                     };
                   const picked = targets.some((entry) => entry.cli === target.cli);
                   const gap =
@@ -594,7 +597,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                 variant="ghost"
                 size="sm"
                 className="mt-2 h-8 text-destructive"
-                disabled={busy || !selected.size}
+                disabled={busy || !selectedItems.length}
                 onClick={() => setConfirmDelete(true)}
               >
                 <Trash2 className="size-3.5" />
@@ -618,12 +621,12 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                 </Button>
                 <Button
                   type="button"
-                  disabled={busy || !selected.size || !targets.length}
+                  disabled={busy || !selectedItems.length || !targets.length}
                   onClick={() => void runCopy()}
                 >
                   <Copy className="size-3.5" />
-                  {selected.size
-                    ? t("agentCapabilities.hub.copyAction", { count: selected.size, target: targetLabel })
+                  {selectedItems.length
+                    ? t("agentCapabilities.hub.copyAction", { count: selectedItems.length, target: targetLabel })
                     : t("agentCapabilities.hub.copy")}
                 </Button>
               </div>
@@ -746,7 +749,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("agentCapabilities.hub.deleteTitle", { count: selected.size })}</AlertDialogTitle>
+            <AlertDialogTitle>{t("agentCapabilities.hub.deleteTitle", { count: selectedItems.length })}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("agentCapabilities.hub.deleteDescription", { source: sourceLabel })}
             </AlertDialogDescription>

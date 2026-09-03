@@ -306,7 +306,7 @@ export function ClaudeCapabilityCenter({
   return (
     <CapabilityStudioShell
       title={`${providerLabel} Capabilities`}
-      subtitle={`${repoName(path)} · live von der installierten CLI`}
+      subtitle={t("agentCapabilities.liveFromCli", { repo: repoName(path) })}
       mark={(
         <AgentProviderMark working={loading} label={providerLabel} className="shrink-0">
           <ProviderLogo />
