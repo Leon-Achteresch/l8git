@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "radix-ui"
-import { AnimatePresence, m } from "motion/react"
+import { AnimatePresence, m, useReducedMotion } from "motion/react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -92,6 +92,9 @@ function SheetContent({
 }) {
   const isOpen = useSheetOpen()
   const offscreen = sheetOffscreen[side]
+  // Reduced motion (and headless browsers reporting it): motion springs can
+  // stall and leave the drawer off-screen, so render the final state directly.
+  const reduce = useReducedMotion()
   return (
     <AnimatePresence>
       {isOpen ? (
@@ -109,10 +112,10 @@ function SheetContent({
                 "fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
                 className
               )}
-              initial={{ ...offscreen, opacity: 0 }}
+              initial={reduce ? false : { ...offscreen, opacity: 0 }}
               animate={{ x: 0, y: 0, opacity: 1 }}
-              exit={{ ...offscreen, opacity: 0 }}
-              transition={springSoft}
+              exit={reduce ? { opacity: 0, transition: { duration: 0 } } : { ...offscreen, opacity: 0 }}
+              transition={reduce ? { duration: 0 } : springSoft}
             >
               {children}
               {showCloseButton && (

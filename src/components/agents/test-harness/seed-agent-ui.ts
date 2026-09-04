@@ -211,12 +211,147 @@ export function agentUiThreadId(scene: string): string | null {
   return null;
 }
 
+function seedProfileScene(): void {
+  document.documentElement.classList.add("dark");
+  const now = Math.floor(Date.now() / 1000);
+  const day = 86_400;
+  useAgentProviderStore.setState({ provider: "codex" });
+  useRepoStore.setState((state) => ({
+    repos: {
+      ...state.repos,
+      [AGENT_UI_PATH]: {
+        path: AGENT_UI_PATH,
+        branch: "main",
+        commits: [],
+        branches: [],
+        tags: [],
+      },
+    },
+  }));
+
+  // Deterministic pseudo-random: stable screenshots across runs.
+  const rand = (seed: number) => {
+    const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  };
+
+  const titles = [
+    "Refactor token ledger",
+    "Fix heatmap overflow",
+    "Wire profile stats",
+    "Polish composer dock",
+    "Review capability hub",
+    "Migrate sidebar tabs",
+    "Tune motion springs",
+    "Audit worktree diffs",
+  ];
+
+  const threads: AgentThreadSummary[] = [];
+  const conversations: Record<string, AgentConversation> = {};
+  let seed = 1;
+  // ~2 threads/day for the last 40 days + a tail of older threads for streaks.
+  for (let ago = 0; ago < 40; ago += 1) {
+    const perDay = ago % 5 === 3 ? 0 : 2; // idle days collapse to grey stubs
+    for (let k = 0; k < perDay; k += 1) {
+      seed += 1;
+      const id = `profile-thread-${ago}-${k}`;
+      const updatedAt = now - ago * day - Math.floor(rand(seed) * 3600 * 8);
+      const running = ago === 0 && k === 0;
+      threads.push({
+        id,
+        path: AGENT_UI_PATH,
+        title: `${titles[Math.floor(rand(seed + 99) * titles.length)]} #${ago * 2 + k}`,
+        preview: "profile fixture",
+        createdAt: updatedAt - 1800,
+        updatedAt,
+        status: running ? "working" : "idle",
+        modelProvider: "openai",
+      });
+      const input = Math.floor(20_000 + rand(seed + 1) * 180_000);
+      const output = Math.floor(5_000 + rand(seed + 2) * 60_000);
+      conversations[id] = {
+        threadId: id,
+        path: AGENT_UI_PATH,
+        title: id,
+        model: MODEL.id,
+        reasoningEffort: "medium",
+        approvalPolicy: "on-request",
+        sandboxMode: "workspace-write",
+        turns: [],
+        activeTurnId: running ? "turn-active" : null,
+        loading: false,
+        error: null,
+        tokenUsage: {
+          totalTokens: input + output,
+          modelContextWindow: 200_000,
+          inputTokens: input,
+          outputTokens: output,
+        },
+      };
+    }
+  }
+  // Older tail (60–120 days ago) for the yearly heatmap + streak math.
+  for (let ago = 60; ago < 120; ago += 3) {
+    seed += 1;
+    const id = `profile-old-${ago}`;
+    const updatedAt = now - ago * day;
+    threads.push({
+      id,
+      path: AGENT_UI_PATH,
+      title: `Backfill context ${ago}d ago`,
+      preview: "profile fixture",
+      createdAt: updatedAt - 900,
+      updatedAt,
+      status: "idle",
+      modelProvider: "openai",
+    });
+    conversations[id] = {
+      threadId: id,
+      path: AGENT_UI_PATH,
+      title: id,
+      model: MODEL.id,
+      reasoningEffort: null,
+      approvalPolicy: "on-request",
+      sandboxMode: "workspace-write",
+      turns: [],
+      activeTurnId: null,
+      loading: false,
+      error: null,
+      tokenUsage: {
+        totalTokens: 40_000,
+        modelContextWindow: 200_000,
+        inputTokens: 30_000,
+        outputTokens: 10_000,
+      },
+    };
+  }
+
+  chatStoreFor("codex").setState({
+    connectionStatus: "ready",
+    models: [MODEL],
+    model: MODEL.id,
+    conversations,
+    activeThreadByPath: { [AGENT_UI_PATH]: "profile-thread-0-0" },
+    threadsByPath: { [AGENT_UI_PATH]: threads },
+    loadingPaths: {},
+    sendMessage: noop,
+    openThread: noop,
+    connect: noop,
+    createThread: async () => "profile-thread-0-0",
+  });
+}
+
 export function seedAgentUi(scene: string): void {
   useAgentProviderStore.setState({ provider: "codex" });
   useInstalledAgents.setState({
     installed: new Set(["codex", "claude", "cursor", "opencode"]),
   });
   setRepoAgentsTrusted(AGENT_UI_PATH, true);
+
+  if (scene === "profile") {
+    seedProfileScene();
+    return;
+  }
 
   const turns =
     scene === "busy"
