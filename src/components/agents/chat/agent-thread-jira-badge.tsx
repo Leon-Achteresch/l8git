@@ -26,7 +26,7 @@ export function AgentThreadJiraBadge({ links }: { links: JiraTicketLink[] }) {
       {first.status ? (
         <span className={`truncate text-[10px] ${statusTone(first)}`}>{first.status}</span>
       ) : null}
-      {rest.length ? <span className="ag-faint text-[10px]">+{rest.length}</span> : null}
+      {rest.length ? <span className="text-[var(--ag-text-3)] text-[10px]">+{rest.length}</span> : null}
     </span>
   );
 }

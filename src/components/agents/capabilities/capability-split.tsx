@@ -13,7 +13,7 @@ export function CapabilitySplit({
   listClassName?: string;
 }) {
   return (
-    <div className="ag-studio-split">
+    <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(16rem,32%)_minmax(0,1fr)] overflow-hidden max-md:grid-cols-1 max-md:grid-rows-[minmax(11rem,38%)_minmax(0,1fr)]">
       <ScrollArea className={cn("min-h-0 border-r border-[var(--ag-line)] bg-[var(--ag-surface-2)]/40", listClassName)}>
         {list}
       </ScrollArea>

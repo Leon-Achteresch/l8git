@@ -53,7 +53,7 @@ export function CapabilityEcosystemBoard({
     selected.some((entry) => targetKey(entry) === targetKey(target));
 
   if (!targets?.length) {
-    return <p className="ag-faint px-1 text-[11px]">{t("agentCapabilities.hub.noTargets")}</p>;
+    return <p className="text-[var(--ag-text-3)] px-1 text-[11px]">{t("agentCapabilities.hub.noTargets")}</p>;
   }
 
   const ordered = source && onSourceChange
@@ -79,7 +79,7 @@ export function CapabilityEcosystemBoard({
           <m.article
             key={target.cli}
             className={cn(
-              "ag-card relative flex min-w-0 flex-col gap-3 p-4",
+              "rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] relative flex min-w-0 flex-col gap-3 p-4",
               isSource && "border-[var(--ag-text)]/25 bg-[var(--ag-selected)]",
               !supports && "opacity-50",
               !target.installed && "border-dashed",
@@ -100,14 +100,14 @@ export function CapabilityEcosystemBoard({
                   !onSourceChange && "cursor-default",
                 )}
               >
-                <span className="ag-inset grid size-8 shrink-0 place-items-center rounded-[9px]">
+                <span className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] grid size-8 shrink-0 place-items-center rounded-[9px]">
                   <CapabilityCliMark cli={target.cli} logoClassName="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate text-[12px] font-medium">{target.label}</span>
                   </span>
-                  <span className="ag-faint mt-0.5 block text-[10px] tabular-nums">
+                  <span className="text-[var(--ag-text-3)] mt-0.5 block text-[10px] tabular-nums">
                     {target.installed
                       ? t("agentCapabilities.hub.itemsInSource", { count: total })
                       : t("agentCapabilities.hub.notInstalled")}
@@ -116,7 +116,7 @@ export function CapabilityEcosystemBoard({
               </button>
 
               {isSource ? (
-                <p className="ag-label">{t("agentCapabilities.hub.sourceBadge")}</p>
+                <p className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">{t("agentCapabilities.hub.sourceBadge")}</p>
               ) : null}
 
               <div className="flex flex-wrap gap-1">
@@ -146,14 +146,14 @@ export function CapabilityEcosystemBoard({
                         onToggleTarget(reference);
                       }}
                       className={cn(
-                        "ag-pill h-6 gap-1 px-1.5 text-[9px] font-medium",
+                        "inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring h-6 gap-1 px-1.5 text-[9px] font-medium",
                         active && "bg-[var(--ag-solid)] text-[var(--ag-solid-fg)]",
                         blocked && !isSource && "cursor-not-allowed opacity-40",
                       )}
                     >
                       {!writable && supports ? <Lock className="size-2.5" /> : null}
                       {scopeLabel(scope, t)}
-                      <span className={cn("tabular-nums", active ? "opacity-80" : "ag-faint")}>
+                      <span className={cn("tabular-nums", active ? "opacity-80" : "text-[var(--ag-text-3)]")}>
                         {info?.itemCount ?? 0}
                       </span>
                     </button>
@@ -169,7 +169,7 @@ export function CapabilityEcosystemBoard({
                   </li>
                 ))}
                 {total === 0 ? (
-                  <li className="ag-faint text-[10px]">{t("agentCapabilities.hub.emptyCli")}</li>
+                  <li className="text-[var(--ag-text-3)] text-[10px]">{t("agentCapabilities.hub.emptyCli")}</li>
                 ) : null}
               </ul>
 

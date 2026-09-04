@@ -146,7 +146,7 @@ export function StreamingResponse({
                   aria-expanded={currentSourcesOpen}
                   aria-controls={sourcesContentId}
                   onClick={() => setSourcesOpen(!currentSourcesOpen)}
-                  className="ag-chip group ml-1 text-[11px]"
+                  className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 group ml-1 text-[11px]"
                 >
                   <CitationStack citations={sources} />
                   <span className="tabular-nums">
@@ -170,7 +170,7 @@ export function StreamingResponse({
                 <CitationList
                   citations={sources}
                   idPrefix={resolvedSourcePrefix}
-                  className="ag-inset mt-2 p-2"
+                  className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] mt-2 p-2"
                 />
               </AgentDisclosure>
             ) : null}

@@ -59,7 +59,7 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
       initial={reduce ? false : { opacity: 0, y: 6 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.35 }}
-      className="ag-row ag-row-shared relative min-h-14 items-start gap-3 rounded-[var(--ag-r-md)] border border-transparent px-3.5 py-3 hover:border-[var(--ag-line)] hover:bg-[var(--ag-surface)] hover:shadow-[var(--ag-shadow-raise)]"
+      className="relative flex min-h-16 w-full min-w-0 items-start gap-3 rounded-[var(--ag-r-md)] border border-transparent px-3.5 py-3 text-left text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform,box-shadow] duration-200 hover:border-[var(--ag-line)] hover:bg-[var(--ag-surface)] hover:text-[var(--ag-text)] hover:shadow-[var(--ag-shadow-raise)] active:bg-[var(--ag-press)] focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-[var(--ag-surface)] data-[active=true]:text-[var(--ag-text)] data-[active=true]:shadow-[var(--ag-shadow-raise)]"
     >
       <AgentProviderMark
         working={working}
@@ -70,25 +70,25 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
       </AgentProviderMark>
 
       <span className="relative z-[1] min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium tracking-[-0.01em] text-[var(--ag-text)]">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="min-w-32 flex-1 truncate text-[13px] font-semibold tracking-[-0.015em] text-[var(--ag-text)]">
             {entry.title}
           </span>
           <AgentStatusChip tone={STATUS_TONE[entry.status]} className="shrink-0">
             {statusLabel}
           </AgentStatusChip>
-          <span className="ag-faint shrink-0 text-[10px] tabular-nums">
+          <span className="text-[var(--ag-text-3)] shrink-0 text-[10px] tabular-nums">
             {relativeDate}
           </span>
         </span>
 
-        <span className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-          <span className="ag-faint min-w-0 max-w-48 truncate text-[11px] font-medium">
+        <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-[var(--ag-text-3)] min-w-0 max-w-48 truncate text-[11px] font-medium">
             {entry.repoName}
           </span>
           {entry.isWorktree ? (
             <span
-              className="ag-chip h-4.5 shrink-0 gap-1 rounded-full px-1.5 text-[9px] font-medium"
+              className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 h-4.5 shrink-0 gap-1 rounded-full px-1.5 text-[9px] font-medium"
               title={entry.branch ?? undefined}
             >
               <FolderGit2 className="size-2.5 shrink-0 text-[var(--git-branch)]" />
@@ -103,7 +103,7 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
               className="shrink-0 text-[10px] font-medium tabular-nums"
               title={t("agentOverview.diffStatHint")}
             >
-              <span className="ag-faint">
+              <span className="text-[var(--ag-text-3)]">
                 {t("agentOverview.files", { count: diffStat.files })}
               </span>{" "}
               <span className="text-[var(--git-added)]">
@@ -115,14 +115,14 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
             </span>
           ) : null}
           {entry.costUsd ? (
-            <span className="ag-faint shrink-0 text-[10px] tabular-nums">
+            <span className="text-[var(--ag-text-3)] shrink-0 text-[10px] tabular-nums">
               · {formatUsd(entry.costUsd)}
             </span>
           ) : null}
         </span>
 
         {entry.preview ? (
-          <span className="ag-faint mt-1 line-clamp-1 block text-[11px] leading-4 text-[var(--ag-text-3)]">
+          <span className="text-[var(--ag-text-3)] mt-1 line-clamp-1 block text-[11px] leading-4 text-[var(--ag-text-3)]">
             {entry.preview}
           </span>
         ) : null}

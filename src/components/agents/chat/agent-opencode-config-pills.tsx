@@ -43,7 +43,7 @@ export function AgentOpenCodeConfigPills() {
             label={label}
             title={selection.description || selection.name}
           >
-            <DropdownMenuLabel className="ag-label">
+            <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
               {selection.name}
             </DropdownMenuLabel>
             {selection.type === "boolean" ? (

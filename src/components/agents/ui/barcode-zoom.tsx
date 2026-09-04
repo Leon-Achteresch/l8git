@@ -51,7 +51,7 @@ export function BarcodeZoom({
               t("agentChat.barcodeZoom")}
           </DialogTitle>
         </DialogHeader>
-        <div className="ag-barcode-panel grid max-h-[70vh] place-items-center overflow-auto p-6">
+        <div className="grid max-h-[70vh] place-items-center overflow-auto rounded-[var(--ag-r-sm)] border border-[var(--ag-line)] bg-white p-6 [&_svg]:block [&_svg]:h-auto [&_svg]:max-h-[60vh] [&_svg]:w-full [&_svg]:object-contain">
           {render?.svg ? (
             <div
               className="w-full [&>svg]:mx-auto [&>svg]:h-auto [&>svg]:w-full"

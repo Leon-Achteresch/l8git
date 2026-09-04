@@ -27,7 +27,7 @@ import { AgentDisclosure } from "@/components/agents/ui/agent-disclosure";
 import { AgentMarkdown } from "@/components/agents/ui/agent-markdown";
 import { MarkdownBarcode } from "@/components/agents/ui/agent-barcode";
 import { MarkdownChart } from "@/components/agents/ui/agent-chart";
-import { BARCODE_TOOL_NAME } from "@/lib/agents/barcode-spec";
+import { isBarcodeToolName } from "@/lib/agents/barcode-spec";
 import { CHART_TOOL_NAME } from "@/lib/agents/chart-spec";
 import {
   copyToClipboard,
@@ -212,7 +212,7 @@ function LocalCommandItem({ item }: { item: AgentItem }) {
             type="button"
             onClick={() => setOpen((value) => !value)}
             aria-expanded={open}
-            className="ag-chip max-w-full gap-1.5 font-mono text-[11px]"
+            className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 max-w-full gap-1.5 font-mono text-[11px]"
             title="Ausgabe ein- oder ausblenden"
           >
             {pill}
@@ -222,13 +222,13 @@ function LocalCommandItem({ item }: { item: AgentItem }) {
             />
           </button>
         ) : (
-          <span className="ag-chip max-w-full gap-1.5 font-mono text-[11px]" title={label}>
+          <span className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 max-w-full gap-1.5 font-mono text-[11px]" title={label}>
             {pill}
           </span>
         )}
         {output ? (
           <AgentDisclosure open={open} className="mt-1.5 w-full">
-            <pre className="ag-inset max-h-56 overflow-auto whitespace-pre-wrap p-2 font-mono text-[10px] leading-4">
+            <pre className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] max-h-56 overflow-auto whitespace-pre-wrap p-2 font-mono text-[10px] leading-4">
               {boundedTail(output, 20_000, 400)}
             </pre>
           </AgentDisclosure>
@@ -380,7 +380,7 @@ function AgentMessage({ item, turn }: { item: AgentItem; turn: AgentTurn }) {
                   <span
                     key={`${path}-${line ?? index}`}
                     title={stringValue(entry.note)}
-                    className="ag-inset rounded-[6px] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ag-text-2)]"
+                    className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] rounded-[6px] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ag-text-2)]"
                   >
                     {path}{line ? `:${line}` : ""}
                   </span>
@@ -716,7 +716,7 @@ function PlanProposalItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) 
         },
       ]}
     >
-      <div className="ag-card overflow-hidden">
+      <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] overflow-hidden">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
@@ -725,7 +725,7 @@ function PlanProposalItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) 
         >
           <ClipboardList className="size-4 shrink-0 text-muted-foreground" />
           <span className="text-[13px] font-medium">Umsetzungsplan</span>
-          <span className="ag-faint ml-auto text-[10px]">{label}</span>
+          <span className="text-[var(--ag-text-3)] ml-auto text-[10px]">{label}</span>
           <ChevronDown
             className="size-3.5 shrink-0 opacity-70 transition-transform"
             style={{ transform: open ? "rotate(180deg)" : undefined }}
@@ -733,12 +733,12 @@ function PlanProposalItem({ item, turn }: { item: AgentItem; turn: AgentTurn }) 
         </button>
         {plan ? (
           <AgentDisclosure open={open}>
-            <div className={cn("ag-scroll max-h-[420px] overflow-auto px-3 pb-3", AGENT_PROSE_CLASS)}>
+            <div className={cn("[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] max-h-[420px] overflow-auto px-3 pb-3", AGENT_PROSE_CLASS)}>
               <AgentMarkdown>{plan}</AgentMarkdown>
             </div>
           </AgentDisclosure>
         ) : (
-          <p className="ag-muted px-3 pb-3 text-[12px]">
+          <p className="text-[var(--ag-text-2)] px-3 pb-3 text-[12px]">
             {turn.status === "inProgress" ? "Plan wird erstellt …" : "Kein Planinhalt übermittelt."}
           </p>
         )}
@@ -753,11 +753,11 @@ function UserQuestionItem({ item }: { item: AgentItem }) {
   const pending = stringValue(item.status) === "inProgress";
 
   return (
-    <div className="ag-card overflow-hidden">
+    <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2">
         <MessageCircleQuestion className="size-4 shrink-0 text-muted-foreground" />
         <span className="text-[13px] font-medium">Rückfrage</span>
-        <span className="ag-faint ml-auto text-[10px]">
+        <span className="text-[var(--ag-text-3)] ml-auto text-[10px]">
           {pending ? "Wartet auf Antwort" : "Beantwortet"}
         </span>
       </div>
@@ -767,8 +767,8 @@ function UserQuestionItem({ item }: { item: AgentItem }) {
           const header = stringValue(question.header);
           const answer = stringValue(answers[text]);
           return (
-            <div key={`${item.id}-q-${index}`} className="ag-inset p-2.5">
-              {header ? <p className="ag-label mb-1">{header}</p> : null}
+            <div key={`${item.id}-q-${index}`} className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] p-2.5">
+              {header ? <p className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)] mb-1">{header}</p> : null}
               <p className="text-[12px] leading-5">{text}</p>
               {answer ? (
                 <p className="mt-1.5 text-[12px] font-medium leading-5 text-foreground">
@@ -779,7 +779,7 @@ function UserQuestionItem({ item }: { item: AgentItem }) {
                   {arrayValue(question.options).filter(isRecord).map((option, optionIndex) => (
                     <span
                       key={`${item.id}-q-${index}-o-${optionIndex}`}
-                      className="ag-faint rounded-[7px] bg-[var(--ag-surface-3)] px-1.5 py-0.5 text-[10px]"
+                      className="text-[var(--ag-text-3)] rounded-[7px] bg-[var(--ag-surface-3)] px-1.5 py-0.5 text-[10px]"
                     >
                       {stringValue(option.label)}
                     </span>
@@ -923,7 +923,7 @@ export const AgentItemView = memo(function AgentItemView({ item, turn }: { item:
   if (item.type === "commandExecution") return <CommandItem item={item} />;
   if (item.type === "fileChange") return <FileChangeItem item={item} />;
   if (item.tool === CHART_TOOL_NAME) return <MarkdownChart source={JSON.stringify(item.arguments ?? {})} />;
-  if (item.tool === BARCODE_TOOL_NAME) return <MarkdownBarcode source={JSON.stringify(item.arguments ?? {})} />;
+  if (isBarcodeToolName(item.tool)) return <MarkdownBarcode source={JSON.stringify(item.arguments ?? {})} />;
   if (item.type === "mcpToolCall" || item.type === "dynamicToolCall") return <ToolCallItem item={item} />;
   if (item.type === "webSearch") return <WebSearchItemView item={item} turn={turn} />;
   if (item.type === "plan") return <PlanItem item={item} turn={turn} />;

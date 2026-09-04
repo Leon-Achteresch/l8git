@@ -9,7 +9,6 @@ import { AgentsUiRoot } from "@/components/agents/test-harness/agents-ui-root";
 import { seedAgentUi } from "@/components/agents/test-harness/seed-agent-ui";
 
 import "@/index.css";
-import "@/components/agents/agents.css";
 
 const scene = new URLSearchParams(window.location.search).get("scene") ?? "chat";
 

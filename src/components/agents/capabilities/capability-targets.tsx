@@ -49,7 +49,7 @@ export function CapabilityTargetPicker({
     selected.some((entry) => targetKey(entry) === targetKey(target));
 
   if (!targets.length) {
-    return <p className="ag-faint px-1 text-[11px]">{emptyLabel ?? t("agentCapabilities.hub.noTargets")}</p>;
+    return <p className="text-[var(--ag-text-3)] px-1 text-[11px]">{emptyLabel ?? t("agentCapabilities.hub.noTargets")}</p>;
   }
 
   return (
@@ -94,7 +94,7 @@ export function CapabilityTargetPicker({
                         disabled={blocked}
                         onClick={() => onToggle(reference)}
                         className={cn(
-                          "ag-pill h-7 gap-1 px-2 text-[10px] font-medium",
+                          "inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring h-7 gap-1 px-2 text-[10px] font-medium",
                           active && "bg-[var(--ag-selected)] text-[var(--ag-text)]",
                           blocked && "cursor-not-allowed opacity-40",
                         )}
@@ -102,7 +102,7 @@ export function CapabilityTargetPicker({
                         {active ? <Check className="size-3" /> : null}
                         {!writable && supports ? <Lock className="size-3" /> : null}
                         {scopeLabel(scope, t)}
-                        <span className="ag-faint tabular-nums">{info?.itemCount ?? 0}</span>
+                        <span className="text-[var(--ag-text-3)] tabular-nums">{info?.itemCount ?? 0}</span>
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-sm break-all">

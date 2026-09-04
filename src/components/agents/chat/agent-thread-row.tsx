@@ -277,9 +277,9 @@ export const AgentThreadRow = memo(function AgentThreadRow({
       data-agent-thread={thread.id}
       whileTap={reduce ? undefined : { scale: 0.99 }}
       transition={SPRING_PRESS}
-      className="ag-row ag-thread"
+      className="relative mx-px flex h-auto min-h-0 w-full min-w-0 flex-col items-stretch justify-center gap-0.5 overflow-hidden rounded-[11px] px-2.5 py-2 text-left text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform,box-shadow] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:bg-[var(--ag-press)] focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-[var(--ag-surface)] data-[active=true]:text-[var(--ag-text)] data-[active=true]:shadow-[var(--ag-shadow-raise)]"
     >
-      <span className="ag-thread-line">
+      <span className="flex w-full min-w-0 items-center gap-1.5">
         {thread.isPinned ? (
           <Pin className="size-2.5 shrink-0 text-[var(--git-branch)]" />
         ) : null}
@@ -290,10 +290,10 @@ export const AgentThreadRow = memo(function AgentThreadRow({
           title={thread.title}
           editing={renaming}
           onEditingChange={setRenaming}
-          className="ag-thread-name"
+          className="min-w-0 flex-1 truncate text-[13px] font-medium leading-[18px] tracking-[-0.01em]"
           inputClassName="text-[13px]"
         />
-        <span className="ag-thread-meta ag-thread-meta-time">
+        <span className="ml-auto shrink-0 text-[11px] leading-[14px] tabular-nums text-[var(--ag-text-3)]">
           {working && workingSince ? (
             <AgentThreadWorkingTimer since={workingSince} />
           ) : (
@@ -301,31 +301,31 @@ export const AgentThreadRow = memo(function AgentThreadRow({
           )}
         </span>
       </span>
-      <span className="ag-thread-line ag-thread-foot">
-        <span className="ag-thread-mark">
+      <span className="flex w-full min-w-0 items-center gap-1.5 text-[10px] leading-[14px] text-[var(--ag-text-3)]">
+        <span className="relative grid size-3 shrink-0 place-items-center">
           <ProviderLogo />
           {working ? (
-            <span className="ag-thread-busy">
+            <span className="pointer-events-none absolute -inset-0.5 text-[var(--git-modified)]">
               <AgentWorkingRing size={18} thickness={1.5} className="size-full" />
             </span>
           ) : null}
         </span>
-        <span className="ag-thread-repo">{modelName ?? providerMeta.label}</span>
+        <span className="min-w-0 flex-1 truncate">{modelName ?? providerMeta.label}</span>
         {branch ? (
           <>
-            <GitBranch className="ag-thread-logo shrink-0 opacity-70" />
-            <span className="ag-thread-repo">{branch}</span>
+            <GitBranch className="size-3 shrink-0 opacity-70" />
+            <span className="min-w-0 flex-1 truncate">{branch}</span>
           </>
         ) : null}
         {jiraEnabled ? <AgentThreadJiraBadge links={jiraLinks} /> : null}
         {hasDiff ? (
-          <span className="ag-thread-trail">
-            <span className="ag-thread-diff">
+          <span className="ml-auto flex shrink-0 items-center">
+            <span className="flex items-center gap-1 font-mono text-[10px] tabular-nums">
               {additions > 0 ? (
-                <span className="ag-thread-diff-add">+{additions}</span>
+                <span className="text-[var(--git-added)]">+{additions}</span>
               ) : null}
               {deletions > 0 ? (
-                <span className="ag-thread-diff-del">-{deletions}</span>
+                <span className="text-[var(--git-removed)]">-{deletions}</span>
               ) : null}
             </span>
           </span>
@@ -365,17 +365,17 @@ export const AgentThreadRow = memo(function AgentThreadRow({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="ag-icon-btn absolute right-1.5 bottom-1.5 size-6 opacity-0 transition-opacity group-hover/thread:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+              className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 absolute right-1.5 bottom-1.5 size-6 opacity-0 transition-opacity group-hover/thread:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
               aria-label={t("agentChat.manageConversation")}
             >
               <MoreHorizontal className="size-3.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="ag-menu w-52 p-1.5">
+          <DropdownMenuContent align="end" className="overflow-hidden rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-pop)] w-52 p-1.5">
             {actions(
               DropdownMenuItem,
               DropdownMenuSeparator,
-              "ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]",
+              "flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 text-[12px] focus:bg-[var(--ag-hover)]",
             )}
           </DropdownMenuContent>
         </DropdownMenu>

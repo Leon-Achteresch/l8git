@@ -9,7 +9,7 @@ import {
 export function AgentsUiRoot({ scene }: { scene: string }) {
   if (scene === "capabilities") {
     return (
-      <div className="agents-shell ag-stage h-screen min-h-0 min-w-0 overflow-hidden">
+      <div className="isolate bg-[radial-gradient(820px_360px_at_92%_-8%,color-mix(in_oklab,var(--git-branch)_8%,transparent),transparent_66%),var(--ag-stage-bg)] h-screen min-h-0 min-w-0 overflow-hidden text-[var(--ag-text)]">
         <AgentCapabilityCenter path={AGENT_UI_PATH} onBack={() => undefined} />
       </div>
     );
@@ -21,18 +21,18 @@ export function AgentsUiRoot({ scene }: { scene: string }) {
 
   if (scene !== "sidebar") {
     return (
-      <div className="agents-shell ag-stage h-screen min-h-0 min-w-0 overflow-hidden">
+      <div className="isolate bg-[radial-gradient(820px_360px_at_92%_-8%,color-mix(in_oklab,var(--git-branch)_8%,transparent),transparent_66%),var(--ag-stage-bg)] h-screen min-h-0 min-w-0 overflow-hidden text-[var(--ag-text)]">
         {pane}
       </div>
     );
   }
 
   return (
-    <div className="agents-shell flex h-screen min-h-0 min-w-0 overflow-hidden" style={{ display: "flex" }}>
-      <div className="ag-rail h-full shrink-0 overflow-hidden border-r border-[var(--ag-line)]" style={{ width: 280, minWidth: 280 }}>
+    <div className="isolate flex h-screen min-h-0 min-w-0 overflow-hidden bg-[var(--ag-canvas)] text-[var(--ag-text)]" style={{ display: "flex" }}>
+      <div className="bg-[var(--ag-rail-bg)] shadow-[inset_-1px_0_0_var(--ag-line)] h-full shrink-0 overflow-hidden border-r border-[var(--ag-line)]" style={{ width: 280, minWidth: 280 }}>
         <AgentChatSidebar selectedPath={AGENT_UI_PATH} />
       </div>
-      <div className="ag-stage min-h-0 min-w-0 flex-1 overflow-hidden">{pane}</div>
+      <div className="bg-[radial-gradient(820px_360px_at_92%_-8%,color-mix(in_oklab,var(--git-branch)_8%,transparent),transparent_66%),var(--ag-stage-bg)] min-h-0 min-w-0 flex-1 overflow-hidden">{pane}</div>
     </div>
   );
 }

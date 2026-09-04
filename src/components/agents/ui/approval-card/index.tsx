@@ -181,7 +181,7 @@ export function ApprovalCard({
       data-state={status}
       aria-busy={busy}
       className={cn(
-        "ag-card w-full overflow-hidden p-4 text-sm shadow-[var(--ag-shadow-raise)]",
+        "rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] w-full overflow-hidden p-4 text-sm shadow-[var(--ag-shadow-raise)]",
         className,
       )}
     >
@@ -236,7 +236,7 @@ export function ApprovalCard({
                 size="icon-xs"
                 aria-label="Dismiss"
                 onClick={onDismiss}
-                className="ag-icon-btn size-5 rounded-full"
+                className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-5 rounded-full"
               >
                 <X className="size-4" />
               </Button>
@@ -254,7 +254,7 @@ export function ApprovalCard({
                   transition={{ duration: reduce ? 0 : 0.2, ease: EASE_OUT }}
                 >
                   {question.description ? (
-                    <div className="ag-muted mt-1 leading-5">
+                    <div className="text-[var(--ag-text-2)] mt-1 leading-5">
                       {question.description}
                     </div>
                   ) : null}
@@ -270,7 +270,7 @@ export function ApprovalCard({
             ) : (
               <div>
                 {description ? (
-                  <p className="ag-muted mt-1 leading-5">{description}</p>
+                  <p className="text-[var(--ag-text-2)] mt-1 leading-5">{description}</p>
                 ) : null}
                 {children ? <div className="mt-3">{children}</div> : null}
               </div>

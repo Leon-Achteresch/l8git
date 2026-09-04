@@ -67,7 +67,7 @@ export function AgentContextMeter({ usage }: { usage: AgentTokenUsage | null }) 
       </TooltipTrigger>
       <TooltipContent>
         <div>{t("agentChat.contextUsed", { value: percent })}</div>
-        <div className="ag-faint tabular-nums">
+        <div className="text-[var(--ag-text-3)] tabular-nums">
           {formatTokens(used)} / {formatTokens(window)}
         </div>
       </TooltipContent>

@@ -112,33 +112,33 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="ag-row -ml-0.5 h-8.5 w-full min-w-0 gap-2 rounded-[var(--ag-r-md)] border border-transparent px-1.5 text-[13px] hover:border-[var(--ag-line)] hover:bg-[var(--ag-surface-2)]"
+            className="relative flex w-full min-w-0 items-center gap-2 rounded-[var(--ag-r-md)] px-2 text-left text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform,box-shadow] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:bg-[var(--ag-press)] focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-[var(--ag-surface)] data-[active=true]:text-[var(--ag-text)] data-[active=true]:shadow-[var(--ag-shadow-raise)] -ml-0.5 h-8.5 w-full min-w-0 gap-2 rounded-[var(--ag-r-md)] border border-transparent px-1.5 text-[13px] hover:border-[var(--ag-line)] hover:bg-[var(--ag-surface-2)]"
             aria-label={t("agentChat.switchRepo")}
             title={selectedPath}
           >
-            <span className="ag-mark size-6 rounded-[8px] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)]">
+            <span className="grid size-7 shrink-0 place-items-center rounded-[10px] bg-[var(--ag-surface-2)] text-[var(--ag-text)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] size-6 rounded-[8px] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)]">
               <FolderGit2 className="size-3.5 text-[var(--git-branch)]" />
             </span>
             <span className="min-w-0 flex-1 truncate text-left font-semibold tracking-[-0.01em]">
               {repoName(selectedPath)}
             </span>
-            <ChevronsUpDown className="ag-faint size-3 shrink-0" />
+            <ChevronsUpDown className="text-[var(--ag-text-3)] size-3 shrink-0" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="ag-menu w-72 p-1.5">
-          <DropdownMenuLabel className="ag-label">
+        <DropdownMenuContent align="start" className="overflow-hidden rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-pop)] w-72 p-1.5">
+          <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
             {t("agentChat.switchRepo")}
           </DropdownMenuLabel>
           {repoPaths.map((path) => (
             <DropdownMenuItem
               key={path}
               onSelect={() => setPath(path)}
-              className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]"
+              className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 text-[12px] focus:bg-[var(--ag-hover)]"
               title={path}
             >
               <span className="min-w-0 flex-1 truncate">{repoName(path)}</span>
               {branches[path]?.branch ? (
-                <span className="ag-faint max-w-20 truncate text-[10px]">
+                <span className="text-[var(--ag-text-3)] max-w-20 truncate text-[10px]">
                   {branches[path]?.branch}
                 </span>
               ) : null}
@@ -149,22 +149,22 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
           ))}
           {worktreeEntries.length > 0 ? (
             <>
-              <DropdownMenuSeparator className="ag-line my-1" />
-              <DropdownMenuLabel className="ag-label">
+              <DropdownMenuSeparator className="border-[var(--ag-line)] my-1" />
+              <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
                 {t("agentChat.worktrees")}
               </DropdownMenuLabel>
               {worktreeEntries.map((entry) => (
                 <DropdownMenuItem
                   key={entry.path}
                   onSelect={() => setPath(entry.path)}
-                  className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]"
+                  className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 text-[12px] focus:bg-[var(--ag-hover)]"
                   title={`${entry.path} · ${entry.branch}`}
                 >
-                  <FolderGit2 className="ag-faint size-3.5 shrink-0" />
+                  <FolderGit2 className="text-[var(--ag-text-3)] size-3.5 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">
                     {worktreeDisplayName(entry.path)}
                   </span>
-                  <span className="ag-faint max-w-24 truncate text-[10px]">
+                  <span className="text-[var(--ag-text-3)] max-w-24 truncate text-[10px]">
                     {repoName(entry.basePath)}
                   </span>
                   {entry.path === selectedPath ? (
@@ -178,7 +178,7 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
                     title={t("agentChat.landWorktree", {
                       name: worktreeDisplayName(entry.path),
                     })}
-                    className="ag-icon-btn size-5 shrink-0"
+                    className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-5 shrink-0"
                     onClick={(event) => {
                       event.stopPropagation();
                       event.preventDefault();
@@ -192,7 +192,7 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
                     aria-label={t("agentChat.removeWorktree", {
                       name: worktreeDisplayName(entry.path),
                     })}
-                    className="ag-icon-btn size-5 shrink-0"
+                    className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-5 shrink-0"
                     onClick={(event) => {
                       event.stopPropagation();
                       event.preventDefault();
@@ -205,11 +205,11 @@ export function AgentRepoPicker({ selectedPath }: { selectedPath: string }) {
               ))}
             </>
           ) : null}
-          <DropdownMenuSeparator className="ag-line my-1" />
+          <DropdownMenuSeparator className="border-[var(--ag-line)] my-1" />
           <DropdownMenuItem
             disabled={pending || !basePath}
             onSelect={() => void newWorktree()}
-            className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]"
+            className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 text-[12px] focus:bg-[var(--ag-hover)]"
           >
             <Plus className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate">

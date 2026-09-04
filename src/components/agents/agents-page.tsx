@@ -3,7 +3,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, m } from "motion/react";
 import { toast } from "sonner";
 
-import "@/components/agents/agents.css";
 import { AgentChatPane } from "@/components/agents/chat/agent-chat-pane";
 import { AgentChatSidebar } from "@/components/agents/chat/agent-chat-sidebar";
 import { AgentsEmpty } from "@/components/agents/agents-empty";
@@ -179,7 +178,7 @@ export function AgentsPage({
 
   if (overview) {
     return (
-      <div className="agents-shell ag-stage flex h-full min-h-0 flex-col">
+      <div className="isolate bg-[radial-gradient(820px_360px_at_92%_-8%,color-mix(in_oklab,var(--git-branch)_8%,transparent),transparent_66%),var(--ag-stage-bg)] flex h-full min-h-0 flex-col text-[var(--ag-text)]">
         <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">…</div>}>
           <AgentsOverview
             onOpenThread={openOverviewEntry}
@@ -192,33 +191,31 @@ export function AgentsPage({
   }
 
   return (
-    <div className="agents-shell flex h-full min-h-0">
+    <div className="relative isolate flex h-full min-h-0 min-w-0 overflow-hidden bg-[var(--ag-canvas)] text-[var(--ag-text)] after:pointer-events-none after:absolute after:inset-0 after:z-30 after:shadow-[inset_0_1px_0_rgb(255_255_255_/_0.25)]">
       <InAppTerminalLayout path={selectedPath}>
         <ResizablePanelGroup orientation="horizontal" id="agents-chat-split">
           <ResizablePanel
             id="agents-chat-sidebar"
-            defaultSize="22%"
-            minSize="16%"
-            maxSize="32%"
-            className="ag-rail min-w-0 overflow-hidden"
+            defaultSize="280px"
+            minSize="232px"
+            maxSize="380px"
+            className="bg-[var(--ag-rail-bg)] shadow-[inset_-1px_0_0_var(--ag-line)] min-w-0 overflow-hidden"
           >
             <AgentChatSidebar selectedPath={selectedPath} onOpenOverview={() => setOverview(true)} />
           </ResizablePanel>
-          <ResizableHandle className="w-px bg-[var(--ag-line)] transition-colors hover:bg-[var(--ag-line-strong)]" />
+          <ResizableHandle className="relative z-20 w-px bg-transparent before:absolute before:inset-y-0 before:-left-0.5 before:w-1 before:border-l before:border-transparent hover:before:border-[var(--ag-line-strong)]" />
           <ResizablePanel
             id="agents-chat-main"
             defaultSize="78%"
-            minSize="45%"
-            className="ag-stage min-w-0 overflow-hidden"
+            minSize="420px"
+            className="bg-[radial-gradient(820px_360px_at_92%_-8%,color-mix(in_oklab,var(--git-branch)_8%,transparent),transparent_66%),var(--ag-stage-bg)] min-w-0 overflow-hidden"
           >
-            <AnimatePresence initial={false} mode="popLayout">
+            <AnimatePresence initial={false} mode="wait">
               <m.div
                 key={addonsOpen ? "addons" : capabilitySection ? `capabilities:${provider}` : "chat"}
-                layout
-                layoutId="agents-workspace-surface"
-                initial={{ opacity: 0, x: 14, scale: 0.992 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: -14, scale: 0.992 }}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
                 transition={SPRING_LAYOUT}
                 className="h-full min-h-0"
               >

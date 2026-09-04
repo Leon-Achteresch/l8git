@@ -128,7 +128,7 @@ export function AgentComposerControls({
           label={codexReasoningEffortLabel(effort)}
           title={t("agentChat.settings.effort")}
         >
-          <DropdownMenuLabel className="ag-label">
+          <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
             {t("agentChat.settings.effort")}
           </DropdownMenuLabel>
           <DropdownMenuRadioGroup
@@ -145,7 +145,7 @@ export function AgentComposerControls({
                   {codexReasoningEffortLabel(item.value)}
                 </span>
                 {item.value === selectedModel?.defaultReasoningEffort ? (
-                  <span className="ag-faint text-[10px]">
+                  <span className="text-[var(--ag-text-3)] text-[10px]">
                     {t("agentChat.settings.default")}
                   </span>
                 ) : null}
@@ -156,7 +156,7 @@ export function AgentComposerControls({
           {selectedModel?.serviceTiers.length ? (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="ag-label">
+              <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
                 {t("agentChat.settings.speed")}
               </DropdownMenuLabel>
               <DropdownMenuRadioGroup
@@ -184,7 +184,7 @@ export function AgentComposerControls({
           {selectedModel?.supportsPersonality ? (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="ag-label">
+              <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
                 {t("agentChat.settings.personality")}
               </DropdownMenuLabel>
               <DropdownMenuRadioGroup
@@ -226,7 +226,7 @@ export function AgentComposerControls({
           }
           title={t("agentChat.settings.agent")}
         >
-          <DropdownMenuLabel className="ag-label">
+          <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
             {t("agentChat.settings.agent")}
           </DropdownMenuLabel>
           <DropdownMenuRadioGroup
@@ -256,7 +256,7 @@ export function AgentComposerControls({
       >
         {!agentModePill && permissionProfiles.length ? (
           <>
-            <DropdownMenuLabel className="ag-label">
+            <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
               {t("agentChat.settings.profile")}
             </DropdownMenuLabel>
             <DropdownMenuRadioGroup
@@ -284,7 +284,7 @@ export function AgentComposerControls({
           </>
         ) : null}
 
-        <DropdownMenuLabel className="ag-label">
+        <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
           {t("agentChat.settings.sandbox")}
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup
@@ -303,7 +303,7 @@ export function AgentComposerControls({
         </DropdownMenuRadioGroup>
 
         <DropdownMenuSeparator />
-        <DropdownMenuLabel className="ag-label">
+        <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
           {t("agentChat.settings.approvals")}
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup
@@ -337,7 +337,7 @@ export function AgentComposerControls({
         }
         title={t("agentChat.settings.mode")}
       >
-        <DropdownMenuLabel className="ag-label">
+        <DropdownMenuLabel className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">
           {t("agentChat.settings.mode")}
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup

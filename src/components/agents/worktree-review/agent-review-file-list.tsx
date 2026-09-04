@@ -29,7 +29,7 @@ export function AgentReviewFileList({
   }
 
   return (
-    <m.ul layoutRoot className="ag-scroll h-full min-h-0 overflow-y-auto py-1">
+    <m.ul layoutRoot className="[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] h-full min-h-0 overflow-y-auto py-1">
       {files.map((file) => {
         const isSelected = file.path === selected;
         const Icon = file.untracked ? FilePlus2 : FileDiff;
@@ -39,7 +39,7 @@ export function AgentReviewFileList({
               type="button"
               onClick={() => onSelect(file.path)}
               data-active={isSelected}
-              className="ag-row relative flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px]"
+              className="relative flex w-full min-w-0 items-center gap-2 rounded-[var(--ag-r-md)] px-2 text-left text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform,box-shadow] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:bg-[var(--ag-press)] focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-[var(--ag-surface)] data-[active=true]:text-[var(--ag-text)] data-[active=true]:shadow-[var(--ag-shadow-raise)] relative flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px]"
               title={file.path}
             >
               {isSelected ? (

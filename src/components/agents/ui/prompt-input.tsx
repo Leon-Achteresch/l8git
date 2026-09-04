@@ -233,17 +233,21 @@ export function PromptInput({
     <m.form
       data-agent-composer=""
       onSubmit={submit}
-      animate={reduce ? undefined : { y: focused ? -2 : 0 }}
+      animate={reduce ? undefined : { y: focused ? -1 : 0, scale: focused ? 1.002 : 1 }}
       transition={SPRING_LAYOUT}
-      className={cn("ag-composer relative min-w-0 w-full p-2", disabled && "opacity-60", className)}
+      className={cn(
+        "relative min-w-0 w-full rounded-[var(--ag-r-xl)] border border-[var(--ag-line)] bg-[var(--ag-surface)] p-2 shadow-[var(--ag-shadow-panel)] transition-[border-color,box-shadow,transform] duration-200 focus-within:border-[color-mix(in_oklab,var(--git-branch)_32%,var(--ag-line-strong))] focus-within:ring-4 focus-within:ring-[color-mix(in_oklab,var(--git-branch)_11%,transparent)]",
+        disabled && "opacity-60",
+        className,
+      )}
     >
       {slashOpen ? (
         <div
           role="listbox"
           aria-label="Commands"
-          className="ag-menu ag-scroll absolute inset-x-0 bottom-[calc(100%+8px)] z-40 max-h-80 overflow-y-auto p-1.5"
+          className="overflow-hidden rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-pop)] [scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] absolute inset-x-0 bottom-[calc(100%+8px)] z-40 max-h-80 overflow-y-auto p-1.5"
         >
-          <p className="ag-label px-2 pb-1 pt-1">Commands</p>
+          <p className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)] px-2 pb-1 pt-1">Commands</p>
           {filteredSlashCommands.map((command, index) => (
             <Button
               key={command.value}
@@ -257,16 +261,16 @@ export function PromptInput({
               onMouseEnter={() => setSlashIndex(index)}
               onClick={() => runSlashCommand(command)}
               data-active={index === slashIndex}
-              className="ag-menu-item gap-2.5"
+              className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 gap-2.5"
             >
-              <span className="ag-slash-token w-24 shrink-0 truncate font-mono text-[12px]">
+              <span className="w-24 shrink-0 truncate font-mono text-[12px] font-medium text-[var(--git-merge)]">
                 /{command.value}
               </span>
               <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--ag-text)]">
                 {command.label}
               </span>
               {command.description ? (
-                <span className="ag-faint hidden min-w-0 max-w-[42%] shrink-0 truncate text-[11px] sm:block">
+                <span className="text-[var(--ag-text-3)] hidden min-w-0 max-w-[42%] shrink-0 truncate text-[11px] sm:block">
                   {command.description}
                 </span>
               ) : null}
@@ -290,7 +294,7 @@ export function PromptInput({
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 whitespace-pre-wrap px-2 pt-1 text-sm leading-6 text-transparent [overflow-wrap:break-word]"
           >
-            <span className="ag-slash">{`/${slashMatch[1] ?? ""}`}</span>
+            <span className="rounded-[5px] bg-[color-mix(in_oklab,var(--git-merge)_18%,transparent)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--git-merge)_18%,transparent)]">{`/${slashMatch[1] ?? ""}`}</span>
             {currentValue.slice((slashMatch[1] ?? "").length + 1)}
           </div>
         ) : null}
@@ -329,7 +333,7 @@ export function PromptInput({
                   size="icon-sm"
                   disabled={disabled || loading}
                   aria-label="Add to prompt"
-                  className="ag-icon-btn rounded-full"
+                  className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 rounded-full"
                 >
                   <m.span
                     aria-hidden="true"
@@ -346,7 +350,7 @@ export function PromptInput({
                 side="top"
                 align="start"
                 sideOffset={8}
-                className="ag-menu w-64 p-1.5"
+                className="overflow-hidden rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-pop)] w-64 p-1.5"
                 onCloseAutoFocus={(event) => event.preventDefault()}
               >
                 {actions.map((action) => (
@@ -360,10 +364,10 @@ export function PromptInput({
                       onAction?.(action.value);
                       setActionsOpen(false);
                     }}
-                    className="ag-menu-item items-start py-2"
+                    className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 items-start py-2"
                   >
                     {action.icon ? (
-                      <span className="ag-faint mt-px grid size-4 shrink-0 place-items-center [&_svg]:size-4">
+                      <span className="text-[var(--ag-text-3)] mt-px grid size-4 shrink-0 place-items-center [&_svg]:size-4">
                         {action.icon}
                       </span>
                     ) : null}
@@ -372,7 +376,7 @@ export function PromptInput({
                         {action.label}
                       </span>
                       {action.description ? (
-                        <span className="ag-faint mt-px block text-[11px] leading-4">
+                        <span className="text-[var(--ag-text-3)] mt-px block text-[11px] leading-4">
                           {action.description}
                         </span>
                       ) : null}
@@ -390,7 +394,7 @@ export function PromptInput({
                 onValueChange={setModel}
                 disabled={disabled || loading}
               >
-                <SelectTrigger className="ag-chip h-7 w-auto max-w-56 border-0 bg-transparent px-2 py-0 text-[12px] shadow-none focus-visible:ring-0">
+                <SelectTrigger className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 h-7 w-auto max-w-56 border-0 bg-transparent px-2 py-0 text-[12px] shadow-none focus-visible:ring-0">
                   <span className="flex min-w-0 items-center gap-1.5">
                     {currentModel?.icon ? (
                       <span className="grid size-3.5 shrink-0 place-items-center [&_svg]:size-3.5">
@@ -402,7 +406,7 @@ export function PromptInput({
                     </span>
                   </span>
                 </SelectTrigger>
-                <SelectContent className="ag-menu right-auto w-56 p-1.5 shadow-none">
+                <SelectContent className="overflow-hidden rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-pop)] right-auto w-56 p-1.5 shadow-none">
                   {models.map((option) => (
                     <SelectItem
                       key={option.value}
@@ -438,7 +442,7 @@ export function PromptInput({
             data-stop={loading || undefined}
             aria-label={loading ? "Stop generating" : "Send prompt"}
             onClick={loading ? onStop : undefined}
-            className="ag-send shrink-0"
+            className="grid size-8 shrink-0 place-items-center rounded-[var(--ag-r-md)] bg-[var(--ag-send)] text-[var(--ag-send-fg)] outline-none transition-[background-color,opacity,transform] duration-200 hover:bg-[var(--ag-send-hover)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 data-[stop=true]:bg-[var(--ag-solid)] data-[stop=true]:text-[var(--ag-solid-fg)]"
           >
             <AnimatePresence initial={false} mode="popLayout">
               <m.span

@@ -46,7 +46,7 @@ export function AgentPlanCard({ request }: { request: AgentPendingRequest }) {
       : t("agentChat.plan.statusPending");
 
   return (
-    <div className="ag-card overflow-hidden">
+    <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] overflow-hidden">
       <div className="flex items-center gap-2 border-b border-[var(--ag-line)] px-3 py-2">
         <ClipboardList className="size-4 shrink-0 text-muted-foreground" />
         <span className="text-[13px] font-medium">{t("agentChat.plan.title")}</span>
@@ -65,11 +65,11 @@ export function AgentPlanCard({ request }: { request: AgentPendingRequest }) {
       </div>
 
       {plan ? (
-        <div className={cn("ag-scroll max-h-[420px] overflow-auto px-3 py-3", AGENT_PROSE_CLASS)}>
+        <div className={cn("[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] max-h-[420px] overflow-auto px-3 py-3", AGENT_PROSE_CLASS)}>
           <AgentMarkdown>{plan}</AgentMarkdown>
         </div>
       ) : (
-        <p className="ag-muted px-3 py-3 text-[12px]">{t("agentChat.plan.empty")}</p>
+        <p className="text-[var(--ag-text-2)] px-3 py-3 text-[12px]">{t("agentChat.plan.empty")}</p>
       )}
 
       {resolved ? null : (
@@ -118,7 +118,7 @@ export function AgentPlanCard({ request }: { request: AgentPendingRequest }) {
               {t("agentChat.plan.keepPlanning")}
             </Button>
           </div>
-          <p className="ag-faint text-[10px] leading-4">{t("agentChat.plan.hint")}</p>
+          <p className="text-[var(--ag-text-3)] text-[10px] leading-4">{t("agentChat.plan.hint")}</p>
         </div>
       )}
     </div>

@@ -37,16 +37,16 @@ export function AgentSidebarActions({
   const reduce = useReducedMotion();
 
   return (
-    <nav className="min-w-0 space-y-1.5 px-2" aria-label={t("header.agents")}>
+    <nav className="min-w-0 space-y-2 px-2" aria-label={t("header.agents")}>
       <div className="flex min-w-0 items-center gap-1.5">
         <m.button
           type="button"
           onClick={onNewThread}
           whileTap={reduce ? undefined : { scale: 0.985 }}
           transition={SPRING_PRESS}
-          className="ag-card flex h-8.5 min-w-0 flex-1 items-center gap-2 rounded-[var(--ag-r-md)] border-[var(--ag-line)] bg-[var(--ag-surface)] px-3 text-[12px] font-medium text-[var(--ag-text)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
+          className="bg-[var(--ag-solid)] shadow-[0_8px_18px_-12px_color-mix(in_oklab,var(--ag-solid)_70%,transparent)] outline-none transition-[transform,filter,box-shadow] duration-200 hover:brightness-110 active:scale-[0.985] focus-visible:ring-3 focus-visible:ring-[color-mix(in_oklab,var(--git-branch)_16%,transparent)] flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[var(--ag-r-md)] px-3 text-[12px] font-semibold text-[var(--ag-solid-fg)]"
         >
-          <span className="grid size-4.5 place-items-center rounded-full bg-[var(--ag-hover)] text-[var(--git-branch)]">
+          <span className="grid size-4.5 place-items-center rounded-full bg-white/12 text-current">
             <Plus className="size-3 stroke-[2.5]" />
           </span>
           <span className="min-w-0 flex-1 truncate text-left">
@@ -57,7 +57,7 @@ export function AgentSidebarActions({
           <button
             type="button"
             onClick={onOpenOverview}
-            className="ag-icon-btn size-8.5 shrink-0 rounded-[var(--ag-r-sm)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-surface)]"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-9 shrink-0 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] hover:border-[var(--ag-line-strong)]"
             aria-label={t("agentOverview.title")}
             title={t("agentOverview.title")}
           >
@@ -69,7 +69,7 @@ export function AgentSidebarActions({
             type="button"
             onClick={onToggleArchived}
             data-active={showArchived}
-            className="ag-icon-btn size-8.5 shrink-0 rounded-[var(--ag-r-sm)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)]"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-9 shrink-0 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)]"
             aria-pressed={showArchived}
             aria-label={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
             title={showArchived ? t("agentChat.recents") : t("agentChat.showArchived")}
@@ -80,7 +80,7 @@ export function AgentSidebarActions({
       </div>
 
       <div
-        className="ag-inset flex h-8 min-w-0 cursor-text items-center gap-2 rounded-[var(--ag-r-md)] border border-transparent px-2.5 text-[12px] transition-all focus-within:border-[var(--ag-line-strong)] focus-within:bg-[var(--ag-surface)] focus-within:shadow-[var(--ag-shadow-raise)]"
+        className="bg-[color-mix(in_oklab,var(--ag-surface-2)_78%,transparent)] transition-[background-color,border-color,box-shadow] duration-200 focus-within:border-[color-mix(in_oklab,var(--git-branch)_34%,var(--ag-line-strong))] focus-within:bg-[var(--ag-surface)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--git-branch)_16%,transparent)] flex h-8.5 min-w-0 cursor-text items-center gap-2 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] px-2.5 text-[12px]"
         onClick={() => searchRef.current?.focus()}
       >
         <Search className="size-3.5 shrink-0 text-[var(--ag-text-3)]" />
@@ -101,7 +101,7 @@ export function AgentSidebarActions({
               searchRef.current?.focus();
             }}
             aria-label={t("agentChat.clearSearch")}
-            className="ag-icon-btn size-5 text-[var(--ag-text-3)] hover:text-[var(--ag-text)]"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-5 text-[var(--ag-text-3)] hover:text-[var(--ag-text)]"
           >
             <X className="size-3" />
           </button>
@@ -112,14 +112,14 @@ export function AgentSidebarActions({
         <div
           role="group"
           aria-label={t("agentChat.allProviders")}
-          className="flex min-w-0 items-center gap-1"
+          className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <button
             type="button"
             data-active={providerFilter === null}
             aria-pressed={providerFilter === null}
             onClick={() => onProviderFilterChange(null)}
-            className="ag-filter h-6 px-2.5 text-[11px]"
+            className="inline-flex items-center justify-center gap-1 rounded-full font-medium text-[var(--ag-text-3)] outline-none transition-colors duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-[var(--ag-selected)] data-[active=true]:text-[var(--ag-text)] h-6 px-2.5 text-[11px]"
           >
             {t("agentChat.allProviders")}
           </button>
@@ -134,7 +134,7 @@ export function AgentSidebarActions({
               onClick={() =>
                 onProviderFilterChange(providerFilter === value ? null : value)
               }
-              className="ag-filter size-6"
+              className="inline-flex items-center justify-center gap-1 rounded-full font-medium text-[var(--ag-text-3)] outline-none transition-colors duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-[var(--ag-selected)] data-[active=true]:text-[var(--ag-text)] size-6"
             >
               <Logo className="size-3.5" />
             </button>

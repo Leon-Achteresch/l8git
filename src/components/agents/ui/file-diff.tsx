@@ -152,7 +152,7 @@ export function FileDiff({
     <div
       data-state={status}
       aria-busy={streaming}
-      className={cn("ag-card w-full overflow-hidden text-sm", className)}
+      className={cn("rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] w-full overflow-hidden text-sm", className)}
     >
       <button
         id={triggerId}
@@ -162,7 +162,7 @@ export function FileDiff({
         onClick={() => setOpen(!currentOpen)}
         className="group flex h-9 w-full items-center gap-2 px-2.5 text-left outline-none transition-colors hover:bg-[var(--ag-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
-        <FileCode2 aria-hidden="true" className="ag-faint size-4 shrink-0" />
+        <FileCode2 aria-hidden="true" className="text-[var(--ag-text-3)] size-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--ag-text-2)]">
           {file}
         </span>
@@ -170,7 +170,7 @@ export function FileDiff({
           <ChangeCount value={additions} type="added" />
           <ChangeCount value={deletions} type="removed" />
         </span>
-        <span className="ag-faint grid size-4 shrink-0 place-items-center">
+        <span className="text-[var(--ag-text-3)] grid size-4 shrink-0 place-items-center">
           {streaming ? (
             <SpinIcon icon={LoaderCircle} active={!reduce} 
               aria-label="Applying changes"
@@ -184,7 +184,7 @@ export function FileDiff({
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
-          className="ag-faint shrink-0 transition-colors group-hover:text-[var(--ag-text-2)]"
+          className="text-[var(--ag-text-3)] shrink-0 transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
         </m.span>
@@ -197,7 +197,7 @@ export function FileDiff({
         open={currentOpen}
       >
         <div>
-          <div className="ag-line border-t bg-[var(--ag-surface-3)]">
+          <div className="border-[var(--ag-line)] border-t bg-[var(--ag-surface-3)]">
             <div
               ref={viewportRef}
               data-slot="file-diff-viewport"
@@ -259,7 +259,7 @@ export function FileDiff({
                   onClick={handleCopy}
                   whileTap={reduce ? undefined : { scale: 0.9 }}
                   transition={SPRING_PRESS}
-                  className="ag-icon-btn"
+                  className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
                 >
                   {copied ? (
                     <Check className="size-3.5" />

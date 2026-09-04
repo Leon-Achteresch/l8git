@@ -261,7 +261,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
             {filtered.length > listLimit ? (
               <button
                 type="button"
-                className="ag-pill mt-2 h-8 w-full justify-center"
+                className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring mt-2 h-8 w-full justify-center"
                 onClick={() => setListPagination({ query: normalizedQuery, limit: listLimit + 100 })}
               >
                 {t("agentCapabilities.showMore", { count: Math.min(100, filtered.length - listLimit) })}
@@ -303,14 +303,14 @@ export function AgentPluginStudio({ query }: { query: string }) {
               </div>
 
               <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_17rem]">
-                <div className="ag-card p-4">
+                <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] p-4">
                   <div className="flex items-center gap-2"><Boxes className="size-3.5 text-muted-foreground" /><h3 className="text-xs font-semibold">{t("agentCapabilities.plugins.capabilities")}</h3></div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {(selected.interface?.capabilities ?? []).length ? selected.interface?.capabilities.map((capability) => <CapabilityPill key={capability}>{capability}</CapabilityPill>) : <span className="text-[10px] text-muted-foreground">{t("agentCapabilities.plugins.noCapabilities")}</span>}
                   </div>
                   {selected.interface?.longDescription ? <p className="mt-4 text-xs leading-5 text-muted-foreground">{selected.interface.longDescription}</p> : null}
                 </div>
-                <div className="ag-card p-4">
+                <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] p-4">
                   <PackageCheck className="size-4 text-muted-foreground" />
                   <p className="mt-3 text-xs font-medium">{selected.interface?.developerName || selected.marketplaceName}</p>
                   <p className="mt-1 break-all font-mono text-[9px] leading-4 text-muted-foreground">{selected.id}</p>
@@ -336,7 +336,7 @@ export function AgentPluginStudio({ query }: { query: string }) {
                       const runtime = mcpServers.find((server) => server.name === serverName || server.name.endsWith(`/${serverName}`) || server.name.endsWith(`:${serverName}`));
                       const serverEnabled = serverConfig.enabled !== false;
                       return (
-                        <div key={serverName} className="ag-card overflow-hidden">
+                        <div key={serverName} className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] overflow-hidden">
                           <div className="flex items-center gap-2 px-3 py-2.5">
                             <CapabilityPill>MCP</CapabilityPill>
                             <code className="min-w-0 flex-1 truncate text-[10px]">{serverName}</code>
