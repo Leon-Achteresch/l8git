@@ -1,4 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { m } from "motion/react";
 import {
   BellOff,
   CheckCheck,
@@ -9,7 +10,7 @@ import {
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
-import { SpinIcon } from "@/components/motion/kit";
+import { StaggerItem, SpinIcon } from "@/components/motion/kit";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -145,89 +146,90 @@ function NotificationCard({
 }) {
   const unread = item.unread === true;
   return (
-    <article
-      role="button"
-      tabIndex={0}
-      title={item.tooltip}
-      aria-label={unread ? `${item.title} (${unreadLabel})` : item.title}
-      onClick={() => onOpen(item.id)}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        onOpen(item.id);
-      }}
-      style={{ animationDelay: `${Math.min(index, 14) * 25}ms` }}
-      className={cn(
-        "inbox-enter group/item relative flex cursor-pointer gap-3 rounded-xl bg-background px-3 py-3 text-left transition-colors",
-        "hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        unread && "bg-primary/[0.04] ring-1 ring-inset ring-primary/20 hover:bg-primary/[0.07]",
-      )}
-    >
-      {item.visual}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <p className={cn("min-w-0 truncate text-[13px]", unread ? "font-semibold" : "font-medium")}>
-            {item.title}
-          </p>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
-              {item.timestamp}
-            </span>
-            {item.externalUrl ? (
-              <button
-                type="button"
-                title={item.externalLabel}
-                aria-label={item.externalLabel}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (item.externalUrl) void openUrl(item.externalUrl);
-                }}
-                className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all group-hover/item:opacity-100 hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100"
-              >
-                <ExternalLink className="size-3" />
-              </button>
-            ) : null}
-            {unread ? (
-              <span className="size-2 shrink-0 rounded-full bg-primary" aria-label={unreadLabel} />
-            ) : null}
-          </div>
-        </div>
-        <p className="truncate text-xs text-muted-foreground">{item.description}</p>
-        {item.badges && item.badges.length > 0 ? (
-          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-            {item.badges.map((badge) => (
-              <span
-                key={badge.label}
-                title={badge.title}
-                className={cn(
-                  "inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[10px] font-medium",
-                  BADGE_TONE[badge.tone ?? "neutral"],
-                )}
-              >
-                {badge.label}
+    <StaggerItem index={index}>
+      <article
+        role="button"
+        tabIndex={0}
+        title={item.tooltip}
+        aria-label={unread ? `${item.title} (${unreadLabel})` : item.title}
+        onClick={() => onOpen(item.id)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          onOpen(item.id);
+        }}
+        className={cn(
+          "group/item relative flex cursor-pointer gap-3 rounded-xl bg-background px-3 py-3 text-left transition-colors",
+          "hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          unread && "bg-primary/[0.04] ring-1 ring-inset ring-primary/20 hover:bg-primary/[0.07]",
+        )}
+      >
+        {item.visual}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <p className={cn("min-w-0 truncate text-[13px]", unread ? "font-semibold" : "font-medium")}>
+              {item.title}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+                {item.timestamp}
               </span>
-            ))}
+              {item.externalUrl ? (
+                <button
+                  type="button"
+                  title={item.externalLabel}
+                  aria-label={item.externalLabel}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (item.externalUrl) void openUrl(item.externalUrl);
+                  }}
+                  className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all group-hover/item:opacity-100 hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100"
+                >
+                  <ExternalLink className="size-3" />
+                </button>
+              ) : null}
+              {unread ? (
+                <span className="size-2 shrink-0 rounded-full bg-primary" aria-label={unreadLabel} />
+              ) : null}
+            </div>
           </div>
-        ) : null}
-        {item.actions && item.actions.length > 0 ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            {item.actions.map((action) => (
-              <Button
-                key={action.id}
-                size="xs"
-                variant={action.variant === "primary" ? "default" : "outline"}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onAction(item.id, action.id);
-                }}
-              >
-                {action.label}
-              </Button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </article>
+          <p className="truncate text-xs text-muted-foreground">{item.description}</p>
+          {item.badges && item.badges.length > 0 ? (
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+              {item.badges.map((badge) => (
+                <span
+                  key={badge.label}
+                  title={badge.title}
+                  className={cn(
+                    "inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[10px] font-medium",
+                    BADGE_TONE[badge.tone ?? "neutral"],
+                  )}
+                >
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {item.actions && item.actions.length > 0 ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {item.actions.map((action) => (
+                <Button
+                  key={action.id}
+                  size="xs"
+                  variant={action.variant === "primary" ? "default" : "outline"}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAction(item.id, action.id);
+                  }}
+                >
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </article>
+    </StaggerItem>
   );
 }
 
@@ -278,10 +280,6 @@ export function NotificationCenter({
 
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-col gap-4">
-      {/* CSS-driven enter animation: unlike JS-driven opacity tweens it cannot
-          strand content invisible (e.g. when reduced motion is requested),
-          and the tab key remount replays it on every filter change. */}
-      <style>{`@keyframes inbox-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.inbox-enter{animation:inbox-enter .22s cubic-bezier(.22,1,.36,1) both}@media (prefers-reduced-motion:reduce){.inbox-enter{animation:none}}`}</style>
       <section
         aria-label={title}
         className="flex w-full flex-col gap-3 overflow-hidden rounded-2xl bg-card p-4 ring-1 ring-border/50"
@@ -334,7 +332,13 @@ export function NotificationCenter({
 
       {errorBanner}
 
-      <div key={activeTab} className="inbox-enter flex flex-col gap-3">
+      <m.div
+        key={activeTab}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col gap-3"
+      >
         {visibleCount === 0 ? (
           <div className="flex min-h-64 flex-col items-center justify-center gap-2 rounded-2xl bg-card px-6 py-12 text-center ring-1 ring-border/50">
             <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -377,7 +381,7 @@ export function NotificationCenter({
             );
           })
         )}
-      </div>
+      </m.div>
     </div>
   );
 }
