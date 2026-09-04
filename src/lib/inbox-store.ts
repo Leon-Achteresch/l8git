@@ -28,9 +28,21 @@ type InboxState = {
   lastLoadedAt: number | null;
   sections: InboxSections;
   errors: InboxRepoError[];
+  /** Keys of notifications the user has explicitly marked as read. */
+  readKeys: string[];
   refresh: (paths: string[]) => Promise<void>;
   ensureFresh: (paths: string[]) => void;
+  markRead: (key: string) => void;
+  markAllRead: (keys: string[]) => void;
 };
+
+function withReadKey(readKeys: string[], key: string): string[] {
+  return readKeys.includes(key) ? readKeys : [...readKeys, key];
+}
+
+export function isInboxKeyRead(readKeys: string[], key: string): boolean {
+  return readKeys.includes(key);
+}
 
 async function loadRepo(
   path: string,
@@ -83,6 +95,10 @@ export const useInboxStore = create<InboxState>((set, get) => ({
   lastLoadedAt: null,
   sections: emptyInboxSections(),
   errors: [],
+  readKeys: [],
+  markRead: (key) => set((state) => ({ readKeys: withReadKey(state.readKeys, key) })),
+  markAllRead: (keys) =>
+    set((state) => ({ readKeys: Array.from(new Set([...state.readKeys, ...keys])) })),
 
   refresh: async (paths) => {
     if (get().loading) return;
@@ -95,11 +111,20 @@ export const useInboxStore = create<InboxState>((set, get) => ({
       const results = await Promise.all(paths.map((path) => loadRepo(path)));
       const inputs = results.map((r) => r.input).filter((r): r is InboxRepoInput => r !== null);
       const errors = results.map((r) => r.error).filter((r): r is InboxRepoError => r !== null);
-      set({
-        sections: buildInboxSections(inputs),
+      const sections = buildInboxSections(inputs);
+      const live = new Set([
+        ...sections.myPrs.map((item) => item.key),
+        ...sections.reviewRequested.map((item) => item.key),
+        ...sections.redRuns.map((item) => item.key),
+      ]);
+      set((state) => ({
+        sections,
         errors,
         lastLoadedAt: Date.now(),
-      });
+        // Drop read markers for notifications that no longer exist, keep
+        // agent keys (they are not part of the polled sections).
+        readKeys: state.readKeys.filter((key) => key.startsWith("agent:") || live.has(key)),
+      }));
     } finally {
       set({ loading: false });
     }
