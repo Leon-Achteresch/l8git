@@ -146,18 +146,18 @@ export function AgentReviewDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="flex h-[min(760px,88vh)] w-[min(1120px,95vw)] max-w-[min(1120px,95vw)] flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="ag-line shrink-0 gap-2 border-b px-4 py-3 pr-12">
+          <DialogHeader className="border-[var(--ag-line)] shrink-0 gap-2 border-b px-4 py-3 pr-12">
             <DialogTitle>{t("agentReview.title")}</DialogTitle>
             <DialogDescription className="sr-only">
               {t("agentReview.description")}
             </DialogDescription>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="ag-chip h-6 gap-1 px-2 text-[11px]">
+              <span className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 h-6 gap-1 px-2 text-[11px]">
                 <GitBranch className="size-3" />
                 {summary?.sessionBranch ?? session.branch ?? "—"}
               </span>
               <GitMerge className="size-3 text-muted-foreground" />
-              <span className="ag-chip h-6 gap-1 px-2 text-[11px]">
+              <span className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 h-6 gap-1 px-2 text-[11px]">
                 <GitBranch className="size-3" />
                 {summary?.baseBranch ?? "—"}
               </span>
@@ -206,7 +206,7 @@ export function AgentReviewDialog({
             </div>
           ) : (
             <AgentsEnter className="flex min-h-0 flex-1">
-              <div className="ag-line w-64 shrink-0 border-r">
+              <div className="border-[var(--ag-line)] w-64 shrink-0 border-r">
                 <AgentReviewFileList
                   files={files}
                   selected={selected}

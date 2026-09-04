@@ -158,7 +158,7 @@ export const AgentChart = memo(function AgentChart({ spec }: { spec: AgentChartS
           {spec.title}
         </figcaption>
       ) : null}
-      <div className="ag-chart text-[11px] text-[var(--ag-text-2)]">
+      <div className="min-w-0 overflow-hidden text-[11px] text-[var(--ag-text-2)]">
         <Chart definition={definition} height={240} ariaLabel={label} />
       </div>
     </figure>
@@ -171,7 +171,7 @@ export const MarkdownChart = memo(function MarkdownChart({ source }: { source: s
   if (spec) return <AgentChart spec={spec} />;
   if (looksLikeChartJson(source)) {
     return (
-      <div className="ag-inset my-3 flex h-24 items-center justify-center gap-2 rounded-[12px] border border-[var(--ag-line)] text-[12px] text-[var(--ag-text-3)]">
+      <div className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] my-3 flex h-24 items-center justify-center gap-2 rounded-[12px] border border-[var(--ag-line)] text-[12px] text-[var(--ag-text-3)]">
         <SpinIcon icon={LoaderCircle} className="size-3.5" />
         {t("agentChat.chartLoading")}
       </div>

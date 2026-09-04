@@ -51,23 +51,23 @@ export function AgentCommandPicker({
           ) : null}
         </DialogHeader>
         {picker?.detail ? (
-          <pre className="ag-inset max-h-56 overflow-auto whitespace-pre-wrap p-2.5 font-mono text-[11px] leading-4">
+          <pre className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] max-h-56 overflow-auto whitespace-pre-wrap p-2.5 font-mono text-[11px] leading-4">
             {picker.detail}
           </pre>
         ) : null}
         {picker?.items?.length ? (
-          <div className="ag-scroll max-h-80 overflow-y-auto">
+          <div className="[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] max-h-80 overflow-y-auto">
             {picker.items.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 disabled={item.disabled}
-                className="ag-menu-item w-full"
+                className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 w-full"
                 onClick={() => picker.onSelect?.(item.id)}
               >
                 <span className="min-w-0 flex-1 truncate text-[13px]">{item.label}</span>
                 {item.description ? (
-                  <span className="ag-faint min-w-0 max-w-[46%] truncate text-[11px]">
+                  <span className="text-[var(--ag-text-3)] min-w-0 max-w-[46%] truncate text-[11px]">
                     {item.description}
                   </span>
                 ) : null}

@@ -24,14 +24,14 @@ export function AgentUsageSummary() {
   return (
     <AgentsEnter>
       <div
-        className="ag-line flex h-8.5 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-t bg-[var(--ag-surface-2)]/40 px-3 text-[11px]"
+        className="border-[var(--ag-line)] flex h-8.5 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-t bg-[var(--ag-surface-2)]/40 px-3 text-[11px]"
         title={t("agentChat.usageWeek", {
           cost: formatUsd(week.costUsd),
           tokens: formatTokens(weekTokens),
         })}
       >
         <Coins className="size-3 shrink-0 text-[var(--ag-text-3)]" />
-        <span className="ag-faint truncate font-medium">
+        <span className="text-[var(--ag-text-3)] truncate font-medium">
           {t("agentChat.usageToday", {
             cost: formatUsd(today.costUsd),
             tokens: formatTokens(todayTokens),

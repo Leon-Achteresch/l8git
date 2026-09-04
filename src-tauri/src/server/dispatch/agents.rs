@@ -27,6 +27,10 @@ pub async fn dispatch(
             crate::agent_addons::agent_addon_config_write(path, provider, contents).await
         }
 
+        "renderer_mcp_command" () => {
+            crate::renderer_mcp::renderer_mcp_command()
+        }
+
         "agent_transport_open" (
             provider: String,
             session_id: String,

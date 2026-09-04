@@ -353,8 +353,8 @@ export function ClaudeCapabilityCenter({
           </AnimatePresence>
         </Suspense>
       ) : (
-      <div className="ag-scroll min-h-0 flex-1 overflow-y-auto p-5">
-        <div className="ag-studio-cards">
+      <div className="[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="grid w-full min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-4">
           <ProgressiveCapabilityList
             items={entries}
             getKey={(entry) => entry.id}
@@ -363,7 +363,7 @@ export function ClaudeCapabilityCenter({
             renderItem={(entry) => (
             <m.article
               key={entry.id}
-              className="ag-studio-card"
+              className="flex min-h-35 min-w-0 flex-col gap-3 rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] px-5 py-[1.15rem] shadow-[var(--ag-shadow-raise)] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-px hover:border-[var(--ag-line-strong)] hover:shadow-[var(--ag-shadow-panel)]"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ y: -1 }}
@@ -375,14 +375,14 @@ export function ClaudeCapabilityCenter({
                 </span>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-[14px] font-semibold tracking-tight">{entry.title}</h3>
-                  <p className="ag-muted mt-1.5 line-clamp-3 text-[12px] leading-5">{entry.description || "No description"}</p>
+                  <p className="text-[var(--ag-text-2)] mt-1.5 line-clamp-3 text-[12px] leading-5">{entry.description || "No description"}</p>
                 </div>
                 {entry.filePath || entry.toggle || entry.remove ? (
                   <div className="flex shrink-0 items-center gap-0.5">
                     {entry.toggle ? (
                       <button
                         type="button"
-                        className={cn("ag-icon-btn", entry.toggle.enabled && "text-emerald-500")}
+                        className={cn("grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40", entry.toggle.enabled && "text-emerald-500")}
                         disabled={busy}
                         title={entry.toggle.enabled ? `${entry.toggle.label} deaktivieren` : `${entry.toggle.label} aktivieren`}
                         aria-label={entry.toggle.enabled ? `${entry.toggle.label} deaktivieren` : `${entry.toggle.label} aktivieren`}
@@ -401,7 +401,7 @@ export function ClaudeCapabilityCenter({
                     {entry.filePath ? (
                       <button
                         type="button"
-                        className="ag-icon-btn"
+                        className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
                         disabled={busy}
                         title="Bearbeiten"
                         aria-label="Bearbeiten"
@@ -413,7 +413,7 @@ export function ClaudeCapabilityCenter({
                     {entry.remove ? (
                       <button
                         type="button"
-                        className="ag-icon-btn text-rose-500"
+                        className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 text-rose-500"
                         disabled={busy}
                         title={entry.remove.label}
                         aria-label={entry.remove.label}
@@ -425,7 +425,7 @@ export function ClaudeCapabilityCenter({
                   </div>
                 ) : null}
               </div>
-              {entry.meta ? <p className="ag-faint mt-auto truncate pt-3 font-mono text-[11px]">{entry.meta}</p> : null}
+              {entry.meta ? <p className="text-[var(--ag-text-3)] mt-auto truncate pt-3 font-mono text-[11px]">{entry.meta}</p> : null}
             </m.article>
             )}
           />

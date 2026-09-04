@@ -10,5 +10,8 @@ fn main() {
     if args.get(1).map(String::as_str) == Some(l8git_lib::jira_mcp::SUBCOMMAND) {
         l8git_lib::jira_mcp::serve_stdio(args);
     }
+    if args.get(1).map(String::as_str) == Some(l8git_lib::renderer_mcp::SUBCOMMAND) {
+        l8git_lib::renderer_mcp::serve_stdio();
+    }
     l8git_lib::run()
 }

@@ -388,7 +388,7 @@ export function AgentHookStudio({ query }: { query: string }) {
               </div>
 
               <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-                <div className="ag-card p-4">
+                <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] p-4">
                   <div className="flex items-center gap-2"><TerminalSquare className="size-3.5 text-muted-foreground" /><h3 className="text-xs font-semibold">{t("agentCapabilities.hooks.handler")}</h3></div>
                   <code className="mt-3 block whitespace-pre-wrap break-words rounded-xl bg-background/70 p-3 text-[10px] leading-5 ring-1 ring-border/35">{selected.command || selected.handlerType}</code>
                   <dl className="mt-4 grid gap-3 text-[10px] sm:grid-cols-2">
@@ -403,7 +403,7 @@ export function AgentHookStudio({ query }: { query: string }) {
                 </div>
               </section>
 
-              <section className="ag-card p-4">
+              <section className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] p-4">
                 <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("agentCapabilities.hooks.sourcePath")}</p>
                 <p className="mt-2 break-all font-mono text-[10px] leading-5">{selected.sourcePath}</p>
                 <p className="mt-2 break-all font-mono text-[9px] text-muted-foreground">SHA {selected.currentHash}</p>

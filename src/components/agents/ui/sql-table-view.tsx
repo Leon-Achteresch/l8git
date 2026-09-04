@@ -61,7 +61,7 @@ export function SqlTableView({ table }: { table: SqlTable }) {
           ))}
         </TableBody>
       </Table>
-      <p className="ag-faint text-[11px]">{footer.join(" · ")}</p>
+      <p className="text-[var(--ag-text-3)] text-[11px]">{footer.join(" · ")}</p>
     </div>
   );
 }

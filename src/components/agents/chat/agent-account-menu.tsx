@@ -84,14 +84,14 @@ export function AgentAccountMenu({ onImport }: { onImport?: () => void }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="ag-icon-btn"
+          className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
           aria-label={t("agentChat.account.menu")}
           title={account.email ?? t("agentChat.account.menu")}
         >
           <UserRound className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="ag-menu w-64 p-1.5">
+      <DropdownMenuContent align="end" className="overflow-hidden rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-pop)] w-64 p-1.5">
         <DropdownMenuLabel className="min-w-0 py-1.5">
           <span className="block truncate text-xs text-foreground">
             {account.email ?? t("agentChat.account.signedIn")}
@@ -124,17 +124,17 @@ export function AgentAccountMenu({ onImport }: { onImport?: () => void }) {
           />
         ) : null}
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]" onClick={() => void refresh()}>
+        <DropdownMenuItem className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 text-[12px] focus:bg-[var(--ag-hover)]" onClick={() => void refresh()}>
           <RefreshCw className="size-3.5" />
           {t("agentChat.account.refresh")}
         </DropdownMenuItem>
         {onImport ? (
-          <DropdownMenuItem className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]" onClick={onImport}>
+          <DropdownMenuItem className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 text-[12px] focus:bg-[var(--ag-hover)]" onClick={onImport}>
             <Download className="size-3.5" />
             Import from Claude Code
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem className="ag-menu-item text-[12px] focus:bg-[var(--ag-hover)]" onClick={() => void signOut()}>
+        <DropdownMenuItem className="flex w-full items-center gap-2.5 rounded-[var(--ag-r-sm)] px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-[var(--ag-hover)] focus-visible:bg-[var(--ag-hover)] disabled:pointer-events-none disabled:opacity-40 text-[12px] focus:bg-[var(--ag-hover)]" onClick={() => void signOut()}>
           <LogOut className="size-3.5" />
           {t("agentChat.account.logout")}
         </DropdownMenuItem>

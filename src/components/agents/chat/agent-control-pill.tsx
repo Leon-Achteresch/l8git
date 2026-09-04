@@ -59,7 +59,7 @@ export function AgentControlPill({
       <DropdownMenuTrigger asChild>
         <m.button
           type="button"
-          className="ag-chip"
+          className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45"
           title={title}
           aria-label={title}
           aria-haspopup="menu"
@@ -74,14 +74,14 @@ export function AgentControlPill({
             {icon}
           </span>
           <span className="max-w-32 truncate">{label}</span>
-          <ChevronDown className="ag-faint size-3 shrink-0" />
+          <ChevronDown className="text-[var(--ag-text-3)] size-3 shrink-0" />
         </m.button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
         side="top"
         sideOffset={8}
-        className="ag-menu w-60 p-1.5"
+        className="overflow-hidden rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[var(--ag-shadow-pop)] w-60 p-1.5"
         onCloseAutoFocus={(event) => event.preventDefault()}
         onClick={(event) => {
           if (!isMenuChoice(event.target)) return;

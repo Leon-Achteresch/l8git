@@ -928,24 +928,24 @@ export const AgentChatPane = memo(function AgentChatPane({
       {attachments.map((attachment) => (
         <span
           key={attachment.path}
-          className="ag-inset inline-flex max-w-56 items-center gap-1.5 rounded-[9px] px-2 py-1 text-[11px]"
+          className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] inline-flex max-w-56 items-center gap-1.5 rounded-[9px] px-2 py-1 text-[11px]"
           title={attachment.path}
         >
           {attachment.type === "localImage" ? (
-            <FileImage className="ag-faint size-3 shrink-0" />
+            <FileImage className="text-[var(--ag-text-3)] size-3 shrink-0" />
           ) : attachment.type === "localAudio" ? (
-            <Mic className="ag-faint size-3 shrink-0" />
+            <Mic className="text-[var(--ag-text-3)] size-3 shrink-0" />
           ) : attachment.type === "skill" ? (
-            <Sparkles className="ag-faint size-3 shrink-0" />
+            <Sparkles className="text-[var(--ag-text-3)] size-3 shrink-0" />
           ) : (
-            <File className="ag-faint size-3 shrink-0" />
+            <File className="text-[var(--ag-text-3)] size-3 shrink-0" />
           )}
           <span className="truncate">{attachment.name}</span>
           <button
             type="button"
             aria-label={t("agentChat.removeAttachment", { name: attachment.name })}
             onClick={() => setAttachments((current) => current.filter((item) => item.path !== attachment.path))}
-            className="ag-icon-btn size-4"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-4"
           >
             <X className="size-2.5" />
           </button>
@@ -986,9 +986,9 @@ export const AgentChatPane = memo(function AgentChatPane({
 
       <div
         data-agent-composer-dock=""
-        className="ag-dock flex min-w-0 items-center gap-2 overflow-hidden px-3 py-1.5 text-[11px]"
+        className="mx-2 flex min-w-0 items-center gap-2 overflow-hidden rounded-b-[var(--ag-r-lg)] border border-t-0 border-[var(--ag-line)] bg-[var(--ag-dock-bg)] px-3 py-1.5 text-[11px] shadow-[0_8px_22px_-18px_rgb(20_32_38_/_0.45)] max-sm:flex-wrap"
       >
-        <span className="ag-faint flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+        <span className="text-[var(--ag-text-3)] flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
           {branch ? (
             <>
               <GitBranch className="size-3 shrink-0" />
@@ -1022,7 +1022,7 @@ export const AgentChatPane = memo(function AgentChatPane({
           {branchPr ? (
             <button
               type="button"
-              className="ag-chip h-5 gap-1 px-1.5 text-[11px]"
+              className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 h-5 gap-1 px-1.5 text-[11px]"
               title={branchPr.title}
               onClick={() => void openUrl(branchPr.html_url).catch(() => {})}
             >
@@ -1033,12 +1033,12 @@ export const AgentChatPane = memo(function AgentChatPane({
         </span>
 
         {conversationMeta.goalObjective && threadId ? (
-          <span className="ag-inset ml-1 inline-flex min-w-0 max-w-64 items-center gap-1.5 rounded-full px-2 py-0.5">
-            <span className="ag-faint shrink-0">{t("agentChat.goal")}</span>
+          <span className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] ml-1 inline-flex min-w-0 max-w-64 items-center gap-1.5 rounded-full px-2 py-0.5">
+            <span className="text-[var(--ag-text-3)] shrink-0">{t("agentChat.goal")}</span>
             <span className="truncate">{conversationMeta.goalObjective}</span>
             <button
               type="button"
-              className="ag-icon-btn size-4"
+              className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-4"
               aria-label={t("agentChat.clearGoal")}
               onClick={() => void clearGoal(threadId).catch((error: unknown) =>
                 toast.error(error instanceof Error ? error.message : String(error)),
@@ -1049,7 +1049,7 @@ export const AgentChatPane = memo(function AgentChatPane({
           </span>
         ) : null}
 
-        <span className="ag-faint ml-auto flex min-w-0 max-w-[58%] shrink items-center justify-end gap-1.5 overflow-hidden">
+        <span className="text-[var(--ag-text-3)] ml-auto flex min-w-0 max-w-[58%] shrink items-center justify-end gap-1.5 overflow-hidden">
           <AgentUsagePill
             usage={conversationMeta.usage}
             model={conversationMeta.usageModel || model}
@@ -1066,11 +1066,14 @@ export const AgentChatPane = memo(function AgentChatPane({
       data-agent-chat=""
       className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
-      <header className="ag-line flex h-12 shrink-0 items-center gap-2 border-b px-3">
+      <header className="flex h-14 min-w-0 shrink-0 items-center gap-2 border-b border-[var(--ag-line)] bg-[color-mix(in_oklab,var(--ag-stage-bg)_86%,transparent)] px-4 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.16)] backdrop-blur-xl">
         <AgentProviderMark working={busy} label={providerLabel}>
           <ProviderLogo />
         </AgentProviderMark>
-        <div className="flex min-w-0 flex-1 items-center gap-1">
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+          <span className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--ag-text-3)]">
+            {providerLabel}
+          </span>
           {conversationMeta.exists && threadId ? (
             <AgentInlineTitle
               path={path}
@@ -1078,11 +1081,11 @@ export const AgentChatPane = memo(function AgentChatPane({
               title={conversationMeta.title}
               editing={renamingTitle}
               onEditingChange={setRenamingTitle}
-              className="min-w-0 truncate text-[13px] font-medium tracking-[-0.01em]"
+              className="min-w-0 truncate text-[13px] font-semibold tracking-[-0.02em]"
               inputClassName="max-w-md text-[13px] font-medium tracking-[-0.01em]"
             />
           ) : (
-            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">{providerLabel}</p>
+            <p className="truncate text-[13px] font-semibold tracking-[-0.02em]">{t("agentChat.newConversation")}</p>
           )}
         </div>
 
@@ -1095,7 +1098,7 @@ export const AgentChatPane = memo(function AgentChatPane({
         {onToggleTerminal ? (
           <button
             type="button"
-            className="ag-icon-btn"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
             data-active={terminalVisible || undefined}
             onClick={onToggleTerminal}
             aria-pressed={terminalVisible}
@@ -1109,7 +1112,7 @@ export const AgentChatPane = memo(function AgentChatPane({
         {onOpenCapabilities && providerSupportsCapabilityCenter(provider) ? (
           <button
             type="button"
-            className="ag-icon-btn"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
             onClick={() => onOpenCapabilities("skills")}
             title={t("agentCapabilities.open")}
             aria-label={t("agentCapabilities.open")}
@@ -1121,7 +1124,7 @@ export const AgentChatPane = memo(function AgentChatPane({
         {onOpenAddons ? (
           <button
             type="button"
-            className="ag-icon-btn"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
             onClick={onOpenAddons}
             title={t("agentAddons.open")}
             aria-label={t("agentAddons.open")}
@@ -1135,7 +1138,7 @@ export const AgentChatPane = memo(function AgentChatPane({
         <AgentAccountMenu onImport={isCodex ? () => setImportOpen(true) : undefined} />
       </header>
 
-      <div className="shrink-0 px-6">
+      <div className="shrink-0 px-4 md:px-6">
         <AgentTrustBanner path={path} />
         <AgentPlanBanner />
       </div>
@@ -1157,9 +1160,9 @@ export const AgentChatPane = memo(function AgentChatPane({
       {centeredComposer ? null : (
         <div
           data-agent-composer-shell=""
-          className="relative z-10 min-w-0 shrink-0 px-6 pb-4 pt-2"
+          className="relative z-10 min-w-0 shrink-0 bg-[linear-gradient(to_bottom,transparent,var(--ag-stage-bg)_38%)] px-4 pb-4 pt-2 md:px-6"
         >
-          <div className="ag-column mx-auto min-w-0 w-full">{composer}</div>
+          <div className="max-w-224 mx-auto min-w-0 w-full">{composer}</div>
         </div>
       )}
 

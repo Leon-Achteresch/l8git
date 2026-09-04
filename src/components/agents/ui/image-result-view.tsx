@@ -12,7 +12,7 @@ export function ImageResultView({ result }: { result: ImageResult }) {
         />
       ))}
       {result.text ? (
-        <p className="ag-faint whitespace-pre-wrap break-words text-[11px]">
+        <p className="text-[var(--ag-text-3)] whitespace-pre-wrap break-words text-[11px]">
           {result.text}
         </p>
       ) : null}

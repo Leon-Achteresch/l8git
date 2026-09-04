@@ -14,7 +14,13 @@ export function AgDot({
   return (
     <m.span
       aria-hidden="true"
-      className={cn("ag-dot", className)}
+      className={cn(
+        "size-1.5 rounded-full bg-[var(--ag-text-3)]",
+        state === "ready" && "bg-[var(--git-added)]",
+        state === "working" && "bg-[var(--git-modified)]",
+        state === "error" && "bg-destructive",
+        className,
+      )}
       data-state={state}
       animate={working ? pulseKeyframes : { opacity: 1 }}
       transition={working ? pulseTransition : easeOutFast}

@@ -202,7 +202,7 @@ export const AgentConversationViewport = memo(
         <AgentsEnter className="flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
           <div
             data-agent-status-card=""
-            className="ag-card flex w-full max-w-sm flex-col items-center p-6 shadow-[var(--ag-shadow-panel)]"
+            className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] flex w-full max-w-sm flex-col items-center p-6 shadow-[var(--ag-shadow-panel)]"
           >
             <AgentProviderMark
               working
@@ -214,7 +214,7 @@ export const AgentConversationViewport = memo(
             <p className="mt-4 text-[13px] font-medium tracking-[-0.01em]">
               {t("agentChat.connecting", { agent })}
             </p>
-            <p className="ag-faint mt-1 text-[11px] leading-relaxed">
+            <p className="text-[var(--ag-text-3)] mt-1 text-[11px] leading-relaxed">
               {t("agentChat.connectingHint", { agent })}
             </p>
           </div>
@@ -227,7 +227,7 @@ export const AgentConversationViewport = memo(
         <AgentsEnter className="flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
           <div
             data-agent-status-card=""
-            className="ag-card flex w-full max-w-md flex-col items-center p-6 text-center shadow-[var(--ag-shadow-panel)]"
+            className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] flex w-full max-w-md flex-col items-center p-6 text-center shadow-[var(--ag-shadow-panel)]"
           >
             <AgentProviderMark
               label={agent}
@@ -239,7 +239,7 @@ export const AgentConversationViewport = memo(
               {t("agentChat.connectionFailed", { agent })}
             </p>
             {connectionError ? (
-              <p className="ag-faint mt-1.5 max-h-32 overflow-y-auto text-[11px] leading-relaxed">
+              <p className="text-[var(--ag-text-3)] mt-1.5 max-h-32 overflow-y-auto text-[11px] leading-relaxed">
                 {connectionError}
               </p>
             ) : null}
@@ -247,7 +247,7 @@ export const AgentConversationViewport = memo(
               <button
                 type="button"
                 onClick={() => void connect()}
-                className="ag-pill h-8 px-3"
+                className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring h-8 px-3"
                 data-active="true"
               >
                 {t("agentChat.retry")}
@@ -263,7 +263,7 @@ export const AgentConversationViewport = memo(
         <AgentsEnter className="flex min-h-0 flex-1 flex-col items-center justify-center p-8 text-center">
           <div
             data-agent-status-card=""
-            className="ag-card flex w-full max-w-sm flex-col items-center p-6 text-center shadow-[var(--ag-shadow-panel)]"
+            className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] flex w-full max-w-sm flex-col items-center p-6 text-center shadow-[var(--ag-shadow-panel)]"
           >
             <AgentProviderMark
               label={agent}
@@ -274,7 +274,7 @@ export const AgentConversationViewport = memo(
             <p className="mt-4 text-[13px] font-medium tracking-[-0.01em]">
               {t("agentChat.signInRequired", { agent })}
             </p>
-            <p className="ag-faint mt-1 text-[11px] leading-relaxed">
+            <p className="text-[var(--ag-text-3)] mt-1 text-[11px] leading-relaxed">
               {t("agentChat.signInHint", { agent })}
             </p>
             {loginError ? (
@@ -284,7 +284,7 @@ export const AgentConversationViewport = memo(
               type="button"
               disabled={loginStatus === "starting" || loginStatus === "waiting"}
               onClick={() => void startLogin()}
-              className="ag-pill mt-5 h-8 px-4"
+              className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring mt-5 h-8 px-4"
               data-active="true"
             >
               {loginStatus === "starting" || loginStatus === "waiting" ? (
@@ -311,15 +311,15 @@ export const AgentConversationViewport = memo(
           data-agent-transcript-scroll=""
           onScroll={handleScroll}
           onWheel={handleWheel}
-          className="ag-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+          className="[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
         >
           <div
             ref={contentRef}
-            className={`ag-column mx-auto flex min-h-full min-w-0 w-full flex-col px-4 pb-4 pt-4 md:px-6 ${centered ? "justify-center" : "justify-start"}`}
+            className={`max-w-224 mx-auto flex min-h-full min-w-0 w-full flex-col px-4 pb-5 pt-6 md:px-7 ${centered ? "justify-center" : "justify-start"}`}
           >
             {centered ? (
               <div className="w-full pb-4">
-                <AgentsEnter className="mb-6 text-center">
+                <AgentsEnter className="mb-7 text-center">
                   <div className="relative mx-auto mb-3.5 inline-block">
                     <AgentProviderMark
                       label={agent}
@@ -331,10 +331,10 @@ export const AgentConversationViewport = memo(
                       <Sparkles className="size-3" />
                     </span>
                   </div>
-                  <h2 className="text-base font-semibold tracking-[-0.015em] text-[var(--ag-text)]">
+                  <h2 className="text-xl font-semibold tracking-[-0.035em] text-[var(--ag-text)] text-balance">
                     {t("agentChat.emptyTitle", { agent })}
                   </h2>
-                  <p className="ag-faint mt-1 text-[12px] leading-relaxed">
+                  <p className="text-[var(--ag-text-3)] mx-auto mt-1.5 max-w-md text-[12px] leading-relaxed text-pretty">
                     {t("agentChat.emptySubtitle", { agent })}
                   </p>
                 </AgentsEnter>
@@ -342,7 +342,7 @@ export const AgentConversationViewport = memo(
                 <div className="mx-auto min-w-0 w-full">{composer}</div>
 
                 <div className="mt-5 space-y-3">
-                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {starters.map((starter, index) => {
                       const StarterIcon =
                         STARTER_ICONS[index % STARTER_ICONS.length].Icon;
@@ -356,13 +356,13 @@ export const AgentConversationViewport = memo(
                             whileTap={
                               reduceMotion ? undefined : { scale: 0.98 }
                             }
-                            className="ag-card ag-row h-7 gap-1.5 rounded-full px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] shadow-[var(--ag-shadow-raise)] hover:text-[var(--ag-text)]"
+                            className="relative flex min-h-11 w-full min-w-0 items-center justify-start gap-2 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] px-3 py-2 text-left text-[11px] font-medium leading-4 text-[var(--ag-text-2)] shadow-[var(--ag-shadow-raise)] outline-none transition-[background-color,border-color,color,transform,box-shadow] duration-200 hover:-translate-y-px hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:translate-y-0 active:bg-[var(--ag-press)] focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <StarterIcon
                               className="size-3 shrink-0"
                               style={{ color: iconColor }}
                             />
-                            <span>{starter}</span>
+                            <span className="min-w-0 text-pretty">{starter}</span>
                           </m.button>
                         </StaggerItem>
                       );
@@ -377,7 +377,7 @@ export const AgentConversationViewport = memo(
                           type="button"
                           onClick={() => onCliCommand(cmd)}
                           title={cmd.description}
-                          className="ag-chip h-5 gap-1 rounded-full px-2 text-[10px] font-medium text-[var(--ag-text-3)] hover:text-[var(--ag-text)]"
+                          className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 h-5 gap-1 rounded-full px-2 text-[10px] font-medium text-[var(--ag-text-3)] hover:text-[var(--ag-text)]"
                         >
                           <Command className="size-2.5 shrink-0" />
                           <span>/{cmd.name}</span>
@@ -448,7 +448,7 @@ export const AgentConversationViewport = memo(
             ) : null}
 
             {conversation?.error ? (
-              <div className="ag-card mt-4 flex items-start gap-2 border-destructive/25 bg-destructive/[0.06] px-3 py-2.5 text-[12px] text-destructive">
+              <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] mt-4 flex items-start gap-2 border-destructive/25 bg-destructive/[0.06] px-3 py-2.5 text-[12px] text-destructive">
                 <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
                 <span className="min-w-0 flex-1">{conversation.error}</span>
                 <button
@@ -484,7 +484,7 @@ export const AgentConversationViewport = memo(
                 reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.94 }
               }
               transition={SPRING_PANEL}
-              className="ag-pill absolute bottom-4 left-1/2 z-20 -translate-x-1/2 gap-1.5 shadow-[var(--ag-shadow-pop)]"
+              className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring absolute bottom-4 left-1/2 z-20 -translate-x-1/2 gap-1.5 shadow-[var(--ag-shadow-pop)]"
               aria-label={t("agentChat.jumpToLatest")}
             >
               <span className="relative grid size-4 place-items-center">

@@ -354,8 +354,6 @@ export function barcodePrompt(request: string): string {
   return `${request.trim()}\n\n${BARCODE_FORMAT_DOC}`;
 }
 
-export const BARCODE_TOOL_NAME = "mcp__l8git__render_barcode";
-
 export const BARCODE_TOOL = {
   name: "render_barcode",
   description:
@@ -392,3 +390,23 @@ export const BARCODE_TOOL = {
     },
   },
 } as const;
+
+/** Claude prefixes SDK-MCP tools, Codex keeps the dynamic-tool name bare. */
+export const BARCODE_TOOL_NAME = `mcp__l8git__${BARCODE_TOOL.name}`;
+
+/** OpenCode exposes ACP-provided MCP tools as `<server>_<tool>`. */
+export const BARCODE_MCP_SERVER_NAME = "l8git-renderers";
+export const OPENCODE_BARCODE_TOOL_NAME = `${BARCODE_MCP_SERVER_NAME}_${BARCODE_TOOL.name}`;
+
+/** Codex App Server shape for a host-owned dynamic function tool. */
+export const CODEX_BARCODE_TOOL = {
+  type: "function",
+  ...BARCODE_TOOL,
+} as const;
+
+/** Provider-normalized names that represent the same UI renderer. */
+export function isBarcodeToolName(value: unknown): boolean {
+  return value === BARCODE_TOOL.name ||
+    value === BARCODE_TOOL_NAME ||
+    value === OPENCODE_BARCODE_TOOL_NAME;
+}

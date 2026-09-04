@@ -22,7 +22,15 @@ export function AgentStatusChip({
     <m.span
       layout
       data-tone={tone}
-      className={cn("ag-status", className)}
+      className={cn(
+        "inline-flex h-[1.375rem] max-w-full items-center gap-1 rounded-full px-2 text-[10px] font-medium tracking-[-0.01em] whitespace-nowrap",
+        tone === "working" && "bg-[color-mix(in_oklab,var(--git-modified)_16%,transparent)] text-[var(--git-modified)]",
+        tone === "ready" && "bg-[color-mix(in_oklab,var(--git-added)_14%,transparent)] text-[var(--git-added)]",
+        tone === "error" && "bg-[color-mix(in_oklab,var(--destructive)_14%,transparent)] text-destructive",
+        tone === "waiting" && "bg-[color-mix(in_oklab,var(--git-branch)_16%,transparent)] text-[var(--git-branch)]",
+        tone === "idle" && "bg-[var(--ag-hover)] text-[var(--ag-text-2)]",
+        className,
+      )}
       initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.92, y: 4 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={reduce ? { duration: 0 } : SPRING_SWAP}

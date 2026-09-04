@@ -15,7 +15,6 @@ import { toast } from "sonner";
 import { CapabilityPill } from "@/components/agents/capabilities/capability-ui";
 import { CapabilityStudioShell } from "@/components/agents/capabilities/capability-studio-shell";
 import { AgentBarcode } from "@/components/agents/ui/agent-barcode";
-import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { copyToClipboard } from "@/components/agents/ui/item-context-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +46,7 @@ import { insertIntoAgentComposer } from "@/lib/agents/composer-insert";
 import { AGENT_PROVIDERS, agentProviderMeta } from "@/lib/agents/provider-meta";
 import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
 import { SpinIcon } from "@/components/motion/kit";
-import { m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { SPRING_PANEL } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
@@ -72,16 +71,17 @@ function AddonCard({
   status?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const reduce = useReducedMotion();
+
   return (
     <m.section
-      className="ag-studio-card"
-      initial={{ opacity: 0, y: 10 }}
+      className="flex min-h-35 min-w-0 flex-col gap-3 rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface)] px-5 py-[1.15rem] shadow-[var(--ag-shadow-raise)] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-px hover:border-[var(--ag-line-strong)] hover:shadow-[var(--ag-shadow-panel)]"
+      initial={reduce ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -1 }}
       transition={SPRING_PANEL}
     >
       <header className="flex items-start gap-3">
-        <span className="ag-inset grid size-8 shrink-0 place-items-center rounded-[10px]">{icon}</span>
+        <span className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] grid size-8 shrink-0 place-items-center rounded-[10px]">{icon}</span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h3 className="text-[13px] font-semibold tracking-tight">{title}</h3>
@@ -90,7 +90,7 @@ function AddonCard({
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
         </div>
       </header>
-      <div className="mt-4">{children}</div>
+      <div className="mt-2 min-w-0">{children}</div>
     </m.section>
   );
 }
@@ -108,7 +108,7 @@ function Field({
     <label className="block min-w-0 space-y-1.5">
       <span className="block text-[11px] font-medium">{label}</span>
       {children}
-      {hint ? <span className="ag-faint block text-[10px] leading-4">{hint}</span> : null}
+      {hint ? <span className="text-[var(--ag-text-3)] block text-[10px] leading-4">{hint}</span> : null}
     </label>
   );
 }
@@ -145,7 +145,7 @@ function BarcodeAddonCard() {
       description={t("agentAddons.barcode.description")}
       status={<CapabilityPill tone="good">{t("agentAddons.alwaysOn")}</CapabilityPill>}
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,21rem)]">
         <div className="min-w-0 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t("agentAddons.barcode.format")} hint={selected?.hint}>
@@ -208,7 +208,7 @@ function BarcodeAddonCard() {
               {t("agentAddons.barcode.copyDoc")}
             </Button>
           </div>
-          <p className="ag-faint text-[10px] leading-4">
+          <p className="text-[var(--ag-text-3)] text-[10px] leading-4">
             {t("agentAddons.barcode.usage", { count: BARCODE_FORMATS.length })}
           </p>
         </div>
@@ -314,8 +314,8 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
         )
       }
     >
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="space-y-5">
+        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {AGENT_PROVIDERS.map((entry) => (
             <Button
               key={entry.value}
@@ -325,8 +325,8 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
               aria-pressed={provider === entry.value}
               onClick={() => setProvider(entry.value)}
               className={cn(
-                "ag-pill h-8 shrink-0 gap-1.5 border-0 bg-transparent px-2.5 text-[11px] font-medium",
-                provider === entry.value && "bg-[var(--ag-selected)] text-[var(--ag-text)]",
+                "inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring h-8 shrink-0 gap-1.5 border-0 bg-transparent px-2.5 text-[11px] font-medium shadow-none",
+                provider === entry.value && "bg-[var(--ag-surface)] text-[var(--ag-text)] shadow-[var(--ag-shadow-raise)]",
               )}
             >
               <entry.Logo className="size-3.5" />
@@ -337,7 +337,7 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="ag-icon-btn ml-auto rounded-full"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 ml-auto rounded-full"
             disabled={loading}
             onClick={() => void refresh()}
             title={t("common.refresh")}
@@ -353,7 +353,12 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
           </p>
         ) : null}
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="">
+          <div className="mb-3">
+            <p className="text-[12px] font-semibold text-[var(--ag-text)]">{t("agentAddons.browser.browser")}</p>
+            <p className="text-[var(--ag-text-3)] mt-0.5 text-[10px] leading-4">{t("agentAddons.browser.approvalHint")}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Field label={t("agentAddons.browser.browser")}>
             <Select
               value={options.browser || "__default__"}
@@ -411,9 +416,10 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
               className="h-8 text-[12px]"
             />
           </Field>
-        </div>
+          </div>
+        </section>
 
-        <div className="flex flex-wrap gap-5">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] px-3 py-2.5">
           <label className="flex items-center gap-2 text-[11px]">
             <Switch
               size="sm"
@@ -432,14 +438,14 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
           </label>
         </div>
 
-        <div className="ag-inset rounded-xl px-3 py-2.5">
+        <div className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] rounded-[var(--ag-r-md)] px-3 py-3">
           <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             {t("agentAddons.browser.serverName", { name: BROWSER_ADDON_SERVER_NAME })}
           </p>
           <code className="mt-1 block break-all font-mono text-[10px] leading-4 text-[var(--ag-text-2)]">
             {status?.command}
           </code>
-          <p className="ag-faint mt-1.5 break-all text-[10px] leading-4">
+          <p className="text-[var(--ag-text-3)] mt-1.5 break-all text-[10px] leading-4">
             {status?.file ?? t("agentAddons.browser.codexTarget")}
           </p>
         </div>
@@ -460,10 +466,13 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
             <Trash2 className="size-3" />
             {t("agentAddons.browser.remove")}
           </Button>
-          <p className="ag-faint text-[10px] leading-4">{t("agentAddons.browser.approvalHint")}</p>
         </div>
 
-        <div className="space-y-2 border-t border-border/45 pt-4">
+        <section className="space-y-3 rounded-[var(--ag-r-lg)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)]/55 p-4">
+          <div>
+            <p className="text-[12px] font-semibold text-[var(--ag-text)]">{t("agentAddons.browser.runTest")}</p>
+            <p className="text-[var(--ag-text-3)] mt-0.5 text-[10px] leading-4">{t("agentAddons.browser.scenarioHint")}</p>
+          </div>
           <Field label={t("agentAddons.browser.scenario")} hint={t("agentAddons.browser.scenarioHint")}>
             <Textarea
               value={scenario}
@@ -484,7 +493,7 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
             <Play className="size-3" />
             {t("agentAddons.browser.runTest")}
           </Button>
-        </div>
+        </section>
       </div>
     </AddonCard>
   );
@@ -492,26 +501,46 @@ function BrowserAddonCard({ path, onBack }: { path: string; onBack: () => void }
 
 export function AgentAddonStudio({ path, onBack }: { path: string; onBack: () => void }) {
   const { t } = useTranslation();
+  const reduce = useReducedMotion();
+  const [activeAddon, setActiveAddon] = useState<"browser" | "barcode">("browser");
 
   return (
     <CapabilityStudioShell
       title={t("agentAddons.title")}
       subtitle={`${repoName(path)} · ${t("agentAddons.subtitle")}`}
       mark={(
-        <span className="ag-inset grid size-9 shrink-0 place-items-center rounded-xl">
+        <span className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] grid size-9 shrink-0 place-items-center rounded-xl">
           <Blocks className="size-4" />
         </span>
       )}
       onBack={onBack}
       backLabel={t("agentCapabilities.backToChat")}
+      tabs={[
+        { id: "browser", label: t("agentAddons.browser.title"), icon: <Globe className="size-3.5" /> },
+        { id: "barcode", label: t("agentAddons.barcode.title"), icon: <Barcode className="size-3.5" /> },
+      ]}
+      tabValue={activeAddon}
+      onTabChange={(id) => setActiveAddon(id as "browser" | "barcode")}
+      tabsLabel={t("agentAddons.title")}
     >
       <ScrollArea className="min-h-0 flex-1">
-        <AgentsEnter className="ag-studio-page">
-          <div className="ag-studio-cards">
-            <BarcodeAddonCard />
-            <BrowserAddonCard path={path} onBack={onBack} />
-          </div>
-        </AgentsEnter>
+        <div className="w-full min-w-0 px-[clamp(1rem,2.5vw,2rem)] pb-10 pt-6 max-sm:px-3 mx-auto max-w-5xl">
+          <AnimatePresence mode="wait" initial={false}>
+            <m.div
+              key={activeAddon}
+              initial={reduce ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
+              transition={SPRING_PANEL}
+            >
+              {activeAddon === "browser" ? (
+                <BrowserAddonCard path={path} onBack={onBack} />
+              ) : (
+                <BarcodeAddonCard />
+              )}
+            </m.div>
+          </AnimatePresence>
+        </div>
       </ScrollArea>
     </CapabilityStudioShell>
   );

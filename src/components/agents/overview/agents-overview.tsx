@@ -132,14 +132,14 @@ export function AgentsOverview({
 
   return (
     <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--ag-canvas)]">
-      <header className="ag-line flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-[var(--ag-surface)] px-6">
-        <div className="flex items-center gap-3">
+      <header className="flex min-h-20 shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[var(--ag-line)] bg-[color-mix(in_oklab,var(--ag-stage-bg)_86%,transparent)] px-5 py-3 backdrop-blur-xl md:px-7">
+        <div className="flex min-w-0 items-center gap-3">
           <m.button
             type="button"
             onClick={onClose}
             whileTap={{ scale: 0.96 }}
             transition={SPRING_PRESS}
-            className="ag-icon-btn size-8 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-8 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
             title={t("agentOverview.backToChat")}
             aria-label={t("agentOverview.backToChat")}
           >
@@ -148,11 +148,11 @@ export function AgentsOverview({
           <span className="grid size-8 place-items-center rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] text-[var(--git-branch)]">
             <LayoutGrid className="size-4" />
           </span>
-          <div>
-            <h1 className="text-sm font-semibold tracking-tight text-[var(--ag-text)]">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold tracking-[-0.035em] text-[var(--ag-text)]">
               {t("agentOverview.title")}
             </h1>
-            <p className="text-[11px] font-medium text-[var(--ag-text-3)]">
+            <p className="mt-0.5 truncate text-[11px] font-medium text-[var(--ag-text-3)]">
               {t("agentOverview.summary", {
                 total: entries.length,
                 running: counts.running,
@@ -162,7 +162,7 @@ export function AgentsOverview({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {counts.running > 0 ? (
             <AgentStatusChip tone="working" className="h-7 px-2.5">
               <Activity className="size-3 shrink-0" />
@@ -184,7 +184,7 @@ export function AgentsOverview({
             onClick={onRefresh}
             whileTap={{ scale: 0.95 }}
             transition={SPRING_PRESS}
-            className="ag-icon-btn size-8 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] hover:border-[var(--ag-line-strong)]"
+            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-8 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] hover:border-[var(--ag-line-strong)]"
             aria-label={t("agentOverview.refresh")}
             title={t("agentOverview.refresh")}
           >
@@ -193,7 +193,7 @@ export function AgentsOverview({
         </div>
       </header>
 
-      <div className="ag-line flex flex-wrap items-center justify-between gap-3 border-b bg-[var(--ag-surface-2)]/40 px-6 py-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--ag-line)] bg-[color-mix(in_oklab,var(--ag-stage-bg)_92%,transparent)] px-4 py-2 md:px-6">
         <AgentSectionTabs
           items={filterTabs}
           value={filter}
@@ -202,7 +202,7 @@ export function AgentsOverview({
           layoutId="overview-filter-tab"
         />
 
-        <div className="ag-inset flex h-8 w-64 items-center gap-2 rounded-[var(--ag-r-md)] border border-transparent bg-[var(--ag-surface)] px-2.5 text-[12px] shadow-[var(--ag-shadow-raise)] focus-within:border-[var(--ag-line-strong)]">
+        <div className="bg-[color-mix(in_oklab,var(--ag-surface-2)_78%,transparent)] transition-[background-color,border-color,box-shadow] duration-200 focus-within:border-[color-mix(in_oklab,var(--git-branch)_34%,var(--ag-line-strong))] focus-within:bg-[var(--ag-surface)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--git-branch)_16%,transparent)] flex h-8 w-full min-w-0 items-center gap-2 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] px-2.5 text-[12px] sm:w-72">
           <Search className="size-3.5 shrink-0 text-[var(--ag-text-3)]" />
           <input
             value={query}
@@ -216,7 +216,7 @@ export function AgentsOverview({
               type="button"
               onClick={() => setQuery("")}
               aria-label={t("agentChat.clearSearch")}
-              className="ag-icon-btn size-5 text-[var(--ag-text-3)] hover:text-[var(--ag-text)]"
+              className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 size-5 text-[var(--ag-text-3)] hover:text-[var(--ag-text)]"
             >
               <X className="size-3" />
             </button>
@@ -224,7 +224,7 @@ export function AgentsOverview({
         </div>
       </div>
 
-      <ScrollArea className="ag-scroll min-h-0 flex-1 px-6 py-4">
+      <ScrollArea className="[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] min-h-0 flex-1 px-3 py-4 md:px-6">
         <div className="mx-auto max-w-6xl space-y-1.5">
           {visible.length === 0 ? (
             <AgentsEnter className="flex flex-col items-center justify-center py-16 text-center">

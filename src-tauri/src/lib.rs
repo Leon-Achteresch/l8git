@@ -23,6 +23,7 @@ mod providers;
 pub mod pty;
 mod rebase;
 mod remote;
+pub mod renderer_mcp;
 mod repo_tools;
 mod secrets;
 #[cfg(feature = "headless")]
@@ -287,6 +288,7 @@ pub fn run() {
             jira_policy::jira_write_policy,
             jira_policy::jira_mcp_command,
             jira_policy::jira_sync_cursor_mcp,
+            renderer_mcp::renderer_mcp_command,
             rebase::rebase_start,
             rebase::rebase_status,
             rebase::rebase_continue,

@@ -55,7 +55,7 @@ export function AgentSectionTabs({
               {item.icon}
               {item.label}
               {item.count === undefined ? null : (
-                <span className="ag-faint text-[10px] tabular-nums">{item.count}</span>
+                <span className="text-[var(--ag-text-3)] text-[10px] tabular-nums">{item.count}</span>
               )}
             </span>
           </button>

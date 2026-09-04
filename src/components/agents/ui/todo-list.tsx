@@ -107,7 +107,7 @@ export function TodoList({
   return (
     <section
       aria-label="Agent task list"
-      className={cn("ag-card w-full overflow-hidden", className)}
+      className={cn("rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] w-full overflow-hidden", className)}
     >
       <button
         id={triggerId}
@@ -142,7 +142,7 @@ export function TodoList({
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
-          className="ag-faint transition-colors group-hover:text-[var(--ag-text-2)]"
+          className="text-[var(--ag-text-3)] transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
         </m.span>
@@ -157,7 +157,7 @@ export function TodoList({
         {currentOpen ? (
           <div
             ref={viewportRef}
-            className="ag-line scrollbar-hide overflow-y-auto border-t px-2 py-1.5"
+            className="border-[var(--ag-line)] scrollbar-hide overflow-y-auto border-t px-2 py-1.5"
             style={{ maxHeight }}
           >
             {items.length ? (

@@ -116,7 +116,7 @@ function approvalQuestions(
         description: (
           <div className="space-y-2">
             <p>{request.reason ?? t("agentChat.request.permissionsDescription")}</p>
-            <pre className="ag-inset max-h-36 overflow-auto p-2 font-mono text-[10px] leading-4">
+            <pre className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] max-h-36 overflow-auto p-2 font-mono text-[10px] leading-4">
               {JSON.stringify(request.raw.permissions ?? {}, null, 2)}
             </pre>
           </div>
@@ -282,7 +282,7 @@ export const AgentRequestCard = memo(function AgentRequestCard({ request }: { re
       onApprove={() => void rejectUnsupported(request)}
       
     >
-      <pre className="ag-muted max-h-40 overflow-auto whitespace-pre-wrap text-[11px]">
+      <pre className="text-[var(--ag-text-2)] max-h-40 overflow-auto whitespace-pre-wrap text-[11px]">
         {JSON.stringify(request.raw, null, 2)}
       </pre>
     </ApprovalCard>

@@ -198,7 +198,7 @@ export function ToolResult({
     <div
       data-state={status}
       aria-busy={running}
-      className={cn("ag-card w-full overflow-hidden text-sm", className)}
+      className={cn("rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] w-full overflow-hidden text-sm", className)}
     >
       <button
         id={triggerId}
@@ -210,7 +210,7 @@ export function ToolResult({
       >
         <span
           aria-hidden="true"
-          className="ag-faint grid size-4 shrink-0 place-items-center"
+          className="text-[var(--ag-text-3)] grid size-4 shrink-0 place-items-center"
         >
           {icon ?? <KindIcon kind={kind} />}
         </span>
@@ -219,11 +219,11 @@ export function ToolResult({
             <ActionSwapRollText value={titleKey}>{title}</ActionSwapRollText>
           </span>
           {meta ? (
-            <span className="ag-faint shrink-0 truncate text-[11px]">
+            <span className="text-[var(--ag-text-3)] shrink-0 truncate text-[11px]">
               <ActionSwapRollText value={metaKey}>{meta}</ActionSwapRollText>
             </span>
           ) : null}
-          <span className="ag-faint hidden min-w-0 truncate font-mono text-[10px] sm:block">
+          <span className="text-[var(--ag-text-3)] hidden min-w-0 truncate font-mono text-[10px] sm:block">
             <ActionSwapRollText value={toolKey}>{tool}</ActionSwapRollText>
           </span>
         </span>
@@ -245,7 +245,7 @@ export function ToolResult({
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
-          className="ag-faint shrink-0 transition-colors group-hover:text-[var(--ag-text-2)]"
+          className="text-[var(--ag-text-3)] shrink-0 transition-colors group-hover:text-[var(--ag-text-2)]"
         >
           <ChevronDown className="size-3.5" />
         </m.span>
@@ -257,7 +257,7 @@ export function ToolResult({
         aria-labelledby={triggerId}
         open={currentOpen}
       >
-        <div className="ag-line border-t bg-[var(--ag-surface-3)]">
+        <div className="border-[var(--ag-line)] border-t bg-[var(--ag-surface-3)]">
           <div
             ref={viewportRef}
             role="log"
@@ -289,7 +289,7 @@ export function ToolResult({
                   <RotateCcw className="size-3.5" />
                 </ToolResultAction>
               ) : null}
-              <span className="ag-faint ml-auto text-[11px]">
+              <span className="text-[var(--ag-text-3)] ml-auto text-[11px]">
                 <ActionSwapRollText value={status}>
                   {statusLabel}
                 </ActionSwapRollText>

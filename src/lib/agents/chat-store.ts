@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { BARCODE_TOOL } from "@/lib/agents/barcode-spec";
 import type { RpcNotification, RpcServerRequest } from "@/lib/agents/rpc-client";
 import { sandboxPolicyFor } from "@/lib/agents/providers/codex/client";
 import {
@@ -884,6 +885,19 @@ function attachListeners(): void {
       if (client) {
         void client.respond(rpcRequest.id, { currentTimeAt: Math.floor(Date.now() / 1000) })
           .finally(() => codexSessionManager.resolveRequest(context.sessionId, rpcRequest.id));
+      }
+      return;
+    }
+    if (
+      rpcRequest.method === "item/tool/call" &&
+      stringValue(rpcRequest.params?.tool) === BARCODE_TOOL.name
+    ) {
+      const client = codexSessionManager.clientForSession(context.sessionId);
+      if (client) {
+        void client.respond(rpcRequest.id, {
+          contentItems: [{ type: "inputText", text: "Barcode wurde in der l8git-UI gerendert." }],
+          success: true,
+        }).finally(() => codexSessionManager.resolveRequest(context.sessionId, rpcRequest.id));
       }
       return;
     }

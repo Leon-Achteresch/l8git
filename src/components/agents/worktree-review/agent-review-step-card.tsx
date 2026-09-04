@@ -20,7 +20,7 @@ export function AgentReviewStepCard({
   return (
     <m.section
       className={cn(
-        "ag-card space-y-2 rounded-lg p-3",
+        "rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] space-y-2 rounded-lg p-3",
         step.status === "failed" && "ring-1 ring-destructive/40",
         step.status === "done" && "opacity-70",
       )}
@@ -31,7 +31,7 @@ export function AgentReviewStepCard({
       <header className="flex items-center gap-2">
         <AgentReviewStepStatusIcon step={step} />
         <span className="flex-1 text-xs font-medium">{title}</span>
-        <span className="ag-faint text-[10.5px] uppercase tracking-wide">
+        <span className="text-[var(--ag-text-3)] text-[10.5px] uppercase tracking-wide">
           {t(`agentReview.status.${step.status}`)}
         </span>
       </header>

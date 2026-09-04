@@ -202,7 +202,7 @@ export function AgentActivity({
         aria-controls={contentId}
         aria-busy={working}
         onClick={toggle}
-        className="ag-chip group -ml-2 text-[12px] font-medium"
+        className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 group -ml-2 text-[12px] font-medium"
       >
         <Lightbulb className="size-3.5 shrink-0" />
         {working ? (

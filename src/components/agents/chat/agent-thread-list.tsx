@@ -179,7 +179,7 @@ export function AgentThreadList({
               variant="outline"
               size="sm"
               onClick={onCreateThread}
-              className="ag-card flex h-11 w-full items-center justify-center gap-2 border-[var(--ag-line)] bg-[var(--ag-surface)] text-[12px] font-medium text-[var(--ag-text)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
+              className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] flex h-11 w-full items-center justify-center gap-2 border-[var(--ag-line)] bg-[var(--ag-surface)] text-[12px] font-medium text-[var(--ag-text)] shadow-[var(--ag-shadow-raise)] hover:border-[var(--ag-line-strong)]"
             >
               <MessageSquarePlus className="size-4 text-[var(--git-branch)]" />
               {t("agentChat.firstConversation")}
@@ -211,7 +211,7 @@ export function AgentThreadList({
             >
               {item.kind === "header" ? (
                 <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-3">
-                  <h3 className="ag-label text-[10px] font-semibold uppercase tracking-wider text-[var(--ag-text-3)]">
+                  <h3 className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)] text-[10px] font-semibold uppercase tracking-wider text-[var(--ag-text-3)]">
                     {t(`agentChat.${item.group}`)}
                   </h3>
                   <div className="h-px flex-1 bg-[var(--ag-line)]" />
@@ -251,7 +251,7 @@ export function AgentThreadList({
           onClick={onShowMore}
           whileTap={{ scale: 0.98 }}
           transition={SPRING_PRESS}
-          className="ag-row mt-2 flex h-8 w-full items-center justify-center rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] text-[11px] font-medium text-[var(--ag-text-2)] hover:border-[var(--ag-line-strong)] hover:text-[var(--ag-text)]"
+          className="relative flex w-full min-w-0 items-center gap-2 rounded-[var(--ag-r-md)] px-2 text-left text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform,box-shadow] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:bg-[var(--ag-press)] focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-[var(--ag-surface)] data-[active=true]:text-[var(--ag-text)] data-[active=true]:shadow-[var(--ag-shadow-raise)] mt-2 flex h-8 w-full items-center justify-center rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] text-[11px] font-medium text-[var(--ag-text-2)] hover:border-[var(--ag-line-strong)] hover:text-[var(--ag-text)]"
         >
           {t("agentChat.showMoreConversations", {
             count: Math.min(100, threads.length - limit),

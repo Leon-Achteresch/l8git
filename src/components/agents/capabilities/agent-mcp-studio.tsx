@@ -138,8 +138,8 @@ function McpEditor({
           </>
         )}
       />
-      <div className="ag-studio-page space-y-6">
-        <section className="grid gap-4 ag-card p-4 sm:grid-cols-2">
+      <div className="w-full min-w-0 px-[clamp(1rem,2.5vw,2rem)] pb-10 pt-6 max-sm:px-3 space-y-6">
+        <section className="grid gap-4 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] p-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="mcp-name" className="text-[10px]">{t("agentCapabilities.mcp.name")}</Label>
             <Input id="mcp-name" value={draft.name} disabled={Boolean(originalName)} onChange={(event) => onChange({ ...draft, name: event.target.value.replace(/[^A-Za-z0-9_-]/gu, "-") })} placeholder="github" className="h-9 rounded-lg font-mono text-xs" />
@@ -167,14 +167,14 @@ function McpEditor({
               </SelectContent>
             </Select>
           </div>
-          <label className="ag-card flex items-center justify-between px-3 py-2.5">
+          <label className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] flex items-center justify-between px-3 py-2.5">
             <span>
               <span className="block text-[11px] font-medium">{t("agentCapabilities.enabled")}</span>
               <span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.mcp.enabledHint")}</span>
             </span>
             <Switch checked={draft.enabled} onCheckedChange={(checked) => onChange({ ...draft, enabled: checked })} />
           </label>
-          <label className="ag-card flex items-center justify-between px-3 py-2.5">
+          <label className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] flex items-center justify-between px-3 py-2.5">
             <span>
               <span className="block text-[11px] font-medium">{t("agentCapabilities.mcp.required")}</span>
               <span className="mt-0.5 block text-[9px] text-muted-foreground">{t("agentCapabilities.mcp.requiredHint")}</span>
@@ -268,7 +268,7 @@ function McpEditor({
           </section>
         )}
 
-        <section className="grid gap-3 ag-card p-4 sm:grid-cols-2">
+        <section className="grid gap-3 rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] p-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="mcp-default-approval" className="text-[10px]">{t("agentCapabilities.mcp.defaultApproval")}</Label>
             <Select value={draft.defaultApprovalMode} onValueChange={(value) => onChange({ ...draft, defaultApprovalMode: value as AgentMcpServerDraft["defaultApprovalMode"] })}>
@@ -488,7 +488,7 @@ export function AgentMcpStudio({ query }: { query: string }) {
                   <h3 className="text-xs font-semibold">{t("agentCapabilities.mcp.exposedTools")}</h3>
                 </div>
                 {Object.keys(selected.tools).length ? (
-                  <div className="ag-card overflow-hidden">
+                  <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] overflow-hidden">
                     {Object.entries(selected.tools).map(([name, tool], index) => {
                       const policy = toolPolicy(selected, name);
                       const toolBusy = busyKey === `mcp:${selected.name}:${name}`;
@@ -519,7 +519,7 @@ export function AgentMcpStudio({ query }: { query: string }) {
                     })}
                   </div>
                 ) : (
-                  <p className="ag-faint rounded-[12px] border border-dashed border-[var(--ag-line-strong)] p-4 text-center text-[11px]">{t("agentCapabilities.mcp.noTools")}</p>
+                  <p className="text-[var(--ag-text-3)] rounded-[12px] border border-dashed border-[var(--ag-line-strong)] p-4 text-center text-[11px]">{t("agentCapabilities.mcp.noTools")}</p>
                 )}
               </section>
 
@@ -531,13 +531,13 @@ export function AgentMcpStudio({ query }: { query: string }) {
                   </div>
                   <div className="space-y-1.5">
                     {selected.resources.map((resource) => (
-                      <div key={resource.uri} className="ag-card px-3 py-2.5">
+                      <div key={resource.uri} className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] px-3 py-2.5">
                         <p className="text-[11px] font-medium">{resource.title || resource.name}</p>
                         <p className="mt-0.5 truncate font-mono text-[9px] text-muted-foreground">{resource.uri}</p>
                       </div>
                     ))}
                     {selected.resourceTemplates.map((resource) => (
-                      <div key={resource.uriTemplate} className="ag-card px-3 py-2.5">
+                      <div key={resource.uriTemplate} className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] px-3 py-2.5">
                         <div className="flex items-center gap-2"><p className="text-[11px] font-medium">{resource.title || resource.name}</p><CapabilityPill>template</CapabilityPill></div>
                         <p className="mt-0.5 truncate font-mono text-[9px] text-muted-foreground">{resource.uriTemplate}</p>
                       </div>

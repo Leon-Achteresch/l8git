@@ -47,15 +47,15 @@ function LimitChip({ window }: { window: AgentRateLimitWindow }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="ag-inset inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 tabular-nums">
-          <span className="ag-faint">{label}</span>
+        <span className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 tabular-nums">
+          <span className="text-[var(--ag-text-3)]">{label}</span>
           <span className={toneClass(used)}>{Math.round(used)}%</span>
         </span>
       </TooltipTrigger>
       <TooltipContent>
         <div>{t("agentChat.account.used", { value: Math.round(used) })}</div>
         {resetAt ? (
-          <div className="ag-faint">
+          <div className="text-[var(--ag-text-3)]">
             {t("agentChat.account.resets", { value: resetAt })}
             {resetsIn ? ` · ${resetsIn}` : ""}
           </div>

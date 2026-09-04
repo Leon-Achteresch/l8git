@@ -106,7 +106,7 @@ export function AgentReviewDiffPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="ag-line flex shrink-0 items-center gap-2 border-b px-3 py-2">
+      <div className="border-[var(--ag-line)] flex shrink-0 items-center gap-2 border-b px-3 py-2">
         <span className="min-w-0 flex-1 truncate font-mono text-[11px]" title={file.path}>
           {file.path}
         </span>
@@ -137,9 +137,9 @@ export function AgentReviewDiffPane({
           {t("agentReview.binaryFile")}
         </div>
       ) : untrackedPlain !== null ? (
-        <div className="ag-scroll min-h-0 flex-1 overflow-y-auto p-2">
-          <div className="ag-card overflow-hidden rounded-lg">
-            <div className="ag-line border-b px-3 py-1.5 text-[11px] text-muted-foreground">
+        <div className="[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] min-h-0 flex-1 overflow-y-auto p-2">
+          <div className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] overflow-hidden rounded-lg">
+            <div className="border-[var(--ag-line)] border-b px-3 py-1.5 text-[11px] text-muted-foreground">
               {t("agentReview.untrackedFile")}
             </div>
             <div style={{ height: blockHeight(untrackedPlain.split("\n").length) }}>
@@ -161,7 +161,7 @@ export function AgentReviewDiffPane({
           {t("agentReview.emptyDiff")}
         </div>
       ) : (
-        <div className="ag-scroll min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+        <div className="[scrollbar-color:color-mix(in_oklab,var(--foreground)_16%,transparent)_transparent] [scrollbar-width:thin] min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
           {hunks.map((hunk, hunkIdx) => {
             const counts = hunkCounts(hunk);
             const accepted = acceptedHunks.has(hunkIdx);
@@ -169,11 +169,11 @@ export function AgentReviewDiffPane({
               <div
                 key={`${hunk.header}:${hunkIdx}`}
                 className={cn(
-                  "ag-card overflow-hidden rounded-lg",
+                  "rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] overflow-hidden rounded-lg",
                   accepted && "ring-1 ring-git-added/40",
                 )}
               >
-                <div className="ag-line flex items-center gap-2 border-b px-3 py-1.5">
+                <div className="border-[var(--ag-line)] flex items-center gap-2 border-b px-3 py-1.5">
                   <span className="shrink-0 text-[11px] font-medium">
                     {t("agentReview.hunkLabel", { index: hunkIdx + 1 })}
                   </span>

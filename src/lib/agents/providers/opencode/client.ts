@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/platform/ipc";
 
 import { JsonRpcProcessClient, type RpcId } from "@/lib/agents/rpc-client";
+import { rendererAcpMcpServers } from "@/lib/agents/renderer-mcp";
 import type { AcpMcpServer } from "@/lib/jira/jira-mcp";
 import { jiraAcpMcpServers } from "@/lib/jira/jira-sync";
 
@@ -177,13 +178,13 @@ export class OpenCodeClient {
     return this.rpc.request("logout");
   }
 
-  /**
-   * ACP lets the client hand the agent its MCP servers per session, so l8git's
-   * Jira tools reach OpenCode without touching any config the user owns.
-   * Empty whenever the Jira gate is closed.
-   */
-  private mcpServers(): Promise<AcpMcpServer[]> {
-    return jiraAcpMcpServers(this.cwd);
+  /** ACP injects l8git-owned tools per session without touching opencode.json. */
+  private async mcpServers(): Promise<AcpMcpServer[]> {
+    const [renderers, jira] = await Promise.all([
+      rendererAcpMcpServers(),
+      jiraAcpMcpServers(this.cwd),
+    ]);
+    return [...renderers, ...jira];
   }
 
   async newSession(): Promise<OpenCodeSessionConfig & { sessionId: string }> {

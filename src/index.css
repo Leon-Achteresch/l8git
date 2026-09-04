@@ -7,6 +7,81 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Agents theme tokens. Component styling lives in colocated Tailwind utilities. */
+:root {
+    --ag-canvas: #eef0f2;
+    --ag-rail-bg: #f7f8f8;
+    --ag-stage-bg: #f3f4f5;
+    --ag-surface: #ffffff;
+    --ag-surface-2: #f0f2f3;
+    --ag-surface-3: #e8ebed;
+    --ag-dock-bg: #f8f9f9;
+    --ag-line: rgb(24 24 27 / 0.08);
+    --ag-line-strong: rgb(24 24 27 / 0.12);
+    --ag-text: var(--foreground);
+    --ag-text-2: color-mix(in oklab, var(--foreground) 66%, transparent);
+    --ag-text-3: color-mix(in oklab, var(--foreground) 48%, transparent);
+    --ag-hover: color-mix(in oklab, var(--foreground) 5%, transparent);
+    --ag-press: color-mix(in oklab, var(--foreground) 9%, transparent);
+    --ag-selected: color-mix(in oklab, var(--foreground) 7%, transparent);
+    --ag-solid: #172126;
+    --ag-solid-fg: #ffffff;
+    --ag-bubble: #172126;
+    --ag-bubble-fg: #f7f6f3;
+    --ag-send: color-mix(in oklab, var(--git-branch) 18%, #fff);
+    --ag-send-hover: color-mix(in oklab, var(--git-branch) 28%, #fff);
+    --ag-send-fg: color-mix(in oklab, var(--git-branch) 88%, #000);
+    --ag-r-xl: 22px;
+    --ag-r-lg: 17px;
+    --ag-r-md: 12px;
+    --ag-r-sm: 8px;
+    --ag-shadow-panel: 0 1px 1px rgb(38 50 56 / 0.04), 0 20px 48px -24px rgb(38 50 56 / 0.3);
+    --ag-shadow-raise: 0 1px 1px rgb(38 50 56 / 0.05), 0 8px 24px -16px rgb(38 50 56 / 0.34);
+    --ag-shadow-pop: 0 2px 4px rgb(38 50 56 / 0.05), 0 24px 56px -22px rgb(38 50 56 / 0.4);
+    --ag-ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --ag-chart-1: #2a78d6;
+    --ag-chart-2: #eb6834;
+    --ag-chart-3: #1baf7a;
+    --ag-chart-4: #eda100;
+    --ag-chart-5: #e87ba4;
+    --ag-chart-6: #008300;
+    --ag-chart-7: #4a3aa7;
+    --ag-chart-8: #e34948;
+}
+
+.dark {
+    --ag-canvas: #090c0e;
+    --ag-rail-bg: #0d1113;
+    --ag-stage-bg: #111619;
+    --ag-surface: #171d20;
+    --ag-surface-2: #20272b;
+    --ag-surface-3: #0d1113;
+    --ag-dock-bg: #141a1d;
+    --ag-line: rgb(255 255 255 / 0.09);
+    --ag-line-strong: rgb(255 255 255 / 0.16);
+    --ag-hover: rgb(255 255 255 / 0.05);
+    --ag-press: rgb(255 255 255 / 0.09);
+    --ag-selected: rgb(255 255 255 / 0.08);
+    --ag-solid: #e8efef;
+    --ag-solid-fg: #111719;
+    --ag-bubble: #253036;
+    --ag-bubble-fg: #eef3f3;
+    --ag-send: color-mix(in oklab, var(--git-branch) 26%, #000);
+    --ag-send-hover: color-mix(in oklab, var(--git-branch) 38%, #000);
+    --ag-send-fg: color-mix(in oklab, var(--git-branch) 92%, #fff);
+    --ag-shadow-panel: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 24px 64px -28px rgb(0 0 0 / 0.9);
+    --ag-shadow-raise: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 20px -12px rgb(0 0 0 / 0.8);
+    --ag-shadow-pop: 0 28px 64px -24px rgb(0 0 0 / 0.85);
+    --ag-chart-1: #3987e5;
+    --ag-chart-2: #d95926;
+    --ag-chart-3: #199e70;
+    --ag-chart-4: #c98500;
+    --ag-chart-5: #d55181;
+    --ag-chart-6: #008300;
+    --ag-chart-7: #9085e9;
+    --ag-chart-8: #e66767;
+}
+
 /*
  * l8git — design system
  *

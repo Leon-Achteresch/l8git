@@ -288,7 +288,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
 
   return (
     <ScrollArea className="min-h-0 flex-1">
-        <div className="ag-studio-page space-y-5">
+        <div className="w-full min-w-0 px-[clamp(1rem,2.5vw,2rem)] pb-10 pt-6 max-sm:px-3 space-y-5">
         {error ? <CapabilityError message={error} /> : null}
         {inventory.warnings.map((warning) => (
           <CapabilityError key={warning} message={warning} />
@@ -304,10 +304,10 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
         />
 
         {step === 0 ? (
-          <section className="ag-guide-panel">
-            <h2 className="ag-guide-title">{t("agentCapabilities.hub.stepSourceTitle")}</h2>
-            <p className="ag-guide-hint">{t("agentCapabilities.hub.stepSourceHint")}</p>
-            <div className="ag-guide-choices">
+          <section className="flex min-w-0 flex-col gap-4">
+            <h2 className="text-[1.2rem] font-semibold leading-tight tracking-[-0.03em] text-[var(--ag-text)] text-pretty">{t("agentCapabilities.hub.stepSourceTitle")}</h2>
+            <p className="max-w-[42rem] text-[13px] leading-5 text-[var(--ag-text-2)] text-pretty">{t("agentCapabilities.hub.stepSourceHint")}</p>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,16.5rem),1fr))] gap-3">
               {inventory.targets.map((target) => {
                 const counts = kindCountsForCli(inventory.items, target.cli);
                 const total = CAPABILITY_KINDS.reduce((sum, kind) => sum + counts[kind], 0);
@@ -323,7 +323,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                       })
                     }
                     mark={
-                      <span className="ag-inset grid size-9 place-items-center rounded-[10px]">
+                      <span className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] grid size-9 place-items-center rounded-[10px]">
                         <CapabilityCliMark cli={target.cli} logoClassName="size-4" />
                       </span>
                     }
@@ -339,8 +339,8 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
               })}
             </div>
             {source && sourceInfo ? (
-              <div className="ag-guide-follow">
-                <p className="ag-label">{t("agentCapabilities.hub.scopeHint")}</p>
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] font-medium tracking-[0.02em] text-[var(--ag-text-3)]">{t("agentCapabilities.hub.scopeHint")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {CAPABILITY_SCOPES.map((scope) => {
                     const info = scopeInfo(sourceInfo, scope);
@@ -351,7 +351,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                         aria-pressed={source.scope === scope}
                         onClick={() => changeSource({ cli: source.cli, scope })}
                         className={cn(
-                          "ag-pill h-7 gap-1.5 px-2.5 text-[11px] font-medium",
+                          "inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring h-7 gap-1.5 px-2.5 text-[11px] font-medium",
                           source.scope === scope && "bg-[var(--ag-solid)] text-[var(--ag-solid-fg)]",
                         )}
                       >
@@ -363,7 +363,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                 </div>
               </div>
             ) : null}
-            <div className="ag-guide-nav">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <span />
               <Button type="button" disabled={!source} onClick={() => setStep(1)}>
                 {t("tour.next")}
@@ -374,12 +374,12 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
         ) : null}
 
         {step === 1 ? (
-          <section className="ag-guide-panel">
-            <h2 className="ag-guide-title">{t("agentCapabilities.hub.stepTargetTitle")}</h2>
-            <p className="ag-guide-hint">
+          <section className="flex min-w-0 flex-col gap-4">
+            <h2 className="text-[1.2rem] font-semibold leading-tight tracking-[-0.03em] text-[var(--ag-text)] text-pretty">{t("agentCapabilities.hub.stepTargetTitle")}</h2>
+            <p className="max-w-[42rem] text-[13px] leading-5 text-[var(--ag-text-2)] text-pretty">
               {t("agentCapabilities.hub.stepTargetHint", { source: sourceLabel })}
             </p>
-            <div className="ag-guide-choices">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,16.5rem),1fr))] gap-3">
               {inventory.targets
                 .filter((target) => target.cli !== source?.cli)
                 .map((target) => {
@@ -414,7 +414,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                             disabled={!writable}
                             onSelect={() => toggleTarget(destination)}
                             mark={
-                              <span className="ag-inset grid size-9 place-items-center rounded-[10px]">
+                              <span className="rounded-[var(--ag-r-md)] bg-[var(--ag-surface-2)] grid size-9 place-items-center rounded-[10px]">
                                 <CapabilityCliMark cli={target.cli} logoClassName="size-4" />
                               </span>
                             }
@@ -446,7 +446,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                                   ]);
                                 }}
                                 className={cn(
-                                  "ag-pill h-6 gap-1 px-2 text-[10px] font-medium",
+                                  "inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring h-6 gap-1 px-2 text-[10px] font-medium",
                                   active && "bg-[var(--ag-solid)] text-[var(--ag-solid-fg)]",
                                 )}
                               >
@@ -461,7 +461,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                   );
                 })}
             </div>
-            <div className="ag-guide-nav">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setStep(0)}>
                 <ArrowLeft className="size-3.5" />
                 {t("tour.back")}
@@ -475,9 +475,9 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
         ) : null}
 
         {step === 2 ? (
-          <section className="ag-guide-panel">
-            <h2 className="ag-guide-title">{t("agentCapabilities.hub.stepCopyTitle")}</h2>
-            <p className="ag-guide-hint">
+          <section className="flex min-w-0 flex-col gap-4">
+            <h2 className="text-[1.2rem] font-semibold leading-tight tracking-[-0.03em] text-[var(--ag-text)] text-pretty">{t("agentCapabilities.hub.stepCopyTitle")}</h2>
+            <p className="max-w-[42rem] text-[13px] leading-5 text-[var(--ag-text-2)] text-pretty">
               {coverage?.missing
                 ? t("agentCapabilities.hub.stepCopyHint", {
                     missing: coverage.missing,
@@ -504,13 +504,13 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                       )
                     }
                     className={cn(
-                      "ag-pill h-7 gap-1.5 px-2 text-[10px] font-medium",
+                      "inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring h-7 gap-1.5 px-2 text-[10px] font-medium",
                       active && "bg-[var(--ag-selected)] text-[var(--ag-text)]",
                     )}
                   >
                     <Icon className="size-3" />
                     {t(`agentCapabilities.hub.kinds.${kind}`)}
-                    {active ? <span className="ag-faint tabular-nums">{count}</span> : null}
+                    {active ? <span className="text-[var(--ag-text-3)] tabular-nums">{count}</span> : null}
                   </button>
                 );
               })}
@@ -519,7 +519,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                 aria-pressed={gapsOnly}
                 onClick={() => setGapsOnly((value) => !value)}
                 className={cn(
-                  "ag-pill ml-auto h-7 px-2 text-[10px] font-medium",
+                  "inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring ml-auto h-7 px-2 text-[10px] font-medium",
                   gapsOnly && "bg-[var(--ag-selected)]",
                 )}
               >
@@ -527,7 +527,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
               </button>
             </div>
             {visibleItems.length ? (
-              <div className="ag-studio-cards">
+              <div className="grid w-full min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-4">
                 <ProgressiveCapabilityList
                   items={visibleItems}
                   getKey={(item) => item.id}
@@ -539,7 +539,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                     return (
                       <label
                         className={cn(
-                          "ag-card flex cursor-pointer items-start gap-2.5 p-3 transition-colors",
+                          "rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] flex cursor-pointer items-start gap-2.5 p-3 transition-colors",
                           checked && "bg-[var(--ag-selected)]",
                         )}
                       >
@@ -555,10 +555,10 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                           }
                           className="mt-0.5"
                         />
-                        <Icon className="ag-faint mt-0.5 size-3.5 shrink-0" />
+                        <Icon className="text-[var(--ag-text-3)] mt-0.5 size-3.5 shrink-0" />
                         <span className="min-w-0 flex-1">
                           <span className="truncate text-[12px] font-medium">{item.name}</span>
-                          <span className="ag-muted mt-0.5 line-clamp-2 block text-[10px] leading-4">
+                          <span className="text-[var(--ag-text-2)] mt-0.5 line-clamp-2 block text-[10px] leading-4">
                             {item.description || t("agentCapabilities.hub.noDescription")}
                           </span>
                         </span>
@@ -581,13 +581,13 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                 }
               />
             )}
-            <details className="ag-guide-more">
+            <details className="text-[12px] text-[var(--ag-text-2)] [&_summary]:cursor-pointer [&_summary]:font-medium">
               <summary>{t("agentCapabilities.hub.moreOptions")}</summary>
               <label className="mt-2 flex items-center gap-2 text-[12px]">
                 <Switch checked={overwrite} onCheckedChange={setOverwrite} />
                 {t("agentCapabilities.hub.overwrite")}
               </label>
-              <p className="ag-faint mt-1 text-[11px] leading-4">
+              <p className="text-[var(--ag-text-3)] mt-1 text-[11px] leading-4">
                 {overwrite
                   ? t("agentCapabilities.hub.overwriteOnHint")
                   : t("agentCapabilities.hub.overwriteOffHint")}
@@ -604,7 +604,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                 {t("agentCapabilities.hub.deleteFromSource", { source: sourceLabel })}
               </Button>
             </details>
-            <div className="ag-guide-nav">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setStep(1)}>
                 <ArrowLeft className="size-3.5" />
                 {t("tour.back")}
@@ -635,9 +635,9 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
         ) : null}
 
         {step === 3 ? (
-          <section className="ag-guide-panel">
-            <h2 className="ag-guide-title">{t("agentCapabilities.hub.stepDoneTitle")}</h2>
-            <p className="ag-guide-hint">{t("agentCapabilities.hub.stepDoneHint")}</p>
+          <section className="flex min-w-0 flex-col gap-4">
+            <h2 className="text-[1.2rem] font-semibold leading-tight tracking-[-0.03em] text-[var(--ag-text)] text-pretty">{t("agentCapabilities.hub.stepDoneTitle")}</h2>
+            <p className="max-w-[42rem] text-[13px] leading-5 text-[var(--ag-text-2)] text-pretty">{t("agentCapabilities.hub.stepDoneHint")}</p>
             {results.length ? (
               <ul className="space-y-1.5">
                 {results.map((entry, index) => (
@@ -654,10 +654,10 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                     )}
                     <span className="min-w-0 flex-1">
                       <span className="font-medium">{entry.name}</span>
-                      <span className="ag-faint"> → {entry.target}</span>
-                      <span className="ag-muted block break-all text-[11px]">{entry.message}</span>
+                      <span className="text-[var(--ag-text-3)]"> → {entry.target}</span>
+                      <span className="text-[var(--ag-text-2)] block break-all text-[11px]">{entry.message}</span>
                       {entry.backup ? (
-                        <span className="ag-faint block break-all font-mono text-[10px]">
+                        <span className="text-[var(--ag-text-3)] block break-all font-mono text-[10px]">
                           {t("agentCapabilities.hub.backup", { path: entry.backup })}
                         </span>
                       ) : null}
@@ -666,7 +666,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                 ))}
               </ul>
             ) : null}
-            <div className="ag-guide-nav">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -721,7 +721,7 @@ export function CapabilitySyncStudio({ path, query }: { path: string; query: str
                     </Badge>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[11px] font-medium">{entry.name}</span>
-                      <span className="ag-faint block truncate text-[10px]">
+                      <span className="text-[var(--ag-text-3)] block truncate text-[10px]">
                         {t(`agentCapabilities.hub.kinds.${entry.kind}`)} · {entry.targetCli} ·{" "}
                         {scopeLabel(entry.targetScope, t)} · {entry.detail}
                       </span>

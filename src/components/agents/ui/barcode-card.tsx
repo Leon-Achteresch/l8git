@@ -38,7 +38,7 @@ export function BarcodeCard({
   const format = barcodeFormat(item.format);
 
   return (
-    <figure className="ag-barcode min-w-0">
+    <figure className="flex min-w-0 flex-col">
       <div className="flex min-w-0 items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-[var(--ag-text)]">
           {item.label ?? format?.label ?? item.format}
@@ -47,7 +47,7 @@ export function BarcodeCard({
           {format?.label ?? item.format}
         </span>
       </div>
-      <div className="ag-barcode-panel mt-1.5">
+      <div className="mt-1.5 overflow-hidden rounded-[var(--ag-r-sm)] border border-[var(--ag-line)] bg-white p-2 [&_svg]:block [&_svg]:h-auto [&_svg]:max-h-56 [&_svg]:w-full [&_svg]:object-contain">
         {render?.svg ? (
           <button
             type="button"
@@ -77,7 +77,7 @@ export function BarcodeCard({
         </code>
         <button
           type="button"
-          className="ag-pill size-6 shrink-0 justify-center p-0"
+          className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring size-6 shrink-0 justify-center p-0"
           title={t("agentChat.barcodeCopy")}
           aria-label={t("agentChat.barcodeCopy")}
           onClick={() =>
@@ -90,7 +90,7 @@ export function BarcodeCard({
           <>
             <button
               type="button"
-              className="ag-pill size-6 shrink-0 justify-center p-0"
+              className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring size-6 shrink-0 justify-center p-0"
               title={t("agentChat.barcodeDownload")}
               aria-label={t("agentChat.barcodeDownload")}
               onClick={() =>
@@ -101,7 +101,7 @@ export function BarcodeCard({
             </button>
             <button
               type="button"
-              className="ag-pill size-6 shrink-0 justify-center p-0"
+              className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--ag-line)] bg-[var(--ag-surface)] px-2.5 text-[11px] font-medium text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform] duration-200 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring size-6 shrink-0 justify-center p-0"
               title={t("agentChat.barcodeZoom")}
               aria-label={t("agentChat.barcodeZoom")}
               onClick={() => onZoom(item)}
@@ -112,7 +112,7 @@ export function BarcodeCard({
         ) : null}
       </figcaption>
       {item.caption ? (
-        <p className="ag-faint mt-1 break-words text-[10px] leading-4">
+        <p className="text-[var(--ag-text-3)] mt-1 break-words text-[10px] leading-4">
           {item.caption}
         </p>
       ) : null}
