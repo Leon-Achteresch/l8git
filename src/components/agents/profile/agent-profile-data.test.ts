@@ -24,7 +24,6 @@ function entry(partial: Partial<AgentOverviewEntry> & { updatedAt: number }): Ag
     isWorktree: false,
     title: "thread",
     preview: "",
-    updatedAt: partial.updatedAt,
     status: "idle",
     pendingRequests: 0,
     costUsd: null,
