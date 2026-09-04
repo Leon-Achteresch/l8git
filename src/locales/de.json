@@ -3271,7 +3271,7 @@
     "alwaysOn": "Immer aktiv",
     "barcode": {
       "title": "Barcode-Renderer",
-      "description": "Der Agent macht aus Daten — aus einem MCP-Server, einer Datenbank oder dem Repository — direkt im Chat scannbare Codes. Über den ```barcode-Block für jede CLI, Claude Code ruft ihn zusätzlich als Tool auf.",
+      "description": "Der Agent macht aus Daten — aus einem MCP-Server, einer Datenbank oder dem Repository — direkt im Chat scannbare Codes. Über den ```barcode-Block für jede CLI; Claude Code, Codex und OpenCode rufen ihn zusätzlich als Tool auf.",
       "format": "Format",
       "label": "Bezeichnung",
       "labelPlaceholder": "Optional, steht über dem Code",

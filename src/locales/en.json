@@ -3271,7 +3271,7 @@
     "alwaysOn": "Always on",
     "barcode": {
       "title": "Barcode renderer",
-      "description": "Lets the agent turn data — from an MCP server, a database or the repository — into scannable codes right in the chat. Works with every CLI through the ```barcode block; Claude Code can also call it as a tool.",
+      "description": "Lets the agent turn data — from an MCP server, a database or the repository — into scannable codes right in the chat. Works with every CLI through the ```barcode block; Claude Code, Codex and OpenCode can also call it as a tool.",
       "format": "Format",
       "label": "Label",
       "labelPlaceholder": "Optional, shown above the code",

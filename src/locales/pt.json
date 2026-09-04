@@ -3271,7 +3271,7 @@
     "alwaysOn": "Sempre ativo",
     "barcode": {
       "title": "Gerador de códigos de barras",
-      "description": "O agente transforma dados — de um servidor MCP, de um banco ou do repositório — em códigos escaneáveis dentro do chat. Funciona em qualquer CLI pelo bloco ```barcode; no Claude Code também é chamado como ferramenta.",
+      "description": "O agente transforma dados — de um servidor MCP, de um banco ou do repositório — em códigos escaneáveis dentro do chat. Funciona em qualquer CLI pelo bloco ```barcode; Claude Code, Codex e OpenCode também o chamam como ferramenta.",
       "format": "Formato",
       "label": "Rótulo",
       "labelPlaceholder": "Opcional, aparece acima do código",

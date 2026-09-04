@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   BARCODE_FORMATS,
+  BARCODE_TOOL,
+  BARCODE_TOOL_NAME,
   barcodeKind,
   barcodePrompt,
   barcodeRenderOptions,
+  CODEX_BARCODE_TOOL,
+  isBarcodeToolName,
   looksLikeBarcodeJson,
   MAX_BARCODE_ITEMS,
+  OPENCODE_BARCODE_TOOL_NAME,
   parseBarcodeSpec,
   resolveBarcodeFormat,
 } from "@/lib/agents/barcode-spec";
@@ -155,5 +160,22 @@ describe("barcodePrompt", () => {
     for (const format of BARCODE_FORMATS) {
       expect(barcodePrompt("x")).toContain(`\`${format.id}\``);
     }
+  });
+});
+
+describe("barcode tool adapters", () => {
+  it("uses the provider-specific names emitted by Claude, Codex and OpenCode", () => {
+    expect(isBarcodeToolName(BARCODE_TOOL_NAME)).toBe(true);
+    expect(isBarcodeToolName(BARCODE_TOOL.name)).toBe(true);
+    expect(isBarcodeToolName(OPENCODE_BARCODE_TOOL_NAME)).toBe(true);
+    expect(isBarcodeToolName("render_chart")).toBe(false);
+  });
+
+  it("wraps the shared declaration as a Codex dynamic function tool", () => {
+    expect(CODEX_BARCODE_TOOL).toMatchObject({
+      type: "function",
+      name: "render_barcode",
+      inputSchema: BARCODE_TOOL.inputSchema,
+    });
   });
 });

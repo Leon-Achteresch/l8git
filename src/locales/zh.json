@@ -3271,7 +3271,7 @@
     "alwaysOn": "始终启用",
     "barcode": {
       "title": "条码渲染",
-      "description": "让智能体把来自 MCP 服务器、数据库或仓库的数据，直接在聊天中变成可扫描的条码。通过 ```barcode 代码块适用于所有 CLI，Claude Code 还能作为工具调用。",
+      "description": "让智能体把来自 MCP 服务器、数据库或仓库的数据，直接在聊天中变成可扫描的条码。通过 ```barcode 代码块适用于所有 CLI，Claude Code、Codex 和 OpenCode 还能作为工具调用。",
       "format": "格式",
       "label": "标签",
       "labelPlaceholder": "可选，显示在条码上方",

@@ -33,6 +33,9 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
+    if std::env::args().nth(1).as_deref() == Some(l8git_lib::renderer_mcp::SUBCOMMAND) {
+        l8git_lib::renderer_mcp::serve_stdio();
+    }
     let cli = Cli::parse();
     let outcome = match cli.command {
         Command::Serve { port, relay } => serve(port, relay).await,

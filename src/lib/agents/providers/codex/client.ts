@@ -4,6 +4,7 @@ import {
   type RpcNotification,
   type RpcServerRequest,
 } from "@/lib/agents/rpc-client";
+import { CODEX_BARCODE_TOOL } from "@/lib/agents/barcode-spec";
 import type {
   AgentCapabilityApp,
   AgentCapabilityConfig,
@@ -522,6 +523,9 @@ export class CodexAgentClient {
       ephemeral: false,
       serviceName: "l8git",
       threadSource: "appServer",
+      // Host-owned renderers are persisted in Codex's thread metadata, so a
+      // later thread/resume restores them without touching the user's config.
+      dynamicTools: [CODEX_BARCODE_TOOL],
     });
   }
 

@@ -1,4 +1,4 @@
-pub const EXPECTED_COMMAND_COUNT: usize = 221;
+pub const EXPECTED_COMMAND_COUNT: usize = 222;
 
 const LIB_RS: &str = include_str!("../../lib.rs");
 

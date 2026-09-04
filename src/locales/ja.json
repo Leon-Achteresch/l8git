@@ -3271,7 +3271,7 @@
     "alwaysOn": "常に有効",
     "barcode": {
       "title": "バーコード生成",
-      "description": "MCP サーバー、データベース、リポジトリなどのデータを、エージェントがチャット内でそのままスキャン可能なコードにします。```barcode ブロックですべての CLI に対応し、Claude Code ではツールとしても呼び出せます。",
+      "description": "MCP サーバー、データベース、リポジトリなどのデータを、エージェントがチャット内でそのままスキャン可能なコードにします。```barcode ブロックですべての CLI に対応し、Claude Code、Codex、OpenCode ではツールとしても呼び出せます。",
       "format": "フォーマット",
       "label": "ラベル",
       "labelPlaceholder": "任意。コードの上に表示されます",
