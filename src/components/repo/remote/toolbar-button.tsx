@@ -41,6 +41,8 @@ export function ToolbarButton({
       variant="ghost"
       disabled={disabled}
       title={title}
+      aria-label={label ? undefined : title}
+      aria-pressed={isActive || undefined}
       onClick={onClick}
       className={cn(
         "relative flex h-7 min-w-0 shrink items-center gap-1.5 px-2 text-xs transition-all duration-200",
@@ -64,7 +66,11 @@ export function ToolbarButton({
       {label && <span className="truncate @max-[44rem]:hidden">{label}</span>}
       {showBadge && (
         <PopIn key={badge} className="shrink-0">
-          <span className="inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary/25 px-1 text-[10px] font-semibold tabular-nums leading-none text-primary">
+          <span
+            role="status"
+            aria-label={`${badge} pending`}
+            className="inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary/25 px-1 text-[10px] font-semibold tabular-nums leading-none text-primary"
+          >
             {badge > 99 ? "99+" : badge}
           </span>
         </PopIn>

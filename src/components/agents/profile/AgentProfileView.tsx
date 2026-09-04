@@ -16,17 +16,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { AgentOverviewEntry } from "@/lib/agents/overview";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
 import { agentProviderMeta } from "@/lib/agents/provider-meta";
+import { useAgentOverviewEntries } from "@/lib/agents/use-agent-overview";
 import { useRepoStore } from "@/lib/repo-store";
 
-function RelativeTime({ timestamp }: { timestamp: number }) {
-  const label = useMemo(() => {
-    const seconds = Math.round(Date.now() / 1000 - timestamp);
-    if (seconds < 60) return "just now";
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
-    return `${Math.round(seconds / 86400)}d ago`;
-  }, [timestamp]);
-  return <span className="tabular-nums">{label}</span>;
+function formatRelativeTime(timestamp: number): string {
+  const seconds = Math.round(Date.now() / 1000 - timestamp);
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+  return `${Math.round(seconds / 86400)}d ago`;
 }
 
 export function AgentProfileView({
@@ -39,15 +37,18 @@ export function AgentProfileView({
 }: {
   path: string;
   provider: NativeAgentProvider;
-  entries: AgentOverviewEntry[];
+  entries?: AgentOverviewEntry[];
   onOpenThread: (entry: AgentOverviewEntry) => void;
   onSeeAllThreads: () => void;
   onOpenChat: () => void;
 }) {
   const branch = useRepoStore((state) => state.repos[path]?.branch);
+  const fallbackEntries = useAgentOverviewEntries();
+  const sourceEntries = entries ?? fallbackEntries;
+
   const scoped = useMemo(
-    () => entries.filter((e) => e.path === path || e.basePath === path),
-    [entries, path],
+    () => sourceEntries.filter((e) => e.path === path || e.basePath === path),
+    [sourceEntries, path],
   );
   const stats = useMemo(() => {
     const totalCost = scoped.reduce((s, e) => s + (e.costUsd ?? 0), 0);
@@ -126,7 +127,7 @@ export function AgentProfileView({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{entry.title}</span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {meta.label} · <RelativeTime timestamp={entry.updatedAt} />
+                        {meta.label} · <span className="tabular-nums">{formatRelativeTime(entry.updatedAt)}</span>
                       </span>
                     </span>
                     <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />

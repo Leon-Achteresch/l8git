@@ -13,6 +13,7 @@ import {
   GitPullRequestArrow,
   Mic,
   Paperclip,
+  Plus,
   Puzzle,
   Sparkles,
   SquareTerminal,
@@ -37,6 +38,7 @@ import { AgentConversationViewport } from "@/components/agents/chat/agent-conver
 import { AgentPlanBanner } from "@/components/agents/chat/agent-plan-banner";
 import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
 import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
+import { AgentThreadPicker } from "@/components/agents/chat/agent-thread-picker";
 import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
 import { AgentRateLimitChips } from "@/components/agents/chat/agent-rate-limit-chips";
 import { AgentContextMeter } from "@/components/agents/ui/agent-context-meter";
@@ -122,6 +124,7 @@ export const AgentChatPane = memo(function AgentChatPane({
   onToggleTerminal,
   onOpenCapabilities,
   onOpenAddons,
+  onOpenThreadsOverview,
 }: {
   path: string;
   threadId: string | null;
@@ -129,6 +132,7 @@ export const AgentChatPane = memo(function AgentChatPane({
   onToggleTerminal?: () => void;
   onOpenCapabilities?: (section?: AgentCapabilitySection) => void;
   onOpenAddons?: () => void;
+  onOpenThreadsOverview?: () => void;
 }) {
   const { t } = useTranslation();
   const provider = useAgentProviderStore((state) => state.provider);
@@ -1074,20 +1078,37 @@ export const AgentChatPane = memo(function AgentChatPane({
           <span className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--ag-text-3)]">
             {providerLabel}
           </span>
-          {conversationMeta.exists && threadId ? (
-            <AgentInlineTitle
+          <div className="flex min-w-0 items-center gap-1.5">
+            {conversationMeta.exists && threadId ? (
+              <AgentInlineTitle
+                path={path}
+                threadId={threadId}
+                title={conversationMeta.title}
+                editing={renamingTitle}
+                onEditingChange={setRenamingTitle}
+                className="min-w-0 truncate text-[13px] font-semibold tracking-[-0.02em]"
+                inputClassName="max-w-md text-[13px] font-medium tracking-[-0.01em]"
+              />
+            ) : (
+              <p className="truncate text-[13px] font-semibold tracking-[-0.02em]">{t("agentChat.newConversation")}</p>
+            )}
+            <AgentThreadPicker
               path={path}
-              threadId={threadId}
-              title={conversationMeta.title}
-              editing={renamingTitle}
-              onEditingChange={setRenamingTitle}
-              className="min-w-0 truncate text-[13px] font-semibold tracking-[-0.02em]"
-              inputClassName="max-w-md text-[13px] font-medium tracking-[-0.01em]"
+              currentThreadId={threadId}
+              onOpenOverview={onOpenThreadsOverview}
             />
-          ) : (
-            <p className="truncate text-[13px] font-semibold tracking-[-0.02em]">{t("agentChat.newConversation")}</p>
-          )}
+          </div>
         </div>
+
+        <button
+          type="button"
+          className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+          onClick={() => void createThread(path).catch((error: unknown) => toast.error(error instanceof Error ? error.message : String(error)))}
+          title={t("agentChat.newConversation")}
+          aria-label={t("agentChat.newConversation")}
+        >
+          <Plus className="size-4" />
+        </button>
 
         {threadId || busy ? (
           <AgentStatusChip tone={statusState} className="shrink-0">

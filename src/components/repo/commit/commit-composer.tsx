@@ -171,8 +171,11 @@ export function CommitComposer({
               transition={spring}
               className="overflow-hidden"
             >
-              <div className="flex items-center gap-2 bg-git-modified/10 px-3 py-1.5 text-[11px] font-medium text-git-modified">
-                <Pencil className="size-3 shrink-0" />
+              <div
+                role="status"
+                className="flex items-center gap-2 bg-git-modified/10 px-3 py-1.5 text-[11px] font-medium text-git-modified"
+              >
+                <Pencil className="size-3 shrink-0" aria-hidden />
                 <span className="truncate">{t("commitPanel.amendBanner")}</span>
               </div>
             </m.div>
@@ -187,6 +190,7 @@ export function CommitComposer({
             onChange={(e) => onSubjectChange(e.target.value)}
             readOnly={aiGenerating}
             onKeyDown={onKeyCommit}
+            aria-label={t("commitPanel.messageLabel", { defaultValue: "Commit message" })}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder={t("commitPanel.messagePlaceholder")}
@@ -290,6 +294,7 @@ export function CommitComposer({
                 onChange={(e) => onBodyChange(e.target.value)}
                 readOnly={aiGenerating}
                 onKeyDown={onKeyCommit}
+                aria-label={t("commitPanel.bodyLabel", { defaultValue: "Extended description" })}
                 onFocus={() => {
                   setFocused(true);
                   setBodyOpen(true);
@@ -416,12 +421,23 @@ export function CommitComposer({
               transition={spring}
               onClick={onCommit}
               disabled={!canCommit || committing}
+              aria-label={commitLabel}
+              aria-busy={committing || undefined}
+              title={
+                committing
+                  ? commitLabel
+                  : !canCommit
+                    ? t("commitPanel.commitDisabledHint", {
+                        defaultValue: "Stage files and write a message to commit (⌘↵)",
+                      })
+                    : `${commitLabel} (⌘↵)`
+              }
               className={cn(
-                "relative flex h-8 max-w-[220px] items-center justify-center gap-1.5 overflow-hidden rounded-l-xl px-3 text-[12.5px] font-medium transition-colors",
+                "relative flex h-8 max-w-[220px] cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-l-xl px-3 text-[12.5px] font-medium transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 disabled:cursor-not-allowed",
                 amendMode
                   ? "bg-git-modified text-white hover:bg-git-modified disabled:bg-git-modified/50"
                   : canCommit
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
                     : "bg-muted text-muted-foreground",
               )}
             >
@@ -445,6 +461,7 @@ export function CommitComposer({
                 <Button
                   variant={amendMode ? "default" : canCommit ? "default" : "secondary"}
                   size="icon"
+                  aria-label={t("commitPanel.commitOptions", { defaultValue: "Commit options" })}
                   className={cn(
                     "h-8 w-7 shrink-0 rounded-l-none rounded-r-xl border-0 border-l",
                     amendMode
@@ -454,7 +471,7 @@ export function CommitComposer({
                         : "border-border/40",
                   )}
                 >
-                  <ChevronDown className="size-3.5" />
+                  <ChevronDown className="size-3.5" aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top">

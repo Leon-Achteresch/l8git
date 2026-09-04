@@ -1,9 +1,11 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Kbd } from "@/components/ui/kbd";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
 import { useTranslation } from "react-i18next";
 
@@ -38,12 +40,14 @@ function useShortcutGroups(): ShortcutGroup[] {
       description: t(action.labelKey, action.labelParams ?? {}),
     }));
 
+  const terminalKey = IS_MAC ? "⌃`" : "Ctrl+`";
+
   return [
     {
       group: t("hotkeysOverlay.groupGlobal"),
       rows: [
         ...rowsFor("global"),
-        { keys: [`Ctrl+\``], description: t("hotkeysOverlay.toggleTerminal") },
+        { keys: [terminalKey], description: t("hotkeysOverlay.toggleTerminal") },
       ],
     },
     {
@@ -89,27 +93,29 @@ export function HotkeysOverlay({ open, onClose }: Props) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("hotkeysOverlay.title")}</DialogTitle>
+          <DialogDescription>{t("hotkeysOverlay.subtitle", { defaultValue: "Every action is reachable without a mouse. Press Esc to close." })}</DialogDescription>
         </DialogHeader>
-        <div className="mt-2 space-y-5 overflow-y-auto max-h-[70vh] pr-1">
+        <div className="mt-2 max-h-[70vh] space-y-5 overflow-y-auto pr-1">
           {groups.map((g) => (
-            <section key={g.group}>
-              <h3 className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <section key={g.group} aria-label={g.group}>
+              <h3 className="mb-2 text-[10.5px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
                 {g.group}
               </h3>
               <table className="w-full text-sm">
+                <caption className="sr-only">{g.group}</caption>
                 <tbody>
                   {g.rows.map((row) => (
                     <tr key={row.description} className="border-b border-border/30 last:border-0">
-                      <td className="py-1.5 pr-4 text-muted-foreground">{row.description}</td>
+                      <td scope="row" className="py-1.5 pr-4 text-muted-foreground">{row.description}</td>
                       <td className="py-1.5 text-right">
                         <span className="inline-flex gap-1">
                           {row.keys.map((k) => (
-                            <kbd
+                            <Kbd
                               key={k}
-                              className="inline-flex items-center rounded border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
+                              className="px-1.5 py-0.5 font-mono text-[11px]"
                             >
                               {k}
-                            </kbd>
+                            </Kbd>
                           ))}
                         </span>
                       </td>

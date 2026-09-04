@@ -1,10 +1,9 @@
-// Faengt Render-Fehler der aktiven Route ab.
+// Catches render errors of the active route.
 //
-// Ohne Fehlergrenze nimmt React 19 bei einem Fehler in der Render-Phase den
-// kompletten Root vom Bildschirm: Die App ist leer, und die Meldung steht nur
-// in der DevTools-Konsole. Hier bleibt der Rahmen (Header, Navigation) stehen
-// und die Meldung samt Komponentenstack ist kopierbar — genau das, was ein
-// Bugreport braucht.
+// Without a boundary, React 19 unmounts the whole root on a render-phase
+// error: the app goes blank and the message only lands in DevTools. Here the
+// chrome (header, navigation) stays mounted and the message plus component
+// stack are copyable — exactly what a bug report needs.
 
 import { AlertTriangle } from "lucide-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
@@ -12,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface RouteErrorBoundaryProps {
   children: ReactNode;
@@ -38,7 +38,7 @@ export class RouteErrorBoundary extends Component<
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
     this.setState({ componentStack: info.componentStack ?? "" });
-    console.error("[l8git] Render-Fehler", error, info.componentStack);
+    console.error("[l8git] Render error", error, info.componentStack);
   }
 
   componentDidUpdate(previous: RouteErrorBoundaryProps) {
@@ -76,38 +76,48 @@ function RouteCrashFallback({
 
   return (
     <div className="flex h-full min-h-0 items-center justify-center p-6">
-      <div className="flex w-full max-w-2xl flex-col gap-3">
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertTriangle className="size-4 shrink-0" />
-          <h2 className="text-sm font-medium">{t("crash.title")}</h2>
-        </div>
-        <p className="text-sm text-muted-foreground">{t("crash.body")}</p>
-        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs break-words">
-          {error.message || error.name}
-        </p>
-        {details ? (
-          <pre className="max-h-64 overflow-auto rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap text-muted-foreground">
-            {details}
-          </pre>
-        ) : null}
-        <div className="flex gap-2">
-          <Button type="button" onClick={onRetry}>
-            {t("crash.retry")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void navigator.clipboard
-                .writeText(`${error.message}\n\n${details}`)
-                .then(() => toast.success(t("crash.copied")))
-                .catch(() => toast.error(t("crash.copyFailed")));
-            }}
-          >
-            {t("crash.copy")}
-          </Button>
-        </div>
-      </div>
+      <Card
+        role="alert"
+        aria-live="assertive"
+        className="w-full max-w-2xl shadow-lg"
+      >
+        <CardHeader>
+          <div className="flex items-center gap-2 text-destructive">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-destructive/10">
+              <AlertTriangle className="size-4 shrink-0" aria-hidden />
+            </span>
+            <CardTitle className="text-sm">{t("crash.title")}</CardTitle>
+          </div>
+          <CardDescription>{t("crash.body")}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 font-mono text-xs break-words">
+            {error.message || error.name}
+          </p>
+          {details ? (
+            <pre className="max-h-64 overflow-auto rounded-lg border border-border/60 bg-muted/40 px-3 py-2 font-mono text-[11px] leading-5 whitespace-pre-wrap text-muted-foreground">
+              {details}
+            </pre>
+          ) : null}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button type="button" autoFocus onClick={onRetry}>
+              {t("crash.retry")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(`${error.message}\n\n${details}`)
+                  .then(() => toast.success(t("crash.copied")))
+                  .catch(() => toast.error(t("crash.copyFailed")));
+              }}
+            >
+              {t("crash.copy")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

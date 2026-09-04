@@ -1,10 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { AnimatePresence, m } from "motion/react";
 import { toast } from "sonner";
 
 import { AgentChatPane } from "@/components/agents/chat/agent-chat-pane";
-import { AgentChatSidebar } from "@/components/agents/chat/agent-chat-sidebar";
 import { AgentsEmpty } from "@/components/agents/agents-empty";
 import {
   AgentProfileShell,
@@ -12,18 +10,10 @@ import {
 } from "@/components/agents/profile/AgentProfileShell";
 import { AgentProfileView } from "@/components/agents/profile/AgentProfileView";
 import { InAppTerminalLayout } from "@/components/repo/layout/in-app-terminal-layout";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { useAgentChatStore, chatStoreFor } from "@/lib/agents/active-chat-store";
 import { useAgentRepoPaths, useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import type { AgentOverviewEntry } from "@/lib/agents/overview";
-import {
-  useAgentOverviewCounts,
-  useAgentOverviewEntries,
-} from "@/lib/agents/use-agent-overview";
+import { useActiveAgentCount } from "@/lib/agents/use-agent-overview";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { refreshProviderThreads } from "@/lib/agents/thread-refresh";
 import { armTurnAttention } from "@/lib/agents/turn-attention";
@@ -34,7 +24,6 @@ import { jiraThreadKey, useJiraStore } from "@/lib/jira/jira-store";
 import { syncJiraExternalRegistration } from "@/lib/jira/jira-sync";
 import { useRepoStore } from "@/lib/repo-store";
 import { useTerminalStore } from "@/lib/terminal-store";
-import { SPRING_LAYOUT } from "@/lib/motion/ease";
 
 const EMPTY_THREADS: AgentThreadSummary[] = [];
 const AGENT_PROVIDERS = ["codex", "claude", "cursor", "opencode"] as const;
@@ -78,8 +67,7 @@ export function AgentsPage({
   const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
   const [addonsOpen, setAddonsOpen] = useState(false);
   const [profileSection, setProfileSection] = useState<ProfileSection | null>(null);
-  const profileEntries = useAgentOverviewEntries();
-  const profileCounts = useAgentOverviewCounts(profileEntries);
+  const runningCount = useActiveAgentCount();
   const jiraEnabled = useJiraStore((state) => state.enabled);
   const jiraRegisterExternal = useJiraStore((state) => state.registerExternal);
   const setActiveJiraThread = useJiraStore((state) => state.setActiveThread);
@@ -172,14 +160,6 @@ export function AgentsPage({
     return () => window.clearTimeout(timer);
   }, [activeThreadId, activeThreadIsKnown, openThread, selectedPath]);
 
-  if (paths.length === 0) return <AgentsEmpty />;
-
-  // BoardUI AI-Profile shell: one app shell, five sections. The `?view=overview`
-  // route seeds the threads section; afterwards the shell owns the section.
-  const section: ProfileSection =
-    profileSection ??
-    (overview ? "threads" : addonsOpen ? "addons" : capabilitySection ? "capabilities" : "profile");
-
   const handleSectionChange = useCallback(
     (next: ProfileSection) => {
       setProfileSection(next);
@@ -230,47 +210,36 @@ export function AgentsPage({
     setProfileSection("chat");
   }, []);
 
-  if (section === "threads") {
-    return (
-      <div className="isolate bg-[var(--ag-canvas)] text-[var(--ag-text)] flex h-full min-h-0">
-        <InAppTerminalLayout path={selectedPath}>
-          <AgentProfileShell
-            path={selectedPath}
-            provider={provider}
-            section={section}
-            onSectionChange={handleSectionChange}
-            runningCount={profileCounts.running}
-          >
-            <div className="isolate text-[var(--ag-text)] bg-[radial-gradient(900px_420px_at_88%_-8%,color-mix(in_oklab,var(--git-branch)_9%,transparent),transparent_62%),var(--ag-stage-bg)] flex h-full min-h-0 flex-col">
-              <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">…</div>}>
-                <AgentsOverview
-                  onOpenThread={openChatEntry}
-                  onClose={() => handleSectionChange("profile")}
-                  onRefresh={refreshOverview}
-                />
-              </Suspense>
-            </div>
-          </AgentProfileShell>
-        </InAppTerminalLayout>
-      </div>
-    );
-  }
+  if (paths.length === 0) return <AgentsEmpty />;
+
+  const section: ProfileSection =
+    profileSection ??
+    (overview ? "threads" : addonsOpen ? "addons" : capabilitySection ? "capabilities" : "chat");
 
   return (
-    <div className="isolate bg-[var(--ag-canvas)] text-[var(--ag-text)] flex h-full min-h-0">
+    <div className="isolate flex h-full min-h-0 bg-[var(--ag-canvas)] text-[var(--ag-text)]">
       <InAppTerminalLayout path={selectedPath}>
         <AgentProfileShell
           path={selectedPath}
           provider={provider}
           section={section}
           onSectionChange={handleSectionChange}
-          runningCount={profileCounts.running}
+          runningCount={runningCount}
         >
-          {section === "profile" ? (
+          {section === "threads" ? (
+            <div className="isolate flex h-full min-h-0 flex-col bg-[radial-gradient(900px_420px_at_88%_-8%,color-mix(in_oklab,var(--git-branch)_9%,transparent),transparent_62%),var(--ag-stage-bg)] text-[var(--ag-text)]">
+              <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">…</div>}>
+                <AgentsOverview
+                  onOpenThread={openChatEntry}
+                  onClose={() => handleSectionChange("chat")}
+                  onRefresh={refreshOverview}
+                />
+              </Suspense>
+            </div>
+          ) : section === "profile" ? (
             <AgentProfileView
               path={selectedPath}
               provider={provider}
-              entries={profileEntries}
               onOpenThread={openChatEntry}
               onSeeAllThreads={() => handleSectionChange("threads")}
               onOpenChat={() => handleSectionChange("chat")}
@@ -303,47 +272,18 @@ export function AgentsPage({
               />
             </Suspense>
           ) : (
-            <ResizablePanelGroup orientation="horizontal" id="agents-chat-split">
-              <ResizablePanel
-                id="agents-chat-sidebar"
-                defaultSize="280px"
-                minSize="232px"
-                maxSize="380px"
-                className="bg-[var(--ag-rail-bg)] shadow-[inset_-1px_0_0_var(--ag-line)] min-w-0 overflow-hidden"
-              >
-                <AgentChatSidebar selectedPath={selectedPath} onOpenOverview={() => handleSectionChange("threads")} />
-              </ResizablePanel>
-              <ResizableHandle className="w-px bg-[var(--ag-line)] transition-colors hover:bg-[var(--ag-line-strong)]" />
-              <ResizablePanel
-                id="agents-chat-main"
-                defaultSize="78%"
-                minSize="420px"
-                className="bg-[radial-gradient(900px_420px_at_88%_-8%,color-mix(in_oklab,var(--git-branch)_9%,transparent),transparent_62%),var(--ag-stage-bg)] min-w-0 overflow-hidden"
-              >
-                <AnimatePresence initial={false} mode="popLayout">
-                  <m.div
-                    key={`${selectedPath}:${activeThreadId ?? "new"}`}
-                    layout
-                    layoutId="agents-workspace-surface"
-                    initial={{ opacity: 0, x: 14, scale: 0.992 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: -14, scale: 0.992 }}
-                    transition={SPRING_LAYOUT}
-                    className="h-full min-h-0"
-                  >
-                    <AgentChatPane
-                      key={`${selectedPath}:${activeThreadId ?? "new"}`}
-                      path={selectedPath}
-                      threadId={activeThreadId}
-                      terminalVisible={terminalVisible}
-                      onToggleTerminal={handleToggleTerminal}
-                      onOpenCapabilities={openCapabilities}
-                      onOpenAddons={openAddons}
-                    />
-                  </m.div>
-                </AnimatePresence>
-              </ResizablePanel>
-            </ResizablePanelGroup>
+            <div className="h-full min-h-0 w-full overflow-hidden bg-[radial-gradient(900px_420px_at_88%_-8%,color-mix(in_oklab,var(--git-branch)_9%,transparent),transparent_62%),var(--ag-stage-bg)]">
+              <AgentChatPane
+                key={`${selectedPath}:${activeThreadId ?? "new"}`}
+                path={selectedPath}
+                threadId={activeThreadId}
+                terminalVisible={terminalVisible}
+                onToggleTerminal={handleToggleTerminal}
+                onOpenCapabilities={openCapabilities}
+                onOpenAddons={openAddons}
+                onOpenThreadsOverview={() => handleSectionChange("threads")}
+              />
+            </div>
           )}
         </AgentProfileShell>
       </InAppTerminalLayout>

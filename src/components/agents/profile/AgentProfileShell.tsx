@@ -1,4 +1,4 @@
-import { Blocks, LayoutGrid, MessagesSquare, Puzzle, Search, UserRound } from "lucide-react";
+import { Blocks, LayoutGrid, MessagesSquare, Puzzle, UserRound } from "lucide-react";
 import { m } from "motion/react";
 import { useState } from "react";
 
@@ -14,11 +14,11 @@ import { cn } from "@/lib/utils";
 export type ProfileSection = "profile" | "chat" | "threads" | "capabilities" | "addons";
 
 const NAV: Array<{ id: ProfileSection; label: string; Icon: typeof LayoutGrid }> = [
-  { id: "profile", label: "Profile", Icon: UserRound },
   { id: "chat", label: "Chat", Icon: MessagesSquare },
   { id: "threads", label: "Threads", Icon: LayoutGrid },
   { id: "capabilities", label: "Capabilities", Icon: Blocks },
   { id: "addons", label: "Addons", Icon: Puzzle },
+  { id: "profile", label: "Profile", Icon: UserRound },
 ];
 
 function repoName(path: string): string {
@@ -45,75 +45,13 @@ export function AgentProfileShell({
   const Logo = meta.Logo;
   const name = repoName(path);
 
-  const navList = (onNavigate?: () => void) => (
-    <nav aria-label="Agent sections" className="flex flex-col gap-1 p-3">
-      {NAV.map(({ id, label, Icon }) => {
-        const active = section === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => {
-              onSectionChange(id);
-              onNavigate?.();
-            }}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-              active ? "text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            {active ? (
-              <m.span
-                layoutId="agent-profile-nav-pill"
-                transition={springFast}
-                className="absolute inset-0 rounded-xl bg-muted"
-              />
-            ) : null}
-            <Icon className="relative size-4 shrink-0" />
-            <span className="relative flex-1 text-left">{label}</span>
-            {id === "chat" && runningCount > 0 ? (
-              <Badge variant="success" className="relative">
-                {runningCount}
-              </Badge>
-            ) : null}
-          </button>
-        );
-      })}
-    </nav>
-  );
-
   return (
-    <div className="flex h-full min-h-0 min-w-0 overflow-hidden bg-background" data-testid="agent-profile-shell">
-      {/* Desktop sidebar — BoardUI app-shell style */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-card md:flex">
-        <div className="flex items-center gap-2.5 border-b px-4 py-3.5">
-          <Avatar size="sm">
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              <Logo className="size-3.5" />
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold tracking-tight">{name}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{meta.label}</p>
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{navList()}</div>
-        <div className="border-t p-3">
-          <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-2.5 py-2 text-xs text-muted-foreground">
-            <Search className="size-3.5 shrink-0" />
-            <span className="truncate">⌘K to search threads</span>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main column */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Mobile top bar + slide-in drawer */}
-        <header className="flex shrink-0 items-center gap-2 border-b bg-card px-3 py-2 md:hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background" data-testid="agent-profile-shell">
+      <header className="flex h-11 shrink-0 items-center justify-between border-b bg-card/90 px-3 backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-2">
           <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open navigation">
+              <Button variant="ghost" size="icon-sm" aria-label="Open navigation" className="md:hidden">
                 <Avatar size="sm">
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     <Logo className="size-3.5" />
@@ -126,28 +64,89 @@ export function AgentProfileShell({
                 <p className="truncate text-sm font-semibold">{name}</p>
                 <p className="truncate text-[11px] text-muted-foreground">{meta.label}</p>
               </div>
-              {navList(() => setDrawerOpen(false))}
+              <nav aria-label="Agent sections" className="flex flex-col gap-1 p-3">
+                {NAV.map(({ id, label, Icon }) => {
+                  const active = section === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        onSectionChange(id);
+                        setDrawerOpen(false);
+                      }}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                        active ? "bg-muted font-semibold text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      <span className="flex-1 text-left">{label}</span>
+                      {id === "chat" && runningCount > 0 ? (
+                        <Badge variant="success" className="relative">
+                          {runningCount}
+                        </Badge>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </nav>
             </SheetContent>
           </Sheet>
-          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-            {NAV.map(({ id, label }) => (
+
+          <div className="mr-2 hidden items-center gap-2 md:flex">
+            <Avatar size="sm">
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                <Logo className="size-3.5" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold leading-tight">{name}</p>
+              <p className="truncate text-[10px] leading-tight text-muted-foreground">{meta.label}</p>
+            </div>
+          </div>
+        </div>
+
+        <nav aria-label="Agent sections" className="flex items-center gap-1 overflow-x-auto">
+          {NAV.map(({ id, label, Icon }) => {
+            const active = section === id;
+            return (
               <button
                 key={id}
                 type="button"
                 onClick={() => onSectionChange(id)}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                  section === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                  "relative inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all duration-150 outline-none",
+                  active
+                    ? "bg-muted text-foreground shadow-xs ring-1 ring-border/50"
+                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                 )}
               >
-                {label}
+                {active ? (
+                  <m.span
+                    layoutId="agent-profile-nav-pill"
+                    transition={springFast}
+                    className="absolute inset-0 rounded-lg bg-muted"
+                  />
+                ) : null}
+                <Icon className="relative size-3.5 shrink-0" />
+                <span className="relative">{label}</span>
+                {id === "chat" && runningCount > 0 ? (
+                  <Badge variant="success" className="relative ml-1 h-4 px-1.5 py-0 text-[10px]">
+                    {runningCount}
+                  </Badge>
+                ) : null}
               </button>
-            ))}
-          </div>
-        </header>
+            );
+          })}
+        </nav>
 
-        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-      </div>
+        <div className="flex w-8 shrink-0 justify-end md:w-24" />
+      </header>
+
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
     </div>
   );
 }

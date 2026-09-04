@@ -1,5 +1,13 @@
 import { useExplainSheet } from "@/components/ai/explain-sheet";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FileDiff, ListChecks, Pencil, RefreshCw, Sparkles } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo } from "react";
@@ -107,9 +115,17 @@ export function DiffViewer({
 
   if (!selectedRow) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground/50">
-        <FileDiff className="h-12 w-12 opacity-20" />
-      </div>
+      <Empty className="h-full border-0 bg-transparent" data-testid="diff-empty">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <FileDiff className="size-5" aria-hidden />
+          </EmptyMedia>
+          <EmptyTitle>{t("commitPanel.noFileSelectedTitle", { defaultValue: "Select a file to preview" })}</EmptyTitle>
+          <EmptyDescription>
+            {t("commitPanel.noFileSelectedBody", { defaultValue: "Choose a changed file on the left to see its diff here." })}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -179,8 +195,10 @@ export function DiffViewer({
             size="icon"
             className="h-8 w-8 rounded-md"
             onClick={onReload}
+            aria-label={t("commitPanel.reloadDiff", { defaultValue: "Reload diff" })}
+            title={t("commitPanel.reloadDiff", { defaultValue: "Reload diff" })}
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4" aria-hidden />
           </Button>
         </div>
       </div>
@@ -218,7 +236,20 @@ export function DiffViewer({
             onClearSelection={onClearSelection}
           />
         ) : (
-          <Suspense fallback={null}>
+          <Suspense
+            fallback={
+              <div
+                role="status"
+                aria-label={t("diff.loading", { defaultValue: "Loading editor" })}
+                className="flex h-full flex-col gap-2 p-4"
+              >
+                <Skeleton className="h-4 w-1/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-32 w-full" />
+              </div>
+            }
+          >
             <MonacoStagingDiff
               key={selectedRow.id}
               repoPath={repoPath}

@@ -14,6 +14,12 @@ import { useTranslation } from "react-i18next";
 import { AppHeaderSearch } from "@/components/app/app-header-search";
 import { MinimizeToIsland } from "@/components/app/minimize-to-island";
 import { WindowControls } from "@/components/app/window-controls";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Kbd } from "@/components/ui/kbd";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { cn } from "@/lib/utils";
 
@@ -86,37 +92,61 @@ export function AppHeader() {
             const active =
               to === "/" ? pathname === "/" : pathname.startsWith(to);
             return (
-              <Link
-                key={to}
-                to={to}
-                title={label}
-                aria-label={label}
-                className={cn(
-                  "relative inline-flex size-7 items-center justify-center rounded-lg transition-colors duration-150",
-                  active
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                )}
-              >
-                <Icon className="size-4 shrink-0" strokeWidth={1.75} />
-              </Link>
+              <Tooltip key={to} delayDuration={300}>
+                <TooltipTrigger asChild>
+                  <Link
+                    to={to}
+                    title={label}
+                    aria-label={label}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "relative inline-flex size-7 items-center justify-center rounded-lg transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar",
+                      active
+                        ? "bg-muted text-foreground shadow-xs ring-1 ring-border/50"
+                        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                    {active && (
+                      <span
+                        aria-hidden
+                        className="absolute -bottom-[7px] left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-foreground/70"
+                      />
+                    )}
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8}>
+                  <span className="font-medium">{label}</span>
+                </TooltipContent>
+              </Tooltip>
             );
           })}
 
           <div className="mx-0.5 h-4 w-px bg-border/60" aria-hidden />
 
-          <Link
-            to="/settings"
-            aria-label={t("header.settingsAria")}
-            title={t("header.settingsAria")}
-            className={cn(
-              "inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150",
-              "hover:bg-muted/70 hover:text-foreground",
-              pathname.startsWith("/settings") && "bg-muted text-foreground",
-            )}
-          >
-            <Settings className="size-4" strokeWidth={1.75} />
-          </Link>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <Link
+                to="/settings"
+                aria-label={t("header.settingsAria")}
+                title={t("header.settingsAria")}
+                aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+                className={cn(
+                  "inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar",
+                  "hover:bg-muted/70 hover:text-foreground",
+                  pathname.startsWith("/settings") && "bg-muted text-foreground shadow-xs ring-1 ring-border/50",
+                )}
+              >
+                <Settings className="size-4" strokeWidth={1.75} aria-hidden />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={8}>
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                {t("header.settingsAria")}
+                <Kbd className="h-4 px-1 text-[10px]">⌘,</Kbd>
+              </span>
+            </TooltipContent>
+          </Tooltip>
         </nav>
       </div>
 
