@@ -1,5 +1,6 @@
 import { m, useReducedMotion } from "motion/react";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { formatCompact, tokensSeries } from "@/components/agents/profile/agent-profile-data";
 import { AnimatedNumber } from "@/components/motion/animated-number";
@@ -23,38 +24,31 @@ function pathFrom(values: number[], width: number, height: number, pad: number):
 }
 
 export function AgentTokensCard({ entries }: { entries: AgentOverviewEntry[] }) {
+  const { t } = useTranslation();
+  const gradientId = useId();
   const series = useMemo(() => tokensSeries(entries, 30), [entries]);
   const total = series.reduce((s, v) => s + v, 0);
   const d = useMemo(() => pathFrom(series, 600, 160, 8), [series]);
-  const delta = useMemo(() => {
-    if (series.length < 2) return "+0.0%";
-    const half = Math.floor(series.length / 2);
-    const first = series.slice(0, half).reduce((s, v) => s + v, 0);
-    const second = series.slice(half).reduce((s, v) => s + v, 0);
-    if (first <= 0) return second > 0 ? "+100%" : "+0.0%";
-    return `+${(((second - first) / first) * 100).toFixed(1)}%`;
-  }, [series]);
   const reduce = useReducedMotion();
 
   return (
     <m.div initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...easeOutSoft, delay: 0.25 }}>
       <Card data-testid="agent-tokens-card">
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
           <div>
-            <CardTitle>Tokens</CardTitle>
-            <CardDescription>30-day trend · sharp joins, rebuilt with base Card</CardDescription>
+            <CardTitle>{t("agentProfile.recordedTokens")}</CardTitle>
+            <CardDescription>{t("agentProfile.tokensHint")}</CardDescription>
           </div>
           <div className="text-right">
             <div className="text-lg font-semibold tracking-tight tabular-nums">
-              <AnimatedNumber value={total} format={(n) => `${formatCompact(n)} tokens`} />
+              <AnimatedNumber value={total} format={formatCompact} />
             </div>
-            <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{delta}</div>
           </div>
         </CardHeader>
         <CardContent>
-          <svg viewBox="0 0 600 160" className="h-36 w-full" role="img" aria-label="Token trend">
+          <svg viewBox="0 0 600 160" className="h-36 w-full" role="img" aria-label={t("agentProfile.tokensHint")}>
             <defs>
-              <linearGradient id="agent-tokens-fill" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="currentColor" stopOpacity="0.25" />
                 <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
               </linearGradient>
@@ -63,7 +57,7 @@ export function AgentTokensCard({ entries }: { entries: AgentOverviewEntry[] }) 
               <>
                 <m.path
                   d={`${d} L592,152 L8,152 Z`}
-                  fill="url(#agent-tokens-fill)"
+                  fill={`url(#${gradientId})`}
                   className="text-emerald-500"
                   initial={reduce ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -85,8 +79,8 @@ export function AgentTokensCard({ entries }: { entries: AgentOverviewEntry[] }) 
             ) : null}
           </svg>
           <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-            <span>30 days ago</span>
-            <span>Today</span>
+            <span>{t("agentProfile.daysAgo", { count: 29 })}</span>
+            <span>{t("agentChat.today")}</span>
           </div>
         </CardContent>
       </Card>

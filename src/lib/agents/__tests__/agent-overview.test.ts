@@ -6,6 +6,8 @@ import {
   countPendingRequests,
   countRunningTurns,
   filterOverviewEntries,
+  groupEntriesByRepo,
+  groupFleetLanes,
   isThreadWorking,
   knownPathEntries,
   overviewCounts,
@@ -273,5 +275,39 @@ describe("filterOverviewEntries", () => {
   it("returns the input for an empty query", () => {
     const entries = [entry()];
     expect(filterOverviewEntries(entries, "  ")).toBe(entries);
+  });
+});
+
+describe("groupFleetLanes", () => {
+  it("puts approvals and failures in needsYou", () => {
+    const lanes = groupFleetLanes([
+      entry({ key: "a", status: "awaitingApproval" }),
+      entry({ key: "b", status: "failed" }),
+      entry({ key: "c", status: "running" }),
+      entry({ key: "d", status: "idle" }),
+    ]);
+    expect(lanes.needsYou.map((item) => item.key)).toEqual(["a", "b"]);
+    expect(lanes.working.map((item) => item.key)).toEqual(["c"]);
+    expect(lanes.ready.map((item) => item.key)).toEqual(["d"]);
+  });
+});
+
+describe("groupEntriesByRepo", () => {
+  it("groups by basePath so worktrees sit with their repo", () => {
+    const groups = groupEntriesByRepo([
+      entry({ key: "a", path: "/repo", basePath: "/repo", repoName: "repo" }),
+      entry({
+        key: "b",
+        path: "/repo.worktrees/fix",
+        basePath: "/repo",
+        repoName: "repo",
+        isWorktree: true,
+      }),
+      entry({ key: "c", path: "/other", basePath: "/other", repoName: "other" }),
+    ]);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toMatchObject({ path: "/repo", repoName: "repo" });
+    expect(groups[0].entries.map((item) => item.key)).toEqual(["a", "b"]);
+    expect(groups[1].repoName).toBe("other");
   });
 });

@@ -71,6 +71,19 @@ export function useAgentOverviewCounts(entries: AgentOverviewEntry[]): AgentOver
   return useMemo(() => overviewCounts(entries), [entries]);
 }
 
+function useProviderLoading(provider: NativeAgentProvider, paths: string[]): boolean {
+  return useProviderChatStore(provider, (state) => paths.some((path) => state.loadingPaths[path]));
+}
+
+export function useAgentOverviewLoading(): boolean {
+  const paths = useAgentRepoPaths();
+  const codex = useProviderLoading("codex", paths);
+  const claude = useProviderLoading("claude", paths);
+  const cursor = useProviderLoading("cursor", paths);
+  const opencode = useProviderLoading("opencode", paths);
+  return codex || claude || cursor || opencode;
+}
+
 function useProviderActivity(provider: NativeAgentProvider): number {
   const running = useProviderChatStore(provider, (state) => countRunningTurns(state.conversations));
   const pending = useProviderChatStore(provider, (state) =>

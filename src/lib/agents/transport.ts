@@ -59,6 +59,7 @@ export async function openAgentTransport(
   const onEvent = channel<AgentStreamEvent>((event) => handleEvent(event));
   let transportId: number | null = null;
   let exited = false;
+  let exitCode: number | null = null;
   let released = false;
   const release = () => {
     if (released) return;
@@ -69,6 +70,7 @@ export async function openAgentTransport(
   const fail = (code: number) => {
     if (released || exited) return;
     exited = true;
+    exitCode = code;
     handlers.onExit?.(code);
     release();
   };
@@ -87,6 +89,7 @@ export async function openAgentTransport(
     if (event.stream === "exit") {
       exited = true;
       const code = typeof event.payload === "number" ? event.payload : -1;
+      exitCode = code;
       handlers.onExit?.(code);
       if (transportId !== null) {
         void invoke("agent_transport_close", { id: transportId, sessionId });
@@ -107,7 +110,10 @@ export async function openAgentTransport(
       throw new Error("Der native Agent-Transport hat eine falsche Session zurückgegeben.");
     }
     transportId = id;
-    if (exited) void invoke("agent_transport_close", { id, sessionId });
+    if (exited) {
+      await invoke("agent_transport_close", { id, sessionId }).catch(() => undefined);
+      throw new Error(`Der Agent-Prozess wurde beendet (Exit-Code ${exitCode ?? -1}).`);
+    }
     let closed = false;
     return {
       id,

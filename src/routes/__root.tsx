@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { m } from "motion/react";
 import { lazy, Suspense, useEffect } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 const RouterDevtools = import.meta.env.DEV
@@ -82,6 +83,7 @@ function RootLayout() {
 
   // Accept folder drops anywhere in the window to open a repository.
   useEffect(() => {
+    if (!isTauri()) return;
     let unlisten: (() => void) | undefined;
     void getCurrentWebview()
       .onDragDropEvent((event) => {

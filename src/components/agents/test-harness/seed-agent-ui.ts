@@ -5,6 +5,7 @@ import type { CapabilityItem, CapabilityKind, CapabilityScope, CapabilityTargetI
 import { useCapabilityHubStore } from "@/lib/agents/capability-hub";
 import { useAgentCapabilityStore } from "@/lib/agents/capability-store";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
+import { useWorkspaceStore } from "@/lib/workspace-store";
 import type {
   AgentConversation,
   AgentModelOption,
@@ -212,6 +213,7 @@ export function agentUiThreadId(scene: string): string | null {
 }
 
 function seedProfileScene(): void {
+  useWorkspaceStore.getState().addRepoToActiveWorkspace(AGENT_UI_PATH);
   document.documentElement.classList.add("dark");
   const now = Math.floor(Date.now() / 1000);
   const day = 86_400;
@@ -348,8 +350,39 @@ export function seedAgentUi(scene: string): void {
   });
   setRepoAgentsTrusted(AGENT_UI_PATH, true);
 
-  if (scene === "profile") {
+  if (scene === "profile" || scene.startsWith("fleet") || scene === "workspace") {
     seedProfileScene();
+    if (scene.startsWith("fleet") || scene === "workspace") {
+      const current = chatStoreFor("codex").getState();
+      const failed = current.conversations["profile-old-60"];
+      chatStoreFor("codex").setState({
+        requestsByThread: {
+          "profile-thread-1-0": [{ requestId: 1, method: "approval" } as never],
+        },
+        conversations: failed
+          ? { ...current.conversations, "profile-old-60": { ...failed, error: "Tool call failed" } }
+          : current.conversations,
+      });
+    }
+    if (scene === "fleet-empty" || scene === "fleet-loading") {
+      chatStoreFor("codex").setState({
+        threadsByPath: {}, conversations: {}, requestsByThread: {},
+        loadingPaths: scene === "fleet-loading" ? { [AGENT_UI_PATH]: true } : {},
+      });
+    }
+    if (scene === "workspace") {
+      for (const id of ["codex", "claude", "cursor", "opencode"] as const) {
+        const store = chatStoreFor(id);
+        store.setState({
+          loadThreads: noop,
+          connect: noop,
+          retainSurface: () => () => undefined,
+          openThread: async (path, threadId) => {
+            store.setState((state) => ({ activeThreadByPath: { ...state.activeThreadByPath, [path]: threadId } }));
+          },
+        });
+      }
+    }
     return;
   }
 

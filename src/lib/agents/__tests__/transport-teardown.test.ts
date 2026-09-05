@@ -11,6 +11,7 @@ interface InvokeCall {
 
 let calls: InvokeCall[] = [];
 let nextId = 1;
+let emitExitBeforeOpenResolves = false;
 
 function installPlatform(): void {
   calls = [];
@@ -19,6 +20,15 @@ function installPlatform(): void {
       calls.push({ cmd, args });
       if (cmd === "agent_transport_open") {
         nextId += 1;
+        if (emitExitBeforeOpenResolves) {
+          const onEvent = args.onEvent as (event: unknown) => void;
+          onEvent({
+            sessionId: args.sessionId,
+            sequence: 1,
+            stream: "exit",
+            payload: 17,
+          });
+        }
         return { id: nextId, sessionId: args.sessionId } as T;
       }
       return undefined as T;
@@ -46,6 +56,7 @@ function lastOpen(): InvokeCall {
 }
 
 beforeEach(() => {
+  emitExitBeforeOpenResolves = false;
   installPlatform();
 });
 
@@ -93,6 +104,18 @@ describe("failAgentTransports", () => {
 
     expect(onExit).toHaveBeenCalledTimes(1);
     expect(onExit).toHaveBeenCalledWith(0);
+  });
+
+  it("rejects an open call when the process exits before the native handle is returned", async () => {
+    emitExitBeforeOpenResolves = true;
+    const onExit = vi.fn();
+
+    await expect(
+      openAgentTransport("codex", "session-a", { onMessage: () => {}, onExit }),
+    ).rejects.toThrow("Exit-Code 17");
+
+    expect(onExit).toHaveBeenCalledWith(17);
+    expect(calls.some((call) => call.cmd === "agent_transport_close")).toBe(true);
   });
 
   it("drops the rpc transport so the next request fails instead of reusing a dead id", async () => {

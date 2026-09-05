@@ -9,6 +9,14 @@
 
 /* Agents theme tokens. Component styling lives in colocated Tailwind utilities. */
 :root {
+    /* T3 Code workspace geometry: compact, resizable, and shared by every
+       surface in the agent workspace. */
+    --workspace-topbar-height: 52px;
+    --agent-sidebar-default-width: 264px;
+    --agent-sidebar-min-width: 232px;
+    --agent-sidebar-max-width: 380px;
+    --agent-control-radius: 0.5rem;
+    --agent-sidebar-inset: 0.5rem;
     --ag-canvas: #eef0f2;
     --ag-rail-bg: #f7f8f8;
     --ag-stage-bg: #f3f4f5;
@@ -50,6 +58,7 @@
 }
 
 .dark {
+    --workspace-topbar-height: 52px;
     --ag-canvas: #090c0e;
     --ag-rail-bg: #0d1113;
     --ag-stage-bg: #111619;

@@ -1,4 +1,4 @@
-import { FolderGit2, GitBranch } from "lucide-react";
+import { ArrowUpRight, FolderGit2, GitBranch } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,7 @@ import { agentProviderMeta } from "@/lib/agents/provider-meta";
 import { formatUsd } from "@/lib/agents/token-cost";
 import type { WorktreeDiffStat } from "@/lib/agents/worktree-diff";
 import { SPRING_PRESS } from "@/lib/motion/ease";
+import { cn } from "@/lib/utils";
 
 const STATUS_TONE: Record<
   AgentOverviewStatus,
@@ -42,25 +43,36 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
   const statusLabel = t(`agentOverview.status.${entry.status}`);
   const working =
     entry.status === "running" || entry.status === "awaitingApproval";
+  const attention =
+    entry.status === "awaitingApproval" || entry.status === "failed";
 
   return (
-    <m.div
-      role="button"
-      tabIndex={0}
+    <m.button
+      type="button"
       onClick={() => onOpen(entry)}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        onOpen(entry);
-      }}
+      data-agent-overview-row=""
+      data-status={entry.status}
+      data-provider={entry.provider}
       title={entry.path}
       whileTap={reduce ? undefined : { scale: 0.99 }}
       transition={SPRING_PRESS}
-      initial={reduce ? false : { opacity: 0, y: 6 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.35 }}
-      className="relative flex min-h-16 w-full min-w-0 items-start gap-3 rounded-[var(--ag-r-md)] border border-transparent px-3.5 py-3 text-left text-[var(--ag-text-2)] outline-none transition-[background-color,border-color,color,transform,box-shadow] duration-200 hover:border-[var(--ag-line)] hover:bg-[var(--ag-surface)] hover:text-[var(--ag-text)] hover:shadow-[var(--ag-shadow-raise)] active:bg-[var(--ag-press)] focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-[var(--ag-surface)] data-[active=true]:text-[var(--ag-text)] data-[active=true]:shadow-[var(--ag-shadow-raise)]"
+      className={cn(
+        "group relative flex min-h-20 w-full min-w-0 items-start gap-3 rounded-[var(--ag-r-md)] border border-transparent bg-[var(--ag-rail-bg)] px-3 py-3 text-left text-[var(--ag-text-2)] outline-none transition-colors duration-150 hover:border-[var(--ag-line-strong)] hover:bg-[var(--ag-surface)] hover:text-[var(--ag-text)] active:bg-[var(--ag-press)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4",
+        attention && "border-[var(--ag-line)] bg-[var(--ag-surface)]",
+      )}
     >
+      {entry.status !== "idle" ? (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute inset-y-2 left-1 w-0.5 rounded-full",
+            entry.status === "awaitingApproval" && "bg-[var(--git-branch)]",
+            entry.status === "failed" && "bg-destructive",
+            entry.status === "running" && "bg-[var(--git-modified)]",
+          )}
+        />
+      ) : null}
+
       <AgentProviderMark
         working={working}
         label={providerMeta.label}
@@ -70,25 +82,25 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
       </AgentProviderMark>
 
       <span className="relative z-[1] min-w-0 flex-1">
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="min-w-32 flex-1 truncate text-[13px] font-semibold tracking-[-0.015em] text-[var(--ag-text)]">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
+          <span className="min-w-0 basis-full truncate text-[13px] font-semibold tracking-[-0.015em] text-[var(--ag-text)] sm:basis-auto sm:flex-1">
             {entry.title}
           </span>
           <AgentStatusChip tone={STATUS_TONE[entry.status]} className="shrink-0">
             {statusLabel}
           </AgentStatusChip>
-          <span className="text-[var(--ag-text-3)] shrink-0 text-[10px] tabular-nums">
+          <time dateTime={new Date(entry.updatedAt * 1000).toISOString()} title={new Date(entry.updatedAt * 1000).toLocaleString()} className="ml-auto shrink-0 text-[10px] tabular-nums text-[var(--ag-text-3)] sm:min-w-20 sm:text-right">
             {relativeDate}
-          </span>
+          </time>
         </span>
 
-        <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-[var(--ag-text-3)] min-w-0 max-w-48 truncate text-[11px] font-medium">
-            {entry.repoName}
-          </span>
+        <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--ag-text-2)]">
+          <span className="max-w-40 truncate font-medium">{entry.repoName}</span>
+          <span aria-hidden className="size-0.5 rounded-full bg-[var(--ag-text-3)]" />
+          <span>{providerMeta.label}</span>
           {entry.isWorktree ? (
             <span
-              className="inline-flex h-7 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 h-4.5 shrink-0 gap-1 rounded-full px-1.5 text-[9px] font-medium"
+              className="inline-flex max-w-full items-center gap-1 truncate"
               title={entry.branch ?? undefined}
             >
               <FolderGit2 className="size-2.5 shrink-0 text-[var(--git-branch)]" />
@@ -99,34 +111,24 @@ export const AgentOverviewRow = memo(function AgentOverviewRow({
             </span>
           ) : null}
           {diffStat && diffStat.files > 0 ? (
-            <span
-              className="shrink-0 text-[10px] font-medium tabular-nums"
-              title={t("agentOverview.diffStatHint")}
-            >
-              <span className="text-[var(--ag-text-3)]">
-                {t("agentOverview.files", { count: diffStat.files })}
-              </span>{" "}
-              <span className="text-[var(--git-added)]">
-                +{diffStat.additions}
-              </span>{" "}
-              <span className="text-[var(--git-removed)]">
-                −{diffStat.deletions}
-              </span>
+            <span className="tabular-nums" title={t("agentOverview.diffStatHint")}>
+              <span>{t("agentOverview.files", { count: diffStat.files })}</span>{" "}
+              <span className="text-[var(--git-added)]">+{diffStat.additions}</span>{" "}
+              <span className="text-[var(--git-removed)]">−{diffStat.deletions}</span>
             </span>
           ) : null}
           {entry.costUsd ? (
-            <span className="text-[var(--ag-text-3)] shrink-0 text-[10px] tabular-nums">
-              · {formatUsd(entry.costUsd)}
-            </span>
+            <span className="tabular-nums">{formatUsd(entry.costUsd)}</span>
           ) : null}
         </span>
 
         {entry.preview ? (
-          <span className="text-[var(--ag-text-3)] mt-1 line-clamp-1 block text-[11px] leading-4 text-[var(--ag-text-3)]">
+          <span className="mt-1 line-clamp-1 text-[12px] leading-5 text-[var(--ag-text-2)]">
             {entry.preview}
           </span>
         ) : null}
       </span>
-    </m.div>
+      <ArrowUpRight aria-hidden className="mt-1 hidden size-3.5 shrink-0 text-[var(--ag-text-3)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:block" />
+    </m.button>
   );
 });

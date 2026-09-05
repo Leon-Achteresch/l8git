@@ -1,5 +1,6 @@
 import { m, useReducedMotion } from "motion/react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { buildHeatmap } from "@/components/agents/profile/agent-profile-data";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,31 +23,32 @@ const LEVEL_CLASS: Record<number, string> = {
 };
 
 export function AgentActivityHeatmap({ entries }: { entries: AgentOverviewEntry[] }) {
+  const { t, i18n } = useTranslation();
   const [range, setRange] = useState<Range>("yearly");
   const reduce = useReducedMotion();
   const columns = useMemo(() => buildHeatmap(entries, RANGE_WEEKS[range]), [entries, range]);
-  const total = useMemo(() => entries.length, [entries]);
+  const total = useMemo(() => columns.flat().reduce((sum, cell) => sum + cell.count, 0), [columns]);
 
   return (
     <m.div initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...easeOutSoft, delay: 0.15 }}>
       <Card data-testid="agent-activity-heatmap">
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
           <div>
-            <CardTitle>Activity</CardTitle>
+            <CardTitle>{t("agentWorkspace.activity")}</CardTitle>
             <CardDescription>
-              {total} contributions · GitHub-style heatmap rebuilt from base Card + Tooltip
+              {t("agentProfile.sessionsInRange", { count: total, weeks: RANGE_WEEKS[range] })}
             </CardDescription>
           </div>
           <Tabs value={range} onValueChange={(v) => setRange(v as Range)}>
-            <TabsList aria-label="Activity range">
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-              <TabsTrigger value="yearly">Yearly</TabsTrigger>
+            <TabsList aria-label={t("agentProfile.activityRange")}>
+              <TabsTrigger value="weekly">{t("agentProfile.weeks", { count: 12 })}</TabsTrigger>
+              <TabsTrigger value="monthly">{t("agentProfile.weeks", { count: 26 })}</TabsTrigger>
+              <TabsTrigger value="yearly">{t("agentProfile.weeks", { count: 52 })}</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto pb-1" role="img" aria-label={`${total} contributions in range ${range}`}>
+          <div className="overflow-x-auto pb-1" role="img" aria-label={t("agentProfile.sessionsInRange", { count: total, weeks: RANGE_WEEKS[range] })}>
             <div className="flex min-w-max gap-[3px]">
               {columns.map((col, ci) => (
                 <div key={ci} className="flex flex-col gap-[3px]">
@@ -61,7 +63,7 @@ export function AgentActivityHeatmap({ entries }: { entries: AgentOverviewEntry[
                         />
                       </TooltipTrigger>
                       <TooltipContent side="top">
-                        {cell.count} contributions · {cell.dateLabel}
+                        {t("agentWorkspace.threadCount", { count: cell.count })} · {new Date(`${cell.key}T00:00:00`).toLocaleDateString(i18n.language, { day: "numeric", month: "short", year: "numeric" })}
                       </TooltipContent>
                     </Tooltip>
                   ))}
@@ -70,11 +72,11 @@ export function AgentActivityHeatmap({ entries }: { entries: AgentOverviewEntry[
             </div>
           </div>
           <div className="mt-3 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
-            Less
+            {t("agentProfile.less")}
             {[0, 1, 2, 3, 4].map((l) => (
               <span key={l} className={cn("size-[11px] rounded-[3px]", LEVEL_CLASS[l])} />
             ))}
-            More
+            {t("agentProfile.more")}
           </div>
         </CardContent>
       </Card>

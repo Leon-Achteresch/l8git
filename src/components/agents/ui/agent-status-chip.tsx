@@ -31,7 +31,7 @@ export function AgentStatusChip({
         tone === "idle" && "bg-[var(--ag-hover)] text-[var(--ag-text-2)]",
         className,
       )}
-      initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.92, y: 4 }}
+      initial={reduce ? false : { opacity: 0, scale: 0.92, y: 4 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={reduce ? { duration: 0 } : SPRING_SWAP}
     >

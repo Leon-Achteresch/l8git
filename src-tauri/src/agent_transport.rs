@@ -31,6 +31,21 @@ impl Default for AgentTransportState {
     }
 }
 
+impl AgentTransportState {
+    /// A process can exit without the frontend getting a chance to issue the
+    /// matching close command (for example while the webview is navigating).
+    /// Do not keep those already-dead transports in the registry forever.
+    fn prune_closed(&self) {
+        let mut sessions = self.sessions.write().unwrap();
+        let before = sessions.len();
+        sessions.retain(|_, transport| !transport.closed.load(Ordering::Acquire));
+        let removed = before.saturating_sub(sessions.len());
+        if removed > 0 {
+            log::debug!("pruned {removed} closed agent transport(s)");
+        }
+    }
+}
+
 struct AgentTransport {
     session_id: String,
     child: Mutex<Child>,
@@ -485,6 +500,7 @@ pub(crate) async fn agent_transport_open_inner(
     let session_id = session_id.trim().to_string();
     validate_session_id(&session_id)?;
     let options = options.unwrap_or_default();
+    state.prune_closed();
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
 
     let (transport, label) = tauri::async_runtime::spawn_blocking(move || {
@@ -704,8 +720,8 @@ pub async fn opencode_delete_session(path: String, session_id: String) -> Result
 #[cfg(test)]
 mod tests {
     use super::{
-        cursor_process, encode_json_line, safe_prompt, validate_session_id, AgentStreamEvent,
-        AgentTransportOptions,
+        cli_command, cursor_process, encode_json_line, safe_prompt, validate_session_id,
+        AgentStreamEvent, AgentTransport, AgentTransportOptions, AgentTransportState,
     };
 
     #[test]
@@ -812,6 +828,47 @@ mod tests {
             .collect();
         assert!(args.contains(&"--plan".to_string()));
         assert!(!args.contains(&"--force".to_string()));
+    }
+
+    #[test]
+    fn prunes_transports_that_have_already_exited() {
+        use std::process::Stdio;
+        use std::sync::atomic::{AtomicBool, AtomicU64};
+        use std::sync::{Arc, Mutex};
+
+        let mut command = if cfg!(windows) {
+            let mut command = cli_command("cmd");
+            command.args(["/C", "exit", "0"]);
+            command
+        } else {
+            let mut command = cli_command("sh");
+            command.args(["-c", "exit 0"]);
+            command
+        };
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("a shell is available for the transport lifecycle test");
+        let stdin = child.stdin.take().expect("the test child has stdin");
+        child.wait().expect("the test child exits cleanly");
+
+        let state = AgentTransportState::default();
+        let transport = Arc::new(AgentTransport {
+            session_id: "closed".into(),
+            child: Mutex::new(child),
+            #[cfg(windows)]
+            job: Mutex::new(None),
+            stdin: Mutex::new(stdin),
+            closed: AtomicBool::new(true),
+            sequence: AtomicU64::new(1),
+        });
+        state.sessions.write().unwrap().insert(7, transport);
+
+        state.prune_closed();
+
+        assert!(state.sessions.read().unwrap().is_empty());
     }
 
     #[cfg(unix)]
