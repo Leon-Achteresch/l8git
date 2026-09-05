@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { AgentChatPane } from "@/components/agents/chat/agent-chat-pane";
 import { AgentsEmpty } from "@/components/agents/agents-empty";
@@ -15,6 +16,7 @@ import { useAgentRepoPaths, useAgentRepoStore } from "@/lib/agents/agent-repo-st
 import type { AgentOverviewEntry } from "@/lib/agents/overview";
 import { useActiveAgentCount } from "@/lib/agents/use-agent-overview";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
+import { agentProviderMeta, providerSupportsCapabilityCenter } from "@/lib/agents/provider-meta";
 import { refreshProviderThreads } from "@/lib/agents/thread-refresh";
 import { armTurnAttention } from "@/lib/agents/turn-attention";
 import { armUsageLedger } from "@/lib/agents/usage-ledger";
@@ -40,12 +42,25 @@ const AgentAddonStudio = lazy(() => import("@/components/agents/capabilities/age
   (module) => ({ default: module.AgentAddonStudio }),
 ));
 
+export type AgentsView = "overview" | Exclude<ProfileSection, "threads">;
+
+function AgentsLoading() {
+  const { t } = useTranslation();
+  return (
+    <div role="status" aria-label={t("agentChat.loadingConversations")} className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6 motion-safe:animate-pulse">
+      <div className="h-7 w-40 rounded-md bg-[var(--ag-selected)]" />
+      <div className="h-10 rounded-lg bg-[var(--ag-selected)]" />
+      {[0, 1, 2, 3].map((index) => <div key={index} className="h-20 rounded-xl bg-[var(--ag-surface)]" />)}
+    </div>
+  );
+}
+
 export function AgentsPage({
   initialPath,
   initialView,
 }: {
   initialPath?: string;
-  initialView?: "overview";
+  initialView?: AgentsView;
 }) {
   const navigate = useNavigate();
   const provider = useAgentProviderStore((state) => state.provider);
@@ -55,6 +70,7 @@ export function AgentsPage({
   const setVisibleThread = useAgentChatStore((state) => state.setVisibleThread);
   const connect = useAgentChatStore((state) => state.connect);
   const openThread = useAgentChatStore((state) => state.openThread);
+  const createThread = useAgentChatStore((state) => state.createThread);
 
   const paths = useAgentRepoPaths();
   const preferredPath =
@@ -65,8 +81,7 @@ export function AgentsPage({
   const selectedPath = useAgentRepoStore((state) => state.path);
   const setSelectedPath = useAgentRepoStore((state) => state.setPath);
   const [capabilitySection, setCapabilitySection] = useState<AgentCapabilitySection | null>(null);
-  const [addonsOpen, setAddonsOpen] = useState(false);
-  const [profileSection, setProfileSection] = useState<ProfileSection | null>(null);
+  const newSessionRef = useRef(false);
   const runningCount = useActiveAgentCount();
   const jiraEnabled = useJiraStore((state) => state.enabled);
   const jiraRegisterExternal = useJiraStore((state) => state.registerExternal);
@@ -86,20 +101,31 @@ export function AgentsPage({
     toggleTerminal(selectedPath);
   }, [selectedPath, toggleTerminal]);
 
-  const overview = initialView === "overview";
-  const setOverview = useCallback(
-    (value: boolean) => {
+  const requestedSection: ProfileSection = initialView === "overview" ? "threads" : initialView ?? "chat";
+  const section = requestedSection === "capabilities" && !providerSupportsCapabilityCenter(provider)
+    ? "chat" : requestedSection;
+  const handleSectionChange = useCallback(
+    (next: ProfileSection, nextPath = selectedPath) => {
       void navigate({
         to: "/agents",
-        search: { path: initialPath, view: value ? ("overview" as const) : undefined },
+        search: {
+          path: nextPath || undefined,
+          view: next === "threads" ? "overview" : next,
+        },
         replace: true,
       });
     },
-    [initialPath, navigate],
+    [navigate, selectedPath],
   );
-  const refreshOverview = useCallback(() => {
-    for (const id of AGENT_PROVIDERS) {
-      void chatStoreFor(id).getState().loadThreads(paths).catch(() => {});
+  const refreshOverview = useCallback(async () => {
+    const results = await Promise.allSettled(AGENT_PROVIDERS.map((id) =>
+      chatStoreFor(id).getState().loadThreads(paths),
+    ));
+    const failures = results.flatMap((result, index) => result.status === "rejected"
+      ? [`${agentProviderMeta(AGENT_PROVIDERS[index]).label}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`]
+      : []);
+    if (failures.length) {
+      throw new Error(failures.join("\n"));
     }
   }, [paths]);
 
@@ -109,12 +135,12 @@ export function AgentsPage({
     if (!paths.includes(initialPath)) return;
     appliedInitialPath.current = initialPath;
     setSelectedPath(initialPath);
-  }, [initialPath, paths]);
+  }, [initialPath, paths, setSelectedPath]);
 
   useEffect(() => {
     if (!paths.length) return;
     if (!paths.includes(selectedPath)) setSelectedPath(preferredPath || paths[0]);
-  }, [paths, preferredPath, selectedPath]);
+  }, [paths, preferredPath, selectedPath, setSelectedPath]);
 
   useEffect(() => {
     return retainSurface();
@@ -150,40 +176,26 @@ export function AgentsPage({
   }, [connect, paths, provider]);
 
   useEffect(() => {
-    setVisibleThread(activeThreadId);
+    setVisibleThread(section === "chat" ? activeThreadId : null);
     return () => setVisibleThread(null);
-  }, [activeThreadId, setVisibleThread]);
+  }, [activeThreadId, section, setVisibleThread]);
 
   useEffect(() => {
-    if (!selectedPath || !activeThreadId || !activeThreadIsKnown) return;
-    const timer = window.setTimeout(() => void openThread(selectedPath, activeThreadId), 0);
+    if (section !== "chat" || !selectedPath || !activeThreadId || !activeThreadIsKnown) return;
+    const timer = window.setTimeout(() => {
+      void openThread(selectedPath, activeThreadId).catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : String(error));
+      });
+    }, 0);
     return () => window.clearTimeout(timer);
-  }, [activeThreadId, activeThreadIsKnown, openThread, selectedPath]);
-
-  const handleSectionChange = useCallback(
-    (next: ProfileSection) => {
-      setProfileSection(next);
-      if (next === "threads") {
-        if (!overview) setOverview(true);
-      } else if (overview) {
-        setOverview(false);
-      }
-      if (next !== "addons" && addonsOpen) setAddonsOpen(false);
-      if (next === "addons" && !addonsOpen) setAddonsOpen(true);
-      if (next !== "capabilities" && capabilitySection) setCapabilitySection(null);
-      if (next === "capabilities" && !capabilitySection) setCapabilitySection("skills");
-    },
-    [addonsOpen, capabilitySection, overview, setOverview],
-  );
+  }, [activeThreadId, activeThreadIsKnown, openThread, section, selectedPath]);
 
   const openChatEntry = useCallback(
     (entry: AgentOverviewEntry) => {
       setSelectedPath(entry.path);
       setProvider(entry.provider);
-      if (overview) setOverview(false);
-      setAddonsOpen(false);
       setCapabilitySection(null);
-      setProfileSection("chat");
+      handleSectionChange("chat", entry.path);
       void chatStoreFor(entry.provider)
         .getState()
         .openThread(entry.path, entry.threadId)
@@ -191,30 +203,38 @@ export function AgentsPage({
           toast.error(error instanceof Error ? error.message : String(error));
         });
     },
-    [overview, setOverview, setProvider, setSelectedPath],
+    [handleSectionChange, setProvider, setSelectedPath],
   );
 
   const openCapabilities = useCallback((sub: AgentCapabilitySection = "skills") => {
     setCapabilitySection(sub);
-    setProfileSection("capabilities");
-  }, []);
+    handleSectionChange("capabilities");
+  }, [handleSectionChange]);
 
   const openAddons = useCallback(() => {
-    setAddonsOpen(true);
-    setProfileSection("addons");
-  }, []);
+    handleSectionChange("addons");
+  }, [handleSectionChange]);
 
   const backToChat = useCallback(() => {
-    setAddonsOpen(false);
     setCapabilitySection(null);
-    setProfileSection("chat");
-  }, []);
+    handleSectionChange("chat");
+  }, [handleSectionChange]);
+
+  const handleNewSession = useCallback(async () => {
+    if (!selectedPath || newSessionRef.current) return;
+    newSessionRef.current = true;
+    try {
+      await createThread(selectedPath);
+      setCapabilitySection(null);
+      handleSectionChange("chat");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      newSessionRef.current = false;
+    }
+  }, [createThread, handleSectionChange, selectedPath]);
 
   if (paths.length === 0) return <AgentsEmpty />;
-
-  const section: ProfileSection =
-    profileSection ??
-    (overview ? "threads" : addonsOpen ? "addons" : capabilitySection ? "capabilities" : "chat");
 
   return (
     <div className="isolate flex h-full min-h-0 bg-[var(--ag-canvas)] text-[var(--ag-text)]">
@@ -225,14 +245,15 @@ export function AgentsPage({
           section={section}
           onSectionChange={handleSectionChange}
           runningCount={runningCount}
+          onOpenSettings={() => void navigate({ to: "/settings" })}
         >
           {section === "threads" ? (
-            <div className="isolate flex h-full min-h-0 flex-col bg-[radial-gradient(900px_420px_at_88%_-8%,color-mix(in_oklab,var(--git-branch)_9%,transparent),transparent_62%),var(--ag-stage-bg)] text-[var(--ag-text)]">
-              <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">…</div>}>
+            <div className="isolate flex h-full min-h-0 flex-col bg-[var(--ag-canvas)] text-[var(--ag-text)]">
+              <Suspense fallback={<AgentsLoading />}>
                 <AgentsOverview
                   onOpenThread={openChatEntry}
-                  onClose={() => handleSectionChange("chat")}
                   onRefresh={refreshOverview}
+                  onNewSession={handleNewSession}
                 />
               </Suspense>
             </div>
@@ -242,10 +263,10 @@ export function AgentsPage({
               provider={provider}
               onOpenThread={openChatEntry}
               onSeeAllThreads={() => handleSectionChange("threads")}
-              onOpenChat={() => handleSectionChange("chat")}
+              onOpenChat={() => void handleNewSession()}
             />
           ) : section === "capabilities" ? (
-            <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Capability Studio…</div>}>
+            <Suspense fallback={<AgentsLoading />}>
               {provider === "claude" || provider === "opencode" ? (
                 <ClaudeCapabilityCenter
                   key={`${provider}-capabilities:${selectedPath}`}
@@ -264,7 +285,7 @@ export function AgentsPage({
               )}
             </Suspense>
           ) : section === "addons" ? (
-            <Suspense fallback={<div className="grid h-full place-items-center text-xs text-muted-foreground">Addon Studio…</div>}>
+            <Suspense fallback={<AgentsLoading />}>
               <AgentAddonStudio
                 key={`addons:${selectedPath}`}
                 path={selectedPath}
@@ -272,7 +293,7 @@ export function AgentsPage({
               />
             </Suspense>
           ) : (
-            <div className="h-full min-h-0 w-full overflow-hidden bg-[radial-gradient(900px_420px_at_88%_-8%,color-mix(in_oklab,var(--git-branch)_9%,transparent),transparent_62%),var(--ag-stage-bg)]">
+            <div className="h-full min-h-0 w-full overflow-hidden bg-[var(--ag-stage-bg)]">
               <AgentChatPane
                 key={`${selectedPath}:${activeThreadId ?? "new"}`}
                 path={selectedPath}
