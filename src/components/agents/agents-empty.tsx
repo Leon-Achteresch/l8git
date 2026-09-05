@@ -1,8 +1,9 @@
 import { open as pickDirectory } from "@tauri-apps/plugin-dialog";
-import { FolderGit2, Sparkles } from "lucide-react";
+import { FolderGit2 } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { useRef, useState } from "react";
 
 import { AgentsEnter } from "@/components/agents/ui/agents-enter";
 import { ClaudeCodeLogo, CodexLogo, CursorLogo, OpenCodeLogo } from "@/components/brand/agent-logos";
@@ -13,72 +14,64 @@ export function AgentsEmpty() {
   const { t } = useTranslation();
   const reduce = useReducedMotion();
   const addRepo = useRepoStore((state) => state.addRepo);
+  const [opening, setOpening] = useState(false);
+  const openingRef = useRef(false);
 
   const openRepo = async () => {
-    const picked = await pickDirectory({ directory: true, multiple: false });
-    if (typeof picked !== "string") return;
+    if (openingRef.current) return;
+    openingRef.current = true;
+    setOpening(true);
     try {
+      const picked = await pickDirectory({ directory: true, multiple: false });
+      if (typeof picked !== "string") return;
       await addRepo(picked);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      openingRef.current = false;
+      setOpening(false);
     }
   };
 
   return (
-    <div className="relative isolate flex h-full min-h-0 w-full items-center justify-center overflow-hidden bg-[radial-gradient(820px_360px_at_92%_-8%,color-mix(in_oklab,var(--git-branch)_8%,transparent),transparent_66%),var(--ag-stage-bg)] p-4 text-[var(--ag-text)] sm:p-8">
-      <div className="pointer-events-none absolute inset-0 opacity-50">
-        <div className="absolute -right-32 -top-36 size-[34rem] rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--git-branch)_17%,transparent)_0%,transparent_68%)] blur-2xl" />
-        <div className="absolute bottom-8 left-[8%] h-px w-[42%] bg-gradient-to-r from-transparent via-[var(--ag-line-strong)] to-transparent" />
-      </div>
-
-      <AgentsEnter className="relative z-[1] w-full max-w-2xl">
+    <div className="flex h-full min-h-0 w-full items-center justify-center bg-[var(--ag-canvas)] p-6 text-[var(--ag-text)]">
+      <AgentsEnter className="w-full max-w-lg">
         <m.div
-          initial={{ opacity: 0, y: 16, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
+          initial={reduce ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={SPRING_PANEL}
-          className="rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] grid w-full gap-8 rounded-[var(--ag-r-xl)] border-[var(--ag-line)] bg-[var(--ag-surface)]/90 p-6 text-left shadow-[var(--ag-shadow-panel)] backdrop-blur-xl sm:grid-cols-[auto_minmax(0,1fr)] sm:p-9"
+          className="flex flex-col gap-6"
         >
-          <div className="relative mx-auto flex items-center justify-center self-start sm:mt-1">
-            <m.div
-              animate={reduce ? undefined : { rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 32, ease: "linear" }}
-              className="absolute -inset-4 rounded-[24px] border border-dashed border-[var(--git-branch)]/25"
-            />
-            <div className="grid grid-cols-2 gap-1.5">
-              <span className="grid size-10 place-items-center rounded-[12px] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)]">
-                <CodexLogo className="size-5" />
-              </span>
-              <span className="grid size-10 place-items-center rounded-[12px] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)]">
-                <ClaudeCodeLogo className="size-5" />
-              </span>
-              <span className="grid size-10 place-items-center rounded-[12px] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)]">
-                <CursorLogo className="size-5" />
-              </span>
-              <span className="grid size-10 place-items-center rounded-[12px] border border-[var(--ag-line)] bg-[var(--ag-surface-2)] shadow-[var(--ag-shadow-raise)]">
-                <OpenCodeLogo className="size-5" />
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="grid size-9 place-items-center rounded-[var(--ag-r-sm)] bg-[var(--ag-surface)]">
+              <CodexLogo className="size-4" />
+            </span>
+            <span className="grid size-9 place-items-center rounded-[var(--ag-r-sm)] bg-[var(--ag-surface)]">
+              <ClaudeCodeLogo className="size-4" />
+            </span>
+            <span className="grid size-9 place-items-center rounded-[var(--ag-r-sm)] bg-[var(--ag-surface)]">
+              <CursorLogo className="size-4" />
+            </span>
+            <span className="grid size-9 place-items-center rounded-[var(--ag-r-sm)] bg-[var(--ag-surface)]">
+              <OpenCodeLogo className="size-4" />
+            </span>
           </div>
 
           <div className="min-w-0">
-            <div className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-[var(--ag-surface-2)] px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-[var(--git-branch)]">
-              <Sparkles className="size-3 shrink-0" />
-              <span className="truncate">Agent workspace</span>
-            </div>
-
-            <h1 className="mt-4 text-2xl font-semibold tracking-[-0.045em] text-[var(--ag-text)] text-balance">
+            <h1 className="text-2xl font-semibold tracking-[-0.045em] text-balance">
               {t("agents.noRepos")}
             </h1>
-            <p className="text-[var(--ag-text-2)] mt-2 max-w-md text-[13px] leading-5 text-pretty">
+            <p className="mt-2 max-w-md text-[13px] leading-5 text-[var(--ag-text-2)] text-pretty">
               {t("agents.noReposHint")}
             </p>
-
             <m.button
               type="button"
+              disabled={opening}
+              aria-busy={opening}
               whileTap={reduce ? undefined : { scale: 0.97 }}
               transition={SPRING_PRESS}
               onClick={() => void openRepo()}
-              className="bg-[var(--ag-solid)] shadow-[0_8px_18px_-12px_color-mix(in_oklab,var(--ag-solid)_70%,transparent)] outline-none transition-[transform,filter,box-shadow] duration-200 hover:brightness-110 active:scale-[0.985] focus-visible:ring-3 focus-visible:ring-[color-mix(in_oklab,var(--git-branch)_16%,transparent)] mt-7 inline-flex h-10 max-w-full items-center gap-2 rounded-[var(--ag-r-md)] px-4 text-[13px] font-semibold text-[var(--ag-solid-fg)]"
+              className="mt-6 inline-flex h-10 items-center gap-2 rounded-[var(--ag-r-sm)] bg-[var(--ag-solid)] px-4 text-[13px] font-semibold text-[var(--ag-solid-fg)] outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring"
             >
               <FolderGit2 className="size-4 shrink-0" />
               <span className="truncate">{t("addRepo.openLocal")}</span>

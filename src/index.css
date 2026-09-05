@@ -9,6 +9,14 @@
 
 /* Agents theme tokens. Component styling lives in colocated Tailwind utilities. */
 :root {
+    /* T3 Code workspace geometry: compact, resizable, and shared by every
+       surface in the agent workspace. */
+    --workspace-topbar-height: 52px;
+    --agent-sidebar-default-width: 264px;
+    --agent-sidebar-min-width: 232px;
+    --agent-sidebar-max-width: 380px;
+    --agent-control-radius: 0.5rem;
+    --agent-sidebar-inset: 0.5rem;
     --ag-canvas: #eef0f2;
     --ag-rail-bg: #f7f8f8;
     --ag-stage-bg: #f3f4f5;
@@ -50,6 +58,7 @@
 }
 
 .dark {
+    --workspace-topbar-height: 52px;
     --ag-canvas: #090c0e;
     --ag-rail-bg: #0d1113;
     --ag-stage-bg: #111619;
@@ -314,7 +323,49 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
+  /* Premium focus: always visible, consistent offset, high contrast in both themes */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  /* Custom interactive rows opt-in via data-focusable */
+  :where([data-focusable]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+    background: color-mix(in oklab, var(--foreground) 6%, transparent);
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--git-branch) 28%, transparent);
+    color: var(--foreground);
+  }
+  /* Consistent thin scrollbars everywhere — OS defaults feel unfinished */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--foreground) 18%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--foreground) 32%, transparent);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     /* slightly denser line-height — UI rows, not prose */
@@ -322,10 +373,13 @@
     /* lining tabular figures so counts/hashes/columns don't jitter */
     font-variant-numeric: tabular-nums;
     text-rendering: optimizeLegibility;
-    }
+    overscroll-behavior-y: none;
+    scrollbar-gutter: stable;
+  }
   html {
     @apply font-sans;
-    }
+    scroll-behavior: smooth;
+  }
 
   /* The detached Dynamic Island lives in a transparent, borderless window —
      nothing but the island itself may paint a background. */
@@ -499,6 +553,50 @@
   position: absolute;
   top: 0;
   left: 0;
+}
+
+/* Premium skeleton shimmer — used by <Skeleton shimmer /> and loading rows */
+@keyframes l8-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.l8-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--muted) 30%,
+    color-mix(in oklab, var(--foreground) 10%, var(--muted)) 50%,
+    var(--muted) 70%
+  );
+  background-size: 200% 100%;
+  animation: l8-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Subtle premium transitions for interactive rows */
+.l8-row-transition {
+  transition:
+    background-color 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Toast polish — consistent radius, depth, tabular numbers */
+[data-sonner-toast] {
+  border-radius: 12px !important;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 12px 32px -12px rgb(0 0 0 / 0.25) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.dark [data-sonner-toast] {
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.06) inset,
+    0 16px 40px -16px rgb(0 0 0 / 0.7) !important;
 }
 
 @keyframes feature-card-float {

@@ -1,7 +1,7 @@
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { m } from "motion/react";
 import { lazy, Suspense, useEffect } from "react";
-import { Toaster } from "sonner";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 const RouterDevtools = import.meta.env.DEV
@@ -20,6 +20,7 @@ const AppUpdateDialog = lazy(() =>
 
 import { AppHeader } from "@/components/app/app-header";
 import { RouteErrorBoundary } from "@/components/app/route-error-boundary";
+import { Toaster } from "@/components/ui/sonner";
 
 // Lazy: the island drags the full motion animation engine (animate/useSpring/
 // DynamicIsland) with it — as an overlay it can appear a tick after first paint.
@@ -47,9 +48,7 @@ import { easeOutSoft } from "@/components/motion/kit";
 import { useIslandHost } from "@/lib/island/host";
 import { useIslandWindow } from "@/lib/island/window-store";
 import { useRepoStore } from "@/lib/repo-store";
-import { resolveTheme } from "@/lib/theme";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
-import { useTheme } from "@/lib/use-theme";
 import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
 import { useUiStore } from "@/lib/ui-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
@@ -63,7 +62,6 @@ function RootLayout() {
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
-  const { theme } = useTheme();
   const addRepo = useRepoStore((s) => s.addRepo);
   const uiScale = useWorkspacePrefs((s) => s.uiScale);
   const islandEnabled = useUiVisibilityPrefs((s) => s.showHeaderIsland);
@@ -85,6 +83,7 @@ function RootLayout() {
 
   // Accept folder drops anywhere in the window to open a repository.
   useEffect(() => {
+    if (!isTauri()) return;
     let unlisten: (() => void) | undefined;
     void getCurrentWebview()
       .onDragDropEvent((event) => {
@@ -100,8 +99,14 @@ function RootLayout() {
   return (
     <MotionProvider>
       <div className="flex h-dvh min-h-0 flex-col bg-sidebar text-foreground">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-1 focus:left-1 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-3 focus:py-1.5 focus:text-xs focus:font-medium focus:text-primary-foreground"
+        >
+          Skip to content
+        </a>
         <AppHeader />
-        <div className="min-h-0 flex-1 overflow-y-auto bg-background">
+        <main id="main-content" className="min-h-0 flex-1 overflow-y-auto bg-background" tabIndex={-1}>
           <m.div
             key={pathname}
             className="h-full"
@@ -113,18 +118,11 @@ function RootLayout() {
               <Outlet />
             </RouteErrorBoundary>
           </m.div>
-        </div>
+        </main>
         <Suspense fallback={null}>
           <AppIsland />
         </Suspense>
-        {!islandHandlesToasts && (
-          <Toaster
-            richColors
-            closeButton
-            position="top-right"
-            theme={resolveTheme(theme)}
-          />
-        )}
+        {!islandHandlesToasts && <Toaster />}
         {reflogViewPath && (
           <Suspense fallback={null}>
             <ReflogPage path={reflogViewPath} onClose={closeReflogView} />

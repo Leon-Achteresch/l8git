@@ -1,8 +1,9 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
-import { monthBuckets, monthLabel } from "@/components/agents/profile/agent-profile-data";
+import { monthBuckets } from "@/components/agents/profile/agent-profile-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,6 +12,7 @@ import type { AgentOverviewEntry } from "@/lib/agents/overview";
 import { cn } from "@/lib/utils";
 
 export function AgentBarsCard({ entries }: { entries: AgentOverviewEntry[] }) {
+  const { t, i18n } = useTranslation();
   const now = new Date();
   const [offset, setOffset] = useState(0);
   const base = new Date(now.getFullYear(), now.getMonth() - offset, 1);
@@ -26,24 +28,24 @@ export function AgentBarsCard({ entries }: { entries: AgentOverviewEntry[] }) {
   return (
     <m.div initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...easeOutSoft, delay: 0.2 }}>
       <Card data-testid="agent-bars-card">
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
           <div>
-            <CardTitle>Agents</CardTitle>
+            <CardTitle>{t("agentProfile.sessions")}</CardTitle>
             <CardDescription>
-              {total} agents · {monthLabel(base.getFullYear(), base.getMonth())} · idle days collapse to grey stubs
+              {t("agentWorkspace.threadCount", { count: total })} · {base.toLocaleDateString(i18n.language, { month: "long", year: "numeric" })}
             </CardDescription>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-sm" aria-label="Previous month" onClick={() => setOffset((o) => o + 1)}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("agentProfile.previousMonth")} onClick={() => setOffset((o) => o + 1)}>
               <ChevronLeft />
             </Button>
             <span className="min-w-20 text-center text-xs font-medium tabular-nums">
-              {base.toLocaleDateString(undefined, { month: "long" })}
+              {base.toLocaleDateString(i18n.language, { month: "short", year: "numeric" })}
             </span>
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Next month"
+              aria-label={t("agentProfile.nextMonth")}
               disabled={offset === 0}
               onClick={() => setOffset((o) => Math.max(0, o - 1))}
             >
@@ -52,7 +54,7 @@ export function AgentBarsCard({ entries }: { entries: AgentOverviewEntry[] }) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex h-36 items-end gap-[3px]" role="img" aria-label={`${total} agent runs in month`}>
+          <div className="flex h-36 items-end gap-[3px]" role="img" aria-label={t("agentProfile.monthSessions", { count: total })}>
             {buckets.map((b, i) => {
               const active = b.count > 0;
               const height = active ? Math.max(12, Math.round((b.count / max) * 100)) : 8;
@@ -73,7 +75,7 @@ export function AgentBarsCard({ entries }: { entries: AgentOverviewEntry[] }) {
                     />
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    {b.label} · {b.count} runs
+                    {b.date.toLocaleDateString(i18n.language, { day: "numeric", month: "short" })} · {t("agentWorkspace.threadCount", { count: b.count })}
                   </TooltipContent>
                 </Tooltip>
               );

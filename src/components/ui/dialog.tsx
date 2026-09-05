@@ -63,7 +63,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay data-slot="dialog-overlay" forceMount asChild {...props}>
       <m.div
         className={cn(
-          "fixed inset-0 isolate z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs",
+          "fixed inset-0 isolate z-50 bg-black/40 supports-backdrop-filter:backdrop-blur-sm dark:bg-black/60",
           className
         )}
         variants={overlayVariants}
@@ -98,7 +98,7 @@ function DialogContent({
           >
             <m.div
               className={cn(
-                "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none sm:max-w-sm",
+                "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-xl border border-border/60 bg-popover p-4 text-sm text-popover-foreground shadow-2xl outline-none sm:max-w-sm",
                 className
               )}
               style={{ x: "-50%", y: "-50%" }}
@@ -133,7 +133,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn("flex flex-col gap-1.5 pb-1", className)}
       {...props}
     />
   )

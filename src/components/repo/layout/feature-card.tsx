@@ -21,8 +21,9 @@ export function FeatureCard({
 
   return (
     <div
+      aria-hidden
       className={cn(
-        "feature-card-float flex flex-row items-center gap-3 rounded-[1.25rem] bg-white p-4 shadow-sm shadow-black/5 ring-1 ring-black/[0.03]",
+        "feature-card-float flex flex-row items-center gap-3 rounded-2xl bg-card p-4 shadow-xs ring-1 ring-border/50",
       )}
       style={
         {

@@ -1,4 +1,5 @@
 import { m, useReducedMotion } from "motion/react";
+import type { TFunction } from "i18next";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedNumber } from "@/components/motion/animated-number";
@@ -59,34 +60,33 @@ export function buildContributionTiles(input: {
   totalCost: number;
   lifetimeTokens: number;
   peakTokens: number;
-  longestTask: string;
+  sessions: number;
   streakDays: number;
-}): StatTile[] {
+}, t: TFunction): StatTile[] {
   return [
     {
-      label: "Contributions this year",
+      label: t("agentProfile.recordedCost"),
       value: formatUsd(input.totalCost),
       numeric: input.totalCost,
       format: (n) => formatUsd(n),
-      delta: input.totalCost > 0 ? "+14.8%" : "no spend yet",
-      deltaTone: input.totalCost > 0 ? "up" : "flat",
     },
     {
-      label: "Lifetime tokens",
+      label: t("agentProfile.recordedTokens"),
       value: formatCompact(input.lifetimeTokens),
       numeric: input.lifetimeTokens,
-      delta: `${formatCompact(input.peakTokens)} peak`,
+      delta: t("agentProfile.peak", { value: formatCompact(input.peakTokens) }),
       deltaTone: "flat",
     },
     {
-      label: "Longest task",
-      value: input.longestTask,
+      label: t("agentProfile.sessions"),
+      value: formatCompact(input.sessions),
+      numeric: input.sessions,
     },
     {
-      label: "Top streak",
-      value: `${input.streakDays} days`,
+      label: t("agentProfile.topStreak"),
+      value: t("agentProfile.days", { count: input.streakDays }),
       numeric: input.streakDays,
-      format: (n) => `${Math.round(n)} days`,
+      format: (n) => t("agentProfile.days", { count: Math.round(n) }),
     },
   ];
 }

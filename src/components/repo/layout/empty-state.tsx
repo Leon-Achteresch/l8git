@@ -33,7 +33,7 @@ export function EmptyState() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_50%_48%,hsl(var(--background)/0.92)_0%,transparent_70%)]"
       />
 
-      <div className="pointer-events-none absolute left-8 top-[14%]">
+      <div className="pointer-events-none absolute left-8 top-[14%] hidden lg:block" aria-hidden>
         <FeatureCard
           icon={<GitCommitHorizontal className="size-6 text-git-modified" />}
           caption={t("emptyState.cardCommitsCaption")}
@@ -42,7 +42,7 @@ export function EmptyState() {
           floatingPhase={0}
         />
       </div>
-      <div className="pointer-events-none absolute right-8 top-[14%]">
+      <div className="pointer-events-none absolute right-8 top-[14%] hidden lg:block" aria-hidden>
         <FeatureCard
           icon={<GitBranch className="size-6 text-git-added" />}
           caption={t("emptyState.cardBranchesCaption")}
@@ -51,7 +51,7 @@ export function EmptyState() {
           floatingPhase={1}
         />
       </div>
-      <div className="pointer-events-none absolute bottom-[18%] left-8">
+      <div className="pointer-events-none absolute bottom-[18%] left-8 hidden lg:block" aria-hidden>
         <FeatureCard
           icon={<GitMerge className="size-6 text-git-removed" />}
           caption={t("emptyState.cardMergesCaption")}
@@ -60,7 +60,7 @@ export function EmptyState() {
           floatingPhase={2}
         />
       </div>
-      <div className="pointer-events-none absolute bottom-[18%] right-8">
+      <div className="pointer-events-none absolute bottom-[18%] right-8 hidden lg:block" aria-hidden>
         <FeatureCard
           icon={<GitPullRequest className="size-6 text-git-merge" />}
           caption={t("emptyState.cardPrCaption")}
@@ -70,8 +70,8 @@ export function EmptyState() {
         />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center gap-6 text-center">
-        <h1 className="text-5xl font-bold leading-tight tracking-tight text-foreground">
+      <div className="relative z-10 flex max-w-2xl flex-col items-center gap-6 px-4 text-center">
+        <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-balance text-foreground sm:text-5xl">
           {t("emptyState.titleBefore")}{" "}
           <span className="text-git-branch">Git</span> {t("emptyState.titleAfter")}
           <br />

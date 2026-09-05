@@ -1,5 +1,13 @@
 import { Button } from "@/components/ui/button";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
   buildHunkPatch,
   buildPatchesForSelection,
   buildPatchesForDiscard,
@@ -13,10 +21,9 @@ import {
 } from "@/lib/unified-diff";
 import { diffWords, pairChangedLines, type WordDiffSegment } from "@/lib/word-diff";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SpinIcon } from "@/components/motion/kit";
 import { useAgentCodeTokens } from "@/components/agents/ui/agent-code";
 import type { AgentCodeToken } from "@/lib/agents/agent-code-types";
 import { languageFromPath } from "@/lib/agents/agent-code-types";
@@ -841,23 +848,48 @@ export function UnifiedDiffBody({
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label={t("diff.loading", { defaultValue: "Loading diff" })}
+        className="flex h-full flex-col gap-2 p-4"
+      >
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-4 w-full opacity-80" />
+        <Skeleton className="h-4 w-2/3 opacity-70" />
+        <Skeleton className="h-4 w-10/12 opacity-60" />
+        <span className="sr-only">{t("diff.loading", { defaultValue: "Loading diff" })}</span>
       </div>
     );
   }
   if (failed) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-        {failedHint}
-      </div>
+      <Empty className="h-full border-0 bg-transparent">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Trash2 className="size-5" aria-hidden />
+          </EmptyMedia>
+          <EmptyTitle>{t("diff.loadFailedTitle", { defaultValue: "Diff failed to load" })}</EmptyTitle>
+          <EmptyDescription>{failedHint}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
   if (isBinary) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        {t("diff.binaryFile")}
-      </div>
+      <Empty className="h-full border-0 bg-transparent">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Plus className="size-5" aria-hidden />
+          </EmptyMedia>
+          <EmptyTitle>{t("diff.binaryFile")}</EmptyTitle>
+          <EmptyDescription>
+            {t("diff.binaryHint", { defaultValue: "Binary files are not shown as text." })}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -906,8 +938,14 @@ export function UnifiedDiffBody({
   }
 
   return (
-    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-      {emptyHint}
-    </div>
+    <Empty className="h-full border-0 bg-transparent">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Minus className="size-5" aria-hidden />
+        </EmptyMedia>
+        <EmptyTitle>{t("diff.noChangesTitle", { defaultValue: "No text changes" })}</EmptyTitle>
+        <EmptyDescription>{emptyHint}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }

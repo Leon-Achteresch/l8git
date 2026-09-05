@@ -190,3 +190,42 @@ export function filterOverviewEntries(
       (entry.branch?.toLocaleLowerCase().includes(needle) ?? false),
   );
 }
+
+export type AgentFleetLane = "needsYou" | "working" | "ready";
+
+export function fleetLaneFor(status: AgentOverviewStatus): AgentFleetLane {
+  if (status === "awaitingApproval" || status === "failed") return "needsYou";
+  if (status === "running") return "working";
+  return "ready";
+}
+
+export function groupFleetLanes(entries: AgentOverviewEntry[]): Record<AgentFleetLane, AgentOverviewEntry[]> {
+  const lanes: Record<AgentFleetLane, AgentOverviewEntry[]> = {
+    needsYou: [],
+    working: [],
+    ready: [],
+  };
+  for (const entry of entries) lanes[fleetLaneFor(entry.status)].push(entry);
+  return lanes;
+}
+
+export interface AgentRepoGroup {
+  path: string;
+  repoName: string;
+  entries: AgentOverviewEntry[];
+}
+
+export function groupEntriesByRepo(entries: AgentOverviewEntry[]): AgentRepoGroup[] {
+  const groups = new Map<string, AgentOverviewEntry[]>();
+  for (const entry of entries) {
+    const key = entry.basePath || entry.path;
+    const list = groups.get(key);
+    if (list) list.push(entry);
+    else groups.set(key, [entry]);
+  }
+  return [...groups.entries()].map(([path, items]) => ({
+    path,
+    repoName: items[0]?.repoName ?? overviewRepoName(path),
+    entries: items,
+  }));
+}

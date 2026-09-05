@@ -124,7 +124,7 @@ export function AgentThreadList({
     [virtualizer],
   );
 
-  if (loading) {
+  if (loading && threads.length === 0) {
     return (
       <section className="min-w-0 px-2 pb-4">
         <div

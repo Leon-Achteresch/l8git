@@ -3,7 +3,6 @@ import { open as openFile } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AppWindow,
-  Blocks,
   File,
   FileDiff,
   FileImage,
@@ -13,7 +12,6 @@ import {
   GitPullRequestArrow,
   Mic,
   Paperclip,
-  Puzzle,
   Sparkles,
   SquareTerminal,
   X,
@@ -30,13 +28,11 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
-import { AgentAccountMenu } from "@/components/agents/chat/agent-account-menu";
 import { AgentCommandPicker, type AgentCommandPickerState } from "@/components/agents/chat/agent-command-picker";
 import { AgentComposerControls } from "@/components/agents/chat/agent-composer-controls";
 import { AgentConversationViewport } from "@/components/agents/chat/agent-conversation-viewport";
 import { AgentPlanBanner } from "@/components/agents/chat/agent-plan-banner";
 import { AgentTrustBanner } from "@/components/agents/chat/agent-trust-banner";
-import { AgentInlineTitle } from "@/components/agents/chat/agent-inline-title";
 import { AgentUsagePill } from "@/components/agents/chat/agent-usage-pill";
 import { AgentRateLimitChips } from "@/components/agents/chat/agent-rate-limit-chips";
 import { AgentContextMeter } from "@/components/agents/ui/agent-context-meter";
@@ -56,7 +52,7 @@ import {
   saveAgentComposerDraft,
 } from "@/lib/agents/composer-drafts";
 import { onAgentComposerInsert } from "@/lib/agents/composer-insert";
-import type { AgentAttachment, AgentConnectionStatus } from "@/lib/agents/types";
+import type { AgentAttachment } from "@/lib/agents/types";
 import type { AgentCapabilitySection } from "@/lib/agents/capability-types";
 import { barcodePrompt } from "@/lib/agents/barcode-spec";
 import { browserE2ePrompt, readBrowserAddon } from "@/lib/agents/browser-addon";
@@ -76,9 +72,6 @@ import {
 } from "@/lib/agents/slash-commands";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
-import { TextShimmer } from "@/components/motion/text-shimmer";
-import { AgentProviderMark } from "@/components/agents/ui/agent-provider-mark";
-import { AgentStatusChip, type AgentStatusTone } from "@/components/agents/ui/agent-status-chip";
 
 const AgentFilePicker = lazy(() => import("@/components/agents/chat/agent-file-picker").then(
   (module) => ({ default: module.AgentFilePicker }),
@@ -97,23 +90,6 @@ function repoName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
-function chatStatusTone(busy: boolean, sessionStatus: AgentConnectionStatus): AgentStatusTone {
-  if (busy) return "working";
-  switch (sessionStatus) {
-    case "ready":
-      return "ready";
-    case "connecting":
-      return "working";
-    case "error":
-      return "error";
-    case "idle":
-      return "idle";
-    default: {
-      const _never: never = sessionStatus;
-      return _never;
-    }
-  }
-}
 
 export const AgentChatPane = memo(function AgentChatPane({
   path,
@@ -129,12 +105,12 @@ export const AgentChatPane = memo(function AgentChatPane({
   onToggleTerminal?: () => void;
   onOpenCapabilities?: (section?: AgentCapabilitySection) => void;
   onOpenAddons?: () => void;
+  onOpenThreadsOverview?: () => void;
 }) {
   const { t } = useTranslation();
   const provider = useAgentProviderStore((state) => state.provider);
   const isClaude = provider === "claude";
   const isCodex = provider === "codex";
-  const ProviderLogo = agentProviderMeta(provider).Logo;
   const providerLabel = agentProviderMeta(provider).label;
   const connectionStatus = useAgentChatStore((state) => state.connectionStatus);
   const connectionError = useAgentChatStore((state) => state.connectionError);
@@ -159,9 +135,6 @@ export const AgentChatPane = memo(function AgentChatPane({
   const reloadWorktrees = useRepoStore((state) => state.reloadWorktrees);
   const reloadStatus = useRepoStore((state) => state.reloadStatus);
   const changedFileCount = useRepoStore((state) => state.status[path]?.length ?? 0);
-  const sessionStatus = useAgentChatStore((state) =>
-    threadId ? (state.sessionStatusByThread[threadId] ?? "idle") : "idle",
-  );
   const conversationMeta = useAgentChatStore(
     useShallow((state) => {
       const conversation = threadId ? state.conversations[threadId] : undefined;
@@ -209,7 +182,6 @@ export const AgentChatPane = memo(function AgentChatPane({
   const initialDraft = useMemo(() => loadAgentComposerDraft(composerDraftKey), [composerDraftKey]);
   const [draft, setDraft] = useState(initialDraft.text);
   const [attachments, setAttachments] = useState<AgentAttachment[]>(initialDraft.attachments);
-  const [renamingTitle, setRenamingTitle] = useState(false);
   const [resourcePicker, setResourcePicker] = useState<"skill" | "app" | null>(null);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -277,7 +249,7 @@ export const AgentChatPane = memo(function AgentChatPane({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "F2" || !threadId) return;
       event.preventDefault();
-      setRenamingTitle(true);
+      (true);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -802,7 +774,7 @@ export const AgentChatPane = memo(function AgentChatPane({
       if (!threadId) throw new Error("Open a chat first.");
       if (command === "rename") {
         if (argument) await useAgentChatStore.getState().renameThread(path, threadId, argument);
-        else setRenamingTitle(true);
+        else (true);
         return;
       }
       if (command === "review") return await startReview(threadId, argument || undefined);
@@ -911,17 +883,6 @@ export const AgentChatPane = memo(function AgentChatPane({
       toast.error(error instanceof Error ? error.message : String(error));
     }
   };
-
-  const statusState = chatStatusTone(busy, sessionStatus);
-  const statusLabel = busy
-    ? t("agentChat.working")
-    : sessionStatus === "ready"
-      ? t("agentChat.statusReady")
-      : sessionStatus === "connecting"
-        ? t("agentChat.statusConnecting")
-        : sessionStatus === "error"
-          ? t("agentChat.statusError")
-          : t("agentChat.statusIdle");
 
   const attachmentChips = attachments.length > 0 ? (
     <div className="flex flex-wrap gap-1.5">
@@ -1056,6 +1017,20 @@ export const AgentChatPane = memo(function AgentChatPane({
           />
           <AgentContextMeter usage={conversationMeta.usage} />
           <AgentRateLimitChips />
+          {onToggleTerminal ? (
+            <button
+              type="button"
+              className="grid size-6 shrink-0 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring"
+              data-active={terminalVisible || undefined}
+              onClick={onToggleTerminal}
+              aria-pressed={terminalVisible}
+              title={`${t("commitPanel.terminalToggleInApp")} (Ctrl+\`)`}
+              aria-label={t("commitPanel.terminalToggleInApp")}
+            >
+              <SquareTerminal className="size-3.5" />
+            </button>
+          ) : null}
+          {threadId ? <AgentThreadMenu path={path} threadId={threadId} busy={busy} /> : null}
         </span>
       </div>
     </div>
@@ -1066,77 +1041,6 @@ export const AgentChatPane = memo(function AgentChatPane({
       data-agent-chat=""
       className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
-      <header className="flex h-14 min-w-0 shrink-0 items-center gap-2 border-b border-[var(--ag-line)] bg-[color-mix(in_oklab,var(--ag-stage-bg)_86%,transparent)] px-4 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.16)] backdrop-blur-xl">
-        <AgentProviderMark working={busy} label={providerLabel}>
-          <ProviderLogo />
-        </AgentProviderMark>
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-          <span className="truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--ag-text-3)]">
-            {providerLabel}
-          </span>
-          {conversationMeta.exists && threadId ? (
-            <AgentInlineTitle
-              path={path}
-              threadId={threadId}
-              title={conversationMeta.title}
-              editing={renamingTitle}
-              onEditingChange={setRenamingTitle}
-              className="min-w-0 truncate text-[13px] font-semibold tracking-[-0.02em]"
-              inputClassName="max-w-md text-[13px] font-medium tracking-[-0.01em]"
-            />
-          ) : (
-            <p className="truncate text-[13px] font-semibold tracking-[-0.02em]">{t("agentChat.newConversation")}</p>
-          )}
-        </div>
-
-        {threadId || busy ? (
-          <AgentStatusChip tone={statusState} className="shrink-0">
-            {busy ? <TextShimmer duration={2}>{statusLabel}</TextShimmer> : statusLabel}
-          </AgentStatusChip>
-        ) : null}
-
-        {onToggleTerminal ? (
-          <button
-            type="button"
-            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
-            data-active={terminalVisible || undefined}
-            onClick={onToggleTerminal}
-            aria-pressed={terminalVisible}
-            title={`${t("commitPanel.terminalToggleInApp")} (Ctrl+\`)`}
-            aria-label={t("commitPanel.terminalToggleInApp")}
-          >
-            <SquareTerminal className="size-4" />
-          </button>
-        ) : null}
-
-        {onOpenCapabilities && providerSupportsCapabilityCenter(provider) ? (
-          <button
-            type="button"
-            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
-            onClick={() => onOpenCapabilities("skills")}
-            title={t("agentCapabilities.open")}
-            aria-label={t("agentCapabilities.open")}
-          >
-            <Blocks className="size-4" />
-          </button>
-        ) : null}
-
-        {onOpenAddons ? (
-          <button
-            type="button"
-            className="grid size-7 place-items-center rounded-full text-[var(--ag-text-2)] outline-none transition-[background-color,color,transform] duration-200 hover:-translate-y-px hover:bg-[var(--ag-hover)] hover:text-[var(--ag-text)] active:scale-95 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
-            onClick={onOpenAddons}
-            title={t("agentAddons.open")}
-            aria-label={t("agentAddons.open")}
-          >
-            <Puzzle className="size-4" />
-          </button>
-        ) : null}
-
-        {threadId ? <AgentThreadMenu path={path} threadId={threadId} busy={busy} /> : null}
-
-        <AgentAccountMenu onImport={isCodex ? () => setImportOpen(true) : undefined} />
-      </header>
 
       <div className="shrink-0 px-4 md:px-6">
         <AgentTrustBanner path={path} />

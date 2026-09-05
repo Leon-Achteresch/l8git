@@ -6,6 +6,13 @@ import {
 } from "@/components/ui/context-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import type { StatusEntry } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -249,17 +256,19 @@ function VirtualFileListInner({
           variant="ghost"
           size="icon-xs"
           onClick={onToggleAll}
-          title="Toggle all"
+          title={t("commitPanel.toggleAll", { defaultValue: "Toggle all" })}
+          aria-label={t("commitPanel.toggleAll", { defaultValue: "Toggle all" })}
+          aria-pressed={allState === "checked"}
         >
           {allState === "checked" ? (
-            <CheckSquare className="text-primary" />
+            <CheckSquare className="text-primary" aria-hidden />
           ) : allState === "indeterminate" ? (
-            <MinusSquare className="text-primary/70" />
+            <MinusSquare className="text-primary/70" aria-hidden />
           ) : (
-            <Square className="text-muted-foreground" />
+            <Square className="text-muted-foreground" aria-hidden />
           )}
         </Button>
-        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" aria-hidden />
         <Input
           type="text"
           variant="bare"
@@ -267,6 +276,7 @@ function VirtualFileListInner({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("commitPanel.fileListFilter")}
+          aria-label={t("commitPanel.fileListFilter")}
           className="flex-1"
         />
         {searchQuery && (
@@ -275,12 +285,17 @@ function VirtualFileListInner({
             variant="ghost"
             size="icon-xs"
             onClick={() => setSearchQuery("")}
+            aria-label={t("common.clear", { defaultValue: "Clear" })}
+            title={t("common.clear", { defaultValue: "Clear" })}
           >
-            <X />
+            <X aria-hidden />
           </Button>
         )}
         {multiSelectedIds.size > 1 && (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+          <span
+            role="status"
+            className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground"
+          >
             {t("commitPanel.selectionCount", { count: multiSelectedIds.size })}
           </span>
         )}
@@ -291,22 +306,48 @@ function VirtualFileListInner({
             size="xs"
             onClick={() => openMergeEditor(activePath)}
             className="ml-auto"
+            aria-label={t("commitPanel.resolveConflicts", { defaultValue: "Resolve conflicts" })}
           >
-            <AlertTriangle />
+            <AlertTriangle aria-hidden />
             {conflictRows.length}
           </Button>
         )}
         {onReload && (
-          <Button type="button" variant="ghost" size="icon-xs" onClick={onReload}>
-            <RefreshCw />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={onReload}
+            aria-label={t("commitPanel.reloadChanges", { defaultValue: "Reload changes" })}
+            title={t("commitPanel.reloadChanges", { defaultValue: "Reload changes" })}
+          >
+            <RefreshCw aria-hidden />
           </Button>
         )}
       </div>
 
       {isEmpty ? (
-        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/40">
-          <p className="text-xs">{t("commitPanel.noChangesBrief")}</p>
-        </div>
+        <Empty className="m-2 border-0 bg-transparent">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CheckSquare className="size-5" aria-hidden />
+            </EmptyMedia>
+            <EmptyTitle>{t("commitPanel.cleanTitle", { defaultValue: "Working tree clean" })}</EmptyTitle>
+            <EmptyDescription>{t("commitPanel.noChangesBrief")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : listItems.length === 0 ? (
+        <Empty className="m-2 border-0 bg-transparent">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Search className="size-5" aria-hidden />
+            </EmptyMedia>
+            <EmptyTitle>{t("commitPanel.noMatchesTitle", { defaultValue: "No matching files" })}</EmptyTitle>
+            <EmptyDescription>
+              {t("commitPanel.noMatchesBody", { defaultValue: "No files match this filter." })}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
           <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>

@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { createRootRoute, createRoute, createRouter, createMemoryHistory, RouterProvider } from "@tanstack/react-router";
+import { AgentsPage, type AgentsView } from "@/components/agents/agents-page";
 
 import { AgentCapabilityCenter } from "@/components/agents/capabilities/agent-capability-center";
 import { AgentChatPane } from "@/components/agents/chat/agent-chat-pane";
 import { AgentChatSidebar } from "@/components/agents/chat/agent-chat-sidebar";
+import { AgentsOverview } from "@/components/agents/overview/agents-overview";
 import {
   AgentProfileShell,
   type ProfileSection,
@@ -45,7 +48,47 @@ function ProfileScene() {
   );
 }
 
+function WorkspaceScene() {
+  const [router] = useState(() => {
+    const root = createRootRoute();
+    const route = createRoute({
+      getParentRoute: () => root,
+      path: "/agents",
+      validateSearch: (search: Record<string, unknown>): { path?: string; view?: AgentsView } => ({
+        path: typeof search.path === "string" ? search.path : undefined,
+        view: search.view as AgentsView | undefined,
+      }),
+      component: () => {
+        const { path, view } = route.useSearch();
+        return <AgentsPage initialPath={path} initialView={view} />;
+      },
+    });
+    return createRouter({
+      routeTree: root.addChildren([route]),
+      history: createMemoryHistory({ initialEntries: ["/agents"] }),
+    });
+  });
+  return <div className="h-dvh min-h-0 min-w-0 overflow-hidden"><RouterProvider router={router} /></div>;
+}
+
 export function AgentsUiRoot({ scene }: { scene: string }) {
+  if (scene === "workspace") return <WorkspaceScene />;
+
+  if (scene.startsWith("fleet")) {
+    return (
+      <div className="h-screen min-h-0 min-w-0 overflow-hidden bg-[var(--ag-canvas)]">
+        <AgentsOverview
+          onOpenThread={() => undefined}
+          onRefresh={async () => {
+            await new Promise((resolve) => window.setTimeout(resolve, 300));
+            if (scene === "fleet-error") throw new Error("Codex: session refresh failed");
+          }}
+          onNewSession={async () => { await new Promise((resolve) => window.setTimeout(resolve, 300)); }}
+        />
+      </div>
+    );
+  }
+
   if (scene === "profile") {
     return <ProfileScene />;
   }

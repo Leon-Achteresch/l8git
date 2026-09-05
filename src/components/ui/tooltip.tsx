@@ -13,7 +13,7 @@ import {
 const [TooltipOpenProvider, useTooltipOpen] = createOpenContext("Tooltip");
 
 function TooltipProvider({
-  delayDuration = 400,
+  delayDuration = 250,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return <TooltipPrimitive.Provider delayDuration={delayDuration} {...props} />;
@@ -61,8 +61,9 @@ function TooltipContent({
             {...props}
           >
             <m.div
+              data-slot="tooltip-content"
               className={cn(
-                "z-[80] max-w-[min(20rem),var(--radix-tooltip-content-available-width,20rem))] overflow-hidden rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs break-words text-popover-foreground shadow-md",
+                "z-[80] max-w-[min(20rem),var(--radix-tooltip-content-available-width,20rem))] overflow-hidden rounded-lg border border-border/80 bg-popover px-2.5 py-1.5 text-xs break-words text-popover-foreground shadow-lg",
                 className,
               )}
               style={{

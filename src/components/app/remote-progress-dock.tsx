@@ -15,12 +15,22 @@ import { SpinIcon } from "@/components/motion/kit";
 function RemoteOpCard({ op }: { op: RemoteOpEntry }) {
   const { t } = useTranslation();
   const percent = op.percent;
+  const phaseText = op.canceling
+    ? t('remoteProgress.canceling')
+    : op.phase
+      ? `${op.phase}${op.detail ? ` ${op.detail}` : ''}`
+      : t('remoteProgress.starting');
 
   return (
-    <div className='pointer-events-auto w-72 rounded-xl border border-border/60 bg-popover/95 p-2.5 shadow-lg backdrop-blur-sm'>
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={`${t(`remoteProgress.op_${op.op}`)} — ${phaseText}${percent != null ? `, ${Math.round(percent)}%` : ''}`}
+      className='pointer-events-auto w-72 rounded-xl border border-border/60 bg-popover/95 p-2.5 shadow-lg backdrop-blur-sm'
+    >
       <div className='flex items-center gap-2'>
         <SpinIcon icon={Loader2} className='size-3.5 shrink-0 text-primary' />
-        <span className='min-w-0 flex-1 truncate text-xs font-medium'>
+        <span className='min-w-0 flex-1 truncate text-xs font-medium' title={op.repoPath ? `${t(`remoteProgress.op_${op.op}`)} · ${repoLabel(op.repoPath)}` : t(`remoteProgress.op_${op.op}`)}>
           {t(`remoteProgress.op_${op.op}`)}
           {op.repoPath ? ` · ${repoLabel(op.repoPath)}` : ''}
         </span>
@@ -39,19 +49,16 @@ function RemoteOpCard({ op }: { op: RemoteOpEntry }) {
           disabled={op.canceling}
           onClick={() => void cancelRemoteOp(op.opId)}
         >
-          <X className='size-3.5' />
+          {op.canceling ? <SpinIcon icon={Loader2} className='size-3.5' /> : <X className='size-3.5' />}
         </Button>
       </div>
-      <p className='mt-1 truncate text-[11px] text-muted-foreground'>
-        {op.canceling
-          ? t('remoteProgress.canceling')
-          : op.phase
-            ? `${op.phase}${op.detail ? ` ${op.detail}` : ''}`
-            : t('remoteProgress.starting')}
+      <p className='mt-1 truncate text-[11px] text-muted-foreground' title={phaseText}>
+        {phaseText}
       </p>
       <Progress
-        value={percent ?? 0}
-        className={percent == null ? 'mt-1.5 opacity-40' : 'mt-1.5'}
+        value={percent ?? undefined}
+        aria-label={t(`remoteProgress.op_${op.op}`)}
+        className='mt-1.5'
       />
     </div>
   );

@@ -7,8 +7,8 @@ async function openProfile(page: Page) {
   await page.locator("[data-testid='agent-profile-view']").waitFor({ state: "visible" });
 }
 
-test.describe("Agent profile (BoardUI AI-Profile rebuild)", () => {
-  test("profile renders all PRO sections rebuilt from base components", async ({ page }) => {
+test.describe("Agent activity", () => {
+  test("profile renders workspace metrics, charts and recent sessions", async ({ page }) => {
     await openProfile(page);
     await expect(page.locator("[data-testid='agent-profile-shell']")).toBeVisible();
     await expect(page.locator("[data-testid='agent-profile-cover']")).toBeVisible();
@@ -37,10 +37,20 @@ test.describe("Agent profile (BoardUI AI-Profile rebuild)", () => {
 
   test("heatmap range switch + month switcher work", async ({ page }) => {
     await openProfile(page);
-    await page.getByRole("tab", { name: "Monthly" }).click();
+    await page.getByRole("tab", { name: "26 weeks" }).click();
     await page.getByRole("button", { name: "Previous month" }).click();
     await expect(page.locator("[data-testid='agent-bars-card']")).toBeVisible();
     await page.screenshot({ path: "test-results/profile-month-switched.png", fullPage: false });
+  });
+
+  test("activity counts describe the selected time range", async ({ page }) => {
+    await openProfile(page);
+    const activity = page.getByTestId("agent-activity-heatmap");
+    await expect(activity.getByText("84 sessions · last 52 weeks")).toBeVisible();
+    await activity.getByRole("tab", { name: "12 weeks" }).click();
+    await expect(activity.getByText("72 sessions · last 12 weeks")).toBeVisible();
+    await expect(page.getByTestId("agent-stat-tiles")).toContainText("Recorded cost");
+    await expect(page.getByTestId("agent-stat-tiles")).not.toContainText("14.8%");
   });
 
   test("mobile shows top bar and slide-in drawer without breakage", async ({ page }) => {
