@@ -19,3 +19,32 @@ export function baseToolName(tool: unknown): string {
   const parts = tool.split("__");
   return (parts[parts.length - 1] ?? "").toLowerCase();
 }
+
+const SECRET_KEY_PATTERN = /token|secret|password|passwd|api[_-]?key|authorization|credential/i;
+
+export function looksSecretKey(key: string): boolean {
+  return SECRET_KEY_PATTERN.test(key);
+}
+
+export function redactSecrets(input: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    out[key] = looksSecretKey(key) ? "[redacted]" : value;
+  }
+  return out;
+}
+
+const IMAGE_MEDIA_TYPE_PATTERN = /^image\//i;
+
+export function isImageContentBlock(block: unknown): boolean {
+  if (!isRecord(block)) return false;
+  if (block.type !== "image") return false;
+  const source = isRecord(block.source) ? block.source : null;
+  const mediaType = source ? source.media_type : block.media_type;
+  return typeof mediaType === "string" && IMAGE_MEDIA_TYPE_PATTERN.test(mediaType);
+}
+
+export function hasImageContent(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.some(isImageContentBlock);
+}

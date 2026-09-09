@@ -261,6 +261,57 @@ export function groupFleetLanes(entries: AgentOverviewEntry[]): Record<AgentFlee
   return lanes;
 }
 
+export type AgentConnectionState = "online" | "reconnecting" | "offline" | "catchingUp";
+
+export type AgentConnectionSignal =
+  | { type: "connected" }
+  | { type: "reconnecting" }
+  | { type: "disconnected" }
+  | { type: "sequence"; sequence: number };
+
+export interface AgentConnectionSnapshot {
+  state: AgentConnectionState;
+  lastSequence: number;
+  gapDetected: boolean;
+}
+
+export function connectionState(
+  events: readonly AgentConnectionSignal[],
+): AgentConnectionSnapshot {
+  let state: AgentConnectionState = "offline";
+  let lastSequence = 0;
+  let gapDetected = false;
+  let hasSequence = false;
+
+  for (const event of events) {
+    switch (event.type) {
+      case "disconnected":
+        state = "offline";
+        break;
+      case "reconnecting":
+        state = "reconnecting";
+        break;
+      case "connected":
+        state = hasSequence ? "catchingUp" : "online";
+        break;
+      case "sequence": {
+        if (hasSequence && event.sequence > lastSequence + 1) gapDetected = true;
+        if (event.sequence > lastSequence) lastSequence = event.sequence;
+        hasSequence = true;
+        state = "online";
+        break;
+      }
+    }
+  }
+
+  return { state, lastSequence, gapDetected };
+}
+
+/** Sequence to request a resync snapshot from after reconnecting. */
+export function snapshotResumeSequence(snapshot: AgentConnectionSnapshot): number {
+  return snapshot.lastSequence + 1;
+}
+
 export interface AgentRepoGroup {
   path: string;
   repoName: string;

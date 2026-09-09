@@ -47,10 +47,10 @@ const RunStatusIcon = memo(function RunStatusIcon({
     return <XCircle className={`${cls} shrink-0 text-git-removed`} />;
 
   if (["cancelled"].includes(key))
-    return <Square className={`${cls} shrink-0 text-muted-foreground/60`} />;
+    return <Square className={`${cls} shrink-0 text-muted-foreground`} />;
 
   if (["skipped", "neutral", "stale"].includes(key))
-    return <SkipForward className={`${cls} shrink-0 text-muted-foreground/50`} />;
+    return <SkipForward className={`${cls} shrink-0 text-muted-foreground`} />;
 
   if (["in_progress", "queued", "pending", "inprogress", "waiting"].includes(key))
     return (
@@ -59,7 +59,7 @@ const RunStatusIcon = memo(function RunStatusIcon({
       />
     );
 
-  return <CircleDashed className={`${cls} shrink-0 text-muted-foreground/50`} />;
+  return <CircleDashed className={`${cls} shrink-0 text-muted-foreground`} />;
 });
 
 // ── Step row ──────────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ function StepRow({ step }: { step: WorkflowJob["steps"][number] }) {
       <span className="flex-1 truncate">
         {step.number}. {step.name}
       </span>
-      {dur && <span className="shrink-0 font-mono text-[0.625rem]">{dur}</span>}
+      {dur && <span className="shrink-0 font-mono text-[0.6875rem]">{dur}</span>}
     </div>
   );
 }
@@ -95,7 +95,7 @@ const JobRow = memo(function JobRow({ job }: { job: WorkflowJob }) {
           {job.name}
         </span>
         {dur && (
-          <span className="shrink-0 font-mono text-[0.625rem] text-muted-foreground/60">
+          <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">
             {dur}
           </span>
         )}
@@ -115,7 +115,7 @@ const JobRow = memo(function JobRow({ job }: { job: WorkflowJob }) {
           </Button>
         )}
         {job.steps.length > 0 && (
-          <div className="shrink-0 text-muted-foreground/50">
+          <div className="shrink-0 text-muted-foreground">
             {stepsOpen ? (
               <ChevronDown className="h-3 w-3" />
             ) : (
@@ -141,7 +141,7 @@ const JobRow = memo(function JobRow({ job }: { job: WorkflowJob }) {
 function EventBadge({ event }: { event: string }) {
   const label = event.replace(/_/g, " ");
   return (
-    <span className="inline-flex items-center rounded-full border border-border/40 px-1.5 py-0 text-[0.625rem] font-medium text-muted-foreground/70">
+    <span className="inline-flex items-center rounded-full border border-border/40 px-1.5 py-0 text-[0.6875rem] font-medium text-muted-foreground">
       {label}
     </span>
   );
@@ -241,11 +241,17 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
 
   return (
     <m.div
-      className={`group flex flex-col rounded-xl border-l-2 bg-muted/10 transition-all hover:bg-muted/30 ${statusBg}`}
+      className={`ci-run-row group flex flex-col ${statusBg}`}
+      data-selected={!!selected}
     >
       {/* ── Main row ── */}
       <div
-        className="flex cursor-pointer items-start gap-3 px-3 py-2.5"
+        className="ci-run-main flex cursor-pointer items-start gap-3"
+        aria-label={`${run.name} #${run.run_number} · ${key.replace(/_/g, " ")}`}
+        role="button"
+        tabIndex={0}
+        {...(onSelect ? { "aria-pressed": !!selected } : { "aria-expanded": expanded })}
+        onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelect ? onSelect(run) : handleExpand(); } }}
         onClick={() => onSelect ? onSelect(run) : handleExpand()}
       >
         {/* Status icon */}
@@ -260,11 +266,11 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
             <span className="truncate text-sm font-semibold text-foreground/90 transition-colors group-hover:text-foreground">
               {run.name}
             </span>
-            <span className="shrink-0 font-mono text-[0.625rem] text-muted-foreground/60">
+            <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">
               #{run.run_number}
             </span>
             {run.run_attempt != null && run.run_attempt > 1 && (
-              <span className="shrink-0 text-[0.625rem] text-muted-foreground/50">
+              <span className="shrink-0 text-[0.6875rem] text-muted-foreground">
                 {t("ci.attempt", { n: run.run_attempt })}
               </span>
             )}
@@ -272,15 +278,15 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
 
           {/* Commit message */}
           {run.display_title && (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground/70">
+            <p className="ci-run-title mt-1 truncate text-sm text-foreground/80">
               {run.display_title}
             </p>
           )}
 
           {/* Meta row */}
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <div className="ci-run-meta mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             {run.head_branch && (
-              <span className="flex items-center gap-1 text-[0.625rem] text-muted-foreground/70">
+              <span className="flex items-center gap-1 text-[0.6875rem] text-muted-foreground">
                 <GitBranch className="h-3 w-3" />
                 <span className="max-w-[120px] truncate font-medium">
                   {run.head_branch}
@@ -288,11 +294,11 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
               </span>
             )}
             <EventBadge event={run.event} />
-            <span className="font-mono text-[0.625rem] text-muted-foreground/50">
+            <span className="font-mono text-[0.6875rem] text-muted-foreground">
               {sha7}
             </span>
             {run.actor_login && (
-              <span className="flex items-center gap-1 text-[0.625rem] text-muted-foreground/60">
+              <span className="flex items-center gap-1 text-[0.6875rem] text-muted-foreground">
                 {run.actor_avatar && (
                   <img
                     src={run.actor_avatar}
@@ -303,9 +309,9 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
                 {run.actor_login}
               </span>
             )}
-            <span className="text-[0.625rem] text-muted-foreground/50">{ago}</span>
+            <span className="text-[0.6875rem] text-muted-foreground">{ago}</span>
             {dur && (
-              <span className="text-[0.625rem] text-muted-foreground/50">
+              <span className="text-[0.6875rem] text-muted-foreground">
                 · {dur}
               </span>
             )}
@@ -313,7 +319,7 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
         </div>
 
         {/* Action buttons */}
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="ci-run-actions flex shrink-0 items-center gap-0.5">
           {canRerun && (
             <Button
               type="button"
@@ -353,13 +359,15 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
               <ExternalLink />
             </Button>
           )}
-          <div className="p-1.5 text-muted-foreground/50">
-            {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
-            )}
-          </div>
+          {!onSelect && (
+            <div className="p-1.5 text-muted-foreground">
+              {expanded ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -371,7 +379,7 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
               <SpinIcon icon={Loader2} className="h-4 w-4 text-primary/40" />
             </div>
           ) : !jobs || jobs.length === 0 ? (
-            <p className="py-2 text-center text-xs text-muted-foreground/60">
+            <p className="py-2 text-center text-xs text-muted-foreground">
               {t("ci.noJobs")}
             </p>
           ) : (

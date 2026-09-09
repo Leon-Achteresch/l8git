@@ -49,6 +49,11 @@ export function usageTotals(usage: AgentTokenUsage | undefined): UsageTotals {
   };
 }
 
+export function activeContextSize(usage: UsageTotals | undefined | null): number {
+  if (!usage) return 0;
+  return usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
+}
+
 export function usageDelta(previous: UsageTotals | undefined, next: UsageTotals): UsageTotals | null {
   if (!previous) return null;
   const delta: UsageTotals = {

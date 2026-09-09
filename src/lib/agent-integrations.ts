@@ -80,3 +80,76 @@ export function detectInstalledAgents(): void {
       detectStarted = false; // retry on next dock mount
     });
 }
+
+export type ProviderReadinessStatus =
+  | "notInstalled"
+  | "outdated"
+  | "notAuthenticated"
+  | "ready"
+  | "unknown";
+
+export interface ProviderReadinessInput {
+  binaryFound: boolean | null;
+  versionStatus: "ok" | "outdated" | "unknown" | null;
+  authenticated: boolean | null;
+}
+
+export function deriveProviderReadiness(input: ProviderReadinessInput): ProviderReadinessStatus {
+  if (input.binaryFound === false) return "notInstalled";
+  if (input.versionStatus === "outdated") return "outdated";
+  if (input.authenticated === false) return "notAuthenticated";
+  if (input.binaryFound === true && input.versionStatus === "ok" && input.authenticated === true) {
+    return "ready";
+  }
+  return "unknown";
+}
+
+interface ClaudeVersionStatusResponse {
+  status: "ok" | "outdated" | "unknown";
+  version?: string;
+}
+
+interface ClaudeAuthStatusResponse {
+  authenticated?: boolean;
+  isAuthenticated?: boolean;
+  loggedIn?: boolean;
+}
+
+function readAuthenticated(value: unknown): boolean | null {
+  if (!value || typeof value !== "object") return null;
+  const response = value as ClaudeAuthStatusResponse;
+  if (typeof response.authenticated === "boolean") return response.authenticated;
+  if (typeof response.isAuthenticated === "boolean") return response.isAuthenticated;
+  if (typeof response.loggedIn === "boolean") return response.loggedIn;
+  return null;
+}
+
+export const useProviderReadiness = create<{
+  byId: Record<string, ProviderReadinessStatus>;
+}>()(() => ({ byId: {} }));
+
+export async function refreshProviderReadiness(integration: AgentIntegration): Promise<ProviderReadinessStatus> {
+  const bin = integration.command.split(" ")[0];
+  const installed = useInstalledAgents.getState().installed;
+  const binaryFound = installed ? installed.has(integration.id) : null;
+
+  if (bin !== "claude") {
+    const status = deriveProviderReadiness({ binaryFound, versionStatus: null, authenticated: null });
+    useProviderReadiness.setState((state) => ({ byId: { ...state.byId, [integration.id]: status } }));
+    return status;
+  }
+
+  const [versionResult, authResult] = await Promise.allSettled([
+    invoke<ClaudeVersionStatusResponse>("claude_version_status"),
+    invoke<unknown>("claude_auth_status"),
+  ]);
+
+  const versionStatus =
+    versionResult.status === "fulfilled" ? versionResult.value.status : "unknown";
+  const authenticated =
+    authResult.status === "fulfilled" ? readAuthenticated(authResult.value) : null;
+
+  const status = deriveProviderReadiness({ binaryFound, versionStatus, authenticated });
+  useProviderReadiness.setState((state) => ({ byId: { ...state.byId, [integration.id]: status } }));
+  return status;
+}

@@ -3,11 +3,32 @@ import { platformStorage } from "@/lib/platform/kv";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { defaultInstanceId } from "@/lib/agents/storage-keys";
+
 export interface AgentWorktree {
   path: string;
   basePath: string;
   branch: string;
   createdAt: number;
+  instanceId?: string;
+}
+
+export interface WorktreeSessionOptions {
+  cwd: string;
+  instanceId: string;
+  repoPath: string;
+}
+
+export function worktreeSessionOptions(path: string): WorktreeSessionOptions {
+  const entry = useAgentWorktreeStore.getState().worktrees[path];
+  if (!entry) {
+    throw new Error(`Unbekannter Worktree: ${path}`);
+  }
+  return {
+    cwd: entry.path,
+    instanceId: entry.instanceId ?? defaultInstanceId("claude"),
+    repoPath: entry.basePath,
+  };
 }
 
 export function worktreeSlug(name?: string, now: () => number = Date.now): string {
@@ -32,7 +53,7 @@ export function worktreeDisplayName(path: string): string {
 
 interface AgentWorktreeState {
   worktrees: Record<string, AgentWorktree>;
-  createWorktree: (basePath: string, name?: string) => Promise<AgentWorktree>;
+  createWorktree: (basePath: string, name?: string, instanceId?: string) => Promise<AgentWorktree>;
   removeWorktree: (path: string, options?: { force?: boolean }) => Promise<void>;
   landWorktree: (path: string) => Promise<string>;
 }
@@ -41,7 +62,7 @@ export const useAgentWorktreeStore = create<AgentWorktreeState>()(
   persist(
     (set, get) => ({
       worktrees: {},
-      createWorktree: async (basePath, name) => {
+      createWorktree: async (basePath, name, instanceId) => {
         const base = basePath.trim();
         if (!base) throw new Error("Ein Worktree benötigt ein Basis-Repository.");
         const slug = worktreeSlug(name);
@@ -54,7 +75,13 @@ export const useAgentWorktreeStore = create<AgentWorktreeState>()(
           branch: null,
           newBranch: branch,
         });
-        const entry: AgentWorktree = { path, basePath: base, branch, createdAt: Date.now() };
+        const entry: AgentWorktree = {
+          path,
+          basePath: base,
+          branch,
+          createdAt: Date.now(),
+          instanceId: instanceId ?? defaultInstanceId("claude"),
+        };
         set((state) => ({ worktrees: { ...state.worktrees, [path]: entry } }));
         return entry;
       },

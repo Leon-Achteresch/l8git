@@ -74,9 +74,13 @@ export function CiCheckRow({
   }
 
   return (
-    <m.div className="group flex flex-col rounded-xl p-2 transition-all hover:bg-muted/40">
+    <m.div className="ci-check-row group flex flex-col rounded-xl border border-border/60 bg-background p-3 transition-colors hover:bg-muted/30">
       <div
         className="flex cursor-pointer items-center gap-4"
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setExpanded(!expanded); } }}
         onClick={() => setExpanded(!expanded)}
       >
         <div className="shrink-0 p-1">
@@ -100,7 +104,7 @@ export function CiCheckRow({
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-1 text-muted-foreground transition-colors group-hover:text-foreground">
           {canRerun && (
             <Button
               type="button"

@@ -1,6 +1,15 @@
 import { invoke } from "@/lib/platform/ipc";
 
 import { openAgentTransport, type AgentTransport } from "@/lib/agents/transport";
+import type {
+  AgentCapability,
+  AgentProviderAdapter,
+  DriverKind,
+  InstanceId,
+  NativeSessionRef,
+  ThreadId,
+} from "@/lib/agents/types";
+import { driverKind, nativeSessionId as toNativeSessionId } from "@/lib/agents/types";
 
 export interface CursorRunOptions {
   cwd: string;
@@ -134,4 +143,64 @@ export function parseCursorMcpServers(output: string): Array<{ name: string; sta
       return { name: name.trim(), status: rest.join(" ").trim() || "unknown" };
     })
     .filter((server) => /^[\w@./-]+$/u.test(server.name));
+}
+
+export class CursorProviderAdapter implements AgentProviderAdapter {
+  readonly driver: DriverKind = driverKind("cursor");
+  private readonly clients = new Map<string, CursorClient>();
+  private readonly cwds = new Map<string, string>();
+  private readonly nativeSessions = new Map<string, string>();
+
+  async start(instance: InstanceId): Promise<NativeSessionRef> {
+    const sessionId = `cursor:${instance}:${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    this.cwds.set(sessionId, String(instance));
+    return { driver: this.driver, instance, nativeSessionId: toNativeSessionId(sessionId) };
+  }
+
+  async send(threadId: ThreadId, text: string): Promise<void> {
+    const client = this.clientFor(threadId);
+    await client.send({
+      cwd: this.cwds.get(threadId) ?? "",
+      prompt: text,
+      resumeSessionId: this.nativeSessions.get(threadId),
+    });
+  }
+
+  async interrupt(threadId: ThreadId): Promise<void> {
+    await this.clients.get(threadId)?.interrupt();
+  }
+
+  async stop(threadId: ThreadId): Promise<void> {
+    const client = this.clients.get(threadId);
+    this.clients.delete(threadId);
+    await client?.close();
+  }
+
+  async resume(threadId: ThreadId, ref: NativeSessionRef): Promise<void> {
+    this.cwds.set(threadId, this.cwds.get(threadId) ?? String(ref.instance));
+    this.nativeSessions.set(threadId, ref.nativeSessionId);
+  }
+
+  capability(name: string): AgentCapability {
+    switch (name) {
+      case "history":
+      case "models":
+      case "tools":
+        return { status: "supported" };
+      case "approvals":
+      case "images":
+        return { status: "unsupported", reason: "Cursor CLI unterstützt dies nicht." };
+      default:
+        return { status: "unavailable", reason: `Unbekannte Capability ${name}` };
+    }
+  }
+
+  private clientFor(threadId: ThreadId): CursorClient {
+    let client = this.clients.get(threadId);
+    if (!client) {
+      client = new CursorClient(threadId, { onEvent: () => {} });
+      this.clients.set(threadId, client);
+    }
+    return client;
+  }
 }

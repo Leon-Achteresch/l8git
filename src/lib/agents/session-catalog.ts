@@ -8,13 +8,20 @@ import type {
   AgentThreadSummary,
 } from "@/lib/agents/types";
 import { kvGet, kvSet } from "@/lib/platform/kv";
-import { AGENT_SESSION_CATALOG_KEY as STORAGE_KEY } from "@/lib/agents/storage-keys";
+import {
+  AGENT_INSTANCE_MIGRATION_KEY,
+  AGENT_INSTANCE_MIGRATION_VERSION,
+  AGENT_SESSION_CATALOG_KEY as STORAGE_KEY,
+  defaultInstanceId,
+} from "@/lib/agents/storage-keys";
 
 const SAVE_DELAY_MS = 350;
+const CATALOG_DRIVER = "codex";
 
 export interface AgentSessionCatalog {
   threadsByPath: Record<string, AgentThreadSummary[]>;
   activeThreadByPath: Record<string, string | null>;
+  instanceByThreadId?: Record<string, string>;
   model: string | null;
   reasoningEffort: AgentReasoningEffort;
   serviceTier: string | null;
@@ -76,6 +83,34 @@ function normalizeActiveThreads(value: unknown): Record<string, string | null> {
   );
 }
 
+function normalizeInstanceByThreadId(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([threadId, instanceId]) =>
+      typeof instanceId === "string" && instanceId ? [[threadId, instanceId]] : [],
+    ),
+  );
+}
+
+function migrateInstanceAssignments(
+  threadsByPath: Record<string, AgentThreadSummary[]>,
+  instanceByThreadId: Record<string, string>,
+): Record<string, string> {
+  if (kvGet(AGENT_INSTANCE_MIGRATION_KEY) === String(AGENT_INSTANCE_MIGRATION_VERSION)) {
+    return instanceByThreadId;
+  }
+  const migrated = { ...instanceByThreadId };
+  for (const threads of Object.values(threadsByPath)) {
+    for (const thread of threads) {
+      if (!migrated[thread.id]) migrated[thread.id] = defaultInstanceId(CATALOG_DRIVER);
+    }
+  }
+  try {
+    kvSet(AGENT_INSTANCE_MIGRATION_KEY, String(AGENT_INSTANCE_MIGRATION_VERSION));
+  } catch {}
+  return migrated;
+}
+
 function catalogFromUnknown(value: unknown): Partial<AgentSessionCatalog> {
   if (!isRecord(value)) return {};
   const candidate = isRecord(value.state) ? value.state : value;
@@ -83,9 +118,14 @@ function catalogFromUnknown(value: unknown): Partial<AgentSessionCatalog> {
   const sandboxes: AgentSandboxMode[] = ["read-only", "workspace-write", "danger-full-access"];
   const personalities: AgentPersonality[] = ["none", "friendly", "pragmatic"];
   const collaborationModes: AgentCollaborationMode[] = ["default", "plan"];
+  const threadsByPath = normalizeThreads(candidate.threadsByPath);
   return {
-    threadsByPath: normalizeThreads(candidate.threadsByPath),
+    threadsByPath,
     activeThreadByPath: normalizeActiveThreads(candidate.activeThreadByPath),
+    instanceByThreadId: migrateInstanceAssignments(
+      threadsByPath,
+      normalizeInstanceByThreadId(candidate.instanceByThreadId),
+    ),
     model: typeof candidate.model === "string" || candidate.model === null
       ? candidate.model
       : undefined,
@@ -118,6 +158,66 @@ function catalogFromUnknown(value: unknown): Partial<AgentSessionCatalog> {
       ? candidate.sandboxMode as AgentSandboxMode
       : undefined,
   };
+}
+
+function updateThread(
+  threadsByPath: Record<string, AgentThreadSummary[]>,
+  path: string,
+  threadId: string,
+  patch: Partial<AgentThreadSummary>,
+): Record<string, AgentThreadSummary[]> {
+  const threads = threadsByPath[path];
+  if (!threads) return threadsByPath;
+  return {
+    ...threadsByPath,
+    [path]: threads.map((thread) => (thread.id === threadId ? { ...thread, ...patch } : thread)),
+  };
+}
+
+export function renameThread(
+  threadsByPath: Record<string, AgentThreadSummary[]>,
+  path: string,
+  threadId: string,
+  title: string,
+): Record<string, AgentThreadSummary[]> {
+  const trimmed = title.trim();
+  if (!trimmed) return threadsByPath;
+  return updateThread(threadsByPath, path, threadId, { title: trimmed });
+}
+
+export function setThreadPinned(
+  threadsByPath: Record<string, AgentThreadSummary[]>,
+  path: string,
+  threadId: string,
+  isPinned: boolean,
+): Record<string, AgentThreadSummary[]> {
+  return updateThread(threadsByPath, path, threadId, { isPinned });
+}
+
+export function setThreadArchived(
+  threadsByPath: Record<string, AgentThreadSummary[]>,
+  path: string,
+  threadId: string,
+  archived: boolean,
+): Record<string, AgentThreadSummary[]> {
+  return updateThread(threadsByPath, path, threadId, { archived });
+}
+
+export function deriveThreadTitle(firstUserMessage: string, fallback = "New thread"): string {
+  const trimmed = firstUserMessage.trim().replace(/\s+/g, " ");
+  if (!trimmed) return fallback;
+  return trimmed.length > 60 ? `${trimmed.slice(0, 60).trimEnd()}…` : trimmed;
+}
+
+export function threadsForInstance(
+  threadsByPath: Record<string, AgentThreadSummary[]>,
+  instanceByThreadId: Record<string, string>,
+  path: string,
+  instanceId: string,
+): AgentThreadSummary[] {
+  const threads = threadsByPath[path];
+  if (!threads) return [];
+  return threads.filter((thread) => instanceByThreadId[thread.id] === instanceId);
 }
 
 export function loadAgentSessionCatalog(): Partial<AgentSessionCatalog> {

@@ -1,4 +1,5 @@
 import { ChevronDown, Search } from "lucide-react";
+import { m } from "motion/react";
 import { useState } from "react";
 
 import { ComposerEffortPopover } from "./composer-effort-popover";
@@ -6,6 +7,8 @@ import { ComposerMenu } from "./composer-menu";
 import { DEFAULT_PROVIDERS } from "./defaults";
 import { ProviderLogo } from "./provider-logo";
 import type { ComposerModel, ComposerProvider } from "./types";
+import { Rotate } from "@/components/motion/kit";
+import { SPRING_LAYOUT } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
 export function ComposerModelMenu({
@@ -47,14 +50,16 @@ export function ComposerModelMenu({
           className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-sm text-foreground/80 transition-colors hover:bg-muted"
         >
           {active.label}
-          <ChevronDown className="size-3.5" strokeWidth={1.75} aria-hidden />
+          <Rotate open={open} className="size-3.5">
+            <ChevronDown className="size-3.5" strokeWidth={1.75} aria-hidden />
+          </Rotate>
         </button>
       }
     >
       <div className="flex max-h-96">
         <div className="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-border/60 py-2">
           {providers.map(provider => (
-            <button
+            <m.button
               key={provider.id}
               type="button"
               title={provider.label}
@@ -63,13 +68,15 @@ export function ComposerModelMenu({
               onClick={() =>
                 setProviderId(id => (id === provider.id ? null : provider.id))
               }
+              layout
+              transition={SPRING_LAYOUT}
               className={cn(
-                "inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                "inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground",
                 providerId === provider.id && "bg-muted text-foreground",
               )}
             >
               <ProviderLogo providerId={provider.id} />
-            </button>
+            </m.button>
           ))}
         </div>
 
@@ -90,7 +97,8 @@ export function ComposerModelMenu({
 
           {visible.map(model => {
             const selected = model.id === value;
-            const efforts = model.efforts ?? [];
+            const supportsEffort = (model as { supportsEffort?: boolean }).supportsEffort !== false;
+            const efforts = supportsEffort ? model.efforts ?? [] : [];
             const activeEffort =
               efforts.length > 0
                 ? (selected && effort && efforts.includes(effort)

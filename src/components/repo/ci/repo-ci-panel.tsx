@@ -1,3 +1,5 @@
+import "./ci-workspace.css";
+import { useCiViewOptions } from "./ci-view-options";
 import { CiChecksList } from "@/components/repo/ci/ci-checks-list";
 import {
   ResizableHandle,
@@ -8,7 +10,7 @@ import { toastError } from "@/lib/error-toast";
 import { trackWorkflowRuns } from "@/lib/notifications";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CiDetailPanel } from "./ci-detail-panel";
 import { RemoteCiCheck, WorkflowRun } from "./ci-types";
@@ -26,7 +28,23 @@ type RepoCommitChecksPayload = {
 const LAYOUT_KEY = "l8git.ci-split.layout.v1";
 
 export function RepoCiPanel({ path }: { path: string }) {
+  return <RepoCiWorkspace key={path} path={path} />;
+}
+
+function RepoCiWorkspace({ path }: { path: string }) {
   const { t } = useTranslation();
+  const { view, update } = useCiViewOptions(path);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [stacked, setStacked] = useState(false);
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setStacked(entry.contentRect.width < 850),
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const [mode, setMode] = useState<CiMode>("runs");
   const [selectedRun, setSelectedRun] = useState<WorkflowRun | null>(null);
 
@@ -34,7 +52,11 @@ export function RepoCiPanel({ path }: { path: string }) {
   const [defaultLayout] = useState<Record<string, number> | undefined>(() => {
     const raw = localStorage.getItem(LAYOUT_KEY);
     if (!raw) return undefined;
-    try { return JSON.parse(raw) as Record<string, number>; } catch { return undefined; }
+    try {
+      return JSON.parse(raw) as Record<string, number>;
+    } catch {
+      return undefined;
+    }
   });
 
   // ── HEAD Checks ────────────────────────────────────────────────────────────
@@ -46,7 +68,9 @@ export function RepoCiPanel({ path }: { path: string }) {
   const loadChecks = useCallback(async () => {
     setChecksRefreshing(true);
     try {
-      const res = await invoke<RepoCommitChecksPayload>("repo_commit_checks", { path });
+      const res = await invoke<RepoCommitChecksPayload>("repo_commit_checks", {
+        path,
+      });
       setHeadSha(res.head_sha.trim() || null);
       setChecks(res.checks);
     } catch (e) {
@@ -70,6 +94,9 @@ export function RepoCiPanel({ path }: { path: string }) {
       const res = await invoke<WorkflowRun[]>("list_workflow_runs", { path });
       trackWorkflowRuns(path, res);
       setRuns(res);
+      setSelectedRun((current) =>
+        current ? (res.find((run) => run.id === current.id) ?? null) : null,
+      );
     } catch (e) {
       toastError(String(e));
       setRuns([]);
@@ -115,7 +142,10 @@ export function RepoCiPanel({ path }: { path: string }) {
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
         mode={mode}
-        onModeChange={(m) => { setMode(m); setSelectedRun(null); }}
+        onModeChange={(m) => {
+          setMode(m);
+          setSelectedRun(null);
+        }}
       />
 
       {mode === "checks" ? (
@@ -123,6 +153,7 @@ export function RepoCiPanel({ path }: { path: string }) {
           <RepoCiSummary checks={checks ?? []} />
           <div className="min-h-0 flex-1 overflow-hidden px-2 pb-2">
             <CiChecksList
+              path={path}
               checks={checks}
               loading={checksLoading}
               emptyLabel={t("ci.noPipelines")}
@@ -132,6 +163,8 @@ export function RepoCiPanel({ path }: { path: string }) {
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden pt-1">
           <WorkflowRunList
+            view={view}
+            onViewChange={update}
             runs={runs}
             loading={runsLoading}
             path={path}
@@ -146,42 +179,53 @@ export function RepoCiPanel({ path }: { path: string }) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl shadow-sm ring-1 ring-border/50">
+    <div
+      ref={containerRef}
+      className="ci-workspace flex h-full min-h-0 flex-col overflow-hidden rounded-2xl ring-1 ring-border/60"
+    >
       {selectedRun && mode === "runs" ? (
-        <ResizablePanelGroup
-          orientation="horizontal"
-          id="ci-split"
-          defaultLayout={defaultLayout}
-          onLayoutChanged={(layout) =>
-            writeLocalStorageDebounced(LAYOUT_KEY, JSON.stringify(layout))
-          }
-        >
-          <ResizablePanel
-            id="ci-list"
-            defaultSize="38%"
-            minSize="22%"
-            maxSize="55%"
-            className="flex min-h-0 flex-col"
-          >
-            {listPanel}
-          </ResizablePanel>
-          <ResizableHandle
-            withHandle
-            className="bg-border/50 transition-colors hover:bg-primary/20"
+        stacked ? (
+          <CiDetailPanel
+            run={selectedRun}
+            path={path}
+            onClose={() => setSelectedRun(null)}
           />
-          <ResizablePanel
-            id="ci-detail"
-            defaultSize="62%"
-            minSize="45%"
-            className="flex min-h-0 flex-col"
+        ) : (
+          <ResizablePanelGroup
+            orientation="horizontal"
+            id="ci-split"
+            defaultLayout={defaultLayout}
+            onLayoutChanged={(layout) =>
+              writeLocalStorageDebounced(LAYOUT_KEY, JSON.stringify(layout))
+            }
           >
-            <CiDetailPanel
-              run={selectedRun}
-              path={path}
-              onClose={() => setSelectedRun(null)}
+            <ResizablePanel
+              id="ci-list"
+              defaultSize="38%"
+              minSize="22%"
+              maxSize="55%"
+              className="flex min-h-0 flex-col"
+            >
+              {listPanel}
+            </ResizablePanel>
+            <ResizableHandle
+              withHandle
+              className="bg-border/50 transition-colors hover:bg-primary/20"
             />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            <ResizablePanel
+              id="ci-detail"
+              defaultSize="62%"
+              minSize="45%"
+              className="flex min-h-0 flex-col"
+            >
+              <CiDetailPanel
+                run={selectedRun}
+                path={path}
+                onClose={() => setSelectedRun(null)}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )
       ) : (
         listPanel
       )}

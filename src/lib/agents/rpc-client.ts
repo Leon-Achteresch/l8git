@@ -30,6 +30,7 @@ interface PendingRequest {
 
 export interface RpcRequestOptions {
   timeoutMs?: number | null;
+  signal?: AbortSignal;
 }
 
 type NotificationListener = (notification: RpcNotification) => void;
@@ -71,9 +72,15 @@ export class JsonRpcProcessClient {
         if (sequence <= this.lastStreamSequence) {
           this.emitStatus({
             type: "stderr",
-            value: `Veraltetes JSON-Frame ${sequence} in ${this.sessionId} wurde verworfen.`,
+            value: `Doppeltes oder veraltetes JSON-Frame ${sequence} in ${this.sessionId} wurde verworfen.`,
           });
           return;
+        }
+        if (this.lastStreamSequence !== 0 && sequence > this.lastStreamSequence + 1) {
+          this.emitStatus({
+            type: "stderr",
+            value: `Lücke in Session ${this.sessionId} erkannt: erwartet ${this.lastStreamSequence + 1}, erhalten ${sequence}.`,
+          });
         }
         this.lastStreamSequence = sequence;
         this.receive(message);
@@ -98,19 +105,36 @@ export class JsonRpcProcessClient {
     if (!this.transport || this.closed) {
       throw new Error("Der Agent ist nicht verbunden.");
     }
+    if (options?.signal?.aborted) {
+      throw new Error(`Agent-Anfrage ${method} wurde abgebrochen.`);
+    }
     const id = this.nextId++;
     const payload = params === undefined ? { method, id } : { method, id, params };
     const timeoutMs = options?.timeoutMs === undefined ? RPC_REQUEST_TIMEOUT_MS : options.timeoutMs;
     const response = new Promise<T>((resolve, reject) => {
+      const onAbort = () => {
+        if (!this.pending.delete(id)) return;
+        if (timeout) clearTimeout(timeout);
+        reject(new Error(`Agent-Anfrage ${method} wurde abgebrochen.`));
+      };
+      const timeout = timeoutMs === null || timeoutMs <= 0
+        ? null
+        : setTimeout(() => {
+            this.pending.delete(id);
+            options?.signal?.removeEventListener("abort", onAbort);
+            reject(new Error(`Agent-Anfrage ${method} hat das Zeitlimit überschritten.`));
+          }, timeoutMs);
+      options?.signal?.addEventListener("abort", onAbort, { once: true });
       this.pending.set(id, {
-        resolve: (value) => resolve(value as T),
-        reject,
-        timeout: timeoutMs === null || timeoutMs <= 0
-          ? null
-          : setTimeout(() => {
-              this.pending.delete(id);
-              reject(new Error(`Agent-Anfrage ${method} hat das Zeitlimit überschritten.`));
-            }, timeoutMs),
+        resolve: (value) => {
+          options?.signal?.removeEventListener("abort", onAbort);
+          resolve(value as T);
+        },
+        reject: (error) => {
+          options?.signal?.removeEventListener("abort", onAbort);
+          reject(error);
+        },
+        timeout,
       });
     });
     try {

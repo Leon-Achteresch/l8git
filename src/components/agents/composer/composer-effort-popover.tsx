@@ -1,7 +1,10 @@
 import { ChevronDown } from "lucide-react";
+import { m } from "motion/react";
 import { useState } from "react";
 
+import { Rotate } from "@/components/motion/kit";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SPRING_LAYOUT } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
 export function ComposerEffortPopover({
@@ -16,6 +19,8 @@ export function ComposerEffortPopover({
   const [open, setOpen] = useState(false);
   const index = Math.max(0, efforts.indexOf(value));
 
+  if (efforts.length === 0) return null;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -27,7 +32,9 @@ export function ComposerEffortPopover({
           className="inline-flex items-center gap-0.5 rounded-md bg-background px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-background/70"
         >
           {value}
-          <ChevronDown className="size-3" strokeWidth={2} aria-hidden />
+          <Rotate open={open} className="size-3">
+            <ChevronDown className="size-3" strokeWidth={2} aria-hidden />
+          </Rotate>
         </span>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" sideOffset={8} className="w-64 rounded-2xl p-3">
@@ -41,7 +48,7 @@ export function ComposerEffortPopover({
         </div>
         <div className="mt-1.5 flex gap-1">
           {efforts.map((effort, i) => (
-            <button
+            <m.button
               key={effort}
               type="button"
               aria-label={effort}
@@ -50,8 +57,10 @@ export function ComposerEffortPopover({
                 onChange(effort);
                 setOpen(false);
               }}
+              layout
+              transition={SPRING_LAYOUT}
               className={cn(
-                "h-7 flex-1 rounded-md border border-border/60 transition-colors",
+                "h-7 flex-1 rounded-md border border-border/60",
                 i === index ? "bg-foreground/80" : "bg-muted hover:bg-muted/70",
               )}
             />

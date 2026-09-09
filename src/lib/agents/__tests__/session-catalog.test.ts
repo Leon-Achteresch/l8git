@@ -5,9 +5,24 @@ import {
   flushAgentSessionCatalog,
   loadAgentSessionCatalog,
   scheduleAgentSessionCatalogSave,
+  threadsForInstance,
   type AgentSessionCatalog,
 } from "@/lib/agents/session-catalog";
 import { AGENT_SESSION_CATALOG_KEY as STORAGE_KEY } from "@/lib/agents/storage-keys";
+import type { AgentThreadSummary } from "@/lib/agents/types";
+
+function thread(id: string): AgentThreadSummary {
+  return {
+    id,
+    path: "/repo",
+    title: id,
+    preview: "",
+    createdAt: 0,
+    updatedAt: 0,
+    status: "idle",
+    modelProvider: "anthropic",
+  };
+}
 
 describe("session catalog", () => {
   let store: Map<string, string>;
@@ -81,5 +96,23 @@ describe("session catalog", () => {
     flushAgentSessionCatalog();
     expect(loadAgentSessionCatalog().model).toBe("claude-sonnet-4-5");
     expect(loadAgentSessionCatalog().sandboxMode).toBe("workspace-write");
+  });
+});
+
+describe("threadsForInstance", () => {
+  it("only returns threads assigned to the given instance", () => {
+    const threadsByPath = { "/repo": [thread("t1"), thread("t2"), thread("t3")] };
+    const instanceByThreadId = { t1: "claude:default", t2: "claude:work", t3: "claude:default" };
+    expect(threadsForInstance(threadsByPath, instanceByThreadId, "/repo", "claude:default").map((t) => t.id)).toEqual([
+      "t1",
+      "t3",
+    ]);
+    expect(threadsForInstance(threadsByPath, instanceByThreadId, "/repo", "claude:work").map((t) => t.id)).toEqual([
+      "t2",
+    ]);
+  });
+
+  it("returns an empty list for an unknown path", () => {
+    expect(threadsForInstance({}, {}, "/missing", "claude:default")).toEqual([]);
   });
 });

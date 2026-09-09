@@ -1,6 +1,6 @@
 import { providerSupportsSlashCommand } from "@/lib/agents/provider-meta";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
-import type { AgentModelOption } from "@/lib/agents/types";
+import type { AgentCapability, AgentModelOption } from "@/lib/agents/types";
 
 export type SlashCommandEntry = {
   value: string;
@@ -97,6 +97,16 @@ export function shouldRunNativeSlash(
 ): boolean {
   const name = commandName(command).toLocaleLowerCase();
   return NATIVE_SLASH_SET.has(name) && providerSupportsSlashCommand(provider, name);
+}
+
+export function shouldRunNativeSlashWithInventory(
+  command: string,
+  provider: NativeAgentProvider,
+  resolveCapability: (name: string) => AgentCapability,
+): boolean {
+  const name = commandName(command).toLocaleLowerCase();
+  if (!shouldRunNativeSlash(command, provider)) return false;
+  return resolveCapability(name).status === "supported";
 }
 
 export function nativeSlashCommands(input: NativeSlashInput): SlashCommandEntry[] {

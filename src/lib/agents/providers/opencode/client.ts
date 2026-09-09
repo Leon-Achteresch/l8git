@@ -4,6 +4,15 @@ import { JsonRpcProcessClient, type RpcId } from "@/lib/agents/rpc-client";
 import { rendererAcpMcpServers } from "@/lib/agents/renderer-mcp";
 import type { AcpMcpServer } from "@/lib/jira/jira-mcp";
 import { jiraAcpMcpServers } from "@/lib/jira/jira-sync";
+import type {
+  AgentCapability,
+  AgentProviderAdapter,
+  DriverKind,
+  InstanceId,
+  NativeSessionRef,
+  ThreadId,
+} from "@/lib/agents/types";
+import { driverKind, nativeSessionId as toNativeSessionId } from "@/lib/agents/types";
 
 export function openCodeCli(args: string[], cwd?: string): Promise<string> {
   return invoke<string>("opencode_cli", { args, cwd });
@@ -278,5 +287,77 @@ export class OpenCodeClient {
     for (const dispose of this.disposers) dispose();
     this.disposers = [];
     await this.rpc.close();
+  }
+}
+
+export class OpenCodeProviderAdapter implements AgentProviderAdapter {
+  readonly driver: DriverKind = driverKind("opencode");
+  private readonly clients = new Map<string, OpenCodeClient>();
+  private readonly sessionIds = new Map<string, string>();
+
+  async start(instance: InstanceId): Promise<NativeSessionRef> {
+    const transportId = `opencode:${instance}:${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const client = new OpenCodeClient(transportId, String(instance), {
+      onSessionUpdate: () => {},
+      onPermissionRequest: () => {},
+    });
+    await client.connect();
+    const session = await client.newSession();
+    this.clients.set(transportId, client);
+    this.sessionIds.set(transportId, session.sessionId);
+    return { driver: this.driver, instance, nativeSessionId: toNativeSessionId(transportId) };
+  }
+
+  async send(threadId: ThreadId, text: string): Promise<void> {
+    const client = this.requireClient(threadId);
+    const sessionId = this.sessionIds.get(threadId);
+    if (!sessionId) throw new Error(`Keine OpenCode-Session für Thread ${threadId} vorhanden.`);
+    await client.prompt(sessionId, [{ type: "text", text }]);
+  }
+
+  async interrupt(threadId: ThreadId): Promise<void> {
+    const client = this.clients.get(threadId);
+    const sessionId = this.sessionIds.get(threadId);
+    if (!client || !sessionId) return;
+    await client.cancel(sessionId);
+  }
+
+  async stop(threadId: ThreadId): Promise<void> {
+    const client = this.clients.get(threadId);
+    this.clients.delete(threadId);
+    this.sessionIds.delete(threadId);
+    await client?.close();
+  }
+
+  async resume(threadId: ThreadId, ref: NativeSessionRef): Promise<void> {
+    const existing = this.clients.get(threadId);
+    if (existing) return;
+    const client = new OpenCodeClient(ref.nativeSessionId, String(ref.instance), {
+      onSessionUpdate: () => {},
+      onPermissionRequest: () => {},
+    });
+    await client.connect();
+    await client.resumeSession(threadId);
+    this.clients.set(threadId, client);
+    this.sessionIds.set(threadId, threadId);
+  }
+
+  capability(name: string): AgentCapability {
+    switch (name) {
+      case "history":
+      case "approvals":
+      case "models":
+      case "images":
+      case "tools":
+        return { status: "supported" };
+      default:
+        return { status: "unavailable", reason: `Unbekannte Capability ${name}` };
+    }
+  }
+
+  private requireClient(threadId: ThreadId): OpenCodeClient {
+    const client = this.clients.get(threadId);
+    if (!client) throw new Error(`Keine OpenCode-Session für Thread ${threadId} vorhanden.`);
+    return client;
   }
 }

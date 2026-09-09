@@ -63,6 +63,7 @@ export function CommitInspectDetail({
         commit: commitHash,
       });
       setPayload(out);
+      setSelectedFile((current) => out.files.some((file) => file.path === current) ? current : out.files[0]?.path ?? null);
     } catch (e) {
       setFailed(true);
       setPayload(null);
@@ -151,7 +152,7 @@ export function CommitInspectDetail({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background/95 backdrop-blur-sm">
+    <div className="flex h-full flex-col overflow-hidden bg-background">
       <CommitInspectHeader
         title={t("commitInspect.panelTitle")}
         badge={<CommitSignatureBadge path={path} commitHash={commitHash} />}
@@ -159,7 +160,7 @@ export function CommitInspectDetail({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 gap-1.5 rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+            className="h-8 gap-1.5 rounded-lg border border-border/70 bg-background text-foreground shadow-xs hover:bg-muted"
             onClick={() =>
               explain.open({ kind: "commit", repoPath: path, commitHash })
             }

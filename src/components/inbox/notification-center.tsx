@@ -4,7 +4,6 @@ import {
   BellOff,
   CheckCheck,
   ExternalLink,
-  Inbox as InboxIcon,
   RefreshCw,
   type LucideIcon,
 } from "lucide-react";
@@ -83,18 +82,16 @@ function toneFor(name: string): (typeof AVATAR_TONES)[number] {
   return AVATAR_TONES[hash % AVATAR_TONES.length];
 }
 
-/** Avatar visual with deterministic tone, mirroring the BoardUI reference. */
 export function NotificationAvatar({ name }: { name: string }) {
   return (
-    <Avatar size="lg" className="size-10 shrink-0" aria-hidden>
-      <AvatarFallback className={cn("text-xs font-semibold", toneFor(name))}>
+    <Avatar size="lg" className="size-8 shrink-0" aria-hidden>
+      <AvatarFallback className={cn("text-[0.6875rem] font-semibold", toneFor(name))}>
         {initialsFor(name)}
       </AvatarFallback>
     </Avatar>
   );
 }
 
-/** Colored status visual for system/agent style notifications. */
 export function NotificationStatusVisual({
   icon: Icon,
   className,
@@ -106,11 +103,11 @@ export function NotificationStatusVisual({
     <span
       aria-hidden
       className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-full",
+        "flex size-8 shrink-0 items-center justify-center rounded-full",
         className ?? "bg-muted text-muted-foreground",
       )}
     >
-      <Icon className="size-5" />
+      <Icon className="size-4" />
     </span>
   );
 }
@@ -121,8 +118,8 @@ function TabLabel({ label, count, active }: { label: string; count: number; acti
       <span className="truncate">{label}</span>
       <span
         className={cn(
-          "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md px-1 text-[0.6875rem] font-medium tabular-nums",
-          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+          "inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[0.625rem] font-medium tabular-nums",
+          active ? "bg-primary/15 text-primary" : "bg-muted/80 text-muted-foreground",
         )}
       >
         {count}
@@ -159,18 +156,21 @@ function NotificationCard({
           onOpen(item.id);
         }}
         className={cn(
-          "group/item relative flex cursor-pointer gap-3 rounded-xl bg-background px-3 py-3 text-left transition-colors",
-          "hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-          unread && "bg-primary/[0.04] ring-1 ring-inset ring-primary/20 hover:bg-primary/[0.07]",
+          "group/item relative flex cursor-pointer gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+          "hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          unread && "bg-primary/[0.05]",
         )}
       >
+        {unread ? (
+          <span className="absolute inset-y-2 left-1 w-0.5 rounded-full bg-primary" aria-hidden />
+        ) : null}
         {item.visual}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex min-w-0 items-start justify-between gap-3">
             <p className={cn("min-w-0 truncate text-[0.8125rem]", unread ? "font-semibold" : "font-medium")}>
               {item.title}
             </p>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5">
               <span className="whitespace-nowrap text-[0.6875rem] tabular-nums text-muted-foreground">
                 {item.timestamp}
               </span>
@@ -188,20 +188,17 @@ function NotificationCard({
                   <ExternalLink className="size-3" />
                 </button>
               ) : null}
-              {unread ? (
-                <span className="size-2 shrink-0 rounded-full bg-primary" aria-label={unreadLabel} />
-              ) : null}
             </div>
           </div>
           <p className="truncate text-xs text-muted-foreground">{item.description}</p>
           {item.badges && item.badges.length > 0 ? (
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
               {item.badges.map((badge) => (
                 <span
                   key={badge.label}
                   title={badge.title}
                   className={cn(
-                    "inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[0.625rem] font-medium",
+                    "inline-flex shrink-0 items-center rounded-md px-1.5 py-px text-[0.625rem] font-medium",
                     BADGE_TONE[badge.tone ?? "neutral"],
                   )}
                 >
@@ -279,22 +276,14 @@ export function NotificationCenter({
   const visibleCount = groups.reduce((sum, group) => sum + group.items.length, 0);
 
   return (
-    <div className="mx-auto flex w-full max-w-[880px] flex-col gap-4">
-      <section
-        aria-label={title}
-        className="flex w-full flex-col gap-3 overflow-hidden rounded-2xl bg-card p-4 ring-1 ring-border/50"
-      >
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="shrink-0 border-b border-border/50 px-5 pb-3 pt-4 pr-12">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <InboxIcon className="size-5" aria-hidden />
-            </span>
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <h1 className="font-heading text-lg font-semibold leading-tight">{title}</h1>
-              <p className="truncate text-xs text-muted-foreground">{headline}</p>
-            </div>
+          <div className="min-w-0">
+            <h2 className="font-heading text-base font-semibold leading-tight">{title}</h2>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{headline}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1">
             <Button
               type="button"
               variant="ghost"
@@ -307,7 +296,7 @@ export function NotificationCenter({
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="icon-sm"
               title={refreshLabel}
               aria-label={refreshLabel}
@@ -318,8 +307,11 @@ export function NotificationCenter({
             </Button>
           </div>
         </div>
-
-        <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as NotificationCenterTab)}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => onTabChange(value as NotificationCenterTab)}
+          className="mt-3"
+        >
           <TabsList aria-label={tabsLabel} className="w-full">
             {tabs.map((tab) => (
               <TabsTrigger key={tab.id} value={tab.id} className="min-w-0">
@@ -328,60 +320,57 @@ export function NotificationCenter({
             ))}
           </TabsList>
         </Tabs>
-      </section>
+      </header>
 
-      {errorBanner}
-
-      <m.div
-        key={activeTab}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        className="flex flex-col gap-3"
-      >
-        {visibleCount === 0 ? (
-          <div className="flex min-h-64 flex-col items-center justify-center gap-2 rounded-2xl bg-card px-6 py-12 text-center ring-1 ring-border/50">
-            <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <BellOff className="size-5" aria-hidden />
-            </span>
-            <p className="text-sm font-medium">{emptyTitle}</p>
-            <p className="max-w-72 text-xs leading-relaxed text-muted-foreground">{emptyHint}</p>
-          </div>
-        ) : (
-          groups.map((group) => {
-            const GroupIcon = group.icon;
-            return (
-              <section
-                key={group.id}
-                aria-label={group.title}
-                className="overflow-hidden rounded-2xl bg-card ring-1 ring-border/50"
-              >
-                <header className="flex items-center gap-2 px-3 py-2.5">
-                  {GroupIcon ? (
-                    <GroupIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  ) : null}
-                  <h2 className="min-w-0 flex-1 truncate text-[0.8125rem] font-medium">{group.title}</h2>
-                  <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-muted px-1.5 text-[0.6875rem] font-medium tabular-nums text-muted-foreground">
-                    {group.count}
-                  </span>
-                </header>
-                <div className="mx-1.5 mb-1.5 flex flex-col gap-1 rounded-xl bg-muted/50 p-1.5">
-                  {group.items.map((item, index) => (
-                    <NotificationCard
-                      key={item.id}
-                      item={item}
-                      index={index}
-                      unreadLabel={unreadLabel}
-                      onOpen={onOpen}
-                      onAction={onAction}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })
-        )}
-      </m.div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        {errorBanner ? <div className="mb-3 px-1">{errorBanner}</div> : null}
+        <m.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className="flex flex-col gap-4"
+        >
+          {visibleCount === 0 ? (
+            <div className="flex min-h-56 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+              <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <BellOff className="size-4" aria-hidden />
+              </span>
+              <p className="text-sm font-medium">{emptyTitle}</p>
+              <p className="max-w-72 text-xs leading-relaxed text-muted-foreground">{emptyHint}</p>
+            </div>
+          ) : (
+            groups.map((group) => {
+              const GroupIcon = group.icon;
+              return (
+                <section key={group.id} aria-label={group.title} className="flex flex-col gap-1">
+                  <header className="flex items-center gap-2 px-2">
+                    {GroupIcon ? (
+                      <GroupIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                    ) : null}
+                    <h3 className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">
+                      {group.title}
+                    </h3>
+                    <span className="text-[0.6875rem] tabular-nums text-muted-foreground">{group.count}</span>
+                  </header>
+                  <div className="flex flex-col">
+                    {group.items.map((item, index) => (
+                      <NotificationCard
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        unreadLabel={unreadLabel}
+                        onOpen={onOpen}
+                        onAction={onAction}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })
+          )}
+        </m.div>
+      </div>
     </div>
   );
 }

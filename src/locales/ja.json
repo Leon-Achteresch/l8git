@@ -2086,6 +2086,7 @@
     "stackBadgeTitle": "{{name}} · スタック {{root}} · レベル {{level}}"
   },
   "commitInspect": {
+    "metadata": "メタデータを表示",
     "explainCommit": "説明",
     "changedFiles": "変更されたファイル",
     "loadingDetails": "詳細を読み込み中…",

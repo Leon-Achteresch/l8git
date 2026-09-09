@@ -53,14 +53,14 @@ function NodeStatusIcon({
     return <XCircle className={cls} style={s} color="var(--git-removed)" />;
   if (["cancelled"].includes(key))
     return (
-      <Square className={cls} style={s} color="hsl(var(--muted-foreground))" />
+      <Square className={cls} style={s} color="var(--muted-foreground)" />
     );
   if (["skipped", "neutral", "stale"].includes(key))
     return (
       <SkipForward
         className={cls}
         style={s}
-        color="hsl(var(--muted-foreground))"
+        color="var(--muted-foreground)"
       />
     );
   if (
@@ -70,14 +70,14 @@ function NodeStatusIcon({
       <SpinIcon icon={Loader2}
         className={`${cls}`}
         style={s}
-        color="hsl(var(--primary))"
+        color="var(--primary)"
       />
     );
   return (
     <CircleDashed
       className={cls}
       style={s}
-      color="hsl(var(--muted-foreground))"
+      color="var(--muted-foreground)"
     />
   );
 }
@@ -106,18 +106,18 @@ function statusNodeStyle(
     };
   if (["in_progress", "queued", "pending", "inprogress", "waiting"].includes(key))
     return {
-      borderColor: "hsl(var(--primary)/0.5)",
+      borderColor: "color-mix(in srgb, var(--primary) 50%, transparent)",
       background:
-        "linear-gradient(135deg,hsl(var(--primary)/0.07) 0%,hsl(var(--primary)/0.02) 100%)",
+        "linear-gradient(135deg,color-mix(in srgb, var(--primary) 7%, transparent) 0%,color-mix(in srgb, var(--primary) 2%, transparent) 100%)",
     };
   if (["cancelled"].includes(key))
     return {
-      borderColor: "hsl(var(--border)/0.5)",
-      background: "hsl(var(--muted)/0.3)",
+      borderColor: "color-mix(in srgb, var(--border) 50%, transparent)",
+      background: "color-mix(in srgb, var(--muted) 30%, transparent)",
     };
   return {
-    borderColor: "hsl(var(--border)/0.4)",
-    background: "hsl(var(--card)/0.8)",
+    borderColor: "color-mix(in srgb, var(--border) 40%, transparent)",
+    background: "color-mix(in srgb, var(--card) 80%, transparent)",
   };
 }
 
@@ -153,11 +153,11 @@ const JobNode = memo(({ data }: NodeProps) => {
         type="target"
         position={Position.Left}
         style={{
-          background: "hsl(var(--border))",
+          background: "var(--border)",
           width: 10,
           height: 10,
           borderWidth: 2,
-          borderColor: "hsl(var(--background))",
+          borderColor: "var(--background)",
         }}
       />
 
@@ -169,7 +169,7 @@ const JobNode = memo(({ data }: NodeProps) => {
           gap: 8,
           padding: "10px 12px",
           borderBottom:
-            job.steps.length > 0 ? "1px solid hsl(var(--border)/0.2)" : "none",
+            job.steps.length > 0 ? "1px solid color-mix(in srgb, var(--border) 20%, transparent)" : "none",
         }}
       >
         <NodeStatusIcon status={job.status} conclusion={job.conclusion} size={16} />
@@ -181,7 +181,7 @@ const JobNode = memo(({ data }: NodeProps) => {
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            color: "hsl(var(--foreground))",
+            color: "var(--foreground)",
           }}
         >
           {job.name}
@@ -191,7 +191,7 @@ const JobNode = memo(({ data }: NodeProps) => {
             style={{
               fontFamily: "ui-monospace, monospace",
               fontSize: 11,
-              color: "hsl(var(--muted-foreground))",
+              color: "var(--muted-foreground)",
               flexShrink: 0,
             }}
           >
@@ -221,7 +221,7 @@ const JobNode = memo(({ data }: NodeProps) => {
               <span
                 style={{
                   fontSize: 11,
-                  color: "hsl(var(--muted-foreground))",
+                  color: "var(--muted-foreground)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -235,7 +235,7 @@ const JobNode = memo(({ data }: NodeProps) => {
                   style={{
                     fontFamily: "ui-monospace, monospace",
                     fontSize: 10,
-                    color: "hsl(var(--muted-foreground)/0.6)",
+                    color: "color-mix(in srgb, var(--muted-foreground) 60%, transparent)",
                     flexShrink: 0,
                   }}
                 >
@@ -248,7 +248,7 @@ const JobNode = memo(({ data }: NodeProps) => {
             <div
               style={{
                 fontSize: 11,
-                color: "hsl(var(--muted-foreground)/0.6)",
+                color: "color-mix(in srgb, var(--muted-foreground) 60%, transparent)",
                 paddingTop: 2,
               }}
             >
@@ -262,11 +262,11 @@ const JobNode = memo(({ data }: NodeProps) => {
         type="source"
         position={Position.Right}
         style={{
-          background: "hsl(var(--border))",
+          background: "var(--border)",
           width: 10,
           height: 10,
           borderWidth: 2,
-          borderColor: "hsl(var(--background))",
+          borderColor: "var(--background)",
         }}
       />
     </div>
@@ -337,7 +337,7 @@ function computeLayout(jobs: WorkflowJob[]): {
                   ? "rgba(239,68,68,0.4)"
                   : key === "success"
                     ? "rgba(34,197,94,0.4)"
-                    : "hsl(var(--border))",
+                    : "var(--border)",
               strokeWidth: 2,
             },
           });
@@ -398,13 +398,13 @@ export function CiWorkflowGraph({ jobs }: { jobs: WorkflowJob[] }) {
           variant={BackgroundVariant.Dots}
           gap={16}
           size={1}
-          color="hsl(var(--border)/0.5)"
+          color="color-mix(in srgb, var(--border) 50%, transparent)"
         />
         <Controls
           showInteractive={false}
           style={{
-            background: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
             borderRadius: 8,
           }}
         />
@@ -417,13 +417,13 @@ export function CiWorkflowGraph({ jobs }: { jobs: WorkflowJob[] }) {
             if (["failure", "failed", "timed_out", "error"].includes(key))
               return "rgba(239,68,68,0.6)";
             if (["in_progress", "queued", "pending"].includes(key))
-              return "hsl(var(--primary)/0.6)";
-            return "hsl(var(--muted-foreground)/0.3)";
+              return "color-mix(in srgb, var(--primary) 60%, transparent)";
+            return "color-mix(in srgb, var(--muted-foreground) 30%, transparent)";
           }}
-          maskColor="hsl(var(--background)/0.7)"
+          maskColor="color-mix(in srgb, var(--background) 70%, transparent)"
           style={{
-            background: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
             borderRadius: 8,
           }}
         />

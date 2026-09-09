@@ -98,6 +98,54 @@ export function parseClaudeUsage(body: string): ClaudeRateLimits {
   };
 }
 
+export interface RateLimitSignal {
+  bucket: string;
+  resetsAt: number | null;
+  observedAt: number;
+  message: string | null;
+}
+
+export type RateLimitBucketMap = Record<string, RateLimitSignal>;
+
+function fieldValue(raw: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return "";
+}
+
+export function parseRateLimitSignal(
+  raw: Record<string, unknown>,
+  now: number = Date.now(),
+): RateLimitSignal {
+  const bucket = fieldValue(raw, "limit_type", "limitType", "bucket") || "default";
+  let resetsAt = parseResetTimestamp(raw.resets_at ?? raw.resetsAt);
+  if (resetsAt === null) {
+    const retryAfterMs = Number(raw.retry_after_ms ?? raw.retryAfterMs);
+    if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
+      resetsAt = Math.round((now + retryAfterMs) / 1000);
+    }
+  }
+  const message = fieldValue(raw, "message") || null;
+  return { bucket, resetsAt, observedAt: now, message };
+}
+
+export function upsertRateLimitSignal(
+  buckets: RateLimitBucketMap,
+  signal: RateLimitSignal,
+): RateLimitBucketMap {
+  const existing = buckets[signal.bucket];
+  if (existing && existing.resetsAt === signal.resetsAt && existing.message === signal.message) {
+    return buckets;
+  }
+  return { ...buckets, [signal.bucket]: signal };
+}
+
+export function shouldAutoResume(attempted: ReadonlySet<string>, turnId: string): boolean {
+  return !attempted.has(turnId);
+}
+
 export async function fetchClaudeRateLimits(): Promise<ClaudeRateLimits> {
   try {
     const result = await invoke<ClaudeUsageFetch>("fetch_claude_usage");

@@ -19,6 +19,15 @@ import type {
   AgentPluginDetail,
 } from "@/lib/agents/capability-types";
 import type {
+  AgentCapability,
+  AgentProviderAdapter,
+  DriverKind,
+  InstanceId,
+  NativeSessionRef,
+  ThreadId,
+} from "@/lib/agents/types";
+import { driverKind, nativeSessionId as toNativeSessionId } from "@/lib/agents/types";
+import type {
   AgentApprovalPolicy,
   AgentAccountUsage,
   AgentApp,
@@ -747,3 +756,75 @@ export type CodexTurnPreferences = {
   approvalPolicy?: AgentApprovalPolicy;
   sandboxMode?: AgentSandboxMode;
 };
+
+interface CodexAdapterEntry {
+  client: CodexAgentClient;
+  threadId: string;
+  activeTurnId: string | null;
+}
+
+export class CodexProviderAdapter implements AgentProviderAdapter {
+  readonly driver: DriverKind = driverKind("codex");
+  private readonly entries = new Map<string, CodexAdapterEntry>();
+
+  async start(instance: InstanceId): Promise<NativeSessionRef> {
+    const sessionId = `codex:${instance}:${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const client = new CodexAgentClient(sessionId);
+    await client.connect();
+    const runtime = await client.startThread({ cwd: String(instance) });
+    this.entries.set(sessionId, { client, threadId: runtime.thread.id, activeTurnId: null });
+    return { driver: this.driver, instance, nativeSessionId: toNativeSessionId(sessionId) };
+  }
+
+  async send(threadId: ThreadId, text: string): Promise<void> {
+    const entry = this.requireEntry(threadId);
+    const result = await entry.client.startTurn(
+      entry.threadId,
+      [{ type: "text", text, text_elements: [] }],
+      `l8git-${Date.now().toString(36)}`,
+      {},
+    );
+    entry.activeTurnId = result.turn.id;
+  }
+
+  async interrupt(threadId: ThreadId): Promise<void> {
+    const entry = this.requireEntry(threadId);
+    if (!entry.activeTurnId) return;
+    await entry.client.interrupt(entry.threadId, entry.activeTurnId);
+  }
+
+  async stop(threadId: ThreadId): Promise<void> {
+    const entry = this.entries.get(threadId);
+    if (!entry) return;
+    this.entries.delete(threadId);
+    await entry.client.close();
+  }
+
+  async resume(threadId: ThreadId, ref: NativeSessionRef): Promise<void> {
+    const existing = this.entries.get(threadId);
+    if (existing) return;
+    const client = new CodexAgentClient(ref.nativeSessionId);
+    await client.connect();
+    const runtime = await client.resumeThread(threadId);
+    this.entries.set(threadId, { client, threadId: runtime.thread.id, activeTurnId: null });
+  }
+
+  capability(name: string): AgentCapability {
+    switch (name) {
+      case "history":
+      case "approvals":
+      case "models":
+      case "images":
+      case "tools":
+        return { status: "supported" };
+      default:
+        return { status: "unavailable", reason: `Unbekannte Capability ${name}` };
+    }
+  }
+
+  private requireEntry(threadId: ThreadId): CodexAdapterEntry {
+    const entry = this.entries.get(threadId);
+    if (!entry) throw new Error(`Keine Codex-Session für Thread ${threadId} vorhanden.`);
+    return entry;
+  }
+}

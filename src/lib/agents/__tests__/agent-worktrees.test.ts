@@ -4,6 +4,7 @@ import { installTestPlatform } from "@/lib/agents/__tests__/platform-harness";
 import {
   useAgentWorktreeStore,
   worktreeDisplayName,
+  worktreeSessionOptions,
   worktreeSlug,
   worktreeTargetPath,
 } from "@/lib/agents/agent-worktrees";
@@ -51,6 +52,26 @@ describe("worktreeDisplayName", () => {
   it("returns the last path segment", () => {
     expect(worktreeDisplayName("/a/b/c")).toBe("c");
     expect(worktreeDisplayName("C:\\a\\b")).toBe("b");
+  });
+});
+
+describe("worktreeSessionOptions", () => {
+  beforeEach(() => {
+    useAgentWorktreeStore.setState({ worktrees: {} });
+  });
+
+  it("returns cwd, instanceId and repoPath from the worktree, not the base repo", async () => {
+    invoke.mockResolvedValue("");
+    const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "opts", "claude:custom");
+    expect(worktreeSessionOptions(entry.path)).toEqual({
+      cwd: entry.path,
+      instanceId: "claude:custom",
+      repoPath: "/repo",
+    });
+  });
+
+  it("throws instead of falling back to the main repo when the worktree is missing", () => {
+    expect(() => worktreeSessionOptions("/repo.worktrees/gone")).toThrow(/Unbekannter Worktree/u);
   });
 });
 

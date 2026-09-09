@@ -1,4 +1,5 @@
 import { ArrowUp, Folder, GitBranch, Mic, PieChart } from "lucide-react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState, type KeyboardEvent } from "react";
 
 import { ComposerAddMenu } from "./composer-add-menu";
@@ -12,6 +13,7 @@ import type {
   ComposerPermission,
   ComposerValue,
 } from "./types";
+import { SPRING_PANEL, SPRING_PRESS, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
 export function AgentComposer({
@@ -40,6 +42,7 @@ export function AgentComposer({
   const [effort, setEffort] = useState(models[0]?.efforts?.[1] ?? models[0]?.efforts?.[0]);
   const [permissionId, setPermissionId] = useState(permissions[0]?.id ?? "");
 
+  const reduce = useReducedMotion();
   const canSubmit = text.trim().length > 0;
 
   const submit = () => {
@@ -56,7 +59,12 @@ export function AgentComposer({
   };
 
   return (
-    <div className={cn("w-full max-w-2xl", className)}>
+    <m.div
+      className={cn("w-full max-w-2xl", className)}
+      initial={reduce ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={SPRING_PANEL}
+    >
       {context && (
         <div className="mx-3 flex items-center gap-3 rounded-t-2xl bg-muted/70 px-3 pb-4 pt-2 text-xs text-muted-foreground">
           {context.branch && (
@@ -110,27 +118,42 @@ export function AgentComposer({
               }}
             />
             {onDictate && (
-              <button
+              <m.button
                 type="button"
                 onClick={onDictate}
                 aria-label="Dictate"
-                className="inline-flex size-8 items-center justify-center rounded-full border border-border/60 text-foreground/80 transition-colors hover:bg-muted"
+                whileTap={reduce ? undefined : { scale: 0.92 }}
+                transition={SPRING_PRESS}
+                className="inline-flex size-8 items-center justify-center rounded-full border border-border/60 text-foreground/80 hover:bg-muted"
               >
                 <Mic className="size-4" strokeWidth={1.75} />
-              </button>
+              </m.button>
             )}
-            <button
+            <m.button
               type="button"
               onClick={submit}
               disabled={!canSubmit}
               aria-label="Send"
-              className="inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+              whileTap={reduce || !canSubmit ? undefined : { scale: 0.92 }}
+              animate={{ scale: canSubmit ? 1 : 0.96, opacity: canSubmit ? 1 : 0.4 }}
+              transition={SPRING_SWAP}
+              className="inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40"
             >
-              <ArrowUp className="size-4" strokeWidth={2} />
-            </button>
+              <AnimatePresence mode="wait" initial={false}>
+                <m.span
+                  key={canSubmit ? "ready" : "idle"}
+                  initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                  className="inline-flex"
+                >
+                  <ArrowUp className="size-4" strokeWidth={2} />
+                </m.span>
+              </AnimatePresence>
+            </m.button>
           </div>
         </div>
       </div>
-    </div>
+    </m.div>
   );
 }

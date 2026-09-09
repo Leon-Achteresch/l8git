@@ -2086,6 +2086,7 @@
     "stackBadgeTitle": "{{name}} · pile {{root}} · niveau {{level}}"
   },
   "commitInspect": {
+    "metadata": "Afficher les métadonnées",
     "explainCommit": "Expliquer",
     "changedFiles": "Fichiers modifiés",
     "loadingDetails": "Chargement des détails…",

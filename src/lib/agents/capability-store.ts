@@ -1,5 +1,12 @@
 import { create } from "zustand";
 
+import {
+  mcpReconnectRequired,
+  nextMcpOAuthState,
+  respondsToRequest,
+  validateMcpServerDraft,
+  type McpOAuthState,
+} from "@/lib/agents/capability-hub";
 import type {
   AgentCapabilityApp,
   AgentCapabilityConfig,
@@ -35,6 +42,9 @@ interface AgentCapabilityState {
   apps: AgentCapabilityApp[];
   config: AgentCapabilityConfig | null;
   pluginDetails: Record<string, AgentPluginDetail>;
+  mcpOAuth: Record<string, McpOAuthState>;
+  mcpConfigChangedAt: Record<string, number>;
+  mcpToolRunningSince: Record<string, number>;
   load: (path: string, force?: boolean) => Promise<void>;
   refresh: () => Promise<void>;
   setSkillEnabled: (skill: AgentCapabilitySkill, enabled: boolean) => Promise<void>;
@@ -58,6 +68,10 @@ interface AgentCapabilityState {
   ) => Promise<void>;
   deleteMcpServer: (serverName: string) => Promise<void>;
   loginMcpServer: (serverName: string) => Promise<string>;
+  startMcpOAuth: (serverName: string) => Promise<string>;
+  cancelMcpOAuth: (serverName: string) => void;
+  markMcpToolRunning: (serverName: string) => void;
+  isMcpReconnectRequired: (serverName: string) => boolean;
   readPlugin: (plugin: AgentCapabilityPlugin) => Promise<AgentPluginDetail>;
   installPlugin: (plugin: AgentCapabilityPlugin) => Promise<string[]>;
   uninstallPlugin: (plugin: AgentCapabilityPlugin) => Promise<void>;
@@ -411,6 +425,9 @@ export const useAgentCapabilityStore = create<AgentCapabilityState>((set, get) =
   apps: [],
   config: null,
   pluginDetails: {},
+  mcpOAuth: {},
+  mcpConfigChangedAt: {},
+  mcpToolRunningSince: {},
 
   load: async (path, force = false) => {
     if (!force && get().path === path && get().loadedAt && Date.now() - (get().loadedAt ?? 0) < 20_000) {
@@ -765,15 +782,8 @@ export const useAgentCapabilityStore = create<AgentCapabilityState>((set, get) =
   },
 
   saveMcpServer: async (draft, originalName) => {
-    if (!/^[A-Za-z0-9_-]+$/u.test(draft.name)) {
-      throw new Error("Der MCP-Name darf nur Buchstaben, Zahlen, _ und - enthalten.");
-    }
-    if (draft.transport === "http" && !/^https?:\/\//u.test(draft.url.trim())) {
-      throw new Error("Für HTTP-MCP ist eine gültige http(s)-URL erforderlich.");
-    }
-    if (draft.transport === "stdio" && !draft.command.trim()) {
-      throw new Error("Für STDIO-MCP ist ein Startbefehl erforderlich.");
-    }
+    const issues = validateMcpServerDraft(draft);
+    if (issues.length) throw new Error(issues[0]);
     set({ busyKey: `mcp:${draft.name}` });
     try {
       await withControlClient(async (client) => {
@@ -785,6 +795,9 @@ export const useAgentCapabilityStore = create<AgentCapabilityState>((set, get) =
       });
       const path = get().path;
       if (path) await get().load(path, true);
+      set((state) => ({
+        mcpConfigChangedAt: { ...state.mcpConfigChangedAt, [draft.name]: Date.now() },
+      }));
     } finally {
       set({ busyKey: null });
     }
@@ -801,6 +814,7 @@ export const useAgentCapabilityStore = create<AgentCapabilityState>((set, get) =
         mcpServers: state.mcpServers.map((server) => server.name === serverName
           ? { ...server, config: { ...(server.config ?? {}), enabled } }
           : server),
+        mcpConfigChangedAt: { ...state.mcpConfigChangedAt, [serverName]: Date.now() },
       }));
     } finally {
       set({ busyKey: null });
@@ -855,6 +869,12 @@ export const useAgentCapabilityStore = create<AgentCapabilityState>((set, get) =
       });
       const path = get().path;
       if (path) await get().load(path, true);
+      set((state) => {
+        const { [serverName]: _removed, ...mcpOAuth } = state.mcpOAuth;
+        const { [serverName]: _removedRun, ...mcpToolRunningSince } = state.mcpToolRunningSince;
+        const { [serverName]: _removedChange, ...mcpConfigChangedAt } = state.mcpConfigChangedAt;
+        return { mcpOAuth, mcpToolRunningSince, mcpConfigChangedAt };
+      });
     } finally {
       set({ busyKey: null });
     }
@@ -863,6 +883,50 @@ export const useAgentCapabilityStore = create<AgentCapabilityState>((set, get) =
   loginMcpServer: async (serverName) => withControlClient(async (client) => (
     await client.loginMcpServer(serverName)
   ).authorizationUrl),
+
+  startMcpOAuth: async (serverName) => {
+    const startedState = nextMcpOAuthState(get().mcpOAuth[serverName], "start");
+    const requestId = startedState.requestId;
+    set((state) => ({ mcpOAuth: { ...state.mcpOAuth, [serverName]: startedState } }));
+    try {
+      const url = await get().loginMcpServer(serverName);
+      if (!respondsToRequest(get().mcpOAuth[serverName], requestId)) return url;
+      set((state) => ({
+        mcpOAuth: {
+          ...state.mcpOAuth,
+          [serverName]: nextMcpOAuthState(state.mcpOAuth[serverName], "authorized"),
+        },
+      }));
+      return url;
+    } catch (error) {
+      if (respondsToRequest(get().mcpOAuth[serverName], requestId)) {
+        set((state) => ({
+          mcpOAuth: { ...state.mcpOAuth, [serverName]: { status: "needsAuth", requestId } },
+        }));
+      }
+      throw error;
+    }
+  },
+
+  cancelMcpOAuth: (serverName) => {
+    set((state) => ({
+      mcpOAuth: { ...state.mcpOAuth, [serverName]: nextMcpOAuthState(state.mcpOAuth[serverName], "cancel") },
+    }));
+  },
+
+  markMcpToolRunning: (serverName) => {
+    set((state) => ({
+      mcpToolRunningSince: { ...state.mcpToolRunningSince, [serverName]: Date.now() },
+    }));
+  },
+
+  isMcpReconnectRequired: (serverName) => {
+    const state = get();
+    return mcpReconnectRequired(
+      state.mcpToolRunningSince[serverName] ?? null,
+      state.mcpConfigChangedAt[serverName] ?? null,
+    );
+  },
 
   readPlugin: async (plugin) => {
     const cached = get().pluginDetails[plugin.id];

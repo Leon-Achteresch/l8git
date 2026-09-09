@@ -1,7 +1,9 @@
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 
 import { ComposerMenu, ComposerMenuLabel } from "./composer-menu";
 import type { ComposerPermission } from "./types";
+import { SPRING_PRESS, SPRING_SWAP } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
 export function ComposerPermissionMenu({
@@ -13,6 +15,7 @@ export function ComposerPermissionMenu({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const reduce = useReducedMotion();
   const [open, setOpen] = useState(false);
   const active = permissions.find(p => p.id === value) ?? permissions[0];
 
@@ -33,24 +36,36 @@ export function ComposerPermissionMenu({
     >
       <ComposerMenuLabel>Permissions</ComposerMenuLabel>
       {permissions.map(permission => (
-        <button
+        <m.button
           key={permission.id}
           type="button"
           onClick={() => {
             onChange(permission.id);
             setOpen(false);
           }}
+          whileTap={reduce ? undefined : { scale: 0.98 }}
+          transition={SPRING_PRESS}
           className={cn(
-            "flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-muted",
+            "flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-muted",
             permission.id === value && "bg-muted",
           )}
         >
-          <permission.icon className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+          <AnimatePresence mode="wait" initial={false}>
+            <m.span
+              key={permission.id === value ? "on" : "off"}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={SPRING_SWAP}
+              className="mt-0.5 inline-flex"
+            >
+              <permission.icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+            </m.span>
+          </AnimatePresence>
           <span className="min-w-0">
             <span className="block text-sm font-medium">{permission.label}</span>
             <span className="block text-xs text-muted-foreground">{permission.hint}</span>
           </span>
-        </button>
+        </m.button>
       ))}
     </ComposerMenu>
   );

@@ -128,14 +128,14 @@ export function CiDetailPanel({
   }, [loadJobs]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="ci-detail flex h-full min-h-0 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="shrink-0 border-b border-border/50 px-4 py-3">
+      <div className="shrink-0 border-b border-border/60 bg-background px-5 py-5">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             {/* Workflow name + run number */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate text-sm font-bold text-foreground">
+              <span className="truncate text-xl font-semibold tracking-tight text-foreground">
                 {run.name}
               </span>
               <span className="font-mono text-xs text-muted-foreground/70">
@@ -211,7 +211,7 @@ export function CiDetailPanel({
               variant="ghost"
               size="icon-sm"
               onClick={onClose}
-              title="Close"
+              title={t("ci.closeDetails")}
             >
               <X />
             </Button>
@@ -232,7 +232,7 @@ export function CiDetailPanel({
           </TabsTrigger>
           <TabsTrigger value="yaml">
             <FileCode2 />
-            Workflow-Datei
+            {t("ci.workflowFile")}
             {yamlFile && (
               <Badge variant="secondary" className="font-mono">
                 {yamlFile}

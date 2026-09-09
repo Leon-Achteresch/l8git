@@ -53,6 +53,27 @@ export function flattenThreads(threads: SidebarThread[]): FlatItem[] {
   return flat;
 }
 
+export function filterThreads(
+  threads: SidebarThread[],
+  options: { query?: string; showArchived?: boolean },
+): SidebarThread[] {
+  const query = (options.query ?? "").trim().toLowerCase();
+  const showArchived = options.showArchived ?? false;
+  return threads
+    .filter((thread) => showArchived || !thread.archived)
+    .filter((thread) => {
+      if (!query) return true;
+      return (
+        thread.title.toLowerCase().includes(query) ||
+        thread.preview.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      if (!!a.isPinned !== !!b.isPinned) return a.isPinned ? -1 : 1;
+      return b.updatedAt - a.updatedAt;
+    });
+}
+
 export function repoThreadPaths(
   selectedPath: string,
   worktrees: Record<string, { basePath: string }>,

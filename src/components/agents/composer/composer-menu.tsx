@@ -1,6 +1,8 @@
+import { m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SPRING_PRESS } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
 export function ComposerMenu({
@@ -56,12 +58,15 @@ export function ComposerMenuItem({
   trailing?: ReactNode;
   onClick?: () => void;
 }) {
+  const reduce = useReducedMotion();
   return (
-    <button
+    <m.button
       type="button"
       onClick={onClick}
+      whileTap={reduce ? undefined : { scale: 0.98 }}
+      transition={SPRING_PRESS}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-colors outline-none",
+        "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm outline-none",
         "hover:bg-muted focus-visible:bg-muted",
         selected && "bg-muted",
       )}
@@ -72,6 +77,6 @@ export function ComposerMenuItem({
         {hint && <span className="ml-2 text-muted-foreground">{hint}</span>}
       </span>
       {trailing}
-    </button>
+    </m.button>
   );
 }

@@ -1,0 +1,3 @@
+{"type":"system","subtype":"task_started","task_id":"task-fixture-001","description":"Fixture-Aufgabe gestartet"}
+{"type":"system","subtype":"task_progress","task_id":"task-fixture-001","progress":0.5,"message":"Fixture-Aufgabe läuft"}
+{"type":"system","subtype":"task_notification","task_id":"task-fixture-001","message":"Fixture-Aufgabe Hinweis"}

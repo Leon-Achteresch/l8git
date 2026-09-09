@@ -1799,6 +1799,22 @@
     "mergeBusy": "Wird zusammengeführt …"
   },
   "ci": {
+    "searchRuns": "Runs, Commits, Branches suchen…",
+    "clearSearch": "Suche löschen",
+    "viewOptions": "Darstellung",
+    "allWorkflows": "Alle Workflows",
+    "allBranches": "Alle Branches",
+    "sortRuns": "Runs sortieren",
+    "newestFirst": "Neueste zuerst",
+    "oldestFirst": "Älteste zuerst",
+    "compactView": "Kompakte Zeilen",
+    "showMetadata": "Metadaten anzeigen",
+    "viewSaved": "Für dieses Repository gespeichert",
+    "runCount": "{{count}} Runs",
+    "resetFilters": "Filter zurücksetzen",
+    "noMatchingRuns": "Keine Runs für diese Filter.",
+    "closeDetails": "Details schließen",
+    "workflowFile": "Workflow-Datei",
     "emptyProviderHint": "Workflow-Runs brauchen ein verbundenes Git-Konto mit CI-Zugriff.",
     "emptyChecksHint": "Checks erscheinen, sobald ein verbundener Provider den HEAD-Commit prüft.",
     "emptyProviderAction": "Git-Konto verbinden",
@@ -2086,6 +2102,7 @@
     "stackBadgeTitle": "{{name}} · Stack {{root}} · Ebene {{level}}"
   },
   "commitInspect": {
+    "metadata": "Metadaten anzeigen",
     "explainCommit": "Erklären",
     "changedFiles": "Geänderte Dateien",
     "loadingDetails": "Lade Details …",

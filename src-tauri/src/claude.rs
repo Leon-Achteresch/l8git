@@ -1,14 +1,97 @@
+use std::collections::VecDeque;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::process::{Child, Stdio};
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::agent_transport::redact;
 use crate::cmd::cli_command;
 use crate::shell::resolve_cli_path;
+
+const RECENT_STDERR_CAPACITY: usize = 20;
+
+fn recent_stderr_buffer() -> &'static Mutex<VecDeque<String>> {
+    static BUF: OnceLock<Mutex<VecDeque<String>>> = OnceLock::new();
+    BUF.get_or_init(|| Mutex::new(VecDeque::with_capacity(RECENT_STDERR_CAPACITY)))
+}
+
+fn record_stderr(raw: &str) {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    let mut buffer = recent_stderr_buffer().lock().unwrap_or_else(|e| e.into_inner());
+    if buffer.len() >= RECENT_STDERR_CAPACITY {
+        buffer.pop_front();
+    }
+    buffer.push_back(redact(trimmed));
+}
+
+fn recent_stderr_snapshot() -> Vec<String> {
+    recent_stderr_buffer()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+        .cloned()
+        .collect()
+}
+
+fn login_process_key(config_dir: Option<&str>) -> String {
+    config_dir.map(str::trim).filter(|value| !value.is_empty()).unwrap_or("").to_string()
+}
+
+fn login_processes() -> &'static Mutex<std::collections::HashMap<String, Child>> {
+    static MAP: OnceLock<Mutex<std::collections::HashMap<String, Child>>> = OnceLock::new();
+    MAP.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+fn stop_login_process(child: &mut Child) {
+    if child.try_wait().ok().flatten().is_some() {
+        return;
+    }
+    #[cfg(unix)]
+    {
+        let pid = child.id() as i32;
+        unsafe { libc::kill(-pid, libc::SIGTERM) };
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = child.kill();
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        if child.try_wait().ok().flatten().is_some() {
+            return;
+        }
+        if std::time::Instant::now() >= deadline {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    #[cfg(unix)]
+    {
+        let pid = child.id() as i32;
+        unsafe { libc::kill(-pid, libc::SIGKILL) };
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn stop_login_process_for(config_dir: Option<&str>) {
+    let key = login_process_key(config_dir);
+    let mut child = {
+        let mut processes = login_processes().lock().unwrap_or_else(|e| e.into_inner());
+        processes.remove(&key)
+    };
+    if let Some(child) = child.as_mut() {
+        stop_login_process(child);
+    }
+}
 
 fn skip_zero(value: &u32) -> bool {
     *value == 0
@@ -77,10 +160,17 @@ fn unix_seconds(value: Result<SystemTime, std::io::Error>) -> u64 {
         .unwrap_or(0)
 }
 
-fn claude_projects_dir() -> Result<PathBuf, String> {
-    dirs::home_dir()
-        .map(|home| home.join(".claude").join("projects"))
-        .ok_or_else(|| "Claude-Projektverzeichnis konnte nicht bestimmt werden.".into())
+fn claude_home_dir(config_dir: Option<&str>) -> Result<PathBuf, String> {
+    match config_dir.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => Ok(PathBuf::from(value)),
+        None => dirs::home_dir()
+            .map(|home| home.join(".claude"))
+            .ok_or_else(|| "Claude-Konfigurationsverzeichnis konnte nicht bestimmt werden.".into()),
+    }
+}
+
+fn claude_projects_dir(config_dir: Option<&str>) -> Result<PathBuf, String> {
+    Ok(claude_home_dir(config_dir)?.join("projects"))
 }
 
 fn project_dir_name(path: &str) -> String {
@@ -518,11 +608,11 @@ fn read_session_cwd(file_path: &Path) -> Option<String> {
     None
 }
 
-fn session_file(session_id: &str, path: &str) -> Result<PathBuf, String> {
+fn session_file(session_id: &str, path: &str, config_dir: Option<&str>) -> Result<PathBuf, String> {
     if !valid_session_id(session_id) {
         return Err("Ungültige Claude-Session-ID.".into());
     }
-    let projects = claude_projects_dir()?;
+    let projects = claude_projects_dir(config_dir)?;
     let direct = projects.join(project_dir_name(path)).join(format!("{session_id}.jsonl"));
     if is_regular_file(&direct) && read_session_cwd(&direct).as_deref() == Some(path) {
         return Ok(direct);
@@ -563,9 +653,12 @@ fn cached_summary(
 }
 
 #[tauri::command]
-pub async fn claude_list_sessions(paths: Vec<String>) -> Result<Vec<ClaudeSessionSummary>, String> {
+pub async fn claude_list_sessions(
+    paths: Vec<String>,
+    config_dir: Option<String>,
+) -> Result<Vec<ClaudeSessionSummary>, String> {
     tokio::task::spawn_blocking(move || {
-        let projects = claude_projects_dir()?;
+        let projects = claude_projects_dir(config_dir.as_deref())?;
         if !projects.is_dir() {
             return Ok(Vec::new());
         }
@@ -623,9 +716,13 @@ pub async fn claude_list_sessions(paths: Vec<String>) -> Result<Vec<ClaudeSessio
 }
 
 #[tauri::command]
-pub async fn claude_read_session(path: String, session_id: String) -> Result<ClaudeSessionTranscript, String> {
+pub async fn claude_read_session(
+    path: String,
+    session_id: String,
+    config_dir: Option<String>,
+) -> Result<ClaudeSessionTranscript, String> {
     tokio::task::spawn_blocking(move || {
-        let file_path = session_file(&session_id, &path)?;
+        let file_path = session_file(&session_id, &path, config_dir.as_deref())?;
         let metadata = fs::metadata(&file_path).map_err(|error| error.to_string())?;
         let summary = cached_summary(
             &file_path,
@@ -654,13 +751,18 @@ pub async fn claude_read_session(path: String, session_id: String) -> Result<Cla
 }
 
 #[tauri::command]
-pub async fn claude_rename_session(path: String, session_id: String, title: String) -> Result<(), String> {
+pub async fn claude_rename_session(
+    path: String,
+    session_id: String,
+    title: String,
+    config_dir: Option<String>,
+) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
         let title = title.trim();
         if title.is_empty() || title.len() > 300 || title.chars().any(char::is_control) {
             return Err("Ungültiger Claude-Unterhaltungstitel.".into());
         }
-        let file_path = session_file(&session_id, &path)?;
+        let file_path = session_file(&session_id, &path, config_dir.as_deref())?;
         let mut file = OpenOptions::new()
             .append(true)
             .open(file_path)
@@ -678,13 +780,14 @@ pub async fn claude_rename_session(path: String, session_id: String, title: Stri
 }
 
 #[tauri::command]
-pub async fn claude_delete_session(path: String, session_id: String) -> Result<(), String> {
+pub async fn claude_delete_session(
+    path: String,
+    session_id: String,
+    config_dir: Option<String>,
+) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let file_path = session_file(&session_id, &path)?;
-        let trash = dirs::home_dir()
-            .ok_or_else(|| "Home-Verzeichnis wurde nicht gefunden.".to_string())?
-            .join(".claude")
-            .join("l8git-trash");
+        let file_path = session_file(&session_id, &path, config_dir.as_deref())?;
+        let trash = claude_home_dir(config_dir.as_deref())?.join("l8git-trash");
         fs::create_dir_all(&trash).map_err(|error| error.to_string())?;
         let target = trash.join(format!("{}-{session_id}.jsonl", unix_seconds(Ok(SystemTime::now()))));
         fs::rename(file_path, target).map_err(|error| error.to_string())
@@ -693,7 +796,7 @@ pub async fn claude_delete_session(path: String, session_id: String) -> Result<(
     .map_err(|error| error.to_string())?
 }
 
-fn claude_json(args: &[&str], cwd: Option<&str>) -> Result<Value, String> {
+fn claude_json(args: &[&str], cwd: Option<&str>, config_dir: Option<&str>) -> Result<Value, String> {
     let executable = resolve_cli_path("claude")
         .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
     let mut command = cli_command(executable);
@@ -704,32 +807,190 @@ fn claude_json(args: &[&str], cwd: Option<&str>) -> Result<Value, String> {
         }
         command.current_dir(cwd);
     }
+    if let Some(config_dir) = config_dir.map(str::trim).filter(|value| !value.is_empty()) {
+        command.env("CLAUDE_CONFIG_DIR", config_dir);
+    }
     let output = command.output().map_err(|error| error.to_string())?;
     if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+        let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        record_stderr(&message);
+        return Err(message);
     }
     serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())
 }
 
+const MIN_TESTED_CLAUDE_VERSION: (u32, u32, u32) = (1, 0, 0);
+
+#[derive(Clone, Serialize, PartialEq, Eq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeVersionStatus {
+    status: &'static str,
+    version: Option<String>,
+    minimum_tested: String,
+}
+
+fn parse_claude_version(raw: &str) -> Option<(u32, u32, u32)> {
+    let digits = raw.trim().split(|c: char| !c.is_ascii_digit() && c != '.').next()?;
+    let mut parts = digits.split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next().unwrap_or("0").parse().ok()?;
+    let patch = parts.next().unwrap_or("0").parse().ok()?;
+    Some((major, minor, patch))
+}
+
+fn claude_version_status_from_output(raw: &str) -> ClaudeVersionStatus {
+    let minimum_tested = format!(
+        "{}.{}.{}",
+        MIN_TESTED_CLAUDE_VERSION.0, MIN_TESTED_CLAUDE_VERSION.1, MIN_TESTED_CLAUDE_VERSION.2
+    );
+    match parse_claude_version(raw) {
+        Some(version) if version >= MIN_TESTED_CLAUDE_VERSION => ClaudeVersionStatus {
+            status: "ok",
+            version: Some(format!("{}.{}.{}", version.0, version.1, version.2)),
+            minimum_tested,
+        },
+        Some(version) => ClaudeVersionStatus {
+            status: "outdated",
+            version: Some(format!("{}.{}.{}", version.0, version.1, version.2)),
+            minimum_tested,
+        },
+        None => ClaudeVersionStatus {
+            status: "unknown",
+            version: None,
+            minimum_tested,
+        },
+    }
+}
+
 #[tauri::command]
-pub async fn claude_auth_status() -> Result<Value, String> {
-    tokio::task::spawn_blocking(|| claude_json(&["auth", "status", "--json"], None))
+pub async fn claude_version_status() -> Result<ClaudeVersionStatus, String> {
+    tokio::task::spawn_blocking(|| {
+        let executable = resolve_cli_path("claude")
+            .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+        let output = cli_command(executable)
+            .arg("--version")
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|error| error.to_string())?;
+        if !output.status.success() {
+            return Ok(claude_version_status_from_output(""));
+        }
+        let raw = String::from_utf8_lossy(&output.stdout);
+        Ok(claude_version_status_from_output(&raw))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[derive(Clone, Serialize, PartialEq, Eq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallOwnerInfo {
+    kind: &'static str,
+    update_command: Option<String>,
+}
+
+fn classify_install_owner(binary_path: &str) -> &'static str {
+    let normalized = binary_path.replace('\\', "/");
+    if normalized.contains("/node_modules/.bin/") || normalized.contains("npm-global") || normalized.contains("/.npm/") {
+        "npm-global"
+    } else if normalized.contains("/opt/homebrew/") || normalized.contains("/usr/local/Cellar/") || normalized.contains("/Cellar/") {
+        "homebrew"
+    } else if normalized.contains("/.claude/local/") || normalized.contains("native-installer") {
+        "native-installer"
+    } else {
+        "unknown"
+    }
+}
+
+fn path_is_writable(path: &Path) -> bool {
+    let target = if path.exists() {
+        path.to_path_buf()
+    } else {
+        match path.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => return false,
+        }
+    };
+    match fs::metadata(&target) {
+        Ok(metadata) => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                metadata.permissions().mode() & 0o200 != 0
+            }
+            #[cfg(not(unix))]
+            {
+                !metadata.permissions().readonly()
+            }
+        }
+        Err(_) => false,
+    }
+}
+
+fn update_command_for_kind(kind: &str) -> Option<String> {
+    match kind {
+        "npm-global" => Some("npm install -g @anthropic-ai/claude-code@latest".to_string()),
+        "homebrew" => Some("brew upgrade claude-code".to_string()),
+        "native-installer" => Some("claude update".to_string()),
+        _ => None,
+    }
+}
+
+fn claude_install_owner_info(binary_path: &str) -> Result<InstallOwnerInfo, String> {
+    let path = PathBuf::from(binary_path.trim());
+    let kind = classify_install_owner(binary_path);
+    if kind == "unknown" {
+        return Err("Unbekannte Installationsquelle: Update kann nicht automatisch ausgeführt werden.".into());
+    }
+    if !path_is_writable(&path) {
+        return Err("Binary-Pfad ist nicht beschreibbar: Update kann nicht ausgeführt werden.".into());
+    }
+    Ok(InstallOwnerInfo {
+        kind,
+        update_command: update_command_for_kind(kind),
+    })
+}
+
+#[tauri::command]
+pub async fn claude_install_owner(binary_path: String) -> Result<InstallOwnerInfo, String> {
+    tokio::task::spawn_blocking(move || claude_install_owner_info(&binary_path))
         .await
         .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
-pub async fn claude_start_login() -> Result<String, String> {
-    tokio::task::spawn_blocking(|| {
+pub async fn claude_auth_status(config_dir: Option<String>) -> Result<Value, String> {
+    tokio::task::spawn_blocking(move || {
+        claude_json(&["auth", "status", "--json"], None, config_dir.as_deref())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_start_login(config_dir: Option<String>) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
         let executable = resolve_cli_path("claude")
             .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
-        cli_command(executable)
-            .args(["auth", "login"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|error| error.to_string())?;
+        stop_login_process_for(config_dir.as_deref());
+        let mut command = cli_command(executable);
+        command.args(["auth", "login"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            unsafe {
+                command.pre_exec(|| {
+                    libc::setpgid(0, 0);
+                    Ok(())
+                });
+            }
+        }
+        if let Some(config_dir) = config_dir.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+            command.env("CLAUDE_CONFIG_DIR", config_dir);
+        }
+        let child = command.spawn().map_err(|error| error.to_string())?;
+        let key = login_process_key(config_dir.as_deref());
+        login_processes().lock().unwrap_or_else(|e| e.into_inner()).insert(key, child);
         Ok(String::new())
     })
     .await
@@ -737,15 +998,232 @@ pub async fn claude_start_login() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn claude_logout() -> Result<(), String> {
-    tokio::task::spawn_blocking(|| {
+pub async fn claude_cancel_login(config_dir: Option<String>) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        stop_login_process_for(config_dir.as_deref());
+        Ok(())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_logout(config_dir: Option<String>) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        stop_login_process_for(config_dir.as_deref());
         let executable = resolve_cli_path("claude")
             .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
-        let status = cli_command(executable)
-            .args(["auth", "logout"])
-            .status()
-            .map_err(|error| error.to_string())?;
-        status.success().then_some(()).ok_or_else(|| "Claude-Abmeldung ist fehlgeschlagen.".into())
+        let mut command = cli_command(executable);
+        command.args(["auth", "logout"]);
+        if let Some(config_dir) = config_dir.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+            command.env("CLAUDE_CONFIG_DIR", config_dir);
+        }
+        let output = command.output().map_err(|error| error.to_string())?;
+        if output.status.success() {
+            return Ok(());
+        }
+        record_stderr(&String::from_utf8_lossy(&output.stderr));
+        Err("Claude-Abmeldung ist fehlgeschlagen.".to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+fn managed_settings_path() -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        Some(PathBuf::from("/Library/Application Support/ClaudeCode/managed-settings.json"))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Some(PathBuf::from("/etc/claude-code/managed-settings.json"))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var_os("ProgramData")
+            .map(|root| PathBuf::from(root).join("ClaudeCode").join("managed-settings.json"))
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        None
+    }
+}
+
+fn read_settings_json(path: &Path) -> Value {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|contents| serde_json::from_str(&contents).ok())
+        .unwrap_or_else(|| json!({}))
+}
+
+fn merge_settings(base: &mut Value, overlay: &Value) {
+    let (Value::Object(base_map), Value::Object(overlay_map)) = (base, overlay) else {
+        return;
+    };
+    for (key, value) in overlay_map {
+        base_map.insert(key.clone(), value.clone());
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsSource {
+    scope: String,
+    path: String,
+    exists: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EffectiveSettings {
+    settings: Value,
+    sources: Vec<SettingsSource>,
+}
+
+fn settings_scope_paths(config_dir: Option<&str>, repo: &str) -> Result<Vec<(&'static str, PathBuf)>, String> {
+    let repo = PathBuf::from(repo.trim());
+    if !repo.is_dir() {
+        return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+    }
+    let mut paths = Vec::new();
+    if let Some(managed) = managed_settings_path() {
+        paths.push(("managed", managed));
+    }
+    paths.push(("user", claude_home_dir(config_dir)?.join("settings.json")));
+    paths.push(("project", repo.join(".claude").join("settings.json")));
+    paths.push(("local", repo.join(".claude").join("settings.local.json")));
+    Ok(paths)
+}
+
+/// Precedence, weakest to strongest: managed < user < project < local.
+/// `managed` still wins per key it defines because it is re-applied last below.
+#[tauri::command]
+pub async fn claude_effective_settings(config_dir: Option<String>, repo: String) -> Result<EffectiveSettings, String> {
+    tokio::task::spawn_blocking(move || {
+        let paths = settings_scope_paths(config_dir.as_deref(), &repo)?;
+        let mut merged = json!({});
+        let mut sources = Vec::new();
+        let mut managed = None;
+        for (scope, path) in &paths {
+            let exists = path.is_file();
+            if exists {
+                let value = read_settings_json(path);
+                if *scope == "managed" {
+                    managed = Some(value.clone());
+                } else {
+                    merge_settings(&mut merged, &value);
+                }
+            }
+            sources.push(SettingsSource {
+                scope: (*scope).to_string(),
+                path: path.to_string_lossy().into_owned(),
+                exists,
+            });
+        }
+        if let Some(managed) = managed {
+            merge_settings(&mut merged, &managed);
+        }
+        Ok(EffectiveSettings { settings: merged, sources })
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn claude_write_settings(
+    scope: String,
+    config_dir: Option<String>,
+    repo: String,
+    json: Value,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        if !json.is_object() {
+            return Err("Settings müssen ein JSON-Objekt sein.".into());
+        }
+        if scope == "managed" {
+            return Err("Managed-Settings sind schreibgeschützt.".into());
+        }
+        let paths = settings_scope_paths(config_dir.as_deref(), &repo)?;
+        let target = paths
+            .into_iter()
+            .find(|(candidate, _)| *candidate == scope)
+            .map(|(_, path)| path)
+            .ok_or_else(|| "Unbekannter Settings-Bereich.".to_string())?;
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let mut existing = read_settings_json(&target);
+        merge_settings(&mut existing, &json);
+        let contents = serde_json::to_vec_pretty(&existing).map_err(|error| error.to_string())?;
+        atomic_write(&target, &contents)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentDiagnosticsReport {
+    binary_path: Option<String>,
+    version: Option<String>,
+    version_status: &'static str,
+    config_dir: String,
+    settings_sources: Vec<SettingsSource>,
+    recent_stderr: Vec<String>,
+    env_keys: Vec<String>,
+}
+
+const DIAGNOSTIC_ENV_PREFIXES: [&str; 2] = ["CLAUDE_", "ANTHROPIC_"];
+
+#[tauri::command]
+pub async fn agent_diagnostics_report(config_dir: Option<String>, repo: Option<String>) -> Result<AgentDiagnosticsReport, String> {
+    tokio::task::spawn_blocking(move || {
+        let binary_path = resolve_cli_path("claude").map(|path| path.to_string_lossy().into_owned());
+        let version_output = binary_path.as_ref().and_then(|_| {
+            resolve_cli_path("claude").and_then(|executable| {
+                cli_command(executable)
+                    .arg("--version")
+                    .stdin(Stdio::null())
+                    .output()
+                    .ok()
+            })
+        });
+        let (version, version_status) = match version_output {
+            Some(output) if output.status.success() => {
+                let raw = String::from_utf8_lossy(&output.stdout);
+                let status = claude_version_status_from_output(&raw);
+                (status.version, status.status)
+            }
+            _ => (None, "unknown"),
+        };
+        let resolved_config_dir = claude_home_dir(config_dir.as_deref())?.to_string_lossy().into_owned();
+        let settings_sources = repo
+            .as_deref()
+            .and_then(|repo| settings_scope_paths(config_dir.as_deref(), repo).ok())
+            .map(|paths| {
+                paths
+                    .into_iter()
+                    .map(|(scope, path)| SettingsSource {
+                        scope: scope.to_string(),
+                        exists: path.is_file(),
+                        path: path.to_string_lossy().into_owned(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let env_keys = std::env::vars()
+            .map(|(key, _)| key)
+            .filter(|key| DIAGNOSTIC_ENV_PREFIXES.iter().any(|prefix| key.starts_with(prefix)))
+            .collect();
+        Ok(AgentDiagnosticsReport {
+            binary_path,
+            version,
+            version_status,
+            config_dir: resolved_config_dir,
+            settings_sources,
+            recent_stderr: recent_stderr_snapshot(),
+            env_keys,
+        })
     })
     .await
     .map_err(|error| error.to_string())?
@@ -754,7 +1232,7 @@ pub async fn claude_logout() -> Result<(), String> {
 #[tauri::command]
 pub async fn claude_list_plugins(path: String) -> Result<Value, String> {
     tokio::task::spawn_blocking(move || {
-        let plugins = claude_json(&["plugin", "list", "--json"], Some(&path))?;
+        let plugins = claude_json(&["plugin", "list", "--json"], Some(&path), None)?;
         let filtered = plugins
             .as_array()
             .into_iter()
@@ -783,7 +1261,7 @@ pub async fn claude_list_skills(path: String) -> Result<Vec<ClaudeSkill>, String
             scan_skills(&home.join(".claude").join("skills"), "user", 0, &mut skills);
         }
         scan_skills(&repo.join(".claude").join("skills"), "project", 0, &mut skills);
-        if let Ok(plugins) = claude_json(&["plugin", "list", "--json"], repo.to_str()) {
+        if let Ok(plugins) = claude_json(&["plugin", "list", "--json"], repo.to_str(), None) {
             for plugin in plugins.as_array().into_iter().flatten() {
                 if plugin.get("enabled").and_then(Value::as_bool) == Some(false) {
                     continue;
@@ -929,6 +1407,33 @@ pub async fn claude_read_capability_file(path: String, file: String) -> Result<S
     .map_err(|error| error.to_string())?
 }
 
+fn atomic_write(target: &Path, contents: &[u8]) -> Result<(), String> {
+    let directory = target
+        .parent()
+        .ok_or_else(|| "Ungültiger Zielpfad.".to_string())?;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp_name = format!(
+        ".{}.{}-{}.tmp",
+        target.file_name().and_then(|name| name.to_str()).unwrap_or("l8git"),
+        std::process::id(),
+        nanos
+    );
+    let tmp_path = directory.join(tmp_name);
+    fs::write(&tmp_path, contents).map_err(|error| error.to_string())?;
+    #[cfg(unix)]
+    if let Ok(metadata) = fs::metadata(target) {
+        let _ = fs::set_permissions(&tmp_path, metadata.permissions());
+    }
+    let result = fs::rename(&tmp_path, target).map_err(|error| error.to_string());
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+    result
+}
+
 #[tauri::command]
 pub async fn claude_write_capability_file(
     path: String,
@@ -940,7 +1445,7 @@ pub async fn claude_write_capability_file(
         if !is_regular_file(&target) {
             return Err("Nur reguläre Dateien können geschrieben werden.".into());
         }
-        fs::write(target, contents).map_err(|error| error.to_string())
+        atomic_write(&target, contents.as_bytes())
     })
     .await
     .map_err(|error| error.to_string())?
@@ -1003,7 +1508,11 @@ pub async fn claude_set_hook_disabled(
             object.remove("disabled");
         }
         let serialized = serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
-        fs::write(target, format!("{serialized}\n")).map_err(|error| error.to_string())
+        let current = fs::read(&target).map_err(|error| error.to_string())?;
+        if current != contents {
+            return Err("Datei wurde zwischenzeitlich geändert.".into());
+        }
+        atomic_write(&target, format!("{serialized}\n").as_bytes())
     })
     .await
     .map_err(|error| error.to_string())?
@@ -1110,11 +1619,57 @@ pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::{
-        hooks_from_file, managed_path, project_dir_name, sanitize_entry, scan_skills,
-        summarize_file, summary_preview, BARE_CAVEAT_PREFIX, SUMMARY_EDGE_BYTES,
+        atomic_write, claude_install_owner_info, claude_version_status_from_output, classify_install_owner,
+        hooks_from_file, login_process_key, managed_path, merge_settings, parse_claude_version, project_dir_name,
+        record_stderr, recent_stderr_snapshot, sanitize_entry, scan_skills, settings_scope_paths, summarize_file,
+        summary_preview, BARE_CAVEAT_PREFIX, SUMMARY_EDGE_BYTES,
     };
+    use serde_json::json;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn atomic_write_replaces_contents_without_leaving_a_temp_file() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("l8git-atomic-{suffix}"));
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("settings.json");
+        fs::write(&target, "{\"old\":true}").unwrap();
+
+        atomic_write(&target, b"{\"new\":true}").unwrap();
+
+        assert_eq!(fs::read_to_string(&target).unwrap(), "{\"new\":true}");
+        let leftovers: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.path() != target)
+            .collect();
+        assert!(leftovers.is_empty(), "no temp file should remain: {leftovers:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_preserves_existing_file_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("l8git-atomic-perm-{suffix}"));
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("settings.local.json");
+        fs::write(&target, "{\"old\":true}").unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o600)).unwrap();
+
+        atomic_write(&target, b"{\"new\":true}").unwrap();
+
+        let mode = fs::metadata(&target).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
 
     #[test]
     fn managed_path_only_accepts_dot_claude_files() {
@@ -1323,5 +1878,116 @@ mod tests {
         fs::remove_dir(skill_dir).unwrap();
         fs::remove_dir(directory.join("skills")).unwrap();
         fs::remove_dir(directory).unwrap();
+    }
+
+    #[test]
+    fn version_status_reports_ok_for_current_versions() {
+        let status = claude_version_status_from_output("2.4.10 (Claude Code)");
+        assert_eq!(status.status, "ok");
+        assert_eq!(status.version.as_deref(), Some("2.4.10"));
+    }
+
+    #[test]
+    fn version_status_reports_outdated_for_versions_below_minimum() {
+        let status = claude_version_status_from_output("0.9.5\n");
+        assert_eq!(status.status, "outdated");
+        assert_eq!(status.version.as_deref(), Some("0.9.5"));
+    }
+
+    #[test]
+    fn version_status_reports_unknown_for_unparseable_output() {
+        let status = claude_version_status_from_output("");
+        assert_eq!(status.status, "unknown");
+        assert_eq!(status.version, None);
+    }
+
+    #[test]
+    fn parses_bare_major_minor_versions() {
+        assert_eq!(parse_claude_version("1.2"), Some((1, 2, 0)));
+    }
+
+    #[test]
+    fn login_process_key_scopes_by_config_dir_and_defaults_when_empty() {
+        assert_eq!(login_process_key(Some("/tmp/l8git-account-a")), "/tmp/l8git-account-a");
+        assert_eq!(login_process_key(Some("  ")), "");
+        assert_eq!(login_process_key(None), "");
+        assert_ne!(login_process_key(Some("/tmp/a")), login_process_key(Some("/tmp/b")));
+    }
+
+    #[test]
+    fn effective_settings_merge_precedence_is_user_then_project_then_local() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let repo = std::env::temp_dir().join(format!("l8git-settings-{suffix}"));
+        let claude_dir = repo.join(".claude");
+        fs::create_dir_all(&claude_dir).unwrap();
+        fs::write(claude_dir.join("settings.json"), r#"{"model":"project","foo":"bar"}"#).unwrap();
+        fs::write(claude_dir.join("settings.local.json"), r#"{"model":"local"}"#).unwrap();
+
+        let paths = settings_scope_paths(None, repo.to_str().unwrap()).unwrap();
+        assert!(paths.iter().any(|(scope, _)| *scope == "user"));
+        assert!(paths.iter().any(|(scope, _)| *scope == "project"));
+        assert!(paths.iter().any(|(scope, _)| *scope == "local"));
+
+        let mut merged = json!({});
+        for (scope, path) in &paths {
+            if *scope == "managed" || !path.is_file() {
+                continue;
+            }
+            let value: serde_json::Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+            merge_settings(&mut merged, &value);
+        }
+        assert_eq!(merged["model"], "local");
+        assert_eq!(merged["foo"], "bar");
+
+        fs::remove_dir_all(&repo).ok();
+    }
+
+    #[test]
+    fn recent_stderr_is_redacted_and_capped() {
+        record_stderr("Authorization: Bearer sk-ant-secretvalue1234567890");
+        let snapshot = recent_stderr_snapshot();
+        let last = snapshot.last().unwrap();
+        assert!(!last.contains("sk-ant-secretvalue1234567890"));
+    }
+
+    #[test]
+    fn classify_install_owner_recognizes_known_locations() {
+        assert_eq!(classify_install_owner("/home/user/.npm-global/bin/claude"), "npm-global");
+        assert_eq!(classify_install_owner("/usr/lib/node_modules/.bin/claude"), "npm-global");
+        assert_eq!(classify_install_owner("/opt/homebrew/bin/claude"), "homebrew");
+        assert_eq!(classify_install_owner("/usr/local/Cellar/claude-code/1.0.0/bin/claude"), "homebrew");
+        assert_eq!(classify_install_owner("/home/user/.claude/local/claude"), "native-installer");
+        assert_eq!(classify_install_owner("/opt/weird/place/claude"), "unknown");
+    }
+
+    #[test]
+    fn install_owner_info_rejects_unknown_and_unwritable_paths() {
+        let unknown = claude_install_owner_info("/opt/weird/place/claude");
+        assert!(unknown.is_err());
+
+        let suffix = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let dir = std::env::temp_dir().join(format!("l8git-owner-{suffix}"));
+        fs::create_dir_all(&dir).unwrap();
+        let bin = dir.join(".npm-global").join("bin").join("claude");
+        fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        fs::write(&bin, b"#!/bin/sh\n").unwrap();
+
+        let info = claude_install_owner_info(bin.to_str().unwrap()).unwrap();
+        assert_eq!(info.kind, "npm-global");
+        assert!(info.update_command.is_some());
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin, fs::Permissions::from_mode(0o444)).unwrap();
+            let readonly = claude_install_owner_info(bin.to_str().unwrap());
+            assert!(readonly.is_err());
+            fs::set_permissions(&bin, fs::Permissions::from_mode(0o644)).unwrap();
+        }
+
+        fs::remove_dir_all(&dir).ok();
     }
 }

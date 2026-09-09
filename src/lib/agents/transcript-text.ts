@@ -1,3 +1,5 @@
+import { transcriptSchemaHeader } from "@/lib/agents/transcript-schema";
+
 /**
  * Claude Code writes protocol scaffolding into the plain-text content of user
  * transcript entries: slash commands become `<command-name>` blocks, their
@@ -115,6 +117,10 @@ export function transcriptPlainText(raw: string): string {
   if (parsed.text) return parsed.text;
   if (parsed.command) return [parsed.command, parsed.commandArgs].filter(Boolean).join(" ");
   return "";
+}
+
+export function exportTranscriptText(raw: string): string {
+  return `${transcriptSchemaHeader()}\n${transcriptPlainText(raw)}`;
 }
 
 /** True when a message consists solely of CLI scaffolding. */

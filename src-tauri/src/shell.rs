@@ -272,8 +272,19 @@ fn _save_clipboard_image(bytes: Vec<u8>, ext: String, name: Option<String>) -> R
     Ok(dir.to_string_lossy().into_owned())
 }
 
-#[cfg(target_os = "windows")]
+fn configured_cli_path(name: &str) -> Option<PathBuf> {
+    let key = format!("L8GIT_{}_CLI_PATH", name.to_ascii_uppercase());
+    let configured = std::env::var_os(key)?;
+    let p = PathBuf::from(configured);
+    p.is_file().then(|| canonicalize_or_self(p))
+}
+
 pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
+    configured_cli_path(name).or_else(|| resolve_cli_path_from_env(name))
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_cli_path_from_env(name: &str) -> Option<PathBuf> {
     let exts: Vec<String> = std::env::var("PATHEXT")
         .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into())
         .split(';')
@@ -290,6 +301,7 @@ pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
         dirs.push(profile.join(".bun/bin"));
         dirs.push(profile.join(".local/bin"));
         dirs.push(profile.join(".opencode/bin"));
+        dirs.push(profile.join(".claude/local"));
     }
     if let Some(appdata) = std::env::var_os("APPDATA").map(PathBuf::from) {
         dirs.push(appdata.join("npm"));
@@ -298,15 +310,19 @@ pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
         for ext in &exts {
             let candidate = dir.join(format!("{name}{ext}"));
             if candidate.is_file() {
-                return Some(candidate);
+                return Some(canonicalize_or_self(candidate));
             }
         }
     }
     None
 }
 
+fn canonicalize_or_self(path: PathBuf) -> PathBuf {
+    path.canonicalize().unwrap_or(path)
+}
+
 #[cfg(not(target_os = "windows"))]
-pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
+fn resolve_cli_path_from_env(name: &str) -> Option<PathBuf> {
     use std::os::unix::fs::PermissionsExt;
     let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
         .map(|p| std::env::split_paths(&p).collect())
@@ -317,6 +333,7 @@ pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
         dirs.push(home.join(".local/bin"));
         dirs.push(home.join(".bun/bin"));
         dirs.push(home.join(".npm-global/bin"));
+        dirs.push(home.join(".claude/local"));
     }
     dirs.push(PathBuf::from("/opt/homebrew/bin"));
     dirs.push(PathBuf::from("/usr/local/bin"));
@@ -324,7 +341,7 @@ pub(crate) fn resolve_cli_path(name: &str) -> Option<PathBuf> {
         let p = dir.join(name);
         if let Ok(md) = p.metadata() {
             if md.is_file() && md.permissions().mode() & 0o111 != 0 {
-                return Some(p);
+                return Some(canonicalize_or_self(p));
             }
         }
     }
@@ -383,4 +400,64 @@ fn _open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
     cmd.spawn()
         .map_err(|e| format!("IDE konnte nicht gestartet werden: {e}"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[cfg(not(target_os = "windows"))]
+    fn make_executable(path: &PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(path, b"#!/bin/sh\n").unwrap();
+        let mut perms = std::fs::metadata(path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(path, perms).unwrap();
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn resolve_cli_path_finds_binaries_via_path() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let dir = std::env::temp_dir().join(format!("l8t-resolve-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let bin = dir.join("l8t-fake-cli");
+        make_executable(&bin);
+        let old_path = std::env::var_os("PATH");
+        std::env::set_var("PATH", &dir);
+        let resolved = resolve_cli_path("l8t-fake-cli");
+        if let Some(old) = old_path {
+            std::env::set_var("PATH", old);
+        } else {
+            std::env::remove_var("PATH");
+        }
+        std::fs::remove_dir_all(&dir).ok();
+        assert!(resolved.is_some());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn resolve_cli_path_prefers_configured_override() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let dir = std::env::temp_dir().join(format!("l8t-resolve-cfg-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let bin = dir.join("l8t-configured-cli");
+        make_executable(&bin);
+        let key = "L8GIT_L8T-CONFIGURED-CLI_CLI_PATH";
+        std::env::set_var(key, &bin);
+        let resolved = resolve_cli_path("l8t-configured-cli");
+        let expected = bin.canonicalize().unwrap();
+        std::env::remove_var(key);
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(resolved, Some(expected));
+    }
+
+    #[test]
+    fn resolve_cli_path_returns_none_for_unknown_binary() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        assert!(resolve_cli_path("l8t-definitely-not-a-real-binary").is_none());
+    }
 }

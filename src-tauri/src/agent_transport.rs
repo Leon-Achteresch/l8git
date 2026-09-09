@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -51,22 +51,60 @@ struct AgentTransport {
     child: Mutex<Child>,
     #[cfg(windows)]
     job: Mutex<Option<crate::pty::job::PtyJob>>,
-    stdin: Mutex<ChildStdin>,
+    stdin: Mutex<Option<ChildStdin>>,
     closed: AtomicBool,
     sequence: AtomicU64,
 }
+
+const STOP_GRACE_PERIOD: Duration = Duration::from_secs(2);
+const STOP_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 impl AgentTransport {
     fn stop(&self) {
         if self.closed.swap(true, Ordering::AcqRel) {
             return;
         }
+        drop(self.stdin.lock().unwrap().take());
         let mut child = self.child.lock().unwrap();
+        if child.try_wait().ok().flatten().is_some() {
+            #[cfg(windows)]
+            drop(self.job.lock().unwrap().take());
+            return;
+        }
+
+        #[cfg(unix)]
+        {
+            let pid = child.id() as i32;
+            unsafe { libc::kill(-pid, libc::SIGTERM) };
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = child.kill();
+        }
+
+        let deadline = std::time::Instant::now() + STOP_GRACE_PERIOD;
+        loop {
+            if child.try_wait().ok().flatten().is_some() {
+                break;
+            }
+            if std::time::Instant::now() >= deadline {
+                break;
+            }
+            thread::sleep(STOP_POLL_INTERVAL);
+        }
+
         if child.try_wait().ok().flatten().is_none() {
+            #[cfg(unix)]
+            {
+                let pid = child.id() as i32;
+                unsafe { libc::kill(-pid, libc::SIGKILL) };
+            }
             if let Err(error) = child.kill() {
                 log::debug!("agent transport kill returned {error}");
             }
+            let _ = child.wait();
         }
+
         #[cfg(windows)]
         drop(self.job.lock().unwrap().take());
     }
@@ -102,6 +140,8 @@ pub struct AgentTransportOptions {
     add_dirs: Option<Vec<String>>,
     worktree: Option<String>,
     agents_trusted: Option<bool>,
+    config_dir: Option<String>,
+    env: Option<HashMap<String, String>>,
 }
 
 impl AgentTransportOptions {
@@ -187,6 +227,129 @@ fn safe_prompt(value: &str) -> Result<String, String> {
     Ok(value.to_string())
 }
 
+fn resolve_env_value(key: &str, value: &str) -> Result<String, String> {
+    match value.strip_prefix("secret:") {
+        Some(secret_key) => crate::secrets::get_secret(secret_key)?
+            .ok_or_else(|| format!("Secret für Umgebungsvariable {key} wurde nicht gefunden.")),
+        None => Ok(value.to_string()),
+    }
+}
+
+fn apply_instance_env(command: &mut Command, env: &Option<HashMap<String, String>>) -> Result<(), String> {
+    for (key, value) in env.iter().flatten() {
+        let key = safe_argument(key, "Umgebungsvariablenname")?;
+        let resolved = resolve_env_value(&key, value)?;
+        command.env(key, resolved);
+    }
+    Ok(())
+}
+
+fn looks_like_email(word: &str) -> bool {
+    let trimmed = word.trim_matches(|c: char| {
+        !c.is_ascii_alphanumeric() && c != '@' && c != '.' && c != '_' && c != '-' && c != '+'
+    });
+    let Some(at) = trimmed.find('@') else {
+        return false;
+    };
+    let (local, domain) = trimmed.split_at(at);
+    let domain = &domain[1..];
+    !local.is_empty() && domain.len() > 2 && domain.contains('.')
+}
+
+fn looks_like_secret_token(word: &str) -> bool {
+    let trimmed = word.trim_matches(|c: char| {
+        !c.is_ascii_alphanumeric() && c != '-' && c != '_' && c != '.'
+    });
+    if trimmed.len() < 16 {
+        return false;
+    }
+    let has_digit = trimmed.bytes().any(|byte| byte.is_ascii_digit());
+    let has_alpha = trimmed.bytes().any(|byte| byte.is_ascii_alphabetic());
+    has_digit
+        && has_alpha
+        && trimmed
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+}
+
+pub(crate) fn redact(text: &str) -> String {
+    let mut out: Vec<String> = Vec::new();
+    let mut skip_next = false;
+    for word in text.split_whitespace() {
+        if skip_next {
+            out.push("***".to_string());
+            skip_next = false;
+            continue;
+        }
+        let lower = word.to_ascii_lowercase();
+        if lower.contains("secret:") {
+            out.push("secret:***".to_string());
+        } else if lower == "bearer" || lower == "authorization:" {
+            out.push(word.to_string());
+            skip_next = true;
+        } else if looks_like_email(word) {
+            out.push("***@***".to_string());
+        } else if looks_like_secret_token(word) {
+            out.push("***".to_string());
+        } else {
+            out.push(word.to_string());
+        }
+    }
+    out.join(" ")
+}
+
+const MAX_LINE_BYTES: usize = 64 * 1024 * 1024;
+
+enum FramedLine {
+    Line(String),
+    Oversized(usize),
+    Eof,
+}
+
+fn read_framed_line<R: std::io::BufRead>(reader: &mut R) -> std::io::Result<FramedLine> {
+    let mut buffer: Vec<u8> = Vec::new();
+    let mut overflowed = false;
+    loop {
+        let available = match reader.fill_buf() {
+            Ok(available) => available,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) => return Err(error),
+        };
+        if available.is_empty() {
+            break;
+        }
+        let newline = available.iter().position(|byte| *byte == b'\n');
+        let take = newline.map(|pos| pos + 1).unwrap_or(available.len());
+        if !overflowed {
+            if buffer.len() + take > MAX_LINE_BYTES {
+                overflowed = true;
+            } else {
+                buffer.extend_from_slice(&available[..take]);
+            }
+        }
+        reader.consume(take);
+        if newline.is_some() {
+            if overflowed {
+                return Ok(FramedLine::Oversized(buffer.len().max(MAX_LINE_BYTES)));
+            }
+            while buffer.last() == Some(&b'\n') || buffer.last() == Some(&b'\r') {
+                buffer.pop();
+            }
+            return Ok(FramedLine::Line(String::from_utf8_lossy(&buffer).into_owned()));
+        }
+    }
+    if buffer.is_empty() && !overflowed {
+        return Ok(FramedLine::Eof);
+    }
+    if overflowed {
+        return Ok(FramedLine::Oversized(buffer.len().max(MAX_LINE_BYTES)));
+    }
+    while buffer.last() == Some(&b'\n') || buffer.last() == Some(&b'\r') {
+        buffer.pop();
+    }
+    Ok(FramedLine::Line(String::from_utf8_lossy(&buffer).into_owned()))
+}
+
 fn spawn_pumps(
     id: u32,
     transport: &Arc<AgentTransport>,
@@ -199,12 +362,27 @@ fn spawn_pumps(
     thread::Builder::new()
         .name(format!("l8git-agent-{id}-stdout"))
         .spawn(move || {
-            for line in BufReader::new(stdout).lines() {
+            let mut reader = BufReader::new(stdout);
+            loop {
                 let Some(process) = stdout_process.upgrade() else {
                     break;
                 };
-                match line {
-                    Ok(line) => {
+                match read_framed_line(&mut reader) {
+                    Ok(FramedLine::Eof) => break,
+                    Ok(FramedLine::Oversized(size)) => {
+                        let event = stream_event(
+                            &process,
+                            "diagnostic",
+                            serde_json::Value::String(format!(
+                                "Zeile überschreitet das Limit von {MAX_LINE_BYTES} Bytes (gelesen: {size}) und wurde verworfen."
+                            )),
+                        );
+                        if stdout_events.send(event).is_err() {
+                            process.stop();
+                            break;
+                        }
+                    }
+                    Ok(FramedLine::Line(line)) => {
                         let event = match serde_json::from_str(&line) {
                             Ok(payload) => stream_event(&process, "json", payload),
                             Err(error) => stream_event(
@@ -238,16 +416,31 @@ fn spawn_pumps(
     thread::Builder::new()
         .name(format!("l8git-agent-{id}-stderr"))
         .spawn(move || {
-            for line in BufReader::new(stderr).lines() {
+            let mut reader = BufReader::new(stderr);
+            loop {
                 let Some(process) = stderr_process.upgrade() else {
                     break;
                 };
-                match line {
-                    Ok(line) => {
+                match read_framed_line(&mut reader) {
+                    Ok(FramedLine::Eof) => break,
+                    Ok(FramedLine::Oversized(size)) => {
                         let event = stream_event(
                             &process,
                             "diagnostic",
-                            serde_json::Value::String(line),
+                            serde_json::Value::String(format!(
+                                "Zeile überschreitet das Limit von {MAX_LINE_BYTES} Bytes (gelesen: {size}) und wurde verworfen."
+                            )),
+                        );
+                        if stderr_events.send(event).is_err() {
+                            process.stop();
+                            break;
+                        }
+                    }
+                    Ok(FramedLine::Line(line)) => {
+                        let event = stream_event(
+                            &process,
+                            "diagnostic",
+                            serde_json::Value::String(redact(&line)),
                         );
                         if stderr_events.send(event).is_err() {
                             process.stop();
@@ -382,6 +575,7 @@ fn provider_process(
                 .ok_or_else(|| "Codex CLI wurde nicht gefunden.".to_string())?;
             let mut command = cli_command(executable);
             command.args(["app-server", "--listen", "stdio://"]);
+            apply_instance_env(&mut command, &options.env)?;
             Ok((command, "Codex"))
         }
         "claude" => {
@@ -406,7 +600,6 @@ fn provider_process(
             ]);
             if trusted {
                 command.args(["--setting-sources", "user,project,local"]);
-                command.arg("--allow-dangerously-skip-permissions");
             } else {
                 command.args(["--setting-sources", "user"]);
             }
@@ -444,6 +637,9 @@ fn provider_process(
                 } else {
                     mode
                 };
+                if trusted && mode == "bypassPermissions" {
+                    command.arg("--allow-dangerously-skip-permissions");
+                }
                 command.args(["--permission-mode", &mode]);
             }
             if let Some(cwd) = options.cwd.as_deref() {
@@ -453,11 +649,20 @@ fn provider_process(
                 }
                 command.current_dir(cwd);
             }
+            if let Some(config_dir) = options.config_dir.as_deref() {
+                let config_dir = safe_argument(config_dir, "Claude-Konfigurationsverzeichnis")?;
+                command.env("CLAUDE_CONFIG_DIR", config_dir);
+            }
             command.env("CLAUDE_CODE_ENTRYPOINT", "l8git");
             command.env("CLAUDE_AGENT_SDK_CLIENT_APP", "l8git/0.4.0");
+            apply_instance_env(&mut command, &options.env)?;
             Ok((command, "Claude Code"))
         }
-        "cursor" => Ok((cursor_process(options)?, "Cursor CLI")),
+        "cursor" => {
+            let mut command = cursor_process(options)?;
+            apply_instance_env(&mut command, &options.env)?;
+            Ok((command, "Cursor CLI"))
+        }
         "opencode" => {
             let executable = resolve_cli_path("opencode")
                 .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
@@ -472,6 +677,7 @@ fn provider_process(
                 }
                 command.current_dir(cwd);
             }
+            apply_instance_env(&mut command, &options.env)?;
             Ok((command, "OpenCode"))
         }
         _ => Err(format!("Unbekannter Agent-Provider: {provider}")),
@@ -505,6 +711,11 @@ pub(crate) async fn agent_transport_open_inner(
 
     let (transport, label) = tauri::async_runtime::spawn_blocking(move || {
         let (mut command, label) = provider_process(&provider, &session_id, &options)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -532,7 +743,7 @@ pub(crate) async fn agent_transport_open_inner(
             child: Mutex::new(child),
             #[cfg(windows)]
             job: Mutex::new(job),
-            stdin: Mutex::new(stdin),
+            stdin: Mutex::new(Some(stdin)),
             closed: AtomicBool::new(false),
             sequence: AtomicU64::new(1),
         });
@@ -586,7 +797,10 @@ pub(crate) fn agent_transport_send_inner(
         return Err("Agent-Transport wurde beendet.".into());
     }
     let message = encode_json_line(&message)?;
-    let mut stdin = transport.stdin.lock().unwrap();
+    let mut guard = transport.stdin.lock().unwrap();
+    let stdin = guard
+        .as_mut()
+        .ok_or_else(|| "Agent-Transport wurde beendet.".to_string())?;
     stdin
         .write_all(&message)
         .and_then(|_| stdin.flush())
@@ -720,9 +934,203 @@ pub async fn opencode_delete_session(path: String, session_id: String) -> Result
 #[cfg(test)]
 mod tests {
     use super::{
-        cli_command, cursor_process, encode_json_line, safe_prompt, validate_session_id,
-        AgentStreamEvent, AgentTransport, AgentTransportOptions, AgentTransportState,
+        cli_command, cursor_process, encode_json_line, provider_process, read_framed_line, redact,
+        safe_prompt, validate_session_id, AgentStreamEvent, AgentTransport, AgentTransportOptions,
+        AgentTransportState, FramedLine, MAX_LINE_BYTES,
     };
+    use std::collections::HashMap;
+    use std::time::Duration;
+
+    #[test]
+    fn claude_config_dir_is_forwarded_as_environment_variable() {
+        let options = AgentTransportOptions {
+            cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
+            config_dir: Some("/tmp/l8git-claude-account-a".to_string()),
+            ..Default::default()
+        };
+        if let Ok((command, _)) = provider_process("claude", "s1", &options) {
+            let value = command
+                .get_envs()
+                .find(|(key, _)| *key == "CLAUDE_CONFIG_DIR")
+                .and_then(|(_, value)| value);
+            assert_eq!(value, Some(std::ffi::OsStr::new("/tmp/l8git-claude-account-a")));
+        }
+    }
+
+    #[test]
+    fn trusted_repo_alone_does_not_enable_permission_bypass() {
+        let options = AgentTransportOptions {
+            cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
+            agents_trusted: Some(true),
+            ..Default::default()
+        };
+        if let Ok((command, _)) = provider_process("claude", "s1", &options) {
+            assert!(!command
+                .get_args()
+                .any(|argument| argument == "--allow-dangerously-skip-permissions"));
+        }
+    }
+
+    #[test]
+    fn bypass_permissions_requires_trust_and_explicit_mode() {
+        let options = AgentTransportOptions {
+            cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
+            agents_trusted: Some(true),
+            permission_mode: Some("bypassPermissions".to_string()),
+            ..Default::default()
+        };
+        if let Ok((command, _)) = provider_process("claude", "s1", &options) {
+            assert!(command
+                .get_args()
+                .any(|argument| argument == "--allow-dangerously-skip-permissions"));
+        }
+
+        let options = AgentTransportOptions {
+            cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
+            agents_trusted: Some(false),
+            permission_mode: Some("bypassPermissions".to_string()),
+            ..Default::default()
+        };
+        if let Ok((command, _)) = provider_process("claude", "s1", &options) {
+            assert!(!command
+                .get_args()
+                .any(|argument| argument == "--allow-dangerously-skip-permissions"));
+        }
+    }
+
+    #[test]
+    fn instance_env_plain_values_are_forwarded_verbatim() {
+        let mut env = HashMap::new();
+        env.insert("ANTHROPIC_BASE_URL".to_string(), "https://router.example".to_string());
+        let options = AgentTransportOptions {
+            cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
+            env: Some(env),
+            ..Default::default()
+        };
+        if let Ok((command, _)) = provider_process("claude", "s1", &options) {
+            let value = command
+                .get_envs()
+                .find(|(key, _)| *key == "ANTHROPIC_BASE_URL")
+                .and_then(|(_, value)| value);
+            assert_eq!(value, Some(std::ffi::OsStr::new("https://router.example")));
+        }
+    }
+
+    #[test]
+    fn instance_env_rejects_unresolved_secret_reference() {
+        let mut env = HashMap::new();
+        env.insert(
+            "ANTHROPIC_API_KEY".to_string(),
+            "secret:l8git-test-missing-secret-reference".to_string(),
+        );
+        let options = AgentTransportOptions {
+            cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
+            env: Some(env),
+            ..Default::default()
+        };
+        assert!(provider_process("claude", "s1", &options).is_err());
+    }
+
+    #[test]
+    fn redact_masks_secret_markers_bearer_tokens_and_emails() {
+        let text = "token=secret:api-key bearer sk-ABCDEFGHIJKLMNOP123456 contact pokegoleon11@gmail.com";
+        let redacted = redact(text);
+        assert!(!redacted.contains("secret:api-key"));
+        assert!(!redacted.contains("sk-ABCDEFGHIJKLMNOP123456"));
+        assert!(!redacted.contains("pokegoleon11@gmail.com"));
+        assert!(redacted.contains("secret:***"));
+    }
+
+    #[test]
+    fn redact_leaves_ordinary_diagnostic_text_untouched() {
+        let text = "Warnung: Datei nicht gefunden";
+        assert_eq!(redact(text), text);
+    }
+
+    #[test]
+    fn provider_process_rejects_unknown_drivers() {
+        let options = AgentTransportOptions::default();
+        assert!(provider_process("not-a-real-driver", "s1", &options).is_err());
+    }
+
+    #[test]
+    fn provider_process_dispatches_known_drivers_to_distinct_strategies() {
+        let options = AgentTransportOptions::default();
+        if let Ok((codex_command, codex_label)) = provider_process("codex", "s1", &options) {
+            assert_eq!(codex_label, "Codex");
+            assert!(codex_command
+                .get_args()
+                .any(|argument| argument == "app-server"));
+        }
+
+        let options = AgentTransportOptions {
+            cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+        if let Ok((claude_command, claude_label)) = provider_process("claude", "s1", &options) {
+            assert_eq!(claude_label, "Claude Code");
+            assert!(claude_command
+                .get_args()
+                .any(|argument| argument == "stream-json"));
+        }
+    }
+
+    #[test]
+    fn framed_lines_split_on_newline_across_reads() {
+        let mut reader = std::io::Cursor::new(b"{\"a\":1}\n{\"b\":2}".to_vec());
+        match read_framed_line(&mut reader).unwrap() {
+            FramedLine::Line(line) => assert_eq!(line, r#"{"a":1}"#),
+            _ => panic!("expected a full line"),
+        }
+        match read_framed_line(&mut reader).unwrap() {
+            FramedLine::Line(line) => assert_eq!(line, r#"{"b":2}"#),
+            _ => panic!("expected the trailing frame without a newline"),
+        }
+        match read_framed_line(&mut reader).unwrap() {
+            FramedLine::Eof => {}
+            _ => panic!("expected EOF"),
+        }
+    }
+
+    #[test]
+    fn framed_lines_trim_crlf() {
+        let mut reader = std::io::Cursor::new(b"line-one\r\nline-two\r\n".to_vec());
+        match read_framed_line(&mut reader).unwrap() {
+            FramedLine::Line(line) => assert_eq!(line, "line-one"),
+            _ => panic!("expected a line"),
+        }
+        match read_framed_line(&mut reader).unwrap() {
+            FramedLine::Line(line) => assert_eq!(line, "line-two"),
+            _ => panic!("expected a line"),
+        }
+    }
+
+    #[test]
+    fn framed_lines_flag_oversized_frames_without_aborting() {
+        let mut oversized = vec![b'x'; MAX_LINE_BYTES + 10];
+        oversized.push(b'\n');
+        oversized.extend_from_slice(b"next\n");
+        let mut reader = std::io::Cursor::new(oversized);
+        match read_framed_line(&mut reader).unwrap() {
+            FramedLine::Oversized(size) => assert!(size >= MAX_LINE_BYTES),
+            _ => panic!("expected an oversized diagnostic"),
+        }
+        match read_framed_line(&mut reader).unwrap() {
+            FramedLine::Line(line) => assert_eq!(line, "next"),
+            _ => panic!("the stream must keep working after an oversized frame"),
+        }
+    }
+
+    #[test]
+    fn framed_lines_replace_invalid_utf8_instead_of_failing() {
+        let mut bytes = vec![0xff, 0xfe, b'!'];
+        bytes.push(b'\n');
+        let mut reader = std::io::Cursor::new(bytes);
+        match read_framed_line(&mut reader).unwrap() {
+            FramedLine::Line(line) => assert!(line.ends_with('!')),
+            _ => panic!("expected a lossily-decoded line"),
+        }
+    }
 
     #[test]
     fn validates_isolated_session_ids() {
@@ -860,7 +1268,7 @@ mod tests {
             child: Mutex::new(child),
             #[cfg(windows)]
             job: Mutex::new(None),
-            stdin: Mutex::new(stdin),
+            stdin: Mutex::new(Some(stdin)),
             closed: AtomicBool::new(true),
             sequence: AtomicU64::new(1),
         });
@@ -869,6 +1277,45 @@ mod tests {
         state.prune_closed();
 
         assert!(state.sessions.read().unwrap().is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stop_escalates_to_kill_when_the_child_ignores_sigterm() {
+        use std::os::unix::process::CommandExt;
+        use std::process::Stdio;
+        use std::sync::atomic::{AtomicBool, AtomicU64};
+        use std::sync::{Arc, Mutex};
+
+        let mut command = cli_command("sh");
+        command
+            .args(["-c", "trap '' TERM; sleep 30"])
+            .process_group(0);
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("a shell is available for the graceful-stop test");
+        let stdin = child.stdin.take().expect("the test child has stdin");
+
+        let transport = Arc::new(AgentTransport {
+            session_id: "uncooperative".into(),
+            child: Mutex::new(child),
+            stdin: Mutex::new(Some(stdin)),
+            closed: AtomicBool::new(false),
+            sequence: AtomicU64::new(1),
+        });
+
+        let started = std::time::Instant::now();
+        transport.stop();
+        assert!(started.elapsed() < Duration::from_secs(5));
+
+        let mut child = transport.child.lock().unwrap();
+        let status = child
+            .try_wait()
+            .expect("waitpid succeeds after stop() reaps the child");
+        assert!(status.is_some(), "stop() must not leave the child running");
     }
 
     #[cfg(unix)]
@@ -893,7 +1340,7 @@ mod tests {
         let transport = Arc::new(AgentTransport {
             session_id: "canceled".into(),
             child: Mutex::new(child),
-            stdin: Mutex::new(stdin),
+            stdin: Mutex::new(Some(stdin)),
             closed: AtomicBool::new(false),
             sequence: AtomicU64::new(1),
         });

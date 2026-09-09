@@ -23,6 +23,12 @@ function readDrafts(): DraftMap {
   return cachedDrafts;
 }
 
+export function resetAgentComposerDraftsCache(): void {
+  cachedDrafts = null;
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = null;
+}
+
 function flushDrafts(): void {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = null;
@@ -50,16 +56,47 @@ function safeDraft(value: AgentComposerDraft | undefined): AgentComposerDraft {
   };
 }
 
-export function agentComposerDraftKey(path: string, threadId: string | null): string {
-  return `${path}\u0000${threadId ?? "__new"}`;
+export function agentComposerDraftKey(
+  host: string,
+  instanceId: string,
+  threadId: string | null,
+): string {
+  return `${host}\u0000${instanceId}\u0000${threadId ?? "__new"}`;
 }
 
-export function loadAgentComposerDraft(key: string): AgentComposerDraft {
-  return safeDraft(readDrafts()[key]);
+function legacyAgentComposerDraftKey(host: string, threadId: string | null): string {
+  return `${host}\u0000${threadId ?? "__new"}`;
 }
 
-export function saveAgentComposerDraft(key: string, draft: AgentComposerDraft): void {
+export function loadAgentComposerDraft(
+  host: string,
+  instanceId: string,
+  threadId: string | null,
+): AgentComposerDraft {
   const drafts = readDrafts();
+  const key = agentComposerDraftKey(host, instanceId, threadId);
+  if (drafts[key]) return safeDraft(drafts[key]);
+  const legacyKey = legacyAgentComposerDraftKey(host, threadId);
+  const legacy = drafts[legacyKey];
+  if (legacy) {
+    const migrated = safeDraft(legacy);
+    drafts[key] = migrated;
+    delete drafts[legacyKey];
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushDrafts, 400);
+    return migrated;
+  }
+  return safeDraft(undefined);
+}
+
+export function saveAgentComposerDraft(
+  host: string,
+  instanceId: string,
+  threadId: string | null,
+  draft: AgentComposerDraft,
+): void {
+  const drafts = readDrafts();
+  const key = agentComposerDraftKey(host, instanceId, threadId);
   if (!draft.text && draft.attachments.length === 0) delete drafts[key];
   else drafts[key] = draft;
   if (saveTimer) clearTimeout(saveTimer);

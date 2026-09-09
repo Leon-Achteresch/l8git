@@ -1,0 +1,626 @@
+{
+  "referenceCommit": "6c583620ff7ad3235b135af7107c0543467eecfa",
+  "source": "apps/server/src/provider/Layers/ClaudeAdapter.test.ts",
+  "directTests": [
+    {
+      "sourceLine": 312,
+      "referenceName": "returns validation error for non-claude provider on startSession",
+      "ticket": "PROV-04"
+    },
+    {
+      "sourceLine": 342,
+      "referenceName": "retains Claude session startup causes without exposing their messages",
+      "ticket": "SEC-04"
+    },
+    {
+      "sourceLine": 380,
+      "referenceName": "derives bypass permission mode from full-access runtime policy",
+      "ticket": "ASK-01"
+    },
+    {
+      "sourceLine": 406,
+      "referenceName": "derives auto permission mode from auto runtime policy without skip flag",
+      "ticket": "ASK-01"
+    },
+    {
+      "sourceLine": 425,
+      "referenceName": "loads Claude filesystem settings sources for SDK sessions",
+      "ticket": "SEC-01"
+    },
+    {
+      "sourceLine": 445,
+      "referenceName": "uses bypass permissions for full-access claude sessions",
+      "ticket": "ASK-01"
+    },
+    {
+      "sourceLine": 464,
+      "referenceName": "passes the configured auto-compaction window to Claude",
+      "ticket": "USE-04"
+    },
+    {
+      "sourceLine": 483,
+      "referenceName": "forwards claude effort levels into query options",
+      "ticket": "MOD-03"
+    },
+    {
+      "sourceLine": 506,
+      "referenceName": "runs Claude SDK sessions with the configured CLAUDE_CONFIG_DIR",
+      "ticket": "SET-03"
+    },
+    {
+      "sourceLine": 531,
+      "referenceName": "forwards Claude thinking toggle for models that support it",
+      "ticket": "MOD-03"
+    },
+    {
+      "sourceLine": 556,
+      "referenceName": "ignores Claude thinking toggle for models without it",
+      "ticket": "MOD-03"
+    },
+    {
+      "sourceLine": 579,
+      "referenceName": "forwards claude fast mode into SDK settings",
+      "ticket": "MOD-04"
+    },
+    {
+      "sourceLine": 604,
+      "referenceName": "ignores claude fast mode for models without it",
+      "ticket": "MOD-04"
+    },
+    {
+      "sourceLine": 627,
+      "referenceName": "keeps a configured custom alias opaque without disabling the canonical built-in",
+      "ticket": "MOD-05"
+    },
+    {
+      "sourceLine": 718,
+      "referenceName": "treats ultrathink as a prompt keyword instead of a session effort",
+      "ticket": "MOD-03"
+    },
+    {
+      "sourceLine": 754,
+      "referenceName": "keeps compact commands intact when ultrathink is selected",
+      "ticket": "MOD-03"
+    },
+    {
+      "sourceLine": 787,
+      "referenceName": "embeds image attachments in Claude user messages",
+      "ticket": "CHAT-06"
+    },
+    {
+      "sourceLine": 856,
+      "referenceName": "puts the command text last so attachments do not suppress expansion",
+      "ticket": "EXT-02"
+    },
+    {
+      "sourceLine": 947,
+      "referenceName": "dispatches a $skill mention as a trailing slash command block",
+      "ticket": "EXT-02"
+    },
+    {
+      "sourceLine": 987,
+      "referenceName": "keeps the skill command block after image attachments",
+      "ticket": "CHAT-06"
+    },
+    {
+      "sourceLine": 1041,
+      "referenceName": "leaves a $ mention of an unknown or disabled skill as prose",
+      "ticket": "EXT-02"
+    },
+    {
+      "sourceLine": 1079,
+      "referenceName": "maps Claude stream/runtime messages to canonical provider runtime events",
+      "ticket": "EVT-01"
+    },
+    {
+      "sourceLine": 1256,
+      "referenceName": "places overage-included rate-limit events on the bucket the probe named",
+      "ticket": "USE-07"
+    },
+    {
+      "sourceLine": 1334,
+      "referenceName": "does not emit turn.completed for a result with no active turn",
+      "ticket": "EVT-11"
+    },
+    {
+      "sourceLine": 1403,
+      "referenceName": "steers a running turn instead of opening a new one on mid-turn sendTurn",
+      "ticket": "CHAT-02"
+    },
+    {
+      "sourceLine": 1470,
+      "referenceName": "maps Claude reasoning deltas, streamed tool inputs, and tool results",
+      "ticket": "EVT-03"
+    },
+    {
+      "sourceLine": 1649,
+      "referenceName": "classifies only streamed Read image inputs as image views",
+      "ticket": "EVT-08"
+    },
+    {
+      "sourceLine": 1810,
+      "referenceName": "falls back to a default plan step label for blank TodoWrite content",
+      "ticket": "EVT-09"
+    },
+    {
+      "sourceLine": 1901,
+      "referenceName": "classifies Claude Task tool invocations as collaboration agent work",
+      "ticket": "TASK-01"
+    },
+    {
+      "sourceLine": 2000,
+      "referenceName": "treats user-aborted Claude results as interrupted without a runtime error",
+      "ticket": "EVT-11"
+    },
+    {
+      "sourceLine": 2076,
+      "referenceName": "treats aborted_tools results as interrupted and hides ede_diagnostic errors",
+      "ticket": "EVT-11"
+    },
+    {
+      "sourceLine": 2137,
+      "referenceName": "fails a turn when the result carries a give-up terminal_reason",
+      "ticket": "EVT-11"
+    },
+    {
+      "sourceLine": 2319,
+      "referenceName": "fails a usage-limited turn with the limit it parked on",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 2455,
+      "referenceName": "names repeated usage limits without carrying them into a later turn",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 2781,
+      "referenceName": "fails a turn for every dead-turn terminal_reason",
+      "ticket": "EVT-11"
+    },
+    {
+      "sourceLine": 2883,
+      "referenceName": "fails a turn when a success result reports a 529 overload",
+      "ticket": "EVT-11"
+    },
+    {
+      "sourceLine": 2933,
+      "referenceName": "interruptTurn settles live tasks and closes the provider session",
+      "ticket": "RUN-07"
+    },
+    {
+      "sourceLine": 3021,
+      "referenceName": "keeps the session available when process close fails",
+      "ticket": "RUN-07"
+    },
+    {
+      "sourceLine": 3047,
+      "referenceName": "stopAll attempts every session when one process close fails",
+      "ticket": "RUN-07"
+    },
+    {
+      "sourceLine": 3098,
+      "referenceName": "completes with result usage without querying current context usage",
+      "ticket": "USE-01"
+    },
+    {
+      "sourceLine": 3228,
+      "referenceName": "treats omitted Claude cache counters as zero contributions",
+      "ticket": "USE-01"
+    },
+    {
+      "sourceLine": 3280,
+      "referenceName": "uses per-turn result usage across consecutive Claude turns",
+      "ticket": "USE-01"
+    },
+    {
+      "sourceLine": 3413,
+      "referenceName": "preserves compacted usage when completion follows an older assistant frame",
+      "ticket": "USE-02"
+    },
+    {
+      "sourceLine": 3516,
+      "referenceName": "workflow member coalescing: identical snapshots suppress, changes emit",
+      "ticket": "TASK-05"
+    },
+    {
+      "sourceLine": 3604,
+      "referenceName": "task.started carries model/effort; subagent snapshots refine the model",
+      "ticket": "TASK-02"
+    },
+    {
+      "sourceLine": 3685,
+      "referenceName": "a subagent snapshot that beats task_started still wins over the seed",
+      "ticket": "TASK-02"
+    },
+    {
+      "sourceLine": 3763,
+      "referenceName": "closes the session when the Claude stream aborts after a turn starts",
+      "ticket": "RUN-07"
+    },
+    {
+      "sourceLine": 3831,
+      "referenceName": "keeps Claude stream failure events structural",
+      "ticket": "SEC-04"
+    },
+    {
+      "sourceLine": 3882,
+      "referenceName": "closes the previous session before replacing an existing thread session",
+      "ticket": "RUN-07"
+    },
+    {
+      "sourceLine": 3953,
+      "referenceName": "stopSession does not throw into the SDK prompt consumer",
+      "ticket": "RUN-07"
+    },
+    {
+      "sourceLine": 4029,
+      "referenceName": "forwards Claude task progress summaries for subagent updates",
+      "ticket": "TASK-03"
+    },
+    {
+      "sourceLine": 4076,
+      "referenceName": "consumes undeclared and UX-internal system subtypes without warning rows",
+      "ticket": "EVT-10"
+    },
+    {
+      "sourceLine": 4328,
+      "referenceName": "surfaces a rejected Claude usage limit once per turn",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 4423,
+      "referenceName": "keeps allowed and malformed Claude rate-limit events out of the work log",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 4470,
+      "referenceName": "stays quiet when no turn is parked by the Claude limit",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 4541,
+      "referenceName": "still surfaces the pause when overage is exhausted too",
+      "ticket": "USE-07"
+    },
+    {
+      "sourceLine": 4584,
+      "referenceName": "keeps one row per window when two Claude limits interleave",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 4636,
+      "referenceName": "re-announces a Claude limit for a synthetic turn",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 4699,
+      "referenceName": "drops an unusable Claude reset time, not the row or the session",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 4753,
+      "referenceName": "warns for unmapped Claude limits and names the probed model bucket",
+      "ticket": "USE-06"
+    },
+    {
+      "sourceLine": 4816,
+      "referenceName": "consumes Claude command lifecycle notifications silently",
+      "ticket": "EVT-10"
+    },
+    {
+      "sourceLine": 4887,
+      "referenceName": "emits thread token usage updates from Claude task progress",
+      "ticket": "TASK-06"
+    },
+    {
+      "sourceLine": 4941,
+      "referenceName": "emits Claude context window on result completion usage snapshots",
+      "ticket": "USE-02"
+    },
+    {
+      "sourceLine": 5008,
+      "referenceName": "clamps oversized Claude usage to the reported context window",
+      "ticket": "USE-02"
+    },
+    {
+      "sourceLine": 5071,
+      "referenceName": "preserves oversized Claude result totals after task progress snapshots are recorded",
+      "ticket": "USE-01"
+    },
+    {
+      "sourceLine": 5152,
+      "referenceName": "emits completion only after turn result when assistant frames arrive before deltas",
+      "ticket": "EVT-02"
+    },
+    {
+      "sourceLine": 5245,
+      "referenceName": "creates a fresh assistant message when Claude reuses a text block index",
+      "ticket": "EVT-02"
+    },
+    {
+      "sourceLine": 5411,
+      "referenceName": "falls back to assistant payload text when stream deltas are absent",
+      "ticket": "EVT-02"
+    },
+    {
+      "sourceLine": 5480,
+      "referenceName": "segments Claude assistant text blocks around tool calls",
+      "ticket": "EVT-02"
+    },
+    {
+      "sourceLine": 5702,
+      "referenceName": "does not fabricate provider thread ids before first SDK session_id",
+      "ticket": "CHAT-01"
+    },
+    {
+      "sourceLine": 5780,
+      "referenceName": "bridges approval request/response lifecycle through canUseTool",
+      "ticket": "ASK-03"
+    },
+    {
+      "sourceLine": 5890,
+      "referenceName": "acceptForSession returns session-scoped permission updates",
+      "ticket": "ASK-03"
+    },
+    {
+      "sourceLine": 6004,
+      "referenceName": "classifies Agent tools and read-only Claude tools correctly for approvals",
+      "ticket": "ASK-03"
+    },
+    {
+      "sourceLine": 6079,
+      "referenceName": "passes Claude resume ids without pinning a stale assistant checkpoint",
+      "ticket": "HIST-02"
+    },
+    {
+      "sourceLine": 6114,
+      "referenceName": "preserves durable resume ids across Claude resume hooks",
+      "ticket": "HIST-02"
+    },
+    {
+      "sourceLine": 6204,
+      "referenceName": "uses an app-generated Claude session id for fresh sessions",
+      "ticket": "CHAT-01"
+    },
+    {
+      "sourceLine": 6236,
+      "referenceName": "supports rollbackThread by trimming in-memory turns and preserving earlier turns",
+      "ticket": "HIST-05"
+    },
+    {
+      "sourceLine": 6318,
+      "referenceName": "updates model on sendTurn when model override is provided",
+      "ticket": "MOD-02"
+    },
+    {
+      "sourceLine": 6347,
+      "referenceName": "updates model on sendTurn for the adapter's bound custom instance id",
+      "ticket": "MOD-02"
+    },
+    {
+      "sourceLine": 6375,
+      "referenceName": "does not re-set the Claude model when the session already uses the same effective API model",
+      "ticket": "MOD-02"
+    },
+    {
+      "sourceLine": 6414,
+      "referenceName": "re-sets the Claude model when the effective API model changes",
+      "ticket": "MOD-02"
+    },
+    {
+      "sourceLine": 6456,
+      "referenceName": "sets plan permission mode on sendTurn when interactionMode is plan",
+      "ticket": "ASK-01"
+    },
+    {
+      "sourceLine": 6538,
+      "referenceName": "does not call setPermissionMode when interactionMode is absent",
+      "ticket": "ASK-02"
+    },
+    {
+      "sourceLine": 6561,
+      "referenceName": "captures ExitPlanMode as a proposed plan and denies auto-exit",
+      "ticket": "ASK-07"
+    },
+    {
+      "sourceLine": 6628,
+      "referenceName": "extracts proposed plans from assistant ExitPlanMode snapshots",
+      "ticket": "ASK-07"
+    },
+    {
+      "sourceLine": 6699,
+      "referenceName": "routes Claude resume compaction through the shared user-input UI",
+      "ticket": "USE-04"
+    },
+    {
+      "sourceLine": 6755,
+      "referenceName": "handles AskUserQuestion via user-input.requested/resolved lifecycle",
+      "ticket": "ASK-05"
+    },
+    {
+      "sourceLine": 6909,
+      "referenceName": "routes AskUserQuestion through user-input flow even in full-access mode",
+      "ticket": "ASK-05"
+    },
+    {
+      "sourceLine": 6978,
+      "referenceName": "denies AskUserQuestion when the waiting turn is aborted",
+      "ticket": "ASK-08"
+    },
+    {
+      "sourceLine": 7047,
+      "referenceName": "denies AskUserQuestion when the signal aborted before the listener registered",
+      "ticket": "ASK-08"
+    },
+    {
+      "sourceLine": 7115,
+      "referenceName": "stopping a session settles pending user-input waits",
+      "ticket": "ASK-08"
+    },
+    {
+      "sourceLine": 7180,
+      "referenceName": "writes provider-native observability records when enabled",
+      "ticket": "SET-08"
+    }
+  ],
+  "parameterizedBlockLines": [
+    2225,
+    2394,
+    2503,
+    2719,
+    2835,
+    6480
+  ],
+  "systemEvents": [
+    {
+      "subtype": "vcs_state_changed",
+      "line": 3391,
+      "ticket": "GIT-02"
+    },
+    {
+      "subtype": "code_change_published",
+      "line": 3392,
+      "ticket": "GIT-02"
+    },
+    {
+      "subtype": "init",
+      "line": 3397,
+      "ticket": "RUN-04"
+    },
+    {
+      "subtype": "status",
+      "line": 3406,
+      "ticket": "USE-03"
+    },
+    {
+      "subtype": "compact_boundary",
+      "line": 3417,
+      "ticket": "USE-03"
+    },
+    {
+      "subtype": "hook_started",
+      "line": 3447,
+      "ticket": "EVT-10"
+    },
+    {
+      "subtype": "hook_progress",
+      "line": 3458,
+      "ticket": "EVT-10"
+    },
+    {
+      "subtype": "hook_response",
+      "line": 3470,
+      "ticket": "EVT-10"
+    },
+    {
+      "subtype": "task_started",
+      "line": 3484,
+      "ticket": "TASK-01"
+    },
+    {
+      "subtype": "task_progress",
+      "line": 3559,
+      "ticket": "TASK-03"
+    },
+    {
+      "subtype": "task_updated",
+      "line": 3595,
+      "ticket": "TASK-04"
+    },
+    {
+      "subtype": "task_notification",
+      "line": 3625,
+      "ticket": "TASK-04"
+    },
+    {
+      "subtype": "files_persisted",
+      "line": 3651,
+      "ticket": "GIT-03"
+    },
+    {
+      "subtype": "thinking_tokens",
+      "line": 3673,
+      "ticket": "EVT-03"
+    },
+    {
+      "subtype": "api_retry",
+      "line": 3675,
+      "ticket": "USE-08"
+    },
+    {
+      "subtype": "session_state_changed",
+      "line": 3689,
+      "ticket": "UX-02"
+    },
+    {
+      "subtype": "notification",
+      "line": 3705,
+      "ticket": "EVT-10"
+    },
+    {
+      "subtype": "model_refusal_fallback",
+      "line": 3712,
+      "ticket": "MOD-05"
+    },
+    {
+      "subtype": "local_command_output",
+      "line": 3728,
+      "ticket": "CHAT-08"
+    },
+    {
+      "subtype": "plugin_install",
+      "line": 3729,
+      "ticket": "EXT-09"
+    },
+    {
+      "subtype": "commands_changed",
+      "line": 3730,
+      "ticket": "CHAT-08"
+    },
+    {
+      "subtype": "memory_recall",
+      "line": 3731,
+      "ticket": "EXT-10"
+    },
+    {
+      "subtype": "elicitation_complete",
+      "line": 3732,
+      "ticket": "ASK-06"
+    },
+    {
+      "subtype": "background_tasks_changed",
+      "line": 3733,
+      "ticket": "TASK-07"
+    },
+    {
+      "subtype": "control_request_progress",
+      "line": 3734,
+      "ticket": "RUN-05"
+    },
+    {
+      "subtype": "worker_shutting_down",
+      "line": 3735,
+      "ticket": "RUN-07"
+    },
+    {
+      "subtype": "informational",
+      "line": 3737,
+      "ticket": "EVT-10"
+    },
+    {
+      "subtype": "model_refusal_no_fallback",
+      "line": 3745,
+      "ticket": "EVT-11"
+    },
+    {
+      "subtype": "permission_denied",
+      "line": 3755,
+      "ticket": "ASK-03"
+    },
+    {
+      "subtype": "mirror_error",
+      "line": 3767,
+      "ticket": "EVT-11"
+    }
+  ]
+}

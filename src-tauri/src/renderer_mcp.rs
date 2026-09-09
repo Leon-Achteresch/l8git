@@ -9,7 +9,10 @@ use serde_json::{json, Value};
 pub const SUBCOMMAND: &str = "mcp-renderers";
 pub const SERVER_NAME: &str = "l8git-renderers";
 pub const TOOL_RENDER_BARCODE: &str = "render_barcode";
+pub const TOOL_RENDER_CHART: &str = "render_chart";
 const PROTOCOL_VERSION: &str = "2024-11-05";
+
+const CHART_TYPES: &[&str] = &["bar", "line", "area"];
 
 const CODE_METHOD_NOT_FOUND: i64 = -32601;
 const CODE_INVALID_PARAMS: i64 = -32602;
@@ -58,6 +61,47 @@ const BARCODE_FORMATS: &[&str] = &[
 
 pub fn tools() -> Vec<Value> {
     vec![json!({
+        "name": TOOL_RENDER_CHART,
+        "description": "Rendert ein interaktives Diagramm direkt in der l8git-Chat-UI. Nutze das immer, wenn Zahlenreihen anschaulicher als Tabelle oder Prosa sind (Trends, Vergleiche, Verteilungen). Nach dem Tool-Call folgt ein Satz Interpretation.",
+        "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "series"],
+            "properties": {
+                "type": { "type": "string", "enum": CHART_TYPES, "description": "Diagrammtyp." },
+                "title": { "type": "string" },
+                "xLabel": { "type": "string" },
+                "yLabel": { "type": "string" },
+                "stacked": { "type": "boolean", "description": "Stapelt Bar-Serien." },
+                "series": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["label", "data"],
+                        "properties": {
+                            "label": { "type": "string" },
+                            "data": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["x", "y"],
+                                    "properties": {
+                                        "x": { "type": ["string", "number"] },
+                                        "y": { "type": "number" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }), json!({
         "name": TOOL_RENDER_BARCODE,
         "description": "Rendert scannbare Barcodes direkt in der l8git-Chat-UI. Nutze das, sobald ein Wert an einem Scanner abgegriffen werden soll (Auftrags-, Artikel-, Seriennummern, GTINs, Ladungsträger, URLs). Daten dafür dürfen aus jeder Quelle kommen, auch aus MCP-Tools. Nach dem Tool-Call folgt ein Satz, der sagt, was codiert ist.",
         "inputSchema": {
@@ -145,6 +189,8 @@ pub fn handle_request(request: &Value) -> Option<Value> {
             }
             let result = if name == TOOL_RENDER_BARCODE {
                 text_content("Barcode wurde in der l8git-UI gerendert.", false)
+            } else if name == TOOL_RENDER_CHART {
+                text_content("Diagramm wurde in der l8git-UI gerendert.", false)
             } else {
                 text_content(&format!("Unbekanntes Renderer-Tool: {name}"), true)
             };
@@ -194,4 +240,44 @@ pub fn serve_stdio() -> ! {
         }
     }
     std::process::exit(0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lists_both_render_tools() {
+        let listed = tools();
+        let names: Vec<_> = listed
+            .iter()
+            .filter_map(|tool| tool.get("name").and_then(Value::as_str))
+            .collect();
+        assert!(names.contains(&TOOL_RENDER_BARCODE));
+        assert!(names.contains(&TOOL_RENDER_CHART));
+    }
+
+    #[test]
+    fn calls_the_chart_tool_successfully() {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": { "name": TOOL_RENDER_CHART, "arguments": {} }
+        });
+        let response = handle_request(&request).unwrap();
+        assert!(response["result"]["isError"].is_null());
+    }
+
+    #[test]
+    fn unknown_tool_name_is_an_explicit_error_not_a_silent_success() {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": { "name": "does_not_exist", "arguments": {} }
+        });
+        let response = handle_request(&request).unwrap();
+        assert_eq!(response["result"]["isError"], Value::Bool(true));
+    }
 }

@@ -2086,6 +2086,7 @@
     "stackBadgeTitle": "{{name}} · 堆栈 {{root}} · 层级 {{level}}"
   },
   "commitInspect": {
+    "metadata": "显示元数据",
     "explainCommit": "解释",
     "changedFiles": "更改的文件",
     "loadingDetails": "正在加载详情…",

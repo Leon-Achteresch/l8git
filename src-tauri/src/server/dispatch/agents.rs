@@ -1,3 +1,25 @@
+static SESSION_OWNERS: once_cell::sync::Lazy<std::sync::Mutex<std::collections::HashMap<String, u64>>> =
+    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+fn session_owner_status(session_id: &str, conn_id: u64) -> serde_json::Value {
+    let mut owners = SESSION_OWNERS.lock().unwrap();
+    let owner = *owners.entry(session_id.to_string()).or_insert(conn_id);
+    serde_json::json!({ "owner": owner, "readOnly": owner != conn_id })
+}
+
+fn claim_session_owner(session_id: &str, conn_id: u64) -> serde_json::Value {
+    let mut owners = SESSION_OWNERS.lock().unwrap();
+    owners.insert(session_id.to_string(), conn_id);
+    serde_json::json!({ "owner": conn_id, "readOnly": false })
+}
+
+fn release_session_owner(session_id: &str, conn_id: u64) {
+    let mut owners = SESSION_OWNERS.lock().unwrap();
+    if owners.get(session_id) == Some(&conn_id) {
+        owners.remove(session_id);
+    }
+}
+
 fn ensure_option_paths_allowed(
     ctx: &crate::server::state::DispatchCtx,
     options: Option<&crate::agent_transport::AgentTransportOptions>,
@@ -40,6 +62,7 @@ pub async fn dispatch(
             match ensure_option_paths_allowed(ctx, options.as_ref()) {
                 Err(error) => Err(error),
                 Ok(()) => {
+                    let session_id_for_owner = session_id.clone();
                     crate::agent_transport::agent_transport_open_inner(
                         &ctx.state.agents,
                         provider,
@@ -48,8 +71,24 @@ pub async fn dispatch(
                         on_event,
                     )
                     .await
+                    .and_then(|handle| {
+                        serde_json::to_value(handle).map_err(|error| error.to_string())
+                    })
+                    .map(|mut value| {
+                        let owner = session_owner_status(&session_id_for_owner, ctx.conn.id);
+                        if let (Some(object), Some(owner_object)) =
+                            (value.as_object_mut(), owner.as_object())
+                        {
+                            object.extend(owner_object.clone());
+                        }
+                        value
+                    })
                 }
             }
+        }
+
+        "agent_session_claim" (session_id: String) => {
+            Ok::<_, String>(claim_session_owner(&session_id, ctx.conn.id))
         }
 
         "agent_transport_send" (id: u32, session_id: String, message: serde_json::Value) => {
@@ -62,6 +101,7 @@ pub async fn dispatch(
         }
 
         "agent_transport_close" (id: u32, session_id: String) => {
+            release_session_owner(&session_id, ctx.conn.id);
             crate::agent_transport::agent_transport_close_inner(&ctx.state.agents, id, session_id)
         }
 
@@ -78,31 +118,51 @@ pub async fn dispatch(
         }
 
         "claude_list_sessions" (paths: Vec<String>) => {
-            crate::claude::claude_list_sessions(paths).await
+            crate::claude::claude_list_sessions(paths, None).await
         }
 
         "claude_read_session" (path: String, session_id: String) => {
-            crate::claude::claude_read_session(path, session_id).await
+            crate::claude::claude_read_session(path, session_id, None).await
         }
 
         "claude_rename_session" (path: String, session_id: String, title: String) => {
-            crate::claude::claude_rename_session(path, session_id, title).await
+            crate::claude::claude_rename_session(path, session_id, title, None).await
         }
 
         "claude_delete_session" (path: String, session_id: String) => {
-            crate::claude::claude_delete_session(path, session_id).await
+            crate::claude::claude_delete_session(path, session_id, None).await
         }
 
-        "claude_auth_status" () => {
-            crate::claude::claude_auth_status().await
+        "claude_auth_status" (config_dir: Option<String>) => {
+            crate::claude::claude_auth_status(config_dir).await
         }
 
-        "claude_start_login" () => {
-            crate::claude::claude_start_login().await
+        "claude_version_status" () => {
+            crate::claude::claude_version_status().await
         }
 
-        "claude_logout" () => {
-            crate::claude::claude_logout().await
+        "claude_start_login" (config_dir: Option<String>) => {
+            crate::claude::claude_start_login(config_dir).await
+        }
+
+        "claude_cancel_login" (config_dir: Option<String>) => {
+            crate::claude::claude_cancel_login(config_dir).await
+        }
+
+        "claude_logout" (config_dir: Option<String>) => {
+            crate::claude::claude_logout(config_dir).await
+        }
+
+        "claude_effective_settings" (config_dir: Option<String>, repo: String) => {
+            crate::claude::claude_effective_settings(config_dir, repo).await
+        }
+
+        "claude_write_settings" (scope: String, config_dir: Option<String>, repo: String, json: serde_json::Value) => {
+            crate::claude::claude_write_settings(scope, config_dir, repo, json).await
+        }
+
+        "agent_diagnostics_report" (config_dir: Option<String>, repo: Option<String>) => {
+            crate::claude::agent_diagnostics_report(config_dir, repo).await
         }
 
         "claude_list_plugins" (path: String) => {
@@ -313,5 +373,29 @@ mod tests {
         .await
         .expect("the command is dispatched");
         assert!(result.unwrap_err().contains("nicht freigegeben"));
+    }
+
+    #[test]
+    fn run_09_second_client_becomes_read_only_until_it_claims_the_session() {
+        let session_id = "run-09-owner-test";
+        let owner_status = session_owner_status(session_id, 1);
+        assert_eq!(owner_status["owner"], json!(1));
+        assert_eq!(owner_status["readOnly"], json!(false));
+
+        let second_client_status = session_owner_status(session_id, 2);
+        assert_eq!(second_client_status["owner"], json!(1));
+        assert_eq!(second_client_status["readOnly"], json!(true));
+
+        let claimed = claim_session_owner(session_id, 2);
+        assert_eq!(claimed["owner"], json!(2));
+        assert_eq!(claimed["readOnly"], json!(false));
+
+        let former_owner_status = session_owner_status(session_id, 1);
+        assert_eq!(former_owner_status["owner"], json!(2));
+        assert_eq!(former_owner_status["readOnly"], json!(true));
+
+        release_session_owner(session_id, 2);
+        let after_release = session_owner_status(session_id, 3);
+        assert_eq!(after_release["owner"], json!(3));
     }
 }

@@ -21,6 +21,7 @@ These are plain Markdown files — read them here on GitHub, or in any editor.
 - [README](../README.md) — feature overview and installation
 - [CONTRIBUTING](../CONTRIBUTING.md) — development setup, architecture, PR process
 - [ROADMAP](../ROADMAP.md) — what is planned and what is already done
+- [Agents CLI integration backlog](planning/agents-cli-integration/README.md) — detailed German tickets for Claude Code, an extensible provider pattern, and t3code parity
 - [CODE_OF_CONDUCT](../CODE_OF_CONDUCT.md)
 
 Something missing or wrong? [Open an issue](https://github.com/Leon-Achteresch/l8git/issues) — documentation fixes are welcome contributions.

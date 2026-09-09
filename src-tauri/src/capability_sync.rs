@@ -619,12 +619,41 @@ pub(crate) fn read_json_file(path: &Path) -> Result<Value, String> {
         .map_err(|error| format!("{} ist kein gültiges JSON: {error}", path.display()))
 }
 
-pub(crate) fn write_json_file(path: &Path, value: &Value) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+/// Schreibt `contents` über eine temporäre Datei im selben Verzeichnis und
+/// benennt sie dann um – ein Absturz oder ein gleichzeitiger Zugriff sieht so
+/// entweder die alte oder die neue Datei, nie einen halb geschriebenen Rest.
+/// Gespiegelt aus `claude.rs::atomic_write`, dort bewusst nicht angefasst.
+pub(crate) fn atomic_write(target: &Path, contents: &[u8]) -> Result<(), String> {
+    let directory = target
+        .parent()
+        .ok_or_else(|| "Ungültiger Zielpfad.".to_string())?;
+    fs::create_dir_all(directory).map_err(|error| error.to_string())?;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let tmp_name = format!(
+        ".{}.{}-{}.tmp",
+        target.file_name().and_then(|name| name.to_str()).unwrap_or("l8git"),
+        std::process::id(),
+        nanos
+    );
+    let tmp_path = directory.join(tmp_name);
+    fs::write(&tmp_path, contents).map_err(|error| error.to_string())?;
+    #[cfg(unix)]
+    if let Ok(metadata) = fs::metadata(target) {
+        let _ = fs::set_permissions(&tmp_path, metadata.permissions());
     }
+    let result = fs::rename(&tmp_path, target).map_err(|error| error.to_string());
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+    result
+}
+
+pub(crate) fn write_json_file(path: &Path, value: &Value) -> Result<(), String> {
     let serialized = serde_json::to_string_pretty(value).map_err(|error| error.to_string())?;
-    fs::write(path, format!("{serialized}\n")).map_err(|error| error.to_string())
+    atomic_write(path, format!("{serialized}\n").as_bytes())
 }
 
 fn string_map(value: Option<&Value>) -> BTreeMap<String, String> {
@@ -1063,12 +1092,54 @@ fn read_mcp_specs(layout: &CliLayout, scope: &str, repo: &Path) -> Vec<(McpSpec,
     specs.into_iter().map(|spec| (spec, path.clone())).collect()
 }
 
+/// Prüft Transport, URL/Command und Secret-Verweise, bevor irgendetwas
+/// geschrieben wird. `secret:<key>`-Verweise werden hier nur auf Form
+/// geprüft – aufgelöst werden sie erst beim Spawn (`claude.rs`).
+pub(crate) fn validate_mcp_spec(spec: &McpSpec) -> Result<(), String> {
+    if spec.name.trim().is_empty() {
+        return Err("Der MCP-Name darf nicht leer sein.".into());
+    }
+    if !spec
+        .name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        return Err("Der MCP-Name darf nur Buchstaben, Zahlen, _ und - enthalten.".into());
+    }
+    match spec.transport.as_str() {
+        "http" => {
+            let url = spec.url.as_deref().unwrap_or("").trim();
+            if !(url.starts_with("http://") || url.starts_with("https://")) {
+                return Err("Für HTTP-MCP ist eine gültige http(s)-URL erforderlich.".into());
+            }
+        }
+        "stdio" => {
+            if spec.command.as_deref().unwrap_or("").trim().is_empty() {
+                return Err("Für STDIO-MCP ist ein Startbefehl erforderlich.".into());
+            }
+            if spec.args.iter().any(|arg| arg.is_empty()) {
+                return Err("Ein Startargument ist leer.".into());
+            }
+        }
+        other => return Err(format!("Unbekannter Transport: {other}")),
+    }
+    for (key, value) in &spec.env {
+        if let Some(reference) = value.strip_prefix("secret:") {
+            if reference.trim().is_empty() {
+                return Err(format!("Der Secret-Verweis für {key} ist leer."));
+            }
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn write_mcp_spec(
     layout: &CliLayout,
     scope: &str,
     repo: &Path,
     spec: &McpSpec,
 ) -> Result<PathBuf, String> {
+    validate_mcp_spec(spec)?;
     let (format, user_rel, repo_rel, global_rel) = layout
         .mcp
         .ok_or_else(|| format!("{} unterstützt keine MCP-Server.", layout.label))?;
@@ -2296,5 +2367,69 @@ mod tests {
         );
         assert!(cli_root(claude, "global", &repo).is_some());
         assert!(cli_root(claude, "unknown", &repo).is_none());
+    }
+
+    #[test]
+    fn validate_mcp_spec_rejects_bad_transport_and_secret_refs() {
+        let mut spec = McpSpec {
+            name: "docs".into(),
+            transport: "stdio".into(),
+            command: Some("npx".into()),
+            ..McpSpec::default()
+        };
+        assert!(validate_mcp_spec(&spec).is_ok());
+
+        spec.transport = "carrier-pigeon".into();
+        assert!(validate_mcp_spec(&spec).is_err());
+
+        spec.transport = "stdio".into();
+        spec.command = None;
+        assert!(validate_mcp_spec(&spec).is_err());
+
+        spec.command = Some("npx".into());
+        spec.env.insert("TOKEN".into(), "secret:".into());
+        assert!(validate_mcp_spec(&spec).is_err());
+
+        spec.env.insert("TOKEN".into(), "secret:my-token".into());
+        assert!(validate_mcp_spec(&spec).is_ok());
+
+        let http = McpSpec {
+            name: "remote".into(),
+            transport: "http".into(),
+            url: Some("not-a-url".into()),
+            ..McpSpec::default()
+        };
+        assert!(validate_mcp_spec(&http).is_err());
+    }
+
+    #[test]
+    fn atomic_write_leaves_no_temp_file_and_replaces_contents() {
+        let dir = scratch("atomic-write");
+        let target = dir.join("config.json");
+        fs::write(&target, "{\"old\":true}").unwrap();
+        atomic_write(&target, b"{\"new\":true}").unwrap();
+        assert_eq!(fs::read_to_string(&target).unwrap(), "{\"new\":true}");
+        let leftovers: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn write_mcp_spec_rejects_invalid_spec_without_touching_the_file() {
+        let repo = scratch("repo-invalid-mcp");
+        let claude = layout("claude").unwrap();
+        let bad = McpSpec {
+            name: "bad name".into(),
+            transport: "stdio".into(),
+            command: Some("npx".into()),
+            ..McpSpec::default()
+        };
+        assert!(write_mcp_spec(claude, "repo", &repo, &bad).is_err());
+        assert!(read_mcp_specs(claude, "repo", &repo).is_empty());
+        let _ = fs::remove_dir_all(repo);
     }
 }

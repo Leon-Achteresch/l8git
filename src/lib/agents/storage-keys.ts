@@ -12,11 +12,19 @@ export const OPENCODE_SETTINGS_KEY = "l8git.opencode-settings.v1";
 export const CURSOR_SESSION_PREFS_KEY = "l8git.cursor-session-state.v1";
 export const CURSOR_SETTINGS_KEY = "l8git.cursor-settings.v1";
 export const CURSOR_TRANSCRIPTS_KEY = "l8git.cursor-transcripts.v1";
+export const AGENT_RESUME_CURSORS_KEY = "l8git.agent-resume-cursors.v1";
 
 const MODEL_CATALOG_PROVIDERS: NativeAgentProvider[] = ["codex", "claude", "opencode", "cursor"];
 
 export function modelCatalogKey(provider: NativeAgentProvider): string {
   return `${AGENT_MODEL_CATALOG_PREFIX}${provider}`;
+}
+
+export const AGENT_INSTANCE_MIGRATION_VERSION = 1;
+export const AGENT_INSTANCE_MIGRATION_KEY = "l8git.agent-instance-migration.v1";
+
+export function defaultInstanceId(driver: NativeAgentProvider): string {
+  return `${driver}:default`;
 }
 
 export const AGENT_STORAGE_KEYS: readonly string[] = [
@@ -30,5 +38,6 @@ export const AGENT_STORAGE_KEYS: readonly string[] = [
   CURSOR_SESSION_PREFS_KEY,
   CURSOR_SETTINGS_KEY,
   CURSOR_TRANSCRIPTS_KEY,
+  AGENT_RESUME_CURSORS_KEY,
   ...MODEL_CATALOG_PROVIDERS.map(modelCatalogKey),
 ];

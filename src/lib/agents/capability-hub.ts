@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import type { AgentMcpServerDraft } from "@/lib/agents/capability-types";
 import { invoke } from "@/lib/platform/ipc";
 
 /** Ebenen, auf denen eine CLI ihre Capabilities ablegt. */
@@ -306,6 +307,135 @@ export function summarizeResults(results: CapabilityOpResult[]): {
     }),
     { ok: 0, skipped: 0, failed: 0 },
   );
+}
+
+export interface McpLiveServer {
+  name: string;
+  tools: string[];
+  authStatus: string;
+}
+
+export type McpInventoryStatus = "connected" | "error" | "unconfigured";
+
+export interface McpInventoryEntry {
+  cli: string;
+  scope: CapabilityScope;
+  name: string;
+  configured: boolean;
+  status: McpInventoryStatus;
+  tools: string[];
+  authStatus: string | null;
+}
+
+export function mergeMcpToolCatalog(
+  items: CapabilityItem[],
+  liveServers: McpLiveServer[],
+  target: CapabilityTargetRef,
+): McpInventoryEntry[] {
+  const liveByName = new Map(liveServers.map((server) => [server.name, server]));
+  const configured = items.filter(
+    (item) => item.kind === "mcp" && item.cli === target.cli && item.scope === target.scope,
+  );
+  const entries: McpInventoryEntry[] = configured.map((item) => {
+    const live = liveByName.get(item.name);
+    return {
+      cli: item.cli,
+      scope: item.scope,
+      name: item.name,
+      configured: true,
+      status: live ? (live.authStatus === "error" ? "error" : "connected") : "unconfigured",
+      tools: live?.tools ?? [],
+      authStatus: live?.authStatus ?? null,
+    };
+  });
+  const configuredNames = new Set(configured.map((item) => item.name));
+  for (const server of liveServers) {
+    if (configuredNames.has(server.name)) continue;
+    entries.push({
+      cli: target.cli,
+      scope: target.scope,
+      name: server.name,
+      configured: false,
+      status: server.authStatus === "error" ? "error" : "connected",
+      tools: server.tools,
+      authStatus: server.authStatus,
+    });
+  }
+  return entries.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+const SECRET_REF_PREFIX = "secret:";
+
+export function validateMcpServerDraft(draft: AgentMcpServerDraft): string[] {
+  const issues: string[] = [];
+  if (!/^[A-Za-z0-9_-]+$/u.test(draft.name.trim())) {
+    issues.push("Der MCP-Name darf nur Buchstaben, Zahlen, _ und - enthalten.");
+  }
+  if (draft.transport === "http") {
+    if (!/^https?:\/\//u.test(draft.url.trim())) {
+      issues.push("Für HTTP-MCP ist eine gültige http(s)-URL erforderlich.");
+    }
+  } else if (draft.transport === "stdio") {
+    if (!draft.command.trim()) {
+      issues.push("Für STDIO-MCP ist ein Startbefehl erforderlich.");
+    }
+    if (draft.args.some((arg) => typeof arg !== "string" || arg.length === 0)) {
+      issues.push("Ein Startargument ist leer oder ungültig.");
+    }
+  } else {
+    issues.push("Unbekannter Transport.");
+  }
+  for (const entry of draft.env) {
+    if (!entry.value.startsWith(SECRET_REF_PREFIX)) continue;
+    const key = entry.value.slice(SECRET_REF_PREFIX.length).trim();
+    if (!key) {
+      issues.push(`Der Secret-Verweis für ${entry.key.trim() || "einen Umgebungswert"} ist leer.`);
+    }
+  }
+  return issues;
+}
+
+export type McpAuthState = "needsAuth" | "authorizing" | "authorized";
+
+export interface McpOAuthState {
+  status: McpAuthState;
+  requestId: number;
+}
+
+export const INITIAL_MCP_OAUTH_STATE: McpOAuthState = { status: "needsAuth", requestId: 0 };
+
+export type McpOAuthEvent = "start" | "authorized" | "cancel";
+
+/**
+ * OAuth-Statusübergänge als reine Funktion: jeder Start erhöht `requestId`,
+ * damit eine spät eintreffende Antwort auf eine bereits abgebrochene/erneut
+ * gestartete Anfrage erkannt und verworfen werden kann (siehe `respondsToRequest`).
+ */
+export function nextMcpOAuthState(
+  current: McpOAuthState | undefined,
+  event: McpOAuthEvent,
+): McpOAuthState {
+  const base = current ?? INITIAL_MCP_OAUTH_STATE;
+  if (event === "start") return { status: "authorizing", requestId: base.requestId + 1 };
+  if (event === "cancel") return { status: "needsAuth", requestId: base.requestId + 1 };
+  return { status: "authorized", requestId: base.requestId };
+}
+
+/** Ob eine ausstehende OAuth-Antwort noch zur aktuellen Anfrage gehört. */
+export function respondsToRequest(current: McpOAuthState | undefined, requestId: number): boolean {
+  return (current ?? INITIAL_MCP_OAUTH_STATE).requestId === requestId;
+}
+
+/**
+ * Ein Tool-Aufruf braucht einen Reconnect, wenn die Konfiguration geändert
+ * wurde, während (oder nachdem) der zuletzt gestartete Tool-Lauf begann.
+ */
+export function mcpReconnectRequired(
+  toolRunningSinceMs: number | null,
+  configChangedAtMs: number | null,
+): boolean {
+  if (toolRunningSinceMs === null || configChangedAtMs === null) return false;
+  return configChangedAtMs > toolRunningSinceMs;
 }
 
 interface CapabilityHubState {

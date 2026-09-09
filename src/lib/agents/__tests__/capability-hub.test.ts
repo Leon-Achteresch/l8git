@@ -15,14 +15,20 @@ import {
   itemStatusForTarget,
   itemStatusSummary,
   matchKey,
+  mergeMcpToolCatalog,
   preferredWritableScope,
+  mcpReconnectRequired,
+  nextMcpOAuthState,
   presenceColumns,
+  respondsToRequest,
   scopeInfo,
   summarizeResults,
   targetKey,
   targetSupports,
   targetWritable,
+  validateMcpServerDraft,
 } from "@/lib/agents/capability-hub";
+import type { AgentMcpServerDraft } from "@/lib/agents/capability-types";
 import { assetTargetKind, assetsFor } from "@/lib/agents/capability-market";
 import type { MarketAsset, MarketDetail } from "@/lib/agents/capability-market";
 
@@ -239,5 +245,150 @@ describe("marketplace helpers", () => {
     expect(assetsFor(detail, "hook").map((asset) => asset.name)).toEqual(["format.sh"]);
     expect(assetsFor(detail, "command")).toHaveLength(assets.length);
     expect(assetsFor(null, "skill")).toEqual([]);
+  });
+});
+
+function mcpItem(overrides: Partial<CapabilityItem> = {}): CapabilityItem {
+  return {
+    id: "claude:repo:mcp:jira",
+    cli: "claude",
+    scope: "repo",
+    kind: "mcp",
+    name: "jira",
+    rel: "jira",
+    description: "",
+    path: "/repo/.mcp.json",
+    isDirectory: false,
+    fileCount: 1,
+    sizeBytes: 0,
+    updatedAtMs: 0,
+    fingerprint: "f1",
+    ...overrides,
+  };
+}
+
+describe("mergeMcpToolCatalog", () => {
+  const target = { cli: "claude", scope: "repo" as const };
+
+  it("marks a configured server unconfigured when there is no live connection", () => {
+    const entries = mergeMcpToolCatalog([mcpItem()], [], target);
+    expect(entries).toEqual([
+      { cli: "claude", scope: "repo", name: "jira", configured: true, status: "unconfigured", tools: [], authStatus: null },
+    ]);
+  });
+
+  it("attaches the live tool catalog when the server is connected", () => {
+    const entries = mergeMcpToolCatalog(
+      [mcpItem()],
+      [{ name: "jira", tools: ["search", "createIssue"], authStatus: "ready" }],
+      target,
+    );
+    expect(entries).toEqual([
+      {
+        cli: "claude",
+        scope: "repo",
+        name: "jira",
+        configured: true,
+        status: "connected",
+        tools: ["search", "createIssue"],
+        authStatus: "ready",
+      },
+    ]);
+  });
+
+  it("surfaces connection errors and keeps same-named servers in different repos separate", () => {
+    const items = [
+      mcpItem({ id: "a", scope: "repo" }),
+      mcpItem({ id: "b", scope: "user" }),
+    ];
+    const entries = mergeMcpToolCatalog(items, [{ name: "jira", tools: [], authStatus: "error" }], target);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ scope: "repo", status: "error", tools: [] });
+  });
+});
+
+function mcpDraft(overrides: Partial<AgentMcpServerDraft> = {}): AgentMcpServerDraft {
+  return {
+    baseConfig: {},
+    name: "docs",
+    transport: "stdio",
+    enabled: true,
+    required: false,
+    command: "npx",
+    args: [],
+    cwd: "",
+    env: [],
+    envVars: [],
+    remoteEnvVars: [],
+    url: "",
+    bearerTokenEnvVar: "",
+    auth: "oauth",
+    oauthResource: "",
+    httpHeaders: [],
+    envHttpHeaders: [],
+    startupTimeoutSec: 30,
+    toolTimeoutSec: 60,
+    enabledTools: [],
+    disabledTools: [],
+    scopes: [],
+    defaultApprovalMode: "auto",
+    experimentalEnvironment: "local",
+    ...overrides,
+  };
+}
+
+describe("validateMcpServerDraft", () => {
+  it("accepts a valid stdio draft with a secret reference", () => {
+    const issues = validateMcpServerDraft(mcpDraft({ env: [{ key: "TOKEN", value: "secret:api-token" }] }));
+    expect(issues).toEqual([]);
+  });
+
+  it("rejects an empty secret reference", () => {
+    const issues = validateMcpServerDraft(mcpDraft({ env: [{ key: "TOKEN", value: "secret:" }] }));
+    expect(issues).toContain("Der Secret-Verweis für TOKEN ist leer.");
+  });
+
+  it("rejects a stdio draft without a command", () => {
+    const issues = validateMcpServerDraft(mcpDraft({ command: "" }));
+    expect(issues).toContain("Für STDIO-MCP ist ein Startbefehl erforderlich.");
+  });
+
+  it("rejects an http draft without a valid url", () => {
+    const issues = validateMcpServerDraft(mcpDraft({ transport: "http", url: "not-a-url" }));
+    expect(issues).toContain("Für HTTP-MCP ist eine gültige http(s)-URL erforderlich.");
+  });
+
+  it("accepts a valid http draft", () => {
+    const issues = validateMcpServerDraft(mcpDraft({ transport: "http", url: "https://example.test/mcp" }));
+    expect(issues).toEqual([]);
+  });
+});
+
+describe("nextMcpOAuthState / respondsToRequest", () => {
+  it("increments the request id on start so a stale response can be detected", () => {
+    const started = nextMcpOAuthState(undefined, "start");
+    expect(started).toEqual({ status: "authorizing", requestId: 1 });
+    expect(respondsToRequest(started, 1)).toBe(true);
+
+    const cancelled = nextMcpOAuthState(started, "cancel");
+    expect(cancelled.status).toBe("needsAuth");
+    expect(respondsToRequest(cancelled, 1)).toBe(false);
+
+    const restarted = nextMcpOAuthState(cancelled, "start");
+    expect(restarted.requestId).toBe(3);
+    const authorized = nextMcpOAuthState(restarted, "authorized");
+    expect(authorized).toEqual({ status: "authorized", requestId: 3 });
+  });
+});
+
+describe("mcpReconnectRequired", () => {
+  it("is false when nothing is running or nothing changed", () => {
+    expect(mcpReconnectRequired(null, 100)).toBe(false);
+    expect(mcpReconnectRequired(100, null)).toBe(false);
+  });
+
+  it("is true only when the config changed after the tool started running", () => {
+    expect(mcpReconnectRequired(100, 200)).toBe(true);
+    expect(mcpReconnectRequired(200, 100)).toBe(false);
   });
 });
