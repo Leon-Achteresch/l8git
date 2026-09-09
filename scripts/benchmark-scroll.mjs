@@ -12,7 +12,9 @@ const TARGETS = [
 const server = await preview({ configFile: resolve('vite.ui-test.config.ts'), preview: { host: '127.0.0.1', port: 4176, strictPort: true } });
 const browser = await chromium.launch();
 const throttle = Number(process.env.SCROLL_BENCHMARK_THROTTLE ?? 4);
-const result = { scope: `Chromium production renderer, 1000 changed files and 10000 commits, 240 scrolling frames per view, animations enabled, CPU throttled ${throttle}x; no native Tauri measurement.`, views: {} };
+// 0 = sweep the whole list in 120 frames (worst case). Set px/frame for a wheel-speed scroll.
+const pxPerFrame = Number(process.env.SCROLL_BENCHMARK_PX_PER_FRAME ?? 0);
+const result = { scope: `Chromium production renderer, 1000 changed files and 10000 commits, 240 scrolling frames per view, animations enabled, CPU throttled ${throttle}x, ${pxPerFrame > 0 ? pxPerFrame + ' px/frame' : 'full sweep'}; no native Tauri measurement.`, views: {} };
 try {
   for (const target of TARGETS) {
     const samples = [];
@@ -27,7 +29,7 @@ try {
       await page.goto(`http://127.0.0.1:4176/?scene=${target.scene}`);
       await target.ready(page).waitFor();
       const before = await cdp.send('Performance.getMetrics');
-      const frames = await target.anchor(page).evaluate(async (root) => {
+      const frames = await target.anchor(page).evaluate(async (root, pxPerFrame) => {
         const scrollable = node => node.scrollHeight > node.clientHeight + 100 && /auto|scroll/.test(getComputedStyle(node).overflowY);
         let scroller = [...root.querySelectorAll('*')].find(scrollable);
         for (let node = root; !scroller && node && node !== document.body; node = node.parentElement) {
@@ -41,8 +43,15 @@ try {
             if (previous !== undefined) intervals.push(now - previous);
             previous = now;
             // Scroll across the full fixture and back; every frame changes rows.
-            const phase = (intervals.length % 120) / 120;
-            scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) * (1 - Math.abs(phase * 2 - 1));
+            const max = scroller.scrollHeight - scroller.clientHeight;
+            if (pxPerFrame > 0) {
+              const span = 2 * max;
+              const pos = (intervals.length * pxPerFrame) % span;
+              scroller.scrollTop = pos <= max ? pos : span - pos;
+            } else {
+              const phase = (intervals.length % 120) / 120;
+              scroller.scrollTop = max * (1 - Math.abs(phase * 2 - 1));
+            }
             if (intervals.length < 240) requestAnimationFrame(tick);
             else resolve();
           };
@@ -50,7 +59,7 @@ try {
         });
         intervals.sort((a, b) => a - b);
         return { fps: 1000 / (intervals.reduce((sum, n) => sum + n, 0) / intervals.length), p95FrameMs: intervals[Math.floor(intervals.length * 0.95)], framesOver33Ms: intervals.filter(n => n > 33.4).length };
-      });
+      }, pxPerFrame);
       const after = await cdp.send('Performance.getMetrics');
       const deltaMs = name => 1000 * (after.metrics.find(m => m.name === name).value - before.metrics.find(m => m.name === name).value);
       if (errors.length) throw new Error(errors.join('; '));
