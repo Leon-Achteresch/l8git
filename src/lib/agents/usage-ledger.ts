@@ -49,6 +49,16 @@ export function usageTotals(usage: AgentTokenUsage | undefined): UsageTotals {
   };
 }
 
+export function isUsageMeasured(usage: AgentTokenUsage | undefined | null): boolean {
+  if (!usage) return false;
+  return (
+    usage.inputTokens !== undefined ||
+    usage.outputTokens !== undefined ||
+    usage.cacheReadTokens !== undefined ||
+    usage.cacheWriteTokens !== undefined
+  );
+}
+
 export function activeContextSize(usage: UsageTotals | undefined | null): number {
   if (!usage) return 0;
   return usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
@@ -173,6 +183,15 @@ export const useUsageLedgerStore = create<UsageLedgerState>()(
     },
   ),
 );
+
+export function recordSubagentUsage(
+  threadId: string,
+  taskKey: string,
+  model: string | null,
+  usage: UsageTotals,
+): void {
+  useUsageLedgerStore.getState().record("claude", model, usage, `${threadId}:task:${taskKey}`);
+}
 
 export function armUsageLedger(): () => void {
   const unsubscribes = PROVIDERS.map((provider) => {

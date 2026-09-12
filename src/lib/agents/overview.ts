@@ -5,6 +5,7 @@ import type {
   AgentConversation,
   AgentPendingRequest,
   AgentThreadSummary,
+  InstanceId,
 } from "@/lib/agents/types";
 
 export type AgentOverviewStatus = "awaitingApproval" | "running" | "failed" | "idle";
@@ -316,6 +317,48 @@ export interface AgentRepoGroup {
   path: string;
   repoName: string;
   entries: AgentOverviewEntry[];
+}
+
+export interface AgentInstanceOverview {
+  instanceId: InstanceId;
+  running: number;
+  waitingForApproval: number;
+  rateLimited: number;
+  failed: number;
+}
+
+export function aggregateOverviewByInstance(
+  entries: AgentOverviewEntry[],
+  instanceOf: (entry: AgentOverviewEntry) => InstanceId,
+  rateLimitedInstances: ReadonlySet<InstanceId> = new Set(),
+): AgentInstanceOverview[] {
+  const byInstance = new Map<InstanceId, AgentInstanceOverview>();
+  for (const entry of entries) {
+    const id = instanceOf(entry);
+    let bucket = byInstance.get(id);
+    if (!bucket) {
+      bucket = {
+        instanceId: id,
+        running: 0,
+        waitingForApproval: 0,
+        rateLimited: 0,
+        failed: 0,
+      };
+      byInstance.set(id, bucket);
+    }
+    if (entry.status === "running") bucket.running += 1;
+    if (entry.status === "awaitingApproval") bucket.waitingForApproval += 1;
+    if (entry.status === "failed") bucket.failed += 1;
+  }
+  for (const id of rateLimitedInstances) {
+    let bucket = byInstance.get(id);
+    if (!bucket) {
+      bucket = { instanceId: id, running: 0, waitingForApproval: 0, rateLimited: 0, failed: 0 };
+      byInstance.set(id, bucket);
+    }
+    bucket.rateLimited += 1;
+  }
+  return [...byInstance.values()];
 }
 
 export function groupEntriesByRepo(entries: AgentOverviewEntry[]): AgentRepoGroup[] {

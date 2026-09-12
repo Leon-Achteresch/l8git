@@ -179,6 +179,151 @@ export function applyBackendPreset(
   return { env, warnings };
 }
 
+export interface TurnBudgetConfig {
+  maxTurns?: number;
+  maxBudgetUsd?: number;
+  outputSchema?: string;
+}
+
+export interface TurnBudgetCapability {
+  status: "supported" | "unsupported";
+  reason?: string;
+}
+
+export interface TurnBudgetValidation {
+  maxTurns: TurnBudgetCapability;
+  maxBudgetUsd: TurnBudgetCapability;
+  outputSchema: TurnBudgetCapability;
+  valid: boolean;
+}
+
+function isValidJsonSchema(schema: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(schema);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}
+
+export function validateTurnBudget(
+  config: TurnBudgetConfig,
+  capabilities: { structuredOutput: boolean; maxTurns: boolean; maxBudget: boolean },
+): TurnBudgetValidation {
+  const maxTurns: TurnBudgetCapability =
+    config.maxTurns === undefined
+      ? { status: "supported" }
+      : !capabilities.maxTurns
+        ? { status: "unsupported", reason: "model/CLI does not support max-turns" }
+        : !Number.isSafeInteger(config.maxTurns) || config.maxTurns < 1
+          ? { status: "unsupported", reason: "maxTurns must be at least 1" }
+          : { status: "supported" };
+
+  const maxBudgetUsd: TurnBudgetCapability =
+    config.maxBudgetUsd === undefined
+      ? { status: "supported" }
+      : !capabilities.maxBudget
+        ? { status: "unsupported", reason: "model/CLI does not support a cost budget" }
+        : !Number.isFinite(config.maxBudgetUsd) || config.maxBudgetUsd <= 0
+          ? { status: "unsupported", reason: "maxBudgetUsd must be greater than 0" }
+          : { status: "supported" };
+
+  const outputSchema: TurnBudgetCapability =
+    config.outputSchema === undefined
+      ? { status: "supported" }
+      : !capabilities.structuredOutput
+        ? { status: "unsupported", reason: "model/CLI does not support structured output" }
+        : !isValidJsonSchema(config.outputSchema)
+          ? { status: "unsupported", reason: "invalid JSON schema" }
+          : { status: "supported" };
+
+  return {
+    maxTurns,
+    maxBudgetUsd,
+    outputSchema,
+    valid:
+      maxTurns.status === "supported" &&
+      maxBudgetUsd.status === "supported" &&
+      outputSchema.status === "supported",
+  };
+}
+
+export interface FastModeCapability {
+  status: "supported" | "unsupported";
+  reason?: string;
+}
+
+export function fastModeCapability(
+  model: Pick<AgentModelOption, "serviceTiers"> | undefined,
+  version: string | null,
+): FastModeCapability {
+  if (!model) {
+    return { status: "unsupported", reason: "unknown model" };
+  }
+  if (!version) {
+    return { status: "unsupported", reason: "CLI version unknown" };
+  }
+  const hasFastTier = model.serviceTiers.some((tier) => tier.id === "fast");
+  if (!hasFastTier) {
+    return { status: "unsupported", reason: "model does not advertise a fast service tier" };
+  }
+  return { status: "supported" };
+}
+
+export type ResolvedModelId =
+  | { kind: "alias"; alias: string; id: string }
+  | { kind: "known"; id: string }
+  | { kind: "custom"; id: string };
+
+const MODEL_ALIASES: Record<string, string> = {
+  opus: "claude-opus-4",
+  sonnet: "claude-sonnet-4",
+  haiku: "claude-haiku-4",
+};
+
+export function resolveModelAlias(
+  input: string,
+  catalog: ReadonlyArray<{ id: string }>,
+): ResolvedModelId {
+  const aliasTarget = Object.prototype.hasOwnProperty.call(MODEL_ALIASES, input)
+    ? MODEL_ALIASES[input]
+    : undefined;
+  if (aliasTarget) {
+    return { kind: "alias", alias: input, id: aliasTarget };
+  }
+  if (catalog.some((model) => model.id === input)) {
+    return { kind: "known", id: input };
+  }
+  return { kind: "custom", id: input };
+}
+
+export interface ModelFallbackInfo {
+  requested: string;
+  used: string;
+  isFallback: boolean;
+  fallbackReason?: "explicit" | "provider_refusal";
+}
+
+export function resolveModelFallback(params: {
+  requested: string;
+  configuredFallback?: string;
+  providerRefusalFallback?: string;
+}): ModelFallbackInfo {
+  const { requested, configuredFallback, providerRefusalFallback } = params;
+  if (providerRefusalFallback && providerRefusalFallback !== requested) {
+    return {
+      requested,
+      used: providerRefusalFallback,
+      isFallback: true,
+      fallbackReason: "provider_refusal",
+    };
+  }
+  if (configuredFallback && configuredFallback !== requested) {
+    return { requested, used: configuredFallback, isFallback: true, fallbackReason: "explicit" };
+  }
+  return { requested, used: requested, isFallback: false };
+}
+
 export function resolveModelCatalog(params: {
   provider: NativeAgentProvider;
   instanceId?: string;

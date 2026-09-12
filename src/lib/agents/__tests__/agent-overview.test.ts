@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProviderEntries,
   compareOverviewEntries,
+  connectionState,
   countPendingRequests,
   countRunningTurns,
   createOverviewConversationSelector,
@@ -14,8 +15,10 @@ import {
   overviewCounts,
   overviewRepoName,
   overviewStatus,
+  snapshotResumeSequence,
   sortOverviewEntries,
   threadCostKey,
+  type AgentConnectionSignal,
   type AgentOverviewEntry,
   type ProviderOverviewInput,
 } from "@/lib/agents/overview";
@@ -314,6 +317,43 @@ describe("groupFleetLanes", () => {
     expect(lanes.needsYou.map((item) => item.key)).toEqual(["a", "b"]);
     expect(lanes.working.map((item) => item.key)).toEqual(["c"]);
     expect(lanes.ready.map((item) => item.key)).toEqual(["d"]);
+  });
+});
+
+describe("connectionState", () => {
+  it("is offline before any signal", () => {
+    expect(connectionState([])).toEqual({ state: "offline", lastSequence: 0, gapDetected: false });
+  });
+
+  it("goes online on connect and tracks sequence", () => {
+    const events: AgentConnectionSignal[] = [
+      { type: "connected" },
+      { type: "sequence", sequence: 1 },
+      { type: "sequence", sequence: 2 },
+    ];
+    expect(connectionState(events)).toEqual({ state: "online", lastSequence: 2, gapDetected: false });
+  });
+
+  it("flags reconnecting then catchingUp until a sequence arrives, and detects gaps", () => {
+    const events: AgentConnectionSignal[] = [
+      { type: "sequence", sequence: 1 },
+      { type: "disconnected" },
+      { type: "reconnecting" },
+      { type: "connected" },
+      { type: "sequence", sequence: 4 },
+    ];
+    expect(connectionState(events)).toEqual({ state: "online", lastSequence: 4, gapDetected: true });
+  });
+
+  it("stays offline after a disconnect with no reconnect", () => {
+    const events: AgentConnectionSignal[] = [{ type: "connected" }, { type: "disconnected" }];
+    expect(connectionState(events).state).toBe("offline");
+  });
+});
+
+describe("snapshotResumeSequence", () => {
+  it("resumes from the sequence after the last confirmed one", () => {
+    expect(snapshotResumeSequence({ state: "online", lastSequence: 7, gapDetected: false })).toBe(8);
   });
 });
 
