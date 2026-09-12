@@ -12,7 +12,7 @@
     <a href="ROADMAP.md">Roadmap</a>
   </p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.6.0-blue.svg" alt="Version" />
+    <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version" />
     <img src="https://img.shields.io/badge/Tauri-2-ffc131.svg" alt="Tauri 2" />
     <img src="https://img.shields.io/badge/React-19-61DAFB.svg" alt="React 19" />
     <img src="https://img.shields.io/badge/Rust-2021-ed7b2b.svg" alt="Rust" />

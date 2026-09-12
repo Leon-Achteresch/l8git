@@ -25,7 +25,7 @@ const previewCommits: Commit[] = [
     subject: "Add workspace activity summary",
     body: "",
     parents: ["a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"],
-    tags: ["v0.6.0"],
+    tags: ["v1.0.0"],
   },
   {
     hash: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
@@ -51,7 +51,7 @@ const previewRepo: RepoInfo = {
   ],
   tags: [
     {
-      name: "v0.6.0",
+      name: "v1.0.0",
       commit: previewCommits[1].hash,
       kind: "annotated",
       message: "Preview release",
@@ -66,6 +66,7 @@ export function isPreviewRepo(path: string | null | undefined): boolean {
 
 export function seedPreviewRepo(): void {
   if (!import.meta.env.DEV || isTauri()) return;
+  if (new URLSearchParams(window.location.search).has("scene")) return;
 
   const state = useRepoStore.getState();
   if (state.paths.includes(PREVIEW_REPO_PATH)) {

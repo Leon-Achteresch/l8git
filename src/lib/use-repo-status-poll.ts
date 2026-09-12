@@ -44,10 +44,12 @@ export function useRepoStatusPoll() {
     const tickRepo = repoRefresh.request;
 
     const track = (p: Promise<() => void>) => {
-      void p.then((un) => {
-        if (cancelled) un();
-        else unlistenFns.push(un);
-      });
+      void p
+        .then((un) => {
+          if (cancelled) un();
+          else unlistenFns.push(un);
+        })
+        .catch(() => {});
     };
 
     const scheduleAfter = (ms: number) => {

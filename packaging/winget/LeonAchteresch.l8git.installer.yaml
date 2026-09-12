@@ -11,12 +11,12 @@
 #
 # PRO RELEASE ZU AKTUALISIEREN: PackageVersion, InstallerUrl, InstallerSha256, ReleaseDate.
 # InstallerSha256 unten ist ein PLATZHALTER. Ermitteln mit:
-#   Get-FileHash .\l8git_0.5.0_x64_en-US.msi -Algorithm SHA256
+#   Get-FileHash .\l8git_1.0.0_x64_en-US.msi -Algorithm SHA256
 # oder komplett automatisch:
-#   wingetcreate update LeonAchteresch.l8git --version 0.5.0 --urls <installer-url>
+#   wingetcreate update LeonAchteresch.l8git --version 1.0.0 --urls <installer-url>
 
 PackageIdentifier: LeonAchteresch.l8git
-PackageVersion: 0.5.0
+PackageVersion: 1.0.0
 InstallerLocale: en-US
 MinimumOSVersion: 10.0.17763.0
 InstallerType: wix
@@ -29,7 +29,7 @@ UpgradeBehavior: install
 ReleaseDate: 2026-01-01
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/Leon-Achteresch/l8git/releases/download/v0.5.0/l8git_0.5.0_x64_en-US.msi
+    InstallerUrl: https://github.com/Leon-Achteresch/l8git/releases/download/v1.0.0/l8git_1.0.0_x64_en-US.msi
     InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
     # ProductCode aus dem MSI lesen und hier eintragen, sonst kann winget eine
     # bestehende Installation nicht sicher als "dieses Paket" erkennen:

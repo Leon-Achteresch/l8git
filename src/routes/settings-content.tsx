@@ -318,17 +318,22 @@ export function Settings() {
     { id: "about", title: t("header.about"), subtitle: "", icon: User },
   ], [t]);
 
-  const matchedSectionIds = useMemo(() => {
-    if (!isSearching) return null;
-    const matches: string[] = [];
-    allSectionsMeta.forEach((meta) => {
-      const el = sectionRefs.current[meta.id];
-      const text = (el?.textContent ?? "") + " " + meta.title + " " + meta.subtitle;
-      if (text.toLowerCase().includes(normalizedQuery)) {
-        matches.push(meta.id);
-      }
-    });
-    return matches;
+  const [matchedSectionIds, setMatchedSectionIds] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!isSearching) {
+      setMatchedSectionIds(null);
+      return;
+    }
+    setMatchedSectionIds(
+      allSectionsMeta
+        .filter((meta) => {
+          const el = sectionRefs.current[meta.id];
+          const text = `${el?.textContent ?? ""} ${meta.title} ${meta.subtitle}`;
+          return text.toLowerCase().includes(normalizedQuery);
+        })
+        .map((meta) => meta.id),
+    );
   }, [allSectionsMeta, isSearching, normalizedQuery]);
 
   function renderHeader(Icon: React.ElementType, title: string, subtitle: string) {
@@ -348,10 +353,12 @@ export function Settings() {
   }
 
   function shouldShowSection(id: string) {
-    if (isSearching) {
-      return matchedSectionIds === null || matchedSectionIds.includes(id);
-    }
-    return activeSection === id;
+    return isSearching || activeSection === id;
+  }
+
+  function sectionClass(id: string, extra?: string) {
+    const hidden = isSearching && matchedSectionIds !== null && !matchedSectionIds.includes(id);
+    return cn("space-y-4", extra, hidden && "hidden");
   }
 
   return (
@@ -458,7 +465,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("sidebar") && (
-            <section id="sidebar" ref={setRef("sidebar")} className="space-y-4">
+            <section id="sidebar" ref={setRef("sidebar")} className={sectionClass("sidebar")}>
               {renderHeader(PanelLeft, t("settings.sidebarSectionTitle"), t("settings.sidebarSectionSubtitle"))}
               <LayoutPrefsCard />
               <SidebarCustomizeSection />
@@ -466,7 +473,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("appearance") && (
-            <section id="appearance" ref={setRef("appearance")} className="space-y-4">
+            <section id="appearance" ref={setRef("appearance")} className={sectionClass("appearance")}>
               {renderHeader(Palette, t("settings.appearanceTitle"), t("settings.appearanceSubtitle"))}
 
               <StaggerCard index={0}>
@@ -591,7 +598,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("animations") && (
-            <section id="animations" ref={setRef("animations")} className="space-y-4">
+            <section id="animations" ref={setRef("animations")} className={sectionClass("animations")}>
               {renderHeader(Zap, t("settings.animationsSectionTitle"), t("settings.animationsSectionSubtitle"))}
               <StaggerCard index={0}>
                 <AnimationsCard />
@@ -600,7 +607,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("notifications") && (
-            <section id="notifications" ref={setRef("notifications")} className="space-y-4">
+            <section id="notifications" ref={setRef("notifications")} className={sectionClass("notifications")}>
               {renderHeader(Bell, t("settings.notificationsSectionTitle"), t("settings.notificationsSectionSubtitle"))}
               <StaggerCard index={0}>
                 <NotificationsCard />
@@ -609,7 +616,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("hotkeys") && (
-            <section id="hotkeys" ref={setRef("hotkeys")} className="space-y-4">
+            <section id="hotkeys" ref={setRef("hotkeys")} className={sectionClass("hotkeys")}>
               {renderHeader(Keyboard, t("settings.hotkeysSectionTitle"), t("settings.hotkeysSectionSubtitle"))}
               <StaggerCard index={0}>
                 <HotkeysSection />
@@ -618,7 +625,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("commits") && (
-            <section id="commits" ref={setRef("commits")} className="space-y-4">
+            <section id="commits" ref={setRef("commits")} className={sectionClass("commits")}>
               {renderHeader(GitCommitHorizontal, t("settings.commitsSectionTitle"), t("settings.commitsSectionSubtitle"))}
 
               <StaggerCard index={0}>
@@ -793,7 +800,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("signing") && (
-            <section id="signing" ref={setRef("signing")} className="space-y-4">
+            <section id="signing" ref={setRef("signing")} className={sectionClass("signing")}>
               {renderHeader(ShieldCheck, t("settings.signingSectionTitle"), t("settings.signingSectionSubtitle"))}
               <StaggerCard index={0}>
                 <GitSigningCard />
@@ -802,7 +809,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("ai") && (
-            <section id="ai" ref={setRef("ai")} className="space-y-4">
+            <section id="ai" ref={setRef("ai")} className={sectionClass("ai")}>
               {renderHeader(Sparkles, t("settings.aiSectionTitle"), t("settings.aiSectionSubtitle"))}
 
               <StaggerCard index={0}>
@@ -992,7 +999,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("jira") && (
-            <section id="jira" ref={setRef("jira")} className="space-y-4">
+            <section id="jira" ref={setRef("jira")} className={sectionClass("jira")}>
               {renderHeader(Ticket, t("settings.jiraSectionTitle"), t("settings.jiraSectionSubtitle"))}
               <StaggerCard index={0}>
                 <JiraCard />
@@ -1001,7 +1008,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("workspace") && (
-            <section id="workspace" ref={setRef("workspace")} className="space-y-4">
+            <section id="workspace" ref={setRef("workspace")} className={sectionClass("workspace")}>
               {renderHeader(Terminal, t("settings.workspaceSectionTitle"), t("settings.workspaceSectionSubtitle"))}
 
               <StaggerCard index={0}>
@@ -1164,7 +1171,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("accounts") && (
-            <section id="accounts" ref={setRef("accounts")} className="space-y-4">
+            <section id="accounts" ref={setRef("accounts")} className={sectionClass("accounts")}>
               {renderHeader(Users, t("settings.accountsSectionTitle"), t("settings.accountsSectionSubtitle"))}
 
               <StaggerCard index={0}>
@@ -1240,7 +1247,7 @@ export function Settings() {
           )}
 
           {shouldShowSection("updates") && (
-            <section id="updates" ref={setRef("updates")} className="space-y-4 pb-6">
+            <section id="updates" ref={setRef("updates")} className={sectionClass("updates", "pb-6")}>
               {renderHeader(Package, t("settings.updatesSectionTitle"), t("settings.updatesSectionSubtitle"))}
 
               <StaggerCard index={0}>

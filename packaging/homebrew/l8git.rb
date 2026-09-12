@@ -23,7 +23,7 @@
 # solange die Release-Artefakte noch nicht stabil sind; danach echten Hash setzen.
 
 cask "l8git" do
-  version "0.5.0"
+  version "1.0.0"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 
   url "https://github.com/Leon-Achteresch/l8git/releases/download/v#{version}/l8git_#{version}_universal.dmg",

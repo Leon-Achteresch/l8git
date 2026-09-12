@@ -18,7 +18,7 @@ kopiert werden.
 - `.github/workflows/release.yml`: Tag-Schema `v__VERSION__`, Release-Name `l8git v__VERSION__`,
   Matrix `macos-latest --target universal-apple-darwin` und `windows-latest` (ohne `--target`, also x64).
   Die Version wird von `.github/scripts/compute-release-version.mjs` als `<major>.<minor>.<commit-count>`
-  berechnet - daher die `v0.5.x`-Reihe.
+  berechnet - daher die `v1.0.x`-Reihe.
 - Tauri-Namensschema daraus:
   - macOS: `l8git_<version>_universal.dmg` (plus `l8git.app` im DMG)
   - Windows: `l8git_<version>_x64_en-US.msi` (WiX) und `l8git_<version>_x64-setup.exe` (NSIS)
@@ -28,7 +28,7 @@ kopiert werden.
   `latest.json` ist **nur** fuer den In-App-Updater, nicht fuer diese Kanaele.
 
 > Die exakten Namen vor dem ersten Publizieren einmal gegen ein echtes Release pruefen:
-> `gh release view v0.5.x --repo Leon-Achteresch/l8git --json assets --jq '.assets[].name'`
+> `gh release view v1.0.x --repo Leon-Achteresch/l8git --json assets --jq '.assets[].name'`
 
 ## Blocker: Linux-Artefakte fehlen
 
@@ -48,17 +48,17 @@ echten Hashes ersetzt werden.
 `digest`-Feld):
 
 ```bash
-gh api repos/Leon-Achteresch/l8git/releases/tags/v0.5.7 \
+gh api repos/Leon-Achteresch/l8git/releases/tags/v1.0.0 \
   --jq '.assets[] | "\(.digest // "kein digest")  \(.name)"'
 ```
 
 **Mit Download** (immer moeglich, unabhaengig vom `digest`-Feld):
 
 ```bash
-gh release download v0.5.7 --repo Leon-Achteresch/l8git --dir /tmp/l8git-0.5.7
-shasum -a 256 /tmp/l8git-0.5.7/*        # macOS
-sha256sum      /tmp/l8git-0.5.7/*        # Linux
-certutil -hashfile l8git_0.5.7_x64_en-US.msi SHA256   # Windows
+gh release download v1.0.0 --repo Leon-Achteresch/l8git --dir /tmp/l8git-1.0.0
+shasum -a 256 /tmp/l8git-1.0.0/*        # macOS
+sha256sum      /tmp/l8git-1.0.0/*        # Linux
+certutil -hashfile l8git_1.0.0_x64_en-US.msi SHA256   # Windows
 ```
 
 **Automatisch patchen** (siehe unten): `scripts/update-packaging.mjs`.
@@ -119,8 +119,8 @@ Voraussetzung: Microsoft-Konto mit GitHub-Fork von `microsoft/winget-pkgs`, opti
 Bequemer Weg (erzeugt und validiert die Manifeste selbst, laedt das MSI und rechnet den Hash):
 
 ```powershell
-wingetcreate update LeonAchteresch.l8git --version 0.5.7 `
-  --urls https://github.com/Leon-Achteresch/l8git/releases/download/v0.5.7/l8git_0.5.7_x64_en-US.msi `
+wingetcreate update LeonAchteresch.l8git --version 1.0.0 `
+  --urls https://github.com/Leon-Achteresch/l8git/releases/download/v1.0.0/l8git_1.0.0_x64_en-US.msi `
   --submit --token <github-pat>
 ```
 
@@ -128,11 +128,11 @@ Manueller Weg mit den Manifesten aus diesem Ordner:
 
 ```powershell
 # 1. Fork klonen, Zielordner anlegen
-#    manifests/l/LeonAchteresch/l8git/0.5.7/
+#    manifests/l/LeonAchteresch/l8git/1.0.0/
 # 2. Die drei YAMLs hineinkopieren und Version/URL/Hash setzen
 # 3. Validieren und lokal testen
-winget validate --manifest manifests\l\LeonAchteresch\l8git\0.5.7
-winget install --manifest manifests\l\LeonAchteresch\l8git\0.5.7
+winget validate --manifest manifests\l\LeonAchteresch\l8git\1.0.0
+winget install --manifest manifests\l\LeonAchteresch\l8git\1.0.0
 # 4. Branch pushen und PR gegen microsoft/winget-pkgs oeffnen
 ```
 
@@ -165,7 +165,7 @@ namcap PKGBUILD
 namcap l8git-bin-*.pkg.tar.zst
 
 git add PKGBUILD .SRCINFO
-git commit -m "upgpkg: l8git-bin 0.5.7-1"
+git commit -m "upgpkg: l8git-bin 1.0.0-1"
 git push
 ```
 
@@ -228,7 +228,7 @@ node scripts/update-packaging.mjs --release release.json --dry-run
 node scripts/update-packaging.mjs --release release.json
 
 # Ohne digest-Feld: Artefakte herunterladen und lokal hashen
-gh release download v0.5.7 --repo Leon-Achteresch/l8git --dir /tmp/l8git
+gh release download v1.0.0 --repo Leon-Achteresch/l8git --dir /tmp/l8git
 node scripts/update-packaging.mjs --release release.json --artifacts /tmp/l8git
 
 # Oder aus einer Checksummen-Datei

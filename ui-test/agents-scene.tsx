@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AgentsPage } from "@/routes/agents";
 import { claudeChatStore } from "@/lib/agents/providers/claude/chat-store";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
+import { useRepoStore } from "@/lib/repo-store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 import type { AgentConversation, AgentPendingRequest, AgentThreadSummary } from "@/lib/agents/types";
 import { Toaster } from "@/components/ui/sonner";
@@ -70,6 +71,7 @@ function seedAgentsScene() {
   const record = (name: string) => async (...args: unknown[]) => {
     calls.push({ name, args });
   };
+  useRepoStore.setState({ paths: [PATH], activePath: PATH });
   useWorkspaceStore.setState({ workspaces: [{ id: "default", name: "Fixture", repoPaths: [PATH] }], activeWorkspaceId: "default" });
   useAgentProviderStore.getState().setProvider("claude");
   claudeChatStore.setState({

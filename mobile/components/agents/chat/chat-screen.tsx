@@ -20,7 +20,6 @@ import { tryChatStore, useChatStore, type NativeAgentProvider } from '~/lib/agen
 import { useAgentConnection } from '~/lib/agents/use-agent-connection';
 
 import {
-  agentComposerDraftKey,
   loadAgentComposerDraft,
   saveAgentComposerDraft,
 } from '@desktop/lib/agents/composer-drafts';
@@ -88,8 +87,9 @@ export function AgentChatScreen({
   const settings = useAgentSettings(provider);
   const capabilities = providerCapabilities(provider);
 
-  const draftKey = agentComposerDraftKey(`${provider}:${path}`, threadId);
-  const [draft, setDraft] = React.useState(() => loadAgentComposerDraft(draftKey).text);
+  const [draft, setDraft] = React.useState(
+    () => loadAgentComposerDraft(provider, path, threadId).text
+  );
   const [sending, setSending] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [scrollSignal, setScrollSignal] = React.useState(0);
@@ -100,11 +100,11 @@ export function AgentChatScreen({
 
   React.useEffect(() => {
     const timer = setTimeout(
-      () => saveAgentComposerDraft(draftKey, { text: draft, attachments: [] }),
+      () => saveAgentComposerDraft(provider, path, threadId, { text: draft, attachments: [] }),
       300
     );
     return () => clearTimeout(timer);
-  }, [draft, draftKey]);
+  }, [draft, path, provider, threadId]);
 
   const conversation = useChatStore<AgentConversation | undefined>(
     provider,
@@ -187,7 +187,7 @@ export function AgentChatScreen({
     }
     agentSendHaptic();
     setDraft('');
-    saveAgentComposerDraft(draftKey, { text: '', attachments: [] });
+    saveAgentComposerDraft(provider, path, threadId, { text: '', attachments: [] });
     setSending(true);
     setScrollSignal((value) => value + 1);
     const state = store.getState();
@@ -210,7 +210,7 @@ export function AgentChatScreen({
         pushAgentNotice(errorMessage(error), { tone: 'attention' });
       })
       .finally(() => setSending(false));
-  }, [busy, capabilities.steer, draft, draftKey, path, provider, router, threadId]);
+  }, [busy, capabilities.steer, draft, path, provider, router, threadId]);
 
   const interrupt = React.useCallback(() => {
     const store = tryChatStore(provider);
