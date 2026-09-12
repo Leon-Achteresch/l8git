@@ -4,6 +4,7 @@ import {
   approvalResult,
   questionAnswerResult,
   threadRowStatus,
+  splitComposerModelId,
   threadRows,
   transcriptEntries,
   usageLimits,
@@ -173,5 +174,26 @@ describe("request answers", () => {
 
   it("wraps question answers in the indexed shape the stores expect", () => {
     expect(questionAnswerResult(0, ["Inline card"])).toEqual({ answers: { "q-0": { answers: ["Inline card"] } } });
+  });
+});
+
+describe("splitComposerModelId", () => {
+  it("splits a provider-qualified model id", () => {
+    expect(splitComposerModelId("claude:claude-opus-5", "codex")).toEqual({
+      provider: "claude",
+      model: "claude-opus-5",
+    });
+  });
+
+  it("keeps colons inside the model id", () => {
+    expect(splitComposerModelId("cursor:anthropic/claude:latest", "codex")).toEqual({
+      provider: "cursor",
+      model: "anthropic/claude:latest",
+    });
+  });
+
+  it("falls back for unqualified or unknown providers", () => {
+    expect(splitComposerModelId("gpt-5.1", "codex")).toEqual({ provider: "codex", model: "gpt-5.1" });
+    expect(splitComposerModelId("acme:m1", "claude")).toEqual({ provider: "claude", model: "acme:m1" });
   });
 });

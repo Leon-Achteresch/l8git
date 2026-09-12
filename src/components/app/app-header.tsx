@@ -2,12 +2,9 @@ import { ActivityCenter } from "./activity-center";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  Bot,
   GitFork,
-  Info,
   LayoutDashboard,
   Settings,
-  User,
 } from "lucide-react";
 import { type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -39,9 +36,6 @@ export function AppHeader() {
   const navItems = [
     { to: "/" as const, label: t("header.repo"), icon: GitFork },
     { to: "/dashboard" as const, label: t("header.dashboard"), icon: LayoutDashboard },
-    { to: "/agents" as const, label: t("header.agents"), icon: Bot },
-    { to: "/info" as const, label: t("header.info"), icon: Info },
-    { to: "/about" as const, label: t("header.about"), icon: User },
   ] as const;
 
   return (
@@ -49,7 +43,7 @@ export function AppHeader() {
       data-tauri-drag-region
       style={{ WebkitAppRegion: "drag" } as CSSProperties}
       className={cn(
-        "relative z-10 flex h-11 shrink-0 select-none items-stretch gap-1 overflow-hidden border-b border-border/50 bg-sidebar",
+        "relative z-10 flex h-12 shrink-0 select-none items-stretch gap-1 overflow-hidden border-b border-border/50 bg-sidebar",
         IS_MAC ? "pl-[86px]" : "pl-2",
         IS_WINDOWS && "pr-[140px]",
       )}
@@ -82,7 +76,7 @@ export function AppHeader() {
                     aria-label={label}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "relative inline-flex size-7 items-center justify-center rounded-lg transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar",
+                      "relative inline-flex size-8 items-center justify-center rounded-xl transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar",
                       navLabels && "xl:w-auto xl:gap-1.5 xl:px-2",
                       active
                         ? "bg-muted text-foreground shadow-xs ring-1 ring-border/50"
@@ -116,7 +110,7 @@ export function AppHeader() {
                 title={t("header.settingsAria")}
                 aria-current={pathname.startsWith("/settings") ? "page" : undefined}
                 className={cn(
-                  "inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar",
+                  "inline-flex size-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar",
                   "hover:bg-muted/70 hover:text-foreground",
                   pathname.startsWith("/settings") && "bg-muted text-foreground shadow-xs ring-1 ring-border/50",
                 )}

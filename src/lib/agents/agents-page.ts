@@ -21,6 +21,8 @@ export interface ThreadRow {
   group: string;
   age: string;
   status: ThreadRowStatus;
+  updatedAt: number;
+  provider: NativeAgentProvider;
   pinned?: boolean;
 }
 
@@ -50,9 +52,10 @@ export function threadRows(
   threadsByPath: Record<string, AgentThreadSummary[]>,
   conversations: Record<string, AgentConversation>,
   requestsByThread: Record<string, AgentPendingRequest[]>,
-  options: { paths?: string[]; locale?: string; now?: number } = {},
+  options: { paths?: string[]; locale?: string; now?: number; provider?: NativeAgentProvider } = {},
 ): ThreadRow[] {
   const paths = options.paths ?? Object.keys(threadsByPath);
+  const provider = options.provider ?? "codex";
   const now = options.now ?? Date.now();
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
@@ -67,9 +70,11 @@ export function threadRows(
       id: thread.id,
       path: thread.path,
       title: thread.title || thread.preview || thread.id,
-      group: GROUP_LABEL[groupOf({ ...thread, provider: "codex" }, startOfToday.getTime())],
+      group: GROUP_LABEL[groupOf({ ...thread, provider }, startOfToday.getTime())],
       age: compactAge(thread.updatedAt, options.locale ?? "en", now),
       status: threadRowStatus(thread, conversations[thread.id], requestsByThread[thread.id]),
+      updatedAt: thread.updatedAt,
+      provider,
       pinned: thread.isPinned,
     }));
 }
@@ -217,6 +222,17 @@ export function usageLimits(limits: AgentRateLimits | null, now: number = Date.n
   push(limits.limitName ?? "Primary limit", limits.primary);
   push("Secondary limit", limits.secondary);
   return rows;
+}
+
+export function splitComposerModelId(
+  value: string,
+  fallback: NativeAgentProvider,
+): { provider: NativeAgentProvider; model: string } {
+  const separator = value.indexOf(":");
+  if (separator <= 0) return { provider: fallback, model: value };
+  const provider = value.slice(0, separator) as NativeAgentProvider;
+  const known = ["codex", "claude", "opencode", "cursor"].includes(provider);
+  return known ? { provider, model: value.slice(separator + 1) } : { provider: fallback, model: value };
 }
 
 export function approvalResult(provider: NativeAgentProvider, approved: boolean): Record<string, string> {
