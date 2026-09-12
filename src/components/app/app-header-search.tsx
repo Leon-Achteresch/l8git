@@ -840,7 +840,7 @@ export function AppHeaderSearch() {
         keywords: "shortcuts hotkeys tastenkuerzel tastenkürzel keyboard tasten",
         onSelect: () => {
           setOpen(false);
-          void router.navigate({ to: "/info" });
+          void router.navigate({ to: "/settings", hash: "hotkeys" });
         },
       },
       {
@@ -1042,9 +1042,10 @@ export function AppHeaderSearch() {
         onOpenChange={handleOpenChange}
         title={t("appSearch.dialogTitle")}
         description={t("appSearch.dialogDescription")}
-        className="top-[12%] sm:max-w-3xl"
+        className="sm:max-w-3xl"
       >
         <Command
+          className="flex min-h-0 flex-col"
           shouldFilter={false}
           onValueChange={(v) => {
             highlightedValue.current = v;
@@ -1056,7 +1057,7 @@ export function AppHeaderSearch() {
             value={query}
             onValueChange={setQuery}
           />
-          <CommandList className="max-h-[65vh]">
+          <CommandList className="max-h-none flex-1">
             {!hasResults && (
               <CommandEmpty>{t("appSearch.empty")}</CommandEmpty>
             )}

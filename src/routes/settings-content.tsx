@@ -13,6 +13,7 @@ import {
   GitCommitHorizontal,
   Globe2,
   HardDrive,
+  Info,
   Keyboard,
   Link2,
   Monitor,
@@ -29,6 +30,7 @@ import {
   Terminal,
   Ticket,
   Users,
+  User,
   X,
   Zap,
 } from "lucide-react";
@@ -153,6 +155,8 @@ export function Settings() {
         items: [
           { id: "accounts", label: t("settings.navAccounts"), icon: Users },
           { id: "updates", label: t("settings.navUpdates"), icon: Package },
+          { id: "info", label: t("header.info"), icon: Info },
+          { id: "about", label: t("header.about"), icon: User },
         ],
       },
     ],
@@ -261,6 +265,14 @@ export function Settings() {
   }, [locationHash]);
 
   function handleSelectSection(id: string) {
+    if (id === "info") {
+      void router.navigate({ to: "/info" });
+      return;
+    }
+    if (id === "about") {
+      void router.navigate({ to: "/about" });
+      return;
+    }
     setActiveSection(id);
     if (mainRef.current) {
       mainRef.current.scrollTo({ top: 0, behavior: "smooth" });
@@ -302,6 +314,8 @@ export function Settings() {
     { id: "workspace", title: t("settings.workspaceSectionTitle"), subtitle: t("settings.workspaceSectionSubtitle"), icon: Terminal },
     { id: "accounts", title: t("settings.accountsSectionTitle"), subtitle: t("settings.accountsSectionSubtitle"), icon: Users },
     { id: "updates", title: t("settings.updatesSectionTitle"), subtitle: t("settings.updatesSectionSubtitle"), icon: Package },
+    { id: "info", title: t("header.info"), subtitle: "", icon: Info },
+    { id: "about", title: t("header.about"), subtitle: "", icon: User },
   ], [t]);
 
   const matchedSectionIds = useMemo(() => {

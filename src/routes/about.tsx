@@ -1,7 +1,7 @@
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { m } from "motion/react";
@@ -75,6 +75,7 @@ function getPlatformName() {
 
 function About() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [version, setVersion] = useState<string | null>(null);
   const [tauriVersion, setTauriVersion] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -165,6 +166,9 @@ function About() {
         className="space-y-8"
       >
         <m.div variants={itemVariants} className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-b from-card/80 to-card/40 p-8 shadow-sm backdrop-blur-md">
+          <Button type="button" variant="ghost" size="sm" onClick={() => router.navigate({ to: "/settings" })} className="-ml-2 mb-4 gap-2 text-muted-foreground hover:text-foreground">
+            {t("settings.back")}
+          </Button>
           <div className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-64 w-96 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
           <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left sm:gap-8">
             <div className="relative mb-4 shrink-0 sm:mb-0">
@@ -256,7 +260,7 @@ function About() {
                   </Link>
                 </Button>
                 <Button size="sm" variant="ghost" className="gap-2" asChild>
-                  <Link to="/info">
+                  <Link to="/settings" hash="hotkeys">
                     <Keyboard className="size-3.5" />
                     {t("about.shortcuts")}
                   </Link>
