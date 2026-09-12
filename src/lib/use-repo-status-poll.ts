@@ -1,5 +1,6 @@
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 import { createCoalescedRefresh } from "@/lib/coalesced-refresh";
@@ -15,13 +16,15 @@ export function useRepoStatusPoll() {
   const reloadLocalStatus = useRepoStore((s) => s.reloadLocalStatus);
   const reloadStashes = useRepoStore((s) => s.reloadStashes);
   const reloadRebaseState = useRepoStore((s) => s.reloadRebaseState);
+  const refreshOpenRepo = useRepoStore((s) => s.refreshOpenRepo);
 
   useEffect(() => {
-    if (!activePath) return;
+    if (!activePath || !isTauri()) return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    let unlistenFn: (() => void) | null = null;
+    const unlistenFns: (() => void)[] = [];
+    let gitDirty = false;
 
     const pollIntervalMs = () =>
       document.visibilityState === "visible"
@@ -36,6 +39,16 @@ export function useRepoStatusPoll() {
       ]);
     });
     const tick = refresh.request;
+
+    const repoRefresh = createCoalescedRefresh(() => refreshOpenRepo(activePath));
+    const tickRepo = repoRefresh.request;
+
+    const track = (p: Promise<() => void>) => {
+      void p.then((un) => {
+        if (cancelled) un();
+        else unlistenFns.push(un);
+      });
+    };
 
     const scheduleAfter = (ms: number) => {
       if (cancelled) return;
@@ -60,26 +73,38 @@ export function useRepoStatusPoll() {
       // (e.g. unsupported filesystem).
     });
 
-    void listen<string>("repo-changed", (event) => {
-      if (cancelled) return;
-      if (event.payload !== activePath) return;
-      // While hidden, the fallback timer provides bounded refreshes. The
-      // visibility handler catches up immediately when the user returns.
-      if (document.visibilityState !== "visible") return;
-      void tick();
-    }).then((un) => {
-      if (cancelled) {
-        un();
-      } else {
-        unlistenFn = un;
-      }
-    });
+    track(
+      listen<string>("repo-changed", (event) => {
+        if (cancelled) return;
+        if (event.payload !== activePath) return;
+        // While hidden, the fallback timer provides bounded refreshes. The
+        // visibility handler catches up immediately when the user returns.
+        if (document.visibilityState !== "visible") return;
+        void tick();
+      }),
+    );
+
+    track(
+      listen<string>("repo-git-changed", (event) => {
+        if (cancelled) return;
+        if (event.payload !== activePath) return;
+        if (document.visibilityState !== "visible") {
+          gitDirty = true;
+          return;
+        }
+        void tickRepo();
+      }),
+    );
 
     const onVisibility = () => {
       if (cancelled) return;
       if (timer != null) clearTimeout(timer);
       if (document.visibilityState === "visible") {
         void tick();
+        if (gitDirty) {
+          gitDirty = false;
+          void tickRepo();
+        }
       }
       scheduleAfter(pollIntervalMs());
     };
@@ -89,12 +114,19 @@ export function useRepoStatusPoll() {
     return () => {
       cancelled = true;
       refresh.dispose();
+      repoRefresh.dispose();
       if (timer != null) clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
-      if (unlistenFn) unlistenFn();
+      for (const un of unlistenFns) un();
       invoke("unwatch_repo", { path: activePath }).catch(() => {
         // ignore: window is closing or watcher already gone
       });
     };
-  }, [activePath, reloadLocalStatus, reloadStashes, reloadRebaseState]);
+  }, [
+    activePath,
+    reloadLocalStatus,
+    reloadStashes,
+    reloadRebaseState,
+    refreshOpenRepo,
+  ]);
 }
