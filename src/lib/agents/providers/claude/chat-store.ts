@@ -15,6 +15,7 @@ import { createStore } from "zustand/vanilla";
 import type { AgentChatState } from "@/lib/agents/chat-store";
 import { loadModelCatalog, saveModelCatalog } from "@/lib/agents/model-catalog";
 import { accumulateUsage } from "@/lib/agents/token-cost";
+import { recordSubagentUsage, type UsageTotals } from "@/lib/agents/usage-ledger";
 import { loadResumeCursors, saveResumeCursors, setResumeCursor } from "@/lib/agents/resume-cursor";
 import {
   parseRateLimitSignal,
@@ -74,6 +75,25 @@ const persistedSessions = new Set<string>();
 const pendingForkSources = new Map<string, string>();
 const rateLimitBucketsByThread = new Map<string, RateLimitBucketMap>();
 const autoResumeAttemptedTurns = new Set<string>();
+const bookedSubagentUsage = new Set<string>();
+let resumeCursors = loadResumeCursors();
+const eventSequenceByThread = new Map<string, number>();
+
+function nextEventSequence(threadId: string): number {
+  const seeded = eventSequenceByThread.get(threadId) ?? resumeCursors[threadId]?.lastSequence ?? 0;
+  const next = seeded + 1;
+  eventSequenceByThread.set(threadId, next);
+  return next;
+}
+
+function persistResumeCursor(threadId: string, nativeSessionId: string) {
+  resumeCursors = setResumeCursor(resumeCursors, threadId as unknown as ThreadId, {
+    nativeSessionId,
+    lastSequence: nextEventSequence(threadId),
+    updatedAt: Date.now(),
+  });
+  saveResumeCursors(resumeCursors);
+}
 const skillsByPath = new Map<string, AgentSkill[]>();
 const hooksByPath = new Map<string, AgentHook[]>();
 const commandsByPath = new Map<string, Array<{ name: string; description: string; argumentHint: string }>>();
@@ -346,7 +366,7 @@ function questionSummaries(input: UnknownRecord) {
   }));
 }
 
-export function toolItem(block: UnknownRecord, itemId: string): AgentItem {
+export function toolItem(block: UnknownRecord, itemId: string, fallbackModel?: string): AgentItem {
   const name = stringValue(block.name, "Tool");
   const input = isRecord(block.input) ? block.input : {};
   if (FILE_EDIT_TOOLS.includes(name)) {
@@ -445,11 +465,19 @@ export function toolItem(block: UnknownRecord, itemId: string): AgentItem {
     };
   }
   if (["Agent", "Task", "SendMessage", "TeamCreate"].includes(name)) {
+    const explicitModel = stringValue(input.model);
+    const effort = stringValue(input.effort, stringValue(input.reasoning_effort));
+    const title = stringValue(input.description);
     return {
       id: itemId,
       type: "collabAgentToolCall",
       tool: name,
       prompt: stringValue(input.prompt, stringValue(input.description)),
+      title: title || undefined,
+      role: stringValue(input.subagent_type) || undefined,
+      model: explicitModel || fallbackModel || undefined,
+      modelSource: explicitModel ? "explicit" : fallbackModel ? "inherited" : undefined,
+      effort: effort || undefined,
       arguments: input,
       status: "inProgress",
       toolUseId: block.id,
@@ -466,7 +494,7 @@ export function toolItem(block: UnknownRecord, itemId: string): AgentItem {
   };
 }
 
-function assistantItems(message: UnknownRecord, prefix: string): AgentItem[] {
+function assistantItems(message: UnknownRecord, prefix: string, fallbackModel?: string): AgentItem[] {
   return arrayValue(message.content).flatMap((raw, index): AgentItem[] => {
     if (!isRecord(raw)) return [];
     const itemId = `${prefix}-${index}`;
@@ -482,7 +510,7 @@ function assistantItems(message: UnknownRecord, prefix: string): AgentItem[] {
         __completed: true,
       }];
     }
-    if (raw.type === "tool_use") return [toolItem(raw, itemId)];
+    if (raw.type === "tool_use") return [toolItem(raw, itemId, fallbackModel)];
     return [];
   });
 }
@@ -493,17 +521,24 @@ export function applyToolResult(turn: AgentTurn, block: UnknownRecord, toolUseRe
   const result = block.content;
   const structured = isRecord(toolUseResult) ? toolUseResult : null;
   const patch = structured ? patchDiff(structured.structuredPatch) : "";
+  const structuredUsage = structured && isRecord(structured.usage) ? structured.usage : null;
+  const finiteNumber = (value: unknown): number => {
+    const num = Number(value ?? 0);
+    return Number.isFinite(num) ? num : 0;
+  };
+  const taskUsage = structuredUsage ? {
+    inputTokens: finiteNumber(structuredUsage.input_tokens),
+    outputTokens: finiteNumber(structuredUsage.output_tokens),
+    cacheReadTokens: finiteNumber(structuredUsage.cache_read_input_tokens),
+    cacheWriteTokens: finiteNumber(structuredUsage.cache_creation_input_tokens),
+  } : undefined;
   return {
     ...turn,
     items: turn.items.map((item) => {
       if (item.toolUseId !== toolUseId) return item;
-      if (
-        item.status === "completed" ||
-        item.status === "failed" ||
-        item.status === "aborted" ||
-        item.status === "detached"
-      ) return item;
+      if (TASK_TERMINAL_STATUSES.has(stringValue(item.status))) return item;
       const isCommand = item.type === "commandExecution";
+      const isTask = item.type === "collabAgentToolCall";
       const interrupted = structured?.interrupted === true;
       const commandStatus = interrupted
         ? "aborted"
@@ -512,9 +547,13 @@ export function applyToolResult(turn: AgentTurn, block: UnknownRecord, toolUseRe
           : item.background === true
             ? "detached"
             : "completed";
+      const taskStatus = interrupted ? "aborted" : block.is_error === true ? "failed" : "completed";
+      const taskErrorCategory = isTask && block.is_error === true
+        ? classifyResultErrorCategory(interrupted ? "interrupted" : "error", contentText(result))
+        : undefined;
       return {
         ...item,
-        status: isCommand ? commandStatus : (block.is_error === true ? "failed" : "completed"),
+        status: isCommand ? commandStatus : isTask ? taskStatus : (block.is_error === true ? "failed" : "completed"),
         result,
         changes: item.type === "fileChange" && patch
           ? arrayValue(item.changes).filter(isRecord).map((change) => ({ ...change, diff: patch }))
@@ -525,6 +564,8 @@ export function applyToolResult(turn: AgentTurn, block: UnknownRecord, toolUseRe
           ? (typeof structured?.returnCode === "number" ? structured.returnCode : (block.is_error === true ? 1 : 0))
           : item.exitCode,
         aggregatedOutput: isCommand ? contentText(result) : item.aggregatedOutput,
+        taskUsage: isTask ? (taskUsage ?? item.taskUsage) : item.taskUsage,
+        errorCategory: isTask ? (taskErrorCategory ?? item.errorCategory) : item.errorCategory,
         error: block.is_error === true ? contentText(result) : undefined,
         __completed: true,
       };
@@ -997,6 +1038,52 @@ export function normalizeClaudeEvent(
   return [];
 }
 
+export const TASK_TERMINAL_STATUSES = new Set(["completed", "failed", "aborted", "detached"]);
+
+export function mapTaskStatus(raw: string): string {
+  switch (raw) {
+    case "completed": case "done": case "success": return "completed";
+    case "failed": case "error": return "failed";
+    case "cancelled": case "canceled": case "aborted": case "interrupted": return "aborted";
+    case "paused": return "paused";
+    case "backgrounded": case "background": return "detached";
+    case "pending": case "queued": return "pending";
+    case "running": case "in_progress": return "inProgress";
+    default: return "inProgress";
+  }
+}
+
+/** Groups an active turn's subagent task items by the parent Task tool call so
+ * a coordinated workflow can be rendered as members/phases instead of a flat list. */
+export function groupWorkflowTasks(turn: AgentTurn): Array<{ parentToolUseId: string; phase: string; tasks: AgentItem[] }> {
+  const groups = new Map<string, { parentToolUseId: string; phase: string; tasks: AgentItem[] }>();
+  for (const item of turn.items) {
+    if (item.type !== "collabAgentToolCall") continue;
+    const key = stringValue(item.parentToolUseId) || stringValue(item.toolUseId) || stringValue(item.id);
+    const existing = groups.get(key);
+    const phase = stringValue(item.phase) || existing?.phase || "Allgemein";
+    if (existing) {
+      existing.tasks.push(item);
+      existing.phase = phase;
+    } else {
+      groups.set(key, { parentToolUseId: key, phase, tasks: [item] });
+    }
+  }
+  return Array.from(groups.values());
+}
+
+export function classifyResultErrorCategory(terminalReason: string, errorText: string | null): string {
+  const haystack = `${terminalReason} ${errorText ?? ""}`.toLowerCase();
+  if (haystack.includes("budget") || haystack.includes("credit") || haystack.includes("billing")) return "budget";
+  if (haystack.includes("structured") || haystack.includes("schema")) return "structured-output";
+  if (haystack.includes("prompt") && (haystack.includes("too long") || haystack.includes("too_long") || haystack.includes("length"))) return "prompt-too-long";
+  if (/\bauth(?!or\b|orized\b)/.test(haystack) || haystack.includes("401") || haystack.includes("credential")) return "auth";
+  if (haystack.includes("529") || haystack.includes("overload")) return "overload";
+  if (haystack.includes("model")) return "model";
+  if (haystack.includes("image")) return "image";
+  return "unknown";
+}
+
 export function handleClaudeMessage(threadId: string, path: string, event: UnknownRecord) {
   if (event.type === "stream_event") {
     scheduleStreamEvent(threadId, event);
@@ -1046,6 +1133,29 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
     }));
     return;
   }
+  if (event.type === "system" && (event.subtype === "api_retry" || event.subtype === "retry")) {
+    const attempt = Number(event.attempt ?? event.attempt_number ?? 1);
+    const delayMs = Number(event.delay_ms ?? event.delayMs ?? 0);
+    const category = classifyResultErrorCategory(stringValue(event.reason, stringValue(event.subtype)), stringValue(event.message));
+    updateConversation(threadId, (conversation) => {
+      const activeId = conversation.activeTurnId;
+      if (!activeId) return conversation;
+      return {
+        ...conversation,
+        turns: conversation.turns.map((turn) => turn.id === activeId ? ({
+          ...turn,
+          status: "inProgress",
+          retry: {
+            attempt: Number.isFinite(attempt) ? attempt : 1,
+            delayMs: Number.isFinite(delayMs) ? delayMs : 0,
+            category,
+            observedAt: Date.now(),
+          },
+        } as AgentTurn) : turn),
+      };
+    });
+    return;
+  }
   if (event.type === "assistant" && isRecord(event.message)) {
     const message = event.message;
     const prefix = stringValue(event.uuid, stringValue(message.id, id("assistant")));
@@ -1060,15 +1170,40 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
       const existing = turns[index];
       const parentToolUseId = stringValue(event.parent_tool_use_id);
       const owningAgentId = stringValue(event.agent_id, stringValue(event.session_id));
-      const incoming = assistantItems(message, prefix).map((item) => parentToolUseId || owningAgentId ? {
-        ...item,
-        parentToolUseId: parentToolUseId || undefined,
-        owningAgentId: owningAgentId || undefined,
-      } : item);
+      const consumedIds = new Set<string>();
+      const incoming = assistantItems(message, prefix, conversation.model).map((raw) => {
+        const item = parentToolUseId || owningAgentId ? {
+          ...raw,
+          parentToolUseId: parentToolUseId || undefined,
+          owningAgentId: owningAgentId || undefined,
+        } : raw;
+        if (item.type !== "collabAgentToolCall" || !item.toolUseId) return item;
+        // An early task_started/task_progress snapshot may have created a
+        // placeholder item for this Task call before the tool_use block
+        // itself arrived; fold that buffered state in instead of losing it.
+        const prior = existing.items.find((candidate) => candidate.toolUseId === item.toolUseId && candidate.id !== item.id);
+        if (!prior) return item;
+        consumedIds.add(prior.id);
+        return {
+          ...item,
+          taskId: prior.taskId ?? item.taskId,
+          phase: prior.phase ?? item.phase,
+          progressLog: prior.progressLog ?? item.progressLog,
+          status: prior.status ?? item.status,
+          lastToolName: prior.lastToolName ?? item.lastToolName,
+          result: prior.result ?? item.result,
+          endTime: prior.endTime ?? item.endTime,
+          outputFile: prior.outputFile ?? item.outputFile,
+          error: prior.error ?? item.error,
+        };
+      });
       const incomingIds = new Set(incoming.map((item) => item.id));
       turns[index] = {
         ...existing,
-        items: [...existing.items.filter((item) => item.__claudeStream !== true && !incomingIds.has(item.id)), ...incoming],
+        items: [
+          ...existing.items.filter((item) => item.__claudeStream !== true && !incomingIds.has(item.id) && !consumedIds.has(item.id)),
+          ...incoming,
+        ],
       };
       return { ...conversation, model: stringValue(message.model, conversation.model), turns, activeTurnId: activeId };
     });
@@ -1094,21 +1229,37 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
       });
       return;
     }
+    const resultToolUseIds = new Set(results.map((block) => stringValue(block.tool_use_id)));
     updateConversation(threadId, (conversation) => ({
       ...conversation,
       turns: conversation.turns.map((turn) => {
         let next = turn;
         for (const result of results) next = applyToolResult(next, result, event.toolUseResult);
+        for (const item of next.items) {
+          const itemToolUseId = stringValue(item.toolUseId);
+          if (item.type !== "collabAgentToolCall" || !itemToolUseId || !resultToolUseIds.has(itemToolUseId)) continue;
+          if (!item.taskUsage) continue;
+          const bookKey = `${threadId}:${itemToolUseId}`;
+          if (bookedSubagentUsage.has(bookKey)) continue;
+          bookedSubagentUsage.add(bookKey);
+          // Subagent usage is booked on its own ledger key so it never flows
+          // into the main turn's `conversation.tokenUsage` sum (no double counting).
+          recordSubagentUsage(threadId, itemToolUseId, stringValue(item.model) || conversation.model || null, item.taskUsage as UsageTotals);
+        }
         return next;
       }),
     }));
     return;
   }
   if (event.type === "result") {
-    const isError = event.is_error === true || stringValue(event.subtype).startsWith("error");
+    const subtype = stringValue(event.subtype);
+    const terminalReason = stringValue(event.terminal_reason, subtype);
+    const isError = event.is_error === true || subtype.startsWith("error");
+    const isAborted = !isError && (subtype === "aborted" || subtype === "interrupted" || terminalReason === "aborted" || terminalReason === "interrupted");
     const errorText = isError
       ? stringValue(event.result, arrayValue(event.errors).map(String).join("; ")) || "Claude Code turn failed."
       : null;
+    const errorCategory = isError ? classifyResultErrorCategory(terminalReason, errorText) : null;
     const turnUsage = isRecord(event.usage) ? {
       inputTokens: Number(event.usage.input_tokens ?? 0),
       outputTokens: Number(event.usage.output_tokens ?? 0),
@@ -1116,6 +1267,7 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
       cacheWriteTokens: Number(event.usage.cache_creation_input_tokens ?? 0),
     } : null;
     rateLimitBucketsByThread.delete(threadId);
+    persistResumeCursor(threadId, stringValue(event.session_id, threadId));
     updateConversation(threadId, (conversation) => {
       const activeId = conversation.activeTurnId;
       const hadActiveTurn = activeId !== null && conversation.turns.some((turn) => turn.id === activeId);
@@ -1127,11 +1279,20 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
         // overwritten by a later, benign result frame for the same turn.
         if (turn.error) return turn;
         if (turn.status === "interrupted" && !isError) return turn;
+        // A killed or errored turn must not leave subagent task cards spinning
+        // forever; finalize whatever child tasks are still open.
+        const items = (isError || isAborted)
+          ? turn.items.map((item) => item.type === "collabAgentToolCall" && !TASK_TERMINAL_STATUSES.has(stringValue(item.status))
+            ? { ...item, status: "aborted", error: item.error ?? errorText ?? undefined }
+            : item)
+          : turn.items;
         return {
           ...turn,
-          status: isError ? "failed" : "completed",
+          items,
+          status: isError ? "failed" : isAborted ? "interrupted" : "completed",
           completedAt: Date.now(),
           error: errorText,
+          errorCategory: errorCategory ?? undefined,
           usage: turnUsage ?? undefined,
         } as AgentTurn;
       });
@@ -1179,12 +1340,16 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
       const activeId = conversation.activeTurnId;
       const taskId = stringValue(event.task_id, id("task"));
       const parentToolUseId = stringValue(event.parent_tool_use_id, stringValue(event.tool_use_id));
-      const status = event.status === "completed" ? "completed" : "inProgress";
+      const status = mapTaskStatus(stringValue(event.status));
       const skipTranscript = event.skip_transcript === true;
       const summary = stringValue(event.summary);
       const lastToolName = stringValue(event.last_tool_name);
       const output = skipTranscript ? "" : stringValue(event.output, stringValue(event.message));
       const hasProgress = summary !== "" || lastToolName !== "" || output !== "";
+      const endTime = stringValue(event.end_time) || undefined;
+      const outputFile = stringValue(event.output_file) || undefined;
+      const phase = stringValue(event.phase) || undefined;
+      const taskError = event.error !== undefined ? (stringValue(event.error) || undefined) : undefined;
       const turns = conversation.turns.map((turn) => {
         if (turn.id !== activeId) return turn;
         const existingIndex = turn.items.findIndex((item) =>
@@ -1192,7 +1357,7 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
         if (existingIndex >= 0) {
           const items = [...turn.items];
           const existing = items[existingIndex];
-          const finalized = existing.status === "completed" || existing.status === "failed";
+          const finalized = TASK_TERMINAL_STATUSES.has(stringValue(existing.status));
           const progressLog = eventKind === "task_progress" && !finalized && hasProgress
             ? [...arrayValue(existing.progressLog), { summary, lastToolName, output: output || undefined }]
             : arrayValue(existing.progressLog);
@@ -1200,10 +1365,14 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
             ...existing,
             taskId,
             parentToolUseId: parentToolUseId || existing.parentToolUseId,
+            phase: phase ?? existing.phase,
             status: finalized ? existing.status : status,
             prompt: stringValue(existing.prompt) || stringValue(event.description, summary),
             lastToolName: lastToolName || existing.lastToolName,
             progressLog,
+            endTime: endTime ?? existing.endTime,
+            outputFile: outputFile ?? existing.outputFile,
+            error: taskError ?? existing.error,
             result: eventKind === "task_notification" && !skipTranscript ? (output || existing.result) : existing.result,
           };
           return { ...turn, items };
@@ -1215,8 +1384,12 @@ export function handleClaudeMessage(threadId: string, path: string, event: Unkno
           prompt: stringValue(event.description, summary),
           status,
           taskId,
+          phase,
           parentToolUseId: parentToolUseId || undefined,
           lastToolName: lastToolName || undefined,
+          endTime,
+          outputFile,
+          error: taskError,
           progressLog: eventKind === "task_progress" && hasProgress
             ? [{ summary, lastToolName, output: output || undefined }]
             : [],
@@ -1485,9 +1658,10 @@ async function connectClient(
   try {
     const state = claudeChatStore.getState();
     const pendingForkSource = pendingForkSources.get(threadId);
-    const shouldResume = resume ?? (persistedSessions.has(threadId) || Boolean(pendingForkSource));
+    const storedCursor = resumeCursors[threadId];
+    const shouldResume = resume ?? (persistedSessions.has(threadId) || Boolean(pendingForkSource) || Boolean(storedCursor));
     const shouldFork = forkSession ?? Boolean(pendingForkSource);
-    const sourceSessionId = resumeSessionId ?? pendingForkSource ?? threadId;
+    const sourceSessionId = resumeSessionId ?? pendingForkSource ?? storedCursor?.nativeSessionId ?? threadId;
     const initialized = await client.connect({
       cwd: path,
       resume: shouldResume,
@@ -1808,6 +1982,10 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
     streamEventsByThread.clear();
     if (streamFlushTimer) clearTimeout(streamFlushTimer);
     streamFlushTimer = null;
+    messageQueues.clear();
+    threadSuggestions.clear();
+    eventSequenceByThread.clear();
+    bookedSubagentUsage.clear();
     set({ account: null, requiresAuth: true });
   },
   loadThreads: async (paths) => {
@@ -1967,6 +2145,7 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
   },
   interrupt: async (threadId) => {
     await clients.get(threadId)?.interrupt();
+    persistResumeCursor(threadId, resumeCursors[threadId]?.nativeSessionId ?? threadId);
     rateLimitBucketsByThread.delete(threadId);
     updateConversation(threadId, (conversation) => ({
       ...conversation,
@@ -2083,6 +2262,17 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
     sessionPrefs.archived.delete(threadId);
     pendingForkSources.delete(threadId);
     saveSessionPrefs();
+    if (resumeCursors[threadId]) {
+      const { [threadId]: _removed, ...rest } = resumeCursors;
+      resumeCursors = rest;
+      saveResumeCursors(resumeCursors);
+    }
+    messageQueues.delete(threadId);
+    clearThreadSuggestions(threadId);
+    eventSequenceByThread.delete(threadId);
+    for (const key of bookedSubagentUsage) {
+      if (key.startsWith(`${threadId}:`)) bookedSubagentUsage.delete(key);
+    }
     if (persistedSessions.has(threadId)) {
       await invoke("claude_delete_session", { path, sessionId: threadId });
       persistedSessions.delete(threadId);
@@ -2245,11 +2435,23 @@ export const claudeChatStore = createStore<AgentChatState>()((set, get) => ({
   stopBackgroundTerminals: async (threadId) => {
     const client = clients.get(threadId);
     const tasks = await get().listBackgroundTerminals(threadId);
-    await Promise.all(tasks.map((task) => client?.request("stop_task", { task_id: task.processId })));
+    // Stop each task independently; one already-finished task must not
+    // block or fail the stop of the remaining ones.
+    await Promise.all(tasks.map((task) =>
+      client?.request("stop_task", { task_id: task.processId }).catch(() => null)));
   },
   terminateBackgroundTerminal: async (threadId, processId) => {
-    await clients.get(threadId)?.request("stop_task", { task_id: processId });
-    return true;
+    const client = clients.get(threadId);
+    if (!client) return false;
+    try {
+      await client.request("stop_task", { task_id: processId });
+      return true;
+    } catch {
+      // The task may already have ended on its own (race with natural
+      // completion) or the driver may not support targeted stop; treat
+      // this as "no longer running" instead of retrying forever.
+      return false;
+    }
   },
   setGoal: async (threadId, objective) => updateConversation(threadId, (conversation) => ({
     ...conversation,
@@ -2312,3 +2514,139 @@ claudeChatStore.subscribe((state) => {
   lastPersistedSettings = value;
   kvSet(CLAUDE_SETTINGS_KEY, value);
 });
+
+export type SendMode = "steer" | "queue";
+
+export function planSendMode(params: { turnActive: boolean; steerSupported: boolean }): SendMode {
+  if (!params.turnActive) return "steer";
+  return params.steerSupported ? "steer" : "queue";
+}
+
+export interface QueuedMessage {
+  id: string;
+  threadId: string;
+  text: string;
+  status: "pending" | "delivered";
+  createdAt: number;
+}
+
+const messageQueues = new Map<string, QueuedMessage[]>();
+
+export function queueMessage(threadId: string, id: string, text: string): QueuedMessage {
+  const entry: QueuedMessage = { id, threadId, text, status: "pending", createdAt: Date.now() };
+  messageQueues.set(threadId, [...(messageQueues.get(threadId) ?? []), entry]);
+  return entry;
+}
+
+export function listQueuedMessages(threadId: string): QueuedMessage[] {
+  return messageQueues.get(threadId) ?? [];
+}
+
+export function editQueuedMessage(threadId: string, id: string, text: string): boolean {
+  const list = messageQueues.get(threadId);
+  if (!list) return false;
+  const index = list.findIndex((entry) => entry.id === id && entry.status === "pending");
+  if (index === -1) return false;
+  const next = [...list];
+  next[index] = { ...next[index], text };
+  messageQueues.set(threadId, next);
+  return true;
+}
+
+export function removeQueuedMessage(threadId: string, id: string): boolean {
+  const list = messageQueues.get(threadId);
+  if (!list) return false;
+  const next = list.filter((entry) => entry.id !== id);
+  if (next.length === list.length) return false;
+  messageQueues.set(threadId, next);
+  return true;
+}
+
+export function dequeueNextMessage(threadId: string): QueuedMessage | undefined {
+  const list = messageQueues.get(threadId);
+  if (!list || list.length === 0) return undefined;
+  const [next, ...rest] = list;
+  messageQueues.set(threadId, rest);
+  return { ...next, status: "delivered" };
+}
+
+export interface ThreadSuggestion {
+  id: string;
+  text: string;
+  turnId: string;
+}
+
+const threadSuggestions = new Map<string, ThreadSuggestion[]>();
+
+export function extractSuggestionsFromFrame(frame: UnknownRecord, turnId: string): ThreadSuggestion[] {
+  const raw = frame.suggestions;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    .map((text, index) => ({ id: `${turnId}-${index}`, text, turnId }));
+}
+
+export function setThreadSuggestions(threadId: string, suggestions: ThreadSuggestion[]): void {
+  threadSuggestions.set(threadId, suggestions);
+}
+
+export function getThreadSuggestions(threadId: string): ThreadSuggestion[] {
+  return threadSuggestions.get(threadId) ?? [];
+}
+
+export function clearThreadSuggestions(threadId: string): void {
+  threadSuggestions.delete(threadId);
+}
+
+export function selectSuggestion(
+  threadId: string,
+  suggestionId: string,
+  onSelect: (text: string) => void,
+): boolean {
+  const list = threadSuggestions.get(threadId) ?? [];
+  const found = list.find((suggestion) => suggestion.id === suggestionId);
+  if (!found) return false;
+  onSelect(found.text);
+  return true;
+}
+
+export type CompactStatus = "compacting" | "done" | "failed";
+
+export function resolveCompactRoute(capability: { status: string }): "native" | "slash-turn" {
+  return capability.status === "supported" ? "native" : "slash-turn";
+}
+
+function isCompactBoundaryEvent(event: UnknownRecord): boolean {
+  if (event.type === "compact_boundary") return true;
+  if (event.type === "system" && event.subtype === "compact_boundary") return true;
+  return false;
+}
+
+export function compactStatusFromEvent(event: UnknownRecord): CompactStatus | null {
+  if (!isCompactBoundaryEvent(event)) return null;
+  const error = event.error;
+  if (typeof error === "string" && error.length > 0) return "failed";
+  return "done";
+}
+
+export interface CompactionRequestResult {
+  status: CompactStatus;
+  route: ReturnType<typeof resolveCompactRoute>;
+}
+
+export async function requestThreadCompaction(
+  threadId: string,
+  capability: { status: string },
+): Promise<CompactionRequestResult> {
+  const route = resolveCompactRoute(capability);
+  const conversation = claudeChatStore.getState().conversations[threadId];
+  if (conversation?.activeTurnId) return { status: "failed", route };
+  const client = clients.get(threadId);
+  if (!client) return { status: "failed", route };
+  try {
+    await client.sendPrompt("/compact");
+    return { status: "compacting", route };
+  } catch {
+    return { status: "failed", route };
+  }
+}

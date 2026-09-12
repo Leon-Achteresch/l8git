@@ -796,6 +796,81 @@ pub async fn claude_delete_session(
     .map_err(|error| error.to_string())?
 }
 
+fn fork_session_id_counter() -> &'static std::sync::atomic::AtomicU64 {
+    static COUNTER: OnceLock<std::sync::atomic::AtomicU64> = OnceLock::new();
+    COUNTER.get_or_init(|| std::sync::atomic::AtomicU64::new(0))
+}
+
+fn generate_fork_session_id() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let sequence = fork_session_id_counter().fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("fork-{:x}-{:x}-{:x}", nanos, std::process::id(), sequence)
+}
+
+fn fork_jsonl_contents(
+    source: &Path,
+    up_to_message_uuid: &str,
+    new_session_id: &str,
+    parent_session_id: &str,
+) -> Result<String, String> {
+    let file = File::open(source).map_err(|error| error.to_string())?;
+    let mut lines_out: Vec<String> = Vec::new();
+    let mut found = false;
+    for line in BufReader::new(file).lines().map_while(Result::ok) {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let mut entry: Value = serde_json::from_str(&line).map_err(|error| error.to_string())?;
+        if let Some(object) = entry.as_object_mut() {
+            object.insert("sessionId".into(), Value::String(new_session_id.to_string()));
+        }
+        let uuid = entry.get("uuid").and_then(Value::as_str).map(str::to_string);
+        lines_out.push(serde_json::to_string(&entry).map_err(|error| error.to_string())?);
+        if uuid.as_deref() == Some(up_to_message_uuid) {
+            found = true;
+            break;
+        }
+    }
+    if !found {
+        return Err("Ungültiger Checkpoint für Fork.".into());
+    }
+    let parent_record = json!({
+        "type": "fork-parent",
+        "parentSessionId": parent_session_id,
+        "forkedAtMessageUuid": up_to_message_uuid,
+        "sessionId": new_session_id,
+    });
+    lines_out.push(serde_json::to_string(&parent_record).map_err(|error| error.to_string())?);
+    let mut contents = lines_out.join("\n");
+    contents.push('\n');
+    Ok(contents)
+}
+
+#[tauri::command]
+pub async fn claude_fork_session(
+    path: String,
+    session_id: String,
+    up_to_message_uuid: String,
+    config_dir: Option<String>,
+) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let file_path = session_file(&session_id, &path, config_dir.as_deref())?;
+        let new_session_id = generate_fork_session_id();
+        let contents = fork_jsonl_contents(&file_path, &up_to_message_uuid, &new_session_id, &session_id)?;
+        let target = file_path
+            .parent()
+            .ok_or_else(|| "Ungültiger Claude-Sitzungspfad.".to_string())?
+            .join(format!("{new_session_id}.jsonl"));
+        atomic_write(&target, contents.as_bytes())?;
+        Ok(new_session_id)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 fn claude_json(args: &[&str], cwd: Option<&str>, config_dir: Option<&str>) -> Result<Value, String> {
     let executable = resolve_cli_path("claude")
         .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
@@ -1620,11 +1695,11 @@ pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> 
 mod tests {
     use super::{
         atomic_write, claude_install_owner_info, claude_version_status_from_output, classify_install_owner,
-        hooks_from_file, login_process_key, managed_path, merge_settings, parse_claude_version, project_dir_name,
-        record_stderr, recent_stderr_snapshot, sanitize_entry, scan_skills, settings_scope_paths, summarize_file,
-        summary_preview, BARE_CAVEAT_PREFIX, SUMMARY_EDGE_BYTES,
+        fork_jsonl_contents, hooks_from_file, login_process_key, managed_path, merge_settings, parse_claude_version,
+        project_dir_name, record_stderr, recent_stderr_snapshot, sanitize_entry, scan_skills, settings_scope_paths,
+        summarize_file, summary_preview, BARE_CAVEAT_PREFIX, SUMMARY_EDGE_BYTES,
     };
-    use serde_json::json;
+    use serde_json::{json, Value};
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1989,5 +2064,46 @@ mod tests {
         }
 
         fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn fork_jsonl_contents_truncates_at_checkpoint_and_appends_parent_reference() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!("l8git-claude-fork-{suffix}"));
+        fs::create_dir_all(&directory).unwrap();
+        let source = directory.join("source.jsonl");
+        fs::write(
+            &source,
+            concat!(
+                "{\"type\":\"user\",\"uuid\":\"a\",\"message\":{\"content\":\"one\"}}\n",
+                "{\"type\":\"assistant\",\"uuid\":\"b\",\"message\":{\"content\":\"two\"}}\n",
+                "{\"type\":\"user\",\"uuid\":\"c\",\"message\":{\"content\":\"three\"}}\n",
+            ),
+        )
+        .unwrap();
+
+        let contents = fork_jsonl_contents(&source, "b", "new-session-id", "old-session-id").unwrap();
+        let lines: Vec<&str> = contents.lines().collect();
+        assert_eq!(lines.len(), 3);
+        let first: Value = serde_json::from_str(lines[0]).unwrap();
+        assert_eq!(first["sessionId"], "new-session-id");
+        let second: Value = serde_json::from_str(lines[1]).unwrap();
+        assert_eq!(second["uuid"], "b");
+        let parent: Value = serde_json::from_str(lines[2]).unwrap();
+        assert_eq!(parent["type"], "fork-parent");
+        assert_eq!(parent["parentSessionId"], "old-session-id");
+        assert_eq!(parent["forkedAtMessageUuid"], "b");
+
+        assert!(fork_jsonl_contents(&source, "missing", "x", "old-session-id").is_err());
+        assert_eq!(
+            fs::read_to_string(&source).unwrap().lines().count(),
+            3,
+            "source file must remain untouched"
+        );
+
+        fs::remove_dir_all(&directory).ok();
     }
 }

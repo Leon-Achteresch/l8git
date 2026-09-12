@@ -63,3 +63,20 @@ export function getResumeCursor(
 ): ResumeCursor | null {
   return cursors[thread as unknown as string] ?? null;
 }
+
+export interface RollbackRequest {
+  toMessageUuid: string;
+  restoreFiles: boolean;
+}
+
+export type RollbackStepKind = "fork-conversation" | "checkpoint-restore";
+
+export interface RollbackStep {
+  kind: RollbackStepKind;
+}
+
+export function planRollback(request: RollbackRequest): RollbackStep[] {
+  const steps: RollbackStep[] = [{ kind: "fork-conversation" }];
+  if (request.restoreFiles) steps.push({ kind: "checkpoint-restore" });
+  return steps;
+}

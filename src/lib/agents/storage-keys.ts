@@ -13,6 +13,8 @@ export const CURSOR_SESSION_PREFS_KEY = "l8git.cursor-session-state.v1";
 export const CURSOR_SETTINGS_KEY = "l8git.cursor-settings.v1";
 export const CURSOR_TRANSCRIPTS_KEY = "l8git.cursor-transcripts.v1";
 export const AGENT_RESUME_CURSORS_KEY = "l8git.agent-resume-cursors.v1";
+export const AGENT_PROMPT_HISTORY_KEY = "l8git.agent-prompt-history.v1";
+export const AGENT_COMPOSER_STASHES_KEY = "l8git.agent-composer-stashes.v1";
 
 const MODEL_CATALOG_PROVIDERS: NativeAgentProvider[] = ["codex", "claude", "opencode", "cursor"];
 
@@ -39,5 +41,7 @@ export const AGENT_STORAGE_KEYS: readonly string[] = [
   CURSOR_SETTINGS_KEY,
   CURSOR_TRANSCRIPTS_KEY,
   AGENT_RESUME_CURSORS_KEY,
+  AGENT_PROMPT_HISTORY_KEY,
+  AGENT_COMPOSER_STASHES_KEY,
   ...MODEL_CATALOG_PROVIDERS.map(modelCatalogKey),
 ];

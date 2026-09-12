@@ -54,10 +54,36 @@ struct AgentTransport {
     stdin: Mutex<Option<ChildStdin>>,
     closed: AtomicBool,
     sequence: AtomicU64,
+    last_activity: AtomicU64,
 }
 
 const STOP_GRACE_PERIOD: Duration = Duration::from_secs(2);
 const STOP_POLL_INTERVAL: Duration = Duration::from_millis(50);
+
+pub(crate) const MAX_CONCURRENT_TRANSPORTS: usize = 32;
+pub(crate) const IDLE_TIMEOUT: Duration = Duration::from_secs(30 * 60);
+const IDLE_CHECK_INTERVAL: Duration = Duration::from_millis(500);
+const MAX_BURST_LINES: u32 = 2000;
+const BACKPRESSURE_COOLDOWN: Duration = Duration::from_millis(200);
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+pub(crate) fn is_idle(last_activity_secs: u64, now_secs: u64, idle_timeout: Duration) -> bool {
+    now_secs.saturating_sub(last_activity_secs) >= idle_timeout.as_secs()
+}
+
+pub(crate) fn is_over_capacity(current: usize, max: usize) -> bool {
+    current >= max
+}
+
+pub(crate) fn over_burst_limit(count: u32, max: u32) -> bool {
+    count >= max
+}
 
 impl AgentTransport {
     fn stop(&self) {
@@ -195,6 +221,7 @@ fn stream_event(
     stream: &'static str,
     payload: serde_json::Value,
 ) -> AgentStreamEvent {
+    transport.last_activity.store(now_secs(), Ordering::Relaxed);
     AgentStreamEvent {
         session_id: transport.session_id.clone(),
         sequence: transport.sequence.fetch_add(1, Ordering::Relaxed),
@@ -363,13 +390,27 @@ fn spawn_pumps(
         .name(format!("l8git-agent-{id}-stdout"))
         .spawn(move || {
             let mut reader = BufReader::new(stdout);
+            let mut burst_count: u32 = 0;
             loop {
                 let Some(process) = stdout_process.upgrade() else {
                     break;
                 };
+                if over_burst_limit(burst_count, MAX_BURST_LINES) {
+                    let event = stream_event(
+                        &process,
+                        "backpressure",
+                        serde_json::Value::String(format!(
+                            "Ausgabepuffer voll ({burst_count} Zeilen ohne Verarbeitungspause); Nachschub wird gedrosselt."
+                        )),
+                    );
+                    let _ = stdout_events.send(event);
+                    thread::sleep(BACKPRESSURE_COOLDOWN);
+                    burst_count = 0;
+                }
                 match read_framed_line(&mut reader) {
                     Ok(FramedLine::Eof) => break,
                     Ok(FramedLine::Oversized(size)) => {
+                        burst_count += 1;
                         let event = stream_event(
                             &process,
                             "diagnostic",
@@ -383,6 +424,7 @@ fn spawn_pumps(
                         }
                     }
                     Ok(FramedLine::Line(line)) => {
+                        burst_count += 1;
                         let event = match serde_json::from_str(&line) {
                             Ok(payload) => stream_event(&process, "json", payload),
                             Err(error) => stream_event(
@@ -480,8 +522,23 @@ fn spawn_pumps(
                     break;
                 }
                 Ok(None) => {
+                    if !process.closed.load(Ordering::Acquire)
+                        && is_idle(process.last_activity.load(Ordering::Relaxed), now_secs(), IDLE_TIMEOUT)
+                    {
+                        let session_id = process.session_id.clone();
+                        process.stop();
+                        #[cfg(feature = "headless")]
+                        crate::server::dispatch::agents::force_release_session_owner(&session_id);
+                        let _ = exit_events.send(stream_event(
+                            &process,
+                            "diagnostic",
+                            serde_json::Value::String(
+                                "Agent-Transport wegen Inaktivität beendet.".into(),
+                            ),
+                        ));
+                    }
                     drop(process);
-                    thread::sleep(Duration::from_millis(500));
+                    thread::sleep(IDLE_CHECK_INTERVAL);
                 }
                 Err(error) => {
                     log::warn!("agent transport id={id} wait failed: {error}");
@@ -707,6 +764,11 @@ pub(crate) async fn agent_transport_open_inner(
     validate_session_id(&session_id)?;
     let options = options.unwrap_or_default();
     state.prune_closed();
+    if is_over_capacity(state.sessions.read().unwrap().len(), MAX_CONCURRENT_TRANSPORTS) {
+        return Err(format!(
+            "Zu viele gleichzeitige Agent-Transports (Limit: {MAX_CONCURRENT_TRANSPORTS})."
+        ));
+    }
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
 
     let (transport, label) = tauri::async_runtime::spawn_blocking(move || {
@@ -746,6 +808,7 @@ pub(crate) async fn agent_transport_open_inner(
             stdin: Mutex::new(Some(stdin)),
             closed: AtomicBool::new(false),
             sequence: AtomicU64::new(1),
+            last_activity: AtomicU64::new(now_secs()),
         });
 
         spawn_pumps(id, &transport, stdout, stderr, on_event)?;
@@ -796,6 +859,7 @@ pub(crate) fn agent_transport_send_inner(
     if transport.closed.load(Ordering::Acquire) {
         return Err("Agent-Transport wurde beendet.".into());
     }
+    transport.last_activity.store(now_secs(), Ordering::Relaxed);
     let message = encode_json_line(&message)?;
     let mut guard = transport.stdin.lock().unwrap();
     let stdin = guard
@@ -805,6 +869,12 @@ pub(crate) fn agent_transport_send_inner(
         .write_all(&message)
         .and_then(|_| stdin.flush())
         .map_err(|error| format!("Agent-Nachricht konnte nicht gesendet werden: {error}"))
+}
+
+#[tauri::command]
+pub fn agent_session_claim(session_id: String) -> serde_json::Value {
+    let _ = session_id;
+    serde_json::json!({ "owner": 0, "readOnly": false })
 }
 
 #[tauri::command]
@@ -934,9 +1004,10 @@ pub async fn opencode_delete_session(path: String, session_id: String) -> Result
 #[cfg(test)]
 mod tests {
     use super::{
-        cli_command, cursor_process, encode_json_line, provider_process, read_framed_line, redact,
-        safe_prompt, validate_session_id, AgentStreamEvent, AgentTransport, AgentTransportOptions,
-        AgentTransportState, FramedLine, MAX_LINE_BYTES,
+        cli_command, cursor_process, encode_json_line, is_idle, is_over_capacity, now_secs,
+        over_burst_limit, provider_process, read_framed_line, redact, safe_prompt, validate_session_id,
+        AgentStreamEvent, AgentTransport, AgentTransportOptions, AgentTransportState, FramedLine,
+        IDLE_TIMEOUT, MAX_BURST_LINES, MAX_CONCURRENT_TRANSPORTS, MAX_LINE_BYTES,
     };
     use std::collections::HashMap;
     use std::time::Duration;
@@ -1271,6 +1342,7 @@ mod tests {
             stdin: Mutex::new(Some(stdin)),
             closed: AtomicBool::new(true),
             sequence: AtomicU64::new(1),
+            last_activity: AtomicU64::new(now_secs()),
         });
         state.sessions.write().unwrap().insert(7, transport);
 
@@ -1305,6 +1377,7 @@ mod tests {
             stdin: Mutex::new(Some(stdin)),
             closed: AtomicBool::new(false),
             sequence: AtomicU64::new(1),
+            last_activity: AtomicU64::new(now_secs()),
         });
 
         let started = std::time::Instant::now();
@@ -1321,7 +1394,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn the_pumps_release_a_transport_whose_open_call_was_canceled() {
-        use super::{spawn_pumps, AgentTransport};
+        use super::{now_secs, spawn_pumps, AgentTransport};
         use crate::cmd::cli_command;
         use std::process::Stdio;
         use std::sync::atomic::{AtomicBool, AtomicU64};
@@ -1343,6 +1416,7 @@ mod tests {
             stdin: Mutex::new(Some(stdin)),
             closed: AtomicBool::new(false),
             sequence: AtomicU64::new(1),
+            last_activity: AtomicU64::new(now_secs()),
         });
         let weak = Arc::downgrade(&transport);
         spawn_pumps(
@@ -1378,5 +1452,18 @@ mod tests {
         assert_eq!(json["sequence"], 42);
         assert_eq!(json["stream"], "json");
         assert_eq!(json["payload"]["id"], 7);
+    }
+
+    #[test]
+    fn run_10_idle_capacity_and_burst_limits_are_enforced() {
+        assert!(!is_over_capacity(MAX_CONCURRENT_TRANSPORTS - 1, MAX_CONCURRENT_TRANSPORTS));
+        assert!(is_over_capacity(MAX_CONCURRENT_TRANSPORTS, MAX_CONCURRENT_TRANSPORTS));
+
+        let idle_since = 1_000u64;
+        assert!(!is_idle(idle_since, idle_since + 1, IDLE_TIMEOUT));
+        assert!(is_idle(idle_since, idle_since + IDLE_TIMEOUT.as_secs(), IDLE_TIMEOUT));
+
+        assert!(!over_burst_limit(MAX_BURST_LINES - 1, MAX_BURST_LINES));
+        assert!(over_burst_limit(MAX_BURST_LINES, MAX_BURST_LINES));
     }
 }

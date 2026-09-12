@@ -201,6 +201,10 @@ export class JsonRpcProcessClient {
     const method = message.method;
     if ((typeof id === "number" || typeof id === "string") && typeof method === "string") {
       const params = isRecord(message.params) ? message.params : undefined;
+      if (this.serverRequests.size === 0) {
+        void this.respondError(id, -32601, `Nicht unterstützte Methode: ${method}`).catch(() => {});
+        return;
+      }
       for (const listener of this.serverRequests) listener({ id, method, params });
       return;
     }

@@ -326,7 +326,14 @@ export class ClaudeProviderAdapter implements AgentProviderAdapter {
     const sessionId = `claude:${instance}:${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const client = new ClaudeClient(sessionId, {
       onMessage: () => {},
-      onControlRequest: () => {},
+      onControlRequest: (request) => {
+        client
+          .respondError(
+            request.request_id,
+            `Nicht unterstützte Steuerungsanfrage außerhalb der Chat-Session: ${request.request.subtype ?? "unbekannt"}`,
+          )
+          .catch((error) => console.warn("Claude control_response fehlgeschlagen", error));
+      },
     });
     await client.connect({});
     this.clients.set(sessionId, client);
@@ -353,7 +360,14 @@ export class ClaudeProviderAdapter implements AgentProviderAdapter {
     if (existing) return;
     const client = new ClaudeClient(ref.nativeSessionId, {
       onMessage: () => {},
-      onControlRequest: () => {},
+      onControlRequest: (request) => {
+        client
+          .respondError(
+            request.request_id,
+            `Nicht unterstützte Steuerungsanfrage außerhalb der Chat-Session: ${request.request.subtype ?? "unbekannt"}`,
+          )
+          .catch((error) => console.warn("Claude control_response fehlgeschlagen", error));
+      },
     });
     await client.connect({ resume: true, resumeSessionId: ref.nativeSessionId });
     this.clients.set(threadId, client);
