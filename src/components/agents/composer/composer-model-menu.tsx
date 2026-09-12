@@ -2,7 +2,6 @@ import { ChevronDown, Search } from "lucide-react";
 import { m } from "motion/react";
 import { useState } from "react";
 
-import { ComposerEffortPopover } from "./composer-effort-popover";
 import { ComposerMenu } from "./composer-menu";
 import { DEFAULT_PROVIDERS } from "./defaults";
 import { ProviderLogo } from "./provider-logo";
@@ -33,10 +32,11 @@ export function ComposerModelMenu({
   const visible = models.filter(
     m =>
       (!providerId || m.providerId === providerId) &&
-      m.label.toLowerCase().includes(query.trim().toLowerCase()),
+      `${m.label} ${m.hint ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
   const providerOf = (model: ComposerModel) =>
     providers.find(p => p.id === model.providerId);
+  const activeProvider = providerOf(active);
 
   return (
     <ComposerMenu
@@ -49,6 +49,7 @@ export function ComposerModelMenu({
           type="button"
           className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-sm text-foreground/80 transition-colors hover:bg-muted"
         >
+          {activeProvider && (activeProvider.Icon ? <activeProvider.Icon className="size-4 shrink-0" /> : <ProviderLogo providerId={activeProvider.id} />)}
           {active.label}
           <Rotate open={open} className="size-3.5">
             <ChevronDown className="size-3.5" strokeWidth={1.75} aria-hidden />
@@ -75,7 +76,7 @@ export function ComposerModelMenu({
                 providerId === provider.id && "bg-muted text-foreground",
               )}
             >
-              <ProviderLogo providerId={provider.id} />
+              {provider.Icon ? <provider.Icon className="size-4" /> : <ProviderLogo providerId={provider.id} />}
             </m.button>
           ))}
         </div>
@@ -95,6 +96,9 @@ export function ComposerModelMenu({
             </div>
           </div>
 
+          {visible.length === 0 && (
+            <p className="px-2 py-6 text-center text-xs text-muted-foreground">No models available.</p>
+          )}
           {visible.map(model => {
             const selected = model.id === value;
             const supportsEffort = (model as { supportsEffort?: boolean }).supportsEffort !== false;
@@ -107,34 +111,49 @@ export function ComposerModelMenu({
                 : undefined;
             const provider = providerOf(model);
             return (
-              <button
-                key={model.id}
-                type="button"
-                onClick={() => onChange(model.id, activeEffort)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm transition-colors hover:bg-muted",
-                  selected && "bg-muted",
-                )}
-              >
-                {provider && <ProviderLogo providerId={provider.id} />}
-                <span className="min-w-0 flex-1 truncate font-medium">{model.label}</span>
-                {selected && activeEffort && (
-                  <ComposerEffortPopover
-                    efforts={efforts}
-                    value={activeEffort}
-                    onChange={next => onChange(model.id, next)}
+              <div key={model.id} className={cn("rounded-xl", selected && "bg-muted")}>
+                <button
+                  type="button"
+                  onClick={() => onChange(model.id, activeEffort)}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-sm transition-colors hover:bg-muted"
+                >
+                  {provider && (provider.Icon ? <provider.Icon className="size-4 shrink-0" /> : <ProviderLogo providerId={provider.id} />)}
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-medium">{model.label}</span>
+                    {model.hint && <span className="truncate text-xs text-muted-foreground">{model.hint}</span>}
+                  </span>
+                  <span
+                    className={cn(
+                      "size-3.5 shrink-0 rounded-full border",
+                      selected
+                        ? "border-primary bg-primary ring-2 ring-inset ring-background"
+                        : "border-border",
+                    )}
+                    aria-hidden
                   />
+                </button>
+                {selected && efforts.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 px-2 pb-2">
+                    <span className="mr-1 text-xs text-muted-foreground">Effort</span>
+                    {efforts.map(item => (
+                      <button
+                        key={item}
+                        type="button"
+                        aria-pressed={item === activeEffort}
+                        onClick={() => onChange(model.id, item)}
+                        className={cn(
+                          "rounded-md px-2 py-1 text-xs transition-colors",
+                          item === activeEffort
+                            ? "bg-foreground text-background"
+                            : "bg-background text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                <span
-                  className={cn(
-                    "size-3.5 shrink-0 rounded-full border",
-                    selected
-                      ? "border-primary bg-primary ring-2 ring-inset ring-background"
-                      : "border-border",
-                  )}
-                  aria-hidden
-                />
-              </button>
+              </div>
             );
           })}
         </div>

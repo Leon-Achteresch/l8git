@@ -2,7 +2,9 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 
+import { AgentContextRing } from "@/components/agents/ui/agent-context-ring";
 import { Collapse, Rotate, easeOutSoft } from "@/components/motion/kit";
+import { formatUsd } from "@/lib/agents/token-cost";
 import { SPRING_PANEL } from "@/lib/motion/ease";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +32,9 @@ function formatTokens(value: number) {
 export function AgentContextUsage({
   used,
   total,
+  measured = true,
   segments = [],
+  costUsd,
   planLabel,
   limits = [],
   onOpenPlan,
@@ -38,7 +42,9 @@ export function AgentContextUsage({
 }: {
   used: number;
   total: number;
+  measured?: boolean;
   segments?: ContextSegment[];
+  costUsd?: number;
   planLabel?: string;
   limits?: PlanLimit[];
   onOpenPlan?: () => void;
@@ -46,7 +52,7 @@ export function AgentContextUsage({
 }) {
   const reduce = useReducedMotion();
   const [open, setOpen] = useState(true);
-  const percent = total > 0 ? Math.round((used / total) * 100) : 0;
+  const percent = measured && total > 0 ? Math.round((used / total) * 100) : 0;
 
   return (
     <m.div
@@ -61,9 +67,10 @@ export function AgentContextUsage({
         aria-expanded={open}
         className="flex w-full items-center gap-2 text-sm text-muted-foreground"
       >
+        <AgentContextRing percent={percent} />
         <span>Context window</span>
         <span className="ml-auto tabular-nums">
-          {formatTokens(used)} / {formatTokens(total)} ({percent}%)
+          {measured ? `${formatTokens(used)} / ${formatTokens(total)} (${percent}%)` : "unbekannt"}
         </span>
         <Rotate open={open} className="size-4">
           <ChevronDown className="size-4" strokeWidth={1.75} aria-hidden />
@@ -98,6 +105,13 @@ export function AgentContextUsage({
           />
         ))}
       </div>
+
+      {costUsd !== undefined && (
+        <div className="mt-3 flex items-baseline gap-2 text-sm">
+          <span className="text-muted-foreground">API cost equivalent</span>
+          <span className="ml-auto font-medium tabular-nums">{formatUsd(costUsd)}</span>
+        </div>
+      )}
 
       <Collapse open={open && limits.length > 0}>
         <div className="mt-4 border-t border-border/60 pt-3">

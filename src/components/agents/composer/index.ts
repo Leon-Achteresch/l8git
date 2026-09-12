@@ -7,6 +7,7 @@ export {
 } from "./defaults";
 export type {
   ComposerAction,
+  ComposerOption,
   ComposerContext,
   ComposerModel,
   ComposerPermission,
