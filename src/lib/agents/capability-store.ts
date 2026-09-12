@@ -23,6 +23,7 @@ import type {
   AgentSkillDraft,
 } from "@/lib/agents/capability-types";
 import { codexSessionManager } from "@/lib/agents/session-manager";
+import type { AgentModelOption } from "@/lib/agents/types";
 
 type SectionErrors = Partial<Record<AgentCapabilitySection | "config", string>>;
 
@@ -1219,4 +1220,238 @@ export function emptySkillDraft(): AgentSkillDraft {
     products: ["CODEX"],
     dependencies: [],
   };
+}
+
+const IDENTIFIER_PATTERN = /^[a-z](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+
+export interface DraftValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+export function validateSkillDraft(
+  draft: Pick<AgentSkillDraft, "name" | "description">,
+  existingNames: string[] = [],
+): DraftValidationResult {
+  const errors: string[] = [];
+  const name = draft.name.trim();
+  if (!name) {
+    errors.push("name is required");
+  } else if (!IDENTIFIER_PATTERN.test(name)) {
+    errors.push("name must be a lowercase identifier");
+  } else if (existingNames.includes(name)) {
+    errors.push("name already exists");
+  }
+  if (!draft.description.trim()) {
+    errors.push("description is required");
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export interface CommandDraft {
+  name: string;
+  description?: string;
+  body: string;
+}
+
+export function validateCommandDraft(
+  draft: CommandDraft,
+  existingNames: string[] = [],
+): DraftValidationResult {
+  const errors: string[] = [];
+  const name = draft.name.trim();
+  if (!name) {
+    errors.push("name is required");
+  } else if (!IDENTIFIER_PATTERN.test(name)) {
+    errors.push("name must be a lowercase identifier");
+  } else if (existingNames.includes(name)) {
+    errors.push("name already exists");
+  }
+  if (!draft.body.trim()) {
+    errors.push("body is required");
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export interface ParsedAgentDefinition {
+  name: string;
+  description?: string;
+  model?: string;
+  tools?: string[];
+  instructions: string;
+  extraFields: Record<string, string>;
+}
+
+function splitAgentFrontmatterList(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+export function parseAgentDefinition(markdown: string): ParsedAgentDefinition | { error: string } {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(markdown.trimStart());
+  if (!match) {
+    return { error: "missing frontmatter" };
+  }
+  const block = match[1];
+  const instructions = markdown.trimStart().slice(match[0].length).trim();
+  const lines = block.split(/\r?\n/);
+  const result: Partial<ParsedAgentDefinition> = {};
+  const extraFields: Record<string, string> = {};
+  const listBuffer: string[] = [];
+  let listKey: "tools" | null = null;
+
+  const flushList = () => {
+    if (listKey === "tools" && listBuffer.length > 0) {
+      result.tools = [...listBuffer];
+    }
+    listBuffer.length = 0;
+    listKey = null;
+  };
+
+  for (const line of lines) {
+    const listItem = /^\s*-\s*(.+)$/.exec(line);
+    if (listItem && listKey) {
+      listBuffer.push(listItem[1].trim());
+      continue;
+    }
+    flushList();
+    const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line);
+    if (!kv) continue;
+    const key = kv[1].trim().toLowerCase();
+    const value = kv[2].trim();
+    if (key === "name") {
+      result.name = value;
+    } else if (key === "description") {
+      result.description = value;
+    } else if (key === "model") {
+      result.model = value;
+    } else if (key === "tools") {
+      if (value.length > 0) {
+        result.tools = splitAgentFrontmatterList(value);
+      } else {
+        listKey = "tools";
+      }
+    } else {
+      extraFields[key] = value;
+    }
+  }
+  flushList();
+
+  if (!result.name) {
+    return { error: "malformed frontmatter" };
+  }
+  return { ...result, name: result.name, instructions, extraFields };
+}
+
+export interface AgentDraft {
+  name: string;
+  model?: string;
+  tools?: string[];
+  scope: "user" | "project";
+}
+
+export function validateAgentDraft(
+  draft: AgentDraft,
+  modelCatalog: AgentModelOption[],
+): DraftValidationResult {
+  const errors: string[] = [];
+  const name = draft.name.trim();
+  if (!name) {
+    errors.push("name is required");
+  } else if (!IDENTIFIER_PATTERN.test(name)) {
+    errors.push("name must be a lowercase identifier");
+  }
+  if (draft.model !== undefined) {
+    const model = draft.model.trim();
+    if (!model || !modelCatalog.some((option) => option.id === model)) {
+      errors.push("model is not in the model catalog");
+    }
+  }
+  if (draft.tools !== undefined) {
+    if (draft.tools.some((tool) => typeof tool !== "string" || tool.trim().length === 0)) {
+      errors.push("tools contains an empty or invalid entry");
+    }
+  }
+  if (draft.scope !== "user" && draft.scope !== "project") {
+    errors.push("scope must be user or project");
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export interface AgentDefinitionCandidate {
+  scope: "project" | "user";
+  name: string;
+  valid: boolean;
+  issues?: string[];
+}
+
+export interface AgentDefinitionResolution {
+  effective: AgentDefinitionCandidate | null;
+  flagged: AgentDefinitionCandidate[];
+}
+
+export function resolveAgentDefinitions(candidates: AgentDefinitionCandidate[]): AgentDefinitionResolution {
+  const flagged = candidates.filter((candidate) => !candidate.valid);
+  const valid = candidates.filter((candidate) => candidate.valid);
+  const effective =
+    valid.find((candidate) => candidate.scope === "project") ??
+    valid.find((candidate) => candidate.scope === "user") ??
+    null;
+  return { effective, flagged };
+}
+
+export interface CapabilityImportItem {
+  id: string;
+  kind: string;
+  hash?: string;
+}
+
+export interface CapabilityImportPreview<T extends CapabilityImportItem> {
+  creates: T[];
+  updates: T[];
+  conflicts: T[];
+}
+
+export function previewCapabilityImport<T extends CapabilityImportItem>(
+  source: T[],
+  target: T[],
+): CapabilityImportPreview<T> {
+  const targetById = new Map(target.map((item) => [item.id, item]));
+  const creates: T[] = [];
+  const updates: T[] = [];
+  const conflicts: T[] = [];
+  const seenIds = new Set<string>();
+  const duplicateIds = new Set<string>();
+  for (const item of source) {
+    if (seenIds.has(item.id)) duplicateIds.add(item.id);
+    seenIds.add(item.id);
+  }
+
+  for (const item of source) {
+    const existing = targetById.get(item.id);
+    if (duplicateIds.has(item.id)) {
+      conflicts.push(item);
+    } else if (!existing) {
+      creates.push(item);
+    } else if (existing.kind !== item.kind) {
+      conflicts.push(item);
+    } else if (existing.hash === undefined || item.hash === undefined) {
+      conflicts.push(item);
+    } else if (existing.hash !== item.hash) {
+      updates.push(item);
+    }
+  }
+
+  return { creates, updates, conflicts };
+}
+
+export async function applyCapabilityImport<T extends CapabilityImportItem>(
+  preview: CapabilityImportPreview<T>,
+  applyFn: (item: T) => Promise<void> | void,
+): Promise<void> {
+  for (const item of [...preview.creates, ...preview.updates]) {
+    await applyFn(item);
+  }
 }

@@ -13,6 +13,8 @@ import {
   gapsToward,
   itemRef,
   itemStatusForTarget,
+  parseSkillFrontmatter,
+  resolveSkillOverrides,
   itemStatusSummary,
   matchKey,
   mergeMcpToolCatalog,
@@ -390,5 +392,72 @@ describe("mcpReconnectRequired", () => {
   it("is true only when the config changed after the tool started running", () => {
     expect(mcpReconnectRequired(100, 200)).toBe(true);
     expect(mcpReconnectRequired(200, 100)).toBe(false);
+  });
+});
+
+describe("parseSkillFrontmatter", () => {
+  it("extracts name, description, allowed-tools and model", () => {
+    const md = [
+      "---",
+      "name: code-review",
+      "description: Reviews diffs",
+      "allowed-tools:",
+      "  - Read",
+      "  - Grep",
+      "model: sonnet",
+      "---",
+      "",
+      "# Body",
+    ].join("\n");
+    expect(parseSkillFrontmatter(md)).toEqual({
+      name: "code-review",
+      description: "Reviews diffs",
+      allowedTools: ["Read", "Grep"],
+      model: "sonnet",
+    });
+  });
+
+  it("sets error when frontmatter is missing", () => {
+    expect(parseSkillFrontmatter("# just a heading").error).toBeTruthy();
+  });
+});
+
+describe("resolveSkillOverrides", () => {
+  it("marks lower-precedence duplicates as overridden", () => {
+    const entries = [
+      { name: "review", scope: "plugin" as const },
+      { name: "review", scope: "user" as const },
+      { name: "review", scope: "project" as const },
+      { name: "unique", scope: "user" as const },
+    ];
+    const resolved = resolveSkillOverrides(entries);
+    expect(resolved[0].overriddenBy).toBe("project");
+    expect(resolved[1].overriddenBy).toBe("project");
+    expect(resolved[2].overriddenBy).toBeUndefined();
+    expect(resolved[3].overriddenBy).toBeUndefined();
+  });
+
+  it("does not mark same-priority duplicates as overridden", () => {
+    const entries = [
+      { name: "review", scope: "user" as const },
+      { name: "review", scope: "user" as const },
+    ];
+    const resolved = resolveSkillOverrides(entries);
+    expect(resolved[0].overriddenBy).toBeUndefined();
+    expect(resolved[1].overriddenBy).toBeUndefined();
+  });
+});
+
+describe("parseSkillFrontmatter closing delimiter", () => {
+  it("rejects a closing delimiter with trailing text", () => {
+    const md = ["---", "name: x", "description: y", "----", "body"].join("\n");
+    expect(parseSkillFrontmatter(md).error).toBeTruthy();
+  });
+
+  it("accepts a CRLF closing delimiter", () => {
+    const md = ["---", "name: x", "description: y", "---", ""].join("\r\n");
+    const result = parseSkillFrontmatter(md);
+    expect(result.name).toBe("x");
+    expect(result.error).toBeUndefined();
   });
 });

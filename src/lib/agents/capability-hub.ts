@@ -3,6 +3,77 @@ import { create } from "zustand";
 import type { AgentMcpServerDraft } from "@/lib/agents/capability-types";
 import { invoke } from "@/lib/platform/ipc";
 
+export type ContextFileScope = "repo" | "user" | "project-rules" | "memory";
+
+export interface ContextFileEntry {
+  path: string;
+  scope: ContextFileScope;
+  label: string;
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    const { access } = await import("node:fs/promises");
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function listContextFiles(
+  repoRoot: string,
+  configDir: string,
+): Promise<ContextFileEntry[]> {
+  const { readdir } = await import("node:fs/promises");
+  const entries: ContextFileEntry[] = [];
+
+  const repoClaudeMd = `${repoRoot.replace(/\/+$/u, "")}/CLAUDE.md`;
+  if (await pathExists(repoClaudeMd)) {
+    entries.push({ path: repoClaudeMd, scope: "repo", label: "CLAUDE.md (repo)" });
+  }
+
+  const trimmedConfigDir = configDir.replace(/\/+$/u, "");
+  const userClaudeMd = `${trimmedConfigDir}/CLAUDE.md`;
+  if (await pathExists(userClaudeMd)) {
+    entries.push({ path: userClaudeMd, scope: "user", label: "CLAUDE.md (user)" });
+  }
+
+  const rulesDir = `${trimmedConfigDir}/rules`;
+  if (await pathExists(rulesDir)) {
+    try {
+      const files = await readdir(rulesDir);
+      for (const file of files) {
+        if (!file.toLocaleLowerCase().endsWith(".md")) continue;
+        entries.push({
+          path: `${rulesDir}/${file}`,
+          scope: "project-rules",
+          label: `rules/${file}`,
+        });
+      }
+    } catch {
+    }
+  }
+
+  const memoryDir = `${trimmedConfigDir}/memory`;
+  if (await pathExists(memoryDir)) {
+    try {
+      const files = await readdir(memoryDir);
+      for (const file of files) {
+        if (!file.toLocaleLowerCase().endsWith(".md")) continue;
+        entries.push({
+          path: `${memoryDir}/${file}`,
+          scope: "memory",
+          label: `memory/${file}`,
+        });
+      }
+    } catch {
+    }
+  }
+
+  return entries;
+}
+
 /** Ebenen, auf denen eine CLI ihre Capabilities ablegt. */
 export const CAPABILITY_SCOPES = ["global", "user", "repo"] as const;
 export type CapabilityScope = (typeof CAPABILITY_SCOPES)[number];
@@ -577,3 +648,197 @@ export const useCapabilityHubStore = create<CapabilityHubState>((set, get) => ({
     }
   },
 }));
+
+export interface ParsedSkillFrontmatter {
+  name?: string;
+  description?: string;
+  allowedTools?: string[];
+  model?: string;
+  error?: string;
+}
+
+function splitFrontmatterList(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+export function parseSkillFrontmatter(md: string): ParsedSkillFrontmatter {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(md.trimStart());
+  if (!match) {
+    return { error: "missing frontmatter" };
+  }
+  const block = match[1];
+  const lines = block.split(/\r?\n/);
+  const result: ParsedSkillFrontmatter = {};
+  const listBuffer: string[] = [];
+  let listKey: "allowedTools" | null = null;
+
+  const flushList = () => {
+    if (listKey === "allowedTools" && listBuffer.length > 0) {
+      result.allowedTools = [...listBuffer];
+    }
+    listBuffer.length = 0;
+    listKey = null;
+  };
+
+  for (const line of lines) {
+    const listItem = /^\s*-\s*(.+)$/.exec(line);
+    if (listItem && listKey) {
+      listBuffer.push(listItem[1].trim());
+      continue;
+    }
+    flushList();
+    const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line);
+    if (!kv) continue;
+    const key = kv[1].trim().toLowerCase();
+    const value = kv[2].trim();
+    if (key === "name") {
+      result.name = value;
+    } else if (key === "description") {
+      result.description = value;
+    } else if (key === "model") {
+      result.model = value;
+    } else if (key === "allowed-tools" || key === "allowedtools") {
+      if (value.length > 0) {
+        result.allowedTools = splitFrontmatterList(value);
+      } else {
+        listKey = "allowedTools";
+      }
+    }
+  }
+  flushList();
+
+  if (!result.name && !result.description) {
+    return { ...result, error: "malformed frontmatter" };
+  }
+  return result;
+}
+
+export interface SkillOverrideEntry {
+  name: string;
+  scope: "project" | "user" | "plugin";
+  [key: string]: unknown;
+}
+
+const SKILL_SCOPE_PRIORITY: Record<SkillOverrideEntry["scope"], number> = {
+  project: 0,
+  user: 1,
+  plugin: 2,
+};
+
+export function resolveSkillOverrides<T extends SkillOverrideEntry>(
+  entries: T[],
+): Array<T & { overriddenBy?: string }> {
+  const byName = new Map<string, T>();
+  for (const entry of entries) {
+    const existing = byName.get(entry.name);
+    if (!existing || SKILL_SCOPE_PRIORITY[entry.scope] < SKILL_SCOPE_PRIORITY[existing.scope]) {
+      byName.set(entry.name, entry);
+    }
+  }
+  return entries.map((entry) => {
+    const winner = byName.get(entry.name);
+    if (
+      !winner ||
+      winner === entry ||
+      SKILL_SCOPE_PRIORITY[entry.scope] <= SKILL_SCOPE_PRIORITY[winner.scope]
+    ) {
+      return { ...entry };
+    }
+    return { ...entry, overriddenBy: winner.scope };
+  });
+}
+
+export interface InvokableSkillRef {
+  name: string;
+  enabled: boolean;
+  allowImplicitInvocation?: boolean;
+}
+
+export interface ResolvedSkillInvocation {
+  skill: InvokableSkillRef;
+  args: string;
+  attachments: string[];
+  manualOnly: boolean;
+}
+
+const SKILL_INVOCATION_PATTERN = /^\/([A-Za-z0-9][\w-]*)(?:\s+([\s\S]*))?$/u;
+const MENTION_PATTERN = /(?<=^|\s)@([^\s@]+)/gu;
+
+export function resolveSkillInvocation<T extends InvokableSkillRef>(
+  input: string,
+  skills: T[],
+): { skill: T; args: string; attachments: string[]; manualOnly: boolean } | { error: string } {
+  const trimmed = input.trim();
+  const match = SKILL_INVOCATION_PATTERN.exec(trimmed);
+  if (!match) {
+    return { error: "input is not a skill invocation" };
+  }
+  const name = match[1];
+  const rest = match[2] ?? "";
+  const skill = skills.find((entry) => entry.name === name);
+  if (!skill) {
+    return { error: `unknown skill: ${name}` };
+  }
+  if (!skill.enabled) {
+    return { error: `skill is disabled: ${name}` };
+  }
+  const attachments: string[] = [];
+  const args = rest
+    .replace(MENTION_PATTERN, (_full, raw: string) => {
+      attachments.push(raw);
+      return "";
+    })
+    .replace(/\s+/gu, " ")
+    .trim();
+  return {
+    skill,
+    args,
+    attachments,
+    manualOnly: skill.allowImplicitInvocation === false,
+  };
+}
+
+export interface DispatchableSkillRef {
+  name: string;
+  enabled: boolean;
+  frontmatter?: ParsedSkillFrontmatter;
+}
+
+export interface DispatchedSkillPrompt {
+  prompt: string;
+  attachments: string[];
+  hints: string[];
+}
+
+export function dispatchSkill<T extends DispatchableSkillRef>(
+  skill: T | undefined,
+  args: string,
+  attachments: string[],
+): DispatchedSkillPrompt | { error: string } {
+  if (!skill) {
+    return { error: "unknown skill" };
+  }
+  if (!skill.enabled) {
+    return { error: `skill is disabled: ${skill.name}` };
+  }
+  const trimmedArgs = args.trim();
+  const prompt = trimmedArgs ? `/${skill.name} ${trimmedArgs}` : `/${skill.name}`;
+  const hints: string[] = [];
+  if (skill.frontmatter?.error) {
+    hints.push(`frontmatter warning: ${skill.frontmatter.error}`);
+  }
+  if (skill.frontmatter?.description) {
+    hints.push(skill.frontmatter.description);
+  }
+  if (skill.frontmatter?.allowedTools && skill.frontmatter.allowedTools.length > 0) {
+    hints.push(`allowed-tools: ${skill.frontmatter.allowedTools.join(", ")}`);
+  }
+  return {
+    prompt,
+    attachments: [...attachments],
+    hints,
+  };
+}

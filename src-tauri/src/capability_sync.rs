@@ -656,6 +656,14 @@ pub(crate) fn write_json_file(path: &Path, value: &Value) -> Result<(), String> 
     atomic_write(path, format!("{serialized}\n").as_bytes())
 }
 
+pub fn read_context_file(path: &str) -> Result<String, String> {
+    fs::read_to_string(PathBuf::from(path)).map_err(|error| error.to_string())
+}
+
+pub fn write_context_file_atomic(path: &str, contents: &str) -> Result<(), String> {
+    atomic_write(&PathBuf::from(path), contents.as_bytes())
+}
+
 fn string_map(value: Option<&Value>) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
     if let Some(Value::Object(object)) = value {
@@ -1201,6 +1209,24 @@ fn delete_mcp_spec(
             write_json_file(&path, &root)?;
         }
     }
+    Ok(path)
+}
+
+pub(crate) fn write_skill_or_command_file(
+    directory: &Path,
+    file_name: &str,
+    contents: &str,
+) -> Result<PathBuf, String> {
+    if file_name.is_empty()
+        || file_name.contains('/')
+        || file_name.contains('\\')
+        || file_name == "."
+        || file_name == ".."
+    {
+        return Err(format!("Ungültiger Dateiname: {file_name}"));
+    }
+    let path = directory.join(file_name);
+    atomic_write(&path, contents.as_bytes())?;
     Ok(path)
 }
 
@@ -2419,6 +2445,23 @@ mod tests {
     }
 
     #[test]
+    fn write_then_read_context_file_round_trips_via_atomic_write() {
+        let dir = scratch("context-file");
+        let target = dir.join("CLAUDE.md");
+        write_context_file_atomic(target.to_str().unwrap(), "# rules\n").unwrap();
+        assert_eq!(read_context_file(target.to_str().unwrap()).unwrap(), "# rules\n");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn read_context_file_reports_missing_file_as_error() {
+        let dir = scratch("context-file-missing");
+        let target = dir.join("missing.md");
+        assert!(read_context_file(target.to_str().unwrap()).is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn write_mcp_spec_rejects_invalid_spec_without_touching_the_file() {
         let repo = scratch("repo-invalid-mcp");
         let claude = layout("claude").unwrap();
@@ -2430,6 +2473,16 @@ mod tests {
         };
         assert!(write_mcp_spec(claude, "repo", &repo, &bad).is_err());
         assert!(read_mcp_specs(claude, "repo", &repo).is_empty());
+        let _ = fs::remove_dir_all(repo);
+    }
+
+    #[test]
+    fn write_skill_or_command_file_writes_via_atomic_write_and_rejects_traversal() {
+        let repo = scratch("skill-write");
+        let path = write_skill_or_command_file(&repo, "review.md", "---\nname: review\n---\n")
+            .unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "---\nname: review\n---\n");
+        assert!(write_skill_or_command_file(&repo, "../escape.md", "x").is_err());
         let _ = fs::remove_dir_all(repo);
     }
 }
