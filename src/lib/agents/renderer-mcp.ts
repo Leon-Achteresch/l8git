@@ -1,5 +1,7 @@
 import { BARCODE_MCP_SERVER_NAME, BARCODE_TOOL } from "@/lib/agents/barcode-spec";
+import { BROWSER_ADDON_TOOL } from "@/lib/agents/browser-addon";
 import { CHART_TOOL } from "@/lib/agents/chart-spec";
+import type { AgentCapability } from "@/lib/agents/types";
 import type { AcpMcpServer } from "@/lib/jira/jira-mcp";
 import { invoke } from "@/lib/platform/ipc";
 
@@ -41,6 +43,12 @@ export const HOST_MCP_TOOLS: readonly HostMcpTool[] = [
     driverSupport: RENDERER_DRIVER_SUPPORT,
     inputSchema: CHART_TOOL.inputSchema,
   },
+  {
+    name: BROWSER_ADDON_TOOL.name,
+    description: BROWSER_ADDON_TOOL.description,
+    driverSupport: RENDERER_DRIVER_SUPPORT,
+    inputSchema: BROWSER_ADDON_TOOL.inputSchema,
+  },
 ];
 
 export function findHostMcpTool(name: string): HostMcpTool | undefined {
@@ -52,6 +60,15 @@ export function requireHostMcpTool(name: string): HostMcpTool {
   const tool = findHostMcpTool(name);
   if (!tool) throw new Error(`Unbekanntes Renderer-Tool: ${name}`);
   return tool;
+}
+
+export function addonCapability(name: string, driver: keyof HostMcpToolDriverSupport): AgentCapability {
+  const tool = findHostMcpTool(name);
+  if (!tool) return { status: "unavailable", reason: `Unbekanntes Renderer-Tool: ${name}` };
+  if (!tool.driverSupport[driver]) {
+    return { status: "unsupported", reason: `${tool.name} wird von ${driver} nicht unterstützt.` };
+  }
+  return { status: "supported" };
 }
 
 export interface RendererMcpCommand {

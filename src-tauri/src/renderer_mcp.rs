@@ -146,6 +146,99 @@ fn text_content(text: &str, is_error: bool) -> Value {
     result
 }
 
+fn only_has_keys(obj: &serde_json::Map<String, Value>, allowed: &[&str]) -> bool {
+    obj.keys().all(|key| allowed.contains(&key.as_str()))
+}
+
+fn is_valid_chart_args(args: &Value) -> bool {
+    let Some(obj) = args.as_object() else { return false };
+    if !only_has_keys(obj, &["type", "title", "xLabel", "yLabel", "stacked", "series"]) {
+        return false;
+    }
+    let Some(chart_type) = obj.get("type").and_then(Value::as_str) else { return false };
+    if !CHART_TYPES.contains(&chart_type) {
+        return false;
+    }
+    if let Some(title) = obj.get("title") {
+        if !title.is_string() {
+            return false;
+        }
+    }
+    if let Some(stacked) = obj.get("stacked") {
+        if !stacked.is_boolean() {
+            return false;
+        }
+    }
+    let Some(series) = obj.get("series").and_then(Value::as_array) else { return false };
+    if series.is_empty() || series.len() > 8 {
+        return false;
+    }
+    series.iter().all(|entry| {
+        let Some(entry) = entry.as_object() else { return false };
+        if !only_has_keys(entry, &["label", "data"]) {
+            return false;
+        }
+        let label_ok = entry
+            .get("label")
+            .and_then(Value::as_str)
+            .is_some_and(|label| !label.is_empty());
+        let Some(data) = entry.get("data").and_then(Value::as_array) else { return false };
+        label_ok
+            && !data.is_empty()
+            && data.iter().all(|point| {
+                let Some(point) = point.as_object() else { return false };
+                if !only_has_keys(point, &["x", "y"]) {
+                    return false;
+                }
+                let x_ok = point
+                    .get("x")
+                    .is_some_and(|x| x.is_string() || x.is_number());
+                let y_ok = point.get("y").and_then(Value::as_f64).is_some();
+                x_ok && y_ok
+            })
+    })
+}
+
+fn is_valid_barcode_args(args: &Value) -> bool {
+    let Some(obj) = args.as_object() else { return false };
+    if !only_has_keys(obj, &["title", "items"]) {
+        return false;
+    }
+    if let Some(title) = obj.get("title") {
+        if !title.is_string() {
+            return false;
+        }
+    }
+    let Some(items) = obj.get("items").and_then(Value::as_array) else { return false };
+    if items.is_empty() || items.len() > 24 {
+        return false;
+    }
+    items.iter().all(|item| {
+        let Some(item) = item.as_object() else { return false };
+        if !only_has_keys(
+            item,
+            &["format", "value", "label", "caption", "scale", "height", "includeText"],
+        ) {
+            return false;
+        }
+        let format_ok = item
+            .get("format")
+            .and_then(Value::as_str)
+            .is_some_and(|format| BARCODE_FORMATS.contains(&format));
+        let value_ok = item
+            .get("value")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.is_empty());
+        let scale_ok = item.get("scale").is_none_or(|scale| {
+            scale.as_f64().is_some_and(|scale| (1.0..=10.0).contains(&scale))
+        });
+        let height_ok = item.get("height").is_none_or(|height| {
+            height.as_f64().is_some_and(|height| (4.0..=60.0).contains(&height))
+        });
+        format_ok && value_ok && scale_ok && height_ok
+    })
+}
+
 fn strip_tool_prefix(name: &str) -> &str {
     name.strip_prefix("mcp__")
         .and_then(|rest| rest.split_once("__"))
@@ -187,10 +280,19 @@ pub fn handle_request(request: &Value) -> Option<Value> {
                     "Es fehlt der Tool-Name.".into(),
                 ));
             }
+            let arguments = params.get("arguments").cloned().unwrap_or(Value::Null);
             let result = if name == TOOL_RENDER_BARCODE {
-                text_content("Barcode wurde in der l8git-UI gerendert.", false)
+                if is_valid_barcode_args(&arguments) {
+                    text_content("Barcode wurde in der l8git-UI gerendert.", false)
+                } else {
+                    text_content("Ungültige Barcode-Daten.", true)
+                }
             } else if name == TOOL_RENDER_CHART {
-                text_content("Diagramm wurde in der l8git-UI gerendert.", false)
+                if is_valid_chart_args(&arguments) {
+                    text_content("Diagramm wurde in der l8git-UI gerendert.", false)
+                } else {
+                    text_content("Ungültige Chart-Daten.", true)
+                }
             } else {
                 text_content(&format!("Unbekanntes Renderer-Tool: {name}"), true)
             };
@@ -263,7 +365,61 @@ mod tests {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "tools/call",
+            "params": {
+                "name": TOOL_RENDER_CHART,
+                "arguments": { "type": "bar", "series": [{ "label": "A", "data": [{ "x": "Jan", "y": 1 }] }] }
+            }
+        });
+        let response = handle_request(&request).unwrap();
+        assert!(response["result"]["isError"].is_null());
+    }
+
+    #[test]
+    fn rejects_invalid_chart_arguments_instead_of_a_silent_success() {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
             "params": { "name": TOOL_RENDER_CHART, "arguments": {} }
+        });
+        let response = handle_request(&request).unwrap();
+        assert_eq!(response["result"]["isError"], Value::Bool(true));
+    }
+
+    #[test]
+    fn rejects_invalid_barcode_arguments_instead_of_a_silent_success() {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": { "name": TOOL_RENDER_BARCODE, "arguments": { "items": [{ "format": "nope", "value": "A" }] } }
+        });
+        let response = handle_request(&request).unwrap();
+        assert_eq!(response["result"]["isError"], Value::Bool(true));
+    }
+
+    #[test]
+    fn rejects_empty_barcode_arguments_instead_of_a_silent_success() {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": { "name": TOOL_RENDER_BARCODE, "arguments": {} }
+        });
+        let response = handle_request(&request).unwrap();
+        assert_eq!(response["result"]["isError"], Value::Bool(true));
+    }
+
+    #[test]
+    fn calls_the_barcode_tool_successfully() {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": TOOL_RENDER_BARCODE,
+                "arguments": { "items": [{ "format": "code128", "value": "ORDER-4711" }] }
+            }
         });
         let response = handle_request(&request).unwrap();
         assert!(response["result"]["isError"].is_null());

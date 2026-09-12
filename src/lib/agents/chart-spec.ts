@@ -128,6 +128,9 @@ export function chartPrompt(request: string): string {
 
 export const CHART_TOOL_NAME = "mcp__l8git__render_chart";
 
+export const CHART_MCP_SERVER_NAME = "l8git-renderers";
+export const OPENCODE_CHART_TOOL_NAME = `${CHART_MCP_SERVER_NAME}_render_chart`;
+
 // ponytail: eine In-App-SDK-MCP-Server-Definition; weitere Tools kommen einfach in dieses Array.
 export const CHART_TOOL = {
   name: "render_chart",
@@ -173,3 +176,14 @@ export const CHART_TOOL = {
     },
   },
 } as const;
+
+export const CODEX_CHART_TOOL = {
+  type: "function",
+  ...CHART_TOOL,
+} as const;
+
+export function isChartToolName(value: unknown): boolean {
+  return value === CHART_TOOL.name ||
+    value === CHART_TOOL_NAME ||
+    value === OPENCODE_CHART_TOOL_NAME;
+}

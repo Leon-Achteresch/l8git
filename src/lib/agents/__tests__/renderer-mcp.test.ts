@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { installTestPlatform, type TestPlatform } from "@/lib/agents/__tests__/platform-harness";
 import { BARCODE_MCP_SERVER_NAME } from "@/lib/agents/barcode-spec";
+import { BROWSER_ADDON_SERVER_NAME } from "@/lib/agents/browser-addon";
 import {
+  addonCapability,
   findHostMcpTool,
   HOST_MCP_TOOLS,
   rendererAcpMcpServers,
@@ -44,9 +46,9 @@ describe("rendererAcpMcpServers", () => {
 });
 
 describe("HOST_MCP_TOOLS registry", () => {
-  it("lists barcode and chart with the same schema every driver receives", () => {
+  it("lists barcode, chart and browser with the same schema every driver receives", () => {
     const names = HOST_MCP_TOOLS.map((tool) => tool.name);
-    expect(names).toEqual(["render_barcode", "render_chart"]);
+    expect(names).toEqual(["render_barcode", "render_chart", BROWSER_ADDON_SERVER_NAME]);
     for (const tool of HOST_MCP_TOOLS) {
       expect(tool.driverSupport).toEqual({ claude: true, cursor: true, opencode: true, codex: true });
       expect(tool.inputSchema).toBeTruthy();
@@ -61,5 +63,18 @@ describe("HOST_MCP_TOOLS registry", () => {
   it("throws an explicit error for an unknown tool name instead of a silent no-op", () => {
     expect(() => requireHostMcpTool("does_not_exist")).toThrow("Unbekanntes Renderer-Tool: does_not_exist");
     expect(requireHostMcpTool("render_barcode").name).toBe("render_barcode");
+  });
+});
+
+describe("addonCapability", () => {
+  it("reports supported for a known tool and a supported driver", () => {
+    expect(addonCapability("render_chart", "claude")).toEqual({ status: "supported" });
+  });
+
+  it("gives a reason when the tool is unknown", () => {
+    expect(addonCapability("does_not_exist", "claude")).toEqual({
+      status: "unavailable",
+      reason: "Unbekanntes Renderer-Tool: does_not_exist",
+    });
   });
 });

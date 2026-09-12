@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { BARCODE_TOOL_NAME } from "@/lib/agents/barcode-spec";
+import { CHART_TOOL_NAME } from "@/lib/agents/chart-spec";
 import { parseImageResult } from "@/lib/agents/plugins/image-blocks";
 import { markdownResult, stripLineGutter } from "@/lib/agents/plugins/markdown-result";
+import { rendererResult } from "@/lib/agents/plugins/renderer-result";
 
 describe("parseImageResult", () => {
   it("baut Data-URLs aus MCP- und Anthropic-Blocks", () => {
@@ -48,5 +51,57 @@ describe("markdownResult", () => {
     expect(markdownResult("# comment", "Read", { file_path: "a/deploy.sh" })).toBeNull();
     expect(markdownResult("# Doku", "Grep", { pattern: "x" })).toBeNull();
     expect(markdownResult("   ", "WebFetch", {})).toBeNull();
+  });
+});
+
+describe("rendererResult", () => {
+  it("baut eine Chart-Karte aus gültigen Argumenten", () => {
+    const outcome = rendererResult(
+      "ok",
+      CHART_TOOL_NAME,
+      { type: "bar", series: [{ label: "A", data: [{ x: "Jan", y: 1 }] }] },
+    );
+    expect(outcome).toMatchObject({ kind: "chart", spec: { type: "bar" } });
+  });
+
+  it("gibt einen Fehlerblock statt einer leeren Karte bei ungültigen Chart-Daten", () => {
+    expect(rendererResult("ok", CHART_TOOL_NAME, { type: "pie" })).toEqual({
+      kind: "chart",
+      error: "Ungültige Diagrammdaten – Diagramm konnte nicht dargestellt werden.",
+    });
+  });
+
+  it("baut eine Barcode-Karte aus gültigen Argumenten", () => {
+    const outcome = rendererResult(
+      "ok",
+      BARCODE_TOOL_NAME,
+      { items: [{ format: "code128", value: "A1" }] },
+    );
+    expect(outcome).toMatchObject({ kind: "barcode", spec: { items: [{ format: "code128" }] } });
+  });
+
+  it("gibt einen Fehlerblock statt einer leeren Karte bei ungültigen Barcode-Daten", () => {
+    expect(rendererResult("ok", BARCODE_TOOL_NAME, { items: [{ format: "nope" }] })).toEqual({
+      kind: "barcode",
+      error: "Ungültige Barcode-Daten – Barcode konnte nicht dargestellt werden.",
+    });
+  });
+
+  it("erkennt Browser-Tool-Ergebnisse und gibt den Text zurück", () => {
+    expect(rendererResult("Titel: Beispiel", "browser_navigate", {})).toEqual({
+      kind: "browser",
+      text: "Titel: Beispiel",
+    });
+  });
+
+  it("gibt einen Fehlerblock statt einer leeren Karte bei leerem Browser-Ergebnis", () => {
+    expect(rendererResult("", "browser_navigate", {})).toEqual({
+      kind: "browser",
+      error: "Browser-Tool lieferte kein auswertbares Ergebnis.",
+    });
+  });
+
+  it("greift nicht bei fremden Tools", () => {
+    expect(rendererResult("ok", "Read", {})).toBeNull();
   });
 });

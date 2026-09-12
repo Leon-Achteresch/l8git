@@ -42,3 +42,45 @@ export function parseImageResult(result: unknown): ImageResult | null {
   }
   return images.length > 0 ? { images, text: texts.join("\n").trim() } : null;
 }
+
+export type MediaBlockKind = "image" | "video" | "pdf" | "html" | "unknown";
+
+export interface MediaActions {
+  open: boolean;
+  save: boolean;
+  share: boolean;
+}
+
+function mediaMimeType(block: Record<string, unknown>): string {
+  if (typeof block.mediaType === "string") return block.mediaType;
+  if (typeof block.mimeType === "string") return block.mimeType;
+  const source = isRecord(block.source) ? block.source : null;
+  if (source && typeof source.media_type === "string") return source.media_type;
+  if (source && typeof source.mediaType === "string") return source.mediaType;
+  return "";
+}
+
+function mediaBlockKind(block: Record<string, unknown>): MediaBlockKind {
+  const mime = mediaMimeType(block).toLowerCase();
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime === "application/pdf") return "pdf";
+  if (mime === "text/html") return "html";
+  return "unknown";
+}
+
+export function mediaActionsFor(block: unknown): MediaActions {
+  if (!isRecord(block)) return { open: false, save: false, share: false };
+  switch (mediaBlockKind(block)) {
+    case "image":
+      return { open: true, save: true, share: true };
+    case "video":
+      return { open: true, save: true, share: false };
+    case "pdf":
+      return { open: true, save: true, share: false };
+    case "html":
+      return { open: true, save: false, share: false };
+    default:
+      return { open: true, save: true, share: false };
+  }
+}
