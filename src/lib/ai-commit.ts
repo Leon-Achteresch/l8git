@@ -1,5 +1,5 @@
 import { useCommitPrefs } from "@/lib/commit-prefs";
-import { generateAiText, resolveAiLanguage, truncateForPrompt } from "@/lib/ai/core";
+import { generateAiText, getAiProviderConfig, hasAiCredentials, resolveAiLanguage, truncateForPrompt } from "@/lib/ai/core";
 import { getPromptTemplate } from "@/lib/ai/prompt-prefs";
 import { defaultPromptTemplate, renderTemplate } from "@/lib/ai/prompts";
 import i18n from "@/lib/i18n";
@@ -101,4 +101,93 @@ export async function generateAiCommitMessage(
   });
 
   return normalizeCommitMessageText(text);
+}
+
+export type GitTextKind = "title" | "commit" | "pr";
+
+export interface GenerateGitTextContext {
+  diff?: string;
+  branch?: string;
+  base?: string;
+  commits?: string;
+  repoPath?: string;
+  hint?: string;
+  signal?: AbortSignal;
+  onDelta?: (partial: string) => void;
+}
+
+export class GitTextCapabilityError extends Error {
+  readonly kind: GitTextKind;
+  readonly instanceId: string;
+
+  constructor(kind: GitTextKind, instanceId: string, reason: string) {
+    super(`Git-Text (${kind}) für Instanz "${instanceId}" nicht verfügbar: ${reason}`);
+    this.name = "GitTextCapabilityError";
+    this.kind = kind;
+    this.instanceId = instanceId;
+  }
+}
+
+const SUPPORTED_GIT_TEXT_INSTANCES = new Set(["default"]);
+
+export async function generateGitText(
+  kind: GitTextKind,
+  context: GenerateGitTextContext = {},
+  instanceId = "default",
+): Promise<string> {
+  if (!SUPPORTED_GIT_TEXT_INSTANCES.has(instanceId)) {
+    throw new GitTextCapabilityError(
+      kind,
+      instanceId,
+      `unbekannte Instanz, nur "default" wird für Git-Textgenerierung unterstützt`,
+    );
+  }
+
+  const config = getAiProviderConfig();
+  if (!hasAiCredentials(config)) {
+    throw new GitTextCapabilityError(
+      kind,
+      instanceId,
+      `Provider "${config.type}" hat keine gültigen Zugangsdaten`,
+    );
+  }
+
+  if (kind === "commit") {
+    const diff = context.diff?.trim() ?? "";
+    if (!diff) throw new GitTextCapabilityError(kind, instanceId, "kein Diff für die Commit-Nachricht");
+    return generateAiCommitMessage(diff, context.repoPath, {
+      hint: context.hint,
+      signal: context.signal,
+      onDelta: context.onDelta,
+    });
+  }
+
+  if (kind === "pr") {
+    const diff = context.diff?.trim() ?? "";
+    if (!diff) throw new GitTextCapabilityError(kind, instanceId, "kein Diff für die PR-Beschreibung");
+    const language = resolveAiLanguage(context.repoPath);
+    const diffBody = truncateForPrompt(diff, MAX_STAGED_DIFF_CHARS);
+    const systemPrompt = renderTemplate(getPromptTemplate("prDescription", { repoPath: context.repoPath }), {
+      language,
+      branch: context.branch ?? "",
+      base: context.base ?? "",
+      commits: context.commits ?? "",
+      diff: diffBody,
+    });
+    const text = await generateAiText({
+      feature: "prDescription",
+      system: systemPrompt,
+      prompt: `Write the pull request description from this diff:\n\n\`\`\`diff\n${diffBody}\n\`\`\``,
+      hint: context.hint,
+      signal: context.signal,
+      ...(context.onDelta ? { onDelta: context.onDelta } : {}),
+    });
+    return text.trim();
+  }
+
+  throw new GitTextCapabilityError(
+    kind,
+    instanceId,
+    `Provider "${config.type}" unterstützt keine Titel-Generierung (keine passende Prompt-Vorlage konfiguriert)`,
+  );
 }
