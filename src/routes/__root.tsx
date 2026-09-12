@@ -6,14 +6,6 @@ import { lazy, Suspense, useEffect } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
-const RouterDevtools = import.meta.env.DEV
-  ? lazy(() =>
-      import("@tanstack/react-router-devtools").then((m) => ({
-        default: m.TanStackRouterDevtools,
-      })),
-    )
-  : null;
-
 const AppUpdateDialog = lazy(() =>
   import("@/components/app/app-update-dialog").then((m) => ({
     default: m.AppUpdateDialog,
@@ -44,6 +36,7 @@ import { useRepoStore } from "@/lib/repo-store";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
 import { useUiStore } from "@/lib/ui-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
+import { seedPreviewRepo } from "@/lib/preview-repo";
 import { useState } from "react";
 
 export const Route = createRootRoute({
@@ -52,6 +45,15 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   useInboxRefresh();
+  useEffect(() => {
+    if (!import.meta.env.DEV || isTauri()) return;
+    const seed = () => seedPreviewRepo();
+    if (useRepoStore.persist.hasHydrated()) {
+      seed();
+      return;
+    }
+    return useRepoStore.persist.onFinishHydration(seed);
+  }, []);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
@@ -127,11 +129,6 @@ function RootLayout() {
         <Suspense fallback={null}>
           <AppUpdateDialog />
         </Suspense>
-        {RouterDevtools ? (
-          <Suspense fallback={null}>
-            <RouterDevtools position="bottom-right" />
-          </Suspense>
-        ) : null}
       </div>
     </MotionProvider>
   );
