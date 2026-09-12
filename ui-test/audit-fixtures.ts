@@ -8,6 +8,16 @@ export type TestInvoke = (command: string, args?: Record<string, unknown>) => Pr
 declare global { interface Window { __L8GIT_TEST_INVOKE__?: TestInvoke; __L8GIT_TEST_CALLS__?: { command: string; args?: Record<string, unknown> }[] } }
 export function seedAuditFixture(scene: string) {
   useOnboardingPrefs.setState({ tourDone: true, tourActive: false, welcomeDismissed: true });
+  if (scene === 'remote-dialog') {
+    localStorage.setItem('l8git.git-accounts.v2', JSON.stringify([{ id: 'github', name: 'GitHub', host: 'github.com', username: 'fixture', builtin: true }]));
+    window.__L8GIT_TEST_INVOKE__ = async (command) => {
+      if (command === 'list_git_remotes') return [];
+      if (command === 'git_credential_helper') return null;
+      throw new Error(`Unavailable in remote dialog fixture: ${command}`);
+    };
+    useRepoStore.setState({ paths: [], activePath: null });
+    return;
+  }
   if (scene === 'app') {
     window.__L8GIT_TEST_INVOKE__ = async (cmd) => {
       if (cmd === 'git_credential_helper') return null;
