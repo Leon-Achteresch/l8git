@@ -17,6 +17,9 @@ import {
   CursorClient,
   cursorCli,
   cursorCreateChat,
+  cursorEffortLabel,
+  cursorModelId,
+  groupCursorModels,
   parseCursorMcpServers,
   parseCursorModels,
   parseCursorStatus,
@@ -518,7 +521,7 @@ async function runTurn(threadId: string, path: string, prompt: string): Promise<
     cwd: path,
     prompt,
     resumeSessionId: threadId,
-    model: state.model ?? undefined,
+    model: cursorModelId(state.model, state.reasoningEffort),
     permissionMode: cliMode(state),
     sandbox: cliSandbox(state),
     agentsTrusted: isRepoAgentsTrusted(path),
@@ -544,15 +547,19 @@ export async function warmCursorModelCatalog(path: string): Promise<void> {
   if (modelWarmups.has(path)) return;
   modelWarmups.add(path);
   try {
-    const models = parseCursorModels(await cursorCli(["models"], path || undefined)).map(
+    const models = groupCursorModels(parseCursorModels(await cursorCli(["models"], path || undefined))).map(
       (model, index): AgentModelOption => ({
         id: model.id,
         label: model.label,
         description: "Cursor CLI",
         isDefault: index === 0,
         inputModalities: ["text"],
-        reasoningEfforts: [],
-        defaultReasoningEffort: "",
+        reasoningEfforts: model.efforts.map((effort) => ({
+          value: effort,
+          label: cursorEffortLabel(effort),
+          description: cursorModelId(model.id, effort) ?? model.id,
+        })),
+        defaultReasoningEffort: model.efforts.includes("") ? "" : model.efforts[0] ?? "",
         serviceTiers: [],
         defaultServiceTier: null,
         supportsPersonality: false,
@@ -560,11 +567,17 @@ export async function warmCursorModelCatalog(path: string): Promise<void> {
     );
     if (!models.length) return;
     saveModelCatalog("cursor", models);
-    cursorChatStore.setState((state) => ({
-      models,
-      defaultModel: models[0].id,
-      model: state.model && models.some((model) => model.id === state.model) ? state.model : models[0].id,
-    }));
+    cursorChatStore.setState((state) => {
+      const model = state.model && models.some((entry) => entry.id === state.model) ? state.model : models[0].id;
+      const selected = models.find((entry) => entry.id === model);
+      const keepEffort = selected?.reasoningEfforts.some((effort) => effort.value === state.reasoningEffort);
+      return {
+        models,
+        defaultModel: models[0].id,
+        model,
+        reasoningEffort: keepEffort ? state.reasoningEffort : selected?.defaultReasoningEffort ?? "",
+      };
+    });
   } catch {
     modelWarmups.delete(path);
   }

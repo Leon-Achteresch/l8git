@@ -996,6 +996,8 @@ const appsPromises = new Map<string, Promise<AgentApp[]>>();
 const permissionProfilePromises = new Map<string, Promise<void>>();
 const fileSearchCache = new Map<string, { expiresAt: number; data: AgentFileMatch[] }>();
 const fileSearchPromises = new Map<string, Promise<AgentFileMatch[]>>();
+const CODEX_THREAD_LIST_PAGES = 3;
+
 const persistedCatalog = loadAgentSessionCatalog();
 function optimisticId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${optimisticSequence++}`;
@@ -1209,31 +1211,20 @@ export const useAgentChatStore = create<AgentChatState>()(
           },
         }));
 
-        if (![...trackedIdsByPath.values()].some((ids) => ids.size > 0)) {
-          set((state) => ({
-            loadingPaths: {
-              ...state.loadingPaths,
-              ...Object.fromEntries(unique.map((path) => [path, false])),
-            },
-          }));
-          return;
-        }
-
         attachListeners();
         const client = await codexSessionManager.controlClient();
         try {
           const results = await Promise.all(unique.map(async (path) => {
             const trackedIds = trackedIdsByPath.get(path) ?? new Set<string>();
-            if (!trackedIds.size) return { path, trackedIds, threads: [] as CodexThread[] };
             const found = new Map<string, CodexThread>();
             let cursor: string | null = null;
+            let pages = 0;
             do {
               const response = await client.listThreads(path, cursor);
-              for (const thread of response.data) {
-                if (trackedIds.has(thread.id)) found.set(thread.id, thread);
-              }
+              for (const thread of response.data) found.set(thread.id, thread);
               cursor = response.nextCursor;
-            } while (cursor && found.size < trackedIds.size);
+              pages += 1;
+            } while (cursor && pages < CODEX_THREAD_LIST_PAGES);
             return { path, trackedIds, threads: [...found.values()] };
           }));
 
@@ -1253,8 +1244,9 @@ export const useAgentChatStore = create<AgentChatState>()(
             const activeThreadByPath = { ...state.activeThreadByPath };
             for (const { path, trackedIds, threads } of results) {
               // Preserve sessions created while this reconciliation was in flight.
+              const listedIds = new Set(threads.map((thread) => thread.id));
               const newThreads = (state.threadsByPath[path] ?? []).filter(
-                (thread) => !trackedIds.has(thread.id),
+                (thread) => !trackedIds.has(thread.id) && !listedIds.has(thread.id),
               );
               const previous = new Map(
                 (state.threadsByPath[path] ?? []).map((thread) => [thread.id, thread]),

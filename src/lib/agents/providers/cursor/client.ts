@@ -127,6 +127,71 @@ export function parseCursorModels(output: string): CursorModel[] {
     });
 }
 
+const CURSOR_EFFORT_TOKENS: Record<string, string> = {
+  none: "None",
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra High",
+  max: "Max",
+  fast: "Fast",
+  thinking: "Thinking",
+};
+
+function splitCursorModelId(id: string): { base: string; effort: string } {
+  const parts = id.split("-");
+  let cut = parts.length;
+  while (cut > 1 && CURSOR_EFFORT_TOKENS[parts[cut - 1]]) cut -= 1;
+  return { base: parts.slice(0, cut).join("-"), effort: parts.slice(cut).join("-") };
+}
+
+export function cursorEffortLabel(effort: string): string {
+  if (!effort) return "Default";
+  return effort
+    .split("-")
+    .map((token) => CURSOR_EFFORT_TOKENS[token] ?? token)
+    .join(" ");
+}
+
+function commonLabel(labels: string[]): string {
+  let prefix = labels[0] ?? "";
+  for (const label of labels.slice(1)) {
+    let index = 0;
+    while (index < prefix.length && index < label.length && prefix[index] === label[index]) index += 1;
+    prefix = prefix.slice(0, index);
+  }
+  const trimmed = prefix.replace(/[\s(\-–—]+$/u, "").trim();
+  return trimmed || labels.reduce((shortest, label) => (label.length < shortest.length ? label : shortest), labels[0] ?? "");
+}
+
+export interface CursorModelGroup {
+  id: string;
+  label: string;
+  efforts: string[];
+}
+
+export function groupCursorModels(models: CursorModel[]): CursorModelGroup[] {
+  const groups = new Map<string, { labels: string[]; efforts: string[] }>();
+  for (const model of models) {
+    const { base, effort } = splitCursorModelId(model.id);
+    const group = groups.get(base) ?? { labels: [], efforts: [] };
+    group.labels.push(model.label);
+    if (!group.efforts.includes(effort)) group.efforts.push(effort);
+    groups.set(base, group);
+  }
+  return [...groups].map(([id, group]) => ({
+    id,
+    label: commonLabel(group.labels),
+    efforts: group.efforts.length === 1 && group.efforts[0] === "" ? [] : group.efforts,
+  }));
+}
+
+export function cursorModelId(model: string | null, effort: string | null): string | undefined {
+  if (!model) return undefined;
+  return effort ? `${model}-${effort}` : model;
+}
+
 export function parseCursorStatus(output: string): CursorAccount {
   const email = output.match(/[\w.+-]+@[\w-]+\.[\w.-]+/u)?.[0] ?? null;
   return { email, loggedIn: Boolean(email) && !/not logged in|logged out/iu.test(output) };

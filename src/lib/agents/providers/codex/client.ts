@@ -553,9 +553,8 @@ export class CodexAgentClient {
       sortDirection: "desc",
       cwd,
       archived: false,
-      // The local catalog may contain an explicitly adopted CLI/IDE thread,
-      // while sessions created by l8git use appServer. Query every source but
-      // only retain IDs that l8git already tracks.
+      // Threads for a repository can come from the CLI, an IDE or l8git
+      // itself, so every source is listed.
       sourceKinds: [
         "cli",
         "vscode",
