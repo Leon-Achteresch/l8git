@@ -74,6 +74,120 @@ export function filterThreads(
     });
 }
 
+export interface ThreadRef {
+  hostId: string;
+  instanceId: string;
+  threadId: string;
+}
+
+export function formatThreadRef(ref: ThreadRef): string {
+  return `${ref.hostId}:${ref.instanceId}:${ref.threadId}`;
+}
+
+export function parseThreadRef(value: string): ThreadRef | null {
+  const parts = value.split(":");
+  if (parts.length < 3) return null;
+  const hostId = parts[0];
+  const threadId = parts[parts.length - 1];
+  const instanceId = parts.slice(1, -1).join(":");
+  if (!hostId || !instanceId || !threadId) return null;
+  return { hostId, instanceId, threadId };
+}
+
+export interface HostThreadCatalog {
+  online: boolean;
+  threadsByInstance: Record<string, SidebarThread[]>;
+}
+
+export interface ThreadSearchResult {
+  hostId: string;
+  instanceId: string;
+  threadId: string;
+  thread: SidebarThread;
+  ref: string;
+}
+
+export function searchThreadsAcrossHosts(
+  catalogsByHost: Record<string, HostThreadCatalog>,
+  query: string,
+): ThreadSearchResult[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [];
+  const results: ThreadSearchResult[] = [];
+  for (const [hostId, catalog] of Object.entries(catalogsByHost)) {
+    if (!catalog.online) continue;
+    for (const [instanceId, threads] of Object.entries(catalog.threadsByInstance)) {
+      for (const thread of threads) {
+        const matches =
+          thread.title.toLowerCase().includes(normalized) ||
+          thread.preview.toLowerCase().includes(normalized);
+        if (!matches) continue;
+        results.push({
+          hostId,
+          instanceId,
+          threadId: thread.id,
+          thread,
+          ref: formatThreadRef({ hostId, instanceId, threadId: thread.id }),
+        });
+      }
+    }
+  }
+  return results;
+}
+
+export interface SimpleThreadRef {
+  hostId: string;
+  threadId: string;
+}
+
+export function formatSimpleThreadRef(ref: SimpleThreadRef): string {
+  return `${ref.hostId}:${ref.threadId}`;
+}
+
+export function parseSimpleThreadRef(value: string): SimpleThreadRef | null {
+  const idx = value.indexOf(":");
+  if (idx <= 0 || idx === value.length - 1) return null;
+  const hostId = value.slice(0, idx);
+  const threadId = value.slice(idx + 1);
+  return { hostId, threadId };
+}
+
+export interface ThreadSearchHit {
+  hostId: string;
+  instanceId: string;
+  threadId: string;
+  thread: SidebarThread;
+  ref: string;
+}
+
+export function searchThreads(
+  catalogsByHost: Record<string, HostThreadCatalog>,
+  query: string,
+): ThreadSearchHit[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [];
+  const results: ThreadSearchHit[] = [];
+  for (const [hostId, catalog] of Object.entries(catalogsByHost)) {
+    if (!catalog.online) continue;
+    for (const [instanceId, threads] of Object.entries(catalog.threadsByInstance)) {
+      for (const thread of threads) {
+        const matches =
+          thread.title.toLowerCase().includes(normalized) ||
+          thread.preview.toLowerCase().includes(normalized);
+        if (!matches) continue;
+        results.push({
+          hostId,
+          instanceId,
+          threadId: thread.id,
+          thread,
+          ref: formatSimpleThreadRef({ hostId, threadId: thread.id }),
+        });
+      }
+    }
+  }
+  return results;
+}
+
 export function repoThreadPaths(
   selectedPath: string,
   worktrees: Record<string, { basePath: string }>,

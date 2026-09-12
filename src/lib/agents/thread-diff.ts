@@ -127,6 +127,48 @@ export function stampThreadDiff(
   return { ...thread, additions: diff.additions, deletions: diff.deletions };
 }
 
+export interface FileChangeDiffSummary {
+  files: number;
+  added: number;
+  removed: number;
+}
+
+export function diffSummaryFromFileChanges(items: readonly AgentItem[]): FileChangeDiffSummary {
+  const byPath = new Map<string, { additions: number; deletions: number }>();
+  for (const item of items) {
+    if (item.type !== "fileChange") continue;
+    const changes = Array.isArray(item.changes) ? item.changes : [];
+    for (const change of changes) {
+      if (!isRecord(change) || typeof change.path !== "string" || !change.path) continue;
+      let additions = typeof change.additions === "number" ? change.additions : undefined;
+      let deletions = typeof change.deletions === "number" ? change.deletions : undefined;
+      if (additions === undefined && deletions === undefined) {
+        if (Array.isArray(change.structuredPatch)) {
+          const counted = countStructuredPatch(change.structuredPatch);
+          additions = counted.additions;
+          deletions = counted.deletions;
+        } else if (typeof change.diff === "string" && change.diff) {
+          const counted = countUnifiedDiff(change.diff);
+          additions = counted.additions;
+          deletions = counted.deletions;
+        }
+      }
+      const existing = byPath.get(change.path) ?? { additions: 0, deletions: 0 };
+      byPath.set(change.path, {
+        additions: existing.additions + (additions ?? 0),
+        deletions: existing.deletions + (deletions ?? 0),
+      });
+    }
+  }
+  let added = 0;
+  let removed = 0;
+  for (const entry of byPath.values()) {
+    added += entry.additions;
+    removed += entry.deletions;
+  }
+  return { files: byPath.size, added, removed };
+}
+
 export function conversationDiffPatch(
   threadsByPath: Record<string, AgentThreadSummary[]>,
   conversation: AgentConversation,

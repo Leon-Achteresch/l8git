@@ -160,3 +160,65 @@ export function classifyTranscriptUserText(raw: string): TranscriptUserEntry {
   if (parsed.output) return { kind: "commandOutput", output: parsed.output };
   return { kind: "skip" };
 }
+
+export interface QuoteRange {
+  start: number;
+  end: number;
+}
+
+export interface QuoteSourceRef {
+  threadId: string;
+  itemId: string;
+  range: QuoteRange;
+}
+
+export interface QuoteSelectionInput {
+  threadId: string;
+  itemId: string;
+  text: string;
+  range: QuoteRange;
+}
+
+export interface QuoteBlock {
+  quotedText: string;
+  markdown: string;
+  source: QuoteSourceRef;
+}
+
+export function quoteSelection(input: QuoteSelectionInput): QuoteBlock {
+  const quotedText = input.text.trim();
+  if (!quotedText) {
+    throw new Error("Leere Auswahl kann nicht zitiert werden.");
+  }
+  const markdown = quotedText
+    .split("\n")
+    .map((line) => (line ? `> ${line}` : ">"))
+    .join("\n");
+  return {
+    quotedText,
+    markdown,
+    source: {
+      threadId: input.threadId,
+      itemId: input.itemId,
+      range: { ...input.range },
+    },
+  };
+}
+
+export type QuoteSourceResolution =
+  | { status: "resolved"; threadId: string; itemId: string; text: string }
+  | { status: "missing"; threadId: string; itemId: string };
+
+export function resolveQuoteSource(
+  ref: QuoteSourceRef,
+  transcript: ReadonlyMap<string, string> | Record<string, string>,
+): QuoteSourceResolution {
+  const raw =
+    transcript instanceof Map
+      ? transcript.get(ref.itemId)
+      : (transcript as Record<string, string>)[ref.itemId];
+  if (raw === undefined) {
+    return { status: "missing", threadId: ref.threadId, itemId: ref.itemId };
+  }
+  return { status: "resolved", threadId: ref.threadId, itemId: ref.itemId, text: raw };
+}

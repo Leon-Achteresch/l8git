@@ -18,6 +18,94 @@ export function flattenTurnRows(turns: AgentTurn[]): TranscriptRow[] {
   return rows;
 }
 
+export function buildTranscriptRowsMemo(turns: AgentTurn[], cache: Map<string, TranscriptRow>): TranscriptRow[] {
+  const rows: TranscriptRow[] = [];
+  const seen = new Set<string>();
+
+  const emit = (key: string, build: () => TranscriptRow, matches: (row: TranscriptRow) => boolean) => {
+    const cached = cache.get(key);
+    const row = cached && matches(cached) ? cached : build();
+    if (row !== cached) cache.set(key, row);
+    seen.add(key);
+    rows.push(row);
+  };
+
+  for (const turn of turns) {
+    for (const item of turn.items) {
+      const key = `${turn.id}:${item.id}`;
+      emit(
+        key,
+        () => ({ kind: "item", key, turn, item }),
+        (row) => row.kind === "item" && row.turn.id === turn.id && row.item === item,
+      );
+    }
+    if (turn.status === "failed" && turn.error) {
+      const key = `${turn.id}:error`;
+      const error = turn.error;
+      emit(
+        key,
+        () => ({ kind: "error", key, turn, error }),
+        (row) => row.kind === "error" && row.turn.id === turn.id && row.error === error,
+      );
+    }
+  }
+
+  for (const key of cache.keys()) {
+    if (!seen.has(key)) cache.delete(key);
+  }
+
+  return rows;
+}
+
+export interface StreamDelta {
+  id: string;
+  text: string;
+  t: number;
+  final?: boolean;
+}
+
+export interface BatchStreamOptions {
+  maxBatchMs: number;
+  maxChars: number;
+}
+
+export function batchStreamDeltas(deltas: StreamDelta[], options: BatchStreamOptions): StreamDelta[][] {
+  const batches: StreamDelta[][] = [];
+  let current: StreamDelta[] = [];
+  let batchStartT = 0;
+  let currentChars = 0;
+
+  const flush = () => {
+    if (current.length > 0) {
+      batches.push(current);
+      current = [];
+      currentChars = 0;
+    }
+  };
+
+  for (const delta of deltas) {
+    if (delta.final) {
+      flush();
+      batches.push([delta]);
+      continue;
+    }
+    if (current.length === 0) {
+      batchStartT = delta.t;
+    }
+    const exceedsTime = delta.t - batchStartT > options.maxBatchMs;
+    const exceedsChars = currentChars + delta.text.length > options.maxChars;
+    if (exceedsTime || exceedsChars) {
+      flush();
+      batchStartT = delta.t;
+    }
+    current.push(delta);
+    currentChars += delta.text.length;
+  }
+  flush();
+
+  return batches;
+}
+
 export type ToolResultLabel = {
   label: string;
   detail: string;
