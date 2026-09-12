@@ -159,7 +159,7 @@ export function EditRemoteDialog({
                   variant="outline"
                   disabled={busy}
                   onClick={() => setCreateOpen(true)}
-                  className="h-auto w-full justify-start gap-3 rounded-xl border-primary/40 bg-primary/5 p-3 text-left hover:bg-primary/10"
+                  className="h-auto min-w-0 w-full justify-start gap-3 rounded-xl border-primary/40 bg-primary/5 p-3 text-left hover:bg-primary/10"
                 >
                   <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
                     <CloudUpload className="h-4.5 w-4.5" />

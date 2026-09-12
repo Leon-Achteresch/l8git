@@ -77,7 +77,7 @@ function DashboardPage() {
       </div>
 
       <Tabs defaultValue="active" key={activeWorkspaceId}>
-        <TabsList variant="line">
+        <TabsList variant="line" className="rounded-2xl border border-border/60 bg-card/60 p-1">
           <TabsTrigger value="active">{t("dashboard.tabs.active")}</TabsTrigger>
           <TabsTrigger value="all">
             {t("dashboard.tabs.all")}
@@ -174,8 +174,8 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
         <ContributorsPanel path={path} range={range} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
               <LanguagesIcon className="size-4 text-muted-foreground" />
@@ -186,7 +186,7 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
             <LanguageBreakdown path={path} />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
               <ActivityIcon className="size-4 text-muted-foreground" />
@@ -197,7 +197,7 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
             <RecentActivityFeed items={recent} loading={prState.loading && !prState.data} />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
               <ListChecks className="size-4 text-muted-foreground" />
