@@ -1,5 +1,6 @@
 import { invoke } from "@/lib/platform/ipc";
 
+import type { AgentTurn, AgentTurnStatus } from "@/lib/agents/types";
 import {
   buildPatchesForDiscard,
   parseDiffWithHunks,
@@ -229,6 +230,56 @@ export async function removeSessionWorktree(
   worktreePath: string,
 ): Promise<void> {
   await invoke("git_worktree_remove", { path: basePath, worktreePath, force: false });
+}
+
+export function isFinishedTurnStatus(status: AgentTurnStatus): boolean {
+  return status === "completed" || status === "failed";
+}
+
+export function collectFinishedTurnIds(
+  turns: readonly Pick<AgentTurn, "id" | "status">[],
+): string[] {
+  return turns.filter((turn) => isFinishedTurnStatus(turn.status)).map((turn) => turn.id);
+}
+
+export interface AgentReviewRequest {
+  threadId: string;
+  worktreePath: string;
+  diffHash: string;
+}
+
+export interface AgentReviewFinding {
+  file: string;
+  line: number;
+  message: string;
+  stale?: boolean;
+}
+
+export function hashDiffText(diff: string): string {
+  let hash = 0;
+  for (let index = 0; index < diff.length; index += 1) {
+    hash = (hash * 31 + diff.charCodeAt(index)) | 0;
+  }
+  return (hash >>> 0).toString(16);
+}
+
+export function createReviewRequest(
+  threadId: string,
+  worktreePath: string,
+  diff: string,
+): AgentReviewRequest {
+  return { threadId, worktreePath, diffHash: hashDiffText(diff) };
+}
+
+export function markFindingsStaleOnDiffChange(
+  findings: readonly AgentReviewFinding[],
+  previousDiffHash: string | null,
+  nextDiffHash: string,
+): AgentReviewFinding[] {
+  if (previousDiffHash === null || previousDiffHash === nextDiffHash) {
+    return findings.map((finding) => ({ ...finding, stale: finding.stale ?? false }));
+  }
+  return findings.map((finding) => ({ ...finding, stale: true }));
 }
 
 export async function deleteSessionBranchIfMerged(

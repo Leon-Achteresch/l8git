@@ -1,8 +1,15 @@
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::git::run_git;
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckpointFile {
+    pub path: String,
+    pub content: Option<String>,
+}
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -238,6 +245,49 @@ pub async fn agent_review_file_diff(
     .map_err(|e| format!("Review-Aufgabe abgebrochen: {e}"))?
 }
 
+fn restore_checkpoint_file(worktree: &PathBuf, file: &CheckpointFile) -> Result<(), String> {
+    let relative = file.path.trim();
+    let relative_path = PathBuf::from(relative);
+    let escapes = relative_path
+        .components()
+        .any(|component| matches!(component, Component::ParentDir));
+    if relative.is_empty() || escapes || relative_path.is_absolute() {
+        return Err(format!("Ungültiger Dateipfad im Checkpoint: {relative}"));
+    }
+    let absolute = worktree.join(relative);
+    match &file.content {
+        Some(content) => {
+            if let Some(parent) = absolute.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| format!("Verzeichnis konnte nicht angelegt werden: {e}"))?;
+            }
+            std::fs::write(&absolute, content)
+                .map_err(|e| format!("Datei konnte nicht wiederhergestellt werden: {e}"))
+        }
+        None => match std::fs::remove_file(&absolute) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(format!("Datei konnte nicht gelöscht werden: {e}")),
+        },
+    }
+}
+
+#[tauri::command]
+pub async fn agent_review_restore_checkpoint_files(
+    worktree_path: String,
+    files: Vec<CheckpointFile>,
+) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let worktree = PathBuf::from(worktree_path.trim());
+        for file in &files {
+            restore_checkpoint_file(&worktree, file)?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Restore-Aufgabe abgebrochen: {e}"))?
+}
+
 #[tauri::command]
 pub async fn agent_review_branch_merged(path: String, branch: String) -> Result<bool, String> {
     tokio::task::spawn_blocking(move || {
@@ -381,6 +431,64 @@ mod tests {
         let diff = build_file_diff(&repo.worktree, &summary.merge_base, "new.txt").unwrap();
         assert_eq!(diff.untracked_plain.as_deref(), Some("hello\n"));
         assert!(diff.diff.is_none());
+    }
+
+    #[test]
+    fn restore_checkpoint_writes_back_original_content() {
+        let repo = TestRepo::new();
+        fs::write(repo.worktree.join("f.txt"), "changed\n").unwrap();
+        restore_checkpoint_file(
+            &repo.worktree,
+            &CheckpointFile {
+                path: "f.txt".into(),
+                content: Some("a\nb\nc\n".into()),
+            },
+        )
+        .unwrap();
+        assert_eq!(fs::read_to_string(repo.worktree.join("f.txt")).unwrap(), "a\nb\nc\n");
+    }
+
+    #[test]
+    fn restore_checkpoint_deletes_files_that_did_not_exist_before() {
+        let repo = TestRepo::new();
+        fs::write(repo.worktree.join("new.txt"), "hello\n").unwrap();
+        restore_checkpoint_file(
+            &repo.worktree,
+            &CheckpointFile {
+                path: "new.txt".into(),
+                content: None,
+            },
+        )
+        .unwrap();
+        assert!(!repo.worktree.join("new.txt").exists());
+    }
+
+    #[test]
+    fn restore_checkpoint_rejects_paths_escaping_the_worktree() {
+        let repo = TestRepo::new();
+        let err = restore_checkpoint_file(
+            &repo.worktree,
+            &CheckpointFile {
+                path: "../outside.txt".into(),
+                content: Some("x".into()),
+            },
+        )
+        .unwrap_err();
+        assert!(err.contains("Ungültiger Dateipfad"));
+    }
+
+    #[test]
+    fn restore_checkpoint_rejects_nested_paths_escaping_the_worktree() {
+        let repo = TestRepo::new();
+        let err = restore_checkpoint_file(
+            &repo.worktree,
+            &CheckpointFile {
+                path: "subdir/../../outside.txt".into(),
+                content: Some("x".into()),
+            },
+        )
+        .unwrap_err();
+        assert!(err.contains("Ungültiger Dateipfad"));
     }
 
     #[test]

@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { installTestPlatform } from "@/lib/agents/__tests__/platform-harness";
 import {
+  isValidPullRequestUrl,
+  linkPullRequest,
+  unlinkPullRequest,
   useAgentWorktreeStore,
   worktreeDisplayName,
   worktreeSessionOptions,
@@ -72,6 +75,50 @@ describe("worktreeSessionOptions", () => {
 
   it("throws instead of falling back to the main repo when the worktree is missing", () => {
     expect(() => worktreeSessionOptions("/repo.worktrees/gone")).toThrow(/Unbekannter Worktree/u);
+  });
+
+  it("falls back to project defaults when the worktree has no instanceId", async () => {
+    invoke.mockResolvedValue("");
+    const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "opts2", undefined);
+    useAgentWorktreeStore.setState((state) => ({
+      worktrees: {
+        ...state.worktrees,
+        [entry.path]: { ...state.worktrees[entry.path]!, instanceId: undefined },
+      },
+    }));
+    expect(
+      worktreeSessionOptions(entry.path, { instanceId: "claude:project", model: "opus" }),
+    ).toEqual({
+      cwd: entry.path,
+      instanceId: "claude:project",
+      repoPath: "/repo",
+      model: "opus",
+    });
+  });
+});
+
+describe("linkPullRequest", () => {
+  beforeEach(() => {
+    useAgentWorktreeStore.setState({ worktrees: {} });
+  });
+
+  it("validates and links a pull request url", async () => {
+    invoke.mockResolvedValue("");
+    const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "pr");
+    linkPullRequest(entry.path, "https://github.com/acme/repo/pull/42");
+    expect(useAgentWorktreeStore.getState().worktrees[entry.path]?.pullRequestUrl).toBe(
+      "https://github.com/acme/repo/pull/42",
+    );
+    unlinkPullRequest(entry.path);
+    expect(useAgentWorktreeStore.getState().worktrees[entry.path]?.pullRequestUrl).toBeUndefined();
+  });
+
+  it("rejects a malformed url", async () => {
+    invoke.mockResolvedValue("");
+    const entry = await useAgentWorktreeStore.getState().createWorktree("/repo", "bad-pr");
+    expect(() => linkPullRequest(entry.path, "not-a-url")).toThrow(/Ungültige Pull-Request-URL/u);
+    expect(isValidPullRequestUrl("not-a-url")).toBe(false);
+    expect(isValidPullRequestUrl("https://github.com/acme/repo/pull/42")).toBe(true);
   });
 });
 

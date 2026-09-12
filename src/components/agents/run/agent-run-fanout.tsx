@@ -8,12 +8,14 @@ export function AgentRunFanout({
   rowHeight,
   rowGap,
   activeIndices,
+  phaseLabels,
   className,
 }: {
   count: number;
   rowHeight: number;
   rowGap: number;
   activeIndices?: number[];
+  phaseLabels?: string[];
   className?: string;
 }) {
   const reduce = useReducedMotion();
@@ -54,6 +56,16 @@ export function AgentRunFanout({
               animate={{ scale: 1 }}
               transition={reduce ? { duration: 0 } : { ...easeOutSoft, delay: 0.08 + i * 0.05 }}
             />
+            {phaseLabels?.[i] ? (
+              <text
+                x={width - 6}
+                y={y - 6}
+                textAnchor="end"
+                className={cn("fill-current text-[9px]", active ? "text-blue-500" : "text-muted-foreground")}
+              >
+                {phaseLabels[i]}
+              </text>
+            ) : null}
           </g>
         );
       })}

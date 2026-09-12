@@ -20,6 +20,11 @@ fn release_session_owner(session_id: &str, conn_id: u64) {
     }
 }
 
+pub(crate) fn force_release_session_owner(session_id: &str) {
+    let mut owners = SESSION_OWNERS.lock().unwrap();
+    owners.remove(session_id);
+}
+
 fn ensure_option_paths_allowed(
     ctx: &crate::server::state::DispatchCtx,
     options: Option<&crate::agent_transport::AgentTransportOptions>,
@@ -131,6 +136,10 @@ pub async fn dispatch(
 
         "claude_delete_session" (path: String, session_id: String) => {
             crate::claude::claude_delete_session(path, session_id, None).await
+        }
+
+        "claude_fork_session" (path: String, session_id: String, up_to_message_uuid: String) => {
+            crate::claude::claude_fork_session(path, session_id, up_to_message_uuid, None).await
         }
 
         "claude_auth_status" (config_dir: Option<String>) => {
@@ -397,5 +406,18 @@ mod tests {
         release_session_owner(session_id, 2);
         let after_release = session_owner_status(session_id, 3);
         assert_eq!(after_release["owner"], json!(3));
+    }
+
+    #[test]
+    fn run_10_idle_reaping_force_releases_ownership_regardless_of_the_current_owner() {
+        let session_id = "run-10-idle-reap-test";
+        let claimed = claim_session_owner(session_id, 7);
+        assert_eq!(claimed["owner"], json!(7));
+
+        force_release_session_owner(session_id);
+
+        let after_reap = session_owner_status(session_id, 9);
+        assert_eq!(after_reap["owner"], json!(9));
+        assert_eq!(after_reap["readOnly"], json!(false));
     }
 }

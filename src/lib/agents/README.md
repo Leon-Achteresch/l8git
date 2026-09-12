@@ -71,3 +71,13 @@ Zwei providerunabhängige Erweiterungen, erreichbar über den Puzzle-Knopf in de
 ## Tests
 
 `bun run test` (vitest, Konfiguration in `vitest.config.ts`). Tests liegen in `__tests__/`; Tauri-`invoke` und Transport werden per `vi.mock` ersetzt. Neue reine Funktionen (Parser, Ableitungen, Store-Logik) bekommen dort Tests.
+
+## Neuen Provider anschließen
+
+Portierungsleitfaden für einen weiteren CLI-Treiber: [`docs/planning/agents-cli-integration/PROVIDER-SPI.md`](../../../docs/planning/agents-cli-integration/PROVIDER-SPI.md). Prozessloser Referenztreiber zum Nachvollziehen der SPI: `providers/fake/client.ts` (`FakeProviderAdapter`, nur in `__tests__/fake-provider-conformance.test.ts` registriert).
+
+## Abnahme und gestufte Aktivierung
+
+- [`docs/planning/agents-cli-integration/E2E-ACCEPTANCE.md`](../../../docs/planning/agents-cli-integration/E2E-ACCEPTANCE.md) — QA-04, Kernflow-Checkliste je Betriebssystem plus `e2e/agents-claude.spec.ts` (Rauchtest gegen die echte CLI, übersprungen ohne `claude` auf PATH).
+- [`docs/planning/agents-cli-integration/RELEASE-GATE.md`](../../../docs/planning/agents-cli-integration/RELEASE-GATE.md) — QA-08, Statusübersicht aller Ticket-IDs.
+- `feature-flags.ts` — Flag `agents.claude.canonicalRuntime` (Default aus) für die stufenweise Aktivierung der kanonischen Claude-Runtime; `isEnabled()`/`setEnabled()` persistieren über `platform/kv`. Rückfall: Flag auf `false` setzen — bestehende Provider-Adapter (`providers/claude/client.ts`) bleiben unverändert aktiv, laufende Sessions verwenden weiter ihren bisherigen Adapter, kein Neustart einer nativen Session unter zwei Besitzern gleichzeitig.

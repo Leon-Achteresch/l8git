@@ -11,24 +11,68 @@ export interface AgentWorktree {
   branch: string;
   createdAt: number;
   instanceId?: string;
+  pullRequestUrl?: string;
+}
+
+export interface ProjectDefaults {
+  instanceId?: string;
+  model?: string;
 }
 
 export interface WorktreeSessionOptions {
   cwd: string;
   instanceId: string;
   repoPath: string;
+  model?: string;
 }
 
-export function worktreeSessionOptions(path: string): WorktreeSessionOptions {
+export function worktreeSessionOptions(
+  path: string,
+  projectDefaults?: ProjectDefaults,
+): WorktreeSessionOptions {
   const entry = useAgentWorktreeStore.getState().worktrees[path];
   if (!entry) {
     throw new Error(`Unbekannter Worktree: ${path}`);
   }
   return {
     cwd: entry.path,
-    instanceId: entry.instanceId ?? defaultInstanceId("claude"),
+    instanceId: entry.instanceId ?? projectDefaults?.instanceId ?? defaultInstanceId("claude"),
     repoPath: entry.basePath,
+    model: projectDefaults?.model,
   };
+}
+
+const PULL_REQUEST_URL_PATTERN =
+  /^https:\/\/[a-z0-9.-]+\/[^/\s]+\/[^/\s]+\/(pull|pulls|merge_requests)\/\d+\/?$/i;
+
+export function isValidPullRequestUrl(url: string): boolean {
+  return PULL_REQUEST_URL_PATTERN.test(url.trim());
+}
+
+export function linkPullRequest(path: string, url: string): void {
+  const trimmed = url.trim();
+  if (!isValidPullRequestUrl(trimmed)) {
+    throw new Error(`Ungültige Pull-Request-URL: ${url}`);
+  }
+  useAgentWorktreeStore.setState((state) => {
+    const entry = state.worktrees[path];
+    if (!entry) return state;
+    return {
+      worktrees: {
+        ...state.worktrees,
+        [path]: { ...entry, pullRequestUrl: trimmed },
+      },
+    };
+  });
+}
+
+export function unlinkPullRequest(path: string): void {
+  useAgentWorktreeStore.setState((state) => {
+    const entry = state.worktrees[path];
+    if (!entry) return state;
+    const { pullRequestUrl: _drop, ...rest } = entry;
+    return { worktrees: { ...state.worktrees, [path]: rest } };
+  });
 }
 
 export function worktreeSlug(name?: string, now: () => number = Date.now): string {
@@ -49,6 +93,53 @@ export function worktreeTargetPath(repoPath: string, slug: string): string {
 
 export function worktreeDisplayName(path: string): string {
   return path.split(/[\\/]/u).pop() ?? path;
+}
+
+export interface CheckpointFile {
+  path: string;
+  content: string | null;
+}
+
+export interface TurnCheckpoint {
+  turnId: string;
+  files: CheckpointFile[];
+}
+
+export function selectRestoreTargets(
+  checkpoint: TurnCheckpoint,
+  paths: readonly string[],
+): CheckpointFile[] {
+  const wanted = new Set(paths);
+  return checkpoint.files.filter((file) => wanted.has(file.path));
+}
+
+export type FinishFlowStepId = "commit" | "merge" | "cleanup";
+
+export interface FinishFlowStep {
+  id: FinishFlowStepId;
+  enabled: boolean;
+}
+
+export interface PlanFinishFlowOptions {
+  commit: boolean;
+  merge: boolean;
+  cleanup: boolean;
+}
+
+export function planFinishFlow(
+  worktree: AgentWorktree | null | undefined,
+  options: PlanFinishFlowOptions,
+  sessionBusy = false,
+): FinishFlowStep[] {
+  if (!worktree) return [];
+  if (sessionBusy) {
+    throw new Error("Der Worktree hat noch eine laufende Session. Bitte zuerst stoppen.");
+  }
+  const steps: FinishFlowStep[] = [];
+  if (options.commit) steps.push({ id: "commit", enabled: true });
+  if (options.merge) steps.push({ id: "merge", enabled: true });
+  if (options.cleanup) steps.push({ id: "cleanup", enabled: true });
+  return steps;
 }
 
 interface AgentWorktreeState {

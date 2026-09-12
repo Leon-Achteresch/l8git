@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { useProviderChatStore } from "@/lib/agents/active-chat-store";
 import {
+  collectFinishedTurnIds,
   loadAgentReviewFileDiff,
   loadAgentReviewSummary,
   parseReviewDiff,
@@ -56,6 +57,35 @@ export function useAgentSessionBusy(worktreePath: string): boolean {
   const opencode = useProviderChatStore("opencode", (state) => busyIn(state, worktreePath));
   const cursor = useProviderChatStore("cursor", (state) => busyIn(state, worktreePath));
   return codex || claude || opencode || cursor;
+}
+
+export function finishedTurnsIn(state: AgentChatState, worktreePath: string): string {
+  const ids: string[] = [];
+  for (const conversation of Object.values(state.conversations)) {
+    if (conversation.path !== worktreePath) continue;
+    ids.push(...collectFinishedTurnIds(conversation.turns));
+  }
+  return ids.join(",");
+}
+
+export function useAgentReviewLiveRefresh(worktreePath: string, reload: () => void): void {
+  const codex = useProviderChatStore("codex", (state) => finishedTurnsIn(state, worktreePath));
+  const claude = useProviderChatStore("claude", (state) => finishedTurnsIn(state, worktreePath));
+  const opencode = useProviderChatStore("opencode", (state) => finishedTurnsIn(state, worktreePath));
+  const cursor = useProviderChatStore("cursor", (state) => finishedTurnsIn(state, worktreePath));
+  const combined = `${codex}|${claude}|${opencode}|${cursor}`;
+  const seen = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (seen.current === null) {
+      seen.current = combined;
+      return;
+    }
+    if (seen.current !== combined) {
+      seen.current = combined;
+      reload();
+    }
+  }, [combined, reload]);
 }
 
 export function useAgentReviewSummary(session: AgentReviewSession | null, enabled: boolean) {
