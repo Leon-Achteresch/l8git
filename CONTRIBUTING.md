@@ -24,11 +24,19 @@ By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Prerequisites
 
 - **Bun** — package manager and runtime ([install](https://bun.sh))
+- **Node.js 20.19+ or 22.12+** — `bun run build` shells out to Vite, which runs on Node and aborts on older versions with `crypto.hash is not a function`
 - **Rust** with `rustup` — Tauri backend ([install](https://rustup.rs))
 - **Git** available in your `PATH` — l8git shells out to the system `git`
 - **macOS:** Xcode Command Line Tools (`xcode-select --install`)
 - **Windows:** [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (WebView2 ships with Windows)
-- **Linux:** WebKitGTK and the related development packages — see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+- **Linux:** WebKitGTK and the related development packages — on Debian and Ubuntu these are
+
+  ```bash
+  sudo apt install build-essential libwebkit2gtk-4.1-dev libgtk-3-dev \
+    libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+  ```
+
+  This is the same list `.github/workflows/ci.yml` installs. For other distributions see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 Optional, only needed for the features that use them:
 

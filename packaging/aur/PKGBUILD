@@ -12,10 +12,6 @@
 # PRO RELEASE ZU AKTUALISIEREN: pkgver (pkgrel wieder auf 1) und sha256sums.
 # Hashes befuellen mit:  updpkgsums   (Paket pacman-contrib)
 # .SRCINFO danach neu erzeugen mit:  makepkg --printsrcinfo > .SRCINFO
-#
-# ACHTUNG: .github/workflows/release.yml baut derzeit nur macOS und Windows.
-# Solange kein ubuntu-Runner in der Matrix steht, existiert das unten
-# referenzierte .deb im Release NICHT und makepkg schlaegt beim Download fehl.
 
 pkgname=l8git-bin
 _pkgname=l8git

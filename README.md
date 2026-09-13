@@ -174,7 +174,7 @@ Download the latest `.dmg` from the [releases page](https://github.com/Leon-Acht
 Download the latest `.msi` installer from the [releases page](https://github.com/Leon-Achteresch/l8git/releases).
 
 ### Linux
-Build from source using the development instructions below. The current release workflow publishes macOS and Windows artifacts; it does not publish Linux installers.
+Download the latest `.deb`, `.rpm` or `.AppImage` from the [releases page](https://github.com/Leon-Achteresch/l8git/releases), or build from source using the development instructions below.
 
 > **Note:** You need `git` installed and available in your `PATH`.
 
@@ -201,10 +201,18 @@ User documentation lives in [`docs/`](docs/README.md) — plain Markdown, no sit
 ### Prerequisites
 
 - **Bun** — package manager and runtime ([install](https://bun.sh))
+- **Node.js 20.19+ or 22.12+** — Vite runs on Node, not on Bun, and refuses to build on older versions
 - **Rust** with `rustup` — Tauri backend ([install](https://rustup.rs))
 - **macOS:** Xcode Command Line Tools (`xcode-select --install`)
 - **Windows:** [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (WebView2 ships with Windows)
-- **Linux:** WebKitGTK and development packages — see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+- **Linux:** WebKitGTK and the related development packages — on Debian and Ubuntu these are
+
+  ```bash
+  sudo apt install build-essential libwebkit2gtk-4.1-dev libgtk-3-dev \
+    libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+  ```
+
+  For other distributions see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ### Get Started
 
