@@ -10,7 +10,7 @@ Download the build for your platform from the [releases page](https://github.com
 |----------|----------|
 | macOS | `.dmg` |
 | Windows | `.msi` |
-| Linux | `.deb` or `.AppImage` |
+| Linux | `.deb`, `.rpm` or `.AppImage` |
 
 l8git drives the system `git`, so **git must be installed and on your `PATH`**. Everything else ships with the app.
 
