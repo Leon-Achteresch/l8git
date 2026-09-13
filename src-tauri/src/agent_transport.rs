@@ -392,22 +392,11 @@ fn spawn_pumps(
             let mut reader = BufReader::new(stdout);
             let mut burst_count: u32 = 0;
             loop {
+                let framed = read_framed_line(&mut reader);
                 let Some(process) = stdout_process.upgrade() else {
                     break;
                 };
-                if over_burst_limit(burst_count, MAX_BURST_LINES) {
-                    let event = stream_event(
-                        &process,
-                        "backpressure",
-                        serde_json::Value::String(format!(
-                            "Ausgabepuffer voll ({burst_count} Zeilen ohne Verarbeitungspause); Nachschub wird gedrosselt."
-                        )),
-                    );
-                    let _ = stdout_events.send(event);
-                    thread::sleep(BACKPRESSURE_COOLDOWN);
-                    burst_count = 0;
-                }
-                match read_framed_line(&mut reader) {
+                match framed {
                     Ok(FramedLine::Eof) => break,
                     Ok(FramedLine::Oversized(size)) => {
                         burst_count += 1;
@@ -446,6 +435,19 @@ fn spawn_pumps(
                         break;
                     }
                 }
+                if over_burst_limit(burst_count, MAX_BURST_LINES) {
+                    let event = stream_event(
+                        &process,
+                        "backpressure",
+                        serde_json::Value::String(format!(
+                            "Ausgabepuffer voll ({burst_count} Zeilen ohne Verarbeitungspause); Nachschub wird gedrosselt."
+                        )),
+                    );
+                    let _ = stdout_events.send(event);
+                    burst_count = 0;
+                    drop(process);
+                    thread::sleep(BACKPRESSURE_COOLDOWN);
+                }
             }
         })
         .map_err(|error| {
@@ -460,10 +462,11 @@ fn spawn_pumps(
         .spawn(move || {
             let mut reader = BufReader::new(stderr);
             loop {
+                let framed = read_framed_line(&mut reader);
                 let Some(process) = stderr_process.upgrade() else {
                     break;
                 };
-                match read_framed_line(&mut reader) {
+                match framed {
                     Ok(FramedLine::Eof) => break,
                     Ok(FramedLine::Oversized(size)) => {
                         let event = stream_event(
