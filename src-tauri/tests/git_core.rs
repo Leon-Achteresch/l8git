@@ -1005,10 +1005,22 @@ async fn commit_signing_info_reads_repo_configuration() {
     assert_eq!(on.local.commit_sign, Some(true));
     assert_eq!(on.local.format.as_deref(), Some("ssh"));
 
+    // `gpg.program` configures openpgp only. A repository that signs with ssh
+    // keeps ssh-keygen even when a gpg binary is configured - otherwise every
+    // machine that once set up gpg signing reports the wrong tool here.
+    repo.git(&["config", "gpg.program", "/opt/custom/gpg"]);
+    let ssh_with_gpg_program = git::commit_signing_info(repo.s()).await.unwrap();
+    assert_eq!(ssh_with_gpg_program.program, "ssh-keygen");
+
     repo.git(&["config", "gpg.ssh.program", "/opt/custom/ssh-keygen"]);
     let custom = git::commit_signing_info(repo.s()).await.unwrap();
     assert_eq!(custom.program, "/opt/custom/ssh-keygen");
     assert_eq!(custom.tool_available, false);
+
+    // openpgp still honours the legacy key.
+    repo.git(&["config", "gpg.format", "openpgp"]);
+    let openpgp = git::commit_signing_info(repo.s()).await.unwrap();
+    assert_eq!(openpgp.program, "/opt/custom/gpg");
 }
 
 #[tokio::test]

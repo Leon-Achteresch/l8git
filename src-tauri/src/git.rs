@@ -2264,8 +2264,15 @@ pub async fn commit_signing_info(path: String) -> Result<SigningInfo, String> {
             .unwrap_or_else(|| "openpgp".to_string());
         let signing_key = config_value(&repo, None, "user.signingkey");
 
+        // `gpg.program` is only a legacy synonym for `gpg.openpgp.program`, so it
+        // must not stand in for the ssh and x509 programs the way git-config(1)
+        // describes it. Falling back to it there reported `gpg` as the signing
+        // tool for ssh-signed repositories.
         let configured_program = config_value(&repo, None, &format!("gpg.{format}.program"))
-            .or_else(|| config_value(&repo, None, "gpg.program"));
+            .or_else(|| match format.as_str() {
+                "ssh" | "x509" => None,
+                _ => config_value(&repo, None, "gpg.program"),
+            });
         let (program, probe_args, read_version) = signing_program(&format, configured_program);
         let (tool_available, tool_version) = probe_tool(&program, &probe_args, read_version);
 
