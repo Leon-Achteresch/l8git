@@ -44,6 +44,7 @@ import { isAiConfigured } from "@/lib/ai-setup";
 import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
 import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog";
 import { useTranslation } from "react-i18next";
+import { isPreviewRepo } from "@/lib/preview-repo";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
@@ -247,6 +248,17 @@ export function CommitPanel() {
     }
     if (selectedBinary) {
       setDiffPayload({ staged: null, unstaged: null, untracked_plain: null, is_binary: true });
+      setDiffLoading(false);
+      setDiffFailed(false);
+      return;
+    }
+    if (isPreviewRepo(activePath)) {
+      setDiffPayload({
+        staged: null,
+        unstaged: "diff --git a/src/components/repo/layout/empty-state.tsx b/src/components/repo/layout/empty-state.tsx\nindex 7d4a91c..9f3a7c1 100644\n--- a/src/components/repo/layout/empty-state.tsx\n+++ b/src/components/repo/layout/empty-state.tsx\n@@ -1,6 +1,18 @@\n import { Button } from \"@/components/ui/button\";\n+import { useMemo } from \"react\";\n+import { useWorkspacePrefs } from \"@/lib/workspace-prefs\";\n\n-export function EmptyState() {\n+export function EmptyState() {\n+  const rounded = useWorkspacePrefs((s) => s.uiDensity);\n   const { t } = useTranslation();",
+        untracked_plain: null,
+        is_binary: false,
+      });
       setDiffLoading(false);
       setDiffFailed(false);
       return;

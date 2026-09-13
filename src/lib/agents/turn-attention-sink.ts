@@ -1,9 +1,11 @@
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
+import type { InstanceId } from "@/lib/agents/types";
 
 export interface TurnAttentionTarget {
   provider: NativeAgentProvider;
   path: string;
   threadId: string;
+  instanceId?: InstanceId;
 }
 
 export interface TurnAttentionNotification {

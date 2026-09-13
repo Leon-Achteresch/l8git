@@ -68,7 +68,7 @@ export function PullRequestCommitsTab({
 
   if (!commits || commits.length === 0) {
     return (
-      <m.div layout
+      <m.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -83,7 +83,7 @@ export function PullRequestCommitsTab({
     <ScrollArea className="h-full bg-background">
       <ul className="divide-y divide-border/40 p-2">
         {commits.map((c, i) => (
-          <m.li layout
+          <m.li
             key={c.hash}
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}

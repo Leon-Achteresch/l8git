@@ -132,7 +132,7 @@ export function GitHooksDetail({
   };
 
   return (
-    <m.div layout
+    <m.div
       initial={{ x: 20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 380, damping: 32 }}

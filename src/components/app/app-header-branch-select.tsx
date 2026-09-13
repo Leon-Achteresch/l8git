@@ -82,7 +82,7 @@ export function AppHeaderBranchSelect() {
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>
-        <m.button layout
+        <m.button
           type="button"
           disabled={disabled}
           title={t("branchMenu.switchTitle")}
@@ -102,10 +102,10 @@ export function AppHeaderBranchSelect() {
             className="size-3 shrink-0 text-muted-foreground"
             strokeWidth={2}
           />
-          <m.span layout className="min-w-0 flex-1 truncate text-left tabular-nums">
+          <m.span className="min-w-0 flex-1 truncate text-left tabular-nums">
             {shown}
           </m.span>
-          <m.span layout
+          <m.span
             className="flex size-3 shrink-0 items-center justify-center text-muted-foreground"
             animate={{ rotate: menuOpen ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 420, damping: 28 }}

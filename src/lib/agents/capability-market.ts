@@ -218,3 +218,64 @@ export const useCapabilityMarketStore = create<MarketState>((set, get) => ({
   preview: async (fullName, refName, file) =>
     invoke<string>("agent_market_preview", { fullName, refName, file }),
 }));
+
+export interface ParsedHook {
+  event: string;
+  matcher?: string;
+  command: string;
+  scope: string;
+  enabled: boolean;
+}
+
+const TRUST_GATED_SCOPES = new Set(["project", "local"]);
+
+function hookScopeEnabled(scope: string, trusted: boolean): boolean {
+  return TRUST_GATED_SCOPES.has(scope) ? trusted : true;
+}
+
+export function parseHooksFromSettings(
+  settingsByScope: Record<string, unknown>,
+  trusted: boolean,
+): ParsedHook[] {
+  const result: ParsedHook[] = [];
+  for (const [scope, settings] of Object.entries(settingsByScope)) {
+    if (!settings || typeof settings !== "object") continue;
+    const hooksField = (settings as Record<string, unknown>).hooks;
+    if (!hooksField || typeof hooksField !== "object") continue;
+    const enabled = hookScopeEnabled(scope, trusted);
+    for (const [event, matcherGroups] of Object.entries(hooksField as Record<string, unknown>)) {
+      if (!Array.isArray(matcherGroups)) continue;
+      for (const group of matcherGroups) {
+        if (!group || typeof group !== "object") continue;
+        const matcher = typeof (group as Record<string, unknown>).matcher === "string"
+          ? ((group as Record<string, unknown>).matcher as string)
+          : undefined;
+        const hooks = (group as Record<string, unknown>).hooks;
+        if (!Array.isArray(hooks)) continue;
+        for (const hook of hooks) {
+          if (!hook || typeof hook !== "object") continue;
+          const command = (hook as Record<string, unknown>).command;
+          if (typeof command !== "string") continue;
+          result.push({ event, matcher, command, scope, enabled });
+        }
+      }
+    }
+  }
+  return result;
+}
+
+export interface HookActivity {
+  event: string;
+  matcher?: string;
+}
+
+export function matchHookActivity(
+  hooks: ParsedHook[],
+  activity: HookActivity,
+): ParsedHook | undefined {
+  return hooks.find((hook) => {
+    if (!hook.enabled || hook.event !== activity.event) return false;
+    if (!hook.matcher || hook.matcher === "*") return true;
+    return hook.matcher === activity.matcher;
+  });
+}

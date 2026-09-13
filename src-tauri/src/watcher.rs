@@ -99,6 +99,20 @@ fn is_ignored_path(roots: &[PathBuf], path: &Path) -> bool {
     false
 }
 
+fn is_git_meta_path(roots: &[PathBuf], path: &Path) -> bool {
+    let Some(rel) = relative_to_roots(roots, path) else {
+        return false;
+    };
+    let mut comps = rel.components().filter_map(|c| match c {
+        Component::Normal(raw) => raw.to_str(),
+        _ => None,
+    });
+    if comps.next() != Some(".git") {
+        return false;
+    }
+    !matches!(comps.next(), Some("index") | None)
+}
+
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 fn depth_from_root(roots: &[PathBuf], path: &Path) -> Option<usize> {
     relative_to_roots(roots, path).map(|rel| rel.components().count())
@@ -229,12 +243,16 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
                 Err(RecvTimeoutError::Disconnected) => break,
             };
             let mut meaningful = false;
+            let mut git_meta = false;
             for ev in &events {
                 for p in &ev.paths {
                     if is_ignored_path(&roots, p) {
                         continue;
                     }
                     meaningful = true;
+                    if is_git_meta_path(&roots, p) {
+                        git_meta = true;
+                    }
                     if !matches!(ev.kind, EventKind::Create(_)) {
                         continue;
                     }
@@ -257,6 +275,9 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
             }
             if meaningful {
                 crate::sink::emit("repo-changed", &emit_key);
+            }
+            if git_meta {
+                crate::sink::emit("repo-git-changed", &emit_key);
             }
         }
     });
@@ -296,5 +317,16 @@ mod tests {
         assert!(!is_ignored_path(&roots, Path::new("/r/Cargo.lock")));
         assert!(!is_ignored_path(&roots, Path::new("/r/.git/refs/heads/main")));
         assert!(!is_ignored_path(&roots, Path::new("/r/src/main.rs")));
+    }
+
+    #[test]
+    fn git_meta_covers_refs_and_head_but_not_index_or_worktree() {
+        let roots = vec![PathBuf::from("/r")];
+        assert!(is_git_meta_path(&roots, Path::new("/r/.git/HEAD")));
+        assert!(is_git_meta_path(&roots, Path::new("/r/.git/refs/heads/main")));
+        assert!(is_git_meta_path(&roots, Path::new("/r/.git/packed-refs")));
+        assert!(!is_git_meta_path(&roots, Path::new("/r/.git/index")));
+        assert!(!is_git_meta_path(&roots, Path::new("/r/.git")));
+        assert!(!is_git_meta_path(&roots, Path::new("/r/src/main.rs")));
     }
 }

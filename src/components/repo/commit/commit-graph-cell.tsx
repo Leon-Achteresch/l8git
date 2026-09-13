@@ -2,12 +2,12 @@ import {
   laneColor,
   type GraphRow,
 } from "@/lib/graph";
-import { memo, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 
 /** Pixels per lane when the graph has enough room. */
 const LANE_W = 11;
 const PAD = 5;
-const ROW_HEIGHT = 80;
+const ROW_HEIGHT = 48;
 const STROKE = 2;
 const MIN_COL_W = 36;
 const MAX_COL_W = 160;
@@ -44,9 +44,23 @@ export const CommitGraphCell = memo(function CommitGraphCell({
 }) {
   const lanes = Math.max(1, maxLanes);
   const colW = colWidth ?? graphColWidth(maxLanes);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [rowH, setRowH] = useState(ROW_HEIGHT);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    // ponytail: ResizeObserver only. Reading clientHeight here forced a synchronous
+    // layout for every row the virtualizer mounted, which dominated scroll cost.
+    const ro = new ResizeObserver(() => {
+      const h = el.clientHeight;
+      if (h > 0) setRowH((prev) => (prev === h ? prev : h));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const usable = colW - PAD * 2;
   const laneW = usable / lanes;
-  const midY = ROW_HEIGHT / 2;
+  const midY = rowH / 2;
   const laneX = (i: number) => PAD + i * laneW + laneW / 2;
 
   /** Resolves a colour for an origin key using the graph-build map first,
@@ -87,20 +101,20 @@ export const CommitGraphCell = memo(function CommitGraphCell({
 
     if (i === row.lane) {
       segments.push({
-        d: `M ${x1} ${midY} L ${x1} ${ROW_HEIGHT}`,
+        d: `M ${x1} ${midY} L ${x1} ${rowH}`,
         color: originColor,
       });
     } else if (wasContinuing) {
       segments.push({
-        d: `M ${x1} ${midY} L ${x1} ${ROW_HEIGHT}`,
+        d: `M ${x1} ${midY} L ${x1} ${rowH}`,
         color: originColor,
       });
     } else {
       const x0 = laneX(row.lane);
-      const c1y = midY + (ROW_HEIGHT - midY) * 0.32;
-      const c2y = midY + (ROW_HEIGHT - midY) * 0.68;
+      const c1y = midY + (rowH - midY) * 0.32;
+      const c2y = midY + (rowH - midY) * 0.68;
       segments.push({
-        d: `M ${x0} ${midY} C ${x0} ${c1y}, ${x1} ${c2y}, ${x1} ${ROW_HEIGHT}`,
+        d: `M ${x0} ${midY} C ${x0} ${c1y}, ${x1} ${c2y}, ${x1} ${rowH}`,
         color: originColor,
       });
     }
@@ -191,26 +205,26 @@ export const CommitGraphCell = memo(function CommitGraphCell({
   }
 
   return (
-    <svg
-      width={colW}
-      height="100%"
-      viewBox={`0 0 ${colW} ${ROW_HEIGHT}`}
-      preserveAspectRatio="none"
-      className="shrink-0 self-stretch min-h-[4.5rem] overflow-hidden text-foreground"
-      aria-hidden="true"
-    >
-      {segments.map((s, i) => (
-        <path
-          key={i}
-          d={s.d}
-          stroke={s.color}
-          strokeWidth={STROKE}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      ))}
-      {dotEl}
-    </svg>
+    <div ref={wrapRef} className="pointer-events-none absolute inset-0 overflow-hidden">
+      <svg
+        viewBox={`0 0 ${colW} ${rowH}`}
+        preserveAspectRatio="xMinYMin meet"
+        className="h-full w-full text-foreground"
+        aria-hidden="true"
+      >
+        {segments.map((s, i) => (
+          <path
+            key={i}
+            d={s.d}
+            stroke={s.color}
+            strokeWidth={STROKE}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        ))}
+        {dotEl}
+      </svg>
+    </div>
   );
 });

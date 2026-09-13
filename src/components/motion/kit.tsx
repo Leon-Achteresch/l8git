@@ -1,5 +1,7 @@
 import * as React from "react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+
+import { cn } from "@/lib/utils";
+import { AnimatePresence, m } from "motion/react";
 import type { MotionProps, Transition, Variants } from "motion/react";
 
 export const springFast: Transition = {
@@ -95,21 +97,14 @@ export function Spin({
   className?: string;
   children: React.ReactNode;
 }) {
-  const reduce = useReducedMotion();
   return (
-    <m.span
+    <span
       aria-hidden
-      className={className}
-      style={{ display: "inline-flex", transformOrigin: "50% 50%" }}
-      animate={active && !reduce ? { rotate: 360 } : { rotate: 0 }}
-      transition={
-        active && !reduce
-          ? { repeat: Infinity, ease: "linear", duration }
-          : easeOutFast
-      }
+      className={cn("inline-flex origin-center", active && "animate-spin", className)}
+      style={{ animationDuration: `${duration}s` }}
     >
       {children}
-    </m.span>
+    </span>
   );
 }
 
@@ -124,18 +119,13 @@ export function Pulse({
   duration?: number;
   style?: React.CSSProperties;
 }) {
-  const reduce = useReducedMotion();
   return (
-    <m.div
-      className={className}
-      style={style}
-      animate={reduce ? { opacity: 0.6 } : { opacity: [1, 0.45, 1] }}
-      transition={
-        reduce ? easeOutFast : { repeat: Infinity, ease: "easeInOut", duration }
-      }
+    <div
+      className={cn("animate-pulse", className)}
+      style={{ ...style, animationDuration: `${duration}s` }}
     >
       {children}
-    </m.div>
+    </div>
   );
 }
 
@@ -153,7 +143,7 @@ export function FadeIn({
   style?: React.CSSProperties;
 }) {
   return (
-    <m.div layout
+    <m.div
       className={className}
       style={style}
       initial={{ opacity: 0, y }}
@@ -278,26 +268,12 @@ type MotionIconProps = React.SVGProps<SVGSVGElement> & {
   active?: boolean;
 };
 
-export function SpinIcon({ icon, active = true, ...props }: MotionIconProps) {
-  const Icon = motionize(icon) as React.ComponentType<Record<string, unknown>>;
-  return (
-    <Icon
-      {...props}
-      animate={active ? { rotate: 360 } : { rotate: 0 }}
-      transition={active ? spinTransition : easeOutFast}
-    />
-  );
+export function SpinIcon({ icon: Icon, active = true, className, ...props }: MotionIconProps) {
+  return <Icon {...props} className={cn(active && "animate-spin", className)} />;
 }
 
-export function PulseIcon({ icon, active = true, ...props }: MotionIconProps) {
-  const Icon = motionize(icon) as React.ComponentType<Record<string, unknown>>;
-  return (
-    <Icon
-      {...props}
-      animate={active ? pulseKeyframes : { opacity: 1 }}
-      transition={active ? pulseTransition : easeOutFast}
-    />
-  );
+export function PulseIcon({ icon: Icon, active = true, className, ...props }: MotionIconProps) {
+  return <Icon {...props} className={cn(active && "animate-pulse", className)} />;
 }
 
 export function StaggerItem({
@@ -310,7 +286,7 @@ export function StaggerItem({
   className?: string;
 }) {
   return (
-    <m.div layout
+    <m.div
       className={className}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
@@ -323,7 +299,6 @@ export function StaggerItem({
 
 export function staggerEnter(index: number) {
   return {
-    layout: true,
     initial: { opacity: 0, y: 6 },
     animate: { opacity: 1, y: 0 },
     transition: { ...easeOutSoft, delay: Math.min(index, 14) * 0.025 },

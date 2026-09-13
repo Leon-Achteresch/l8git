@@ -27,9 +27,9 @@ import { useStackLabels } from "@/lib/stack-store";
 import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranch, GitBranchPlus, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
-import { m } from "motion/react";
+import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranch, GitBranchPlus, GitMerge, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
 import { memo, useMemo, useState } from "react";
+import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CommitAuthorDate } from "./commit-author-date";
@@ -53,6 +53,7 @@ import type { CommitSelectMode } from "./commit-history-panel";
 import { PulseIcon } from "@/components/motion/kit";
 
 const EMPTY_BRANCHES: Branch[] = [];
+const MAX_VISIBLE_BRANCHES = 2;
 
 export type BisectRole = 'bad' | 'good' | 'current' | 'result' | 'pending-bad' | 'pending-good';
 
@@ -93,12 +94,225 @@ function CommitRowInner({
   bisectRole: BisectRole | null;
   bisectActive: boolean;
 }) {
-  const { t } = useTranslation();
+  const [armed, setArmed] = useState(false);
+  const [staged, setStaged] = useState(false);
   const { commit } = row;
   const gravatarUrl = useGravatarUrl(commit.email);
   const remoteAvatar = commit.author_avatar?.trim() || undefined;
   const avatarUrl = remoteAvatar ?? gravatarUrl;
   const avatarFallbackUrl = remoteAvatar ? (gravatarUrl ?? null) : undefined;
+  const stackLabels = useStackLabels(path);
+
+  const subjectParts = useMemo(
+    () => splitConventionalSubjectDisplay(commit.subject),
+    [commit.subject],
+  );
+
+  const isMergeCommit = commit.parents.length > 1;
+
+  const handleClick = (e: React.MouseEvent) => {
+    const mode: CommitSelectMode =
+      e.shiftKey ? "range" : e.metaKey || e.ctrlKey ? "toggle" : "single";
+    onSelectHash(commit.hash, mode);
+  };
+
+  const inner = (
+    <div
+      key={focusPulseToken != null ? `pulse-${focusPulseToken}` : "row"}
+      onClick={handleClick}
+      className={cn(
+        focusPulseToken != null && "l8-commit-pulse",
+        "@container relative mx-1.5 my-px flex cursor-pointer items-stretch rounded-md outline-none transition-[background-color,box-shadow] duration-150 focus-visible:outline-none",
+        "bg-card",
+        !selected &&
+          !multiSelected &&
+          "hover:bg-muted/50",
+        searchHit &&
+          !selected &&
+          !multiSelected &&
+          "bg-git-branch/10",
+        selected &&
+          "bg-muted",
+        multiSelected &&
+          !selected &&
+          "bg-git-branch/12 before:pointer-events-none before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-['']",
+        // Bisect role styles (only when not selected to avoid clashing)
+        !selected && bisectRole === 'bad' &&
+          "bg-git-removed/10 before:pointer-events-none before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-sm before:bg-git-removed before:content-['']",
+        !selected && bisectRole === 'good' &&
+          "bg-git-added/10 before:pointer-events-none before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-sm before:bg-git-added before:content-['']",
+        !selected && bisectRole === 'current' &&
+          "before:pointer-events-none before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-['']",
+        !selected && bisectRole === 'result' &&
+          "bg-git-modified/10 before:pointer-events-none before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-sm before:bg-git-modified before:content-['']",
+        !selected && bisectRole === 'pending-bad' &&
+          "before:pointer-events-none before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-[2px] before:rounded-sm before:bg-git-removed before:content-['']",
+        !selected && bisectRole === 'pending-good' &&
+          "before:pointer-events-none before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-[2px] before:rounded-sm before:bg-git-added before:content-['']",
+      )}
+    >
+      <div className="relative shrink-0 self-stretch" style={{ width: colW }}>
+        <CommitGraphCell row={row} maxLanes={maxLanes} isBranchTip={isBranchTip} originColors={originColors} colWidth={colW} />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-2 py-1 pr-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <div className="flex min-w-0 flex-1 basis-[12rem] items-center gap-1.5">
+            <CommitConventionalIcons
+              subject={commit.subject}
+              body={commit.body}
+            />
+            {branchesAtCommit.slice(0, MAX_VISIBLE_BRANCHES).map((b, i) => {
+              const local = b.name.replace(/^refs\/heads\//, "");
+              const tail = local.split("/").pop() ?? b.name;
+              const primary =
+                i === 0 &&
+                (b.is_current ||
+                  /^(main|master|develop|development)$/i.test(tail));
+              const tone = primary
+                ? "dark"
+                : i % 2 === 0
+                  ? "blue"
+                  : "rose";
+              const stack = b.is_remote ? undefined : stackLabels.get(local);
+              return (
+                <CommitBranchBadge
+                  key={b.name}
+                  name={b.name}
+                  accentColor={laneColor(b.name)}
+                  tone={tone}
+                  stackLevel={stack?.level}
+                  stackTitle={stack ? stackBadgeTitle(b.name, stack) : undefined}
+                />
+              );
+            })}
+            {branchesAtCommit.length > MAX_VISIBLE_BRANCHES ? (
+              <span
+                className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-px text-[0.625rem] font-medium tabular-nums text-muted-foreground"
+                title={branchesAtCommit
+                  .slice(MAX_VISIBLE_BRANCHES)
+                  .map((b) => b.name)
+                  .join("\n")}
+              >
+                +{branchesAtCommit.length - MAX_VISIBLE_BRANCHES}
+              </span>
+            ) : null}
+            <span
+              className="min-w-0 flex-1 truncate text-[13px] leading-5 text-zinc-900 dark:text-zinc-100"
+              title={commit.subject}
+            >
+              {subjectParts ? (
+                <>
+                  <span className="font-semibold">{subjectParts.lead}</span>
+                  {subjectParts.body ? (
+                    <span className="font-normal"> {subjectParts.body}</span>
+                  ) : null}
+                </>
+              ) : (
+                commit.subject
+              )}
+            </span>
+            <CommitTags tags={commit.tags} />
+          </div>
+          <div className="flex min-w-0 max-w-full items-center gap-1.5 @[40rem]:ml-auto">
+            {bisectRole === 'bad' && <XCircle className="h-3.5 w-3.5 shrink-0 text-git-removed" />}
+            {bisectRole === 'good' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-git-added" />}
+            {bisectRole === 'current' && <PulseIcon icon={CircleDot} className="h-3.5 w-3.5 shrink-0 text-git-branch" />}
+            {bisectRole === 'result' && (
+              <FirstBadBadge />
+            )}
+            {isMergeCommit ? (
+              <GitMerge className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+            ) : null}
+            <CommitAuthorDate
+              author={commit.author}
+              email={commit.email}
+              avatarUrl={avatarUrl}
+              avatarFallbackUrl={avatarFallbackUrl}
+              date={commit.date}
+            />
+            <CommitHashBadge hash={commit.short_hash} />
+          </div>
+        </div>
+        {matchedPaths?.length ? (
+          <span
+            className="truncate pl-7 text-[0.6875rem] text-muted-foreground"
+            title={matchedPaths.join("\n")}
+          >
+            {matchedPaths.length === 1
+              ? matchedPaths[0]
+              : `${matchedPaths[0]} · +${matchedPaths.length - 1}`}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+
+
+  return (
+    <ContextMenu
+      onOpenChange={(open) => {
+        if (!open) return;
+        setArmed(true);
+        setStaged(hasStagedChanges(path));
+      }}
+    >
+      <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
+      {armed && (
+        <CommitRowActions
+          path={path}
+          commit={commit}
+          isMergeCommit={isMergeCommit}
+          multiSelected={multiSelected}
+          selectedHashes={selectedHashes}
+          onCherryPick={onCherryPick}
+          bisectRole={bisectRole}
+          bisectActive={bisectActive}
+          staged={staged}
+        />
+      )}
+    </ContextMenu>
+  );
+}
+
+function FirstBadBadge() {
+  const { t } = useTranslation();
+  return (
+    <span className="rounded-sm bg-git-modified/15 px-1 py-0.5 text-[0.625rem] font-semibold text-git-modified">
+      {t("commitRow.firstBadBadge")}
+    </span>
+  );
+}
+
+function stackBadgeTitle(name: string, stack: { root: string; level: number }) {
+  return i18n.t("commitRow.stackBadgeTitle", {
+    name,
+    root: stack.root,
+    level: stack.level,
+  });
+}
+
+function CommitRowActions({
+  path,
+  commit,
+  isMergeCommit,
+  multiSelected,
+  selectedHashes,
+  onCherryPick,
+  bisectRole,
+  bisectActive,
+  staged,
+}: {
+  path: string;
+  commit: GraphRow["commit"];
+  isMergeCommit: boolean;
+  multiSelected: boolean;
+  selectedHashes: ReadonlySet<string>;
+  onCherryPick: (hashes: string[], opts?: { mainline?: number }) => void;
+  bisectRole: BisectRole | null;
+  bisectActive: boolean;
+  staged: boolean;
+}) {
+  const { t } = useTranslation();
   const revertCommit = useRepoStore((s) => s.revertCommit);
   const bisectMark = useRepoStore((s) => s.bisectMark);
   const bisectReset = useRepoStore((s) => s.bisectReset);
@@ -108,21 +322,12 @@ function CommitRowInner({
   const [branchOpen, setBranchOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const allBranches = useRepoStore((s) => s.repos[path]?.branches ?? EMPTY_BRANCHES);
-  const stackLabels = useStackLabels(path);
   const [rebaseEditor, setRebaseEditor] = useState<{
     preset: { hash: string; action: RebaseTodoAction } | null;
   } | null>(null);
   const [dropOpen, setDropOpen] = useState(false);
-  const [staged, setStaged] = useState(false);
   const explain = useExplainSheet();
   const parentHash = commit.parents[0] ?? null;
-
-  const subjectParts = useMemo(
-    () => splitConventionalSubjectDisplay(commit.subject),
-    [commit.subject],
-  );
-
-  const isMergeCommit = commit.parents.length > 1;
   const isPartOfMulti = multiSelected && selectedHashes.size > 1;
   const cherryPickLabel = useMemo(
     () =>
@@ -135,12 +340,6 @@ function CommitRowInner({
   const cherryPickTargets = (): string[] => {
     if (isPartOfMulti) return Array.from(selectedHashes);
     return [commit.hash];
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    const mode: CommitSelectMode =
-      e.shiftKey ? "range" : e.metaKey || e.ctrlKey ? "toggle" : "single";
-    onSelectHash(commit.hash, mode);
   };
 
   const handleBisectMark = (verdict: 'good' | 'bad' | 'skip') => {
@@ -174,157 +373,8 @@ function CommitRowInner({
     }
   };
 
-  const inner = (
-    <m.div
-      key={focusPulseToken != null ? `pulse-${focusPulseToken}` : "row"}
-      onClick={handleClick}
-      initial={false}
-          animate={
-        focusPulseToken != null
-          ? {
-              boxShadow: [
-                "0 1px 3px rgba(15,23,42,0.08)",
-                "0 0 0 2px var(--primary)",
-                "0 1px 3px rgba(15,23,42,0.08)",
-                "0 0 0 2px var(--primary)",
-                "0 1px 3px rgba(15,23,42,0.08)",
-              ],
-            }
-            : { boxShadow: "0 0 0 0px transparent" }
-      }
-      transition={
-        focusPulseToken != null
-          ? { duration: 0.85, times: [0, 0.18, 0.36, 0.58, 1], ease: "easeInOut" }
-          : { duration: 0.2 }
-      }
-      className={cn(
-        "relative mx-2 my-0.5 flex min-h-[4.5rem] cursor-pointer items-stretch rounded-xl outline-none transition-[background-color,box-shadow] duration-150 focus-visible:outline-none",
-        "bg-card",
-        !selected &&
-          !multiSelected &&
-          "hover:bg-muted/50",
-        searchHit &&
-          !selected &&
-          !multiSelected &&
-          "bg-git-branch/10",
-        selected &&
-          "bg-muted",
-        multiSelected &&
-          !selected &&
-          "bg-git-branch/12 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-['']",
-        // Bisect role styles (only when not selected to avoid clashing)
-        !selected && bisectRole === 'bad' &&
-          "bg-git-removed/10 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-removed before:content-['']",
-        !selected && bisectRole === 'good' &&
-          "bg-git-added/10 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-added before:content-['']",
-        !selected && bisectRole === 'current' &&
-          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-branch before:content-['']",
-        !selected && bisectRole === 'result' &&
-          "bg-git-modified/10 before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[3px] before:rounded-sm before:bg-git-modified before:content-['']",
-        !selected && bisectRole === 'pending-bad' &&
-          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-git-removed before:content-['']",
-        !selected && bisectRole === 'pending-good' &&
-          "before:pointer-events-none before:absolute before:left-1 before:top-3.5 before:bottom-3.5 before:w-[2px] before:rounded-sm before:bg-git-added before:content-['']",
-      )}
-    >
-      <div className="flex shrink-0 justify-center self-stretch pl-0.5 pr-1" style={{ width: colW }}>
-        <CommitGraphCell row={row} maxLanes={maxLanes} isBranchTip={isBranchTip} originColors={originColors} colWidth={colW} />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2.5 pl-2 sm:px-[14px] sm:py-2.5 sm:pl-1.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <CommitConventionalIcons
-            subject={commit.subject}
-            body={commit.body}
-          />
-          {branchesAtCommit.map((b, i) => {
-            const local = b.name.replace(/^refs\/heads\//, "");
-            const tail = local.split("/").pop() ?? b.name;
-            const primary =
-              i === 0 &&
-              (b.is_current ||
-                /^(main|master|develop|development)$/i.test(tail));
-            const tone = primary
-              ? "dark"
-              : i % 2 === 0
-                ? "blue"
-                : "rose";
-            const stack = b.is_remote ? undefined : stackLabels.get(local);
-            return (
-              <CommitBranchBadge
-                key={b.name}
-                name={b.name}
-                accentColor={laneColor(b.name)}
-                tone={tone}
-                stackLevel={stack?.level}
-                stackTitle={
-                  stack
-                    ? t("commitRow.stackBadgeTitle", {
-                        name: b.name,
-                        root: stack.root,
-                        level: stack.level,
-                      })
-                    : undefined
-                }
-              />
-            );
-          })}
-          <span
-            className="min-w-0 flex-1 truncate text-sm text-zinc-900 dark:text-zinc-100"
-            title={commit.subject}
-          >
-            {subjectParts ? (
-              <>
-                <span className="font-semibold">{subjectParts.lead}</span>
-                {subjectParts.body ? (
-                  <span className="font-normal"> {subjectParts.body}</span>
-                ) : null}
-              </>
-            ) : (
-              commit.subject
-            )}
-          </span>
-          {<CommitTags tags={commit.tags} />}
-        </div>
-        <CommitAuthorDate
-          author={commit.author}
-          email={commit.email}
-          avatarUrl={avatarUrl}
-          avatarFallbackUrl={avatarFallbackUrl}
-          date={commit.date}
-        />
-        {matchedPaths?.length ? (
-          <span
-            className="truncate text-xs text-muted-foreground"
-            title={matchedPaths.join("\n")}
-          >
-            {matchedPaths.length === 1
-              ? matchedPaths[0]
-              : `${matchedPaths[0]} · +${matchedPaths.length - 1}`}
-          </span>
-        ) : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-1.5 pr-3 sm:pr-4">
-        {bisectRole === 'bad' && <XCircle className="h-3.5 w-3.5 shrink-0 text-git-removed" />}
-        {bisectRole === 'good' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-git-added" />}
-        {bisectRole === 'current' && <PulseIcon icon={CircleDot} className="h-3.5 w-3.5 shrink-0 text-git-branch" />}
-        {bisectRole === 'result' && (
-          <span className="rounded-sm bg-git-modified/15 px-1 py-0.5 text-[0.625rem] font-semibold text-git-modified">
-            {t("commitRow.firstBadBadge")}
-          </span>
-        )}
-        <CommitHashBadge hash={commit.short_hash} />
-      </div>
-    </m.div>
-  );
-
   return (
     <>
-      <ContextMenu
-        onOpenChange={(open) => {
-          if (open) setStaged(hasStagedChanges(path));
-        }}
-      >
-        <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
         <ContextMenuContent className="w-56">
           <ContextMenuItem
             onSelect={() => {
@@ -520,7 +570,6 @@ function CommitRowInner({
             </>
           )}
         </ContextMenuContent>
-      </ContextMenu>
       <CommitTagDialog
         open={tagOpen}
         onClose={() => setTagOpen(false)}
@@ -580,5 +629,4 @@ function CommitRowInner({
     </>
   );
 }
-
 export const CommitRow = memo(CommitRowInner);

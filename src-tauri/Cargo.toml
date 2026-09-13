@@ -1,8 +1,11 @@
 [package]
 name = "l8git"
-version = "0.6.0"
-description = "A Tauri App"
-authors = ["you"]
+version = "1.0.0"
+description = "Fast multi-repository Git desktop client"
+authors = ["Leon Achteresch"]
+license = "MIT"
+repository = "https://github.com/Leon-Achteresch/l8git"
+homepage = "https://github.com/Leon-Achteresch/l8git"
 edition = "2021"
 default-run = "l8git"
 

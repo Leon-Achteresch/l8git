@@ -101,6 +101,29 @@ export function looksLikeLfsPointerText(
   return text.includes(LFS_POINTER_MARKER);
 }
 
+export function dataUrlToBytes(dataUrl: string): { mime: string; bytes: Uint8Array } | null {
+  const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(dataUrl);
+  if (!match) return null;
+  const mime = match[1] || "application/octet-stream";
+  const isBase64 = Boolean(match[2]);
+  const data = match[3] ?? "";
+  if (!isBase64) {
+    try {
+      return { mime, bytes: new TextEncoder().encode(decodeURIComponent(data)) };
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const binary = typeof atob === "function" ? atob(data) : Buffer.from(data, "base64").toString("binary");
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return { mime, bytes };
+  } catch {
+    return null;
+  }
+}
+
 export function shortOid(oid: string | null | undefined, length = 10): string {
   const raw = (oid ?? "").trim().replace(/^sha256:/i, "");
   if (!raw) return "";

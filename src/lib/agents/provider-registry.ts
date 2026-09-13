@@ -68,3 +68,11 @@ export const AGENT_PROVIDERS: AgentProviderDefinition[] = [
 export function agentProvider(id: string): AgentProviderDefinition | undefined {
   return AGENT_PROVIDERS.find((provider) => provider.id === id);
 }
+
+export function isKnownAgentProvider(id: string): boolean {
+  return agentProvider(id) !== undefined;
+}
+
+export function chatCapableAgentProviders(): AgentProviderDefinition[] {
+  return AGENT_PROVIDERS.filter((provider) => provider.surface === "chat");
+}

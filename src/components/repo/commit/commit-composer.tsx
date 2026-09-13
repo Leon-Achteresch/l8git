@@ -151,7 +151,6 @@ export function CommitComposer({
   return (
     <LayoutGroup id="commit-composer">
       <m.div
-        layout
         transition={spring}
         className={cn(
           "mx-2 mb-2 mt-1 overflow-hidden rounded-2xl border bg-background/80 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-[border-color,box-shadow] duration-300",
@@ -163,7 +162,7 @@ export function CommitComposer({
       >
         <AnimatePresence initial={false}>
           {amendMode && (
-            <m.div layout
+            <m.div
               key="amend-banner"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -249,7 +248,7 @@ export function CommitComposer({
             >
               <AnimatePresence mode="wait" initial={false}>
                 {aiGenerating ? (
-                  <m.span layout
+                  <m.span
                     key="spin"
                     initial={{ opacity: 0, scale: 0.7, rotate: -40 }}
                     animate={{ opacity: 1, scale: 1, rotate: 0 }}
@@ -260,7 +259,7 @@ export function CommitComposer({
                     <SpinIcon icon={Loader2} className="size-3.5" />
                   </m.span>
                 ) : (
-                  <m.span layout
+                  <m.span
                     key="spark"
                     initial={{ opacity: 0, scale: 0.7 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -280,7 +279,6 @@ export function CommitComposer({
           {showBody ? (
             <m.div
               key="body"
-              layout
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
@@ -311,7 +309,6 @@ export function CommitComposer({
           ) : (
             <m.div
               key="body-toggle"
-              layout
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -332,7 +329,6 @@ export function CommitComposer({
         </AnimatePresence>
 
         <m.div
-          layout
           className="flex items-center gap-2 border-t border-border/40 px-2.5 py-2"
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -340,7 +336,6 @@ export function CommitComposer({
               {stagedFiles > 0 && (
                 <m.span
                   key="staged"
-                  layout
                   initial={{ opacity: 0, scale: 0.85, x: -6 }}
                   animate={{ opacity: 1, scale: 1, x: 0 }}
                   exit={{ opacity: 0, scale: 0.85, x: -6 }}
@@ -359,7 +354,6 @@ export function CommitComposer({
               {signingActive && (
                 <m.span
                   key="signing"
-                  layout
                   initial={{ opacity: 0, scale: 0.85 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.85 }}
@@ -383,7 +377,6 @@ export function CommitComposer({
               {subjectLen > 0 && (
                 <m.span
                   key="chars"
-                  layout
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
@@ -416,7 +409,6 @@ export function CommitComposer({
           <div className="flex items-stretch">
             <m.button
               type="button"
-              layout
               whileTap={canCommit && !committing ? { scale: 0.97 } : undefined}
               transition={spring}
               onClick={onCommit}
@@ -442,7 +434,7 @@ export function CommitComposer({
               )}
             >
               <AnimatePresence mode="wait" initial={false}>
-                <m.span layout
+                <m.span
                   key={commitLabel}
                   initial={{ y: 10, opacity: 0, filter: "blur(4px)" }}
                   animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}

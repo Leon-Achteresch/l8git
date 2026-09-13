@@ -8,6 +8,16 @@ export type TestInvoke = (command: string, args?: Record<string, unknown>) => Pr
 declare global { interface Window { __L8GIT_TEST_INVOKE__?: TestInvoke; __L8GIT_TEST_CALLS__?: { command: string; args?: Record<string, unknown> }[] } }
 export function seedAuditFixture(scene: string) {
   useOnboardingPrefs.setState({ tourDone: true, tourActive: false, welcomeDismissed: true });
+  if (scene === 'remote-dialog') {
+    localStorage.setItem('l8git.git-accounts.v2', JSON.stringify([{ id: 'github', name: 'GitHub', host: 'github.com', username: 'fixture', builtin: true }]));
+    window.__L8GIT_TEST_INVOKE__ = async (command) => {
+      if (command === 'list_git_remotes') return [];
+      if (command === 'git_credential_helper') return null;
+      throw new Error(`Unavailable in remote dialog fixture: ${command}`);
+    };
+    useRepoStore.setState({ paths: [], activePath: null });
+    return;
+  }
   if (scene === 'app') {
     window.__L8GIT_TEST_INVOKE__ = async (cmd) => {
       if (cmd === 'git_credential_helper') return null;
@@ -20,7 +30,7 @@ export function seedAuditFixture(scene: string) {
   let entries: StatusEntry[] = [{ path: 'example.txt', index_status: scene === 'conflict' ? 'U' : ' ', worktree_status: scene === 'conflict' ? 'U' : 'M', staged: false, unstaged: true, untracked: false, additions_staged: 0, deletions_staged: 0, additions_unstaged: 1, deletions_unstaged: 1, binary: false, embedded_repo: false }];
   const base: Commit = { hash: 'a'.repeat(40), short_hash: 'aaaaaaa', subject: 'Initial fixture', author: 'Fixture', email: 'fixture@example.com', date: '2026-09-05T12:00:00Z', body: '', parents: [], tags: [], author_avatar: null };
   let commits = [base];
-  if (scene === 'performance') {
+  if (scene === 'performance' || scene === 'performance-history') {
     entries = Array.from({ length: 1000 }, (_, i) => ({ ...entries[0], path: `files/file-${String(i).padStart(4, '0')}.txt` }));
     commits = Array.from({ length: 10_000 }, (_, i) => ({ ...base, hash: (10_000 - i).toString(16).padStart(40, '0'), short_hash: String(10_000 - i), subject: `Fixture commit ${i}`, parents: i === 9999 ? [] : [(9999 - i).toString(16).padStart(40, '0')] }));
   }
@@ -62,5 +72,5 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: { [FIXTURE_PATH]: entries }, stashes: { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
-  useUiStore.getState().setSidebarTab('commit');
+  useUiStore.getState().setSidebarTab(scene === 'performance-history' ? 'history' : 'commit');
 }

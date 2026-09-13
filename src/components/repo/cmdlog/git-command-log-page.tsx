@@ -56,7 +56,7 @@ function CommandRow({ entry }: { entry: GitCommandEntry }) {
   }
 
   return (
-    <m.div layout className='flex items-center gap-2 rounded-lg border border-border/50 bg-card/40 px-2.5 py-1.5 transition-colors hover:border-border hover:bg-card/70'>
+    <m.div className='flex items-center gap-2 rounded-lg border border-border/50 bg-card/40 px-2.5 py-1.5 transition-colors hover:border-border hover:bg-card/70'>
       <span
         className={cn(
           'flex size-5 shrink-0 items-center justify-center rounded-md',

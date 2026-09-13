@@ -157,7 +157,7 @@ function BranchDropdown({
               </span>
             )}
           </span>
-          <m.span layout
+          <m.span
             animate={{ rotate: open ? 180 : 0 }}
             transition={{ duration: 0.18 }}
             className="shrink-0 opacity-60"
@@ -168,7 +168,7 @@ function BranchDropdown({
         <OverlayPortal>
         <AnimatePresence>
           {open ? (
-            <m.div layout
+            <m.div
               ref={panelRef}
               initial={{ opacity: 0, y: -6, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -444,7 +444,7 @@ export function PullRequestCreatePanel({
       transition={SHELL_TRANSITION}
       className="mx-3 mt-3 overflow-hidden rounded-xl border border-primary/30 bg-card shadow-lg ring-1 ring-primary/10"
     >
-      <m.form layout
+      <m.form
         onSubmit={(e) => void submit(e)}
         initial={{ opacity: 0, y: -4 }}
         animate={{

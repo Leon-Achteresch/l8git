@@ -3,7 +3,7 @@
 # PRO RELEASE ZU AKTUALISIEREN: PackageVersion, ReleaseNotesUrl.
 
 PackageIdentifier: LeonAchteresch.l8git
-PackageVersion: 0.5.0
+PackageVersion: 1.0.0
 PackageLocale: en-US
 Publisher: Leon Achteresch
 PublisherUrl: https://github.com/Leon-Achteresch
@@ -32,6 +32,6 @@ Tags:
   - bitbucket
   - pull-request
   - tauri
-ReleaseNotesUrl: https://github.com/Leon-Achteresch/l8git/releases/tag/v0.5.0
+ReleaseNotesUrl: https://github.com/Leon-Achteresch/l8git/releases/tag/v1.0.0
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

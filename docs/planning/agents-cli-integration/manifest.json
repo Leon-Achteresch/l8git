@@ -1,0 +1,104 @@
+[
+  {
+    "code": "PROV",
+    "title": "Provider-Verträge und erweiterbare Architektur",
+    "file": "01-prov.md",
+    "count": 12
+  },
+  {
+    "code": "RUN",
+    "title": "Prozesse, Transport und Wiederverbindung",
+    "file": "02-run.md",
+    "count": 10
+  },
+  {
+    "code": "SET",
+    "title": "Einrichtung, Accounts und Instanzkonfiguration",
+    "file": "03-set.md",
+    "count": 8
+  },
+  {
+    "code": "CHAT",
+    "title": "Composer und Session-Verwaltung",
+    "file": "04-chat.md",
+    "count": 12
+  },
+  {
+    "code": "EVT",
+    "title": "Streaming, Tools und vollständige Ereignisabbildung",
+    "file": "05-evt.md",
+    "count": 12
+  },
+  {
+    "code": "ASK",
+    "title": "Permissions, Planfreigaben und Rückfragen",
+    "file": "06-ask.md",
+    "count": 9
+  },
+  {
+    "code": "HIST",
+    "title": "History, Resume, Fork und Kontext-Checkpoints",
+    "file": "07-hist.md",
+    "count": 8
+  },
+  {
+    "code": "MOD",
+    "title": "Modelle, Thinking und Laufzeitoptionen",
+    "file": "08-mod.md",
+    "count": 7
+  },
+  {
+    "code": "USE",
+    "title": "Kontext, Token, Kosten und Limits",
+    "file": "09-use.md",
+    "count": 8
+  },
+  {
+    "code": "EXT",
+    "title": "Skills, MCP, Hooks, Plugins und native Erweiterungen",
+    "file": "10-ext.md",
+    "count": 13
+  },
+  {
+    "code": "TASK",
+    "title": "Subagents, Aufgaben und Hintergrundprozesse",
+    "file": "11-task.md",
+    "count": 8
+  },
+  {
+    "code": "GIT",
+    "title": "Repository-, Worktree- und Review-Anbindung",
+    "file": "12-git.md",
+    "count": 6
+  },
+  {
+    "code": "UX",
+    "title": "Desktop, Remote und Mobile-Parität",
+    "file": "13-ux.md",
+    "count": 6
+  },
+  {
+    "code": "SEC",
+    "title": "Bestehende Sicherheitsgrenzen und Datenintegrität",
+    "file": "14-sec.md",
+    "count": 6
+  },
+  {
+    "code": "QA",
+    "title": "Paritätsnachweis, Regressionen und Auslieferung",
+    "file": "15-qa.md",
+    "count": 8
+  },
+  {
+    "code": "DETAIL",
+    "title": "Kleine Bedienfunktionen aus t3code",
+    "file": "16-detail.md",
+    "count": 11
+  },
+  {
+    "code": "CLI",
+    "title": "Weitere native CLI-Flächen und explizite Versionsentscheidungen",
+    "file": "17-cli.md",
+    "count": 10
+  }
+]

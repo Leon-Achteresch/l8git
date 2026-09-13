@@ -16,7 +16,7 @@ function CommitAuthorDateInner({
   date: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+    <div className="flex min-w-0 items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
       <CommitAvatar
         url={avatarUrl}
         fallbackUrl={avatarFallbackUrl}
@@ -24,7 +24,7 @@ function CommitAuthorDateInner({
         size="xs"
       />
       <span
-        className="min-w-0 truncate"
+        className="min-w-0 max-w-[8rem] truncate"
         title={email ? `${author} <${email}>` : author}
       >
         {author}

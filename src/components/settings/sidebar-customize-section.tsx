@@ -52,9 +52,11 @@ import {
   GitPullRequest,
   GripVertical,
   History,
+  Layers,
   List,
   ListChecks,
   RotateCcw,
+  Scissors,
   Tag,
   Webhook,
   Wrench,
@@ -370,6 +372,39 @@ const PreviewGrid = () => (
 /*  Main export                                                                */
 /* -------------------------------------------------------------------------- */
 
+function PrefToggleRow({
+  id,
+  icon,
+  title,
+  hint,
+  checked,
+  onChange,
+}: {
+  id: string;
+  icon: React.ReactNode;
+  title: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 bg-background text-muted-foreground">
+          {icon}
+        </div>
+        <div>
+          <Label htmlFor={id} className="cursor-pointer text-sm font-medium">
+            {title}
+          </Label>
+          <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
+        </div>
+      </div>
+      <Checkbox id={id} checked={checked} onCheckedChange={v => onChange(v === true)} />
+    </div>
+  );
+}
+
 export function SidebarCustomizeSection() {
   const { t } = useTranslation();
   const tabMeta = useTabMeta(t);
@@ -382,6 +417,9 @@ export function SidebarCustomizeSection() {
   const gridColumns = useSidebarPrefs(s => s.gridColumns);
   const showBranchFilter = useSidebarPrefs(s => s.showBranchFilter);
   const defaultOpenSections = useSidebarPrefs(s => s.defaultOpenSections);
+  const showStacksSection = useSidebarPrefs(s => s.showStacksSection);
+  const showTagsSection = useSidebarPrefs(s => s.showTagsSection);
+  const hideBranchGroupPrefix = useSidebarPrefs(s => s.hideBranchGroupPrefix);
 
   const setTabOrder = useSidebarPrefs(s => s.setTabOrder);
   const toggleTabVisibility = useSidebarPrefs(s => s.toggleTabVisibility);
@@ -391,6 +429,9 @@ export function SidebarCustomizeSection() {
   const setGridColumns = useSidebarPrefs(s => s.setGridColumns);
   const setShowBranchFilter = useSidebarPrefs(s => s.setShowBranchFilter);
   const setDefaultOpenSections = useSidebarPrefs(s => s.setDefaultOpenSections);
+  const setShowStacksSection = useSidebarPrefs(s => s.setShowStacksSection);
+  const setShowTagsSection = useSidebarPrefs(s => s.setShowTagsSection);
+  const setHideBranchGroupPrefix = useSidebarPrefs(s => s.setHideBranchGroupPrefix);
   const resetToDefaults = useSidebarPrefs(s => s.resetToDefaults);
 
   const gridSidebarWidth = useUiStore(s => s.gridSidebarWidth);
@@ -683,25 +724,38 @@ export function SidebarCustomizeSection() {
           <CardDescription>{t("settings.sidebarBranchSectionsDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Branch filter toggle */}
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 bg-background text-muted-foreground">
-                <List className="h-3.5 w-3.5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">{t("settings.sidebarShowBranchFilter")}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {t("settings.sidebarShowBranchFilterHint")}
-                </p>
-              </div>
-            </div>
-            <Checkbox
-              id="show-branch-filter"
-              checked={showBranchFilter}
-              onCheckedChange={v => setShowBranchFilter(v === true)}
-            />
-          </div>
+          <PrefToggleRow
+            id="show-branch-filter"
+            icon={<List className="h-3.5 w-3.5" />}
+            title={t("settings.sidebarShowBranchFilter")}
+            hint={t("settings.sidebarShowBranchFilterHint")}
+            checked={showBranchFilter}
+            onChange={setShowBranchFilter}
+          />
+          <PrefToggleRow
+            id="show-stacks-section"
+            icon={<Layers className="h-3.5 w-3.5" />}
+            title={t("settings.sidebarShowStacks")}
+            hint={t("settings.sidebarShowStacksHint")}
+            checked={showStacksSection}
+            onChange={setShowStacksSection}
+          />
+          <PrefToggleRow
+            id="show-tags-section"
+            icon={<Tag className="h-3.5 w-3.5" />}
+            title={t("settings.sidebarShowTags")}
+            hint={t("settings.sidebarShowTagsHint")}
+            checked={showTagsSection}
+            onChange={setShowTagsSection}
+          />
+          <PrefToggleRow
+            id="hide-branch-group-prefix"
+            icon={<Scissors className="h-3.5 w-3.5" />}
+            title={t("settings.sidebarHideGroupPrefix")}
+            hint={t("settings.sidebarHideGroupPrefixHint")}
+            checked={hideBranchGroupPrefix}
+            onChange={setHideBranchGroupPrefix}
+          />
 
           {/* Default open sections */}
           <div className="space-y-2">

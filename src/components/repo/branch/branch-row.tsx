@@ -9,6 +9,7 @@ import { toastError } from '@/lib/error-toast';
 import type { Branch } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
 import { useBranchFocusStore } from '@/lib/use-branch-hotkeys';
+import { useSidebarPrefs } from '@/lib/sidebar-prefs';
 import { useUiStore } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import {
@@ -98,11 +99,14 @@ function BranchRowInner({
   const { prefix: remotePrefix, rest: remoteRest } = branch.is_remote
     ? splitRemote(branch.name)
     : { prefix: '', rest: branch.name };
-  const displayName = branch.is_remote ? remoteRest : branch.name;
+  const hideGroupPrefix = useSidebarPrefs(s => s.hideBranchGroupPrefix);
+  const refPath = branch.is_remote ? remoteRest : branch.name;
+  const slash = refPath.indexOf('/');
+  const displayName =
+    hideGroupPrefix && slash > 0 ? refPath.slice(slash + 1) : refPath;
 
   const row = (
     <m.li
-      layout
       tabIndex={0}
       onFocus={() => focusBranch(path, branch.name)}
       onBlur={() => blurBranch(path, branch.name)}
@@ -117,30 +121,25 @@ function BranchRowInner({
       }}
       title={branch.name}
       className={cn(
-        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md py-1 pl-2 pr-1.5 text-[0.8125rem] transition-all outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-xl py-1.5 pl-2 pr-1.5 text-[0.8125rem] outline-none transition-[background-color,box-shadow,color,transform] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:ring-1 focus-visible:ring-ring',
         branch.is_current
-          ? 'bg-sidebar-accent/70 font-medium text-sidebar-accent-foreground shadow-2xs'
-          : 'text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground hover:shadow-2xs'
+          ? 'bg-background font-medium text-foreground shadow-[0_1px_2px_rgb(24_24_27/0.08),0_0_0_1px_rgb(24_24_27/0.05)] dark:bg-white/10 dark:shadow-none'
+          : 'text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground'
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          'absolute top-1/2 left-0.5 h-4 w-[2px] -translate-y-1/2 rounded-full transition-opacity',
-          branch.is_current
-            ? 'opacity-100'
-            : 'opacity-60 group-hover/row:opacity-90'
-        )}
-        style={{ backgroundColor: laneColor }}
-      />
-
-      <span className='relative z-0 flex shrink-0 items-center justify-center'>
+      <span className='relative z-0 flex size-4 shrink-0 items-center justify-center'>
         {branch.is_current ? (
           <Check
-            className='h-3.5 w-3.5 text-primary'
+            className='h-3.5 w-3.5 text-foreground'
             aria-label={t('branch.currentBranchAria')}
           />
-        ) : null}
+        ) : (
+          <span
+            aria-hidden
+            className='size-1.5 rounded-full opacity-80'
+            style={{ backgroundColor: laneColor }}
+          />
+        )}
       </span>
 
       {branch.behind != null && branch.behind > 0 && (
@@ -152,7 +151,7 @@ function BranchRowInner({
 
       <span className='flex min-w-0 flex-1 items-baseline gap-1'>
         {branch.is_remote && remotePrefix && (
-          <span className='shrink-0 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground/70'>
+          <span className='shrink-0 text-[0.625rem] font-medium text-muted-foreground/55'>
             {remotePrefix}
           </span>
         )}

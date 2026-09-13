@@ -135,7 +135,7 @@ function TabsContent({
 }: React.ComponentProps<typeof TabsPrimitive.Content>) {
   return (
     <TabsPrimitive.Content data-slot="tabs-content" asChild {...props}>
-      <m.div layout
+      <m.div
         className={cn("flex-1 text-sm outline-none", className)}
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}

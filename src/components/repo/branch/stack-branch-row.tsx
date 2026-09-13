@@ -60,7 +60,7 @@ export function StackBranchRow({
   }
 
   return (
-    <m.li layout className="min-w-0">
+    <m.li className="min-w-0">
       <div
         className={cn(
           "group/stackrow relative flex min-w-0 items-center gap-1 rounded-md py-1 pl-1 pr-0.5 text-[0.75rem] transition-colors",

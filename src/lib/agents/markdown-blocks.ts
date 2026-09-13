@@ -84,3 +84,26 @@ export function splitMarkdownBlocks(source: string): string[] {
   flush();
   return blocks;
 }
+
+const ALLOWED_LINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
+
+export function sanitizeLinkHref(href: string): string | null {
+  const trimmed = href.trim();
+  if (trimmed === "") return null;
+  try {
+    const scheme = new URL(trimmed, "https://placeholder.invalid").protocol;
+    if (!ALLOWED_LINK_SCHEMES.has(scheme)) return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
+}
+
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}

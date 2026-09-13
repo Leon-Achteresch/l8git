@@ -1,6 +1,3 @@
-import { useRouterState } from "@tanstack/react-router";
-
-import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import {
   filterForest,
   flattenRepoPaths,
@@ -30,18 +27,15 @@ import {
   type CSSProperties,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { IslandDock, useDockOpen } from "@/components/app/island-dock";
-import { ISLAND_PAD, useIslandDocks } from "@/lib/island-store";
 import { AddRepoButton } from "./add-repo-button";
 import { ForestNodes } from "./repo-group";
 import { RepoTabPicker } from "./repo-tab-picker";
 import { RepoWorkspaceSwitch } from "./repo-workspace-switch";
 import { m } from "motion/react";
 
-const TAB_GAP = 4;
 
 export function RepoTabBar() {
-  const { paths, activePath: repoActivePath, activeLoading } = useRepoStore(
+  const { paths, activePath, activeLoading } = useRepoStore(
     useShallow((s) => ({
       paths: s.paths,
       activePath: s.activePath,
@@ -49,11 +43,6 @@ export function RepoTabBar() {
     })),
   );
 
-  const onAgents = useRouterState({
-    select: (s) => s.location.pathname.startsWith("/agents"),
-  });
-  const agentPath = useAgentRepoStore((s) => s.path);
-  const activePath = onAgents ? agentPath : repoActivePath;
 
   const forest = useRepoGroupsStore((s) => s.forest);
   const moveNodeRelativeTo = useRepoGroupsStore((s) => s.moveNodeRelativeTo);
@@ -115,13 +104,7 @@ export function RepoTabBar() {
   );
 
   const stripRef = useRef<HTMLDivElement | null>(null);
-  const [slotAt, setSlotAt] = useState(0);
-  const [slotPad, setSlotPad] = useState(ISLAND_PAD);
-  const [floatLeft, setFloatLeft] = useState<number | null>(0);
   const [overflowing, setOverflowing] = useState(false);
-  const islandWidth = useIslandDocks((s) => s.size.width);
-  const dockVersion = useIslandDocks((s) => s.version);
-  const slotOpen = useDockOpen("header");
 
   useEffect(() => {
     const strip = stripRef.current;
@@ -137,57 +120,13 @@ export function RepoTabBar() {
     if (!strip) return;
 
     const measure = () => {
-      const stripLeft = strip.getBoundingClientRect().left;
-      const holeLeft = window.innerWidth / 2 - islandWidth / 2;
-      const limit = holeLeft - ISLAND_PAD;
-      const scrollLeft = strip.scrollLeft;
-
-      const slotEl = strip.querySelector<HTMLElement>("[data-island-slot]");
-      const slotWidth = slotEl?.style.width ?? "";
-      if (slotEl) slotEl.style.width = "0px";
-
-      let x = stripLeft - scrollLeft;
-      let index = 0;
-      let crossing = -1;
-      for (const el of Array.from(strip.children)) {
-        if (el.hasAttribute("data-island-slot")) continue;
-        const width = el.getBoundingClientRect().width;
-        if (!el.hasAttribute("data-tab-sep")) {
-          if (crossing < 0 && x + width > limit) crossing = index;
-          index++;
-        }
-        x += width + TAB_GAP;
-      }
-
-      if (slotEl) {
-        slotEl.style.width = slotWidth;
-        strip.scrollLeft = scrollLeft;
-      }
-
       setOverflowing(strip.scrollWidth > strip.clientWidth + 2);
-
-      if (crossing < 0) {
-        setSlotAt(index);
-        setFloatLeft(Math.round(holeLeft - stripLeft + scrollLeft));
-        setSlotPad(ISLAND_PAD);
-        return;
-      }
-
-      setSlotAt(crossing);
-      setFloatLeft(null);
-      if (slotEl) {
-        const left = slotEl.getBoundingClientRect().left;
-        const next = Math.max(ISLAND_PAD - TAB_GAP, Math.round(holeLeft - left));
-        setSlotPad((prev) => (Math.abs(next - prev) <= 1 ? prev : next));
-      }
     };
 
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(strip);
-    for (const el of Array.from(strip.children)) {
-      if (!el.hasAttribute("data-island-slot")) observer.observe(el);
-    }
+    for (const el of Array.from(strip.children)) observer.observe(el);
     strip.addEventListener("scroll", measure, { passive: true });
     window.addEventListener("resize", measure);
     return () => {
@@ -195,7 +134,7 @@ export function RepoTabBar() {
       strip.removeEventListener("scroll", measure);
       window.removeEventListener("resize", measure);
     };
-  }, [filteredForest, activePath, islandWidth, dockVersion, slotAt, floatLeft]);
+  }, [filteredForest, activePath]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -212,7 +151,7 @@ export function RepoTabBar() {
 
   return (
     <div className="relative flex min-w-0 flex-1 items-stretch self-stretch">
-      {repoActivePath && activeLoading && (
+      {activePath && activeLoading && (
         <div
           className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-0.5 overflow-hidden"
           aria-hidden
@@ -247,20 +186,7 @@ export function RepoTabBar() {
               items={sortableKeys}
               strategy={horizontalListSortingStrategy}
             >
-              <ForestNodes
-                nodes={filteredForest}
-                activePath={activePath}
-                slot={
-                  <IslandDock
-                    id="header"
-                    pad={slotPad}
-                    padEnd={floatLeft === null ? ISLAND_PAD - TAB_GAP : ISLAND_PAD}
-                    floatLeft={floatLeft}
-                  />
-                }
-                slotAt={slotAt}
-                slotOpen={slotOpen}
-              />
+              <ForestNodes nodes={filteredForest} activePath={activePath} />
             </SortableContext>
           </DndContext>
         </div>

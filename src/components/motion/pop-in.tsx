@@ -13,7 +13,7 @@ export function PopIn({
   title?: string;
 }) {
   return (
-    <m.span layout
+    <m.span
       title={title}
       className={className}
       style={{ display: "inline-flex", transformOrigin: "center" }}

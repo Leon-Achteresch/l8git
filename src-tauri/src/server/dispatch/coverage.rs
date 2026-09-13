@@ -4,8 +4,6 @@ pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     "save_user_export",
     "runtime_diagnostics",
     "fetch_claude_usage", "git_command_log_live", "read_image_data_url",
-    "island_window_close", "island_window_open", "island_window_set_size", "island_window_state",
-    "main_window_minimize", "main_window_restore", "main_window_toggle_minimize",
     "jira_credentials_status", "jira_delete_credentials", "jira_fetch_comments", "jira_fetch_issue",
     "jira_mcp_command", "jira_save_credentials", "jira_search_issues", "jira_sync_cursor_mcp",
     "jira_test_connection", "jira_write_policy",

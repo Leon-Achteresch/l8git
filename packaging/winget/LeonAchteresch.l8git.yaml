@@ -4,7 +4,7 @@
 # PRO RELEASE ZU AKTUALISIEREN: PackageVersion (in allen drei Dateien identisch).
 
 PackageIdentifier: LeonAchteresch.l8git
-PackageVersion: 0.5.0
+PackageVersion: 1.0.0
 DefaultLocale: en-US
 ManifestType: version
 ManifestVersion: 1.6.0

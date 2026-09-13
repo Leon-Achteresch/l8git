@@ -13,6 +13,7 @@ import {
   GitCommitHorizontal,
   Globe2,
   HardDrive,
+  Info,
   Keyboard,
   Link2,
   Monitor,
@@ -22,17 +23,19 @@ import {
   PanelLeft,
   Plus,
   RefreshCw,
+  Search,
   ShieldCheck,
   Sparkles,
   Sun,
   Terminal,
   Ticket,
   Users,
+  User,
+  X,
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-
 import { StaggerCard } from "@/components/motion/stagger-card";
 import { AddGitAccount } from "@/components/repo/git-account/add-git-account";
 import { GitAccountRow } from "@/components/repo/git-account/git-account-row";
@@ -78,82 +81,16 @@ import { MorphIcon } from "@/components/ui/morph-icon";
 
 const UI_SCALE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5] as const;
 
-/* -------------------------------------------------------------------------- */
-/*  Section header component                                                   */
-/* -------------------------------------------------------------------------- */
-
-interface SectionHeaderProps {
-  icon: React.ElementType;
-  title: string;
-  subtitle: string;
-  gradient: string;
-  iconColor: string;
-}
-
-function SectionHeader({
-  icon: Icon,
-  title,
-  subtitle,
-}: SectionHeaderProps) {
-  return (
-    <div className="mb-7 flex items-center gap-4">
-      <div
-        className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted ring-1 ring-border/50"
-      >
-        <Icon className="size-4 text-muted-foreground" />
-      </div>
-      <div>
-        <h2 className="text-base font-semibold leading-none tracking-tight">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Nav item                                                                   */
-/* -------------------------------------------------------------------------- */
-
 interface NavItemDef {
   id: string;
   label: string;
   icon: React.ElementType;
-  accent: string;
 }
 
 interface NavGroupDef {
   label: string;
   items: NavItemDef[];
 }
-
-interface NavItemProps extends NavItemDef {
-  active: boolean;
-  onClick: () => void;
-}
-
-function SettingsNavItem({ icon: Icon, label, active, onClick }: NavItemProps) {
-  return (
-    <ListRow
-      active={active}
-      onClick={onClick}
-      className="group gap-3 rounded-lg px-3 py-2 hover:bg-muted/70 data-[active=true]:bg-muted data-[active=true]:text-foreground"
-    >
-      <Icon
-        className={cn(
-          "h-4 w-4 shrink-0 transition-colors",
-          active ? "text-foreground" : "text-muted-foreground/70",
-        )}
-      />
-      <span className="truncate">{label}</span>
-    </ListRow>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Main Settings component                                                    */
-/* -------------------------------------------------------------------------- */
 
 export function Settings() {
   const { t } = useTranslation();
@@ -186,38 +123,40 @@ export function Settings() {
       {
         label: t("settings.navGroupInterface"),
         items: [
-          { id: "sidebar", label: t("settings.navSidebar"), icon: PanelLeft, accent: "bg-git-branch" },
-          { id: "appearance", label: t("settings.navAppearance"), icon: Palette, accent: "bg-git-merge" },
-          { id: "animations", label: t("settings.navAnimations"), icon: Zap, accent: "bg-git-modified" },
-          { id: "notifications", label: t("settings.navNotifications"), icon: Bell, accent: "bg-git-merge" },
-          { id: "hotkeys", label: t("settings.navHotkeys"), icon: Keyboard, accent: "bg-git-added" },
+          { id: "sidebar", label: t("settings.navSidebar"), icon: PanelLeft },
+          { id: "appearance", label: t("settings.navAppearance"), icon: Palette },
+          { id: "animations", label: t("settings.navAnimations"), icon: Zap },
+          { id: "notifications", label: t("settings.navNotifications"), icon: Bell },
+          { id: "hotkeys", label: t("settings.navHotkeys"), icon: Keyboard },
         ],
       },
       {
         label: t("settings.navGroupCommits"),
         items: [
-          { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal, accent: "bg-git-added" },
-          { id: "signing", label: t("settings.navSigning"), icon: ShieldCheck, accent: "bg-git-branch" },
-          { id: "ai", label: t("settings.navAi"), icon: Sparkles, accent: "bg-git-merge" },
+          { id: "commits", label: t("settings.navCommits"), icon: GitCommitHorizontal },
+          { id: "signing", label: t("settings.navSigning"), icon: ShieldCheck },
+          { id: "ai", label: t("settings.navAi"), icon: Sparkles },
         ],
       },
       {
         label: t("settings.navGroupIntegrations"),
         items: [
-          { id: "jira", label: t("settings.navJira"), icon: Ticket, accent: "bg-git-branch" },
+          { id: "jira", label: t("settings.navJira"), icon: Ticket },
         ],
       },
       {
         label: t("settings.navGroupWorkspace"),
         items: [
-          { id: "workspace", label: t("settings.navWorkspace"), icon: Terminal, accent: "bg-git-modified" },
+          { id: "workspace", label: t("settings.navWorkspace"), icon: Terminal },
         ],
       },
       {
         label: t("settings.navGroupAccount"),
         items: [
-          { id: "accounts", label: t("settings.navAccounts"), icon: Users, accent: "bg-git-added" },
-          { id: "updates", label: t("settings.navUpdates"), icon: Package, accent: "bg-git-branch" },
+          { id: "accounts", label: t("settings.navAccounts"), icon: Users },
+          { id: "updates", label: t("settings.navUpdates"), icon: Package },
+          { id: "info", label: t("header.info"), icon: Info },
+          { id: "about", label: t("header.about"), icon: User },
         ],
       },
     ],
@@ -273,7 +212,6 @@ export function Settings() {
   useEffect(() => { setCommitTemplateDraft(messageTemplate); }, [messageTemplate]);
   useEffect(() => { setAiLanguageDraft(aiOutputLanguage); }, [aiOutputLanguage]);
   useEffect(() => { setAiApiKeyDraft(aiProviderApiKey); }, [aiProviderApiKey]);
-  // Load the API key from the OS keyring when the settings page mounts.
   useEffect(() => {
     void import("@/lib/secure-storage").then(({ secureGet, AI_KEY_KEYRING_KEY }) =>
       secureGet(AI_KEY_KEYRING_KEY).then((v) => {
@@ -283,8 +221,7 @@ export function Settings() {
         }
       }).catch(() => {}),
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setAiProviderApiKey]);
   useEffect(() => { setAiModelDraft(aiProviderModel); }, [aiProviderModel]);
   useEffect(() => { setAiBaseUrlDraft(aiProviderBaseUrl); }, [aiProviderBaseUrl]);
 
@@ -299,27 +236,17 @@ export function Settings() {
   const setRepoTerminalKind = useWorkspacePrefs((s) => s.setRepoTerminalKind);
   const hideT3Checkpoints = useWorkspacePrefs((s) => s.hideT3Checkpoints);
   const setHideT3Checkpoints = useWorkspacePrefs((s) => s.setHideT3Checkpoints);
-  const embeddedTerminalCommand = useWorkspacePrefs(
-    (s) => s.embeddedTerminalCommand,
-  );
-  const setEmbeddedTerminalCommand = useWorkspacePrefs(
-    (s) => s.setEmbeddedTerminalCommand,
-  );
+  const embeddedTerminalCommand = useWorkspacePrefs((s) => s.embeddedTerminalCommand);
+  const setEmbeddedTerminalCommand = useWorkspacePrefs((s) => s.setEmbeddedTerminalCommand);
   const terminalButtonMode = useWorkspacePrefs((s) => s.terminalButtonMode);
-  const setTerminalButtonMode = useWorkspacePrefs(
-    (s) => s.setTerminalButtonMode,
-  );
+  const setTerminalButtonMode = useWorkspacePrefs((s) => s.setTerminalButtonMode);
   const uiScale = useWorkspacePrefs((s) => s.uiScale);
   const setUiScale = useWorkspacePrefs((s) => s.setUiScale);
   const [ideDraft, setIdeDraft] = useState(ideLaunchCommand);
-  const [embeddedShellDraft, setEmbeddedShellDraft] = useState(
-    embeddedTerminalCommand,
-  );
+  const [embeddedShellDraft, setEmbeddedShellDraft] = useState(embeddedTerminalCommand);
 
   useEffect(() => { setIdeDraft(ideLaunchCommand); }, [ideLaunchCommand]);
-  useEffect(() => {
-    setEmbeddedShellDraft(embeddedTerminalCommand);
-  }, [embeddedTerminalCommand]);
+  useEffect(() => { setEmbeddedShellDraft(embeddedTerminalCommand); }, [embeddedTerminalCommand]);
 
   const ideDirty = ideDraft !== ideLaunchCommand;
   const embeddedShellDirty = embeddedShellDraft !== embeddedTerminalCommand;
@@ -327,57 +254,30 @@ export function Settings() {
   const mainRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const [settingsQuery, setSettingsQuery] = useState("");
-  const [matchedSections, setMatchedSections] = useState<string[] | null>(null);
-  const [activeSection, setActiveSection] = useState("sidebar");
   const locationHash = useRouterState({ select: (s) => s.location.hash });
-
-  useEffect(() => {
-    const main = mainRef.current;
-    if (!main) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) {
-          setActiveSection(visible[0].target.id);
-        }
-      },
-      { root: main, rootMargin: "0px 0px -70% 0px", threshold: 0 },
-    );
-
-    const els = Object.values(sectionRefs.current);
-    els.forEach((el) => { if (el) observer.observe(el); });
-
-    return () => observer.disconnect();
-  }, []);
-
-  function scrollSectionIntoView(id: string, behavior: ScrollBehavior = "smooth") {
-    const container = mainRef.current;
-    const target = sectionRefs.current[id];
-    if (!container || !target) return;
-    const top = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-    container.scrollTo({ top, behavior });
-    setActiveSection(id);
-  }
+  const [activeSection, setActiveSection] = useState(locationHash ? locationHash.replace(/^#/, "") : "sidebar");
 
   useEffect(() => {
     const id = locationHash.replace(/^#/, "");
-    if (!id) return;
-    const frame = window.requestAnimationFrame(() => {
-      scrollSectionIntoView(id, "auto");
-    });
-    return () => window.cancelAnimationFrame(frame);
+    if (id) {
+      setActiveSection(id);
+    }
   }, [locationHash]);
 
-  useEffect(() => {
-    const query = settingsQuery.trim().toLocaleLowerCase();
-    const sections = Object.values(sectionRefs.current).filter((el): el is HTMLElement => !!el);
-    const matches = sections.filter(el => !query || (el.textContent ?? '').toLocaleLowerCase().includes(query)).map(el => el.id);
-    for (const el of sections) el.hidden = !matches.includes(el.id);
-    setMatchedSections(query ? matches : null);
-  }, [settingsQuery, t]);
+  function handleSelectSection(id: string) {
+    if (id === "info") {
+      void router.navigate({ to: "/info" });
+      return;
+    }
+    if (id === "about") {
+      void router.navigate({ to: "/about" });
+      return;
+    }
+    setActiveSection(id);
+    if (mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
 
   function setRef(id: string) {
     return (el: HTMLElement | null) => { sectionRefs.current[id] = el; };
@@ -398,15 +298,72 @@ export function Settings() {
     }
   }
 
+  const isSearching = settingsQuery.trim().length > 0;
+  const normalizedQuery = settingsQuery.trim().toLowerCase();
+
+  const allSectionsMeta = useMemo(() => [
+    { id: "sidebar", title: t("settings.sidebarSectionTitle"), subtitle: t("settings.sidebarSectionSubtitle"), icon: PanelLeft },
+    { id: "appearance", title: t("settings.appearanceTitle"), subtitle: t("settings.appearanceSubtitle"), icon: Palette },
+    { id: "animations", title: t("settings.animationsSectionTitle"), subtitle: t("settings.animationsSectionSubtitle"), icon: Zap },
+    { id: "notifications", title: t("settings.notificationsSectionTitle"), subtitle: t("settings.notificationsSectionSubtitle"), icon: Bell },
+    { id: "hotkeys", title: t("settings.hotkeysSectionTitle"), subtitle: t("settings.hotkeysSectionSubtitle"), icon: Keyboard },
+    { id: "commits", title: t("settings.commitsSectionTitle"), subtitle: t("settings.commitsSectionSubtitle"), icon: GitCommitHorizontal },
+    { id: "signing", title: t("settings.signingSectionTitle"), subtitle: t("settings.signingSectionSubtitle"), icon: ShieldCheck },
+    { id: "ai", title: t("settings.aiSectionTitle"), subtitle: t("settings.aiSectionSubtitle"), icon: Sparkles },
+    { id: "jira", title: t("settings.jiraSectionTitle"), subtitle: t("settings.jiraSectionSubtitle"), icon: Ticket },
+    { id: "workspace", title: t("settings.workspaceSectionTitle"), subtitle: t("settings.workspaceSectionSubtitle"), icon: Terminal },
+    { id: "accounts", title: t("settings.accountsSectionTitle"), subtitle: t("settings.accountsSectionSubtitle"), icon: Users },
+    { id: "updates", title: t("settings.updatesSectionTitle"), subtitle: t("settings.updatesSectionSubtitle"), icon: Package },
+    { id: "info", title: t("header.info"), subtitle: "", icon: Info },
+    { id: "about", title: t("header.about"), subtitle: "", icon: User },
+  ], [t]);
+
+  const [matchedSectionIds, setMatchedSectionIds] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!isSearching) {
+      setMatchedSectionIds(null);
+      return;
+    }
+    setMatchedSectionIds(
+      allSectionsMeta
+        .filter((meta) => {
+          const el = sectionRefs.current[meta.id];
+          const text = `${el?.textContent ?? ""} ${meta.title} ${meta.subtitle}`;
+          return text.toLowerCase().includes(normalizedQuery);
+        })
+        .map((meta) => meta.id),
+    );
+  }, [allSectionsMeta, isSearching, normalizedQuery]);
+
+  function renderHeader(Icon: React.ElementType, title: string, subtitle: string) {
+    return (
+      <div className="flex items-center gap-3.5 pb-2">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted/70 text-foreground ring-1 ring-border/50">
+          <Icon className="size-5 text-muted-foreground" />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold leading-tight tracking-tight text-foreground">
+            {title}
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+        </div>
+      </div>
+    );
+  }
+
+  function shouldShowSection(id: string) {
+    return isSearching || activeSection === id;
+  }
+
+  function sectionClass(id: string, extra?: string) {
+    const hidden = isSearching && matchedSectionIds !== null && !matchedSectionIds.includes(id);
+    return cn("space-y-4", extra, hidden && "hidden");
+  }
+
   return (
     <div className="flex h-full min-h-0 overflow-hidden bg-background">
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          LEFT SIDEBAR NAV
-      ═══════════════════════════════════════════════════════════════════ */}
       <aside className="flex min-h-0 w-60 shrink-0 flex-col border-r border-border/50 bg-sidebar">
-
-        {/* Back button */}
         <div className="flex h-14 shrink-0 items-center border-b border-border/50 px-4">
           <Button
             type="button"
@@ -420,69 +377,105 @@ export function Settings() {
           </Button>
         </div>
 
-        {/* Heading */}
-        <div className="px-4 pb-2 pt-5">
+        <div className="px-4 pb-2 pt-4">
           <p className="text-base font-semibold tracking-tight">{t("settings.title")}</p>
         </div>
 
-        <div className="px-3 pb-3"><Input type="search" aria-label={t('audit.settingsSearch')} placeholder={t('audit.settingsSearch')} value={settingsQuery} onChange={e => setSettingsQuery(e.target.value)} /></div>
-        {/* Nav groups */}
+        <div className="px-3 pb-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              aria-label={t("audit.settingsSearch")}
+              placeholder={t("audit.settingsSearch")}
+              value={settingsQuery}
+              onChange={(e) => setSettingsQuery(e.target.value)}
+              className="h-8 pl-8 pr-7 text-xs"
+            />
+            {settingsQuery && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => setSettingsQuery("")}
+                className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+
         <nav className="flex-1 overflow-y-auto px-2 pb-6">
-          <div className="space-y-5">
-            {navGroups.map((group) => (
-              <div key={group.label}>
-                <p className="mb-1 px-3 text-[0.65625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground/50">
-                  {group.label}
-                </p>
-                <div className="space-y-0.5">
-                  {group.items.filter(item => !matchedSections || matchedSections.includes(item.id)).map((item) => (
-                    <SettingsNavItem
-                      key={item.id}
-                      {...item}
-                      active={activeSection === item.id}
-                      onClick={() => scrollSectionIntoView(item.id)}
-                    />
-                  ))}
+          <div className="space-y-4">
+            {navGroups.map((group) => {
+              const visibleItems = isSearching && matchedSectionIds
+                ? group.items.filter((item) => matchedSectionIds.includes(item.id))
+                : group.items;
+
+              if (visibleItems.length === 0) return null;
+
+              return (
+                <div key={group.label}>
+                  <p className="mb-1 px-3 text-[0.625rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                    {group.label}
+                  </p>
+                  <div className="space-y-0.5">
+                    {visibleItems.map(({ id, label, icon: ItemIcon }) => {
+                      const active = isSearching ? activeSection === id : activeSection === id;
+                      return (
+                        <ListRow
+                          key={id}
+                          active={active}
+                          onClick={() => handleSelectSection(id)}
+                          className={cn(
+                            "group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors select-none",
+                            active
+                              ? "bg-accent font-medium text-accent-foreground"
+                              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                          )}
+                        >
+                          <ItemIcon
+                            className={cn(
+                              "size-4 shrink-0 transition-colors",
+                              active ? "text-foreground" : "text-muted-foreground/70",
+                            )}
+                          />
+                          <span className="truncate">{label}</span>
+                        </ListRow>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </nav>
       </aside>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          MAIN CONTENT
-      ═══════════════════════════════════════════════════════════════════ */}
       <main
         ref={mainRef}
         className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain"
       >
-        <div className="mx-auto max-w-3xl space-y-10 px-6 py-6">
+        <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
+          {isSearching && matchedSectionIds?.length === 0 && (
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-8 text-center">
+              <p className="text-sm text-muted-foreground">{t("audit.noResults")}</p>
+            </div>
+          )}
 
-          {matchedSections?.length === 0 && <p role="status" className="text-sm text-muted-foreground">{t('audit.noResults')}</p>}
-          {/* ── SIDEBAR ───────────────────────────────────────────────── */}
-          <section id="sidebar" ref={setRef("sidebar")} className="scroll-mt-10">
-            <SectionHeader
-              icon={PanelLeft}
-              title={t("settings.sidebarSectionTitle")}
-              subtitle={t("settings.sidebarSectionSubtitle")}
-              gradient="from-git-branch/25 to-git-branch/25"
-              iconColor="text-git-branch"
-            />
-            <div className="space-y-4"><LayoutPrefsCard /><SidebarCustomizeSection /></div>
-          </section>
+          {shouldShowSection("sidebar") && (
+            <section id="sidebar" ref={setRef("sidebar")} className={sectionClass("sidebar")}>
+              {renderHeader(PanelLeft, t("settings.sidebarSectionTitle"), t("settings.sidebarSectionSubtitle"))}
+              <LayoutPrefsCard />
+              <SidebarCustomizeSection />
+            </section>
+          )}
 
-          {/* ── APPEARANCE ────────────────────────────────────────────── */}
-          <section id="appearance" ref={setRef("appearance")} className="scroll-mt-10">
-            <SectionHeader
-              icon={Palette}
-              title={t("settings.appearanceTitle")}
-              subtitle={t("settings.appearanceSubtitle")}
-              gradient="from-git-merge/25 to-pink-500/25"
-              iconColor="text-git-merge"
-            />
+          {shouldShowSection("appearance") && (
+            <section id="appearance" ref={setRef("appearance")} className={sectionClass("appearance")}>
+              {renderHeader(Palette, t("settings.appearanceTitle"), t("settings.appearanceSubtitle"))}
 
-            <div className="space-y-4">
               <StaggerCard index={0}>
                 <Card>
                   <CardHeader>
@@ -532,7 +525,7 @@ export function Settings() {
                       aria-label={t("settings.themeAria")}
                       className="grid grid-cols-3 gap-3"
                     >
-                      {themeOptions.map(({ value, label, icon: Icon }) => {
+                      {themeOptions.map(({ value, label, icon: ThemeIcon }) => {
                         const active = theme === value;
                         return (
                           <Button
@@ -547,7 +540,7 @@ export function Settings() {
                               active && "ring-2 ring-ring ring-offset-2 ring-offset-background",
                             )}
                           >
-                            <Icon className="h-5 w-5" />
+                            <ThemeIcon className="h-5 w-5" />
                             <span className="text-sm">{label}</span>
                           </Button>
                         );
@@ -601,63 +594,41 @@ export function Settings() {
               <StaggerCard index={3}>
                 <InterfaceElementsCard />
               </StaggerCard>
-            </div>
-          </section>
+            </section>
+          )}
 
-          {/* ── ANIMATIONS ────────────────────────────────────────────── */}
-          <section id="animations" ref={setRef("animations")} className="scroll-mt-10">
-            <SectionHeader
-              icon={Zap}
-              title={t("settings.animationsSectionTitle")}
-              subtitle={t("settings.animationsSectionSubtitle")}
-              gradient="from-git-modified/25 to-git-modified/25"
-              iconColor="text-git-modified"
-            />
-            <StaggerCard index={2}>
-              <AnimationsCard />
-            </StaggerCard>
-          </section>
+          {shouldShowSection("animations") && (
+            <section id="animations" ref={setRef("animations")} className={sectionClass("animations")}>
+              {renderHeader(Zap, t("settings.animationsSectionTitle"), t("settings.animationsSectionSubtitle"))}
+              <StaggerCard index={0}>
+                <AnimationsCard />
+              </StaggerCard>
+            </section>
+          )}
 
-          {/* ── NOTIFICATIONS ─────────────────────────────────────────── */}
-          <section id="notifications" ref={setRef("notifications")} className="scroll-mt-10">
-            <SectionHeader
-              icon={Bell}
-              title={t("settings.notificationsSectionTitle")}
-              subtitle={t("settings.notificationsSectionSubtitle")}
-              gradient="from-git-merge/25 to-git-merge/25"
-              iconColor="text-git-merge"
-            />
-            <StaggerCard index={2}>
-              <NotificationsCard />
-            </StaggerCard>
-          </section>
+          {shouldShowSection("notifications") && (
+            <section id="notifications" ref={setRef("notifications")} className={sectionClass("notifications")}>
+              {renderHeader(Bell, t("settings.notificationsSectionTitle"), t("settings.notificationsSectionSubtitle"))}
+              <StaggerCard index={0}>
+                <NotificationsCard />
+              </StaggerCard>
+            </section>
+          )}
 
-          {/* ── HOTKEYS ───────────────────────────────────────────────── */}
-          <section id="hotkeys" ref={setRef("hotkeys")} className="scroll-mt-10">
-            <SectionHeader
-              icon={Keyboard}
-              title={t("settings.hotkeysSectionTitle")}
-              subtitle={t("settings.hotkeysSectionSubtitle")}
-              gradient="from-git-added/25 to-git-added/25"
-              iconColor="text-git-added"
-            />
-            <StaggerCard index={3}>
-              <HotkeysSection />
-            </StaggerCard>
-          </section>
+          {shouldShowSection("hotkeys") && (
+            <section id="hotkeys" ref={setRef("hotkeys")} className={sectionClass("hotkeys")}>
+              {renderHeader(Keyboard, t("settings.hotkeysSectionTitle"), t("settings.hotkeysSectionSubtitle"))}
+              <StaggerCard index={0}>
+                <HotkeysSection />
+              </StaggerCard>
+            </section>
+          )}
 
-          {/* ── COMMITS ───────────────────────────────────────────────── */}
-          <section id="commits" ref={setRef("commits")} className="scroll-mt-10">
-            <SectionHeader
-              icon={GitCommitHorizontal}
-              title={t("settings.commitsSectionTitle")}
-              subtitle={t("settings.commitsSectionSubtitle")}
-              gradient="from-git-added/25 to-git-added/25"
-              iconColor="text-git-added"
-            />
+          {shouldShowSection("commits") && (
+            <section id="commits" ref={setRef("commits")} className={sectionClass("commits")}>
+              {renderHeader(GitCommitHorizontal, t("settings.commitsSectionTitle"), t("settings.commitsSectionSubtitle"))}
 
-            <div className="space-y-4">
-              <StaggerCard index={3}>
+              <StaggerCard index={0}>
                 <Card>
                   <CardHeader>
                     <CardTitle>{t("settings.historyTitle")}</CardTitle>
@@ -725,7 +696,7 @@ export function Settings() {
                 </Card>
               </StaggerCard>
 
-              <StaggerCard index={4}>
+              <StaggerCard index={1}>
                 <Card>
                   <CardHeader>
                     <CardTitle>{t("settings.graphTitle")}</CardTitle>
@@ -759,7 +730,7 @@ export function Settings() {
                 </Card>
               </StaggerCard>
 
-              <StaggerCard index={5}>
+              <StaggerCard index={2}>
                 <Card>
                   <CardHeader>
                     <CardTitle>{t("settings.graphLaneWidthTitle")}</CardTitle>
@@ -799,7 +770,7 @@ export function Settings() {
                 </Card>
               </StaggerCard>
 
-              <StaggerCard index={6}>
+              <StaggerCard index={3}>
                 <Card>
                   <CardHeader>
                     <CardTitle>{t("settings.messageTitle")}</CardTitle>
@@ -825,74 +796,22 @@ export function Settings() {
                   </CardContent>
                 </Card>
               </StaggerCard>
+            </section>
+          )}
 
-              <StaggerCard index={6}>
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="size-4 text-muted-foreground" />
-                      <CardTitle>{t("settings.aiTitle")}</CardTitle>
-                    </div>
-                    <CardDescription>{t("settings.aiDesc")}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ai-language" className="text-sm font-medium">
-                        {t("settings.aiOutputLanguage")}
-                      </Label>
-                      <Input
-                        id="ai-language"
-                        value={aiLanguageDraft}
-                        onChange={(e) => setAiLanguageDraft(e.target.value)}
-                        placeholder="English"
-                        className="font-mono text-sm"
-                        spellCheck={false}
-                        autoCorrect="off"
-                      />
-                      <p className="text-xs text-muted-foreground">{t("settings.aiOutputHint")}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{t("settings.aiPromptMovedHint")}</p>
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        disabled={!aiLanguageDirty}
-                        onClick={() => setAiOutputLanguage(aiLanguageDraft)}
-                      >
-                        {t("common.save")}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+          {shouldShowSection("signing") && (
+            <section id="signing" ref={setRef("signing")} className={sectionClass("signing")}>
+              {renderHeader(ShieldCheck, t("settings.signingSectionTitle"), t("settings.signingSectionSubtitle"))}
+              <StaggerCard index={0}>
+                <GitSigningCard />
               </StaggerCard>
-            </div>
-          </section>
+            </section>
+          )}
 
-          {/* ── SIGNING ───────────────────────────────────────────────── */}
-          <section id="signing" ref={setRef("signing")} className="scroll-mt-10">
-            <SectionHeader
-              icon={ShieldCheck}
-              title={t("settings.signingSectionTitle")}
-              subtitle={t("settings.signingSectionSubtitle")}
-              gradient="from-git-branch/25 to-git-added/25"
-              iconColor="text-git-branch"
-            />
+          {shouldShowSection("ai") && (
+            <section id="ai" ref={setRef("ai")} className={sectionClass("ai")}>
+              {renderHeader(Sparkles, t("settings.aiSectionTitle"), t("settings.aiSectionSubtitle"))}
 
-            <StaggerCard index={0}>
-              <GitSigningCard />
-            </StaggerCard>
-          </section>
-
-          {/* ── AI ────────────────────────────────────────────────────── */}
-          <section id="ai" ref={setRef("ai")} className="scroll-mt-10">
-            <SectionHeader
-              icon={Sparkles}
-              title={t("settings.aiSectionTitle")}
-              subtitle={t("settings.aiSectionSubtitle")}
-              gradient="from-git-merge/25 to-git-merge/25"
-              iconColor="text-git-merge"
-            />
-
-            <div className="space-y-4">
               <StaggerCard index={0}>
                 <Card>
                   <CardHeader>
@@ -914,7 +833,7 @@ export function Settings() {
                           { id: "ollama" as const, label: "Ollama", desc: t("settings.aiProviderOllamaDesc"), icon: HardDrive },
                           { id: "compatible" as const, label: t("settings.aiProviderCompatibleLabel"), desc: t("settings.aiProviderCompatibleDesc"), icon: Link2 },
                         ] satisfies { id: AiProviderType; label: string; desc: string; icon: typeof Bot }[]
-                      ).map(({ id, label, desc, icon: Icon }) => {
+                      ).map(({ id, label, desc, icon: ProviderIcon }) => {
                         const active = aiProviderType === id;
                         return (
                           <ListRow
@@ -926,7 +845,7 @@ export function Settings() {
                             onClick={() => setAiProviderType(id)}
                             className="flex-col items-start gap-2.5 p-4"
                           >
-                            <Icon className={cn("size-5", active ? "text-primary" : "text-muted-foreground")} />
+                            <ProviderIcon className={cn("size-5", active ? "text-primary" : "text-muted-foreground")} />
                             <div>
                               <div className="text-sm font-semibold">{label}</div>
                               <div className="mt-0.5 text-xs text-muted-foreground">{desc}</div>
@@ -1016,7 +935,6 @@ export function Settings() {
                           setAiProviderApiKey(trimmedKey);
                           setAiProviderModel(aiModelDraft.trim());
                           setAiProviderBaseUrl(aiBaseUrlDraft.trim());
-                          // Persist key to OS keyring instead of localStorage.
                           void import("@/lib/secure-storage").then(({ secureSet, secureDelete, AI_KEY_KEYRING_KEY }) =>
                             trimmedKey
                               ? secureSet(AI_KEY_KEYRING_KEY, trimmedKey)
@@ -1077,320 +995,283 @@ export function Settings() {
                   </CardContent>
                 </Card>
               </StaggerCard>
-            </div>
-          </section>
+            </section>
+          )}
 
-          {/* ── INTEGRATIONS ──────────────────────────────────────────── */}
-          <section id="jira" ref={setRef("jira")} className="scroll-mt-10">
-            <SectionHeader
-              icon={Ticket}
-              title={t("settings.jiraSectionTitle")}
-              subtitle={t("settings.jiraSectionSubtitle")}
-              gradient="from-git-branch/25 to-git-branch/25"
-              iconColor="text-git-branch"
-            />
+          {shouldShowSection("jira") && (
+            <section id="jira" ref={setRef("jira")} className={sectionClass("jira")}>
+              {renderHeader(Ticket, t("settings.jiraSectionTitle"), t("settings.jiraSectionSubtitle"))}
+              <StaggerCard index={0}>
+                <JiraCard />
+              </StaggerCard>
+            </section>
+          )}
 
-            <StaggerCard index={0}>
-              <JiraCard />
-            </StaggerCard>
-          </section>
+          {shouldShowSection("workspace") && (
+            <section id="workspace" ref={setRef("workspace")} className={sectionClass("workspace")}>
+              {renderHeader(Terminal, t("settings.workspaceSectionTitle"), t("settings.workspaceSectionSubtitle"))}
 
-          {/* ── WORKSPACE ─────────────────────────────────────────────── */}
-          <section id="workspace" ref={setRef("workspace")} className="scroll-mt-10">
-            <DataPortabilityCard />
-            <SectionHeader
-              icon={Terminal}
-              title={t("settings.workspaceSectionTitle")}
-              subtitle={t("settings.workspaceSectionSubtitle")}
-              gradient="from-git-modified/25 to-git-modified/25"
-              iconColor="text-git-modified"
-            />
-
-            <StaggerCard index={7}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("settings.ideTitle")}</CardTitle>
-                  <CardDescription>{t("settings.ideDesc")}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex gap-2">
-                    <Input
-                      value={ideDraft}
-                      onChange={(e) => setIdeDraft(e.target.value)}
-                      placeholder="cursor"
-                      className="min-w-0 flex-1 font-mono text-sm"
-                      spellCheck={false}
-                      autoCapitalize="off"
-                      autoCorrect="off"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="shrink-0 gap-2"
-                      onClick={() => void pickIdeExecutable()}
-                    >
-                      <FolderOpen className="size-4" />
-                      {t("common.select")}
-                    </Button>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      disabled={!ideDirty}
-                      onClick={() => setIdeLaunchCommand(ideDraft)}
-                    >
-                      {t("common.save")}
-                    </Button>
-                  </div>
-                  <div className="space-y-2 mt-4">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{t("settings.terminalInRepo")}</p>
-                      <p className="text-xs text-muted-foreground">{t("settings.terminalInRepoHint")}</p>
+              <StaggerCard index={0}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.ideTitle")}</CardTitle>
+                    <CardDescription>{t("settings.ideDesc")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input
+                        value={ideDraft}
+                        onChange={(e) => setIdeDraft(e.target.value)}
+                        placeholder="cursor"
+                        className="min-w-0 flex-1 font-mono text-sm"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="shrink-0 gap-2"
+                        onClick={() => void pickIdeExecutable()}
+                      >
+                        <FolderOpen className="size-4" />
+                        {t("common.select")}
+                      </Button>
                     </div>
-                    <div
-                      role="radiogroup"
-                      aria-label={t("settings.terminalAria")}
-                      className="grid grid-cols-2 gap-2"
-                    >
-                      {repoTerminalOptions.map(({ value, label }) => {
-                        const active = repoTerminalKind === value;
-                        return (
-                          <Button
-                            key={value}
-                            type="button"
-                            role="radio"
-                            aria-checked={active}
-                            variant={active ? "default" : "outline"}
-                            onClick={() => setRepoTerminalKind(value)}
-                            className={cn(
-                              "h-auto justify-center py-3",
-                              active && "ring-2 ring-ring ring-offset-2 ring-offset-background",
-                            )}
-                          >
-                            <span className="text-sm">{label}</span>
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </StaggerCard>
-
-            <StaggerCard index={8}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("settings.embeddedTerminalTitle")}</CardTitle>
-                  <CardDescription>
-                    {t("settings.embeddedTerminalDesc")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="embedded-shell"
-                      className="text-sm font-medium"
-                    >
-                      {t("settings.embeddedTerminalCommandLabel")}
-                    </Label>
-                    <Input
-                      id="embedded-shell"
-                      value={embeddedShellDraft}
-                      onChange={(e) => setEmbeddedShellDraft(e.target.value)}
-                      placeholder="/bin/zsh -l"
-                      className="font-mono text-sm"
-                      spellCheck={false}
-                      autoCapitalize="off"
-                      autoCorrect="off"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t("settings.embeddedTerminalCommandHint")}
-                    </p>
                     <div className="flex justify-end">
                       <Button
                         type="button"
-                        disabled={!embeddedShellDirty}
-                        onClick={() =>
-                          setEmbeddedTerminalCommand(embeddedShellDraft)
-                        }
+                        disabled={!ideDirty}
+                        onClick={() => setIdeLaunchCommand(ideDraft)}
                       >
                         {t("common.save")}
                       </Button>
                     </div>
-                  </div>
-                  <div className="space-y-2 mt-4">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {t("settings.terminalButtonModeLabel")}
-                      </p>
+                    <div className="space-y-2 mt-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{t("settings.terminalInRepo")}</p>
+                        <p className="text-xs text-muted-foreground">{t("settings.terminalInRepoHint")}</p>
+                      </div>
+                      <div
+                        role="radiogroup"
+                        aria-label={t("settings.terminalAria")}
+                        className="grid grid-cols-2 gap-2"
+                      >
+                        {repoTerminalOptions.map(({ value, label }) => {
+                          const active = repoTerminalKind === value;
+                          return (
+                            <Button
+                              key={value}
+                              type="button"
+                              role="radio"
+                              aria-checked={active}
+                              variant={active ? "default" : "outline"}
+                              onClick={() => setRepoTerminalKind(value)}
+                              className={cn(
+                                "h-auto justify-center py-3",
+                                active && "ring-2 ring-ring ring-offset-2 ring-offset-background",
+                              )}
+                            >
+                              <span className="text-sm">{label}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={1}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.embeddedTerminalTitle")}</CardTitle>
+                    <CardDescription>{t("settings.embeddedTerminalDesc")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="embedded-shell" className="text-sm font-medium">
+                        {t("settings.embeddedTerminalCommandLabel")}
+                      </Label>
+                      <Input
+                        id="embedded-shell"
+                        value={embeddedShellDraft}
+                        onChange={(e) => setEmbeddedShellDraft(e.target.value)}
+                        placeholder="/bin/zsh -l"
+                        className="font-mono text-sm"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                      />
                       <p className="text-xs text-muted-foreground">
-                        {t("settings.terminalButtonModeHint")}
+                        {t("settings.embeddedTerminalCommandHint")}
                       </p>
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          disabled={!embeddedShellDirty}
+                          onClick={() => setEmbeddedTerminalCommand(embeddedShellDraft)}
+                        >
+                          {t("common.save")}
+                        </Button>
+                      </div>
                     </div>
-                    <div
-                      role="radiogroup"
-                      className="grid grid-cols-2 gap-2"
+                    <div className="space-y-2 mt-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {t("settings.terminalButtonModeLabel")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("settings.terminalButtonModeHint")}
+                        </p>
+                      </div>
+                      <div role="radiogroup" className="grid grid-cols-2 gap-2">
+                        {(
+                          [
+                            { value: "embedded" as const, label: t("settings.terminalButtonModeEmbedded") },
+                            { value: "external" as const, label: t("settings.terminalButtonModeExternal") },
+                          ] as const
+                        ).map(({ value, label }) => {
+                          const active = terminalButtonMode === value;
+                          return (
+                            <Button
+                              key={value}
+                              type="button"
+                              role="radio"
+                              aria-checked={active}
+                              variant={active ? "default" : "outline"}
+                              onClick={() => setTerminalButtonMode(value)}
+                              className={cn(
+                                "h-auto justify-center py-3",
+                                active && "ring-2 ring-ring ring-offset-2 ring-offset-background",
+                              )}
+                            >
+                              <span className="text-sm">{label}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+
+              <StaggerCard index={2}>
+                <BranchCleanupCard />
+              </StaggerCard>
+
+              <StaggerCard index={3}>
+                <RemoteServerCard />
+              </StaggerCard>
+
+              <StaggerCard index={4}>
+                <DataPortabilityCard />
+              </StaggerCard>
+            </section>
+          )}
+
+          {shouldShowSection("accounts") && (
+            <section id="accounts" ref={setRef("accounts")} className={sectionClass("accounts")}>
+              {renderHeader(Users, t("settings.accountsSectionTitle"), t("settings.accountsSectionSubtitle"))}
+
+              <StaggerCard index={0}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.accountsCardTitle")}</CardTitle>
+                    <CardDescription>{t("settings.accountsCardDesc")}</CardDescription>
+                    <CardAction>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => void refresh()}
+                          aria-label={t("settings.refreshAria")}
+                          disabled={loading || refreshing}
+                        >
+                          <SpinIcon icon={RefreshCw} active={loading || refreshing} />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="icon-sm"
+                          onClick={() => setAddOpen(true)}
+                          aria-label={t("settings.addAccountAria")}
+                        >
+                          <Plus />
+                        </Button>
+                      </div>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {!helper && !loading && !refreshing && (
+                      <div className="flex items-start gap-2 rounded-lg border border-git-modified/40 bg-git-modified/10 p-3 text-xs text-git-modified">
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                        <div>{t("settings.noCredentialHelper")}</div>
+                      </div>
+                    )}
+
+                    {helper && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("settings.credentialHelper")}
+                        <code className="rounded bg-muted px-1 py-0.5">{helper}</code>
+                      </p>
+                    )}
+
+                    {signedInAccounts.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-border bg-background/40 p-6 text-center">
+                        <p className="text-sm text-muted-foreground">
+                          {loading
+                            ? t("settings.accountsLoading")
+                            : refreshing
+                              ? t("settings.accountsRefreshing")
+                              : t("settings.accountsEmpty")}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {signedInAccounts.map((account) => (
+                          <GitAccountRow
+                            key={account.id}
+                            account={account}
+                            onSignOut={signOut}
+                            onRemoveCustom={account.builtin ? undefined : removeCustomHost}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+            </section>
+          )}
+
+          {shouldShowSection("updates") && (
+            <section id="updates" ref={setRef("updates")} className={sectionClass("updates", "pb-6")}>
+              {renderHeader(Package, t("settings.updatesSectionTitle"), t("settings.updatesSectionSubtitle"))}
+
+              <StaggerCard index={0}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("settings.updatesCardTitle")}</CardTitle>
+                    <CardDescription>{t("settings.updatesCardDesc")}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      disabled={checkingForUpdates}
+                      onClick={() => void handleUpdateCheck()}
                     >
-                      {(
-                        [
-                          {
-                            value: "embedded" as const,
-                            label: t("settings.terminalButtonModeEmbedded"),
-                          },
-                          {
-                            value: "external" as const,
-                            label: t("settings.terminalButtonModeExternal"),
-                          },
-                        ] as const
-                      ).map(({ value, label }) => {
-                        const active = terminalButtonMode === value;
-                        return (
-                          <Button
-                            key={value}
-                            type="button"
-                            role="radio"
-                            aria-checked={active}
-                            variant={active ? "default" : "outline"}
-                            onClick={() => setTerminalButtonMode(value)}
-                            className={cn(
-                              "h-auto justify-center py-3",
-                              active &&
-                                "ring-2 ring-ring ring-offset-2 ring-offset-background",
-                            )}
-                          >
-                            <span className="text-sm">{label}</span>
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </StaggerCard>
-
-            <StaggerCard index={9} className="mt-4">
-              <BranchCleanupCard />
-            </StaggerCard>
-
-            <StaggerCard index={10} className="mt-4">
-              <RemoteServerCard />
-            </StaggerCard>
-          </section>
-
-          {/* ── ACCOUNTS ──────────────────────────────────────────────── */}
-          <section id="accounts" ref={setRef("accounts")} className="scroll-mt-10">
-            <SectionHeader
-              icon={Users}
-              title={t("settings.accountsSectionTitle")}
-              subtitle={t("settings.accountsSectionSubtitle")}
-              gradient="from-git-added/25 to-git-branch/25"
-              iconColor="text-git-added"
-            />
-
-            <StaggerCard index={9}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("settings.accountsCardTitle")}</CardTitle>
-                  <CardDescription>{t("settings.accountsCardDesc")}</CardDescription>
-                  <CardAction>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => void refresh()}
-                        aria-label={t("settings.refreshAria")}
-                        disabled={loading || refreshing}
-                      >
-                        <SpinIcon icon={RefreshCw} active={loading || refreshing} />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="default"
-                        size="icon-sm"
-                        onClick={() => setAddOpen(true)}
-                        aria-label={t("settings.addAccountAria")}
-                      >
-                        <Plus />
-                      </Button>
-                    </div>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {!helper && !loading && !refreshing && (
-                    <div className="flex items-start gap-2 rounded-lg border border-git-modified/40 bg-git-modified/10 p-3 text-xs text-git-modified">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                      <div>{t("settings.noCredentialHelper")}</div>
-                    </div>
-                  )}
-
-                  {helper && (
-                    <p className="text-xs text-muted-foreground">
-                      {t("settings.credentialHelper")}
-                      <code className="rounded bg-muted px-1 py-0.5">{helper}</code>
-                    </p>
-                  )}
-
-                  {signedInAccounts.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border bg-background/40 p-6 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        {loading
-                          ? t("settings.accountsLoading")
-                          : refreshing
-                            ? t("settings.accountsRefreshing")
-                            : t("settings.accountsEmpty")}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {signedInAccounts.map((account) => (
-                        <GitAccountRow
-                          key={account.id}
-                          account={account}
-                          onSignOut={signOut}
-                          onRemoveCustom={account.builtin ? undefined : removeCustomHost}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </StaggerCard>
-          </section>
-
-          {/* ── UPDATES ───────────────────────────────────────────────── */}
-          <section id="updates" ref={setRef("updates")} className="scroll-mt-10 pb-10">
-            <SectionHeader
-              icon={Package}
-              title={t("settings.updatesSectionTitle")}
-              subtitle={t("settings.updatesSectionSubtitle")}
-              gradient="from-git-branch/25 to-git-branch/25"
-              iconColor="text-git-branch"
-            />
-
-            <StaggerCard index={10}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("settings.updatesCardTitle")}</CardTitle>
-                  <CardDescription>{t("settings.updatesCardDesc")}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    disabled={checkingForUpdates}
-                    onClick={() => void handleUpdateCheck()}
-                  >
-                    <SpinIcon icon={RefreshCw} active={checkingForUpdates} 
-                      className="size-4"
-                    />
-                    {t("settings.checkUpdates")}
-                  </Button>
-                </CardContent>
-              </Card>
-            </StaggerCard>
-          </section>
+                      <SpinIcon icon={RefreshCw} active={checkingForUpdates} className="size-4" />
+                      {t("settings.checkUpdates")}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </StaggerCard>
+            </section>
+          )}
         </div>
       </main>
 

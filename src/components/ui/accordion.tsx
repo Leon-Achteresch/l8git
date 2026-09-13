@@ -80,7 +80,7 @@ function AccordionContent({
           asChild
           {...props}
         >
-          <m.div layout
+          <m.div
             className={cn("text-sm", className)}
             style={{ overflow: "hidden" }}
             initial={{ height: 0, opacity: 0 }}

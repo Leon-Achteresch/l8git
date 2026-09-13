@@ -31,7 +31,7 @@ export function CommitInspectDiff({
   const showMedia = !!fileDiff && (fileDiff.is_binary || isLfs);
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      <div className="min-h-0 flex-1 overflow-hidden p-2 min-w-0">
+      <div className="min-h-0 flex-1 overflow-hidden min-w-0">
         {!selectedFile ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
             <div className="rounded-full bg-muted/30 p-4 ring-1 ring-border/50">
@@ -50,7 +50,7 @@ export function CommitInspectDiff({
             {t("diff.diffLoadFailedFallback")}
           </div>
         ) : showMedia && commitHash ? (
-          <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-lg ring-1 ring-border/30">
+          <div className="h-full min-h-0 min-w-0 overflow-hidden">
             <MediaDiffPanel
               key={`${commitHash}:${selectedFile}`}
               repoPath={repoPath}
@@ -63,7 +63,7 @@ export function CommitInspectDiff({
             />
           </div>
         ) : fileDiff?.diff ? (
-          <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-lg shadow-sm ring-1 ring-border/30">
+          <div className="h-full min-h-0 min-w-0 overflow-hidden">
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center">

@@ -31,7 +31,7 @@ import { useTranslation } from "react-i18next";
 function SectionCount({ count }: { count: number }) {
   return (
     <PopIn key={count} className="shrink-0">
-      <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-md bg-muted/70 px-1 text-[0.625rem] font-semibold tabular-nums text-muted-foreground">
+      <span className="text-[0.6875rem] font-medium tabular-nums text-muted-foreground/80">
         {count > 99 ? "99+" : count}
       </span>
     </PopIn>
@@ -55,8 +55,8 @@ function Section({
 }) {
   const { t } = useTranslation();
   const trigger = (
-    <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left hover:no-underline hover:bg-sidebar-accent/30 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/70">
-        <span className="min-w-0 flex-1 truncate text-[0.65625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground group-data-[state=open]/trigger:text-foreground">
+    <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-left hover:bg-foreground/[0.04] hover:no-underline [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/60">
+        <span className="min-w-0 flex-1 truncate text-[0.75rem] font-medium text-muted-foreground group-data-[state=open]/trigger:text-foreground">
           {label}
         </span>
       <SectionCount count={count} />
@@ -101,6 +101,10 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
   const { t } = useTranslation();
   const showBranchFilter = useSidebarPrefs((s) => s.showBranchFilter);
   const defaultOpenSections = useSidebarPrefs((s) => s.defaultOpenSections);
+  const showStacksSection = useSidebarPrefs((s) => s.showStacksSection);
+  const showTagsSection = useSidebarPrefs((s) => s.showTagsSection);
+  const openSections = useSidebarPrefs((s) => s.openSections);
+  const setOpenSections = useSidebarPrefs((s) => s.setOpenSections);
   const [query, setQuery] = useState("");
   const hasQuery = query.trim().length > 0;
 
@@ -142,11 +146,11 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {showBranchFilter && (
-        <div className="shrink-0 px-2 pb-1 pt-1.5">
+        <div className="shrink-0 px-2 pb-1.5 pt-0.5">
           <label className="group relative flex items-center">
             <Search
               aria-hidden
-              className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-focus-within:text-foreground"
+              className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground/60 transition-colors group-focus-within:text-foreground"
             />
             <Input
               type="search"
@@ -155,7 +159,7 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("sidebar.filterPlaceholder")}
               aria-label={t("sidebar.filterAria")}
-              className="border-transparent bg-muted/50 pl-7 pr-7 shadow-none focus-visible:bg-background [&::-webkit-search-cancel-button]:hidden"
+              className="h-8 rounded-xl border-border/50 bg-background pl-8 pr-7 shadow-none focus-visible:border-ring dark:bg-white/[0.04] [&::-webkit-search-cancel-button]:hidden"
             />
             {hasQuery && (
               <Button
@@ -174,10 +178,11 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
       )}
 
       <ScrollArea className="min-h-0 min-w-0 flex-1">
-        <div className="w-full min-w-0 max-w-full overflow-x-hidden px-2 pb-3 pt-1">
+        <div className="w-full min-w-0 max-w-full overflow-x-hidden px-1.5 pb-3 pt-0.5">
           <Accordion
             type="multiple"
-            defaultValue={[...defaultOpenSections, "stacks"]}
+            value={openSections ?? [...defaultOpenSections, "stacks"]}
+            onValueChange={setOpenSections}
             className="w-full min-w-0"
           >
             <Section
@@ -190,6 +195,7 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
               <BranchSection
                 path={path}
                 title={t("sidebar.local")}
+                groupScope="local"
                 branches={localBranches}
                 emptyLabel={hasQuery ? t("common.noResults") : t("sidebar.noLocalBranches")}
                 onDelete={onDelete}
@@ -197,7 +203,7 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
               />
             </Section>
 
-            {path ? (
+            {path && showStacksSection ? (
               <Section
                 value="stacks"
                 label={t("stack.sectionTitle")}
@@ -218,6 +224,7 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
                 <BranchSection
                   path={path}
                   title={t("sidebar.remote")}
+                  groupScope="remote"
                   branches={remoteBranches}
                   emptyLabel={t("common.noResults")}
                   hideHeader
@@ -225,7 +232,7 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
               </Section>
             )}
 
-            {tags.length > 0 && (
+            {showTagsSection && tags.length > 0 && (
               <Section
                 value="tags"
                 label={t("sidebar.tags")}
@@ -246,7 +253,7 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
 
           {hasQuery && !hasAnyMatch && (
             <PopIn className="w-full">
-              <div className="mx-1 w-full rounded-md border border-dashed border-sidebar-border/70 px-3 py-4 text-center text-xs text-muted-foreground">
+              <div className="mx-1 w-full rounded-xl px-3 py-5 text-center text-xs text-muted-foreground">
                 {t("sidebar.noBranchesForQuery", { query: query.trim() })}
               </div>
             </PopIn>

@@ -42,7 +42,7 @@ export function PrStatusPill({ state, isDraft }: { state: string; isDraft: boole
   const lk = LABEL_KEYS[key] ?? "prInspect.pillOpen";
 
   return (
-    <m.span layout
+    <m.span
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 450, damping: 28 }}

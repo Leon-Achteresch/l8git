@@ -102,7 +102,6 @@ export function InAppTerminalLayout({
             className={cn("min-h-0", atRight ? "py-2 pl-1 pr-2" : "px-2 pb-2 pt-1")}
           >
             <m.div
-              layout
               initial={{ opacity: 0.82, y: atRight ? 0 : 8, x: atRight ? 8 : 0 }}
               animate={{ opacity: 1, y: 0, x: 0 }}
               transition={SPRING_PANEL}
@@ -111,7 +110,7 @@ export function InAppTerminalLayout({
                 "bg-card/80 backdrop-blur-sm dark:bg-card/60",
               )}
             >
-              <m.div layout transition={SPRING_LAYOUT} className="min-h-0 flex-1">
+              <m.div transition={SPRING_LAYOUT} className="min-h-0 flex-1">
                 <Suspense fallback={(
                   <div className="flex h-full min-h-32 items-center justify-center text-xs text-muted-foreground">
                     <SpinIcon icon={LoaderCircle} className="mr-2 size-3.5" />

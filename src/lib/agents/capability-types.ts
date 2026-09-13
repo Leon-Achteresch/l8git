@@ -318,3 +318,158 @@ export interface AgentSkillDraft {
   products: Array<"CHAT" | "CODEX">;
   dependencies: AgentSkillToolDependency[];
 }
+
+export type PluginStatus = "installed" | "enabled" | "disabled" | "uninstalled";
+export type PluginAction = "install" | "enable" | "disable" | "update" | "uninstall";
+
+const PLUGIN_TRANSITIONS: Record<PluginStatus, Partial<Record<PluginAction, PluginStatus>>> = {
+  uninstalled: { install: "installed" },
+  installed: {
+    enable: "enabled",
+    disable: "disabled",
+    update: "installed",
+    uninstall: "uninstalled",
+  },
+  enabled: {
+    disable: "disabled",
+    update: "enabled",
+    uninstall: "uninstalled",
+  },
+  disabled: {
+    enable: "enabled",
+    update: "disabled",
+    uninstall: "uninstalled",
+  },
+};
+
+export type McpSurface = "prompts" | "resources" | "resourceLinks" | "notifications" | "elicitation";
+export type McpSurfaceStatus = "native" | "custom-ui" | "unsupported";
+
+export interface McpSurfaceCapabilityResult {
+  status: McpSurfaceStatus;
+  reason: string;
+}
+
+const NOT_EXPOSED: McpSurfaceCapabilityResult = {
+  status: "unsupported",
+  reason: "not exposed by CLI transport",
+};
+
+const MCP_SURFACE_MATRIX: Record<string, Partial<Record<McpSurface, McpSurfaceCapabilityResult>>> = {
+  claude: {
+    prompts: NOT_EXPOSED,
+    resources: NOT_EXPOSED,
+    resourceLinks: NOT_EXPOSED,
+    notifications: NOT_EXPOSED,
+    elicitation: NOT_EXPOSED,
+  },
+  cursor: {
+    prompts: NOT_EXPOSED,
+    resources: NOT_EXPOSED,
+    resourceLinks: NOT_EXPOSED,
+    notifications: NOT_EXPOSED,
+    elicitation: NOT_EXPOSED,
+  },
+  opencode: {
+    prompts: NOT_EXPOSED,
+    resources: NOT_EXPOSED,
+    resourceLinks: NOT_EXPOSED,
+    notifications: NOT_EXPOSED,
+    elicitation: NOT_EXPOSED,
+  },
+  codex: {
+    prompts: NOT_EXPOSED,
+    resources: NOT_EXPOSED,
+    resourceLinks: NOT_EXPOSED,
+    notifications: NOT_EXPOSED,
+    elicitation: NOT_EXPOSED,
+  },
+};
+
+const KNOWN_MCP_DRIVERS = new Set(Object.keys(MCP_SURFACE_MATRIX));
+
+export function mcpSurfaceCapability(surface: McpSurface, driver: string): McpSurfaceCapabilityResult {
+  const entry = MCP_SURFACE_MATRIX[driver]?.[surface];
+  if (entry) return entry;
+  if (!KNOWN_MCP_DRIVERS.has(driver)) {
+    return { status: "unsupported", reason: `unknown driver: ${driver}` };
+  }
+  return { status: "unsupported", reason: `unknown surface: ${surface}` };
+}
+
+export function planPluginTransition(
+  current: PluginStatus,
+  action: PluginAction,
+): { next: PluginStatus } | { error: string } {
+  const next = PLUGIN_TRANSITIONS[current]?.[action];
+  if (!next) {
+    return { error: `cannot ${action} a plugin in state ${current}` };
+  }
+  return { next };
+}
+
+export interface AgentMcpPromptArgument {
+  name: string;
+  description?: string;
+  required?: boolean;
+}
+
+export interface AgentMcpPrompt {
+  name: string;
+  description?: string;
+  arguments?: AgentMcpPromptArgument[];
+}
+
+export function promptToComposerText(prompt: AgentMcpPrompt, values: Record<string, string>): string {
+  const lines: string[] = [];
+  if (prompt.description) lines.push(prompt.description);
+  for (const argument of prompt.arguments ?? []) {
+    const value = values[argument.name] ?? "";
+    lines.push(`${argument.name}: ${value}`);
+  }
+  return lines.join("\n").trim();
+}
+
+export type MemoryCommand = "import" | "list" | "clear";
+
+export interface MemoryCommandCapabilityResult {
+  status: McpSurfaceStatus;
+  reason: string;
+}
+
+const MEMORY_COMMAND_MATRIX: Record<string, Partial<Record<MemoryCommand, MemoryCommandCapabilityResult>>> = {
+  claude: {
+    list: { status: "native", reason: "supported by CLI memory inventory" },
+    clear: { status: "native", reason: "supported by CLI memory inventory" },
+    import: { status: "unsupported", reason: "import is a Codex-only memory method" },
+  },
+  codex: {
+    list: { status: "unsupported", reason: "not confirmed for Codex transport" },
+    clear: { status: "unsupported", reason: "not confirmed for Codex transport" },
+    import: { status: "unsupported", reason: "not confirmed for Codex transport" },
+  },
+};
+
+export function memoryCommandCapability(command: MemoryCommand, driver: string): MemoryCommandCapabilityResult {
+  const entry = MEMORY_COMMAND_MATRIX[driver]?.[command];
+  if (entry) return entry;
+  if (!(driver in MEMORY_COMMAND_MATRIX)) {
+    return { status: "unsupported", reason: `unknown driver: ${driver}` };
+  }
+  return { status: "unsupported", reason: `unknown memory command: ${command}` };
+}
+
+export interface NativeBackgroundCapabilityResult {
+  status: "unsupported";
+  reason: string;
+  minVersion: string;
+}
+
+export function nativeBackgroundSessionCapability(cliVersion: string): NativeBackgroundCapabilityResult {
+  return {
+    status: "unsupported",
+    reason:
+      "Native Background-Sessions und Agent-Teams haben in l8git keinen nachgewiesenen Transport (Discovery/Logs/Attach/Stop/Respawn/Team-Kommunikation ungeklärt); kein Feature-Bau ohne Besitzprüfung.",
+    minVersion: cliVersion,
+  };
+}

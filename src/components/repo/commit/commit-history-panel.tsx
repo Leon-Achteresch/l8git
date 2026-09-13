@@ -275,6 +275,19 @@ export function CommitHistoryPanel({
   }, [sidebarTab, activePath, path, requestCommitHistoryFocus]);
 
   const [rebaseBase, setRebaseBase] = useState<string | null>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const [stackInspect, setStackInspect] = useState(false);
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setStackInspect(w < 720);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const selectedCommit = useMemo(
     () => (selectedHash ? (commits.find(c => c.hash === selectedHash) ?? null) : null),
@@ -355,7 +368,7 @@ export function CommitHistoryPanel({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-white shadow-sm dark:bg-zinc-950">
+    <div ref={shellRef} className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-white shadow-sm dark:bg-zinc-950">
       <HistoryFilters value={{ ...historyFilter, refs: [...selectedBranchNames] }} onChange={value => { setHistoryFilter(value); useUiStore.getState().setBranchFilter(path, new Set(value.refs)); }} />
       {filtered && <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground" role="status">
         {history.loading ? t('common.loading') : history.error || (history.commits.length === 0 ? t('audit.noResults') : t('audit.filteredHistory', { count: history.commits.length }))}
@@ -369,19 +382,21 @@ export function CommitHistoryPanel({
       <StackGraphLegend path={path} />
       {selectedHash ? (
         <ResizablePanelGroup
-          orientation='horizontal'
-          id='history-split'
+          key={stackInspect ? 'history-split-v' : 'history-split-h'}
+          orientation={stackInspect ? 'vertical' : 'horizontal'}
+          id={stackInspect ? 'history-split-v' : 'history-split'}
           className='min-h-0 flex-1'
-          defaultLayout={defaultLayout}
-          onLayoutChanged={layout =>
-            writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout))
-          }
+          defaultLayout={stackInspect ? undefined : defaultLayout}
+          onLayoutChanged={layout => {
+            if (stackInspect) return;
+            writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout));
+          }}
         >
           <ResizablePanel
             id='commits'
-            defaultSize='52%'
-            minSize='24%'
-            maxSize='78%'
+            defaultSize={stackInspect ? '58%' : '52%'}
+            minSize={stackInspect ? '28%' : '24%'}
+            maxSize={stackInspect ? '78%' : '78%'}
             className='min-h-0 flex flex-col'
           >
             {list}
@@ -392,8 +407,8 @@ export function CommitHistoryPanel({
           />
           <ResizablePanel
             id='inspect'
-            defaultSize='48%'
-            minSize='22%'
+            defaultSize={stackInspect ? '42%' : '48%'}
+            minSize={stackInspect ? '22%' : '22%'}
             className='flex min-h-0 flex-col'
           >
             <CommitInspectDetail

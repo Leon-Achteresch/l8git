@@ -13,7 +13,7 @@ import {
   Square,
   Undo2,
 } from "lucide-react";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StatusIcon } from "./commit-panel-status-icon";
 import { checkState, type ChangeRow } from "./commit-panel-types";
@@ -41,7 +41,7 @@ function FileRowInner({
   onIgnore?: (patterns: string[]) => void;
   depth?: number;
 }) {
-  const { t } = useTranslation();
+  const [menuOpen, setMenuOpen] = useState(false);
   const state = checkState(row.entry);
   const additions =
     row.sector === "staged" ? row.entry.additions_staged : row.entry.additions_unstaged;
@@ -83,11 +83,7 @@ function FileRowInner({
       <StatusIcon entry={row.entry} sector={row.sector} />
       <span className="min-w-0 flex-1 truncate text-sm">
         <span className="font-medium">{row.path.split("/").pop()?.replace(/\/$/, "")}</span>
-        {row.entry.embedded_repo && (
-          <span className="ml-2 rounded bg-git-merge/15 px-1 py-0.5 text-[0.625rem] font-medium text-git-merge">
-            {t("commitPanel.embeddedRepo")}
-          </span>
-        )}
+        {row.entry.embedded_repo && <EmbeddedRepoBadge />}
         {depth === undefined && (
           <span className="ml-2 truncate text-[0.6875rem] opacity-50">
             {row.path.split("/").slice(0, -1).join("/")}
@@ -108,29 +104,71 @@ function FileRowInner({
   const canBlame = !row.entry.untracked && row.entry.index_status !== "A";
 
   return (
-    <ContextMenu>
+    <ContextMenu onOpenChange={setMenuOpen}>
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
-      <ContextMenuContent>
-        {canBlame && (
-          <ContextMenuItem onSelect={() => onBlame(row.path)}>
-            <GitCommitHorizontal className="h-3.5 w-3.5" />
-            {t("commitPanel.fileRowBlame")}
-          </ContextMenuItem>
-        )}
-        {onIgnore && (
-          <ContextMenuItem onSelect={() => onIgnore([row.path])}>
-            <EyeOff className="h-3.5 w-3.5" />
-            {t("commitPanel.fileRowIgnore")}
-          </ContextMenuItem>
-        )}
-        <ContextMenuItem variant="destructive" onSelect={() => onDiscard(row.id)}>
-          <Undo2 className="h-3.5 w-3.5" />
-          {inMultiSelection && multiSelectedCount > 1
-            ? t("commitPanel.fileRowDiscardMultiple", { count: multiSelectedCount })
-            : t("commitPanel.fileRowDiscard")}
-        </ContextMenuItem>
-      </ContextMenuContent>
+      {menuOpen && (
+        <FileRowMenu
+          row={row}
+          canBlame={canBlame}
+          inMultiSelection={inMultiSelection}
+          multiSelectedCount={multiSelectedCount}
+          onDiscard={onDiscard}
+          onBlame={onBlame}
+          onIgnore={onIgnore}
+        />
+      )}
     </ContextMenu>
+  );
+}
+
+function EmbeddedRepoBadge() {
+  const { t } = useTranslation();
+  return (
+    <span className="ml-2 rounded bg-git-merge/15 px-1 py-0.5 text-[0.625rem] font-medium text-git-merge">
+      {t("commitPanel.embeddedRepo")}
+    </span>
+  );
+}
+
+function FileRowMenu({
+  row,
+  canBlame,
+  inMultiSelection,
+  multiSelectedCount,
+  onDiscard,
+  onBlame,
+  onIgnore,
+}: {
+  row: ChangeRow;
+  canBlame: boolean;
+  inMultiSelection: boolean;
+  multiSelectedCount: number;
+  onDiscard: (rowId: string) => void;
+  onBlame: (path: string) => void;
+  onIgnore?: (patterns: string[]) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <ContextMenuContent>
+      {canBlame && (
+        <ContextMenuItem onSelect={() => onBlame(row.path)}>
+          <GitCommitHorizontal className="h-3.5 w-3.5" />
+          {t("commitPanel.fileRowBlame")}
+        </ContextMenuItem>
+      )}
+      {onIgnore && (
+        <ContextMenuItem onSelect={() => onIgnore([row.path])}>
+          <EyeOff className="h-3.5 w-3.5" />
+          {t("commitPanel.fileRowIgnore")}
+        </ContextMenuItem>
+      )}
+      <ContextMenuItem variant="destructive" onSelect={() => onDiscard(row.id)}>
+        <Undo2 className="h-3.5 w-3.5" />
+        {inMultiSelection && multiSelectedCount > 1
+          ? t("commitPanel.fileRowDiscardMultiple", { count: multiSelectedCount })
+          : t("commitPanel.fileRowDiscard")}
+      </ContextMenuItem>
+    </ContextMenuContent>
   );
 }
 

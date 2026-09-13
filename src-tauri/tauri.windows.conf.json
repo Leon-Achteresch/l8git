@@ -4,9 +4,13 @@
     "windows": [
       {
         "title": "l8git",
-        "width": 800,
-        "height": 600,
-        "decorations": false
+        "width": 1280,
+        "height": 832,
+        "decorations": false,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "preventOverflow": true
       }
     ]
   }

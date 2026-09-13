@@ -78,11 +78,11 @@ function CommitConventionalIconsInner({
     return (
       <span
         className={cn(
-          "inline-flex h-7 w-7 shrink-0 items-center justify-center self-center rounded border text-zinc-600 dark:text-zinc-300",
+          "inline-flex h-5 w-5 shrink-0 items-center justify-center self-center rounded border text-zinc-600 dark:text-zinc-300",
           CELL_DEFAULT,
         )}
       >
-        <GitCommit className="size-3.5 text-zinc-400" strokeWidth={2} />
+        <GitCommit className="size-3 text-zinc-400" strokeWidth={2} />
       </span>
     );
   }
@@ -104,7 +104,7 @@ function CommitConventionalIconsInner({
             )}
             title="BREAKING CHANGE"
           >
-            <OctagonAlert className="size-3.5" strokeWidth={2.25} />
+            <OctagonAlert className="size-3" strokeWidth={2.25} />
           </span>
         )}
         {TypeIcon && typeKey && (
@@ -112,18 +112,18 @@ function CommitConventionalIconsInner({
             className={cn("inline-flex rounded-sm p-0.5")}
             title={TYPE_LABELS[typeKey] ?? typeKey}
           >
-            <TypeIcon className="size-3.5" strokeWidth={2} />
+            <TypeIcon className="size-3" strokeWidth={2} />
           </span>
         )}
       </span>
     ) : (
-      <GitCommit className="size-3.5 text-zinc-400" strokeWidth={2} />
+      <GitCommit className="size-3 text-zinc-400" strokeWidth={2} />
     );
 
   return (
     <span
       className={cn(
-        "inline-flex h-7 w-7 shrink-0 items-center justify-center self-center rounded border text-zinc-600 dark:text-zinc-300",
+        "inline-flex h-5 w-5 shrink-0 items-center justify-center self-center rounded border text-zinc-600 dark:text-zinc-300",
         CELL_DEFAULT,
         typeKey && isRecognizedType && TYPE_CELL[typeKey],
       )}

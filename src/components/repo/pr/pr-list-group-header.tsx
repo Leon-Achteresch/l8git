@@ -6,7 +6,7 @@ export function PrListGroupHeader({ label, count }: { label: string; count: numb
       <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/80">
         {label}
       </span>
-      <m.span layout
+      <m.span
         initial={{ scale: 0.8 }}
         animate={{ scale: 1 }}
         className="inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-muted/80 px-1.5 font-mono text-[0.625rem] font-semibold text-muted-foreground"

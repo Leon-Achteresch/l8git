@@ -21,7 +21,7 @@ export function PrLabelChip({ label }: { label: string }) {
   const tone = LABEL_TONES[label.toLowerCase()] ?? "secondary";
 
   return (
-    <m.span layout
+    <m.span
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ duration: 0.12 }}

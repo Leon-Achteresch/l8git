@@ -20,7 +20,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronRight, FolderClosed, FolderOpen, FolderPlus, Pencil, Ungroup } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { RepoGroupDialog } from "./repo-group-dialog";
@@ -38,16 +38,10 @@ export function ForestNodes({
   nodes,
   activePath,
   nested = false,
-  slot = null,
-  slotAt = -1,
-  slotOpen = false,
 }: {
   nodes: ForestNode[];
   activePath: string | null;
   nested?: boolean;
-  slot?: ReactNode;
-  slotAt?: number;
-  slotOpen?: boolean;
 }) {
   return (
     <>
@@ -59,14 +53,13 @@ export function ForestNodes({
           (prevNode !== null && nodeContainsActive(prevNode, activePath));
         return (
           <Fragment key={key}>
-            {i === slotAt && slot}
             {i > 0 && !nested && (
               <span
                 data-tab-sep
                 className={cn(
                   "mb-1 h-4 w-0.5 shrink-0 self-center rounded-full bg-foreground/5 transition-opacity",
                   "[*:hover+&]:opacity-0 [&:has(+*:hover)]:opacity-0",
-                  (hideSeparator || (slotOpen && i === slotAt)) && "opacity-0",
+                  hideSeparator && "opacity-0",
                 )}
                 aria-hidden
               />
@@ -84,7 +77,6 @@ export function ForestNodes({
           </Fragment>
         );
       })}
-      {slotAt >= nodes.length && slot}
     </>
   );
 }
@@ -188,7 +180,7 @@ function RepoGroup({
                 "group/header relative inline-flex h-7 min-w-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-left text-xs font-medium transition-colors duration-150 hover:bg-foreground/[0.06]",
               )}
             >
-              <m.span layout
+              <m.span
                 className="flex shrink-0 items-center justify-center"
                 animate={{ rotate: collapsed ? 0 : 90 }}
                 transition={{ type: "spring", stiffness: 600, damping: 32 }}
@@ -203,7 +195,7 @@ function RepoGroup({
               <span className="flex size-[22px] shrink-0 items-center justify-center">
                 <AnimatePresence mode="wait" initial={false}>
                   {collapsed ? (
-                    <m.span layout
+                    <m.span
                       key="closed"
                       initial={{ opacity: 0, scale: 0.6 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -217,7 +209,7 @@ function RepoGroup({
                       />
                     </m.span>
                   ) : (
-                    <m.span layout
+                    <m.span
                       key="open"
                       initial={{ opacity: 0, scale: 0.6 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -280,7 +272,7 @@ function RepoGroup({
 
         <AnimatePresence initial={false}>
           {!collapsed && (
-            <m.div layout
+            <m.div
               key="children"
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: "auto", opacity: 1 }}

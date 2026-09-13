@@ -1,0 +1,240 @@
+.ci-workspace {
+  background: var(--background);
+  container-type: inline-size;
+}
+.ci-runs {
+  container-type: inline-size;
+}
+.ci-header {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 24px 24px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ci-header .ci-nav {
+  height: 40px;
+  gap: 20px;
+}
+.ci-status-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 20px 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ci-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  text-align: left;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  background: color-mix(in srgb, var(--muted) 25%, transparent);
+  cursor: pointer;
+  transition: background 150ms;
+}
+.ci-stat + .ci-stat {
+  border-left: 1px solid var(--border);
+}
+.ci-stat strong {
+  color: var(--foreground);
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+}
+.ci-stat:hover,
+.ci-stat[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--primary) 7%, var(--background));
+}
+.ci-stat[aria-pressed="true"] {
+  box-shadow: inset 0 -2px var(--primary);
+  color: var(--foreground);
+}
+.ci-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 20px 12px;
+}
+.ci-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 140px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: var(--muted-foreground);
+  background: var(--background);
+}
+.ci-search input {
+  width: 100%;
+  min-width: 0;
+  outline: none;
+  font-size: 12px;
+  color: var(--foreground);
+}
+.ci-search:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.ci-filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+.ci-filter-controls select {
+  min-width: 0;
+  max-width: 100%;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.ci-view-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--muted);
+  font-size: 12px;
+}
+.ci-view-options label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.ci-view-options input {
+  accent-color: var(--primary);
+}
+.ci-view-options > span {
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.ci-list-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 22px 10px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.ci-list-caption button {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.ci-run-table {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ci-run-row {
+  border-left: 2px solid transparent;
+  transition: background 150ms;
+}
+.ci-run-row + .ci-run-row {
+  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+.ci-run-row:hover {
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+.ci-run-row[data-selected="true"] {
+  background: color-mix(in srgb, var(--primary) 8%, var(--background));
+  border-left-color: var(--primary);
+}
+.ci-run-main {
+  padding: 16px;
+}
+.ci-run-actions {
+  color: var(--muted-foreground);
+}
+.ci-run-table[data-compact="true"] .ci-run-main {
+  padding-block: 9px;
+}
+.ci-run-table[data-compact="true"] .ci-run-title {
+  margin-top: 0;
+  font-size: 12px;
+}
+.ci-run-table[data-compact="true"] .ci-run-meta {
+  margin-top: 4px;
+}
+.ci-run-table[data-metadata="false"] .ci-run-meta {
+  display: none;
+}
+.ci-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.ci-detail {
+  background: color-mix(in srgb, var(--muted) 20%, var(--background));
+}
+.ci-workspace :is(button, select, [role="button"]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+@container (max-width: 650px) {
+  .ci-header {
+    padding: 16px 16px 0;
+    gap: 16px;
+  }
+  .ci-stat {
+    padding: 12px 8px;
+    font-size: 11px;
+  }
+  .ci-stat strong {
+    font-size: 22px;
+  }
+  .ci-status-overview {
+    margin: 12px 12px 0;
+  }
+  .ci-toolbar {
+    padding: 12px;
+  }
+  .ci-run-main {
+    padding: 12px 8px;
+    gap: 8px;
+  }
+  .ci-run-actions {
+    flex-direction: column;
+  }
+}
+.ci-workspace .react-flow__controls-button {
+  background: var(--background);
+  color: var(--foreground);
+  fill: currentColor;
+  border-color: var(--border);
+}
+.ci-workspace .react-flow__controls-button:hover {
+  background: var(--muted);
+}
+@container (max-width: 650px) {
+  .ci-workspace .react-flow__minimap {
+    display: none;
+  }
+}

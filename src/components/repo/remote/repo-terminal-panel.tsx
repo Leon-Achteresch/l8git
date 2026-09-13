@@ -57,7 +57,6 @@ export function RepoTerminalPanel({ path }: Props) {
 
   return (
     <m.div
-      layout
       transition={SPRING_LAYOUT}
       className="terminal-panel flex h-full min-h-0 flex-col text-foreground"
       style={{ backgroundColor: terminalBackground() }}
@@ -134,7 +133,6 @@ export function RepoTerminalPanel({ path }: Props) {
       </header>
 
       <m.div
-        layout
         transition={SPRING_PANEL}
         className="terminal-panel-body relative min-h-0 flex-1"
       >

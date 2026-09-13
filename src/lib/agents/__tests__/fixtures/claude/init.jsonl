@@ -1,0 +1,1 @@
+{"type":"system","subtype":"init","session_id":"fixture-session-001","cwd":"/workspace/fixture-repo","model":"fixture-model","tools":["Bash","Read","Edit"],"permissionMode":"default"}

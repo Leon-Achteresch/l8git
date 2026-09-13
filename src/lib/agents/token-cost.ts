@@ -94,6 +94,78 @@ export function formatUsd(value: number): string {
   return `$${value.toFixed(2)}`;
 }
 
+export interface ContextCatalogEntry {
+  id: string;
+  contextWindow: number | null;
+}
+
+export function contextWindowFor(
+  model: string | null | undefined,
+  catalog: ReadonlyArray<ContextCatalogEntry>,
+): number | null {
+  if (!model) return null;
+  const entry = catalog.find((item) => item.id === model);
+  return entry?.contextWindow ?? null;
+}
+
+export interface ContextUsageInput {
+  activeContext: number;
+  contextWindow: number | null;
+  measured: boolean;
+}
+
+export interface ContextUsageResult {
+  percent: number | null;
+  remaining: number | null;
+  measured: boolean;
+}
+
+export function contextUsage(input: ContextUsageInput): ContextUsageResult {
+  const { activeContext, contextWindow, measured } = input;
+  if (!measured || !contextWindow || contextWindow <= 0) {
+    return { percent: null, remaining: null, measured: false };
+  }
+  const percent = Math.min(100, Math.round((activeContext / contextWindow) * 100));
+  const remaining = Math.max(0, contextWindow - activeContext);
+  return { percent, remaining, measured: true };
+}
+
+export type CostSource = "provider" | "estimated";
+
+export interface CostBreakdownResult {
+  total: number | null;
+  source: CostSource;
+  perInstance: Record<string, number>;
+}
+
+export interface CostBreakdownUsage {
+  totalCostUsd?: number | null;
+  tokenUsage?: AgentTokenUsage;
+}
+
+export function costBreakdown(
+  usage: CostBreakdownUsage,
+  model: string | null | undefined,
+  instanceId: string,
+): CostBreakdownResult {
+  if (usage.totalCostUsd !== undefined && usage.totalCostUsd !== null) {
+    return {
+      total: usage.totalCostUsd,
+      source: "provider",
+      perInstance: { [instanceId]: usage.totalCostUsd },
+    };
+  }
+  const estimated = estimateCost(usage.tokenUsage, model);
+  if (!estimated) {
+    return { total: null, source: "estimated", perInstance: {} };
+  }
+  return {
+    total: estimated.totalUsd,
+    source: "estimated",
+    perInstance: { [instanceId]: estimated.totalUsd },
+  };
+}
+
 export function accumulateUsage(
   previous: AgentTokenUsage | undefined,
   delta: Partial<AgentTokenUsage>,

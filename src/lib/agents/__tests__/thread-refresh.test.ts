@@ -7,6 +7,13 @@ describe("refreshKey", () => {
     expect(refreshKey("codex", ["/b", "/a"])).toBe(refreshKey("codex", ["/a", "/b"]));
     expect(refreshKey("codex", ["/a"])).not.toBe(refreshKey("claude", ["/a"]));
   });
+
+  it("distinguishes instances so refresh throttling is per-instance", () => {
+    expect(refreshKey("claude", ["/a"], "claude:default")).not.toBe(
+      refreshKey("claude", ["/a"], "claude:work"),
+    );
+    expect(refreshKey("claude", ["/a"])).not.toBe(refreshKey("claude", ["/a"], "claude:work"));
+  });
 });
 
 describe("shouldRefresh", () => {

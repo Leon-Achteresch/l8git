@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, RefreshCw } from "lucide-react";
+import { Activity, RefreshCw, GitBranch, Workflow, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CiMode } from "./repo-ci-panel";
 import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
@@ -24,7 +24,7 @@ export function RepoCiHeader({
   const { t } = useTranslation();
 
   return (
-    <div className="flex flex-col gap-2 px-4 pb-2 pt-3">
+    <div className="ci-header">
       {/* Title row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -32,12 +32,12 @@ export function RepoCiHeader({
             <Activity className="h-4 w-4" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold tracking-wide text-foreground">
+            <span className="text-xl font-semibold tracking-tight text-foreground">
               {t("ci.headerTitle")}
             </span>
             {headSha ? (
-              <span className="font-mono text-[0.625rem] uppercase tracking-wider text-muted-foreground/80">
-                {headSha.substring(0, 7)}
+              <span className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                <GitBranch className="size-3" /> HEAD · {headSha.substring(0, 7)}
               </span>
             ) : loading ? (
               <m.span animate={pulseKeyframes} transition={pulseTransition} className="text-[0.625rem] text-muted-foreground/80">
@@ -62,9 +62,9 @@ export function RepoCiHeader({
 
       {/* Mode toggle */}
       <Tabs value={mode} onValueChange={(value) => onModeChange(value as CiMode)}>
-        <TabsList className="w-full">
-          <TabsTrigger value="runs">{t("ci.modeRuns")}</TabsTrigger>
-          <TabsTrigger value="checks">{t("ci.modeChecks")}</TabsTrigger>
+        <TabsList variant="line" className="ci-nav">
+          <TabsTrigger value="runs"><Workflow />{t("ci.modeRuns")}</TabsTrigger>
+          <TabsTrigger value="checks"><ShieldCheck />{t("ci.modeChecks")}</TabsTrigger>
         </TabsList>
       </Tabs>
     </div>

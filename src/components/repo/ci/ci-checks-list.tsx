@@ -44,7 +44,7 @@ export function CiChecksList({
 
   return (
     <ScrollArea className="h-full px-2 py-2">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         {checks.map((c, i) => {
           const keyId = `${c.check_run_id ?? ""}-${c.external_id ?? ""}-${c.name}-${c.key ?? ""}-${i}`;
           return (

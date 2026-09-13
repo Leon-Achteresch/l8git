@@ -133,6 +133,8 @@ jobs:
             args: --target universal-apple-darwin --features headless
           - platform: windows-latest
             args: --features headless
+          - platform: ubuntu-22.04
+            args: --features headless
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -152,6 +154,20 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Systemabhaengigkeiten fuer Linux-Bundles
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            patchelf
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -164,6 +180,28 @@ jobs:
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
+
+      - name: Apple-Signierung aktivieren (nur wenn Secrets gesetzt sind)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_SIGNING_IDENTITY" ] || [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "Keine Apple-Secrets hinterlegt - Build bleibt unsigniert (siehe docs/release.md)."
+            exit 0
+          fi
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            value="${!name}"
+            [ -n "$value" ] || continue
+            printf '%s<<__EOF__\n%s\n__EOF__\n' "$name" "$value" >> "$GITHUB_ENV"
+          done
+          echo "Apple-Signierung aktiv fuer $APPLE_SIGNING_IDENTITY"
 
       - name: Build und veroeffentliche Tauri App
         uses: tauri-apps/tauri-action@v0

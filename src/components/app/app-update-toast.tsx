@@ -38,7 +38,7 @@ export function AppUpdateToast() {
   return (
     <AnimatePresence>
       {visible && (
-        <m.div layout
+        <m.div
           key="update-toast"
           role="status"
           aria-live="polite"
@@ -53,7 +53,7 @@ export function AppUpdateToast() {
           {(phase === "downloading" || phase === "installing") && (
             <div className="h-[2px] w-full bg-muted">
               {percent !== null ? (
-                <m.div layout
+                <m.div
                   className="h-full bg-primary"
                   initial={{ width: 0 }}
                   animate={{ width: `${percent}%` }}

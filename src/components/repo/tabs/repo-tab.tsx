@@ -7,7 +7,6 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { SpinIcon } from "@/components/motion/kit";
-import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import { toastError } from "@/lib/error-toast";
 import { repoAvatarHue, repoInitialChar } from "@/lib/repo-avatar";
 import { useRepoGroupsStore } from "@/lib/repo-groups-store";
@@ -247,10 +246,6 @@ export const RepoTab = memo(function RepoTab({
             style={style}
             type="button"
             onClick={() => {
-              if (router.state.location.pathname.startsWith("/agents")) {
-                useAgentRepoStore.getState().setPath(path);
-                return;
-              }
               useRepoStore.getState().setActive(path);
               void router.navigate({ to: "/" });
             }}

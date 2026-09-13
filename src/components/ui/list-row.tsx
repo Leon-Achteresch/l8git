@@ -55,7 +55,6 @@ function ListRow({
 
   return (
     <m.button
-      layout
       type="button"
       {...shared}
       {...(props as HTMLMotionProps<"button">)}

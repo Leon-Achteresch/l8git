@@ -1,5 +1,4 @@
 import { ListRow } from "@/components/ui/list-row";
-import { IslandDock } from "@/components/app/island-dock";
 import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
 import { BranchTree } from "@/components/repo/layout/branch-tree";
 import { SidebarNavItem } from "@/components/repo/layout/sidebar-nav-item";
@@ -283,11 +282,11 @@ export function RepoSidebar() {
   const tabListClass =
     tabLayout === "grid"
       ? {
-          2: "grid grid-cols-2 gap-1",
-          3: "grid grid-cols-3 gap-1",
-          4: "grid grid-cols-4 gap-1",
+          2: "grid grid-cols-2 gap-0.5",
+          3: "grid grid-cols-3 gap-0.5",
+          4: "grid grid-cols-4 gap-0.5",
         }[gridColumns]
-      : "space-y-0.5";
+      : "flex flex-col gap-0.5";
 
   const renderTab = (tabId: SidebarTab) => (
     <li key={tabId}>
@@ -310,19 +309,19 @@ export function RepoSidebar() {
       type="button"
       variant="ghost"
       size="icon-xs"
-      className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+      className="h-6 w-6 shrink-0 rounded-lg text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
       title={t("sidebar.newBranchTitle")}
       aria-label={t("sidebar.newBranchAria")}
       onClick={() => setNewBranchOpen(true)}
     >
-      <Plus className="h-3 w-3" />
+      <Plus className="h-3.5 w-3.5" />
     </Button>
   );
 
   return (
     <aside
       ref={asideRef}
-      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-sidebar-border/80 bg-sidebar text-sidebar-foreground"
       style={{
         width:
           tabLayout === "grid"
@@ -332,61 +331,61 @@ export function RepoSidebar() {
     >
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex shrink-0 justify-center px-2">
-          <IslandDock id="sidebar" axis="y" />
         </div>
 
         <nav
-          className="shrink-0 p-2"
+          className="shrink-0 px-2 pb-1 pt-0.5"
           role="tablist"
           aria-label={t("sidebar.navAria")}
         >
-          <ul className={tabListClass}>{mainTabs.map(renderTab)}</ul>
+          <div className="rounded-2xl bg-foreground/[0.035] p-1 dark:bg-white/[0.045]">
+            <ul className={tabListClass}>{mainTabs.map(renderTab)}</ul>
 
-          {rareTabs.length > 0 && (
-            <>
-              <ListRow
-                size="xs"
-                aria-expanded={showRare}
-                onClick={() => setMoreTabsExpanded(!showRare)}
-                disabled={rareActive}
-                className="mt-1 gap-1 px-2 font-semibold uppercase tracking-[0.08em] hover:bg-sidebar-accent/30"
-              >
-                <ChevronRight
-                  className={cn(
-                    "size-3 shrink-0 transition-transform duration-200",
-                    showRare && "rotate-90",
-                  )}
-                />
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {t("sidebar.moreTabs")}
-                </span>
-                {!showRare && rareCountSum > 0 && (
-                  <span className="flex h-[14px] min-w-[14px] shrink-0 items-center justify-center rounded-full bg-muted px-0.5 text-[0.5625rem] font-bold tabular-nums text-muted-foreground ring-1 ring-border">
-                    {rareCountSum > 9 ? "9+" : rareCountSum}
+            {rareTabs.length > 0 && (
+              <>
+                <ListRow
+                  size="xs"
+                  variant="ghost"
+                  aria-expanded={showRare}
+                  onClick={() => setMoreTabsExpanded(!showRare)}
+                  disabled={rareActive}
+                  className="mt-0.5 h-7 gap-1 rounded-xl px-2 text-[0.6875rem] font-medium text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
+                >
+                  <ChevronRight
+                    className={cn(
+                      "size-3 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                      showRare && "rotate-90",
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {t("sidebar.moreTabs")}
                   </span>
-                )}
-              </ListRow>
-              <AnimatePresence initial={false}>
-                {showRare && (
-                  <m.div layout
-                    key="rare-tabs"
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                    className="overflow-hidden"
-                  >
-                    <ul className={cn(tabListClass, "pt-1")}>
-                      {rareTabs.map(renderTab)}
-                    </ul>
-                  </m.div>
-                )}
-              </AnimatePresence>
-            </>
-          )}
+                  {!showRare && rareCountSum > 0 && (
+                    <span className="shrink-0 text-[0.625rem] font-semibold tabular-nums text-muted-foreground">
+                      {rareCountSum > 9 ? "9+" : rareCountSum}
+                    </span>
+                  )}
+                </ListRow>
+                <AnimatePresence initial={false}>
+                  {showRare && (
+                    <m.div
+                      key="rare-tabs"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <ul className={cn(tabListClass, "pt-0.5")}>
+                        {rareTabs.map(renderTab)}
+                      </ul>
+                    </m.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
+          </div>
         </nav>
-
-        <div className="mx-2 h-px shrink-0 bg-sidebar-border/60" />
 
         {useBranchPopover ? (
           <div className="shrink-0 px-2 py-1.5">
@@ -399,9 +398,9 @@ export function RepoSidebar() {
                   title={t("sidebar.branchPopoverTitle")}
                   aria-label={t("sidebar.branchPopoverTitle")}
                   className={cn(
-                    "relative w-full hover:bg-sidebar-accent/40",
+                    "relative w-full rounded-xl hover:bg-foreground/[0.04]",
                     branchPopoverOpen &&
-                      "bg-sidebar-accent/80 text-sidebar-accent-foreground",
+                      "bg-background text-foreground shadow-[0_1px_2px_rgb(24_24_27/0.08),0_0_0_1px_rgb(24_24_27/0.05)] dark:bg-white/10 dark:shadow-none",
                   )}
                 >
                   <GitBranch className="h-4 w-4" />
@@ -419,9 +418,8 @@ export function RepoSidebar() {
                 className="flex w-80 flex-col gap-0 overflow-hidden p-0"
                 style={{ maxHeight: "70vh" }}
               >
-                <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-                  <GitBranch className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-xs font-semibold">
+                <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
+                  <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-medium tracking-tight">
                     {t("sidebar.branchPopoverTitle")}
                   </span>
                   {newBranchButton}
@@ -437,9 +435,8 @@ export function RepoSidebar() {
           </div>
         ) : (
           <>
-            <div className="flex shrink-0 items-center gap-1.5 px-3 pb-0.5 pt-2">
-              <GitBranch className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-              <span className="min-w-0 flex-1 truncate text-[0.65625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-2.5">
+              <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-medium tracking-tight text-foreground">
                 {t("sidebar.branchPopoverTitle")}
               </span>
               {newBranchButton}

@@ -5,6 +5,7 @@ import type {
   AgentConversation,
   AgentPendingRequest,
   AgentThreadSummary,
+  InstanceId,
 } from "@/lib/agents/types";
 
 export type AgentOverviewStatus = "awaitingApproval" | "running" | "failed" | "idle";
@@ -261,10 +262,103 @@ export function groupFleetLanes(entries: AgentOverviewEntry[]): Record<AgentFlee
   return lanes;
 }
 
+export type AgentConnectionState = "online" | "reconnecting" | "offline" | "catchingUp";
+
+export type AgentConnectionSignal =
+  | { type: "connected" }
+  | { type: "reconnecting" }
+  | { type: "disconnected" }
+  | { type: "sequence"; sequence: number };
+
+export interface AgentConnectionSnapshot {
+  state: AgentConnectionState;
+  lastSequence: number;
+  gapDetected: boolean;
+}
+
+export function connectionState(
+  events: readonly AgentConnectionSignal[],
+): AgentConnectionSnapshot {
+  let state: AgentConnectionState = "offline";
+  let lastSequence = 0;
+  let gapDetected = false;
+  let hasSequence = false;
+
+  for (const event of events) {
+    switch (event.type) {
+      case "disconnected":
+        state = "offline";
+        break;
+      case "reconnecting":
+        state = "reconnecting";
+        break;
+      case "connected":
+        state = hasSequence ? "catchingUp" : "online";
+        break;
+      case "sequence": {
+        if (hasSequence && event.sequence > lastSequence + 1) gapDetected = true;
+        if (event.sequence > lastSequence) lastSequence = event.sequence;
+        hasSequence = true;
+        state = "online";
+        break;
+      }
+    }
+  }
+
+  return { state, lastSequence, gapDetected };
+}
+
+/** Sequence to request a resync snapshot from after reconnecting. */
+export function snapshotResumeSequence(snapshot: AgentConnectionSnapshot): number {
+  return snapshot.lastSequence + 1;
+}
+
 export interface AgentRepoGroup {
   path: string;
   repoName: string;
   entries: AgentOverviewEntry[];
+}
+
+export interface AgentInstanceOverview {
+  instanceId: InstanceId;
+  running: number;
+  waitingForApproval: number;
+  rateLimited: number;
+  failed: number;
+}
+
+export function aggregateOverviewByInstance(
+  entries: AgentOverviewEntry[],
+  instanceOf: (entry: AgentOverviewEntry) => InstanceId,
+  rateLimitedInstances: ReadonlySet<InstanceId> = new Set(),
+): AgentInstanceOverview[] {
+  const byInstance = new Map<InstanceId, AgentInstanceOverview>();
+  for (const entry of entries) {
+    const id = instanceOf(entry);
+    let bucket = byInstance.get(id);
+    if (!bucket) {
+      bucket = {
+        instanceId: id,
+        running: 0,
+        waitingForApproval: 0,
+        rateLimited: 0,
+        failed: 0,
+      };
+      byInstance.set(id, bucket);
+    }
+    if (entry.status === "running") bucket.running += 1;
+    if (entry.status === "awaitingApproval") bucket.waitingForApproval += 1;
+    if (entry.status === "failed") bucket.failed += 1;
+  }
+  for (const id of rateLimitedInstances) {
+    let bucket = byInstance.get(id);
+    if (!bucket) {
+      bucket = { instanceId: id, running: 0, waitingForApproval: 0, rateLimited: 0, failed: 0 };
+      byInstance.set(id, bucket);
+    }
+    bucket.rateLimited += 1;
+  }
+  return [...byInstance.values()];
 }
 
 export function groupEntriesByRepo(entries: AgentOverviewEntry[]): AgentRepoGroup[] {

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "l8git",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "identifier": "com.leon.l8git",
   "build": {
     "beforeDevCommand": "bun run dev",
@@ -15,14 +15,18 @@
     "windows": [
       {
         "title": "l8git",
-        "width": 800,
-        "height": 600,
+        "width": 1280,
+        "height": 832,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "trafficLightPosition": {
           "x": 19,
           "y": 23
-        }
+        },
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "preventOverflow": true
       }
     ],
     "security": {
@@ -40,7 +44,27 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "Leon Achteresch",
+    "homepage": "https://github.com/Leon-Achteresch/l8git",
+    "copyright": "Copyright (c) 2026 Leon Achteresch",
+    "category": "DeveloperTool",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
+    "shortDescription": "Fast multi-repository Git desktop client",
+    "longDescription": "l8git is a fast, multi-repository Git desktop client with branch stacks, pull requests, CI insights and integrated terminals - built with Tauri 2, React 19 and Rust.",
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.plist"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "git"
+        ]
+      }
+    }
   },
   "plugins": {
     "updater": {

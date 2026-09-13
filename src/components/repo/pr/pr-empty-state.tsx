@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 export function PrEmptyState({ children }: { children?: ReactNode }) {
   return (
-    <m.div layout
+    <m.div
       initial={{ opacity: 0, scale: 0.95, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 320, damping: 28 }}

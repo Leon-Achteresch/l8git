@@ -18,7 +18,7 @@ export function AgentReviewStepCard({
 }) {
   const { t } = useTranslation();
   return (
-    <m.section layout
+    <m.section
       className={cn(
         "rounded-[var(--ag-r-md)] border border-[var(--ag-line)] bg-[var(--ag-surface)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[transform,border-color,box-shadow] duration-200 hover:border-[var(--ag-line-strong)] space-y-2 rounded-lg p-3",
         step.status === "failed" && "ring-1 ring-destructive/40",

@@ -357,3 +357,87 @@ export interface AgentComposerAction {
   description?: ReactNode;
   icon?: ReactNode;
 }
+
+export type DriverKind = string & { readonly __brand: "DriverKind" };
+export type InstanceId = string & { readonly __brand: "InstanceId" };
+export type ThreadId = string & { readonly __brand: "ThreadId" };
+export type NativeSessionId = string & { readonly __brand: "NativeSessionId" };
+
+export function driverKind(value: string): DriverKind {
+  return value as DriverKind;
+}
+
+export function instanceId(value: string): InstanceId {
+  return value as InstanceId;
+}
+
+export function threadId(value: string): ThreadId {
+  return value as ThreadId;
+}
+
+export function nativeSessionId(value: string): NativeSessionId {
+  return value as NativeSessionId;
+}
+
+export interface NativeSessionRef {
+  driver: DriverKind;
+  instance: InstanceId;
+  nativeSessionId: NativeSessionId;
+}
+
+export function nativeSessionKey(ref: NativeSessionRef): string {
+  return JSON.stringify([ref.driver, ref.instance, ref.nativeSessionId]);
+}
+
+export type AgentCapabilityStatus = "supported" | "unsupported" | "unavailable";
+
+export interface AgentCapability {
+  status: AgentCapabilityStatus;
+  reason?: string;
+  minVersion?: string;
+}
+
+export const AGENT_EVENT_SCHEMA_VERSION = 1;
+
+interface AgentEventBase {
+  schemaVersion: typeof AGENT_EVENT_SCHEMA_VERSION;
+  eventId: string;
+  sequence: number;
+  driver: DriverKind;
+  instance: InstanceId;
+  threadId: ThreadId;
+  turnId?: string;
+  nativeSessionId: NativeSessionId;
+}
+
+export type AgentRuntimeEvent =
+  | (AgentEventBase & { type: "session"; status: AgentConnectionStatus })
+  | (AgentEventBase & { type: "turn"; status: AgentTurnStatus })
+  | (AgentEventBase & { type: "text"; text: string })
+  | (AgentEventBase & { type: "tool"; toolName: string; itemId: string })
+  | (AgentEventBase & { type: "task"; itemId: string; status: string })
+  | (AgentEventBase & { type: "approval"; requestId: string; method: string })
+  | (AgentEventBase & { type: "usage"; usage: AgentTokenUsage })
+  | (AgentEventBase & { type: "error"; message: string });
+
+export type AgentCommand =
+  | { type: "start"; driver: DriverKind; instance: InstanceId }
+  | { type: "send"; threadId: ThreadId; text: string }
+  | { type: "steer"; threadId: ThreadId; text: string }
+  | { type: "interrupt"; threadId: ThreadId }
+  | { type: "stop"; threadId: ThreadId }
+  | { type: "resume"; threadId: ThreadId; nativeSessionId: NativeSessionId }
+  | { type: "approve"; threadId: ThreadId; requestId: string; approved: boolean };
+
+export interface AgentProviderAdapter {
+  driver: DriverKind;
+  start(instance: InstanceId): Promise<NativeSessionRef>;
+  send(threadId: ThreadId, text: string): Promise<void>;
+  interrupt(threadId: ThreadId): Promise<void>;
+  stop(threadId: ThreadId): Promise<void>;
+  resume(threadId: ThreadId, ref: NativeSessionRef): Promise<void>;
+  capability(name: string): AgentCapability;
+  steer?(threadId: ThreadId, text: string): Promise<void>;
+  approve?(threadId: ThreadId, requestId: string, approved: boolean): Promise<void>;
+  ask?(threadId: ThreadId, question: AgentInputQuestion): Promise<void>;
+}

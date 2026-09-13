@@ -124,7 +124,7 @@ modules:
       # PLATZHALTER: sha256 muss durch den Hash des echten Release-Artefakts
       # ersetzt werden (siehe packaging/README.md, Abschnitt "sha256 ermitteln").
       - type: file
-        url: https://github.com/Leon-Achteresch/l8git/releases/download/v0.5.0/l8git_0.5.0_amd64.deb
+        url: https://github.com/Leon-Achteresch/l8git/releases/download/v1.0.0/l8git_1.0.0_amd64.deb
         sha256: '0000000000000000000000000000000000000000000000000000000000000000'
         dest-filename: l8git.deb
       # Sobald vorhanden, hier die AppStream-Datei aus dem Repo einbinden:

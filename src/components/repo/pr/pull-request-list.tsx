@@ -210,7 +210,6 @@ export function PullRequestList({
                       {label}
                     </span>
                     <m.span
-                      layout
                       className={[
                         "relative z-10 ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 font-mono text-[0.5625rem] font-bold transition-colors",
                         active
@@ -261,7 +260,7 @@ export function PullRequestList({
 
         <AnimatePresence>
           {showSearch && (
-            <m.div layout
+            <m.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}

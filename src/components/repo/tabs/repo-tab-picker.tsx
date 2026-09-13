@@ -2,9 +2,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { repoAvatarHue, repoInitialChar } from "@/lib/repo-avatar";
 import { repoLabel, useRepoStore } from "@/lib/repo-store";
 import { useWorkspaceStore } from "@/lib/workspace-store";
-import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
 import { cn } from "@/lib/utils";
-import { useRouter, useRouterState } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import { ChevronsUpDown, Layers, Search, X } from "lucide-react";
 import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,9 +20,6 @@ export function RepoTabPicker({
 }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const onAgents = useRouterState({
-    select: (s) => s.location.pathname.startsWith("/agents"),
-  });
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [moveFor, setMoveFor] = useState<string | null>(null);
@@ -48,12 +44,8 @@ export function RepoTabPicker({
   if (paths.length < 2) return null;
 
   const select = (path: string) => {
-    if (onAgents) {
-      useAgentRepoStore.getState().setPath(path);
-    } else {
-      useRepoStore.getState().setActive(path);
-      void router.navigate({ to: "/" });
-    }
+    useRepoStore.getState().setActive(path);
+    void router.navigate({ to: "/" });
     setOpen(false);
     setQuery("");
     setMoveFor(null);

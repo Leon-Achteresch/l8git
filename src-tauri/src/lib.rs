@@ -12,7 +12,6 @@ mod credentials;
 mod cursor;
 mod favicon;
 pub mod git;
-mod island;
 pub mod jira;
 pub mod jira_mcp;
 pub mod jira_policy;
@@ -61,7 +60,6 @@ pub fn run() {
                     };
                     let _ = window.set_background_color(Some(color));
                 }
-                island::wire_lifecycle(app.handle());
             }
             sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
             Ok(())
@@ -88,6 +86,7 @@ pub fn run() {
             agent_transport::agent_transport_open,
             agent_transport::agent_transport_send,
             agent_transport::agent_transport_close,
+            agent_transport::agent_session_claim,
             agent_transport::agent_transport_close_all,
             agent_transport::opencode_delete_session,
             agent_transport::opencode_cli,
@@ -107,9 +106,14 @@ pub fn run() {
             claude::claude_read_session,
             claude::claude_rename_session,
             claude::claude_delete_session,
+            claude::claude_fork_session,
             claude::claude_auth_status,
             claude::claude_start_login,
+            claude::claude_cancel_login,
             claude::claude_logout,
+            claude::claude_effective_settings,
+            claude::claude_write_settings,
+            claude::agent_diagnostics_report,
             claude::claude_list_plugins,
             claude::claude_list_skills,
             claude::claude_list_hooks,
@@ -118,6 +122,7 @@ pub fn run() {
             claude::claude_list_capability_files,
             claude::claude_read_capability_file,
             claude::claude_write_capability_file,
+            claude::claude_version_status,
             claude::claude_delete_capability_file,
             claude::claude_set_hook_disabled,
             claude::claude_set_plugin_enabled,
@@ -332,13 +337,6 @@ pub fn run() {
             pr::pr_resolve_thread,
             git::repo_range_commits,
             pr::pr_default_branch,
-            island::island_window_open,
-            island::island_window_close,
-            island::island_window_state,
-            island::island_window_set_size,
-            island::main_window_minimize,
-            island::main_window_restore,
-            island::main_window_toggle_minimize
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -66,7 +66,7 @@ export function BranchMultiSelect({
         <Button
           variant="outline"
           className={cn(
-            "group h-8 gap-1.5 pl-1 pr-2 text-xs font-normal transition-all duration-200",
+            "group h-8 min-w-0 max-w-[min(100%,12rem)] gap-1.5 pl-1 pr-2 text-xs font-normal transition-all duration-200",
             count > 0
               ? "border-primary/40 bg-primary/5 text-primary shadow-sm"
               : "text-muted-foreground hover:text-foreground",
@@ -123,7 +123,7 @@ export function BranchMultiSelect({
           </span>
           <AnimatePresence initial={false}>
             {count > 0 && (
-              <m.span layout
+              <m.span
                 key="count"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -139,7 +139,7 @@ export function BranchMultiSelect({
 
         <AnimatePresence initial={false}>
           {count > 0 && (
-            <m.div layout
+            <m.div
               key="chips"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -151,7 +151,6 @@ export function BranchMultiSelect({
                 <AnimatePresence initial={false}>
                   {[...selectedBranches].map((name) => (
                     <m.button
-                      layout
                       key={name}
                       type="button"
                       initial={{ opacity: 0, scale: 0.8 }}
@@ -207,7 +206,7 @@ export function BranchMultiSelect({
 
         <AnimatePresence initial={false}>
           {count > 0 && (
-            <m.div layout
+            <m.div
               key="footer"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -264,7 +263,7 @@ function BranchCommandItem({
       >
         <AnimatePresence initial={false}>
           {selected && (
-            <m.span layout
+            <m.span
               key="check"
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}

@@ -128,7 +128,7 @@ export function PrMergeBanner({
   if (isResolved) {
     const isMerged = detail.state === "merged";
     return (
-      <m.div layout
+      <m.div
         {...bannerMotion}
         className={`rounded-xl border p-3.5 shadow-xs backdrop-blur-sm ${
           isMerged
@@ -167,7 +167,7 @@ export function PrMergeBanner({
 
   if (detail.state === "draft" || detail.is_draft) {
     return (
-      <m.div layout
+      <m.div
         {...bannerMotion}
         className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3.5 text-amber-300 shadow-xs backdrop-blur-sm"
       >
@@ -202,7 +202,7 @@ export function PrMergeBanner({
 
   if (detail.mergeable === false) {
     return (
-      <m.div layout
+      <m.div
         {...bannerMotion}
         className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-rose-300 shadow-xs backdrop-blur-sm"
       >
@@ -238,7 +238,7 @@ export function PrMergeBanner({
 
   if (detail.mergeable === true) {
     return (
-      <m.div layout
+      <m.div
         {...bannerMotion}
         className="flex flex-col gap-3 rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 p-4 shadow-xs backdrop-blur-sm"
       >
@@ -380,7 +380,7 @@ export function PrMergeBanner({
   }
 
   return (
-    <m.div layout
+    <m.div
       {...bannerMotion}
       className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/30 px-3.5 py-2.5 text-[0.6875rem] text-muted-foreground shadow-xs"
     >

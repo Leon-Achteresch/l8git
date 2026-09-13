@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { PullRequest } from '@/lib/repo-store';
-import { useAgentRepoStore } from "@/lib/agents/agent-repo-store";
+import { armTurnAttention } from "@/lib/agents/turn-attention";
+import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import { toastError } from "@/lib/error-toast";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -93,9 +94,12 @@ export async function navigateToTarget(target: NotificationTarget): Promise<void
     const thread = store.conversations[target.threadId];
     if (!thread?.path) throw new Error("Session is no longer available");
     useAgentProviderStore.getState().setProvider(provider);
-    useAgentRepoStore.getState().setPath(thread.path);
     await store.openThread(thread.path, target.threadId);
-    await router.navigate({ to: "/agents", search: { path: thread.path, view: "chat" } });
+    const repoStore = useRepoStore.getState();
+    if (!repoStore.repos[thread.path]) await repoStore.addRepo(thread.path);
+    if (!useRepoStore.getState().repos[thread.path]) throw new Error("Repository is unavailable");
+    repoStore.setActive(thread.path);
+    await router.navigate({ to: "/" });
     return;
   }
   const repoStore = useRepoStore.getState();
@@ -140,7 +144,7 @@ export function armNotifications(): () => void {
   if (armed) return () => {};
   armed = true;
   void refreshNotificationPermission();
-  const disposers = [armAgentEvents(), armRemoteOps(), armClickHandling()];
+  const disposers = [armAgentEvents(), armRemoteOps(), armClickHandling(), armTurnAttention(), armUsageLedger()];
   return () => {
     armed = false;
     for (const dispose of disposers) dispose();

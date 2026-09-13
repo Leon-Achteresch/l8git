@@ -5,7 +5,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { groupBranchesByKind, groupSignature } from "@/lib/branch-groups";
+import { groupBranchesByKind } from "@/lib/branch-groups";
+import { useSidebarPrefs } from "@/lib/sidebar-prefs";
 import { laneColor } from "@/lib/graph";
 import type { Branch } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
@@ -24,9 +25,11 @@ export function BranchSection({
   showNewBranch,
   onNewBranch,
   hideHeader,
+  groupScope,
 }: {
   path: string;
   title: string;
+  groupScope?: string;
   icon?: React.ReactNode;
   branches: Branch[];
   emptyLabel?: string;
@@ -37,8 +40,16 @@ export function BranchSection({
 }) {
   const { t } = useTranslation();
   const grouping = useMemo(() => groupBranchesByKind(branches), [branches]);
-  const sig = groupSignature(grouping);
-  const defaultOpen = useMemo(() => grouping.groups.map((g) => g.id), [grouping]);
+  const closedGroups = useSidebarPrefs((s) => s.closedBranchGroups);
+  const setBranchGroupOpen = useSidebarPrefs((s) => s.setBranchGroupOpen);
+  const scope = groupScope ?? title.toLowerCase();
+  const openGroups = useMemo(
+    () =>
+      grouping.groups
+        .map((g) => g.id)
+        .filter((id) => !closedGroups.includes(`${scope}:${id}`)),
+    [grouping, closedGroups, scope],
+  );
 
   const isEmpty = grouping.flat.length === 0 && grouping.groups.length === 0;
 
@@ -54,12 +65,12 @@ export function BranchSection({
           )}
         >
           {icon ? <span className="justify-self-start text-muted-foreground">{icon}</span> : null}
-          <h3 className="min-w-0 justify-self-stretch truncate text-[0.65625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          <h3 className="min-w-0 justify-self-stretch truncate text-[0.75rem] font-medium text-muted-foreground">
             {title}
           </h3>
           <span className="flex shrink-0 items-center justify-end gap-0.5">
             <span
-              className="flex h-[18px] min-w-[20px] items-center justify-center rounded-md bg-muted/60 px-1.5 text-[0.625rem] font-medium tabular-nums text-muted-foreground"
+              className="text-[0.6875rem] font-medium tabular-nums text-muted-foreground/80"
               aria-label={t("branch.countAria", { count: branches.length })}
             >
               {branches.length}
@@ -88,7 +99,7 @@ export function BranchSection({
       ) : (
         <>
           {grouping.flat.length > 0 && (
-            <ul className="mb-0.5 min-w-0 space-y-px">
+            <ul className="mb-0.5 min-w-0 space-y-0.5">
               {grouping.flat.map((b) => (
                 <BranchRow
                   key={b.name}
@@ -103,26 +114,25 @@ export function BranchSection({
 
           {grouping.groups.length > 0 && (
             <Accordion
-              key={sig}
               type="multiple"
-              defaultValue={defaultOpen}
+              value={openGroups}
+              onValueChange={(open) => {
+                for (const g of grouping.groups) {
+                  setBranchGroupOpen(`${scope}:${g.id}`, open.includes(g.id));
+                }
+              }}
               className="w-full min-w-0 max-w-full"
             >
               {grouping.groups.map((g) => (
                 <AccordionItem key={g.id} value={g.id} className="min-w-0 border-0">
-                  <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 max-w-full items-center justify-start gap-1 rounded-md py-1 pl-2 pr-1.5 text-left text-[0.6875rem] font-medium tracking-wide text-muted-foreground transition-colors hover:bg-sidebar-accent/30 hover:text-foreground hover:no-underline data-[state=open]:text-foreground [&>svg]:shrink-0 [&>svg]:text-muted-foreground/80">
+                  <AccordionTrigger className="group/trigger my-px flex w-full min-w-0 max-w-full items-center justify-start gap-1.5 rounded-lg py-1 pl-2 pr-1.5 text-left text-[0.75rem] font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground hover:no-underline data-[state=open]:text-foreground [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground/60">
                     <span className="min-w-0 flex-1 truncate">{g.label}</span>
-                    <span
-                      className={cn(
-                        "flex h-4 min-w-4 shrink-0 items-center justify-center justify-self-end rounded-sm px-1 text-[0.5625rem] font-medium tabular-nums transition-colors",
-                        "bg-muted/60 text-muted-foreground group-data-[state=open]/trigger:bg-muted group-data-[state=open]/trigger:text-foreground",
-                      )}
-                    >
+                    <span className="shrink-0 text-[0.6875rem] font-medium tabular-nums text-muted-foreground/70">
                       {g.branches.length}
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
-                    <ul className="min-w-0 space-y-px">
+                    <ul className="min-w-0 space-y-0.5 pl-1">
                       {g.branches.map((b) => (
                         <BranchRow
                           key={b.name}

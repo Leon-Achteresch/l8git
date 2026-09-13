@@ -4,6 +4,18 @@ import type {
   CodexThreadRuntime,
   CodexThreadStartOptions,
 } from "@/lib/agents/providers/codex/protocol";
+import type {
+  AgentCommand,
+  AgentConnectionStatus,
+  AgentProviderAdapter,
+  AgentRuntimeEvent,
+  AgentTurnStatus,
+  DriverKind,
+  InstanceId,
+  NativeSessionRef,
+  ThreadId,
+} from "@/lib/agents/types";
+import { nativeSessionKey } from "@/lib/agents/types";
 
 const MAX_WARM_THREAD_SESSIONS = 2;
 const ACTIVE_SURFACE_IDLE_MS = 60_000;
@@ -446,3 +458,137 @@ export class CodexSessionManager {
 }
 
 export const codexSessionManager = new CodexSessionManager();
+
+export interface AgentThreadProjection {
+  threadId: ThreadId;
+  driver: DriverKind;
+  instance: InstanceId;
+  ref: NativeSessionRef | null;
+  connectionStatus: AgentConnectionStatus;
+  turnStatus: AgentTurnStatus | null;
+  lastEventAt: number;
+}
+
+type ProjectionListener = (threads: ReadonlyMap<ThreadId, AgentThreadProjection>) => void;
+
+export class AgentSessionOrchestrator {
+  private readonly adapters = new Map<DriverKind, AgentProviderAdapter>();
+  private readonly sessions = new Map<string, NativeSessionRef>();
+  private readonly threads = new Map<ThreadId, AgentThreadProjection>();
+  private readonly listeners = new Set<ProjectionListener>();
+
+  registerAdapter(adapter: AgentProviderAdapter): () => void {
+    this.adapters.set(adapter.driver, adapter);
+    return () => {
+      if (this.adapters.get(adapter.driver) === adapter) this.adapters.delete(adapter.driver);
+    };
+  }
+
+  onProjection(listener: ProjectionListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  registerSession(ref: NativeSessionRef): void {
+    this.sessions.set(nativeSessionKey(ref), ref);
+  }
+
+  sessionFor(ref: NativeSessionRef): NativeSessionRef | undefined {
+    return this.sessions.get(nativeSessionKey(ref));
+  }
+
+  async dispatch(command: AgentCommand): Promise<void> {
+    if (command.type === "start") {
+      if (!this.adapters.has(command.driver)) await registerBuiltInAdapters();
+      const adapter = this.adapters.get(command.driver);
+      if (!adapter) throw new Error(`No adapter registered for driver ${command.driver}`);
+      const ref = await adapter.start(command.instance);
+      this.registerSession(ref);
+      return;
+    }
+    const threadCommand = command as Extract<AgentCommand, { threadId: ThreadId }>;
+    const projection = this.threads.get(threadCommand.threadId);
+    const adapter = projection ? this.adapters.get(projection.driver) : undefined;
+    if (!adapter) throw new Error(`No adapter available for thread ${threadCommand.threadId}`);
+    switch (command.type) {
+      case "send":
+        await adapter.send(command.threadId, command.text);
+        return;
+      case "steer":
+        await adapter.steer?.(command.threadId, command.text);
+        return;
+      case "interrupt":
+        await adapter.interrupt(command.threadId);
+        return;
+      case "stop":
+        await adapter.stop(command.threadId);
+        return;
+      case "resume":
+        if (!projection?.ref) throw new Error(`No native session for thread ${command.threadId}`);
+        await adapter.resume(command.threadId, projection.ref);
+        return;
+      case "approve":
+        await adapter.approve?.(command.threadId, command.requestId, command.approved);
+        return;
+      default:
+        return;
+    }
+  }
+
+  ingest(event: AgentRuntimeEvent): void {
+    const existing = this.threads.get(event.threadId);
+    const derivedRef: NativeSessionRef = {
+      driver: event.driver,
+      instance: event.instance,
+      nativeSessionId: event.nativeSessionId,
+    };
+    const projection: AgentThreadProjection = {
+      threadId: event.threadId,
+      driver: event.driver,
+      instance: event.instance,
+      ref: existing?.ref ?? derivedRef,
+      connectionStatus: existing?.connectionStatus ?? "idle",
+      turnStatus: existing?.turnStatus ?? null,
+      lastEventAt: Date.now(),
+    };
+    if (event.type === "session") projection.connectionStatus = event.status;
+    if (event.type === "turn") projection.turnStatus = event.status;
+    if (event.type === "error") projection.connectionStatus = "error";
+    if (!existing?.ref) this.registerSession(derivedRef);
+    this.threads.set(event.threadId, projection);
+    this.emit();
+  }
+
+  projection(threadId: ThreadId): AgentThreadProjection | undefined {
+    return this.threads.get(threadId);
+  }
+
+  projections(): ReadonlyMap<ThreadId, AgentThreadProjection> {
+    return this.threads;
+  }
+
+  private emit(): void {
+    for (const listener of this.listeners) listener(this.threads);
+  }
+}
+
+export const agentSessionOrchestrator = new AgentSessionOrchestrator();
+
+let builtInAdaptersPromise: Promise<void> | null = null;
+
+export function registerBuiltInAdapters(): Promise<void> {
+  if (!builtInAdaptersPromise) {
+    builtInAdaptersPromise = Promise.all([
+      import("@/lib/agents/providers/claude/client"),
+      import("@/lib/agents/providers/codex/client"),
+      import("@/lib/agents/providers/cursor/client"),
+      import("@/lib/agents/providers/opencode/client"),
+    ]).then(([{ ClaudeProviderAdapter }, { CodexProviderAdapter }, { CursorProviderAdapter }, { OpenCodeProviderAdapter }]) => {
+      agentSessionOrchestrator.registerAdapter(new ClaudeProviderAdapter());
+      agentSessionOrchestrator.registerAdapter(new CodexProviderAdapter());
+      agentSessionOrchestrator.registerAdapter(new CursorProviderAdapter());
+      agentSessionOrchestrator.registerAdapter(new OpenCodeProviderAdapter());
+    });
+  }
+  return builtInAdaptersPromise;
+}

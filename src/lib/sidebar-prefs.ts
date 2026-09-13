@@ -30,6 +30,11 @@ const DEFAULTS = {
   showBranchFilter: true,
   defaultOpenSections: ['local', 'remote', 'tags'] as SidebarSectionId[],
   moreTabsExpanded: false,
+  showStacksSection: true,
+  showTagsSection: true,
+  hideBranchGroupPrefix: false,
+  openSections: null as string[] | null,
+  closedBranchGroups: [] as string[],
 };
 
 type SidebarPrefsState = {
@@ -42,6 +47,11 @@ type SidebarPrefsState = {
   showBranchFilter: boolean;
   defaultOpenSections: SidebarSectionId[];
   moreTabsExpanded: boolean;
+  showStacksSection: boolean;
+  showTagsSection: boolean;
+  hideBranchGroupPrefix: boolean;
+  openSections: string[] | null;
+  closedBranchGroups: string[];
 
   setTabOrder: (order: SidebarTab[]) => void;
   toggleTabVisibility: (tab: SidebarTab) => void;
@@ -52,6 +62,11 @@ type SidebarPrefsState = {
   setShowBranchFilter: (v: boolean) => void;
   setDefaultOpenSections: (sections: SidebarSectionId[]) => void;
   setMoreTabsExpanded: (v: boolean) => void;
+  setShowStacksSection: (v: boolean) => void;
+  setShowTagsSection: (v: boolean) => void;
+  setHideBranchGroupPrefix: (v: boolean) => void;
+  setOpenSections: (sections: string[]) => void;
+  setBranchGroupOpen: (id: string, open: boolean) => void;
   resetToDefaults: () => void;
 };
 
@@ -73,6 +88,18 @@ export const useSidebarPrefs = create<SidebarPrefsState>()(
       setShowBranchFilter: v => set({ showBranchFilter: v }),
       setDefaultOpenSections: sections => set({ defaultOpenSections: sections }),
       setMoreTabsExpanded: v => set({ moreTabsExpanded: v }),
+      setShowStacksSection: v => set({ showStacksSection: v }),
+      setShowTagsSection: v => set({ showTagsSection: v }),
+      setHideBranchGroupPrefix: v => set({ hideBranchGroupPrefix: v }),
+      setOpenSections: sections => set({ openSections: sections }),
+      setBranchGroupOpen: (id, open) =>
+        set(s => ({
+          closedBranchGroups: open
+            ? s.closedBranchGroups.filter(g => g !== id)
+            : s.closedBranchGroups.includes(id)
+              ? s.closedBranchGroups
+              : [...s.closedBranchGroups, id],
+        })),
       resetToDefaults: () => set(DEFAULTS),
     }),
     {
@@ -97,6 +124,11 @@ export const useSidebarPrefs = create<SidebarPrefsState>()(
           showBranchFilter: p.showBranchFilter ?? DEFAULTS.showBranchFilter,
           defaultOpenSections: p.defaultOpenSections ?? DEFAULTS.defaultOpenSections,
           moreTabsExpanded: p.moreTabsExpanded ?? DEFAULTS.moreTabsExpanded,
+          showStacksSection: p.showStacksSection ?? DEFAULTS.showStacksSection,
+          showTagsSection: p.showTagsSection ?? DEFAULTS.showTagsSection,
+          hideBranchGroupPrefix: p.hideBranchGroupPrefix ?? DEFAULTS.hideBranchGroupPrefix,
+          openSections: p.openSections ?? DEFAULTS.openSections,
+          closedBranchGroups: p.closedBranchGroups ?? DEFAULTS.closedBranchGroups,
         };
       },
     },

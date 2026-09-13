@@ -16,8 +16,6 @@ import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
 
 export function InterfaceElementsCard() {
   const { t } = useTranslation();
-  const showHeaderIsland = useUiVisibilityPrefs((s) => s.showHeaderIsland);
-  const setShowHeaderIsland = useUiVisibilityPrefs((s) => s.setShowHeaderIsland);
   const showAgentDock = useUiVisibilityPrefs((s) => s.showAgentDock);
   const setShowAgentDock = useUiVisibilityPrefs((s) => s.setShowAgentDock);
   const position = useTerminalStore((s) => s.position);
@@ -35,26 +33,6 @@ export function InterfaceElementsCard() {
         <CardDescription>{t("settings.interfaceElementsDesc")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="ui-header-island"
-            checked={showHeaderIsland}
-            onCheckedChange={(v) => setShowHeaderIsland(v === true)}
-            className="mt-0.5"
-          />
-          <div className="space-y-1">
-            <Label
-              htmlFor="ui-header-island"
-              className="cursor-pointer text-sm font-medium text-foreground"
-            >
-              {t("settings.islandLabel")}
-            </Label>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {t("settings.islandHint")}
-            </p>
-          </div>
-        </div>
-
         <div className="flex items-start gap-3">
           <Checkbox
             id="ui-agent-dock"

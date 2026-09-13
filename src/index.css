@@ -162,10 +162,10 @@
     --radius-sm: 0.375rem;
     --radius-md: 0.5rem;
     --radius-lg: var(--radius);
-    --radius-xl: 0.75rem;
-    --radius-2xl: 1rem;
-    --radius-3xl: 1.25rem;
-    --radius-4xl: 1.5rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.25rem;
+    --radius-3xl: 1.5rem;
+    --radius-4xl: 1.75rem;
 
     --shadow-2xs: var(--l8-shadow-2xs);
     --shadow-xs: var(--l8-shadow-xs);
@@ -188,7 +188,7 @@
  * Light theme — warm parchment surfaces, ink text, graphite accent (mock parity).
  */
 :root {
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
     --l8-shadow-2xs: 0 1px 1px rgb(24 24 27 / 0.04);
     --l8-shadow-xs: 0 1px 1px rgb(24 24 27 / 0.06);
@@ -370,6 +370,7 @@
     @apply font-sans;
     height: 100%;
     overflow: hidden;
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -386,20 +387,13 @@
     overflow: hidden;
   }
 
-  /* The detached Dynamic Island lives in a transparent, borderless window —
-     nothing but the island itself may paint a background. */
-  html.island-window,
-  html.island-window body {
-    background: transparent;
-    overflow: hidden;
-    }
-  html.island-window body {
-    user-select: none;
-    }
-  html.island-window input,
-  html.island-window textarea {
-    user-select: text;
-    }
+  .empty-state-grid {
+    background-image:
+      radial-gradient(circle at 92% 8%, color-mix(in oklab, var(--git-branch) 9%, transparent), transparent 28%),
+      linear-gradient(color-mix(in oklab, var(--foreground) 3%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklab, var(--foreground) 3%, transparent) 1px, transparent 1px);
+    background-size: auto, 22px 22px, 22px 22px;
+  }
 
   /* hashes, refs, code-ish spans get mono automatically */
   code, kbd, samp, pre {
@@ -654,3 +648,19 @@ html[data-animations="off"] *::after {
 :root[data-density="compact"] { --row-density: .8; }
 [data-density="compact"] [data-agent-overview-row] { padding-block: .625rem; }
 [hidden] { display: none !important; }
+
+@keyframes l8-commit-pulse {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
+  }
+  18%, 58% {
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+  36% {
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
+  }
+}
+
+.l8-commit-pulse {
+  animation: l8-commit-pulse 0.85s ease-in-out;
+}

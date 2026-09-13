@@ -1,3 +1,4 @@
+import { AppLogo } from "@/components/brand/app-logo";
 import { Button } from "@/components/ui/button";
 import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
 import {
@@ -188,7 +189,7 @@ export function AppUpdateDialog() {
   return (
     <AnimatePresence>
       {visible && (
-        <m.div layout
+        <m.div
           role="region"
           aria-label={dialogTitle}
           initial={{ opacity: 0, scale: 0.94, y: 16 }}
@@ -205,11 +206,7 @@ export function AppUpdateDialog() {
 
             <div className="relative z-10 flex size-14 items-center justify-center">
               <div className="absolute inset-0 rounded-full bg-indigo-400/30 blur-xl" />
-              <img
-                src="/icons/web/icon-512.png"
-                alt="l8git"
-                className="relative size-12 rounded-full object-cover shadow-lg ring-2 ring-white/20 drop-shadow-[0_0_16px_rgba(99,102,241,0.7)]"
-              />
+              <AppLogo className="relative size-12 shadow-lg ring-2 ring-white/20 drop-shadow-[0_0_16px_rgba(99,102,241,0.7)]" />
             </div>
 
             <button

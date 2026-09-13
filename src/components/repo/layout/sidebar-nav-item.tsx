@@ -20,10 +20,10 @@ function CornerBadge({ count, emphasis }: { count: number; emphasis?: boolean })
     <PopIn key={count} className="pointer-events-none absolute right-0.5 top-0.5">
       <span
         className={cn(
-          "flex h-[14px] min-w-[14px] items-center justify-center rounded-full px-0.5 text-[0.5625rem] font-bold tabular-nums",
+          "flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.625rem] font-semibold tabular-nums",
           emphasis
             ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground ring-1 ring-border",
+            : "bg-foreground/8 text-muted-foreground",
         )}
       >
         {count > 9 ? "9+" : count}
@@ -60,12 +60,13 @@ export function SidebarNavItem({
         role="tab"
         aria-selected={isActive}
         active={isActive}
+        variant="ghost"
         title={!showLabel ? label : undefined}
         onClick={onClick}
         className={cn(
           "group flex-col justify-center gap-0.5 overflow-hidden px-1 active:scale-[0.97]",
           gridHeightClass,
-          "rounded-lg hover:bg-sidebar-accent/50 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+          "rounded-xl text-[0.6875rem] font-medium hover:bg-foreground/[0.04] data-[active=true]:bg-background data-[active=true]:font-medium data-[active=true]:text-foreground data-[active=true]:shadow-[0_1px_2px_rgb(24_24_27/0.08),0_0_0_1px_rgb(24_24_27/0.05)] dark:data-[active=true]:bg-white/10 dark:data-[active=true]:shadow-none",
         )}
       >
         {showIcon ? (
@@ -102,6 +103,7 @@ export function SidebarNavItem({
       role="tab"
       aria-selected={isActive}
       active={isActive}
+      variant="ghost"
       title={!showLabel ? label : undefined}
       onClick={onClick}
       className={cn(
@@ -109,8 +111,8 @@ export function SidebarNavItem({
         heightClass,
         displayMode === "icons_only"
           ? "justify-center px-1"
-          : "gap-2 pl-2.5 pr-2 text-[0.8125rem]",
-        "rounded-lg hover:bg-sidebar-accent/50 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+          : "gap-2.5 pl-2.5 pr-2 text-[0.8125rem] font-medium",
+        "rounded-xl hover:bg-foreground/[0.04] hover:text-foreground data-[active=true]:bg-background data-[active=true]:font-medium data-[active=true]:text-foreground data-[active=true]:shadow-[0_1px_2px_rgb(24_24_27/0.08),0_0_0_1px_rgb(24_24_27/0.05)] dark:data-[active=true]:bg-white/10 dark:data-[active=true]:shadow-none",
       )}
     >
 
@@ -133,12 +135,12 @@ export function SidebarNavItem({
         <PopIn key={count} className="ml-auto shrink-0">
           <span
             className={cn(
-              "flex h-[18px] min-w-[18px] items-center justify-center rounded-md px-1 text-[0.625rem] font-semibold tabular-nums transition-colors",
+              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[0.625rem] font-semibold tabular-nums",
               emphasis
                 ? "bg-primary text-primary-foreground"
                 : isActive
-                  ? "bg-primary/20 text-primary"
-                  : "bg-muted/70 text-muted-foreground",
+                  ? "bg-foreground/8 text-foreground"
+                  : "text-muted-foreground",
             )}
           >
             {count! > 99 ? "99+" : count}

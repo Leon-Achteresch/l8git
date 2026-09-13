@@ -18,7 +18,7 @@ export function AgentsEnter({
   const reduce = useReducedMotion();
 
   return (
-    <m.div layout
+    <m.div
       className={cn(className)}
       initial={reduce ? false : { opacity: 0, y }}
       animate={{ opacity: 1, y: 0 }}

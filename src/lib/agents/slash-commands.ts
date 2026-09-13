@@ -1,6 +1,6 @@
 import { providerSupportsSlashCommand } from "@/lib/agents/provider-meta";
 import type { NativeAgentProvider } from "@/lib/agents/provider-store";
-import type { AgentModelOption } from "@/lib/agents/types";
+import type { AgentCapability, AgentModelOption } from "@/lib/agents/types";
 
 export type SlashCommandEntry = {
   value: string;
@@ -99,6 +99,16 @@ export function shouldRunNativeSlash(
   return NATIVE_SLASH_SET.has(name) && providerSupportsSlashCommand(provider, name);
 }
 
+export function shouldRunNativeSlashWithInventory(
+  command: string,
+  provider: NativeAgentProvider,
+  resolveCapability: (name: string) => AgentCapability,
+): boolean {
+  const name = commandName(command).toLocaleLowerCase();
+  if (!shouldRunNativeSlash(command, provider)) return false;
+  return resolveCapability(name).status === "supported";
+}
+
 export function nativeSlashCommands(input: NativeSlashInput): SlashCommandEntry[] {
   const selected = input.models.find((option) => option.id === input.model);
   const commands: SlashCommandEntry[] = [
@@ -153,6 +163,40 @@ export function nativeSlashCommands(input: NativeSlashInput): SlashCommandEntry[
     },
   ];
   return commands.filter((command) => providerSupportsSlashCommand(input.provider, command.value));
+}
+
+export type SlashCommandRoute =
+  | { kind: "native"; name: string; args: string }
+  | { kind: "app"; name: string; args: string }
+  | { kind: "unknown"; name: string; args: string };
+
+const APP_ONLY_COMMANDS = new Set(["addons", "capabilities", "marketplace", "sync", "import"]);
+
+export function routeSlashCommand(
+  input: string,
+  provider: NativeAgentProvider,
+  capabilities: { resolveCapability: (name: string) => AgentCapability },
+): SlashCommandRoute {
+  const trimmed = input.trim();
+  const match = /\s/.exec(trimmed);
+  const firstSpace = match ? match.index : -1;
+  const rawCommand = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
+  const args = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
+  const name = commandName(rawCommand).toLocaleLowerCase();
+  if (!name) {
+    return { kind: "unknown", name: "", args };
+  }
+  if (APP_ONLY_COMMANDS.has(name)) {
+    return { kind: "app", name, args };
+  }
+  if (
+    NATIVE_SLASH_SET.has(name) &&
+    providerSupportsSlashCommand(provider, name) &&
+    capabilities.resolveCapability(name).status === "supported"
+  ) {
+    return { kind: "native", name, args };
+  }
+  return { kind: "unknown", name, args };
 }
 
 export function mergeSlashCommands(

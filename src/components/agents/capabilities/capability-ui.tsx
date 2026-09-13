@@ -1,9 +1,0 @@
-export { CapabilityEmpty } from "@/components/agents/capabilities/capability-empty";
-export { CapabilityError } from "@/components/agents/capabilities/capability-error";
-export { CapabilityListButton } from "@/components/agents/capabilities/capability-list-button";
-export { CapabilityLoading } from "@/components/agents/capabilities/capability-loading";
-export { CapabilityPill } from "@/components/agents/capabilities/capability-pill";
-export { CapabilitySectionTitle } from "@/components/agents/capabilities/capability-section-title";
-export { CapabilitySplit } from "@/components/agents/capabilities/capability-split";
-export { CapabilityStat } from "@/components/agents/capabilities/capability-stat";
-export { ProgressiveCapabilityList } from "@/components/agents/capabilities/progressive-capability-list";

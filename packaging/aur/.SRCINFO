@@ -1,6 +1,6 @@
 pkgbase = l8git-bin
 	pkgdesc = Fast multi-repository Git desktop client built with Tauri 2, React 19 and Rust
-	pkgver = 0.5.0
+	pkgver = 1.0.0
 	pkgrel = 1
 	url = https://github.com/Leon-Achteresch/l8git
 	arch = x86_64
@@ -13,14 +13,14 @@ pkgbase = l8git-bin
 	optdepends = gnome-keyring: Secret-Service-Backend fuer gespeicherte Git-Credentials
 	optdepends = kwallet: alternatives Secret-Service-Backend
 	optdepends = xdg-utils: Links und Ordner im Dateimanager oeffnen
-	provides = l8git=0.5.0
+	provides = l8git=1.0.0
 	conflicts = l8git
-	noextract = l8git-bin-0.5.0.deb
+	noextract = l8git-bin-1.0.0.deb
 	options = !strip
 	options = !emptydirs
 	options = !debug
-	source = l8git-bin-0.5.0.deb::https://github.com/Leon-Achteresch/l8git/releases/download/v0.5.0/l8git_0.5.0_amd64.deb
-	source = LICENSE-0.5.0::https://raw.githubusercontent.com/Leon-Achteresch/l8git/v0.5.0/LICENSE
+	source = l8git-bin-1.0.0.deb::https://github.com/Leon-Achteresch/l8git/releases/download/v1.0.0/l8git_1.0.0_amd64.deb
+	source = LICENSE-1.0.0::https://raw.githubusercontent.com/Leon-Achteresch/l8git/v1.0.0/LICENSE
 	sha256sums = 0000000000000000000000000000000000000000000000000000000000000000
 	sha256sums = 0000000000000000000000000000000000000000000000000000000000000000
 

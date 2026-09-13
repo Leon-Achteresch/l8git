@@ -217,7 +217,7 @@ export function PullRequestInspectDetail({
         </AnimatePresence>
 
         {detail && (
-          <m.div layout
+          <m.div
             initial={{ opacity: 0, y: 2 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
@@ -296,7 +296,7 @@ export function PullRequestInspectDetail({
       </div>
 
       {loading && !detail ? (
-        <m.div layout
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="flex flex-1 items-center justify-center"
@@ -345,7 +345,7 @@ export function PullRequestInspectDetail({
           </div>
 
           <AnimatePresence mode="wait" initial={false}>
-            <m.div layout
+            <m.div
               key={tab}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}

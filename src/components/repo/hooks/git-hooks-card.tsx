@@ -24,7 +24,6 @@ export function GitHooksCard({
 
   return (
     <m.div
-      layout
       initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
       exit={{ opacity: 0, scale: 0.96, filter: "blur(4px)" }}

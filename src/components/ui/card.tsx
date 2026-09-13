@@ -10,7 +10,6 @@ function Card({
 }: HTMLMotionProps<"div"> & { size?: "default" | "sm" }) {
   return (
     <m.div
-      layout
       data-slot="card"
       data-size={size}
       className={cn(

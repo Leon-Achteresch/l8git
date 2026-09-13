@@ -52,7 +52,6 @@ function TagRowInner({
 
   const row = (
     <m.li
-      layout
       onClick={e => {
         if (e.button !== 0) return;
         focusCommitFromBranchTip(path, tag.commit);

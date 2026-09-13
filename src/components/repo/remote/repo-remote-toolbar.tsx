@@ -565,8 +565,8 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
 
   return (
     <>
-      <div className='@container flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pb-2 pt-1'>
-        <div className='flex min-w-0 flex-1 flex-wrap items-center gap-2'>
+      <div className='@container flex w-full flex-wrap items-center gap-x-2 gap-y-1.5 px-3 pb-1.5 pt-1'>
+        <div className='flex min-w-0 flex-1 flex-wrap items-center gap-1.5'>
           <ToolbarGroup>
             <ToolbarButton
               title={t("toolbar.fetchTitle")}
@@ -711,7 +711,7 @@ export function RepoRemoteToolbar({ path }: { path: string }) {
           </div>
         </div>
 
-        <div className='flex w-full max-w-sm shrink-0 items-center gap-1 sm:w-auto'>
+        <div className='flex min-w-0 w-full flex-[1_1_16rem] items-center gap-1 @[48rem]:w-auto @[48rem]:max-w-md @[48rem]:flex-none'>
           {branches.length > 0 && (
             <BranchMultiSelect
               branches={branches}

@@ -136,7 +136,7 @@ export function PullRequestConversationTab({
               <SpinIcon icon={Loader2} className="h-6 w-6 text-primary" />
             </div>
           ) : entries.length === 0 ? (
-            <m.div layout
+            <m.div
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex flex-col items-center justify-center py-12 text-center text-sm text-muted-foreground gap-2"
@@ -151,7 +151,7 @@ export function PullRequestConversationTab({
                 const isChangesRequested = e.data.state === "CHANGES_REQUESTED";
 
                 return (
-                  <m.div layout
+                  <m.div
                     key={`r-${e.data.id}-${i}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -200,7 +200,7 @@ export function PullRequestConversationTab({
               }
               const c = e.data;
               return (
-                <m.div layout
+                <m.div
                   key={`c-${c.id}-${i}`}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}

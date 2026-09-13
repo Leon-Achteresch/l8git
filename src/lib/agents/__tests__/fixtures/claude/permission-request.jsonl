@@ -1,0 +1,1 @@
+{"type":"control_request","request_id":"req-fixture-001","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"echo fixture"}}}

@@ -50,7 +50,7 @@ export function PrReviewActions({
   }
 
   return (
-    <m.div layout
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="mt-2.5 flex flex-wrap items-center gap-2"

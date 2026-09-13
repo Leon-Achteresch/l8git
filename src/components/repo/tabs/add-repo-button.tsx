@@ -153,7 +153,7 @@ export function AddRepoButton() {
         <OverlayPortal>
         <AnimatePresence>
           {menuOpen ? (
-            <m.div layout
+            <m.div
               ref={panelRef}
               role="menu"
               variants={menuPanelVariants}
@@ -168,7 +168,7 @@ export function AddRepoButton() {
               className="fixed z-[80] min-w-[200px] overflow-hidden rounded-b-lg rounded-t-none bg-popover py-1 shadow-lg"
             >
               {menuEntries.map(({ Icon, label, action, key }) => (
-                <m.button layout
+                <m.button
                   key={key}
                   type="button"
                   role="menuitem"

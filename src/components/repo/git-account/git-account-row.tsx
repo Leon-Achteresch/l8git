@@ -30,7 +30,7 @@ export function GitAccountRow({ account, onSignOut, onRemoveCustom }: Props) {
   }
 
   return (
-    <m.div layout className="rounded-lg border border-border bg-background/40 p-3">
+    <m.div className="rounded-lg border border-border bg-background/40 p-3">
       <div className="flex items-center gap-3">
         <div
           className={cn(

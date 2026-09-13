@@ -327,3 +327,23 @@ export function emptyInboxSections(): InboxSections {
 export function inboxBadgeCount(sections: InboxSections): number {
   return sections.reviewRequested.length + sections.redRuns.length;
 }
+
+export type InboxApprovalItem = {
+  key: string;
+  hostId: string;
+  instanceId: string;
+  threadId: string;
+  title: string;
+  waitingSinceMs: number;
+};
+
+export function dedupeInboxApprovals(items: InboxApprovalItem[]): InboxApprovalItem[] {
+  const seen = new Set<string>();
+  const result: InboxApprovalItem[] = [];
+  for (const item of items) {
+    if (seen.has(item.key)) continue;
+    seen.add(item.key);
+    result.push(item);
+  }
+  return result;
+}

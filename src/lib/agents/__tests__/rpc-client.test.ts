@@ -82,4 +82,16 @@ describe("JsonRpcProcessClient", () => {
     receive({ id: 1, result: "fresh" });
     await expect(promise).resolves.toBe("fresh");
   });
+
+  it("SEC-05: rejects an unsupported server request with an explicit error instead of a silent no-op", async () => {
+    receive({ id: "srv-1", method: "codex/only-method", params: {} });
+    await Promise.resolve();
+    await Promise.resolve();
+    const response = sent.find(
+      (entry) => typeof entry === "object" && entry !== null && (entry as { id?: unknown }).id === "srv-1",
+    ) as { id: string; error?: { code?: number; message?: string } } | undefined;
+    expect(response).toBeDefined();
+    expect(response?.error?.code).toBe(-32601);
+    expect(response?.error?.message).toMatch(/codex\/only-method/u);
+  });
 });

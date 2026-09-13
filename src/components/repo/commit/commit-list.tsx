@@ -12,8 +12,8 @@ import { useTranslation } from "react-i18next";
 import type { CommitSelectMode } from "./commit-history-panel";
 import { CommitRow } from "./commit-row";
 
-const ROW_ESTIMATE_BASE_PX = 84;
-const ROW_ESTIMATE_SEARCH_EXTRA_PX = 22;
+const ROW_ESTIMATE_BASE_PX = 30;
+const ROW_ESTIMATE_SEARCH_EXTRA_PX = 16;
 const SECTION_HEADER_ESTIMATE_PX = 28;
 const EMPTY_HASHES: ReadonlySet<string> = new Set();
 const EMPTY_BRANCHES: Branch[] = [];
@@ -413,7 +413,7 @@ export function CommitList({
                   transform: `translateY(${vi.start}px)`,
                 }}
               >
-                <div className="bg-card px-4 pb-1 pt-3 text-[0.6875rem] font-medium text-muted-foreground">
+                <div className="bg-card px-3 pb-0.5 pt-2 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground">
                   {item.label}
                 </div>
               </li>

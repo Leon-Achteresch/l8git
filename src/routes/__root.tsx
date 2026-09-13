@@ -6,14 +6,6 @@ import { lazy, Suspense, useEffect } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
-const RouterDevtools = import.meta.env.DEV
-  ? lazy(() =>
-      import("@tanstack/react-router-devtools").then((m) => ({
-        default: m.TanStackRouterDevtools,
-      })),
-    )
-  : null;
-
 const AppUpdateDialog = lazy(() =>
   import("@/components/app/app-update-dialog").then((m) => ({
     default: m.AppUpdateDialog,
@@ -24,13 +16,6 @@ import { AppHeader } from "@/components/app/app-header";
 import { RouteErrorBoundary } from "@/components/app/route-error-boundary";
 import { Toaster } from "@/components/ui/sonner";
 
-// Lazy: the island drags the full motion animation engine (animate/useSpring/
-// DynamicIsland) with it — as an overlay it can appear a tick after first paint.
-const AppIsland = lazy(() =>
-  import("@/components/app/app-island").then((m) => ({
-    default: m.AppIsland,
-  })),
-);
 import { HotkeysOverlay } from "@/components/app/hotkeys-overlay";
 import { RemoteProgressDock } from "@/components/app/remote-progress-dock";
 
@@ -47,13 +32,11 @@ const GitCommandLogPage = lazy(() =>
 );
 import { MotionProvider } from "@/components/motion/motion-provider";
 import { easeOutSoft } from "@/components/motion/kit";
-import { useIslandHost } from "@/lib/island/host";
-import { useIslandWindow } from "@/lib/island/window-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
-import { useUiVisibilityPrefs } from "@/lib/ui-visibility-prefs";
 import { useUiStore } from "@/lib/ui-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
+import { seedPreviewRepo } from "@/lib/preview-repo";
 import { useState } from "react";
 
 export const Route = createRootRoute({
@@ -62,20 +45,21 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   useInboxRefresh();
+  useEffect(() => {
+    if (!import.meta.env.DEV || isTauri()) return;
+    const seed = () => seedPreviewRepo();
+    if (useRepoStore.persist.hasHydrated()) {
+      seed();
+      return;
+    }
+    return useRepoStore.persist.onFinishHydration(seed);
+  }, []);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
   const addRepo = useRepoStore((s) => s.addRepo);
   const uiDensity = useWorkspacePrefs((s) => s.uiDensity);
   const uiScale = useWorkspacePrefs((s) => s.uiScale);
-  const islandEnabled = useUiVisibilityPrefs((s) => s.showHeaderIsland);
-  const hasActiveRepo = useRepoStore((s) => !!s.activePath);
-  const islandDetached = useIslandWindow((s) => s.open);
-  // While the island floats in its own window the app keeps its normal toaster.
-  const islandHandlesToasts = islandEnabled && hasActiveRepo && !islandDetached;
-
-  // Feeds the detached island and executes whatever it asks for.
-  useIslandHost();
   const reflogViewPath = useUiStore((s) => s.reflogViewPath);
   const closeReflogView = useUiStore((s) => s.closeReflogView);
   const commandLogOpen = useUiStore((s) => s.commandLogOpen);
@@ -129,10 +113,7 @@ function RootLayout() {
             </RouteErrorBoundary>
           </m.div>
         </main>
-        <Suspense fallback={null}>
-          <AppIsland />
-        </Suspense>
-        {!islandHandlesToasts && <Toaster />}
+        <Toaster />
         {reflogViewPath && (
           <Suspense fallback={null}>
             <ReflogPage path={reflogViewPath} onClose={closeReflogView} />
@@ -148,11 +129,6 @@ function RootLayout() {
         <Suspense fallback={null}>
           <AppUpdateDialog />
         </Suspense>
-        {RouterDevtools ? (
-          <Suspense fallback={null}>
-            <RouterDevtools position="bottom-right" />
-          </Suspense>
-        ) : null}
       </div>
     </MotionProvider>
   );

@@ -74,7 +74,7 @@ function Button({
   }
 
   return (
-    <m.button layout
+    <m.button
       {...shared}
       whileTap={props.disabled ? undefined : { scale: 0.96 }}
       transition={springFast}

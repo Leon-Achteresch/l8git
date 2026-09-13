@@ -78,7 +78,7 @@ export function RepoWorkspaceSwitch() {
     <>
       <div className="relative shrink-0" ref={wrapRef}>
         <LayoutGroup id="ws-switcher">
-          <m.button layout
+          <m.button
             type="button"
             whileTap={{ scale: 0.86 }}
             transition={{ type: "spring", stiffness: 600, damping: 28, mass: 0.3 }}
@@ -101,7 +101,7 @@ export function RepoWorkspaceSwitch() {
           <OverlayPortal>
           <AnimatePresence>
             {open && (
-              <m.div layout
+              <m.div
                 key="ws-panel"
                 ref={panelRef}
                 variants={panelVariants}
@@ -124,7 +124,7 @@ export function RepoWorkspaceSwitch() {
                     const wsH = wsHue(ws.name);
                     const isActive = ws.id === activeWorkspaceId;
                     return (
-                      <m.div layout
+                      <m.div
                         key={ws.id}
                         custom={i}
                         variants={itemVariants}

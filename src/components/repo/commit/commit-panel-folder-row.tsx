@@ -7,7 +7,7 @@ import {
 import { ChevronDown as ChevronDownData, ChevronRight as ChevronRightData } from "lucide";
 import { EyeOff, Folder, Minus, Plus, Undo2 } from "lucide-react";
 import { m } from "motion/react";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MorphIcon } from "@/components/ui/morph-icon";
 
@@ -38,11 +38,10 @@ function FolderRowInner({
   onDiscard?: (paths: string[], worktreeOnly: boolean) => void;
   onIgnore?: (patterns: string[]) => void;
 }) {
-  const { t } = useTranslation();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const inner = (
     <m.div
-      layout
       onClick={onToggleCollapsed}
       style={{ paddingLeft: 16 + depth * 14 }}
       className="group flex h-full cursor-pointer select-none items-center gap-2 pr-4 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
@@ -58,38 +57,71 @@ function FolderRowInner({
   );
 
   return (
-    <ContextMenu>
+    <ContextMenu onOpenChange={setMenuOpen}>
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
-      <ContextMenuContent>
-        {sector === "unstaged" && onStage && (
-          <ContextMenuItem onSelect={() => onStage(paths)}>
-            <Plus className="h-3.5 w-3.5" />
-            {t("commitPanel.folderStage")}
-          </ContextMenuItem>
-        )}
-        {sector === "staged" && onUnstage && (
-          <ContextMenuItem onSelect={() => onUnstage(paths)}>
-            <Minus className="h-3.5 w-3.5" />
-            {t("commitPanel.folderUnstage")}
-          </ContextMenuItem>
-        )}
-        {onIgnore && (
-          <ContextMenuItem onSelect={() => onIgnore([`${path}/`])}>
-            <EyeOff className="h-3.5 w-3.5" />
-            {t("commitPanel.folderIgnore")}
-          </ContextMenuItem>
-        )}
-        {onDiscard && (
-          <ContextMenuItem
-            variant="destructive"
-            onSelect={() => onDiscard(paths, sector === "unstaged")}
-          >
-            <Undo2 className="h-3.5 w-3.5" />
-            {t("commitPanel.folderDiscard")}
-          </ContextMenuItem>
-        )}
-      </ContextMenuContent>
+      {menuOpen && (
+        <FolderRowMenu
+          path={path}
+          paths={paths}
+          sector={sector}
+          onStage={onStage}
+          onUnstage={onUnstage}
+          onDiscard={onDiscard}
+          onIgnore={onIgnore}
+        />
+      )}
     </ContextMenu>
+  );
+}
+
+function FolderRowMenu({
+  path,
+  paths,
+  sector,
+  onStage,
+  onUnstage,
+  onDiscard,
+  onIgnore,
+}: {
+  path: string;
+  paths: string[];
+  sector: "staged" | "unstaged";
+  onStage?: (paths: string[]) => void;
+  onUnstage?: (paths: string[]) => void;
+  onDiscard?: (paths: string[], worktreeOnly: boolean) => void;
+  onIgnore?: (patterns: string[]) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <ContextMenuContent>
+      {sector === "unstaged" && onStage && (
+        <ContextMenuItem onSelect={() => onStage(paths)}>
+          <Plus className="h-3.5 w-3.5" />
+          {t("commitPanel.folderStage")}
+        </ContextMenuItem>
+      )}
+      {sector === "staged" && onUnstage && (
+        <ContextMenuItem onSelect={() => onUnstage(paths)}>
+          <Minus className="h-3.5 w-3.5" />
+          {t("commitPanel.folderUnstage")}
+        </ContextMenuItem>
+      )}
+      {onIgnore && (
+        <ContextMenuItem onSelect={() => onIgnore([`${path}/`])}>
+          <EyeOff className="h-3.5 w-3.5" />
+          {t("commitPanel.folderIgnore")}
+        </ContextMenuItem>
+      )}
+      {onDiscard && (
+        <ContextMenuItem
+          variant="destructive"
+          onSelect={() => onDiscard(paths, sector === "unstaged")}
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+          {t("commitPanel.folderDiscard")}
+        </ContextMenuItem>
+      )}
+    </ContextMenuContent>
   );
 }
 

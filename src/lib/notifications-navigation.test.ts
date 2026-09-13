@@ -9,9 +9,11 @@ import { useUiStore } from './ui-store';
 
 describe('notification navigation', () => {
   it('opens the named session and its own repository', async () => {
+    useRepoStore.setState({ reload: async () => {}, activePath: null, repos: { '/second': { path: '/second', branch: 'main', branches: [], commits: [], tags: [] } }, prs: {} });
     await navigateToTarget({ view: 'agents', provider: 'codex', threadId: 'second' });
     expect(mocks.openThread).toHaveBeenCalledWith('/second', 'second');
-    expect(mocks.navigate).toHaveBeenLastCalledWith({ to: '/agents', search: { path: '/second', view: 'chat' } });
+    expect(useRepoStore.getState().activePath).toBe('/second');
+    expect(mocks.navigate).toHaveBeenLastCalledWith({ to: '/' });
   });
   it('loads and focuses an older PR in the requested repository', async () => {
     useRepoStore.setState({ reload: async () => {}, activePath: '/first', repos: { '/first': { path: '/first', branch: 'main', branches: [], commits: [], tags: [] }, '/second': { path: '/second', branch: 'main', branches: [], commits: [], tags: [] } }, prs: {} });

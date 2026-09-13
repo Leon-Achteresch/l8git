@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { create } from "zustand";
@@ -51,7 +51,7 @@ export const useStackStore = create<StackStoreState>((set, get) => ({
   error: {},
 
   load: async (path) => {
-    if (!path) return;
+    if (!path || !isTauri()) return;
     set((s) => ({ loading: { ...s.loading, [path]: true } }));
     try {
       const list = await invoke<StackList>("stack_list", { path });

@@ -23,4 +23,13 @@ export function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.classList.toggle("dark", resolved === "dark");
   root.style.colorScheme = resolved;
+  void syncWindowBackground(resolved).catch(() => {});
+}
+
+const WINDOW_BG = { light: [250, 250, 250, 255], dark: [17, 17, 20, 255] } as const;
+
+async function syncWindowBackground(resolved: "light" | "dark") {
+  if (!("__TAURI_INTERNALS__" in window)) return;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await getCurrentWindow().setBackgroundColor([...WINDOW_BG[resolved]]);
 }

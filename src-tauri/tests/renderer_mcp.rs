@@ -1,19 +1,20 @@
 use l8git_lib::renderer_mcp::{
-    handle_request, tools, SERVER_NAME, SUBCOMMAND, TOOL_RENDER_BARCODE,
+    handle_request, tools, SERVER_NAME, SUBCOMMAND, TOOL_RENDER_BARCODE, TOOL_RENDER_CHART,
 };
 use serde_json::json;
 
 #[test]
 fn declares_the_barcode_renderer_schema() {
     let listed = tools();
-    assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0]["name"], TOOL_RENDER_BARCODE);
-    assert_eq!(listed[0]["inputSchema"]["required"], json!(["items"]));
-    assert_eq!(
-        listed[0]["inputSchema"]["properties"]["items"]["maxItems"],
-        24
-    );
-    let formats = listed[0]["inputSchema"]["properties"]["items"]["items"]["properties"]
+    assert_eq!(listed.len(), 2);
+    assert_eq!(listed[0]["name"], TOOL_RENDER_CHART);
+    let barcode = listed
+        .iter()
+        .find(|tool| tool["name"] == TOOL_RENDER_BARCODE)
+        .expect("barcode tool");
+    assert_eq!(barcode["inputSchema"]["required"], json!(["items"]));
+    assert_eq!(barcode["inputSchema"]["properties"]["items"]["maxItems"], 24);
+    let formats = barcode["inputSchema"]["properties"]["items"]["items"]["properties"]
         ["format"]["enum"]
         .as_array()
         .expect("format enum");
@@ -39,7 +40,8 @@ fn serves_initialize_list_and_call() {
         "method": "tools/list"
     }))
     .expect("list response");
-    assert_eq!(listed["result"]["tools"][0]["name"], TOOL_RENDER_BARCODE);
+    assert_eq!(listed["result"]["tools"][0]["name"], TOOL_RENDER_CHART);
+    assert_eq!(listed["result"]["tools"][1]["name"], TOOL_RENDER_BARCODE);
 
     let called = handle_request(&json!({
         "jsonrpc": "2.0",

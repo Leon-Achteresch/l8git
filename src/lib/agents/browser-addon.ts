@@ -25,6 +25,25 @@ export const BROWSER_ADDON_CONFIG_SECTION: Record<BrowserAddonFileProvider, "mcp
   opencode: "mcp",
 };
 
+export const BROWSER_ADDON_TOOL = {
+  name: BROWSER_ADDON_SERVER_NAME,
+  description:
+    "Gibt der CLI echten Browser-Zugriff über den Playwright-MCP-Server, damit End-to-End-Tests direkt aus dem Chat laufen.",
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      browser: { type: "string", enum: ["", "chrome", "msedge", "firefox", "webkit"] },
+      headless: { type: "boolean" },
+      isolated: { type: "boolean" },
+      viewport: { type: "string" },
+      device: { type: "string" },
+      allowedOrigins: { type: "string" },
+      caps: { type: "string" },
+    },
+  },
+} as const;
+
 const OPENCODE_SCHEMA = "https://opencode.ai/config.json";
 
 export type BrowserAddonBrowser = "" | "chrome" | "msedge" | "firefox" | "webkit";

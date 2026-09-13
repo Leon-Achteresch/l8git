@@ -80,6 +80,10 @@ type UiState = {
   commandLogOpen: boolean;
   openCommandLog: () => void;
   closeCommandLog: () => void;
+  inboxOpen: boolean;
+  openInbox: () => void;
+  closeInbox: () => void;
+  setInboxOpen: (open: boolean) => void;
   bisectVisible: boolean;
   setBisectVisible: (v: boolean) => void;
   bisectPending: Record<string, { bad: string | null; good: string | null }>;
@@ -172,6 +176,10 @@ export const useUiStore = create<UiState>()(
       commandLogOpen: false,
       openCommandLog: () => set({ commandLogOpen: true }),
       closeCommandLog: () => set({ commandLogOpen: false }),
+      inboxOpen: false,
+      openInbox: () => set({ inboxOpen: true }),
+      closeInbox: () => set({ inboxOpen: false }),
+      setInboxOpen: open => set({ inboxOpen: open }),
       bisectVisible: true,
       setBisectVisible: v => set({ bisectVisible: v }),
       bisectPending: {},

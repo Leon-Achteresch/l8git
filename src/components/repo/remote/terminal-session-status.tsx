@@ -25,7 +25,7 @@ export function TerminalSessionStatus({
   return (
     <AnimatePresence initial={false}>
       {visible && (
-        <m.div layout
+        <m.div
           key={status}
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: "auto", opacity: 1 }}

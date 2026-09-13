@@ -126,7 +126,8 @@ const DIFF_EDITOR_OPTIONS: Monaco.editor.IDiffEditorConstructionOptions = {
   scrollBeyondLastLine: false,
   fontFamily: "\"Geist Mono\", ui-monospace, monospace",
   fontSize: 12,
-  lineHeight: 18,
+  lineHeight: 21,
+  padding: { top: 12, bottom: 12 },
   renderLineHighlight: "none",
   overviewRulerBorder: false,
   overviewRulerLanes: 0,
@@ -193,8 +194,9 @@ export function MonacoDiffViewer({ unifiedText, filename }: MonacoDiffViewerProp
 
   return (
     <div className="monaco-diff-viewer-root flex h-full min-h-0 w-full flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-end gap-2 border-b border-border/60 px-3 py-1">
-        <DiffLayoutToggle />
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/60 bg-muted/15 px-4 py-2">
+        <span title={filename ?? undefined} className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{filename}</span>
+        <DiffLayoutToggle className="shrink-0" />
       </div>
       <div className="min-h-0 flex-1">
         <DiffEditor

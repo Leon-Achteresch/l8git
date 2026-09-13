@@ -74,7 +74,7 @@ function Item({
   if (asChild) {
     return <Slot.Root {...shared} {...props} />
   }
-  return <m.div layout {...shared} {...(props as HTMLMotionProps<"div">)} />
+  return <m.div {...shared} {...(props as HTMLMotionProps<"div">)} />
 }
 
 const itemMediaVariants = cva(

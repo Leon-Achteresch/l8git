@@ -183,7 +183,7 @@ export function CiCheckDetails({
   }
 
   return (
-    <m.div layout
+    <m.div
       className="mt-2 rounded-xl bg-muted/20 p-4"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}

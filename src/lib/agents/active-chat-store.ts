@@ -14,7 +14,8 @@ export function chatStoreFor(provider: NativeAgentProvider) {
   if (provider === "claude") return claudeChatStore;
   if (provider === "opencode") return openCodeChatStore;
   if (provider === "cursor") return cursorChatStore;
-  return useCodexChatStore;
+  if (provider === "codex") return useCodexChatStore;
+  throw new Error(`Unbekannter Agent-Provider: ${String(provider)}`);
 }
 
 function activeStore() {

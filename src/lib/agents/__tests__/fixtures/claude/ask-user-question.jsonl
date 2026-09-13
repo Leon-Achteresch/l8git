@@ -1,0 +1,1 @@
+{"type":"control_request","request_id":"req-fixture-002","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Welche Option bevorzugst du?","options":["A","B"]}]}}}

@@ -20,7 +20,6 @@ export function AgentStatusChip({
 
   return (
     <m.span
-      layout
       data-tone={tone}
       className={cn(
         "inline-flex h-[1.375rem] max-w-full items-center gap-1 rounded-full px-2 text-[0.625rem] font-medium tracking-[-0.01em] whitespace-nowrap",
@@ -37,7 +36,7 @@ export function AgentStatusChip({
     >
       <AnimatePresence initial={false} mode="popLayout">
         {tone === "working" ? (
-          <m.span layout
+          <m.span
             key="ring"
             initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}

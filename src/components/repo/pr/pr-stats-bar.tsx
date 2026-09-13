@@ -13,7 +13,7 @@ export function PrStatsBar({ detail }: { detail: PullRequestDetail }) {
   };
 
   return (
-    <m.div layout
+    <m.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15 }}
