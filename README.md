@@ -39,8 +39,8 @@ Instead of switching between windows or terminals, l8git puts every repository o
 
 ### Git Operations
 - **Status** — full file-level status (staged, unstaged, untracked) with inline diff counts
-- **Staging** — stage/unstage individual files, hunks, or discard changes
-- **Commit** — write commit messages, amend commits, or generate AI-powered commit messages
+- **Staging** — stage files, hunks or lines; section-aware partial staging, filtered batches and scoped discard previews with content checks
+- **Commit** — per-repository drafts, conventional commit tools, editable message structures and trailers, amendment previews, and AI messages checked against the staged diff
 - **Branching** — create, checkout, delete local and remote branches
 - **Merging** — merge with strategies (fast-forward, `--ff-only`, `--no-ff`, squash) and conflict resolution
 - **Cherry-pick** — pick individual commits, continue/skip/abort on conflicts
@@ -59,7 +59,7 @@ Instead of switching between windows or terminals, l8git puts every repository o
 
 ### Undo & Transparency
 - **Universal undo** — reverse the last merge, rebase, reset, cherry-pick, revert, commit or amend; never uses `--hard`
-- **Reflog view** — browse where `HEAD` has been and reset back, keeping or discarding local changes
+- **Reflog view** — inspect previous commits, create rescue branches without checkout, and confirm resets against pinned target and HEAD hashes
 - **Activity and recovery** — running operations, cancellation, recent failures, fetch retry, Undo and Reflog in one place
 - **Git command log** — every git command l8git runs, with duration and exit status
 
@@ -96,7 +96,8 @@ Instead of switching between windows or terminals, l8git puts every repository o
 - **Merge/cherry-pick state inspection** — view in-progress conflicts with path lists
 
 ### Repository Insights
-- **Commit history** — virtualized log, server-side branch/author/date/path/message filters, pagination and a saved filter
+- **Commit history** — virtualized log, server-side branch/author/date/path/message filters, validated date ranges, per-repository named searches and retryable pagination
+- **Commit comparison** — direct or common-ancestor comparison of branches, tags and commits, pinned file diffs, rename and media support, review marks and local Markdown reports
 - **Search commits** — search by hash, author, email, subject, body, or changed paths
 - **Blame annotations** — inline git blame with author, date, and commit hash
 - **Language statistics** — per-repo breakdown of programming languages
@@ -104,7 +105,7 @@ Instead of switching between windows or terminals, l8git puts every repository o
 - **Diffs** — staged, unstaged, and commit-to-commit diffs with syntax highlighting
 - **Side-by-side & word-level diff** — switch layouts anywhere, highlight changes inside a line
 - **Image diff** — before/after, swipe, and onion-skin comparison with fit and 1:1 zoom
-- **Dashboard** — branch, upstream, PR, working-copy, contributor, language and repo-health cards
+- **Dashboard** — branch, upstream, PR, working-copy, contributor, language and repo-health cards; explicit unknown and last-known states, read-only refresh and contextual workflow help
 
 ### Advanced Git Features
 - **Submodules** — list, init, update, sync, add, and deinit submodules; view submodule commit references
@@ -114,6 +115,7 @@ Instead of switching between windows or terminals, l8git puts every repository o
 - **Binary files** — binary file detection with dedicated diff reporting
 - **Git LFS** — installation/initialization status, tracked patterns, pointer inspection, `lfs pull`
 - **Repository tools** — run the commands a repository declares in `.l8git/tools.json`
+- **Workflow help** — 18 searchable guides, contextual recommendations and checklists, a Git glossary, and contextual help in seven languages
 
 ### Terminal
 - **Embedded terminal** — xterm.js-based terminal for each repository
@@ -133,7 +135,7 @@ Instead of switching between windows or terminals, l8git puts every repository o
 - **Four CLI providers** — Codex, Claude Code, OpenCode and Cursor, embedded as chats inside the app
 - **Worktree sessions** — every agent works in its own git worktree, so sessions run in parallel
 - **Session review** — hunk-level keep/discard of what the agent changed
-- **One-click finish** — commit, merge back into the base branch, clean up worktree and branch
+- **Guided finish** — confirm the reviewed content, commit, merge into the base branch and resume guarded worktree/branch cleanup after interruptions
 - **Agent overview** — every thread across every repository, with status and token cost
 - **Jira tickets (BYOK)** — link a ticket to a chat, see its key and status on that chat in the sidebar, and let all four CLIs read it through read-only tools that are only advertised while they are actually usable
 - **Capability sync** — copy, delete or mirror skills, slash commands, subagents, MCP servers and hooks between the agent CLIs, on the global, user and project level
@@ -190,7 +192,7 @@ User documentation lives in [`docs/`](docs/README.md) — plain Markdown, no sit
 | [Commits and staging](docs/commits-and-staging.md) | Hunk and line staging, AI commit messages, commit splitting, conflicts |
 | [Branches and stacks](docs/branches-and-stacks.md) | Merging, rebase, interactive rebase, stacks, branch archiving |
 | [Pull requests](docs/pull-requests.md) | Providers, reviews, merging, CI, the inbox |
-| [Agents](docs/agents.md) | The four agent CLIs, worktree sessions, review and finish flow |
+| [Agents user guide](docs/planning/agents-cli-integration/USER-GUIDE.md) | Agent setup, worktree sessions, review, resume and diagnostics |
 | [Safety net](docs/safety.md) | Undo, reflog, the git command log |
 | [Keyboard shortcuts](docs/shortcuts.md) | Defaults, rebinding, context keys |
 

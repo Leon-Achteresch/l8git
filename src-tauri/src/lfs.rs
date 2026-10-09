@@ -1,13 +1,13 @@
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::cmd::git_command;
 
 pub const LFS_UNAVAILABLE: &str = "__LFS_UNAVAILABLE__";
 const POINTER_HEADER: &str = "version https://git-lfs.github.com/spec/v1";
-const POINTER_MAX_BYTES: u64 = 4096;
+const POINTER_MAX_BYTES: u64 = 1024;
 const DEFAULT_LS_FILES_LIMIT: usize = 500;
 
 #[derive(Serialize, Debug, Default)]
@@ -62,8 +62,12 @@ fn run_git(repo: &Path, args: &[&str]) -> (bool, String) {
     let span = crate::cmdlog::start(&repo.to_string_lossy(), args);
     match git_command().arg("-C").arg(repo).args(args).output() {
         Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).trim_end().to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).trim_end().to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout)
+                .trim_end()
+                .to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr)
+                .trim_end()
+                .to_string();
             let merged = match (stdout.is_empty(), stderr.is_empty()) {
                 (false, false) => format!("{stdout}\n{stderr}"),
                 (false, true) => stdout,
@@ -101,26 +105,13 @@ fn ensure_installed() -> Result<String, String> {
     lfs_version().ok_or_else(|| LFS_UNAVAILABLE.to_string())
 }
 
-fn git_dir(repo: &Path) -> Option<PathBuf> {
-    let (ok, out) = run_git(repo, &["rev-parse", "--git-dir"]);
-    if !ok || out.is_empty() {
-        return None;
-    }
-    let candidate = PathBuf::from(out.trim());
-    if candidate.is_absolute() {
-        Some(candidate)
-    } else {
-        Some(repo.join(candidate))
-    }
-}
-
 fn hooks_have_lfs(repo: &Path) -> bool {
-    let Some(dir) = git_dir(repo) else {
+    let Ok(dir) = crate::git::resolve_hooks_dir(&repo.to_path_buf()) else {
         return false;
     };
     ["pre-push", "post-checkout", "post-merge", "post-commit"]
         .iter()
-        .any(|hook| match std::fs::read_to_string(dir.join("hooks").join(hook)) {
+        .any(|hook| match std::fs::read_to_string(dir.join(hook)) {
             Ok(text) => text.contains("git lfs") || text.contains("git-lfs"),
             Err(_) => false,
         })
@@ -131,59 +122,177 @@ fn filter_configured(repo: &Path) -> bool {
     ok && !out.trim().is_empty()
 }
 
-fn attributes_files(repo: &Path) -> Vec<PathBuf> {
-    let (ok, out) = run_git(
-        repo,
-        &["ls-files", "--cached", "--others", "--exclude-standard", "*.gitattributes", ".gitattributes"],
-    );
-    let mut files: Vec<PathBuf> = Vec::new();
-    if ok {
-        for line in out.lines() {
-            let rel = line.trim();
-            if rel.is_empty() {
-                continue;
-            }
-            let abs = repo.join(rel);
-            if abs.is_file() && !files.contains(&abs) {
-                files.push(abs);
-            }
-        }
-    }
-    let root = repo.join(".gitattributes");
-    if root.is_file() && !files.contains(&root) {
-        files.push(root);
-    }
-    files
+fn repository(path: &str) -> Result<PathBuf, String> {
+    let repo = PathBuf::from(path);
+    let root = crate::git::run_git(&repo, &["rev-parse", "--show-toplevel"])?;
+    let root = root.strip_suffix('\n').unwrap_or(&root);
+    #[cfg(windows)]
+    let root = root.strip_suffix('\r').unwrap_or(root);
+    PathBuf::from(root)
+        .canonicalize()
+        .map_err(|error| error.to_string())
 }
 
-fn has_lfs_attributes(repo: &Path) -> bool {
-    attributes_files(repo).iter().any(|file| {
-        std::fs::read_to_string(file)
-            .map(|text| text.contains("filter=lfs"))
-            .unwrap_or(false)
-    })
+fn relative_path(input: &str) -> Result<String, String> {
+    use std::path::Component;
+    #[cfg(windows)]
+    let input = input.replace('\\', "/");
+    let path = Path::new(&input);
+    if input.is_empty()
+        || input.contains('\0')
+        || path.components().any(|part| {
+            matches!(
+                part,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+        || path
+            .components()
+            .any(|part| part.as_os_str().eq_ignore_ascii_case(".git"))
+    {
+        return Err(format!("__INVALID_WORKTREE_PATH__|{input}"));
+    }
+    let normalized = path
+        .components()
+        .filter_map(|part| match part {
+            Component::Normal(part) => Some(part),
+            _ => None,
+        })
+        .collect::<PathBuf>();
+    if normalized.as_os_str().is_empty() {
+        return Err("File path must not be empty.".into());
+    }
+    let normalized = normalized.to_string_lossy().to_string();
+    #[cfg(windows)]
+    let normalized = normalized.replace('\\', "/");
+    Ok(normalized)
+}
+
+fn attributes_sources(repo: &PathBuf) -> Result<Vec<(String, String)>, String> {
+    let out = crate::git::run_git(
+        repo,
+        &[
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            ".gitattributes",
+            ":(glob)**/.gitattributes",
+        ],
+    )?;
+    let mut paths = out
+        .split_terminator('\0')
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    match std::fs::symlink_metadata(repo.join(".gitattributes")) {
+        Ok(_) => paths.push(".gitattributes".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.to_string()),
+    }
+    paths.sort();
+    paths.dedup();
+    let mut sources = Vec::new();
+    for path in paths {
+        let path = relative_path(&path)?;
+        let text = match std::fs::symlink_metadata(repo.join(&path)) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(format!("__INVALID_WORKTREE_PATH__|{path}"))
+            }
+            Ok(metadata) if metadata.is_file() => {
+                let abs = crate::pathsafe::resolve_in_root(repo, &path)?;
+                std::fs::read_to_string(abs)
+                    .map_err(|error| format!("Cannot read {path}: {error}"))?
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                // Git consults the index when a tracked attributes file is
+                // absent from the working tree.
+                crate::git::run_git(repo, &["cat-file", "-p", &format!(":{path}")])?
+            }
+            Err(error) => return Err(error.to_string()),
+            _ => return Err(format!("Not a regular attributes file: {path}")),
+        };
+        sources.push((path, text));
+    }
+    Ok(sources)
 }
 
 pub fn parse_attributes_patterns(text: &str, source: &str) -> Vec<LfsPattern> {
     let mut out = Vec::new();
     for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') || !line.contains("filter=lfs") {
+        let line = line.trim_start();
+        if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let Some(pattern) = line.split_whitespace().next() else {
+        let Some((pattern, attributes)) = attribute_pattern(line) else {
             continue;
         };
-        if pattern.is_empty() {
+        let mut filter = None;
+        for attribute in attributes.split_whitespace() {
+            if let Some(value) = attribute.strip_prefix("filter=") {
+                filter = Some(value);
+            } else if matches!(attribute, "filter" | "-filter" | "!filter") {
+                filter = None;
+            }
+        }
+        if pattern.is_empty() || filter != Some("lfs") {
             continue;
         }
         out.push(LfsPattern {
-            pattern: pattern.to_string(),
+            pattern,
             source: source.to_string(),
             excluded: false,
         });
     }
     out
+}
+
+fn attribute_pattern(line: &str) -> Option<(String, &str)> {
+    if !line.starts_with('"') {
+        let end = line.find(char::is_whitespace).unwrap_or(line.len());
+        return Some((line[..end].into(), &line[end..]));
+    }
+    let bytes = line.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 1;
+    while i < bytes.len() {
+        let byte = bytes[i];
+        i += 1;
+        if byte == b'"' {
+            if !line[i..].starts_with(char::is_whitespace) {
+                return None;
+            }
+            return Some((String::from_utf8(out).ok()?, &line[i..]));
+        }
+        if byte != b'\\' {
+            out.push(byte);
+            continue;
+        }
+        let escaped = *bytes.get(i)?;
+        i += 1;
+        out.push(match escaped {
+            b'"' | b'\\' => escaped,
+            b'a' => 7,
+            b'b' => 8,
+            b't' => b'\t',
+            b'n' => b'\n',
+            b'v' => 11,
+            b'f' => 12,
+            b'r' => b'\r',
+            b'0'..=b'3' => {
+                let second = *bytes.get(i)?;
+                let third = *bytes.get(i + 1)?;
+                if !matches!(second, b'0'..=b'7') || !matches!(third, b'0'..=b'7') {
+                    return None;
+                }
+                i += 2;
+                (escaped - b'0') * 64 + (second - b'0') * 8 + (third - b'0')
+            }
+            _ => return None,
+        });
+    }
+    None
 }
 
 pub fn parse_track_output(text: &str) -> Vec<LfsPattern> {
@@ -216,7 +325,10 @@ pub fn parse_track_output(text: &str) -> Vec<LfsPattern> {
         if pattern.is_empty() {
             continue;
         }
-        if out.iter().any(|p| p.pattern == pattern && p.excluded == excluded) {
+        if out
+            .iter()
+            .any(|p| p.pattern == pattern && p.excluded == excluded)
+        {
             continue;
         }
         out.push(LfsPattern {
@@ -229,14 +341,14 @@ pub fn parse_track_output(text: &str) -> Vec<LfsPattern> {
 }
 
 pub fn parse_ls_files_line(line: &str) -> Option<LfsFile> {
-    let line = line.trim_end();
-    if line.trim().is_empty() {
+    let line = line.trim_end_matches(['\r', '\n']);
+    if line.is_empty() {
         return None;
     }
-    let mut parts = line.trim_start().splitn(3, ' ');
+    let mut parts = line.splitn(3, ' ');
     let oid = parts.next()?.trim();
     let marker = parts.next()?.trim();
-    let rest = parts.next()?.trim();
+    let rest = parts.next()?;
     if oid.is_empty() || rest.is_empty() {
         return None;
     }
@@ -248,7 +360,7 @@ pub fn parse_ls_files_line(line: &str) -> Option<LfsFile> {
     }
     let (path, size) = match (rest.rfind(" ("), rest.ends_with(')')) {
         (Some(idx), true) => (
-            rest[..idx].trim().to_string(),
+            rest[..idx].to_string(),
             rest[idx + 2..rest.len() - 1].trim().to_string(),
         ),
         _ => (rest.to_string(), String::new()),
@@ -264,24 +376,113 @@ pub fn parse_ls_files_line(line: &str) -> Option<LfsFile> {
     })
 }
 
+#[derive(Deserialize)]
+struct JsonLfsFile {
+    name: String,
+    size: u64,
+    checkout: bool,
+    oid_type: String,
+    oid: String,
+}
+
+pub fn parse_ls_files_json(text: &str) -> Result<Vec<LfsFile>, String> {
+    let value: serde_json::Value = serde_json::from_str(text)
+        .map_err(|error| format!("Cannot parse git lfs ls-files JSON: {error}"))?;
+    let files = value
+        .get("files")
+        .ok_or("Git LFS JSON is missing its files array")?;
+    if files.is_null() {
+        return Ok(Vec::new());
+    }
+    let files: Vec<JsonLfsFile> = serde_json::from_value(files.clone())
+        .map_err(|error| format!("Invalid Git LFS file record: {error}"))?;
+    files
+        .into_iter()
+        .map(|file| {
+            if file.oid_type != "sha256"
+                || pointer_oid(&format!("sha256:{}", file.oid)).is_none()
+                || file.name.is_empty()
+                || file.name.contains('\0')
+                || file.size > i64::MAX as u64
+            {
+                return Err("Invalid Git LFS file metadata".into());
+            }
+            Ok(LfsFile {
+                path: file.name,
+                oid: file.oid,
+                size: format!("{} B", file.size),
+                // Preserve the existing * marker semantics: a full working file.
+                // JSON downloaded describes the separate local object cache.
+                downloaded: file.checkout,
+            })
+        })
+        .collect()
+}
+
+fn unsupported_json_option(error: &str) -> bool {
+    let error = error.to_ascii_lowercase();
+    [
+        "unknown flag: --json",
+        "unknown option: --json",
+        "unknown option 'json'",
+        "unknown option \"json\"",
+        "unrecognized option '--json'",
+        "flag provided but not defined: -json",
+        "unknown long flag '--json'",
+    ]
+    .iter()
+    .any(|message| error.contains(message))
+}
+
 pub fn parse_pointer(text: &str) -> Option<(String, u64)> {
-    let mut lines = text.lines();
-    let first = lines.next()?.trim();
-    if first != POINTER_HEADER {
+    if text.len() >= POINTER_MAX_BYTES as usize {
+        return None;
+    }
+    let mut lines = text.trim().lines();
+    let first = lines.next()?;
+    if !matches!(
+        first,
+        POINTER_HEADER
+            | "version https://hawser.github.com/spec/v1"
+            | "version http://git-media.io/v/2"
+    ) {
         return None;
     }
     let mut oid = None;
     let mut size = None;
+    let mut extensions = std::collections::HashSet::new();
     for line in lines {
-        let line = line.trim();
-        if let Some(rest) = line.strip_prefix("oid ") {
-            let value = rest.trim();
-            let digest = value.split_once(':').map(|(_, d)| d).unwrap_or(value).trim();
-            if !digest.is_empty() {
-                oid = Some(digest.to_string());
+        if line.is_empty() {
+            continue;
+        }
+        let (key, value) = line.split_once(' ')?;
+        match key {
+            "oid" if oid.is_none() && size.is_none() => oid = Some(pointer_oid(value)?.to_string()),
+            "size" if oid.is_some() && size.is_none() => {
+                let parsed = value.parse::<u64>().ok()?;
+                if parsed > i64::MAX as u64 {
+                    return None;
+                }
+                size = Some(parsed);
             }
-        } else if let Some(rest) = line.strip_prefix("size ") {
-            size = rest.trim().parse::<u64>().ok();
+            key if oid.is_none() && key.starts_with("ext-") => {
+                let mut fields = key.splitn(3, '-');
+                fields.next()?;
+                let priority = fields.next()?;
+                let name = fields.next()?;
+                if priority.len() != 1
+                    || !priority.bytes().all(|byte| byte.is_ascii_digit())
+                    || name.is_empty()
+                    || !name.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.')
+                    })
+                    || !extensions.insert(priority)
+                {
+                    return None;
+                }
+                pointer_oid(value)?;
+            }
+            _ => return None,
         }
     }
     match (oid, size) {
@@ -290,41 +491,86 @@ pub fn parse_pointer(text: &str) -> Option<(String, u64)> {
     }
 }
 
-fn normalize_rel_path(input: &str) -> String {
-    let unified = input.trim().replace('\\', "/");
-    let trimmed = unified.trim_start_matches("./");
-    trimmed.trim_start_matches('/').to_string()
+fn pointer_oid(value: &str) -> Option<&str> {
+    let digest = value.strip_prefix("sha256:")?;
+    (digest.len() == 64
+        && digest
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f')))
+    .then_some(digest)
 }
 
-fn pointer_head(repo: &Path, treeish: Option<&str>, rel: &str) -> Option<String> {
+fn pointer_head(
+    repo: &PathBuf,
+    treeish: Option<&str>,
+    rel: &str,
+) -> Result<Option<String>, String> {
     match treeish {
         Some(tree) => {
-            let spec = format!("{tree}:{rel}");
-            let (ok, size_out) = run_git(repo, &["cat-file", "-s", &spec]);
-            if !ok {
-                return None;
+            if tree.starts_with('-') || tree.chars().any(char::is_control) {
+                return Err("Invalid tree revision".into());
             }
-            let size: u64 = size_out.trim().parse().ok()?;
-            if size > POINTER_MAX_BYTES {
-                return None;
+            let tree = crate::git::run_git(
+                repo,
+                &[
+                    "rev-parse",
+                    "--verify",
+                    "--end-of-options",
+                    &format!("{tree}^{{tree}}"),
+                ],
+            )?;
+            let out = crate::git::run_git(
+                repo,
+                &[
+                    "--literal-pathspecs",
+                    "ls-tree",
+                    "-z",
+                    tree.trim(),
+                    "--",
+                    rel,
+                ],
+            )?;
+            if out.is_empty() {
+                return Ok(None);
             }
-            let (ok, content) = run_git(repo, &["show", &spec]);
-            if !ok {
-                return None;
+            let (header, _) = out.split_once('\t').ok_or("Invalid Git tree record")?;
+            let fields = header.split_whitespace().collect::<Vec<_>>();
+            if fields.len() != 3 {
+                return Err("Invalid Git tree record".into());
             }
-            Some(content)
+            if fields[1] != "blob" || !matches!(fields[0], "100644" | "100755") {
+                return Ok(None);
+            }
+            let size_out = crate::git::run_git(repo, &["cat-file", "-s", fields[2]])?;
+            let size: u64 = size_out
+                .trim()
+                .parse()
+                .map_err(|_| "Invalid Git object size")?;
+            if size >= POINTER_MAX_BYTES {
+                return Ok(None);
+            }
+            crate::git::run_git(repo, &["cat-file", "-p", fields[2]]).map(Some)
         }
         None => {
             let abs = repo.join(rel);
-            let meta = std::fs::metadata(&abs).ok()?;
-            if !meta.is_file() || meta.len() > POINTER_MAX_BYTES {
-                return None;
+            let meta = match std::fs::symlink_metadata(&abs) {
+                Ok(meta) => meta,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(error) => return Err(error.to_string()),
+            };
+            if meta.file_type().is_symlink() {
+                return Err(format!("__INVALID_WORKTREE_PATH__|{rel}"));
             }
-            let mut file = std::fs::File::open(&abs).ok()?;
-            let mut buf = vec![0u8; POINTER_MAX_BYTES as usize];
-            let n = file.read(&mut buf).ok()?;
-            buf.truncate(n);
-            String::from_utf8(buf).ok()
+            if !meta.is_file() || meta.len() >= POINTER_MAX_BYTES {
+                return Ok(None);
+            }
+            let abs = crate::pathsafe::resolve_in_root(repo, rel)?;
+            let file = std::fs::File::open(abs).map_err(|error| error.to_string())?;
+            let mut buf = Vec::new();
+            file.take(POINTER_MAX_BYTES)
+                .read_to_end(&mut buf)
+                .map_err(|error| error.to_string())?;
+            Ok(String::from_utf8(buf).ok())
         }
     }
 }
@@ -344,37 +590,52 @@ fn map_lfs_error(message: String) -> String {
     }
 }
 
-fn status_for(repo: &Path) -> LfsStatus {
+fn status_for(repo: &PathBuf) -> Result<LfsStatus, String> {
     let version = lfs_version();
     let installed = version.is_some();
     let initialized = installed && (filter_configured(repo) || hooks_have_lfs(repo));
-    LfsStatus {
+    let sources = attributes_sources(repo)?;
+    Ok(LfsStatus {
         installed,
         version,
         initialized,
-        has_attributes: has_lfs_attributes(repo),
-    }
+        has_attributes: sources
+            .iter()
+            .any(|(source, text)| !parse_attributes_patterns(text, source).is_empty()),
+    })
 }
 
-fn tracked_patterns_for(repo: &Path) -> Result<Vec<LfsPattern>, String> {
+fn tracked_patterns_for(repo: &PathBuf) -> Result<Vec<LfsPattern>, String> {
     if is_lfs_installed() {
-        let (ok, out) = run_git(repo, &["lfs", "track"]);
-        if ok {
-            return Ok(parse_track_output(&out));
+        let args = ["lfs", "track", "--json"];
+        let span = crate::cmdlog::start(&repo.to_string_lossy(), &args);
+        let output = git_command()
+            .arg("-C")
+            .arg(repo)
+            .args(args)
+            .env("GIT_LFS_TRACK_NO_INSTALL_HOOKS", "1")
+            .output()
+            .map_err(|error| error.to_string())?;
+        span.finish(output.status.success());
+        if output.status.success() {
+            return parse_track_json(&String::from_utf8_lossy(&output.stdout));
+        }
+        let error = format!(
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stderr),
+            String::from_utf8_lossy(&output.stdout)
+        );
+        if !unsupported_json_option(&error) {
+            return Err(map_lfs_error(error.trim().into()));
         }
     }
     let mut out: Vec<LfsPattern> = Vec::new();
-    for file in attributes_files(repo) {
-        let Ok(text) = std::fs::read_to_string(&file) else {
-            continue;
-        };
-        let source = file
-            .strip_prefix(repo)
-            .unwrap_or(file.as_path())
-            .to_string_lossy()
-            .replace('\\', "/");
+    for (source, text) in attributes_sources(repo)? {
         for pattern in parse_attributes_patterns(&text, &source) {
-            if !out.iter().any(|p| p.pattern == pattern.pattern) {
+            if !out
+                .iter()
+                .any(|p| p.pattern == pattern.pattern && p.source == pattern.source)
+            {
                 out.push(pattern);
             }
         }
@@ -382,11 +643,37 @@ fn tracked_patterns_for(repo: &Path) -> Result<Vec<LfsPattern>, String> {
     Ok(out)
 }
 
+pub fn parse_track_json(text: &str) -> Result<Vec<LfsPattern>, String> {
+    #[derive(Deserialize)]
+    struct Pattern {
+        pattern: String,
+        source: String,
+        tracked: bool,
+        #[serde(default)]
+        lockable: bool,
+    }
+    #[derive(Deserialize)]
+    struct Patterns {
+        patterns: Vec<Pattern>,
+    }
+    let patterns: Patterns = serde_json::from_str(text)
+        .map_err(|error| format!("Cannot parse git lfs track JSON: {error}"))?;
+    Ok(patterns
+        .patterns
+        .into_iter()
+        .map(|pattern| LfsPattern {
+            pattern: pattern.pattern,
+            source: pattern.source,
+            excluded: !pattern.tracked && !pattern.lockable,
+        })
+        .collect())
+}
+
 #[tauri::command]
 pub async fn lfs_available(path: String) -> Result<LfsStatus, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
-        Ok(status_for(&repo))
+        let repo = repository(&path)?;
+        status_for(&repo)
     })
     .await
 }
@@ -394,7 +681,7 @@ pub async fn lfs_available(path: String) -> Result<LfsStatus, String> {
 #[tauri::command]
 pub async fn lfs_tracked_patterns(path: String) -> Result<Vec<LfsPattern>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = repository(&path)?;
         tracked_patterns_for(&repo)
     })
     .await
@@ -404,12 +691,14 @@ pub async fn lfs_tracked_patterns(path: String) -> Result<Vec<LfsPattern>, Strin
 pub async fn lfs_track(path: String, pattern: String) -> Result<String, String> {
     spawn_git(move || {
         ensure_installed()?;
-        let repo = PathBuf::from(path.trim());
-        let pattern = pattern.trim().to_string();
-        if pattern.is_empty() {
+        let repo = repository(&path)?;
+        let lock = crate::git::repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|error| error.to_string())?;
+        attributes_sources(&repo)?;
+        if pattern.trim().is_empty() || pattern.contains('\0') {
             return Err("Pattern must not be empty.".into());
         }
-        let (ok, out) = run_git(&repo, &["lfs", "track", &pattern]);
+        let (ok, out) = run_git(&repo, &["lfs", "track", "--", &pattern]);
         if ok {
             Ok(out)
         } else {
@@ -423,12 +712,14 @@ pub async fn lfs_track(path: String, pattern: String) -> Result<String, String> 
 pub async fn lfs_untrack(path: String, pattern: String) -> Result<String, String> {
     spawn_git(move || {
         ensure_installed()?;
-        let repo = PathBuf::from(path.trim());
-        let pattern = pattern.trim().to_string();
-        if pattern.is_empty() {
+        let repo = repository(&path)?;
+        let lock = crate::git::repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|error| error.to_string())?;
+        attributes_sources(&repo)?;
+        if pattern.trim().is_empty() || pattern.contains('\0') {
             return Err("Pattern must not be empty.".into());
         }
-        let (ok, out) = run_git(&repo, &["lfs", "untrack", &pattern]);
+        let (ok, out) = run_git(&repo, &["lfs", "untrack", "--", &pattern]);
         if ok {
             Ok(out)
         } else {
@@ -442,12 +733,16 @@ pub async fn lfs_untrack(path: String, pattern: String) -> Result<String, String
 pub async fn lfs_ls_files(path: String, limit: Option<u32>) -> Result<LfsFileList, String> {
     spawn_git(move || {
         ensure_installed()?;
-        let repo = PathBuf::from(path.trim());
-        let (ok, out) = run_git(&repo, &["lfs", "ls-files", "--size"]);
-        if !ok {
-            return Err(map_lfs_error(out));
-        }
-        let all: Vec<LfsFile> = out.lines().filter_map(parse_ls_files_line).collect();
+        let repo = repository(&path)?;
+        let all = match crate::git::run_git(&repo, &["lfs", "ls-files", "--json"]) {
+            Ok(out) => parse_ls_files_json(&out)?,
+            Err(error) if unsupported_json_option(&error) => {
+                let out = crate::git::run_git(&repo, &["lfs", "ls-files", "--size"]).map_err(map_lfs_error)?;
+                out.lines().filter(|line| !line.is_empty()).map(|line| parse_ls_files_line(line)
+                    .ok_or_else(|| "Cannot parse this Git LFS file listing; update Git LFS for JSON support.".to_string())).collect::<Result<Vec<_>, _>>()?
+            },
+            Err(error) => return Err(map_lfs_error(error)),
+        };
         let total = all.len();
         let cap = match limit {
             Some(0) | None => DEFAULT_LS_FILES_LIMIT,
@@ -468,7 +763,9 @@ pub async fn lfs_ls_files(path: String, limit: Option<u32>) -> Result<LfsFileLis
 pub async fn lfs_pull(path: String) -> Result<String, String> {
     spawn_git(move || {
         ensure_installed()?;
-        let repo = PathBuf::from(path.trim());
+        let repo = repository(&path)?;
+        let lock = crate::git::repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|error| error.to_string())?;
         let (ok, out) = run_git(&repo, &["lfs", "pull"]);
         if ok {
             Ok(out)
@@ -486,17 +783,18 @@ pub async fn lfs_pointer_info(
     treeish: Option<String>,
 ) -> Result<LfsPointer, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
-        let rel = normalize_rel_path(&file_path);
-        if rel.is_empty() {
-            return Err("File path must not be empty.".into());
-        }
-        let tree = treeish
-            .as_deref()
-            .map(str::trim)
-            .filter(|t| !t.is_empty())
-            .map(|t| t.to_string());
-        let head = pointer_head(&repo, tree.as_deref(), &rel);
+        let repo = repository(&path)?;
+        let rel = relative_path(&file_path)?;
+        let tree = match treeish {
+            Some(tree) => {
+                if tree.trim().is_empty() || tree.chars().any(char::is_control) {
+                    return Err("Invalid tree revision".into());
+                }
+                Some(tree.trim().to_string())
+            }
+            None => None,
+        };
+        let head = pointer_head(&repo, tree.as_deref(), &rel)?;
         let parsed = head.as_deref().and_then(parse_pointer);
         Ok(match parsed {
             Some((oid, size)) => LfsPointer {
@@ -580,14 +878,36 @@ mod tests {
     }
 
     #[test]
+    fn json_fallback_only_matches_an_explicit_unsupported_flag() {
+        assert!(unsupported_json_option("Error: unknown flag: --json"));
+        assert!(unsupported_json_option(
+            "flag provided but not defined: -json"
+        ));
+        assert!(!unsupported_json_option(
+            "Authentication failed for JSON endpoint"
+        ));
+        assert!(!unsupported_json_option("unknown flag: --remote-json"));
+        assert!(!unsupported_json_option("invalid config file"));
+    }
+
+    #[test]
+    fn lfs_hooks_follow_the_configured_hooks_path() {
+        let repo = TestRepo::new();
+        let hooks = repo.path.join("hooks with spaces");
+        fs::create_dir_all(&hooks).unwrap();
+        fs::write(hooks.join("pre-push"), "#!/bin/sh\ngit lfs pre-push\n").unwrap();
+        repo.git(&["config", "core.hooksPath", "hooks with spaces"]);
+        assert!(hooks_have_lfs(&repo.path));
+    }
+
+    #[test]
     fn rejects_non_pointer_content() {
         assert!(parse_pointer("hello world\n").is_none());
         assert!(parse_pointer("").is_none());
         assert!(parse_pointer("version https://git-lfs.github.com/spec/v1\nsize 1\n").is_none());
-        assert!(parse_pointer(
-            "version https://git-lfs.github.com/spec/v1\noid sha256:abc\n"
-        )
-        .is_none());
+        assert!(
+            parse_pointer("version https://git-lfs.github.com/spec/v1\noid sha256:abc\n").is_none()
+        );
         assert!(parse_pointer(&format!("prefix\n{POINTER_TEXT}")).is_none());
     }
 
@@ -629,8 +949,7 @@ mod tests {
 
     #[test]
     fn parses_ls_files_lines() {
-        let downloaded =
-            parse_ls_files_line("4d7a214614 * assets/my logo.psd (1.2 MB)").unwrap();
+        let downloaded = parse_ls_files_line("4d7a214614 * assets/my logo.psd (1.2 MB)").unwrap();
         assert_eq!(downloaded.oid, "4d7a214614");
         assert_eq!(downloaded.path, "assets/my logo.psd");
         assert_eq!(downloaded.size, "1.2 MB");
@@ -668,20 +987,21 @@ mod tests {
             assert!(clean.version.is_none());
         }
 
-        repo.write(".gitattributes", "*.psd filter=lfs diff=lfs merge=lfs -text\n");
+        repo.write(
+            ".gitattributes",
+            "*.psd filter=lfs diff=lfs merge=lfs -text\n",
+        );
         repo.commit("attrs");
         let tracked = lfs_available(repo.str_path()).await.unwrap();
         assert!(tracked.has_attributes);
     }
 
     #[tokio::test]
-    async fn status_on_missing_repo_does_not_panic() {
+    async fn status_on_missing_repo_returns_a_repository_error() {
         let missing = std::env::temp_dir().join("l8git-lfs-does-not-exist");
-        let status = lfs_available(missing.to_string_lossy().to_string())
+        assert!(lfs_available(missing.to_string_lossy().to_string())
             .await
-            .unwrap();
-        assert!(!status.has_attributes);
-        assert!(!status.initialized);
+            .is_err());
     }
 
     #[tokio::test]
@@ -723,7 +1043,7 @@ mod tests {
             .unwrap();
         assert!(!missing.is_pointer);
 
-        assert!(lfs_pointer_info(repo.str_path(), "  ".into(), None)
+        assert!(lfs_pointer_info(repo.str_path(), "".into(), None)
             .await
             .is_err());
     }
@@ -735,7 +1055,9 @@ mod tests {
         }
         let repo = TestRepo::new();
         for err in [
-            lfs_track(repo.str_path(), "*.psd".into()).await.unwrap_err(),
+            lfs_track(repo.str_path(), "*.psd".into())
+                .await
+                .unwrap_err(),
             lfs_untrack(repo.str_path(), "*.psd".into())
                 .await
                 .unwrap_err(),

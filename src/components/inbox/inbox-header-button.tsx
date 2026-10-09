@@ -33,8 +33,7 @@ export function InboxHeaderButton() {
   const setInboxOpen = useUiStore((s) => s.setInboxOpen);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const tracked = useAnchorBox(true, wrapRef);
-  const box = wrapRef.current?.getBoundingClientRect() ?? tracked;
+  const box = useAnchorBox(open, wrapRef);
   const count = inboxBadgeCount(sections);
   const label = t("header.inbox");
   const detail = t("inbox.indicator", {
@@ -42,6 +41,7 @@ export function InboxHeaderButton() {
     failures: sections.redRuns.length,
   });
   const transition = reduce ? { duration: 0 } : MORPH;
+  const panelReady = open && box !== null;
 
   useEffect(() => {
     if (!open) return;
@@ -62,8 +62,8 @@ export function InboxHeaderButton() {
   }, [open, setInboxOpen]);
 
   useEffect(() => {
-    if (open) panelRef.current?.focus();
-  }, [open]);
+    if (panelReady) panelRef.current?.focus();
+  }, [panelReady]);
 
   const panelStyle = box
     ? {

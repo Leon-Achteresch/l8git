@@ -32,7 +32,7 @@ function SessionRow({
       first={first}
       last={last}
       onPress={onPress}
-      accessibilityLabel={`Review ${session.name}`}>
+      accessibilityLabel={`${session.cleanupPending ? 'Resume cleanup' : session.recovering ? 'Resume finishing' : 'Review'} ${session.name}`}>
       <View className="flex-row items-center gap-3 px-4 py-3.5">
         <View className="bg-white/10 h-10 w-10 items-center justify-center rounded-full">
           <Icon as={GitBranch} size={16} className="text-foreground" />
@@ -42,7 +42,7 @@ function SessionRow({
             {session.name}
           </Text>
           <Text numberOfLines={1} className="text-muted-foreground text-xs">
-            {session.repoName} · {session.hostName}
+            {session.repoName} · {session.hostName}{session.cleanupPending ? ' · Cleanup pending' : session.recovering ? ' · Finish pending' : ''}
           </Text>
         </View>
         {session.branch ? (

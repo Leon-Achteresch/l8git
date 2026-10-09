@@ -1,6 +1,9 @@
 import { AppHeader } from '@/components/app/app-header';
 import { ReflogRow } from '@/components/repo/reflog/reflog-row';
+import { RescueBranchDialog } from '@/components/repo/reflog/rescue-branch-dialog';
 import { UndoConfirmDialog } from '@/components/repo/undo/undo-confirm-dialog';
+import { RecoveryFeedback } from '@/components/repo/undo/recovery-feedback';
+import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,19 +15,22 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toastError } from '@/lib/error-toast';
 import { repoLabel } from '@/lib/repo-store';
-import type { ReflogEntry, ReflogResetMode } from '@/lib/reflog-format';
+import { recoveryError, type ReflogEntry, type ReflogResetMode } from '@/lib/reflog-format';
 import { useReflogStore } from '@/lib/reflog-store';
-import { History, Loader2, RefreshCw, Undo2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { GitBranch, History, Loader2, RefreshCw, Undo2, X } from 'lucide-react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { SpinIcon } from "@/components/motion/kit";
 
 const EMPTY_ENTRIES: ReflogEntry[] = [];
+const CommitInspectDetail = lazy(() => import('@/components/repo/commit/commit-inspect-detail').then((module) => ({ default: module.CommitInspectDetail })));
+type SelectedEntry = { path: string; entry: ReflogEntry };
 
-type PendingReset = { entry: ReflogEntry; mode: ReflogResetMode };
+type PendingReset = { path: string; entry: ReflogEntry; mode: ReflogResetMode; expectedHead: string };
 
 export function ReflogPage({
   path,
@@ -40,18 +46,36 @@ export function ReflogPage({
   const error = useReflogStore((s) => s.error[path] ?? null);
   const load = useReflogStore((s) => s.load);
   const loadMore = useReflogStore((s) => s.loadMore);
+  const refreshViews = useReflogStore((s) => s.refreshViews);
   const resetToEntry = useReflogStore((s) => s.resetToEntry);
   const [pending, setPending] = useState<PendingReset | null>(null);
   const [busy, setBusy] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [inspect, setInspect] = useState<SelectedEntry | null>(null);
+  const [rescue, setRescue] = useState<SelectedEntry | null>(null);
+  const refreshWarning = useReflogStore((s) => !!s.refreshWarning[path]);
+  const activePath = useRef(path);
+  const pathEpoch = useRef(0);
+  activePath.current = path;
+  const visiblePending = pending?.path === path ? pending : null;
+  const visibleInspect = inspect?.path === path ? inspect : null;
+  const visibleRescue = rescue?.path === path ? rescue : null;
 
   useEffect(() => {
+    pathEpoch.current++;
+    setPending(null);
+    setResetError(null);
+    setBusy(false);
+    setUndoOpen(false);
+    setInspect(null);
+    setRescue(null);
     void load(path);
   }, [path, load]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !pending && !undoOpen) onClose();
+      if (e.key === 'Escape' && !pending && !undoOpen && !document.querySelector('[role="dialog"], [role="alertdialog"]') && !(e.target instanceof Element && e.target.closest('input, textarea, [contenteditable="true"]'))) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -59,7 +83,8 @@ export function ReflogPage({
 
   async function copyHash(hash: string) {
     try {
-      await navigator.clipboard?.writeText(hash);
+      if (!navigator.clipboard?.writeText) throw new Error(t('recovery.clipboardUnavailable'));
+      await navigator.clipboard.writeText(hash);
       toast.success(t('reflog.hashCopied'));
     } catch (e) {
       toastError(String(e));
@@ -67,29 +92,42 @@ export function ReflogPage({
   }
 
   async function confirmReset() {
-    if (!pending || busy) return;
+    if (!visiblePending || busy || (resetError && recoveryError(resetError).stale)) return;
+    const operation = visiblePending;
+    const operationEpoch = pathEpoch.current;
     setBusy(true);
+    setResetError(null);
     try {
       const result = await resetToEntry(
-        path,
-        pending.entry.selector,
-        pending.mode,
+        operation.path,
+        operation.entry.selector,
+        operation.mode,
+        operation.entry.hash,
+        operation.expectedHead,
       );
       toast.success(
         t('reflog.resetSuccess', {
-          selector: pending.entry.selector,
+          selector: operation.entry.selector,
           hash: result.to_hash.slice(0, 7),
         }),
       );
-      setPending(null);
+      if (activePath.current === operation.path && pathEpoch.current === operationEpoch) setPending(null);
+      if (useReflogStore.getState().refreshWarning[operation.path]) toast.warning(t('recovery.refreshWarning'));
     } catch (e) {
-      toastError(String(e));
+      if (activePath.current === operation.path && pathEpoch.current === operationEpoch) setResetError(String(e));
     } finally {
-      setBusy(false);
+      if (activePath.current === operation.path && pathEpoch.current === operationEpoch) setBusy(false);
     }
   }
 
-  const hard = pending?.mode === 'hard';
+  function requestReset(entry: ReflogEntry, mode: ReflogResetMode) {
+    const currentHead = entries[0]?.hash;
+    if (!currentHead) return;
+    setResetError(null);
+    setPending({ path, entry, mode, expectedHead: currentHead });
+  }
+
+  const hard = visiblePending?.mode === 'hard';
 
   return (
     <div className='fixed inset-0 z-50 flex flex-col bg-background'>
@@ -111,15 +149,17 @@ export function ReflogPage({
             </p>
           </div>
           <div className='ml-auto flex shrink-0 items-center gap-1'>
+            <WorkflowHelpLink guideId='recover-history' onOpen={onClose} />
             <Button
               type='button'
               variant='outline'
               size='sm'
               className='gap-1.5'
+              aria-label={t('undo.buttonLabel')}
               onClick={() => setUndoOpen(true)}
             >
               <Undo2 className='size-3.5' />
-              {t('undo.buttonLabel')}
+              <span className='hidden sm:inline'>{t('undo.buttonLabel')}</span>
             </Button>
             <Button
               type='button'
@@ -128,7 +168,7 @@ export function ReflogPage({
               title={t('reflog.refresh')}
               aria-label={t('reflog.refresh')}
               disabled={loading}
-              onClick={() => void load(path)}
+              onClick={() => void (refreshWarning ? refreshViews(path) : load(path))}
             >
               <SpinIcon icon={RefreshCw} active={loading} className='size-4' />
             </Button>
@@ -146,10 +186,16 @@ export function ReflogPage({
         </div>
 
         <div className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
+          <p className='mx-auto mb-3 max-w-5xl text-xs leading-relaxed text-muted-foreground'>{t('recovery.reflogHint')}</p>
+          {refreshWarning && <div role='status' className='mx-auto mb-3 flex max-w-5xl items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs'>
+            <p>{t('recovery.refreshWarning')}</p>
+            <Button variant='outline' size='sm' disabled={loading} onClick={() => void refreshViews(path)}>{t('recovery.refreshViews')}</Button>
+          </div>}
           {error ? (
-            <p className='rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive'>
-              {error}
-            </p>
+            <div role='alert' className='rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive'>
+              <p className='whitespace-pre-wrap break-all'>{error}</p>
+              <Button variant='outline' size='sm' className='mt-2' disabled={loading} onClick={() => void load(path)}>{t('common.retry')}</Button>
+            </div>
           ) : entries.length === 0 && loading ? (
             <div className='flex items-center justify-center gap-2 py-16 text-muted-foreground'>
               <SpinIcon icon={Loader2} className='size-4 ' />
@@ -170,8 +216,10 @@ export function ReflogPage({
                   key={entry.selector}
                   entry={entry}
                   onCopyHash={(hash) => void copyHash(hash)}
-                  onResetKeep={(e) => setPending({ entry: e, mode: 'keep' })}
-                  onResetHard={(e) => setPending({ entry: e, mode: 'hard' })}
+                  onResetKeep={(e) => requestReset(e, 'keep')}
+                  onResetHard={(e) => requestReset(e, 'hard')}
+                  onInspect={(entry) => setInspect({ path, entry })}
+                  onCreateBranch={(entry) => setRescue({ path, entry })}
                 />
               ))}
               {!exhausted && (
@@ -195,7 +243,7 @@ export function ReflogPage({
       </div>
 
       <AlertDialog
-        open={!!pending}
+        open={!!visiblePending}
         onOpenChange={(next) => {
           if (!next && !busy) setPending(null);
         }}
@@ -208,22 +256,30 @@ export function ReflogPage({
             <AlertDialogDescription>
               {hard
                 ? t('reflog.confirmHardDesc', {
-                    selector: pending?.entry.selector ?? '',
-                    hash: pending?.entry.short_hash ?? '',
+                    selector: visiblePending?.entry.selector ?? '',
+                    hash: visiblePending?.entry.short_hash ?? '',
                   })
                 : t('reflog.confirmKeepDesc', {
-                    selector: pending?.entry.selector ?? '',
-                    hash: pending?.entry.short_hash ?? '',
+                    selector: visiblePending?.entry.selector ?? '',
+                    hash: visiblePending?.entry.short_hash ?? '',
                   })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {visiblePending && <div className='space-y-2 rounded-lg border border-border/50 bg-muted/30 p-3 text-xs'>
+            <p className='break-words font-medium'>{visiblePending.entry.message || visiblePending.entry.subject}</p>
+            <p className='font-mono break-all'>{t('recovery.currentHead')}: {visiblePending.expectedHead}</p>
+            <p className='font-mono break-all'>{t('recovery.targetCommit')}: {visiblePending.entry.hash}</p>
+            <p className='text-muted-foreground'>{t(hard ? 'recovery.hardEffect' : 'recovery.keepEffect')}</p>
+          </div>}
+          {resetError && <RecoveryFeedback error={resetError} />}
           <AlertDialogFooter>
+            {resetError && recoveryError(resetError).stale && <Button variant='outline' onClick={() => { setPending(null); setResetError(null); void load(path); }}>{t('recovery.reloadReflog')}</Button>}
             <AlertDialogCancel disabled={busy}>
               {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               variant={hard ? 'destructive' : 'default'}
-              disabled={busy}
+              disabled={busy || !visiblePending || !!(resetError && recoveryError(resetError).stale)}
               onClick={(e) => {
                 e.preventDefault();
                 void confirmReset();
@@ -240,6 +296,23 @@ export function ReflogPage({
         path={path}
         onClose={() => setUndoOpen(false)}
       />
+      <Dialog open={!!visibleInspect} onOpenChange={(open) => { if (!open) setInspect(null); }}>
+        <DialogContent showCloseButton={false} className='flex h-[90dvh] w-[calc(100vw-1.5rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl'>
+          <DialogHeader className='shrink-0 border-b border-border/50 px-4 py-3'>
+            <div className='flex flex-wrap items-center justify-between gap-2'>
+              <DialogTitle>{t('recovery.inspectTitle')}</DialogTitle>
+              <Button variant='outline' size='sm' onClick={() => { if (visibleInspect) { setRescue(visibleInspect); setInspect(null); } }}><GitBranch className='size-3.5' />{t('recovery.createBranch')}</Button>
+            </div>
+            <DialogDescription className='break-all font-mono text-xs'>{visibleInspect?.entry.hash}</DialogDescription>
+          </DialogHeader>
+          <div className='min-h-0 flex-1'>
+            {visibleInspect && <Suspense fallback={<div className='grid h-full place-items-center'><SpinIcon icon={Loader2} active className='size-5' /></div>}>
+              <CommitInspectDetail path={visibleInspect.path} commitHash={visibleInspect.entry.hash} readOnly onClose={() => setInspect(null)} />
+            </Suspense>}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <RescueBranchDialog path={visibleRescue?.path ?? path} entry={visibleRescue?.entry ?? null} onClose={() => setRescue(null)} />
     </div>
   );
 }

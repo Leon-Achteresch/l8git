@@ -27,12 +27,6 @@ fn too_large(size: u64) -> String {
     format!("{FILE_TOO_LARGE}|{size}")
 }
 
-fn normalize_rel_path(input: &str) -> String {
-    let unified = input.trim().replace('\\', "/");
-    let trimmed = unified.trim_start_matches("./");
-    trimmed.trim_start_matches('/').to_string()
-}
-
 fn git_bytes(repo: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
     let span = crate::cmdlog::start(&repo.to_string_lossy(), args);
     let output = match git_command().arg("-C").arg(repo).args(args).output() {
@@ -127,7 +121,10 @@ fn looks_like_svg(bytes: &[u8]) -> bool {
         return false;
     }
     let text = String::from_utf8_lossy(head);
-    let trimmed = text.trim_start().trim_start_matches('\u{feff}').trim_start();
+    let trimmed = text
+        .trim_start()
+        .trim_start_matches('\u{feff}')
+        .trim_start();
     if trimmed.starts_with("<svg") {
         return true;
     }
@@ -151,32 +148,37 @@ pub fn detect_mime(bytes: &[u8], rel_path: &str) -> String {
 }
 
 fn read_working_tree(repo: &Path, rel_path: &str) -> Result<Vec<u8>, String> {
-    let abs = crate::pathsafe::resolve_in_root(repo, rel_path)?;
-    let meta = std::fs::metadata(&abs).map_err(|e| format!("{}: {e}", abs.display()))?;
-    if !meta.is_file() {
-        return Err(format!("Not a file: {rel_path}"));
-    }
+    use std::io::Read;
+    let input = crate::git::open_worktree_file(&repo.to_path_buf(), rel_path)?;
+    let meta = input
+        .metadata()
+        .map_err(|e| format!("Cannot inspect {rel_path}: {e}"))?;
     if meta.len() > MAX_MEDIA_BYTES {
         return Err(too_large(meta.len()));
     }
-    std::fs::read(&abs).map_err(|e| format!("{}: {e}", abs.display()))
+    // A file can grow after the metadata check. Keep the allocation bounded
+    // and let the caller report an over-limit result from the actual bytes.
+    let mut bytes = Vec::new();
+    input
+        .take(MAX_MEDIA_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("Cannot read {rel_path}: {e}"))?;
+    Ok(bytes)
 }
 
 fn read_treeish(repo: &Path, treeish: &str, rel_path: &str) -> Result<Vec<u8>, String> {
-    let spec = format!("{treeish}:{rel_path}");
-    let size = object_size(repo, &spec)?;
+    let oid = crate::git::git_file_blob_oid(&repo.to_path_buf(), Some(treeish), rel_path)?
+        .ok_or_else(|| format!("File not found in revision: {rel_path}"))?;
+    let size = object_size(repo, &oid)?;
     if size > MAX_MEDIA_BYTES {
         return Err(too_large(size));
     }
-    git_bytes(repo, &["show", &spec])
+    git_bytes(repo, &["cat-file", "blob", &oid])
 }
 
 pub fn file_bytes(repo: &Path, treeish: Option<&str>, rel_path: &str) -> Result<FileBytes, String> {
-    let rel = normalize_rel_path(rel_path);
-    if rel.is_empty() {
-        return Err("File path must not be empty.".into());
-    }
-    let bytes = match treeish.map(str::trim).filter(|t| !t.is_empty()) {
+    let rel = crate::git::literal_file_path(rel_path)?;
+    let bytes = match treeish.filter(|t| !t.is_empty()) {
         Some(tree) => read_treeish(repo, tree, &rel)?,
         None => read_working_tree(repo, &rel)?,
     };
@@ -201,7 +203,7 @@ pub async fn repo_file_bytes_at(
     file_path: String,
 ) -> Result<FileBytes, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         file_bytes(&repo, treeish.as_deref(), &file_path)
     })
     .await
@@ -228,8 +230,11 @@ mod tests {
     impl TestRepo {
         fn new() -> TestRepo {
             let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-            let path = std::env::temp_dir()
-                .join(format!("l8git-media-test-{}-{}", std::process::id(), id));
+            let path = std::env::temp_dir().join(format!(
+                "l8git-media-test-{}-{}",
+                std::process::id(),
+                id
+            ));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).unwrap();
             let repo = TestRepo { path };
@@ -275,7 +280,10 @@ mod tests {
     #[test]
     fn detects_mime_from_magic_bytes() {
         assert_eq!(detect_mime(&png_bytes(), "a.bin"), "image/png");
-        assert_eq!(detect_mime(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00], "a"), "image/jpeg");
+        assert_eq!(
+            detect_mime(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00], "a"),
+            "image/jpeg"
+        );
         assert_eq!(detect_mime(b"GIF89a....", "a"), "image/gif");
         let mut webp = b"RIFF".to_vec();
         webp.extend_from_slice(&[0x10, 0, 0, 0]);
@@ -300,7 +308,10 @@ mod tests {
     #[test]
     fn falls_back_to_extension_and_generic_types() {
         assert_eq!(detect_mime(&[1, 2, 3, 0, 4], "logo.png"), "image/png");
-        assert_eq!(detect_mime(&[1, 2, 3, 0, 4], "blob.dat"), "application/octet-stream");
+        assert_eq!(
+            detect_mime(&[1, 2, 3, 0, 4], "blob.dat"),
+            "application/octet-stream"
+        );
         assert_eq!(detect_mime(b"hello world", "notes.txt"), "text/plain");
     }
 
@@ -315,9 +326,18 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_relative_paths() {
-        assert_eq!(normalize_rel_path("./src\\a.png"), "src/a.png");
-        assert_eq!(normalize_rel_path("  /a/b.png "), "a/b.png");
+    fn preserves_literal_relative_paths() {
+        assert_eq!(
+            crate::git::literal_file_path("./src/a.png").unwrap(),
+            "src/a.png"
+        );
+        assert_eq!(crate::git::literal_file_path(" a.png ").unwrap(), " a.png ");
+        #[cfg(unix)]
+        assert_eq!(
+            crate::git::literal_file_path("src\\a.png").unwrap(),
+            "src\\a.png"
+        );
+        assert!(crate::git::literal_file_path("/a/b.png").is_err());
     }
 
     #[test]
@@ -396,5 +416,84 @@ mod tests {
     fn empty_path_is_rejected() {
         let repo = TestRepo::new();
         assert!(file_bytes(&repo.path, None, "   ").is_err());
+    }
+
+    fn decoded(bytes: FileBytes) -> Vec<u8> {
+        base64::engine::general_purpose::STANDARD
+            .decode(bytes.base64)
+            .unwrap()
+    }
+
+    #[test]
+    fn media_uses_exact_live_and_historical_paths_and_rejects_revision_options() {
+        let repo = TestRepo::new();
+        for name in [" a.png ", "literal*name.png"] {
+            repo.write(name, b"\x89PNG\r\n\x1a\n\0 original\n");
+        }
+        #[cfg(unix)]
+        repo.write("back\\slash.png", b"literal Unix backslash\0\n");
+        repo.commit("media paths");
+        for name in [" a.png ", "literal*name.png"] {
+            let expected = b"\x89PNG\r\n\x1a\n\0 original\n";
+            assert_eq!(
+                decoded(file_bytes(&repo.path, None, name).unwrap()),
+                expected
+            );
+            assert_eq!(
+                decoded(file_bytes(&repo.path, Some("HEAD"), name).unwrap()),
+                expected
+            );
+        }
+        #[cfg(unix)]
+        for revision in [None, Some("HEAD")] {
+            assert_eq!(
+                decoded(file_bytes(&repo.path, revision, "back\\slash.png").unwrap()),
+                b"literal Unix backslash\0\n"
+            );
+        }
+        let outside = TestRepo::new();
+        let output = outside.path.join("read-output");
+        assert!(file_bytes(
+            &repo.path,
+            Some(&format!("--output={}", output.display())),
+            " a.png "
+        )
+        .is_err());
+        assert!(!output.exists());
+        for path in ["../secret.png", "/secret.png", ".git/config"] {
+            for revision in [None, Some("HEAD")] {
+                assert!(file_bytes(&repo.path, revision, path).is_err());
+            }
+        }
+        for revision in ["HEAD\n", "missing-ref", " "] {
+            assert!(file_bytes(&repo.path, Some(revision), " a.png ").is_err());
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn media_live_reads_reject_symlinks_and_special_files_but_history_ignores_live_parents() {
+        use std::os::unix::ffi::OsStrExt;
+        use std::os::unix::fs::symlink;
+        let repo = TestRepo::new();
+        let outside = TestRepo::new();
+        outside.write("a.txt", b"external fixture must not be read\n");
+        fs::create_dir(repo.path.join("dir")).unwrap();
+        repo.write("dir/a.txt", b"historical fixture\n");
+        repo.commit("initial");
+        fs::remove_dir_all(repo.path.join("dir")).unwrap();
+        symlink(&outside.path, repo.path.join("dir")).unwrap();
+        symlink(outside.path.join("a.txt"), repo.path.join("link.txt")).unwrap();
+        symlink(repo.path.join(".git"), repo.path.join("metadata")).unwrap();
+        let fifo =
+            std::ffi::CString::new(repo.path.join("pipe.txt").as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        for file in ["dir/a.txt", "link.txt", "metadata/config", "pipe.txt"] {
+            assert!(file_bytes(&repo.path, None, file).is_err());
+        }
+        assert_eq!(
+            decoded(file_bytes(&repo.path, Some("HEAD"), "dir/a.txt").unwrap()),
+            b"historical fixture\n"
+        );
     }
 }

@@ -61,9 +61,8 @@ pub(crate) async fn pty_open_inner(
     on_exit: Channel<i32>,
 ) -> Result<u32, String> {
     if let Some(dir) = cwd.as_deref() {
-        let trimmed = dir.trim();
-        if !trimmed.is_empty() && !std::path::Path::new(trimmed).is_dir() {
-            log::warn!("pty_open: cwd rejected: {trimmed}");
+        if !dir.is_empty() && !std::path::Path::new(dir).is_dir() {
+            log::warn!("pty_open: cwd rejected: {dir}");
             return Err("Pfad ist kein Ordner.".into());
         }
     }

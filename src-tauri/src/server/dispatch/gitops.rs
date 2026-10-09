@@ -91,12 +91,12 @@ pub async fn dispatch(
             crate::undo::undo_preview(path).await
         }
 
-        "undo_last_operation" (path: String) => {
-            crate::undo::undo_last_operation(path).await
+        "undo_last_operation" (path: String, expected_snapshot: Option<String>) => {
+            crate::undo::undo_last_operation(path, expected_snapshot).await
         }
 
-        "reset_to_reflog_entry" (path: String, selector: String, mode: String) => {
-            crate::undo::reset_to_reflog_entry(path, selector, mode).await
+        "reset_to_reflog_entry" (path: String, selector: String, mode: String, expected_hash: Option<String>, expected_head: Option<String>) => {
+            crate::undo::reset_to_reflog_entry(path, selector, mode, expected_hash, expected_head).await
         }
 
         "branch_restore" (path: String, name: String, hash: String) => {

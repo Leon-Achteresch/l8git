@@ -18,7 +18,7 @@ The app checks for updates on its own — you can trigger a check manually under
 
 ## First launch
 
-The welcome screen offers a single next step: open a repository. There is nothing to configure first — the graph, the commit panel and even the first AI commit message work without setting anything up.
+The welcome screen starts with opening a repository. The graph and commit panel work immediately. For AI commit messages, configure a provider and model under **Settings → AI**; a hosted provider may also need an API key.
 
 Three ways to add a repository:
 
@@ -49,10 +49,12 @@ The top bar navigates between the app-level views:
 | **Repository** | The main working view for the active repository |
 | **Dashboard** | Insights for the active repository or across all repositories: branches, upstream drift, open PRs, working copy state, contributors, languages, recent activity, repo health |
 | **Inbox** | Everything waiting on you across all repositories — see [Pull requests](pull-requests.md#the-inbox) |
-| **Agents** | Agent chats and the agent overview — see [Agents](agents.md) |
-| **Info / About** | Version, changelog |
+| **Agents** | Agent chats and the agent overview — see the [Agents user guide](planning/agents-cli-integration/USER-GUIDE.md) |
+| **Help & workflows** | Searchable workflow guides, checklists, Git glossary and keyboard shortcuts |
 
 The header also holds the search field and the settings button.
+
+The Dashboard's **Repository health** card shows conflicts, active Git operations, working copy changes, upstream drift, stashes and additional worktrees. A branch without an upstream has its own state. **Refresh** reads these values again; a failed read shows an error and preserves any previously loaded value as **last known**. A value that has never loaded stays **unknown**. The card links to the relevant repository panel or workflow guide so you can investigate each item.
 
 ### Sidebar panels
 
@@ -83,6 +85,7 @@ The panel bar itself is configurable under **Settings → Sidebar**: reorder or 
 - jump to any sidebar panel
 - toggle the terminal, toggle the diff layout
 - undo the last operation, open the reflog, open the git command log
+- compare two branches, tags or commits; open a workflow guide
 - open a repository, open settings, restart the tour
 
 `Mod+Enter` on a branch result checks it out instead of jumping to its history. For a full history search (by hash, author, email, subject, body or changed path) use the search in the History toolbar.
@@ -93,7 +96,7 @@ Every repository has an embedded terminal, opened from the dock at the bottom (o
 
 ## Settings worth knowing early
 
-- **Appearance** — language (German/English), light/dark/system theme, UI scale.
+- **Appearance** — language (English, German, Spanish, French, Portuguese, Japanese or Chinese), light/dark/system theme, UI scale.
 - **Commits** — conventional commit icons in the history, date grouping, graph lane width, the default commit message template, and the AI section.
 - **AI** — provider (OpenAI, Anthropic, Google, OpenRouter, Ollama, or any OpenAI-compatible endpoint with a custom base URL), API key, model, output language, and custom prompt templates per feature. API keys are stored in the OS keychain, never in plain text.
 - **Accounts** — sign in to GitHub, GitHub Enterprise, GitLab, Bitbucket or Gitea/Forgejo, either through the Git Credential Manager or with a token.
@@ -102,6 +105,8 @@ Every repository has an embedded terminal, opened from the dock at the bottom (o
 - **Hotkeys** — rebind every shortcut, with conflict detection. See [Keyboard shortcuts](shortcuts.md).
 
 ## Next steps
+
+Open **Help & workflows** from the header or press the configured Help shortcut (default `F1`). The help center suggests a guide for the active repository, including conflicts, detached HEAD and diverged branches. Guide checklists are local reading aids; opening or checking a step does not run Git commands. Contextual help buttons in comparisons, stashes, worktrees and tools open the relevant guide directly.
 
 - [Commits and staging](commits-and-staging.md)
 - [Branches and stacks](branches-and-stacks.md)

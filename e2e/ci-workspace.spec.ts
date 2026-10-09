@@ -1,10 +1,14 @@
 import { test, expect } from "@playwright/test";
 
+// The fixture loads the real lazy workspace. Allow its initial module load;
+// subsequent filter/layout assertions keep the normal response timeout.
+const ready = (page: import('@playwright/test').Page) => expect(page.locator('.ci-run-row')).toHaveCount(12, { timeout: 20_000 });
+
 test("CI filters combine, preferences persist and details support keyboard navigation", async ({
   page,
 }) => {
   await page.goto("/?scene=ci&lang=de&theme=light");
-  await expect(page.locator(".ci-run-row")).toHaveCount(12);
+  await ready(page);
   await page.getByRole("button", { name: /^Fehler/ }).click();
   await expect(page.locator(".ci-run-row")).toHaveCount(3);
   await page
@@ -50,7 +54,7 @@ test("CI filters combine, preferences persist and details support keyboard navig
 test("CI layout fits narrow and dark workspaces", async ({ page }) => {
   await page.setViewportSize({ width: 480, height: 850 });
   await page.goto("/?scene=ci&lang=de");
-  await expect(page.locator(".ci-run-row")).toHaveCount(12);
+  await ready(page);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -68,6 +72,6 @@ test("CI layout fits narrow and dark workspaces", async ({ page }) => {
   await page.screenshot({ path: "test-results/ci-dark-details.png" });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/?scene=ci&lang=de&theme=light");
-  await expect(page.locator(".ci-run-row")).toHaveCount(12);
+  await ready(page);
   await page.screenshot({ path: "test-results/ci-desktop.png" });
 });

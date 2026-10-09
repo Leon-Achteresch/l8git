@@ -1156,7 +1156,7 @@ pub struct EffectiveSettings {
 }
 
 fn settings_scope_paths(config_dir: Option<&str>, repo: &str) -> Result<Vec<(&'static str, PathBuf)>, String> {
-    let repo = PathBuf::from(repo.trim());
+    let repo = PathBuf::from(repo);
     if !repo.is_dir() {
         return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
     }
@@ -1327,7 +1327,7 @@ pub async fn claude_list_plugins(path: String) -> Result<Value, String> {
 #[tauri::command]
 pub async fn claude_list_skills(path: String) -> Result<Vec<ClaudeSkill>, String> {
     tokio::task::spawn_blocking(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         if !repo.is_dir() {
             return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
         }
@@ -1366,7 +1366,7 @@ pub async fn claude_list_skills(path: String) -> Result<Vec<ClaudeSkill>, String
 #[tauri::command]
 pub async fn claude_list_hooks(path: String) -> Result<Vec<ClaudeHook>, String> {
     tokio::task::spawn_blocking(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         if !repo.is_dir() {
             return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
         }
@@ -1394,7 +1394,7 @@ fn managed_roots(repo: &Path) -> Vec<PathBuf> {
 }
 
 fn managed_path(repo: &Path, target: &str) -> Result<PathBuf, String> {
-    let target = PathBuf::from(target.trim());
+    let target = PathBuf::from(target);
     let canonical = fs::canonicalize(&target)
         .map_err(|_| "Die Datei existiert nicht mehr.".to_string())?;
     let allowed = managed_roots(repo)
@@ -1456,7 +1456,7 @@ pub async fn claude_list_capability_files(
         if kind != "commands" && kind != "agents" {
             return Err("Unbekannte Capability-Art.".into());
         }
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         if !repo.is_dir() {
             return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
         }
@@ -1475,7 +1475,7 @@ pub async fn claude_list_capability_files(
 #[tauri::command]
 pub async fn claude_read_capability_file(path: String, file: String) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
-        let target = managed_path(&PathBuf::from(path.trim()), &file)?;
+        let target = managed_path(&PathBuf::from(&path), &file)?;
         fs::read_to_string(target).map_err(|error| error.to_string())
     })
     .await
@@ -1516,7 +1516,7 @@ pub async fn claude_write_capability_file(
     contents: String,
 ) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let target = managed_path(&PathBuf::from(path.trim()), &file)?;
+        let target = managed_path(&PathBuf::from(&path), &file)?;
         if !is_regular_file(&target) {
             return Err("Nur reguläre Dateien können geschrieben werden.".into());
         }
@@ -1529,7 +1529,7 @@ pub async fn claude_write_capability_file(
 #[tauri::command]
 pub async fn claude_delete_capability_file(path: String, file: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let target = managed_path(&PathBuf::from(path.trim()), &file)?;
+        let target = managed_path(&PathBuf::from(&path), &file)?;
         let skill_directory = target
             .file_name()
             .and_then(|name| name.to_str())
@@ -1554,7 +1554,7 @@ pub async fn claude_set_hook_disabled(
     disabled: bool,
 ) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let target = managed_path(&PathBuf::from(path.trim()), &source)?;
+        let target = managed_path(&PathBuf::from(&path), &source)?;
         let parts = key.split(':').collect::<Vec<_>>();
         let [_, event_name, group_index, handler_index] = parts.as_slice() else {
             return Err("Ungültiger Hook-Schlüssel.".into());
@@ -1628,7 +1628,7 @@ pub async fn claude_set_plugin_enabled(
     enabled: bool,
 ) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         if !repo.is_dir() {
             return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
         }
@@ -1642,7 +1642,7 @@ pub async fn claude_set_plugin_enabled(
 #[tauri::command]
 pub async fn claude_uninstall_plugin(path: String, plugin: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         if !repo.is_dir() {
             return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
         }
@@ -1656,7 +1656,7 @@ pub async fn claude_uninstall_plugin(path: String, plugin: String) -> Result<(),
 #[tauri::command]
 pub async fn claude_mcp_remove(path: String, name: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         if !repo.is_dir() {
             return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
         }
@@ -1670,7 +1670,7 @@ pub async fn claude_mcp_remove(path: String, name: String) -> Result<(), String>
 #[tauri::command]
 pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         if !repo.is_dir() {
             return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
         }
@@ -1770,6 +1770,45 @@ mod tests {
         assert!(managed_path(&repo, allowed.join("missing.md").to_str().unwrap()).is_err());
 
         fs::remove_dir_all(&repo).ok();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn writes_and_deletes_the_exact_managed_file_in_the_exact_repo() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("l8git-managed-exact-{suffix}"));
+        let repo = root.join("repo ");
+        let selected = repo.join(".claude/commands/selected.md ");
+        let other_file = repo.join(".claude/commands/selected.md");
+        let other_repo = root.join("repo/.claude/commands/selected.md ");
+        for file in [&selected, &other_file, &other_repo] {
+            fs::create_dir_all(file.parent().unwrap()).unwrap();
+            fs::write(file, "original").unwrap();
+        }
+
+        super::claude_write_capability_file(
+            repo.to_str().unwrap().into(),
+            selected.to_str().unwrap().into(),
+            "selected update".into(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(fs::read_to_string(&selected).unwrap(), "selected update");
+        assert_eq!(fs::read_to_string(&other_file).unwrap(), "original");
+        assert_eq!(fs::read_to_string(&other_repo).unwrap(), "original");
+        super::claude_delete_capability_file(
+            repo.to_str().unwrap().into(),
+            selected.to_str().unwrap().into(),
+        )
+        .await
+        .unwrap();
+        assert!(!selected.exists());
+        assert_eq!(fs::read_to_string(&other_file).unwrap(), "original");
+        assert_eq!(fs::read_to_string(&other_repo).unwrap(), "original");
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

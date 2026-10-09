@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { History, Play, ScrollText, Undo2, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 
 export function ToolsPanel({ path }: { path: string }) {
   const { t } = useTranslation();
@@ -49,6 +50,7 @@ export function ToolsPanel({ path }: { path: string }) {
         <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Wrench className="size-4" />
           {t("tools.title")}
+          <span className="ml-auto"><WorkflowHelpLink guideId="recover-history" /></span>
         </h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {t("tools.subtitle")}

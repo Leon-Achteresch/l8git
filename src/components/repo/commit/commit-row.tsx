@@ -9,21 +9,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuLabel,
   ContextMenuSeparator,
-  ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { toastError } from "@/lib/error-toast";
 import {
   laneColor,
   type GraphRow,
 } from "@/lib/graph";
-import { useGravatarUrl } from "@/lib/gravatar";
 import { useRepoStore, type Branch } from "@/lib/repo-store";
-import { useStackLabels } from "@/lib/stack-store";
+import type { StackLabel } from "@/lib/stack";
 import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
@@ -43,7 +40,6 @@ import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interac
 import {
   dropCommit,
   fixupStaged,
-  hasStagedChanges,
 } from "@/components/repo/rebase/rebase-quick-actions";
 import type { RebaseTodoAction } from "@/lib/repo-store";
 import { CommitTagDialog } from "./commit-tag-dialog";
@@ -58,50 +54,41 @@ const MAX_VISIBLE_BRANCHES = 2;
 export type BisectRole = 'bad' | 'good' | 'current' | 'result' | 'pending-bad' | 'pending-good';
 
 function CommitRowInner({
-  path,
   row,
+  rowHeight,
   maxLanes,
   originColors,
   colW,
   branchesAtCommit,
+  stackLabels,
+  showConventionalIcons,
   isBranchTip,
   matchedPaths,
   searchHit,
   focusPulseToken,
   selected,
   multiSelected,
-  selectedHashes,
   onSelectHash,
-  onCherryPick,
   bisectRole,
-  bisectActive,
 }: {
-  path: string;
   row: GraphRow;
+  rowHeight: number;
   maxLanes: number;
   originColors: ReadonlyMap<string, string>;
   colW: number;
   branchesAtCommit: readonly Branch[];
+  stackLabels: ReadonlyMap<string, StackLabel>;
+  showConventionalIcons: boolean;
   isBranchTip: boolean;
   matchedPaths?: string[];
   searchHit: boolean;
   focusPulseToken?: number;
   selected: boolean;
   multiSelected: boolean;
-  selectedHashes: ReadonlySet<string>;
   onSelectHash: (hash: string, mode: CommitSelectMode) => void;
-  onCherryPick: (hashes: string[], opts?: { mainline?: number }) => void;
   bisectRole: BisectRole | null;
-  bisectActive: boolean;
 }) {
-  const [armed, setArmed] = useState(false);
-  const [staged, setStaged] = useState(false);
   const { commit } = row;
-  const gravatarUrl = useGravatarUrl(commit.email);
-  const remoteAvatar = commit.author_avatar?.trim() || undefined;
-  const avatarUrl = remoteAvatar ?? gravatarUrl;
-  const avatarFallbackUrl = remoteAvatar ? (gravatarUrl ?? null) : undefined;
-  const stackLabels = useStackLabels(path);
 
   const subjectParts = useMemo(
     () => splitConventionalSubjectDisplay(commit.subject),
@@ -116,7 +103,7 @@ function CommitRowInner({
     onSelectHash(commit.hash, mode);
   };
 
-  const inner = (
+  return (
     <div
       key={focusPulseToken != null ? `pulse-${focusPulseToken}` : "row"}
       onClick={handleClick}
@@ -152,7 +139,7 @@ function CommitRowInner({
       )}
     >
       <div className="relative shrink-0 self-stretch" style={{ width: colW }}>
-        <CommitGraphCell row={row} maxLanes={maxLanes} isBranchTip={isBranchTip} originColors={originColors} colWidth={colW} />
+        <CommitGraphCell row={row} rowHeight={rowHeight} maxLanes={maxLanes} isBranchTip={isBranchTip} originColors={originColors} colWidth={colW} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-2 py-1 pr-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -160,6 +147,7 @@ function CommitRowInner({
             <CommitConventionalIcons
               subject={commit.subject}
               body={commit.body}
+              enabled={showConventionalIcons}
             />
             {branchesAtCommit.slice(0, MAX_VISIBLE_BRANCHES).map((b, i) => {
               const local = b.name.replace(/^refs\/heads\//, "");
@@ -224,10 +212,10 @@ function CommitRowInner({
               <GitMerge className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
             ) : null}
             <CommitAuthorDate
+              key={JSON.stringify([commit.email, commit.author_avatar])}
               author={commit.author}
               email={commit.email}
-              avatarUrl={avatarUrl}
-              avatarFallbackUrl={avatarFallbackUrl}
+              authorAvatar={commit.author_avatar}
               date={commit.date}
             />
             <CommitHashBadge hash={commit.short_hash} />
@@ -245,32 +233,6 @@ function CommitRowInner({
         ) : null}
       </div>
     </div>
-  );
-
-
-  return (
-    <ContextMenu
-      onOpenChange={(open) => {
-        if (!open) return;
-        setArmed(true);
-        setStaged(hasStagedChanges(path));
-      }}
-    >
-      <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
-      {armed && (
-        <CommitRowActions
-          path={path}
-          commit={commit}
-          isMergeCommit={isMergeCommit}
-          multiSelected={multiSelected}
-          selectedHashes={selectedHashes}
-          onCherryPick={onCherryPick}
-          bisectRole={bisectRole}
-          bisectActive={bisectActive}
-          staged={staged}
-        />
-      )}
-    </ContextMenu>
   );
 }
 
@@ -291,7 +253,7 @@ function stackBadgeTitle(name: string, stack: { root: string; level: number }) {
   });
 }
 
-function CommitRowActions({
+function CommitRowActionsInner({
   path,
   commit,
   isMergeCommit,
@@ -301,6 +263,7 @@ function CommitRowActions({
   bisectRole,
   bisectActive,
   staged,
+  onCloseAutoFocus,
 }: {
   path: string;
   commit: GraphRow["commit"];
@@ -311,6 +274,7 @@ function CommitRowActions({
   bisectRole: BisectRole | null;
   bisectActive: boolean;
   staged: boolean;
+  onCloseAutoFocus: (event: Event) => void;
 }) {
   const { t } = useTranslation();
   const revertCommit = useRepoStore((s) => s.revertCommit);
@@ -375,7 +339,7 @@ function CommitRowActions({
 
   return (
     <>
-        <ContextMenuContent className="w-56">
+        <ContextMenuContent className="w-56" onCloseAutoFocus={onCloseAutoFocus}>
           <ContextMenuItem
             onSelect={() => {
               window.requestAnimationFrame(() =>
@@ -630,3 +594,4 @@ function CommitRowActions({
   );
 }
 export const CommitRow = memo(CommitRowInner);
+export const CommitRowActions = memo(CommitRowActionsInner);

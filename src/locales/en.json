@@ -570,37 +570,68 @@
         "label": "Working copy",
         "ok": "Clean",
         "warn": "Pending changes",
-        "error": "Conflicts"
+        "error": "Conflicts",
+        "action": "Review changes",
+        "count_one": "{{count}} changed file",
+        "count_other": "{{count}} changed files"
       },
       "upstream": {
         "label": "Upstream",
         "ok": "In sync",
         "warn": "Drifted",
-        "error": "Drifted"
+        "error": "Drifted",
+        "action": "Sync branch guide",
+        "noUpstream": "No upstream configured",
+        "ahead_one": "{{count}} unpushed commit",
+        "ahead_other": "{{count}} unpushed commits",
+        "behind_one": "{{count}} commit behind upstream",
+        "behind_other": "{{count}} commits behind upstream",
+        "diverged": "{{ahead}} unpushed · {{behind}} behind upstream"
       },
       "conflicts": {
         "label": "Conflicts",
         "ok": "None",
         "warn": "Pending",
-        "error": "Pending"
+        "error": "Pending",
+        "action": "Resolve conflicts guide",
+        "count_one": "{{count}} conflicted file",
+        "count_other": "{{count}} conflicted files",
+        "partial_one": "At least {{count}} conflicted file",
+        "partial_other": "At least {{count}} conflicted files"
       },
       "bisect": {
         "label": "Bisect",
         "ok": "Idle",
         "warn": "In progress",
-        "error": "Issue"
+        "error": "Issue",
+        "action": "Inspect bisect in history"
       },
       "stashes": {
         "label": "Stashes",
         "ok": "None",
         "warn": "Stored",
-        "error": "Stored"
+        "error": "Stored",
+        "action": "Stash guide",
+        "count_one": "{{count}} saved stash",
+        "count_other": "{{count}} saved stashes"
       },
       "worktrees": {
         "label": "Worktrees",
-        "ok": "Configured",
+        "ok": "No additional worktrees",
         "warn": "Check",
-        "error": "Check"
+        "error": "Check",
+        "action": "Parallel work guide",
+        "count_one": "{{count}} additional worktree",
+        "count_other": "{{count}} additional worktrees"
+      },
+      "states": {
+        "unknown": "Unknown",
+        "loading": "Loading…",
+        "error": "Could not load",
+        "lastKnown": "Last known",
+        "refreshing": "Refreshing…",
+        "refreshFailed": "Some checks could not be refreshed.",
+        "refresh": "Refresh health"
       }
     },
     "all": {
@@ -1353,6 +1384,7 @@
     "fileListFilter": "Filter files...",
     "conflictBadge_one": "{{count}} conflict",
     "conflictBadge_other": "{{count}} conflicts",
+    "partialSelectionInvalid": "The text selection in {{file}} could not be applied. Refresh the diff and try a smaller selection, or use the file actions.",
     "hunkStageTitle": "Stage hunk",
     "hunkUnstageTitle": "Unstage hunk",
     "hunkStageVerb": "stage",
@@ -1444,6 +1476,12 @@
     "cancelledHint": "The remaining changes stay unstaged in the working tree.",
     "errorNoUnits": "There are no changes that could be split.",
     "errorInvalidPlan": "The AI did not return a usable split plan: {{reason}}",
+    "errorReviewChanged": "The reviewed files or repository changed. Earlier split commits and existing staging have been kept. Review the working copy and generate a new proposal.",
+    "errorSnapshotInvalid": "The repository snapshot could not be verified. No further split commits were requested. Review the current commits and staging before retrying.",
+    "errorInvalidSelection": "The split selection could not be applied safely. Review the working copy and generate a new proposal.",
+    "errorOperationInProgress": "A merge, rebase, cherry-pick, revert or bisect is active. Finish or abort it before creating a split plan.",
+    "errorNothingStaged": "This split group has no changes to commit. Review the working copy and generate a new proposal.",
+    "errorStagingChanged": "The staging area changed after this plan was prepared. Your staged selection has been kept. Review it before creating a new split plan.",
     "errorHunkGone": "The planned changes in {{file}} are no longer in the working tree. Please generate a new proposal."
   },
   "bisect": {
@@ -2528,7 +2566,8 @@
     "pullDone": "LFS objects downloaded.",
     "trackDone": "{{pattern}} is now managed by LFS.",
     "untrackDone": "{{pattern}} is no longer managed by LFS.",
-    "reload": "Refresh"
+    "reload": "Refresh",
+    "reloadStatus": "Refresh LFS status"
   },
   "initRepo": {
     "toastPickParent": "Please choose the parent folder.",
@@ -3361,7 +3400,7 @@
     "confirmKeepTitle": "Reset keeping local changes?",
     "confirmKeepDesc": "HEAD moves to {{selector}} ({{hash}}). Local changes are kept — if they conflict, git aborts.",
     "confirmHardTitle": "Reset hard?",
-    "confirmHardDesc": "HEAD moves to {{selector}} ({{hash}}) and the working tree is overwritten. Uncommitted changes are lost for good.",
+    "confirmHardDesc": "HEAD moves to the reviewed commit {{hash}} from {{selector}}. Tracked files and the index are replaced. Local changes or path collisions stop this reset.",
     "resetSuccess": "Reset to {{selector}} ({{hash}})"
   },
   "undo": {
@@ -3568,6 +3607,637 @@
     "excludeHint": "Remove file patches before sending. You can also edit the full context below.",
     "excludeFileNamed": "Remove {{path}} from context",
     "nextRetry": "Next automatic refresh: {{time}}. Refreshes are spaced out after errors.",
-    "providerRateLimit": "Provider rate limit reached. Requests can resume at {{time}}."
+    "providerRateLimit": "Provider rate limit reached. Requests can resume at {{time}}.",
+    "filteredHistory_one": "{{count}} commit loaded",
+    "filteredHistory_other": "{{count}} commits loaded"
+  },
+  "historyFilters": {
+    "searchPlaceholder": "Search commit messages…",
+    "apply": "Apply",
+    "advanced": "Filters",
+    "presets": "Saved searches",
+    "presetsHint": "Saved for this repository, including selected branches.",
+    "deletePreset": "Delete “{{name}}”",
+    "noPresets": "Save a search to reuse it here.",
+    "presetName": "Search name",
+    "presetPlaceholder": "e.g. Release fixes",
+    "presetSaved": "Search “{{name}}” saved.",
+    "savePreset": "Save search",
+    "updatePreset": "Update saved search",
+    "addFilterFirst": "Add a filter before saving a search.",
+    "authorPlaceholder": "Name or email address",
+    "pathPlaceholder": "src/ or a Git pathspec",
+    "lastDays": "Last {{count}} days",
+    "anyTime": "Any time",
+    "discardDraft": "Discard edits",
+    "invalidDate": "Enter a valid calendar date.",
+    "reversedDates": "The start date must be on or before the end date.",
+    "searchHelp": "How these filters work",
+    "searchHelpText": "All filters are combined. Messages and authors match literal text, ignoring case. Paths use Git pathspecs, such as src/ or :(glob)**/*.ts. Both date boundaries include the whole day in your local time. Selected branches include commits reachable from their tips; without a branch filter, all repository refs are searched. Authors suggested here come from loaded commits; you can enter any name or email.",
+    "activeFilters": "Active history filters",
+    "removeFilter": "Remove {{field}} filter: {{value}}",
+    "removeBranch": "Remove branch filter: {{name}}",
+    "clearAll": "Clear all",
+    "noResultsTitle": "No commits match these filters",
+    "noResultsHint": "Try a wider date range, another author or a less specific path.",
+    "allLoaded": "All matching commits loaded",
+    "selectionCount": "{{count}} commits selected",
+    "clearSelection": "Clear selection",
+    "copyHashes": "Copy commit hashes",
+    "hashesCopied": "Copied {{count}} commit hashes."
+  },
+  "helpCenter": {
+    "title": "Help & workflows",
+    "subtitle": "Find a practical answer, understand the next step and open the right tool.",
+    "recommendation": "Suggested next step",
+    "getStarted": "Getting started",
+    "showGuide": "Read the guide",
+    "search": "Search help",
+    "searchPlaceholder": "Try “conflict”, “lost commit”, “stash” or “rebase”…",
+    "clearSearch": "Clear search",
+    "categories": "Guide categories",
+    "all": "All guides",
+    "results_one": "{{count}} guide",
+    "results_other": "{{count}} guides",
+    "noResults": "No matching guides",
+    "noResultsHint": "Try a different term or search all categories.",
+    "clearFilters": "Show all guides",
+    "guideList": "Workflow guides",
+    "progress": "{{done}} of {{total}} steps checked",
+    "resetChecklist": "Reset checklist",
+    "checklist": "Guide checklist",
+    "checklistComplete": "Checklist complete. Confirm the result in your repository.",
+    "keepInMind": "Keep in mind",
+    "gitReference": "Git reference",
+    "openRepoFirst": "Open a repository to use this tool.",
+    "localHint": "Guides and checklists work locally. Checking a step does not run a command.",
+    "category": {
+      "daily": "Daily work",
+      "history": "History",
+      "team": "Collaboration",
+      "recovery": "Recovery",
+      "advanced": "Advanced"
+    },
+    "reason": {
+      "start": "Start with one focused commit",
+      "conflicts": "Resolve conflicts before continuing",
+      "operation": "A Git operation is still in progress",
+      "detached": "Keep new work attached to a branch",
+      "diverged": "Your local and remote histories have diverged",
+      "behind": "Inspect incoming commits before updating",
+      "staged": "Your staged changes are ready to review",
+      "changed": "Turn your working changes into focused commits",
+      "ahead": "Review outgoing commits before pushing",
+      "clean": "Explore and understand your repository history",
+      "unknown": "Review the working copy to see its current state"
+    },
+    "target": {
+      "commit": "Open working copy",
+      "history": "Open history",
+      "stash": "Open stashes",
+      "pr": "Open pull requests",
+      "worktrees": "Open worktrees",
+      "ci": "Open CI",
+      "reflog": "Open reflog",
+      "commands": "Open command log",
+      "settings": "Open settings",
+      "tour": "Start tour",
+      "submodules": "Open submodules",
+      "hooks": "Open hooks",
+      "tools": "Open tools"
+    },
+    "paletteGroup": "Help & workflows",
+    "headChanged": "HEAD changed while this action was being prepared. Refresh the repository and review the current commit before trying again.",
+    "invalidWorktreePath": "This path is not a safe working-copy file. Refresh the file list and choose a file inside the repository.",
+    "discardTracked": "This file is now tracked. Refresh the working copy and review its current changes before discarding.",
+    "branchChanged": "The destination branch changed. Refresh and check out the intended base branch before continuing.",
+    "sourceChanged": "The source branch changed after review. Refresh its comparison and review the new commits before merging.",
+    "glossary": "Git terms ({{count}})",
+    "contextHelp": "Help: {{title}}",
+    "fileChanged": "“{{file}}” changed after the preview. Reload the preview and review its current changes before discarding."
+  },
+  "commitGuidance": {
+    "typeLabel": "Choose a conventional commit type",
+    "type": "Type",
+    "conventionalTitle": "Conventional commit type",
+    "types": {
+      "feat": "New feature",
+      "fix": "Bug fix",
+      "docs": "Documentation",
+      "refactor": "Code restructuring",
+      "perf": "Performance",
+      "test": "Tests",
+      "build": "Build or dependencies",
+      "ci": "Automation",
+      "style": "Formatting",
+      "chore": "Maintenance",
+      "revert": "Revert a change"
+    },
+    "removeType": "Remove conventional prefix",
+    "scope": "Scope (optional)",
+    "breakingHint": "Marks an incompatible change with ! in the subject",
+    "breaking": "Breaking change",
+    "structureLabel": "Add an editable description template",
+    "structure": "Structure",
+    "editableTemplates": "Adds to your description; edit every hint",
+    "templates": {
+      "summary": {
+        "label": "Change, rationale and validation",
+        "body": "What changed:\n- <TODO: describe the change>\n\nWhy:\n<TODO: explain the reason>\n\nValidation:\n- <TODO: describe checks>"
+      },
+      "behavior": {
+        "label": "Before and after",
+        "body": "Before:\n<TODO: describe previous behavior>\n\nAfter:\n<TODO: describe new behavior>\n\nValidation:\n<TODO: describe checks>"
+      },
+      "breaking": {
+        "label": "Breaking change and migration",
+        "body": "BREAKING CHANGE: <TODO: describe the incompatible change>\n\nMigration:\n<TODO: explain how to upgrade>"
+      }
+    },
+    "hints": "{{count}} hints",
+    "help": "Message help",
+    "nonBlocking": "Suggestions are advisory and never prevent a commit.",
+    "insights": {
+      "longSubject": "The subject has {{count}} characters. Aim for 72 or fewer so history is easy to scan.",
+      "vagueSubject": "Describe the specific change instead of a generic subject such as WIP or update.",
+      "missingDescription": "Add a description after the conventional commit prefix.",
+      "placeholder": "Review the remaining TODO or template placeholders before committing.",
+      "longBodyLines": "Consider wrapping body lines {{lines}} at about 100 characters for readability.",
+      "breakingExplanation": "Add a BREAKING CHANGE: footer that explains the impact and migration.",
+      "trailingWhitespace": "The message contains trailing spaces. Clean them up if they are unintentional."
+    },
+    "goodMessage": "The subject is readable. Use the description to explain the reason and validation when helpful.",
+    "startHint": "Describe what changed in one specific sentence. The optional body explains why and how you checked it.",
+    "trailerType": "Commit trailer type",
+    "trailerValue": "Issue reference or migration explanation",
+    "migrationPlaceholder": "Explain the impact and migration…",
+    "issuePlaceholder": "#123 or PROJ-42",
+    "addTrailer": "Add trailer to the description",
+    "descriptionShortcut": "Press Enter in the subject to add a description",
+    "stagedOnly": "Only staged changes are included in this commit. Unstaged changes stay in your working tree.",
+    "subjectCount": "{{count}} subject characters; 72 is a readability guideline.",
+    "mayBePublished": "May already be published",
+    "publishedAmendTitle": "Amend a possibly published commit?",
+    "publishedAmendDescription": "Commit {{hash}} may already exist on the upstream branch. Amending creates a new hash and collaborators may need to reconcile history. Continue only if you intend to rewrite it.",
+    "headChanged": "HEAD changed while this action was open. Reload and try again.",
+    "preflight": {
+      "missingSubject": "Write a commit subject first.",
+      "emptyIndex": "Stage the changes you want to commit.",
+      "conflicts": "Resolve and stage all conflicted files before committing.",
+      "amendUnavailable": "There is no commit to amend yet.",
+      "amendTargetChanged": "HEAD changed since amend was opened. Cancel amend and open it again to review the correct commit.",
+      "unchangedAmend": "Change the message or stage changes to amend. An unchanged commit does not need rewriting."
+    }
+  },
+  "compare": {
+    "title": "Compare commits and branches",
+    "description": "Compare branches, tags or commits and review changed files.",
+    "base": "Base",
+    "head": "Head",
+    "swap": "Swap base and head",
+    "compare": "Compare",
+    "compareSelected": "Compare selected commits",
+    "mode": "Comparison mode",
+    "direct": "Compare snapshots",
+    "mergeBase": "Changes since common ancestor",
+    "directHint": "Show the net changes from base to head.",
+    "mergeBaseHint": "Show head’s changes since its common ancestor with base, as in a pull request.",
+    "requiredRefs": "Enter a base and head reference.",
+    "invalidRef": "Use a Git reference without leading dashes or control characters.",
+    "loading": "Comparing committed snapshots…",
+    "cancelled": "Comparison cancelled",
+    "loadFailed": "Could not load the comparison",
+    "fileCount": "{{count}} changed files",
+    "ahead": "{{count}} ahead",
+    "behind": "{{count}} behind",
+    "aheadHint": "Commits reachable from head but not base.",
+    "behindHint": "Commits reachable from base but not head.",
+    "refresh": "Refresh comparison",
+    "mergeBaseUsed": "Changes compared from common ancestor",
+    "filesTruncated": "Showing {{shown}} of {{count}} changed files. Totals cover the full comparison.",
+    "noChanges": "No file changes between these snapshots",
+    "noChangesHint": "Commit histories may differ even when the final file contents match.",
+    "filterFiles": "Filter file paths…",
+    "fileStatus": "Filter by file status",
+    "allStatuses": "All statuses",
+    "sortFiles": "Sort files",
+    "sortPath": "File path",
+    "sortChanges": "Most changes",
+    "sortStatus": "File status",
+    "reviewProgress": "{{reviewed}}/{{count}} files reviewed",
+    "hideReviewed": "Hide reviewed",
+    "changedFiles": "Changed files",
+    "noMatchingFiles": "No files match these filters. Clear the path or status filter, or show reviewed files.",
+    "markFileReviewed": "Mark {{path}} as reviewed",
+    "pickFile": "Choose a file to review",
+    "previousFile": "Previous file",
+    "nextFile": "Next file",
+    "reviewAndNext": "Reviewed · next",
+    "copyPatch": "Copy patch",
+    "patchCopied": "Patch copied.",
+    "patchTruncated": "This patch exceeds the display limit and is incomplete. Copying is disabled.",
+    "noTextChanges": "This file has no textual changes.",
+    "metadataOnly": "Only file metadata changed. Review the rename, permissions or type changes below.",
+    "chooseRefs": "Enter the references and start a comparison.",
+    "added": "Added",
+    "modified": "Modified",
+    "deleted": "Deleted",
+    "renamed": "Renamed",
+    "copied": "Copied",
+    "typeChanged": "Type changed",
+    "pendingChanges": "Select Compare to apply the edited references or mode.",
+    "noCommonAncestor": "These histories have no common ancestor. Choose Compare snapshots to review them directly.",
+    "invalidMode": "Choose a supported comparison mode.",
+    "fileNotChanged": "This file is not changed in the current comparison. Refresh the comparison and select the file again.",
+    "exportReport": "Export review",
+    "reportHint": "Export all listed files, review marks and full commit hashes as a local Markdown report.",
+    "reportSaved": "Review report exported."
+  },
+  "agentReviewFinish": {
+    "description": "Commit remaining edits, integrate {{session}} into {{base}}, then remove the clean worktree. Completed steps and cleanup progress are saved for retry.",
+    "preflight": "Review and repository checks",
+    "summary": "{{files}} files · +{{added}} / −{{removed}} · {{commits}} commits · {{open}} pending changes",
+    "reviewed": "I have reviewed the current session changes and am ready to integrate them.",
+    "safetyHelp": "Merge and cleanup require clean repositories, the expected branches, and no active merge, rebase or cherry-pick. Keep your worktree until integration is verified.",
+    "commitAllHint": "This commits all remaining tracked and untracked files in the session worktree. Inspect them in the review first.",
+    "reviewAfterCommit": "The remaining changes are committed. Confirm the updated snapshot before merging.",
+    "strategy": "Merge strategy",
+    "strategies": {
+      "ff": {
+        "label": "Fast-forward when possible (default)",
+        "hint": "Keeps a linear history when possible; creates a merge commit if the branches diverged."
+      },
+      "ff-only": {
+        "label": "Fast-forward only",
+        "hint": "Updates the base only when a linear fast-forward is possible. On divergence, keep the session and choose another strategy or rebase."
+      },
+      "no-ff": {
+        "label": "Always create a merge commit",
+        "hint": "Preserves the session as a distinct merge in history, even when a fast-forward would be possible."
+      }
+    },
+    "cleanupHint": "Removes only a clean, registered session worktree whose current HEAD is integrated into the expected base branch. Branch deletion uses Git’s non-force safety checks.",
+    "cleanupComplete": "Worktree removed and session branch deleted.",
+    "worktreeRemoved": "The worktree was removed successfully. The session branch remains; retry only deletes that branch.",
+    "deleteRemainingBranch": "Delete remaining branch",
+    "resumeCleanup": "Resume cleanup",
+    "diffChanged": "The displayed changes changed while this action was open. Refresh the review before discarding.",
+    "errors": {
+      "wrongBaseBranch": "The base repository is not on {{base}}. Switch to that branch and refresh before continuing.",
+      "wrongSessionBranch": "The worktree is no longer on {{session}}. Restore the expected branch and refresh the review.",
+      "missingWorktree": "The session worktree is no longer registered. Refresh worktrees before continuing.",
+      "protectedWorktree": "This worktree is the base, locked, detached or otherwise protected. It cannot be removed by this finish flow.",
+      "baseDirty": "The base repository has local changes. Commit or stash them before merging or cleaning up.",
+      "sessionDirty": "The session has uncommitted changes. Review and commit them before merging or removing its worktree.",
+      "conflicts": "Resolve and stage all conflicts before continuing.",
+      "operationInProgress": "A merge, rebase or cherry-pick is already active. Finish or abort it before retrying.",
+      "reviewRequired": "Review the current session changes and confirm the checkbox before continuing.",
+      "reviewChanged": "The reviewed session state changed. Refresh and review the updated state before retrying.",
+      "messageRequired": "Enter a commit subject before staging or committing.",
+      "branchNotIntegrated": "The session branch is not fully integrated into the expected base. Its worktree and branch are kept. Complete the merge before retrying.",
+      "agentBusy": "An agent is still writing in this session. Wait for it to finish or stop it before continuing.",
+      "interrupted": "The previous operation was interrupted. Refresh to reconcile Git state, review it, then retry this step.",
+      "nothingToCommit": "No pending changes remain. Refresh the finish flow."
+    }
+  },
+  "recovery": {
+    "undoChanged": "The last operation changed after this preview. Reload the preview and review it before confirming again.",
+    "resetChanged": "The reflog or current HEAD changed after you selected this entry. Reload the log and select the intended commit again.",
+    "pathsBlocked": "Reset stopped to protect local or ignored files at the paths below. Move or back them up, then retry.",
+    "trackedBlocked": "Reset stopped because tracked files have local changes. Commit or stash those changes before retrying.",
+    "operationFailed": "The operation could not be completed. Review the Git error below, resolve the cause and retry.",
+    "refreshWarning": "The operation completed, but some repository views could not be refreshed. Refresh the views before starting another recovery.",
+    "detachedHead": "Detached HEAD",
+    "softEffect": "The commit is removed from this branch. The index and working files stay unchanged, so its changes remain staged.",
+    "keepEffect": "Moves this branch to the target and keeps compatible local changes. Git stops if changes would be overwritten.",
+    "hardEffect": "Moves this branch, the index and tracked files to the target. Stops if tracked files are modified or local or ignored paths would be overwritten.",
+    "previewRequired": "Load a current preview to review the operation before confirming.",
+    "openReflog": "Open recovery log",
+    "reloadPreview": "Reload preview",
+    "reloadReflog": "Reload and review log",
+    "reflogHint": "This log records local HEAD movements. Review the target commit before resetting. “Keep changes” preserves compatible local work; hard reset requires clean tracked files and protects local path conflicts.",
+    "clipboardUnavailable": "The clipboard is not available. Select and copy the commit hash manually.",
+    "currentHead": "Current HEAD",
+    "targetCommit": "Target commit",
+    "refreshViews": "Refresh views",
+    "branchNameInvalid": "Enter a valid Git branch name, for example rescue/my-work. Names cannot begin with a dash or contain spaces, control characters or “..”.",
+    "rescueTitle": "Save this commit on a new branch",
+    "rescueDescription": "A new branch keeps this commit reachable. This action does not switch branches or change your working files or staged changes.",
+    "branchName": "New branch name",
+    "createBranch": "Create rescue branch",
+    "branchCreated": "Created {{name}} at {{hash}}. Your current branch is unchanged.",
+    "inspectCommit": "Inspect this commit",
+    "inspectTitle": "Review recovered commit"
+  },
+  "commitActions": {
+    "discardDescription": "Review the changes that will be discarded in {{count}} selected files. You can exclude individual files before continuing.",
+    "discardScopeHint": "Unstaged files keep their staged changes. Choosing a staged file discards both its staged and working tree changes.",
+    "includeDiscardFile": "Include {{path}} in discard",
+    "deleteNewFile": "Delete this untracked file",
+    "discardAllFile": "Discard staged and working tree changes",
+    "discardKeepStaged": "Discard working tree changes; keep staged changes",
+    "discardWorktreeFile": "Discard working tree changes",
+    "newFilesWarning": "Selected untracked files will be deleted. To keep a backup, create a stash and enable Include untracked files.",
+    "refreshPreview": "Refresh preview",
+    "stashInstead": "Create a stash instead",
+    "previewChanges": "Preview affected changes",
+    "changedFiles": "These files changed since the preview: {{paths}}. Refresh the preview and review them again.",
+    "partialDiscard": "Some files were already discarded. Refresh the preview to review the remaining files. {{error}}",
+    "changedHunk": "{{path}} changed since the diff was loaded. Review the refreshed diff before applying selected lines.",
+    "stageFile": "Stage {{path}}",
+    "unstageFile": "Unstage {{path}}",
+    "stageAll": "Stage all files",
+    "unstageAll": "Unstage all files",
+    "stageFiltered": "Stage matching files",
+    "unstageFiltered": "Unstage matching files",
+    "discardFilteredStaged": "Discard matching staged files…",
+    "selectionHint": "Shift-click selects a range of visible files.",
+    "missingFingerprint": "The file snapshot could not be verified. Refresh the preview before discarding changes.",
+    "aiContextChanged": "Staged changes changed during generation. Your previous draft was restored. Review the changes and generate the message again.",
+    "aiEmptyMessage": "Generation returned no commit message. Your previous draft was restored. Try again.",
+    "discardDescription_one": "Review the changes that will be discarded in {{count}} selected file. You can exclude it before continuing.",
+    "discardDescription_other": "Review the changes that will be discarded in {{count}} selected files. You can exclude individual files before continuing."
+  },
+  "workflowGuides": {
+    "submodule-work": {
+      "title": "Update a submodule deliberately",
+      "summary": "Understand the recorded dependency version and the checkout inside it.",
+      "steps": [
+        "Open Submodules and inspect the recorded commit, current checkout and local changes.",
+        "Initialize an uninitialized submodule, or update its checkout to the version recorded by the parent repository.",
+        "If developing the dependency, open its repository, create a branch and commit its changes there.",
+        "Make the submodule commit available to your team before staging and committing the updated gitlink in the parent repository."
+      ],
+      "caution": "The parent stores a commit ID, not the submodule’s files. A detached checkout is normal after update. Update does not mean following the latest remote branch; preserve local changes before switching versions."
+    },
+    "large-files": {
+      "title": "Manage large files and LFS pointers",
+      "summary": "Distinguish stored pointers from the binary content they refer to.",
+      "steps": [
+        "Open Tools and inspect Git LFS availability, tracking patterns and listed files.",
+        "If LFS is unavailable, install Git LFS using its official installer and refresh the status.",
+        "Add the intended tracking pattern before staging new large files. Review the resulting .gitattributes change.",
+        "Use Pull LFS content to download missing objects, inspect their previews and commit the intended files and attributes together."
+      ],
+      "caution": "A pointer is metadata, not the binary content. Adding a tracking pattern does not migrate existing history. Removing a pattern does not remove old LFS objects or shrink the repository."
+    },
+    "check-hooks": {
+      "title": "Understand and debug Git hooks",
+      "summary": "Find the checks Git runs before or after an operation.",
+      "steps": [
+        "Open Hooks and inspect which scripts exist and are enabled.",
+        "Read the relevant hook and its expected arguments before running or editing it.",
+        "Use the available execution output to diagnose a failed check; inspect the project command or file it reports.",
+        "Correct the underlying issue and retry the original Git operation. Review hook edits before enabling them."
+      ],
+      "caution": "Hooks execute programs with your user permissions. A nonzero result can stop an operation; a post-commit hook cannot undo a completed commit. Hook files are usually local unless the project provides an installation workflow."
+    },
+    "compare-branches": {
+      "title": "Compare branches, tags or commits",
+      "summary": "See the exact file changes between two versions or the work added since a shared base.",
+      "steps": [
+        "Select exactly two commits in history and choose Compare, or search for Compare in the command palette.",
+        "Choose the base and head references. A direct comparison shows differences between their snapshots; a common-ancestor comparison shows changes from their shared base to head.",
+        "Inspect the file summary, filter by status or path, and review each diff. Renamed files show their previous names.",
+        "Mark files reviewed, hide reviewed files and move through the remaining changes. Refresh the comparison when a branch moves."
+      ],
+      "caution": "The comparison pins file diffs to the resolved commit hashes. It does not merge changes or include uncommitted edits. Truncation is shown when a patch or file list exceeds the display limit."
+    },
+    "first-commit": {
+      "title": "Create a focused commit",
+      "summary": "Review the exact changes that will become the next snapshot.",
+      "steps": [
+        "Open the working copy and select a changed file to inspect its diff.",
+        "Stage only the files, hunks or lines that belong to one change. Unstaged changes stay on disk.",
+        "Write a subject describing the result. Add the reason and test evidence in the body when helpful.",
+        "Review the staged diff once more, then commit. The history shows the resulting snapshot."
+      ],
+      "caution": "A commit contains the staged version of each file. Later edits in the working copy are not automatically included."
+    },
+    "split-changes": {
+      "title": "Split a large change into logical commits",
+      "summary": "Separate unrelated work without losing the remaining edits.",
+      "steps": [
+        "Review all changed files and identify independent changes.",
+        "Stage the hunks or lines for the first change, or use the AI split proposal and inspect every group.",
+        "Commit that group with a focused message.",
+        "Repeat for the remaining changes. Review and test the final working copy."
+      ],
+      "caution": "AI groups are proposals. Check dependencies between groups so each commit remains understandable and usable."
+    },
+    "sync-branch": {
+      "title": "Synchronize a branch with its remote",
+      "summary": "Understand incoming and outgoing commits before updating.",
+      "steps": [
+        "Fetch to refresh remote-tracking branches without changing your working files.",
+        "Inspect the incoming and outgoing commits in history.",
+        "If there are incoming commits, save local edits and pull using the appropriate merge or rebase strategy.",
+        "Resolve any conflicts, run the relevant checks, then push your outgoing commits."
+      ],
+      "caution": "Ahead and behind counts reflect the last fetch. If both are nonzero, the histories have diverged; pushing alone will usually be rejected."
+    },
+    "stash-work": {
+      "title": "Set work aside and return to it",
+      "summary": "Use a stash when you need a temporary clean working copy.",
+      "steps": [
+        "Open Stashes and create a stash with a descriptive name.",
+        "Include untracked files if your new files belong to this work.",
+        "Switch branches or perform the required operation.",
+        "Apply the stash to keep its saved copy, or pop it to remove the saved copy after a successful application. Inspect and resolve any conflicts."
+      ],
+      "caution": "Ignored files are not included by the usual untracked-files option. A conflicting pop keeps the stash; inspect the working copy before applying it again."
+    },
+    "resolve-conflicts": {
+      "title": "Resolve a conflict and continue",
+      "summary": "Combine the intended changes rather than choosing a side blindly.",
+      "steps": [
+        "Open the working copy and select a conflicted file to open the merge editor.",
+        "Compare base, ours and theirs. Edit the result so it contains the intended behavior.",
+        "Save and mark the file resolved. Repeat for every conflicted file and inspect the staged result.",
+        "Use Continue on the operation banner. Use Abort if you want to abandon the operation, after preserving any resolution work you need."
+      ],
+      "caution": "During a rebase, ours is the branch you are rebasing onto and theirs is the commit being replayed. These labels do not always mean your edits versus someone else’s."
+    },
+    "recover-history": {
+      "title": "Find a lost commit or branch tip",
+      "summary": "Inspect previous local positions of HEAD before changing history.",
+      "steps": [
+        "Open the reflog and locate the entry before the mistaken checkout, reset or rebase.",
+        "Inspect the commit hash and its changes to confirm it is the version you need.",
+        "Choose Create rescue branch on that reflog entry to preserve the commit without switching branches or changing your files.",
+        "If moving the current branch is appropriate, review the reset mode and local edits before confirming."
+      ],
+      "caution": "Reflogs are local and their entries can expire. They cannot recover uncommitted edits that were never stored in a commit or stash."
+    },
+    "undo-shared-commit": {
+      "title": "Undo a commit that others already use",
+      "summary": "Create an inverse commit while keeping shared history intact.",
+      "steps": [
+        "Find and inspect the commit in history.",
+        "Choose Revert from its context menu. For a merge commit, select the mainline parent deliberately.",
+        "Resolve any conflicts and continue the revert when requested.",
+        "Inspect and test the new inverse commit, then push it for the team."
+      ],
+      "caution": "Reverting a merge affects what later merges will bring back. Read the merge-revert explanation before reverting a shared merge."
+    },
+    "clean-history": {
+      "title": "Clean up a branch before review",
+      "summary": "Reorder, combine and reword unpublished commits visually.",
+      "steps": [
+        "Save local edits and identify the base immediately before the commits you want to change.",
+        "Open Interactive rebase and inspect the commits to be replayed.",
+        "Reorder commits and choose pick, reword, squash, fixup, edit or drop. Review the final plan.",
+        "Start the rebase, resolve conflicts as needed and compare the result with the intended change."
+      ],
+      "caution": "Rebase changes commit hashes. Coordinate before rewriting commits already used by others; force-with-lease checks the expected remote state but does not replace that coordination."
+    },
+    "find-change": {
+      "title": "Find when and why a change happened",
+      "summary": "Narrow history by message, author, dates, branch and file path.",
+      "steps": [
+        "Open history and enter a message fragment, commit hash or author.",
+        "Use advanced filters for branch, author, date range or path when the result is too broad.",
+        "Inspect each matching commit’s message and changed files; load more results when needed.",
+        "Use blame for a specific line, or save a reusable filter preset for a recurring investigation."
+      ],
+      "caution": "The loaded history is a window into the repository. Search and advanced filters query Git; do not assume an unloaded commit is missing."
+    },
+    "parallel-work": {
+      "title": "Work on several branches at once",
+      "summary": "Give each task or agent its own working directory.",
+      "steps": [
+        "Open Worktrees and add a worktree for the task’s branch.",
+        "Choose a separate directory and open that worktree as a repository.",
+        "Develop and test independently. Agent sessions can use their own worktrees too.",
+        "Review and integrate the commits before removing the worktree and any unneeded branch."
+      ],
+      "caution": "Worktrees share repository objects and refs. Git normally prevents checking out the same branch in multiple worktrees; removing a worktree with local edits requires careful review."
+    },
+    "review-pr": {
+      "title": "Review a pull request thoroughly",
+      "summary": "Combine code review, discussion and checks in one workflow.",
+      "steps": [
+        "Open Pull requests and select the change to review.",
+        "Read the description and inspect the files, diff and check results.",
+        "Leave inline comments, collect review drafts and inspect suggested changes before applying them.",
+        "Submit the review. Merge only after the required reviews and checks are satisfied."
+      ],
+      "caution": "Available actions depend on the Git provider and your permissions. An applied suggestion still needs inspection and the appropriate commit or review action."
+    },
+    "failed-checks": {
+      "title": "Investigate a failing check",
+      "summary": "Connect a failed pipeline to the commit and failing step.",
+      "steps": [
+        "Open CI and select the run for the relevant branch and commit.",
+        "Inspect jobs, steps, annotations and available output to identify the first useful failure.",
+        "Compare the triggering commit and reproduce the failing command locally when possible.",
+        "Commit a fix, or rerun a transient failure if the provider supports it. Verify the replacement run."
+      ],
+      "caution": "A rerun does not change the code. Distinguish infrastructure or network failures from reproducible test failures."
+    },
+    "auth-troubleshooting": {
+      "title": "Fix authentication or permission problems",
+      "summary": "Check the remote URL, transport and account before retrying.",
+      "steps": [
+        "Inspect the remote URL and identify whether the repository uses HTTPS or SSH.",
+        "For HTTPS, check the matching host/account credentials in settings. For SSH, verify the key and agent used by Git.",
+        "Check repository access and token permissions with your provider, especially for private repos or enterprise hosts.",
+        "Retry fetch and inspect the command log if the error remains. Copy only the details needed for diagnosis."
+      ],
+      "caution": "Changing an HTTPS token does not fix an SSH remote. Git transport credentials and API credentials for pull requests can differ."
+    },
+    "detached-head": {
+      "title": "Keep work made on a detached HEAD",
+      "summary": "Attach your commits to a branch before switching away.",
+      "steps": [
+        "Inspect the current commit in history and confirm which commits you want to keep.",
+        "Create a new branch at the current commit using the branch action.",
+        "Check out that branch and confirm your commits remain in its history.",
+        "Integrate or push the branch as usual. If you already switched away, locate the commit in the reflog."
+      ],
+      "caution": "Detached HEAD means the current checkout points directly to a commit. New commits need a branch or another ref to keep them easily reachable."
+    }
+  },
+  "gitGlossary": {
+    "working-tree": {
+      "name": "Working tree · Arbeitskopie",
+      "definition": "The files currently checked out on disk, including your local edits.",
+      "example": "Editing a file changes the working tree before it changes the next commit."
+    },
+    "index": {
+      "name": "Index · Staging area",
+      "definition": "The prepared snapshot that your next commit will record.",
+      "example": "Staging a hunk updates the index while other edits can remain unstaged."
+    },
+    "head": {
+      "name": "HEAD",
+      "definition": "The reference to your current checkout, usually pointing to a branch.",
+      "example": "HEAD~1 means the first parent of the current commit."
+    },
+    "branch": {
+      "name": "Branch",
+      "definition": "A movable name pointing to a commit. New commits move the checked-out branch forward.",
+      "example": "feature/login can point to your new login change while main stays where it was."
+    },
+    "upstream": {
+      "name": "Upstream",
+      "definition": "The branch configured as the tracking target for a local branch.",
+      "example": "Your local feature branch can track origin/feature. Fetch updates that remote-tracking reference."
+    },
+    "remote": {
+      "name": "Remote",
+      "definition": "A named connection to another repository, with URLs used for fetch and push.",
+      "example": "origin often names the repository you cloned; upstream is another common remote name."
+    },
+    "fetch": {
+      "name": "Fetch",
+      "definition": "Downloads repository objects and updates remote-tracking references without integrating them into your working branch.",
+      "example": "After fetch, compare origin/main with main to inspect incoming changes."
+    },
+    "merge-base": {
+      "name": "Merge base · Gemeinsame Basis",
+      "definition": "A best common ancestor used to understand what two histories share.",
+      "example": "A common-ancestor comparison shows the feature changes since it split from the base history."
+    },
+    "fast-forward": {
+      "name": "Fast-forward",
+      "definition": "Moves a branch forward to a descendant commit without creating an extra merge commit.",
+      "example": "Fast-forward only refuses integration when the histories have diverged."
+    },
+    "rebase": {
+      "name": "Rebase",
+      "definition": "Replays commits on a different base, usually creating new commit hashes.",
+      "example": "Interactive rebase can combine, reorder or reword a branch’s commits."
+    },
+    "revert": {
+      "name": "Revert",
+      "definition": "Records a new commit that reverses the changes introduced by an earlier commit.",
+      "example": "Use a reviewed revert to undo a faulty shared commit while preserving its history."
+    },
+    "reset": {
+      "name": "Reset",
+      "definition": "Moves the current branch tip; its mode controls what happens to the index and working files.",
+      "example": "Soft keeps the index and working files. Mixed resets the index. Hard resets both and can discard local changes."
+    },
+    "reflog": {
+      "name": "Reflog",
+      "definition": "A local record of previous positions of a reference such as HEAD.",
+      "example": "Look for the commit before an accidental reset, then preserve it with a branch."
+    },
+    "stash": {
+      "name": "Stash",
+      "definition": "A saved snapshot of local work that can be applied later.",
+      "example": "Apply keeps the saved stash. Pop removes it after a successful application."
+    },
+    "worktree": {
+      "name": "Worktree",
+      "definition": "An additional checkout directory sharing the same repository objects and references.",
+      "example": "Use separate worktrees for two independent branches or agent tasks."
+    },
+    "hunk": {
+      "name": "Hunk",
+      "definition": "A contiguous section of a diff containing changed lines and surrounding context.",
+      "example": "Stage one hunk to commit part of a file’s changes."
+    }
   }
 }

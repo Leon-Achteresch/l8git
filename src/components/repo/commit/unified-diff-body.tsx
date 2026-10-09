@@ -22,7 +22,7 @@ import {
 import { diffWords, pairChangedLines, type WordDiffSegment } from "@/lib/word-diff";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Minus, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAgentCodeTokens } from "@/components/agents/ui/agent-code";
 import type { AgentCodeToken } from "@/lib/agents/agent-code-types";
@@ -30,6 +30,8 @@ import { languageFromPath } from "@/lib/agents/agent-code-types";
 import { cn } from "@/lib/utils";
 import { Minus as MinusData, Plus as PlusData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
+import { workspaceScale } from "@/lib/responsive-workspace";
+import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 
 const LINE_HEIGHT_PX = 18;
 const EMPTY_SET: ReadonlySet<string> = new Set();
@@ -258,15 +260,18 @@ function VirtualDiffList({
   lines: DiffLine[];
   filePath?: string | null;
 }) {
+  const lineHeight = LINE_HEIGHT_PX * workspaceScale(useWorkspacePrefs((state) => state.uiScale));
   const wordDiffAt = useWordDiffLookup(lines);
   const syntaxAt = useSyntaxLookup(lines, filePath);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: lines.length,
     getScrollElement: () => scrollerRef.current,
-    estimateSize: () => LINE_HEIGHT_PX,
+    estimateSize: () => lineHeight,
     overscan: 20,
   });
+
+  useLayoutEffect(() => { virtualizer.measure(); }, [lineHeight, virtualizer]);
 
   const items = virtualizer.getVirtualItems();
 
@@ -282,13 +287,14 @@ function VirtualDiffList({
           return (
             <div
               key={vi.key}
+              data-index={vi.index}
+              ref={virtualizer.measureElement}
               style={{
                 position: "absolute",
                 top: 0,
                 left: 0,
                 right: 0,
                 transform: `translateY(${vi.start}px)`,
-                height: LINE_HEIGHT_PX,
               }}
             >
               {diffLineNode(line, wordDiffAt(vi.index), syntaxAt(vi.index))}
@@ -318,15 +324,18 @@ function AnnotatedVirtualDiffList({
   onAddComment?: (anchor: DiffCommentAnchor) => void;
   addCommentTitle?: string;
 }) {
+  const lineHeight = LINE_HEIGHT_PX * workspaceScale(useWorkspacePrefs((state) => state.uiScale));
   const wordDiffAt = useWordDiffLookup(lines);
   const syntaxAt = useSyntaxLookup(lines, filePath);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: lines.length,
     getScrollElement: () => scrollerRef.current,
-    estimateSize: () => LINE_HEIGHT_PX,
+    estimateSize: () => lineHeight,
     overscan: 16,
   });
+
+  useLayoutEffect(() => { virtualizer.measure(); }, [lineHeight, virtualizer]);
 
   const items = virtualizer.getVirtualItems();
 
@@ -542,6 +551,7 @@ function InteractiveVirtualDiffList({
   onDiscardHunk?: (patches: string[], count: number) => void;
 }) {
   const { t } = useTranslation();
+  const lineHeight = LINE_HEIGHT_PX * workspaceScale(useWorkspacePrefs((state) => state.uiScale));
   const flatLines = useMemo(() => flattenParsedDiff(parsed), [parsed]);
   const wordDiffAt = useWordDiffLookup(flatLines);
   const syntaxAt = useSyntaxLookup(flatLines, filePath);
@@ -565,9 +575,11 @@ function InteractiveVirtualDiffList({
   const virtualizer = useVirtualizer({
     count: flatLines.length,
     getScrollElement: () => scrollerRef.current,
-    estimateSize: () => LINE_HEIGHT_PX,
+    estimateSize: () => lineHeight,
     overscan: 20,
   });
+
+  useLayoutEffect(() => { virtualizer.measure(); }, [lineHeight, virtualizer]);
 
   useEffect(() => {
     if (focusedHunkIdx < 0) return;
@@ -613,7 +625,7 @@ function InteractiveVirtualDiffList({
 
   const handleApplySelectionButton = useCallback(() => {
     if (!selectedLines.size) return;
-    const patches = buildPatchesForSelection(parsed, selectedLines);
+    const patches = buildPatchesForSelection(parsed, selectedLines, sector === "staged");
     if (patches.length === 0) return;
     const applyPatches = sector === "unstaged" ? onStageHunk : onUnstageHunk;
     applyPatches(patches);
@@ -735,7 +747,7 @@ function InteractiveVirtualDiffList({
                   left: 0,
                   right: 0,
                   transform: `translateY(${vi.start}px)`,
-                  height: LINE_HEIGHT_PX,
+                  height: lineHeight,
                 }}
                 className={
                   isFocusedHunk

@@ -12,13 +12,16 @@ import {
 import type { ParsedDiff } from "@/lib/unified-diff";
 import { cn } from "@/lib/utils";
 import { SpinIcon } from "@/components/motion/kit";
+import { workspaceScale } from "@/lib/responsive-workspace";
+import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 
-const LINE_HEIGHT_PX = 18;
+// Plain diff rows include their line height and vertical padding at 100% scale.
+const LINE_HEIGHT_PX = 20;
 const BODY_PADDING_PX = 16;
 const MAX_BLOCK_HEIGHT_PX = 520;
 
-function blockHeight(lineCount: number): number {
-  return Math.min(MAX_BLOCK_HEIGHT_PX, lineCount * LINE_HEIGHT_PX + BODY_PADDING_PX);
+function blockHeight(lineCount: number, scale: number): number {
+  return Math.min(MAX_BLOCK_HEIGHT_PX, lineCount * LINE_HEIGHT_PX + BODY_PADDING_PX) * scale;
 }
 
 function HunkActions({
@@ -37,7 +40,7 @@ function HunkActions({
   discardLabel: string;
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-1">
+    <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1">
       <Button
         type="button"
         variant={accepted ? "success" : "outline"}
@@ -93,6 +96,7 @@ export function AgentReviewDiffPane({
   onDiscardHunk: (hunkIdx: number) => void;
 }) {
   const { t } = useTranslation();
+  const uiScale = workspaceScale(useWorkspacePrefs((state) => state.uiScale));
 
   if (!file) {
     return (
@@ -106,8 +110,8 @@ export function AgentReviewDiffPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-[var(--ag-line)] flex shrink-0 items-center gap-2 border-b px-3 py-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[0.6875rem]" title={file.path}>
+      <div className="border-[var(--ag-line)] flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
+        <span className="min-w-20 flex-1 truncate font-mono text-[0.6875rem]" title={file.path}>
           {file.path}
         </span>
         <span className="shrink-0 text-[0.6875rem] tabular-nums">
@@ -142,7 +146,7 @@ export function AgentReviewDiffPane({
             <div className="border-[var(--ag-line)] border-b px-3 py-1.5 text-[0.6875rem] text-muted-foreground">
               {t("agentReview.untrackedFile")}
             </div>
-            <div style={{ height: blockHeight(untrackedPlain.split("\n").length) }}>
+            <div style={{ height: blockHeight(untrackedPlain.split("\n").length, uiScale) }}>
               <UnifiedDiffBody
                 loading={false}
                 failed={false}
@@ -173,11 +177,11 @@ export function AgentReviewDiffPane({
                   accepted && "ring-1 ring-git-added/40",
                 )}
               >
-                <div className="border-[var(--ag-line)] flex items-center gap-2 border-b px-3 py-1.5">
+                <div className="border-[var(--ag-line)] flex flex-wrap items-center gap-2 border-b px-3 py-1.5">
                   <span className="shrink-0 text-[0.6875rem] font-medium">
                     {t("agentReview.hunkLabel", { index: hunkIdx + 1 })}
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-[0.65625rem] text-muted-foreground">
+                  <span className="min-w-20 flex-1 truncate font-mono text-[0.65625rem] text-muted-foreground">
                     {hunk.header}
                   </span>
                   <span className="shrink-0 text-[0.6875rem] tabular-nums">
@@ -193,7 +197,7 @@ export function AgentReviewDiffPane({
                     discardLabel={t("agentReview.discard")}
                   />
                 </div>
-                <div style={{ height: blockHeight(hunk.lines.length + 1) }}>
+                <div style={{ height: blockHeight(hunk.lines.length + 1, uiScale) }}>
                   <UnifiedDiffBody
                     loading={false}
                     failed={false}

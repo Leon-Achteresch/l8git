@@ -13,12 +13,14 @@ export function AgentReviewStepAction({
   label,
   onRun,
   onRetry,
+  disabled = false,
 }: {
   step: AgentReviewStep;
   steps: readonly AgentReviewStep[];
   label: string;
   onRun: () => void;
   onRetry: () => void;
+  disabled?: boolean;
 }) {
   const { t } = useTranslation();
   if (step.status === "failed") {
@@ -28,6 +30,7 @@ export function AgentReviewStepAction({
         size="sm"
         variant="destructive"
         onClick={onRetry}
+        disabled={disabled}
         className="h-7 text-xs"
       >
         <RefreshCw className="mr-1.5 size-3" />
@@ -40,7 +43,7 @@ export function AgentReviewStepAction({
     <Button
       type="button"
       size="sm"
-      disabled={!canRunStep(steps, step.id)}
+      disabled={disabled || !canRunStep(steps, step.id)}
       onClick={onRun}
       className="h-7 text-xs"
     >

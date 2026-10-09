@@ -123,7 +123,7 @@ export function ReviewFileRow({
       last={last}
       onPress={onPress}
       onLongPress={onLongPress}
-      accessibilityLabel={`Review ${file.path}`}>
+      accessibilityLabel={`Review ${file.path}. ${reviewed ? 'Marked reviewed' : 'Not yet marked reviewed'}`}>
       <View className="flex-row items-center gap-3 px-4 py-3.5">
         <FileStatusBadge status={statusFor(file)} size="sm" />
         <View className="min-w-0 flex-1 gap-0.5">

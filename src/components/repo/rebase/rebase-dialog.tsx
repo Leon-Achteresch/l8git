@@ -12,6 +12,7 @@ import {
 import type { RebaseCommit } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
 import { cn } from '@/lib/utils';
+import { invoke } from '@tauri-apps/api/core';
 import { AlertTriangle, GitBranchPlus, Loader2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -50,8 +51,12 @@ export function RebaseDialog({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<RebaseCommit[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const previewToken = useRef(0);
+  const [validatedOnto, setValidatedOnto] = useState<string | null>(null);
+  const [ontoError, setOntoError] = useState<string | null>(null);
+  const [ontoLoading, setOntoLoading] = useState(false);
+  const ontoToken = useRef(0);
   const branchesRef = useRef(branches);
   branchesRef.current = branches;
 
@@ -67,7 +72,7 @@ export function RebaseDialog({
       setBusy(false);
       setError(null);
       setPreview(null);
-      setPreviewError(false);
+      setPreviewError(null);
       return;
     }
     const initial = upstream?.trim() ?? '';
@@ -79,19 +84,20 @@ export function RebaseDialog({
     setAutostash(false);
     setError(null);
     setPreview(null);
-    setPreviewError(false);
+    setPreviewError(null);
   }, [open, upstream]);
 
   useEffect(() => {
+    const token = ++previewToken.current;
     if (!open || !target) {
       setPreview(null);
-      setPreviewError(false);
+      setPreviewError(null);
       setPreviewLoading(false);
       return;
     }
-    const token = ++previewToken.current;
+    setPreview(null);
     setPreviewLoading(true);
-    setPreviewError(false);
+    setPreviewError(null);
     const handle = window.setTimeout(() => {
       rebaseTodoPreview(path, target)
         .then(list => {
@@ -99,15 +105,47 @@ export function RebaseDialog({
           setPreview(list);
           setPreviewLoading(false);
         })
-        .catch(() => {
+        .catch(err => {
           if (previewToken.current !== token) return;
           setPreview(null);
-          setPreviewError(true);
+          setPreviewError(describeRebaseError(err));
           setPreviewLoading(false);
         });
     }, 250);
-    return () => window.clearTimeout(handle);
+    return () => {
+      window.clearTimeout(handle);
+      if (previewToken.current === token) ++previewToken.current;
+    };
   }, [open, target, path, rebaseTodoPreview]);
+
+  useEffect(() => {
+    const token = ++ontoToken.current;
+    setValidatedOnto(null);
+    setOntoError(null);
+    const ref = onto.trim();
+    if (!open || !useOnto || !ref) {
+      setOntoLoading(false);
+      return;
+    }
+    setOntoLoading(true);
+    const handle = window.setTimeout(() => {
+      invoke<string>('git_resolve_commit', { path, rev: ref })
+        .then(hash => {
+          if (ontoToken.current !== token) return;
+          setValidatedOnto(hash);
+          setOntoLoading(false);
+        })
+        .catch(() => {
+          if (ontoToken.current !== token) return;
+          setOntoError(describeRebaseError(`Unknown onto target: ${ref}`));
+          setOntoLoading(false);
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(handle);
+      if (ontoToken.current === token) ++ontoToken.current;
+    };
+  }, [open, useOnto, onto, path]);
 
   function dismiss() {
     if (busy) return;
@@ -116,12 +154,12 @@ export function RebaseDialog({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!target) return;
+    if (!target || rebaseInProgress || previewLoading || previewError || !preview || (useOnto && !validatedOnto)) return;
     setBusy(true);
     setError(null);
     try {
       const res = await rebaseStart(path, target, {
-        onto: useOnto ? onto.trim() || null : null,
+        onto: useOnto ? validatedOnto : null,
         autostash,
       });
       notifyRebaseResult(path, res);
@@ -243,8 +281,8 @@ export function RebaseDialog({
                 {t('rebase.previewPickTarget')}
               </p>
             ) : previewError ? (
-              <p className='text-[0.6875rem] text-muted-foreground'>
-                {t('rebase.previewFailed')}
+              <p role='alert' className='text-[0.6875rem] text-destructive'>
+                {previewError}
               </p>
             ) : preview && previewCount === 0 ? (
               <p className='text-[0.6875rem] text-muted-foreground'>
@@ -304,8 +342,17 @@ export function RebaseDialog({
                   placeholder={t('rebase.ontoPlaceholder')}
                   spellCheck={false}
                   disabled={busy}
+                  aria-invalid={!!ontoError}
+                  aria-describedby={ontoError ? 'rebase-onto-error' : undefined}
                   className='font-mono text-xs'
                 />
+                {ontoLoading ? (
+                  <SpinIcon icon={Loader2} className='h-3.5 w-3.5 text-muted-foreground' />
+                ) : ontoError ? (
+                  <p id='rebase-onto-error' role='alert' className='text-xs text-destructive'>
+                    {ontoError}
+                  </p>
+                ) : null}
                 <p className='text-[0.6875rem] text-muted-foreground'>
                   {t('rebase.ontoHint')}
                 </p>
@@ -334,7 +381,7 @@ export function RebaseDialog({
             >
               {t('common.cancel')}
             </Button>
-            <Button type='submit' size='sm' disabled={busy || !target}>
+            <Button type='submit' size='sm' disabled={busy || !target || rebaseInProgress || previewLoading || !!previewError || !preview || (useOnto && (!validatedOnto || ontoLoading))}>
               {busy ? t('rebase.submitBusy') : t('rebase.submit')}
             </Button>
           </div>

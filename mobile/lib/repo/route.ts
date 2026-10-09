@@ -65,15 +65,9 @@ function firstParam(value: string | string[] | undefined): string {
 }
 
 export function decodeRouteValue(value: string | string[] | undefined): string {
-  const raw = firstParam(value);
-  if (!raw.includes('%')) {
-    return raw;
-  }
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
+  // Expo search-parameter hooks already decode URI components. Decoding again
+  // changes literal Git path characters such as "%20" or "%2F".
+  return firstParam(value);
 }
 
 export const decodeRepoParam = decodeRouteValue;

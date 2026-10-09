@@ -181,6 +181,7 @@ export type RebaseCommit = {
   hash: string;
   short_hash: string;
   subject: string;
+  message?: string;
   author: string;
   email: string;
   date: string;
@@ -355,7 +356,7 @@ type RepoState = {
   reloadGitHooks: (path: string) => Promise<void>;
   bisect: Record<string, BisectStatus>;
   reloadBisect: (path: string) => Promise<void>;
-  gitReset: (path: string, target: string, mode: 'soft' | 'mixed' | 'hard') => Promise<string>;
+  gitReset: (path: string, target: string, mode: 'soft' | 'mixed' | 'hard', expectedHead?: string) => Promise<string>;
   bisectStart: (path: string, bad: string, good: string) => Promise<void>;
   bisectMark: (path: string, verdict: 'good' | 'bad' | 'skip') => Promise<void>;
   bisectReset: (path: string) => Promise<void>;
@@ -388,7 +389,7 @@ type RepoState = {
   stageFiles: (path: string, files: string[]) => Promise<void>;
   unstageFiles: (path: string, files: string[]) => Promise<void>;
   commitChanges: (path: string, message: string) => Promise<void>;
-  amendCommit: (path: string, message: string) => Promise<void>;
+  amendCommit: (path: string, message: string, expectedHead?: string) => Promise<void>;
   cloneRepo: (url: string, dest: string) => Promise<string>;
   initRepo: (path: string) => Promise<string | null>;
   checkoutBranch: (
@@ -1135,8 +1136,8 @@ export const useRepoStore = create<RepoState>()(
         ]);
       },
 
-      async amendCommit(path, message) {
-        await invoke('commit_amend', { path, message });
+      async amendCommit(path, message, expectedHead) {
+        await invoke('commit_amend', { path, message, expectedHead: expectedHead ?? null });
         await Promise.all([
           get().reload(path),
           get().reloadStatus(path),
@@ -1761,8 +1762,8 @@ export const useRepoStore = create<RepoState>()(
         return invoke<HookRunResult>('run_git_hook', { path, hookName });
       },
 
-      async gitReset(path, target, mode) {
-        const out = await invoke<string>('git_reset', { path, target, mode });
+      async gitReset(path, target, mode, expectedHead) {
+        const out = await invoke<string>('git_reset', { path, target, mode, expectedHead: expectedHead ?? null });
         await Promise.all([get().reload(path), get().reloadStatus(path)]);
         return out.trim();
       },

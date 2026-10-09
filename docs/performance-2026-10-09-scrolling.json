@@ -1,0 +1,464 @@
+{
+  "title": "Datei- und History-Scrolling: Vorher/Nachher",
+  "date": "2026-10-09",
+  "methodology": {
+    "renderer": "Production-built Chromium with deterministic IPC fixtures",
+    "viewport": {
+      "width": 1280,
+      "height": 860
+    },
+    "changedFiles": 1000,
+    "commits": 10000,
+    "animations": "enabled",
+    "frameIntervalsPerSample": 240,
+    "samplesPerView": 3,
+    "aggregation": "Median of each metric across the three samples",
+    "comparableBeforeAfter": "Full-list sweep, CPU throttling 4x, identical fixture and frame pattern; baseline captured before this scrolling task",
+    "fullSweep": "Traverse the full list and back every 120 frames",
+    "continuousScroll": "120 pixels per frame, reflecting at list boundaries",
+    "isolation": "Benchmarks ran sequentially after tests and builds completed",
+    "limitations": [
+      "Renderer measurements exclude native Tauri/WebKit and Git I/O.",
+      "No before measurement exists for 120-pixel steps; those results describe the final implementation only.",
+      "Unthrottled results describe this Chromium environment and do not guarantee the same FPS on other devices."
+    ]
+  },
+  "changes": [
+    "Reuse a bounded pool of physical rows while retaining logical file IDs and commit OIDs.",
+    "Use one context menu per list and remove per-row animation and observer setup from the scrolling path.",
+    "Measure wrapped history rows asynchronously with a bounded observer; reject stale measurements after slot reuse.",
+    "Stop closed Inbox anchor tracking and ignore nested scrolling that cannot move an open overlay anchor.",
+    "Preserve the history viewport when opening/closing details and switching split orientation.",
+    "Keep keyboard focus and menu targets attached to the original logical row; reject a pointer release after its pressed row was recycled.",
+    "Disable browser scroll anchoring on virtualized viewports and account for scaled row geometry."
+  ],
+  "comparison": {
+    "files": {
+      "fpsBefore": 10.148377739533439,
+      "fpsAfter": 23.763082071744716,
+      "fpsMultiplier": 2.341564600928739,
+      "p95FrameMsBefore": 133.29999999999927,
+      "p95FrameMsAfter": 66.70000000000073,
+      "scriptReductionPercent": 60.247469867475914,
+      "layoutReductionPercent": 50.6952844004452,
+      "taskReductionPercent": 56.570225555620034
+    },
+    "history": {
+      "fpsBefore": 2.54787077624068,
+      "fpsAfter": 13.333851872017252,
+      "fpsMultiplier": 5.233331296217079,
+      "p95FrameMsBefore": 516.6000000000004,
+      "p95FrameMsAfter": 100,
+      "scriptReductionPercent": 85.94629870075929,
+      "layoutReductionPercent": 69.69749034959037,
+      "taskReductionPercent": 80.60090865143826
+    }
+  },
+  "measurements": {
+    "beforeFullSweepThrottled": {
+      "scope": "Chromium production renderer, 1000 changed files and 10000 commits, 240 scrolling frames per view, animations enabled, CPU throttled 4x, full sweep; no native Tauri measurement.",
+      "views": {
+        "files": {
+          "samples": [
+            {
+              "fps": 10.148377739533439,
+              "p95FrameMs": 133.29999999999927,
+              "framesOver33Ms": 237,
+              "scriptMs": 11485.761999999999,
+              "layoutMs": 2104.117,
+              "taskMs": 24089.934
+            },
+            {
+              "fps": 10.5190723931328,
+              "p95FrameMs": 116.70000000000073,
+              "framesOver33Ms": 239,
+              "scriptMs": 10703.939999999999,
+              "layoutMs": 2133.875,
+              "taskMs": 23240.401
+            },
+            {
+              "fps": 9.876949668710653,
+              "p95FrameMs": 133.40000000000055,
+              "framesOver33Ms": 239,
+              "scriptMs": 11761.245,
+              "layoutMs": 2211.989,
+              "taskMs": 24623.193
+            }
+          ],
+          "metrics": {
+            "fps": 10.148377739533439,
+            "p95FrameMs": 133.29999999999927,
+            "framesOver33Ms": 239,
+            "scriptMs": 11485.761999999999,
+            "layoutMs": 2133.875,
+            "taskMs": 24089.934
+          }
+        },
+        "history": {
+          "samples": [
+            {
+              "fps": 2.5578282333080384,
+              "p95FrameMs": 500,
+              "framesOver33Ms": 238,
+              "scriptMs": 39127.554,
+              "layoutMs": 10295.936000000002,
+              "taskMs": 94527.655
+            },
+            {
+              "fps": 2.54787077624068,
+              "p95FrameMs": 516.6000000000004,
+              "framesOver33Ms": 239,
+              "scriptMs": 39364.299,
+              "layoutMs": 10181.916,
+              "taskMs": 95046.127
+            },
+            {
+              "fps": 2.48757508071663,
+              "p95FrameMs": 516.6999999999989,
+              "framesOver33Ms": 239,
+              "scriptMs": 40752.852,
+              "layoutMs": 10613.489,
+              "taskMs": 97293.92599999999
+            }
+          ],
+          "metrics": {
+            "fps": 2.54787077624068,
+            "p95FrameMs": 516.6000000000004,
+            "framesOver33Ms": 239,
+            "scriptMs": 39364.299,
+            "layoutMs": 10295.936000000002,
+            "taskMs": 95046.127
+          }
+        }
+      }
+    },
+    "afterFullSweepThrottled": {
+      "scope": "Chromium production renderer, 1000 changed files and 10000 commits, 240 scrolling frames per view, 3 samples, animations enabled, CPU throttled 4x, full sweep; no native Tauri measurement.",
+      "views": {
+        "files": {
+          "samples": [
+            {
+              "fps": 23.763082071744716,
+              "p95FrameMs": 66.59999999999945,
+              "framesOver33Ms": 133,
+              "scriptMs": 4565.881,
+              "layoutMs": 1010.9540000000002,
+              "taskMs": 10462.204
+            },
+            {
+              "fps": 23.881547524279565,
+              "p95FrameMs": 66.70000000000073,
+              "framesOver33Ms": 130,
+              "scriptMs": 4258.977,
+              "layoutMs": 1052.1009999999999,
+              "taskMs": 10384.516999999998
+            },
+            {
+              "fps": 21.622595612414983,
+              "p95FrameMs": 66.70000000000073,
+              "framesOver33Ms": 153,
+              "scriptMs": 5021.084999999999,
+              "layoutMs": 1157.432,
+              "taskMs": 11444.778999999999
+            }
+          ],
+          "metrics": {
+            "fps": 23.763082071744716,
+            "p95FrameMs": 66.70000000000073,
+            "framesOver33Ms": 133,
+            "scriptMs": 4565.881,
+            "layoutMs": 1052.1009999999999,
+            "taskMs": 10462.204
+          }
+        },
+        "history": {
+          "samples": [
+            {
+              "fps": 13.358640535681495,
+              "p95FrameMs": 100,
+              "framesOver33Ms": 238,
+              "scriptMs": 5520.047,
+              "layoutMs": 3119.927,
+              "taskMs": 18391.113999999998
+            },
+            {
+              "fps": 13.032216725764155,
+              "p95FrameMs": 100,
+              "framesOver33Ms": 239,
+              "scriptMs": 5663.924,
+              "layoutMs": 3198.1089999999995,
+              "taskMs": 18847.249
+            },
+            {
+              "fps": 13.333851872017252,
+              "p95FrameMs": 100,
+              "framesOver33Ms": 238,
+              "scriptMs": 5532.141000000001,
+              "layoutMs": 3112.6,
+              "taskMs": 18438.085
+            }
+          ],
+          "metrics": {
+            "fps": 13.333851872017252,
+            "p95FrameMs": 100,
+            "framesOver33Ms": 238,
+            "scriptMs": 5532.141000000001,
+            "layoutMs": 3119.927,
+            "taskMs": 18438.085
+          }
+        }
+      }
+    },
+    "afterContinuousThrottled": {
+      "scope": "Chromium production renderer, 1000 changed files and 10000 commits, 240 scrolling frames per view, 3 samples, animations enabled, CPU throttled 4x, 120 px/frame; no native Tauri measurement.",
+      "views": {
+        "files": {
+          "samples": [
+            {
+              "fps": 24.00072002160065,
+              "p95FrameMs": 66.60000000000036,
+              "framesOver33Ms": 129,
+              "scriptMs": 4450.512,
+              "layoutMs": 1053.2599999999998,
+              "taskMs": 10337.150999999998
+            },
+            {
+              "fps": 22.89442806856881,
+              "p95FrameMs": 66.60000000000036,
+              "framesOver33Ms": 144,
+              "scriptMs": 4642.949,
+              "layoutMs": 1112.344,
+              "taskMs": 10796.725999999999
+            },
+            {
+              "fps": 22.086838085071147,
+              "p95FrameMs": 66.69999999999891,
+              "framesOver33Ms": 158,
+              "scriptMs": 4815.037,
+              "layoutMs": 1173.182,
+              "taskMs": 11120.324
+            }
+          ],
+          "metrics": {
+            "fps": 22.89442806856881,
+            "p95FrameMs": 66.60000000000036,
+            "framesOver33Ms": 144,
+            "scriptMs": 4642.949,
+            "layoutMs": 1112.344,
+            "taskMs": 10796.725999999999
+          }
+        },
+        "history": {
+          "samples": [
+            {
+              "fps": 14.386160513585939,
+              "p95FrameMs": 100,
+              "framesOver33Ms": 234,
+              "scriptMs": 4403.699,
+              "layoutMs": 3179.159,
+              "taskMs": 17063.059
+            },
+            {
+              "fps": 13.09143274821903,
+              "p95FrameMs": 100,
+              "framesOver33Ms": 238,
+              "scriptMs": 5638.905000000001,
+              "layoutMs": 3128.606,
+              "taskMs": 18822.164999999997
+            },
+            {
+              "fps": 13.886799439899097,
+              "p95FrameMs": 99.90000000000146,
+              "framesOver33Ms": 238,
+              "scriptMs": 5073.205,
+              "layoutMs": 3098.1890000000003,
+              "taskMs": 17785.275
+            }
+          ],
+          "metrics": {
+            "fps": 13.886799439899097,
+            "p95FrameMs": 100,
+            "framesOver33Ms": 238,
+            "scriptMs": 5073.205,
+            "layoutMs": 3128.606,
+            "taskMs": 17785.275
+          }
+        }
+      }
+    },
+    "afterContinuousUnthrottled": {
+      "scope": "Chromium production renderer, 1000 changed files and 10000 commits, 240 scrolling frames per view, 3 samples, animations enabled, CPU throttled 1x, 120 px/frame; no native Tauri measurement.",
+      "views": {
+        "files": {
+          "samples": [
+            {
+              "fps": 59.50609937518601,
+              "p95FrameMs": 16.800000000000182,
+              "framesOver33Ms": 1,
+              "scriptMs": 916.3979999999999,
+              "layoutMs": 204.07399999999998,
+              "taskMs": 2216.447
+            },
+            {
+              "fps": 59.507574818377975,
+              "p95FrameMs": 16.799999999999955,
+              "framesOver33Ms": 0,
+              "scriptMs": 951.5890000000002,
+              "layoutMs": 214.37499999999997,
+              "taskMs": 2288.124
+            },
+            {
+              "fps": 59.26218578695248,
+              "p95FrameMs": 16.800000000000182,
+              "framesOver33Ms": 0,
+              "scriptMs": 892.8040000000001,
+              "layoutMs": 190.861,
+              "taskMs": 2097.063
+            }
+          ],
+          "metrics": {
+            "fps": 59.50609937518601,
+            "p95FrameMs": 16.800000000000182,
+            "framesOver33Ms": 0,
+            "scriptMs": 916.3979999999999,
+            "layoutMs": 204.07399999999998,
+            "taskMs": 2216.447
+          }
+        },
+        "history": {
+          "samples": [
+            {
+              "fps": 58.778868996595754,
+              "p95FrameMs": 16.800000000000182,
+              "framesOver33Ms": 1,
+              "scriptMs": 1000.4230000000001,
+              "layoutMs": 578.6569999999999,
+              "taskMs": 3385.2879999999996
+            },
+            {
+              "fps": 57.37234652897306,
+              "p95FrameMs": 16.800000000000182,
+              "framesOver33Ms": 1,
+              "scriptMs": 1116.643,
+              "layoutMs": 612.1840000000001,
+              "taskMs": 3693.6220000000003
+            },
+            {
+              "fps": 59.018812246403584,
+              "p95FrameMs": 16.800000000000182,
+              "framesOver33Ms": 4,
+              "scriptMs": 990.433,
+              "layoutMs": 552.494,
+              "taskMs": 3304.6560000000004
+            }
+          ],
+          "metrics": {
+            "fps": 58.778868996595754,
+            "p95FrameMs": 16.800000000000182,
+            "framesOver33Ms": 1,
+            "scriptMs": 1000.4230000000001,
+            "layoutMs": 578.6569999999999,
+            "taskMs": 3385.2879999999996
+          }
+        }
+      }
+    }
+  },
+  "validation": {
+    "browserSuite": {
+      "passed": 88,
+      "failed": 0
+    },
+    "unitSuite": {
+      "filesPassed": 183,
+      "testsPassed": 1513
+    },
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "productionFixtureBuild": "passed",
+    "buildBudgets": {
+      "metrics": {
+        "startupGzip": 415289,
+        "largestJs": 3787384,
+        "largestWorker": 7010192,
+        "totalJsGzip": 8390776
+      },
+      "limits": {
+        "startupGzip": 460800,
+        "largestJs": 4194304,
+        "largestWorker": 8388608,
+        "totalJsGzip": 16777216
+      },
+      "sentinelAbsent": true,
+      "scope": "Static entry graph; lazy editor, language and terminal chunks counted only in total/largest."
+    },
+    "runtimeBudgets": {
+      "scope": "Production-built Chromium renderer with IPC fixtures; 1000 changed files, 10000 commits, five warmed settings round trips. Timings are renderer readiness; heap is JavaScript after GC, excluding native processes.",
+      "samples": [
+        {
+          "homeReadyMs": 1076,
+          "repositoryReadyMs": 683,
+          "heapBytes": 29245592,
+          "retainedGrowthBytes": 2542652,
+          "domNodes": 679
+        },
+        {
+          "homeReadyMs": 999,
+          "repositoryReadyMs": 727,
+          "heapBytes": 29080744,
+          "retainedGrowthBytes": 2586924,
+          "domNodes": 679
+        },
+        {
+          "homeReadyMs": 935,
+          "repositoryReadyMs": 727,
+          "heapBytes": 29219028,
+          "retainedGrowthBytes": 2499832,
+          "domNodes": 679
+        }
+      ],
+      "metrics": {
+        "homeReadyMs": 999,
+        "repositoryReadyMs": 727,
+        "heapBytes": 29219028,
+        "retainedGrowthBytes": 2542652,
+        "domNodes": 679
+      },
+      "limits": {
+        "homeReadyMs": 10000,
+        "repositoryReadyMs": 10000,
+        "heapBytes": 201326592,
+        "retainedGrowthBytes": 33554432,
+        "domNodes": 5000
+      }
+    },
+    "collaborativeBrowser": "A viewport marker and scrollTop=150000 remained unchanged after opening and closing commit details; the selected commit stayed visible."
+  },
+  "reproduction": {
+    "fixtureBuild": "bun node_modules/.bin/vite build --config vite.ui-test.config.ts",
+    "fullSweep": "node scripts/benchmark-scroll.mjs",
+    "continuousThrottled": "SCROLL_BENCHMARK_PX_PER_FRAME=120 node scripts/benchmark-scroll.mjs",
+    "continuousUnthrottled": "SCROLL_BENCHMARK_THROTTLE=1 SCROLL_BENCHMARK_PX_PER_FRAME=120 node scripts/benchmark-scroll.mjs",
+    "runtime": "node scripts/benchmark-runtime.mjs",
+    "buildBudgets": "bun run build && node scripts/check-build.mjs"
+  },
+  "sourceSha256": {
+    "src/components/repo/commit/commit-panel-file-list.tsx": "0c1b8f7ef08f10695eaf0ed610111fad2519516f607acf3ac422569ea28a93ec",
+    "src/components/repo/commit/commit-panel-file-row.tsx": "cc7ac0312ee231f1c3f60c440f47837b5a20bdb7455ecac458f8e787c65bce9d",
+    "src/components/repo/commit/commit-list.tsx": "f74aaa87e910249399e01f6bffc843019ac1fb4d90b569aa962a93e7a51f1927",
+    "src/components/repo/commit/commit-row.tsx": "c3371aa4f60a313be4fa54cd3b646ff0f60971438cff43cfd79738af6d0bcd2c",
+    "src/components/repo/commit/history-virtual-row.tsx": "c6c43000da61b42be596562637466c0b379603ae18f7c14e5daa715af10a376d",
+    "src/components/repo/commit/history-row-measurement.ts": "443efabda9a146664f4f6790419663554c5db77831eff7e2b247ae32b3333ad4",
+    "src/components/repo/commit/commit-history-panel.tsx": "39eb67aaf808e7c35b5dc83e2497ae0ece8da030aced56ec1b76f647516f81df",
+    "src/components/repo/commit/commit-graph-cell.tsx": "29fdc4921a68fd69d0c51f6045318dc26f38332fb448ff07e411d71dcd2f959c",
+    "src/components/repo/commit/commit-hash-badge.tsx": "d13f279543c232ab1cd9e467b3ab82fd05836ee39ac172ee5c6959e8c3b1a549",
+    "src/components/repo/commit/commit-branch-badge.tsx": "fb5ab1a0df05b83ebc662fc1532deead9cadc23e943899a51c90f5ec0136a3a0",
+    "src/components/repo/commit/commit-conventional-icons.tsx": "fb4aa4580ca77551e5e0d079d46871206b5de6d54a214d12fdfcb4618605a5ec",
+    "src/components/repo/commit/commit-author-date.tsx": "5ea8fe1505c130d49430f18b7a40fe136f48cc55d5b75f6961a9b37cb6d89f42",
+    "src/components/inbox/inbox-header-button.tsx": "ff3f93c234cff40f0e3ffc7fb76d081c6eedd07f79ac4166bb65c31691218538",
+    "src/components/ui/overlay-portal.tsx": "62f03e9cf2a2a89a3ea399dd4d123375f5e65b5b33b6c69d91ae6fed5e87a061",
+    "src/lib/use-history-hotkeys.ts": "2064a6a2ed9f30a02fe3899a9e2f2ba4088724746066442f83136407e7c32237",
+    "scripts/benchmark-scroll.mjs": "9c2594be81d7341e10a85b75053af7c79de121718eda8cfd3388545599b031b9",
+    "vite.ui-test.config.ts": "c2c81e0e0334aff0911d9da0d20b44301df211a13d8401ca03bc398b9d8957e6"
+  }
+}

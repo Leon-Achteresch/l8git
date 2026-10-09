@@ -1250,7 +1250,7 @@ match ext {
 #[tauri::command]
 pub async fn repo_language_stats(path: String) -> Result<Vec<LanguageStat>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let out = run_git(&repo, &["ls-tree", "-r", "-l", "HEAD"])?;
 
         let mut byte_map: HashMap<&'static str, (u64, &'static str)> = HashMap::new();

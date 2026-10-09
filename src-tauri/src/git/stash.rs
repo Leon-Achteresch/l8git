@@ -4,7 +4,8 @@ use super::*;
 fn stash_mutex(repo: &PathBuf) -> Result<std::sync::Arc<std::sync::Mutex<()>>, String> {
     static LOCKS: std::sync::OnceLock<std::sync::Mutex<HashMap<PathBuf, std::sync::Weak<std::sync::Mutex<()>>>>> = std::sync::OnceLock::new();
     let common = run_git(repo, &["rev-parse", "--git-common-dir"])?;
-    let key = repo.join(common.trim()).canonicalize().map_err(|e| e.to_string())?;
+    let common = common.strip_suffix('\n').unwrap_or(&common);
+    let key = repo.join(common).canonicalize().map_err(|e| e.to_string())?;
     let mut locks = LOCKS.get_or_init(Default::default).lock().map_err(|e| e.to_string())?;
     locks.retain(|_, weak| weak.strong_count() > 0);
     if let Some(lock) = locks.get(&key).and_then(|weak| weak.upgrade()) { return Ok(lock); }
@@ -14,7 +15,8 @@ fn stash_mutex(repo: &PathBuf) -> Result<std::sync::Arc<std::sync::Mutex<()>>, S
 }
 
 fn checked_stash(repo: &PathBuf, index: u32, expected: &str) -> Result<String, String> {
-    let actual = run_git(repo, &["rev-parse", "--verify", &stash_ref(index)])?;
+    let actual = run_git(repo, &["rev-parse", "--verify", &stash_ref(index)])
+        .map_err(|_| "__STASH_CHANGED__".to_string())?;
     if expected.is_empty() || actual.trim() != expected {
         return Err("__STASH_CHANGED__".into());
     }
@@ -114,14 +116,13 @@ fn stash_changed_files(repo: &PathBuf, sref: &str) -> Result<Vec<CommitChangedFi
 #[tauri::command]
 pub async fn list_stashes(path: String) -> Result<Vec<StashEntry>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let sep = "\x1f";
         let fmt = format!("%gd{sep}%H{sep}%cI{sep}%gs");
         let out = run_git(
             &repo,
             &["stash", "list", &format!("--format={fmt}")],
-        )
-        .unwrap_or_default();
+        )?;
         let mut entries = Vec::new();
         for line in out.lines() {
             if line.is_empty() {
@@ -161,7 +162,7 @@ pub async fn git_stash_push(
     keep_index: bool,
 ) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let lock = stash_mutex(&repo)?;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         let mut args: Vec<String> = vec!["stash".into(), "push".into()];
@@ -186,7 +187,7 @@ pub async fn git_stash_push(
 #[tauri::command]
 pub async fn git_stash_pop(path: String, index: u32, expected_hash: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let lock = stash_mutex(&repo)?;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         let hash = checked_stash(&repo, index, &expected_hash)?;
@@ -203,7 +204,7 @@ pub async fn git_stash_pop(path: String, index: u32, expected_hash: String) -> R
 #[tauri::command]
 pub async fn git_stash_apply(path: String, index: u32, expected_hash: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let lock = stash_mutex(&repo)?;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         let hash = checked_stash(&repo, index, &expected_hash)?;
@@ -214,7 +215,7 @@ pub async fn git_stash_apply(path: String, index: u32, expected_hash: String) ->
 #[tauri::command]
 pub async fn git_stash_drop(path: String, index: u32, expected_hash: String) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let lock = stash_mutex(&repo)?;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         let _hash = checked_stash(&repo, index, &expected_hash)?;
@@ -233,7 +234,7 @@ pub struct StashInspectResponse {
 #[tauri::command]
 pub async fn git_stash_show(path: String, index: u32, expected_hash: Option<String>) -> Result<StashInspectResponse, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let sref = match expected_hash {
             Some(expected) => checked_stash(&repo, index, &expected)?,
             None => run_git(&repo, &["rev-parse", "--verify", &stash_ref(index)])?.trim().to_string(),
@@ -265,7 +266,7 @@ pub async fn git_stash_file_diff(
     expected_hash: Option<String>,
 ) -> Result<CommitFileDiffResponse, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let f = file.trim();
         if f.is_empty() {
             return Err("Dateipfad fehlt".into());
@@ -297,7 +298,7 @@ pub async fn git_stash_file_diff(
 #[tauri::command]
 pub async fn git_stash_branch(path: String, index: u32, name: String, expected_hash: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let n = name.trim();
         if n.is_empty() {
             return Err("Branch-Name darf nicht leer sein".into());

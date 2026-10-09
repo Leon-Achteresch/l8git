@@ -9,11 +9,7 @@ static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 pub fn scratch_path(tag: &str) -> PathBuf {
     let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-    let path = std::env::temp_dir().join(format!(
-        "l8git-it-{tag}-{}-{}",
-        std::process::id(),
-        id
-    ));
+    let path = std::env::temp_dir().join(format!("l8git-it-{tag}-{}-{}", std::process::id(), id));
     let _ = fs::remove_dir_all(&path);
     path
 }
@@ -186,7 +182,9 @@ impl TestRepo {
 
     /// Untrimmed on the left so the two-column `XY` prefix stays intact.
     pub fn porcelain(&self) -> String {
-        self.git_out(&["status", "--porcelain=v1"]).trim_end().to_string()
+        self.git_out(&["status", "--porcelain=v1"])
+            .trim_end()
+            .to_string()
     }
 }
 
@@ -221,12 +219,7 @@ pub fn clone_of(bare: &TestRepo, tag: &str) -> TestRepo {
     let parent = dest.parent().unwrap().to_path_buf();
     let (ok, out) = git_raw(
         &parent,
-        &[
-            "clone",
-            "-q",
-            &bare.file_url(),
-            &dest.to_string_lossy(),
-        ],
+        &["clone", "-q", &bare.file_url(), &dest.to_string_lossy()],
     );
     assert!(ok, "clone failed: {out}");
     TestRepo::adopt(dest)
@@ -245,10 +238,7 @@ pub fn json(value: &impl serde::Serialize) -> serde_json::Value {
     serde_json::to_value(value).unwrap()
 }
 
-pub fn find_entry<'a>(
-    entries: &'a serde_json::Value,
-    path: &str,
-) -> &'a serde_json::Value {
+pub fn find_entry<'a>(entries: &'a serde_json::Value, path: &str) -> &'a serde_json::Value {
     entries
         .as_array()
         .unwrap()

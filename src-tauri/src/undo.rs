@@ -1,8 +1,10 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
 use crate::cmd::git_command;
+use crate::git::{repo_mutation_mutex, resolve_git_commit};
 
 const ANALYSIS_DEPTH: u32 = 250;
 const DEFAULT_LIMIT: u32 = 50;
@@ -35,6 +37,11 @@ pub struct UndoPreview {
     pub target_short_hash: String,
     pub target_subject: String,
     pub description_key: String,
+    pub snapshot: String,
+    pub current_hash: String,
+    pub current_short_hash: String,
+    pub head_name: Option<String>,
+    pub mode: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -56,6 +63,7 @@ struct Analysis {
     mode: UndoMode,
     target_hash: String,
     description_key: String,
+    reflog_snapshot: String,
 }
 
 async fn spawn_git<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
@@ -79,8 +87,12 @@ fn run_git_env(repo: &Path, args: &[&str], env: &[(String, String)]) -> (bool, S
     }
     match cmd.output() {
         Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).trim_end().to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).trim_end().to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout)
+                .trim_end()
+                .to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr)
+                .trim_end()
+                .to_string();
             let merged = match (stdout.is_empty(), stderr.is_empty()) {
                 (false, false) => format!("{stdout}\n{stderr}"),
                 (false, true) => stdout,
@@ -136,24 +148,116 @@ fn map_error(message: String) -> String {
     trimmed
 }
 
-fn dirty_tracked_files(repo: &Path) -> Vec<String> {
-    let (_, out) = run_git_raw(repo, &["status", "--porcelain=v1", "--untracked-files=no"]);
-    let mut files: Vec<String> = Vec::new();
-    for line in out.lines() {
-        if line.len() < 3 {
-            continue;
+fn nul_git_output(repo: &Path, args: &[&str]) -> Result<String, String> {
+    let output = git_command()
+        .arg("-C")
+        .arg(repo)
+        .args(args)
+        .output()
+        .map_err(|e| format!("Recovery safety check could not run Git: {e}"))?;
+    if !output.status.success() {
+        return Err(map_error(
+            String::from_utf8_lossy(&output.stderr).into_owned(),
+        ));
+    }
+    String::from_utf8(output.stdout).map_err(|_| {
+        "Recovery cannot safely check filenames that are not valid UTF-8. Use Git directly after reviewing those files.".into()
+    })
+}
+
+fn dirty_tracked_files(repo: &Path) -> Result<Vec<String>, String> {
+    let out = nul_git_output(
+        repo,
+        &["status", "--porcelain=v1", "-z", "--untracked-files=no"],
+    )?;
+    let mut records = out.split('\0').filter(|record| !record.is_empty());
+    let mut files = Vec::new();
+    while let Some(record) = records.next() {
+        if record.len() < 4 || !record.is_char_boundary(3) || record.as_bytes()[2] != b' ' {
+            return Err("Recovery could not safely read the working tree status.".into());
         }
-        let xy = &line[..2];
-        if xy == "??" || xy == "!!" {
-            continue;
+        let xy = &record[..2];
+        if xy != "??" && xy != "!!" {
+            files.push(record[3..].to_string());
         }
-        let rest = &line[3..];
-        let name = rest.split(" -> ").last().unwrap_or(rest).trim().to_string();
-        if !name.is_empty() && !files.contains(&name) {
-            files.push(name);
+        // In porcelain -z, a rename/copy has the destination first, then its source.
+        if xy.contains('R') || xy.contains('C') {
+            if records.next().is_none() {
+                return Err("Recovery could not safely read a renamed file.".into());
+            }
         }
     }
-    files
+    files.sort();
+    files.dedup();
+    Ok(files)
+}
+
+fn hard_reset_collisions(repo: &Path, target: &str) -> Result<Vec<String>, String> {
+    let target_files = nul_git_output(repo, &["ls-tree", "-r", "--name-only", "-z", target])?;
+    let indexed = nul_git_output(repo, &["ls-files", "-z"])?;
+    let tracked: HashSet<&str> = indexed
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .collect();
+    let mut blocked = Vec::new();
+    for file in target_files.split('\0').filter(|path| !path.is_empty()) {
+        // Git tree paths must remain within the repository when checked on disk.
+        let relative = Path::new(file);
+        if relative
+            .components()
+            .any(|part| !matches!(part, std::path::Component::Normal(_)))
+        {
+            return Err("Recovery could not safely check a path in the target commit.".into());
+        }
+        let mut prefix = PathBuf::new();
+        for component in relative.components() {
+            prefix.push(component);
+            let name = prefix
+                .to_str()
+                .ok_or("Recovery could not safely check a filename.")?;
+            let metadata = match std::fs::symlink_metadata(repo.join(&prefix)) {
+                Ok(metadata) => metadata,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+                Err(error) => {
+                    return Err(format!("Recovery could not safely check {name}: {error}"))
+                }
+            };
+            if metadata.is_dir() {
+                if name == file {
+                    // Only examine a directory which Git would replace with a file.
+                    // No exclude rules: ignored content must be protected as well.
+                    let directory = format!("{name}/");
+                    let others = nul_git_output(
+                        repo,
+                        &[
+                            "--literal-pathspecs",
+                            "ls-files",
+                            "--others",
+                            "--directory",
+                            "-z",
+                            "--",
+                            &directory,
+                        ],
+                    )?;
+                    blocked.extend(
+                        others
+                            .split('\0')
+                            .filter(|path| !path.is_empty())
+                            .map(str::to_string),
+                    );
+                }
+                continue;
+            }
+            if !tracked.contains(name) {
+                blocked.push(name.to_string());
+            }
+            // A tracked ancestor file/symlink can be replaced; do not follow it.
+            break;
+        }
+    }
+    blocked.sort();
+    blocked.dedup();
+    Ok(blocked)
 }
 
 fn git_path(repo: &Path, name: &str) -> Option<PathBuf> {
@@ -198,17 +302,7 @@ fn pending_operation(repo: &Path) -> Option<String> {
 }
 
 fn resolve_commit(repo: &Path, rev: &str) -> Option<String> {
-    let spec = format!("{rev}^{{commit}}");
-    let (ok, out) = run_git_raw(repo, &["rev-parse", "--verify", "--quiet", &spec]);
-    if !ok {
-        return None;
-    }
-    let trimmed = out.trim().to_string();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed)
-    }
+    resolve_git_commit(&repo.to_path_buf(), rev).ok()
 }
 
 fn short_hash(repo: &Path, rev: &str) -> String {
@@ -345,12 +439,13 @@ fn description_key(action: &str, supported: bool) -> String {
     format!("undo.action.{key}")
 }
 
-fn unsupported(action: &str) -> Analysis {
+fn unsupported(action: &str, reflog_snapshot: String) -> Analysis {
     Analysis {
         action: action.to_string(),
         mode: UndoMode::None,
         target_hash: String::new(),
         description_key: description_key(action, false),
+        reflog_snapshot,
     }
 }
 
@@ -365,6 +460,17 @@ fn analyze(repo: &Path) -> Result<Analysis, String> {
     let Some(head) = entries.first() else {
         return Err("There is nothing to undo.".into());
     };
+    // The file length also detects identical operations appended within one second.
+    let log_metadata = git_path(repo, "logs/HEAD").and_then(|path| std::fs::metadata(path).ok());
+    let reflog_snapshot = serde_json::to_string(&(
+        &entries,
+        log_metadata.as_ref().map(|metadata| metadata.len()),
+        log_metadata
+            .and_then(|metadata| metadata.modified().ok())
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|duration| duration.as_nanos().to_string()),
+    ))
+    .map_err(|error| format!("Could not create an undo preview: {error}"))?;
     let action = head.action.clone();
     let base = action_base(&action);
     let qualifier = action_qualifier(&action);
@@ -390,13 +496,13 @@ fn analyze(repo: &Path) -> Result<Analysis, String> {
     };
 
     let Some(index) = target_index else {
-        return Ok(unsupported(&action));
+        return Ok(unsupported(&action, reflog_snapshot));
     };
     let Some(target) = entries.get(index) else {
-        return Ok(unsupported(&action));
+        return Ok(unsupported(&action, reflog_snapshot));
     };
     let Some(hash) = resolve_commit(repo, &target.hash) else {
-        return Ok(unsupported(&action));
+        return Ok(unsupported(&action, reflog_snapshot));
     };
 
     Ok(Analysis {
@@ -404,7 +510,34 @@ fn analyze(repo: &Path) -> Result<Analysis, String> {
         action,
         mode,
         target_hash: hash,
+        reflog_snapshot,
     })
+}
+
+fn mode_name(mode: UndoMode) -> &'static str {
+    match mode {
+        UndoMode::Keep => "keep",
+        UndoMode::Soft => "soft",
+        UndoMode::None => "none",
+    }
+}
+
+fn undo_snapshot(
+    repo: &PathBuf,
+    analysis: &Analysis,
+) -> Result<(String, String, Option<String>), String> {
+    let current_hash = resolve_git_commit(repo, "HEAD")?;
+    let name = head_name(repo);
+    let snapshot = serde_json::to_string(&(
+        &current_hash,
+        &name,
+        &analysis.action,
+        mode_name(analysis.mode),
+        &analysis.target_hash,
+        &analysis.reflog_snapshot,
+    ))
+    .map_err(|error| format!("Could not create an undo preview: {error}"))?;
+    Ok((snapshot, current_hash, name))
 }
 
 fn parse_selector(selector: &str) -> Result<String, String> {
@@ -422,7 +555,7 @@ fn parse_selector(selector: &str) -> Result<String, String> {
 #[tauri::command]
 pub async fn reflog_list(path: String, limit: u32, skip: u32) -> Result<Vec<ReflogEntry>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         ensure_repo(&repo)?;
         let count = if limit == 0 {
             DEFAULT_LIMIT
@@ -437,8 +570,13 @@ pub async fn reflog_list(path: String, limit: u32, skip: u32) -> Result<Vec<Refl
 #[tauri::command]
 pub async fn undo_preview(path: String) -> Result<UndoPreview, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
+        let mutex = repo_mutation_mutex(&repo)?;
+        let _guard = mutex
+            .lock()
+            .map_err(|_| "Repository recovery lock was poisoned.")?;
         let analysis = analyze(&repo)?;
+        let (snapshot, current_hash, name) = undo_snapshot(&repo, &analysis)?;
         let supported = analysis.mode != UndoMode::None;
         let (target_short_hash, target_subject) = if supported {
             (
@@ -455,16 +593,35 @@ pub async fn undo_preview(path: String) -> Result<UndoPreview, String> {
             target_short_hash,
             target_subject,
             description_key: analysis.description_key,
+            snapshot,
+            current_short_hash: short_hash(&repo, &current_hash),
+            current_hash,
+            head_name: name,
+            mode: mode_name(analysis.mode).into(),
         })
     })
     .await
 }
 
 #[tauri::command]
-pub async fn undo_last_operation(path: String) -> Result<UndoResult, String> {
+pub async fn undo_last_operation(
+    path: String,
+    expected_snapshot: Option<String>,
+) -> Result<UndoResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
+        let mutex = repo_mutation_mutex(&repo)?;
+        let _guard = mutex
+            .lock()
+            .map_err(|_| "Repository recovery lock was poisoned.")?;
         let analysis = analyze(&repo)?;
+        let (snapshot, from_hash, name) = undo_snapshot(&repo, &analysis)?;
+        if expected_snapshot
+            .as_deref()
+            .is_some_and(|expected| expected != snapshot)
+        {
+            return Err("__UNDO_CHANGED__".into());
+        }
         let flag = match analysis.mode {
             UndoMode::Keep => "--keep",
             UndoMode::Soft => "--soft",
@@ -472,8 +629,6 @@ pub async fn undo_last_operation(path: String) -> Result<UndoResult, String> {
                 return Err(format!("__UNDO_UNSUPPORTED__|{}", analysis.action));
             }
         };
-        let from_hash = resolve_commit(&repo, "HEAD").unwrap_or_default();
-        let name = head_name(&repo);
         let (ok, out) = run_git_raw(&repo, &["reset", flag, &analysis.target_hash]);
         if !ok {
             return Err(map_error(out));
@@ -493,9 +648,15 @@ pub async fn reset_to_reflog_entry(
     path: String,
     selector: String,
     mode: String,
+    expected_hash: Option<String>,
+    expected_head: Option<String>,
 ) -> Result<UndoResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
+        let mutex = repo_mutation_mutex(&repo)?;
+        let _guard = mutex
+            .lock()
+            .map_err(|_| "Repository recovery lock was poisoned.")?;
         ensure_repo(&repo)?;
         if let Some(op) = pending_operation(&repo) {
             return Err(format!(
@@ -511,13 +672,33 @@ pub async fn reset_to_reflog_entry(
         let Some(target) = resolve_commit(&repo, &selector) else {
             return Err(format!("Unknown reflog entry: {selector}"));
         };
-        if flag == "--hard" {
-            let dirty = dirty_tracked_files(&repo);
-            if !dirty.is_empty() {
-                return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
+        if let Some(expected) = expected_hash {
+            if expected.trim() != target {
+                return Err("__REFLOG_CHANGED__".into());
             }
         }
-        let from_hash = resolve_commit(&repo, "HEAD").unwrap_or_default();
+        let from_hash = resolve_git_commit(&repo, "HEAD")?;
+        if let Some(expected) = expected_head {
+            if expected.trim() != from_hash {
+                return Err("__HEAD_CHANGED__".into());
+            }
+        }
+        if flag == "--hard" {
+            let dirty = dirty_tracked_files(&repo)?;
+            if !dirty.is_empty() {
+                return Err(format!(
+                    "__LOCAL_CHANGES_BLOCK__|{}",
+                    serde_json::to_string(&dirty).unwrap()
+                ));
+            }
+            let collisions = hard_reset_collisions(&repo, &target)?;
+            if !collisions.is_empty() {
+                return Err(format!(
+                    "__RECOVERY_PATHS_BLOCK__|{}",
+                    serde_json::to_string(&collisions).unwrap()
+                ));
+            }
+        }
         let name = head_name(&repo);
         let (ok, out) = run_git_raw(&repo, &["reset", flag, &target]);
         if !ok {
@@ -540,11 +721,22 @@ pub async fn branch_restore(
     hash: String,
 ) -> Result<RestoredBranch, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         ensure_repo(&repo)?;
         let branch = name.trim().to_string();
         if branch.is_empty() {
             return Err("Branch name must not be empty.".into());
+        }
+        let mutex = repo_mutation_mutex(&repo)?;
+        let _guard = mutex
+            .lock()
+            .map_err(|_| "Repository recovery lock was poisoned.")?;
+        let full_ref = format!("refs/heads/{branch}");
+        if branch.starts_with('-')
+            || branch.chars().any(char::is_control)
+            || !run_git_raw(&repo, &["check-ref-format", &full_ref]).0
+        {
+            return Err("__INVALID_RECOVERY_BRANCH__".into());
         }
         let rev = hash.trim().to_string();
         if rev.is_empty() {
@@ -565,7 +757,7 @@ pub async fn branch_restore(
         if exists {
             return Err(format!("A branch named {branch} already exists."));
         }
-        let (ok, out) = run_git_raw(&repo, &["branch", &branch, &target]);
+        let (ok, out) = run_git_raw(&repo, &["branch", "--", &branch, &target]);
         if !ok {
             return Err(map_error(out));
         }
@@ -581,7 +773,7 @@ pub async fn branch_restore(
 #[tauri::command]
 pub async fn commit_full_message(path: String, hash: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         ensure_repo(&repo)?;
         let rev = hash.trim().to_string();
         if rev.is_empty() {
@@ -620,8 +812,8 @@ mod tests {
     impl TestRepo {
         fn new() -> TestRepo {
             let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-            let path = std::env::temp_dir()
-                .join(format!("l8git-undo-test-{}-{}", std::process::id(), id));
+            let path =
+                std::env::temp_dir().join(format!("l8git-undo-test-{}-{}", std::process::id(), id));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).unwrap();
             let repo = TestRepo { path };
@@ -725,7 +917,7 @@ mod tests {
         assert_eq!(preview.target_subject, "c1");
         assert_eq!(preview.description_key, "undo.action.merge");
 
-        let result = undo_last_operation(repo.str_path()).await.unwrap();
+        let result = undo_last_operation(repo.str_path(), None).await.unwrap();
         assert_eq!(result.undone_action, "merge");
         assert_eq!(result.to_hash, before);
         assert_eq!(result.head_name.as_deref(), Some("main"));
@@ -751,7 +943,7 @@ mod tests {
         assert_eq!(preview.target_hash, before);
         assert_eq!(preview.target_short_hash, short_hash(&repo.path, &before));
 
-        let result = undo_last_operation(repo.str_path()).await.unwrap();
+        let result = undo_last_operation(repo.str_path(), None).await.unwrap();
         assert_eq!(result.to_hash, before);
         assert_eq!(repo.head(), before);
         assert_eq!(repo.subjects(), vec!["main work", "c1"]);
@@ -781,7 +973,7 @@ mod tests {
         assert_eq!(preview.target_hash, before);
         assert_eq!(preview.description_key, "undo.action.rebase");
 
-        let result = undo_last_operation(repo.str_path()).await.unwrap();
+        let result = undo_last_operation(repo.str_path(), None).await.unwrap();
         assert_eq!(result.undone_action, "rebase (finish)");
         assert_eq!(result.to_hash, before);
         assert_eq!(result.head_name.as_deref(), Some("feature"));
@@ -802,7 +994,7 @@ mod tests {
         assert_eq!(preview.action, "reset");
         assert_eq!(preview.description_key, "undo.action.reset");
 
-        let result = undo_last_operation(repo.str_path()).await.unwrap();
+        let result = undo_last_operation(repo.str_path(), None).await.unwrap();
         assert_eq!(result.undone_action, "reset");
         assert_eq!(result.to_hash, before);
         assert_eq!(repo.head(), before);
@@ -821,7 +1013,7 @@ mod tests {
         assert_eq!(preview.description_key, "undo.action.commit");
         assert_eq!(preview.target_hash, base);
 
-        let result = undo_last_operation(repo.str_path()).await.unwrap();
+        let result = undo_last_operation(repo.str_path(), None).await.unwrap();
         assert_eq!(result.undone_action, "commit");
         assert_eq!(result.to_hash, base);
         assert_eq!(repo.head(), base);
@@ -843,7 +1035,7 @@ mod tests {
         assert_eq!(preview.action, "commit (amend)");
         assert_eq!(preview.description_key, "undo.action.amend");
 
-        let result = undo_last_operation(repo.str_path()).await.unwrap();
+        let result = undo_last_operation(repo.str_path(), None).await.unwrap();
         assert_eq!(result.to_hash, before);
         assert_eq!(repo.subjects(), vec!["c2", "c1"]);
         assert_eq!(repo.staged(), vec!["c.txt".to_string()]);
@@ -861,13 +1053,17 @@ mod tests {
         assert!(preview.target_hash.is_empty());
         assert_eq!(preview.description_key, "undo.action.unsupported");
 
-        let err = undo_last_operation(repo.str_path()).await.unwrap_err();
+        let err = undo_last_operation(repo.str_path(), None)
+            .await
+            .unwrap_err();
         assert_eq!(err, "__UNDO_UNSUPPORTED__|checkout");
         assert_eq!(repo.subjects(), vec!["c1"]);
 
         let fresh = TestRepo::new();
         let initial = fresh.commit("a.txt", "a\n", "only");
-        let err = undo_last_operation(fresh.str_path()).await.unwrap_err();
+        let err = undo_last_operation(fresh.str_path(), None)
+            .await
+            .unwrap_err();
         assert_eq!(err, "__UNDO_UNSUPPORTED__|commit (initial)");
         assert_eq!(fresh.head(), initial);
     }
@@ -883,7 +1079,9 @@ mod tests {
         let after_merge = repo.head();
         fs::write(repo.path.join("a.txt"), "local edit\n").unwrap();
 
-        let err = undo_last_operation(repo.str_path()).await.unwrap_err();
+        let err = undo_last_operation(repo.str_path(), None)
+            .await
+            .unwrap_err();
         assert!(err.starts_with("__LOCAL_CHANGES_BLOCK__|"), "{err}");
         assert!(err.contains("a.txt"), "{err}");
         assert_eq!(repo.head(), after_merge);
@@ -904,7 +1102,9 @@ mod tests {
         let (ok, _) = run_git_raw(&repo.path, &["merge", "topic"]);
         assert!(!ok);
 
-        let err = undo_last_operation(repo.str_path()).await.unwrap_err();
+        let err = undo_last_operation(repo.str_path(), None)
+            .await
+            .unwrap_err();
         assert!(err.contains("in progress"), "{err}");
         let err = undo_preview(repo.str_path()).await.unwrap_err();
         assert!(err.contains("in progress"), "{err}");
@@ -919,37 +1119,329 @@ mod tests {
         repo.commit("b.txt", "b\n", "c2");
         repo.commit("c.txt", "c\n", "c3");
 
-        let bad = reset_to_reflog_entry(repo.str_path(), "HEAD~1".into(), "keep".into())
-            .await
-            .unwrap_err();
+        let bad =
+            reset_to_reflog_entry(repo.str_path(), "HEAD~1".into(), "keep".into(), None, None)
+                .await
+                .unwrap_err();
         assert!(bad.contains("Invalid reflog selector"), "{bad}");
 
-        let bad = reset_to_reflog_entry(repo.str_path(), "HEAD@{0}".into(), "nuke".into())
-            .await
-            .unwrap_err();
+        let bad = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{0}".into(),
+            "nuke".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
         assert!(bad.contains("Unknown reset mode"), "{bad}");
 
-        let kept = reset_to_reflog_entry(repo.str_path(), "HEAD@{2}".into(), "keep".into())
-            .await
-            .unwrap();
+        let kept = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{2}".into(),
+            "keep".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
         assert_eq!(kept.to_hash, base);
         assert_eq!(repo.head(), base);
         assert_eq!(repo.subjects(), vec!["c1"]);
 
         fs::write(repo.path.join("a.txt"), "dirty\n").unwrap();
-        let blocked = reset_to_reflog_entry(repo.str_path(), "HEAD@{1}".into(), "hard".into())
-            .await
-            .unwrap_err();
+        let blocked = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{1}".into(),
+            "hard".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
         assert!(blocked.starts_with("__LOCAL_CHANGES_BLOCK__|"), "{blocked}");
         assert!(blocked.contains("a.txt"), "{blocked}");
         assert_eq!(repo.head(), base);
 
         repo.git(&["checkout", "-q", "--", "a.txt"]);
-        let hard = reset_to_reflog_entry(repo.str_path(), "HEAD@{1}".into(), "hard".into())
-            .await
-            .unwrap();
+        let hard = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{1}".into(),
+            "hard".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
         assert_eq!(repo.head(), hard.to_hash);
         assert_eq!(repo.subjects(), vec!["c3", "c2", "c1"]);
+    }
+
+    #[tokio::test]
+    async fn guarded_undo_executes_the_reviewed_snapshot() {
+        let repo = TestRepo::new();
+        let base = repo.commit("a.txt", "base\n", "base");
+        let current = repo.commit("b.txt", "new\n", "new");
+        let preview = undo_preview(repo.str_path()).await.unwrap();
+        assert_eq!(preview.current_hash, current);
+        assert_eq!(preview.head_name.as_deref(), Some("main"));
+        assert_eq!(preview.mode, "soft");
+        let result = undo_last_operation(repo.str_path(), Some(preview.snapshot))
+            .await
+            .unwrap();
+        assert_eq!(result.to_hash, base);
+        assert_eq!(repo.staged(), vec!["b.txt"]);
+    }
+
+    #[tokio::test]
+    async fn guarded_undo_rejects_a_new_operation_after_preview() {
+        let repo = TestRepo::new();
+        repo.commit("a.txt", "base\n", "base");
+        repo.commit("b.txt", "second\n", "second");
+        let preview = undo_preview(repo.str_path()).await.unwrap();
+        let newest = repo.commit("c.txt", "third\n", "third");
+        let error = undo_last_operation(repo.str_path(), Some(preview.snapshot))
+            .await
+            .unwrap_err();
+        assert_eq!(error, "__UNDO_CHANGED__");
+        assert_eq!(repo.head(), newest);
+        assert!(repo.staged().is_empty());
+    }
+
+    #[tokio::test]
+    async fn guarded_undo_detects_identical_repeated_reflog_entries() {
+        let repo = TestRepo::new();
+        repo.commit("a.txt", "base\n", "base");
+        let current = repo.commit("b.txt", "second\n", "second");
+        repo.git(&["reset", "--soft", "HEAD"]);
+        let preview = undo_preview(repo.str_path()).await.unwrap();
+        repo.git(&["reset", "--soft", "HEAD"]);
+        let error = undo_last_operation(repo.str_path(), Some(preview.snapshot))
+            .await
+            .unwrap_err();
+        assert_eq!(error, "__UNDO_CHANGED__");
+        assert_eq!(repo.head(), current);
+    }
+
+    #[tokio::test]
+    async fn guarded_undo_detects_switching_branches_at_the_same_commit() {
+        let repo = TestRepo::new();
+        repo.commit("a.txt", "base\n", "base");
+        let current = repo.commit("b.txt", "second\n", "second");
+        let preview = undo_preview(repo.str_path()).await.unwrap();
+        repo.git(&["checkout", "-b", "other"]);
+        let error = undo_last_operation(repo.str_path(), Some(preview.snapshot))
+            .await
+            .unwrap_err();
+        assert_eq!(error, "__UNDO_CHANGED__");
+        assert_eq!(repo.head(), current);
+        assert_eq!(head_name(&repo.path).as_deref(), Some("other"));
+    }
+
+    #[tokio::test]
+    async fn guarded_reflog_reset_rejects_shifted_target() {
+        let repo = TestRepo::new();
+        let target = repo.commit("a.txt", "base\n", "base");
+        let reviewed_head = repo.commit("b.txt", "second\n", "second");
+        let current = repo.commit("c.txt", "third\n", "third");
+        let error = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{1}".into(),
+            "keep".into(),
+            Some(target),
+            Some(reviewed_head),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error, "__REFLOG_CHANGED__");
+        assert_eq!(repo.head(), current);
+    }
+
+    #[tokio::test]
+    async fn guarded_reflog_reset_checks_current_head_even_if_target_is_unchanged() {
+        let repo = TestRepo::new();
+        let target = repo.commit("a.txt", "base\n", "base");
+        let current = repo.commit("b.txt", "second\n", "second");
+        let error = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{1}".into(),
+            "keep".into(),
+            Some(target.clone()),
+            Some(target),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error, "__HEAD_CHANGED__");
+        assert_eq!(repo.head(), current);
+    }
+
+    #[tokio::test]
+    async fn hard_reset_preserves_untracked_and_ignored_target_collisions() {
+        for ignored in [false, true] {
+            let repo = TestRepo::new();
+            let base = repo.commit(".gitignore", "secret.txt\n", "base");
+            repo.commit("incoming.txt", "tracked\n", "incoming");
+            if ignored {
+                fs::write(repo.path.join("secret.txt"), "tracked secret\n").unwrap();
+                repo.git(&["add", "-f", "secret.txt"]);
+                repo.git(&["commit", "-m", "secret"]);
+            }
+            repo.git(&["reset", "--hard", &base]);
+            let name = if ignored {
+                "secret.txt"
+            } else {
+                "incoming.txt"
+            };
+            fs::write(repo.path.join(name), "irreplaceable local work\n").unwrap();
+            let error = reset_to_reflog_entry(
+                repo.str_path(),
+                "HEAD@{1}".into(),
+                "hard".into(),
+                None,
+                None,
+            )
+            .await
+            .unwrap_err();
+            assert!(error.starts_with("__RECOVERY_PATHS_BLOCK__|"), "{error}");
+            assert!(error.contains(name), "{error}");
+            assert_eq!(repo.head(), base);
+            assert_eq!(
+                fs::read_to_string(repo.path.join(name)).unwrap(),
+                "irreplaceable local work\n"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn hard_reset_allows_noncolliding_untracked_files_in_shared_directories() {
+        let repo = TestRepo::new();
+        let base = repo.commit(".gitignore", "src/secret.txt\n", "base");
+        fs::create_dir(repo.path.join("src")).unwrap();
+        let target = repo.commit("src/incoming.txt", "tracked\n", "incoming");
+        repo.git(&["reset", "--hard", &base]);
+        fs::create_dir_all(repo.path.join("src")).unwrap();
+        fs::write(repo.path.join("src/notes.txt"), "notes\n").unwrap();
+        fs::write(repo.path.join("src/secret.txt"), "secret\n").unwrap();
+        let result = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{1}".into(),
+            "hard".into(),
+            Some(target.clone()),
+            Some(base),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.to_hash, target);
+        assert_eq!(
+            fs::read_to_string(repo.path.join("src/notes.txt")).unwrap(),
+            "notes\n"
+        );
+        assert_eq!(
+            fs::read_to_string(repo.path.join("src/secret.txt")).unwrap(),
+            "secret\n"
+        );
+        assert_eq!(
+            fs::read_to_string(repo.path.join("src/incoming.txt")).unwrap(),
+            "tracked\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn hard_reset_protects_ignored_contents_when_target_file_replaces_directory() {
+        let repo = TestRepo::new();
+        let base = repo.commit(".gitignore", "bundle/\n", "base");
+        repo.commit("bundle", "tracked file\n", "bundle file");
+        repo.git(&["reset", "--hard", &base]);
+        fs::create_dir_all(repo.path.join("bundle/nested")).unwrap();
+        fs::write(repo.path.join("bundle/nested/local.txt"), "local\n").unwrap();
+        let error = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{1}".into(),
+            "hard".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
+        assert!(error.starts_with("__RECOVERY_PATHS_BLOCK__|"), "{error}");
+        assert_eq!(repo.head(), base);
+        assert_eq!(
+            fs::read_to_string(repo.path.join("bundle/nested/local.txt")).unwrap(),
+            "local\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn hard_reset_can_replace_a_clean_tracked_directory_with_a_file() {
+        let repo = TestRepo::new();
+        fs::create_dir(repo.path.join("bundle")).unwrap();
+        let directory = repo.commit("bundle/old.txt", "old\n", "directory");
+        repo.git(&["rm", "bundle/old.txt"]);
+        repo.commit("bundle", "new file\n", "file");
+        let file = repo.head();
+        repo.git(&["reset", "--hard", &directory]);
+        let result = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{1}".into(),
+            "hard".into(),
+            Some(file.clone()),
+            Some(directory),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.to_hash, file);
+        assert_eq!(
+            fs::read_to_string(repo.path.join("bundle")).unwrap(),
+            "new file\n"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn hard_reset_does_not_follow_untracked_symlink_ancestors() {
+        let repo = TestRepo::new();
+        let base = repo.commit("a.txt", "base\n", "base");
+        fs::create_dir(repo.path.join("incoming")).unwrap();
+        repo.commit("incoming/file.txt", "tracked\n", "incoming");
+        repo.git(&["reset", "--hard", &base]);
+        let outside = TestRepo::new();
+        fs::write(outside.path.join("local.txt"), "outside\n").unwrap();
+        std::os::unix::fs::symlink(&outside.path, repo.path.join("incoming")).unwrap();
+        let error = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{1}".into(),
+            "hard".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
+        assert!(error.starts_with("__RECOVERY_PATHS_BLOCK__|"), "{error}");
+        assert!(repo.path.join("incoming").is_symlink());
+        assert_eq!(
+            fs::read_to_string(outside.path.join("local.txt")).unwrap(),
+            "outside\n"
+        );
+        assert_eq!(repo.head(), base);
+    }
+
+    #[tokio::test]
+    async fn dirty_status_preserves_literal_filenames_and_rename_records() {
+        let repo = TestRepo::new();
+        repo.commit("a,b.txt", "base\n", "base");
+        repo.git(&["mv", "a,b.txt", " spaced, name.txt"]);
+        let names = dirty_tracked_files(&repo.path).unwrap();
+        assert_eq!(names, vec![" spaced, name.txt"]);
+        let error = reset_to_reflog_entry(
+            repo.str_path(),
+            "HEAD@{0}".into(),
+            "hard".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error, "__LOCAL_CHANGES_BLOCK__|[\" spaced, name.txt\"]");
     }
 
     #[tokio::test]
@@ -985,6 +1477,64 @@ mod tests {
             .await
             .unwrap_err();
         assert!(empty.contains("must not be empty"), "{empty}");
+    }
+
+    #[tokio::test]
+    async fn rescue_branch_never_changes_head_index_or_local_files() {
+        let repo = TestRepo::new();
+        let old = repo.commit("a.txt", "old\n", "old");
+        let current = repo.commit("a.txt", "new\n", "new");
+        fs::write(repo.path.join("a.txt"), "local work\n").unwrap();
+        fs::write(repo.path.join("staged.txt"), "staged work\n").unwrap();
+        repo.git(&["add", "staged.txt"]);
+        let before = nul_git_output(&repo.path, &["status", "--porcelain=v1", "-z"]).unwrap();
+        let log = read_reflog(&repo.path, 50, 0).unwrap();
+        let result = branch_restore(repo.str_path(), "rescue/old".into(), old.clone())
+            .await
+            .unwrap();
+        assert_eq!(result.hash, old);
+        assert_eq!(repo.head(), current);
+        assert_eq!(head_name(&repo.path).as_deref(), Some("main"));
+        assert_eq!(
+            nul_git_output(&repo.path, &["status", "--porcelain=v1", "-z"]).unwrap(),
+            before
+        );
+        assert_eq!(read_reflog(&repo.path, 50, 0).unwrap().len(), log.len());
+        assert_eq!(
+            fs::read_to_string(repo.path.join("a.txt")).unwrap(),
+            "local work\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn rescue_branch_rejects_options_invalid_refs_and_checkout_shorthand() {
+        let repo = TestRepo::new();
+        let current = repo.commit("a.txt", "base\n", "base");
+        for name in ["-M", "bad..name", "bad\nname", "@{-1}", "refs/../unsafe"] {
+            let error = branch_restore(repo.str_path(), name.into(), current.clone())
+                .await
+                .unwrap_err();
+            assert_eq!(error, "__INVALID_RECOVERY_BRANCH__", "{name}");
+            assert_eq!(head_name(&repo.path).as_deref(), Some("main"));
+        }
+        assert_eq!(repo.git(&["branch", "--format=%(refname:short)"]), "main");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn recovery_preserves_repository_paths_with_trailing_spaces() {
+        let repo = TestRepo::new();
+        let old = repo.commit("a.txt", "old\n", "old");
+        repo.commit("a.txt", "new\n", "new");
+        let moved = PathBuf::from(format!("{} ", repo.path.to_string_lossy()));
+        fs::rename(&repo.path, &moved).unwrap();
+        let spaced = TestRepo { path: moved };
+        let preview = undo_preview(spaced.str_path()).await.unwrap();
+        let result = undo_last_operation(spaced.str_path(), Some(preview.snapshot))
+            .await
+            .unwrap();
+        assert_eq!(result.to_hash, old);
+        assert_eq!(spaced.head(), old);
     }
 
     #[tokio::test]
@@ -1033,7 +1583,7 @@ mod tests {
         assert_eq!(preview.description_key, "undo.action.revert");
         assert_eq!(preview.target_hash, picked);
 
-        let undone = undo_last_operation(repo.str_path()).await.unwrap();
+        let undone = undo_last_operation(repo.str_path(), None).await.unwrap();
         assert_eq!(undone.undone_action, "revert");
         assert_eq!(undone.to_hash, picked);
         assert_eq!(repo.head(), picked);
@@ -1041,7 +1591,7 @@ mod tests {
 
         repo.git(&["reset", "-q", "--hard", &base]);
         repo.git(&["cherry-pick", "topic"]);
-        let undone = undo_last_operation(repo.str_path()).await.unwrap();
+        let undone = undo_last_operation(repo.str_path(), None).await.unwrap();
         assert_eq!(undone.undone_action, "cherry-pick");
         assert_eq!(undone.to_hash, base);
         assert_eq!(repo.head(), base);
@@ -1051,12 +1601,15 @@ mod tests {
     #[test]
     fn reflog_subjects_are_split_into_action_and_message() {
         assert_eq!(parse_action("merge topic: Fast-forward"), "merge");
+        assert_eq!(parse_message("merge topic: Fast-forward"), "Fast-forward");
         assert_eq!(
-            parse_message("merge topic: Fast-forward"),
-            "Fast-forward"
+            parse_action("rebase (finish): returning to refs/heads/x"),
+            "rebase (finish)"
         );
-        assert_eq!(parse_action("rebase (finish): returning to refs/heads/x"), "rebase (finish)");
-        assert_eq!(parse_action("rebase -i (finish): returning"), "rebase (finish)");
+        assert_eq!(
+            parse_action("rebase -i (finish): returning"),
+            "rebase (finish)"
+        );
         assert_eq!(parse_action("commit (amend): msg"), "commit (amend)");
         assert_eq!(parse_action("commit: msg"), "commit");
         assert_eq!(parse_message("commit: msg: with colon"), "msg: with colon");
@@ -1066,7 +1619,10 @@ mod tests {
         assert_eq!(parse_action(""), "");
         assert_eq!(action_qualifier("rebase (start)"), "start");
         assert_eq!(action_qualifier("merge"), "");
-        assert_eq!(parse_date("HEAD@{2026-08-15T20:30:01+02:00}"), "2026-08-15T20:30:01+02:00");
+        assert_eq!(
+            parse_date("HEAD@{2026-08-15T20:30:01+02:00}"),
+            "2026-08-15T20:30:01+02:00"
+        );
         assert_eq!(parse_date("HEAD@{}"), "");
         assert_eq!(parse_date("broken"), "");
     }

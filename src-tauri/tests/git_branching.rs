@@ -71,7 +71,7 @@ async fn delete_branch_refuses_unmerged_work_unless_forced() {
 async fn merge_ff_fast_forwards_without_creating_a_merge_commit() {
     let (repo, tip) = diverged_repo("merge-ff");
 
-    let out = git::git_merge(repo.s(), "feature".into(), Some("ff".into()), None)
+    let out = git::git_merge(repo.s(), "feature".into(), Some("ff".into()), None, None, None, None)
         .await
         .unwrap();
     assert!(out.contains("Fast-forward"), "{out}");
@@ -84,7 +84,7 @@ async fn merge_ff_fast_forwards_without_creating_a_merge_commit() {
 async fn merge_no_ff_creates_a_merge_commit_with_the_default_message() {
     let (repo, tip) = diverged_repo("merge-noff");
 
-    git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None)
+    git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None, None, None, None)
         .await
         .unwrap();
 
@@ -103,6 +103,9 @@ async fn merge_no_ff_uses_a_custom_message_when_given() {
         "feature".into(),
         Some("no-ff".into()),
         Some("  custom merge note  ".into()),
+        None,
+        None,
+        None,
     )
     .await
     .unwrap();
@@ -118,7 +121,7 @@ async fn merge_squash_flattens_the_branch_into_one_commit() {
     repo.commit("f2.txt", "2\n", "feature two");
     repo.git(&["checkout", "-q", "main"]);
 
-    git::git_merge(repo.s(), "feature".into(), Some("squash".into()), None)
+    git::git_merge(repo.s(), "feature".into(), Some("squash".into()), None, None, None, None)
         .await
         .unwrap();
 
@@ -139,7 +142,7 @@ async fn merge_ff_only_fails_on_diverged_history() {
     repo.git(&["checkout", "-q", "main"]);
     repo.commit("m.txt", "1\n", "main work");
 
-    let err = git::git_merge(repo.s(), "feature".into(), Some("ff-only".into()), None)
+    let err = git::git_merge(repo.s(), "feature".into(), Some("ff-only".into()), None, None, None, None)
         .await
         .unwrap_err();
     assert!(err.to_lowercase().contains("fast-forward"), "{err}");
@@ -150,11 +153,11 @@ async fn merge_ff_only_fails_on_diverged_history() {
 async fn merge_rejects_unknown_strategies_and_empty_branch_names() {
     let (repo, _) = diverged_repo("merge-validate");
 
-    let err = git::git_merge(repo.s(), "feature".into(), Some("octopus".into()), None)
+    let err = git::git_merge(repo.s(), "feature".into(), Some("octopus".into()), None, None, None, None)
         .await
         .unwrap_err();
     assert!(err.contains("Unbekannte Merge-Strategie"), "{err}");
-    assert!(git::git_merge(repo.s(), "  ".into(), None, None).await.is_err());
+    assert!(git::git_merge(repo.s(), "  ".into(), None, None, None, None, None).await.is_err());
 }
 
 #[tokio::test]
@@ -162,7 +165,7 @@ async fn merge_is_blocked_while_tracked_files_are_dirty() {
     let (repo, _) = diverged_repo("merge-dirty");
     repo.write("base.txt", "locally changed\n");
 
-    let err = git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None)
+    let err = git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None, None, None, None)
         .await
         .unwrap_err();
     assert_eq!(err, "__LOCAL_CHANGES_BLOCK__|base.txt");
@@ -174,7 +177,7 @@ async fn merge_conflict_exposes_state_and_can_be_aborted() {
     let repo = common::conflicting_repo("merge-conflict");
     let head_before = repo.head();
 
-    let err = git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None)
+    let err = git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None, None, None, None)
         .await
         .unwrap_err();
     assert!(err.contains("CONFLICT"), "{err}");
@@ -196,7 +199,7 @@ async fn merge_conflict_exposes_state_and_can_be_aborted() {
 async fn conflict_versions_can_be_resolved_and_committed() {
     let repo = common::conflicting_repo("merge-resolve");
     let feature_tip = repo.rev("feature");
-    let _ = git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None).await;
+    let _ = git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None, None, None, None).await;
 
     let versions = git::git_get_conflict_versions(repo.s(), "shared.txt".into())
         .await
@@ -320,7 +323,7 @@ async fn revert_creates_an_inverse_commit() {
 #[tokio::test]
 async fn revert_of_a_merge_requires_a_mainline_parent() {
     let (repo, _) = diverged_repo("revert-merge");
-    git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None)
+    git::git_merge(repo.s(), "feature".into(), Some("no-ff".into()), None, None, None, None)
         .await
         .unwrap();
     let merge_commit = repo.head();
@@ -348,7 +351,7 @@ async fn reset_soft_mixed_and_hard_differ_in_index_and_worktree() {
         let base = repo.head();
         repo.commit("a.txt", "v2\n", "c2");
 
-        git::git_reset(repo.s(), "HEAD~1".into(), mode.into())
+        git::git_reset(repo.s(), "HEAD~1".into(), mode.into(), None)
             .await
             .unwrap();
 
@@ -359,17 +362,20 @@ async fn reset_soft_mixed_and_hard_differ_in_index_and_worktree() {
 }
 
 #[tokio::test]
-async fn reset_defaults_to_mixed_and_rejects_an_empty_target() {
+async fn reset_rejects_unknown_modes_without_changing_head_and_rejects_an_empty_target() {
     let repo = TestRepo::new("reset-validate");
     repo.commit("a.txt", "v1\n", "c1");
     repo.commit("a.txt", "v2\n", "c2");
 
-    git::git_reset(repo.s(), "HEAD~1".into(), "something-else".into())
+    let before = repo.head();
+    let error = git::git_reset(repo.s(), "HEAD~1".into(), "something-else".into(), None)
         .await
-        .unwrap();
-    assert_eq!(repo.porcelain(), " M a.txt");
+        .unwrap_err();
+    assert!(error.contains("Invalid reset mode"));
+    assert_eq!(repo.head(), before);
+    assert!(repo.porcelain().is_empty());
 
-    let err = git::git_reset(repo.s(), "  ".into(), "hard".into())
+    let err = git::git_reset(repo.s(), "  ".into(), "hard".into(), None)
         .await
         .unwrap_err();
     assert!(err.contains("Ziel"), "{err}");
@@ -575,6 +581,195 @@ async fn restore_files_at_commit_brings_back_an_older_version() {
     assert!(git::git_restore_files_at_commit(repo.s(), "  ".into(), vec!["a.txt".into()])
         .await
         .is_err());
+}
+
+#[tokio::test]
+async fn restore_files_at_commit_validates_the_whole_batch_before_changing_index_or_files() {
+    let repo = TestRepo::new("restore-at-invalid-batch");
+    let old = repo.commit("a.txt", "old version\n", "old");
+    repo.commit("a.txt", "current committed version\n", "current");
+    repo.write("a.txt", "local edits must remain\n");
+    let index = repo.git_out(&["show", ":a.txt"]);
+    let status = repo.porcelain();
+    let metadata = std::fs::read(repo.path.join(".git/config")).unwrap();
+    let outside = TestRepo::new("restore-at-invalid-batch-outside");
+    outside.write("a.txt", "outside fixture\n");
+    let outside_path = outside.path.join("a.txt").to_string_lossy().to_string();
+    for invalid in [
+        "../outside.txt",
+        ".git/config",
+        "nested/.git/config",
+        "",
+        outside_path.as_str(),
+    ] {
+        assert!(
+            git::git_restore_files_at_commit(
+                repo.s(),
+                old.clone(),
+                vec!["a.txt".into(), invalid.into()]
+            )
+            .await
+            .is_err(),
+            "invalid later target was accepted: {invalid:?}"
+        );
+        assert_eq!(repo.read("a.txt"), "local edits must remain\n");
+        assert_eq!(repo.git_out(&["show", ":a.txt"]), index);
+        assert_eq!(repo.porcelain(), status);
+        assert_eq!(
+            std::fs::read(repo.path.join(".git/config")).unwrap(),
+            metadata
+        );
+        assert_eq!(outside.read("a.txt"), "outside fixture\n");
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn restore_files_at_commit_preserves_exact_paths_and_does_not_expand_globs() {
+    let repo = TestRepo::new("restore-at-literal-paths");
+    let spaced = " spaced\tline\nname ";
+    for file in [
+        spaced,
+        "glob*.txt",
+        "globX.txt",
+        "   ",
+        "back\\slash.txt",
+        ":(top)name.txt",
+        "-option.txt",
+    ] {
+        repo.write(file, &format!("old {file}\n"));
+    }
+    let old = repo.commit_all("old files");
+    for file in [
+        spaced,
+        "glob*.txt",
+        "globX.txt",
+        "   ",
+        "back\\slash.txt",
+        ":(top)name.txt",
+        "-option.txt",
+    ] {
+        repo.write(file, &format!("current {file}\n"));
+    }
+    repo.commit_all("current files");
+    let selected = [
+        spaced,
+        "glob*.txt",
+        "   ",
+        "back\\slash.txt",
+        ":(top)name.txt",
+        "-option.txt",
+    ];
+    git::git_restore_files_at_commit(
+        repo.s(),
+        old,
+        selected.iter().map(|file| (*file).into()).collect(),
+    )
+    .await
+    .unwrap();
+    for file in selected {
+        assert_eq!(repo.read(file), format!("old {file}\n"));
+        assert_eq!(
+            repo.git_out(&["show", &format!(":{file}")]),
+            format!("old {file}\n")
+        );
+    }
+    assert_eq!(repo.read("globX.txt"), "current globX.txt\n");
+    assert_eq!(repo.git_out(&["show", ":globX.txt"]), "current globX.txt\n");
+}
+
+#[tokio::test]
+async fn restore_files_at_commit_rejects_invalid_sources_before_any_mutation() {
+    let repo = TestRepo::new("restore-at-invalid-source");
+    repo.commit("a.txt", "committed\n", "initial");
+    repo.write("a.txt", "local edits must remain\n");
+    let status = repo.porcelain();
+    let index = repo.git_out(&["show", ":a.txt"]);
+    for source in ["missing-ref", "--help", "HEAD\n", "HEAD^{tree}"] {
+        assert!(
+            git::git_restore_files_at_commit(repo.s(), source.into(), vec!["a.txt".into()])
+                .await
+                .is_err(),
+            "invalid source was accepted: {source:?}"
+        );
+        assert_eq!(repo.read("a.txt"), "local edits must remain\n");
+        assert_eq!(repo.git_out(&["show", ":a.txt"]), index);
+        assert_eq!(repo.porcelain(), status);
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn restore_files_at_commit_rejects_symlink_parents_before_restoring_earlier_files() {
+    use std::os::unix::fs::symlink;
+    let repo = TestRepo::new("restore-at-symlink-parent");
+    repo.write("a.txt", "old a\n");
+    repo.write("dir/nested.txt", "old nested\n");
+    let old = repo.commit_all("old");
+    repo.write("a.txt", "current a\n");
+    repo.write("dir/nested.txt", "current nested\n");
+    repo.commit_all("current");
+    let outside = TestRepo::new("restore-at-symlink-parent-outside");
+    outside.write("nested.txt", "outside fixture\n");
+    std::fs::remove_dir_all(repo.path.join("dir")).unwrap();
+    symlink(&outside.path, repo.path.join("dir")).unwrap();
+    let index = repo.git_out(&["show", ":a.txt"]);
+    assert!(git::git_restore_files_at_commit(
+        repo.s(),
+        old.clone(),
+        vec!["a.txt".into(), "dir/nested.txt".into()]
+    )
+    .await
+    .is_err());
+    assert_eq!(repo.read("a.txt"), "current a\n");
+    assert_eq!(repo.git_out(&["show", ":a.txt"]), index);
+    assert_eq!(outside.read("nested.txt"), "outside fixture\n");
+
+    std::fs::remove_file(repo.path.join("dir")).unwrap();
+    repo.write("internal/nested.txt", "internal fixture\n");
+    symlink(repo.path.join("internal"), repo.path.join("dir")).unwrap();
+    assert!(git::git_restore_files_at_commit(
+        repo.s(),
+        old,
+        vec!["a.txt".into(), "dir/nested.txt".into()]
+    )
+    .await
+    .is_err());
+    assert_eq!(repo.read("a.txt"), "current a\n");
+    assert_eq!(repo.git_out(&["show", ":a.txt"]), index);
+    assert_eq!(repo.read("internal/nested.txt"), "internal fixture\n");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn restore_files_at_commit_replaces_leaf_symlinks_without_following_their_targets() {
+    use std::os::unix::fs::symlink;
+    let repo = TestRepo::new("restore-at-leaf-symlinks");
+    let outside = TestRepo::new("restore-at-leaf-symlinks-outside");
+    outside.write("one.txt", "outside one\n");
+    outside.write("two.txt", "outside two\n");
+    let one = outside.path.join("one.txt");
+    let two = outside.path.join("two.txt");
+    repo.write("regular.txt", "old regular file\n");
+    symlink(&one, repo.path.join("link.txt")).unwrap();
+    let old = repo.commit_all("old leaf types");
+    std::fs::remove_file(repo.path.join("link.txt")).unwrap();
+    symlink(&two, repo.path.join("link.txt")).unwrap();
+    repo.commit_all("new link target");
+    std::fs::remove_file(repo.path.join("regular.txt")).unwrap();
+    symlink(&two, repo.path.join("regular.txt")).unwrap();
+    let head = repo.head();
+    git::git_restore_files_at_commit(repo.s(), old, vec!["regular.txt".into(), "link.txt".into()])
+        .await
+        .unwrap();
+    assert!(std::fs::symlink_metadata(repo.path.join("regular.txt"))
+        .unwrap()
+        .is_file());
+    assert_eq!(repo.read("regular.txt"), "old regular file\n");
+    assert_eq!(std::fs::read_link(repo.path.join("link.txt")).unwrap(), one);
+    assert_eq!(outside.read("one.txt"), "outside one\n");
+    assert_eq!(outside.read("two.txt"), "outside two\n");
+    assert_eq!(repo.head(), head);
 }
 
 #[tokio::test]

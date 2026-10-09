@@ -22,6 +22,11 @@ export type UndoPreview = {
   target_short_hash: string;
   target_subject: string;
   description_key: string;
+  snapshot: string;
+  current_hash: string;
+  current_short_hash: string;
+  head_name: string | null;
+  mode: 'soft' | 'keep' | 'none';
 };
 
 export type RestoredBranch = {
@@ -61,11 +66,54 @@ export function parseLocalChangesBlock(error: unknown): string[] | null {
   const marker = '__LOCAL_CHANGES_BLOCK__|';
   const index = message.indexOf(marker);
   if (index < 0) return null;
-  return message
-    .slice(index + marker.length)
+  const payload = message.slice(index + marker.length);
+  const structured = parsePathList(payload);
+  if (structured) return structured;
+  return payload
     .split(',')
     .map((f) => f.trim())
     .filter((f) => f.length > 0);
+}
+
+function parsePathList(payload: string): string[] | null {
+  try {
+    const value: unknown = JSON.parse(payload);
+    return Array.isArray(value) && value.every((path) => typeof path === 'string')
+      ? value as string[]
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export type RecoveryError = { key: string; files: string[]; raw: string; stale: boolean };
+
+export function parseRecoveryPathsBlock(error: unknown): string[] | null {
+  const raw = String(error);
+  const marker = '__RECOVERY_PATHS_BLOCK__|';
+  const index = raw.indexOf(marker);
+  return index < 0 ? null : parsePathList(raw.slice(index + marker.length)) ?? [];
+}
+
+export function recoveryError(error: unknown): RecoveryError {
+  const raw = String(error);
+  if (raw.includes('__INVALID_RECOVERY_BRANCH__')) return { key: 'recovery.branchNameInvalid', files: [], raw, stale: false };
+  const changed = ['__UNDO_CHANGED__', '__REFLOG_CHANGED__', '__HEAD_CHANGED__'];
+  if (changed.some((marker) => raw.includes(marker))) {
+    return { key: raw.includes('__UNDO_CHANGED__') ? 'recovery.undoChanged' : 'recovery.resetChanged', files: [], raw, stale: true };
+  }
+  const collisions = parseRecoveryPathsBlock(error);
+  if (collisions) {
+    return { key: 'recovery.pathsBlocked', files: collisions, raw, stale: false };
+  }
+  const files = parseLocalChangesBlock(error);
+  if (files) return { key: 'recovery.trackedBlocked', files, raw, stale: false };
+  return { key: 'recovery.operationFailed', files: [], raw, stale: false };
+}
+
+/** Positional selectors alone do not identify an operation after the reflog moves. */
+export function sameReflogEntry(a: ReflogEntry | undefined, b: ReflogEntry | undefined): boolean {
+  return !!a && !!b && a.selector === b.selector && a.hash === b.hash && a.subject === b.subject && a.date === b.date;
 }
 
 export type ReflogActionTone = 'merge' | 'rebase' | 'reset' | 'commit' | 'pick' | 'checkout' | 'other';

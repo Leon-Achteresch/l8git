@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   Archive,
+  BookOpen,
   ArrowDownToLine,
   ArrowUpToLine,
   ClipboardCopy,
@@ -93,6 +94,7 @@ import { useUiStore, type SidebarTab } from "@/lib/ui-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
+import { getWorkflowGuides, normalizeHelpSearch } from "@/lib/workflow-help";
 
 // The palette's dialogs are the app's single largest eager import — the
 // interactive rebase editor alone drags all of dnd-kit into the startup chunk.
@@ -124,6 +126,7 @@ const RebaseInteractiveEditor = lazy(() =>
     default: m.RebaseInteractiveEditor,
   })),
 );
+const CommitCompareDialog = lazy(() => import("@/components/repo/compare/commit-compare-dialog").then(module => ({ default: module.CommitCompareDialog })));
 
 const IS_MAC =
   typeof navigator !== "undefined" &&
@@ -147,7 +150,7 @@ function repoLabel(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-type ActionGroupId = "repos" | "git" | "views" | "repo" | "prci";
+type ActionGroupId = "repos" | "git" | "views" | "repo" | "prci" | "help";
 
 type ActionItem = {
   id: string;
@@ -159,7 +162,7 @@ type ActionItem = {
 };
 
 export function AppHeaderSearch() {
-  const { t } = useTranslation();
+  const { t, i18n: translation } = useTranslation();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -203,7 +206,11 @@ export function AppHeaderSearch() {
     (s) => s.requestCommitHistoryFocus,
   );
   const requestPrCreate = useUiStore((s) => s.requestPrCreate);
-  const setSidebarTab = useUiStore((s) => s.setSidebarTab);
+  const setRepoSidebarTab = useUiStore((s) => s.setSidebarTab);
+  const setSidebarTab = useCallback((tab: SidebarTab) => {
+    setRepoSidebarTab(tab);
+    void router.navigate({ to: "/" });
+  }, [router, setRepoSidebarTab]);
   const openReflogView = useUiStore((s) => s.openReflogView);
   const openCommandLog = useUiStore((s) => s.openCommandLog);
   const openBlameEditor = useUiStore((s) => s.openBlameEditor);
@@ -221,6 +228,8 @@ export function AppHeaderSearch() {
     run: string;
   } | null>(null);
   const [rebaseOpen, setRebaseOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const compareUsed = useEverTrue(compareOpen);
   const [undoOpen, setUndoOpen] = useState(false);
   const [rebaseEditorOpen, setRebaseEditorOpen] = useState(false);
   const [newBranchOpen, setNewBranchOpen] = useState(false);
@@ -288,7 +297,7 @@ export function AppHeaderSearch() {
     return historySelection;
   }, [activePath, historySelection]);
 
-  const headCommit = repo?.commits[0] ?? null;
+  const headCommit = repo?.commits.find(commit => commit.hash === repo.branches.find(branch => branch.is_current)?.tip) ?? (repo && repo.commits.length > 0 ? { hash: "HEAD", short_hash: "HEAD" } : null);
   const currentBranch = repo?.branch ?? "";
   const stagedCount =
     statusEntries?.filter((entry) => entry.staged).length ?? 0;
@@ -318,6 +327,14 @@ export function AppHeaderSearch() {
 
     const repoActions: ActionItem[] = activePath
       ? [
+          {
+            id: "action:compare",
+            group: "views",
+            label: t("compare.title"),
+            icon: <Columns2 className="size-3.5" />,
+            keywords: "compare branches commits tags diff range merge base vergleichen branch vergleich",
+            onSelect: () => { setOpen(false); setCompareOpen(true); },
+          },
           {
             id: "action:push",
             group: "git",
@@ -764,6 +781,14 @@ export function AppHeaderSearch() {
 
     const globalActions: ActionItem[] = [
       {
+        id: "action:help",
+        group: "views",
+        label: t("helpCenter.title"),
+        icon: <BookOpen className="size-3.5" />,
+        keywords: "help guide workflow tutorial troubleshoot hilfe anleitung arbeitsablauf",
+        onSelect: () => { setOpen(false); void router.navigate({ to: "/info" }); },
+      },
+      {
         id: "action:open-repo",
         group: "repos",
         label: t("appSearch.actionOpenRepo"),
@@ -867,7 +892,15 @@ export function AppHeaderSearch() {
       },
     ];
 
-    return [...repoActions, ...globalActions];
+    const guideActions: ActionItem[] = getWorkflowGuides(translation.language, t('workflowGuides', { returnObjects: true })).map(guide => ({
+      id: `help:${guide.id}`,
+      group: "help",
+      label: guide.title,
+      icon: <BookOpen className="size-3.5" />,
+      keywords: `${guide.keywords} ${guide.summary}`,
+      onSelect: () => { setOpen(false); void router.navigate({ to: "/info", hash: guide.id }); },
+    }));
+    return [...repoActions, ...globalActions, ...guideActions];
   }, [
     activePath,
     addRepo,
@@ -894,26 +927,27 @@ export function AppHeaderSearch() {
     t,
     toggleTerminal,
     tools,
+    translation.language,
   ]);
 
   const filteredActions = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = normalizeHelpSearch(query);
     if (!q) return allActions;
     return allActions.filter(
       (a) =>
-        a.label.toLowerCase().includes(q) ||
-        a.keywords?.includes(q),
+        q.split(/\s+/).every(token => normalizeHelpSearch(`${a.label} ${a.keywords ?? ""}`).includes(token)),
     );
   }, [allActions, query]);
 
   const actionGroups = useMemo(() => {
-    const order: ActionGroupId[] = ["repos", "git", "views", "repo", "prci"];
+    const order: ActionGroupId[] = ["repos", "git", "views", "repo", "prci", "help"];
     const headings: Record<ActionGroupId, string> = {
       repos: t("appSearch.groupRepos"),
       git: t("appSearch.groupGit"),
       views: t("appSearch.groupViews"),
       repo: t("appSearch.groupRepo"),
       prci: t("appSearch.groupPrCi"),
+      help: t("helpCenter.paletteGroup"),
     };
     const previewOnly = query.trim().length === 0;
     return order
@@ -936,9 +970,10 @@ export function AppHeaderSearch() {
       const branch = branches.find((b) => b.name === branchName);
       if (!branch) return;
       focusCommitFromBranchTip(activePath, branch.tip);
+      void router.navigate({ to: "/" });
       setOpen(false);
     },
-    [activePath, branches, focusCommitFromBranchTip],
+    [activePath, branches, focusCommitFromBranchTip, router],
   );
 
   const onFocusTag = useCallback(
@@ -947,18 +982,21 @@ export function AppHeaderSearch() {
       const tag = tags.find((x) => x.name === tagName);
       if (!tag) return;
       focusCommitFromBranchTip(activePath, tag.commit);
+      void router.navigate({ to: "/" });
       setOpen(false);
     },
-    [activePath, tags, focusCommitFromBranchTip],
+    [activePath, tags, focusCommitFromBranchTip, router],
   );
 
   const onFocusCommit = useCallback(
     (hash: string) => {
       if (!activePath) return;
       requestCommitHistoryFocus(activePath, hash);
+      setRepoSidebarTab("history");
+      void router.navigate({ to: "/" });
       setOpen(false);
     },
-    [activePath, requestCommitHistoryFocus],
+    [activePath, requestCommitHistoryFocus, setRepoSidebarTab, router],
   );
 
   // ─── secondary action (⌘↵) ───────────────────────────────────────────────
@@ -1194,6 +1232,7 @@ export function AppHeaderSearch() {
       <Suspense fallback={null}>
         {activePath ? (
           <>
+            {compareUsed && <CommitCompareDialog open={compareOpen} onClose={() => setCompareOpen(false)} path={activePath} initialBase={branches.find(branch => branch.is_remote && branch.name === `origin/${currentBranch}`)?.name ?? "HEAD~1"} initialHead="HEAD" />}
             {rebaseUsed ? (
               <RebaseDialog
                 open={rebaseOpen}

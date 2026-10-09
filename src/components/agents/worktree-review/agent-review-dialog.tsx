@@ -1,5 +1,5 @@
 import { GitBranch, GitMerge, Loader2, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AgentsEnter } from "@/components/agents/ui/agents-enter";
@@ -17,7 +17,10 @@ import {
 import {
   discardReviewFile,
   discardReviewHunk,
-  reviewTotals,
+  existingAgentReviewFinishController,
+  loadAgentReviewFileDiff,
+  loadAgentReviewSummary,
+  reviewFileSnapshotEqual,
 } from "@/lib/agents/agent-review";
 import { toastError } from "@/lib/error-toast";
 import { AgentReviewDiffPane } from "./agent-review-diff";
@@ -27,7 +30,10 @@ import { AgentReviewFinishDialog } from "./agent-review-finish-dialog";
 import {
   useAgentReviewFileDiff,
   useAgentReviewSummary,
+  useAgentReviewLiveRefresh,
+  useAgentReviewIdentity,
   useAgentSessionBusy,
+  isAgentSessionBusyNow,
   type AgentReviewSession,
 } from "./use-agent-review";
 import { SpinIcon } from "@/components/motion/kit";
@@ -45,21 +51,27 @@ export function AgentReviewDialog({
 }) {
   const { t } = useTranslation();
   const busy = useAgentSessionBusy(session.worktreePath);
-  const { summary, loading, error, reload } = useAgentReviewSummary(session, open);
+  const worktreeCreatedAt = useAgentReviewIdentity(session);
+  const reviewSession = useMemo(() => ({ ...session, createdAt: worktreeCreatedAt }), [session, worktreeCreatedAt]);
+  const { summary, loading, error, reload } = useAgentReviewSummary(reviewSession, open);
   const [selected, setSelected] = useState<string | null>(null);
   const [acceptedFiles, setAcceptedFiles] = useState<ReadonlySet<string>>(new Set());
   const [acceptedHunks, setAcceptedHunks] = useState<Record<string, ReadonlySet<number>>>({});
   const [diffNonce, setDiffNonce] = useState(0);
   const [finishOpen, setFinishOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
+  const viewEpochRef = useRef(0);
 
   useEffect(() => {
-    if (!open) {
-      setSelected(null);
-      setAcceptedFiles(new Set());
-      setAcceptedHunks({});
-    }
-  }, [open]);
+    viewEpochRef.current += 1;
+    setSelected(null);
+    setAcceptedFiles(new Set());
+    setAcceptedHunks({});
+    setFinishOpen(false);
+    setPending(false);
+    return () => { viewEpochRef.current += 1; };
+  }, [open, session.worktreePath, session.basePath, worktreeCreatedAt]);
 
   const files = useMemo(() => summary?.files ?? [], [summary]);
 
@@ -77,22 +89,26 @@ export function AgentReviewDialog({
     () => files.find((file) => file.path === selected) ?? null,
     [files, selected],
   );
-  const totals = useMemo(() => reviewTotals(files), [files]);
+  const totals = { files: files.length, additions: summary?.additions ?? 0, deletions: summary?.deletions ?? 0 };
 
   const fileDiff = useAgentReviewFileDiff(
-    session,
+    reviewSession,
     summary?.mergeBase ?? null,
     selectedFile?.path ?? null,
     diffNonce,
   );
 
   const afterDiscard = useCallback(() => {
+    setAcceptedFiles(new Set());
+    setAcceptedHunks({});
     setDiffNonce((value) => value + 1);
     reload();
   }, [reload]);
 
+  useAgentReviewLiveRefresh(session.worktreePath, afterDiscard);
+
   const handleAcceptFile = useCallback(() => {
-    if (!selectedFile) return;
+    if (!selectedFile || busy || pendingRef.current || fileDiff.loading || fileDiff.failed) return;
     const path = selectedFile.path;
     setAcceptedFiles((current) => new Set(current).add(path));
     const hunkCount = fileDiff.parsed?.hunks.length ?? 0;
@@ -100,11 +116,11 @@ export function AgentReviewDialog({
       ...current,
       [path]: new Set(Array.from({ length: hunkCount }, (_, index) => index)),
     }));
-  }, [fileDiff.parsed, selectedFile]);
+  }, [busy, fileDiff.loading, fileDiff.failed, fileDiff.parsed, selectedFile]);
 
   const handleAcceptHunk = useCallback(
     (hunkIdx: number) => {
-      if (!selectedFile) return;
+      if (!selectedFile || busy || pendingRef.current || fileDiff.loading || fileDiff.failed) return;
       const path = selectedFile.path;
       setAcceptedHunks((current) => {
         const next = new Set(current[path] ?? []);
@@ -112,40 +128,58 @@ export function AgentReviewDialog({
         return { ...current, [path]: next };
       });
     },
-    [selectedFile],
+    [busy, fileDiff.loading, fileDiff.failed, selectedFile],
   );
 
+  const verifyDisplayedDiff = useCallback(async () => {
+    if (!selectedFile || !summary || isAgentSessionBusyNow(session.worktreePath)) throw new Error(t("agentReview.agentBusy"));
+    const epoch = viewEpochRef.current;
+    const [fresh, freshSummary] = await Promise.all([
+      loadAgentReviewFileDiff(session.worktreePath, summary.mergeBase, selectedFile.path),
+      loadAgentReviewSummary(session.worktreePath, session.basePath),
+    ]);
+    if (epoch !== viewEpochRef.current || freshSummary.sessionBranch !== summary.sessionBranch || freshSummary.baseBranch !== summary.baseBranch || freshSummary.mergeBase !== summary.mergeBase || !reviewFileSnapshotEqual(fresh, fileDiff)) {
+      throw new Error(t("agentReviewFinish.diffChanged"));
+    }
+    if (isAgentSessionBusyNow(session.worktreePath)) throw new Error(t("agentReview.agentBusy"));
+  }, [fileDiff.diff, fileDiff.untrackedPlain, fileDiff.isBinary, fileDiff.fingerprint, selectedFile, session.worktreePath, session.basePath, summary, t]);
+
   const handleDiscardFile = useCallback(() => {
-    if (!selectedFile || !summary) return;
+    if (!selectedFile || !summary || busy || pendingRef.current || fileDiff.loading || fileDiff.failed) return;
     if (!window.confirm(t("agentReview.confirmDiscardFile", { file: selectedFile.path }))) return;
     setPending(true);
-    discardReviewFile(session.worktreePath, summary.mergeBase, selectedFile)
+    pendingRef.current = true;
+    verifyDisplayedDiff().then(() => discardReviewFile(session.worktreePath, summary.mergeBase, selectedFile, fileDiff.fingerprint ?? ""))
       .then(afterDiscard)
       .catch((cause: unknown) => toastError(cause instanceof Error ? cause.message : String(cause)))
-      .finally(() => setPending(false));
-  }, [afterDiscard, selectedFile, session.worktreePath, summary, t]);
+      .finally(() => { pendingRef.current = false; setPending(false); });
+  }, [afterDiscard, busy, fileDiff.loading, fileDiff.failed, fileDiff.fingerprint, selectedFile, session.worktreePath, summary, t, verifyDisplayedDiff]);
 
   const handleDiscardHunk = useCallback(
     (hunkIdx: number) => {
-      if (!fileDiff.parsed) return;
+      if (!summary || !selectedFile || !fileDiff.parsed || busy || pendingRef.current || fileDiff.loading || fileDiff.failed) return;
       if (!window.confirm(t("agentReview.confirmDiscardHunk", { index: hunkIdx + 1 }))) return;
       setPending(true);
-      discardReviewHunk(session.worktreePath, fileDiff.parsed, hunkIdx)
+      pendingRef.current = true;
+      verifyDisplayedDiff().then(() => discardReviewHunk(session.worktreePath, summary!.mergeBase, selectedFile!.path, fileDiff.parsed!, hunkIdx, fileDiff.fingerprint ?? ""))
         .then(afterDiscard)
         .catch((cause: unknown) =>
           toastError(cause instanceof Error ? cause.message : String(cause)),
         )
-        .finally(() => setPending(false));
+        .finally(() => { pendingRef.current = false; setPending(false); });
     },
-    [afterDiscard, fileDiff.parsed, session.worktreePath, t],
+    [afterDiscard, busy, fileDiff.loading, fileDiff.failed, fileDiff.parsed, fileDiff.fingerprint, summary, selectedFile, session.worktreePath, t, verifyDisplayedDiff],
   );
 
-  const locked = busy || pending;
+  const recovery = existingAgentReviewFinishController(session.worktreePath, session.basePath, worktreeCreatedAt);
+  const canRecoverCleanup = !!recovery?.getSnapshot().worktreeRemoved && !recovery.getSnapshot().branchDeleted;
+  const finishContext = summary ? { sessionBranch: summary.sessionBranch, baseBranch: summary.baseBranch } : canRecoverCleanup ? recovery?.context : null;
+  const locked = busy || pending || loading || fileDiff.loading || fileDiff.failed;
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex h-[min(760px,88vh)] w-[min(1120px,95vw)] max-w-[min(1120px,95vw)] flex-col gap-0 overflow-hidden p-0">
+      <Dialog open={open} onOpenChange={(next) => { if (!next && pendingRef.current) return; onOpenChange(next); }}>
+        <DialogContent className="flex h-[min(760px,88vh)] w-[min(1120px,95vw)] max-w-[min(1120px,95vw)] sm:max-w-[min(1120px,95vw)] flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="border-[var(--ag-line)] shrink-0 gap-2 border-b px-4 py-3 pr-12">
             <DialogTitle>{t("agentReview.title")}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -205,8 +239,8 @@ export function AgentReviewDialog({
               <SpinIcon icon={Loader2} className="size-6 text-primary/50" />
             </div>
           ) : (
-            <AgentsEnter className="flex min-h-0 flex-1">
-              <div className="border-[var(--ag-line)] w-64 shrink-0 border-r">
+            <AgentsEnter className="flex min-h-0 flex-1 flex-col md:flex-row">
+              <div className="border-[var(--ag-line)] h-32 w-full shrink-0 border-b md:h-auto md:w-64 md:border-r md:border-b-0">
                 <AgentReviewFileList
                   files={files}
                   selected={selected}
@@ -214,7 +248,7 @@ export function AgentReviewDialog({
                   onSelect={setSelected}
                 />
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-h-0 min-w-0 flex-1">
                 <AgentReviewDiffPane
                   file={selectedFile}
                   parsed={fileDiff.parsed}
@@ -237,7 +271,7 @@ export function AgentReviewDialog({
           )}
 
           <DialogFooter className="mx-0 mb-0 shrink-0 rounded-none">
-            <Button type="button" variant="outline" size="sm" onClick={reload} disabled={loading}>
+            <Button type="button" variant="outline" size="sm" onClick={afterDiscard} disabled={loading || pending}>
               <SpinIcon icon={RefreshCw} active={loading} />
               {t("agentReview.refresh")}
             </Button>
@@ -245,24 +279,25 @@ export function AgentReviewDialog({
               type="button"
               size="sm"
               onClick={() => setFinishOpen(true)}
-              disabled={!summary || locked}
+              disabled={!finishContext || busy || pending || loading || !!error && !canRecoverCleanup}
             >
               <GitMerge />
-              {t("agentReview.finish")}
+              {t(canRecoverCleanup ? "agentReviewFinish.resumeCleanup" : "agentReview.finish")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {summary ? (
+      {finishContext ? (
         <AgentReviewFinishDialog
           open={finishOpen}
           onOpenChange={setFinishOpen}
           worktreePath={session.worktreePath}
           basePath={session.basePath}
-          sessionBranch={summary.sessionBranch}
-          baseBranch={summary.baseBranch}
-          hasUncommitted={summary.uncommitted > 0}
+          worktreeCreatedAt={worktreeCreatedAt}
+          sessionBranch={finishContext.sessionBranch}
+          baseBranch={finishContext.baseBranch}
+          hasUncommitted={(summary?.uncommitted ?? 0) > 0}
           onFinished={() => onOpenChange(false)}
         />
       ) : null}

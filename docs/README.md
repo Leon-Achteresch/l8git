@@ -12,7 +12,7 @@ These are plain Markdown files — read them here on GitHub, or in any editor.
 | [Commits and staging](commits-and-staging.md) | The commit panel, hunk and line staging, AI commit messages, commit splitting, conflicts |
 | [Branches and stacks](branches-and-stacks.md) | Branching, merging, rebase, interactive rebase, stacked branches, branch cleanup |
 | [Pull requests](pull-requests.md) | GitHub, GitLab, Bitbucket and Gitea/Forgejo — creating, reviewing, merging, CI, the inbox |
-| [Agents](agents.md) | The four agent CLIs, worktree sessions, the review and finish flow |
+| [Agents user guide](planning/agents-cli-integration/USER-GUIDE.md) | Agent setup, worktree sessions, review, resume and diagnostics |
 | [Safety net](safety.md) | Undo, reflog, the git command log, and the confirmations that protect your work |
 | [Keyboard shortcuts](shortcuts.md) | Default hotkeys, rebinding, and context keys |
 

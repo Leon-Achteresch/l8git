@@ -14,6 +14,7 @@
 | `Mod+Shift+R` | Reload all repositories |
 | `Mod+O` | Open local repository |
 | `Mod+,` | Settings |
+| `F1` | Help & workflows |
 | `Mod+/` | Show keyboard shortcuts |
 
 ## Navigation

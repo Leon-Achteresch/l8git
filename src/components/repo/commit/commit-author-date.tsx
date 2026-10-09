@@ -1,25 +1,29 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { formatDate, formatRelative } from "@/lib/format";
 import { CommitAvatar } from "./commit-avatar";
+import { useGravatarUrl } from "@/lib/gravatar";
 
 function CommitAuthorDateInner({
   author,
   email,
-  avatarUrl,
-  avatarFallbackUrl,
+  authorAvatar,
   date,
 }: {
   author: string;
   email?: string;
-  avatarUrl: string | null | undefined;
-  avatarFallbackUrl?: string | null | undefined;
+  authorAvatar?: string | null;
   date: string;
 }) {
+  // Pooled, memoized author rows also need to refresh localized dates.
+  useTranslation();
+  const gravatarUrl = useGravatarUrl(email ?? "");
+  const remoteAvatar = authorAvatar?.trim() || undefined;
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
       <CommitAvatar
-        url={avatarUrl}
-        fallbackUrl={avatarFallbackUrl}
+        url={remoteAvatar ?? gravatarUrl}
+        fallbackUrl={remoteAvatar ? (gravatarUrl ?? null) : undefined}
         name={author}
         size="xs"
       />

@@ -570,37 +570,68 @@
         "label": "工作副本",
         "ok": "干净",
         "warn": "有待处理更改",
-        "error": "有冲突"
+        "error": "有冲突",
+        "action": "检查更改",
+        "count_one": "{{count}} 个已更改文件",
+        "count_other": "{{count}} 个已更改文件"
       },
       "upstream": {
         "label": "上游",
         "ok": "已同步",
         "warn": "有偏离",
-        "error": "有偏离"
+        "error": "有偏离",
+        "action": "分支同步指南",
+        "noUpstream": "未配置上游分支",
+        "ahead_one": "{{count}} 个尚未推送的提交",
+        "ahead_other": "{{count}} 个尚未推送的提交",
+        "behind_one": "落后上游 {{count}} 个提交",
+        "behind_other": "落后上游 {{count}} 个提交",
+        "diverged": "{{ahead}} 个尚未推送 · 落后上游 {{behind}} 个提交"
       },
       "conflicts": {
         "label": "冲突",
         "ok": "无",
         "warn": "待解决",
-        "error": "待解决"
+        "error": "待解决",
+        "action": "冲突解决指南",
+        "count_one": "{{count}} 个冲突文件",
+        "count_other": "{{count}} 个冲突文件",
+        "partial_one": "至少 {{count}} 个冲突文件",
+        "partial_other": "至少 {{count}} 个冲突文件"
       },
       "bisect": {
         "label": "二分查找",
         "ok": "空闲",
         "warn": "进行中",
-        "error": "有问题"
+        "error": "有问题",
+        "action": "在历史记录中检查 bisect"
       },
       "stashes": {
         "label": "贮藏",
         "ok": "无",
         "warn": "有贮藏",
-        "error": "有贮藏"
+        "error": "有贮藏",
+        "action": "Stash 使用指南",
+        "count_one": "{{count}} 个已保存的 stash",
+        "count_other": "{{count}} 个已保存的 stash"
       },
       "worktrees": {
         "label": "工作树",
-        "ok": "已配置",
+        "ok": "没有额外的工作树",
         "warn": "需检查",
-        "error": "需检查"
+        "error": "需检查",
+        "action": "并行工作指南",
+        "count_one": "{{count}} 个额外工作树",
+        "count_other": "{{count}} 个额外工作树"
+      },
+      "states": {
+        "unknown": "未知",
+        "loading": "正在加载…",
+        "error": "无法加载",
+        "lastKnown": "上次确认的状态",
+        "refreshing": "正在刷新…",
+        "refreshFailed": "部分检查无法刷新。",
+        "refresh": "刷新状态"
       }
     },
     "all": {
@@ -1353,6 +1384,7 @@
     "fileListFilter": "筛选文件…",
     "conflictBadge_one": "{{count}} 处冲突",
     "conflictBadge_other": "{{count}} 处冲突",
+    "partialSelectionInvalid": "无法应用 {{file}} 中选中的文本。请刷新差异并缩小选择范围，或使用文件操作。",
     "hunkStageTitle": "暂存变更块",
     "hunkUnstageTitle": "取消暂存变更块",
     "hunkStageVerb": "暂存",
@@ -1444,6 +1476,12 @@
     "cancelledHint": "剩余更改仍以未暂存状态留在工作树中。",
     "errorNoUnits": "没有可以拆分的更改。",
     "errorInvalidPlan": "AI 未返回可用的拆分方案：{{reason}}",
+    "errorReviewChanged": "已审查的文件或仓库发生了变化。已创建的提交和已有暂存更改均已保留。请检查工作副本并生成新方案。",
+    "errorSnapshotInvalid": "无法验证仓库状态。未请求创建更多提交。请在重试前检查当前提交和暂存更改。",
+    "errorInvalidSelection": "无法安全应用拆分选择。请检查工作副本并生成新方案。",
+    "errorOperationInProgress": "合并、变基、拣选、还原或二分查找正在进行。请先完成或中止操作，再创建拆分方案。",
+    "errorNothingStaged": "此拆分组没有可提交的更改。请检查工作副本并生成新方案。",
+    "errorStagingChanged": "计划生成后暂存区发生了变化。已保留你暂存的选择。请先检查这些内容，再创建新的拆分计划。",
     "errorHunkGone": "{{file}} 中计划的更改已不在工作树中。请重新生成方案。"
   },
   "bisect": {
@@ -2528,7 +2566,8 @@
     "pullDone": "LFS 对象已下载。",
     "trackDone": "{{pattern}} 现已由 LFS 管理。",
     "untrackDone": "{{pattern}} 不再由 LFS 管理。",
-    "reload": "刷新"
+    "reload": "刷新",
+    "reloadStatus": "刷新 LFS 状态"
   },
   "initRepo": {
     "toastPickParent": "请选择上级文件夹。",
@@ -3361,7 +3400,7 @@
     "confirmKeepTitle": "重置并保留本地更改？",
     "confirmKeepDesc": "HEAD 将移动到 {{selector}}（{{hash}}）。本地更改会被保留——若产生冲突，git 会中止。",
     "confirmHardTitle": "执行硬重置？",
-    "confirmHardDesc": "HEAD 将移动到 {{selector}}（{{hash}}），工作树会被覆盖。未提交的更改将永久丢失。",
+    "confirmHardDesc": "HEAD 将移动到 {{selector}} 中已检查的提交 {{hash}}。受跟踪文件和索引会被替换。存在本地更改或路径冲突时将停止重置。",
     "resetSuccess": "已重置到 {{selector}}（{{hash}}）"
   },
   "undo": {
@@ -3517,7 +3556,7 @@
     "since": "From date",
     "until": "Until date",
     "noResults": "No matching results.",
-    "filteredHistory": "{{count}} commits loaded",
+    "filteredHistory": "已加载 {{count}} 个提交",
     "loadMore": "Load more",
     "contextTitle": "Review AI context",
     "contextHint": "This is the content sent to {{provider}}. Remove files or details you do not want to share before continuing. Shortened excerpts are marked.",
@@ -3568,6 +3607,637 @@
     "excludeHint": "Remove file patches before sending. You can also edit the full context below.",
     "excludeFileNamed": "Remove {{path}} from context",
     "nextRetry": "Next automatic refresh: {{time}}. Refreshes are spaced out after errors.",
-    "providerRateLimit": "Provider rate limit reached. Requests can resume at {{time}}."
+    "providerRateLimit": "Provider rate limit reached. Requests can resume at {{time}}.",
+    "filteredHistory_one": "已加载 {{count}} 个提交",
+    "filteredHistory_other": "已加载 {{count}} 个提交"
+  },
+  "historyFilters": {
+    "searchPlaceholder": "搜索提交信息…",
+    "apply": "应用",
+    "advanced": "筛选",
+    "presets": "已保存的搜索",
+    "presetsHint": "按仓库保存，包括所选分支。",
+    "deletePreset": "删除“{{name}}”",
+    "noPresets": "保存搜索后可在此重复使用。",
+    "presetName": "搜索名称",
+    "presetPlaceholder": "例如：发布修复",
+    "presetSaved": "已保存搜索“{{name}}”。",
+    "savePreset": "保存搜索",
+    "updatePreset": "更新已保存的搜索",
+    "addFilterFirst": "保存搜索前请添加筛选条件。",
+    "authorPlaceholder": "姓名或电子邮件地址",
+    "pathPlaceholder": "src/ 或 Git pathspec",
+    "lastDays": "最近 {{count}} 天",
+    "anyTime": "不限时间",
+    "discardDraft": "放弃编辑",
+    "invalidDate": "请输入有效日期。",
+    "reversedDates": "开始日期须早于或等于结束日期。",
+    "searchHelp": "筛选条件如何运作",
+    "searchHelpText": "所有筛选条件组合使用。提交信息和作者使用不区分大小写的字面文本匹配。路径支持 Git pathspec，例如 src/ 或 :(glob)**/*.ts。起止日期均包含本地时间的整天。选择分支后，搜索从分支顶端可到达的提交；不选择分支时搜索仓库的所有引用。作者建议来自已加载的提交；也可输入任意姓名或邮箱。",
+    "activeFilters": "当前历史筛选条件",
+    "removeFilter": "移除{{field}}筛选：{{value}}",
+    "removeBranch": "移除分支筛选：{{name}}",
+    "clearAll": "清除全部",
+    "noResultsTitle": "没有提交符合这些筛选条件",
+    "noResultsHint": "尝试扩大日期范围、更换作者或使用更宽泛的路径。",
+    "allLoaded": "已加载所有匹配的提交",
+    "selectionCount": "已选择 {{count}} 个提交",
+    "clearSelection": "清除选择",
+    "copyHashes": "复制提交哈希",
+    "hashesCopied": "已复制 {{count}} 个提交哈希。"
+  },
+  "commitGuidance": {
+    "typeLabel": "选择约定式提交类型",
+    "type": "类型",
+    "conventionalTitle": "约定式提交类型",
+    "types": {
+      "feat": "新功能",
+      "fix": "修复缺陷",
+      "docs": "文档",
+      "refactor": "代码重构",
+      "perf": "性能",
+      "test": "测试",
+      "build": "构建或依赖",
+      "ci": "自动化",
+      "style": "格式调整",
+      "chore": "维护",
+      "revert": "撤销修改"
+    },
+    "removeType": "移除约定式前缀",
+    "scope": "范围（可选）",
+    "breakingHint": "在标题中用 ! 标记不兼容的变更",
+    "breaking": "不兼容变更",
+    "structureLabel": "向说明添加可编辑模板",
+    "structure": "结构",
+    "editableTemplates": "追加到说明；请编辑所有提示",
+    "hints": "{{count}} 条建议",
+    "help": "提交说明帮助",
+    "nonBlocking": "这些建议仅供参考，不会阻止提交。",
+    "insights": {
+      "longSubject": "标题包含 {{count}} 个字符。建议控制在 72 个以内以便浏览历史。",
+      "vagueSubject": "请描述具体变更，避免 WIP 或 update 等笼统标题。",
+      "missingDescription": "请在约定式提交前缀后添加具体说明。",
+      "placeholder": "提交前请检查剩余的 TODO 或模板占位符。",
+      "longBodyLines": "建议将正文第 {{lines}} 行在约 100 个字符处换行。",
+      "breakingExplanation": "添加 BREAKING CHANGE: 页脚，说明影响和迁移方法。",
+      "trailingWhitespace": "说明中包含行末空格。如果不是有意添加，请删除。"
+    },
+    "goodMessage": "标题清晰。可在正文中说明修改原因和验证方式。",
+    "startHint": "用一句具体的话说明修改内容。可选正文用于解释原因和验证方式。",
+    "trailerType": "提交页脚类型",
+    "trailerValue": "问题引用或迁移说明",
+    "migrationPlaceholder": "说明影响和迁移方法…",
+    "issuePlaceholder": "#123 或 PROJ-42",
+    "addTrailer": "向正文添加页脚",
+    "descriptionShortcut": "在标题中按 Enter 添加正文",
+    "stagedOnly": "此提交仅包含已暂存变更。未暂存变更仍保留在工作区。",
+    "subjectCount": "标题有 {{count}} 个字符；72 个字符是可读性建议。",
+    "mayBePublished": "可能已发布",
+    "publishedAmendTitle": "修改可能已发布的提交？",
+    "publishedAmendDescription": "提交 {{hash}} 可能已存在于上游分支。修改将生成新的哈希值，协作者可能需要重新协调历史。仅在确实希望重写时继续。",
+    "headChanged": "执行此操作时 HEAD 已改变。请刷新后重试。",
+    "preflight": {
+      "missingSubject": "请先填写提交标题。",
+      "emptyIndex": "暂存要提交的变更。",
+      "conflicts": "提交前请解决并暂存所有冲突文件。",
+      "amendUnavailable": "还没有可修改的提交。",
+      "amendTargetChanged": "打开修改后 HEAD 已改变。请取消并重新打开，以检查正确的提交。",
+      "unchangedAmend": "请修改说明或暂存变更。无需重写没有变化的提交。"
+    },
+    "templates": {
+      "summary": {
+        "label": "变更、原因与验证",
+        "body": "变更内容：\n- <TODO: 描述变更>\n\n原因：\n<TODO: 解释原因>\n\n验证：\n- <TODO: 描述验证过程>"
+      },
+      "behavior": {
+        "label": "修改前后",
+        "body": "修改前：\n<TODO: 描述原行为>\n\n修改后：\n<TODO: 描述新行为>\n\n验证：\n<TODO: 描述验证过程>"
+      },
+      "breaking": {
+        "label": "不兼容变更与迁移",
+        "body": "BREAKING CHANGE: <TODO: 描述不兼容变更>\n\n迁移：\n<TODO: 说明升级方法>"
+      }
+    }
+  },
+  "compare": {
+    "title": "比较提交和分支",
+    "description": "比较分支、标签或提交并审阅文件变更。",
+    "base": "基准",
+    "head": "目标",
+    "swap": "交换基准和目标",
+    "compare": "比较",
+    "compareSelected": "比较选中的提交",
+    "mode": "比较模式",
+    "direct": "比较快照",
+    "mergeBase": "共同祖先以来的变更",
+    "directHint": "显示从基准到目标的净变化。",
+    "mergeBaseHint": "像拉取请求一样，显示目标自与基准的共同祖先以来的变更。",
+    "requiredRefs": "请输入基准和目标引用。",
+    "invalidRef": "请使用不含前导连字符或控制字符的 Git 引用。",
+    "loading": "正在比较提交快照…",
+    "cancelled": "已取消比较",
+    "loadFailed": "无法加载比较",
+    "fileCount": "{{count}} 个变更文件",
+    "ahead": "领先 {{count}} 个提交",
+    "behind": "落后 {{count}} 个提交",
+    "aheadHint": "从目标可到达、但从基准不可到达的提交。",
+    "behindHint": "从基准可到达、但从目标不可到达的提交。",
+    "refresh": "刷新比较",
+    "mergeBaseUsed": "从共同祖先比较的变更",
+    "filesTruncated": "显示 {{count}} 个变更文件中的 {{shown}} 个。合计覆盖完整比较。",
+    "noChanges": "这些快照之间没有文件变更",
+    "noChangesHint": "即使最终文件内容相同，提交历史也可能不同。",
+    "filterFiles": "筛选文件路径…",
+    "fileStatus": "按文件状态筛选",
+    "allStatuses": "所有状态",
+    "sortFiles": "文件排序",
+    "sortPath": "文件路径",
+    "sortChanges": "变更最多",
+    "sortStatus": "文件状态",
+    "reviewProgress": "已审阅 {{reviewed}}/{{count}} 个文件",
+    "hideReviewed": "隐藏已审阅",
+    "changedFiles": "变更文件",
+    "noMatchingFiles": "没有符合条件的文件。请清除路径或状态筛选，或显示已审阅文件。",
+    "markFileReviewed": "将 {{path}} 标记为已审阅",
+    "pickFile": "选择要审阅的文件",
+    "previousFile": "上一个文件",
+    "nextFile": "下一个文件",
+    "reviewAndNext": "已审阅 · 下一个",
+    "copyPatch": "复制补丁",
+    "patchCopied": "已复制补丁。",
+    "patchTruncated": "此补丁超过显示限制，内容不完整，复制功能已禁用。",
+    "noTextChanges": "此文件没有文本变更。",
+    "metadataOnly": "仅文件元数据发生变化。请审阅下方的重命名、权限或类型变更。",
+    "chooseRefs": "请输入引用并开始比较。",
+    "added": "新增",
+    "modified": "修改",
+    "deleted": "删除",
+    "renamed": "重命名",
+    "copied": "复制",
+    "typeChanged": "类型变更",
+    "pendingChanges": "选择“比较”以应用修改后的引用或模式。",
+    "noCommonAncestor": "这些历史没有共同祖先。请选择“比较快照”进行直接比较。",
+    "invalidMode": "请选择受支持的比较模式。",
+    "fileNotChanged": "此文件在当前比较中没有变更。请刷新比较并重新选择文件。",
+    "exportReport": "导出审查报告",
+    "reportHint": "将所有已列出的文件、审查标记和完整提交哈希导出为本地 Markdown 报告。",
+    "reportSaved": "审查报告已导出。"
+  },
+  "agentReviewFinish": {
+    "description": "提交剩余编辑，将 {{session}} 集成到 {{base}}，然后移除干净的工作树。已完成的步骤和清理进度会保存，以便重试。",
+    "preflight": "审查和仓库检查",
+    "summary": "{{files}} 个文件 · +{{added}} / −{{removed}} · {{commits}} 次提交 · {{open}} 项待提交更改",
+    "reviewed": "我已审查当前会话的更改，可以进行集成。",
+    "safetyHelp": "合并和清理要求仓库干净、处于预期分支，且没有正在进行的合并、变基或挑拣。请保留工作树，直到集成得到确认。",
+    "commitAllHint": "这会提交会话工作树中所有剩余的已跟踪和未跟踪文件。请先在审查中检查它们。",
+    "reviewAfterCommit": "剩余更改已提交。合并之前，请确认更新后的快照。",
+    "strategy": "合并策略",
+    "strategies": {
+      "ff": {
+        "label": "尽可能快进（默认）",
+        "hint": "尽可能保持线性历史；如果分支已分叉，则创建合并提交。"
+      },
+      "ff-only": {
+        "label": "仅快进",
+        "hint": "只有能够线性快进时才更新基础分支。如果已分叉，请保留会话并选择其他策略或执行变基。"
+      },
+      "no-ff": {
+        "label": "始终创建合并提交",
+        "hint": "即使可以快进，也会在历史中以独立的合并保留此会话。"
+      }
+    },
+    "cleanupHint": "只移除干净、已注册且当前 HEAD 已集成到预期基础分支的会话工作树。删除分支时使用 Git 的非强制安全检查。",
+    "cleanupComplete": "工作树已移除，会话分支已删除。",
+    "worktreeRemoved": "工作树已成功移除。会话分支仍然保留；重试时仅删除该分支。",
+    "deleteRemainingBranch": "删除剩余分支",
+    "resumeCleanup": "继续清理",
+    "diffChanged": "此操作打开期间，显示的更改发生了变化。丢弃之前，请刷新审查。",
+    "errors": {
+      "wrongBaseBranch": "基础仓库当前不在 {{base}} 分支上。请切换到该分支并刷新后再继续。",
+      "wrongSessionBranch": "工作树已不在 {{session}} 分支上。请恢复预期分支并刷新审查。",
+      "missingWorktree": "会话工作树已不再注册。请刷新工作树列表后再继续。",
+      "protectedWorktree": "此工作树是基础工作树、已锁定、处于分离 HEAD 状态或受到其他保护。此完成流程无法移除它。",
+      "baseDirty": "基础仓库存在本地更改。合并或清理之前，请提交或贮藏这些更改。",
+      "sessionDirty": "会话存在未提交的更改。合并或移除其工作树之前，请审查并提交。",
+      "conflicts": "继续之前，请解决所有冲突并暂存已解决的文件。",
+      "operationInProgress": "已有合并、变基或挑拣正在进行。请完成或中止该操作后再重试。",
+      "reviewRequired": "继续之前，请审查当前会话的更改并勾选确认框。",
+      "reviewChanged": "审核后的会话内容已更改。请刷新并检查更新后的内容，然后重试。",
+      "messageRequired": "暂存或提交之前，请输入提交主题。",
+      "branchNotIntegrated": "会话分支尚未完全集成到预期基础分支。工作树和分支会保留。请完成合并后再重试。",
+      "agentBusy": "有一个代理仍在向此会话写入内容。请等待其完成或将其停止后再继续。",
+      "interrupted": "上一次操作已中断。请刷新以核对 Git 状态，审查后再重试此步骤。",
+      "nothingToCommit": "没有剩余的待提交更改。请刷新完成流程。"
+    }
+  },
+  "helpCenter": {
+    "title": "帮助与工作流程",
+    "subtitle": "找到实用答案，理解下一步，并打开合适的工具。",
+    "recommendation": "建议的下一步",
+    "getStarted": "开始使用",
+    "showGuide": "阅读指南",
+    "search": "搜索帮助",
+    "searchPlaceholder": "试试“冲突”“丢失的提交”“stash”或“rebase”…",
+    "clearSearch": "清除搜索",
+    "categories": "指南分类",
+    "all": "全部指南",
+    "results_one": "{{count}} 篇指南",
+    "results_other": "{{count}} 篇指南",
+    "noResults": "没有匹配的指南",
+    "noResultsHint": "请换一个关键词，或在所有分类中搜索。",
+    "clearFilters": "显示全部指南",
+    "guideList": "工作流程指南",
+    "progress": "已勾选 {{done}} 步，共 {{total}} 步",
+    "resetChecklist": "重置清单",
+    "checklist": "指南检查清单",
+    "checklistComplete": "清单已完成。请在仓库中确认结果。",
+    "keepInMind": "注意事项",
+    "gitReference": "Git 参考文档",
+    "openRepoFirst": "请先打开仓库，再使用此工具。",
+    "localHint": "指南与清单在本地运行。勾选步骤不会执行命令。",
+    "category": {
+      "daily": "日常工作",
+      "history": "历史",
+      "team": "协作",
+      "recovery": "恢复",
+      "advanced": "进阶"
+    },
+    "reason": {
+      "start": "从一个专注于单一改动的提交开始",
+      "conflicts": "继续操作前先解决冲突",
+      "operation": "Git 操作仍在进行中",
+      "detached": "将新工作关联到分支",
+      "diverged": "本地与远程历史已分叉",
+      "behind": "更新前先检查待接收的提交",
+      "staged": "暂存的更改已准备好供检查",
+      "changed": "将工作区改动整理成职责明确的提交",
+      "ahead": "推送前先检查待发送的提交",
+      "clean": "探索并理解仓库历史",
+      "unknown": "检查工作区以了解当前状态"
+    },
+    "target": {
+      "commit": "打开工作区",
+      "history": "打开历史",
+      "stash": "打开暂存记录",
+      "pr": "打开拉取请求",
+      "worktrees": "打开工作树",
+      "ci": "打开 CI",
+      "reflog": "打开 reflog",
+      "commands": "打开命令日志",
+      "settings": "打开设置",
+      "tour": "开始导览",
+      "submodules": "打开子模块",
+      "hooks": "打开钩子",
+      "tools": "打开工具"
+    },
+    "paletteGroup": "帮助与工作流程",
+    "headChanged": "准备此操作时 HEAD 已改变。请刷新仓库并检查当前提交后再试。",
+    "invalidWorktreePath": "此路径不是可安全操作的工作区文件。请刷新文件列表并选择仓库内的文件。",
+    "discardTracked": "此文件现已受 Git 跟踪。请刷新工作区并检查当前更改后再丢弃。",
+    "branchChanged": "目标分支已改变。请刷新并检出预期的基准分支后再继续。",
+    "sourceChanged": "审查后源分支已改变。请刷新比较并检查新提交后再合并。",
+    "glossary": "Git 术语（{{count}} 个）",
+    "contextHelp": "帮助：{{title}}",
+    "fileChanged": "预览后“{{file}}”已改变。请重新加载预览并检查当前更改后再丢弃。"
+  },
+  "recovery": {
+    "undoChanged": "预览后最后一次操作已更改。请重新加载预览并检查后再确认。",
+    "resetChanged": "选择后 reflog 或 HEAD 已更改。请重新加载日志并再次选择目标提交。",
+    "pathsBlocked": "为保护以下路径中的本地或已忽略文件，重置已停止。请移动或备份这些文件后重试。",
+    "trackedBlocked": "受跟踪文件存在本地更改，重置已停止。请先提交或暂存这些更改后重试。",
+    "operationFailed": "无法完成操作。请检查下方 Git 错误，解决原因后重试。",
+    "refreshWarning": "操作已完成，但部分仓库视图未能刷新。请刷新视图后再进行其他恢复操作。",
+    "detachedHead": "游离 HEAD",
+    "softEffect": "从此分支撤销提交。索引与工作文件保持不变，更改仍在暂存区中。",
+    "keepEffect": "将此分支移动到目标并保留兼容的本地更改。如果更改会被覆盖，Git 将停止。",
+    "hardEffect": "将此分支、索引和受跟踪文件移动到目标。如果受跟踪文件已修改，或本地及已忽略路径会被覆盖，则停止。",
+    "previewRequired": "请加载当前预览，检查操作后再确认。",
+    "openReflog": "打开恢复日志",
+    "reloadPreview": "重新加载预览",
+    "reloadReflog": "重新加载并检查日志",
+    "reflogHint": "此日志记录本地 HEAD 的移动。重置前请检查目标提交。“保留更改”会保留兼容的本地工作；硬重置要求受跟踪文件没有修改，并保护本地路径冲突。",
+    "clipboardUnavailable": "剪贴板不可用。请手动选择并复制提交哈希。",
+    "currentHead": "当前 HEAD",
+    "targetCommit": "目标提交",
+    "refreshViews": "刷新视图",
+    "branchNameInvalid": "请输入有效的 Git 分支名，例如 rescue/my-work。名称不能以连字符开头，或包含空格、控制字符及“..”。",
+    "rescueTitle": "将此提交保存在新分支上",
+    "rescueDescription": "新分支会保留对此提交的引用。此操作不会切换分支，也不会修改工作文件或暂存区更改。",
+    "branchName": "新分支名称",
+    "createBranch": "创建救援分支",
+    "branchCreated": "已在 {{hash}} 创建 {{name}}。当前分支保持不变。",
+    "inspectCommit": "检查此提交",
+    "inspectTitle": "查看找回的提交"
+  },
+  "commitActions": {
+    "discardDescription": "请检查将在所选的 {{count}} 个文件中丢弃的更改。继续前可以排除个别文件。",
+    "discardScopeHint": "未暂存的文件会保留其已暂存的更改。选择已暂存的文件会同时丢弃其已暂存更改和工作区更改。",
+    "includeDiscardFile": "将 {{path}} 包含在丢弃范围中",
+    "deleteNewFile": "删除此未跟踪文件",
+    "discardAllFile": "丢弃已暂存更改和工作区更改",
+    "discardKeepStaged": "丢弃工作区更改；保留已暂存更改",
+    "discardWorktreeFile": "丢弃工作区更改",
+    "newFilesWarning": "所选的未跟踪文件将被删除。若要保留备份，请先创建贮藏并启用“包含未跟踪的文件”。",
+    "refreshPreview": "刷新预览",
+    "stashInstead": "改为创建贮藏",
+    "previewChanges": "预览受影响的更改",
+    "changedFiles": "这些文件自预览后发生了变化：{{paths}}。请刷新预览并重新检查。",
+    "partialDiscard": "部分文件已被丢弃。请刷新预览以检查剩余文件。{{error}}",
+    "changedHunk": "{{path}} 自差异加载后发生了变化。应用所选行之前，请检查刷新的差异。",
+    "stageFile": "暂存 {{path}}",
+    "unstageFile": "取消暂存 {{path}}",
+    "stageAll": "暂存所有文件",
+    "unstageAll": "取消暂存所有文件",
+    "stageFiltered": "暂存匹配的文件",
+    "unstageFiltered": "取消暂存匹配的文件",
+    "discardFilteredStaged": "丢弃匹配的已暂存文件…",
+    "selectionHint": "按住 Shift 单击可选择一段连续的可见文件。",
+    "missingFingerprint": "无法验证文件快照。丢弃更改之前，请刷新预览。",
+    "aiContextChanged": "生成期间已暂存的更改发生了变化。已恢复之前的草稿。请检查更改并重新生成提交消息。",
+    "aiEmptyMessage": "生成结果中没有提交消息。已恢复之前的草稿。请重试。",
+    "discardDescription_one": "请检查将在所选的 {{count}} 个文件中丢弃的更改。继续前可以排除该文件。",
+    "discardDescription_other": "请检查将在所选的 {{count}} 个文件中丢弃的更改。继续前可以排除个别文件。"
+  },
+  "workflowGuides": {
+    "submodule-work": {
+      "title": "有计划地更新子模块",
+      "summary": "理解已记录的依赖版本与子模块内的检出状态。",
+      "steps": [
+        "打开子模块，检查记录的提交、当前检出版本和本地更改。",
+        "初始化尚未初始化的子模块，或将其检出版本更新为父仓库记录的版本。",
+        "如果需要开发依赖，请打开依赖的仓库、创建分支，并在该仓库中提交更改。",
+        "先让团队能够获取子模块的提交，再在父仓库暂存并提交更新后的 gitlink。"
+      ],
+      "caution": "父仓库存储的是提交 ID，而非子模块的文件。更新后出现游离 HEAD 属于正常情况。更新不等于跟随最新远程分支；切换版本前请保留本地更改。"
+    },
+    "large-files": {
+      "title": "管理大文件与 LFS 指针",
+      "summary": "区分仓库中存储的指针和它引用的二进制内容。",
+      "steps": [
+        "打开工具，检查 Git LFS 是否可用、跟踪模式及文件列表。",
+        "如果 LFS 不可用，请通过官方安装程序安装 Git LFS，并刷新状态。",
+        "暂存新的大文件前，先添加所需跟踪模式。检查产生的 .gitattributes 更改。",
+        "使用拉取 LFS 内容下载缺失对象，检查预览，并将预期文件与属性一起提交。"
+      ],
+      "caution": "指针只是元数据，并非二进制内容。添加跟踪模式不会迁移已有历史。移除模式不会删除旧 LFS 对象，也不会缩小仓库。"
+    },
+    "check-hooks": {
+      "title": "理解并调试 Git 钩子",
+      "summary": "找出 Git 在操作前后运行的检查。",
+      "steps": [
+        "打开钩子，检查哪些脚本存在且已启用。",
+        "运行或编辑前，先阅读对应钩子及其预期参数。",
+        "利用可用的执行输出诊断失败的检查，并查看输出所指的项目命令或文件。",
+        "修正根本原因后重试原 Git 操作。启用钩子前先审查修改。"
+      ],
+      "caution": "钩子以你的用户权限运行程序。非零退出码可能阻止操作；post-commit 钩子无法撤销已完成的提交。除非项目提供安装流程，钩子文件通常仅存在于本地。"
+    },
+    "compare-branches": {
+      "title": "比较分支、标签或提交",
+      "summary": "查看两个版本间的准确文件变化，或共同基点之后新增的工作。",
+      "steps": [
+        "在历史中恰好选择两个提交并选择比较，或在命令面板中搜索比较。",
+        "选择基准与目标引用。直接比较显示两个快照间的差异；共同祖先比较显示从共享基点到目标的改动。",
+        "查看文件概要，按状态或路径筛选并检查每个 diff。重命名的文件会显示旧名称。",
+        "标记已审查文件并隐藏它们，继续查看剩余更改。分支移动后请刷新比较。"
+      ],
+      "caution": "文件 diff 固定在解析出的提交哈希上。比较不会合并更改，也不包含未提交的编辑。补丁或文件列表超过显示上限时会标明截断。"
+    },
+    "first-commit": {
+      "title": "创建专注于单一改动的提交",
+      "summary": "检查即将组成下一个快照的准确更改。",
+      "steps": [
+        "打开工作区并选择已修改的文件，查看其 diff。",
+        "只暂存属于同一改动的文件、修改块或行。未暂存的更改仍保留在磁盘上。",
+        "用标题描述结果。必要时在正文中补充原因与测试证据。",
+        "再次检查已暂存的 diff，然后提交。历史中会显示生成的快照。"
+      ],
+      "caution": "提交包含的是各文件已暂存的版本。随后在工作区进行的编辑不会自动包含在内。"
+    },
+    "split-changes": {
+      "title": "将大型改动拆分为逻辑清晰的提交",
+      "summary": "分离互不相关的工作，同时保留剩余编辑。",
+      "steps": [
+        "检查所有已修改文件，识别独立的改动。",
+        "暂存第一个改动的修改块或行，或使用 AI 拆分建议并检查每个分组。",
+        "为该组编写明确的提交说明并提交。",
+        "对剩余改动重复此过程，最后检查并测试完整工作区。"
+      ],
+      "caution": "AI 分组只是建议。请检查分组之间的依赖，让每个提交都易于理解且可独立使用。"
+    },
+    "sync-branch": {
+      "title": "将分支与远程同步",
+      "summary": "更新前理解待接收和待发送的提交。",
+      "steps": [
+        "执行 fetch 更新远程跟踪分支，不修改工作文件。",
+        "在历史中检查待接收与待发送的提交。",
+        "如果有待接收的提交，先保存本地编辑，再使用适当的合并或变基策略执行 pull。",
+        "解决冲突、运行相关检查，然后 push 待发送的提交。"
+      ],
+      "caution": "领先与落后数量反映上次 fetch 的状态。若两者都非零，历史已经分叉；仅执行 push 通常会被拒绝。"
+    },
+    "stash-work": {
+      "title": "暂时搁置工作并稍后恢复",
+      "summary": "需要临时保持工作区干净时，可使用 stash。",
+      "steps": [
+        "打开暂存记录，创建一个说明清楚的 stash。",
+        "如果新文件属于这项工作，请包含未跟踪文件。",
+        "切换分支或执行所需操作。",
+        "使用 Apply 应用并保留保存的副本，或使用 Pop 在应用成功后删除副本。检查并解决冲突。"
+      ],
+      "caution": "通常的包含未跟踪文件选项不会包含已忽略文件。发生冲突的 pop 会保留 stash；再次应用前请检查工作区。"
+    },
+    "resolve-conflicts": {
+      "title": "解决冲突并继续操作",
+      "summary": "组合预期的更改，而不是不经检查地选择一方。",
+      "steps": [
+        "打开工作区，选择冲突文件以打开合并编辑器。",
+        "比较 base、ours 与 theirs，编辑结果以实现预期行为。",
+        "保存并标记文件已解决。对每个冲突文件重复此过程，并检查暂存的结果。",
+        "使用操作横幅中的继续。若要放弃操作，请先保存需要保留的冲突解决工作，再选择中止。"
+      ],
+      "caution": "变基时，ours 是变基目标分支，theirs 是正在重放的提交。这些标签并不总是代表你的更改与他人的更改。"
+    },
+    "recover-history": {
+      "title": "找回丢失的提交或分支末端",
+      "summary": "改变历史前先检查 HEAD 以前的本地位置。",
+      "steps": [
+        "打开 reflog，找到误操作的 checkout、reset 或 rebase 之前的记录。",
+        "检查提交哈希与改动，确认它是所需版本。",
+        "在该 reflog 记录的操作中选择“创建救援分支”，将提交保存在新分支上。此操作不会切换分支或移动当前分支。",
+        "如果确实需要移动当前分支，请先检查重置模式和本地编辑再确认。"
+      ],
+      "caution": "reflog 是本地记录，其条目可能过期。它无法找回从未保存到提交或 stash 中的未提交编辑。"
+    },
+    "undo-shared-commit": {
+      "title": "撤销他人已经使用的提交",
+      "summary": "保留共享历史，创建一个反向提交。",
+      "steps": [
+        "在历史中找到并检查目标提交。",
+        "从上下文菜单选择 Revert。对于合并提交，请慎重选择作为主线的父提交。",
+        "解决冲突，并在提示时继续 revert。",
+        "检查并测试新的反向提交，再推送给团队。"
+      ],
+      "caution": "撤销合并会影响后续合并重新带入哪些内容。撤销共享的合并前，请阅读合并回退的说明。"
+    },
+    "clean-history": {
+      "title": "审查前整理分支",
+      "summary": "以可视方式调整顺序、合并提交并修改未发布提交的说明。",
+      "steps": [
+        "保存本地编辑，找出紧挨待修改提交之前的基点。",
+        "打开交互式变基，检查即将重放的提交。",
+        "调整提交顺序，选择 pick、reword、squash、fixup、edit 或 drop，并检查最终计划。",
+        "开始变基，按需解决冲突，并比较结果是否符合预期改动。"
+      ],
+      "caution": "变基会改变提交哈希。改写他人已使用的提交前请先协调；force-with-lease 会检查预期的远程状态，但不能代替沟通协调。"
+    },
+    "find-change": {
+      "title": "查明某次改动的时间与原因",
+      "summary": "按说明、作者、日期、分支和文件路径缩小历史范围。",
+      "steps": [
+        "打开历史，输入提交说明片段、提交哈希或作者。",
+        "结果太多时，使用分支、作者、日期范围或路径的高级筛选。",
+        "检查每个匹配提交的说明与修改文件，必要时加载更多结果。",
+        "针对某一行使用 blame，或为重复调查保存可复用的筛选预设。"
+      ],
+      "caution": "已加载的历史只是仓库的一部分。搜索和高级筛选会查询 Git；不要认为未加载的提交就是不存在。"
+    },
+    "parallel-work": {
+      "title": "同时处理多个分支",
+      "summary": "为每个任务或智能体提供独立的工作目录。",
+      "steps": [
+        "打开工作树，为任务分支添加一个 worktree。",
+        "选择独立目录，并将该 worktree 作为仓库打开。",
+        "独立进行开发与测试。智能体会话也可使用各自的 worktree。",
+        "先检查并整合提交，再移除 worktree 与不再需要的分支。"
+      ],
+      "caution": "worktree 共享仓库对象与引用。Git 通常会阻止同一分支在多个 worktree 中同时检出；移除有本地编辑的 worktree 需要仔细检查。"
+    },
+    "review-pr": {
+      "title": "全面审查拉取请求",
+      "summary": "将代码审查、讨论和检查结合到同一流程。",
+      "steps": [
+        "打开拉取请求，选择需要审查的改动。",
+        "阅读描述，检查文件、diff 与检查结果。",
+        "添加行内评论、收集审查草稿，并在应用前检查建议的更改。",
+        "提交审查。只有在所需审查与检查都满足要求后才合并。"
+      ],
+      "caution": "可用操作取决于 Git 服务提供方和你的权限。应用建议后仍需检查，并进行相应的提交或审查操作。"
+    },
+    "failed-checks": {
+      "title": "调查失败的检查",
+      "summary": "将失败的流水线关联到提交与失败步骤。",
+      "steps": [
+        "打开 CI，选择相关分支和提交的运行记录。",
+        "检查任务、步骤、注释与输出，找出第一个有助于诊断的失败。",
+        "比较触发运行的提交，尽可能在本地复现失败命令。",
+        "提交修复，或在服务提供方支持时重试临时故障。确认新的运行结果。"
+      ],
+      "caution": "重新运行不会改变代码。请区分基础设施或网络故障与可复现的测试失败。"
+    },
+    "auth-troubleshooting": {
+      "title": "解决身份验证或权限问题",
+      "summary": "重试前先检查远程 URL、传输方式与账号。",
+      "steps": [
+        "查看远程 URL，确认仓库使用 HTTPS 还是 SSH。",
+        "对于 HTTPS，在设置中检查对应主机与账号的凭据。对于 SSH，检查 Git 使用的密钥与代理。",
+        "在服务提供方检查仓库访问权与令牌权限，尤其是私有仓库或企业主机。",
+        "重试 fetch；如果仍出错，检查命令日志。只复制诊断所需的信息。"
+      ],
+      "caution": "更换 HTTPS 令牌无法解决 SSH 远程连接的问题。Git 传输凭据和拉取请求的 API 凭据可能不同。"
+    },
+    "detached-head": {
+      "title": "保留游离 HEAD 上完成的工作",
+      "summary": "切换到其他位置前，将提交关联到一个分支。",
+      "steps": [
+        "在历史中检查当前提交，确认要保留哪些提交。",
+        "使用分支操作，在当前提交上创建新分支。",
+        "检出该分支，并确认提交仍在它的历史中。",
+        "按通常方式整合或推送该分支。如果已经切换离开，请在 reflog 中找到提交。"
+      ],
+      "caution": "游离 HEAD 意味着当前检出直接指向一个提交。新提交需要分支或其他引用，才能保持容易访问。"
+    }
+  },
+  "gitGlossary": {
+    "working-tree": {
+      "name": "工作区 · Working tree",
+      "definition": "当前检出到磁盘上的文件，包括本地编辑。",
+      "example": "编辑文件会先改变工作区，再影响下一次提交。"
+    },
+    "index": {
+      "name": "索引 · 暂存区",
+      "definition": "为下一次提交准备好的快照。",
+      "example": "暂存一个修改块会更新索引，其余编辑可以保持未暂存。"
+    },
+    "head": {
+      "name": "HEAD",
+      "definition": "指向当前检出状态的引用，通常指向一个分支。",
+      "example": "HEAD~1 表示当前提交的第一个父提交。"
+    },
+    "branch": {
+      "name": "分支 · Branch",
+      "definition": "指向提交的可移动名称。新提交会使当前检出的分支向前移动。",
+      "example": "feature/login 可以指向新增的登录改动，而 main 保持原位。"
+    },
+    "upstream": {
+      "name": "上游分支 · Upstream",
+      "definition": "为本地分支配置的跟踪目标分支。",
+      "example": "本地功能分支可以跟踪 origin/feature。Fetch 会更新该远程跟踪引用。"
+    },
+    "remote": {
+      "name": "远程 · Remote",
+      "definition": "到另一个仓库的具名连接，具有用于 fetch 和 push 的 URL。",
+      "example": "origin 通常指克隆来源仓库；upstream 也是常见的远程名称。"
+    },
+    "fetch": {
+      "name": "获取 · Fetch",
+      "definition": "下载仓库对象并更新远程跟踪引用，不将其整合进工作分支。",
+      "example": "Fetch 后比较 origin/main 与 main，可查看待接收的更改。"
+    },
+    "merge-base": {
+      "name": "共同基点 · Merge base",
+      "definition": "用于理解两段历史共享内容的一个最优共同祖先。",
+      "example": "从共同祖先进行比较，可显示功能分支自脱离基准历史后的改动。"
+    },
+    "fast-forward": {
+      "name": "快进 · Fast-forward",
+      "definition": "将分支移动到后代提交，不创建额外的合并提交。",
+      "example": "仅允许 fast-forward 的模式会在历史分叉时拒绝整合。"
+    },
+    "rebase": {
+      "name": "变基 · Rebase",
+      "definition": "在不同基点上重放提交，通常会产生新的提交哈希。",
+      "example": "交互式变基可以合并、重排提交，或修改提交说明。"
+    },
+    "revert": {
+      "name": "回退 · Revert",
+      "definition": "记录一个新提交，反转先前提交引入的改动。",
+      "example": "使用经过检查的 revert 撤销有问题的共享提交，同时保留历史。"
+    },
+    "reset": {
+      "name": "重置 · Reset",
+      "definition": "移动当前分支末端；模式控制索引与工作文件如何变化。",
+      "example": "Soft 保留索引与工作文件。Mixed 重置索引。Hard 重置两者，并可能丢弃本地更改。"
+    },
+    "reflog": {
+      "name": "reflog",
+      "definition": "本地记录，用来保存 HEAD 等引用曾经的位置。",
+      "example": "找到误重置前的提交，再通过分支将它保留下来。"
+    },
+    "stash": {
+      "name": "储藏 · Stash",
+      "definition": "保存下来的本地工作快照，可以稍后应用。",
+      "example": "Apply 保留已保存的 stash。Pop 在应用成功后移除它。"
+    },
+    "worktree": {
+      "name": "工作树 · Worktree",
+      "definition": "额外的检出目录，与原仓库共享对象和引用。",
+      "example": "为两个独立分支或智能体任务使用各自的 worktree。"
+    },
+    "hunk": {
+      "name": "修改块 · Hunk",
+      "definition": "diff 中一个连续区段，包含已更改的行及其上下文。",
+      "example": "暂存一个修改块，可以只提交某个文件的部分更改。"
+    }
   }
 }

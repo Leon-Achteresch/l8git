@@ -1,5 +1,9 @@
 import { useHistoryQuery, EMPTY_HISTORY_FILTER } from '@/lib/use-history-query';
+import { hasHistoryFilters, historyFilterKey } from '@/lib/history-filters';
+import { useHistoryPrefs } from '@/lib/history-prefs';
 import { HistoryFilters } from './history-filters';
+import { CommitCompareDialog } from '../compare/commit-compare-dialog';
+import { comparisonRefsFromSelection, type CommitCompareRefs } from '@/lib/commit-compare';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -27,6 +31,7 @@ import { writeLocalStorageDebounced } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { Copy, GitCompareArrows, LoaderCircle, SearchX, X } from 'lucide-react';
 import { StackGraphLegend } from '../branch/stack-graph-legend';
 import { BisectStatusBanner } from '../bisect/bisect-status-banner';
 import { CherryPickStatusBanner } from './cherry-pick-status-banner';
@@ -46,7 +51,7 @@ export type CommitSelectMode = 'single' | 'toggle' | 'range';
 function isInputFocused(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   return !!el?.closest(
-    'input, textarea, select, [contenteditable], [role="combobox"]',
+    'input, textarea, select, [contenteditable], [role="combobox"], [role="menu"], [role="dialog"], [role="alertdialog"]',
   );
 }
 
@@ -111,12 +116,27 @@ export function CommitHistoryPanel({
     setCursorHash(null);
   }, [path]);
 
-  const [historyFilter, setHistoryFilter] = useState(EMPTY_HISTORY_FILTER);
-  const branchRefs = [...selectedBranchNames].map(name => branches.find(b => b.name === name)?.tip ?? name).sort();
-  const queryFilter = { ...historyFilter, refs: branchRefs };
-  const filtered = branchRefs.length > 0 || Object.entries(historyFilter).some(([k, v]) => k !== 'refs' && v !== '');
+  const historyFilter = useHistoryPrefs(state => state.repositories[path]?.filter ?? EMPTY_HISTORY_FILTER);
+  const setHistoryFilter = useHistoryPrefs(state => state.setFilter);
+  // Restore the repository's last branch selection only when no newer sidebar
+  // selection exists. Then keep selections made in the sidebar in the preset.
+  useEffect(() => {
+    const ui = useUiStore.getState();
+    const savedRefs = useHistoryPrefs.getState().repositories[path]?.filter.refs ?? [];
+    if (!(path in ui.branchFilterByPath) && savedRefs.length > 0) ui.setBranchFilter(path, new Set(savedRefs));
+  }, [path]);
+  useEffect(() => {
+    const saved = useHistoryPrefs.getState().repositories[path]?.filter ?? EMPTY_HISTORY_FILTER;
+    const refs = [...(useUiStore.getState().branchFilterByPath[path] ?? EMPTY_BRANCH_SET)];
+    if (historyFilterKey(saved) !== historyFilterKey({ ...saved, refs })) setHistoryFilter(path, { ...saved, refs });
+  }, [path, selectedBranchNames, setHistoryFilter]);
+  const branchRefs = useMemo(() => [...selectedBranchNames].map(name => branches.find(b => b.name === name)?.tip ?? name).sort(), [selectedBranchNames, branches]);
+  const queryFilter = useMemo(() => ({ ...historyFilter, refs: branchRefs }), [historyFilter, branchRefs]);
+  const filtered = hasHistoryFilters(queryFilter);
   const history = useHistoryQuery(path, queryFilter, filtered, commits[0]?.hash ?? '');
   const filteredCommits = filtered ? history.commits : commits;
+  const historyAuthors = useMemo(() => [...new Set(commits.flatMap(commit => [commit.author, commit.email]).filter(Boolean))], [commits]);
+  const visibleSelection = useMemo(() => filteredCommits.filter(commit => selectedHashes.has(commit.hash)), [filteredCommits, selectedHashes]);
 
   const isSearch = !!searchSlice?.query?.trim();
   const matchPathsByHash = useMemo(() => {
@@ -136,6 +156,17 @@ export function CommitHistoryPanel({
     for (let i = 0; i < hashList.length; i++) m.set(hashList[i], i);
     return m;
   }, [hashList]);
+
+  useEffect(() => {
+    if (filtered && history.loading) return;
+    setSelectedHash(hash => hash && !hashIndex.has(hash) ? null : hash);
+    setSelectedHashes(previous => {
+      const visible = new Set([...previous].filter(hash => hashIndex.has(hash)));
+      return visible.size === previous.size ? previous : visible;
+    });
+    setAnchorHash(hash => hash && !hashIndex.has(hash) ? null : hash);
+    setCursorHash(hash => hash && !hashIndex.has(hash) ? null : hash);
+  }, [hashIndex, filtered, history.loading]);
 
   const navStateRef = useRef({
     hashList,
@@ -198,7 +229,7 @@ export function CommitHistoryPanel({
     if (sidebarTab !== 'history' || activePath !== path) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isInputFocused(e.target)) return;
+      if (e.defaultPrevented || isInputFocused(e.target)) return;
       const {
         hashList,
         hashIndex,
@@ -228,6 +259,10 @@ export function CommitHistoryPanel({
       }
 
       if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // Text-search match navigation is handled by the list; Shift still
+      // expands the ordinary commit selection.
+      if (isSearch && !filtered && !e.shiftKey) return;
       e.preventDefault();
       if (hashList.length === 0) return;
 
@@ -244,7 +279,7 @@ export function CommitHistoryPanel({
         const nextHash = hashList[nextIdx];
         if (!nextHash) return;
 
-        const a = hashIndex.get(anchor) ?? -1;
+        const a = hashIndex.get(anchor) ?? 0;
         const b = nextIdx;
         const [lo, hi] = a <= b ? [a, b] : [b, a];
         const next = new Set<string>();
@@ -257,7 +292,7 @@ export function CommitHistoryPanel({
         const curIdx = cur ? (hashIndex.get(cur) ?? -1) : -1;
         const nextIdx = Math.max(
           0,
-          Math.min(hashList.length - 1, (curIdx < 0 ? 0 : curIdx) + dir),
+          Math.min(hashList.length - 1, curIdx < 0 ? 0 : curIdx + dir),
         );
         const nextHash = hashList[nextIdx];
         if (!nextHash) return;
@@ -272,7 +307,7 @@ export function CommitHistoryPanel({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [sidebarTab, activePath, path, requestCommitHistoryFocus]);
+  }, [sidebarTab, activePath, path, requestCommitHistoryFocus, isSearch, filtered]);
 
   const [rebaseBase, setRebaseBase] = useState<string | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -290,12 +325,14 @@ export function CommitHistoryPanel({
   }, []);
 
   const selectedCommit = useMemo(
-    () => (selectedHash ? (commits.find(c => c.hash === selectedHash) ?? null) : null),
-    [commits, selectedHash]
+    () => (selectedHash ? (filteredCommits.find(c => c.hash === selectedHash) ?? null) : null),
+    [filteredCommits, selectedHash]
   );
 
   const [checkoutChoice, setCheckoutChoice] = useState<Commit | null>(null);
   const [branchFromCommit, setBranchFromCommit] = useState<Commit | null>(null);
+  const [compareSelection, setCompareSelection] = useState<CommitCompareRefs | null>(null);
+  useEffect(() => { setCompareSelection(null); }, [path]);
 
   useHistoryHotkeys({
     path,
@@ -351,7 +388,16 @@ export function CommitHistoryPanel({
     [filteredCommits, path],
   );
 
-  const list = (
+  const list = filtered && !history.loading && !history.error && filteredCommits.length === 0 ? (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+      <SearchX aria-hidden="true" className="size-9 text-muted-foreground/60" />
+      <div>
+        <p className="text-sm font-medium">{t('historyFilters.noResultsTitle')}</p>
+        <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">{t('historyFilters.noResultsHint')}</p>
+      </div>
+      <Button size="sm" variant="outline" onClick={() => { setHistoryFilter(path, EMPTY_HISTORY_FILTER); useUiStore.getState().setBranchFilter(path, EMPTY_BRANCH_SET); }}>{t('historyFilters.clearAll')}</Button>
+    </div>
+  ) : (
     <CommitList
       path={path}
       commits={filteredCommits}
@@ -369,58 +415,72 @@ export function CommitHistoryPanel({
 
   return (
     <div ref={shellRef} className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-white shadow-sm dark:bg-zinc-950">
-      <HistoryFilters value={{ ...historyFilter, refs: [...selectedBranchNames] }} onChange={value => { setHistoryFilter(value); useUiStore.getState().setBranchFilter(path, new Set(value.refs)); }} />
-      {filtered && <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground" role="status">
+      <HistoryFilters path={path} authors={historyAuthors} value={{ ...historyFilter, refs: [...selectedBranchNames] }} onChange={value => { setHistoryFilter(path, value); useUiStore.getState().setBranchFilter(path, new Set(value.refs)); }} />
+      {filtered && <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+        {history.loading && <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" />}
         {history.loading ? t('common.loading') : history.error || (history.commits.length === 0 ? t('audit.noResults') : t('audit.filteredHistory', { count: history.commits.length }))}
+        {!history.loading && history.exhausted && !history.error && history.commits.length > 0 && <span className="text-muted-foreground/70">· {t('historyFilters.allLoaded')}</span>}
         {history.error && <Button size="sm" variant="outline" onClick={history.retry}>{t('common.retry')}</Button>}
         {!history.loading && !history.exhausted && !history.error && <Button size="sm" variant="ghost" onClick={history.loadMore}>{t('audit.loadMore')}</Button>}
       </div>}
+      {visibleSelection.length > 1 && (
+        <div role="toolbar" aria-label={t('historyFilters.selectionCount', { count: visibleSelection.length })} className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-primary/5 px-3 py-1.5 text-xs">
+          <span className="mr-auto font-medium">{t('historyFilters.selectionCount', { count: visibleSelection.length })}</span>
+          {visibleSelection.length === 2 && <Button size="xs" variant="outline" onClick={() => setCompareSelection(comparisonRefsFromSelection(visibleSelection))}><GitCompareArrows aria-hidden="true" />{t('compare.compareSelected')}</Button>}
+          <Button size="xs" variant="ghost" onClick={() => {
+            void Promise.resolve().then(() => navigator.clipboard.writeText(visibleSelection.map(commit => commit.hash).join('\n')))
+              .then(() => toast.success(t('historyFilters.hashesCopied', { count: visibleSelection.length })))
+              .catch(error => toastError(String(error)));
+          }}><Copy aria-hidden="true" />{t('historyFilters.copyHashes')}</Button>
+          <Button size="xs" variant="ghost" onClick={() => { setSelectedHash(null); setSelectedHashes(EMPTY_HASH_SET); setAnchorHash(null); setCursorHash(null); }}><X aria-hidden="true" />{t('historyFilters.clearSelection')}</Button>
+        </div>
+      )}
       <BisectStatusBanner path={path} />
       <CherryPickStatusBanner path={path} />
       <MergeStatusBanner path={path} />
       <RebaseStatusBanner path={path} />
       <StackGraphLegend path={path} />
-      {selectedHash ? (
-        <ResizablePanelGroup
-          key={stackInspect ? 'history-split-v' : 'history-split-h'}
-          orientation={stackInspect ? 'vertical' : 'horizontal'}
-          id={stackInspect ? 'history-split-v' : 'history-split'}
-          className='min-h-0 flex-1'
-          defaultLayout={stackInspect ? undefined : defaultLayout}
-          onLayoutChanged={layout => {
-            if (stackInspect) return;
-            writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout));
-          }}
+      {/* Keep the list and its scroll viewport mounted as details come and go. */}
+      <ResizablePanelGroup
+        orientation={stackInspect ? 'vertical' : 'horizontal'}
+        id={stackInspect ? 'history-split-v' : 'history-split'}
+        className='min-h-0 flex-1'
+        defaultLayout={stackInspect ? undefined : defaultLayout}
+        onLayoutChanged={layout => {
+          if (stackInspect || !('inspect' in layout)) return;
+          writeLocalStorageDebounced(layoutStorageKey, JSON.stringify(layout));
+        }}
+      >
+        <ResizablePanel
+          id='commits'
+          defaultSize={stackInspect ? '58%' : '52%'}
+          minSize={stackInspect ? '28%' : '24%'}
+          maxSize={selectedHash ? '78%' : '100%'}
+          className='min-h-0 flex flex-col'
         >
-          <ResizablePanel
-            id='commits'
-            defaultSize={stackInspect ? '58%' : '52%'}
-            minSize={stackInspect ? '28%' : '24%'}
-            maxSize={stackInspect ? '78%' : '78%'}
-            className='min-h-0 flex flex-col'
-          >
-            {list}
-          </ResizablePanel>
-          <ResizableHandle
-            withHandle
-            className='bg-border/50 transition-colors hover:bg-primary/20'
-          />
-          <ResizablePanel
-            id='inspect'
-            defaultSize={stackInspect ? '42%' : '48%'}
-            minSize={stackInspect ? '22%' : '22%'}
-            className='flex min-h-0 flex-col'
-          >
-            <CommitInspectDetail
-              path={path}
-              commitHash={selectedHash}
-              onClose={() => setSelectedHash(null)}
+          {list}
+        </ResizablePanel>
+        {selectedHash && (
+          <>
+            <ResizableHandle
+              withHandle
+              className='bg-border/50 transition-colors hover:bg-primary/20'
             />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      ) : (
-        <div className='flex min-h-0 flex-1 flex-col'>{list}</div>
-      )}
+            <ResizablePanel
+              id='inspect'
+              defaultSize={stackInspect ? '42%' : '48%'}
+              minSize='22%'
+              className='flex min-h-0 flex-col'
+            >
+              <CommitInspectDetail
+                path={path}
+                commitHash={selectedHash}
+                onClose={() => setSelectedHash(null)}
+              />
+            </ResizablePanel>
+          </>
+        )}
+      </ResizablePanelGroup>
       {rebaseBase ? (
         <RebaseInteractiveEditor
           open
@@ -477,6 +537,7 @@ export function CommitHistoryPanel({
         commitRef={branchFromCommit?.short_hash}
         commitLabel={branchFromCommit?.subject}
       />
+      {compareSelection && <CommitCompareDialog open onClose={() => setCompareSelection(null)} path={path} initialBase={compareSelection.base} initialHead={compareSelection.head} />}
     </div>
   );
 }

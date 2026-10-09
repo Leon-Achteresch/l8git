@@ -7,14 +7,6 @@ const STORAGE_KEY = 'l8git.repoPaths.v1';
 
 const EMPTY: readonly string[] = [];
 
-function normalize(path: string): string {
-  const trimmed = path.trim().replace(/\\/g, '/');
-  if (trimmed.length > 1 && trimmed.endsWith('/')) {
-    return trimmed.replace(/\/+$/, '');
-  }
-  return trimmed;
-}
-
 function parse(raw: string | null): Record<string, string[]> {
   if (!raw) {
     return {};
@@ -63,7 +55,9 @@ export const useRepoRegistry = create<RegistryState>((set, get) => {
     },
 
     addPath: async (hostId, path) => {
-      const value = normalize(path);
+      // Host paths are opaque: whitespace and backslashes can belong to the
+      // actual directory name. Only that host can canonicalize its paths.
+      const value = path;
       if (!value) {
         return;
       }
@@ -91,7 +85,7 @@ export const useRepoRegistry = create<RegistryState>((set, get) => {
       const current = get().pathsByHost[hostId] ?? [];
       const merged = new Set(current);
       for (const path of paths) {
-        const value = normalize(path);
+        const value = path;
         if (value) {
           merged.add(value);
         }

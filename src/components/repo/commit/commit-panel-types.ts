@@ -16,6 +16,7 @@ export type FileDiffResponse = {
   unstaged: string | null;
   untracked_plain: string | null;
   is_binary: boolean;
+  fingerprint?: string | null;
 };
 
 export function rowId(path: string, sector: ChangeSector): string {
@@ -38,8 +39,7 @@ export function isConflict(entry: StatusEntry): boolean {
 export function buildChangeRows(entries: StatusEntry[]): ChangeRow[] {
   // Visual order: conflicts first, then ALL staged rows, then ALL unstaged rows.
   // Conflict files (status "U") are excluded from staged/unstaged sections.
-  // This must match the order in commit-panel-file-list (buildListItems),
-  // so that Shift-range selection indexes align with what the user sees.
+  // File-list filtering and tree expansion provide the visible selection order.
   const conflicts: ChangeRow[] = [];
   const staged: ChangeRow[] = [];
   const unstaged: ChangeRow[] = [];

@@ -24,6 +24,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { WorktreeCard } from "./worktree-card";
 import { PulseIcon, SpinIcon } from "@/components/motion/kit";
+import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 
 const EMPTY: WorktreeEntry[] = [];
 
@@ -88,6 +89,7 @@ export function WorktreeList({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <WorkflowHelpLink guideId="parallel-work" />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

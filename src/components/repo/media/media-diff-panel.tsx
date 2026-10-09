@@ -84,6 +84,7 @@ function sizeOf(state: MediaFileState, pointer: LfsPointerInfo | null): number |
 export function MediaDiffPanel({
   repoPath,
   filePath,
+  beforeFilePath = filePath,
   beforeTreeish,
   afterTreeish,
   beforeLabel,
@@ -93,6 +94,7 @@ export function MediaDiffPanel({
 }: {
   repoPath: string;
   filePath: string;
+  beforeFilePath?: string;
   beforeTreeish: MediaTreeish | readonly MediaTreeish[];
   afterTreeish: MediaTreeish | readonly MediaTreeish[];
   beforeLabel?: string;
@@ -105,12 +107,12 @@ export function MediaDiffPanel({
   const beforeRef = firstTreeish(beforeTreeish);
   const afterRef = firstTreeish(afterTreeish);
 
-  const beforePointer = useLfsPointer(repoPath, filePath, beforeRef, checkLfs);
+  const beforePointer = useLfsPointer(repoPath, beforeFilePath, beforeRef, checkLfs);
   const afterPointer = useLfsPointer(repoPath, filePath, afterRef, checkLfs);
 
   const beforeState = useMediaFile(
     repoPath,
-    filePath,
+    beforeFilePath,
     beforeTreeish,
     !beforePointer.loading && !beforePointer.pointer?.isPointer,
   );

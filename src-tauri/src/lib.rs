@@ -8,6 +8,7 @@ mod claude;
 mod claude_usage;
 mod cmd;
 mod cmdlog;
+pub mod compare;
 mod credentials;
 mod cursor;
 mod favicon;
@@ -15,7 +16,7 @@ pub mod git;
 pub mod jira;
 pub mod jira_mcp;
 pub mod jira_policy;
-mod lfs;
+pub mod lfs;
 mod media;
 pub mod pathsafe;
 pub mod pr;
@@ -137,6 +138,8 @@ pub fn run() {
             git::repo_log_page,
             git::repo_history_page,
             git::repo_search_commits,
+            compare::repo_compare_commits,
+            compare::repo_compare_file_diff,
             favicon::read_repo_favicon,
             favicon::read_image_data_url,
             shell::reveal_repo_folder,
@@ -155,6 +158,7 @@ pub fn run() {
             git::git_clone,
             git::git_checkout,
             git::git_create_branch,
+            git::git_resolve_commit,
             git::git_merge,
             git::git_revert_commit,
             git::git_cherry_pick,
@@ -191,6 +195,9 @@ pub fn run() {
             git::stage_hunk,
             git::unstage_hunk,
             git::discard_hunk,
+            git::git_apply_reviewed_hunks,
+            git::git_commit_split_snapshot,
+            git::git_commit_split_group_checked,
             git::commit_changes,
             git::commit_amend,
             git::list_stashes,
@@ -250,6 +257,7 @@ pub fn run() {
             git::list_worktrees,
             git::git_worktree_add,
             git::git_worktree_remove,
+            git::git_worktree_remove_checked,
             git::git_worktree_lock,
             git::git_worktree_unlock,
             git::git_worktree_prune,
@@ -322,7 +330,10 @@ pub fn run() {
             lfs::lfs_pointer_info,
             pr::pr_provider_capabilities,
             agent_review::agent_review_summary,
+            agent_review::agent_review_commit_checked,
+            agent_review::agent_review_delete_branch_checked,
             agent_review::agent_review_file_diff,
+            agent_review::agent_review_discard_change,
             agent_review::agent_review_branch_merged,
             stack::stack_list,
             stack::stack_create_branch,

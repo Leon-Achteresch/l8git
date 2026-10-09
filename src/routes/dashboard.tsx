@@ -102,18 +102,11 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
   const { t } = useTranslation();
   const [range, setRange] = useState<RangeKey>("1m");
 
-  const ready = useDashboardRepoData(path);
+  const healthReads = useDashboardRepoData(path);
   const prState = useDashboardPrs(path);
 
   const repo = useRepoStore((s) => (path ? s.repos[path] : undefined));
-  const status = useRepoStore((s) => (path ? s.status[path] : undefined));
-  const upstreamSync = useRepoStore((s) => (path ? s.upstreamSync[path] : undefined));
-  const hasUpstream = useRepoStore((s) => (path ? s.hasUpstream[path] : undefined));
   const stashes = useRepoStore((s) => (path ? s.stashes[path] : undefined));
-  const worktrees = useRepoStore((s) => (path ? s.worktrees[path] : undefined));
-  const bisect = useRepoStore((s) => (path ? s.bisect[path] : undefined));
-  const cherryPick = useRepoStore((s) => (path ? s.cherryPickState[path] : undefined));
-  const mergeState = useRepoStore((s) => (path ? s.mergeState[path] : undefined));
 
   const commits = repo?.commits ?? EMPTY_COMMITS;
   const prs = prState.data;
@@ -124,18 +117,8 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
   );
 
   const health = useMemo(
-    () =>
-      selectRepoHealth({
-        status,
-        upstreamSync,
-        hasUpstream,
-        cherryPick,
-        mergeState,
-        bisect,
-        stashes,
-        worktrees,
-      }),
-    [status, upstreamSync, hasUpstream, cherryPick, mergeState, bisect, stashes, worktrees],
+    () => selectRepoHealth({ ...healthReads.data, sources: healthReads.sources }),
+    [healthReads.data, healthReads.sources],
   );
 
   if (!path) {
@@ -205,7 +188,7 @@ function ActiveRepoDashboard({ path, repoName }: { path: string | null; repoName
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <RepoHealthList items={health} loading={!ready} />
+            <RepoHealthList items={health} refreshing={healthReads.refreshing} onRefresh={() => { void healthReads.refresh(); }} />
           </CardContent>
         </Card>
       </div>

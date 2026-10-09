@@ -384,7 +384,7 @@ function mcpConfigFromDraft(draft: AgentMcpServerDraft): Record<string, unknown>
     common.command = draft.command.trim();
     if (draft.args.length) common.args = draft.args;
     else delete common.args;
-    if (draft.cwd.trim()) common.cwd = draft.cwd.trim();
+    if (draft.cwd.length > 0) common.cwd = draft.cwd;
     else delete common.cwd;
     const env = Object.fromEntries(draft.env.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.value]));
     if (Object.keys(env).length) common.env = env;

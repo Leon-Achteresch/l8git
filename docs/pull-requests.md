@@ -92,4 +92,4 @@ Native system notifications bring you back to the app while the window is not fo
 ## Related
 
 - [Branches and stacks](branches-and-stacks.md#stacked-branches) — submitting a whole stack as a PR chain
-- [Agents](agents.md)
+- [Agents user guide](planning/agents-cli-integration/USER-GUIDE.md)

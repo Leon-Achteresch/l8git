@@ -5,12 +5,14 @@ import { useSidebarPrefs, ALL_SIDEBAR_TABS } from './sidebar-prefs';
 import { useHotkeyPrefs, sanitizeHotkeyOverrides } from './hotkey-prefs';
 import { useAiPromptPrefs, sanitizePromptOverrides } from './ai/prompt-prefs';
 import { useRepoGroupsStore, type ForestNode } from './repo-groups-store';
+import { useHistoryPrefs } from './history-prefs';
+import { sanitizeHistoryFilter, sanitizeHistoryPresets, validateHistoryDates, MAX_HISTORY_PRESETS } from './history-filters';
 
 export function exportPreferences() {
   const { uiScale, uiDensity, navLabels, previewAiContext } = useWorkspacePrefs.getState();
   const { tabOrder, hiddenTabs, displayMode, tabSize, tabLayout } = useSidebarPrefs.getState();
   const { workspaces, activeWorkspaceId } = useWorkspaceStore.getState();
-  return { format: 'l8git-preferences', version: 1, layout: { uiScale, uiDensity, navLabels, previewAiContext }, sidebar: { tabOrder, hiddenTabs, displayMode, tabSize, tabLayout }, workspaces, activeWorkspaceId, shortcuts: useHotkeyPrefs.getState().overrides, prompts: useAiPromptPrefs.getState().overrides, repoPrompts: useAiPromptPrefs.getState().repoOverrides, groups: useRepoGroupsStore.getState().forest };
+  return { format: 'l8git-preferences', version: 1, layout: { uiScale, uiDensity, navLabels, previewAiContext }, sidebar: { tabOrder, hiddenTabs, displayMode, tabSize, tabLayout }, workspaces, activeWorkspaceId, shortcuts: useHotkeyPrefs.getState().overrides, prompts: useAiPromptPrefs.getState().overrides, repoPrompts: useAiPromptPrefs.getState().repoOverrides, groups: useRepoGroupsStore.getState().forest, history: useHistoryPrefs.getState().repositories };
 }
 export type PreferencesExport = ReturnType<typeof exportPreferences>;
 const record = (x: unknown): Record<string, unknown> => {
@@ -21,6 +23,33 @@ const string = (x: unknown) => { if (typeof x !== 'string' || x.length > 50_000)
 const strings = (x: unknown): string[] => { if (!Array.isArray(x) || x.length > 1000) throw new Error('Invalid list'); return x.map(string); };
 const choice = <T extends string>(x: unknown, allowed: readonly T[]): T => { if (!allowed.includes(x as T)) throw new Error('Invalid setting value'); return x as T; };
 const bool = (x: unknown) => { if (typeof x !== 'boolean') throw new Error('Invalid boolean'); return x; };
+function historyPreferences(input: unknown): PreferencesExport['history'] {
+  const entries = Object.entries(record(input));
+  if (entries.length > 1000) throw new Error('Too many repository history settings');
+  const filter = (input: unknown) => {
+    const raw = record(input);
+    const refs = strings(raw.refs);
+    if (refs.some(ref => !ref.trim() || ref.trim().startsWith('-') || /[\x00-\x1f\x7f]/.test(ref))) throw new Error('Invalid history reference');
+    const value = sanitizeHistoryFilter({ refs, ...Object.fromEntries(['author', 'since', 'until', 'query', 'file'].map(key => [key, string(raw[key])])) });
+    if (validateHistoryDates(value)) throw new Error('Invalid history date range');
+    return value;
+  };
+  return Object.fromEntries(entries.map(([path, input]) => {
+    string(path);
+    if (!path) throw new Error('Missing repository history path');
+    const raw = record(input);
+    if (!Array.isArray(raw.presets) || raw.presets.length > MAX_HISTORY_PRESETS) throw new Error('Invalid saved searches');
+    const presets = raw.presets.map(input => {
+      const preset = record(input);
+      const id = string(preset.id), name = string(preset.name);
+      if (!id || !name.trim() || name.length > 80 || typeof preset.updatedAt !== 'number' || !Number.isFinite(preset.updatedAt)) throw new Error('Invalid saved search');
+      return { id, name, updatedAt: preset.updatedAt, filter: filter(preset.filter) };
+    });
+    const sanitized = sanitizeHistoryPresets(presets);
+    if (sanitized.length !== presets.length) throw new Error('Invalid or duplicate saved searches');
+    return [path, { filter: filter(raw.filter), presets: sanitized }];
+  }));
+}
 function forest(input: unknown, depth = 0): ForestNode[] {
   if (depth > 12 || !Array.isArray(input) || input.length > 1000) throw new Error('Invalid repository groups');
   return input.map(item => {
@@ -44,7 +73,7 @@ export function parsePreferences(raw: string): PreferencesExport {
   if (new Set(workspaces.map(w => w.id)).size !== workspaces.length) throw new Error('Duplicate workspace');
   const activeWorkspaceId = string(root.activeWorkspaceId);
   if (!workspaces.some(w => w.id === activeWorkspaceId)) throw new Error('Unknown active workspace');
-  return { format: 'l8git-preferences', version: 1, layout: { uiScale: l.uiScale, uiDensity: choice(l.uiDensity, ['compact','comfortable']), navLabels: bool(l.navLabels), previewAiContext: bool(l.previewAiContext) }, sidebar: { tabOrder: order, hiddenTabs: strings(s.hiddenTabs).map(v => choice(v, ALL_SIDEBAR_TABS)), displayMode: choice(s.displayMode, ['full','icons_only','labels_only']), tabSize: choice(s.tabSize, ['compact','normal','large']), tabLayout: choice(s.tabLayout, ['list','grid']) }, workspaces, activeWorkspaceId, shortcuts: sanitizeHotkeyOverrides(root.shortcuts), prompts: sanitizePromptOverrides(root.prompts), repoPrompts: Object.fromEntries(Object.entries(record(root.repoPrompts ?? {})).map(([key, value]) => [string(key), string(value)])), groups: forest(root.groups) };
+  return { format: 'l8git-preferences', version: 1, layout: { uiScale: l.uiScale, uiDensity: choice(l.uiDensity, ['compact','comfortable']), navLabels: bool(l.navLabels), previewAiContext: bool(l.previewAiContext) }, sidebar: { tabOrder: order, hiddenTabs: strings(s.hiddenTabs).map(v => choice(v, ALL_SIDEBAR_TABS)), displayMode: choice(s.displayMode, ['full','icons_only','labels_only']), tabSize: choice(s.tabSize, ['compact','normal','large']), tabLayout: choice(s.tabLayout, ['list','grid']) }, workspaces, activeWorkspaceId, shortcuts: sanitizeHotkeyOverrides(root.shortcuts), prompts: sanitizePromptOverrides(root.prompts), repoPrompts: Object.fromEntries(Object.entries(record(root.repoPrompts ?? {})).map(([key, value]) => [string(key), string(value)])), groups: forest(root.groups), history: root.history === undefined ? useHistoryPrefs.getState().repositories : historyPreferences(root.history) };
 }
 function prepareChange<S, P>(store: { getState: () => S; setState: (state: Partial<S>) => void; persist: { getOptions: () => Partial<PersistOptions<S, P>>; setOptions: (options: Partial<PersistOptions<S, P>>) => void } }, patch: Partial<S>) {
   const options = store.persist.getOptions();
@@ -68,6 +97,7 @@ export function applyPreferences(snapshot: PreferencesExport) {
     prepareChange(useAiPromptPrefs, { overrides: value.prompts, repoOverrides: value.repoPrompts }),
     prepareChange(useWorkspaceStore, { workspaces: value.workspaces, activeWorkspaceId: value.activeWorkspaceId }),
     prepareChange(useRepoGroupsStore, { forest: value.groups }),
+    prepareChange(useHistoryPrefs, { repositories: value.history }),
   ];
   const written: typeof changes = [];
   try {

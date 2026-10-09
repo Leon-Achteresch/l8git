@@ -27,10 +27,11 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { SpinIcon } from "@/components/motion/kit";
+import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 
 const INSTALL_URL = "https://git-lfs.com";
 const PAGE_SIZE = 50;
@@ -77,6 +78,10 @@ function StatusLine({ ok, label }: { ok: boolean; label: string }) {
 }
 
 export function LfsSection({ path }: { path: string }) {
+  return <LfsSectionContent key={path} path={path} />;
+}
+
+function LfsSectionContent({ path }: { path: string }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LfsStatus | null>(null);
   const [patterns, setPatterns] = useState<LfsPattern[]>([]);
@@ -87,39 +92,61 @@ export function LfsSection({ path }: { path: string }) {
   const [pulling, setPulling] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
   const [pendingRemove, setPendingRemove] = useState<LfsPattern | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [patternsLoading, setPatternsLoading] = useState(true);
+  const [statusError, setStatusError] = useState('');
+  const [patternsError, setPatternsError] = useState('');
+  const [filesError, setFilesError] = useState('');
+  const alive = useRef(true);
+  const requests = useRef({ status: 0, patterns: 0, files: 0 });
+  const mutation = useRef(false);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      requests.current.status++; requests.current.patterns++; requests.current.files++;
+    };
+  }, []);
 
   const loadStatus = useCallback(async () => {
+    const request = ++requests.current.status;
+    setStatusLoading(true); setStatusError('');
     try {
-      setStatus(await invoke<LfsStatus>("lfs_available", { path }));
-    } catch {
-      setStatus({
-        installed: false,
-        version: null,
-        initialized: false,
-        hasAttributes: false,
-      });
+      const result = await invoke<LfsStatus>("lfs_available", { path });
+      if (alive.current && request === requests.current.status) setStatus(result);
+    } catch (error) {
+      if (alive.current && request === requests.current.status) setStatusError(String(error));
+    } finally {
+      if (alive.current && request === requests.current.status) setStatusLoading(false);
     }
   }, [path]);
 
   const loadPatterns = useCallback(async () => {
+    const request = ++requests.current.patterns;
+    setPatternsLoading(true); setPatternsError('');
     try {
-      setPatterns(await invoke<LfsPattern[]>("lfs_tracked_patterns", { path }));
-    } catch {
-      setPatterns([]);
+      const result = await invoke<LfsPattern[]>("lfs_tracked_patterns", { path });
+      if (alive.current && request === requests.current.patterns) setPatterns(result);
+    } catch (error) {
+      if (alive.current && request === requests.current.patterns) setPatternsError(String(error));
+    } finally {
+      if (alive.current && request === requests.current.patterns) setPatternsLoading(false);
     }
   }, [path]);
 
   const loadFiles = useCallback(
     async (nextLimit: number) => {
+      const request = ++requests.current.files;
       setFilesLoading(true);
+      setFilesError('');
       try {
-        setFileList(
-          await invoke<LfsFileList>("lfs_ls_files", { path, limit: nextLimit }),
-        );
-      } catch {
-        setFileList(null);
+        const result = await invoke<LfsFileList>("lfs_ls_files", { path, limit: nextLimit });
+        if (alive.current && request === requests.current.files) setFileList(result);
+      } catch (error) {
+        if (alive.current && request === requests.current.files) setFilesError(String(error));
       } finally {
-        setFilesLoading(false);
+        if (alive.current && request === requests.current.files) setFilesLoading(false);
       }
     },
     [path],
@@ -134,7 +161,9 @@ export function LfsSection({ path }: { path: string }) {
 
   useEffect(() => {
     if (!status?.installed) {
+      requests.current.files++;
       setFileList(null);
+      setFilesLoading(false); setFilesError('');
       return;
     }
     void loadFiles(limit);
@@ -143,11 +172,12 @@ export function LfsSection({ path }: { path: string }) {
   const refresh = useCallback(() => {
     void loadStatus();
     void loadPatterns();
-    void loadFiles(limit);
-  }, [loadStatus, loadPatterns, loadFiles, limit]);
+    if (status?.installed) void loadFiles(limit);
+  }, [loadStatus, loadPatterns, loadFiles, limit, status?.installed]);
 
   const handleError = useCallback(
     (e: unknown) => {
+      if (!alive.current) return;
       if (isLfsUnavailable(e)) {
         toastError(t("lfs.unavailable"));
         void loadStatus();
@@ -160,10 +190,12 @@ export function LfsSection({ path }: { path: string }) {
 
   const addPattern = useCallback(async () => {
     const pattern = newPattern.trim();
-    if (!pattern || busy) return;
+    if (!pattern || !status?.installed || statusError || patternsError || mutation.current) return;
+    mutation.current = true;
     setBusy(true);
     try {
       await invoke<string>("lfs_track", { path, pattern });
+      if (!alive.current) return;
       toast.success(t("lfs.trackDone", { pattern }));
       setNewPattern("");
       await loadPatterns();
@@ -171,38 +203,47 @@ export function LfsSection({ path }: { path: string }) {
     } catch (e) {
       handleError(e);
     } finally {
-      setBusy(false);
+      mutation.current = false;
+      if (alive.current) setBusy(false);
     }
-  }, [newPattern, busy, path, t, loadPatterns, loadStatus, handleError]);
+  }, [newPattern, status?.installed, statusError, patternsError, path, t, loadPatterns, loadStatus, handleError]);
 
   const removePattern = useCallback(
     async (pattern: string) => {
+      if (mutation.current || !status?.installed || statusError || patternsError) return;
+      mutation.current = true;
       setBusy(true);
       try {
         await invoke<string>("lfs_untrack", { path, pattern });
+        if (!alive.current) return;
         toast.success(t("lfs.untrackDone", { pattern }));
         await loadPatterns();
       } catch (e) {
         handleError(e);
       } finally {
-        setBusy(false);
+        mutation.current = false;
+        if (alive.current) setBusy(false);
       }
     },
-    [path, t, loadPatterns, handleError],
+    [path, status?.installed, statusError, patternsError, t, loadPatterns, handleError],
   );
 
   const pull = useCallback(async () => {
+    if (mutation.current || !status?.installed || statusError) return;
+    mutation.current = true;
     setPulling(true);
     try {
       await invoke<string>("lfs_pull", { path });
+      if (!alive.current) return;
       toast.success(t("lfs.pullDone"));
       await loadFiles(limit);
     } catch (e) {
       handleError(e);
     } finally {
-      setPulling(false);
+      mutation.current = false;
+      if (alive.current) setPulling(false);
     }
-  }, [path, t, limit, loadFiles, handleError]);
+  }, [path, status?.installed, statusError, t, limit, loadFiles, handleError]);
 
   const shownFiles = fileList?.files ?? [];
 
@@ -213,6 +254,7 @@ export function LfsSection({ path }: { path: string }) {
           <Database className="size-3.5" />
           {t("lfs.title")}
         </h3>
+        <div className="ml-auto"><WorkflowHelpLink guideId="large-files" /></div>
         <Button
           type="button"
           variant="ghost"
@@ -220,12 +262,17 @@ export function LfsSection({ path }: { path: string }) {
           className="size-7"
           onClick={refresh}
           title={t("lfs.reload")}
+          aria-label={t("lfs.reloadStatus")}
+          disabled={busy || pulling || statusLoading || patternsLoading || filesLoading}
         >
           <RefreshCw className="size-3.5" />
         </Button>
       </div>
+      {statusError && <LoadError error={statusError} retry={() => void loadStatus()} />}
+      {patternsError && <LoadError error={patternsError} retry={() => void loadPatterns()} />}
 
-      <div className="mt-2 flex flex-col gap-1">
+      {!status && statusLoading ? <p className="mt-2 text-xs text-muted-foreground" role="status">{t('common.loading')}</p> : null}
+      {status && <div className="mt-2 flex flex-col gap-1">
         <StatusLine
           ok={!!status?.installed}
           label={
@@ -261,7 +308,7 @@ export function LfsSection({ path }: { path: string }) {
             </Button>
           </div>
         ) : null}
-      </div>
+      </div>}
 
       <div className="mt-3">
         <div className="flex items-center justify-between gap-2">
@@ -273,7 +320,7 @@ export function LfsSection({ path }: { path: string }) {
             variant="outline"
             size="sm"
             className="h-7 gap-1.5"
-            disabled={!status?.installed || pulling}
+            disabled={!status?.installed || !!statusError || statusLoading || busy || pulling}
             onClick={() => void pull()}
           >
             {pulling ? (
@@ -285,7 +332,7 @@ export function LfsSection({ path }: { path: string }) {
           </Button>
         </div>
 
-        {patterns.length === 0 ? (
+        {patternsLoading && patterns.length === 0 ? <p className="mt-1.5 text-xs text-muted-foreground" role="status">{t('common.loading')}</p> : !patternsError && patterns.length === 0 ? (
           <p className="mt-1.5 text-xs text-muted-foreground/80">
             {t("lfs.patternsEmpty")}
           </p>
@@ -315,7 +362,7 @@ export function LfsSection({ path }: { path: string }) {
                   variant="ghost"
                   size="icon"
                   className="size-7 shrink-0"
-                  disabled={busy}
+                  disabled={busy || pulling || patternsLoading || !!patternsError || !!statusError}
                   title={t("lfs.removePattern")}
                   onClick={() => setPendingRemove(p)}
                 >
@@ -337,6 +384,7 @@ export function LfsSection({ path }: { path: string }) {
               }
             }}
             placeholder={t("lfs.addPatternPlaceholder")}
+            aria-label={t("lfs.addPatternPlaceholder")}
             className="h-7 font-mono text-xs"
           />
           <Button
@@ -344,7 +392,7 @@ export function LfsSection({ path }: { path: string }) {
             variant="outline"
             size="sm"
             className="h-7 shrink-0 gap-1.5"
-            disabled={busy || !newPattern.trim()}
+            disabled={busy || pulling || !status?.installed || statusLoading || patternsLoading || !!statusError || !!patternsError || !newPattern.trim()}
             onClick={() => void addPattern()}
           >
             <Plus className="size-3.5" />
@@ -368,11 +416,12 @@ export function LfsSection({ path }: { path: string }) {
               </span>
             ) : null}
           </div>
+          {filesError && <LoadError error={filesError} retry={() => void loadFiles(limit)} />}
           {filesLoading && !fileList ? (
             <div className="mt-2 flex justify-center">
               <SpinIcon icon={Loader2} className="size-4 text-primary/50" />
             </div>
-          ) : shownFiles.length === 0 ? (
+          ) : !filesError && shownFiles.length === 0 ? (
             <p className="mt-1.5 text-xs text-muted-foreground/80">
               {t("lfs.filesEmpty")}
             </p>
@@ -459,4 +508,12 @@ export function LfsSection({ path }: { path: string }) {
       </AlertDialog>
     </div>
   );
+}
+
+function LoadError({ error, retry }: { error: string; retry: () => void }) {
+  const { t } = useTranslation();
+  return <div role="alert" className="mt-2 flex items-start gap-2 rounded-md border border-destructive/30 p-2 text-xs">
+    <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-destructive">{error}</span>
+    <Button size="xs" variant="outline" onClick={retry}>{t('common.retry')}</Button>
+  </div>;
 }

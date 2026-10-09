@@ -71,6 +71,17 @@ describe('entriesFromCommits', () => {
     });
     expect(list.map(e => e.action)).toEqual(['pick', 'pick', 'reword']);
   });
+
+  it('prefills reword with the full message supplied by the preview', () => {
+    const list = entriesFromCommits([
+      { ...commits[0], message: 'first\n\nDetailed body\n\nCo-authored-by: Ada' },
+    ], { hash: commits[0].hash, action: 'reword' });
+    expect(list[0].message).toBe('first\n\nDetailed body\n\nCo-authored-by: Ada');
+    expect(list[0].messageLoaded).toBe(true);
+    expect(toTodoItems(list)[0].newMessage).toBeNull();
+    const edited = [{ ...list[0], message: list[0].message.replace('first', 'renamed') }];
+    expect(toTodoItems(edited)[0].newMessage).toContain('\n\nDetailed body');
+  });
 });
 
 describe('moveEntry', () => {

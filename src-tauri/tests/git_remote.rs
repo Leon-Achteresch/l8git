@@ -12,10 +12,19 @@ async fn list_git_remotes_returns_one_entry_per_remote() {
     let repo = TestRepo::new("remotes-list");
     repo.commit("a.txt", "1\n", "c1");
     repo.git(&["remote", "add", "origin", "git@github.com:acme/app.git"]);
-    repo.git(&["remote", "add", "upstream", "https://github.com/upstream/app.git"]);
+    repo.git(&[
+        "remote",
+        "add",
+        "upstream",
+        "https://github.com/upstream/app.git",
+    ]);
 
     let remotes = git::list_git_remotes(repo.s()).await.unwrap();
-    assert_eq!(remotes.len(), 2, "fetch and push URLs must not be listed twice");
+    assert_eq!(
+        remotes.len(),
+        2,
+        "fetch and push URLs must not be listed twice"
+    );
     assert_eq!(remotes[0].name, "origin");
     assert_eq!(remotes[0].url, "git@github.com:acme/app.git");
     assert_eq!(remotes[1].name, "upstream");
@@ -27,26 +36,44 @@ async fn add_and_set_remote_url_change_the_configured_remote() {
     let repo = TestRepo::new("remotes-edit");
     repo.commit("a.txt", "1\n", "c1");
 
-    git::add_git_remote(repo.s(), " origin ".into(), " git@github.com:acme/app.git ".into())
-        .await
-        .unwrap();
+    git::add_git_remote(
+        repo.s(),
+        " origin ".into(),
+        " git@github.com:acme/app.git ".into(),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         git::list_git_remotes(repo.s()).await.unwrap()[0].url,
         "git@github.com:acme/app.git"
     );
 
-    git::set_git_remote_url(repo.s(), "origin".into(), "https://github.com/acme/app.git".into())
-        .await
-        .unwrap();
+    git::set_git_remote_url(
+        repo.s(),
+        "origin".into(),
+        "https://github.com/acme/app.git".into(),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         git::list_git_remotes(repo.s()).await.unwrap()[0].url,
         "https://github.com/acme/app.git"
     );
 
-    assert!(git::add_git_remote(repo.s(), "  ".into(), "url".into()).await.is_err());
-    assert!(git::add_git_remote(repo.s(), "x".into(), "  ".into()).await.is_err());
-    assert!(git::set_git_remote_url(repo.s(), "  ".into(), "url".into()).await.is_err());
-    assert!(git::set_git_remote_url(repo.s(), "nope".into(), "url".into()).await.is_err());
+    assert!(git::add_git_remote(repo.s(), "  ".into(), "url".into())
+        .await
+        .is_err());
+    assert!(git::add_git_remote(repo.s(), "x".into(), "  ".into())
+        .await
+        .is_err());
+    assert!(git::set_git_remote_url(repo.s(), "  ".into(), "url".into())
+        .await
+        .is_err());
+    assert!(
+        git::set_git_remote_url(repo.s(), "nope".into(), "url".into())
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -65,7 +92,12 @@ async fn push_with_set_upstream_publishes_the_branch_and_records_tracking() {
     assert_eq!(remote_head(&bare, "main"), work.head());
     assert_eq!(git::branch_has_upstream(work.s()).await.unwrap(), true);
     assert_eq!(
-        work.git(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]),
+        work.git(&[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}"
+        ]),
         "origin/main"
     );
 }
@@ -76,9 +108,19 @@ async fn push_dry_run_leaves_the_remote_untouched() {
     let before = remote_head(&bare, "main");
     work.commit("b.txt", "2\n", "second");
 
-    git::git_push(work.s(), false, None, None, None, None, None, Some(true), None)
-        .await
-        .unwrap();
+    git::git_push(
+        work.s(),
+        false,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(true),
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(remote_head(&bare, "main"), before);
 
     git::git_push(work.s(), false, None, None, None, None, None, None, None)
@@ -99,16 +141,41 @@ async fn push_force_with_lease_is_rejected_while_the_remote_is_ahead() {
     work.git(&["add", "-A"]);
     work.git(&["commit", "-q", "--amend", "-m", "amended locally"]);
 
-    let err = git::git_push(work.s(), false, None, Some("lease".into()), None, None, None, None, None)
-        .await
-        .unwrap_err();
-    assert!(err.contains("rejected") || err.contains("stale info"), "{err}");
+    let err = git::git_push(
+        work.s(),
+        false,
+        None,
+        Some("lease".into()),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        err.contains("rejected") || err.contains("stale info"),
+        "{err}"
+    );
     assert_eq!(remote_head(&bare, "main"), other_head);
 
-    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
-    git::git_push(work.s(), false, None, Some("lease".into()), None, None, None, None, None)
+    git::git_fetch(work.s(), None, None, None, None, None)
         .await
         .unwrap();
+    git::git_push(
+        work.s(),
+        false,
+        None,
+        Some("lease".into()),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(remote_head(&bare, "main"), work.head());
 }
 
@@ -117,9 +184,19 @@ async fn push_tags_mode_all_publishes_tags_and_delete_remote_tag_removes_them() 
     let (work, bare) = repo_with_remote("push-tags");
     work.git(&["tag", "v1.2.3"]);
 
-    git::git_push(work.s(), false, None, None, Some("all".into()), None, None, None, None)
-        .await
-        .unwrap();
+    git::git_push(
+        work.s(),
+        false,
+        None,
+        None,
+        Some("all".into()),
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(bare.git(&["tag", "--list"]), "v1.2.3");
 
     git::delete_remote_tag(work.s(), "v1.2.3".into(), "origin".into())
@@ -127,8 +204,14 @@ async fn push_tags_mode_all_publishes_tags_and_delete_remote_tag_removes_them() 
         .unwrap();
     assert_eq!(bare.git(&["tag", "--list"]), "");
 
-    assert!(git::delete_remote_tag(work.s(), "  ".into(), "origin".into()).await.is_err());
-    assert!(git::delete_remote_tag(work.s(), "v1".into(), "  ".into()).await.is_err());
+    assert!(
+        git::delete_remote_tag(work.s(), "  ".into(), "origin".into())
+            .await
+            .is_err()
+    );
+    assert!(git::delete_remote_tag(work.s(), "v1".into(), "  ".into())
+        .await
+        .is_err());
 }
 
 #[tokio::test]
@@ -139,13 +222,22 @@ async fn fetch_updates_remote_tracking_refs_and_prunes_deleted_branches() {
     other.commit("tmp.txt", "x\n", "tmp work");
     other.git(&["push", "-q", "origin", "tmp"]);
 
-    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
-    assert!(work.try_git(&["rev-parse", "--verify", "refs/remotes/origin/tmp"]).0);
+    git::git_fetch(work.s(), None, None, None, None, None)
+        .await
+        .unwrap();
+    assert!(
+        work.try_git(&["rev-parse", "--verify", "refs/remotes/origin/tmp"])
+            .0
+    );
 
     other.git(&["push", "-q", "origin", "--delete", "tmp"]);
-    git::git_fetch(work.s(), Some(true), None, None, None, None).await.unwrap();
+    git::git_fetch(work.s(), Some(true), None, None, None, None)
+        .await
+        .unwrap();
     assert!(
-        !work.try_git(&["rev-parse", "--verify", "refs/remotes/origin/tmp"]).0,
+        !work
+            .try_git(&["rev-parse", "--verify", "refs/remotes/origin/tmp"])
+            .0,
         "prune must drop the stale remote-tracking ref"
     );
     assert!(bare.git(&["branch", "--list"]).contains("main"));
@@ -178,7 +270,9 @@ async fn pull_is_blocked_by_dirty_tracked_files_unless_autostash_is_requested() 
     assert_eq!(err, "__LOCAL_CHANGES_BLOCK__|local.txt");
     assert!(!work.exists("other.txt"));
 
-    git::git_pull(work.s(), Some("autostash".into()), None, None).await.unwrap();
+    git::git_pull(work.s(), Some("autostash".into()), None, None)
+        .await
+        .unwrap();
     assert!(work.exists("other.txt"));
     assert_eq!(work.read("local.txt"), "dirty edit\n");
 }
@@ -191,8 +285,13 @@ async fn pull_ff_only_fails_when_the_history_diverged() {
     other.git(&["push", "-q", "origin", "main"]);
     work.commit("local.txt", "y\n", "local work");
 
-    let err = git::git_pull(work.s(), Some("ff-only".into()), None, None).await.unwrap_err();
-    assert!(err.to_lowercase().contains("fast-forward") || err.contains("diverg"), "{err}");
+    let err = git::git_pull(work.s(), Some("ff-only".into()), None, None)
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_lowercase().contains("fast-forward") || err.contains("diverg"),
+        "{err}"
+    );
     assert_eq!(work.subjects()[0], "local work");
 }
 
@@ -207,7 +306,9 @@ async fn upstream_sync_counts_report_ahead_and_behind() {
     other.git(&["push", "-q", "origin", "main"]);
     work.commit("l1.txt", "x\n", "local one");
     work.commit("l2.txt", "x\n", "local two");
-    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
+    git::git_fetch(work.s(), None, None, None, None, None)
+        .await
+        .unwrap();
 
     let counts = git::repo_upstream_sync_counts(work.s()).await.unwrap();
     assert_eq!(counts.ahead, 2);
@@ -226,16 +327,29 @@ async fn checkout_from_remote_creates_a_tracking_branch() {
     other.git(&["checkout", "-q", "-b", "feature"]);
     other.commit("feature.txt", "x\n", "feature work");
     other.git(&["push", "-q", "origin", "feature"]);
-    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
-
-    git::git_checkout(work.s(), "feature".into(), false, Some("origin/feature".into()), None)
+    git::git_fetch(work.s(), None, None, None, None, None)
         .await
         .unwrap();
+
+    git::git_checkout(
+        work.s(),
+        "feature".into(),
+        false,
+        Some("origin/feature".into()),
+        None,
+    )
+    .await
+    .unwrap();
 
     assert_eq!(work.branch(), "feature");
     assert_eq!(work.read("feature.txt"), "x\n");
     assert_eq!(
-        work.git(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]),
+        work.git(&[
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}"
+        ]),
         "origin/feature"
     );
 }
@@ -247,14 +361,25 @@ async fn delete_remote_branch_removes_the_branch_and_its_tracking_ref() {
     work.commit("d.txt", "x\n", "doomed work");
     work.git(&["push", "-q", "origin", "doomed"]);
     work.git(&["checkout", "-q", "main"]);
-    assert!(bare.try_git(&["rev-parse", "--verify", "refs/heads/doomed"]).0);
+    assert!(
+        bare.try_git(&["rev-parse", "--verify", "refs/heads/doomed"])
+            .0
+    );
 
     git::delete_remote_branch(work.s(), "origin/doomed".into())
         .await
         .unwrap();
 
-    assert!(!bare.try_git(&["rev-parse", "--verify", "refs/heads/doomed"]).0);
-    assert!(!work.try_git(&["rev-parse", "--verify", "refs/remotes/origin/doomed"]).0);
+    assert!(
+        !bare
+            .try_git(&["rev-parse", "--verify", "refs/heads/doomed"])
+            .0
+    );
+    assert!(
+        !work
+            .try_git(&["rev-parse", "--verify", "refs/remotes/origin/doomed"])
+            .0
+    );
 
     let err = git::delete_remote_branch(work.s(), "noslash".into())
         .await
@@ -280,8 +405,45 @@ async fn git_clone_materialises_a_working_copy() {
     assert_eq!(head, work.head());
     let _ = std::fs::remove_dir_all(&dest);
 
-    assert!(git::git_clone("  ".into(), "/tmp/x".into(), None).await.is_err());
-    assert!(git::git_clone("url".into(), "  ".into(), None).await.is_err());
+    assert!(git::git_clone("  ".into(), "/tmp/x".into(), None)
+        .await
+        .is_err());
+    assert!(git::git_clone("url".into(), "  ".into(), None)
+        .await
+        .is_err());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn clone_preserves_the_exact_destination_including_trailing_whitespace() {
+    let source = TestRepo::new("clone-exact-source");
+    let head = source.commit("a.txt", "cloned contents\n", "source commit");
+    for suffix in [" ", "\n"] {
+        let neighbor = common::scratch_path("clone-exact-neighbor");
+        std::fs::create_dir_all(&neighbor).unwrap();
+        std::fs::write(neighbor.join("keep.txt"), "unrelated contents\n").unwrap();
+        let destination =
+            std::path::PathBuf::from(format!("{}{suffix}", neighbor.to_string_lossy()));
+        git::git_clone(
+            source.file_url(),
+            destination.to_string_lossy().into_owned(),
+            None,
+        )
+        .await
+        .unwrap();
+        let cloned = TestRepo::adopt(destination);
+        assert_eq!(cloned.head(), head);
+        assert_eq!(
+            std::fs::read_to_string(cloned.path.join("a.txt")).unwrap(),
+            "cloned contents\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(neighbor.join("keep.txt")).unwrap(),
+            "unrelated contents\n"
+        );
+        assert!(!neighbor.join(".git").exists());
+        std::fs::remove_dir_all(neighbor).unwrap();
+    }
 }
 
 #[tokio::test]
@@ -312,16 +474,16 @@ async fn list_submodules_reports_the_registered_submodule() {
     assert_eq!(subs[0].commit, sub_work.head());
     assert_eq!(subs[0].is_detached, false);
     assert_eq!(subs[0].name, "vendor/lib");
-    assert!(subs[0].gitmodules_raw.contains("vendor/lib"), "{}", subs[0].gitmodules_raw);
+    assert!(
+        subs[0].gitmodules_raw.contains("vendor/lib"),
+        "{}",
+        subs[0].gitmodules_raw
+    );
     assert!(host.exists("vendor/lib/lib.txt"));
 
-    let commits = git::get_submodule_commits(
-        host.s(),
-        "vendor/lib".into(),
-        sub_work.head(),
-    )
-    .await
-    .unwrap();
+    let commits = git::get_submodule_commits(host.s(), "vendor/lib".into(), sub_work.head())
+        .await
+        .unwrap();
     assert_eq!(commits.len(), 2);
     assert_eq!(commits[0].hash, sub_work.head());
     assert_eq!(commits[0].message, "library commit");
@@ -341,9 +503,19 @@ async fn push_sets_upstream_on_the_requested_non_origin_remote() {
 
     assert_eq!(git::branch_push_remote(work.s()).await.unwrap(), "origin");
 
-    git::git_push(work.s(), true, Some("fork".into()), None, None, None, None, None, None)
-        .await
-        .unwrap();
+    git::git_push(
+        work.s(),
+        true,
+        Some("fork".into()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
 
     assert_eq!(remote_head(&fork, "main"), work.head());
     assert_eq!(fork.try_git(&["rev-parse", "refs/heads/main"]).0, true);
@@ -364,9 +536,19 @@ async fn push_without_upstream_targets_the_selected_remote() {
     work.git(&["push", "-q", "-u", "origin", "main"]);
 
     work.commit("next.txt", "more\n", "second");
-    git::git_push(work.s(), false, Some("fork".into()), None, None, None, None, None, None)
-        .await
-        .unwrap();
+    git::git_push(
+        work.s(),
+        false,
+        Some("fork".into()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
 
     assert_eq!(remote_head(&fork, "main"), work.head());
     assert_eq!(work.git(&["config", "branch.main.remote"]), "origin");
@@ -408,20 +590,31 @@ async fn fetch_can_target_a_single_remote_or_all_remotes() {
     other.commit("fork.txt", "fork\n", "fork commit");
     other.git(&["push", "-q", "origin", "main"]);
 
-    git::git_fetch(work.s(), None, None, None, None, None).await.unwrap();
-    assert_eq!(work.try_git(&["rev-parse", "refs/remotes/fork/main"]).1, work.head());
+    git::git_fetch(work.s(), None, None, None, None, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        work.try_git(&["rev-parse", "refs/remotes/fork/main"]).1,
+        work.head()
+    );
 
     git::git_fetch(work.s(), None, None, Some("fork".into()), None, None)
         .await
         .unwrap();
-    assert_eq!(work.git(&["rev-parse", "refs/remotes/fork/main"]), other.head());
+    assert_eq!(
+        work.git(&["rev-parse", "refs/remotes/fork/main"]),
+        other.head()
+    );
 
     other.commit("fork2.txt", "fork2\n", "fork commit 2");
     other.git(&["push", "-q", "origin", "main"]);
     git::git_fetch(work.s(), None, None, None, Some(true), None)
         .await
         .unwrap();
-    assert_eq!(work.git(&["rev-parse", "refs/remotes/fork/main"]), other.head());
+    assert_eq!(
+        work.git(&["rev-parse", "refs/remotes/fork/main"]),
+        other.head()
+    );
 }
 
 #[tokio::test]
@@ -451,15 +644,37 @@ async fn push_and_pull_reject_dash_and_unknown_remotes() {
     let (work, _bare) = repo_with_remote("push-inject");
     work.commit("a.txt", "1\n", "c1");
 
-    assert!(git::git_push(work.s(), false, Some("--force".into()), None, None, None, None, None, None)
-        .await
-        .is_err());
-    assert!(git::git_push(work.s(), false, Some("nope".into()), None, None, None, None, None, None)
-        .await
-        .is_err());
-    assert!(git::git_pull(work.s(), None, Some("--upload-pack=touch x".into()), None)
-        .await
-        .is_err());
+    assert!(git::git_push(
+        work.s(),
+        false,
+        Some("--force".into()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None
+    )
+    .await
+    .is_err());
+    assert!(git::git_push(
+        work.s(),
+        false,
+        Some("nope".into()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None
+    )
+    .await
+    .is_err());
+    assert!(
+        git::git_pull(work.s(), None, Some("--upload-pack=touch x".into()), None)
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -469,12 +684,20 @@ async fn delete_branch_and_tag_are_injection_safe() {
     let marker = common::scratch_path("del-marker").join("pwned");
 
     repo.git(&["update-ref", "refs/heads/-evil", "HEAD"]);
-    git::delete_branch(repo.s(), "-evil".into(), true).await.unwrap();
-    assert!(!repo.try_git(&["rev-parse", "refs/heads/-evil"]).0, "branch must be gone");
+    git::delete_branch(repo.s(), "-evil".into(), true)
+        .await
+        .unwrap();
+    assert!(
+        !repo.try_git(&["rev-parse", "refs/heads/-evil"]).0,
+        "branch must be gone"
+    );
     assert!(!marker.exists());
 
     repo.git(&["update-ref", "refs/tags/-eviltag", "HEAD"]);
     git::delete_tag(repo.s(), "-eviltag".into()).await.unwrap();
-    assert!(!repo.try_git(&["rev-parse", "refs/tags/-eviltag"]).0, "tag must be gone");
+    assert!(
+        !repo.try_git(&["rev-parse", "refs/tags/-eviltag"]).0,
+        "tag must be gone"
+    );
     assert!(!marker.exists());
 }

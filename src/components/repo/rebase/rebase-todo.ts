@@ -30,6 +30,7 @@ export type RebaseEntry = {
   message: string;
   baseMessage: string;
   messageLoaded: boolean;
+  messageFailed?: boolean;
 };
 
 export type RebaseTodoIssue = 'empty' | 'allDropped' | 'firstSquash' | null;
@@ -55,9 +56,9 @@ export function entriesFromCommits(
     shortHash: c.short_hash,
     subject: c.subject,
     action: preset && preset.hash === c.hash ? preset.action : 'pick',
-    message: c.subject,
-    baseMessage: c.subject,
-    messageLoaded: false,
+    message: c.message ?? c.subject,
+    baseMessage: c.message ?? c.subject,
+    messageLoaded: c.message != null,
   }));
 }
 
@@ -121,6 +122,7 @@ export function withFullMessage(
             e.message.trim() === e.baseMessage.trim() ? fullMessage : e.message,
           baseMessage: fullMessage,
           messageLoaded: true,
+          messageFailed: false,
         }
       : e
   );

@@ -306,7 +306,7 @@ fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending
             return;
         }
     };
-    if let Err(error) = state.ensure_allowed(&args) {
+    if let Err(error) = state.ensure_command_allowed(&cmd, &args) {
         conn.send_response(id, Err(error));
         return;
     }
@@ -399,6 +399,24 @@ mod tests {
         assert_eq!(frame["id"], 4);
         assert_eq!(frame["ok"], false);
         assert!(frame["error"].as_str().unwrap().contains("freigegeben"));
+    }
+
+    #[tokio::test]
+    async fn relative_and_empty_repository_roots_are_refused_before_dispatch() {
+        let (state, conn, pending, mut rx) = harness();
+        for (id, path) in ["", ".", "relative-repository"].into_iter().enumerate() {
+            handle_frame(
+                &state,
+                &conn,
+                &pending,
+                json!({ "type": "req", "id": id, "cmd": "repo_status", "args": { "path": path } }),
+            );
+            let frame = drain(&mut rx).await;
+            assert_eq!(frame["id"], id);
+            assert_eq!(frame["ok"], false);
+            assert!(frame["error"].as_str().unwrap().contains("Kein Repo-Root freigegeben"));
+            assert!(pending.lock().unwrap().is_empty());
+        }
     }
 
     #[tokio::test]

@@ -48,7 +48,7 @@ export function useCommitPanelHotkeys({
         const applyPatches = sector === "unstaged" ? onStage : onUnstage;
 
         if (selectedLines.size > 0 && parsedDiff) {
-          const patches = buildPatchesForSelection(parsedDiff, selectedLines);
+          const patches = buildPatchesForSelection(parsedDiff, selectedLines, sector === "staged");
           if (patches.length > 0) applyPatches(patches);
           onClearSelection();
         } else if (focusedHunkIdx >= 0 && parsedDiff) {
