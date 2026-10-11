@@ -440,10 +440,15 @@ fn submodule_action(
     {
         submodule_is_initialized(&registry.registered_path(path)?)?;
     }
-    let mut args = vec!["--literal-pathspecs", "submodule", action];
+    // On Windows `git submodule` runs through MSYS sh, whose runtime expands
+    // glob characters in its argv before Git sees them, so `--literal-pathspecs`
+    // alone let `libs/one[ab]` select `libs/onea`. The `:(literal)` magic keeps
+    // the argument from matching any file and makes Git read the rest verbatim.
+    let literal = selected.map(|path| format!(":(literal){path}"));
+    let mut args = vec!["submodule", action];
     args.extend(flags);
-    if let Some(path) = selected {
-        args.extend(["--", path]);
+    if let Some(literal) = &literal {
+        args.extend(["--", literal.as_str()]);
     }
     run_git_merged_output(repo, &args)
 }
