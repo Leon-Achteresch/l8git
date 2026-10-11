@@ -5,6 +5,10 @@ use l8git_lib::git;
 
 fn fixture(tag: &str, path: &str, name: &str) -> (TestRepo, TestRepo, TestRepo) {
     let source = TestRepo::new(&format!("{tag}-source"));
+    // Submodule clones read the global config, where Windows runners enable
+    // core.autocrlf; the attribute keeps the checked-out bytes LF everywhere.
+    source.write(".gitattributes", "* -text\n");
+    source.git(&["add", "--", ".gitattributes"]);
     source.commit("lib.txt", "library\n", "library base");
     let host = TestRepo::new(&format!("{tag}-host"));
     host.commit("app.txt", "app\n", "application base");
