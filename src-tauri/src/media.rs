@@ -427,13 +427,19 @@ mod tests {
     #[test]
     fn media_uses_exact_live_and_historical_paths_and_rejects_revision_options() {
         let repo = TestRepo::new();
-        for name in [" a.png ", "literal*name.png"] {
+        // Windows forbids trailing spaces and `*` in file names.
+        let names: [&str; 2] = if cfg!(windows) {
+            [" a b.png", "literal[name].png"]
+        } else {
+            [" a.png ", "literal*name.png"]
+        };
+        for name in names {
             repo.write(name, b"\x89PNG\r\n\x1a\n\0 original\n");
         }
         #[cfg(unix)]
         repo.write("back\\slash.png", b"literal Unix backslash\0\n");
         repo.commit("media paths");
-        for name in [" a.png ", "literal*name.png"] {
+        for name in names {
             let expected = b"\x89PNG\r\n\x1a\n\0 original\n";
             assert_eq!(
                 decoded(file_bytes(&repo.path, None, name).unwrap()),
@@ -456,7 +462,7 @@ mod tests {
         assert!(file_bytes(
             &repo.path,
             Some(&format!("--output={}", output.display())),
-            " a.png "
+            names[0]
         )
         .is_err());
         assert!(!output.exists());
@@ -466,7 +472,7 @@ mod tests {
             }
         }
         for revision in ["HEAD\n", "missing-ref", " "] {
-            assert!(file_bytes(&repo.path, Some(revision), " a.png ").is_err());
+            assert!(file_bytes(&repo.path, Some(revision), names[0]).is_err());
         }
     }
 

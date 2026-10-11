@@ -362,7 +362,11 @@ async fn worktree_listing_preserves_newlines_tabs_and_unicode_in_paths() {
         .iter()
         .find(|entry| entry.branch.as_deref() == Some("special-path"))
         .unwrap();
-    assert_eq!(linked.path, worktree.s());
+    // Git reports the resolved path (macOS: /var -> /private/var).
+    assert_eq!(
+        std::fs::canonicalize(&linked.path).unwrap(),
+        std::fs::canonicalize(worktree.s()).unwrap()
+    );
     assert!(!linked.is_main);
 }
 

@@ -154,6 +154,10 @@ fn file_patch(repo: PathBuf, base: String, head: String, mode: String, file: Str
     let mut bytes = Vec::new();
     let read = (&mut stdout).take(MAX_PATCH_BYTES as u64 + 1).read_to_end(&mut bytes);
     let truncated = bytes.len() > MAX_PATCH_BYTES;
+    // Closing our end makes Git fail its next write and exit. Killing alone is
+    // not enough on Windows, where git.exe can be a launcher whose real Git
+    // child keeps the pipes open and blocks on a full stdout forever.
+    drop(stdout);
     if truncated || read.is_err() { let _ = child.kill(); }
     let status = child.wait().map_err(|error| format!("Failed to wait for git: {error}"))?;
     let errors = errors.join().unwrap_or_default();

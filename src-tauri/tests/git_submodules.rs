@@ -5,6 +5,10 @@ use l8git_lib::git;
 
 fn fixture(tag: &str, path: &str, name: &str) -> (TestRepo, TestRepo, TestRepo) {
     let source = TestRepo::new(&format!("{tag}-source"));
+    // Submodule clones read the global config, where Windows runners enable
+    // core.autocrlf; the attribute keeps the checked-out bytes LF everywhere.
+    source.write(".gitattributes", "* -text\n");
+    source.git(&["add", "--", ".gitattributes"]);
     source.commit("lib.txt", "library\n", "library base");
     let host = TestRepo::new(&format!("{tag}-host"));
     host.commit("app.txt", "app\n", "application base");
@@ -290,7 +294,7 @@ async fn selected_glob_characters_are_literal_in_mutations() {
         "libs/onea",
     ]);
     host.commit_all("add second module");
-    git::git_submodule_deinit(host.s(), "libs/one[ab]".into(), false)
+    let output = git::git_submodule_deinit(host.s(), "libs/one[ab]".into(), false)
         .await
         .unwrap();
     let entries = git::list_submodules(host.s()).await.unwrap();
@@ -300,7 +304,8 @@ async fn selected_glob_characters_are_literal_in_mutations() {
             .find(|entry| entry.path == "libs/one[ab]")
             .unwrap()
             .status,
-        "uninitialized"
+        "uninitialized",
+        "deinit output: {output}"
     );
     assert_eq!(
         entries

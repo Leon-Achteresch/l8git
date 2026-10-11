@@ -534,7 +534,9 @@ async fn non_utf8_patch_paths_cannot_alias_a_utf8_selected_filename() {
     let file = "\u{fffd}.txt";
     repo.write(file, "selected\n");
     let other = repo.path.join(std::ffi::OsStr::from_bytes(b"\xff.txt"));
-    std::fs::write(&other, "other\n").unwrap();
+    // APFS rejects non-UTF-8 names (EILSEQ); the patch must still be refused
+    // there, the neighbor file just cannot exist.
+    let other_exists = std::fs::write(&other, "other\n").is_ok();
     repo.commit_all("base");
     let patch = format!("diff --git \"a/\\377.txt\" b/{file}\n--- \"a/\\377.txt\"\n+++ b/{file}\n@@ -1 +1 @@\n-other\n+changed\n");
     let token = fingerprint(&repo, file, false).await;
@@ -543,7 +545,9 @@ async fn non_utf8_patch_paths_cannot_alias_a_utf8_selected_filename() {
         .unwrap_err()
         .starts_with("__INVALID_REVIEWED_PATCH__|"));
     assert_eq!(repo.read(file), "selected\n");
-    assert_eq!(std::fs::read_to_string(&other).unwrap(), "other\n");
+    if other_exists {
+        assert_eq!(std::fs::read_to_string(&other).unwrap(), "other\n");
+    }
 }
 
 #[cfg(unix)]

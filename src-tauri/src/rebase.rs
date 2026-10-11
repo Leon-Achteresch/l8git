@@ -1525,21 +1525,26 @@ mod tests {
 
     #[test]
     fn generated_scripts_match_expected_shape() {
-        let dir = Path::new("/repo/.git/l8git-rebase");
-        let git_dir = Path::new("/repo/.git");
-        assert_eq!(
-            sequence_editor_body(dir, false),
-            "#!/bin/sh\ncat '/repo/.git/l8git-rebase/todo' > \"$1\"\n"
-        );
-        let unix = message_editor_body(dir, git_dir, false);
-        assert!(unix.starts_with("#!/bin/sh\n"), "{unix}");
-        assert!(unix.contains("done_file='/repo/.git/rebase-merge/done'"), "{unix}");
-        assert!(unix.contains("rest=\"${last#* }\""), "{unix}");
-        assert!(unix.contains("oid=\"${rest%% *}\""), "{unix}");
-        assert!(
-            unix.contains("cat '/repo/.git/l8git-rebase/msg-'\"$oid\" > \"$1\" || exit $?"),
-            "{unix}"
-        );
+        // The sh variant is only generated on Unix hosts, where `Path::join`
+        // uses `/`; Windows hosts would join with `\`.
+        #[cfg(unix)]
+        {
+            let dir = Path::new("/repo/.git/l8git-rebase");
+            let git_dir = Path::new("/repo/.git");
+            assert_eq!(
+                sequence_editor_body(dir, false),
+                "#!/bin/sh\ncat '/repo/.git/l8git-rebase/todo' > \"$1\"\n"
+            );
+            let unix = message_editor_body(dir, git_dir, false);
+            assert!(unix.starts_with("#!/bin/sh\n"), "{unix}");
+            assert!(unix.contains("done_file='/repo/.git/rebase-merge/done'"), "{unix}");
+            assert!(unix.contains("rest=\"${last#* }\""), "{unix}");
+            assert!(unix.contains("oid=\"${rest%% *}\""), "{unix}");
+            assert!(
+                unix.contains("cat '/repo/.git/l8git-rebase/msg-'\"$oid\" > \"$1\" || exit $?"),
+                "{unix}"
+            );
+        }
 
         let win_dir = Path::new("C:/repo/.git/l8git-rebase");
         let win_git_dir = Path::new("C:/repo/.git");

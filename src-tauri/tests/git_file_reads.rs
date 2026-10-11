@@ -3,6 +3,21 @@ mod common;
 use common::TestRepo;
 use l8git_lib::git;
 
+// Windows forbids trailing spaces and `*` in file names; keep a leading space
+// and a glob-like name there so the literal-path checks still apply.
+#[cfg(not(windows))]
+const SPACED: &str = " a.txt ";
+#[cfg(windows)]
+const SPACED: &str = " a b.txt";
+#[cfg(not(windows))]
+const GLOB: &str = "literal*name.txt";
+#[cfg(not(windows))]
+const GLOB_DECOY: &str = "literalXname.txt";
+#[cfg(windows)]
+const GLOB: &str = "literal[n]ame.txt";
+#[cfg(windows)]
+const GLOB_DECOY: &str = "literalname.txt";
+
 #[cfg(unix)]
 #[tokio::test]
 async fn content_revision_cannot_write_through_a_git_output_option() {
@@ -47,15 +62,15 @@ async fn historical_and_index_content_preserve_exact_path_and_content() {
     let repo = TestRepo::new("content-exact");
     repo.commit("a.txt", "different file\n", "plain");
     let exact = "  significant content \n\n";
-    repo.commit(" a.txt ", exact, "special");
+    repo.commit(SPACED, exact, "special");
     assert_eq!(
-        git::repo_file_content_at(repo.s(), " a.txt ".into(), "HEAD".into())
+        git::repo_file_content_at(repo.s(), SPACED.into(), "HEAD".into())
             .await
             .unwrap(),
         exact
     );
     assert_eq!(
-        git::repo_file_content_at(repo.s(), " a.txt ".into(), "".into())
+        git::repo_file_content_at(repo.s(), SPACED.into(), "".into())
             .await
             .unwrap(),
         exact
@@ -139,19 +154,19 @@ async fn general_history_path_filter_retains_git_pathspecs() {
 #[tokio::test]
 async fn selected_commit_diff_preserves_literal_path_and_reports_invalid_revisions() {
     let repo = TestRepo::new("commit-diff-literal");
-    repo.commit("literal*name.txt", "selected\n", "initial");
-    repo.write("literalXname.txt", "unrelated\n");
-    repo.write("literal*name.txt", "selected changed\n");
+    repo.commit(GLOB, "selected\n", "initial");
+    repo.write(GLOB_DECOY, "unrelated\n");
+    repo.write(GLOB, "selected changed\n");
     let commit = repo.commit_all("both paths");
-    let actual = git::repo_commit_file_diff(repo.s(), commit, "literal*name.txt".into())
+    let actual = git::repo_commit_file_diff(repo.s(), commit, GLOB.into())
         .await
         .unwrap()
         .diff
         .unwrap();
     assert!(actual.contains("+selected changed"));
     assert!(!actual.contains("+unrelated"));
-    repo.commit(" a.txt ", "significant filename\n", "spaced path");
-    let actual = git::repo_commit_file_diff(repo.s(), "HEAD".into(), " a.txt ".into())
+    repo.commit(SPACED, "significant filename\n", "spaced path");
+    let actual = git::repo_commit_file_diff(repo.s(), "HEAD".into(), SPACED.into())
         .await
         .unwrap()
         .diff
@@ -199,9 +214,9 @@ async fn index_conflicts_and_directories_are_not_missing_file_successes() {
 #[tokio::test]
 async fn live_blame_preserves_tracked_and_uncommitted_lines() {
     let repo = TestRepo::new("live-blame-content");
-    let commit = repo.commit(" a.txt ", "tracked\n", "initial");
-    repo.write(" a.txt ", "tracked\nlive line\n");
-    let actual = git::repo_blame(repo.s(), " a.txt ".into(), None)
+    let commit = repo.commit(SPACED, "tracked\n", "initial");
+    repo.write(SPACED, "tracked\nlive line\n");
+    let actual = git::repo_blame(repo.s(), SPACED.into(), None)
         .await
         .unwrap();
     assert_eq!(actual.len(), 2);
