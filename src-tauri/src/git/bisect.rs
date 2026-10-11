@@ -43,6 +43,18 @@ fn bisect_parse_log_marks(log: &str) -> (Vec<String>, Vec<String>) {
     (bad, good)
 }
 
+/// Older Git logs `# first bad commit: [<oid>] ...`; newer releases (e.g. 2.55) quote the
+/// term (`# first 'bad' commit: [<oid>] ...`).
+fn bisect_parse_result_line(line: &str) -> Option<String> {
+    let rest = line.trim().strip_prefix("# first ")?;
+    let (term, rest) = rest.split_once(" commit: [")?;
+    if term != "bad" && term != "'bad'" {
+        return None;
+    }
+    let (hash, _) = rest.split_once(']')?;
+    Some(hash.to_string())
+}
+
 fn bisect_build_status(repo: &PathBuf) -> Result<BisectStatus, String> {
     let raw = run_git(repo, &["rev-parse", "--git-path", "BISECT_LOG"])?;
     let bisect_log_path = repo.join(raw.strip_suffix('\n').unwrap_or(&raw));
@@ -76,11 +88,7 @@ fn bisect_build_status(repo: &PathBuf) -> Result<BisectStatus, String> {
     let (marked_bad, marked_good) = bisect_parse_log_marks(&log);
     // The result belongs to the worktree's persistent bisect log. Parsing only
     // command output loses the completed state on every refresh or app restart.
-    let result_hash = log.lines().rev().find_map(|line| {
-        let rest = line.trim().strip_prefix("# first bad commit: [")?;
-        let (hash, _) = rest.split_once(']')?;
-        Some(hash.to_string())
-    });
+    let result_hash = log.lines().rev().find_map(bisect_parse_result_line);
     let result_subject = result_hash.as_ref().and_then(|hash| {
         run_git(repo, &["log", "-1", "--format=%s", hash])
             .ok()
@@ -180,4 +188,26 @@ pub async fn git_bisect_reset(path: String) -> Result<(), String> {
         Ok(())
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bisect_parse_result_line;
+
+    #[test]
+    fn result_line_accepts_old_and_quoted_term_formats() {
+        assert_eq!(
+            bisect_parse_result_line("# first bad commit: [abc123] subject").as_deref(),
+            Some("abc123")
+        );
+        assert_eq!(
+            bisect_parse_result_line("# first 'bad' commit: [abc123] subject").as_deref(),
+            Some("abc123")
+        );
+        assert_eq!(bisect_parse_result_line("# bad: [abc123] subject"), None);
+        assert_eq!(
+            bisect_parse_result_line("# first 'new' commit: [abc123] subject"),
+            None
+        );
+    }
 }

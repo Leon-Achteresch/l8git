@@ -880,6 +880,8 @@ mod tests {
             git(&base, &["config", "user.email", "test@example.com"]);
             git(&base, &["config", "user.name", "Test"]);
             git(&base, &["config", "commit.gpgsign", "false"]);
+            // Windows runners default to core.autocrlf=true; the fixtures compare bytes.
+            git(&base, &["config", "core.autocrlf", "false"]);
             fs::write(base.join("f.txt"), "a\nb\nc\n").unwrap();
             git(&base, &["add", "."]);
             git(&base, &["commit", "-qm", "init"]);
@@ -987,6 +989,8 @@ mod tests {
         );
     }
 
+    // Windows forbids trailing spaces and `*` in file names.
+    #[cfg(not(windows))]
     #[tokio::test]
     async fn checked_commit_and_cleanup_preserve_trailing_spaces_in_worktree_paths() {
         let repo = TestRepo::with_names("base ", "session ");
@@ -1801,6 +1805,8 @@ mod tests {
         assert!(git(&repo.worktree, &["status", "--porcelain"]).is_empty());
     }
 
+    // Windows forbids trailing spaces and `*` in file names.
+    #[cfg(not(windows))]
     #[test]
     fn literal_review_paths_preserve_whitespace_and_do_not_expand_globs() {
         let repo = TestRepo::new();
