@@ -177,11 +177,10 @@ pub fn watch_repo(path: String) -> Result<(), String> {
 }
 
 pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
-    let trimmed = path.trim();
-    if trimmed.is_empty() {
+    if path.trim().is_empty() {
         return Err("Pfad darf nicht leer sein".into());
     }
-    let key = trimmed.to_string();
+    let key = path;
 
     {
         let reg = registry().lock().map_err(|e| e.to_string())?;
@@ -296,7 +295,7 @@ pub fn unwatch_repo(path: String) -> Result<(), String> {
 }
 
 pub(crate) fn unwatch_repo_inner(path: String) -> Result<(), String> {
-    let key = path.trim().to_string();
+    let key = path;
     if let Ok(mut reg) = registry().lock() {
         reg.remove(&key);
     }

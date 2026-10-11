@@ -9,16 +9,26 @@ const TARGETS = [
   { name: 'history', scene: 'performance-history', ready: page => page.locator('[data-commit-hash]').first(), anchor: page => page.locator('[data-commit-hash]').first() },
 ];
 
+const positiveInteger = (name, fallback) => {
+  const value = Number(process.env[name] ?? fallback);
+  if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
+  return value;
+};
+const runs = positiveInteger('SCROLL_BENCHMARK_RUNS', 3);
+const frameCount = positiveInteger('SCROLL_BENCHMARK_FRAMES', 240);
+const views = process.env.SCROLL_BENCHMARK_VIEWS?.split(',') ?? TARGETS.map(target => target.name);
+if (views.some(view => !TARGETS.some(target => target.name === view))) throw new Error('Unknown SCROLL_BENCHMARK_VIEWS');
+
 const server = await preview({ configFile: resolve('vite.ui-test.config.ts'), preview: { host: '127.0.0.1', port: 4176, strictPort: true } });
 const browser = await chromium.launch();
 const throttle = Number(process.env.SCROLL_BENCHMARK_THROTTLE ?? 4);
 // 0 = sweep the whole list in 120 frames (worst case). Set px/frame for a wheel-speed scroll.
 const pxPerFrame = Number(process.env.SCROLL_BENCHMARK_PX_PER_FRAME ?? 0);
-const result = { scope: `Chromium production renderer, 1000 changed files and 10000 commits, 240 scrolling frames per view, animations enabled, CPU throttled ${throttle}x, ${pxPerFrame > 0 ? pxPerFrame + ' px/frame' : 'full sweep'}; no native Tauri measurement.`, views: {} };
+const result = { scope: `Chromium production renderer, 1000 changed files and 10000 commits, ${frameCount} scrolling frames per view, ${runs} samples, animations enabled, CPU throttled ${throttle}x, ${pxPerFrame > 0 ? pxPerFrame + ' px/frame' : 'full sweep'}; no native Tauri measurement.`, views: {} };
 try {
-  for (const target of TARGETS) {
+  for (const target of TARGETS.filter(target => views.includes(target.name))) {
     const samples = [];
-    for (let run = 0; run < 3; run++) {
+    for (let run = 0; run < runs; run++) {
       const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'no-preference' });
       const page = await context.newPage();
       const errors = [];
@@ -29,7 +39,7 @@ try {
       await page.goto(`http://127.0.0.1:4176/?scene=${target.scene}`);
       await target.ready(page).waitFor();
       const before = await cdp.send('Performance.getMetrics');
-      const frames = await target.anchor(page).evaluate(async (root, pxPerFrame) => {
+      const frames = await target.anchor(page).evaluate(async (root, { pxPerFrame, frameCount }) => {
         const scrollable = node => node.scrollHeight > node.clientHeight + 100 && /auto|scroll/.test(getComputedStyle(node).overflowY);
         let scroller = [...root.querySelectorAll('*')].find(scrollable);
         for (let node = root; !scroller && node && node !== document.body; node = node.parentElement) {
@@ -52,21 +62,21 @@ try {
               const phase = (intervals.length % 120) / 120;
               scroller.scrollTop = max * (1 - Math.abs(phase * 2 - 1));
             }
-            if (intervals.length < 240) requestAnimationFrame(tick);
+            if (intervals.length < frameCount) requestAnimationFrame(tick);
             else resolve();
           };
           requestAnimationFrame(tick);
         });
         intervals.sort((a, b) => a - b);
         return { fps: 1000 / (intervals.reduce((sum, n) => sum + n, 0) / intervals.length), p95FrameMs: intervals[Math.floor(intervals.length * 0.95)], framesOver33Ms: intervals.filter(n => n > 33.4).length };
-      }, pxPerFrame);
+      }, { pxPerFrame, frameCount });
       const after = await cdp.send('Performance.getMetrics');
       const deltaMs = name => 1000 * (after.metrics.find(m => m.name === name).value - before.metrics.find(m => m.name === name).value);
       if (errors.length) throw new Error(errors.join('; '));
       samples.push({ ...frames, scriptMs: deltaMs('ScriptDuration'), layoutMs: deltaMs('LayoutDuration'), taskMs: deltaMs('TaskDuration') });
       await context.close();
     }
-    result.views[target.name] = { samples, metrics: Object.fromEntries(Object.keys(samples[0]).map(key => [key, samples.map(s => s[key]).sort((a, b) => a - b)[1]])) };
+    result.views[target.name] = { samples, metrics: Object.fromEntries(Object.keys(samples[0]).map(key => [key, samples.map(s => s[key]).sort((a, b) => a - b)[Math.floor(samples.length / 2)]])) };
   }
   if (process.env.SCROLL_BENCHMARK_OUT) await writeFile(process.env.SCROLL_BENCHMARK_OUT, JSON.stringify(result, null, 2) + '\n');
   console.log(JSON.stringify(result, null, 2));

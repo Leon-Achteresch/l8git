@@ -86,7 +86,10 @@ pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
     span.finish(output.status.success());
 
     if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+        return Err(merged_failure_message(
+            &String::from_utf8_lossy(&output.stdout),
+            &String::from_utf8_lossy(&output.stderr),
+        ));
     }
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
@@ -99,6 +102,9 @@ fn merged_failure_message(stdout: &str, stderr: &str) -> String {
         (true, true) => "git: command failed".into(),
     };
     let trimmed = msg.trim().to_string();
+    if trimmed.is_empty() {
+        return "git: command failed".into();
+    }
     if trimmed.contains("Your local changes to the following files would be overwritten")
         || trimmed.contains("would be overwritten by merge")
         || trimmed.contains("Please commit your changes or stash them before you")
@@ -324,7 +330,9 @@ fn kill_remote_op(op: &RemoteOp) {
 }
 
 #[cfg(windows)]
-fn create_remote_job(pid: u32) -> std::sync::Arc<std::sync::Mutex<Option<crate::pty::job::PtyJob>>> {
+fn create_remote_job(
+    pid: u32,
+) -> std::sync::Arc<std::sync::Mutex<Option<crate::pty::job::PtyJob>>> {
     let job = crate::pty::job::PtyJob::create_for(pid)
         .map_err(|error| log::warn!("remote git job-object setup failed for pid={pid}: {error}"))
         .ok();
@@ -354,9 +362,7 @@ fn run_git_streamed(
         cmd.process_group(0);
     }
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("failed to run git: {e}"))?;
+    let mut child = cmd.spawn().map_err(|e| format!("failed to run git: {e}"))?;
     let pid = child.id();
     #[cfg(windows)]
     let job = create_remote_job(pid);
@@ -553,7 +559,9 @@ fn tag_map_from_refs(tags: &[TagRef]) -> HashMap<String, Vec<String>> {
         if tag.commit.is_empty() || tag.name.is_empty() {
             continue;
         }
-        map.entry(tag.commit.clone()).or_default().push(tag.name.clone());
+        map.entry(tag.commit.clone())
+            .or_default()
+            .push(tag.name.clone());
     }
     for names in map.values_mut() {
         names.sort();
@@ -606,11 +614,7 @@ fn fetch_commits_raw(
     let sep = "\x1f";
     let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
     let max_count = format!("--max-count={limit}");
-    let mut args: Vec<String> = vec![
-        "log".into(),
-        "-z".into(),
-        max_count,
-    ];
+    let mut args: Vec<String> = vec!["log".into(), "-z".into(), max_count];
     if hide_t3_checkpoints {
         args.push("--exclude=refs/t3/*".into());
     }
@@ -667,7 +671,10 @@ mod search;
 pub use search::*;
 
 #[tauri::command]
-pub async fn open_repo(path: String, hide_t3_checkpoints: Option<bool>) -> Result<RepoInfo, String> {
+pub async fn open_repo(
+    path: String,
+    hide_t3_checkpoints: Option<bool>,
+) -> Result<RepoInfo, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
@@ -728,17 +735,17 @@ pub async fn open_repo(path: String, hide_t3_checkpoints: Option<bool>) -> Resul
             branches,
             tags,
         })
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn git_init_repo(path: String) -> Result<String, String> {
     spawn_git(move || {
-        let path = path.trim();
-        if path.is_empty() {
+        if path.trim().is_empty() {
             return Err("Pfad fehlt.".into());
         }
-        let repo = PathBuf::from(path);
+        let repo = PathBuf::from(&path);
         if repo.exists() {
             let meta = std::fs::metadata(&repo).map_err(|e| e.to_string())?;
             if !meta.is_dir() {
@@ -749,7 +756,8 @@ pub async fn git_init_repo(path: String) -> Result<String, String> {
         }
         run_git_merged_output(&repo, &["init"])?;
         Ok(repo.to_string_lossy().to_string())
-    }).await
+    })
+    .await
 }
 
 pub const TAG_KIND_LIGHTWEIGHT: &str = "lightweight";
@@ -792,7 +800,12 @@ pub fn parse_tag_refs(raw: &str) -> Vec<TagRef> {
         tags.push(TagRef {
             name: name.to_string(),
             commit: commit.to_string(),
-            kind: if signed { TAG_KIND_SIGNED } else { TAG_KIND_ANNOTATED }.to_string(),
+            kind: if signed {
+                TAG_KIND_SIGNED
+            } else {
+                TAG_KIND_ANNOTATED
+            }
+            .to_string(),
             message: (!message.is_empty()).then_some(message),
             tagger: (!tagger.is_empty()).then(|| tagger.to_string()),
         });
@@ -822,7 +835,10 @@ fn tag_refs(repo: &PathBuf) -> Vec<TagRef> {
         s = TAG_FIELD_SEP,
         r = TAG_RECORD_SEP
     );
-    let Ok(out) = run_git(repo, &["for-each-ref", "refs/tags", &format!("--format={format}")]) else {
+    let Ok(out) = run_git(
+        repo,
+        &["for-each-ref", "refs/tags", &format!("--format={format}")],
+    ) else {
         return Vec::new();
     };
     parse_tag_refs(&out)
@@ -843,19 +859,92 @@ pub async fn repo_log_page(
         let capped = limit.clamp(1, 500);
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
         fetch_commits(&repo, skip, capped, &tag_map, hide_t3)
-    }).await
+    })
+    .await
 }
 
 mod history;
 pub use history::*;
+mod coordination;
+pub(crate) use coordination::repo_coordination_mutex;
+mod commit_split;
+pub use commit_split::*;
 
 pub const DEFAULT_REMOTE: &str = "origin";
 
 fn reject_dash_arg(value: &str, label: &str) -> Result<(), String> {
     if value.starts_with('-') {
-        return Err(format!("Ungültiger {label}: Werte mit führendem '-' sind nicht erlaubt ({value})"));
+        return Err(format!(
+            "Ungültiger {label}: Werte mit führendem '-' sind nicht erlaubt ({value})"
+        ));
     }
     Ok(())
+}
+
+pub(crate) fn resolve_git_commit(repo: &PathBuf, rev: &str) -> Result<String, String> {
+    let rev = rev.trim();
+    if rev.is_empty() || rev.starts_with('-') || rev.chars().any(char::is_control) {
+        return Err(format!("Invalid commit revision: {rev}"));
+    }
+    run_git(
+        repo,
+        &[
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+            &format!("{rev}^{{commit}}"),
+        ],
+    )
+    .map(|hash| hash.trim().to_string())
+}
+
+pub(crate) fn repo_mutation_mutex(
+    repo: &PathBuf,
+) -> Result<std::sync::Arc<std::sync::Mutex<()>>, String> {
+    static LOCKS: std::sync::OnceLock<
+        std::sync::Mutex<HashMap<PathBuf, std::sync::Weak<std::sync::Mutex<()>>>>,
+    > = std::sync::OnceLock::new();
+    let directory = run_git(repo, &["rev-parse", "--absolute-git-dir"])?;
+    let key = PathBuf::from(directory.strip_suffix('\n').unwrap_or(&directory))
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let mut locks = LOCKS
+        .get_or_init(Default::default)
+        .lock()
+        .map_err(|e| e.to_string())?;
+    locks.retain(|_, weak| weak.strong_count() > 0);
+    if let Some(lock) = locks.get(&key).and_then(std::sync::Weak::upgrade) {
+        return Ok(lock);
+    }
+    let lock = std::sync::Arc::new(std::sync::Mutex::new(()));
+    locks.insert(key, std::sync::Arc::downgrade(&lock));
+    Ok(lock)
+}
+
+fn verify_expected_head(repo: &PathBuf, expected: Option<&str>) -> Result<(), String> {
+    if let Some(expected) = expected {
+        let actual =
+            resolve_git_commit(repo, "HEAD").map_err(|_| "__HEAD_CHANGED__".to_string())?;
+        if expected.trim() != actual {
+            return Err("__HEAD_CHANGED__".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_branch_name(repo: &PathBuf, name: &str) -> Result<(), String> {
+    reject_dash_arg(name, "Branch-Name")?;
+    // Reject revision shorthand: check-ref-format --branch expands @{-1},
+    // while branch creation expects the literal name entered by the user.
+    if name == "HEAD" || name.starts_with("@{") {
+        return Err(format!("Invalid branch name: {name}"));
+    }
+    run_git(repo, &["check-ref-format", "--branch", name]).map(|_| ())
+}
+
+#[tauri::command]
+pub async fn git_resolve_commit(path: String, rev: String) -> Result<String, String> {
+    spawn_git(move || resolve_git_commit(&PathBuf::from(&path), &rev)).await
 }
 
 fn normalized_remote(repo: &PathBuf, remote: Option<&str>) -> Result<Option<String>, String> {
@@ -891,7 +980,10 @@ fn resolve_push_remote(repo: &PathBuf) -> String {
         .map(|s| s.trim().to_string())
         .unwrap_or_default();
     if !branch.is_empty() {
-        if let Ok(out) = run_git(repo, &["config", "--get", &format!("branch.{branch}.remote")]) {
+        if let Ok(out) = run_git(
+            repo,
+            &["config", "--get", &format!("branch.{branch}.remote")],
+        ) {
             let out = out.trim().to_string();
             if !out.is_empty() {
                 return out;
@@ -914,7 +1006,7 @@ fn resolve_push_remote(repo: &PathBuf) -> String {
 #[tauri::command]
 pub async fn branch_push_remote(path: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         Ok(resolve_push_remote(&repo))
     })
     .await
@@ -930,7 +1022,7 @@ pub async fn git_fetch(
     op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let prune_branches = prune_branches.unwrap_or(true);
         let prune_tags = prune_tags.unwrap_or(false);
         let mut args: Vec<String> = vec!["fetch".to_string()];
@@ -948,13 +1040,18 @@ pub async fn git_fetch(
         }
         let repo_path = repo.to_string_lossy().to_string();
         run_remote_op("fetch", &repo_path, Some(&repo), args, op_id)
-    }).await
+    })
+    .await
 }
 
-fn dirty_tracked_files(repo: &PathBuf) -> Vec<String> {
-    let out = run_git(repo, &["status", "--porcelain=v1", "--untracked-files=no"]).unwrap_or_default();
+pub(crate) fn dirty_tracked_files(repo: &PathBuf) -> Result<Vec<String>, String> {
+    let out = run_git(
+        repo,
+        &["status", "--porcelain=v1", "-z", "--untracked-files=no"],
+    )?;
     let mut files: Vec<String> = Vec::new();
-    for line in out.lines() {
+    let mut records = out.split_terminator('\0');
+    while let Some(line) = records.next() {
         if line.len() < 3 {
             continue;
         }
@@ -963,12 +1060,16 @@ fn dirty_tracked_files(repo: &PathBuf) -> Vec<String> {
         if xy == "??" || xy == "!!" {
             continue;
         }
-        let name = rest.split(" -> ").last().unwrap_or(rest).trim().to_string();
-        if !name.is_empty() {
-            files.push(name);
+        if !rest.is_empty() {
+            files.push(rest.to_string());
+        }
+        // In -z format a rename/copy is destination followed by source. The
+        // source record has no XY prefix and must not be interpreted as a file.
+        if xy.contains('R') || xy.contains('C') {
+            records.next();
         }
     }
-    files
+    Ok(files)
 }
 
 #[tauri::command]
@@ -979,10 +1080,10 @@ pub async fn git_pull(
     op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let autostash = strategy.as_deref() == Some("autostash");
         if !autostash {
-            let dirty = dirty_tracked_files(&repo);
+            let dirty = dirty_tracked_files(&repo)?;
             if !dirty.is_empty() {
                 return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
             }
@@ -1009,7 +1110,8 @@ pub async fn git_pull(
         }
         let repo_path = repo.to_string_lossy().to_string();
         run_remote_op("pull", &repo_path, Some(&repo), args, op_id)
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1025,7 +1127,7 @@ pub async fn git_push(
     op_id: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
 
         let mut args: Vec<String> = vec!["push".to_string()];
 
@@ -1073,13 +1175,14 @@ pub async fn git_push(
 
         let repo_path = repo.to_string_lossy().to_string();
         run_remote_op("push", &repo_path, Some(&repo), args, op_id)
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn list_git_remotes(path: String) -> Result<Vec<GitRemote>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let out = run_git(&repo, &["remote", "-v"])?;
         // `git remote -v` emits two lines per remote:
         //   origin\tgit@host:user/repo.git (fetch)
@@ -1111,13 +1214,14 @@ pub async fn list_git_remotes(path: String) -> Result<Vec<GitRemote>, String> {
             });
         }
         Ok(remotes)
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn set_git_remote_url(path: String, name: String, url: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let n = name.trim();
         let u = url.trim();
         if n.is_empty() {
@@ -1127,13 +1231,14 @@ pub async fn set_git_remote_url(path: String, name: String, url: String) -> Resu
             return Err("Remote-URL darf nicht leer sein".into());
         }
         run_git_merged_output(&repo, &["remote", "set-url", n, u])
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn add_git_remote(path: String, name: String, url: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let n = name.trim();
         let u = url.trim();
         if n.is_empty() {
@@ -1143,43 +1248,48 @@ pub async fn add_git_remote(path: String, name: String, url: String) -> Result<S
             return Err("Remote-URL darf nicht leer sein".into());
         }
         run_git_merged_output(&repo, &["remote", "add", n, u])
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn branch_has_upstream(path: String) -> Result<bool, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         Ok(compute_has_upstream(&repo))
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn repo_upstream_sync_counts(path: String) -> Result<UpstreamSyncCounts, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         Ok(compute_upstream_sync(&repo))
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn git_clone(
-    url: String,
-    dest: String,
-    op_id: Option<String>,
-) -> Result<String, String> {
+pub async fn git_clone(url: String, dest: String, op_id: Option<String>) -> Result<String, String> {
     spawn_git(move || {
         let u = url.trim();
-        let d = dest.trim();
+        let d = dest.as_str();
         if u.is_empty() {
             return Err("Clone-URL darf nicht leer sein".into());
         }
-        if d.is_empty() {
+        if d.trim().is_empty() {
             return Err("Zielpfad darf nicht leer sein".into());
         }
-        let args = vec!["clone".to_string(), "--".to_string(), u.to_string(), d.to_string()];
+        let args = vec![
+            "clone".to_string(),
+            "--".to_string(),
+            u.to_string(),
+            d.to_string(),
+        ];
         run_remote_op("clone", d, None, args, op_id)
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1191,27 +1301,28 @@ pub async fn git_checkout(
     base: Option<String>,
 ) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
+        let coordination = repo_coordination_mutex(&repo)?;
+        let _coordination = coordination.lock().map_err(|error| error.to_string())?;
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|error| error.to_string())?;
         let name = ref_name.trim();
         if name.is_empty() {
             return Err("Branch- oder Ref-Name darf nicht leer sein".into());
         }
         reject_dash_arg(name, "Branch- oder Ref-Name")?;
         if let Some(remote) = from_remote.filter(|s| !s.trim().is_empty()) {
+            validate_branch_name(&repo, name)?;
             let r = remote.trim();
             reject_dash_arg(r, "Remote-Tracking-Ref")?;
-            run_git(
-                &repo,
-                &["checkout", "-b", name, "--track", r],
-            )?;
+            run_git(&repo, &["checkout", "-b", name, "--track", r])?;
             return Ok(());
         }
         if create {
+            validate_branch_name(&repo, name)?;
             let mut args: Vec<String> = vec!["checkout".into(), "-b".into(), name.to_string()];
             if let Some(b) = base.filter(|s| !s.trim().is_empty()) {
-                let b = b.trim().to_string();
-                reject_dash_arg(&b, "Basis-Ref")?;
-                args.push(b);
+                args.push(resolve_git_commit(&repo, &b)?);
             }
             let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
             run_git(&repo, &refs)?;
@@ -1219,7 +1330,8 @@ pub async fn git_checkout(
         }
         run_git(&repo, &["checkout", name, "--"])?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1230,28 +1342,38 @@ pub async fn git_create_branch(
     checkout: bool,
 ) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
+        let coordination = repo_coordination_mutex(&repo)?;
+        let _coordination = coordination.lock().map_err(|error| error.to_string())?;
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|error| error.to_string())?;
         let n = name.trim();
         if n.is_empty() {
             return Err("Branch-Name darf nicht leer sein".into());
         }
+        validate_branch_name(&repo, n)?;
+        let base = base
+            .filter(|s| !s.trim().is_empty())
+            .map(|value| resolve_git_commit(&repo, &value))
+            .transpose()?;
         if checkout {
             let mut args: Vec<String> = vec!["checkout".into(), "-b".into(), n.to_string()];
-            if let Some(b) = base.filter(|s| !s.trim().is_empty()) {
-                args.push(b.trim().to_string());
+            if let Some(b) = base {
+                args.push(b);
             }
             let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
             run_git(&repo, &refs)?;
             return Ok(());
         }
         let mut args: Vec<String> = vec!["branch".into(), n.to_string()];
-        if let Some(b) = base.filter(|s| !s.trim().is_empty()) {
-            args.push(b.trim().to_string());
+        if let Some(b) = base {
+            args.push(b);
         }
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         run_git(&repo, &refs)?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1260,15 +1382,29 @@ pub async fn git_merge(
     branch: String,
     strategy: Option<String>,
     message: Option<String>,
+    expected_branch: Option<String>,
+    expected_head: Option<String>,
+    expected_source_head: Option<String>,
 ) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
         let b = branch.trim();
         if b.is_empty() {
             return Err("Branch-Name darf nicht leer sein".into());
         }
+        reject_dash_arg(b, "Merge-Ref")?;
+        verify_expected_branch(&repo, expected_branch.as_deref())?;
+        verify_expected_head(&repo, expected_head.as_deref())?;
+        let source = resolve_git_commit(&repo, b)?;
+        if let Some(expected) = expected_source_head.as_deref() {
+            if expected.trim() != source {
+                return Err("__SOURCE_CHANGED__".into());
+            }
+        }
 
-        let dirty = dirty_tracked_files(&repo);
+        let dirty = dirty_tracked_files(&repo)?;
         if !dirty.is_empty() {
             return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
         }
@@ -1286,27 +1422,33 @@ pub async fn git_merge(
 
         match strat.as_str() {
             "ff" => {
-                let mut args: Vec<String> = vec!["merge".into(), "--ff".into()];
-                if let Some(msg) = trimmed_msg.as_ref() {
-                    args.push("-m".into());
-                    args.push(msg.clone());
-                }
-                args.push(b.to_string());
+                let current = current_branch_name(&repo).unwrap_or_default();
+                let msg = trimmed_msg.unwrap_or_else(|| default_merge_message(b, &current));
+                let args: Vec<String> = vec![
+                    "merge".into(),
+                    "--ff".into(),
+                    "--no-edit".into(),
+                    "-m".into(),
+                    msg,
+                    source,
+                ];
                 let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
                 run_git_merged_output(&repo, &refs)
             }
-            "ff-only" => run_git_merged_output(&repo, &["merge", "--ff-only", b]),
+            "ff-only" => run_git_merged_output(&repo, &["merge", "--ff-only", &source]),
             "no-ff" => {
                 let current = current_branch_name(&repo).unwrap_or_default();
                 let msg = trimmed_msg.unwrap_or_else(|| default_merge_message(b, &current));
                 run_git_merged_output(
                     &repo,
-                    &["merge", "--no-ff", "--no-edit", "-m", msg.as_str(), b],
+                    &["merge", "--no-ff", "--no-edit", "-m", msg.as_str(), &source],
                 )
             }
             "squash" => {
                 let current = current_branch_name(&repo).unwrap_or_default();
-                let squash_out = run_git_merged_output(&repo, &["merge", "--squash", b])?;
+                let squash_out = run_git_merged_output(&repo, &["merge", "--squash", &source])?;
+                verify_expected_branch(&repo, expected_branch.as_deref())?;
+                verify_expected_head(&repo, expected_head.as_deref())?;
                 let msg = trimmed_msg.unwrap_or_else(|| default_squash_message(b, &current));
                 let commit_out = run_git_merged_output(&repo, &["commit", "-m", msg.as_str()])?;
                 let combined = match (squash_out.is_empty(), commit_out.is_empty()) {
@@ -1319,7 +1461,8 @@ pub async fn git_merge(
             }
             other => Err(format!("Unbekannte Merge-Strategie: {other}")),
         }
-    }).await
+    })
+    .await
 }
 
 fn current_branch_name(repo: &PathBuf) -> Option<String> {
@@ -1327,6 +1470,15 @@ fn current_branch_name(repo: &PathBuf) -> Option<String> {
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty() && s != "HEAD")
+}
+
+fn verify_expected_branch(repo: &PathBuf, expected: Option<&str>) -> Result<(), String> {
+    if let Some(expected) = expected {
+        if current_branch_name(repo).as_deref() != Some(expected.trim()) {
+            return Err("__BRANCH_CHANGED__".into());
+        }
+    }
+    Ok(())
 }
 
 fn default_merge_message(source: &str, target: &str) -> String {
@@ -1352,11 +1504,12 @@ pub async fn git_revert_commit(
     merge_mainline: Option<u8>,
 ) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let c = commit.trim();
         if c.is_empty() {
             return Err("Commit-Hash darf nicht leer sein".into());
         }
+        let c = resolve_git_commit(&repo, c)?;
         let mut parts: Vec<String> = vec!["revert".into(), "--no-edit".into()];
         if let Some(m) = merge_mainline {
             if m < 1 {
@@ -1365,10 +1518,11 @@ pub async fn git_revert_commit(
             parts.push("-m".into());
             parts.push(m.to_string());
         }
-        parts.push(c.to_string());
+        parts.push(c);
         let args: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         run_git_merged_output(&repo, &args)
-    }).await
+    })
+    .await
 }
 
 #[derive(Serialize)]
@@ -1378,6 +1532,16 @@ pub struct CherryPickState {
     pub conflicted_paths: Vec<String>,
 }
 
+pub(crate) fn repo_conflicted_paths(repo: &PathBuf) -> Result<Vec<String>, String> {
+    Ok(
+        run_git(repo, &["diff", "--name-only", "--diff-filter=U", "-z"])?
+            .split_terminator('\0')
+            .filter(|path| !path.is_empty())
+            .map(str::to_string)
+            .collect(),
+    )
+}
+
 #[tauri::command]
 pub async fn git_cherry_pick(
     path: String,
@@ -1385,7 +1549,7 @@ pub async fn git_cherry_pick(
     mainline: Option<u8>,
 ) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let cleaned: Vec<String> = commits
             .iter()
             .map(|c| c.trim().to_string())
@@ -1403,46 +1567,50 @@ pub async fn git_cherry_pick(
             parts.push(m.to_string());
         }
         for c in &cleaned {
-            parts.push(c.clone());
+            parts.push(resolve_git_commit(&repo, c)?);
         }
         let args: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         run_git_merged_output(&repo, &args)
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn git_cherry_pick_continue(path: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         run_git_merged_output(
             &repo,
             &["-c", "core.editor=true", "cherry-pick", "--continue"],
         )
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn git_cherry_pick_skip(path: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         run_git_merged_output(&repo, &["cherry-pick", "--skip"])
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn git_cherry_pick_abort(path: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         run_git_merged_output(&repo, &["cherry-pick", "--abort"])
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn cherry_pick_state(path: String) -> Result<CherryPickState, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let head_path_raw = run_git(&repo, &["rev-parse", "--git-path", "CHERRY_PICK_HEAD"])?;
-        let head_path = head_path_raw.trim();
+        let head_path = head_path_raw.strip_suffix('\n').unwrap_or(&head_path_raw);
         let abs_head = if std::path::Path::new(head_path).is_absolute() {
             PathBuf::from(head_path)
         } else {
@@ -1454,11 +1622,7 @@ pub async fn cherry_pick_state(path: String) -> Result<CherryPickState, String> 
             .filter(|s| !s.is_empty());
         let in_progress = head.is_some();
         let conflicted_paths = if in_progress {
-            let out = run_git(&repo, &["diff", "--name-only", "--diff-filter=U"]).unwrap_or_default();
-            out.lines()
-                .map(|l| l.trim().to_string())
-                .filter(|l| !l.is_empty())
-                .collect()
+            repo_conflicted_paths(&repo)?
         } else {
             Vec::new()
         };
@@ -1467,7 +1631,8 @@ pub async fn cherry_pick_state(path: String) -> Result<CherryPickState, String> 
             head,
             conflicted_paths,
         })
-    }).await
+    })
+    .await
 }
 
 #[derive(serde::Serialize)]
@@ -1480,9 +1645,9 @@ pub struct MergeState {
 #[tauri::command]
 pub async fn merge_state(path: String) -> Result<MergeState, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let head_path_raw = run_git(&repo, &["rev-parse", "--git-path", "MERGE_HEAD"])?;
-        let head_path = head_path_raw.trim();
+        let head_path = head_path_raw.strip_suffix('\n').unwrap_or(&head_path_raw);
         let abs_head = if std::path::Path::new(head_path).is_absolute() {
             PathBuf::from(head_path)
         } else {
@@ -1494,11 +1659,7 @@ pub async fn merge_state(path: String) -> Result<MergeState, String> {
             .filter(|s| !s.is_empty());
         let in_progress = merge_head.is_some();
         let conflicted_paths = if in_progress {
-            let out = run_git(&repo, &["diff", "--name-only", "--diff-filter=U"]).unwrap_or_default();
-            out.lines()
-                .map(|l| l.trim().to_string())
-                .filter(|l| !l.is_empty())
-                .collect()
+            repo_conflicted_paths(&repo)?
         } else {
             Vec::new()
         };
@@ -1507,15 +1668,17 @@ pub async fn merge_state(path: String) -> Result<MergeState, String> {
             merge_head,
             conflicted_paths,
         })
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn git_merge_abort(path: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         run_git_merged_output(&repo, &["merge", "--abort"])
-    }).await
+    })
+    .await
 }
 
 #[derive(serde::Serialize)]
@@ -1526,19 +1689,107 @@ pub struct ConflictVersions {
     pub current: String,
 }
 
+pub(crate) struct WorktreePathGuard {
+    root: PathBuf,
+    cwd: PathBuf,
+}
+
+fn is_git_metadata_path(path: &Path) -> bool {
+    path.components().any(|component| {
+        component
+            .as_os_str()
+            .to_str()
+            .is_some_and(|name| name.eq_ignore_ascii_case(".git"))
+    })
+}
+
+impl WorktreePathGuard {
+    pub(crate) fn new(repo: &PathBuf) -> Result<Self, String> {
+        let root = run_git(repo, &["rev-parse", "--show-toplevel"])?;
+        let root = root.strip_suffix('\n').unwrap_or(&root);
+        #[cfg(windows)]
+        let root = root.strip_suffix('\r').unwrap_or(root);
+        let root = PathBuf::from(root)
+            .canonicalize()
+            .map_err(|e| e.to_string())?;
+        let cwd = repo.canonicalize().map_err(|e| e.to_string())?;
+        if !cwd.starts_with(&root) {
+            return Err("__INVALID_WORKTREE_PATH__".into());
+        }
+        Ok(Self { root, cwd })
+    }
+
+    pub(crate) fn path(&self, file: &str) -> Result<PathBuf, String> {
+        use std::path::Component;
+        let relative = Path::new(file);
+        let invalid = || format!("__INVALID_WORKTREE_PATH__|{file}");
+        if file.is_empty()
+            || file.contains('\0')
+            || is_git_metadata_path(relative)
+            || !relative
+                .components()
+                .any(|part| matches!(part, Component::Normal(_)))
+            || relative.components().any(|part| {
+                matches!(
+                    part,
+                    Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                )
+            })
+        {
+            return Err(invalid());
+        }
+        let absolute = self.cwd.join(relative);
+        // Check the closest existing parent, including symlinks. A missing
+        // conflict file is valid, but its ancestors must stay in this worktree.
+        let mut ancestor = absolute.parent().ok_or_else(invalid)?;
+        loop {
+            match ancestor.canonicalize() {
+                Ok(real) => {
+                    let inside = real.strip_prefix(&self.root).map_err(|_| invalid())?;
+                    if is_git_metadata_path(inside) {
+                        return Err(invalid());
+                    }
+                    break;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    ancestor = ancestor.parent().ok_or_else(invalid)?;
+                }
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+        Ok(absolute)
+    }
+
+    pub(crate) fn regular_file(&self, file: &str) -> Result<PathBuf, String> {
+        let absolute = self.path(file)?;
+        match std::fs::symlink_metadata(&absolute) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(format!("__INVALID_WORKTREE_PATH__|{file}"));
+            }
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                return Err(error.to_string())
+            }
+            _ => {}
+        }
+        Ok(absolute)
+    }
+}
+
 #[tauri::command]
-pub async fn git_get_conflict_versions(path: String, file: String) -> Result<ConflictVersions, String> {
+pub async fn git_get_conflict_versions(
+    path: String,
+    file: String,
+) -> Result<ConflictVersions, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
-        let f = file.trim();
+        let repo = PathBuf::from(&path);
+        let f = file.as_str();
+        let absolute = WorktreePathGuard::new(&repo)?.regular_file(f)?;
 
         let stage = |n: &str| -> String {
-            run_git(&repo, &["show", &format!(":{n}:{f}")])
-                .unwrap_or_default()
+            run_git(&repo, &["show", &format!(":{n}:{f}")]).unwrap_or_default()
         };
 
-        let current = std::fs::read_to_string(repo.join(f))
-            .unwrap_or_default();
+        let current = std::fs::read_to_string(absolute).unwrap_or_default();
 
         Ok(ConflictVersions {
             base: stage("1"),
@@ -1546,27 +1797,37 @@ pub async fn git_get_conflict_versions(path: String, file: String) -> Result<Con
             theirs: stage("3"),
             current,
         })
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn git_save_resolved_file(path: String, file: String, content: String) -> Result<(), String> {
+pub async fn git_save_resolved_file(
+    path: String,
+    file: String,
+    content: String,
+) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
-        let f = file.trim();
-        std::fs::write(repo.join(f), content)
+        let repo = PathBuf::from(&path);
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
+        let f = file.as_str();
+        let absolute = WorktreePathGuard::new(&repo)?.regular_file(f)?;
+        std::fs::write(absolute, content)
             .map_err(|e| format!("Fehler beim Schreiben der Datei: {e}"))?;
-        run_git_merged_output(&repo, &["add", f])?;
+        run_git_merged_output(&repo, &["--literal-pathspecs", "add", "--", f])?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn git_merge_commit(path: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         run_git_merged_output(&repo, &["commit", "--no-edit"])
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1579,15 +1840,18 @@ pub async fn git_tag_commit(
     sign: Option<bool>,
 ) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let tag = name.trim();
         if tag.is_empty() {
             return Err("Tag-Name darf nicht leer sein".into());
         }
+        reject_dash_arg(tag, "Tag-Name")?;
+        run_git(&repo, &["check-ref-format", &format!("refs/tags/{tag}")])?;
         let c = commit.trim();
         if c.is_empty() {
             return Err("Commit-Hash darf nicht leer sein".into());
         }
+        let c = resolve_git_commit(&repo, c)?;
         let sign = sign.unwrap_or(false);
         let annotated = sign || annotated.unwrap_or(false);
         let msg = message.unwrap_or_default().trim().to_string();
@@ -1606,11 +1870,12 @@ pub async fn git_tag_commit(
             parts.push(msg);
         }
         parts.push(tag.to_string());
-        parts.push(c.to_string());
+        parts.push(c);
         let args: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         run_git(&repo, &args)?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1618,38 +1883,91 @@ pub async fn git_discard_files(
     path: String,
     files: Vec<String>,
     untracked: Vec<bool>,
+    expected_fingerprints: Option<Vec<String>>,
 ) -> Result<(), String> {
     spawn_git(move || {
-        if files.len() != untracked.len() {
-            return Err("untracked muss dieselbe Länge wie files haben".into());
+        discard_files_impl(
+            &PathBuf::from(&path),
+            &files,
+            &untracked,
+            true,
+            expected_fingerprints.as_deref(),
+        )
+    })
+    .await
+}
+
+fn discard_files_impl(
+    repo: &PathBuf,
+    files: &[String],
+    untracked: &[bool],
+    from_head: bool,
+    expected_fingerprints: Option<&[String]>,
+) -> Result<(), String> {
+    if files.len() != untracked.len() {
+        return Err("untracked muss dieselbe Länge wie files haben".into());
+    }
+    let lock = repo_mutation_mutex(repo)?;
+    let _guard = lock.lock().map_err(|e| e.to_string())?;
+    let guard = WorktreePathGuard::new(repo)?;
+    if let Some(expected) = expected_fingerprints {
+        if expected.len() != files.len() {
+            return Err("expected_fingerprints must contain one token for every file".into());
         }
-        let repo = PathBuf::from(path.trim());
-        let mut tracked: Vec<&str> = Vec::new();
-        for (f, is_untracked) in files.iter().zip(untracked.iter()) {
-            let p = f.trim();
-            if p.is_empty() {
-                continue;
+        // Check the entire reviewed batch before the first destructive action.
+        for (file, expected) in files.iter().zip(expected) {
+            if file_snapshot::fingerprint(repo, file)? != *expected {
+                return Err(format!("__FILE_CHANGED__|{file}"));
             }
-            if *is_untracked {
-                let abs = repo.join(p);
-                if abs.is_dir() {
-                    std::fs::remove_dir_all(&abs)
-                        .map_err(|e| format!("Ordner konnte nicht entfernt werden: {e}"))?;
-                } else if abs.exists() {
-                    std::fs::remove_file(&abs)
-                        .map_err(|e| format!("Datei konnte nicht entfernt werden: {e}"))?;
-                }
-            } else {
-                tracked.push(f.as_str());
+        }
+    }
+    let mut tracked = Vec::new();
+    let mut to_clean = Vec::new();
+    // Validate every target before restoring or deleting any of them. Never
+    // trust a stale frontend flag to classify an indexed file as untracked.
+    for (file, is_untracked) in files.iter().zip(untracked) {
+        if file.is_empty() {
+            continue;
+        }
+        guard.path(file)?;
+        if *is_untracked {
+            if !run_git(
+                repo,
+                &[
+                    "--literal-pathspecs",
+                    "ls-files",
+                    "--cached",
+                    "-z",
+                    "--",
+                    file,
+                ],
+            )?
+            .is_empty()
+            {
+                return Err(format!("__DISCARD_TRACKED_AS_UNTRACKED__|{file}"));
             }
+            to_clean.push(file.as_str());
+        } else {
+            tracked.push(file.as_str());
         }
-        if !tracked.is_empty() {
-            let mut args: Vec<&str> = vec!["restore", "--source=HEAD", "--staged", "--worktree", "--"];
-            args.extend(tracked.iter().copied());
-            run_git(&repo, &args)?;
+    }
+    if !tracked.is_empty() {
+        let mut args = vec!["--literal-pathspecs", "restore"];
+        if from_head {
+            args.extend(["--source=HEAD", "--staged"]);
         }
-        Ok(())
-    }).await
+        args.extend(["--worktree", "--"]);
+        args.extend(tracked);
+        run_git(repo, &args)?;
+    }
+    if !to_clean.is_empty() {
+        // Git clean protects ignored files and embedded repositories, and
+        // unlinks a symlink instead of following it during recursive removal.
+        let mut args = vec!["--literal-pathspecs", "clean", "-f", "-d", "--"];
+        args.extend(to_clean);
+        run_git(repo, &args)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1657,38 +1975,18 @@ pub async fn git_discard_worktree_changes(
     path: String,
     files: Vec<String>,
     untracked: Vec<bool>,
+    expected_fingerprints: Option<Vec<String>>,
 ) -> Result<(), String> {
     spawn_git(move || {
-        if files.len() != untracked.len() {
-            return Err("untracked muss dieselbe Länge wie files haben".into());
-        }
-        let repo = PathBuf::from(path.trim());
-        let mut tracked: Vec<&str> = Vec::new();
-        for (f, is_untracked) in files.iter().zip(untracked.iter()) {
-            let p = f.trim();
-            if p.is_empty() {
-                continue;
-            }
-            if *is_untracked {
-                let abs = repo.join(p);
-                if abs.is_dir() {
-                    std::fs::remove_dir_all(&abs)
-                        .map_err(|e| format!("Ordner konnte nicht entfernt werden: {e}"))?;
-                } else if abs.exists() {
-                    std::fs::remove_file(&abs)
-                        .map_err(|e| format!("Datei konnte nicht entfernt werden: {e}"))?;
-                }
-            } else {
-                tracked.push(f.as_str());
-            }
-        }
-        if !tracked.is_empty() {
-            let mut args: Vec<&str> = vec!["restore", "--worktree", "--"];
-            args.extend(tracked.iter().copied());
-            run_git(&repo, &args)?;
-        }
-        Ok(())
-    }).await
+        discard_files_impl(
+            &PathBuf::from(&path),
+            &files,
+            &untracked,
+            false,
+            expected_fingerprints.as_deref(),
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1698,30 +1996,52 @@ pub async fn git_restore_files_at_commit(
     files: Vec<String>,
 ) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
-        let c = commit.trim();
-        if c.is_empty() {
+        let repo = PathBuf::from(&path);
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
+        if commit.trim().is_empty() {
             return Err("Commit-Hash darf nicht leer sein".into());
         }
-        let clean: Vec<&str> = files
-            .iter()
-            .map(|f| f.as_str())
-            .filter(|f| !f.trim().is_empty())
-            .collect();
-        if clean.is_empty() {
+        let commit = file_reads::commit_revision(&repo, &commit)?;
+        if files.is_empty() {
             return Ok(());
         }
-        let mut args = vec!["checkout", c, "--"];
-        args.extend(clean.iter().copied());
+        let guard = WorktreePathGuard::new(&repo)?;
+        // Validate the complete batch before checkout updates either the index
+        // or the working tree. Leaf links are safe: Git replaces the link itself.
+        for file in &files {
+            let absolute = guard.path(file)?;
+            for parent in absolute.ancestors().skip(1) {
+                if parent == guard.root {
+                    break;
+                }
+                match std::fs::symlink_metadata(parent) {
+                    Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                        return Err(format!("__INVALID_WORKTREE_PATH__|{file}"));
+                    }
+                    Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                        return Err(error.to_string())
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let mut args = vec!["--literal-pathspecs", "checkout", &commit, "--"];
+        args.extend(files.iter().map(String::as_str));
         run_git(&repo, &args)?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn delete_branch(path: String, name: String, force: bool) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
+        let coordination = repo_coordination_mutex(&repo)?;
+        let _coordination = coordination.lock().map_err(|error| error.to_string())?;
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|error| error.to_string())?;
         let n = name.trim();
         if n.is_empty() {
             return Err("Branch-Name darf nicht leer sein".into());
@@ -1729,17 +2049,18 @@ pub async fn delete_branch(path: String, name: String, force: bool) -> Result<()
         let flag = if force { "-D" } else { "-d" };
         run_git(&repo, &["branch", flag, "--", n])?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn delete_remote_branch(path: String, remote_ref: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let s = remote_ref.trim();
-        let slash = s.find('/').ok_or_else(|| {
-            "Ungültige Remote-Ref (erwartet z. B. origin/zweig)".to_string()
-        })?;
+        let slash = s
+            .find('/')
+            .ok_or_else(|| "Ungültige Remote-Ref (erwartet z. B. origin/zweig)".to_string())?;
         let remote = s[..slash].trim();
         let branch = s[slash + 1..].trim();
         if remote.is_empty() || branch.is_empty() {
@@ -1751,26 +2072,32 @@ pub async fn delete_remote_branch(path: String, remote_ref: String) -> Result<St
         let out = run_git_merged_output(&repo, &["push", &remote, "--delete", "--", branch])?;
         let _ = run_git_merged_output(&repo, &["fetch", "--prune", "--", &remote]);
         Ok(out)
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn delete_tag(path: String, name: String) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let tag = name.trim();
         if tag.is_empty() {
             return Err("Tag-Name darf nicht leer sein".into());
         }
         run_git(&repo, &["tag", "-d", "--", tag])?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn delete_remote_tag(path: String, name: String, remote: String) -> Result<String, String> {
+pub async fn delete_remote_tag(
+    path: String,
+    name: String,
+    remote: String,
+) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let tag = name.trim();
         let r = remote.trim();
         if tag.is_empty() {
@@ -1782,10 +2109,14 @@ pub async fn delete_remote_tag(path: String, name: String, remote: String) -> Re
         let r = normalized_remote(&repo, Some(r))?
             .ok_or_else(|| "Remote darf nicht leer sein".to_string())?;
         reject_dash_arg(tag, "Tag-Name")?;
-        let out = run_git_merged_output(&repo, &["push", &r, "--delete", "--", &format!("refs/tags/{tag}")])?;
+        let out = run_git_merged_output(
+            &repo,
+            &["push", &r, "--delete", "--", &format!("refs/tags/{tag}")],
+        )?;
         let _ = run_git_merged_output(&repo, &["fetch", "--prune", "--prune-tags", "--", &r]);
         Ok(out)
-    }).await
+    })
+    .await
 }
 
 #[derive(Serialize)]
@@ -1805,9 +2136,8 @@ pub struct StatusEntry {
 }
 
 fn diff_reports_binary(diff: &str) -> bool {
-    diff.lines().any(|line| {
-        line.starts_with("Binary files ") && line.ends_with(" differ")
-    })
+    diff.lines()
+        .any(|line| line.starts_with("Binary files ") && line.ends_with(" differ"))
 }
 
 fn parse_numstat(out: &str) -> HashMap<String, (u32, u32, bool)> {
@@ -1823,12 +2153,15 @@ fn parse_numstat(out: &str) -> HashMap<String, (u32, u32, bool)> {
         let dels: u32 = dels_s.parse().unwrap_or(0);
         let path = if path_part.is_empty() {
             let _old = iter.next();
-            iter.next().unwrap_or("").trim_end_matches('\r').to_string()
+            iter.next().unwrap_or("").to_string()
         } else {
-            path_part.trim_end_matches('\r').to_string()
+            path_part.to_string()
         };
         if !path.is_empty() {
-            map.insert(path, (adds, dels, binary));
+            let entry = map.entry(path).or_insert((0u32, 0u32, false));
+            entry.0 = entry.0.saturating_add(adds);
+            entry.1 = entry.1.saturating_add(dels);
+            entry.2 |= binary;
         }
     }
     map
@@ -1863,7 +2196,12 @@ fn sniff_untracked(path: &std::path::Path) -> Option<(bool, u32)> {
         let r = match file.read(&mut buf) {
             Ok(0) => break,
             Ok(r) => r,
-            Err(_) => return Some((false, newlines + if last_byte == Some(b'\n') { 0 } else { 1 })),
+            Err(_) => {
+                return Some((
+                    false,
+                    newlines + if last_byte == Some(b'\n') { 0 } else { 1 },
+                ))
+            }
         };
         newlines += buf[..r].iter().filter(|&&b| b == b'\n').count() as u32;
         last_byte = Some(buf[r - 1]);
@@ -1984,14 +2322,12 @@ fn compute_status_entries(repo: &Path) -> Result<Vec<StatusEntry>, String> {
 fn compute_upstream_sync(repo: &PathBuf) -> UpstreamSyncCounts {
     let Ok(out) = run_git(
         repo,
-        &[
-            "rev-list",
-            "--left-right",
-            "--count",
-            "@{upstream}...HEAD",
-        ],
+        &["rev-list", "--left-right", "--count", "@{upstream}...HEAD"],
     ) else {
-        return UpstreamSyncCounts { ahead: 0, behind: 0 };
+        return UpstreamSyncCounts {
+            ahead: 0,
+            behind: 0,
+        };
     };
     let mut parts = out.split_whitespace();
     let behind = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -2019,7 +2355,8 @@ pub async fn repo_status(path: String) -> Result<Vec<StatusEntry>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
         compute_status_entries(&repo)
-    }).await
+    })
+    .await
 }
 
 /// Combined command: performs all status-adjacent lookups in a single IPC
@@ -2048,7 +2385,8 @@ pub async fn repo_full_status(path: String) -> Result<FullStatus, String> {
             upstream_sync,
             has_upstream,
         })
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -2092,11 +2430,14 @@ pub async fn stage_files(path: String, files: Vec<String>) -> Result<(), String>
             return Ok(());
         }
         let repo = PathBuf::from(&path);
-        let mut args: Vec<&str> = vec!["add", "--"];
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
+        let mut args: Vec<&str> = vec!["--literal-pathspecs", "add", "--"];
         args.extend(files.iter().map(|s| s.as_str()));
         run_git(&repo, &args)?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -2106,16 +2447,19 @@ pub async fn unstage_files(path: String, files: Vec<String>) -> Result<(), Strin
             return Ok(());
         }
         let repo = PathBuf::from(&path);
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
         let has_head = run_git(&repo, &["rev-parse", "--verify", "HEAD"]).is_ok();
         let mut args: Vec<&str> = if has_head {
-            vec!["reset", "HEAD", "--"]
+            vec!["--literal-pathspecs", "reset", "HEAD", "--"]
         } else {
-            vec!["rm", "--cached", "--"]
+            vec!["--literal-pathspecs", "rm", "--cached", "--"]
         };
         args.extend(files.iter().map(|s| s.as_str()));
         run_git(&repo, &args)?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -2126,6 +2470,8 @@ pub async fn commit_changes(
 ) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
         let trimmed = message.trim();
         if trimmed.is_empty() {
             return Err("Commit-Nachricht darf nicht leer sein".into());
@@ -2140,20 +2486,29 @@ pub async fn commit_changes(
         args.push(trimmed);
         run_git(&repo, &args)?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn commit_amend(path: String, message: String) -> Result<(), String> {
+pub async fn commit_amend(
+    path: String,
+    message: String,
+    expected_head: Option<String>,
+) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
         let trimmed = message.trim();
         if trimmed.is_empty() {
             return Err("Commit-Nachricht darf nicht leer sein".into());
         }
+        verify_expected_head(&repo, expected_head.as_deref())?;
         run_git(&repo, &["commit", "--amend", "-m", trimmed])?;
         Ok(())
-    }).await
+    })
+    .await
 }
 
 #[derive(Serialize)]
@@ -2233,7 +2588,10 @@ fn probe_tool(program: &str, args: &[&str], read_version: bool) -> (bool, Option
     (true, version)
 }
 
-pub fn signing_program(format: &str, configured: Option<String>) -> (String, Vec<&'static str>, bool) {
+pub fn signing_program(
+    format: &str,
+    configured: Option<String>,
+) -> (String, Vec<&'static str>, bool) {
     let ssh_probe = vec!["-Y", "check-novalidate"];
     if let Some(p) = configured.filter(|p| !p.trim().is_empty()) {
         let p = p.trim().to_string();
@@ -2253,7 +2611,7 @@ pub fn signing_program(format: &str, configured: Option<String>) -> (String, Vec
 #[tauri::command]
 pub async fn commit_signing_info(path: String) -> Result<SigningInfo, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let local = signing_scope(&repo, Some("--local"));
         let global = signing_scope(&repo, Some("--global"));
 
@@ -2294,7 +2652,7 @@ pub async fn set_commit_signing(
 ) -> Result<SigningInfo, String> {
     let apply_path = path.clone();
     spawn_git(move || {
-        let repo = PathBuf::from(apply_path.trim());
+        let repo = PathBuf::from(&apply_path);
         let set = |key: &str, value: Option<String>| -> Result<(), String> {
             match value {
                 Some(v) if !v.trim().is_empty() => {
@@ -2341,16 +2699,23 @@ pub fn parse_signature_status(raw: &str) -> CommitSignature {
     };
     CommitSignature {
         state: state.to_string(),
-        code: if code.is_empty() { "N".to_string() } else { code },
+        code: if code.is_empty() {
+            "N".to_string()
+        } else {
+            code
+        },
         signer: (!signer.is_empty()).then_some(signer),
         key: (!key.is_empty()).then_some(key),
     }
 }
 
 #[tauri::command]
-pub async fn commit_signature_status(path: String, hash: String) -> Result<CommitSignature, String> {
+pub async fn commit_signature_status(
+    path: String,
+    hash: String,
+) -> Result<CommitSignature, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let c = hash.trim();
         if c.is_empty() {
             return Err("Commit-Referenz fehlt".into());
@@ -2376,6 +2741,7 @@ pub struct FileDiffResponse {
     unstaged: Option<String>,
     untracked_plain: Option<String>,
     is_binary: bool,
+    fingerprint: Option<String>,
 }
 
 #[tauri::command]
@@ -2383,72 +2749,144 @@ pub async fn repo_staged_diff(path: String) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
         run_git(&repo, &["diff", "--cached", "--no-color"])
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn repo_file_diff(path: String, file: String, untracked: bool) -> Result<FileDiffResponse, String> {
+pub async fn repo_file_diff(
+    path: String,
+    file: String,
+    untracked: bool,
+    include_fingerprint: Option<bool>,
+) -> Result<FileDiffResponse, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
-        let file = file.trim().to_string();
-        if untracked {
-            let abs = repo.join(&file);
-            if abs.is_dir() {
-                return Ok(FileDiffResponse {
-                    staged: None,
-                    unstaged: None,
-                    untracked_plain: None,
-                    is_binary: true,
-                });
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
+        let before = if include_fingerprint.unwrap_or(false) {
+            Some(file_snapshot::fingerprint(&repo, &file)?)
+        } else {
+            None
+        };
+        let mut response = file_diff_impl(&repo, &file, untracked)?;
+        if let Some(before) = before {
+            if file_snapshot::fingerprint(&repo, &file)? != before {
+                return Err(format!("__FILE_CHANGED__|{file}"));
             }
-            let bytes =
-                std::fs::read(&abs).map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))?;
-            if looks_binary(&bytes) {
-                return Ok(FileDiffResponse {
-                    staged: None,
-                    unstaged: None,
-                    untracked_plain: None,
-                    is_binary: true,
-                });
-            }
-            return Ok(FileDiffResponse {
-                staged: None,
-                unstaged: None,
-                untracked_plain: Some(String::from_utf8_lossy(&bytes).to_string()),
-                is_binary: false,
-            });
+            response.fingerprint = Some(before);
         }
-        let staged = run_git(
-            &repo,
-            &["diff", "--cached", "--no-color", "--", &file],
-        )
-        .unwrap_or_default();
-        let unstaged = run_git(&repo, &["diff", "--no-color", "--", &file]).unwrap_or_default();
-        let staged_nonempty = (!staged.trim().is_empty()).then_some(staged);
-        let unstaged_nonempty = (!unstaged.trim().is_empty()).then_some(unstaged);
-        let is_binary = [staged_nonempty.as_deref(), unstaged_nonempty.as_deref()]
-            .into_iter()
-            .flatten()
-            .any(diff_reports_binary);
-        if is_binary {
+        Ok(response)
+    })
+    .await
+}
+
+fn file_diff_impl(repo: &PathBuf, file: &str, untracked: bool) -> Result<FileDiffResponse, String> {
+    let abs = WorktreePathGuard::new(repo)?.path(file)?;
+    if untracked {
+        let metadata = std::fs::symlink_metadata(&abs)
+            .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))?;
+        if metadata.is_dir() {
             return Ok(FileDiffResponse {
                 staged: None,
                 unstaged: None,
                 untracked_plain: None,
                 is_binary: true,
+                fingerprint: None,
             });
         }
-        Ok(FileDiffResponse {
-            staged: staged_nonempty,
-            unstaged: unstaged_nonempty,
-            untracked_plain: None,
+        let bytes = if metadata.file_type().is_symlink() {
+            file_reads::worktree_link_text(repo, file)?
+        } else if metadata.is_file() {
+            use std::io::Read;
+            let mut input = open_worktree_file(repo, file)?;
+            let mut header = [0u8; 8000];
+            let length = input.read(&mut header).map_err(|e| e.to_string())?;
+            if looks_binary(&header[..length]) {
+                return Ok(FileDiffResponse {
+                    staged: None,
+                    unstaged: None,
+                    untracked_plain: None,
+                    is_binary: true,
+                    fingerprint: None,
+                });
+            }
+            let mut bytes = header[..length].to_vec();
+            input.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+            bytes
+        } else {
+            return Err(format!("Cannot preview special file: {file}"));
+        };
+        if looks_binary(&bytes) {
+            return Ok(FileDiffResponse {
+                staged: None,
+                unstaged: None,
+                untracked_plain: None,
+                is_binary: true,
+                fingerprint: None,
+            });
+        }
+        return Ok(FileDiffResponse {
+            staged: None,
+            unstaged: None,
+            untracked_plain: Some(String::from_utf8_lossy(&bytes).to_string()),
             is_binary: false,
-        })
-    }).await
+            fingerprint: None,
+        });
+    }
+    let staged = run_git(
+        repo,
+        &[
+            "--literal-pathspecs",
+            "diff",
+            "--cached",
+            "--no-color",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--",
+            file,
+        ],
+    )?;
+    let unstaged = run_git(
+        repo,
+        &[
+            "--literal-pathspecs",
+            "diff",
+            "--no-color",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--",
+            file,
+        ],
+    )?;
+    let staged_nonempty = (!staged.trim().is_empty()).then_some(staged);
+    let unstaged_nonempty = (!unstaged.trim().is_empty()).then_some(unstaged);
+    let is_binary = [staged_nonempty.as_deref(), unstaged_nonempty.as_deref()]
+        .into_iter()
+        .flatten()
+        .any(diff_reports_binary);
+    if is_binary {
+        return Ok(FileDiffResponse {
+            staged: None,
+            unstaged: None,
+            untracked_plain: None,
+            is_binary: true,
+            fingerprint: None,
+        });
+    }
+    Ok(FileDiffResponse {
+        staged: staged_nonempty,
+        unstaged: unstaged_nonempty,
+        untracked_plain: None,
+        is_binary: false,
+        fingerprint: None,
+    })
 }
 
 /// Apply a unified-diff patch to the git index (staging individual hunks/lines).
 fn apply_patch_to_index(repo: &PathBuf, patch: &str, reverse: bool) -> Result<(), String> {
+    let lock = repo_mutation_mutex(repo)?;
+    let _guard = lock.lock().map_err(|e| e.to_string())?;
     let mut cmd = git_command();
     cmd.arg("-C").arg(repo);
     cmd.arg("apply");
@@ -2489,54 +2927,64 @@ fn apply_patch_to_index(repo: &PathBuf, patch: &str, reverse: bool) -> Result<()
 #[tauri::command]
 pub async fn repo_read_file(path: String, file: String) -> Result<String, String> {
     spawn_git(move || {
-        let abs = crate::pathsafe::resolve_in_root(&PathBuf::from(path.trim()), file.trim())?;
-        std::fs::read_to_string(&abs)
-            .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))
-    }).await
+        use std::io::Read;
+        let mut input = open_worktree_file(&PathBuf::from(&path), &file)?;
+        let mut content = String::new();
+        input
+            .read_to_string(&mut content)
+            .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))?;
+        Ok(content)
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn repo_write_file(path: String, file: String, content: String) -> Result<(), String> {
     spawn_git(move || {
-        let abs = crate::pathsafe::resolve_in_root(&PathBuf::from(path.trim()), file.trim())?;
+        let repo = PathBuf::from(&path);
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
+        let abs = WorktreePathGuard::new(&repo)?.regular_file(&file)?;
         std::fs::write(&abs, content)
             .map_err(|e| format!("Datei konnte nicht geschrieben werden: {e}"))
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn repo_file_content_at(path: String, file: String, treeish: String) -> Result<String, String> {
+pub async fn repo_file_content_at(
+    path: String,
+    file: String,
+    treeish: String,
+) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
-        let f = file.trim().to_string();
-        let t = treeish.trim().to_string();
-        let spec = if t.is_empty() { format!(":{f}") } else { format!("{t}:{f}") };
-        match run_git_merged_output(&repo, &["show", &spec]) {
-            Ok(c) => Ok(c),
-            Err(_) => Ok(String::new()),
+        let repo = PathBuf::from(&path);
+        let revision = (!treeish.is_empty()).then_some(treeish.as_str());
+        match git_file_blob_oid(&repo, revision, &file)? {
+            Some(oid) => run_git(&repo, &["cat-file", "-p", &oid]),
+            None => Ok(String::new()),
         }
-    }).await
+    })
+    .await
 }
 
 /// Stage individual lines/hunks from the working tree into the index.
 /// `patch` is a unified diff patch string (subset of `git diff` output).
 #[tauri::command]
 pub async fn stage_hunk(path: String, patch: String) -> Result<(), String> {
-    spawn_git(move || {
-        apply_patch_to_index(&PathBuf::from(&path), &patch, false)
-    }).await
+    spawn_git(move || apply_patch_to_index(&PathBuf::from(&path), &patch, false)).await
 }
 
 /// Unstage individual lines/hunks from the index (revert to HEAD).
 /// `patch` is a unified diff patch string (subset of `git diff --cached` output).
 #[tauri::command]
 pub async fn unstage_hunk(path: String, patch: String) -> Result<(), String> {
-    spawn_git(move || {
-        apply_patch_to_index(&PathBuf::from(&path), &patch, true)
-    }).await
+    spawn_git(move || apply_patch_to_index(&PathBuf::from(&path), &patch, true)).await
 }
 
 fn apply_patch_to_worktree(repo: &PathBuf, patch: &str, reverse: bool) -> Result<(), String> {
+    let lock = repo_mutation_mutex(repo)?;
+    let _guard = lock.lock().map_err(|e| e.to_string())?;
     let mut cmd = git_command();
     cmd.arg("-C").arg(repo);
     cmd.arg("apply");
@@ -2578,9 +3026,7 @@ fn apply_patch_to_worktree(repo: &PathBuf, patch: &str, reverse: bool) -> Result
 /// so this applies it normally (no --reverse) directly to the working tree.
 #[tauri::command]
 pub async fn discard_hunk(path: String, patch: String) -> Result<(), String> {
-    spawn_git(move || {
-        apply_patch_to_worktree(&PathBuf::from(&path), &patch, false)
-    }).await
+    spawn_git(move || apply_patch_to_worktree(&PathBuf::from(&path), &patch, false)).await
 }
 
 #[derive(Serialize)]
@@ -2599,10 +3045,7 @@ pub struct CommitInspectResponse {
 }
 
 fn commit_changed_files(repo: &PathBuf, commit: &str) -> Result<Vec<CommitChangedFile>, String> {
-    let line = run_git(
-        repo,
-        &["rev-list", "--parents", "-n", "1", commit],
-    )?;
+    let line = run_git(repo, &["rev-list", "--parents", "-n", "1", commit])?;
     let line = line.lines().next().unwrap_or("").trim();
     let mut toks = line.split_whitespace();
     let _self_oid = toks.next();
@@ -2653,9 +3096,12 @@ fn commit_changed_files(repo: &PathBuf, commit: &str) -> Result<Vec<CommitChange
 }
 
 #[tauri::command]
-pub async fn repo_commit_inspect(path: String, commit: String) -> Result<CommitInspectResponse, String> {
+pub async fn repo_commit_inspect(
+    path: String,
+    commit: String,
+) -> Result<CommitInspectResponse, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let c = commit.trim();
         if c.is_empty() {
             return Err("Commit-Referenz fehlt".into());
@@ -2676,7 +3122,8 @@ pub async fn repo_commit_inspect(path: String, commit: String) -> Result<CommitI
             header: header.trim().to_string(),
             files,
         })
-    }).await
+    })
+    .await
 }
 
 #[derive(Serialize)]
@@ -2692,19 +3139,15 @@ pub async fn repo_commit_file_diff(
     file: String,
 ) -> Result<CommitFileDiffResponse, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
-        let c = commit.trim();
-        let f = file.trim();
-        if c.is_empty() || f.is_empty() {
-            return Err("Commit oder Dateipfad fehlt".into());
-        }
+        let repo = PathBuf::from(&path);
+        let c = file_reads::commit_revision(&repo, &commit)?;
+        let f = file_reads::file_path(&file)?;
 
         // Determine the first parent of this commit so we can use the reliable
         // plumbing command `git diff-tree -p` instead of `git show --format=`.
         // On Windows, the empty --format= argument can behave inconsistently
         // across git versions, producing no output even for valid diffs.
-        let parents_line = run_git(&repo, &["rev-list", "--parents", "-n", "1", c])
-            .unwrap_or_default();
+        let parents_line = run_git(&repo, &["rev-list", "--parents", "-n", "1", &c])?;
         let mut parent_tokens = parents_line.split_whitespace();
         let _self_hash = parent_tokens.next();
         let first_parent = parent_tokens.next();
@@ -2713,16 +3156,38 @@ pub async fn repo_commit_file_diff(
             // Regular commit: diff against its first parent.
             run_git(
                 &repo,
-                &["diff-tree", "-p", "--no-commit-id", "--no-color", parent, c, "--", f],
-            )
-            .unwrap_or_default()
+                &[
+                    "--literal-pathspecs",
+                    "diff-tree",
+                    "-p",
+                    "--no-commit-id",
+                    "--no-color",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    parent,
+                    &c,
+                    "--",
+                    &f,
+                ],
+            )?
         } else {
             // Initial commit (no parent): compare against the empty tree.
             run_git(
                 &repo,
-                &["diff-tree", "-p", "--root", "--no-commit-id", "--no-color", c, "--", f],
-            )
-            .unwrap_or_default()
+                &[
+                    "--literal-pathspecs",
+                    "diff-tree",
+                    "-p",
+                    "--root",
+                    "--no-commit-id",
+                    "--no-color",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    &c,
+                    "--",
+                    &f,
+                ],
+            )?
         };
 
         let trimmed = diff.trim();
@@ -2736,7 +3201,8 @@ pub async fn repo_commit_file_diff(
             diff: (!trimmed.is_empty()).then_some(diff),
             is_binary: false,
         })
-    }).await
+    })
+    .await
 }
 
 mod stash;
@@ -2746,7 +3212,9 @@ fn parse_behind_from_track(track: &str) -> Option<u32> {
     // %(upstream:track) yields strings like "[ahead 2, behind 3]", "[behind 1]", "[gone]" or ""
     let idx = track.find("behind ")?;
     let rest = &track[idx + "behind ".len()..];
-    let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    let end = rest
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(rest.len());
     rest[..end].parse::<u32>().ok()
 }
 
@@ -2858,7 +3326,7 @@ fn collect_branch_activity(repo: &PathBuf) -> Result<Vec<BranchActivity>, String
 #[tauri::command]
 pub async fn repo_branch_activity(path: String) -> Result<Vec<BranchActivity>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         collect_branch_activity(&repo)
     })
     .await
@@ -2905,7 +3373,10 @@ fn parse_blame_porcelain(output: &str) -> Vec<BlameEntry> {
 
     while let Some(header) = iter.next() {
         let parts: Vec<&str> = header.splitn(4, ' ').collect();
-        if parts.len() < 3 || parts[0].len() != 40 {
+        if parts.len() < 3
+            || !matches!(parts[0].len(), 40 | 64)
+            || !parts[0].bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
             continue;
         }
 
@@ -2945,10 +3416,7 @@ fn parse_blame_porcelain(output: &str) -> Vec<BlameEntry> {
                 commit_cache.insert(commit_hash.clone(), (a.clone(), d.clone(), ts, s.clone()));
                 (a, d, ts, s)
             } else {
-                commit_cache
-                    .get(&commit_hash)
-                    .cloned()
-                    .unwrap_or_default()
+                commit_cache.get(&commit_hash).cloned().unwrap_or_default()
             };
 
         entries.push(BlameEntry {
@@ -2974,25 +3442,78 @@ pub async fn repo_blame(
 ) -> Result<Vec<BlameEntry>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
-        let mut args = vec!["blame", "--porcelain"];
+        let file = file_reads::file_path(&file)?;
+        let commit = commit
+            .as_deref()
+            .map(|revision| file_reads::commit_revision(&repo, revision))
+            .transpose()?;
+        let mut args = vec![
+            "--literal-pathspecs",
+            "blame",
+            "--porcelain",
+            "--no-textconv",
+        ];
         if let Some(ref c) = commit {
             args.push(c.as_str());
         }
+        if commit.is_none() {
+            args.push("--contents=-");
+        }
         args.push("--");
         args.push(file.as_str());
-        let output = run_git(&repo, &args)?;
-        Ok(parse_blame_porcelain(&output))
-    }).await
+        let output = if commit.is_some() {
+            run_git(&repo, &args)?
+        } else {
+            use std::io::Read;
+            let absolute = WorktreePathGuard::new(&repo)?.path(&file)?;
+            let metadata = std::fs::symlink_metadata(absolute).map_err(|e| e.to_string())?;
+            let contents = if metadata.file_type().is_symlink() {
+                file_reads::worktree_link_text(&repo, &file)?
+            } else {
+                let mut input = open_worktree_file(&repo, &file)?;
+                let mut contents = Vec::new();
+                input
+                    .read_to_end(&mut contents)
+                    .map_err(|e| e.to_string())?;
+                contents
+            };
+            file_reads::git_with_input(&repo, &args, contents)?
+        };
+        let mut entries = parse_blame_porcelain(&output);
+        if commit.is_none() {
+            for entry in &mut entries {
+                if entry.commit_hash.bytes().all(|byte| byte == b'0') {
+                    // Feeding the guarded contents through stdin changes Git's
+                    // label; retain the usual live-worktree blame presentation.
+                    entry.author = "Not Committed Yet".into();
+                    entry.summary = format!("Version of {file} from {file}");
+                }
+            }
+        }
+        Ok(entries)
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn repo_list_files(path: String) -> Result<Vec<String>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
-        let out = run_git(&repo, &["ls-files"])?;
-        Ok(out.lines().filter(|l| !l.is_empty()).map(|l| l.to_string()).collect())
-    }).await
+        let out = run_git(&repo, &["ls-files", "-z"])?;
+        Ok(out.split_terminator('\0').map(str::to_string).collect())
+    })
+    .await
 }
+
+mod file_reads;
+mod file_snapshot;
+mod patch_batch;
+pub use patch_batch::*;
+pub(crate) use file_reads::{
+    file_path as literal_file_path, git_file_blob_oid, open_worktree_file, worktree_link_text,
+};
+pub(crate) use file_snapshot::fingerprint as worktree_file_fingerprint;
+pub(crate) use file_snapshot::review_content_fingerprint;
 
 mod languages;
 pub use languages::*;
@@ -3010,9 +3531,16 @@ mod bisect;
 pub use bisect::*;
 
 #[tauri::command]
-pub async fn git_reset(path: String, target: String, mode: String) -> Result<String, String> {
+pub async fn git_reset(
+    path: String,
+    target: String,
+    mode: String,
+    expected_head: Option<String>,
+) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
+        let lock = repo_mutation_mutex(&repo)?;
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
         let t = target.trim();
         if t.is_empty() {
             return Err("Ziel darf nicht leer sein".into());
@@ -3020,10 +3548,14 @@ pub async fn git_reset(path: String, target: String, mode: String) -> Result<Str
         let flag = match mode.trim() {
             "soft" => "--soft",
             "hard" => "--hard",
-            _ => "--mixed",
+            "mixed" => "--mixed",
+            other => return Err(format!("Invalid reset mode: {other}")),
         };
-        run_git_merged_output(&repo, &["reset", flag, t])
-    }).await
+        let target = resolve_git_commit(&repo, t)?;
+        verify_expected_head(&repo, expected_head.as_deref())?;
+        run_git_merged_output(&repo, &["reset", flag, &target])
+    })
+    .await
 }
 
 #[derive(Serialize, Clone)]
@@ -3139,7 +3671,9 @@ fn collect_contributor_stats(
         if line.is_empty() {
             continue;
         }
-        let Some(key) = current.as_ref() else { continue };
+        let Some(key) = current.as_ref() else {
+            continue;
+        };
         let mut fields = line.splitn(3, '\t');
         let adds_s = fields.next().unwrap_or("");
         let dels_s = fields.next().unwrap_or("");
@@ -3155,15 +3689,21 @@ fn collect_contributor_stats(
 
     let mut stats: Vec<ContributorStat> = map
         .into_iter()
-        .map(|((name, email), (commits, insertions, deletions))| ContributorStat {
-            name,
-            email,
-            commits,
-            insertions,
-            deletions,
-        })
+        .map(
+            |((name, email), (commits, insertions, deletions))| ContributorStat {
+                name,
+                email,
+                commits,
+                insertions,
+                deletions,
+            },
+        )
         .collect();
-    stats.sort_by(|a, b| b.commits.cmp(&a.commits).then(b.insertions.cmp(&a.insertions)));
+    stats.sort_by(|a, b| {
+        b.commits
+            .cmp(&a.commits)
+            .then(b.insertions.cmp(&a.insertions))
+    });
     Ok(stats)
 }
 
@@ -3175,7 +3715,7 @@ pub async fn repo_contributor_stats(
     include_merges: Option<bool>,
 ) -> Result<Vec<ContributorStat>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let merges = include_merges.unwrap_or(false);
         let head = agg_head_oid(&repo);
         let key = format!("{}|{since_days}|{merges}", repo.to_string_lossy());
@@ -3272,7 +3812,9 @@ fn collect_activity_buckets(
         if line.is_empty() {
             continue;
         }
-        let Some(key) = current_key.as_ref() else { continue };
+        let Some(key) = current_key.as_ref() else {
+            continue;
+        };
         let mut fields = line.splitn(3, '\t');
         let adds_s = fields.next().unwrap_or("");
         let dels_s = fields.next().unwrap_or("");
@@ -3288,12 +3830,14 @@ fn collect_activity_buckets(
 
     Ok(by_key
         .into_iter()
-        .map(|(bucket, (commits, insertions, deletions))| ActivityBucket {
-            bucket,
-            commits,
-            insertions,
-            deletions,
-        })
+        .map(
+            |(bucket, (commits, insertions, deletions))| ActivityBucket {
+                bucket,
+                commits,
+                insertions,
+                deletions,
+            },
+        )
         .collect())
 }
 
@@ -3305,7 +3849,7 @@ pub async fn repo_activity_buckets(
     include_merges: Option<bool>,
 ) -> Result<Vec<ActivityBucket>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let kind = match bucket.as_str() {
             "month" | "week" | "day" => bucket.as_str(),
             _ => "day",
@@ -3329,7 +3873,7 @@ pub async fn repo_activity_buckets(
 }
 
 fn collect_repo_overview(path: String) -> RepoOverview {
-    let repo = PathBuf::from(path.trim());
+    let repo = PathBuf::from(&path);
     let name = repo
         .file_name()
         .and_then(|s| s.to_str())
@@ -3358,7 +3902,10 @@ fn collect_repo_overview(path: String) -> RepoOverview {
 
     let sync = compute_upstream_sync(&repo);
 
-    let dirty_count = match run_git(&repo, &["status", "--porcelain=v1", "-z", "--untracked-files=normal"]) {
+    let dirty_count = match run_git(
+        &repo,
+        &["status", "--porcelain=v1", "-z", "--untracked-files=normal"],
+    ) {
         Ok(out) => out.split('\0').filter(|s| !s.is_empty()).count() as u32,
         Err(_) => 0,
     };
@@ -3413,7 +3960,11 @@ pub async fn repos_overview(paths: Vec<String>) -> Result<Vec<RepoOverview>, Str
     let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(4));
     let mut handles = Vec::with_capacity(paths.len());
     for p in paths {
-        let permit = semaphore.clone().acquire_owned().await.map_err(|e| e.to_string())?;
+        let permit = semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|e| e.to_string())?;
         handles.push(tokio::task::spawn_blocking(move || {
             let _permit = permit;
             collect_repo_overview(p)
@@ -3442,83 +3993,51 @@ pub struct RangeCommitsResponse {
 const RANGE_MAX_COMMITS: usize = 400;
 const RANGE_MAX_FILES: usize = 500;
 
-fn range_rev_exists(repo: &PathBuf, rev: &str) -> bool {
-    run_git(repo, &["rev-parse", "-q", "--verify", &format!("{rev}^{{commit}}")]).is_ok()
-}
-
 fn range_commits(repo: &PathBuf, spec: &str, limit: usize) -> Result<Vec<Commit>, String> {
-    let sep = "\x1f";
-    let format = format!("--pretty=format:%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b");
+    let format = "--format=%H%x00%h%x00%an%x00%ae%x00%cI%x00%P%x00%s%x00%b";
     let max_count = format!("--max-count={limit}");
-    let out = run_git(repo, &["log", "-z", &max_count, &format, spec])?;
-    Ok(out
-        .split('\0')
-        .filter(|chunk| !chunk.is_empty())
-        .filter_map(|record| {
-            let mut parts = record.splitn(8, sep);
-            let hash = parts.next()?.to_string();
-            let short_hash = parts.next()?.to_string();
-            let author = parts.next()?.to_string();
-            let email = parts.next()?.to_string();
-            let date = parts.next()?.to_string();
-            let parents = parts
-                .next()?
-                .split_whitespace()
-                .map(|s| s.to_string())
-                .collect();
-            let subject = parts.next()?.to_string();
-            let body = parts.next().unwrap_or_default().to_string();
-            Some(Commit {
-                hash,
-                short_hash,
-                author,
-                email,
-                date,
-                subject,
-                body,
+    let out = run_git(repo, &["log", "-z", &max_count, format, spec])?;
+    let fields: Vec<&str> = out.split_terminator('\0').collect();
+    Ok(fields
+        .chunks_exact(8)
+        .map(|parts| {
+            let parents = parts[5].split_whitespace().map(|s| s.to_string()).collect();
+            Commit {
+                hash: parts[0].to_string(),
+                short_hash: parts[1].to_string(),
+                author: parts[2].to_string(),
+                email: parts[3].to_string(),
+                date: parts[4].to_string(),
+                subject: parts[6].to_string(),
+                body: parts[7].to_string(),
                 parents,
                 tags: Vec::new(),
                 author_avatar: None,
-            })
+            }
         })
         .collect())
 }
 
-fn range_log_numstat(repo: &PathBuf, spec: &str, limit: usize) -> Vec<CommitChangedFile> {
+fn range_log_numstat(
+    repo: &PathBuf,
+    spec: &str,
+    limit: usize,
+) -> Result<Vec<CommitChangedFile>, String> {
     let max_count = format!("--max-count={limit}");
-    let Ok(out) = run_git(
+    let out = run_git(
         repo,
         &[
             "log",
             "--no-renames",
             "--numstat",
-            "--format=%x00",
+            "-z",
+            "--format=",
             &max_count,
             spec,
         ],
-    ) else {
-        return Vec::new();
-    };
-    let mut map: HashMap<String, (u32, u32, bool)> = HashMap::new();
-    for raw_line in out.split('\n') {
-        let line = raw_line.trim_end_matches('\r');
-        if line.is_empty() || line.starts_with('\u{0}') {
-            continue;
-        }
-        let mut fields = line.splitn(3, '\t');
-        let adds_s = fields.next().unwrap_or("");
-        let dels_s = fields.next().unwrap_or("");
-        let path = fields.next().unwrap_or("").trim();
-        if path.is_empty() {
-            continue;
-        }
-        let binary = adds_s == "-" || dels_s == "-";
-        let entry = map.entry(path.to_string()).or_insert((0, 0, false));
-        entry.0 += adds_s.parse::<u32>().unwrap_or(0);
-        entry.1 += dels_s.parse::<u32>().unwrap_or(0);
-        entry.2 = entry.2 || binary;
-    }
-    map.into_iter()
+    )?;
+    Ok(parse_numstat(&out)
+        .into_iter()
         .map(|(path, (additions, deletions, binary))| CommitChangedFile {
             untracked: false,
             path,
@@ -3526,10 +4045,14 @@ fn range_log_numstat(repo: &PathBuf, spec: &str, limit: usize) -> Vec<CommitChan
             deletions,
             binary,
         })
-        .collect()
+        .collect())
 }
 
-fn range_diff_numstat(repo: &PathBuf, base: &str, head: &str) -> Option<Vec<CommitChangedFile>> {
+fn range_diff_numstat(
+    repo: &PathBuf,
+    base: &str,
+    head: &str,
+) -> Result<Vec<CommitChangedFile>, String> {
     let out = run_git(
         repo,
         &[
@@ -3539,20 +4062,17 @@ fn range_diff_numstat(repo: &PathBuf, base: &str, head: &str) -> Option<Vec<Comm
             "--no-renames",
             &format!("{base}...{head}"),
         ],
-    )
-    .ok()?;
-    Some(
-        parse_numstat(&out)
-            .into_iter()
-            .map(|(path, (additions, deletions, binary))| CommitChangedFile {
+    )?;
+    Ok(parse_numstat(&out)
+        .into_iter()
+        .map(|(path, (additions, deletions, binary))| CommitChangedFile {
             untracked: false,
-                path,
-                additions,
-                deletions,
-                binary,
-            })
-            .collect(),
-    )
+            path,
+            additions,
+            deletions,
+            binary,
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -3563,44 +4083,47 @@ pub async fn repo_range_commits(
     limit: Option<u32>,
 ) -> Result<RangeCommitsResponse, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let head = head.trim().to_string();
         if head.is_empty() {
             return Err("Head-Referenz fehlt".into());
         }
-        if !range_rev_exists(&repo, &head) {
-            return Err(format!("Referenz {head} existiert nicht"));
-        }
+        let head = resolve_git_commit(&repo, &head)?;
         let base = base
             .map(|b| b.trim().to_string())
-            .filter(|b| !b.is_empty() && range_rev_exists(&repo, b));
+            .filter(|b| !b.is_empty())
+            .map(|b| resolve_git_commit(&repo, &b))
+            .transpose()?;
         let limit = (limit.unwrap_or(60) as usize).clamp(1, RANGE_MAX_COMMITS);
         let spec = match base.as_deref() {
             Some(b) => format!("{b}..{head}"),
             None => head.clone(),
         };
 
-        let total_commits = run_git(&repo, &["rev-list", "--count", &spec])
-            .ok()
-            .and_then(|out| out.trim().parse::<u32>().ok())
-            .unwrap_or(0);
+        let total_commits = run_git(&repo, &["rev-list", "--count", &spec])?
+            .trim()
+            .parse::<u32>()
+            .map_err(|error| format!("Invalid Git commit count: {error}"))?;
         let commits = range_commits(&repo, &spec, limit)?;
 
         let mut files = match base.as_deref() {
-            Some(b) => range_diff_numstat(&repo, b, &head)
-                .unwrap_or_else(|| range_log_numstat(&repo, &spec, limit)),
-            None => range_log_numstat(&repo, &spec, limit),
+            Some(b) => range_diff_numstat(&repo, b, &head)?,
+            None => range_log_numstat(&repo, &spec, limit)?,
         };
         files.sort_by(|a, b| {
-            (b.additions + b.deletions)
-                .cmp(&(a.additions + a.deletions))
+            (b.additions.saturating_add(b.deletions))
+                .cmp(&(a.additions.saturating_add(a.deletions)))
                 .then_with(|| a.path.cmp(&b.path))
         });
         let files_truncated = files.len() > RANGE_MAX_FILES;
         files.truncate(RANGE_MAX_FILES);
 
-        let additions = files.iter().map(|f| f.additions).sum();
-        let deletions = files.iter().map(|f| f.deletions).sum();
+        let additions = files
+            .iter()
+            .fold(0u32, |sum, file| sum.saturating_add(file.additions));
+        let deletions = files
+            .iter()
+            .fold(0u32, |sum, file| sum.saturating_add(file.deletions));
         Ok(RangeCommitsResponse {
             truncated: files_truncated || total_commits as usize > commits.len(),
             commits,
@@ -3632,15 +4155,17 @@ mod remote_progress_tests {
 
     fn temp_path(tag: &str) -> TempPath {
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let path = std::env::temp_dir().join(format!(
-            "l8git-progress-{tag}-{}-{id}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("l8git-progress-{tag}-{}-{id}", std::process::id()));
         let _ = std::fs::remove_dir_all(&path);
         TempPath { path }
     }
 
-    fn stream(cwd: Option<&PathBuf>, args: &[&str], op_id: &str) -> (StreamOutcome, Vec<ProgressLine>) {
+    fn stream(
+        cwd: Option<&PathBuf>,
+        args: &[&str],
+        op_id: &str,
+    ) -> (StreamOutcome, Vec<ProgressLine>) {
         let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
         let mut lines: Vec<ProgressLine> = Vec::new();
         let outcome = run_git_streamed(cwd, &owned, op_id, |line| lines.push(line)).unwrap();
@@ -3701,8 +4226,16 @@ mod remote_progress_tests {
         let clone = temp_path("clone");
         std::fs::create_dir_all(&bare.path).unwrap();
         std::fs::create_dir_all(&work.path).unwrap();
-        run_git(&bare.path, &["-c", "init.defaultBranch=main", "init", "--bare", "-q", "."]).unwrap();
-        run_git(&work.path, &["-c", "init.defaultBranch=main", "init", "-q", "."]).unwrap();
+        run_git(
+            &bare.path,
+            &["-c", "init.defaultBranch=main", "init", "--bare", "-q", "."],
+        )
+        .unwrap();
+        run_git(
+            &work.path,
+            &["-c", "init.defaultBranch=main", "init", "-q", "."],
+        )
+        .unwrap();
         run_git(&work.path, &["config", "user.email", "test@example.com"]).unwrap();
         run_git(&work.path, &["config", "user.name", "Test"]).unwrap();
         run_git(&work.path, &["config", "commit.gpgsign", "false"]).unwrap();
@@ -3771,7 +4304,11 @@ mod remote_progress_tests {
         let repo = temp_path("registry");
         std::fs::create_dir_all(&repo.path).unwrap();
         run_git(&repo.path, &["init", "-q", "."]).unwrap();
-        let (outcome, _) = stream(Some(&repo.path), &["status", "--porcelain"], "test-registry");
+        let (outcome, _) = stream(
+            Some(&repo.path),
+            &["status", "--porcelain"],
+            "test-registry",
+        );
         assert!(outcome.success);
         assert!(!remote_ops().lock().unwrap().contains_key("test-registry"));
     }

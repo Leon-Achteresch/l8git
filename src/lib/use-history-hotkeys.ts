@@ -80,7 +80,7 @@ export function useHistoryHotkeys({
     {
       hotkey: bindings.historyCheckoutCommit,
       callback: () => {
-        if (!commit) return;
+        if (!commit || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
         onCheckoutChoice(commit);
       },
       options: {
@@ -91,7 +91,7 @@ export function useHistoryHotkeys({
     {
       hotkey: bindings.historyRebaseInteractive,
       callback: () => {
-        if (!parentHash) return;
+        if (!parentHash || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
         onRebaseInteractive(parentHash);
       },
       options: {
@@ -102,7 +102,7 @@ export function useHistoryHotkeys({
     {
       hotkey: bindings.historyCopyHash,
       callback: () => {
-        if (!commit) return;
+        if (!commit || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
         void navigator.clipboard
           ?.writeText(commit.hash)
           .then(() =>

@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { PopIn } from "@/components/motion/pop-in";
 import { cn } from "@/lib/utils";
 
 function CommitBranchBadgeInner({
@@ -16,7 +15,7 @@ function CommitBranchBadgeInner({
   stackTitle?: string;
 }) {
   const shell = cn(
-    "max-w-[9rem] min-w-0 items-center gap-1 rounded-full px-1.5 py-px text-[0.6875rem] font-medium",
+    "inline-flex max-w-[9rem] min-w-0 items-center gap-1 rounded-full px-1.5 py-px text-[0.6875rem] font-medium",
     tone === "dark" && "border border-border bg-secondary text-secondary-foreground",
     tone === "soft" && "border border-border/70 bg-background text-foreground/90",
     tone === "blue" &&
@@ -25,7 +24,7 @@ function CommitBranchBadgeInner({
       "border border-git-removed/30 bg-git-removed/15 text-git-removed",
   );
   return (
-    <PopIn title={stackTitle ?? name} className={shell}>
+    <span title={stackTitle ?? name} className={shell}>
       <span
         className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
         style={{ backgroundColor: accentColor }}
@@ -37,7 +36,7 @@ function CommitBranchBadgeInner({
           ·{stackLevel}
         </span>
       ) : null}
-    </PopIn>
+    </span>
   );
 }
 

@@ -1,2 +1,7 @@
-import base from '/Users/leon/Repositories/l8git/vite.ui-test.config.ts';
-export default { ...base, build: { ...base.build, minify: false, sourcemap: false } };
+import base from './vite.ui-test.config';
+import { fileURLToPath } from 'node:url';
+
+export default {
+  ...base,
+  build: { ...base.build, outDir: fileURLToPath(new URL('./dist-ui-profile', import.meta.url)), minify: false, sourcemap: true },
+};

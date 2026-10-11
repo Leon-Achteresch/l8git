@@ -65,6 +65,11 @@ export function useAppHotkeys({ onShowShortcuts }: { onShowShortcuts?: () => voi
 
     return [
       {
+        hotkey: bindings.helpCenter,
+        callback: () => { void router.navigate({ to: '/info' }); },
+        options: { meta: { name: t('helpCenter.title') } },
+      },
+      {
         hotkey: bindings.reloadActiveAlt,
         callback: refreshActive,
         options: {

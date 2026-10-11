@@ -321,6 +321,7 @@ export function RebaseInteractiveEditor({
   }, [open, base, presetHash, presetAction]);
 
   useEffect(() => {
+    const token = ++previewToken.current;
     if (!open) return;
     const target = baseRef.trim();
     if (!target) {
@@ -330,8 +331,10 @@ export function RebaseInteractiveEditor({
       setLoading(false);
       return;
     }
-    const token = ++previewToken.current;
     setLoading(true);
+    setArmed(false);
+    setEntries([]);
+    setOrder([]);
     setLoadError(null);
     const handle = window.setTimeout(() => {
       rebaseTodoPreview(path, target)
@@ -350,7 +353,10 @@ export function RebaseInteractiveEditor({
           setLoading(false);
         });
     }, 250);
-    return () => window.clearTimeout(handle);
+    return () => {
+      window.clearTimeout(handle);
+      if (previewToken.current === token) ++previewToken.current;
+    };
   }, [open, path, baseRef, rebaseTodoPreview]);
 
   useEffect(() => {
@@ -369,10 +375,11 @@ export function RebaseInteractiveEditor({
         .then(full => {
           setEntries(prev => withFullMessage(prev, target.hash, full));
         })
-        .catch(() => {
+        .catch(err => {
+          setError(describeRebaseError(err));
           setEntries(prev =>
             prev.map(e =>
-              e.hash === target.hash ? { ...e, messageLoaded: true } : e
+              e.hash === target.hash ? { ...e, messageLoaded: true, messageFailed: true } : e
             )
           );
         })
@@ -407,6 +414,12 @@ export function RebaseInteractiveEditor({
   }, [open, dismiss]);
 
   const issue = useMemo(() => validateEntries(entries), [entries]);
+  const incompleteMessages = entries.some(
+    entry => usesMessage(entry.action) && (!entry.messageLoaded || entry.messageFailed)
+  );
+  const failedMessages = entries.some(
+    entry => usesMessage(entry.action) && entry.messageFailed
+  );
   const summary = useMemo(
     () => summarizeEntries(entries, order),
     [entries, order]
@@ -461,7 +474,7 @@ export function RebaseInteractiveEditor({
   }
 
   async function start() {
-    if (issue || busy) return;
+    if (issue || busy || loading || loadError || rebaseInProgress || incompleteMessages) return;
     if (summary.dropped > 0 && !armed) {
       setArmed(true);
       return;
@@ -676,6 +689,16 @@ export function RebaseInteractiveEditor({
               {error}
             </p>
           ) : null}
+          {failedMessages ? (
+            <Button type='button' size='sm' variant='outline' disabled={busy} onClick={() => {
+              setError(null);
+              setEntries(previous => previous.map(entry => entry.messageFailed
+                ? { ...entry, messageLoaded: false, messageFailed: false }
+                : entry));
+            }}>
+              {t('common.retry')}
+            </Button>
+          ) : null}
           {armed ? (
             <p className='rounded-md border border-git-modified/40 bg-git-modified/10 p-2 text-xs'>
               {t('rebaseEditor.dropConfirm', { count: summary.dropped })}
@@ -697,7 +720,7 @@ export function RebaseInteractiveEditor({
               size='sm'
               variant={armed ? 'destructive' : 'default'}
               onClick={() => void start()}
-              disabled={busy || !!issue || entries.length === 0}
+              disabled={busy || loading || !!loadError || rebaseInProgress || incompleteMessages || !!issue || entries.length === 0}
             >
               {busy
                 ? t('rebase.submitBusy')

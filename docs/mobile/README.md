@@ -16,6 +16,16 @@ cargo build --features headless --bin l8gitd
 
 Die App scannt den QR-Code (oder fügt das JSON manuell ein) und verbindet sich per LAN oder Relay.
 
+## Agenten-Review abschließen
+
+Eine Datei zählt erst nach **Mark reviewed** als geprüft. Öffnen allein setzt keinen Haken. Die Bestätigung ist nur nach einer erfolgreich geladenen, aktuellen Vorschau möglich und gilt für deren Dateistand. Neue Änderungen, ein neuer Gesamtstand oder eine unterbrochene Host-Verbindung setzen die betroffenen Prüfmarkierungen zurück. Die Bestätigung vor dem Abschluss ist ein eigener Schritt.
+
+Unter **Worktree reviews** prüfst du die Dateien einer Session und öffnest **Finish review**. Bestätige den aktuellen Stand, gib bei offenen Änderungen eine Commit-Nachricht ein und wähle die Merge-Strategie: Fast-forward, Fast-forward ausschließlich oder ein eigener Merge-Commit. Nach dem Commit wird die Bestätigung zurückgesetzt, damit du den entstandenen Stand vor dem Merge erneut prüfst. Ein sauberer Worktree überspringt den Commit-Schritt.
+
+Die Prüfung bindet Aktionen an Host, Repository, Branches, Commit-Hashes und Dateiinhalte. Auch Binäränderungen ohne neue Zeilenstatistik verlangen eine erneute Bestätigung. Dateinamen und Repository-Pfade bleiben exakt erhalten. Zum Verwerfen zeigt die App zuerst eine Vorschau; die Aktion prüft denselben Dateistand erneut.
+
+Commit, Merge und Aufräumen sind einzeln wiederaufnehmbar. Nach erfolgreichem Entfernen des Worktrees wird dieser Fortschritt gespeichert, bevor sein Branch gelöscht wird. Bei einem Abbruch erscheint die Session weiterhin als **Resume cleanup**, auch mit leerer Dateiliste oder ohne den früheren Worktree-Pfad. Ein inzwischen neu angelegter Branch am gleichen Namen bleibt geschützt. Git-Aktionen benötigen eine verbundene Host-Sitzung; ein nicht verfügbarer ausgewählter Agent-CLI verhindert den Git-Abschluss nicht.
+
 ## Screenshots
 
 Die folgende Galerie ist ein älterer Referenzstand und keine Abnahme der aktuellen Version. Das bisherige Home-Bild zeigte einen Expo-Fehler und wurde deshalb aus der Produktgalerie entfernt. Der Repo-Header wurde inzwischen kompakter umgesetzt. Aktuelle Prüfgrenzen stehen im [Audit-Umsetzungsbericht](../audits/2026-09-06/IMPLEMENTATION.md).

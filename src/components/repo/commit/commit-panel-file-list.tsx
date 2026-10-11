@@ -16,6 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 import type { StatusEntry } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
+import { useWorkspacePrefs } from "@/lib/workspace-prefs";
+import { workspaceScale } from "@/lib/responsive-workspace";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   AlertTriangle,
@@ -30,9 +32,10 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { FileRow } from "./commit-panel-file-row";
+import { FileRow, FileRowMenu } from "./commit-panel-file-row";
 import { FolderRow } from "./commit-panel-folder-row";
 import { changeTreeItems, type ChangeTreeItem } from "@/lib/change-tree";
 import { useCommitPrefs } from "@/lib/commit-prefs";
@@ -62,12 +65,31 @@ const ROW_HEIGHT_PX = 36;
 const CONFLICT_ROW_HEIGHT_PX = 36;
 const FOLDER_ROW_HEIGHT_PX = 28;
 
-function estimateItemSize(item: ListItem | undefined): number {
-  if (!item) return ROW_HEIGHT_PX;
-  if (item.type === "header") return HEADER_HEIGHT_PX;
-  if (item.type === "folder") return FOLDER_ROW_HEIGHT_PX;
-  if (item.type === "conflict-row") return CONFLICT_ROW_HEIGHT_PX;
-  return ROW_HEIGHT_PX;
+function estimateItemSize(item: ListItem | undefined, scale: number): number {
+  if (item?.type === "header") return HEADER_HEIGHT_PX * scale;
+  if (item?.type === "folder") return FOLDER_ROW_HEIGHT_PX * scale;
+  if (item?.type === "conflict-row") return CONFLICT_ROW_HEIGHT_PX * scale;
+  // Text and padding use rems; the checkbox keeps its 18px hit glyph at small
+  // text scales. Account for it without measuring every mounted row.
+  return Math.max(ROW_HEIGHT_PX * scale, 18 + 16 * scale);
+}
+
+function visibleRowFocusTarget(
+  scroller: HTMLDivElement | null,
+  rowId: string,
+  source: HTMLElement,
+  range: { startIndex: number; endIndex: number } | null,
+): HTMLElement | null {
+  if (!scroller || !range) return null;
+  for (const row of scroller.querySelectorAll<HTMLElement>("[data-change-row-id]")) {
+    if (row.dataset.changeRowId !== rowId) continue;
+    const index = Number(row.parentElement?.dataset.index);
+    if (!Number.isInteger(index) || index < range.startIndex || index > range.endIndex) return null;
+    return source.tagName === "BUTTON"
+      ? row.querySelector<HTMLButtonElement>("button:not(:disabled)")
+      : source.hasAttribute("data-change-row-id") ? row : null;
+  }
+  return null;
 }
 
 function treeListItems(
@@ -150,6 +172,7 @@ function VirtualFileListInner({
   onStagePaths,
   onUnstagePaths,
   onDiscardPaths,
+  onVisibleRowsChange,
 }: {
   conflictRows: ChangeRow[];
   stagedRows: ChangeRow[];
@@ -171,9 +194,11 @@ function VirtualFileListInner({
   onStagePaths?: (paths: string[]) => void;
   onUnstagePaths?: (paths: string[]) => void;
   onDiscardPaths?: (paths: string[], worktreeOnly: boolean) => void;
+  onVisibleRowsChange?: (ids: string[]) => void;
 }) {
   const { t, i18n } = useTranslation();
   const openMergeEditor = useUiStore((s) => s.openMergeEditor);
+  const uiScale = workspaceScale(useWorkspacePrefs((s) => s.uiScale));
 
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<SectionId>>(new Set<SectionId>());
@@ -198,6 +223,15 @@ function VirtualFileListInner({
   const filteredConflictRows = useMemo(() => filterRows(conflictRows), [conflictRows, searchQuery]);
   const filteredStagedRows = useMemo(() => filterRows(stagedRows), [stagedRows, searchQuery]);
   const filteredUnstagedRows = useMemo(() => filterRows(unstagedRows), [unstagedRows, searchQuery]);
+  const isFiltered = searchQuery.trim().length > 0;
+  const filteredStagedPaths = useMemo(() => filteredStagedRows.filter((row) => !row.entry.embedded_repo).map((row) => row.path), [filteredStagedRows]);
+  const filteredUnstagedPaths = useMemo(() => filteredUnstagedRows.filter((row) => !row.entry.embedded_repo).map((row) => row.path), [filteredUnstagedRows]);
+  const filteredAllStaged = filteredUnstagedPaths.length === 0 && filteredStagedPaths.length > 0;
+  const toggleFiltered = () => {
+    if (!isFiltered) onToggleAll();
+    else if (filteredAllStaged) onUnstagePaths?.(filteredStagedPaths);
+    else onStagePaths?.(filteredUnstagedPaths);
+  };
 
   const toggleSection = (id: SectionId) => {
     setCollapsed((prev) => {
@@ -228,6 +262,41 @@ function VirtualFileListInner({
   );
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+  // One dormant menu belongs to the list. Virtual rows stay ordinary DOM until a
+  // user opens a menu, rather than mounting Radix providers for every scroll step.
+  const menuTriggerRef = useRef<HTMLSpanElement>(null);
+  const currentOwnerRef = useRef(activePath);
+  currentOwnerRef.current = activePath;
+  const focusedRowRef = useRef<{ element: HTMLElement; rowId: string; ownerPath: string } | null>(null);
+  const pressedRowRef = useRef<{ rowId: string; ownerPath: string; pointerId: number; cancelled: boolean } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [menuTarget, setMenuTarget] = useState<{ row: ChangeRow; ownerPath: string; returnFocus: HTMLElement | null } | null>(null);
+  const menuRows = useMemo(() => new Map(listItems.flatMap((item) => item.type === "row" ? [[item.row.id, item.row] as const] : [])), [listItems]);
+  const currentMenuRowsRef = useRef(menuRows);
+  currentMenuRowsRef.current = menuRows;
+  const menuTargetCurrent = menuTarget?.ownerPath === activePath && menuRows.get(menuTarget.row.id) === menuTarget.row;
+  const findMenuRow = (target: EventTarget | null) => {
+    const element = target instanceof Element ? target.closest<HTMLElement>("[data-change-row-id]") : null;
+    const row = element && scrollerRef.current?.contains(element) ? menuRows.get(element.dataset.changeRowId ?? "") : undefined;
+    return row && element ? { row, element } : null;
+  };
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current !== null) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  };
+  useEffect(() => () => {
+    if (longPressTimerRef.current !== null) clearTimeout(longPressTimerRef.current);
+  }, []);
+  const openRowMenu = (row: ChangeRow, x: number, y: number, returnFocus: HTMLElement | null = null) => {
+    cancelLongPress();
+    if (pressedRowRef.current) pressedRowRef.current.cancelled = true;
+    // Install the exact target before Radix opens the content on the first event.
+    flushSync(() => setMenuTarget({ row, ownerPath: activePath, returnFocus }));
+    menuTriggerRef.current?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+  };
+  useEffect(() => {
+    onVisibleRowsChange?.(listItems.flatMap((item) => item.type === "row" || item.type === "conflict-row" ? [item.row.id] : []));
+  }, [listItems, onVisibleRowsChange]);
   const getItemKey = useCallback((index: number) => {
     const item = listItems[index];
     if (!item) return index;
@@ -239,15 +308,43 @@ function VirtualFileListInner({
   const virtualizer = useVirtualizer({
     count: listItems.length,
     getScrollElement: () => scrollerRef.current,
-    estimateSize: (index) => estimateItemSize(listItems[index]),
-    overscan: 12,
+    estimateSize: (index) => estimateItemSize(listItems[index], uiScale),
+    overscan: 4,
     paddingStart: 2,
     paddingEnd: 4,
     getItemKey,
   });
+  // Single-line row geometry scales with the root font size. A fixed wrapper
+  // avoids synchronous layout measurements whenever virtual rows mount.
+  useLayoutEffect(() => { virtualizer.measure(); }, [uiScale, virtualizer]);
+  const virtualItems = virtualizer.getVirtualItems();
+  // Recycled DOM must never leave focus pointing at a different file. Keep the
+  // exact logical row focused while it remains visible; otherwise release it.
+  // This runs before the browser can deliver another keyboard activation.
+  useLayoutEffect(() => {
+    const focused = focusedRowRef.current;
+    if (!focused) return;
+    if (!focused.element.isConnected || focused.element !== document.activeElement) {
+      focusedRowRef.current = null;
+      return;
+    }
+    const currentRowId = focused.element.closest<HTMLElement>("[data-change-row-id]")?.dataset.changeRowId;
+    if (focused.ownerPath !== activePath || currentRowId !== focused.rowId) {
+      if (focused.ownerPath === activePath) {
+        const target = visibleRowFocusTarget(scrollerRef.current, focused.rowId, focused.element, virtualizer.range);
+        if (target) {
+          target.focus({ preventScroll: true });
+          return;
+        }
+      }
+      focused.element.blur();
+      focusedRowRef.current = null;
+    }
+  });
 
   const isEmpty =
     conflictRows.length === 0 && stagedRows.length === 0 && unstagedRows.length === 0;
+  let nextFileRowSlot = 0;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -256,14 +353,15 @@ function VirtualFileListInner({
           type="button"
           variant="ghost"
           size="icon-xs"
-          onClick={onToggleAll}
-          title={t("commitPanel.toggleAll", { defaultValue: "Toggle all" })}
-          aria-label={t("commitPanel.toggleAll", { defaultValue: "Toggle all" })}
-          aria-pressed={allState === "checked"}
+          onClick={toggleFiltered}
+          title={t(isFiltered ? filteredAllStaged ? "commitActions.unstageFiltered" : "commitActions.stageFiltered" : allState === "checked" ? "commitActions.unstageAll" : "commitActions.stageAll")}
+          aria-label={t(isFiltered ? filteredAllStaged ? "commitActions.unstageFiltered" : "commitActions.stageFiltered" : allState === "checked" ? "commitActions.unstageAll" : "commitActions.stageAll")}
+          disabled={isFiltered && filteredStagedPaths.length + filteredUnstagedPaths.length === 0}
+          aria-pressed={isFiltered ? filteredAllStaged : allState === "checked"}
         >
-          {allState === "checked" ? (
+          {(isFiltered ? filteredAllStaged : allState === "checked") ? (
             <CheckSquare className="text-primary" aria-hidden />
-          ) : allState === "indeterminate" ? (
+          ) : !isFiltered && allState === "indeterminate" ? (
             <MinusSquare className="text-primary/70" aria-hidden />
           ) : (
             <Square className="text-muted-foreground" aria-hidden />
@@ -326,6 +424,7 @@ function VirtualFileListInner({
           </Button>
         )}
       </div>
+      {!isEmpty && <p className="truncate border-b border-border/40 px-2.5 py-1 text-[0.625rem] text-muted-foreground/70" title={t("commitActions.selectionHint")}>{t("commitActions.selectionHint")}</p>}
 
       {isEmpty ? (
         <Empty className="m-2 border-0 bg-transparent">
@@ -350,9 +449,80 @@ function VirtualFileListInner({
           </EmptyHeader>
         </Empty>
       ) : (
-        <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
+        <>
+        <div
+          ref={scrollerRef}
+          className="min-h-0 flex-1 overflow-y-auto"
+          // The surrounding flex layout owns this viewport's size. Virtual row
+          // changes must not invalidate intrinsic layout across the application.
+          // Browser anchoring must not follow a recycled slot to a different file.
+          style={{ contain: "strict", overflowAnchor: "none" }}
+          onFocusCapture={(event) => {
+            const target = findMenuRow(event.target);
+            focusedRowRef.current = target && event.target instanceof HTMLElement
+              ? { element: event.target, rowId: target.row.id, ownerPath: activePath }
+              : null;
+          }}
+          onBlurCapture={(event) => {
+            if (focusedRowRef.current?.element === event.target) focusedRowRef.current = null;
+          }}
+          onClickCapture={(event) => {
+            const pressed = pressedRowRef.current;
+            pressedRowRef.current = null;
+            if (event.detail === 0 || !pressed) return;
+            const target = findMenuRow(event.target);
+            // A press can start before scrolling and end on the same DOM slot
+            // after it represents a new file. Such a click has no valid target.
+            if (pressed.cancelled || pressed.ownerPath !== activePath || target?.row.id !== pressed.rowId) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
+          onContextMenu={(event) => {
+            const target = findMenuRow(event.target);
+            if (!target || event.defaultPrevented) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const pressed = pressedRowRef.current;
+            // Some platforms open on right-button release. Recycling between
+            // down and release must not silently change the menu's file target.
+            if (pressed && (pressed.cancelled || pressed.ownerPath !== activePath || pressed.rowId !== target.row.id)) {
+              cancelLongPress();
+              pressed.cancelled = true;
+              return;
+            }
+            openRowMenu(target.row, event.clientX, event.clientY);
+          }}
+          onKeyDownCapture={(event) => {
+            if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+            const target = findMenuRow(event.target);
+            if (!target) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const bounds = target.element.getBoundingClientRect();
+            openRowMenu(target.row, bounds.left + Math.min(32, bounds.width / 2), bounds.top + bounds.height / 2, event.target instanceof HTMLElement ? event.target : target.element);
+          }}
+          onPointerDownCapture={(event) => {
+            cancelLongPress();
+            const target = findMenuRow(event.target);
+            pressedRowRef.current = target ? { rowId: target.row.id, ownerPath: activePath, pointerId: event.pointerId, cancelled: false } : null;
+            if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+            if (!target) return;
+            const { clientX, clientY } = event;
+            longPressTimerRef.current = setTimeout(() => {
+              if (target.element.isConnected && target.element.dataset.changeRowId === target.row.id && currentOwnerRef.current === activePath && currentMenuRowsRef.current.get(target.row.id) === target.row) openRowMenu(target.row, clientX, clientY);
+            }, 700);
+          }}
+          onPointerMoveCapture={cancelLongPress}
+          onPointerUpCapture={cancelLongPress}
+          onPointerCancelCapture={(event) => {
+            cancelLongPress();
+            if (pressedRowRef.current?.pointerId === event.pointerId) pressedRowRef.current = null;
+          }}
+          onScroll={cancelLongPress}
+        >
           <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-            {virtualizer.getVirtualItems().map((vi) => {
+            {virtualItems.map((vi) => {
               const item = listItems[vi.index];
               if (!item) return null;
 
@@ -397,9 +567,10 @@ function VirtualFileListInner({
                             type="button"
                             variant="ghost"
                             size="icon-xs"
-                            title="Unstage all"
-                            onClick={(e) => { e.stopPropagation(); onUnstageAll(); }}
-                            className="hidden group-hover:inline-flex"
+                            title={t(isFiltered ? "commitActions.unstageFiltered" : "commitActions.unstageAll")}
+                            aria-label={t(isFiltered ? "commitActions.unstageFiltered" : "commitActions.unstageAll")}
+                            onClick={(e) => { e.stopPropagation(); if (isFiltered) onUnstagePaths?.(filteredStagedPaths); else onUnstageAll(); }}
+                            className="opacity-50 hover:opacity-100"
                           >
                             <Minus />
                           </Button>
@@ -409,9 +580,10 @@ function VirtualFileListInner({
                             type="button"
                             variant="ghost"
                             size="icon-xs"
-                            title="Stage all"
-                            onClick={(e) => { e.stopPropagation(); onStageAll(); }}
-                            className="hidden group-hover:inline-flex"
+                            title={t(isFiltered ? "commitActions.stageFiltered" : "commitActions.stageAll")}
+                            aria-label={t(isFiltered ? "commitActions.stageFiltered" : "commitActions.stageAll")}
+                            onClick={(e) => { e.stopPropagation(); if (isFiltered) onStagePaths?.(filteredUnstagedPaths); else onStageAll(); }}
+                            className="opacity-50 hover:opacity-100"
                           >
                             <Plus />
                           </Button>
@@ -429,9 +601,9 @@ function VirtualFileListInner({
                     <ContextMenu key={vi.key}>
                       <ContextMenuTrigger asChild>{headerNode}</ContextMenuTrigger>
                       <ContextMenuContent>
-                        <ContextMenuItem variant="destructive" onSelect={onDiscardAllStaged}>
+                        <ContextMenuItem variant="destructive" onSelect={() => { if (isFiltered) onDiscardPaths?.(filteredStagedPaths, false); else onDiscardAllStaged(); }}>
                           <Undo2 className="h-3.5 w-3.5" />
-                          {t("commitPanel.discardAllStaged")}
+                          {t(isFiltered ? "commitActions.discardFilteredStaged" : "commitPanel.discardAllStaged")}
                         </ContextMenuItem>
                       </ContextMenuContent>
                     </ContextMenu>
@@ -476,17 +648,15 @@ function VirtualFileListInner({
               }
 
               return (
-                <div key={vi.key} style={style}>
+                // Only stateless file rows recycle their viewport position.
+                // TanStack still tracks their exact logical ids independently.
+                <div key={`file-slot:${nextFileRowSlot++}`} data-index={vi.index} style={style}>
                   <FileRow
                     row={item.row}
                     selected={item.row.id === selectedRowId}
                     inMultiSelection={multiSelectedIds.has(item.row.id)}
-                    multiSelectedCount={multiSelectedIds.size}
                     onSelect={onSelect}
                     onToggle={onToggle}
-                    onDiscard={onDiscard}
-                    onBlame={onBlame}
-                    onIgnore={onIgnore}
                     depth={item.depth}
                   />
                 </div>
@@ -494,6 +664,28 @@ function VirtualFileListInner({
             })}
           </div>
         </div>
+        <ContextMenu key={`${activePath}\n${menuTarget && !menuTargetCurrent ? "invalid" : "current"}`}>
+        <ContextMenuTrigger asChild><span ref={menuTriggerRef} hidden aria-hidden="true" /></ContextMenuTrigger>
+        {menuTarget && menuTargetCurrent && <FileRowMenu
+          row={menuTarget.row}
+          inMultiSelection={multiSelectedIds.has(menuTarget.row.id)}
+          multiSelectedCount={multiSelectedIds.size}
+          onDiscard={onDiscard}
+          onBlame={onBlame}
+          onIgnore={onIgnore}
+          onCloseAutoFocus={(event) => {
+            // Radix's saved focus may belong to a replaced repository or row.
+            // Only restore the explicitly captured and still-owned target.
+            event.preventDefault();
+            const { returnFocus, ownerPath, row } = menuTarget;
+            if (returnFocus && currentOwnerRef.current === ownerPath) {
+              const target = visibleRowFocusTarget(scrollerRef.current, row.id, returnFocus, virtualizer.range);
+              target?.focus({ preventScroll: true });
+            }
+          }}
+        />}
+        </ContextMenu>
+        </>
       )}
     </div>
   );

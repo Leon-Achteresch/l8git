@@ -5,6 +5,7 @@ import {
   GitFork,
   LayoutDashboard,
   Settings,
+  CircleHelp,
 } from "lucide-react";
 import { type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,6 +21,8 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import { RepoTabBar } from "@/components/repo/tabs/repo-tab-bar";
 import { cn } from "@/lib/utils";
+import { useHotkeyBindings } from '@/lib/hotkey-prefs';
+import { formatForDisplay } from '@tanstack/react-hotkeys';
 
 const IS_MAC =
   typeof navigator !== "undefined" &&
@@ -31,6 +34,7 @@ const IS_WINDOWS =
 export function AppHeader() {
   const { t } = useTranslation();
   const navLabels = useWorkspacePrefs(s => s.navLabels);
+  const bindings = useHotkeyBindings();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const navItems = [
@@ -104,6 +108,15 @@ export function AppHeader() {
 
           <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>
+              <Link to="/info" title={t("helpCenter.title")} aria-label={t("helpCenter.title")} aria-current={pathname === "/info" ? "page" : undefined} className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors outline-none hover:bg-muted/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring", pathname === "/info" && "bg-muted text-foreground")}>
+                <CircleHelp className="size-4" strokeWidth={1.75} aria-hidden />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><span className="inline-flex items-center gap-2">{t("helpCenter.title")}<Kbd>{formatForDisplay(bindings.helpCenter)}</Kbd></span></TooltipContent>
+          </Tooltip>
+
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
               <Link
                 to="/settings"
                 aria-label={t("header.settingsAria")}
@@ -121,7 +134,7 @@ export function AppHeader() {
             <TooltipContent side="bottom" sideOffset={8}>
               <span className="inline-flex items-center gap-1.5 font-medium">
                 {t("header.settingsAria")}
-                <Kbd className="h-4 px-1 text-[0.625rem]">⌘,</Kbd>
+                <Kbd className="h-4 px-1 text-[0.625rem]">{formatForDisplay(bindings.settings)}</Kbd>
               </span>
             </TooltipContent>
           </Tooltip>

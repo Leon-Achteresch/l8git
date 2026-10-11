@@ -12,6 +12,12 @@ export type HotkeyActionGroup =
 
 const ACTION_DEFS = [
   {
+    id: 'helpCenter',
+    group: 'global',
+    defaultHotkey: 'F1',
+    labelKey: 'helpCenter.title',
+  },
+  {
     id: 'commandPalette',
     group: 'global',
     defaultHotkey: 'Mod+K',

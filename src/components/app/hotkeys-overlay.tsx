@@ -40,14 +40,11 @@ function useShortcutGroups(): ShortcutGroup[] {
       description: t(action.labelKey, action.labelParams ?? {}),
     }));
 
-  const terminalKey = IS_MAC ? "⌃`" : "Ctrl+`";
-
   return [
     {
       group: t("hotkeysOverlay.groupGlobal"),
       rows: [
         ...rowsFor("global"),
-        { keys: [terminalKey], description: t("hotkeysOverlay.toggleTerminal") },
       ],
     },
     {

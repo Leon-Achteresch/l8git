@@ -211,13 +211,13 @@ fn map_error(message: String) -> String {
 }
 
 fn absolute_git_dir(repo: &Path) -> Result<PathBuf, String> {
-    let raw = read(repo, &["rev-parse", "--absolute-git-dir"])
-        .ok_or_else(|| "Not a git repository.".to_string())?;
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
+    let raw = crate::git::run_git(&repo.to_path_buf(), &["rev-parse", "--absolute-git-dir"])
+        .map_err(|_| "Not a git repository.".to_string())?;
+    let value = raw.strip_suffix('\n').unwrap_or(&raw);
+    if value.is_empty() {
         return Err("Not a git repository.".into());
     }
-    Ok(PathBuf::from(trimmed))
+    Ok(PathBuf::from(value))
 }
 
 fn plan_path(repo: &Path) -> Result<PathBuf, String> {
@@ -816,7 +816,7 @@ async fn to_result(path: String, outcome: RestackOutcome) -> Result<StackRestack
 
 #[tauri::command]
 pub async fn stack_list(path: String) -> Result<StackList, String> {
-    spawn_git(move || build_list(&PathBuf::from(path.trim()))).await
+    spawn_git(move || build_list(&PathBuf::from(&path))).await
 }
 
 #[tauri::command]
@@ -826,7 +826,7 @@ pub async fn stack_create_branch(
     parent: String,
 ) -> Result<StackList, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let name = name.trim().to_string();
         let parent = parent.trim().to_string();
         absolute_git_dir(&repo)?;
@@ -860,7 +860,7 @@ pub async fn stack_create_branch(
 #[tauri::command]
 pub async fn stack_adopt(path: String, name: String, parent: String) -> Result<StackList, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let name = name.trim().to_string();
         let parent = parent.trim().to_string();
         absolute_git_dir(&repo)?;
@@ -888,7 +888,7 @@ pub async fn stack_adopt(path: String, name: String, parent: String) -> Result<S
 #[tauri::command]
 pub async fn stack_remove(path: String, name: String) -> Result<StackList, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let name = name.trim().to_string();
         absolute_git_dir(&repo)?;
         if name.is_empty() {
@@ -903,7 +903,7 @@ pub async fn stack_remove(path: String, name: String) -> Result<StackList, Strin
 #[tauri::command]
 pub async fn stack_next_branch_name(path: String, base: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         absolute_git_dir(&repo)?;
         let mut stem = String::new();
         let mut last_dash = false;
@@ -955,7 +955,7 @@ pub async fn stack_next_branch_name(path: String, base: String) -> Result<String
 #[tauri::command]
 pub async fn stack_restack_state(path: String) -> Result<StackRestackState, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         absolute_git_dir(&repo)?;
         let plan = read_plan(&repo);
         Ok(StackRestackState {
@@ -971,7 +971,7 @@ pub async fn stack_restack_state(path: String) -> Result<StackRestackState, Stri
 pub async fn stack_restack(path: String, branch: String) -> Result<StackRestackResult, String> {
     let repo_path = path.clone();
     let outcome = spawn_git(move || {
-        let repo = PathBuf::from(repo_path.trim());
+        let repo = PathBuf::from(&repo_path);
         let branch = branch.trim().to_string();
         absolute_git_dir(&repo)?;
         if branch.is_empty() {
@@ -992,7 +992,7 @@ pub async fn stack_restack(path: String, branch: String) -> Result<StackRestackR
 pub async fn stack_restack_resume(path: String) -> Result<StackRestackResult, String> {
     let repo_path = path.clone();
     let outcome = spawn_git(move || {
-        let repo = PathBuf::from(repo_path.trim());
+        let repo = PathBuf::from(&repo_path);
         absolute_git_dir(&repo)?;
         let Some(mut plan) = read_plan(&repo) else {
             return Err("There is no restack in progress.".into());
@@ -1165,7 +1165,7 @@ pub async fn branch_cleanup_candidates(
     path: String,
     stale_days: u32,
 ) -> Result<BranchCleanupReport, String> {
-    spawn_git(move || collect_cleanup(&PathBuf::from(path.trim()), stale_days)).await
+    spawn_git(move || collect_cleanup(&PathBuf::from(&path), stale_days)).await
 }
 
 #[cfg(test)]
@@ -1271,6 +1271,36 @@ mod tests {
             .iter()
             .find(|s| s.root == root)
             .unwrap_or_else(|| panic!("no stack with root {root}"))
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn stack_commands_preserve_root_whitespace() {
+        for suffix in [" ", "\n"] {
+            let decoy = TestRepo::new();
+            decoy.commit("decoy.txt", "decoy\n", "decoy root");
+            let mut selected = TestRepo::new();
+            let expected_head = selected.commit("selected.txt", "selected\n", "selected root");
+            let exact_path = PathBuf::from(format!("{}{suffix}", decoy.path()));
+            fs::rename(&selected.path, &exact_path).unwrap();
+            selected.path = exact_path;
+
+            let created = stack_create_branch(selected.path(), "topic".into(), "main".into())
+                .await
+                .unwrap();
+            assert_eq!(created.current_branch.as_deref(), Some("topic"));
+            assert_eq!(
+                selected.git(&["rev-parse", "refs/heads/topic"]),
+                expected_head
+            );
+            assert!(!decoy.try_git(&["show-ref", "--verify", "refs/heads/topic"]).0);
+            assert_eq!(decoy.git(&["branch", "--show-current"]).trim(), "main");
+
+            let listed = stack_list(selected.path()).await.unwrap();
+            assert_eq!(listed.current_branch.as_deref(), Some("topic"));
+            assert_eq!(stack_of(&listed, "main").branches[0].name, "topic");
+            assert!(stack_list(decoy.path()).await.unwrap().stacks.is_empty());
+        }
     }
 
     #[tokio::test]

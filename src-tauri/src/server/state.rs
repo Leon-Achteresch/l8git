@@ -147,6 +147,10 @@ impl ServerState {
         super::config::ensure_allowed(&self.allowed_roots(), args)
     }
 
+    pub fn ensure_command_allowed(&self, command: &str, args: &Value) -> Result<(), String> {
+        super::config::ensure_command_allowed(&self.allowed_roots(), command, args)
+    }
+
     pub fn watch(&self, connection: u64, path: &str) -> Result<(), String> {
         crate::watcher::watch_repo_inner(path.to_string())?;
         self.watched

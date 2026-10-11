@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import { AnimatePresence, m, useReducedMotion } from "motion/react"
 
@@ -91,6 +92,7 @@ function SheetContent({
   showCloseButton?: boolean
 }) {
   const isOpen = useSheetOpen()
+  const { t } = useTranslation()
   const offscreen = sheetOffscreen[side]
   // Reduced motion (and headless browsers reporting it): motion springs can
   // stall and leave the drawer off-screen, so render the final state directly.
@@ -126,7 +128,7 @@ function SheetContent({
                     size="icon-sm"
                   >
                     <XIcon />
-                    <span className="sr-only">Close</span>
+                    <span className="sr-only">{t("common.close")}</span>
                   </Button>
                 </SheetPrimitive.Close>
               )}

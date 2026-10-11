@@ -135,7 +135,7 @@ export function DiffViewer({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/60 px-4 py-2.5">
-        <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 basis-40 items-center gap-2.5">
           <StatusIcon entry={selectedRow.entry} sector={selectedRow.sector} />
           <span className="truncate text-sm font-medium" title={selectedRow.path}>
             {selectedRow.path}

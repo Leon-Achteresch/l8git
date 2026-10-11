@@ -17,6 +17,9 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore, type Branch } from "@/lib/repo-store";
 import { ALL_SIDEBAR_TABS, useSidebarPrefs } from "@/lib/sidebar-prefs";
 import { useBranchSidebarHotkeys } from "@/lib/use-branch-hotkeys";
+import { useContainerSize } from "@/hooks/use-container-size";
+import { repositorySidebarLayout } from "@/lib/responsive-workspace";
+import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import {
   GRID_SIDEBAR_MAX_WIDTH,
   GRID_SIDEBAR_MIN_WIDTH,
@@ -131,9 +134,20 @@ export function RepoSidebar() {
   });
 
   const asideRef = useRef<HTMLElement | null>(null);
+  const availableSize = useContainerSize(asideRef, { parent: true, enabled: !!repo && !!activePath });
+  const uiScale = useWorkspacePrefs((s) => s.uiScale);
+  const { compact, width: effectiveWidth } = repositorySidebarLayout({
+    availableWidth: availableSize.width,
+    preferredWidth: tabLayout === "grid" ? gridSidebarWidth : sidebarWidth,
+    minimumWidth: tabLayout === "grid" ? GRID_SIDEBAR_MIN_WIDTH : SIDEBAR_MIN_WIDTH,
+    scale: uiScale,
+  });
+  const effectiveTabLayout = compact ? "list" : tabLayout;
+  const effectiveDisplayMode = compact ? "icons_only" : displayMode;
   const [isResizing, setIsResizing] = useState(false);
   const [newBranchOpen, setNewBranchOpen] = useState(false);
   const [branchPopoverOpen, setBranchPopoverOpen] = useState(false);
+  const [focusedTab, setFocusedTab] = useState<SidebarTab | null>(null);
   const [forceDeleteTarget, setForceDeleteTarget] = useState<Branch | null>(null);
 
   const openNewBranchDialog = useCallback(() => setNewBranchOpen(true), []);
@@ -175,7 +189,7 @@ export function RepoSidebar() {
   );
 
   useEffect(() => {
-    if (!isResizing) return;
+    if (!isResizing || compact) return;
 
     const onMove = (e: PointerEvent) => {
       const left = asideRef.current?.getBoundingClientRect().left ?? 0;
@@ -200,7 +214,11 @@ export function RepoSidebar() {
       document.body.style.cursor = prevCursor;
       document.body.style.userSelect = prevSelect;
     };
-  }, [isResizing, setSidebarWidth, setGridSidebarWidth, tabLayout]);
+  }, [isResizing, compact, setSidebarWidth, setGridSidebarWidth, tabLayout]);
+
+  useEffect(() => {
+    if (compact) setIsResizing(false);
+  }, [compact]);
 
   const branches = repo?.branches ?? null;
   const tags = repo?.tags ?? null;
@@ -257,13 +275,13 @@ export function RepoSidebar() {
   }, [tabOrder, hiddenTabs]);
 
   const rareActive = rareTabs.includes(sidebarTab);
-  const showRare = moreTabsExpanded || rareActive;
+  const showRare = compact || moreTabsExpanded || rareActive || (focusedTab !== null && rareTabs.includes(focusedTab));
   const rareCountSum = rareTabs.reduce((sum, id) => sum + (tabCounts[id] ?? 0), 0);
 
   // Build icons dynamically so they scale with tabSize in grid mode
   const TAB_ICONS = useMemo(
-    () => buildTabIcons(tabSize, tabLayout),
-    [tabSize, tabLayout],
+    () => buildTabIcons(tabSize, effectiveTabLayout),
+    [tabSize, effectiveTabLayout],
   );
 
   useBranchSidebarHotkeys({
@@ -275,18 +293,20 @@ export function RepoSidebar() {
   if (!repo || !activePath) return null;
 
   // Branches/Tags im Popover wenn die Sidebar zu schmal ist
-  const useBranchPopover =
-    (tabLayout === "list" && sidebarWidth < BRANCH_INLINE_MIN_WIDTH) ||
-    (tabLayout === "grid" && gridSidebarWidth < BRANCH_INLINE_MIN_WIDTH);
+  const useBranchPopover = compact || effectiveWidth < BRANCH_INLINE_MIN_WIDTH;
 
   const tabListClass =
-    tabLayout === "grid"
+    effectiveTabLayout === "grid"
       ? {
           2: "grid grid-cols-2 gap-0.5",
           3: "grid grid-cols-3 gap-0.5",
           4: "grid grid-cols-4 gap-0.5",
         }[gridColumns]
       : "flex flex-col gap-0.5";
+
+  const renderedTabs = showRare ? [...mainTabs, ...rareTabs] : mainTabs;
+  const preferredFocus = focusedTab ?? sidebarTab;
+  const focusableTab = renderedTabs.includes(preferredFocus) ? preferredFocus : renderedTabs[0];
 
   const renderTab = (tabId: SidebarTab) => (
     <li key={tabId}>
@@ -297,9 +317,11 @@ export function RepoSidebar() {
         count={tabCounts[tabId]}
         emphasis={tabId === "commit"}
         onClick={tabClickHandlers.get(tabId)!}
-        displayMode={displayMode}
+        onFocus={() => setFocusedTab(tabId)}
+        tabIndex={tabId === focusableTab ? 0 : -1}
+        displayMode={effectiveDisplayMode}
         tabSize={tabSize}
-        tabLayout={tabLayout}
+        tabLayout={effectiveTabLayout}
       />
     </li>
   );
@@ -321,12 +343,11 @@ export function RepoSidebar() {
   return (
     <aside
       ref={asideRef}
+      data-testid="repository-sidebar"
+      data-layout={compact ? "compact" : "full"}
       className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-sidebar-border/80 bg-sidebar text-sidebar-foreground"
       style={{
-        width:
-          tabLayout === "grid"
-            ? gridSidebarWidth
-            : sidebarWidth,
+        width: effectiveWidth,
       }}
     >
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -334,16 +355,35 @@ export function RepoSidebar() {
         </div>
 
         <nav
-          className="shrink-0 px-2 pb-1 pt-0.5"
+          className={cn("px-2 pb-1 pt-0.5", compact ? "min-h-0 flex-1 overflow-y-auto" : "shrink-0")}
           role="tablist"
           aria-label={t("sidebar.navAria")}
+          aria-orientation={effectiveTabLayout === "list" ? "vertical" : "horizontal"}
+          onBlur={event => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setFocusedTab(null);
+          }}
+          onKeyDown={event => {
+            if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+            const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+            const index = tabs.indexOf(event.target as HTMLButtonElement);
+            if (index < 0) return;
+            const previous = effectiveTabLayout === "list" ? "ArrowUp" : "ArrowLeft";
+            const next = effectiveTabLayout === "list" ? "ArrowDown" : "ArrowRight";
+            const target = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+              : event.key === previous ? (index - 1 + tabs.length) % tabs.length
+              : event.key === next ? (index + 1) % tabs.length : null;
+            if (target === null) return;
+            event.preventDefault();
+            // Focus follows the rail; Enter/Space activates a panel through its existing button handler.
+            tabs[target]?.focus();
+          }}
         >
           <div className="rounded-2xl bg-foreground/[0.035] p-1 dark:bg-white/[0.045]">
             <ul className={tabListClass}>{mainTabs.map(renderTab)}</ul>
 
             {rareTabs.length > 0 && (
               <>
-                <ListRow
+                {!compact && <ListRow
                   size="xs"
                   variant="ghost"
                   aria-expanded={showRare}
@@ -365,7 +405,7 @@ export function RepoSidebar() {
                       {rareCountSum > 9 ? "9+" : rareCountSum}
                     </span>
                   )}
-                </ListRow>
+                </ListRow>}
                 <AnimatePresence initial={false}>
                   {showRare && (
                     <m.div
@@ -415,7 +455,7 @@ export function RepoSidebar() {
                 side="right"
                 align="start"
                 sideOffset={8}
-                className="flex w-80 flex-col gap-0 overflow-hidden p-0"
+                className="flex w-80 max-w-[calc(100vw-5rem)] flex-col gap-0 overflow-hidden p-0"
                 style={{ maxHeight: "70vh" }}
               >
                 <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
@@ -451,12 +491,12 @@ export function RepoSidebar() {
         )}
       </div>
 
-      <div
+      {!compact && <div
         role="separator"
         tabIndex={0}
         aria-label={t('audit.resizeSidebar')}
         onKeyDown={event => {
-          const width = tabLayout === 'grid' ? gridSidebarWidth : sidebarWidth;
+          const width = effectiveWidth;
           const min = tabLayout === 'grid' ? GRID_SIDEBAR_MIN_WIDTH : SIDEBAR_MIN_WIDTH;
           const max = tabLayout === 'grid' ? GRID_SIDEBAR_MAX_WIDTH : SIDEBAR_MAX_WIDTH;
           const next = event.key === 'Home' ? min : event.key === 'End' ? max : event.key === 'ArrowLeft' ? width - 16 : event.key === 'ArrowRight' ? width + 16 : null;
@@ -467,7 +507,7 @@ export function RepoSidebar() {
         aria-orientation="vertical"
         aria-valuemin={tabLayout === "grid" ? GRID_SIDEBAR_MIN_WIDTH : SIDEBAR_MIN_WIDTH}
         aria-valuemax={tabLayout === "grid" ? GRID_SIDEBAR_MAX_WIDTH : SIDEBAR_MAX_WIDTH}
-        aria-valuenow={tabLayout === "grid" ? gridSidebarWidth : sidebarWidth}
+        aria-valuenow={effectiveWidth}
         onPointerDown={onPointerDown}
         className="group absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
       >
@@ -479,7 +519,7 @@ export function RepoSidebar() {
               : "bg-transparent group-hover:bg-primary/60",
           )}
         />
-      </div>
+      </div>}
 
       <NewBranchDialog
         open={newBranchOpen}

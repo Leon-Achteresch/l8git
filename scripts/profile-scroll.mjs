@@ -1,9 +1,11 @@
 import { chromium } from '@playwright/test';
 import { preview } from 'vite';
 import { resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
 
-const server = await preview({ configFile: resolve('vite.profile.config.ts'), preview: { host: '127.0.0.1', port: 4177, strictPort: true } });
+const server = await preview({ configFile: resolve('vite.profile.config.ts'), ...(process.env.PROFILE_BUILD_DIR ? { build: { outDir: resolve(process.env.PROFILE_BUILD_DIR) } } : {}), preview: { host: '127.0.0.1', port: 4177, strictPort: true } });
 const browser = await chromium.launch();
+try {
 const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'no-preference' });
 const page = await context.newPage();
 const cdp = await context.newCDPSession(page);
@@ -11,10 +13,15 @@ await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 await page.goto(`http://127.0.0.1:4177/?scene=${process.env.PROFILE_SCENE || 'performance'}`);
 const anchor = process.env.PROFILE_SCENE === 'performance-history' ? page.locator('[data-commit-hash]').first() : page.getByTestId('files');
 await anchor.waitFor();
+const trace = [];
+if (process.env.PROFILE_TRACE_OUT) {
+  cdp.on('Tracing.dataCollected', event => trace.push(...event.value));
+  await cdp.send('Tracing.start', { categories: 'devtools.timeline', transferMode: 'ReportEvents' });
+}
 await cdp.send('Profiler.enable');
-await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
+await cdp.send('Profiler.setSamplingInterval', { interval: process.env.PROFILE_TRACE_OUT ? 1000 : 200 });
 await cdp.send('Profiler.start');
-await anchor.evaluate(async (root) => {
+await anchor.evaluate(async (root, frameCount) => {
   const ok = n => n.scrollHeight > n.clientHeight + 100 && /auto|scroll/.test(getComputedStyle(n).overflowY);
   let scroller = [...root.querySelectorAll('*')].find(ok);
   for (let n = root; !scroller && n && n !== document.body; n = n.parentElement) if (ok(n)) scroller = n;
@@ -23,12 +30,19 @@ await anchor.evaluate(async (root) => {
     const tick = () => {
       const phase = (i % 120) / 120;
       scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) * (1 - Math.abs(phase * 2 - 1));
-      if (++i < 240) requestAnimationFrame(tick); else res();
+      if (++i < frameCount) requestAnimationFrame(tick); else res();
     };
     requestAnimationFrame(tick);
   });
-});
+}, Number(process.env.PROFILE_FRAMES ?? 240));
 const { profile } = await cdp.send('Profiler.stop');
+if (process.env.PROFILE_TRACE_OUT) {
+  const completed = new Promise(resolve => cdp.once('Tracing.tracingComplete', resolve));
+  await cdp.send('Tracing.end');
+  await completed;
+  await writeFile(process.env.PROFILE_TRACE_OUT, JSON.stringify({ traceEvents: trace }));
+}
+if (process.env.PROFILE_OUT) await writeFile(process.env.PROFILE_OUT, JSON.stringify(profile));
 const self = new Map();
 const byId = new Map(profile.nodes.map(n => [n.id, n]));
 const total = profile.samples.length;
@@ -40,5 +54,7 @@ for (const id of profile.samples) {
   self.set(key, (self.get(key) || 0) + 1);
 }
 console.log([...self].sort((a, b) => b[1] - a[1]).slice(0, 35).map(([k, v]) => `${(100 * v / total).toFixed(1)}%  ${k}`).join('\n'));
-await browser.close();
-await new Promise((r, j) => server.httpServer.close(e => e ? j(e) : r()));
+} finally {
+  await browser.close();
+  await new Promise((r, j) => server.httpServer.close(e => e ? j(e) : r()));
+}

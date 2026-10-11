@@ -34,6 +34,76 @@ fn first_hunk(diff: &str) -> String {
     out
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn repository_commands_preserve_trailing_whitespace_without_touching_a_neighbor() {
+    for suffix in [" ", "\n"] {
+        let neighbor = TestRepo::new("exact-root-neighbor");
+        neighbor.commit("a.txt", "neighbor\n", "neighbor commit");
+        let neighbor_head = neighbor.head();
+        let exact_path = std::path::PathBuf::from(format!("{}{suffix}", neighbor.s()));
+        std::fs::create_dir_all(&exact_path).unwrap();
+        let (ok, output) = common::git_raw(
+            &exact_path,
+            &["-c", "init.defaultBranch=main", "init", "-q", "."],
+        );
+        assert!(ok, "{output}");
+        let exact = TestRepo::adopt(exact_path);
+        let head = exact.commit("a.txt", "actual\n", "actual commit");
+        assert_eq!(
+            git::git_resolve_commit(exact.s(), "HEAD".into())
+                .await
+                .unwrap(),
+            head
+        );
+        exact.write("a.txt", "reviewed actual\n");
+        let diff = json(
+            &git::repo_file_diff(exact.s(), "a.txt".into(), false, Some(true))
+                .await
+                .unwrap(),
+        );
+        assert!(diff["unstaged"]
+            .as_str()
+            .unwrap()
+            .contains("+reviewed actual"));
+        assert!(diff["fingerprint"].as_str().is_some());
+        git::stage_files(exact.s(), vec!["a.txt".into()])
+            .await
+            .unwrap();
+        git::commit_changes(exact.s(), "reviewed actual commit".into(), None)
+            .await
+            .unwrap();
+        assert_eq!(exact.subjects()[0], "reviewed actual commit");
+        git::git_create_branch(exact.s(), "exact-feature".into(), None, true)
+            .await
+            .unwrap();
+        let feature = exact.commit("feature.txt", "actual feature\n", "feature work");
+        git::git_checkout(exact.s(), "main".into(), false, None, None)
+            .await
+            .unwrap();
+        git::git_merge(
+            exact.s(),
+            "exact-feature".into(),
+            Some("ff-only".into()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(exact.head(), feature);
+        assert_eq!(neighbor.head(), neighbor_head);
+        assert_eq!(neighbor.branch(), "main");
+        assert_eq!(
+            std::fs::read_to_string(neighbor.path.join("a.txt")).unwrap(),
+            "neighbor\n"
+        );
+        assert!(!neighbor.exists("feature.txt"));
+        assert!(neighbor.git(&["status", "--porcelain=v1"]).is_empty());
+    }
+}
+
 #[tokio::test]
 async fn full_status_classifies_index_and_worktree_states() {
     let repo = TestRepo::new("status-mix");
@@ -133,7 +203,10 @@ async fn full_status_flags_binary_and_embedded_repositories() {
     repo.write_bytes("loose.bin", &[0x00, 0x01, 0x02]);
     let nested = repo.path.join("nested");
     std::fs::create_dir_all(&nested).unwrap();
-    let (ok, out) = common::git_raw(&nested, &["-c", "init.defaultBranch=main", "init", "-q", "."]);
+    let (ok, out) = common::git_raw(
+        &nested,
+        &["-c", "init.defaultBranch=main", "init", "-q", "."],
+    );
     assert!(ok, "{out}");
     std::fs::write(nested.join("inner.txt"), "x\n").unwrap();
 
@@ -178,10 +251,14 @@ async fn stage_and_unstage_files_move_changes_between_index_and_worktree() {
 async fn unstage_files_works_before_the_first_commit() {
     let repo = TestRepo::new("stage-no-head");
     repo.write("a.txt", "one\n");
-    git::stage_files(repo.s(), vec!["a.txt".into()]).await.unwrap();
+    git::stage_files(repo.s(), vec!["a.txt".into()])
+        .await
+        .unwrap();
     assert!(repo.porcelain().starts_with("A "));
 
-    git::unstage_files(repo.s(), vec!["a.txt".into()]).await.unwrap();
+    git::unstage_files(repo.s(), vec!["a.txt".into()])
+        .await
+        .unwrap();
     assert_eq!(repo.porcelain(), "?? a.txt");
     assert!(repo.exists("a.txt"));
 }
@@ -231,7 +308,9 @@ async fn stage_hunk_rejects_a_patch_that_does_not_apply() {
     repo.commit("f.txt", &lines(), "initial");
 
     let bogus = "diff --git a/f.txt b/f.txt\n--- a/f.txt\n+++ b/f.txt\n@@ -1,2 +1,2 @@\n does-not-exist\n-nope\n+yep\n";
-    let err = git::stage_hunk(repo.s(), bogus.to_string()).await.unwrap_err();
+    let err = git::stage_hunk(repo.s(), bogus.to_string())
+        .await
+        .unwrap_err();
     assert!(!err.is_empty());
     assert_eq!(repo.porcelain(), "");
 }
@@ -243,7 +322,9 @@ async fn discard_hunk_reverts_one_hunk_in_the_worktree() {
     repo.write("f.txt", &lines_edited());
 
     let patch = "diff --git a/f.txt b/f.txt\n--- a/f.txt\n+++ b/f.txt\n@@ -1,5 +1,5 @@\n l1\n-L2X\n+l2\n l3\n l4\n l5\n";
-    git::discard_hunk(repo.s(), patch.to_string()).await.unwrap();
+    git::discard_hunk(repo.s(), patch.to_string())
+        .await
+        .unwrap();
 
     let content = repo.read("f.txt");
     assert!(content.contains("l2\n"), "{content}");
@@ -258,7 +339,9 @@ async fn commit_changes_requires_a_message_and_creates_a_commit() {
     repo.write("a.txt", "two\n");
     repo.git(&["add", "--", "a.txt"]);
 
-    let err = git::commit_changes(repo.s(), "   ".into(), None).await.unwrap_err();
+    let err = git::commit_changes(repo.s(), "   ".into(), None)
+        .await
+        .unwrap_err();
     assert!(err.contains("leer"), "{err}");
     assert_eq!(repo.subjects(), vec!["initial"]);
 
@@ -277,17 +360,14 @@ async fn commit_amend_rewrites_head_without_adding_a_commit() {
 
     repo.write("b.txt", "two-fixed\n");
     repo.git(&["add", "--", "b.txt"]);
-    git::commit_amend(repo.s(), "second, fixed".into())
+    git::commit_amend(repo.s(), "second, fixed".into(), None)
         .await
         .unwrap();
 
     assert_eq!(repo.subjects(), vec!["second, fixed", "initial"]);
     assert_ne!(repo.head(), first);
-    assert_eq!(
-        repo.git(&["show", "HEAD:b.txt"]),
-        "two-fixed"
-    );
-    assert!(git::commit_amend(repo.s(), "".into()).await.is_err());
+    assert_eq!(repo.git(&["show", "HEAD:b.txt"]), "two-fixed");
+    assert!(git::commit_amend(repo.s(), "".into(), None).await.is_err());
 }
 
 #[tokio::test]
@@ -302,19 +382,19 @@ async fn repo_file_content_at_reads_history_index_and_missing_files() {
         git::repo_file_content_at(repo.s(), "a.txt".into(), "HEAD".into())
             .await
             .unwrap(),
-        "v2"
+        "v2\n"
     );
     assert_eq!(
         git::repo_file_content_at(repo.s(), "a.txt".into(), "HEAD~1".into())
             .await
             .unwrap(),
-        "v1"
+        "v1\n"
     );
     assert_eq!(
         git::repo_file_content_at(repo.s(), "a.txt".into(), "".into())
             .await
             .unwrap(),
-        "v3-index"
+        "v3-index\n"
     );
     assert_eq!(
         git::repo_file_content_at(repo.s(), "nope.txt".into(), "HEAD".into())
@@ -332,19 +412,31 @@ async fn repo_file_diff_separates_staged_unstaged_untracked_and_binary() {
     repo.git(&["add", "--", "f.txt"]);
     repo.write("f.txt", &format!("{}extra\n", lines_edited()));
 
-    let both = json(&git::repo_file_diff(repo.s(), "f.txt".into(), false).await.unwrap());
+    let both = json(
+        &git::repo_file_diff(repo.s(), "f.txt".into(), false, None)
+            .await
+            .unwrap(),
+    );
     assert!(both["staged"].as_str().unwrap().contains("+L2X"));
     assert!(both["unstaged"].as_str().unwrap().contains("+extra"));
     assert_eq!(both["is_binary"], false);
     assert!(both["untracked_plain"].is_null());
 
     repo.write("plain.txt", "raw content\n");
-    let untracked = json(&git::repo_file_diff(repo.s(), "plain.txt".into(), true).await.unwrap());
+    let untracked = json(
+        &git::repo_file_diff(repo.s(), "plain.txt".into(), true, None)
+            .await
+            .unwrap(),
+    );
     assert_eq!(untracked["untracked_plain"], "raw content\n");
     assert_eq!(untracked["is_binary"], false);
 
     repo.write_bytes("blob.bin", &[0x00, 0x01, 0x02, 0x00]);
-    let binary = json(&git::repo_file_diff(repo.s(), "blob.bin".into(), true).await.unwrap());
+    let binary = json(
+        &git::repo_file_diff(repo.s(), "blob.bin".into(), true, None)
+            .await
+            .unwrap(),
+    );
     assert_eq!(binary["is_binary"], true);
     assert!(binary["untracked_plain"].is_null());
 }
@@ -356,7 +448,11 @@ async fn repo_file_diff_reports_binary_for_tracked_blobs() {
     repo.commit_all("initial");
     repo.write_bytes("blob.bin", &[0x00, 0x09, 0x09, 0x00, 0x07]);
 
-    let res = json(&git::repo_file_diff(repo.s(), "blob.bin".into(), false).await.unwrap());
+    let res = json(
+        &git::repo_file_diff(repo.s(), "blob.bin".into(), false, None)
+            .await
+            .unwrap(),
+    );
     assert_eq!(res["is_binary"], true);
     assert!(res["staged"].is_null());
     assert!(res["unstaged"].is_null());
@@ -382,14 +478,30 @@ async fn repo_search_commits_matches_subject_author_email_and_hash() {
     assert_eq!(by_author.len(), 1);
     assert_eq!(json(&by_author[0].commit)["subject"], "fix parser crash");
 
-    let by_email = git::repo_search_commits(repo.s(), "corp.example".into(), 0, 20, Some(true), Some(false), None)
-        .await
-        .unwrap();
+    let by_email = git::repo_search_commits(
+        repo.s(),
+        "corp.example".into(),
+        0,
+        20,
+        Some(true),
+        Some(false),
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(by_email.len(), 1);
 
-    let by_hash = git::repo_search_commits(repo.s(), first[..8].to_string(), 0, 20, None, Some(false), None)
-        .await
-        .unwrap();
+    let by_hash = git::repo_search_commits(
+        repo.s(),
+        first[..8].to_string(),
+        0,
+        20,
+        None,
+        Some(false),
+        None,
+    )
+    .await
+    .unwrap();
     assert_eq!(by_hash.len(), 1);
     assert_eq!(json(&by_hash[0].commit)["hash"], first);
 }
@@ -399,14 +511,18 @@ async fn repo_search_commits_ignores_queries_below_the_minimum_length() {
     let repo = TestRepo::new("search-min");
     repo.commit("a.txt", "1\n", "aaa bbb");
 
-    assert!(git::repo_search_commits(repo.s(), "a".into(), 0, 20, None, None, None)
-        .await
-        .unwrap()
-        .is_empty());
-    assert!(git::repo_search_commits(repo.s(), " ".into(), 0, 20, None, None, None)
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(
+        git::repo_search_commits(repo.s(), "a".into(), 0, 20, None, None, None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        git::repo_search_commits(repo.s(), " ".into(), 0, 20, None, None, None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     assert_eq!(
         git::repo_search_commits(repo.s(), "aa".into(), 0, 20, None, None, None)
             .await
@@ -448,9 +564,10 @@ async fn repo_search_commits_finds_commits_by_touched_path() {
     assert_eq!(hits.len(), 1);
     assert_eq!(json(&hits[0].commit)["subject"], "unrelated subject");
 
-    let no_paths = git::repo_search_commits(repo.s(), "module.ts".into(), 0, 20, None, Some(false), None)
-        .await
-        .unwrap();
+    let no_paths =
+        git::repo_search_commits(repo.s(), "module.ts".into(), 0, 20, None, Some(false), None)
+            .await
+            .unwrap();
     assert!(no_paths.is_empty(), "path search must be opt-out-able");
 }
 
@@ -474,16 +591,23 @@ async fn repo_search_commits_should_report_matched_paths() {
         .find(|h| json(&h.commit)["subject"] == "unrelated subject")
         .expect("commit touching the file must be found");
     assert_eq!(
-        json(&by_path.commit)["body"], "",
+        json(&by_path.commit)["body"],
+        "",
         "the commit body must not contain the changed file list"
     );
-    assert_eq!(by_path.matched_paths, vec!["src/deep/module.ts".to_string()]);
+    assert_eq!(
+        by_path.matched_paths,
+        vec!["src/deep/module.ts".to_string()]
+    );
 
     let by_body = hits
         .iter()
         .find(|h| json(&h.commit)["subject"] == "body carries paths")
         .expect("commit mentioning the path in its body must be found");
-    let body = json(&by_body.commit)["body"].as_str().unwrap_or_default().to_string();
+    let body = json(&by_body.commit)["body"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
     assert!(
         body.contains("src/deep/module.ts") && body.contains("not a real path list"),
         "a multi-line body must survive intact, got {body:?}"
@@ -528,14 +652,26 @@ async fn repo_search_commits_honours_the_scan_limit() {
         repo.commit(&format!("f{n}.txt"), "x\n", &format!("filler {n}"));
     }
 
-    let shallow = git::repo_search_commits(repo.s(), "needle".into(), 0, 20, None, Some(false), Some(3))
-        .await
-        .unwrap();
-    assert!(shallow.is_empty(), "scan_limit must bound how much history is read");
+    let shallow =
+        git::repo_search_commits(repo.s(), "needle".into(), 0, 20, None, Some(false), Some(3))
+            .await
+            .unwrap();
+    assert!(
+        shallow.is_empty(),
+        "scan_limit must bound how much history is read"
+    );
 
-    let deep = git::repo_search_commits(repo.s(), "needle".into(), 0, 20, None, Some(false), Some(500))
-        .await
-        .unwrap();
+    let deep = git::repo_search_commits(
+        repo.s(),
+        "needle".into(),
+        0,
+        20,
+        None,
+        Some(false),
+        Some(500),
+    )
+    .await
+    .unwrap();
     assert_eq!(deep.len(), 1);
 }
 
@@ -546,7 +682,9 @@ async fn repo_blame_maps_every_line_to_its_introducing_commit() {
     repo.git(&["config", "user.name", "Second Author"]);
     let second = repo.commit("f.txt", "alpha\nbeta\ngamma\n", "second commit");
 
-    let entries = git::repo_blame(repo.s(), "f.txt".into(), None).await.unwrap();
+    let entries = git::repo_blame(repo.s(), "f.txt".into(), None)
+        .await
+        .unwrap();
     assert_eq!(entries.len(), 3);
     assert_eq!(entries[0].line_no, 1);
     assert_eq!(entries[0].content, "alpha");
@@ -575,12 +713,22 @@ async fn repo_commit_inspect_lists_changed_files_with_line_counts() {
     repo.write("added.txt", "x\ny\n");
     repo.commit_all("touch two files");
 
-    let inspect = git::repo_commit_inspect(repo.s(), "HEAD".into()).await.unwrap();
-    assert!(inspect.header.contains("touch two files"), "{}", inspect.header);
+    let inspect = git::repo_commit_inspect(repo.s(), "HEAD".into())
+        .await
+        .unwrap();
+    assert!(
+        inspect.header.contains("touch two files"),
+        "{}",
+        inspect.header
+    );
     let mut paths: Vec<&str> = inspect.files.iter().map(|f| f.path.as_str()).collect();
     paths.sort();
     assert_eq!(paths, vec!["added.txt", "keep.txt"]);
-    let added = inspect.files.iter().find(|f| f.path == "added.txt").unwrap();
+    let added = inspect
+        .files
+        .iter()
+        .find(|f| f.path == "added.txt")
+        .unwrap();
     assert_eq!(added.additions, 2);
     assert_eq!(added.deletions, 0);
     assert_eq!(added.binary, false);
@@ -600,6 +748,7 @@ async fn git_discard_files_restores_tracked_files_and_deletes_untracked_ones() {
         repo.s(),
         vec!["tracked.txt".into(), "junk.txt".into(), "junkdir".into()],
         vec![false, true, true],
+        None,
     )
     .await
     .unwrap();
@@ -609,7 +758,7 @@ async fn git_discard_files_restores_tracked_files_and_deletes_untracked_ones() {
     assert!(!repo.exists("junkdir"));
     assert_eq!(repo.porcelain(), "");
 
-    let err = git::git_discard_files(repo.s(), vec!["a".into()], vec![])
+    let err = git::git_discard_files(repo.s(), vec!["a".into()], vec![], None)
         .await
         .unwrap_err();
     assert!(err.contains("untracked"), "{err}");
@@ -623,7 +772,7 @@ async fn git_discard_worktree_changes_keeps_the_staged_version() {
     repo.git(&["add", "--", "f.txt"]);
     repo.write("f.txt", "v3\n");
 
-    git::git_discard_worktree_changes(repo.s(), vec!["f.txt".into()], vec![false])
+    git::git_discard_worktree_changes(repo.s(), vec!["f.txt".into()], vec![false], None)
         .await
         .unwrap();
 
@@ -752,14 +901,21 @@ async fn repo_file_access_rejects_path_traversal() {
     assert!(git::repo_read_file(repo.s(), "../../../etc/hosts".into())
         .await
         .is_err());
-    assert!(git::repo_read_file(repo.s(), "/etc/hosts".into()).await.is_err());
+    assert!(git::repo_read_file(repo.s(), "/etc/hosts".into())
+        .await
+        .is_err());
 
     let outside = repo.path.parent().unwrap().join("escaped.txt");
     let _ = std::fs::remove_file(&outside);
-    assert!(git::repo_write_file(repo.s(), "../escaped.txt".into(), "x".into())
-        .await
-        .is_err());
-    assert!(!outside.exists(), "traversal write must not escape the repo");
+    assert!(
+        git::repo_write_file(repo.s(), "../escaped.txt".into(), "x".into())
+            .await
+            .is_err()
+    );
+    assert!(
+        !outside.exists(),
+        "traversal write must not escape the repo"
+    );
 }
 
 #[tokio::test]
@@ -783,6 +939,23 @@ async fn git_init_repo_creates_a_repository_in_a_new_folder() {
     assert!(std::path::Path::new(&created).join(".git").exists());
     assert!(git::git_init_repo("   ".into()).await.is_err());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn initializing_a_whitespace_suffixed_path_leaves_its_neighbor_untouched() {
+    for suffix in [" ", "\n"] {
+        let neighbor = TestRepo::new("init-exact-neighbor");
+        neighbor.commit("a.txt", "neighbor\n", "existing repository");
+        let head = neighbor.head();
+        let target = format!("{}{suffix}", neighbor.s());
+        let created = git::git_init_repo(target.clone()).await.unwrap();
+        assert_eq!(created, target);
+        assert!(std::path::Path::new(&target).join(".git").is_dir());
+        assert_eq!(neighbor.head(), head);
+        assert_eq!(neighbor.git(&["status", "--porcelain=v1"]), "");
+        std::fs::remove_dir_all(target).unwrap();
+    }
 }
 
 fn gpg_signing_available() -> bool {
@@ -811,7 +984,10 @@ fn gpg_default_key() -> Option<String> {
         if line.starts_with("sec:") {
             for next in lines.by_ref() {
                 if let Some(rest) = next.strip_prefix("fpr:") {
-                    return rest.split(':').find(|f| !f.is_empty()).map(|f| f.to_string());
+                    return rest
+                        .split(':')
+                        .find(|f| !f.is_empty())
+                        .map(|f| f.to_string());
                 }
                 if next.starts_with("sec:") {
                     break;
@@ -844,7 +1020,9 @@ async fn git_tag_commit_creates_lightweight_and_annotated_tags() {
 
     assert_eq!(repo.git(&["cat-file", "-t", "light"]), "commit");
     assert_eq!(repo.git(&["cat-file", "-t", "annot"]), "tag");
-    assert!(repo.git(&["tag", "-n99", "-l", "annot"]).contains("release notes"));
+    assert!(repo
+        .git(&["tag", "-n99", "-l", "annot"])
+        .contains("release notes"));
 
     let info = json(&git::open_repo(repo.s(), None).await.unwrap());
     let tags = info["tags"].as_array().unwrap();
@@ -931,7 +1109,10 @@ fn parse_tag_refs_splits_kind_message_and_target() {
     assert_eq!(tags[0].name, "annot");
     assert_eq!(tags[0].kind, "annotated");
     assert_eq!(tags[0].commit, "bbb222");
-    assert_eq!(tags[0].message.as_deref(), Some("subject line\n\nbody text"));
+    assert_eq!(
+        tags[0].message.as_deref(),
+        Some("subject line\n\nbody text")
+    );
     assert_eq!(tags[0].tagger.as_deref(), Some("Ada"));
     assert_eq!(tags[1].name, "light");
     assert_eq!(tags[1].kind, "lightweight");
@@ -943,18 +1124,40 @@ fn parse_tag_refs_splits_kind_message_and_target() {
 
 #[test]
 fn parse_signature_status_maps_every_git_code() {
-    let good = git::parse_signature_status("G\u{001f}Ada Lovelace <ada@example.com>\u{001f}ABC123\n");
+    let good =
+        git::parse_signature_status("G\u{001f}Ada Lovelace <ada@example.com>\u{001f}ABC123\n");
     assert_eq!(good.state, "good");
     assert_eq!(good.code, "G");
-    assert_eq!(good.signer.as_deref(), Some("Ada Lovelace <ada@example.com>"));
+    assert_eq!(
+        good.signer.as_deref(),
+        Some("Ada Lovelace <ada@example.com>")
+    );
     assert_eq!(good.key.as_deref(), Some("ABC123"));
 
-    assert_eq!(git::parse_signature_status("B\u{001f}\u{001f}").state, "invalid");
-    assert_eq!(git::parse_signature_status("E\u{001f}\u{001f}KEY").state, "unknown_key");
-    assert_eq!(git::parse_signature_status("U\u{001f}x\u{001f}").state, "untrusted");
-    assert_eq!(git::parse_signature_status("X\u{001f}x\u{001f}").state, "untrusted");
-    assert_eq!(git::parse_signature_status("Y\u{001f}x\u{001f}").state, "untrusted");
-    assert_eq!(git::parse_signature_status("R\u{001f}x\u{001f}").state, "untrusted");
+    assert_eq!(
+        git::parse_signature_status("B\u{001f}\u{001f}").state,
+        "invalid"
+    );
+    assert_eq!(
+        git::parse_signature_status("E\u{001f}\u{001f}KEY").state,
+        "unknown_key"
+    );
+    assert_eq!(
+        git::parse_signature_status("U\u{001f}x\u{001f}").state,
+        "untrusted"
+    );
+    assert_eq!(
+        git::parse_signature_status("X\u{001f}x\u{001f}").state,
+        "untrusted"
+    );
+    assert_eq!(
+        git::parse_signature_status("Y\u{001f}x\u{001f}").state,
+        "untrusted"
+    );
+    assert_eq!(
+        git::parse_signature_status("R\u{001f}x\u{001f}").state,
+        "untrusted"
+    );
 
     let none = git::parse_signature_status("N\u{001f}\u{001f}");
     assert_eq!(none.state, "unsigned");
@@ -971,10 +1174,14 @@ async fn commit_signature_status_reports_unsigned_commits() {
     let repo = TestRepo::new("sig-status");
     repo.commit("a.txt", "1\n", "c1");
 
-    let sig = git::commit_signature_status(repo.s(), repo.head()).await.unwrap();
+    let sig = git::commit_signature_status(repo.s(), repo.head())
+        .await
+        .unwrap();
     assert_eq!(sig.state, "unsigned");
     assert_eq!(sig.code, "N");
-    assert!(git::commit_signature_status(repo.s(), "  ".into()).await.is_err());
+    assert!(git::commit_signature_status(repo.s(), "  ".into())
+        .await
+        .is_err());
 }
 
 #[tokio::test]
@@ -1029,14 +1236,20 @@ async fn set_commit_signing_writes_repo_local_config() {
     assert_eq!(after.format, "ssh");
     assert_eq!(after.signing_key.as_deref(), Some("key-abc"));
     assert_eq!(repo.git(&["config", "--local", "commit.gpgsign"]), "true");
-    assert_eq!(repo.git(&["config", "--local", "user.signingkey"]), "key-abc");
+    assert_eq!(
+        repo.git(&["config", "--local", "user.signingkey"]),
+        "key-abc"
+    );
 
     let cleared = git::set_commit_signing(repo.s(), Some(false), None, None, Some("  ".into()))
         .await
         .unwrap();
     assert_eq!(cleared.commit_sign, false);
     assert_eq!(cleared.signing_key, None);
-    assert_eq!(repo.try_git(&["config", "--local", "user.signingkey"]).0, false);
+    assert_eq!(
+        repo.try_git(&["config", "--local", "user.signingkey"]).0,
+        false
+    );
 }
 
 #[tokio::test]
@@ -1053,7 +1266,10 @@ async fn commit_changes_can_force_signing_off_without_changing_the_default() {
         .unwrap();
     assert_eq!(repo.subjects()[0], "unsigned please");
     assert_eq!(
-        git::commit_signature_status(repo.s(), repo.head()).await.unwrap().state,
+        git::commit_signature_status(repo.s(), repo.head())
+            .await
+            .unwrap()
+            .state,
         "unsigned"
     );
 }
@@ -1075,7 +1291,11 @@ fn ssh_signing_key(repo: &TestRepo) -> Option<String> {
     std::fs::write(&allowed, format!("test@example.com {material}")).ok()?;
     repo.git(&["config", "gpg.format", "ssh"]);
     repo.git(&["config", "user.signingkey", &pub_key]);
-    repo.git(&["config", "gpg.ssh.allowedSignersFile", &allowed.to_string_lossy()]);
+    repo.git(&[
+        "config",
+        "gpg.ssh.allowedSignersFile",
+        &allowed.to_string_lossy(),
+    ]);
     Some(pub_key)
 }
 
@@ -1124,7 +1344,9 @@ async fn ssh_signed_tags_and_commits_are_reported_as_signed() {
         .await
         .unwrap();
 
-    let sig = git::commit_signature_status(repo.s(), repo.head()).await.unwrap();
+    let sig = git::commit_signature_status(repo.s(), repo.head())
+        .await
+        .unwrap();
     assert_eq!(sig.state, "good");
     assert_eq!(sig.code, "G");
     assert_eq!(sig.signer.as_deref(), Some("test@example.com"));
@@ -1192,17 +1414,16 @@ async fn range_commits_honours_the_limit_and_works_without_a_base() {
 }
 
 #[tokio::test]
-async fn range_commits_ignores_a_base_that_does_not_exist() {
+async fn range_commits_rejects_a_base_that_does_not_exist() {
     let repo = TestRepo::new("range-missing-base");
     repo.commit("a.txt", "1\n", "c1");
     repo.commit("a.txt", "1\n2\n", "c2");
 
-    let range = json(
-        &git::repo_range_commits(repo.s(), Some("ghost".into()), "HEAD".into(), None)
+    assert!(
+        git::repo_range_commits(repo.s(), Some("ghost".into()), "HEAD".into(), None)
             .await
-            .unwrap(),
+            .is_err()
     );
-    assert_eq!(range["total_commits"], 2);
 }
 
 #[tokio::test]

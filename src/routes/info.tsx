@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { WorkflowHelpCenter } from "@/components/help/workflow-help-center";
 import {
   Card,
   CardAction,
@@ -45,7 +46,7 @@ function Info() {
   );
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 px-6 py-8">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex items-center gap-2">
         <Button
           type="button"
@@ -56,9 +57,16 @@ function Info() {
         >
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className="text-2xl font-semibold">{t("info.title")}</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">{t("helpCenter.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("helpCenter.subtitle")}</p>
+        </div>
       </div>
 
+      <WorkflowHelpCenter />
+
+      <details className="group rounded-xl border">
+        <summary className="flex cursor-pointer items-center gap-2 px-5 py-4 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"><Keyboard className="size-4" />{t("info.shortcutsTitle")}</summary>
       <Card>
         <CardHeader>
           <CardTitle>{t("info.shortcutsTitle")}</CardTitle>
@@ -106,13 +114,7 @@ function Info() {
           )}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("info.moreTitle")}</CardTitle>
-          <CardDescription>{t("info.moreDesc")}</CardDescription>
-        </CardHeader>
-      </Card>
-    </main>
+      </details>
+    </div>
   );
 }

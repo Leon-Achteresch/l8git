@@ -142,62 +142,41 @@ describe("finish flow steps", () => {
 });
 
 describe("discardReviewHunk", () => {
-  it("discards the hunk in the worktree via discard_hunk", async () => {
+  it("passes the displayed file and snapshot with a complete reverse hunk", async () => {
     invoke.mockResolvedValue(undefined);
     const parsed = parseReviewDiff(SAMPLE_DIFF)!;
-    await discardReviewHunk("/tmp/app.worktrees/x", parsed, 0);
+    await discardReviewHunk("/tmp/wt", "base", "f.txt", parsed, 0, "review-v1:1");
     expect(invoke).toHaveBeenCalledTimes(1);
-    const [command, args] = invoke.mock.calls[0] as [string, { path: string; patch: string }];
-    expect(command).toBe("discard_hunk");
-    expect(args.path).toBe("/tmp/app.worktrees/x");
-    expect(args.patch).toContain("--- a/f.txt");
+    const [command, args] = invoke.mock.calls[0];
+    expect(command).toBe("agent_review_discard_change");
+    expect(args).toMatchObject({ worktreePath: "/tmp/wt", mergeBase: "base", file: "f.txt", expectedFingerprint: "review-v1:1" });
     expect(args.patch).toContain("+b");
     expect(args.patch).toContain("-B");
   });
 
   it("ignores an unknown hunk index", async () => {
-    const parsed = parseReviewDiff(SAMPLE_DIFF)!;
-    await discardReviewHunk("/tmp/wt", parsed, 42);
+    await discardReviewHunk("/tmp/wt", "base", "f.txt", parseReviewDiff(SAMPLE_DIFF)!, 42, "review-v1:1");
     expect(invoke).not.toHaveBeenCalled();
   });
 });
 
 describe("discardReviewFile", () => {
-  it("deletes untracked files", async () => {
+  it.each([true, false])("uses the guarded backend for untracked=%s", async (untracked) => {
     invoke.mockResolvedValue(undefined);
-    await discardReviewFile("/tmp/wt", "abc123", file({ path: "new.txt", untracked: true }));
-    expect(invoke).toHaveBeenCalledWith("git_discard_files", {
-      path: "/tmp/wt",
-      files: ["new.txt"],
-      untracked: [true],
+    await discardReviewFile("/tmp/wt", "base", file({ untracked }), "review-v1:1");
+    expect(invoke).toHaveBeenCalledWith("agent_review_discard_change", {
+      worktreePath: "/tmp/wt", mergeBase: "base", file: "f.txt", expectedFingerprint: "review-v1:1", patch: null,
     });
   });
 
-  it("restores tracked files to the merge base", async () => {
-    invoke.mockResolvedValue(undefined);
-    await discardReviewFile("/tmp/wt", "abc123", file());
-    expect(invoke).toHaveBeenCalledWith("git_restore_files_at_commit", {
-      path: "/tmp/wt",
-      commit: "abc123",
-      files: ["f.txt"],
-    });
+  it("refuses deletion without the displayed snapshot", async () => {
+    await expect(discardReviewFile("/tmp/wt", "base", file(), "")).rejects.toThrow("__FILE_CHANGED__");
+    expect(invoke).not.toHaveBeenCalled();
   });
 
-  it("falls back to deletion for files that did not exist at the merge base", async () => {
-    invoke
-      .mockRejectedValueOnce(new Error("pathspec 'f.txt' did not match any file"))
-      .mockResolvedValueOnce(undefined);
-    await discardReviewFile("/tmp/wt", "abc123", file());
-    expect(invoke).toHaveBeenNthCalledWith(2, "git_discard_files", {
-      path: "/tmp/wt",
-      files: ["f.txt"],
-      untracked: [true],
-    });
-  });
-
-  it("rethrows unrelated errors", async () => {
-    invoke.mockRejectedValueOnce(new Error("disk on fire"));
-    await expect(discardReviewFile("/tmp/wt", "abc123", file())).rejects.toThrow("disk on fire");
+  it("does not retry a failed restore as deletion", async () => {
+    invoke.mockRejectedValueOnce(new Error("pathspec did not match any file"));
+    await expect(discardReviewFile("/tmp/wt", "base", file(), "review-v1:1")).rejects.toThrow("pathspec");
     expect(invoke).toHaveBeenCalledTimes(1);
   });
 });

@@ -337,16 +337,35 @@ pub async fn dispatch(
             crate::cursor::cursor_cli(args, cwd).await
         }
 
-        "agent_review_summary" (worktree_path: String, base_path: String) => {
-            crate::agent_review::agent_review_summary(worktree_path, base_path).await
+        "agent_review_summary" (worktree_path: String, base_path: String, include_fingerprint: Option<bool>) => {
+            crate::agent_review::agent_review_summary(worktree_path, base_path, include_fingerprint).await
         }
 
         "agent_review_file_diff" (worktree_path: String, merge_base: String, file: String) => {
             crate::agent_review::agent_review_file_diff(worktree_path, merge_base, file).await
         }
 
+        "agent_review_commit_checked" (
+            worktree_path: String, base_path: String, message: String,
+            expected_base_branch: String, expected_session_branch: String,
+            expected_base_head: String, expected_session_head: String,
+            expected_fingerprint: String
+        ) => {
+            crate::agent_review::agent_review_commit_checked(worktree_path, base_path, message,
+                expected_base_branch, expected_session_branch, expected_base_head,
+                expected_session_head, expected_fingerprint).await
+        }
+
+        "agent_review_discard_change" (worktree_path: String, merge_base: String, file: String, expected_fingerprint: String, patch: Option<String>) => {
+            crate::agent_review::agent_review_discard_change(worktree_path, merge_base, file, expected_fingerprint, patch).await
+        }
+
         "agent_review_branch_merged" (path: String, branch: String) => {
             crate::agent_review::agent_review_branch_merged(path, branch).await
+        }
+
+        "agent_review_delete_branch_checked" (path: String, branch: String, expected_head: String, expected_base_branch: String) => {
+            crate::agent_review::agent_review_delete_branch_checked(path, branch, expected_head, expected_base_branch).await
         }
     }
 }

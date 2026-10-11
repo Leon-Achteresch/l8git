@@ -12,6 +12,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { GitHooksCard } from "./git-hooks-card";
 import { SpinIcon } from "@/components/motion/kit";
+import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 
 const HOOK_CATEGORY_DEFS: {
   labelKey:
@@ -95,6 +96,7 @@ export function GitHooksList({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2.5">
+        <WorkflowHelpLink guideId="check-hooks" />
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/60">
             <Webhook className="h-3.5 w-3.5 text-muted-foreground" />

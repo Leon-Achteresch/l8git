@@ -18,6 +18,7 @@ import { SubmoduleDetail } from "./submodule-detail";
 import { SubmoduleRow } from "./submodule-row";
 import { getDisplayStatus } from "./submodule-status-badge";
 import { SpinIcon, StaggerItem } from "@/components/motion/kit";
+import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 
 const EMPTY: SubmoduleEntry[] = [];
 
@@ -132,6 +133,7 @@ export function SubmoduleList({
     <div className="flex h-full min-h-0 flex-col">
       {/* Toolbar */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
+        <WorkflowHelpLink guideId="submodule-work" />
         <div className="flex items-center gap-1">
           <Button
             type="button"

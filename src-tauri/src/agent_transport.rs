@@ -139,7 +139,12 @@ impl AgentTransport {
 #[cfg(windows)]
 fn process_job(child: &Child) -> Option<crate::pty::job::PtyJob> {
     crate::pty::job::PtyJob::create_for(child.id())
-        .map_err(|error| log::warn!("agent job-object setup failed for pid={}: {error}", child.id()))
+        .map_err(|error| {
+            log::warn!(
+                "agent job-object setup failed for pid={}: {error}",
+                child.id()
+            )
+        })
         .ok()
 }
 
@@ -244,6 +249,31 @@ fn safe_argument(value: &str, label: &str) -> Result<String, String> {
     Ok(value.to_string())
 }
 
+fn safe_path_argument(value: &str, label: &str) -> Result<String, String> {
+    if value.is_empty() || value.len() > 32_768 || value.contains('\0') {
+        return Err(format!("Ungültiger Pfad für {label}."));
+    }
+    Ok(value.to_string())
+}
+
+fn add_cursor_directories(
+    command: &mut Command,
+    options: &AgentTransportOptions,
+) -> Result<(), String> {
+    for directory in options.add_dirs.iter().flatten() {
+        let directory = safe_path_argument(directory, "Cursor-Zusatzverzeichnis")?;
+        let resolved = match options.cwd.as_deref() {
+            Some(cwd) => PathBuf::from(cwd).join(&directory),
+            None => PathBuf::from(&directory),
+        };
+        if !resolved.is_dir() {
+            return Err("Ein zusätzliches Cursor-Verzeichnis existiert nicht.".into());
+        }
+        command.args(["--add-dir", &directory]);
+    }
+    Ok(())
+}
+
 /// Prompts are passed as a single argv entry, so newlines stay valid; only
 /// NUL bytes and absurd sizes are rejected.
 fn safe_prompt(value: &str) -> Result<String, String> {
@@ -262,7 +292,10 @@ fn resolve_env_value(key: &str, value: &str) -> Result<String, String> {
     }
 }
 
-fn apply_instance_env(command: &mut Command, env: &Option<HashMap<String, String>>) -> Result<(), String> {
+fn apply_instance_env(
+    command: &mut Command,
+    env: &Option<HashMap<String, String>>,
+) -> Result<(), String> {
     for (key, value) in env.iter().flatten() {
         let key = safe_argument(key, "Umgebungsvariablenname")?;
         let resolved = resolve_env_value(&key, value)?;
@@ -284,9 +317,8 @@ fn looks_like_email(word: &str) -> bool {
 }
 
 fn looks_like_secret_token(word: &str) -> bool {
-    let trimmed = word.trim_matches(|c: char| {
-        !c.is_ascii_alphanumeric() && c != '-' && c != '_' && c != '.'
-    });
+    let trimmed =
+        word.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_' && c != '.');
     if trimmed.len() < 16 {
         return false;
     }
@@ -362,7 +394,9 @@ fn read_framed_line<R: std::io::BufRead>(reader: &mut R) -> std::io::Result<Fram
             while buffer.last() == Some(&b'\n') || buffer.last() == Some(&b'\r') {
                 buffer.pop();
             }
-            return Ok(FramedLine::Line(String::from_utf8_lossy(&buffer).into_owned()));
+            return Ok(FramedLine::Line(
+                String::from_utf8_lossy(&buffer).into_owned(),
+            ));
         }
     }
     if buffer.is_empty() && !overflowed {
@@ -374,7 +408,9 @@ fn read_framed_line<R: std::io::BufRead>(reader: &mut R) -> std::io::Result<Fram
     while buffer.last() == Some(&b'\n') || buffer.last() == Some(&b'\r') {
         buffer.pop();
     }
-    Ok(FramedLine::Line(String::from_utf8_lossy(&buffer).into_owned()))
+    Ok(FramedLine::Line(
+        String::from_utf8_lossy(&buffer).into_owned(),
+    ))
 }
 
 fn spawn_pumps(
@@ -526,7 +562,11 @@ fn spawn_pumps(
                 }
                 Ok(None) => {
                     if !process.closed.load(Ordering::Acquire)
-                        && is_idle(process.last_activity.load(Ordering::Relaxed), now_secs(), IDLE_TIMEOUT)
+                        && is_idle(
+                            process.last_activity.load(Ordering::Relaxed),
+                            now_secs(),
+                            IDLE_TIMEOUT,
+                        )
                     {
                         let session_id = process.session_id.clone();
                         process.stop();
@@ -597,15 +637,12 @@ fn cursor_process(options: &AgentTransportOptions) -> Result<Command, String> {
             .resume_session_id
             .as_deref()
             .ok_or_else(|| "Cursor-Resume ohne Session-ID.".to_string())?;
-        command.args(["--resume", &safe_argument(resume_session_id, "Cursor-Session")?]);
+        command.args([
+            "--resume",
+            &safe_argument(resume_session_id, "Cursor-Session")?,
+        ]);
     }
-    for directory in options.add_dirs.iter().flatten() {
-        let directory = safe_argument(directory, "Cursor-Zusatzverzeichnis")?;
-        if !PathBuf::from(&directory).is_dir() {
-            return Err("Ein zusätzliches Cursor-Verzeichnis existiert nicht.".into());
-        }
-        command.args(["--add-dir", &directory]);
-    }
+    add_cursor_directories(&mut command, options)?;
     if let Some(worktree) = options.worktree.as_deref() {
         command.args(["--worktree", &safe_argument(worktree, "Cursor-Worktree")?]);
     }
@@ -710,7 +747,8 @@ fn provider_process(
                 command.current_dir(cwd);
             }
             if let Some(config_dir) = options.config_dir.as_deref() {
-                let config_dir = safe_argument(config_dir, "Claude-Konfigurationsverzeichnis")?;
+                let config_dir =
+                    safe_path_argument(config_dir, "Claude-Konfigurationsverzeichnis")?;
                 command.env("CLAUDE_CONFIG_DIR", config_dir);
             }
             command.env("CLAUDE_CODE_ENTRYPOINT", "l8git");
@@ -767,7 +805,10 @@ pub(crate) async fn agent_transport_open_inner(
     validate_session_id(&session_id)?;
     let options = options.unwrap_or_default();
     state.prune_closed();
-    if is_over_capacity(state.sessions.read().unwrap().len(), MAX_CONCURRENT_TRANSPORTS) {
+    if is_over_capacity(
+        state.sessions.read().unwrap().len(),
+        MAX_CONCURRENT_TRANSPORTS,
+    ) {
         return Err(format!(
             "Zu viele gleichzeitige Agent-Transports (Limit: {MAX_CONCURRENT_TRANSPORTS})."
         ));
@@ -1007,13 +1048,82 @@ pub async fn opencode_delete_session(path: String, session_id: String) -> Result
 #[cfg(test)]
 mod tests {
     use super::{
-        cli_command, cursor_process, encode_json_line, is_idle, is_over_capacity, now_secs,
-        over_burst_limit, provider_process, read_framed_line, redact, safe_prompt, validate_session_id,
-        AgentStreamEvent, AgentTransport, AgentTransportOptions, AgentTransportState, FramedLine,
-        IDLE_TIMEOUT, MAX_BURST_LINES, MAX_CONCURRENT_TRANSPORTS, MAX_LINE_BYTES,
+        add_cursor_directories, cli_command, cursor_process, encode_json_line, is_idle,
+        is_over_capacity, now_secs, over_burst_limit, provider_process, read_framed_line, redact,
+        safe_path_argument, safe_prompt, validate_session_id, AgentStreamEvent, AgentTransport,
+        AgentTransportOptions, AgentTransportState, FramedLine, IDLE_TIMEOUT, MAX_BURST_LINES,
+        MAX_CONCURRENT_TRANSPORTS, MAX_LINE_BYTES,
     };
     use std::collections::HashMap;
     use std::time::Duration;
+
+    #[test]
+    fn directory_arguments_preserve_exact_path_bytes_and_reject_nul() {
+        for path in ["repo ", "repo\n", " repo", " ", "C:\\repos\\repo "] {
+            assert_eq!(safe_path_argument(path, "test").unwrap(), path);
+        }
+        assert!(safe_path_argument("", "test").is_err());
+        assert!(safe_path_argument("repo\0neighbor", "test").is_err());
+    }
+
+    #[test]
+    fn cursor_extra_directories_follow_the_selected_launch_directory() {
+        let root = std::env::temp_dir().join(format!(
+            "l8git-cursor-directories-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        ));
+        std::fs::create_dir_all(root.join("launch/child ")).unwrap();
+        std::fs::create_dir_all(root.join("launch/child")).unwrap();
+        let mut command = cli_command("unused-test-executable");
+        let options = AgentTransportOptions {
+            cwd: Some(root.join("launch").to_str().unwrap().to_owned()),
+            add_dirs: Some(vec!["child ".into()]),
+            ..Default::default()
+        };
+        add_cursor_directories(&mut command, &options).unwrap();
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            vec![
+                std::ffi::OsStr::new("--add-dir"),
+                std::ffi::OsStr::new("child "),
+            ]
+        );
+        std::fs::remove_dir(root.join("launch/child ")).unwrap();
+        let mut rejected = cli_command("unused-test-executable");
+        assert!(add_cursor_directories(&mut rejected, &options).is_err());
+        assert_eq!(rejected.get_args().count(), 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cursor_extra_directories_keep_newlines_in_directory_names() {
+        let root = std::env::temp_dir().join(format!(
+            "l8git-cursor-exact-newline-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        ));
+        std::fs::create_dir_all(root.join("child\n")).unwrap();
+        let raw = root.join("child\n").to_str().unwrap().to_owned();
+        let options = AgentTransportOptions {
+            add_dirs: Some(vec![raw.clone()]),
+            ..Default::default()
+        };
+        let mut command = cli_command("unused-test-executable");
+        add_cursor_directories(&mut command, &options).unwrap();
+        assert_eq!(
+            command.get_args().last().unwrap(),
+            std::ffi::OsStr::new(&raw)
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn claude_config_dir_is_forwarded_as_environment_variable() {
@@ -1075,7 +1185,10 @@ mod tests {
     #[test]
     fn instance_env_plain_values_are_forwarded_verbatim() {
         let mut env = HashMap::new();
-        env.insert("ANTHROPIC_BASE_URL".to_string(), "https://router.example".to_string());
+        env.insert(
+            "ANTHROPIC_BASE_URL".to_string(),
+            "https://router.example".to_string(),
+        );
         let options = AgentTransportOptions {
             cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
             env: Some(env),

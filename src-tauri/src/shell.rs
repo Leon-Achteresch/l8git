@@ -26,7 +26,7 @@ pub async fn reveal_repo_folder(path: String) -> Result<(), String> {
 }
 
 fn _reveal_repo_folder(path: String) -> Result<(), String> {
-    let p = PathBuf::from(path.trim());
+    let p = PathBuf::from(&path);
     if !p.is_dir() {
         return Err("Pfad ist kein Ordner.".into());
     }
@@ -99,7 +99,7 @@ pub async fn open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), 
 }
 
 fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
-    let p = PathBuf::from(path.trim());
+    let p = PathBuf::from(&path);
     if !p.is_dir() {
         return Err("Pfad ist kein Ordner.".into());
     }
@@ -378,7 +378,7 @@ fn _open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
     if raw.is_empty() {
         return Err("Keine IDE konfiguriert (Einstellungen).".into());
     }
-    let repo = PathBuf::from(path.trim());
+    let repo = PathBuf::from(&path);
     if !repo.is_dir() {
         return Err("Repository-Pfad ungültig.".into());
     }

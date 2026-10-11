@@ -5,6 +5,7 @@ import { Archive, Loader2, Plus, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { StashRow } from "./stash-row";
 import { SpinIcon, StaggerItem } from "@/components/motion/kit";
+import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 
 export function StashList({
   path,
@@ -43,6 +44,7 @@ export function StashList({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <WorkflowHelpLink guideId="stash-work" />
           <Button
             type="button"
             variant="ghost"

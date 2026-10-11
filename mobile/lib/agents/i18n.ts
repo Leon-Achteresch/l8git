@@ -1,6 +1,7 @@
 import i18n from 'i18next';
 
 import enTranslation from '@desktop/locales/en.json';
+import type { AppLocale as RequestedLocale } from '@desktop/lib/locales';
 
 export type AppLocale = 'en';
 
@@ -16,12 +17,15 @@ if (!i18n.isInitialized) {
   });
 }
 
-export async function loadLocaleResources(_locale: AppLocale): Promise<void> {
+// Shared desktop preferences can request any supported desktop language. The
+// mobile adapter serves its bundled English fallback for those requests.
+export async function loadLocaleResources(_locale: RequestedLocale): Promise<void> {
   return Promise.resolve();
 }
 
-export async function changeAppLanguage(_locale: AppLocale): Promise<void> {
-  return Promise.resolve();
+export async function changeAppLanguage(locale: RequestedLocale): Promise<void> {
+  await loadLocaleResources(locale);
+  await i18n.changeLanguage(FALLBACK_LOCALE);
 }
 
 export default i18n;

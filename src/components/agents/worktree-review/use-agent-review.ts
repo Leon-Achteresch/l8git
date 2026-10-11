@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
-import { useProviderChatStore } from "@/lib/agents/active-chat-store";
+import { chatStoreFor, useProviderChatStore } from "@/lib/agents/active-chat-store";
 import {
   collectFinishedTurnIds,
+  existingAgentReviewFinishController,
   loadAgentReviewFileDiff,
   loadAgentReviewSummary,
   parseReviewDiff,
@@ -18,6 +19,7 @@ export interface AgentReviewSession {
   worktreePath: string;
   basePath: string;
   branch: string | null;
+  createdAt?: number;
 }
 
 export function useAgentReviewSession(path: string): AgentReviewSession | null {
@@ -36,13 +38,28 @@ export function useAgentReviewSession(path: string): AgentReviewSession | null {
 
   return useMemo(() => {
     if (stored) {
-      return { worktreePath: path, basePath: stored.basePath, branch: stored.branch };
+      return { worktreePath: path, basePath: stored.basePath, branch: stored.branch, createdAt: stored.createdAt };
     }
     if (derived) {
       return { worktreePath: path, basePath: derived.basePath, branch: derived.branch };
     }
     return null;
   }, [path, stored, derived]);
+}
+
+/** Preserve the opened generation when its metadata disappears during cleanup. */
+export function useAgentReviewIdentity(session: AgentReviewSession): number | undefined {
+  const metadataCreatedAt = useAgentWorktreeStore((state) => state.worktrees[session.worktreePath]?.createdAt);
+  const supplied = metadataCreatedAt ?? session.createdAt;
+  const current = Number.isSafeInteger(supplied) && (supplied ?? 0) > 0 ? supplied : undefined;
+  const key = `${session.basePath}\0${session.worktreePath}`;
+  const captured = useRef<{ key: string; createdAt?: number } | null>(null);
+  if (captured.current?.key !== key) {
+    captured.current = { key, createdAt: current ?? existingAgentReviewFinishController(session.worktreePath, session.basePath)?.context.worktreeCreatedAt };
+  } else if (current !== undefined) {
+    captured.current.createdAt = current;
+  }
+  return captured.current.createdAt;
 }
 
 function busyIn(state: AgentChatState, worktreePath: string): boolean {
@@ -57,6 +74,10 @@ export function useAgentSessionBusy(worktreePath: string): boolean {
   const opencode = useProviderChatStore("opencode", (state) => busyIn(state, worktreePath));
   const cursor = useProviderChatStore("cursor", (state) => busyIn(state, worktreePath));
   return codex || claude || opencode || cursor;
+}
+
+export function isAgentSessionBusyNow(worktreePath: string): boolean {
+  return (["codex", "claude", "opencode", "cursor"] as const).some((provider) => busyIn(chatStoreFor(provider).getState(), worktreePath));
 }
 
 export function finishedTurnsIn(state: AgentChatState, worktreePath: string): string {
@@ -89,7 +110,9 @@ export function useAgentReviewLiveRefresh(worktreePath: string, reload: () => vo
 }
 
 export function useAgentReviewSummary(session: AgentReviewSession | null, enabled: boolean) {
-  const [summary, setSummary] = useState<AgentReviewSummary | null>(null);
+  const sessionKey = session ? `${session.worktreePath}\0${session.basePath}\0${session.createdAt ?? ""}` : "";
+  const [result, setResult] = useState<{ key: string; summary: AgentReviewSummary } | null>(null);
+  const summary = result?.key === sessionKey ? result.summary : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -97,18 +120,18 @@ export function useAgentReviewSummary(session: AgentReviewSession | null, enable
   const reload = useCallback(() => setNonce((value) => value + 1), []);
 
   useEffect(() => {
-    if (!enabled || !session) return;
+    if (!enabled || !session) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setError(null);
     loadAgentReviewSummary(session.worktreePath, session.basePath)
       .then((next) => {
         if (cancelled) return;
-        setSummary(next);
+        setResult({ key: sessionKey, summary: next });
       })
       .catch((cause: unknown) => {
         if (cancelled) return;
-        setSummary(null);
+        setResult(null);
         setError(cause instanceof Error ? cause.message : String(cause));
       })
       .finally(() => {
@@ -117,7 +140,7 @@ export function useAgentReviewSummary(session: AgentReviewSession | null, enable
     return () => {
       cancelled = true;
     };
-  }, [enabled, session, nonce]);
+  }, [enabled, session, sessionKey, nonce]);
 
   return { summary, loading, error, reload };
 }
@@ -130,13 +153,16 @@ export function useAgentReviewFileDiff(
   file: string | null,
   nonce: number,
 ) {
-  const [state, setState] = useState<AgentReviewFileDiff>(EMPTY_DIFF);
+  const requestKey = `${session?.worktreePath ?? ""}\0${session?.createdAt ?? ""}\0${mergeBase ?? ""}\0${file ?? ""}\0${nonce}`;
+  const [result, setResult] = useState<{ key: string; diff: AgentReviewFileDiff }>({ key: "", diff: EMPTY_DIFF });
+  const state = result.key === requestKey ? result.diff : EMPTY_DIFF;
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (!session || !mergeBase || !file) {
-      setState(EMPTY_DIFF);
+      setResult({ key: requestKey, diff: EMPTY_DIFF });
+      setLoading(false);
       setFailed(false);
       return;
     }
@@ -145,11 +171,11 @@ export function useAgentReviewFileDiff(
     setFailed(false);
     loadAgentReviewFileDiff(session.worktreePath, mergeBase, file)
       .then((next) => {
-        if (!cancelled) setState(next);
+        if (!cancelled) setResult({ key: requestKey, diff: next });
       })
       .catch(() => {
         if (!cancelled) {
-          setState(EMPTY_DIFF);
+          setResult({ key: requestKey, diff: EMPTY_DIFF });
           setFailed(true);
         }
       })
@@ -159,7 +185,7 @@ export function useAgentReviewFileDiff(
     return () => {
       cancelled = true;
     };
-  }, [session, mergeBase, file, nonce]);
+  }, [session, mergeBase, file, nonce, requestKey]);
 
   const parsed = useMemo(() => parseReviewDiff(state.diff), [state.diff]);
 

@@ -1,4 +1,4 @@
-use super::{run_git, run_git_merged_output, spawn_git};
+use super::{resolve_git_commit, run_git, run_git_merged_output, spawn_git};
 use serde::Serialize;
 use std::path::PathBuf;
 
@@ -43,8 +43,21 @@ fn bisect_parse_log_marks(log: &str) -> (Vec<String>, Vec<String>) {
     (bad, good)
 }
 
+/// Older Git logs `# first bad commit: [<oid>] ...`; newer releases (e.g. 2.55) quote the
+/// term (`# first 'bad' commit: [<oid>] ...`).
+fn bisect_parse_result_line(line: &str) -> Option<String> {
+    let rest = line.trim().strip_prefix("# first ")?;
+    let (term, rest) = rest.split_once(" commit: [")?;
+    if term != "bad" && term != "'bad'" {
+        return None;
+    }
+    let (hash, _) = rest.split_once(']')?;
+    Some(hash.to_string())
+}
+
 fn bisect_build_status(repo: &PathBuf) -> Result<BisectStatus, String> {
-    let bisect_log_path = repo.join(run_git(repo, &["rev-parse", "--git-path", "BISECT_LOG"] )?.trim());
+    let raw = run_git(repo, &["rev-parse", "--git-path", "BISECT_LOG"])?;
+    let bisect_log_path = repo.join(raw.strip_suffix('\n').unwrap_or(&raw));
     if !bisect_log_path.exists() {
         return Ok(BisectStatus {
             active: false,
@@ -60,104 +73,141 @@ fn bisect_build_status(repo: &PathBuf) -> Result<BisectStatus, String> {
         });
     }
 
-    let log = std::fs::read_to_string(&bisect_log_path).unwrap_or_default();
+    let log = std::fs::read_to_string(&bisect_log_path)
+        .map_err(|e| format!("failed to read bisect state: {e}"))?;
 
-    let steps_remaining = log
-        .lines()
-        .rev()
-        .find_map(|l| {
-            let l = l.trim();
-            if let Some(pos) = l.find("roughly ") {
-                let rest = &l[pos + 8..];
-                rest.split_whitespace().next().and_then(|n| n.parse::<i32>().ok())
-            } else {
-                None
-            }
-        });
-
-    let current_hash = run_git(repo, &["rev-parse", "HEAD"]).ok().map(|s| s.trim().to_string());
+    let current_hash = run_git(repo, &["rev-parse", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string());
     let current_subject = current_hash.as_ref().and_then(|h| {
-        run_git(repo, &["log", "-1", "--format=%s", h]).ok().map(|s| s.trim().to_string())
+        run_git(repo, &["log", "-1", "--format=%s", h])
+            .ok()
+            .map(|s| s.trim().to_string())
     });
 
     let (marked_bad, marked_good) = bisect_parse_log_marks(&log);
+    // The result belongs to the worktree's persistent bisect log. Parsing only
+    // command output loses the completed state on every refresh or app restart.
+    let result_hash = log.lines().rev().find_map(bisect_parse_result_line);
+    let result_subject = result_hash.as_ref().and_then(|hash| {
+        run_git(repo, &["log", "-1", "--format=%s", hash])
+            .ok()
+            .map(|subject| subject.trim().to_string())
+    });
+    let done = result_hash.is_some();
+    let steps_remaining = if done || marked_good.is_empty() {
+        None
+    } else {
+        marked_bad.last().and_then(|bad| {
+            let mut args = vec!["rev-list", "--bisect-vars", bad.as_str(), "--not"];
+            args.extend(marked_good.iter().map(String::as_str));
+            run_git(repo, &args).ok().and_then(|vars| {
+                vars.lines()
+                    .find_map(|line| line.strip_prefix("bisect_steps=")?.parse().ok())
+            })
+        })
+    };
 
     Ok(BisectStatus {
         active: true,
-        done: false,
+        done,
         current_hash,
         current_subject,
         steps_remaining,
         log,
-        result_hash: None,
-        result_subject: None,
+        result_hash,
+        result_subject,
         marked_bad,
         marked_good,
     })
 }
 
-fn bisect_parse_output(repo: &PathBuf, output: &str) -> Result<BisectStatus, String> {
-    if let Some(line) = output.lines().find(|l| l.contains("is the first bad commit")) {
-        let result_hash = line.split_whitespace().next().map(|s| s.to_string());
-        let result_subject = result_hash.as_ref().and_then(|h| {
-            run_git(repo, &["log", "-1", "--format=%s", h]).ok().map(|s| s.trim().to_string())
-        });
-        // Read log marks even for the done state
-        let log = std::fs::read_to_string(repo.join(run_git(repo, &["rev-parse", "--git-path", "BISECT_LOG"] )?.trim())).unwrap_or_default();
-        let (marked_bad, marked_good) = bisect_parse_log_marks(&log);
-        return Ok(BisectStatus {
-            active: true,
-            done: true,
-            current_hash: result_hash.clone(),
-            current_subject: result_subject.clone(),
-            steps_remaining: None,
-            log,
-            result_hash,
-            result_subject,
-            marked_bad,
-            marked_good,
-        });
-    }
-    bisect_build_status(repo)
+fn bisect_resolve_commit(repo: &PathBuf, value: &str) -> Result<String, String> {
+    resolve_git_commit(repo, value)
 }
 
 #[tauri::command]
 pub async fn git_bisect_status(path: String) -> Result<BisectStatus, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         bisect_build_status(&repo)
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn git_bisect_start(path: String, bad: String, good: String) -> Result<BisectStatus, String> {
+pub async fn git_bisect_start(
+    path: String,
+    bad: String,
+    good: String,
+) -> Result<BisectStatus, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
-        run_git_merged_output(&repo, &["bisect", "start"])?;
-        run_git_merged_output(&repo, &["bisect", "bad", bad.trim()])?;
-        let out = run_git_merged_output(&repo, &["bisect", "good", good.trim()])?;
-        bisect_parse_output(&repo, &out)
-    }).await
+        let repo = PathBuf::from(&path);
+        if bisect_build_status(&repo)?.active {
+            return Err("__BISECT_ALREADY_IN_PROGRESS__".into());
+        }
+        // Validate and pin both endpoints before Git changes branches or writes
+        // BISECT_START, so an invalid revision cannot leave a partial session.
+        let bad = bisect_resolve_commit(&repo, &bad)?;
+        let good = bisect_resolve_commit(&repo, &good)?;
+        if bad == good {
+            return Err("The good and bad bisect revisions must be different.".into());
+        }
+        if let Err(error) = run_git_merged_output(&repo, &["bisect", "start", &bad, &good]) {
+            return match run_git_merged_output(&repo, &["bisect", "reset"]) {
+                Ok(_) => Err(error),
+                Err(reset_error) => Err(format!(
+                    "{error}\nFailed to reset the interrupted bisect: {reset_error}"
+                )),
+            };
+        }
+        bisect_build_status(&repo)
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn git_bisect_mark(path: String, verdict: String) -> Result<BisectStatus, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let v = verdict.trim();
         if v != "good" && v != "bad" && v != "skip" {
             return Err(format!("Invalid verdict: {v}"));
         }
-        let out = run_git_merged_output(&repo, &["bisect", v])?;
-        bisect_parse_output(&repo, &out)
-    }).await
+        run_git_merged_output(&repo, &["bisect", v])?;
+        bisect_build_status(&repo)
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn git_bisect_reset(path: String) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         run_git_merged_output(&repo, &["bisect", "reset"])?;
         Ok(())
-    }).await
+    })
+    .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bisect_parse_result_line;
+
+    #[test]
+    fn result_line_accepts_old_and_quoted_term_formats() {
+        assert_eq!(
+            bisect_parse_result_line("# first bad commit: [abc123] subject").as_deref(),
+            Some("abc123")
+        );
+        assert_eq!(
+            bisect_parse_result_line("# first 'bad' commit: [abc123] subject").as_deref(),
+            Some("abc123")
+        );
+        assert_eq!(bisect_parse_result_line("# bad: [abc123] subject"), None);
+        assert_eq!(
+            bisect_parse_result_line("# first 'new' commit: [abc123] subject"),
+            None
+        );
+    }
 }

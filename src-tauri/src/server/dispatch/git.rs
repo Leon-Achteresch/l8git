@@ -5,6 +5,14 @@ pub async fn dispatch(
 ) -> Option<Result<serde_json::Value, String>> {
     crate::dispatch_table! { cmd, args, ctx;
 
+        "repo_compare_commits" (path: String, base: String, head: String, mode: Option<String>) => {
+            crate::compare::repo_compare_commits(path, base, head, mode).await
+        }
+
+        "repo_compare_file_diff" (path: String, base: String, head: String, mode: Option<String>, file: String, previous_file: Option<String>) => {
+            crate::compare::repo_compare_file_diff(path, base, head, mode, file, previous_file).await
+        }
+
         "git_remote_cancel" (op_id: String) => {
             crate::git::git_remote_cancel(op_id).await
         }
@@ -146,13 +154,20 @@ pub async fn dispatch(
             crate::git::git_create_branch(path, name, base, checkout).await
         }
 
+        "git_resolve_commit" (path: String, rev: String) => {
+            crate::git::git_resolve_commit(path, rev).await
+        }
+
         "git_merge" (
             path: String,
             branch: String,
             strategy: Option<String>,
-            message: Option<String>
+            message: Option<String>,
+            expected_branch: Option<String>,
+            expected_head: Option<String>,
+            expected_source_head: Option<String>
         ) => {
-            crate::git::git_merge(path, branch, strategy, message).await
+            crate::git::git_merge(path, branch, strategy, message, expected_branch, expected_head, expected_source_head).await
         }
 
         "git_revert_commit" (path: String, commit: String, merge_mainline: Option<u8>) => {
@@ -210,12 +225,12 @@ pub async fn dispatch(
             crate::git::git_tag_commit(path, name, commit, annotated, message, sign).await
         }
 
-        "git_discard_files" (path: String, files: Vec<String>, untracked: Vec<bool>) => {
-            crate::git::git_discard_files(path, files, untracked).await
+        "git_discard_files" (path: String, files: Vec<String>, untracked: Vec<bool>, expected_fingerprints: Option<Vec<String>>) => {
+            crate::git::git_discard_files(path, files, untracked, expected_fingerprints).await
         }
 
-        "git_discard_worktree_changes" (path: String, files: Vec<String>, untracked: Vec<bool>) => {
-            crate::git::git_discard_worktree_changes(path, files, untracked).await
+        "git_discard_worktree_changes" (path: String, files: Vec<String>, untracked: Vec<bool>, expected_fingerprints: Option<Vec<String>>) => {
+            crate::git::git_discard_worktree_changes(path, files, untracked, expected_fingerprints).await
         }
 
         "git_restore_files_at_commit" (path: String, commit: String, files: Vec<String>) => {
@@ -254,12 +269,27 @@ pub async fn dispatch(
             crate::git::unstage_files(path, files).await
         }
 
+        "git_commit_split_snapshot" (path: String, files: Vec<String>) => {
+            crate::git::git_commit_split_snapshot(path, files).await
+        }
+
+        "git_commit_split_group_checked" (
+            path: String,
+            files: Vec<String>,
+            expected: crate::git::CommitSplitSnapshot,
+            selections: Vec<crate::git::CommitSplitSelection>,
+            message: String,
+            sign: Option<bool>
+        ) => {
+            crate::git::git_commit_split_group_checked(path, files, expected, selections, message, sign).await
+        }
+
         "commit_changes" (path: String, message: String, sign: Option<bool>) => {
             crate::git::commit_changes(path, message, sign).await
         }
 
-        "commit_amend" (path: String, message: String) => {
-            crate::git::commit_amend(path, message).await
+        "commit_amend" (path: String, message: String, expected_head: Option<String>) => {
+            crate::git::commit_amend(path, message, expected_head).await
         }
 
         "commit_signing_info" (path: String) => {
@@ -284,8 +314,8 @@ pub async fn dispatch(
             crate::git::repo_staged_diff(path).await
         }
 
-        "repo_file_diff" (path: String, file: String, untracked: bool) => {
-            crate::git::repo_file_diff(path, file, untracked).await
+        "repo_file_diff" (path: String, file: String, untracked: bool, include_fingerprint: Option<bool>) => {
+            crate::git::repo_file_diff(path, file, untracked, include_fingerprint).await
         }
 
         "repo_read_file" (path: String, file: String) => {
@@ -310,6 +340,10 @@ pub async fn dispatch(
 
         "discard_hunk" (path: String, patch: String) => {
             crate::git::discard_hunk(path, patch).await
+        }
+
+        "git_apply_reviewed_hunks" (path: String, file: String, action: String, patches: Vec<String>, expected_fingerprint: String) => {
+            crate::git::git_apply_reviewed_hunks(path, file, action, patches, expected_fingerprint).await
         }
 
         "repo_commit_inspect" (path: String, commit: String) => {
@@ -392,6 +426,16 @@ pub async fn dispatch(
 
         "git_worktree_remove" (path: String, worktree_path: String, force: bool) => {
             crate::git::git_worktree_remove(path, worktree_path, force).await
+        }
+
+        "git_worktree_remove_checked" (
+            path: String,
+            worktree_path: String,
+            expected_branch: String,
+            expected_head: String,
+            merged_into: String
+        ) => {
+            crate::git::git_worktree_remove_checked(path, worktree_path, expected_branch, expected_head, merged_into).await
         }
 
         "git_worktree_lock" (path: String, worktree_path: String, reason: Option<String>) => {
@@ -489,8 +533,8 @@ pub async fn dispatch(
             crate::git::git_bisect_reset(path).await
         }
 
-        "git_reset" (path: String, target: String, mode: String) => {
-            crate::git::git_reset(path, target, mode).await
+        "git_reset" (path: String, target: String, mode: String, expected_head: Option<String>) => {
+            crate::git::git_reset(path, target, mode, expected_head).await
         }
 
         "repo_contributor_stats" (

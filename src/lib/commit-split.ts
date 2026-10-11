@@ -26,6 +26,7 @@ export interface SplitUnit {
   additions: number;
   deletions: number;
   signature: string;
+  hunkPayload: string;
   preview: string;
   hunkIndex: number;
   untracked: boolean;
@@ -63,7 +64,11 @@ export type SplitValidation =
   | { ok: true; plan: SplitPlan; warnings: string[] }
   | { ok: false; reason: string };
 
-export class SplitPlanError extends Error {}
+export class SplitPlanError extends Error {
+  constructor(message: string, public readonly preserveStaging = false) {
+    super(message);
+  }
+}
 
 export function fileNeedsWholeUnit(entry: StatusEntry): boolean {
   if (entry.untracked || entry.binary || entry.embedded_repo) return true;
@@ -108,6 +113,7 @@ export function buildSplitUnits(files: readonly SplitFileInput[]): SplitUnit[] {
         additions: file.additions,
         deletions: file.deletions,
         signature: `file:${file.file}`,
+        hunkPayload: "",
         preview: file.binary ? "" : (file.diff ?? "").slice(0, MAX_UNIT_PREVIEW_CHARS),
         hunkIndex: -1,
         untracked: file.untracked,
@@ -125,6 +131,7 @@ export function buildSplitUnits(files: readonly SplitFileInput[]): SplitUnit[] {
         additions: stats.additions,
         deletions: stats.deletions,
         signature: hunkSignature(hunk),
+        hunkPayload: hunk.lines.map((line) => line.raw).join("\n"),
         preview: hunkText(hunk).slice(0, MAX_UNIT_PREVIEW_CHARS),
         hunkIndex,
         untracked: false,
@@ -486,16 +493,67 @@ export interface FileDiffPayload {
   is_binary: boolean;
 }
 
+export type CommitSplitSnapshot = Readonly<{
+  head: string | null;
+  branch: string | null;
+  indexFingerprint: string;
+  worktreeFingerprint: string;
+}>;
+
+function snapshotInvalid(): SplitPlanError {
+  return new SplitPlanError(i18n.t("commitSplit.errorSnapshotInvalid"), true);
+}
+
+export function readCommitSplitSnapshot(value: unknown): CommitSplitSnapshot {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw snapshotInvalid();
+  const snapshot = value as Record<string, unknown>;
+  if (!(snapshot.head === null || typeof snapshot.head === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(snapshot.head)) ||
+    !(snapshot.branch === null || typeof snapshot.branch === "string" && !!snapshot.branch.trim()) ||
+    typeof snapshot.indexFingerprint !== "string" || !snapshot.indexFingerprint.trim() ||
+    typeof snapshot.worktreeFingerprint !== "string" || !snapshot.worktreeFingerprint.trim()) throw snapshotInvalid();
+  return Object.freeze({ head: snapshot.head, branch: snapshot.branch,
+    indexFingerprint: snapshot.indexFingerprint, worktreeFingerprint: snapshot.worktreeFingerprint });
+}
+
+function sameSnapshot(left: CommitSplitSnapshot, right: CommitSplitSnapshot): boolean {
+  return left.head === right.head && left.branch === right.branch &&
+    left.indexFingerprint === right.indexFingerprint && left.worktreeFingerprint === right.worktreeFingerprint;
+}
+
+export interface SplitCollection {
+  units: SplitUnit[];
+  hadStaged: boolean;
+  snapshot: CommitSplitSnapshot;
+}
+
 export async function collectSplitInputs(
   path: string,
-): Promise<{ units: SplitUnit[]; hadStaged: boolean }> {
-  const entries = await invoke<StatusEntry[]>("repo_status", { path });
-  const changed = (Array.isArray(entries) ? entries : []).filter(
+  options: { shouldCancel?: () => boolean } = {},
+): Promise<SplitCollection> {
+  const checkCurrent = () => {
+    if (options.shouldCancel?.()) throw new SplitPlanError(i18n.t("commitSplit.cancelledHint"), true);
+  };
+  checkCurrent();
+  let entries = await invoke<StatusEntry[]>("repo_status", { path });
+  checkCurrent();
+  if (!Array.isArray(entries)) throw snapshotInvalid();
+  const hadStaged = entries.some((entry) => entry.staged);
+
+  if (hadStaged) {
+    await invoke("unstage_files", { path, files: ["."] });
+    checkCurrent();
+    // A staged rename becomes a source deletion and an untracked destination.
+    // Rebuild the complete change set after flattening the index.
+    entries = await invoke<StatusEntry[]>("repo_status", { path });
+    checkCurrent();
+    if (!Array.isArray(entries)) throw snapshotInvalid();
+  }
+  const changed = entries.filter(
     (entry) => entry.staged || entry.unstaged || entry.untracked,
   );
-  const hadStaged = changed.some((entry) => entry.staged);
-
-  if (hadStaged) await invoke("unstage_files", { path, files: ["."] });
+  const files = [...new Set(changed.map(entry => entry.path))];
+  const snapshot = readCommitSplitSnapshot(await invoke("git_commit_split_snapshot", { path, files }));
+  checkCurrent();
 
   const inputs: SplitFileInput[] = [];
   for (const entry of changed) {
@@ -507,6 +565,10 @@ export async function collectSplitInputs(
         file: entry.path,
         untracked: false,
       });
+      checkCurrent();
+      if (!payload || payload.is_binary || payload.staged?.trim()) {
+        throw new SplitPlanError("__SPLIT_REVIEW_CHANGED__", true);
+      }
       diff = payload.unstaged ?? payload.staged ?? null;
     }
     inputs.push({
@@ -519,8 +581,10 @@ export async function collectSplitInputs(
       deletions: entry.deletions_staged + entry.deletions_unstaged,
     });
   }
-
-  return { units: buildSplitUnits(inputs), hadStaged };
+  const after = readCommitSplitSnapshot(await invoke("git_commit_split_snapshot", { path, files }));
+  checkCurrent();
+  if (!sameSnapshot(snapshot, after)) throw new SplitPlanError("__SPLIT_REVIEW_CHANGED__", true);
+  return { units: buildSplitUnits(inputs), hadStaged, snapshot };
 }
 
 export interface SplitApplyProgress {
@@ -540,13 +604,25 @@ export async function applySplitPlan(options: {
   path: string;
   plan: SplitPlan;
   units: readonly SplitUnit[];
+  snapshot: CommitSplitSnapshot;
   sign?: boolean | null;
   onProgress?: (progress: SplitApplyProgress) => void;
   shouldCancel?: () => boolean;
 }): Promise<SplitApplyResult> {
-  const { path, plan, units, onProgress, shouldCancel } = options;
+  const { path, onProgress, shouldCancel } = options;
+  const units = options.units.map(unit => ({ ...unit }));
+  const plan = { groups: options.plan.groups.map(group => ({ ...group, unitIds: [...group.unitIds] })) };
+  const issues = planIssues(plan, units);
+  const knownIds = new Set(units.map(unit => unit.id));
+  if (issues.length || planUnitIds(plan).some(id => !knownIds.has(id)) || knownIds.size !== units.length) {
+    throw new SplitPlanError(i18n.t("commitSplit.errorInvalidPlan", { reason: issues.join(", ") || "coverage" }), true);
+  }
+  let expected = readCommitSplitSnapshot(options.snapshot);
+  const worktreeFingerprint = expected.worktreeFingerprint;
+  const files = [...new Set(units.map(unit => unit.file))];
   const byId = new Map(units.map((unit) => [unit.id, unit]));
   const groups = runnableGroups(plan);
+  const committedUnitIds = new Set<string>();
   let committed = 0;
 
   for (const [groupIndex, group] of groups.entries()) {
@@ -561,7 +637,47 @@ export async function applySplitPlan(options: {
       phase: "staging",
     });
 
-    await invoke("unstage_files", { path, files: ["."] });
+    const remainingByFile = new Map<string, SplitUnit[]>();
+    for (const unit of units) {
+      if (unit.kind !== "hunk" || committedUnitIds.has(unit.id)) continue;
+      const list = remainingByFile.get(unit.file) ?? [];
+      list.push(unit);
+      remainingByFile.set(unit.file, list);
+    }
+    const parsedByFile = new Map<string, ParsedDiff>();
+    const indexByUnitId = new Map<string, number>();
+    try {
+      for (const [file, remaining] of remainingByFile) {
+        if (shouldCancel?.()) return { committed, cancelled: true, remaining: groups.length - groupIndex };
+        const payload = await invoke<FileDiffPayload>("repo_file_diff", {
+          path, file, untracked: false,
+        });
+        if (shouldCancel?.()) return { committed, cancelled: true, remaining: groups.length - groupIndex };
+        if (!payload) {
+          throw new SplitPlanError(i18n.t("commitSplit.errorHunkGone", { file }));
+        }
+        if (payload.staged?.trim()) {
+          throw new SplitPlanError(i18n.t("commitSplit.errorStagingChanged"));
+        }
+        const parsed = parseDiffWithHunks(payload.unstaged ?? "");
+        const ordered = [...remaining].sort((a, b) => a.hunkIndex - b.hunkIndex);
+        // Match the entire remaining sequence, including duplicate changes.
+        // Headers contain line numbers that legitimately move after a commit;
+        // the untruncated payload/context retains the reviewed unit's identity.
+        if (parsed.hunks.length !== ordered.length || ordered.some((unit, index) => {
+          const hunk = parsed.hunks[index];
+          return (index > 0 && unit.hunkIndex === ordered[index - 1].hunkIndex)
+            || unit.signature !== hunkSignature(hunk)
+            || unit.hunkPayload !== hunk.lines.map((line) => line.raw).join("\n");
+        })) {
+          throw new SplitPlanError(i18n.t("commitSplit.errorHunkGone", { file }), true);
+        }
+        ordered.forEach((unit, index) => indexByUnitId.set(unit.id, index));
+        parsedByFile.set(file, parsed);
+      }
+    } catch (cause) {
+      throw new SplitPlanError(cause instanceof Error ? cause.message : String(cause), true);
+    }
 
     const byFile = new Map<string, SplitUnit[]>();
     for (const id of group.unitIds) {
@@ -572,31 +688,20 @@ export async function applySplitPlan(options: {
       byFile.set(unit.file, list);
     }
 
+    const selections: { file: string; patches: string[] | null }[] = [];
     for (const [file, fileUnits] of byFile) {
       if (fileUnits.some((unit) => unit.kind === "file")) {
-        await invoke("stage_files", { path, files: [file] });
+        selections.push({ file, patches: null });
         continue;
       }
-      const payload = await invoke<FileDiffPayload>("repo_file_diff", {
-        path,
-        file,
-        untracked: false,
-      });
-      const diff = payload.unstaged ?? "";
-      if (!diff.trim()) {
-        throw new SplitPlanError(i18n.t("commitSplit.errorHunkGone", { file }));
+      const parsed = parsedByFile.get(file);
+      const indices = fileUnits.map((unit) => indexByUnitId.get(unit.id));
+      if (!parsed || indices.some((index) => index === undefined) || indices.length === 0) {
+        throw new SplitPlanError(i18n.t("commitSplit.errorHunkGone", { file }), true);
       }
-      const parsed = parseDiffWithHunks(diff);
-      const { indices, missing } = matchUnitsToHunks(
-        parsed,
-        fileUnits.map((unit) => unit.signature),
-      );
-      if (missing.length > 0 || indices.length === 0) {
-        throw new SplitPlanError(i18n.t("commitSplit.errorHunkGone", { file }));
-      }
-      for (const patch of buildPatchesForSelection(parsed, selectionKeysForHunks(parsed, indices))) {
-        await invoke("stage_hunk", { path, patch });
-      }
+      const patches = buildPatchesForSelection(parsed, selectionKeysForHunks(parsed, indices as number[]));
+      if (!patches.length) throw new SplitPlanError(i18n.t("commitSplit.errorHunkGone", { file }), true);
+      selections.push({ file, patches });
     }
 
     onProgress?.({
@@ -605,21 +710,21 @@ export async function applySplitPlan(options: {
       message: group.message,
       phase: "committing",
     });
-    await invoke("commit_changes", {
-      path,
-      message: group.message.trim(),
-      sign: options.sign ?? null,
-    });
+    if (shouldCancel?.()) return { committed, cancelled: true, remaining: groups.length - groupIndex };
+    try {
+      const next = readCommitSplitSnapshot(await invoke("git_commit_split_group_checked", {
+        path, files: [...files], expected, selections,
+        message: group.message.trim(), sign: options.sign ?? null,
+      }));
+      if (next.head === null || next.head === expected.head || next.branch !== expected.branch ||
+        next.worktreeFingerprint !== worktreeFingerprint) throw snapshotInvalid();
+      expected = next;
+    } catch (cause) {
+      throw new SplitPlanError(cause instanceof Error ? cause.message : String(cause), true);
+    }
     committed += 1;
+    group.unitIds.forEach((id) => committedUnitIds.add(id));
   }
 
   return { committed, cancelled: false, remaining: 0 };
-}
-
-export async function resetSplitStaging(path: string): Promise<void> {
-  try {
-    await invoke("unstage_files", { path, files: ["."] });
-  } catch {
-    return;
-  }
 }

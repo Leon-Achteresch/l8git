@@ -1,6 +1,6 @@
 use super::{run_git, spawn_git};
 use serde::Serialize;
-use std::{path::PathBuf, process::Stdio};
+use std::{io::Write, path::PathBuf, process::Stdio};
 #[cfg(target_os = "windows")]
 use std::path::Path;
 
@@ -14,30 +14,15 @@ pub struct GitHookEntry {
     pub content_size: u64,
 }
 
-fn resolve_hooks_dir(repo: &PathBuf) -> Result<PathBuf, String> {
-    let git_dir = run_git(repo, &["rev-parse", "--git-dir"])
-        .map(|s| s.trim().to_string())?;
-
-    let custom = run_git(repo, &["config", "--get", "core.hooksPath"])
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-
-    if let Some(p) = custom {
-        let abs = if std::path::Path::new(&p).is_absolute() {
-            PathBuf::from(&p)
-        } else {
-            repo.join(&p)
-        };
-        return Ok(abs);
-    }
-
-    let git_dir_path = if std::path::Path::new(&git_dir).is_absolute() {
-        PathBuf::from(&git_dir)
-    } else {
-        repo.join(&git_dir)
-    };
-    Ok(git_dir_path.join("hooks"))
+pub(crate) fn resolve_hooks_dir(repo: &PathBuf) -> Result<PathBuf, String> {
+    // Git resolves common-directory hooks for linked worktrees, core.hooksPath,
+    // and its path interpolation. Only the output terminator is not path data.
+    let output = run_git(repo, &["rev-parse", "--path-format=absolute", "--git-path", "hooks"])?;
+    let path = output.strip_suffix('\n').unwrap_or(&output);
+    #[cfg(target_os = "windows")]
+    let path = path.strip_suffix('\r').unwrap_or(path);
+    if path.is_empty() { return Err("Git returned an empty hooks path".into()); }
+    Ok(PathBuf::from(path))
 }
 
 const ALL_HOOKS: &[&str] = &[
@@ -69,7 +54,7 @@ const ALL_HOOKS: &[&str] = &[
 #[tauri::command]
 pub async fn list_git_hooks(path: String) -> Result<Vec<GitHookEntry>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         let hooks_dir = resolve_hooks_dir(&repo)?;
         let mut entries = Vec::new();
         for &name in ALL_HOOKS {
@@ -107,7 +92,7 @@ pub async fn list_git_hooks(path: String) -> Result<Vec<GitHookEntry>, String> {
 #[tauri::command]
 pub async fn get_git_hook_content(path: String, hook_name: String) -> Result<String, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
             return Err(format!("Unbekannter Hook-Name: {name}"));
@@ -124,7 +109,7 @@ pub async fn get_git_hook_content(path: String, hook_name: String) -> Result<Str
 #[tauri::command]
 pub async fn save_git_hook(path: String, hook_name: String, content: String) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
             return Err(format!("Unbekannter Hook-Name: {name}"));
@@ -152,7 +137,7 @@ pub async fn save_git_hook(path: String, hook_name: String, content: String) -> 
 #[tauri::command]
 pub async fn delete_git_hook(path: String, hook_name: String) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
             return Err(format!("Unbekannter Hook-Name: {name}"));
@@ -169,7 +154,7 @@ pub async fn delete_git_hook(path: String, hook_name: String) -> Result<(), Stri
 #[tauri::command]
 pub async fn toggle_git_hook(path: String, hook_name: String, enabled: bool) -> Result<(), String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
             return Err(format!("Unbekannter Hook-Name: {name}"));
@@ -223,10 +208,41 @@ fn hook_shell(repo: &PathBuf) -> String {
     "sh".to_string()
 }
 
+struct HookMessageFile(PathBuf);
+
+impl HookMessageFile {
+    fn create(message: &str) -> Result<Self, String> {
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| e.to_string())?.as_nanos();
+        let serial = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!("l8git-hook-msg-{}-{nonce}-{serial}", std::process::id()));
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)] {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&path).map_err(|e| format!("Hook message file could not be created: {e}"))?;
+        let temporary = Self(path);
+        file.write_all(message.as_bytes()).map_err(|e| format!("Hook message file could not be written: {e}"))?;
+        Ok(temporary)
+    }
+}
+
+impl Drop for HookMessageFile {
+    fn drop(&mut self) { let _ = std::fs::remove_file(&self.0); }
+}
+
+fn shell_path(path: &std::path::Path) -> std::ffi::OsString {
+    #[cfg(windows)] { path.to_string_lossy().replace('\\', "/").into() }
+    #[cfg(not(windows))] { path.as_os_str().to_owned() }
+}
+
 #[tauri::command]
 pub async fn run_git_hook(path: String, hook_name: String) -> Result<HookRunResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
             return Err(format!("Unbekannter Hook-Name: {name}"));
@@ -239,30 +255,24 @@ pub async fn run_git_hook(path: String, hook_name: String) -> Result<HookRunResu
         let mut cmd = crate::cmd::cli_command(hook_shell(&repo));
         cmd.current_dir(&repo)
             .stdin(Stdio::null())
-            .arg(hook_path.to_string_lossy().replace('\\', "/"));
+            .arg(shell_path(&hook_path));
 
         // ponytail: message hooks need $1 — the last commit message is the
         // closest stand-in for a manual run. Other hooks run without args;
         // stdin-driven ones (pre-push, server hooks) just see EOF.
-        let msg_file = matches!(
+        let _msg_file = if matches!(
             name.as_str(),
             "commit-msg" | "prepare-commit-msg" | "applypatch-msg"
-        )
-        .then(|| {
+        ) {
             let msg = run_git(&repo, &["log", "-1", "--pretty=%B"]).unwrap_or_default();
-            let file = std::env::temp_dir().join(format!("l8git-hook-msg-{}", std::process::id()));
-            std::fs::write(&file, msg).ok()?;
-            cmd.arg(file.to_string_lossy().replace('\\', "/"));
+            let file = HookMessageFile::create(&msg)?;
+            cmd.arg(shell_path(&file.0));
             Some(file)
-        })
-        .flatten();
+        } else { None };
 
         let output = cmd
             .output()
             .map_err(|e| format!("Hook konnte nicht gestartet werden: {e}"))?;
-        if let Some(f) = msg_file {
-            let _ = std::fs::remove_file(f);
-        }
 
         let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr);

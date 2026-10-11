@@ -469,12 +469,12 @@ fn markdown_description(path: &Path) -> String {
 
 /// Verhindert, dass `rel` aus dem Zielverzeichnis ausbricht.
 pub(crate) fn safe_relative(rel: &str) -> Result<PathBuf, String> {
-    let trimmed = rel.trim().trim_matches(['/', '\\']);
-    if trimmed.is_empty() {
+    let relative = rel.trim_matches(['/', '\\']);
+    if relative.trim().is_empty() {
         return Err("Leerer Pfad.".into());
     }
     let mut out = PathBuf::new();
-    for part in trimmed.split(['/', '\\']) {
+    for part in relative.split(['/', '\\']) {
         if part.is_empty() || part == "." {
             continue;
         }
@@ -2027,7 +2027,7 @@ fn plan_for(
 // ---------------------------------------------------------------------------
 
 pub(crate) fn repo_path(path: &str) -> PathBuf {
-    PathBuf::from(path.trim())
+    PathBuf::from(path)
 }
 
 #[tauri::command]
@@ -2311,6 +2311,62 @@ mod tests {
         assert_eq!(plan.len(), 1);
         assert_eq!(plan[0].action, "same");
         let _ = fs::remove_dir_all(repo);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn copy_and_delete_preserve_exact_repo_and_skill_names() {
+        let root = scratch("exact-copy-delete");
+        let repo = root.join("repo ");
+        let neighbor = root.join("repo");
+        let selected = repo.join(".claude/skills/ review ");
+        let other_item = repo.join(".claude/skills/review");
+        let other_repo = neighbor.join(".claude/skills/ review ");
+        for (directory, contents) in [
+            (&selected, "selected bytes"),
+            (&other_item, "neighbor item bytes"),
+            (&other_repo, "neighbor repo bytes"),
+        ] {
+            fs::create_dir_all(directory).unwrap();
+            fs::write(directory.join("SKILL.md"), contents).unwrap();
+        }
+        let reference = CapabilityRef {
+            cli: "claude".into(),
+            scope: "repo".into(),
+            kind: "skill".into(),
+            rel: " review ".into(),
+        };
+        let copied = agent_cap_copy(
+            repo.to_str().unwrap().into(),
+            vec![reference.clone()],
+            vec![CapabilityTargetRef { cli: "codex".into(), scope: "repo".into() }],
+            false,
+        )
+        .await
+        .unwrap();
+        assert_eq!(copied.len(), 1);
+        assert_eq!(copied[0].status, "copied", "{}", copied[0].message);
+        assert_eq!(
+            fs::read_to_string(repo.join(".codex/skills/ review /SKILL.md")).unwrap(),
+            "selected bytes"
+        );
+        assert!(!neighbor.join(".codex").exists());
+
+        let deleted = agent_cap_delete(repo.to_str().unwrap().into(), vec![reference])
+            .await
+            .unwrap();
+        assert_eq!(deleted.len(), 1);
+        assert_eq!(deleted[0].status, "deleted", "{}", deleted[0].message);
+        assert!(!selected.exists());
+        assert_eq!(
+            fs::read_to_string(other_item.join("SKILL.md")).unwrap(),
+            "neighbor item bytes"
+        );
+        assert_eq!(
+            fs::read_to_string(other_repo.join("SKILL.md")).unwrap(),
+            "neighbor repo bytes"
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

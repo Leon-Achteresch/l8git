@@ -2,12 +2,11 @@ import {
   laneColor,
   type GraphRow,
 } from "@/lib/graph";
-import { memo, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 /** Pixels per lane when the graph has enough room. */
 const LANE_W = 11;
 const PAD = 5;
-const ROW_HEIGHT = 48;
 const STROKE = 2;
 const MIN_COL_W = 36;
 const MAX_COL_W = 160;
@@ -33,6 +32,7 @@ export const CommitGraphCell = memo(function CommitGraphCell({
   showRefs = true,
   originColors,
   colWidth,
+  rowHeight,
 }: {
   row: GraphRow;
   maxLanes: number;
@@ -41,23 +41,12 @@ export const CommitGraphCell = memo(function CommitGraphCell({
   originColors: ReadonlyMap<string, string>;
   /** Pre-computed column width from the parent (avoids duplicate pref reads). */
   colWidth?: number;
+  /** The list already measures each row, including responsive wrapping. */
+  rowHeight: number;
 }) {
   const lanes = Math.max(1, maxLanes);
   const colW = colWidth ?? graphColWidth(maxLanes);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [rowH, setRowH] = useState(ROW_HEIGHT);
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    // ponytail: ResizeObserver only. Reading clientHeight here forced a synchronous
-    // layout for every row the virtualizer mounted, which dominated scroll cost.
-    const ro = new ResizeObserver(() => {
-      const h = el.clientHeight;
-      if (h > 0) setRowH((prev) => (prev === h ? prev : h));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  const rowH = Math.max(1, rowHeight);
   const usable = colW - PAD * 2;
   const laneW = usable / lanes;
   const midY = rowH / 2;
@@ -205,7 +194,7 @@ export const CommitGraphCell = memo(function CommitGraphCell({
   }
 
   return (
-    <div ref={wrapRef} className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <svg
         viewBox={`0 0 ${colW} ${rowH}`}
         preserveAspectRatio="xMinYMin meet"

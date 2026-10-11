@@ -15,7 +15,7 @@ import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitInspectHeader } from "./commit-inspect-header";
 import { CommitSignatureBadge } from "./commit-signature-badge";
@@ -32,115 +32,120 @@ export function CommitInspectDetail({
   path,
   commitHash,
   onClose,
+  readOnly = false,
 }: {
   path: string;
   commitHash: string | null;
   onClose: () => void;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation();
-  const [payload, setPayload] = useState<InspectPayload | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [fileDiff, setFileDiff] = useState<FileDiffPayload | null>(null);
-  const [diffLoading, setDiffLoading] = useState(false);
-  const [diffFailed, setDiffFailed] = useState(false);
+  const inspectKey = JSON.stringify([path, commitHash]);
+  const inspectEpoch = useRef(0);
+  const diffEpoch = useRef(0);
+  const [inspectState, setInspectState] = useState({ key: '', payload: null as InspectPayload | null, loading: false, failed: false });
+  const payload = inspectState.key === inspectKey ? inspectState.payload : null;
+  const loading = !!commitHash && (inspectState.key !== inspectKey || inspectState.loading);
+  const failed = inspectState.key === inspectKey && inspectState.failed;
+  const [fileSelection, setFileSelection] = useState({ key: '', file: null as string | null });
+  const selectedFile = fileSelection.key === inspectKey ? fileSelection.file : null;
+  const setSelectedFile = useCallback((next: string | null | ((current: string | null) => string | null)) => {
+    setFileSelection(previous => ({ key: inspectKey, file: typeof next === 'function' ? next(previous.key === inspectKey ? previous.file : null) : next }));
+  }, [inspectKey]);
+  const diffKey = JSON.stringify([path, commitHash, selectedFile]);
+  const [diffState, setDiffState] = useState({ key: '', data: null as FileDiffPayload | null, loading: false, failed: false });
+  const fileDiff = diffState.key === diffKey ? diffState.data : null;
+  const diffLoading = !!commitHash && !!selectedFile && (diffState.key !== diffKey || diffState.loading);
+  const diffFailed = diffState.key === diffKey && diffState.failed;
   const [blameActive, setBlameActive] = useState(false);
-  const [restoreDialog, setRestoreDialog] = useState<{ files: string[] } | null>(null);
+  const [restoreDialog, setRestoreDialog] = useState<{ path: string; commitHash: string; files: string[] } | null>(null);
   const explain = useExplainSheet();
 
   const loadInspect = useCallback(async () => {
+    const epoch = ++inspectEpoch.current;
     if (!commitHash) {
-      setPayload(null);
-      setFailed(false);
+      setInspectState({ key: inspectKey, payload: null, loading: false, failed: false });
       return;
     }
-    setLoading(true);
-    setFailed(false);
+    setInspectState(previous => ({ key: inspectKey, payload: previous.key === inspectKey ? previous.payload : null, loading: true, failed: false }));
     try {
-      const out = await invoke<InspectPayload>("repo_commit_inspect", {
-        path,
-        commit: commitHash,
-      });
-      setPayload(out);
-      setSelectedFile((current) => out.files.some((file) => file.path === current) ? current : out.files[0]?.path ?? null);
-    } catch (e) {
-      setFailed(true);
-      setPayload(null);
-      toastError(String(e));
-    } finally {
-      setLoading(false);
+      const out = await invoke<InspectPayload>("repo_commit_inspect", { path, commit: commitHash });
+      if (inspectEpoch.current !== epoch) return;
+      setInspectState({ key: inspectKey, payload: out, loading: false, failed: false });
+      setSelectedFile(current => out.files.some(file => file.path === current) ? current : out.files[0]?.path ?? null);
+    } catch (error) {
+      if (inspectEpoch.current !== epoch) return;
+      setInspectState({ key: inspectKey, payload: null, loading: false, failed: true });
+      toastError(String(error));
     }
-  }, [path, commitHash]);
+  }, [path, commitHash, inspectKey, setSelectedFile]);
 
   const loadFileDiff = useCallback(async () => {
+    const epoch = ++diffEpoch.current;
     if (!commitHash || !selectedFile) {
-      setFileDiff(null);
-      setDiffFailed(false);
+      setDiffState({ key: diffKey, data: null, loading: false, failed: false });
       return;
     }
-    setDiffLoading(true);
-    setDiffFailed(false);
+    setDiffState({ key: diffKey, data: null, loading: true, failed: false });
     try {
-      const out = await invoke<FileDiffPayload>("repo_commit_file_diff", {
-        path,
-        commit: commitHash,
-        file: selectedFile,
-      });
-      setFileDiff(out);
-    } catch (e) {
-      setDiffFailed(true);
-      setFileDiff(null);
-      toastError(String(e));
-    } finally {
-      setDiffLoading(false);
+      const out = await invoke<FileDiffPayload>("repo_commit_file_diff", { path, commit: commitHash, file: selectedFile });
+      if (diffEpoch.current !== epoch) return;
+      setDiffState({ key: diffKey, data: out, loading: false, failed: false });
+    } catch (error) {
+      if (diffEpoch.current !== epoch) return;
+      setDiffState({ key: diffKey, data: null, loading: false, failed: true });
+      toastError(String(error));
     }
-  }, [path, commitHash, selectedFile]);
-
-  useEffect(() => {
-    void loadInspect();
-  }, [loadInspect]);
+  }, [path, commitHash, selectedFile, diffKey]);
 
   useEffect(() => {
     setSelectedFile(null);
-    setFileDiff(null);
-    setDiffFailed(false);
     setBlameActive(false);
-  }, [commitHash]);
+    setRestoreDialog(null);
+  }, [path, commitHash, setSelectedFile]);
+
+  useEffect(() => {
+    void loadInspect();
+    return () => { inspectEpoch.current++; };
+  }, [loadInspect]);
 
   useEffect(() => {
     void loadFileDiff();
+    return () => { diffEpoch.current++; };
   }, [loadFileDiff]);
 
   useEffect(() => {
     if (!commitHash) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || restoreDialog) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable], [role="dialog"], [role="combobox"]')) return;
+      onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [commitHash, onClose]);
+  }, [commitHash, onClose, restoreDialog]);
 
   const restoreFilesAtCommit = useRepoStore((s) => s.restoreFilesAtCommit);
 
   const discardFile = useCallback(
     (filePath: string) => {
-      if (!commitHash) return;
-      setRestoreDialog({ files: [filePath] });
+      if (!commitHash || readOnly) return;
+      setRestoreDialog({ path, commitHash, files: [filePath] });
     },
-    [commitHash],
+    [path, commitHash, readOnly],
   );
 
   const confirmRestore = useCallback(async () => {
-    if (!commitHash || !restoreDialog) return;
-    const { files } = restoreDialog;
+    if (!restoreDialog || readOnly) return;
+    const { path: restorePath, commitHash: restoreCommitHash, files } = restoreDialog;
     setRestoreDialog(null);
     try {
-      await restoreFilesAtCommit(path, commitHash, files);
+      await restoreFilesAtCommit(restorePath, restoreCommitHash, files);
     } catch (e) {
       toastError(String(e));
     }
-  }, [commitHash, restoreDialog, restoreFilesAtCommit, path]);
+  }, [restoreDialog, restoreFilesAtCommit, readOnly]);
 
   const refreshAll = useCallback(() => {
     void loadInspect();
@@ -189,6 +194,7 @@ export function CommitInspectDetail({
             <span className="text-sm font-semibold text-foreground">
               {t("commitInspect.detailLoadFailed")}
             </span>
+            <Button variant="outline" size="sm" onClick={() => void loadInspect()}>{t("common.retry")}</Button>
           </div>
         ) : (
           <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -207,7 +213,7 @@ export function CommitInspectDetail({
                   setSelectedFile(f);
                   setBlameActive(true);
                 }}
-                onDiscardFile={discardFile}
+                onDiscardFile={readOnly ? undefined : discardFile}
               />
               <div className="flex min-h-0 flex-1 flex-col">
                 {blameActive && selectedFile ? (

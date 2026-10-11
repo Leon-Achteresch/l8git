@@ -14,6 +14,7 @@ pub struct RebaseCommit {
     pub hash: String,
     pub short_hash: String,
     pub subject: String,
+    pub message: String,
     pub author: String,
     pub email: String,
     pub date: String,
@@ -136,37 +137,13 @@ fn map_error(message: String) -> String {
     trimmed
 }
 
-fn dirty_tracked_files(repo: &Path) -> Vec<String> {
-    let out = run_git(
-        &repo.to_path_buf(),
-        &["status", "--porcelain=v1", "--untracked-files=no"],
-    )
-    .unwrap_or_default();
-    let mut files: Vec<String> = Vec::new();
-    for line in out.lines() {
-        if line.len() < 3 {
-            continue;
-        }
-        let xy = &line[..2];
-        let rest = &line[3..];
-        if xy == "??" || xy == "!!" {
-            continue;
-        }
-        let name = rest.split(" -> ").last().unwrap_or(rest).trim().to_string();
-        if !name.is_empty() {
-            files.push(name);
-        }
-    }
-    files
-}
-
 fn git_path(repo: &Path, name: &str) -> Option<PathBuf> {
     let raw = run_git(&repo.to_path_buf(), &["rev-parse", "--git-path", name]).ok()?;
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
+    let value = raw.strip_suffix('\n').unwrap_or(&raw);
+    if value.is_empty() {
         return None;
     }
-    let p = Path::new(trimmed);
+    let p = Path::new(value);
     Some(if p.is_absolute() {
         p.to_path_buf()
     } else {
@@ -177,11 +154,11 @@ fn git_path(repo: &Path, name: &str) -> Option<PathBuf> {
 fn absolute_git_dir(repo: &Path) -> Result<PathBuf, String> {
     let raw = run_git(&repo.to_path_buf(), &["rev-parse", "--absolute-git-dir"])
         .map_err(|e| map_error(e))?;
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
+    let value = raw.strip_suffix('\n').unwrap_or(&raw);
+    if value.is_empty() {
         return Err("Not a git repository.".into());
     }
-    Ok(PathBuf::from(trimmed))
+    Ok(PathBuf::from(value))
 }
 
 fn read_trimmed(path: &Path) -> Option<String> {
@@ -195,14 +172,6 @@ fn read_number(path: &Path) -> u32 {
     read_trimmed(path)
         .and_then(|s| s.parse::<u32>().ok())
         .unwrap_or(0)
-}
-
-fn conflicted_paths(repo: &Path) -> Vec<String> {
-    let (_, out) = run_git_env(repo, &["diff", "--name-only", "--diff-filter=U"], &[]);
-    out.lines()
-        .map(|l| l.trim().to_string())
-        .filter(|l| !l.is_empty())
-        .collect()
 }
 
 fn short_hash(repo: &Path, rev: &str) -> String {
@@ -224,9 +193,12 @@ fn commit_message(repo: &Path, rev: &str) -> String {
 }
 
 fn resolve_commit(repo: &Path, rev: &str) -> Option<String> {
+    if rev.is_empty() || rev.starts_with('-') || rev.chars().any(char::is_control) {
+        return None;
+    }
     run_git(
         &repo.to_path_buf(),
-        &["rev-parse", "--verify", "--quiet", &format!("{rev}^{{commit}}")],
+        &["rev-parse", "--verify", "--quiet", "--end-of-options", &format!("{rev}^{{commit}}")],
     )
     .ok()
     .map(|s| s.trim().to_string())
@@ -379,7 +351,7 @@ fn build_status(repo: &Path) -> Result<RebaseStatus, String> {
             onto_short,
             current_action,
             stopped,
-            conflicted_paths: conflicted_paths(repo),
+            conflicted_paths: crate::git::repo_conflicted_paths(&repo.to_path_buf())?,
             todo: parse_todo_file(repo, &dir.join("git-rebase-todo")),
         });
     }
@@ -402,7 +374,7 @@ fn build_status(repo: &Path) -> Result<RebaseStatus, String> {
             onto_short,
             current_action: Some("pick".into()),
             stopped,
-            conflicted_paths: conflicted_paths(repo),
+            conflicted_paths: crate::git::repo_conflicted_paths(&repo.to_path_buf())?,
             todo: Vec::new(),
         });
     }
@@ -453,6 +425,10 @@ fn native_path(path: &Path, windows: bool) -> String {
     }
 }
 
+fn shell_quote(path: &Path) -> String {
+    format!("'{}'", path.to_string_lossy().replace('\'', "'\\''"))
+}
+
 #[cfg(unix)]
 fn make_executable(path: &Path) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
@@ -478,13 +454,13 @@ fn write_script(path: &Path, body: &str) -> Result<(), String> {
 fn sequence_editor_body(dir: &Path, windows: bool) -> String {
     if windows {
         format!(
-            "@echo off\ncopy /Y \"{dir}\\todo\" \"%~1\" >NUL\nexit /b 0\n",
+            "@echo off\ncopy /Y \"{dir}\\todo\" \"%~1\" >NUL\nexit /b %errorlevel%\n",
             dir = native_path(dir, windows)
         )
     } else {
         format!(
-            "#!/bin/sh\ncat '{dir}/todo' > \"$1\"\nexit 0\n",
-            dir = dir.to_string_lossy()
+            "#!/bin/sh\ncat {todo} > \"$1\"\n",
+            todo = shell_quote(&dir.join("todo"))
         )
     }
 }
@@ -504,6 +480,7 @@ fn message_editor_body(dir: &Path, git_dir: &Path, windows: bool) -> String {
                 "for /f \"tokens=1,2\" %%a in (\"!last!\") do set \"oid=%%b\"\n",
                 "if not defined oid exit /b 0\n",
                 "if exist \"{dir}\\msg-!oid!\" copy /Y \"{dir}\\msg-!oid!\" \"%~1\" >NUL\n",
+                "if errorlevel 1 exit /b 1\n",
                 "exit /b 0\n"
             ),
             dir = native_path(dir, windows),
@@ -513,18 +490,18 @@ fn message_editor_body(dir: &Path, git_dir: &Path, windows: bool) -> String {
         format!(
             concat!(
                 "#!/bin/sh\n",
-                "done_file='{git_dir}/rebase-merge/done'\n",
+                "done_file={done_file}\n",
                 "[ -f \"$done_file\" ] || exit 0\n",
                 "last=$(tail -n 1 \"$done_file\")\n",
                 "rest=\"${{last#* }}\"\n",
                 "oid=\"${{rest%% *}}\"\n",
-                "if [ -n \"$oid\" ] && [ -f '{dir}/msg-'\"$oid\" ]; then\n",
-                "  cat '{dir}/msg-'\"$oid\" > \"$1\"\n",
+                "if [ -n \"$oid\" ] && [ -f {message_prefix}\"$oid\" ]; then\n",
+                "  cat {message_prefix}\"$oid\" > \"$1\" || exit $?\n",
                 "fi\n",
                 "exit 0\n"
             ),
-            dir = dir.to_string_lossy(),
-            git_dir = git_dir.to_string_lossy()
+            message_prefix = shell_quote(&dir.join("msg-")),
+            done_file = shell_quote(&git_dir.join("rebase-merge/done"))
         )
     }
 }
@@ -626,7 +603,8 @@ fn preview_commits(repo: &Path, base: &str) -> Result<Vec<RebaseCommit>, String>
             "--topo-order",
             "--reverse",
             "--no-merges",
-            "--format=%H\x1f%h\x1f%s\x1f%an\x1f%ae\x1f%aI",
+            "-z",
+            "--format=%H%x00%h%x00%s%x00%an%x00%ae%x00%aI%x00%B",
             &range,
         ],
         &[],
@@ -635,18 +613,14 @@ fn preview_commits(repo: &Path, base: &str) -> Result<Vec<RebaseCommit>, String>
         return Err(map_error(out));
     }
     let mut commits = Vec::new();
-    for line in out.lines() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        let parts: Vec<&str> = line.split('\x1f').collect();
-        if parts.len() < 6 {
-            continue;
-        }
+    // NUL fields preserve multiline messages and literal unit separators.
+    let fields: Vec<&str> = out.split_terminator('\0').collect();
+    for parts in fields.chunks_exact(7) {
         commits.push(RebaseCommit {
             hash: parts[0].to_string(),
             short_hash: parts[1].to_string(),
             subject: parts[2].to_string(),
+            message: parts[6].trim_end_matches('\n').to_string(),
             author: parts[3].to_string(),
             email: parts[4].to_string(),
             date: parts[5].to_string(),
@@ -658,7 +632,7 @@ fn preview_commits(repo: &Path, base: &str) -> Result<Vec<RebaseCommit>, String>
 #[tauri::command]
 pub async fn rebase_status(path: String) -> Result<RebaseStatus, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         build_status(&repo)
     })
     .await
@@ -672,26 +646,24 @@ pub async fn rebase_start(
     autostash: bool,
 ) -> Result<RebaseResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let up = upstream.trim().to_string();
         if up.is_empty() {
             return Err("Upstream must not be empty.".into());
         }
         ensure_no_rebase(&repo)?;
-        if resolve_commit(&repo, &up).is_none() {
-            return Err(format!("Unknown upstream: {up}"));
-        }
+        let upstream_hash = resolve_commit(&repo, &up)
+            .ok_or_else(|| format!("Unknown upstream: {up}"))?;
         let onto_ref = onto
             .as_deref()
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
-        if let Some(target) = onto_ref.as_ref() {
-            if resolve_commit(&repo, target).is_none() {
-                return Err(format!("Unknown onto target: {target}"));
-            }
-        }
+        let onto_hash = onto_ref.as_ref().map(|target| {
+            resolve_commit(&repo, target)
+                .ok_or_else(|| format!("Unknown onto target: {target}"))
+        }).transpose()?;
         if !autostash {
-            let dirty = dirty_tracked_files(&repo);
+            let dirty = crate::git::dirty_tracked_files(&repo)?;
             if !dirty.is_empty() {
                 return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
             }
@@ -700,11 +672,11 @@ pub async fn rebase_start(
 
         let mut args: Vec<String> = vec!["rebase".into()];
         args.push(if autostash { "--autostash".into() } else { "--no-autostash".into() });
-        if let Some(target) = onto_ref.as_ref() {
+        if let Some(target) = onto_hash.as_ref() {
             args.push("--onto".into());
             args.push(target.clone());
         }
-        args.push(up);
+        args.push(upstream_hash);
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         let (ok, out) = run_git_env(&repo, &refs, &noop_env());
         finish(&repo, ok, out)
@@ -715,7 +687,7 @@ pub async fn rebase_start(
 #[tauri::command]
 pub async fn rebase_continue(path: String) -> Result<RebaseResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         ensure_rebase(&repo)?;
         let (ok, out) = run_git_env(&repo, &["rebase", "--continue"], &resume_env(&repo));
         finish(&repo, ok, out)
@@ -726,7 +698,7 @@ pub async fn rebase_continue(path: String) -> Result<RebaseResult, String> {
 #[tauri::command]
 pub async fn rebase_skip(path: String) -> Result<RebaseResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         ensure_rebase(&repo)?;
         let (ok, out) = run_git_env(&repo, &["rebase", "--skip"], &resume_env(&repo));
         finish(&repo, ok, out)
@@ -737,7 +709,7 @@ pub async fn rebase_skip(path: String) -> Result<RebaseResult, String> {
 #[tauri::command]
 pub async fn rebase_abort(path: String) -> Result<RebaseResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         ensure_rebase(&repo)?;
         let (ok, out) = run_git_env(&repo, &["rebase", "--abort"], &noop_env());
         cleanup_helper(&repo);
@@ -757,15 +729,14 @@ pub async fn rebase_abort(path: String) -> Result<RebaseResult, String> {
 #[tauri::command]
 pub async fn rebase_todo_preview(path: String, base: String) -> Result<Vec<RebaseCommit>, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let b = base.trim().to_string();
         if b.is_empty() {
             return Err("Base must not be empty.".into());
         }
-        if resolve_commit(&repo, &b).is_none() {
-            return Err(format!("Unknown base commit: {b}"));
-        }
-        preview_commits(&repo, &b)
+        let base_hash = resolve_commit(&repo, &b)
+            .ok_or_else(|| format!("Unknown base commit: {b}"))?;
+        preview_commits(&repo, &base_hash)
     })
     .await
 }
@@ -778,20 +749,19 @@ pub async fn rebase_interactive(
     autostash: bool,
 ) -> Result<RebaseResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let b = base.trim().to_string();
         if b.is_empty() {
             return Err("Base must not be empty.".into());
         }
         ensure_no_rebase(&repo)?;
-        if resolve_commit(&repo, &b).is_none() {
-            return Err(format!("Unknown base commit: {b}"));
-        }
+        let base_hash = resolve_commit(&repo, &b)
+            .ok_or_else(|| format!("Unknown base commit: {b}"))?;
         if todo.is_empty() {
             return Err("The todo list must not be empty.".into());
         }
 
-        let allowed: Vec<String> = preview_commits(&repo, &b)?
+        let allowed: Vec<String> = preview_commits(&repo, &base_hash)?
             .into_iter()
             .map(|c| c.hash)
             .collect();
@@ -910,7 +880,7 @@ pub async fn rebase_interactive(
         }
 
         if !autostash {
-            let dirty = dirty_tracked_files(&repo);
+            let dirty = crate::git::dirty_tracked_files(&repo)?;
             if !dirty.is_empty() {
                 return Err(format!("__LOCAL_CHANGES_BLOCK__|{}", dirty.join(",")));
             }
@@ -927,7 +897,7 @@ pub async fn rebase_interactive(
         let mut args: Vec<String> = vec!["rebase".into(), "--interactive".into()];
         args.push("--no-autosquash".into());
         args.push(if autostash { "--autostash".into() } else { "--no-autostash".into() });
-        args.push(b);
+        args.push(base_hash);
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         let (ok, out) = run_git_env(&repo, &refs, &env);
         finish(&repo, ok, out)
@@ -942,7 +912,7 @@ pub async fn commit_fixup(
     autosquash: bool,
 ) -> Result<FixupResult, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         let target = target_hash.trim().to_string();
         if target.is_empty() {
             return Err("Target commit must not be empty.".into());
@@ -1103,6 +1073,86 @@ mod tests {
         assert!(!preview[0].short_hash.is_empty());
         assert_eq!(preview[0].author, "Test");
         assert!(preview[0].date.contains('T'));
+    }
+
+    #[tokio::test]
+    async fn preview_preserves_multiline_messages_and_separator_bytes() {
+        let repo = TestRepo::new();
+        let base = repo.commit("base.txt", "base", "base");
+        let message = "Change subject\n\nDetailed body with \u{1f} separators.\n\nCo-authored-by: Ada <ada@example.com>";
+        let first = repo.commit("first.txt", "first", message);
+        let second = repo.commit("second.txt", "second", "Second subject\n\nSecond body");
+        let commits = rebase_todo_preview(repo.path.to_string_lossy().into(), base).await.unwrap();
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0].hash, first);
+        assert_eq!(commits[0].subject, "Change subject");
+        assert_eq!(commits[0].message, message);
+        assert_eq!(commits[1].hash, second);
+        assert_eq!(commits[1].message, "Second subject\n\nSecond body");
+    }
+
+    #[tokio::test]
+    async fn rebase_rejects_options_as_refs_without_changing_history() {
+        let (repo, hashes) = linear_repo();
+        let path = repo.path.to_string_lossy().to_string();
+        for value in ["--root", "--abort", "--all", "HEAD\nHEAD"] {
+            assert!(rebase_todo_preview(path.clone(), value.into()).await.is_err());
+            assert!(rebase_start(path.clone(), value.into(), None, false).await.is_err());
+            assert!(rebase_interactive(path.clone(), value.into(), vec![item("pick", &hashes[1], None)], false).await.is_err());
+        }
+        assert!(rebase_start(path, hashes[0].clone(), Some("--root".into()), false).await.is_err());
+        assert_eq!(repo.git(&["rev-parse", "HEAD"]), hashes[4]);
+        assert!(!build_status(&repo.path).unwrap().in_progress);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn rebase_helper_lookup_preserves_whitespace_in_git_directory() {
+        let mut repo = TestRepo::new();
+        let renamed = PathBuf::from(format!("{}\n", repo.path.display()));
+        fs::rename(&repo.path, &renamed).unwrap();
+        repo.path = renamed;
+        let metadata = repo.path.join("git metadata ");
+        repo.git(&["init", "-q", "--separate-git-dir", metadata.to_str().unwrap(), "."]);
+
+        repo.commit("shared.txt", "base\n", "base");
+        repo.git(&["checkout", "-q", "-b", "topic"]);
+        repo.commit("shared.txt", "topic\n", "topic");
+        repo.git(&["checkout", "-q", "main"]);
+        repo.commit("shared.txt", "main\n", "main");
+        repo.git(&["checkout", "-q", "topic"]);
+        let (success, message) = run_git_env(&repo.path, &["rebase", "main"], &noop_env());
+        assert!(!success, "expected a rebase conflict: {message}");
+
+        let helper = metadata.join(HELPER_DIR);
+        fs::create_dir_all(&helper).unwrap();
+        fs::write(helper.join("todo"), "pick HEAD topic\n").unwrap();
+        let state = rebase_status(repo.path.to_string_lossy().into()).await.unwrap();
+        assert!(state.in_progress);
+        assert_eq!(state.kind, "interactive");
+        assert_eq!(state.conflicted_paths, vec!["shared.txt"]);
+
+        cleanup_helper(&repo.path);
+        assert!(!helper.exists(), "cleanup must remove the actual helper directory");
+        repo.git(&["rebase", "--abort"]);
+        assert!(!rebase_status(repo.path.to_string_lossy().into()).await.unwrap().in_progress);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn interactive_reword_works_in_repository_paths_with_shell_metacharacters() {
+        let (mut repo, hashes) = linear_repo();
+        let renamed = repo.path.with_file_name(format!("{}-Ada's repo $literal", repo.path.file_name().unwrap().to_string_lossy()));
+        fs::rename(&repo.path, &renamed).unwrap();
+        repo.path = renamed;
+        let message = "Reworded subject\n\nKeep the complete body.\n\nSigned-off-by: Ada <ada@example.com>";
+        let todo: Vec<TodoItem> = hashes.iter().skip(1).enumerate()
+            .map(|(index, hash)| if index == 0 { item("reword", hash, Some(message)) } else { item("pick", hash, None) })
+            .collect();
+        let result = rebase_interactive(repo.path.to_string_lossy().into(), hashes[0].clone(), todo, false).await.unwrap();
+        assert_eq!(result.status, "completed", "{}", result.message);
+        assert_eq!(repo.body("HEAD~3"), message);
+        assert!(repo.git(&["status", "--porcelain"]).is_empty());
     }
 
     #[tokio::test]
@@ -1475,27 +1525,32 @@ mod tests {
 
     #[test]
     fn generated_scripts_match_expected_shape() {
-        let dir = Path::new("/repo/.git/l8git-rebase");
-        let git_dir = Path::new("/repo/.git");
-        assert_eq!(
-            sequence_editor_body(dir, false),
-            "#!/bin/sh\ncat '/repo/.git/l8git-rebase/todo' > \"$1\"\nexit 0\n"
-        );
-        let unix = message_editor_body(dir, git_dir, false);
-        assert!(unix.starts_with("#!/bin/sh\n"), "{unix}");
-        assert!(unix.contains("done_file='/repo/.git/rebase-merge/done'"), "{unix}");
-        assert!(unix.contains("rest=\"${last#* }\""), "{unix}");
-        assert!(unix.contains("oid=\"${rest%% *}\""), "{unix}");
-        assert!(
-            unix.contains("cat '/repo/.git/l8git-rebase/msg-'\"$oid\" > \"$1\""),
-            "{unix}"
-        );
+        // The sh variant is only generated on Unix hosts, where `Path::join`
+        // uses `/`; Windows hosts would join with `\`.
+        #[cfg(unix)]
+        {
+            let dir = Path::new("/repo/.git/l8git-rebase");
+            let git_dir = Path::new("/repo/.git");
+            assert_eq!(
+                sequence_editor_body(dir, false),
+                "#!/bin/sh\ncat '/repo/.git/l8git-rebase/todo' > \"$1\"\n"
+            );
+            let unix = message_editor_body(dir, git_dir, false);
+            assert!(unix.starts_with("#!/bin/sh\n"), "{unix}");
+            assert!(unix.contains("done_file='/repo/.git/rebase-merge/done'"), "{unix}");
+            assert!(unix.contains("rest=\"${last#* }\""), "{unix}");
+            assert!(unix.contains("oid=\"${rest%% *}\""), "{unix}");
+            assert!(
+                unix.contains("cat '/repo/.git/l8git-rebase/msg-'\"$oid\" > \"$1\" || exit $?"),
+                "{unix}"
+            );
+        }
 
         let win_dir = Path::new("C:/repo/.git/l8git-rebase");
         let win_git_dir = Path::new("C:/repo/.git");
         assert_eq!(
             sequence_editor_body(win_dir, true),
-            "@echo off\ncopy /Y \"C:\\repo\\.git\\l8git-rebase\\todo\" \"%~1\" >NUL\nexit /b 0\n"
+            "@echo off\ncopy /Y \"C:\\repo\\.git\\l8git-rebase\\todo\" \"%~1\" >NUL\nexit /b %errorlevel%\n"
         );
         let win = message_editor_body(win_dir, win_git_dir, true);
         assert!(win.starts_with("@echo off\nsetlocal enabledelayedexpansion\n"), "{win}");

@@ -44,6 +44,7 @@ type RemoteOpsState = {
   startOp: (opId: string, op: RemoteOpKind, repoPath: string) => void;
   applyProgress: (event: GitProgressEvent) => void;
   markCanceling: (opId: string) => void;
+  clearCanceling: (opId: string) => void;
   finishOp: (opId: string) => void;
 };
 
@@ -79,7 +80,7 @@ export const useRemoteOps = create<RemoteOpsState>((set) => ({
       const next: RemoteOpEntry = {
         ...current,
         phase: event.phase || current.phase,
-        percent: event.percent ?? current.percent,
+        percent: typeof event.percent === 'number' && Number.isFinite(event.percent) ? Math.max(0, Math.min(100, event.percent)) : null,
         detail: event.detail || '',
       };
       const ops = s.ops.slice();
@@ -90,6 +91,7 @@ export const useRemoteOps = create<RemoteOpsState>((set) => ({
     set((s) => ({
       ops: s.ops.map((o) => (o.opId === opId ? { ...o, canceling: true } : o)),
     })),
+  clearCanceling: (opId) => set(s => ({ ops: s.ops.map(op => op.opId === opId ? { ...op, canceling: false } : op) })),
   finishOp: (opId) =>
     set((s) => {
       const ops = s.ops.filter((o) => o.opId !== opId);
@@ -97,17 +99,21 @@ export const useRemoteOps = create<RemoteOpsState>((set) => ({
     }),
 }));
 
-let listenersAttached = false;
+let listenersAttached: Promise<void> | null = null;
 
-export function ensureRemoteProgressListeners() {
-  if (listenersAttached) return;
-  listenersAttached = true;
-  void listen<GitProgressEvent>('git-progress', (event) => {
-    useRemoteOps.getState().applyProgress(event.payload);
+export function ensureRemoteProgressListeners(): Promise<void> {
+  if (listenersAttached) return listenersAttached;
+  const attached = Promise.allSettled([
+    listen<GitProgressEvent>('git-progress', event => useRemoteOps.getState().applyProgress(event.payload)),
+    listen<GitProgressDone>('git-progress-done', event => useRemoteOps.getState().finishOp(event.payload.opId)),
+  ]).then(results => {
+    if (results.some(result => result.status === 'rejected')) {
+      for (const result of results) if (result.status === 'fulfilled') result.value();
+      listenersAttached = null;
+    }
   });
-  void listen<GitProgressDone>('git-progress-done', (event) => {
-    useRemoteOps.getState().finishOp(event.payload.opId);
-  });
+  listenersAttached = attached;
+  return attached;
 }
 
 let opCounter = 0;
@@ -128,8 +134,11 @@ export function isRemoteCanceled(error: unknown): boolean {
 export async function cancelRemoteOp(opId: string): Promise<boolean> {
   useRemoteOps.getState().markCanceling(opId);
   try {
-    return await invoke<boolean>('git_remote_cancel', { opId });
+    const accepted = await invoke<boolean>('git_remote_cancel', { opId });
+    if (!accepted) useRemoteOps.getState().clearCanceling(opId);
+    return accepted;
   } catch {
+    useRemoteOps.getState().clearCanceling(opId);
     return false;
   }
 }
@@ -139,7 +148,7 @@ export async function runRemoteOp<T>(
   repoPath: string,
   run: (opId: string) => Promise<T>,
 ): Promise<T> {
-  ensureRemoteProgressListeners();
+  await ensureRemoteProgressListeners();
   const opId = newOpId();
   useRemoteOps.getState().startOp(opId, op, repoPath);
   try {
@@ -147,7 +156,7 @@ export async function runRemoteOp<T>(
     useRemoteOps.getState().recordResult({ opId, op, repoPath, status: 'success', message: '', finishedAt: Date.now() });
     return result;
   } catch (error) {
-    useRemoteOps.getState().recordResult({ opId, op, repoPath, status: isRemoteCanceled(error) ? 'canceled' : 'failed', message: String(error), finishedAt: Date.now(), retry: op === 'fetch' ? () => runRemoteOp(op, repoPath, run) : undefined });
+    useRemoteOps.getState().recordResult({ opId, op, repoPath, status: isRemoteCanceled(error) ? 'canceled' : 'failed', message: String(error), finishedAt: Date.now(), retry: op === 'fetch' && !isRemoteCanceled(error) ? () => runRemoteOp(op, repoPath, run) : undefined });
     throw error;
   } finally {
     useRemoteOps.getState().finishOp(opId);

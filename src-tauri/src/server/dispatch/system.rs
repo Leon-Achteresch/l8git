@@ -72,11 +72,11 @@ pub async fn dispatch(
         }
 
         "watch_repo" (path: String) => {
-            ctx.state.watch(ctx.conn.id, path.trim())
+            ctx.state.watch(ctx.conn.id, &path)
         }
 
         "unwatch_repo" (path: String) => {
-            ctx.state.unwatch(ctx.conn.id, path.trim())
+            ctx.state.unwatch(ctx.conn.id, &path)
         }
 
         "git_command_log" (limit: Option<usize>) => {
@@ -194,6 +194,37 @@ mod tests {
         );
         assert!(c.state.watched().is_empty());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn watch_commands_preserve_exact_root_names() {
+        let root = std::env::temp_dir().join(format!(
+            "l8git-watch-exact-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(root.join("repo")).unwrap();
+        let (c, _rx) = ctx("watch_repo");
+        for suffix in [" ", "\n"] {
+            let dir = root.join(format!("repo{suffix}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            let path = dir.to_str().unwrap().to_string();
+            assert_eq!(
+                dispatch("watch_repo", json!({ "path": path.clone() }), &c).await,
+                Some(Ok(Value::Null))
+            );
+            assert_eq!(c.state.watched(), vec![path.clone()]);
+            assert_eq!(
+                dispatch("unwatch_repo", json!({ "path": path.clone() }), &c).await,
+                Some(Ok(Value::Null))
+            );
+            assert!(c.state.watched().is_empty());
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]

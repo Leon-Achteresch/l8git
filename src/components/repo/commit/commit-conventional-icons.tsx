@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 
 import { memo } from "react";
-import { useCommitPrefs } from "@/lib/commit-prefs";
 import { parseConventionalCommit } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
 
@@ -69,11 +68,12 @@ const TYPE_CELL: Record<string, string> = {
 function CommitConventionalIconsInner({
   subject,
   body,
+  enabled,
 }: {
   subject: string;
   body: string;
+  enabled: boolean;
 }) {
-  const enabled = useCommitPrefs((s) => s.showConventionalCommitIcons);
   if (!enabled) {
     return (
       <span

@@ -1,22 +1,23 @@
 import { Check, CircleDashed, GitMerge, TriangleAlert } from 'lucide-react-native';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import {
   AgentSheet,
   SheetMessage,
-  SheetTextInput,
   SoftPill,
 } from '~/components/agents/agent-sheet';
 import { Spinner } from '~/components/shared/spinner';
 import { SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
+import { Input } from '~/components/ui/input';
+import i18n from '~/lib/agents/i18n';
+import { splitCommitMessage } from '@desktop/lib/commit-message';
 import { agentSendHaptic } from '~/lib/agents/attention';
 import type {
   AgentReviewStep,
   AgentReviewStepId,
-  AgentReviewSummary,
   ReviewFinishApi,
 } from '~/lib/agents/review';
 import { cn } from '~/lib/utils';
@@ -27,19 +28,10 @@ const STEP_ICON: Record<AgentReviewStepId, typeof Check> = {
   cleanup: CircleDashed,
 };
 
-const STEP_TITLE: Record<AgentReviewStepId, string> = {
-  commit: 'Commit remaining changes',
-  merge: 'Fast-forward merge into base',
-  cleanup: 'Remove worktree and branch',
-};
-
-const STATUS_LABEL: Record<AgentReviewStep['status'], string> = {
-  pending: 'Pending',
-  running: 'Running',
-  done: 'Done',
-  skipped: 'Skipped',
-  failed: 'Failed',
-};
+const STEP_TITLE = { commit: 'agentReview.stepCommit', merge: 'agentReview.stepMerge', cleanup: 'agentReview.stepCleanup' };
+function errorText(error: string, branches: { base: string; session: string }): string {
+  return error.startsWith('agentReviewFinish.') ? i18n.t(error, branches) : error;
+}
 
 function StepGlyph({ step }: { step: AgentReviewStep }) {
   if (step.status === 'running') {
@@ -56,6 +48,7 @@ function StepGlyph({ step }: { step: AgentReviewStep }) {
 
 function StepCard({
   step,
+  errorBranches,
   hint,
   disabled,
   runLabel,
@@ -65,6 +58,7 @@ function StepCard({
   children,
 }: {
   step: AgentReviewStep;
+  errorBranches: { base: string; session: string };
   hint?: string;
   disabled: boolean;
   runLabel: string;
@@ -84,21 +78,22 @@ function StepCard({
         <View className="bg-white/10 h-8 w-8 items-center justify-center rounded-full">
           <StepGlyph step={step} />
         </View>
-        <Text className="text-foreground flex-1 text-sm font-semibold">{STEP_TITLE[step.id]}</Text>
+        <Text className="text-foreground flex-1 text-sm font-semibold">{i18n.t(STEP_TITLE[step.id])}</Text>
         <Text className="text-muted-foreground text-2xs uppercase tracking-wide">
-          {STATUS_LABEL[step.status]}
+          {i18n.t(`agentReview.status.${step.status}`)}
         </Text>
       </View>
       {hint ? <Text className="text-muted-foreground text-xs leading-4">{hint}</Text> : null}
       {children}
       {step.error ? (
         <View className="bg-destructive/12 rounded-2xl px-3.5 py-2.5">
-          <Text className="text-destructive text-2xs leading-4">{step.error}</Text>
+          <Text className="text-destructive text-2xs leading-4">{errorText(step.error, errorBranches)}</Text>
         </View>
       ) : null}
       {step.status === 'done' || step.status === 'skipped' ? null : step.status === 'failed' ? (
         <SoftPill
-          label="Retry"
+          label={i18n.t('agentReview.retry')}
+          disabled={disabled}
           onPress={onRetry}
           style={{ alignSelf: 'flex-start' }}
         />
@@ -118,33 +113,41 @@ export function ReviewFinishSheet({
   visible,
   onClose,
   finish,
-  summary,
   busy,
+  online,
+  available,
   onFinished,
 }: {
   visible: boolean;
   onClose: () => void;
   finish: ReviewFinishApi;
-  summary: AgentReviewSummary | null;
   busy: boolean;
+  online: boolean;
+  available: boolean;
   onFinished: () => void;
 }) {
   const announced = React.useRef(false);
+  const running = finish.status === 'running';
+  const locked = busy || !online || !available || !finish.ready || !finish.validated || finish.checking || running;
+  const summary = finish.summary;
+  const errorBranches = { base: finish.expectedBaseBranch, session: finish.expectedSessionBranch };
 
   React.useEffect(() => {
-    if (!visible) {
-      announced.current = false;
-    }
-  }, [visible]);
+    announced.current = false;
+  }, [visible, finish.key]);
 
   React.useEffect(() => {
-    if (!visible || finish.status !== 'done' || announced.current) {
+    if (visible && finish.ready) finish.refresh();
+  }, [visible, finish.ready, finish.key]);
+
+  React.useEffect(() => {
+    if (!visible || finish.status !== 'done' || finish.checking || !finish.validated || !finish.isComplete() || announced.current) {
       return;
     }
     announced.current = true;
     agentSendHaptic();
     onFinished();
-  }, [finish.status, onFinished, visible]);
+  }, [finish.status, finish.checking, finish.validated, finish.checkError, onFinished, visible]);
 
   const commit = finish.steps.find((step) => step.id === 'commit');
   const merge = finish.steps.find((step) => step.id === 'merge');
@@ -157,70 +160,102 @@ export function ReviewFinishSheet({
   return (
     <AgentSheet
       visible={visible}
-      onClose={onClose}
-      title="Finish review"
+      onClose={() => { if (!running) onClose(); }}
+      title={i18n.t('agentReview.finishTitle')}
       description={
         summary
           ? `${summary.sessionBranch} → ${summary.baseBranch}`
           : 'Land the agent session into its base branch.'
       }
-      footer={<SoftPill label={finish.status === 'done' ? 'Close' : 'Not now'} onPress={onClose} />}>
+      footer={<SoftPill label={i18n.t('agentReview.close')} disabled={running} onPress={onClose} />}>
+      <View className="gap-2.5 rounded-[22px] bg-white/[0.05] px-4 py-3.5">
+        <Text className="text-foreground text-sm font-semibold">{i18n.t('agentReviewFinish.preflight')}</Text>
+        {summary ? <Text className="text-muted-foreground text-xs leading-4">{i18n.t('agentReviewFinish.summary', {
+          files: summary.files.length, added: summary.additions, removed: summary.deletions,
+          commits: summary.commits, open: summary.uncommitted,
+        })}</Text> : null}
+        {finish.checking ? <Spinner size={14} className="text-muted-foreground" /> : null}
+        {finish.checkError ? <SheetMessage tone="danger">{errorText(finish.checkError, errorBranches)}</SheetMessage> : null}
+        <SoftPill label={i18n.t('agentReview.refresh')} disabled={busy || !online || !available || finish.checking || running} onPress={finish.refresh} style={{ alignSelf: 'flex-start' }} />
+        {!finish.worktreeRemoved && merge.status !== 'done' ? <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel={i18n.t('agentReviewFinish.reviewed')}
+          accessibilityState={{ checked: finish.reviewed, disabled: locked || !summary }}
+          disabled={locked || !summary}
+          onPress={() => finish.markReviewed(!finish.reviewed)}
+          className="flex-row items-start gap-2.5 py-2">
+          <View className={cn('mt-0.5 h-5 w-5 items-center justify-center rounded border border-white/30', finish.reviewed && 'bg-primary')}>
+            {finish.reviewed ? <Icon as={Check} size={14} className="text-primary-foreground" /> : null}
+          </View>
+          <Text className="text-foreground flex-1 text-xs leading-4">{i18n.t('agentReviewFinish.reviewed')}</Text>
+        </Pressable> : null}
+      </View>
       <StepCard
         step={commit}
-        disabled={busy}
+        errorBranches={errorBranches}
+        disabled={locked || !finish.reviewed || !splitCommitMessage(finish.message).subject.trim()}
         canRun={finish.canRun('commit')}
-        runLabel="Commit"
+        runLabel={i18n.t('agentReview.runCommit')}
         onRun={() => finish.runStep('commit')}
         onRetry={() => finish.retry('commit')}
         hint={
           commit.status === 'skipped'
-            ? 'The worktree is clean — nothing left to commit.'
-            : `${summary?.uncommitted ?? 0} uncommitted change(s) in the worktree.`
+            ? i18n.t('agentReview.stepCommitSkipped')
+            : i18n.t('agentReviewFinish.commitAllHint')
         }>
-        {commit.status === 'skipped' ? null : (
-          <SheetTextInput
+        {commit.status === 'done' ? <Text className="text-muted-foreground text-xs leading-4">{i18n.t('agentReviewFinish.reviewAfterCommit')}</Text> : commit.status === 'skipped' ? null : (
+          <Input
             value={finish.message}
             onChangeText={finish.setMessage}
-            placeholder="Commit message"
+            accessibilityLabel={i18n.t('agentReview.commitMessagePlaceholder')}
+            placeholder={i18n.t('agentReview.commitMessagePlaceholder')}
+            editable={!locked}
             multiline
             autoCapitalize="sentences"
+            className="h-20 bg-white/[0.06] py-2 text-sm"
           />
         )}
       </StepCard>
 
       <StepCard
         step={merge}
-        disabled={busy}
+        errorBranches={errorBranches}
+        disabled={locked || !finish.reviewed}
         canRun={finish.canRun('merge')}
-        runLabel="Merge"
+        runLabel={i18n.t('agentReview.runMerge')}
         onRun={() => finish.runStep('merge')}
         onRetry={() => finish.retry('merge')}
-        hint={
-          summary
-            ? `Fast-forward ${summary.sessionBranch} into ${summary.baseBranch}.`
-            : undefined
-        }
-      />
+        hint={summary ? `${summary.sessionBranch} → ${summary.baseBranch}` : undefined}>
+        {(['ff', 'ff-only', 'no-ff'] as const).map(strategy => <Pressable
+          key={strategy}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: finish.strategy === strategy, disabled: locked || merge.status === 'done' }}
+          disabled={locked || merge.status === 'done'}
+          onPress={() => finish.setStrategy(strategy)}
+          className={cn('gap-1 rounded-2xl border px-3 py-2.5', finish.strategy === strategy ? 'border-primary/50 bg-primary/10' : 'border-white/10')}>
+          <Text className="text-foreground text-xs font-semibold">{i18n.t(`agentReviewFinish.strategies.${strategy}.label`)}</Text>
+          <Text className="text-muted-foreground text-2xs leading-4">{i18n.t(`agentReviewFinish.strategies.${strategy}.hint`)}</Text>
+        </Pressable>)}
+      </StepCard>
 
       <StepCard
         step={cleanup}
-        disabled={busy}
+        errorBranches={errorBranches}
+        disabled={locked}
         canRun={finish.canRun('cleanup')}
-        runLabel="Clean up"
+        runLabel={i18n.t(finish.worktreeRemoved ? 'agentReviewFinish.deleteRemainingBranch' : 'agentReview.runCleanup')}
         onRun={() => finish.runStep('cleanup')}
         onRetry={() => finish.retry('cleanup')}
-        hint="Removes the worktree and deletes the session branch once it is merged."
-      />
-
-      {finish.branchKept ? (
-        <SheetMessage>The session branch was kept — it is not fully merged yet.</SheetMessage>
-      ) : null}
+        hint={i18n.t('agentReviewFinish.cleanupHint')}>
+        {finish.worktreeRemoved ? <SheetMessage>{i18n.t(finish.branchDeleted ? 'agentReviewFinish.cleanupComplete' : 'agentReviewFinish.worktreeRemoved')}</SheetMessage> : null}
+      </StepCard>
 
       {busy ? (
         <SheetMessage tone="danger">
-          An agent turn is still running in this worktree. Finishing now can conflict with it.
+          {i18n.t('agentReviewFinish.errors.agentBusy')}
         </SheetMessage>
       ) : null}
+      {!online ? <SheetMessage tone="danger">The host is offline. Reconnect it before continuing.</SheetMessage> : !available ? <SheetMessage>The agent connection is not ready. Wait for it to reconnect before continuing.</SheetMessage> : null}
     </AgentSheet>
   );
 }

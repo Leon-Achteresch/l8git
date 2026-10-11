@@ -5,11 +5,14 @@ import type {
   Commit,
   MergeState,
   PullRequest,
+  RebaseStatus,
   StashEntry,
   StatusEntry,
   UpstreamSyncCounts,
   WorktreeEntry,
 } from "@/lib/repo-store";
+
+import { isConflictedStatus } from "@/lib/workflow-help";
 
 const DAY_MS = 86_400_000;
 
@@ -280,65 +283,90 @@ export function selectRecentActivity(args: {
     .map(({ ts: _ts, ...rest }) => rest);
 }
 
-export type HealthSeverity = "ok" | "warn" | "error";
-
-export type HealthItem = {
-  key: string;
-  severity: HealthSeverity;
-  detail?: string | number;
-};
-
-export function selectRepoHealth(args: {
+export type HealthSeverity = "ok" | "warn" | "error" | "unknown";
+export type HealthKey = "workingCopy" | "upstream" | "conflicts" | "bisect" | "stashes" | "worktrees";
+export type HealthSource = "status" | "mergeState" | "cherryPick" | "rebase" | "bisect" | "stashes" | "worktrees";
+export type HealthReadState = { loading: boolean; checked: boolean; error: string | null };
+export type HealthReadStates = Partial<Record<HealthSource, HealthReadState>>;
+export type RepoHealthData = {
   status?: readonly StatusEntry[];
   upstreamSync?: UpstreamSyncCounts;
   hasUpstream?: boolean;
   cherryPick?: CherryPickState;
   mergeState?: MergeState;
+  rebase?: RebaseStatus;
   bisect?: BisectStatus;
   stashes?: readonly StashEntry[];
   worktrees?: readonly WorktreeEntry[];
-}): HealthItem[] {
-  const items: HealthItem[] = [];
-  const dirty = args.status?.length ?? 0;
-  items.push({
-    key: "workingCopy",
-    severity: dirty === 0 ? "ok" : "warn",
-    detail: dirty,
+};
+export type HealthItem = {
+  key: HealthKey;
+  severity: HealthSeverity;
+  messageKey: string;
+  values?: Record<string, number>;
+  availability: "ready" | "unknown" | "loading" | "error" | "lastKnown";
+  refreshing: boolean;
+  error: string | null;
+  guide?: "first-commit" | "sync-branch" | "resolve-conflicts" | "stash-work" | "parallel-work";
+  view?: "history";
+};
+
+export function selectRepoHealth(args: RepoHealthData & { sources?: HealthReadStates }): HealthItem[] {
+  const readState = (sources: HealthSource[], known: boolean) => {
+    const reads = sources.map(source => args.sources?.[source]);
+    const refreshing = reads.some(read => read?.loading);
+    const errors = [...new Set(reads.flatMap(read => read?.error ? [read.error] : []))];
+    const error = errors.length ? errors.join(" · ") : null;
+    const unchecked = reads.some(read => read && !read.checked);
+    const availability: HealthItem["availability"] = known
+      ? refreshing || error || unchecked ? "lastKnown" : "ready"
+      : refreshing ? "loading" : error ? "error" : "unknown";
+    return { availability, refreshing, error };
+  };
+  const item = (key: HealthKey, sources: HealthSource[], known: boolean, severity: HealthSeverity,
+    message: string, values?: Record<string, number>): HealthItem => ({
+    key, severity: known ? severity : "unknown", messageKey: `dashboard.health.${key}.${message}`, values,
+    ...readState(sources, known),
   });
-  if (args.hasUpstream === false) {
-    items.push({ key: "upstream", severity: "warn" });
-  } else {
-    const ahead = args.upstreamSync?.ahead ?? 0;
-    const behind = args.upstreamSync?.behind ?? 0;
-    items.push({
-      key: "upstream",
-      severity: ahead + behind === 0 ? "ok" : behind > 0 ? "warn" : "ok",
-      detail: `${ahead}/${behind}`,
-    });
-  }
-  const conflicted =
-    (args.cherryPick?.conflicted_paths?.length ?? 0) +
-    (args.mergeState?.conflicted_paths?.length ?? 0);
-  items.push({
-    key: "conflicts",
-    severity: conflicted === 0 ? "ok" : "error",
-    detail: conflicted,
-  });
-  items.push({
-    key: "bisect",
-    severity: args.bisect?.active ? "warn" : "ok",
-  });
-  items.push({
-    key: "stashes",
-    severity: (args.stashes?.length ?? 0) === 0 ? "ok" : "warn",
-    detail: args.stashes?.length ?? 0,
-  });
-  items.push({
-    key: "worktrees",
-    severity: "ok",
-    detail: args.worktrees?.length ?? 0,
-  });
-  return items;
+  const statusConflicts = args.status?.filter(entry => isConflictedStatus(entry.index_status, entry.worktree_status));
+  const changed = new Set(args.status?.map(entry => entry.path)).size;
+  const workingCopy = item("workingCopy", ["status"], args.status !== undefined,
+    statusConflicts?.length ? "error" : changed ? "warn" : "ok", changed ? "count" : "ok", { count: changed });
+  workingCopy.guide = statusConflicts?.length ? "resolve-conflicts" : "first-commit";
+
+  const countsKnown = args.hasUpstream === true && args.upstreamSync !== undefined &&
+    [args.upstreamSync.ahead, args.upstreamSync.behind].every(value => Number.isSafeInteger(value) && value >= 0);
+  const ahead = countsKnown ? args.upstreamSync!.ahead : 0;
+  const behind = countsKnown ? args.upstreamSync!.behind : 0;
+  const upstream = item("upstream", ["status"], args.hasUpstream === false || countsKnown,
+    args.hasUpstream === false || ahead || behind ? "warn" : "ok",
+    args.hasUpstream === false ? "noUpstream" : ahead && behind ? "diverged" : ahead ? "ahead" : behind ? "behind" : "ok",
+    ahead && behind ? { ahead, behind } : { count: ahead || behind });
+  upstream.guide = "sync-branch";
+
+  const conflictPaths = new Set([
+    ...(statusConflicts?.map(entry => entry.path) ?? []),
+    ...(args.mergeState?.conflicted_paths ?? []),
+    ...(args.cherryPick?.conflicted_paths ?? []),
+    ...(args.rebase?.conflicted_paths ?? []),
+  ]);
+  const conflictsKnown = [args.status, args.mergeState, args.cherryPick, args.rebase].every(value => value !== undefined);
+  const conflicts = item("conflicts", ["status", "mergeState", "cherryPick", "rebase"], conflictsKnown,
+    conflictPaths.size ? "error" : "ok", conflictPaths.size ? conflictsKnown ? "count" : "partial" : "ok", { count: conflictPaths.size });
+  // A known conflict is actionable even when another source is unavailable.
+  if (conflictPaths.size) conflicts.severity = "error";
+  conflicts.guide = "resolve-conflicts";
+
+  const bisect = item("bisect", ["bisect"], args.bisect !== undefined, args.bisect?.active ? "warn" : "ok", args.bisect?.active ? "warn" : "ok");
+  bisect.view = "history";
+  const stashes = item("stashes", ["stashes"], args.stashes !== undefined, args.stashes?.length ? "warn" : "ok",
+    args.stashes?.length ? "count" : "ok", { count: args.stashes?.length ?? 0 });
+  stashes.guide = "stash-work";
+  const extraWorktrees = args.worktrees?.filter(entry => !entry.is_main).length ?? 0;
+  const worktrees = item("worktrees", ["worktrees"], args.worktrees !== undefined, "ok",
+    extraWorktrees ? "count" : "ok", { count: extraWorktrees });
+  worktrees.guide = "parallel-work";
+  return [workingCopy, upstream, conflicts, bisect, stashes, worktrees];
 }
 
 export function formatRelativeTime(date: Date | string | number | null | undefined, locale?: string): string {

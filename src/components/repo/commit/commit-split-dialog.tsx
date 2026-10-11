@@ -37,18 +37,20 @@ import {
   planSplitFromUnits,
   removeSplitGroup,
   renameSplitGroup,
-  resetSplitStaging,
   runnableGroups,
   unitLabel,
   unitTotals,
   type SplitApplyProgress,
+  type CommitSplitSnapshot,
   type SplitPlan,
   type SplitUnit,
 } from "@/lib/commit-split";
-import { toastError } from "@/lib/error-toast";
+import { toastError, translateKnownError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
 import { SpinIcon } from "@/components/motion/kit";
+import { CommitMessageGuidance } from "./commit-message-guidance";
+import { joinCommitMessage, splitCommitMessage } from "@/lib/commit-message";
 
 type Phase = "loading" | "planning" | "ready" | "applying" | "empty" | "failed";
 
@@ -67,11 +69,13 @@ export function CommitSplitDialog({
   open,
   onOpenChange,
   path,
+  ownerRepoPath = path,
   onApplied,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   path: string;
+  ownerRepoPath?: string;
   onApplied?: (result: CommitSplitResult) => void;
 }) {
   const { t } = useTranslation();
@@ -83,7 +87,16 @@ export function CommitSplitDialog({
   const [unstagedNotice, setUnstagedNotice] = useState(false);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [progress, setProgress] = useState<SplitApplyProgress | null>(null);
+  const [collectedSnapshot, setCollectedSnapshot] = useState<{ path: string; ownerRepoPath: string; snapshot: CommitSplitSnapshot } | null>(null);
   const cancelRef = useRef(false);
+  const requestEpochRef = useRef(0);
+  const applyingRef = useRef(false);
+  const contextRef = useRef({ open, path, ownerRepoPath });
+  contextRef.current = { open, path, ownerRepoPath };
+  const ownsRequest = useCallback((epoch: number, sourcePath: string, sourceOwnerRepoPath: string) =>
+    requestEpochRef.current === epoch && contextRef.current.open && contextRef.current.path === sourcePath &&
+    contextRef.current.ownerRepoPath === sourceOwnerRepoPath &&
+    useRepoStore.getState().activePath === sourceOwnerRepoPath, []);
 
   const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
   const totals = useMemo(() => unitTotals(units), [units]);
@@ -93,55 +106,63 @@ export function CommitSplitDialog({
   );
 
   const requestPlan = useCallback(
-    async (available: SplitUnit[]) => {
+    async (available: SplitUnit[], epoch = ++requestEpochRef.current) => {
+      if (!ownsRequest(epoch, path, ownerRepoPath)) return;
       setPhase("planning");
       setError(null);
       try {
         const result = await planSplitFromUnits(available, { repoPath: path });
+        if (!ownsRequest(epoch, path, ownerRepoPath)) return;
         setPlan(result.plan);
         setWarnings(result.warnings);
         setPhase("ready");
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        if (!ownsRequest(epoch, path, ownerRepoPath)) return;
+        setError(translateKnownError(cause instanceof Error ? cause.message : String(cause)));
         setPhase("failed");
       }
     },
-    [path],
+    [path, ownerRepoPath, ownsRequest],
   );
 
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
+  const collectAndPlan = useCallback(async (epoch = ++requestEpochRef.current) => {
+    if (!ownsRequest(epoch, path, ownerRepoPath)) return;
     cancelRef.current = false;
     setPhase("loading");
+    setUnits([]);
+    setCollectedSnapshot(null);
     setPlan(null);
     setWarnings([]);
     setError(null);
     setSelection(new Set());
     setProgress(null);
 
-    void (async () => {
-      try {
-        const collected = await collectSplitInputs(path);
-        if (cancelled) return;
-        setUnits(collected.units);
-        setUnstagedNotice(collected.hadStaged);
-        if (collected.units.length === 0) {
-          setPhase("empty");
-          return;
-        }
-        await requestPlan(collected.units);
-      } catch (cause) {
-        if (cancelled) return;
-        setError(cause instanceof Error ? cause.message : String(cause));
-        setPhase("failed");
+    try {
+      const collected = await collectSplitInputs(path, { shouldCancel: () => !ownsRequest(epoch, path, ownerRepoPath) });
+      if (!ownsRequest(epoch, path, ownerRepoPath)) return;
+      setUnits(collected.units);
+      setCollectedSnapshot({ path, ownerRepoPath, snapshot: collected.snapshot });
+      setUnstagedNotice(collected.hadStaged);
+      if (collected.units.length === 0) {
+        setPhase("empty");
+        return;
       }
-    })();
+      await requestPlan(collected.units, epoch);
+    } catch (cause) {
+      if (!ownsRequest(epoch, path, ownerRepoPath)) return;
+      setError(translateKnownError(cause instanceof Error ? cause.message : String(cause)));
+      setPhase("failed");
+    }
+  }, [path, ownerRepoPath, ownsRequest, requestPlan]);
+
+  useEffect(() => {
+    if (!open) return;
+    void collectAndPlan();
 
     return () => {
-      cancelled = true;
+      requestEpochRef.current += 1;
     };
-  }, [open, path, requestPlan]);
+  }, [open, path, ownerRepoPath, collectAndPlan]);
 
   const toggleUnit = useCallback((unitId: string) => {
     setSelection((current) => {
@@ -160,8 +181,20 @@ export function CommitSplitDialog({
     [],
   );
 
+  const editMessagePart = useCallback((groupId: string, part: "subject" | "body", value: string) => {
+    setPlan((current) => {
+      const group = current?.groups.find((item) => item.id === groupId);
+      if (!current || !group) return current;
+      const parts = { ...splitCommitMessage(group.message), [part]: value };
+      return renameSplitGroup(current, groupId, joinCommitMessage(parts.subject, parts.body));
+    });
+  }, []);
+
   const apply = useCallback(async () => {
-    if (!plan) return;
+    if (!plan || !collectedSnapshot || collectedSnapshot.path !== path || collectedSnapshot.ownerRepoPath !== ownerRepoPath || applyingRef.current) return;
+    const epoch = ++requestEpochRef.current;
+    if (!ownsRequest(epoch, path, ownerRepoPath)) return;
+    applyingRef.current = true;
     cancelRef.current = false;
     setPhase("applying");
     setProgress(null);
@@ -170,10 +203,14 @@ export function CommitSplitDialog({
         path,
         plan,
         units,
-        onProgress: setProgress,
-        shouldCancel: () => cancelRef.current,
+        snapshot: collectedSnapshot.snapshot,
+        onProgress: (next) => { if (ownsRequest(epoch, path, ownerRepoPath)) setProgress(next); },
+        shouldCancel: () => cancelRef.current || !ownsRequest(epoch, path, ownerRepoPath),
       });
-      await refreshRepo(path);
+      await refreshRepo(path).catch(cause => {
+        if (ownsRequest(epoch, path, ownerRepoPath)) toastError(cause instanceof Error ? cause.message : String(cause));
+      });
+      if (!ownsRequest(epoch, path, ownerRepoPath)) return;
       if (result.cancelled) {
         toast.warning(t("commitSplit.cancelledToast", { count: result.committed }), {
           description: t("commitSplit.cancelledHint"),
@@ -184,24 +221,27 @@ export function CommitSplitDialog({
       onApplied?.({ committed: result.committed, cancelled: result.cancelled });
       onOpenChange(false);
     } catch (cause) {
-      await resetSplitStaging(path);
-      await refreshRepo(path);
-      const message = cause instanceof Error ? cause.message : String(cause);
+      await refreshRepo(path).catch(() => {});
+      if (!ownsRequest(epoch, path, ownerRepoPath)) return;
+      const message = translateKnownError(cause instanceof Error ? cause.message : String(cause));
       setError(message);
       setPhase("failed");
       toastError(message);
+    } finally {
+      applyingRef.current = false;
     }
-  }, [onApplied, onOpenChange, path, plan, t, units]);
+  }, [onApplied, onOpenChange, path, ownerRepoPath, plan, t, units, collectedSnapshot, ownsRequest]);
 
   const groups = plan?.groups ?? [];
   const busy = phase === "loading" || phase === "planning" || phase === "applying";
-  const canApply = phase === "ready" && issues.length === 0 && runnableGroups(plan ?? { groups: [] }).length > 0;
+  const canApply = phase === "ready" && collectedSnapshot?.path === path && collectedSnapshot.ownerRepoPath === ownerRepoPath && issues.length === 0 && runnableGroups(plan ?? { groups: [] }).length > 0;
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next && phase === "applying") return;
+        if (!next && applyingRef.current) return;
+        if (!next) { contextRef.current.open = false; requestEpochRef.current += 1; }
         onOpenChange(next);
       }}
     >
@@ -245,8 +285,7 @@ export function CommitSplitDialog({
               type="button"
               size="xs"
               variant="outline"
-              onClick={() => void requestPlan(units)}
-              disabled={units.length === 0}
+              onClick={() => void collectAndPlan()}
             >
               <Sparkles />
               {t("commitSplit.retry")}
@@ -307,6 +346,8 @@ export function CommitSplitDialog({
                     current ? renameSplitGroup(current, group.id, value) : current,
                   )
                 }
+                onSubjectChange={(value) => editMessagePart(group.id, "subject", value)}
+                onBodyChange={(value) => editMessagePart(group.id, "body", value)}
                 onDelete={() =>
                   setPlan((current) =>
                     current
@@ -385,6 +426,8 @@ function SplitGroupCard({
   onToggleUnit,
   onMove,
   onMessageChange,
+  onSubjectChange,
+  onBodyChange,
   onDelete,
   canDelete,
 }: {
@@ -399,6 +442,8 @@ function SplitGroupCard({
   onToggleUnit: (unitId: string) => void;
   onMove: (unitIds: readonly string[], targetGroupId: string) => void;
   onMessageChange: (value: string) => void;
+  onSubjectChange: (value: string) => void;
+  onBodyChange: (value: string) => void;
   onDelete: () => void;
   canDelete: boolean;
 }) {
@@ -406,6 +451,7 @@ function SplitGroupCard({
   const [dropActive, setDropActive] = useState(false);
   const selectedHere = unitIds.filter((id) => selection.has(id));
   const targets = groups.filter((group) => group.id !== groupId);
+  const parts = splitCommitMessage(message);
 
   return (
     <section
@@ -436,6 +482,7 @@ function SplitGroupCard({
           onChange={(event) => onMessageChange(event.target.value)}
           rows={2}
           placeholder={t("commitSplit.messagePlaceholder")}
+          aria-label={t("commitPanel.messageLabel")}
           className="min-h-14 flex-1 text-xs"
         />
         {canDelete ? (
@@ -451,6 +498,8 @@ function SplitGroupCard({
           </Button>
         ) : null}
       </header>
+
+      <CommitMessageGuidance subject={parts.subject} body={parts.body} onSubjectChange={onSubjectChange} onBodyChange={onBodyChange} compact />
 
       {rationale ? (
         <p className="pl-1 text-[0.6875rem] text-muted-foreground">{rationale}</p>

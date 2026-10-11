@@ -5,6 +5,8 @@ import { reviewAiContext, useAiContextReview } from './ai/context-review';
 import { safeCommandDiagnostics } from './diagnostics';
 import { exportPreferences, parsePreferences, applyPreferences } from './preferences-transfer';
 import { useWorkspacePrefs } from './workspace-prefs';
+import { useHistoryPrefs } from './history-prefs';
+import { EMPTY_HISTORY_FILTER } from './history-filters';
 
 const storage = vi.hoisted(() => {
   const data = new Map<string, string>();
@@ -64,6 +66,21 @@ describe('AI context controls', () => {
 });
 
 describe('local portability', () => {
+  it('transfers named history searches and keeps them when importing an older snapshot', () => {
+    const previous = useHistoryPrefs.getState().repositories;
+    const filter = { ...EMPTY_HISTORY_FILTER, author: 'Reviewer', file: ' src/example.ts ' };
+    useHistoryPrefs.setState({ repositories: { '/repo': { filter, presets: [{ id: 'preset', name: 'My reviews', filter, updatedAt: 123 }] } } });
+    try {
+      const exported = exportPreferences();
+      expect(parsePreferences(JSON.stringify(exported)).history).toEqual(exported.history);
+      const { history: _, ...legacy } = exported;
+      expect(parsePreferences(JSON.stringify(legacy)).history).toEqual(exported.history);
+      const unknown = { ...exported, history: { '/repo': { ...exported.history['/repo'], secret: 'SHOULD_NOT_TRANSFER', command: 'DONT_RUN' } } };
+      expect(JSON.stringify(parsePreferences(JSON.stringify(unknown)))).not.toMatch(/SHOULD_NOT_TRANSFER|DONT_RUN/);
+      expect(() => parsePreferences(JSON.stringify({ ...exported, history: { '/repo': { filter: { ...filter, since: '2026-02-30' }, presets: [] } } }))).toThrow('date range');
+      expect(() => parsePreferences(JSON.stringify({ ...exported, history: { '/repo': { filter: { ...filter, refs: ['--all'] }, presets: [] } } }))).toThrow('reference');
+    } finally { useHistoryPrefs.setState({ repositories: previous }); }
+  });
   it('allowlists imports and never exports credential or executable settings', () => {
     const clean = exportPreferences();
     const parsed = parsePreferences(JSON.stringify({ ...clean, apiKey: 'SECRET', layout: { ...clean.layout, terminalCommand: 'danger' } }));

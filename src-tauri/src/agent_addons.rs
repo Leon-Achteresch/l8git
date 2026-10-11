@@ -32,7 +32,7 @@ fn target_file(path: &str, provider: &str) -> Result<PathBuf, String> {
         .find(|(id, _)| *id == provider)
         .map(|(_, file)| *file)
         .ok_or_else(|| format!("Für {provider} wird die MCP-Konfiguration nicht als Datei verwaltet."))?;
-    let repo = PathBuf::from(path.trim());
+    let repo = PathBuf::from(path);
     if !repo.is_dir() {
         return Err("Arbeitsverzeichnis existiert nicht.".into());
     }
@@ -170,5 +170,37 @@ mod tests {
         assert!(result.exists);
         assert!(result.contents.contains("mcpServers"));
         let _ = fs::remove_dir_all(&repo);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn writes_to_the_exact_repo_root_without_touching_its_neighbor() {
+        let root = scratch("exact-root");
+        let neighbor = root.join("repo");
+        fs::create_dir_all(&neighbor).unwrap();
+        let neighbor_contents = "{\"mcpServers\":{\"neighbor\":{}}}";
+        fs::write(neighbor.join(".mcp.json"), neighbor_contents).unwrap();
+
+        for suffix in [" ", "\n"] {
+            let repo = root.join(format!("repo{suffix}"));
+            fs::create_dir_all(&repo).unwrap();
+            crate::git::run_git(&repo, &["init", "--quiet"]).unwrap();
+            let contents = "{\"mcpServers\":{\"selected\":{}}}";
+            let result = agent_addon_config_write(
+                repo.to_str().unwrap().into(),
+                "claude".into(),
+                contents.into(),
+            )
+            .await
+            .unwrap();
+            assert_eq!(result.file, repo.join(".mcp.json").to_str().unwrap());
+            assert_eq!(result.contents, contents);
+            assert_eq!(fs::read_to_string(repo.join(".mcp.json")).unwrap(), contents);
+            assert_eq!(
+                fs::read_to_string(neighbor.join(".mcp.json")).unwrap(),
+                neighbor_contents
+            );
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 }

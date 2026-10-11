@@ -10,6 +10,8 @@ interface SidebarNavItemProps {
   count?: number;
   emphasis?: boolean;
   onClick: () => void;
+  onFocus?: () => void;
+  tabIndex?: number;
   displayMode?: TabDisplayMode;
   tabSize?: TabSize;
   tabLayout?: TabLayout;
@@ -39,6 +41,8 @@ export function SidebarNavItem({
   count,
   emphasis,
   onClick,
+  onFocus,
+  tabIndex,
   displayMode = "full",
   tabSize = "normal",
   tabLayout = "list",
@@ -58,11 +62,14 @@ export function SidebarNavItem({
     return (
       <ListRow
         role="tab"
+        aria-label={label}
         aria-selected={isActive}
         active={isActive}
         variant="ghost"
         title={!showLabel ? label : undefined}
         onClick={onClick}
+        onFocus={onFocus}
+        tabIndex={tabIndex}
         className={cn(
           "group flex-col justify-center gap-0.5 overflow-hidden px-1 active:scale-[0.97]",
           gridHeightClass,
@@ -101,11 +108,14 @@ export function SidebarNavItem({
   return (
     <ListRow
       role="tab"
+      aria-label={label}
       aria-selected={isActive}
       active={isActive}
       variant="ghost"
       title={!showLabel ? label : undefined}
       onClick={onClick}
+      onFocus={onFocus}
+      tabIndex={tabIndex}
       className={cn(
         "group overflow-hidden active:scale-[0.98]",
         heightClass,

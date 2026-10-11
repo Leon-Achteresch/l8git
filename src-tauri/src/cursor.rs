@@ -214,7 +214,7 @@ pub async fn cursor_rename_session(session_id: String, title: String) -> Result<
 #[tauri::command]
 pub async fn cursor_list_hooks(path: String) -> Result<Vec<crate::claude::ClaudeHook>, String> {
     tokio::task::spawn_blocking(move || {
-        let repo = PathBuf::from(path.trim());
+        let repo = PathBuf::from(&path);
         if !repo.is_dir() {
             return Err("Cursor-Arbeitsverzeichnis existiert nicht.".into());
         }

@@ -31,6 +31,8 @@ import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { SpinIcon } from "@/components/motion/kit";
+import { CommitMessageGuidance } from "./commit-message-guidance";
+import { splitCommitMessage, type CommitPreflightReason } from "@/lib/commit-message";
 
 const AI_LANGUAGES = [
   { label: "English", short: "EN" },
@@ -60,7 +62,13 @@ type CommitComposerProps = {
   onBodyChange: (value: string) => void;
   canCommit: boolean;
   committing: boolean;
+  draftsReady: boolean;
   amendMode: boolean;
+  amendHash?: string;
+  amendMayBePublished: boolean;
+  canAmend: boolean;
+  preflightReason: CommitPreflightReason | null;
+  commitError: string | null;
   currentBranch: string | null;
   canStash: boolean;
   aiGenerating: boolean;
@@ -87,7 +95,13 @@ export function CommitComposer({
   onBodyChange,
   canCommit,
   committing,
+  draftsReady,
   amendMode,
+  amendHash,
+  amendMayBePublished,
+  canAmend,
+  preflightReason,
+  commitError,
   currentBranch,
   canStash,
   aiGenerating,
@@ -109,7 +123,10 @@ export function CommitComposer({
   const [focused, setFocused] = useState(false);
   const [bodyOpen, setBodyOpen] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
   const showBody = bodyOpen || body.trim().length > 0;
+  const busy = committing || aiGenerating || !draftsReady;
+  const shortcut = /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘↵" : "Ctrl+Enter";
 
   useEffect(() => {
     if (bodyOpen) bodyRef.current?.focus();
@@ -142,9 +159,10 @@ export function CommitComposer({
     : "";
 
   const onKeyCommit = (e: KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit && !committing) {
+    if (e.defaultPrevented || e.nativeEvent.isComposing) return;
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
-      onCommit();
+      if (canCommit && !busy) onCommit();
     }
   };
 
@@ -152,6 +170,7 @@ export function CommitComposer({
     <LayoutGroup id="commit-composer">
       <m.div
         transition={spring}
+        onKeyDown={onKeyCommit}
         className={cn(
           "mx-2 mb-2 mt-1 overflow-hidden rounded-2xl border bg-background/80 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_8px_24px_-12px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-[border-color,box-shadow] duration-300",
           focused
@@ -175,7 +194,14 @@ export function CommitComposer({
                 className="flex items-center gap-2 bg-git-modified/10 px-3 py-1.5 text-[0.6875rem] font-medium text-git-modified"
               >
                 <Pencil className="size-3 shrink-0" aria-hidden />
-                <span className="truncate">{t("commitPanel.amendBanner")}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {t("commitPanel.amendBanner")}
+                  {amendHash && <span className="ml-1.5 font-mono opacity-70">{amendHash.slice(0, 8)}</span>}
+                  {amendMayBePublished && <span className="ml-1.5">· {t("commitGuidance.mayBePublished")}</span>}
+                </span>
+                <Button type="button" size="xs" variant="ghost" disabled={busy} onClick={onToggleAmend}>
+                  {t("common.cancel")}
+                </Button>
               </div>
             </m.div>
           )}
@@ -183,12 +209,33 @@ export function CommitComposer({
 
         <div className="flex items-start gap-1 px-2.5 pt-2.5">
           <Input
+            ref={subjectRef}
             data-commit-message-input=""
             variant="bare"
             value={subject}
             onChange={(e) => onSubjectChange(e.target.value)}
-            readOnly={aiGenerating}
-            onKeyDown={onKeyCommit}
+            readOnly={busy}
+            onKeyDown={(event) => {
+              onKeyCommit(event);
+              if (!event.defaultPrevented && event.key === "Enter" && !event.nativeEvent.isComposing && !event.altKey && !event.shiftKey) {
+                event.preventDefault();
+                setBodyOpen(true);
+                bodyRef.current?.focus();
+              }
+            }}
+            onPaste={(event) => {
+              const pasted = event.clipboardData.getData("text");
+              if (busy || !/[\r\n]/.test(pasted)) return;
+              event.preventDefault();
+              const parts = splitCommitMessage(pasted);
+              const start = event.currentTarget.selectionStart ?? subject.length;
+              const end = event.currentTarget.selectionEnd ?? start;
+              onSubjectChange(`${subject.slice(0, start)}${parts.subject}${subject.slice(end)}`);
+              if (parts.body) onBodyChange(body ? `${parts.body}\n\n${body}` : parts.body);
+              const caret = start + parts.subject.length;
+              requestAnimationFrame(() => subjectRef.current?.setSelectionRange(caret, caret));
+            }}
+            aria-keyshortcuts="Meta+Enter Control+Enter"
             aria-label={t("commitPanel.messageLabel", { defaultValue: "Commit message" })}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
@@ -243,7 +290,7 @@ export function CommitComposer({
               size="icon-sm"
               title={t("commitPanel.aiTitle")}
               aria-label={t("commitPanel.aiAria")}
-              disabled={stagedFiles === 0 || aiGenerating}
+              disabled={stagedFiles === 0 || busy}
               onClick={onGenerateAi}
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -290,7 +337,7 @@ export function CommitComposer({
                 ref={bodyRef}
                 value={body}
                 onChange={(e) => onBodyChange(e.target.value)}
-                readOnly={aiGenerating}
+                readOnly={busy}
                 onKeyDown={onKeyCommit}
                 aria-label={t("commitPanel.bodyLabel", { defaultValue: "Extended description" })}
                 onFocus={() => {
@@ -320,6 +367,8 @@ export function CommitComposer({
                 variant="ghost"
                 size="xs"
                 onClick={() => setBodyOpen(true)}
+                disabled={busy}
+                title={t("commitGuidance.descriptionShortcut")}
               >
                 <Plus />
                 {t("commitPanel.addDescription")}
@@ -328,8 +377,26 @@ export function CommitComposer({
           )}
         </AnimatePresence>
 
+        <CommitMessageGuidance
+          subject={subject}
+          body={body}
+          onSubjectChange={onSubjectChange}
+          onBodyChange={onBodyChange}
+          disabled={busy}
+        />
+
+        {commitError ? (
+          <p role="alert" className="mx-2.5 mb-2 rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{commitError}</p>
+        ) : preflightReason ? (
+          <p className="px-3 pb-2 text-[0.6875rem] text-muted-foreground">{t(`commitGuidance.preflight.${preflightReason}`)}</p>
+        ) : null}
+
+        {signingActive && signingInfo && !signingInfo.toolAvailable ? (
+          <p className="px-3 pb-2 text-[0.6875rem] text-git-modified">{t("commitPanel.signingToolMissing", { program: signingInfo.program })}</p>
+        ) : null}
+
         <m.div
-          className="flex items-center gap-2 border-t border-border/40 px-2.5 py-2"
+          className="flex flex-wrap items-center gap-2 border-t border-border/40 px-2.5 py-2"
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <AnimatePresence initial={false}>
@@ -341,6 +408,7 @@ export function CommitComposer({
                   exit={{ opacity: 0, scale: 0.85, x: -6 }}
                   transition={spring}
                   className="truncate rounded-full bg-muted/70 px-2 py-0.5 text-[0.625rem] font-medium tabular-nums text-muted-foreground"
+                  title={t("commitGuidance.stagedOnly")}
                 >
                   {t("commitPanel.stagedSummary", {
                     count: stagedFiles,
@@ -387,8 +455,9 @@ export function CommitComposer({
                     subjectTone === "warn" && "text-git-modified",
                     subjectTone === "ok" && "text-muted-foreground/45",
                   )}
+                  title={t("commitGuidance.subjectCount", { count: subjectLen })}
                 >
-                  {subjectLen}
+                  {subjectLen}/72
                 </m.span>
               )}
             </AnimatePresence>
@@ -400,7 +469,7 @@ export function CommitComposer({
             size="icon-sm"
             title={t("commitPanel.stashTitle")}
             aria-label={t("commitPanel.stashAria")}
-            disabled={!canStash}
+            disabled={!canStash || busy}
             onClick={onStash}
           >
             <Archive />
@@ -415,14 +484,13 @@ export function CommitComposer({
               disabled={!canCommit || committing}
               aria-label={commitLabel}
               aria-busy={committing || undefined}
+              aria-keyshortcuts="Meta+Enter Control+Enter"
               title={
                 committing
                   ? commitLabel
                   : !canCommit
-                    ? t("commitPanel.commitDisabledHint", {
-                        defaultValue: "Stage files and write a message to commit (⌘↵)",
-                      })
-                    : `${commitLabel} (⌘↵)`
+                    ? preflightReason ? t(`commitGuidance.preflight.${preflightReason}`) : t("commitPanel.commitDisabledHint")
+                    : `${commitLabel} (${shortcut})`
               }
               className={cn(
                 "relative flex h-8 max-w-[220px] cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-l-xl px-3 text-[0.78125rem] font-medium transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 disabled:cursor-not-allowed",
@@ -444,6 +512,7 @@ export function CommitComposer({
                 >
                   {committing && <SpinIcon icon={Loader2} className="size-3.5 shrink-0" />}
                   <span className="truncate">{commitLabel}</span>
+                  {!committing && <kbd className="ml-1 shrink-0 text-[0.625rem] font-normal opacity-60">{shortcut}</kbd>}
                 </m.span>
               </AnimatePresence>
             </m.button>
@@ -451,9 +520,11 @@ export function CommitComposer({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
+                  type="button"
                   variant={amendMode ? "default" : canCommit ? "default" : "secondary"}
                   size="icon"
                   aria-label={t("commitPanel.commitOptions", { defaultValue: "Commit options" })}
+                  disabled={busy}
                   className={cn(
                     "h-8 w-7 shrink-0 rounded-l-none rounded-r-xl border-0 border-l",
                     amendMode
@@ -467,7 +538,7 @@ export function CommitComposer({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top">
-                <DropdownMenuItem onClick={onToggleAmend}>
+                <DropdownMenuItem onClick={onToggleAmend} disabled={!amendMode && !canAmend}>
                   <Pencil className="size-3.5" />
                   {t("common.amend")}
                   {amendMode && <Check className="ml-auto size-3.5 text-primary" />}

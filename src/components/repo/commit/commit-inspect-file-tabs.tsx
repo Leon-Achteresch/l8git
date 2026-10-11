@@ -133,14 +133,13 @@ export function CommitInspectFileTabs({
                   <GitCommitHorizontal className="size-3.5" />
                   {t("commitPanel.fileRowBlame")}
                 </ContextMenuItem>
-                <ContextMenuItem
+                {onDiscardFile && <ContextMenuItem
                   variant="destructive"
                   onSelect={() => onDiscardFile?.(file.path)}
-                  disabled={!onDiscardFile}
                 >
                   <Undo2 className="size-3.5" />
                   {t("commitInspect.fileResetMenu")}
-                </ContextMenuItem>
+                </ContextMenuItem>}
               </ContextMenuContent>
             </ContextMenu>
           );
