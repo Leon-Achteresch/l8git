@@ -280,7 +280,19 @@ impl ScratchIndex {
             directory,
         };
         match fs::copy(original, &scratch.index) {
-            Ok(_) => {}
+            // Git treats entries whose mtime is not older than the index file as
+            // "racily clean" and re-reads them. A fresh copy mtime would hide a
+            // same-size edit made in the same second as the original index write.
+            Ok(_) => {
+                let modified = fs::metadata(original)
+                    .and_then(|metadata| metadata.modified())
+                    .map_err(|error| error.to_string())?;
+                fs::File::options()
+                    .write(true)
+                    .open(&scratch.index)
+                    .and_then(|file| file.set_modified(modified))
+                    .map_err(|error| error.to_string())?;
+            }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 success(git_output(
                     repo,
