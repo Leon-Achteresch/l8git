@@ -9,6 +9,9 @@ pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     "jira_test_connection", "jira_write_policy",
     "remote_add_root", "remote_pair", "remote_remove_root", "remote_set_config",
     "remote_start", "remote_status", "remote_stop",
+    // Hub tokens act on hosting accounts; keep that proxy off the remote server.
+    "hub_api", "hub_connect", "hub_disconnect", "hub_oauth_available", "hub_oauth_poll",
+    "hub_oauth_start", "hub_use_for_git",
 ];
 
 const LIB_RS: &str = include_str!("../../lib.rs");

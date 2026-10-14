@@ -98,7 +98,8 @@
     "minimize": "Minimize",
     "maximize": "Maximize",
     "restore": "Restore",
-    "close": "Close"
+    "close": "Close",
+    "hub": "Hub"
   },
   "inbox": {
     "title": "Inbox",
@@ -4238,6 +4239,173 @@
       "name": "Hunk",
       "definition": "A contiguous section of a diff containing changed lines and surrounding context.",
       "example": "Stage one hunk to commit part of a file’s changes."
+    }
+  },
+  "hub": {
+    "accounts": {
+      "add": "Connect account",
+      "gitSwitchFailed": "Switched account, but Git credentials could not be updated: {{error}}",
+      "signOut": "Sign out {{login}}",
+      "title": "Accounts"
+    },
+    "checks": {
+      "success": "Passing",
+      "failure": "Failing",
+      "pending": "Running"
+    },
+    "connect": {
+      "title": "Connect account",
+      "lead": "GitHub, GitLab, Bitbucket or your own server. The token is only stored in the system keychain.",
+      "customHost": "Custom host",
+      "hostLabel": "Host",
+      "oauth": "Sign in with GitHub",
+      "oauthHint": "Opens the browser, code already copied",
+      "oauthEnterCode": "Enter this code in the browser:",
+      "oauthWaiting": "Waiting for confirmation …",
+      "oauthExpired": "The sign-in code expired. Please try again.",
+      "gh": "Import from GitHub CLI",
+      "ghHint": "Imports every account signed in to gh",
+      "ghMissing": "GitHub CLI (gh) was not found.",
+      "ghInstall": "Install",
+      "browser": "Via browser (Git Credential Manager)",
+      "browserHint": "Uses your existing Git sign-in or starts one",
+      "token": "Access token",
+      "createToken": "Create token ↗",
+      "tokenPlaceholder": "Paste token",
+      "bitbucketUser": "Bitbucket username or Atlassian email",
+      "connect": "Connect",
+      "connected": "Connected: {{names}}"
+    },
+    "home": {
+      "morning": "Good morning",
+      "day": "Hello",
+      "evening": "Good evening",
+      "sub": "Your overview on {{host}}",
+      "repos": "Repositories",
+      "contributions": "Contributions this year",
+      "streak": "{{n}} day streak",
+      "skyline": "Contribution skyline",
+      "bestDay": "Best day: {{n}} on {{date}}",
+      "dayLabel": "{{count}} contributions on {{date}}",
+      "waitingForYou": "Waiting for your review",
+      "yourPrs": "Your open pull requests",
+      "recentRepos": "Recently active"
+    },
+    "inbox": {
+      "sub": "Notifications and to-dos from your provider",
+      "unsupported": "This provider does not expose notifications via its API.",
+      "zero": "All done. Inbox zero.",
+      "done": "Done"
+    },
+    "issue": {
+      "new": "New issue",
+      "newIn": "New issue in {{repo}}",
+      "title": "Title",
+      "body": "Description (Markdown)",
+      "submit": "Create issue",
+      "created": "Issue created"
+    },
+    "loadFailed": "Failed to load",
+    "nav": {
+      "aria": "Hub navigation",
+      "home": "Home",
+      "inbox": "Inbox",
+      "pulls": "Pull requests",
+      "reviews": "Review requests",
+      "starred": "Starred",
+      "repos": "Repositories",
+      "pinned": "Pinned",
+      "yourRepos": "Your repositories",
+      "filter": "Filter …"
+    },
+    "notSynced": "Not synced yet",
+    "synced": "Synced {{when}}",
+    "open": "Open",
+    "pr": {
+      "approve": "Approve",
+      "approved": "#{{n}} approved",
+      "merge": "Merge",
+      "merged": "#{{n}} merged",
+      "mergeTitle": "Merge pull request #{{n}}?",
+      "mergeBody": "“{{title}}” will be merged into {{branch}} of {{repo}} using the default strategy. This is not easily undone."
+    },
+    "providerUnsupported": "This provider is not supported in the hub yet.",
+    "pulls": {
+      "empty": "Nothing open.",
+      "sub": "Across all repositories",
+      "kind": {
+        "authored": "Created",
+        "review": "Review requested",
+        "assigned": "Assigned",
+        "mentioned": "Mentioned"
+      }
+    },
+    "rateLimited": "Provider rate limit reached. Try again shortly.",
+    "release": {
+      "latest": "Latest",
+      "pre": "Pre-release"
+    },
+    "repo": {
+      "overview": "Overview",
+      "pulls": "Pull requests",
+      "issues": "Issues",
+      "releases": "Releases",
+      "actions": "CI",
+      "tabsAria": "Repository sections",
+      "openOn": "Open on {{host}}",
+      "public": "Public",
+      "private": "Private",
+      "fork": "Fork",
+      "updated": "Updated {{when}}",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "star": "Star",
+      "starred": "Starred",
+      "forkAction": "Fork",
+      "forked": "Created fork {{name}}",
+      "openFork": "Open",
+      "clone": "Clone",
+      "cloneLocal": "Clone locally and open …",
+      "openPrs": "Open pull requests",
+      "ciLast": "CI on {{branch}}, last {{n}} commits",
+      "latestRelease": "Latest release",
+      "stars30": "Stars, last 30 days",
+      "starsGained": "+{{n}} this month",
+      "viewAll": "View all",
+      "noOpenPrs": "No open pull requests.",
+      "recentCommits": "Recent commits",
+      "history": "History",
+      "noCommits": "No commits.",
+      "about": "About",
+      "languages": "Languages",
+      "contributors": "Contributors",
+      "noPrs": "No pull requests.",
+      "noIssues": "No issues.",
+      "noReleases": "No releases yet.",
+      "noRuns": "No CI runs found."
+    },
+    "repos": {
+      "count": "{{count}} repositories",
+      "new": "New",
+      "newTitle": "New repository on {{host}}",
+      "name": "Name",
+      "description": "Description",
+      "private": "Private",
+      "create": "Create",
+      "created": "Created {{name}}",
+      "empty": "No repositories found."
+    },
+    "review": {
+      "approved": "approved",
+      "changes": "changes requested"
+    },
+    "state": {
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "welcome": {
+      "title": "All your Git accounts in one place",
+      "body": "Connect GitHub, GitLab or Bitbucket — as many accounts as you like, switch with one click. Pull requests, reviews, releases, CI, issues and forks without opening a browser."
     }
   }
 }

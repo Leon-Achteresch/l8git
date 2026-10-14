@@ -98,12 +98,12 @@ function RootLayout() {
         <ContextReviewDialog />
         <main
           id="main-content"
-          className={`min-h-0 flex-1 bg-background ${pathname === "/settings" ? "overflow-hidden" : "overflow-y-auto"}`}
+          className={`min-h-0 flex-1 bg-background ${(pathname === "/settings" || pathname === "/hub") ? "overflow-hidden" : "overflow-y-auto"}`}
           tabIndex={-1}
         >
           <m.div
             key={pathname}
-            className={pathname === "/settings" ? "h-full min-h-0 overflow-hidden" : "h-full"}
+            className={(pathname === "/settings" || pathname === "/hub") ? "h-full min-h-0 overflow-hidden" : "h-full"}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={easeOutSoft}

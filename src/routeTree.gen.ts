@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as InfoRouteImport } from './routes/info'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as HubRouteImport } from './routes/hub'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as AgentsRouteImport } from './routes/agents'
@@ -31,6 +32,11 @@ const InfoRoute = InfoRouteImport.update({
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HubRoute = HubRouteImport.update({
+  id: '/hub',
+  path: '/hub',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
+  '/hub': typeof HubRoute
   '/inbox': typeof InboxRoute
   '/info': typeof InfoRoute
   '/settings': typeof SettingsRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
+  '/hub': typeof HubRoute
   '/inbox': typeof InboxRoute
   '/info': typeof InfoRoute
   '/settings': typeof SettingsRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/agents': typeof AgentsRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
+  '/hub': typeof HubRoute
   '/inbox': typeof InboxRoute
   '/info': typeof InfoRoute
   '/settings': typeof SettingsRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/changelog'
     | '/dashboard'
+    | '/hub'
     | '/inbox'
     | '/info'
     | '/settings'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/changelog'
     | '/dashboard'
+    | '/hub'
     | '/inbox'
     | '/info'
     | '/settings'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/changelog'
     | '/dashboard'
+    | '/hub'
     | '/inbox'
     | '/info'
     | '/settings'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   AgentsRoute: typeof AgentsRoute
   ChangelogRoute: typeof ChangelogRoute
   DashboardRoute: typeof DashboardRoute
+  HubRoute: typeof HubRoute
   InboxRoute: typeof InboxRoute
   InfoRoute: typeof InfoRoute
   SettingsRoute: typeof SettingsRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hub': {
+      id: '/hub'
+      path: '/hub'
+      fullPath: '/hub'
+      preLoaderRoute: typeof HubRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsRoute: AgentsRoute,
   ChangelogRoute: ChangelogRoute,
   DashboardRoute: DashboardRoute,
+  HubRoute: HubRoute,
   InboxRoute: InboxRoute,
   InfoRoute: InfoRoute,
   SettingsRoute: SettingsRoute,

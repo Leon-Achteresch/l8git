@@ -12,6 +12,7 @@ pub mod compare;
 mod credentials;
 mod cursor;
 mod favicon;
+mod hub;
 pub mod git;
 pub mod jira;
 pub mod jira_mcp;
@@ -213,6 +214,13 @@ pub fn run() {
             credentials::git_sign_out,
             credentials::git_credential_helper,
             providers::list_remote_repos,
+            hub::hub_connect,
+            hub::hub_disconnect,
+            hub::hub_use_for_git,
+            hub::hub_api,
+            hub::hub_oauth_available,
+            hub::hub_oauth_start,
+            hub::hub_oauth_poll,
             providers::create_remote_repo,
             pr::resolve_repo_commit_avatars,
             pr::pr_list,

@@ -259,7 +259,11 @@ async fn orphan_gitlink_is_visible_and_broken_submodule_metadata_is_an_error() {
     )
     .unwrap();
     let error = git::list_submodules(host.s()).await.err().unwrap();
-    assert!(error.contains("not a git repository"), "{error}");
+    // Newer Git (e.g. Git for Windows 2.55) words a dangling gitfile differently.
+    assert!(
+        error.contains("not a git repository") || error.contains("does not point to a valid repository"),
+        "{error}"
+    );
 }
 
 #[tokio::test]

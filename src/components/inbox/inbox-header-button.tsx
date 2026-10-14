@@ -65,14 +65,16 @@ export function InboxHeaderButton() {
     if (panelReady) panelRef.current?.focus();
   }, [panelReady]);
 
+  const panelWidth = Math.min(768, window.innerWidth - 24);
   const panelStyle = box
     ? {
         top: Math.min(
           box.bottom + 8,
           window.innerHeight - Math.min(window.innerHeight * 0.82, 704) - 12,
         ),
-        right: Math.max(12, window.innerWidth - box.right),
-        width: Math.min(768, window.innerWidth - 24),
+        // Anchor to the button's right edge, but never push the left edge off-screen.
+        right: Math.min(Math.max(12, window.innerWidth - box.right), window.innerWidth - panelWidth - 12),
+        width: panelWidth,
         height: Math.min(window.innerHeight * 0.82, 704),
       }
     : undefined;
