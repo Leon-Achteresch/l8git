@@ -90,9 +90,12 @@ function PlatformCard({ icon, label, sublabel, disabled, signedOutHint, onClick 
 export function CloneRepoDialog({
   open,
   onClose,
+  initialUrl,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Skips the source step and starts in URL mode with this remote. */
+  initialUrl?: string;
 }) {
   const { t } = useTranslation();
   const { accounts, refresh } = useGitAccounts();
@@ -131,8 +134,13 @@ export function CloneRepoDialog({
       reset();
       return;
     }
+    if (initialUrl) {
+      setCloneUrl(initialUrl);
+      setFolderName(defaultFolderFromUrl(initialUrl));
+      setMode("url");
+    }
     void refresh({ silent: true });
-  }, [open, refresh, reset]);
+  }, [open, refresh, reset, initialUrl]);
 
   useEffect(() => {
     if (!busy) return;

@@ -98,7 +98,8 @@
     "minimize": "最小化",
     "maximize": "最大化",
     "restore": "还原窗口",
-    "close": "关闭"
+    "close": "关闭",
+    "hub": "Hub"
   },
   "inbox": {
     "title": "收件箱",
@@ -4238,6 +4239,173 @@
       "name": "修改块 · Hunk",
       "definition": "diff 中一个连续区段，包含已更改的行及其上下文。",
       "example": "暂存一个修改块，可以只提交某个文件的部分更改。"
+    }
+  },
+  "hub": {
+    "accounts": {
+      "add": "连接账户",
+      "gitSwitchFailed": "已切换账户，但无法更新 Git 凭据：{{error}}",
+      "signOut": "退出 {{login}}",
+      "title": "账户"
+    },
+    "checks": {
+      "success": "通过",
+      "failure": "失败",
+      "pending": "运行中"
+    },
+    "connect": {
+      "title": "连接账户",
+      "lead": "GitHub、GitLab、Bitbucket 或你自己的服务器。令牌仅存储在系统钥匙串中。",
+      "customHost": "自定义主机",
+      "hostLabel": "主机",
+      "oauth": "使用 GitHub 登录",
+      "oauthHint": "将打开浏览器，代码已复制",
+      "oauthEnterCode": "请在浏览器中输入此代码：",
+      "oauthWaiting": "正在等待确认 …",
+      "oauthExpired": "登录代码已过期，请重试。",
+      "gh": "从 GitHub CLI 导入",
+      "ghHint": "导入所有已在 gh 中登录的账户",
+      "ghMissing": "未找到 GitHub CLI (gh)。",
+      "ghInstall": "安装",
+      "browser": "通过浏览器（Git Credential Manager）",
+      "browserHint": "使用你现有的 Git 登录，或开始新的登录",
+      "token": "访问令牌",
+      "createToken": "创建令牌 ↗",
+      "tokenPlaceholder": "粘贴令牌",
+      "bitbucketUser": "Bitbucket 用户名或 Atlassian 邮箱",
+      "connect": "连接",
+      "connected": "已连接：{{names}}"
+    },
+    "home": {
+      "morning": "早上好",
+      "day": "你好",
+      "evening": "晚上好",
+      "sub": "你在 {{host}} 上的概览",
+      "repos": "仓库",
+      "contributions": "今年的贡献",
+      "streak": "连续 {{n}} 天",
+      "skyline": "贡献天际线",
+      "bestDay": "最佳一天：{{date}}，{{n}} 次",
+      "dayLabel": "{{date}} 有 {{count}} 次贡献",
+      "waitingForYou": "等待你审查",
+      "yourPrs": "你的未关闭拉取请求",
+      "recentRepos": "最近活跃"
+    },
+    "inbox": {
+      "sub": "来自提供商的通知与待办事项",
+      "unsupported": "此提供商未通过其 API 提供通知。",
+      "zero": "全部完成，收件箱已清空。",
+      "done": "完成"
+    },
+    "issue": {
+      "new": "新建议题",
+      "newIn": "在 {{repo}} 中新建议题",
+      "title": "标题",
+      "body": "描述（Markdown）",
+      "submit": "创建议题",
+      "created": "议题已创建"
+    },
+    "loadFailed": "加载失败",
+    "nav": {
+      "aria": "Hub 导航",
+      "home": "主页",
+      "inbox": "收件箱",
+      "pulls": "拉取请求",
+      "reviews": "审查请求",
+      "starred": "已加星标",
+      "repos": "仓库",
+      "pinned": "已固定",
+      "yourRepos": "你的仓库",
+      "filter": "筛选 …"
+    },
+    "notSynced": "尚未同步",
+    "synced": "已于 {{when}} 同步",
+    "open": "打开",
+    "pr": {
+      "approve": "批准",
+      "approved": "已批准 #{{n}}",
+      "merge": "合并",
+      "merged": "已合并 #{{n}}",
+      "mergeTitle": "合并拉取请求 #{{n}}？",
+      "mergeBody": "“{{title}}”将使用默认策略合并到 {{repo}} 的 {{branch}}。此操作不易撤销。"
+    },
+    "providerUnsupported": "Hub 暂不支持此提供商。",
+    "pulls": {
+      "empty": "没有未关闭的项。",
+      "sub": "涵盖所有仓库",
+      "kind": {
+        "authored": "我创建的",
+        "review": "请求审查",
+        "assigned": "已分配",
+        "mentioned": "提及我的"
+      }
+    },
+    "rateLimited": "已达到提供商的速率限制，请稍后重试。",
+    "release": {
+      "latest": "最新",
+      "pre": "预发布"
+    },
+    "repo": {
+      "overview": "概览",
+      "pulls": "拉取请求",
+      "issues": "议题",
+      "releases": "发布",
+      "actions": "CI",
+      "tabsAria": "仓库分区",
+      "openOn": "在 {{host}} 上打开",
+      "public": "公开",
+      "private": "私有",
+      "fork": "复刻",
+      "updated": "更新于 {{when}}",
+      "pin": "固定",
+      "unpin": "取消固定",
+      "star": "加星标",
+      "starred": "已加星标",
+      "forkAction": "复刻",
+      "forked": "已创建复刻 {{name}}",
+      "openFork": "打开",
+      "clone": "克隆",
+      "cloneLocal": "克隆到本地并打开 …",
+      "openPrs": "未关闭的拉取请求",
+      "ciLast": "{{branch}} 上的 CI，最近 {{n}} 次提交",
+      "latestRelease": "最新发布",
+      "stars30": "星标，最近 30 天",
+      "starsGained": "本月 +{{n}}",
+      "viewAll": "查看全部",
+      "noOpenPrs": "没有未关闭的拉取请求。",
+      "recentCommits": "最近提交",
+      "history": "历史",
+      "noCommits": "没有提交。",
+      "about": "关于",
+      "languages": "语言",
+      "contributors": "贡献者",
+      "noPrs": "没有拉取请求。",
+      "noIssues": "没有议题。",
+      "noReleases": "尚无发布。",
+      "noRuns": "未找到 CI 运行。"
+    },
+    "repos": {
+      "count": "{{count}} 个仓库",
+      "new": "新建",
+      "newTitle": "在 {{host}} 上新建仓库",
+      "name": "名称",
+      "description": "描述",
+      "private": "私有",
+      "create": "创建",
+      "created": "已创建 {{name}}",
+      "empty": "未找到仓库。"
+    },
+    "review": {
+      "approved": "已批准",
+      "changes": "请求更改"
+    },
+    "state": {
+      "open": "未关闭",
+      "closed": "已关闭"
+    },
+    "welcome": {
+      "title": "所有 Git 账户集中一处",
+      "body": "连接 GitHub、GitLab 或 Bitbucket——账户数量不限，一键切换。无需打开浏览器即可处理拉取请求、审查、发布、CI、议题和复刻。"
     }
   }
 }

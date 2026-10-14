@@ -2,6 +2,7 @@ import { ActivityCenter } from "./activity-center";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  Earth,
   GitFork,
   LayoutDashboard,
   Settings,
@@ -40,6 +41,7 @@ export function AppHeader() {
   const navItems = [
     { to: "/" as const, label: t("header.repo"), icon: GitFork },
     { to: "/dashboard" as const, label: t("header.dashboard"), icon: LayoutDashboard },
+    { to: "/hub" as const, label: t("header.hub"), icon: Earth },
   ] as const;
 
   return (

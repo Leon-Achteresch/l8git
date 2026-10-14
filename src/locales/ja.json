@@ -98,7 +98,8 @@
     "minimize": "最小化",
     "maximize": "最大化",
     "restore": "元のサイズに戻す",
-    "close": "閉じる"
+    "close": "閉じる",
+    "hub": "Hub"
   },
   "inbox": {
     "title": "受信ボックス",
@@ -4238,6 +4239,173 @@
       "name": "ハンク · Hunk",
       "definition": "変更された行と前後の文脈を含む、diff の連続した区間。",
       "example": "一つのハンクをステージすると、ファイルの変更の一部だけをコミットできます。"
+    }
+  },
+  "hub": {
+    "accounts": {
+      "add": "アカウントを接続",
+      "gitSwitchFailed": "アカウントを切り替えましたが、Git の認証情報を更新できませんでした: {{error}}",
+      "signOut": "{{login}} からサインアウト",
+      "title": "アカウント"
+    },
+    "checks": {
+      "success": "成功",
+      "failure": "失敗",
+      "pending": "実行中"
+    },
+    "connect": {
+      "title": "アカウントを接続",
+      "lead": "GitHub、GitLab、Bitbucket、または独自のサーバー。トークンはシステムのキーチェーンにのみ保存されます。",
+      "customHost": "カスタムホスト",
+      "hostLabel": "ホスト",
+      "oauth": "GitHub でサインイン",
+      "oauthHint": "ブラウザーを開きます。コードはコピー済みです",
+      "oauthEnterCode": "ブラウザーでこのコードを入力してください:",
+      "oauthWaiting": "確認を待っています …",
+      "oauthExpired": "サインインコードの有効期限が切れました。もう一度お試しください。",
+      "gh": "GitHub CLI からインポート",
+      "ghHint": "gh にサインイン済みのすべてのアカウントをインポートします",
+      "ghMissing": "GitHub CLI (gh) が見つかりませんでした。",
+      "ghInstall": "インストール",
+      "browser": "ブラウザー経由 (Git Credential Manager)",
+      "browserHint": "既存の Git サインインを使用するか、新たに開始します",
+      "token": "アクセストークン",
+      "createToken": "トークンを作成 ↗",
+      "tokenPlaceholder": "トークンを貼り付け",
+      "bitbucketUser": "Bitbucket のユーザー名または Atlassian のメールアドレス",
+      "connect": "接続",
+      "connected": "接続済み: {{names}}"
+    },
+    "home": {
+      "morning": "おはようございます",
+      "day": "こんにちは",
+      "evening": "こんばんは",
+      "sub": "{{host}} の概要",
+      "repos": "リポジトリ",
+      "contributions": "今年のコントリビューション",
+      "streak": "{{n}} 日連続",
+      "skyline": "コントリビューションスカイライン",
+      "bestDay": "最多の日: {{date}} に {{n}} 件",
+      "dayLabel": "{{date}} のコントリビューション {{count}} 件",
+      "waitingForYou": "あなたのレビュー待ち",
+      "yourPrs": "オープンな自分のプルリクエスト",
+      "recentRepos": "最近のアクティビティ"
+    },
+    "inbox": {
+      "sub": "プロバイダーからの通知と To-Do",
+      "unsupported": "このプロバイダーは API で通知を提供していません。",
+      "zero": "すべて完了。受信ボックスは空です。",
+      "done": "完了"
+    },
+    "issue": {
+      "new": "新しい Issue",
+      "newIn": "{{repo}} に新しい Issue",
+      "title": "タイトル",
+      "body": "説明 (Markdown)",
+      "submit": "Issue を作成",
+      "created": "Issue を作成しました"
+    },
+    "loadFailed": "読み込みに失敗しました",
+    "nav": {
+      "aria": "Hub ナビゲーション",
+      "home": "ホーム",
+      "inbox": "受信ボックス",
+      "pulls": "プルリクエスト",
+      "reviews": "レビュー依頼",
+      "starred": "スター付き",
+      "repos": "リポジトリ",
+      "pinned": "ピン留め",
+      "yourRepos": "自分のリポジトリ",
+      "filter": "フィルター …"
+    },
+    "notSynced": "まだ同期されていません",
+    "synced": "{{when}} に同期",
+    "open": "開く",
+    "pr": {
+      "approve": "承認",
+      "approved": "#{{n}} を承認しました",
+      "merge": "マージ",
+      "merged": "#{{n}} をマージしました",
+      "mergeTitle": "プルリクエスト #{{n}} をマージしますか？",
+      "mergeBody": "「{{title}}」は既定の方法で {{repo}} の {{branch}} にマージされます。この操作は簡単には元に戻せません。"
+    },
+    "providerUnsupported": "このプロバイダーはまだ Hub でサポートされていません。",
+    "pulls": {
+      "empty": "オープンなものはありません。",
+      "sub": "すべてのリポジトリ",
+      "kind": {
+        "authored": "作成",
+        "review": "レビュー依頼",
+        "assigned": "担当",
+        "mentioned": "メンション"
+      }
+    },
+    "rateLimited": "プロバイダーのレート制限に達しました。しばらくしてからもう一度お試しください。",
+    "release": {
+      "latest": "最新",
+      "pre": "プレリリース"
+    },
+    "repo": {
+      "overview": "概要",
+      "pulls": "プルリクエスト",
+      "issues": "Issue",
+      "releases": "リリース",
+      "actions": "CI",
+      "tabsAria": "リポジトリのセクション",
+      "openOn": "{{host}} で開く",
+      "public": "公開",
+      "private": "非公開",
+      "fork": "フォーク",
+      "updated": "{{when}} に更新",
+      "pin": "ピン留め",
+      "unpin": "ピン留めを解除",
+      "star": "スター",
+      "starred": "スター付き",
+      "forkAction": "フォーク",
+      "forked": "フォーク {{name}} を作成しました",
+      "openFork": "開く",
+      "clone": "クローン",
+      "cloneLocal": "ローカルにクローンして開く …",
+      "openPrs": "オープンなプルリクエスト",
+      "ciLast": "{{branch}} の CI (直近 {{n}} コミット)",
+      "latestRelease": "最新リリース",
+      "stars30": "スター (過去 30 日間)",
+      "starsGained": "今月 +{{n}}",
+      "viewAll": "すべて表示",
+      "noOpenPrs": "オープンなプルリクエストはありません。",
+      "recentCommits": "最近のコミット",
+      "history": "履歴",
+      "noCommits": "コミットがありません。",
+      "about": "概要",
+      "languages": "言語",
+      "contributors": "コントリビューター",
+      "noPrs": "プルリクエストはありません。",
+      "noIssues": "Issue はありません。",
+      "noReleases": "まだリリースはありません。",
+      "noRuns": "CI の実行が見つかりません。"
+    },
+    "repos": {
+      "count": "{{count}} 個のリポジトリ",
+      "new": "新規",
+      "newTitle": "{{host}} に新しいリポジトリ",
+      "name": "名前",
+      "description": "説明",
+      "private": "非公開",
+      "create": "作成",
+      "created": "{{name}} を作成しました",
+      "empty": "リポジトリが見つかりません。"
+    },
+    "review": {
+      "approved": "承認済み",
+      "changes": "変更を要求"
+    },
+    "state": {
+      "open": "オープン",
+      "closed": "クローズ"
+    },
+    "welcome": {
+      "title": "すべての Git アカウントをひとつの場所に",
+      "body": "GitHub、GitLab、Bitbucket を接続 — アカウントはいくつでも、ワンクリックで切り替え。プルリクエスト、レビュー、リリース、CI、Issue、フォークをブラウザーを開かずに。"
     }
   }
 }

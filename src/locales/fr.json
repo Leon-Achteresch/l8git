@@ -98,7 +98,8 @@
     "minimize": "Réduire",
     "maximize": "Agrandir",
     "restore": "Restaurer",
-    "close": "Fermer"
+    "close": "Fermer",
+    "hub": "Hub"
   },
   "inbox": {
     "title": "Boîte de réception",
@@ -4238,6 +4239,173 @@
       "name": "Bloc de diff · Hunk",
       "definition": "Une section contiguë d’un diff contenant les lignes modifiées et leur contexte.",
       "example": "Indexez un bloc pour ne commiter qu’une partie des modifications d’un fichier."
+    }
+  },
+  "hub": {
+    "accounts": {
+      "add": "Connecter un compte",
+      "gitSwitchFailed": "Compte changé, mais les identifiants Git n'ont pas pu être mis à jour : {{error}}",
+      "signOut": "Déconnecter {{login}}",
+      "title": "Comptes"
+    },
+    "checks": {
+      "success": "Réussi",
+      "failure": "En échec",
+      "pending": "En cours"
+    },
+    "connect": {
+      "title": "Connecter un compte",
+      "lead": "GitHub, GitLab, Bitbucket ou votre propre serveur. Le jeton est stocké uniquement dans le trousseau du système.",
+      "customHost": "Hôte personnalisé",
+      "hostLabel": "Hôte",
+      "oauth": "Se connecter avec GitHub",
+      "oauthHint": "Ouvre le navigateur, code déjà copié",
+      "oauthEnterCode": "Saisissez ce code dans le navigateur :",
+      "oauthWaiting": "En attente de confirmation …",
+      "oauthExpired": "Le code de connexion a expiré. Veuillez réessayer.",
+      "gh": "Importer depuis GitHub CLI",
+      "ghHint": "Importe tous les comptes connectés à gh",
+      "ghMissing": "GitHub CLI (gh) est introuvable.",
+      "ghInstall": "Installer",
+      "browser": "Via le navigateur (Git Credential Manager)",
+      "browserHint": "Utilise votre connexion Git existante ou en démarre une",
+      "token": "Jeton d'accès",
+      "createToken": "Créer un jeton ↗",
+      "tokenPlaceholder": "Coller le jeton",
+      "bitbucketUser": "Nom d'utilisateur Bitbucket ou e-mail Atlassian",
+      "connect": "Connecter",
+      "connected": "Connecté : {{names}}"
+    },
+    "home": {
+      "morning": "Bonjour",
+      "day": "Bonjour",
+      "evening": "Bonsoir",
+      "sub": "Votre vue d'ensemble sur {{host}}",
+      "repos": "Dépôts",
+      "contributions": "Contributions cette année",
+      "streak": "Série de {{n}} jours",
+      "skyline": "Skyline des contributions",
+      "bestDay": "Meilleur jour : {{n}} le {{date}}",
+      "dayLabel": "{{count}} contributions le {{date}}",
+      "waitingForYou": "En attente de votre revue",
+      "yourPrs": "Vos pull requests ouvertes",
+      "recentRepos": "Actifs récemment"
+    },
+    "inbox": {
+      "sub": "Notifications et tâches de votre fournisseur",
+      "unsupported": "Ce fournisseur n'expose pas les notifications via son API.",
+      "zero": "Tout est traité. Boîte de réception vide.",
+      "done": "Terminé"
+    },
+    "issue": {
+      "new": "Nouveau ticket",
+      "newIn": "Nouveau ticket dans {{repo}}",
+      "title": "Titre",
+      "body": "Description (Markdown)",
+      "submit": "Créer le ticket",
+      "created": "Ticket créé"
+    },
+    "loadFailed": "Échec du chargement",
+    "nav": {
+      "aria": "Navigation du hub",
+      "home": "Accueil",
+      "inbox": "Boîte de réception",
+      "pulls": "Pull requests",
+      "reviews": "Demandes de revue",
+      "starred": "Favoris",
+      "repos": "Dépôts",
+      "pinned": "Épinglés",
+      "yourRepos": "Vos dépôts",
+      "filter": "Filtrer …"
+    },
+    "notSynced": "Pas encore synchronisé",
+    "synced": "Synchronisé {{when}}",
+    "open": "Ouvrir",
+    "pr": {
+      "approve": "Approuver",
+      "approved": "#{{n}} approuvée",
+      "merge": "Fusionner",
+      "merged": "#{{n}} fusionnée",
+      "mergeTitle": "Fusionner la pull request #{{n}} ?",
+      "mergeBody": "« {{title}} » sera fusionnée dans {{branch}} de {{repo}} avec la stratégie par défaut. Cette action est difficilement réversible."
+    },
+    "providerUnsupported": "Ce fournisseur n'est pas encore pris en charge dans le hub.",
+    "pulls": {
+      "empty": "Rien d'ouvert.",
+      "sub": "Dans tous les dépôts",
+      "kind": {
+        "authored": "Créées",
+        "review": "Revue demandée",
+        "assigned": "Assignées",
+        "mentioned": "Mentionné"
+      }
+    },
+    "rateLimited": "Limite de requêtes du fournisseur atteinte. Réessayez dans un instant.",
+    "release": {
+      "latest": "Dernière",
+      "pre": "Préversion"
+    },
+    "repo": {
+      "overview": "Vue d'ensemble",
+      "pulls": "Pull requests",
+      "issues": "Tickets",
+      "releases": "Versions",
+      "actions": "CI",
+      "tabsAria": "Sections du dépôt",
+      "openOn": "Ouvrir sur {{host}}",
+      "public": "Public",
+      "private": "Privé",
+      "fork": "Fork",
+      "updated": "Mis à jour {{when}}",
+      "pin": "Épingler",
+      "unpin": "Désépingler",
+      "star": "Ajouter aux favoris",
+      "starred": "Favori",
+      "forkAction": "Forker",
+      "forked": "Fork {{name}} créé",
+      "openFork": "Ouvrir",
+      "clone": "Cloner",
+      "cloneLocal": "Cloner localement et ouvrir …",
+      "openPrs": "Pull requests ouvertes",
+      "ciLast": "CI sur {{branch}}, {{n}} derniers commits",
+      "latestRelease": "Dernière version",
+      "stars30": "Étoiles, 30 derniers jours",
+      "starsGained": "+{{n}} ce mois-ci",
+      "viewAll": "Tout afficher",
+      "noOpenPrs": "Aucune pull request ouverte.",
+      "recentCommits": "Commits récents",
+      "history": "Historique",
+      "noCommits": "Aucun commit.",
+      "about": "À propos",
+      "languages": "Langages",
+      "contributors": "Contributeurs",
+      "noPrs": "Aucune pull request.",
+      "noIssues": "Aucun ticket.",
+      "noReleases": "Aucune version pour le moment.",
+      "noRuns": "Aucune exécution CI trouvée."
+    },
+    "repos": {
+      "count": "{{count}} dépôts",
+      "new": "Nouveau",
+      "newTitle": "Nouveau dépôt sur {{host}}",
+      "name": "Nom",
+      "description": "Description",
+      "private": "Privé",
+      "create": "Créer",
+      "created": "{{name}} créé",
+      "empty": "Aucun dépôt trouvé."
+    },
+    "review": {
+      "approved": "approuvée",
+      "changes": "modifications demandées"
+    },
+    "state": {
+      "open": "Ouverte",
+      "closed": "Fermée"
+    },
+    "welcome": {
+      "title": "Tous vos comptes Git au même endroit",
+      "body": "Connectez GitHub, GitLab ou Bitbucket — autant de comptes que vous voulez, changez en un clic. Pull requests, revues, versions, CI, tickets et forks sans ouvrir de navigateur."
     }
   }
 }
