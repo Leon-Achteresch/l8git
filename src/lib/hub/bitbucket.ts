@@ -26,7 +26,7 @@ type BbPr = {
   updated_on: string;
   comment_count: number;
   author: { display_name: string; nickname?: string; links: { avatar: { href: string }; html?: { href: string } } } | null;
-  destination: { repository: { full_name: string } };
+  destination: { repository: { full_name: string }; branch?: { name: string } };
   links: { html: { href: string } };
 };
 
@@ -69,6 +69,7 @@ function pr(p: BbPr): HubPr {
     createdAt: p.created_on,
     updatedAt: p.updated_on,
     draft: !!p.draft,
+    baseBranch: p.destination.branch?.name ?? null,
     state: p.state === "OPEN" ? "open" : p.state === "MERGED" ? "merged" : "closed",
     checks: null,
     review: null,

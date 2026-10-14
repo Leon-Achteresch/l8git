@@ -603,7 +603,7 @@ function PullsTab({ account, repo }: { account: HubAccount; repo: HubRepoDetail 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("hub.pr.mergeTitle", { n: merge?.number })}</AlertDialogTitle>
-            <AlertDialogDescription>{t("hub.pr.mergeBody", { title: merge?.title, repo: repo.fullName, branch: repo.defaultBranch ?? "" })}</AlertDialogDescription>
+            <AlertDialogDescription>{t("hub.pr.mergeBody", { title: merge?.title, repo: repo.fullName, branch: merge?.baseBranch ?? repo.defaultBranch ?? "" })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>

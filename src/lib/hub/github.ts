@@ -17,7 +17,7 @@ const REPO_FIELDS = `
 `;
 
 const PR_FIELDS = `
-  id number title url isDraft state createdAt updatedAt additions deletions reviewDecision
+  id number title url isDraft baseRefName state createdAt updatedAt additions deletions reviewDecision
   repository { nameWithOwner }
   author { login avatarUrl url }
   comments { totalCount }
@@ -45,6 +45,7 @@ type GqlPr = {
   title: string;
   url: string;
   isDraft: boolean;
+  baseRefName: string;
   state: "OPEN" | "MERGED" | "CLOSED";
   createdAt: string;
   updatedAt: string;
@@ -102,6 +103,7 @@ function pr(p: GqlPr): HubPr {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     draft: p.isDraft,
+    baseBranch: p.baseRefName,
     state: p.state === "OPEN" ? "open" : p.state === "MERGED" ? "merged" : "closed",
     checks: rollup(p.commits.nodes[0]?.commit.statusCheckRollup?.state),
     review:

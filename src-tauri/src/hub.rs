@@ -318,10 +318,23 @@ pub async fn hub_connect(
 
 #[tauri::command]
 pub async fn hub_disconnect(host: String, login: String) -> Result<(), String> {
-    let key = secret_key(&norm_host(&host)?, &login);
-    tokio::task::spawn_blocking(move || delete_secret(&key))
-        .await
-        .map_err(|e| e.to_string())?
+    let host = norm_host(&host)?;
+    let key = secret_key(&host, &login);
+    tokio::task::spawn_blocking(move || {
+        // Drop git's credential only when it is this account's token, so a
+        // login the user made outside the hub (or for another account) survives.
+        if let Ok(secret) = load_secret(&host, &login) {
+            if let Ok(cred) = crate::credentials::read_https_credential(&host) {
+                if cred.password == secret.token {
+                    let user = cred.username.or(secret.username).unwrap_or(login);
+                    crate::credentials::reject_https_credential(&host, &user)?;
+                }
+            }
+        }
+        delete_secret(&key)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Makes `login` the credential git uses for pushes/pulls on `host`.
@@ -406,9 +419,15 @@ pub async fn hub_oauth_start() -> Result<DeviceCode, String> {
     })
 }
 
-/// `Ok(None)` while the user has not confirmed yet ("slow_down" included).
+#[derive(Serialize)]
+pub struct OauthPoll {
+    account: Option<HubAccount>,
+    /// GitHub asked us to poll less often; the caller adds 5 s to its interval.
+    slow_down: bool,
+}
+
 #[tauri::command]
-pub async fn hub_oauth_poll(device_code: String) -> Result<Option<HubAccount>, String> {
+pub async fn hub_oauth_poll(device_code: String) -> Result<OauthPoll, String> {
     let id = GITHUB_CLIENT_ID.filter(|s| !s.is_empty()).ok_or("OAuth nicht konfiguriert")?;
     let v = github_oauth_post(
         "https://github.com/login/oauth/access_token",
@@ -421,10 +440,12 @@ pub async fn hub_oauth_poll(device_code: String) -> Result<Option<HubAccount>, S
     .await?;
     if let Some(token) = v["access_token"].as_str() {
         let secret = StoredSecret { token: token.to_string(), username: None };
-        return store_account("github.com", Provider::GitHub, secret).await.map(Some);
+        let account = store_account("github.com", Provider::GitHub, secret).await?;
+        return Ok(OauthPoll { account: Some(account), slow_down: false });
     }
     match v["error"].as_str() {
-        Some("authorization_pending") | Some("slow_down") => Ok(None),
+        Some("authorization_pending") => Ok(OauthPoll { account: None, slow_down: false }),
+        Some("slow_down") => Ok(OauthPoll { account: None, slow_down: true }),
         _ => Err(format!(
             "GitHub: {}",
             v["error_description"].as_str().unwrap_or("Anmeldung fehlgeschlagen")

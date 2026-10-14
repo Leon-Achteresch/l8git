@@ -107,7 +107,7 @@ export function HubConnectDialog({ open, onOpenChange }: { open: boolean; onOpen
       void navigator.clipboard?.writeText(d.user_code).catch(() => {});
       openExternal(d.verification_uri);
       const deadline = Date.now() + d.expires_in * 1000;
-      const interval = d.interval;
+      let interval = d.interval;
       const gen = genRef.current;
       const tick = async () => {
         if (gen !== genRef.current) return;
@@ -118,7 +118,9 @@ export function HubConnectDialog({ open, onOpenChange }: { open: boolean; onOpen
           return;
         }
         try {
-          const acc = await invoke<HubAccount | null>("hub_oauth_poll", { deviceCode: d.device_code });
+          const res = await invoke<{ account: HubAccount | null; slow_down: boolean }>("hub_oauth_poll", { deviceCode: d.device_code });
+          const acc = res.account;
+          if (res.slow_down) interval += 5;
           if (acc) {
             addAccounts([acc]);
             setDevice(null);

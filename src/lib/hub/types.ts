@@ -41,6 +41,8 @@ export type HubPr = {
   createdAt: string;
   updatedAt: string;
   draft: boolean;
+  /** Branch the PR merges into. */
+  baseBranch: string | null;
   state: "open" | "merged" | "closed";
   checks: CheckState;
   review: "approved" | "changes" | "required" | null;

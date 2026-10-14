@@ -170,6 +170,12 @@ pub async fn git_sign_in_via_credential_manager(
     .map_err(|e| e.to_string())?
 }
 
+/// Blocking: removes the stored HTTPS credential for exactly `username`@`host`.
+pub fn reject_https_credential(host: &str, username: &str) -> Result<(), String> {
+    let input = format!("protocol=https\nhost={host}\nusername={username}\n\n");
+    git_credential("reject", &input, true, Duration::from_secs(45)).map(|_| ())
+}
+
 #[tauri::command]
 pub async fn git_sign_out(host: String, username: Option<String>) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {

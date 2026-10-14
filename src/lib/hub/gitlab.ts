@@ -33,6 +33,7 @@ type GlMr = {
   created_at: string;
   updated_at: string;
   draft: boolean;
+  target_branch: string;
   state: string;
   user_notes_count: number;
   head_pipeline?: { status: string } | null;
@@ -77,6 +78,7 @@ function mr(m: GlMr): HubPr {
     createdAt: m.created_at,
     updatedAt: m.updated_at,
     draft: m.draft,
+    baseBranch: m.target_branch,
     state: m.state === "opened" ? "open" : m.state === "merged" ? "merged" : "closed",
     checks: glStatus(m.head_pipeline?.status),
     review: null,
