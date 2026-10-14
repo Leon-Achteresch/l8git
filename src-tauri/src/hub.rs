@@ -25,6 +25,9 @@ struct StoredSecret {
     /// Bitbucket app passwords need Basic auth with the account username/email.
     #[serde(default)]
     username: Option<String>,
+    /// Imported from git's own credential store: git owns it, never erase it on disconnect.
+    #[serde(default)]
+    from_git: bool,
 }
 
 #[derive(Serialize)]
@@ -284,6 +287,7 @@ pub async fn hub_connect(
             vec![StoredSecret {
                 token: token.ok_or("Token darf nicht leer sein")?,
                 username: username.map(|u| u.trim().to_string()).filter(|u| !u.is_empty()),
+                from_git: false,
             }]
         }
         "gh" => {
@@ -292,7 +296,7 @@ pub async fn hub_connect(
                 .await
                 .map_err(|e| e.to_string())??
                 .into_iter()
-                .map(|token| StoredSecret { token, username: None })
+                .map(|token| StoredSecret { token, username: None, from_git: false })
                 .collect()
         }
         "git" => {
@@ -305,6 +309,7 @@ pub async fn hub_connect(
             vec![StoredSecret {
                 token: cred.password,
                 username: if provider == Provider::Bitbucket { cred.username } else { None },
+                from_git: true,
             }]
         }
         other => return Err(format!("Unbekannte Anmeldemethode {other}")),
@@ -321,17 +326,19 @@ pub async fn hub_disconnect(host: String, login: String) -> Result<(), String> {
     let host = norm_host(&host)?;
     let key = secret_key(&host, &login);
     tokio::task::spawn_blocking(move || {
-        // Drop git's credential only when it is this account's token, so a
-        // login the user made outside the hub (or for another account) survives.
-        if let Ok(secret) = load_secret(&host, &login) {
+        let secret = load_secret(&host, &login).ok();
+        delete_secret(&key)?;
+        // Best effort: drop git's credential only when the hub put this account's
+        // token there, so logins made outside the hub (or for others) survive.
+        if let Some(secret) = secret.filter(|s| !s.from_git) {
             if let Ok(cred) = crate::credentials::read_https_credential(&host) {
                 if cred.password == secret.token {
                     let user = cred.username.or(secret.username).unwrap_or(login);
-                    crate::credentials::reject_https_credential(&host, &user)?;
+                    let _ = crate::credentials::reject_https_credential(&host, &user);
                 }
             }
         }
-        delete_secret(&key)
+        Ok(())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -439,7 +446,7 @@ pub async fn hub_oauth_poll(device_code: String) -> Result<OauthPoll, String> {
     )
     .await?;
     if let Some(token) = v["access_token"].as_str() {
-        let secret = StoredSecret { token: token.to_string(), username: None };
+        let secret = StoredSecret { token: token.to_string(), username: None, from_git: false };
         let account = store_account("github.com", Provider::GitHub, secret).await?;
         return Ok(OauthPoll { account: Some(account), slow_down: false });
     }
