@@ -7,11 +7,15 @@ import { createReadCache } from "@/lib/async-cache";
 import { bitbucket } from "./bitbucket";
 import { github } from "./github";
 import { gitlab } from "./gitlab";
-import type { HubAccount, HubAdapter } from "./types";
+import type { HubAccount, HubAdapter, HubProviderId } from "./types";
 
 export type ConnectMethod = "token" | "gh" | "git";
 
 export const accountKey = (a: Pick<HubAccount, "host" | "login">) => `${a.login}@${a.host}`;
+
+/** Addresses an account's repo in the shared `pr_*` commands (resolved in Rust, local-only). */
+export const HUB_PATH_PREFIX = "hub:";
+export const hubRepoPath = (a: HubAccount, fullName: string) => `${HUB_PATH_PREFIX}${a.login}@${a.host}/${fullName}`;
 
 export function adapterFor(a: HubAccount): HubAdapter | null {
   switch (a.provider) {
@@ -33,7 +37,8 @@ type HubState = {
   /** Bumped by "refresh" so every hub query refetches. */
   version: number;
   syncedAt: number | null;
-  connect: (host: string, method: ConnectMethod, token?: string, username?: string) => Promise<HubAccount[]>;
+  /** `provider` overrides host detection, e.g. GitHub Enterprise on a custom domain. */
+  connect: (host: string, method: ConnectMethod, token?: string, username?: string, provider?: HubProviderId) => Promise<HubAccount[]>;
   addAccounts: (list: HubAccount[]) => void;
   remove: (a: HubAccount) => Promise<void>;
   activate: (key: string, useForGit: boolean) => Promise<void>;
@@ -53,8 +58,8 @@ export const useHubStore = create<HubState>()(
       version: 0,
       syncedAt: null,
 
-      async connect(host, method, token, username) {
-        const list = await invoke<HubAccount[]>("hub_connect", { host, method, token: token ?? null, username: username ?? null });
+      async connect(host, method, token, username, provider) {
+        const list = await invoke<HubAccount[]>("hub_connect", { host, method, token: token ?? null, username: username ?? null, provider: provider ?? null });
         get().addAccounts(list);
         return list;
       },

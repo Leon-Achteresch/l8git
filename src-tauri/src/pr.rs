@@ -200,6 +200,8 @@ pub struct RemoteHandle {
     pub provider: Provider,
     pub owner: String,
     pub repo: String,
+    /// Hub account login: the credential comes from the hub keychain, not git.
+    pub account: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -326,6 +328,9 @@ pub fn provider_capabilities(provider: Provider, host: &str) -> ProviderCapabili
 }
 
 pub fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
+    if let Some(spec) = path.to_str().and_then(|p| p.strip_prefix(HUB_PATH_PREFIX)) {
+        return crate::hub::remote_handle(spec);
+    }
     let raw = run_git(path, &["config", "--get", "remote.origin.url"])
         .map_err(|_| "Kein Remote 'origin' konfiguriert.".to_string())?;
     let url = raw.trim().to_string();
@@ -382,7 +387,19 @@ pub fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
         provider,
         owner,
         repo,
+        account: None,
     })
+}
+
+/// `path` prefix that addresses a hub account's repo (`hub:login@host/owner/repo`)
+/// instead of a local checkout. Local-only: the remote server rejects it.
+pub const HUB_PATH_PREFIX: &str = "hub:";
+
+fn credential(h: &RemoteHandle) -> Result<HttpsCredential, String> {
+    match &h.account {
+        Some(login) => crate::hub::credential(&h.host, login),
+        None => read_https_credential(&h.host),
+    }
 }
 
 pub const PROVIDER_UNKNOWN_CODE: &str = "__PROVIDER_UNKNOWN__";
@@ -392,10 +409,14 @@ pub fn unsupported_provider_err(host: &str) -> String {
 }
 
 pub fn github_api_base(host: &str) -> String {
+    let host = host.trim().trim_end_matches('/');
     if host.eq_ignore_ascii_case("github.com") {
         "https://api.github.com".to_string()
+    } else if host.to_ascii_lowercase().ends_with(".ghe.com") {
+        // GHE.com (data residency) serves its API from an `api.` subdomain, not /api/v3.
+        format!("https://api.{host}")
     } else {
-        format!("https://{}/api/v3", host.trim_end_matches('/'))
+        format!("https://{host}/api/v3")
     }
 }
 
@@ -782,7 +803,7 @@ pub async fn pr_create(
         return Err("Head- und Base-Branch müssen unterschiedlich sein.".into());
     }
 
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     match h.provider {
         Provider::GitHub | Provider::Gitea => {
@@ -937,7 +958,7 @@ pub async fn resolve_repo_commit_avatars(
         Ok(h) => h,
         Err(_) => return Ok(cached),
     };
-    let cred = match read_https_credential(&remote.host) {
+    let cred = match credential(&remote) {
         Ok(c) => c,
         Err(_) => return Ok(cached),
     };
@@ -1018,7 +1039,7 @@ fn origin_head_ref(repo: &PathBuf) -> Option<String> {
 
 async fn fetch_default_branch(p: &PathBuf) -> Option<String> {
     let h = parse_origin_url(p).ok()?;
-    let cred = read_https_credential(&h.host).ok()?;
+    let cred = credential(&h).ok()?;
     let client = http_client().ok()?;
     let value = match h.provider {
         Provider::GitHub | Provider::Gitea => {
@@ -1117,14 +1138,14 @@ async fn list_page(client: &reqwest::Client, cred: &HttpsCredential, h: &RemoteH
 pub async fn pr_list_page(path: String, page: u64, history: bool) -> Result<PullRequestPage, String> {
     if page == 0 || page > 1_000_000 { return Err("Invalid page".into()); }
     let h = parse_origin_url(&repo_path(&path))?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     list_page(&http_client()?, &cred, &h, page, history).await
 }
 
 #[tauri::command]
 pub async fn pr_list(path: String) -> Result<Vec<PullRequest>, String> {
     let h = parse_origin_url(&repo_path(&path))?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let mut out = Vec::new();
     let mut page = 1;
@@ -1143,7 +1164,7 @@ pub async fn pr_list(path: String) -> Result<Vec<PullRequest>, String> {
 pub async fn pr_detail(path: String, number: u64) -> Result<PullRequestDetail, String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     match h.provider {
         Provider::GitHub | Provider::Gitea => gh_detail(&client, &cred, &h, number).await,
@@ -1157,7 +1178,7 @@ pub async fn pr_detail(path: String, number: u64) -> Result<PullRequestDetail, S
 pub async fn pr_commits(path: String, number: u64) -> Result<Vec<PrCommit>, String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     match h.provider {
         Provider::GitHub | Provider::Gitea => gh_commits(&client, &cred, &h, number).await,
@@ -1171,7 +1192,7 @@ pub async fn pr_commits(path: String, number: u64) -> Result<Vec<PrCommit>, Stri
 pub async fn pr_files(path: String, number: u64) -> Result<Vec<PrFile>, String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     match h.provider {
         Provider::GitHub | Provider::Gitea => gh_files(&client, &cred, &h, number).await,
@@ -1193,7 +1214,7 @@ pub async fn pr_file_patch(
 ) -> Result<Option<String>, String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     match h.provider {
         Provider::GitHub | Provider::Gitea => {
@@ -1209,7 +1230,7 @@ pub async fn pr_file_patch(
 pub async fn pr_conversation(path: String, number: u64) -> Result<PrConversation, String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     match h.provider {
         Provider::GitHub | Provider::Gitea => gh_conversation(&client, &cred, &h, number).await,
@@ -1223,7 +1244,7 @@ pub async fn pr_conversation(path: String, number: u64) -> Result<PrConversation
 pub async fn pr_checks(path: String, number: u64) -> Result<Vec<PrCheck>, String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     match h.provider {
         Provider::GitHub => {
@@ -1247,7 +1268,7 @@ pub async fn repo_commit_checks(path: String) -> Result<RepoCommitChecks, String
         return Err("Pfad ist kein Verzeichnis.".into());
     }
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let head_sha = run_git_merged_output(&p, &["rev-parse", "HEAD"])?
         .trim()
@@ -1335,7 +1356,7 @@ pub async fn pr_add_comment(
 ) -> Result<(), String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let reply = in_reply_to.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
     let anchor = match (file_path.as_deref(), line) {
@@ -1467,7 +1488,7 @@ pub async fn pr_submit_review(
 ) -> Result<(), String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let ev = event.to_uppercase();
     let drafts = comments.unwrap_or_default();
@@ -1588,7 +1609,7 @@ pub async fn pr_merge(
 ) -> Result<PrMergeResult, String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let delete_source = delete_source_branch.unwrap_or(false);
     match h.provider {
@@ -1703,7 +1724,7 @@ pub async fn pr_checkout(path: String, number: u64) -> Result<PrCheckoutResult, 
         ),
         Provider::Bitbucket => {
             let client = http_client()?;
-            let cred = read_https_credential(&h.host)?;
+            let cred = credential(&h)?;
             let detail = bb_detail(&client, &cred, &h, number).await?;
             let src = detail.base.source_branch.clone();
             if src.is_empty() {
@@ -1801,7 +1822,7 @@ pub async fn list_workflow_runs(path: String) -> Result<Vec<WorkflowRun>, String
     if h.provider != Provider::GitHub {
         return Err("Workflow Runs sind nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let url = github_repo_api_url(&h, "actions/runs?per_page=30");
     let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
@@ -1861,7 +1882,7 @@ pub async fn get_workflow_jobs(path: String, run_id: u64) -> Result<Vec<Workflow
     if h.provider != Provider::GitHub {
         return Err("Workflow Jobs sind nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let url = github_repo_api_url(&h, &format!("actions/runs/{run_id}/jobs?per_page=100"));
     let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
@@ -1927,7 +1948,7 @@ pub async fn rerun_workflow(path: String, run_id: u64) -> Result<(), String> {
     if h.provider != Provider::GitHub {
         return Err("Re-run ist nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let url = github_repo_api_url(&h, &format!("actions/runs/{run_id}/rerun"));
     let res =
@@ -1950,7 +1971,7 @@ pub async fn cancel_workflow(path: String, run_id: u64) -> Result<(), String> {
     if h.provider != Provider::GitHub {
         return Err("Abbrechen ist nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let url = github_repo_api_url(&h, &format!("actions/runs/{run_id}/cancel"));
     let res = github_request(&client, &cred, reqwest::Method::POST, &url, None).await?;
@@ -1977,7 +1998,7 @@ pub async fn pr_rerun_check(path: String, check_run_id: String) -> Result<(), St
     if h.provider != Provider::GitHub {
         return Err("Check-Run Re-run ist nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let url = github_repo_api_url(&h, &format!("check-runs/{check_run_id}/rerequest"));
     let res =
@@ -2001,7 +2022,7 @@ pub async fn pr_rerun_check_suite(path: String, suite_id: String) -> Result<(), 
     if h.provider != Provider::GitHub {
         return Err("Check-Suite Re-run ist nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let url = github_repo_api_url(&h, &format!("check-suites/{suite_id}/rerequest"));
     let res =
@@ -2046,7 +2067,7 @@ pub async fn pr_check_annotations(
     if h.provider != Provider::GitHub {
         return Err("Annotationen sind nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let mut out = Vec::new();
     for page in 1..=10u32 {
@@ -2112,7 +2133,7 @@ pub async fn pr_branch_protection(
     if h.provider != Provider::GitHub {
         return Err("Branch-Protection ist nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let enc_branch = encode_uri_component(&branch);
     let url = github_repo_api_url(&h, &format!("branches/{enc_branch}/protection"));
@@ -2164,11 +2185,11 @@ pub async fn pr_branch_protection(
 
 // ========= GitHub Enterprise — Auto-Merge (GraphQL) =========
 
-fn github_graphql_endpoint(host: &str) -> String {
-    if host.eq_ignore_ascii_case("github.com") {
-        "https://api.github.com/graphql".to_string()
-    } else {
-        format!("https://{}/api/graphql", host.trim_end_matches('/'))
+pub(crate) fn github_graphql_endpoint(host: &str) -> String {
+    let base = github_api_base(host);
+    match base.strip_suffix("/api/v3") {
+        Some(server) => format!("{server}/api/graphql"),
+        None => format!("{base}/graphql"),
     }
 }
 
@@ -2192,7 +2213,7 @@ pub async fn pr_set_auto_merge(
     if h.provider != Provider::GitHub {
         return Err("Auto-Merge ist nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let gql_url = github_graphql_endpoint(&h.host);
 
@@ -2335,7 +2356,7 @@ pub async fn pr_review_threads(path: String, number: u64) -> Result<Vec<GhReview
     if h.provider != Provider::GitHub {
         return Ok(Vec::new());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let body = json!({
         "query": "query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { id isResolved comments(first: 100) { nodes { databaseId } } } } } } }",
@@ -2356,7 +2377,7 @@ pub async fn pr_resolve_thread(
     if h.provider != Provider::GitHub {
         return Err("Threads auflösen ist nur für GitHub verfügbar.".into());
     }
-    let cred = read_https_credential(&h.host)?;
+    let cred = credential(&h)?;
     let client = http_client()?;
     let query = if resolved {
         "mutation($id: ID!) { resolveReviewThread(input: { threadId: $id }) { thread { id isResolved } } }"

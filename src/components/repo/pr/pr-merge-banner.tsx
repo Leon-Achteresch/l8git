@@ -72,7 +72,8 @@ export function PrMergeBanner({
   onMergeMessageChange: (m: string) => void;
   onDeleteSourceBranchChange: (v: boolean) => void;
   onMerge: () => void;
-  onCheckout: () => void;
+  /** Omitted where there is no local clone (hub). */
+  onCheckout?: () => void;
   onReload: () => void;
 }) {
   const { t } = useTranslation();
@@ -148,16 +149,18 @@ export function PrMergeBanner({
               {t("prInspect.branchMaybeDeleteHint", { branch: detail.source_branch })}
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-[0.6875rem] rounded-lg shadow-xs"
-            onClick={onCheckout}
-            disabled={busy !== null}
-          >
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            {t("prInspect.checkoutVerb")}
-          </Button>
+          {onCheckout && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-[0.6875rem] rounded-lg shadow-xs"
+              onClick={onCheckout}
+              disabled={busy !== null}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {t("prInspect.checkoutVerb")}
+            </Button>
+          )}
         </div>
       </m.div>
     );
@@ -185,16 +188,18 @@ export function PrMergeBanner({
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 shrink-0 rounded-lg border-amber-500/40 bg-amber-500/15 text-[0.6875rem] font-medium text-amber-200 hover:bg-amber-500/25"
-            onClick={onCheckout}
-            disabled={busy !== null}
-          >
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            {t("prInspect.checkoutVerb")}
-          </Button>
+          {onCheckout && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 rounded-lg border-amber-500/40 bg-amber-500/15 text-[0.6875rem] font-medium text-amber-200 hover:bg-amber-500/25"
+              onClick={onCheckout}
+              disabled={busy !== null}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {t("prInspect.checkoutVerb")}
+            </Button>
+          )}
         </div>
       </m.div>
     );
@@ -221,16 +226,18 @@ export function PrMergeBanner({
               {t("prInspect.mergeConflictResolveHint", { branch: detail.target_branch })}
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 shrink-0 rounded-lg border-rose-500/40 bg-rose-500/15 text-[0.6875rem] font-medium text-rose-200 hover:bg-rose-500/25"
-            onClick={onCheckout}
-            disabled={busy !== null}
-          >
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            {t("prInspect.checkoutVerb")}
-          </Button>
+          {onCheckout && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 rounded-lg border-rose-500/40 bg-rose-500/15 text-[0.6875rem] font-medium text-rose-200 hover:bg-rose-500/25"
+              onClick={onCheckout}
+              disabled={busy !== null}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {t("prInspect.checkoutVerb")}
+            </Button>
+          )}
         </div>
       </m.div>
     );
@@ -257,16 +264,18 @@ export function PrMergeBanner({
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 rounded-lg text-[0.6875rem]"
-            onClick={onCheckout}
-            disabled={busy !== null}
-          >
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            {busy === "checkout" ? t("prInspect.checkoutBusy") : t("prInspect.checkoutVerb")}
-          </Button>
+          {onCheckout && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-lg text-[0.6875rem]"
+              onClick={onCheckout}
+              disabled={busy !== null}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {busy === "checkout" ? t("prInspect.checkoutBusy") : t("prInspect.checkoutVerb")}
+            </Button>
+          )}
         </div>
 
         {!protectionLoading && protection && protection.required_status_checks.length > 0 && (
@@ -386,16 +395,18 @@ export function PrMergeBanner({
     >
       <SpinIcon icon={Loader2} className="h-4 w-4 text-primary" />
       <span>{t("prInspect.checksMergeability")}</span>
-      <Button
-        variant="outline"
-        size="sm"
-        className="ml-auto h-7 text-[0.625rem] rounded-md"
-        onClick={onCheckout}
-        disabled={busy !== null}
-      >
-        <Download className="mr-1 h-3 w-3" />
-        {t("prInspect.checkoutVerb")}
-      </Button>
+      {onCheckout && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto h-7 text-[0.625rem] rounded-md"
+          onClick={onCheckout}
+          disabled={busy !== null}
+        >
+          <Download className="mr-1 h-3 w-3" />
+          {t("prInspect.checkoutVerb")}
+        </Button>
+      )}
     </m.div>
   );
 }

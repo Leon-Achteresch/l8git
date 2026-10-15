@@ -27,6 +27,10 @@ pub async fn dispatch(cmd: &str, args: Value, ctx: &DispatchCtx) -> Result<Value
         std::thread::sleep(std::time::Duration::from_millis(millis));
         return Ok(json!("slept"));
     }
+    // Hub tokens stay local-only: a remote client must not reach them via `hub:` paths.
+    if args["path"].as_str().is_some_and(|p| p.starts_with(crate::pr::HUB_PATH_PREFIX)) {
+        return Err("Hub-Konten sind nur lokal verfügbar".into());
+    }
     if let Some(result) = git::dispatch(cmd, args.clone(), ctx).await {
         return result;
     }
@@ -214,6 +218,13 @@ mod tests {
         assert_eq!(camel_case("_leading"), "leading");
         assert_eq!(camel_case("type_"), "type");
         assert_eq!(camel_case("repo__path"), "repoPath");
+    }
+
+    #[tokio::test]
+    async fn rejects_hub_paths_remotely() {
+        let (ctx, _rx) = ctx();
+        let err = dispatch("pr_detail", json!({ "path": "hub:alice@github.com/o/r", "number": 1 }), &ctx).await;
+        assert_eq!(err.unwrap_err(), "Hub-Konten sind nur lokal verfügbar");
     }
 
     #[tokio::test]

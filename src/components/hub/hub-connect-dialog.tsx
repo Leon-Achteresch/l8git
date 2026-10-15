@@ -19,6 +19,7 @@ type Choice = { id: string; provider: HubProviderId | null; host: string; label:
 
 const CHOICES: Choice[] = [
   { id: "github", provider: "github", host: "github.com", label: "GitHub" },
+  { id: "ghe", provider: "github", host: "", label: "GitHub Enterprise" },
   { id: "gitlab", provider: "gitlab", host: "gitlab.com", label: "GitLab" },
   { id: "bitbucket", provider: "bitbucket", host: "bitbucket.org", label: "Bitbucket" },
   { id: "custom", provider: null, host: "", label: "" },
@@ -50,7 +51,7 @@ export function HubConnectDialog({ open, onOpenChange }: { open: boolean; onOpen
   // Bumped on close so an in-flight poll cannot reschedule itself.
   const genRef = useRef(0);
 
-  const host = choice.id === "custom" ? customHost.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : choice.host;
+  const host = choice.host || customHost.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   const isGithub = choice.provider === "github" || (choice.id === "custom" && host.includes("github"));
 
   useEffect(() => {
@@ -86,7 +87,8 @@ export function HubConnectDialog({ open, onOpenChange }: { open: boolean; onOpen
         // Opens the credential manager's browser login when nothing is stored yet.
         await invoke("git_sign_in_via_credential_manager", { host });
       }
-      done(await connect(host, method, token, username));
+      // Only an explicit pick pins the provider; "custom" keeps host detection.
+      done(await connect(host, method, token, username, choice.id === "custom" ? undefined : (choice.provider ?? undefined)));
     } catch (e) {
       const msg = String(e);
       if (msg.includes("__GH_MISSING__")) {
@@ -154,7 +156,7 @@ export function HubConnectDialog({ open, onOpenChange }: { open: boolean; onOpen
           <DialogDescription>{t("hub.connect.lead")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-5 gap-1.5">
           {CHOICES.map((c) => (
             <button
               key={c.id}
@@ -172,10 +174,10 @@ export function HubConnectDialog({ open, onOpenChange }: { open: boolean; onOpen
           ))}
         </div>
 
-        {choice.id === "custom" && (
+        {!choice.host && (
           <div className="grid gap-1.5">
             <Label htmlFor="hub-host">{t("hub.connect.hostLabel")}</Label>
-            <Input id="hub-host" value={customHost} onChange={(e) => setCustomHost(e.target.value)} placeholder="git.example.com" spellCheck={false} />
+            <Input id="hub-host" value={customHost} onChange={(e) => setCustomHost(e.target.value)} placeholder={choice.id === "ghe" ? "github.example.com" : "git.example.com"} spellCheck={false} />
           </div>
         )}
 

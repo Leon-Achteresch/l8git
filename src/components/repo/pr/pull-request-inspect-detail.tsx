@@ -5,6 +5,7 @@ import { formatDate, formatRelative } from "@/lib/format";
 import { pickMergeStrategy } from "@/lib/pr-provider";
 import { usePrCapabilities } from "@/lib/pr-provider-store";
 import type { PullRequest } from "@/lib/repo-store";
+import { HUB_PATH_PREFIX } from "@/lib/hub/store";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ExternalLink,
@@ -324,7 +325,7 @@ export function PullRequestInspectDetail({
                 onMergeMessageChange={setMergeMessage}
                 onDeleteSourceBranchChange={setDeleteSourceBranch}
                 onMerge={doMerge}
-                onCheckout={doCheckout}
+                onCheckout={path.startsWith(HUB_PATH_PREFIX) ? undefined : doCheckout}
                 onReload={load}
               />
             </AnimatePresence>

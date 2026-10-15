@@ -27,11 +27,7 @@ fn github_api_base(host: &str) -> String {
     if crate::pr::detect_provider(host) == crate::pr::Provider::Gitea {
         return crate::pr::gitea_api_base(host);
     }
-    if host.eq_ignore_ascii_case("github.com") {
-        "https://api.github.com".to_string()
-    } else {
-        format!("https://{}/api/v3", host.trim_end_matches('/'))
-    }
+    crate::pr::github_api_base(host)
 }
 
 fn bitbucket_secret_likely_jwt(secret: &str) -> bool {

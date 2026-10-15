@@ -11,11 +11,11 @@ import { cn } from "@/lib/utils";
 
 import { langColor } from "./hub-viz";
 
-export type HubView = "home" | "inbox" | "prs" | "reviews" | "starred" | "repos" | "repo";
+export type HubView = "home" | "inbox" | "prs" | "reviews" | "starred" | "repos" | "repo" | "pr";
 
 export function useHubNav() {
   const navigate = useNavigate();
-  return (view: HubView, repo?: string) => void navigate({ to: "/hub", search: { view, repo } });
+  return (view: HubView, repo?: string, pr?: number) => void navigate({ to: "/hub", search: { view, repo, pr } });
 }
 
 export function openExternal(url: string) {
@@ -140,7 +140,7 @@ export function PrRow({ pr, showRepo, actions }: { pr: HubPr; showRepo?: boolean
         <PrGlyph state={glyphState} />
       </span>
       <div className="min-w-0 flex-1">
-        <button type="button" onClick={() => openExternal(pr.url)} className="block max-w-full truncate text-left hover:underline">
+        <button type="button" onClick={() => nav("pr", pr.repo, pr.number)} className="block max-w-full truncate text-left hover:underline">
           {pr.title}
         </button>
         <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">

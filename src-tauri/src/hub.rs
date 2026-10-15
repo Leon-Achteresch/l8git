@@ -6,7 +6,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::pr::{detect_provider, Provider};
+use crate::credentials::HttpsCredential;
+use crate::pr::{detect_provider, Provider, RemoteHandle};
 use crate::providers::http_client;
 use crate::secrets::{delete_secret, get_secret, set_secret};
 
@@ -28,6 +29,9 @@ struct StoredSecret {
     /// Imported from git's own credential store: git owns it, never erase it on disconnect.
     #[serde(default)]
     from_git: bool,
+    /// Chosen at connect time, so GitHub Enterprise works on any domain.
+    #[serde(default)]
+    provider: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -51,14 +55,20 @@ fn provider_for(host: &str) -> Result<Provider, String> {
     }
 }
 
+fn account_provider(host: &str, secret: &StoredSecret) -> Result<Provider, String> {
+    match secret.provider.as_deref().and_then(Provider::from_id) {
+        Some(p) => Ok(p),
+        None => provider_for(host),
+    }
+}
+
 fn secret_key(host: &str, login: &str) -> String {
     format!("hub:{host}:{login}")
 }
 
 fn api_base(host: &str, provider: Provider) -> String {
     match provider {
-        Provider::GitHub if host == "github.com" => "https://api.github.com".into(),
-        Provider::GitHub => format!("https://{host}/api/v3"),
+        Provider::GitHub => crate::pr::github_api_base(host),
         Provider::GitLab => format!("https://{host}/api/v4"),
         Provider::Bitbucket if host == "bitbucket.org" => "https://api.bitbucket.org/2.0".into(),
         Provider::Bitbucket => format!("https://{host}/rest/api/1.0"),
@@ -75,8 +85,8 @@ fn api_url(host: &str, provider: Provider, path: &str) -> Result<String, String>
     {
         return Err("Ungültiger API-Pfad".into());
     }
-    if provider == Provider::GitHub && path == "/graphql" && host != "github.com" {
-        return Ok(format!("https://{host}/api/graphql"));
+    if provider == Provider::GitHub && path == "/graphql" {
+        return Ok(crate::pr::github_graphql_endpoint(host));
     }
     Ok(format!("{}{path}", api_base(host, provider)))
 }
@@ -169,6 +179,34 @@ fn load_secret(host: &str, login: &str) -> Result<StoredSecret, String> {
     let raw = get_secret(&secret_key(host, login))?
         .ok_or_else(|| format!("Kein Token für {login}@{host}. Bitte erneut verbinden."))?;
     serde_json::from_str(&raw).map_err(|e| e.to_string())
+}
+
+/// `login@host/owner/repo` → that hub account's repo, for the shared PR commands.
+pub(crate) fn remote_handle(spec: &str) -> Result<RemoteHandle, String> {
+    let bad = || format!("Ungültiges Hub-Repo: {spec}");
+    let (login, rest) = spec.split_once('@').ok_or_else(bad)?;
+    let (host, full) = rest.split_once('/').ok_or_else(bad)?;
+    let host = norm_host(host)?;
+    let segs: Vec<&str> = full.split('/').collect();
+    let unsafe_seg = |s: &&str| {
+        s.is_empty() || *s == "." || *s == ".." || s.contains(['?', '#', '%', '\\']) || s.contains(char::is_whitespace)
+    };
+    if login.is_empty() || login.contains('/') || segs.len() < 2 || segs.iter().any(unsafe_seg) {
+        return Err(bad());
+    }
+    let provider = account_provider(&host, &load_secret(&host, login)?)?;
+    Ok(RemoteHandle {
+        host,
+        provider,
+        owner: segs[0].to_string(),
+        repo: segs[1..].join("/"),
+        account: Some(login.to_string()),
+    })
+}
+
+pub(crate) fn credential(host: &str, login: &str) -> Result<HttpsCredential, String> {
+    let s = load_secret(host, login)?;
+    Ok(HttpsCredential { username: s.username, password: s.token })
 }
 
 async fn viewer(host: &str, provider: Provider, secret: &StoredSecret) -> Result<HubAccount, String> {
@@ -278,9 +316,14 @@ pub async fn hub_connect(
     method: String,
     token: Option<String>,
     username: Option<String>,
+    provider: Option<String>,
 ) -> Result<Vec<HubAccount>, String> {
     let host = norm_host(&host)?;
-    let provider = provider_for(&host)?;
+    let provider = match provider.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
+        Some(id) => Provider::from_id(id).ok_or_else(|| format!("Unbekannter Anbieter {id}"))?,
+        None => provider_for(&host)?,
+    };
+    let chosen = Some(provider.as_str().to_string());
     let secrets: Vec<StoredSecret> = match method.as_str() {
         "token" => {
             let token = token.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
@@ -288,6 +331,7 @@ pub async fn hub_connect(
                 token: token.ok_or("Token darf nicht leer sein")?,
                 username: username.map(|u| u.trim().to_string()).filter(|u| !u.is_empty()),
                 from_git: false,
+                provider: chosen,
             }]
         }
         "gh" => {
@@ -296,7 +340,7 @@ pub async fn hub_connect(
                 .await
                 .map_err(|e| e.to_string())??
                 .into_iter()
-                .map(|token| StoredSecret { token, username: None, from_git: false })
+                .map(|token| StoredSecret { token, username: None, from_git: false, provider: chosen.clone() })
                 .collect()
         }
         "git" => {
@@ -310,6 +354,7 @@ pub async fn hub_connect(
                 token: cred.password,
                 username: if provider == Provider::Bitbucket { cred.username } else { None },
                 from_git: true,
+                provider: chosen,
             }]
         }
         other => return Err(format!("Unbekannte Anmeldemethode {other}")),
@@ -365,11 +410,11 @@ pub async fn hub_api(
     body: Option<Value>,
 ) -> Result<HubResponse, String> {
     let host = norm_host(&host)?;
-    let provider = provider_for(&host)?;
     let (h, l) = (host.clone(), login);
     let secret = tokio::task::spawn_blocking(move || load_secret(&h, &l))
         .await
         .map_err(|e| e.to_string())??;
+    let provider = account_provider(&host, &secret)?;
     send(&host, provider, &secret, &method, &path, body).await
 }
 
@@ -446,7 +491,12 @@ pub async fn hub_oauth_poll(device_code: String) -> Result<OauthPoll, String> {
     )
     .await?;
     if let Some(token) = v["access_token"].as_str() {
-        let secret = StoredSecret { token: token.to_string(), username: None, from_git: false };
+        let secret = StoredSecret {
+            token: token.to_string(),
+            username: None,
+            from_git: false,
+            provider: Some(Provider::GitHub.as_str().into()),
+        };
         let account = store_account("github.com", Provider::GitHub, secret).await?;
         return Ok(OauthPoll { account: Some(account), slow_down: false });
     }
@@ -469,11 +519,17 @@ mod tests {
         let gh = Provider::GitHub;
         assert_eq!(api_url("github.com", gh, "/user").unwrap(), "https://api.github.com/user");
         assert_eq!(api_url("ghe.acme.io", gh, "/graphql").unwrap(), "https://ghe.acme.io/api/graphql");
+        assert_eq!(api_url("ghe.acme.io", gh, "/user").unwrap(), "https://ghe.acme.io/api/v3/user");
+        assert_eq!(api_url("octo.ghe.com", gh, "/user").unwrap(), "https://api.octo.ghe.com/user");
+        assert_eq!(api_url("octo.ghe.com", gh, "/graphql").unwrap(), "https://api.octo.ghe.com/graphql");
         for bad in ["user", "//evil.com/x", "/x/../../y", "/a?u=http://evil", "/a\\b"] {
             assert!(api_url("github.com", gh, bad).is_err(), "{bad}");
         }
         assert!(norm_host("evil.com/x").is_err());
         assert!(norm_host("a@b").is_err());
+        for bad in ["alice", "alice@github.com/x", "@github.com/o/r", "alice@github.com/o/../r", "alice@github.com/o/r?x", "alice@github.com//r"] {
+            assert!(remote_handle(bad).is_err(), "{bad}");
+        }
     }
 
     #[test]
