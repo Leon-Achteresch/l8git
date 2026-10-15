@@ -1,107 +1,29 @@
-import {
-  filterForest,
-  flattenRepoPaths,
-  flattenVisibleKeys,
-  useRepoGroupsStore,
-} from "@/lib/repo-groups-store";
 import { useRepoStore } from "@/lib/repo-store";
-import { useWorkspaceStore } from "@/lib/workspace-store";
-import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  horizontalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AddRepoButton } from "./add-repo-button";
 import { ForestNodes } from "./repo-group";
+import { RepoStripStyleContext } from "./repo-strip-style";
 import { RepoTabPicker } from "./repo-tab-picker";
 import { RepoWorkspaceSwitch } from "./repo-workspace-switch";
+import { RepoForestDnd, useRepoForest } from "./use-repo-forest";
 import { m } from "motion/react";
 
-
-export function RepoTabBar() {
-  const { paths, activePath, activeLoading } = useRepoStore(
+export function RepoTabBar({
+  variant = "classic",
+  withWorkspaceSwitch = true,
+}: {
+  variant?: "classic" | "labeled" | "flat";
+  withWorkspaceSwitch?: boolean;
+}) {
+  const { activePath, activeLoading } = useRepoStore(
     useShallow((s) => ({
-      paths: s.paths,
       activePath: s.activePath,
       activeLoading: s.activePath ? !!s.loading[s.activePath] : false,
     })),
   );
-
-
-  const forest = useRepoGroupsStore((s) => s.forest);
-  const moveNodeRelativeTo = useRepoGroupsStore((s) => s.moveNodeRelativeTo);
-
-  const { workspaces, activeWorkspaceId } = useWorkspaceStore(
-    useShallow((s) => ({
-      workspaces: s.workspaces,
-      activeWorkspaceId: s.activeWorkspaceId,
-    })),
-  );
-
-  const prevPathsRef = useRef<string[] | null>(null);
-  useEffect(() => {
-    const {
-      initDefaultWorkspace,
-      addRepoToActiveWorkspace,
-      removeRepoFromAllWorkspaces,
-    } = useWorkspaceStore.getState();
-
-    if (prevPathsRef.current === null) {
-      initDefaultWorkspace(paths);
-      prevPathsRef.current = paths;
-      return;
-    }
-
-    const prevPaths = prevPathsRef.current;
-    prevPathsRef.current = paths;
-    paths
-      .filter((p) => !prevPaths.includes(p))
-      .forEach(addRepoToActiveWorkspace);
-    prevPaths
-      .filter((p) => !paths.includes(p))
-      .forEach(removeRepoFromAllWorkspaces);
-  }, [paths]);
-
-  useEffect(() => {
-    useRepoGroupsStore.getState().reconcile(paths);
-  }, [paths]);
-
-  useEffect(() => {
-    useRepoGroupsStore.getState().syncCollapseToActive(activePath);
-  }, [activePath]);
-
-  const filteredForest = useMemo(() => {
-    const activeRepoPaths =
-      workspaces.find((w) => w.id === activeWorkspaceId)?.repoPaths ?? [];
-    const allowed = new Set(paths.filter((p) => activeRepoPaths.includes(p)));
-    return filterForest(forest, allowed);
-  }, [forest, paths, workspaces, activeWorkspaceId]);
-
-  const sortableKeys = useMemo(
-    () => flattenVisibleKeys(filteredForest),
-    [filteredForest],
-  );
-
-  const pickerPaths = useMemo(
-    () => flattenRepoPaths(filteredForest),
-    [filteredForest],
-  );
+  const { filteredForest, sortableKeys, pickerPaths } = useRepoForest();
 
   const stripRef = useRef<HTMLDivElement | null>(null);
   const [overflowing, setOverflowing] = useState(false);
@@ -136,19 +58,6 @@ export function RepoTabBar() {
     };
   }, [filteredForest, activePath]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      moveNodeRelativeTo(String(active.id), String(over.id));
-    },
-    [moveNodeRelativeTo],
-  );
-
   return (
     <div className="relative flex min-w-0 flex-1 items-stretch self-stretch">
       {activePath && activeLoading && (
@@ -165,30 +74,28 @@ export function RepoTabBar() {
       )}
 
       <div className="flex min-w-0 flex-1 items-stretch gap-1.5 pr-1">
-        <div
-          className="flex shrink-0 items-center"
-          style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
-        >
-          <RepoWorkspaceSwitch />
-        </div>
+        {withWorkspaceSwitch && (
+          <div
+            className="flex shrink-0 items-center"
+            style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+          >
+            <RepoWorkspaceSwitch />
+          </div>
+        )}
         <div
           ref={stripRef}
           data-tauri-drag-region
           style={{ WebkitAppRegion: "drag" } as CSSProperties}
-          className="relative flex min-w-0 flex-1 items-stretch gap-1 self-stretch overflow-x-auto overflow-y-hidden pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={cn(
+            "relative flex min-w-0 flex-1 items-stretch gap-1 self-stretch overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            variant !== "flat" && "pt-1",
+          )}
         >
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={sortableKeys}
-              strategy={horizontalListSortingStrategy}
-            >
+          <RepoStripStyleContext.Provider value={variant}>
+            <RepoForestDnd sortableKeys={sortableKeys}>
               <ForestNodes nodes={filteredForest} activePath={activePath} />
-            </SortableContext>
-          </DndContext>
+            </RepoForestDnd>
+          </RepoStripStyleContext.Provider>
         </div>
         <div
           className="flex shrink-0 items-center gap-1"

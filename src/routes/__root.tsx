@@ -12,7 +12,7 @@ const AppUpdateDialog = lazy(() =>
   })),
 );
 
-import { AppHeader } from "@/components/app/app-header";
+import { AppShell } from "@/components/app/shell/app-shell";
 import { RouteErrorBoundary } from "@/components/app/route-error-boundary";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -94,25 +94,26 @@ function RootLayout() {
         >
           Skip to content
         </a>
-        <AppHeader />
         <ContextReviewDialog />
-        <main
-          id="main-content"
-          className={`min-h-0 flex-1 bg-background ${(pathname === "/settings" || pathname === "/hub") ? "overflow-hidden" : "overflow-y-auto"}`}
-          tabIndex={-1}
-        >
-          <m.div
-            key={pathname}
-            className={(pathname === "/settings" || pathname === "/hub") ? "h-full min-h-0 overflow-hidden" : "h-full"}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={easeOutSoft}
+        <AppShell>
+          <main
+            id="main-content"
+            className={`min-h-0 flex-1 bg-background ${(pathname === "/settings" || pathname === "/hub") ? "overflow-hidden" : "overflow-y-auto"}`}
+            tabIndex={-1}
           >
-            <RouteErrorBoundary resetKey={pathname}>
-              <Outlet />
-            </RouteErrorBoundary>
-          </m.div>
-        </main>
+            <m.div
+              key={pathname}
+              className={(pathname === "/settings" || pathname === "/hub") ? "h-full min-h-0 overflow-hidden" : "h-full"}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={easeOutSoft}
+            >
+              <RouteErrorBoundary resetKey={pathname}>
+                <Outlet />
+              </RouteErrorBoundary>
+            </m.div>
+          </main>
+        </AppShell>
         <Toaster />
         {reflogViewPath && (
           <Suspense fallback={null}>

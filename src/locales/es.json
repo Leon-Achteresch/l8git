@@ -4407,5 +4407,56 @@
       "title": "Todas tus cuentas de Git en un solo lugar",
       "body": "Conecta GitHub, GitLab o Bitbucket — tantas cuentas como quieras, cambia con un clic. Pull requests, revisiones, releases, CI, issues y forks sin abrir el navegador."
     }
+  },
+  "shellLayout": {
+    "title": "Diseño de ventana",
+    "desc": "Elige cómo se organizan los repositorios y la navegación alrededor de tu trabajo.",
+    "default": "Predeterminado",
+    "active": "Activo",
+    "repoCount_one": "{{count}} repositorio",
+    "repoCount_other": "{{count}} repositorios",
+    "noRepo": "Ningún repositorio",
+    "repositories": "Repositorios",
+    "exposeRepos": "Repositorios",
+    "exposeOpen": "Mostrar todos los repositorios",
+    "exposeAll": "Todos ({{count}})",
+    "ahead_one": "{{count}} por enviar",
+    "ahead_other": "{{count}} por enviar",
+    "behind_one": "{{count}} por traer",
+    "behind_other": "{{count}} por traer",
+    "layouts": {
+      "rail": {
+        "name": "Barra de repos",
+        "desc": "Repos como avatares en una barra estrecha a la izquierda, como Discord o Slack."
+      },
+      "classic": {
+        "name": "Clásico",
+        "desc": "Pestañas de repos, búsqueda y navegación comparten una fila."
+      },
+      "twoRow": {
+        "name": "Dos filas",
+        "desc": "Barra de la app arriba y pestañas de repos con nombre debajo."
+      },
+      "breadcrumb": {
+        "name": "Ruta",
+        "desc": "Espacio / repo / rama como ruta con selectores con búsqueda."
+      },
+      "activityBar": {
+        "name": "Barra de actividad",
+        "desc": "Navegación en una barra lateral estilo VS Code; la cabecera es para las pestañas."
+      },
+      "sidebar": {
+        "name": "Barra lateral",
+        "desc": "Una barra lateral para espacio, búsqueda, navegación y repos."
+      },
+      "expose": {
+        "name": "Vista general",
+        "desc": "Repo activo y recientes en la cabecera, el resto en una vista de tarjetas."
+      },
+      "statusBar": {
+        "name": "Barra de estado",
+        "desc": "Pestañas planas arriba; navegación y estado de la rama abajo."
+      }
+    }
   }
 }

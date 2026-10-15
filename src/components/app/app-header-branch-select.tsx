@@ -30,7 +30,7 @@ function cmpBranches(a: Branch, b: Branch) {
   });
 }
 
-export function AppHeaderBranchSelect() {
+export function AppHeaderBranchSelect({ className }: { className?: string } = {}) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const { activePath, repo, repoLoading } = useRepoStore(
@@ -96,6 +96,7 @@ export function AppHeaderBranchSelect() {
             disabled
               ? "cursor-default opacity-50"
               : "cursor-pointer hover:bg-muted/50",
+            className,
           )}
         >
           <GitBranch

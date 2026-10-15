@@ -4407,5 +4407,56 @@
       "title": "すべての Git アカウントをひとつの場所に",
       "body": "GitHub、GitLab、Bitbucket を接続 — アカウントはいくつでも、ワンクリックで切り替え。プルリクエスト、レビュー、リリース、CI、Issue、フォークをブラウザーを開かずに。"
     }
+  },
+  "shellLayout": {
+    "title": "ウィンドウレイアウト",
+    "desc": "リポジトリとナビゲーションの配置を選択します。",
+    "default": "デフォルト",
+    "active": "使用中",
+    "repoCount_one": "{{count}} 個のリポジトリ",
+    "repoCount_other": "{{count}} 個のリポジトリ",
+    "noRepo": "リポジトリなし",
+    "repositories": "リポジトリ",
+    "exposeRepos": "リポジトリ",
+    "exposeOpen": "すべてのリポジトリを表示",
+    "exposeAll": "すべて ({{count}})",
+    "ahead_one": "プッシュ待ち {{count}}",
+    "ahead_other": "プッシュ待ち {{count}}",
+    "behind_one": "プル待ち {{count}}",
+    "behind_other": "プル待ち {{count}}",
+    "layouts": {
+      "rail": {
+        "name": "リポジトリレール",
+        "desc": "Discord や Slack のように、左の細いバーにリポジトリをアバターで表示します。"
+      },
+      "classic": {
+        "name": "クラシック",
+        "desc": "タブ・検索・ナビゲーションを 1 行にまとめます。"
+      },
+      "twoRow": {
+        "name": "2 段",
+        "desc": "上にアプリバー、その下に名前付きのリポジトリタブを全幅で表示します。"
+      },
+      "breadcrumb": {
+        "name": "パンくず",
+        "desc": "ワークスペース / リポジトリ / ブランチを検索可能なパスで表示します。"
+      },
+      "activityBar": {
+        "name": "アクティビティバー",
+        "desc": "VS Code 風の左バーにナビゲーション、ヘッダーはタブ専用です。"
+      },
+      "sidebar": {
+        "name": "サイドバー",
+        "desc": "ワークスペース・検索・ナビゲーション・リポジトリを 1 つのサイドバーに。"
+      },
+      "expose": {
+        "name": "一覧",
+        "desc": "アクティブと最近のリポジトリをヘッダーに、その他はカード一覧で表示します。"
+      },
+      "statusBar": {
+        "name": "ステータスバー",
+        "desc": "上にフラットなタブ、下のバーにナビゲーションとブランチ状態を表示します。"
+      }
+    }
   }
 }

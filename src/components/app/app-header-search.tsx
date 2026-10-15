@@ -84,6 +84,7 @@ import { toastError } from "@/lib/error-toast";
 import { useEverTrue } from "@/lib/use-ever-true";
 import { useCommitPrefs } from "@/lib/commit-prefs";
 import { useHotkeyBindings } from "@/lib/hotkey-prefs";
+import { cn } from "@/lib/utils";
 import i18n from "@/lib/i18n";
 import { useRepoStore } from "@/lib/repo-store";
 import { useRecentRepos } from "@/lib/recent-repos";
@@ -161,7 +162,12 @@ type ActionItem = {
   keywords?: string;
 };
 
-export function AppHeaderSearch() {
+export function AppHeaderSearch({
+  variant = "pill",
+}: {
+  /** pill: compact header pill · wide: full-width field · icon: icon-only button */
+  variant?: "pill" | "wide" | "icon";
+} = {}) {
   const { t, i18n: translation } = useTranslation();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -1063,15 +1069,34 @@ export function AppHeaderSearch() {
         style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
         aria-label={t("appSearch.triggerPlaceholder")}
         title={`${t("appSearch.triggerPlaceholder")} (${MOD_KEY}K)`}
-        className="h-7 max-w-[220px] gap-2 rounded-full border border-border/60 bg-muted/40 px-2.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        className={cn(
+          "gap-2 text-muted-foreground hover:bg-muted hover:text-foreground",
+          variant === "pill" && "h-7 max-w-[220px] rounded-full border border-border/60 bg-muted/40 px-2.5",
+          variant === "wide" && "h-8 w-full max-w-[380px] justify-start rounded-xl border border-border/50 bg-foreground/[0.035] px-2.5",
+          variant === "icon" && "size-8 rounded-xl p-0",
+        )}
       >
-        <Search className="size-3.5" strokeWidth={1.75} />
-        <span className="hidden min-w-0 truncate text-[0.6875rem] font-normal lg:inline">
-          {t("appSearch.triggerPlaceholder")}
-        </span>
-        <kbd className="hidden rounded-md bg-background/80 px-1 py-px font-sans text-[0.625rem] text-muted-foreground/80 lg:inline">
-          {MOD_KEY}K
-        </kbd>
+        <Search className="size-3.5 shrink-0" strokeWidth={1.75} />
+        {variant !== "icon" && (
+          <>
+            <span
+              className={cn(
+                "min-w-0 truncate text-[0.6875rem] font-normal",
+                variant === "pill" ? "hidden lg:inline" : "flex-1 text-left text-xs",
+              )}
+            >
+              {t("appSearch.triggerPlaceholder")}
+            </span>
+            <kbd
+              className={cn(
+                "rounded-md bg-background/80 px-1 py-px font-sans text-[0.625rem] text-muted-foreground/80",
+                variant === "pill" ? "hidden lg:inline" : "ms-auto shrink-0",
+              )}
+            >
+              {MOD_KEY}K
+            </kbd>
+          </>
+        )}
       </Button>
 
       {/* ── Command dialog ───────────────────────────────────────────────────── */}

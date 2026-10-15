@@ -4407,5 +4407,56 @@
       "title": "All your Git accounts in one place",
       "body": "Connect GitHub, GitLab or Bitbucket — as many accounts as you like, switch with one click. Pull requests, reviews, releases, CI, issues and forks without opening a browser."
     }
+  },
+  "shellLayout": {
+    "title": "Window layout",
+    "desc": "Choose how repositories and navigation are arranged around your work.",
+    "default": "Default",
+    "active": "Active",
+    "repoCount_one": "{{count}} repository",
+    "repoCount_other": "{{count}} repositories",
+    "noRepo": "No repository",
+    "repositories": "Repositories",
+    "exposeRepos": "Repositories",
+    "exposeOpen": "Show all repositories",
+    "exposeAll": "All {{count}}",
+    "ahead_one": "{{count}} to push",
+    "ahead_other": "{{count}} to push",
+    "behind_one": "{{count}} to pull",
+    "behind_other": "{{count}} to pull",
+    "layouts": {
+      "rail": {
+        "name": "Repo rail",
+        "desc": "Repos as avatars in a slim rail on the left, like Discord or Slack. Scales to any number of repos."
+      },
+      "classic": {
+        "name": "Classic",
+        "desc": "Repo tabs, search and navigation share one header row."
+      },
+      "twoRow": {
+        "name": "Two rows",
+        "desc": "App bar on top, full-width labeled repo tabs underneath."
+      },
+      "breadcrumb": {
+        "name": "Breadcrumb",
+        "desc": "Workspace / repo / branch as a calm path with searchable switchers."
+      },
+      "activityBar": {
+        "name": "Activity bar",
+        "desc": "Navigation in a VS Code-style bar on the left, the header belongs to the repo tabs."
+      },
+      "sidebar": {
+        "name": "Sidebar",
+        "desc": "One sidebar for workspace, search, navigation and all repos."
+      },
+      "expose": {
+        "name": "Overview",
+        "desc": "Active and recent repos in the header, all others in a card overview."
+      },
+      "statusBar": {
+        "name": "Status bar",
+        "desc": "Flat repo tabs on top, navigation and branch status in a bottom bar."
+      }
+    }
   }
 }

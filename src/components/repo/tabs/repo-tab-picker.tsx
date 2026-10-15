@@ -5,18 +5,23 @@ import { useWorkspaceStore } from "@/lib/workspace-store";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@tanstack/react-router";
 import { ChevronsUpDown, Layers, Search, X } from "lucide-react";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
 export function RepoTabPicker({
   paths,
   activePath,
-  overflowing,
+  overflowing = false,
+  trigger,
+  align = "end",
 }: {
   paths: string[];
   activePath: string | null;
-  overflowing: boolean;
+  overflowing?: boolean;
+  /** Custom trigger element; when set the picker is shown even for a single repo. */
+  trigger?: ReactNode;
+  align?: "start" | "end";
 }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -41,7 +46,7 @@ export function RepoTabPicker({
     });
   }, [paths, query]);
 
-  if (paths.length < 2) return null;
+  if (!trigger && paths.length < 2) return null;
 
   const select = (path: string) => {
     useRepoStore.getState().setActive(path);
@@ -76,7 +81,7 @@ export function RepoTabPicker({
       }}
     >
       <PopoverTrigger asChild>
-        <button
+        {trigger ?? <button
           type="button"
           title={t("repoTabPicker.openAria")}
           aria-label={t("repoTabPicker.openAria")}
@@ -93,10 +98,10 @@ export function RepoTabPicker({
               {paths.length}
             </span>
           )}
-        </button>
+        </button>}
       </PopoverTrigger>
       <PopoverContent
-        align="end"
+        align={align}
         sideOffset={6}
         className="w-[280px] gap-0 overflow-hidden p-0"
       >

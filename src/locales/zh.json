@@ -4407,5 +4407,56 @@
       "title": "所有 Git 账户集中一处",
       "body": "连接 GitHub、GitLab 或 Bitbucket——账户数量不限，一键切换。无需打开浏览器即可处理拉取请求、审查、发布、CI、议题和复刻。"
     }
+  },
+  "shellLayout": {
+    "title": "窗口布局",
+    "desc": "选择仓库和导航在工作区周围的排列方式。",
+    "default": "默认",
+    "active": "当前",
+    "repoCount_one": "{{count}} 个仓库",
+    "repoCount_other": "{{count}} 个仓库",
+    "noRepo": "没有仓库",
+    "repositories": "仓库",
+    "exposeRepos": "仓库",
+    "exposeOpen": "显示所有仓库",
+    "exposeAll": "全部 ({{count}})",
+    "ahead_one": "待推送 {{count}}",
+    "ahead_other": "待推送 {{count}}",
+    "behind_one": "待拉取 {{count}}",
+    "behind_other": "待拉取 {{count}}",
+    "layouts": {
+      "rail": {
+        "name": "仓库侧栏",
+        "desc": "像 Discord 或 Slack 一样，在左侧窄栏中以头像显示仓库。"
+      },
+      "classic": {
+        "name": "经典",
+        "desc": "仓库标签、搜索和导航共用一行。"
+      },
+      "twoRow": {
+        "name": "双行",
+        "desc": "上方为应用栏，下方为全宽带名称的仓库标签。"
+      },
+      "breadcrumb": {
+        "name": "面包屑",
+        "desc": "工作区 / 仓库 / 分支以路径显示，并带可搜索的切换器。"
+      },
+      "activityBar": {
+        "name": "活动栏",
+        "desc": "导航位于 VS Code 风格的左侧栏，标题栏只放仓库标签。"
+      },
+      "sidebar": {
+        "name": "侧边栏",
+        "desc": "一个侧边栏容纳工作区、搜索、导航和所有仓库。"
+      },
+      "expose": {
+        "name": "总览",
+        "desc": "标题栏显示当前和最近的仓库，其余仓库以卡片总览显示。"
+      },
+      "statusBar": {
+        "name": "状态栏",
+        "desc": "顶部为扁平标签，底部栏显示导航和分支状态。"
+      }
+    }
   }
 }
