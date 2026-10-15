@@ -6,6 +6,17 @@ export type RepoTerminalKind = "default" | "git_bash";
 export type PushForceMode = "none" | "lease" | "force";
 export type PushTagsMode = "none" | "follow" | "all";
 export type PullStrategy = "merge" | "rebase" | "ff-only" | "autostash";
+export const SHELL_LAYOUTS = [
+  "rail",
+  "classic",
+  "twoRow",
+  "breadcrumb",
+  "activityBar",
+  "sidebar",
+  "expose",
+  "statusBar",
+] as const;
+export type ShellLayout = (typeof SHELL_LAYOUTS)[number];
 
 type WorkspacePrefs = {
   ideLaunchCommand: string;
@@ -30,6 +41,8 @@ type WorkspacePrefs = {
   setPullStrategy: (value: PullStrategy) => void;
   previewAiContext: boolean;
   setPreviewAiContext: (value: boolean) => void;
+  shellLayout: ShellLayout;
+  setShellLayout: (value: ShellLayout) => void;
   navLabels: boolean;
   setNavLabels: (value: boolean) => void;
   uiDensity: "compact" | "comfortable";
@@ -69,6 +82,8 @@ export const useWorkspacePrefs = create<WorkspacePrefs>()(
       setPullStrategy: (pullStrategy) => set({ pullStrategy }),
       previewAiContext: true,
       setPreviewAiContext: (previewAiContext) => set({ previewAiContext }),
+      shellLayout: "rail" as ShellLayout,
+      setShellLayout: (shellLayout) => set({ shellLayout }),
       navLabels: true,
       setNavLabels: (navLabels) => set({ navLabels }),
       uiDensity: "comfortable",

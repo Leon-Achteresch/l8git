@@ -24,7 +24,8 @@ import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { RepoGroupDialog } from "./repo-group-dialog";
-import { RepoTab } from "./repo-tab";
+import { isVerticalStrip, useRepoStripStyle } from "./repo-strip-style";
+import { RepoTab, type RepoTabVariant } from "./repo-tab";
 import { RepoWorkspaceMoveActions } from "./repo-workspace-move-actions";
 
 function nodeContainsActive(node: ForestNode, activePath: string | null) {
@@ -43,6 +44,11 @@ export function ForestNodes({
   activePath: string | null;
   nested?: boolean;
 }) {
+  const style = useRepoStripStyle();
+  const vertical = isVerticalStrip(style);
+  const topVariant: RepoTabVariant =
+    style === "classic" ? "bar" : style;
+  const showSeparators = !nested && (style === "classic" || style === "labeled");
   return (
     <>
       {nodes.map((node, i) => {
@@ -53,7 +59,7 @@ export function ForestNodes({
           (prevNode !== null && nodeContainsActive(prevNode, activePath));
         return (
           <Fragment key={key}>
-            {i > 0 && !nested && (
+            {i > 0 && showSeparators && (
               <span
                 data-tab-sep
                 className={cn(
@@ -69,7 +75,7 @@ export function ForestNodes({
                 path={node.path}
                 label={repoLabel(node.path)}
                 active={node.path === activePath}
-                variant={nested ? "group" : "bar"}
+                variant={nested && !vertical ? "group" : topVariant}
               />
             ) : (
               <RepoGroup group={node} activePath={activePath} />
@@ -112,6 +118,143 @@ function RepoGroup({
   const collapsed = group.collapsed;
 
   const tint = `hsl(${group.hue} 60% 50%)`;
+  const style = useRepoStripStyle();
+
+  const menuContent = (
+          <ContextMenuContent>
+            <ContextMenuItem onSelect={() => toggleCollapse(group.id)}>
+              {collapsed ? (
+                <FolderOpen className="h-3.5 w-3.5" />
+              ) : (
+                <FolderClosed className="h-3.5 w-3.5" />
+              )}
+              {collapsed ? t("repoGroup.expand") : t("repoGroup.collapse")}
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => setRenameOpen(true)}>
+              <Pencil className="h-3.5 w-3.5" />
+              {t("repoGroup.rename")}
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => setSubgroupOpen(true)}>
+              <FolderPlus className="h-3.5 w-3.5" />
+              {t("repoGroup.newSubgroup")}
+            </ContextMenuItem>
+            <RepoWorkspaceMoveActions paths={groupRepoPaths(group)} />
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              variant="destructive"
+              onSelect={() => deleteGroup(group.id)}
+            >
+              <Ungroup className="h-3.5 w-3.5" />
+              {t("repoGroup.dissolve")}
+            </ContextMenuItem>
+          </ContextMenuContent>
+  );
+
+  const dialogs = (
+    <>
+      <RepoGroupDialog
+        open={renameOpen}
+        mode="rename"
+        initialName={group.name}
+        onSubmit={(name) => renameGroup(group.id, name)}
+        onClose={() => setRenameOpen(false)}
+      />
+      <RepoGroupDialog
+        open={subgroupOpen}
+        mode="subgroup"
+        onSubmit={(name) => createSubgroup(group.id, name)}
+        onClose={() => setSubgroupOpen(false)}
+      />
+    </>
+  );
+
+  if (isVerticalStrip(style)) {
+    const rail = style === "rail";
+    const FolderIcon = collapsed ? FolderClosed : FolderOpen;
+    return (
+      <>
+        <div
+          ref={setNodeRef}
+          style={{
+            transform: CSS.Transform.toString(transform),
+            backgroundColor: rail ? `hsl(${group.hue} 50% 50% / 0.08)` : undefined,
+          }}
+          className={cn(
+            "flex shrink-0 touch-none select-none flex-col",
+            rail ? "items-center gap-1.5 rounded-2xl p-1" : "w-full gap-0.5",
+            isDragging && "z-10 opacity-40",
+          )}
+        >
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <button
+                type="button"
+                onClick={() => toggleCollapse(group.id)}
+                title={group.name}
+                aria-label={group.name}
+                aria-expanded={!collapsed}
+                {...attributes}
+                {...listeners}
+                className={cn(
+                  "relative flex shrink-0 cursor-pointer items-center transition-colors duration-150 hover:bg-foreground/[0.06]",
+                  rail
+                    ? "size-10 justify-center rounded-xl"
+                    : "h-7 w-full gap-1.5 rounded-lg px-2 text-left text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground",
+                )}
+              >
+                {rail ? (
+                  <>
+                    <FolderIcon className="size-5" style={{ color: tint }} aria-hidden />
+                    {collapsed && (
+                      <span
+                        className="absolute -right-0.5 -bottom-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[0.5625rem] font-bold tabular-nums ring-2 ring-sidebar"
+                        style={{
+                          color: `hsl(${group.hue} 55% 30%)`,
+                          backgroundColor: `hsl(${group.hue} 60% 80%)`,
+                        }}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <ChevronRight
+                      className={cn("size-3 shrink-0 transition-transform duration-200", !collapsed && "rotate-90")}
+                      style={{ color: tint }}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1 truncate">{group.name}</span>
+                    {hasActive && collapsed && <span className="size-1.5 rounded-full bg-foreground/60" aria-hidden />}
+                    <span className="font-mono text-[0.625rem] tabular-nums">{count}</span>
+                  </>
+                )}
+              </button>
+            </ContextMenuTrigger>
+            {menuContent}
+          </ContextMenu>
+          <AnimatePresence initial={false}>
+            {!collapsed && (
+              <m.div
+                key="children"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={expandSpring}
+                className={cn(
+                  "flex flex-col overflow-hidden",
+                  rail ? "items-center gap-1.5" : "gap-0.5 pl-2",
+                )}
+              >
+                <ForestNodes nodes={group.children} activePath={activePath} nested />
+              </m.div>
+            )}
+          </AnimatePresence>
+        </div>
+        {dialogs}
+      </>
+    );
+  }
   const containerStyle = {
     transform: CSS.Transform.toString(transform),
     borderColor: hasActive
@@ -241,33 +384,7 @@ function RepoGroup({
               </span>
             </button>
           </ContextMenuTrigger>
-          <ContextMenuContent>
-            <ContextMenuItem onSelect={() => toggleCollapse(group.id)}>
-              {collapsed ? (
-                <FolderOpen className="h-3.5 w-3.5" />
-              ) : (
-                <FolderClosed className="h-3.5 w-3.5" />
-              )}
-              {collapsed ? t("repoGroup.expand") : t("repoGroup.collapse")}
-            </ContextMenuItem>
-            <ContextMenuItem onSelect={() => setRenameOpen(true)}>
-              <Pencil className="h-3.5 w-3.5" />
-              {t("repoGroup.rename")}
-            </ContextMenuItem>
-            <ContextMenuItem onSelect={() => setSubgroupOpen(true)}>
-              <FolderPlus className="h-3.5 w-3.5" />
-              {t("repoGroup.newSubgroup")}
-            </ContextMenuItem>
-            <RepoWorkspaceMoveActions paths={groupRepoPaths(group)} />
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              variant="destructive"
-              onSelect={() => deleteGroup(group.id)}
-            >
-              <Ungroup className="h-3.5 w-3.5" />
-              {t("repoGroup.dissolve")}
-            </ContextMenuItem>
-          </ContextMenuContent>
+          {menuContent}
         </ContextMenu>
 
         <AnimatePresence initial={false}>
@@ -302,19 +419,7 @@ function RepoGroup({
         </AnimatePresence>
       </div>
 
-      <RepoGroupDialog
-        open={renameOpen}
-        mode="rename"
-        initialName={group.name}
-        onSubmit={(name) => renameGroup(group.id, name)}
-        onClose={() => setRenameOpen(false)}
-      />
-      <RepoGroupDialog
-        open={subgroupOpen}
-        mode="subgroup"
-        onSubmit={(name) => createSubgroup(group.id, name)}
-        onClose={() => setSubgroupOpen(false)}
-      />
+      {dialogs}
     </>
   );
 }

@@ -8,7 +8,8 @@ const verticalKey = 'l8git.commit-panel.layout.vertical.v1';
 async function seedPreferences(page: Page, options: { sidebarWidth?: number; uiScale?: number; terminalRight?: boolean; tabLayout?: 'list' | 'grid'; hiddenTabs?: string[] } = {}) {
   await page.addInitScript(({ options, horizontalKey }) => {
     localStorage.setItem('l8git-ui', JSON.stringify({ state: { sidebarWidth: options.sidebarWidth ?? 256, sidebarTab: 'commit' }, version: 0 }));
-    localStorage.setItem('l8git-workspace-prefs', JSON.stringify({ state: { uiScale: options.uiScale ?? 1 }, version: 0 }));
+    // Pixel budgets below are measured for the classic shell; the default rail takes extra width.
+    localStorage.setItem('l8git-workspace-prefs', JSON.stringify({ state: { uiScale: options.uiScale ?? 1, shellLayout: 'classic' }, version: 0 }));
     localStorage.setItem(horizontalKey, JSON.stringify({ files: 37, diff: 63 }));
     if (options.tabLayout || options.hiddenTabs) localStorage.setItem('l8git-sidebar-prefs', JSON.stringify({ state: { tabLayout: options.tabLayout ?? 'list', hiddenTabs: options.hiddenTabs ?? [] }, version: 0 }));
     if (options.terminalRight) localStorage.setItem('l8git-terminal', JSON.stringify({ state: { position: 'right', panelWidth: 440 }, version: 0 }));

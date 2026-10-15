@@ -4407,5 +4407,56 @@
       "title": "Todas as suas contas Git em um só lugar",
       "body": "Conecte GitHub, GitLab ou Bitbucket — quantas contas quiser, troque com um clique. Pull requests, revisões, releases, CI, issues e forks sem abrir o navegador."
     }
+  },
+  "shellLayout": {
+    "title": "Layout da janela",
+    "desc": "Escolha como repositórios e navegação são organizados ao redor do seu trabalho.",
+    "default": "Padrão",
+    "active": "Ativo",
+    "repoCount_one": "{{count}} repositório",
+    "repoCount_other": "{{count}} repositórios",
+    "noRepo": "Nenhum repositório",
+    "repositories": "Repositórios",
+    "exposeRepos": "Repositórios",
+    "exposeOpen": "Mostrar todos os repositórios",
+    "exposeAll": "Todos ({{count}})",
+    "ahead_one": "{{count}} para enviar",
+    "ahead_other": "{{count}} para enviar",
+    "behind_one": "{{count}} para puxar",
+    "behind_other": "{{count}} para puxar",
+    "layouts": {
+      "rail": {
+        "name": "Trilho de repos",
+        "desc": "Repos como avatares numa barra estreita à esquerda, como no Discord ou Slack."
+      },
+      "classic": {
+        "name": "Clássico",
+        "desc": "Abas, busca e navegação dividem uma única linha."
+      },
+      "twoRow": {
+        "name": "Duas linhas",
+        "desc": "Barra do app em cima, abas nomeadas em largura total embaixo."
+      },
+      "breadcrumb": {
+        "name": "Trilha",
+        "desc": "Espaço / repo / branch como caminho com seletores pesquisáveis."
+      },
+      "activityBar": {
+        "name": "Barra de atividades",
+        "desc": "Navegação numa barra à esquerda estilo VS Code; o cabeçalho fica para as abas."
+      },
+      "sidebar": {
+        "name": "Barra lateral",
+        "desc": "Uma barra lateral para espaço, busca, navegação e repos."
+      },
+      "expose": {
+        "name": "Visão geral",
+        "desc": "Repo ativo e recentes no cabeçalho, os demais numa visão em cartões."
+      },
+      "statusBar": {
+        "name": "Barra de status",
+        "desc": "Abas planas em cima, navegação e status da branch embaixo."
+      }
+    }
   }
 }

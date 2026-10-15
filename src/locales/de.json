@@ -4407,5 +4407,56 @@
       "title": "Alle deine Git-Konten an einem Ort",
       "body": "Verbinde GitHub, GitLab oder Bitbucket — beliebig viele Konten, mit Wechsel per Klick. Pull Requests, Reviews, Releases, CI, Issues und Forks, ohne den Browser zu öffnen."
     }
+  },
+  "shellLayout": {
+    "title": "Fensterlayout",
+    "desc": "Lege fest, wie Repositories und Navigation um deine Arbeit angeordnet sind.",
+    "default": "Standard",
+    "active": "Aktiv",
+    "repoCount_one": "{{count}} Repository",
+    "repoCount_other": "{{count}} Repositories",
+    "noRepo": "Kein Repository",
+    "repositories": "Repositories",
+    "exposeRepos": "Repositories",
+    "exposeOpen": "Alle Repositories anzeigen",
+    "exposeAll": "Alle {{count}}",
+    "ahead_one": "{{count}} zu pushen",
+    "ahead_other": "{{count}} zu pushen",
+    "behind_one": "{{count}} zu pullen",
+    "behind_other": "{{count}} zu pullen",
+    "layouts": {
+      "rail": {
+        "name": "Repo-Rail",
+        "desc": "Repos als Avatare in einer schmalen Leiste links, wie bei Discord oder Slack. Skaliert auf beliebig viele Repos."
+      },
+      "classic": {
+        "name": "Klassisch",
+        "desc": "Repo-Tabs, Suche und Navigation teilen sich eine Kopfzeile."
+      },
+      "twoRow": {
+        "name": "Zwei Ebenen",
+        "desc": "App-Leiste oben, darunter beschriftete Repo-Tabs über die volle Breite."
+      },
+      "breadcrumb": {
+        "name": "Breadcrumb",
+        "desc": "Workspace / Repo / Branch als ruhiger Pfad mit durchsuchbaren Switchern."
+      },
+      "activityBar": {
+        "name": "Activity-Bar",
+        "desc": "Navigation in einer Leiste links wie in VS Code, der Header gehört den Repo-Tabs."
+      },
+      "sidebar": {
+        "name": "Sidebar",
+        "desc": "Eine Seitenleiste für Workspace, Suche, Navigation und alle Repos."
+      },
+      "expose": {
+        "name": "Übersicht",
+        "desc": "Aktives und zuletzt genutzte Repos im Header, alle anderen in einer Kartenübersicht."
+      },
+      "statusBar": {
+        "name": "Statusleiste",
+        "desc": "Flache Repo-Tabs oben, Navigation und Branch-Status in einer Leiste unten."
+      }
+    }
   }
 }

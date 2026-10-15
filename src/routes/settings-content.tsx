@@ -1,5 +1,6 @@
 import { DataPortabilityCard } from "@/components/settings/data-portability-card";
 import { LayoutPrefsCard } from "@/components/settings/layout-prefs-card";
+import { ShellLayoutCard } from "@/components/settings/shell-layout-card";
 import { ListRow } from "@/components/ui/list-row";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -467,6 +468,7 @@ export function Settings() {
           {shouldShowSection("sidebar") && (
             <section id="sidebar" ref={setRef("sidebar")} className={sectionClass("sidebar")}>
               {renderHeader(PanelLeft, t("settings.sidebarSectionTitle"), t("settings.sidebarSectionSubtitle"))}
+              <ShellLayoutCard />
               <LayoutPrefsCard />
               <SidebarCustomizeSection />
             </section>

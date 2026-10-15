@@ -4407,5 +4407,56 @@
       "title": "Tous vos comptes Git au même endroit",
       "body": "Connectez GitHub, GitLab ou Bitbucket — autant de comptes que vous voulez, changez en un clic. Pull requests, revues, versions, CI, tickets et forks sans ouvrir de navigateur."
     }
+  },
+  "shellLayout": {
+    "title": "Disposition de la fenêtre",
+    "desc": "Choisissez comment les dépôts et la navigation s’organisent autour de votre travail.",
+    "default": "Par défaut",
+    "active": "Actif",
+    "repoCount_one": "{{count}} dépôt",
+    "repoCount_other": "{{count}} dépôts",
+    "noRepo": "Aucun dépôt",
+    "repositories": "Dépôts",
+    "exposeRepos": "Dépôts",
+    "exposeOpen": "Afficher tous les dépôts",
+    "exposeAll": "Tous ({{count}})",
+    "ahead_one": "{{count}} à pousser",
+    "ahead_other": "{{count}} à pousser",
+    "behind_one": "{{count}} à récupérer",
+    "behind_other": "{{count}} à récupérer",
+    "layouts": {
+      "rail": {
+        "name": "Rail de dépôts",
+        "desc": "Les dépôts en avatars dans une fine barre à gauche, comme Discord ou Slack."
+      },
+      "classic": {
+        "name": "Classique",
+        "desc": "Onglets, recherche et navigation partagent une seule ligne."
+      },
+      "twoRow": {
+        "name": "Deux lignes",
+        "desc": "Barre d’application en haut, onglets nommés pleine largeur en dessous."
+      },
+      "breadcrumb": {
+        "name": "Fil d’Ariane",
+        "desc": "Espace / dépôt / branche sous forme de chemin avec sélecteurs."
+      },
+      "activityBar": {
+        "name": "Barre d’activité",
+        "desc": "Navigation dans une barre à gauche façon VS Code ; l’en-tête est réservé aux onglets."
+      },
+      "sidebar": {
+        "name": "Barre latérale",
+        "desc": "Une seule barre latérale pour l’espace, la recherche, la navigation et les dépôts."
+      },
+      "expose": {
+        "name": "Vue d’ensemble",
+        "desc": "Dépôt actif et récents dans l’en-tête, les autres dans une vue en cartes."
+      },
+      "statusBar": {
+        "name": "Barre d’état",
+        "desc": "Onglets plats en haut, navigation et état de la branche en bas."
+      }
+    }
   }
 }

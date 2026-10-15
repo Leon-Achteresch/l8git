@@ -7,6 +7,11 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { SpinIcon } from "@/components/motion/kit";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toastError } from "@/lib/error-toast";
 import { repoAvatarHue, repoInitialChar } from "@/lib/repo-avatar";
 import { useRepoGroupsStore } from "@/lib/repo-groups-store";
@@ -38,11 +43,13 @@ import { RepoLanguageStats } from "./repo-language-stats";
 import { RepoTabGroupActions } from "./repo-tab-group-actions";
 import { RepoWorkspaceMoveActions } from "./repo-workspace-move-actions";
 
+export type RepoTabVariant = "bar" | "group" | "labeled" | "flat" | "rail" | "list";
+
 type RepoTabProps = {
   path: string;
   label: string;
   active: boolean;
-  variant?: "bar" | "group";
+  variant?: RepoTabVariant;
 };
 
 const INDICATOR_SPRING = {
@@ -105,6 +112,7 @@ export const RepoTab = memo(function RepoTab({
     hasUpstream,
     mergeConflictCount,
     cherryConflictCount,
+    branch,
   } = useRepoStore(
     useShallow((s) => {
       const sync = s.upstreamSync[path];
@@ -121,6 +129,7 @@ export const RepoTab = memo(function RepoTab({
         hasUpstream: !!s.hasUpstream[path],
         mergeConflictCount: mc,
         cherryConflictCount: cc,
+        branch: s.repos[path]?.branch ?? null,
       };
     }),
   );
@@ -134,6 +143,10 @@ export const RepoTab = memo(function RepoTab({
   const hue = repoAvatarHue(label);
   const avatarBg = `hsl(${hue} 42% 36%)`;
   const isBar = variant === "bar";
+  // "labeled" shares the browser-tab look of "bar" but keeps every tab labeled.
+  const isTab = isBar || variant === "labeled";
+  const isRail = variant === "rail";
+  const isList = variant === "list";
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useSortable({
@@ -152,35 +165,55 @@ export const RepoTab = memo(function RepoTab({
   const showBehind = hasUpstream && behind > 0 && !showConflictBadge;
   const showSyncMini = showConflictBadge || showAhead || showBehind;
 
-  const compact = isBar && !active;
+  const compact = (isBar && !active) || isRail;
+  const syncDot = showConflictBadge
+    ? "bg-git-modified"
+    : showBehind
+      ? "bg-git-removed"
+      : showAhead
+        ? "bg-git-branch"
+        : null;
 
   const content = (
     <>
       <span
-        className="relative flex size-[18px] shrink-0 items-center justify-center rounded font-mono text-[0.5625rem] font-bold text-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.18)]"
+        className={cn(
+          "relative flex shrink-0 items-center justify-center font-mono font-bold text-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.18)]",
+          isRail
+            ? cn(
+                "size-9 text-sm transition-[border-radius,opacity] duration-200",
+                active ? "rounded-xl" : "rounded-[18px] opacity-85 group-hover:rounded-xl group-hover:opacity-100",
+              )
+            : "size-[18px] rounded text-[0.5625rem]",
+        )}
         style={showFavicon ? undefined : { backgroundColor: avatarBg }}
       >
         {loading ? (
-          <SpinIcon icon={Loader2} className="size-3 text-white/90" />
+          <SpinIcon icon={Loader2} className={cn("text-white/90", isRail ? "size-4" : "size-3")} />
         ) : showFavicon ? (
           <img
             src={favicon ?? undefined}
             alt=""
             onError={() => setIconBroken(true)}
-            className="size-[18px] rounded object-contain"
+            className={cn("object-contain", isRail ? "size-9 rounded-[inherit]" : "size-[18px] rounded")}
           />
         ) : (
           repoInitialChar(label)
         )}
-        {compact && showConflictBadge && (
-          <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-git-modified" />
-        )}
+        {isRail
+          ? syncDot && (
+              <span className={cn("absolute -right-1 -bottom-1 size-3 rounded-full ring-[2.5px] ring-sidebar", syncDot)} />
+            )
+          : compact && showConflictBadge && (
+              <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-git-modified" />
+            )}
       </span>
 
       {!compact && (
         <span
           className={cn(
-            "min-w-[3ch] max-w-[160px] shrink truncate text-xs font-semibold",
+            "min-w-[3ch] shrink truncate font-semibold",
+            isList ? "flex-1 text-[0.8125rem] font-medium" : "max-w-[160px] text-xs",
             active ? "text-foreground" : "text-foreground/85",
           )}
         >
@@ -226,7 +259,7 @@ export const RepoTab = memo(function RepoTab({
           }}
           className={cn(
             "ms-auto flex size-5 shrink-0 items-center justify-center rounded-full transition-colors duration-100",
-            active
+            active && !isList
               ? "text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
               : "text-muted-foreground/70 opacity-0 group-hover:opacity-100 hover:bg-foreground/10 hover:text-foreground",
           )}
@@ -237,10 +270,7 @@ export const RepoTab = memo(function RepoTab({
     </>
   );
 
-  return (
-    <>
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
+  const trigger = (
           <button
             ref={setNodeRef}
             style={style}
@@ -252,25 +282,38 @@ export const RepoTab = memo(function RepoTab({
             onAuxClick={(e) => {
               if (e.button === 1) useRepoStore.getState().removeRepo(path);
             }}
-            title={`${label}\n${path}`}
+            title={isRail ? undefined : `${label}\n${path}`}
+            aria-label={isRail ? label : undefined}
             data-repo-path={path}
             data-active={active || undefined}
             {...attributes}
             {...listeners}
             className={cn(
               "group relative isolate flex min-w-0 touch-none select-none items-center text-left text-xs font-medium transition-colors duration-150",
-              isBar
+              isTab
                 ? cn(
-                    "h-full shrink-0 self-stretch rounded-t-2xl",
-                    active ? "max-w-[260px]" : "w-8",
+                    "h-full self-stretch rounded-t-2xl",
+                    isBar
+                      ? cn("shrink-0", active ? "max-w-[260px]" : "w-8")
+                      : "min-w-[92px] max-w-[200px] shrink",
                   )
-                : "h-7 max-w-[240px] shrink-0 gap-1.5 rounded-lg pl-1.5 pr-1.5",
+                : variant === "flat"
+                  ? "h-full max-w-[220px] shrink-0 gap-1.5 self-stretch px-2.5"
+                  : isRail
+                    ? "size-10 shrink-0 justify-center"
+                    : isList
+                      ? cn(
+                          "h-8 w-full shrink-0 gap-2 rounded-lg px-2",
+                          !active && "hover:bg-foreground/[0.05]",
+                        )
+                      : "h-7 max-w-[240px] shrink-0 gap-1.5 rounded-lg pl-1.5 pr-1.5",
               active ? "text-foreground" : "text-muted-foreground",
+              variant === "flat" && !active && "hover:text-foreground",
               isDragging && "z-10 cursor-grabbing opacity-40",
             )}
           >
             {active &&
-              (isBar ? (
+              (isTab ? (
                 <m.span
                   layoutId="repo-tab-bar-indicator"
                   className="absolute inset-0 -z-10"
@@ -281,15 +324,29 @@ export const RepoTab = memo(function RepoTab({
                   <TabCornerLeft />
                   <TabCornerRight />
                 </m.span>
+              ) : variant === "flat" ? (
+                <m.span
+                  layoutId="repo-tab-flat-indicator"
+                  className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-foreground"
+                  transition={INDICATOR_SPRING}
+                  aria-hidden
+                />
+              ) : isRail ? (
+                <m.span
+                  layoutId="repo-rail-indicator"
+                  className="absolute -left-2.5 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-foreground"
+                  transition={INDICATOR_SPRING}
+                  aria-hidden
+                />
               ) : (
                 <m.span
-                  layoutId="repo-tab-group-indicator"
+                  layoutId={isList ? "repo-list-indicator" : "repo-tab-group-indicator"}
                   className="absolute inset-0 -z-10 rounded-lg border border-border bg-card shadow-[0_1px_0_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_1px_2px_rgba(0,0,0,0.35)]"
                   transition={INDICATOR_SPRING}
                   aria-hidden
                 />
               ))}
-            {isBar ? (
+            {isTab ? (
               <span
                 className={cn(
                   "flex h-full w-full min-w-0 items-center rounded-[12px]",
@@ -303,6 +360,12 @@ export const RepoTab = memo(function RepoTab({
               content
             )}
           </button>
+  );
+
+  const menu = (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          {isRail ? <TooltipTrigger asChild>{trigger}</TooltipTrigger> : trigger}
         </ContextMenuTrigger>
         <ContextMenuContent>
           <ContextMenuItem
@@ -376,6 +439,32 @@ export const RepoTab = memo(function RepoTab({
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
+  );
+
+  return (
+    <>
+      {isRail ? (
+        <Tooltip delayDuration={200}>
+          {menu}
+          <TooltipContent side="right" sideOffset={10}>
+            <span className="flex flex-col gap-0.5">
+              <span className="font-semibold">{label}</span>
+              {(branch || showSyncMini) && (
+                <span className="inline-flex items-center gap-1.5 opacity-80">
+                  {branch && <span className="font-mono text-[0.6875rem]">{branch}</span>}
+                  {showConflictBadge && (
+                    <span className="inline-flex items-center gap-0.5"><AlertTriangle className="size-3" aria-hidden />{conflictCount}</span>
+                  )}
+                  {showAhead && <span className="inline-flex items-center"><ArrowUp className="size-3" aria-hidden />{ahead}</span>}
+                  {showBehind && <span className="inline-flex items-center"><ArrowDown className="size-3" aria-hidden />{behind}</span>}
+                </span>
+              )}
+            </span>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        menu
+      )}
       <RepoLanguageStats
         open={langOpen}
         path={path}
