@@ -22,6 +22,7 @@ import {
   IS_MAC,
   MacTrafficLightSpacer,
   NO_DRAG,
+  RAIL_EDGE,
   ShellDivider,
   ShellTopBar,
 } from "./shell-chrome";
@@ -87,7 +88,7 @@ function TwoRowShell({ children }: ShellProps) {
         </div>
       </ShellTopBar>
       <div
-        data-tauri-drag-region
+        data-tauri-drag-region="deep"
         style={DRAG}
         className="relative z-10 flex h-10 shrink-0 select-none items-stretch border-b border-border/50 bg-sidebar pl-2"
       >
@@ -103,11 +104,11 @@ function RailShell({ children }: ShellProps) {
   return (
     <div className="flex min-h-0 flex-1">
       <aside
-        data-tauri-drag-region
+        data-tauri-drag-region="deep"
         style={DRAG}
-        className="flex w-16 shrink-0 select-none flex-col items-center gap-2 border-r border-border/50 bg-sidebar pb-2.5"
+        className={cn("flex w-16 shrink-0 select-none flex-col items-center gap-2 bg-sidebar pb-2.5", RAIL_EDGE)}
       >
-        <MacTrafficLightSpacer className={IS_MAC ? "h-11" : "h-2.5"} />
+        <MacTrafficLightSpacer className={IS_MAC ? undefined : "h-2.5"} />
         <div className="flex flex-col items-center gap-2" style={NO_DRAG}>
           <RepoWorkspaceSwitch />
           <ShellDivider />
@@ -177,9 +178,9 @@ function ActivityBarShell({ children }: ShellProps) {
   return (
     <div className="flex min-h-0 flex-1">
       <aside
-        data-tauri-drag-region
+        data-tauri-drag-region="deep"
         style={DRAG}
-        className="flex w-[52px] shrink-0 select-none flex-col items-center gap-1 border-r border-border/50 bg-sidebar pb-2"
+        className={cn("flex w-[52px] shrink-0 select-none flex-col items-center gap-1 bg-sidebar pb-2", RAIL_EDGE)}
       >
         <MacTrafficLightSpacer />
         <div className="flex flex-col items-center gap-1" style={NO_DRAG}>
@@ -197,7 +198,8 @@ function ActivityBarShell({ children }: ShellProps) {
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <ShellTopBar className={cn("h-12 items-stretch", IS_MAC ? "pl-6" : "pl-2")}>
+        {/* 52px rail + 34px = the 86px traffic-light inset of the other bars */}
+        <ShellTopBar className={cn("h-12 items-stretch", IS_MAC ? "pl-[34px]" : "pl-2")}>
           <RepoTabBar variant="labeled" withWorkspaceSwitch={false} />
         </ShellTopBar>
         {children}
@@ -212,7 +214,7 @@ function SidebarShell({ children }: ShellProps) {
   return (
     <div className="flex min-h-0 flex-1">
       <aside
-        data-tauri-drag-region
+        data-tauri-drag-region="deep"
         style={DRAG}
         className="flex w-60 shrink-0 select-none flex-col gap-1 border-r border-border/50 bg-sidebar px-2 pb-2"
       >

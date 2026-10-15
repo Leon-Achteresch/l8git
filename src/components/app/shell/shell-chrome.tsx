@@ -26,7 +26,7 @@ export function ShellTopBar({
 }) {
   return (
     <header
-      data-tauri-drag-region
+      data-tauri-drag-region="deep"
       style={DRAG}
       className={cn(
         "relative z-10 flex shrink-0 select-none items-center border-b border-border/50 bg-sidebar",
@@ -40,6 +40,14 @@ export function ShellTopBar({
     </header>
   );
 }
+
+/**
+ * Right edge of a narrow side rail. On macOS the traffic lights (x 19–73px) are wider than the rail,
+ * so the line starts below the h-12 title bar instead of running through them.
+ */
+export const RAIL_EDGE = IS_MAC
+  ? "relative after:absolute after:right-0 after:top-[47px] after:bottom-0 after:w-px after:bg-border/50"
+  : "border-r border-border/50";
 
 /** Spacer that keeps rail/sidebar content clear of the macOS traffic lights. */
 export function MacTrafficLightSpacer({ className }: { className?: string }) {
