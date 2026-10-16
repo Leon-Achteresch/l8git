@@ -1281,14 +1281,11 @@ pub async fn repo_commit_checks(path: String) -> Result<RepoCommitChecks, String
         }
         let url = github_repo_api_url(&h, "commits/HEAD");
         let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
-        match github_read_json(res, &h.host).await {
-            Ok(v) => str_or_empty(&v["sha"]),
-            // 409 = empty repository: nothing to check yet.
-            Err(e) if e.contains("409") => {
-                return Ok(RepoCommitChecks { head_sha: String::new(), checks: vec![] })
-            }
-            Err(e) => return Err(e),
+        // 409 = empty repository: nothing to check yet.
+        if res.status() == reqwest::StatusCode::CONFLICT {
+            return Ok(RepoCommitChecks { head_sha: String::new(), checks: vec![] });
         }
+        str_or_empty(&github_read_json(res, &h.host).await?["sha"])
     } else {
         run_git_merged_output(&p, &["rev-parse", "HEAD"])?
             .trim()

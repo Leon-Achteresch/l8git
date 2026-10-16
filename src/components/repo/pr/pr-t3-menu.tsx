@@ -38,13 +38,18 @@ export function PrT3Provider({ pr, children }: { pr: T3PrInfo | null; children: 
   const { t } = useTranslation();
   const [pending, setPending] = useState<Pending | null>(null);
   const [url, setUrl] = useState("");
+  // Deferred so the modal menu releases focus and pointer lock before the dialog opens.
+  const openDialog = (next: Pending, value: string) =>
+    setTimeout(() => {
+      setUrl(value);
+      setPending(next);
+    });
 
   const ctx = useMemo<T3Ctx | null>(() => {
     if (!pr) return null;
     const send = async (action: T3Action, comment?: T3Comment) => {
       if (!getT3WebhookUrl()) {
-        setUrl("");
-        setPending({ action, comment });
+        openDialog({ action, comment }, "");
         return;
       }
       try {
@@ -64,10 +69,7 @@ export function PrT3Provider({ pr, children }: { pr: T3PrInfo | null; children: 
           toastError(String(e));
         }
       },
-      configure: () => {
-        setUrl(getT3WebhookUrl());
-        setPending("settings");
-      },
+      configure: () => openDialog("settings", getT3WebhookUrl()),
     };
   }, [pr, t]);
 
@@ -113,8 +115,7 @@ export function PrT3Menu({ comment, className }: { comment?: T3Comment; classNam
   if (!ctx) return null;
   const action: T3Action = comment ? "fix" : "review";
   return (
-    // Non-modal so the setup dialog can take focus right after the menu closes.
-    <DropdownMenu modal={false}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           type="button"

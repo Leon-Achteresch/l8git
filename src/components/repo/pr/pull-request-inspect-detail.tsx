@@ -149,7 +149,7 @@ export function PullRequestInspectDetail({
   );
 
   return (
-    <PrT3Provider pr={t3Pr}>
+    <PrT3Provider key={`${path}#${number}`} pr={t3Pr}>
     <div className="flex h-full min-h-0 flex-col bg-background/95 backdrop-blur-md">
       <div className="flex-shrink-0 border-b border-border/70 bg-muted/15 px-4 py-3">
         <div className="flex items-center gap-2">
