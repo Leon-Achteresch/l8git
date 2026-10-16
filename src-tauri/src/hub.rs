@@ -510,6 +510,36 @@ pub async fn hub_oauth_poll(device_code: String) -> Result<OauthPoll, String> {
     }
 }
 
+/// Hands a PR task to a T3 Code webhook task, which starts a T3 thread for it.
+/// Posted from Rust because the webview's fetch would be blocked by CORS.
+#[tauri::command]
+pub async fn hub_t3_send(url: String, payload: Value) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(url.trim()).map_err(|_| "T3: ungültige Webhook-URL".to_string())?;
+    let local = matches!(parsed.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"));
+    if parsed.scheme() != "https" && !(parsed.scheme() == "http" && local) {
+        return Err("T3: Webhook-URL muss https sein".into());
+    }
+    // No redirects: they could downgrade to plain http after the check above.
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("HTTP-Client: {e}"))?;
+    let res = client
+        .post(parsed)
+        .json(&payload)
+        .send()
+        .await
+        // The URL is the webhook secret; keep it out of the error toast.
+        .map_err(|e| format!("T3: {}", e.without_url()))?;
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        return Err(format!("T3: {status} {}", body.chars().take(300).collect::<String>()));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

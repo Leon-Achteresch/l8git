@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toastError } from "@/lib/error-toast";
+import { isHubPath } from "@/lib/hub/store";
 import { invoke } from "@tauri-apps/api/core";
 import {
   CheckCircle2,
@@ -230,7 +231,8 @@ export function CiDetailPanel({
             <Share2 />
             Pipeline
           </TabsTrigger>
-          <TabsTrigger value="yaml">
+          {/* Workflow files are read from the local clone, which the hub doesn't have. */}
+          {!isHubPath(path) && <TabsTrigger value="yaml">
             <FileCode2 />
             {t("ci.workflowFile")}
             {yamlFile && (
@@ -238,7 +240,7 @@ export function CiDetailPanel({
                 {yamlFile}
               </Badge>
             )}
-          </TabsTrigger>
+          </TabsTrigger>}
         </TabsList>
       </Tabs>
 

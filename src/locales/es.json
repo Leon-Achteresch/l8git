@@ -4458,5 +4458,19 @@
         "desc": "Pestañas planas arriba; navegación y estado de la rama abajo."
       }
     }
+  },
+  "t3": {
+    "menu": "Pasar a T3 Code",
+    "fix": "Corregir en un hilo de T3",
+    "reply": "Responder con T3",
+    "review": "Corregir todas las revisiones en T3",
+    "copyPrompt": "Copiar prompt para agente IA",
+    "configure": "Webhook de T3…",
+    "setupTitle": "Conectar T3 Code",
+    "setupHint": "Pega la URL de una tarea webhook de T3 Code. Cada solicitud inicia un hilo de T3 que trabaja en la pull request.",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "sent": "Enviado a T3 Code",
+    "copied": "Prompt copiado"
   }
 }

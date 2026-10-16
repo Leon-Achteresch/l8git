@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { PrT3Menu } from "./pr-t3-menu";
 
 type PrComment = {
   id: string;
@@ -187,6 +188,7 @@ export function PullRequestConversationTab({
                       <span className="ml-auto font-mono text-[0.625rem] text-muted-foreground tabular-nums">
                         {formatRelative(e.data.submitted_at)}
                       </span>
+                      {e.data.body.trim() && <PrT3Menu comment={{ author: e.data.author, body: e.data.body }} />}
                     </div>
                     {e.data.body.trim() ? (
                       <div className="mt-2 text-[0.8125rem] leading-relaxed text-foreground [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/80 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em]">
@@ -227,6 +229,7 @@ export function PullRequestConversationTab({
                     <span className="ml-auto font-mono text-[0.625rem] text-muted-foreground tabular-nums">
                       {formatRelative(c.created_at)}
                     </span>
+                    <PrT3Menu comment={{ author: c.author, body: c.body, path: c.file_path, line: c.line }} />
                   </div>
                   <div className="mt-2 text-[0.8125rem] leading-relaxed text-foreground [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/80 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em]">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>

@@ -4458,5 +4458,19 @@
         "desc": "Flat repo tabs on top, navigation and branch status in a bottom bar."
       }
     }
+  },
+  "t3": {
+    "menu": "Hand off to T3 Code",
+    "fix": "Fix in a T3 thread",
+    "reply": "Reply via T3",
+    "review": "Fix all review threads in T3",
+    "copyPrompt": "Copy prompt for AI agent",
+    "configure": "T3 webhook…",
+    "setupTitle": "Connect T3 Code",
+    "setupHint": "Paste the URL of a T3 Code webhook task. Each request starts a T3 thread that works on the pull request.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "sent": "Sent to T3 Code",
+    "copied": "Prompt copied"
   }
 }

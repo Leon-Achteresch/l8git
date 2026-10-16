@@ -4458,5 +4458,19 @@
         "desc": "Abas planas em cima, navegação e status da branch embaixo."
       }
     }
+  },
+  "t3": {
+    "menu": "Passar para o T3 Code",
+    "fix": "Corrigir num thread do T3",
+    "reply": "Responder via T3",
+    "review": "Corrigir todas as revisões no T3",
+    "copyPrompt": "Copiar prompt para agente IA",
+    "configure": "Webhook do T3…",
+    "setupTitle": "Conectar T3 Code",
+    "setupHint": "Cole a URL de uma tarefa webhook do T3 Code. Cada pedido inicia um thread do T3 que trabalha no pull request.",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "sent": "Enviado ao T3 Code",
+    "copied": "Prompt copiado"
   }
 }

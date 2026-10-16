@@ -27,6 +27,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { SpinIcon } from "@/components/motion/kit";
+import { PrT3Menu } from "./pr-t3-menu";
 
 function SuggestionPreview({
   repoPath,
@@ -398,6 +399,15 @@ export function InlineThreadCard({
               {t("prReview.reply")}
             </Button>
           )}
+          <PrT3Menu
+            comment={{
+              author: first.author,
+              // The whole thread, so the agent sees follow-ups too.
+              body: thread.comments.map((c) => `${c.author}: ${c.body}`).join("\n\n"),
+              path: thread.filePath,
+              line: thread.line,
+            }}
+          />
           {t("prReview.threadCount", { count: thread.comments.length })}
         </span>
       </button>

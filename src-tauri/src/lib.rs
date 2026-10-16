@@ -215,6 +215,7 @@ pub fn run() {
             credentials::git_credential_helper,
             providers::list_remote_repos,
             hub::hub_connect,
+            hub::hub_t3_send,
             hub::hub_disconnect,
             hub::hub_use_for_git,
             hub::hub_api,

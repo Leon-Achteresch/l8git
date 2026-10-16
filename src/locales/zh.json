@@ -4458,5 +4458,19 @@
         "desc": "顶部为扁平标签，底部栏显示导航和分支状态。"
       }
     }
+  },
+  "t3": {
+    "menu": "交给 T3 Code",
+    "fix": "在 T3 线程中修复",
+    "reply": "通过 T3 回复",
+    "review": "在 T3 中修复所有审查线程",
+    "copyPrompt": "复制 AI 代理提示词",
+    "configure": "T3 Webhook…",
+    "setupTitle": "连接 T3 Code",
+    "setupHint": "粘贴 T3 Code Webhook 任务的 URL。每个请求都会启动一个处理该拉取请求的 T3 线程。",
+    "save": "保存",
+    "cancel": "取消",
+    "sent": "已发送到 T3 Code",
+    "copied": "提示词已复制"
   }
 }
