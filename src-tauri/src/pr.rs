@@ -395,6 +395,10 @@ pub fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
 /// instead of a local checkout. Local-only: the remote server rejects it.
 pub const HUB_PATH_PREFIX: &str = "hub:";
 
+fn is_hub_path(path: &str) -> bool {
+    path.starts_with(HUB_PATH_PREFIX)
+}
+
 fn credential(h: &RemoteHandle) -> Result<HttpsCredential, String> {
     match &h.account {
         Some(login) => crate::hub::credential(&h.host, login),
@@ -1264,15 +1268,25 @@ pub async fn pr_checks(path: String, number: u64) -> Result<Vec<PrCheck>, String
 #[tauri::command]
 pub async fn repo_commit_checks(path: String) -> Result<RepoCommitChecks, String> {
     let p = repo_path(&path);
-    if !p.is_dir() {
+    if !is_hub_path(&path) && !p.is_dir() {
         return Err("Pfad ist kein Verzeichnis.".into());
     }
     let h = parse_origin_url(&p)?;
     let cred = credential(&h)?;
     let client = http_client()?;
-    let head_sha = run_git_merged_output(&p, &["rev-parse", "HEAD"])?
-        .trim()
-        .to_string();
+    let head_sha = if is_hub_path(&path) {
+        // No clone in the hub: use the default branch tip.
+        if h.provider != Provider::GitHub {
+            return Err("Checks im Hub sind nur für GitHub verfügbar.".into());
+        }
+        let url = github_repo_api_url(&h, "commits/HEAD");
+        let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
+        str_or_empty(&github_read_json(res, &h.host).await?["sha"])
+    } else {
+        run_git_merged_output(&p, &["rev-parse", "HEAD"])?
+            .trim()
+            .to_string()
+    };
     if head_sha.is_empty() {
         return Err("Kein HEAD-Commit.".into());
     }
@@ -1815,7 +1829,7 @@ pub struct WorkflowJob {
 #[tauri::command]
 pub async fn list_workflow_runs(path: String) -> Result<Vec<WorkflowRun>, String> {
     let p = repo_path(&path);
-    if !p.is_dir() {
+    if !is_hub_path(&path) && !p.is_dir() {
         return Err("Pfad ist kein Verzeichnis.".into());
     }
     let h = parse_origin_url(&p)?;

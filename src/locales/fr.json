@@ -4458,5 +4458,19 @@
         "desc": "Onglets plats en haut, navigation et état de la branche en bas."
       }
     }
+  },
+  "t3": {
+    "menu": "Confier à T3 Code",
+    "fix": "Corriger dans un fil T3",
+    "reply": "Répondre via T3",
+    "review": "Corriger toutes les revues dans T3",
+    "copyPrompt": "Copier le prompt pour l'agent IA",
+    "configure": "Webhook T3…",
+    "setupTitle": "Connecter T3 Code",
+    "setupHint": "Collez l'URL d'une tâche webhook T3 Code. Chaque requête lance un fil T3 qui traite la pull request.",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "sent": "Envoyé à T3 Code",
+    "copied": "Prompt copié"
   }
 }

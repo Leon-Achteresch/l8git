@@ -7,6 +7,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { toastError } from "@/lib/error-toast";
+import { HUB_PATH_PREFIX } from "@/lib/hub/store";
 import { trackWorkflowRuns } from "@/lib/notifications";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
@@ -92,7 +93,8 @@ function RepoCiWorkspace({ path }: { path: string }) {
     setRunsRefreshing(true);
     try {
       const res = await invoke<WorkflowRun[]>("list_workflow_runs", { path });
-      trackWorkflowRuns(path, res);
+      // Notifications deep-link into a local repo view, which hub paths don't have.
+      if (!path.startsWith(HUB_PATH_PREFIX)) trackWorkflowRuns(path, res);
       setRuns(res);
       setSelectedRun((current) =>
         current ? (res.find((run) => run.id === current.id) ?? null) : null,

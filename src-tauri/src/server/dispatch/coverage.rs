@@ -12,6 +12,8 @@ pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     // Hub tokens act on hosting accounts; keep that proxy off the remote server.
     "hub_api", "hub_connect", "hub_disconnect", "hub_oauth_available", "hub_oauth_poll",
     "hub_oauth_start", "hub_use_for_git",
+    // Would let a remote client make the host POST to any URL.
+    "hub_t3_send",
 ];
 
 const LIB_RS: &str = include_str!("../../lib.rs");

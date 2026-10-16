@@ -4458,5 +4458,19 @@
         "desc": "Flache Repo-Tabs oben, Navigation und Branch-Status in einer Leiste unten."
       }
     }
+  },
+  "t3": {
+    "menu": "An T3 Code übergeben",
+    "fix": "In T3-Thread fixen",
+    "reply": "Mit T3 antworten",
+    "review": "Alle Review-Threads in T3 fixen",
+    "copyPrompt": "Prompt für KI-Agent kopieren",
+    "configure": "T3-Webhook…",
+    "setupTitle": "T3 Code verbinden",
+    "setupHint": "Füge die URL einer T3-Code-Webhook-Aufgabe ein. Jede Anfrage startet einen T3-Thread, der am Pull Request arbeitet.",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "sent": "An T3 Code gesendet",
+    "copied": "Prompt kopiert"
   }
 }

@@ -22,6 +22,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { RepoCiPanel } from "@/components/repo/ci/repo-ci-panel";
 import { CloneRepoDialog } from "@/components/repo/tabs/clone-repo-dialog";
 import {
   AlertDialog,
@@ -46,7 +47,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
 import { formatRelative } from "@/lib/format";
-import { accountKey, adapterFor, useHubStore } from "@/lib/hub/store";
+import { accountKey, adapterFor, hubRepoPath, useHubStore } from "@/lib/hub/store";
 import type { HubAccount, HubPr, HubRepoDetail } from "@/lib/hub/types";
 import { useHubQuery } from "@/lib/hub/use-hub-query";
 import { cn } from "@/lib/utils";
@@ -773,6 +774,18 @@ function ReleasesTab({ account, fullName }: { account: HubAccount; fullName: str
 }
 
 function ActionsTab({ account, fullName }: { account: HubAccount; fullName: string }) {
+  // GitHub gets the full CI workspace (jobs, graph, logs, re-run, cancel); other providers keep the run list.
+  if (account.provider === "github") {
+    return (
+      <div className="h-[calc(100vh-14rem)] min-h-[520px] border-t border-border/60">
+        <RepoCiPanel path={hubRepoPath(account, fullName)} />
+      </div>
+    );
+  }
+  return <RunList account={account} fullName={fullName} />;
+}
+
+function RunList({ account, fullName }: { account: HubAccount; fullName: string }) {
   const { t } = useTranslation();
   const refresh = useHubStore((s) => s.refresh);
   const q = useHubQuery(account, `runs:${fullName}`, (ad, a) => ad.runs(a, fullName));

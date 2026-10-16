@@ -4458,5 +4458,19 @@
         "desc": "上にフラットなタブ、下のバーにナビゲーションとブランチ状態を表示します。"
       }
     }
+  },
+  "t3": {
+    "menu": "T3 Code に渡す",
+    "fix": "T3 スレッドで修正",
+    "reply": "T3 で返信",
+    "review": "すべてのレビュースレッドを T3 で修正",
+    "copyPrompt": "AI エージェント用プロンプトをコピー",
+    "configure": "T3 Webhook…",
+    "setupTitle": "T3 Code を接続",
+    "setupHint": "T3 Code の Webhook タスクの URL を貼り付けてください。リクエストごとにプルリクエストを扱う T3 スレッドが開始されます。",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "sent": "T3 Code に送信しました",
+    "copied": "プロンプトをコピーしました"
   }
 }
