@@ -264,6 +264,7 @@ fn github_repo_api_url_joins_owner_repo_and_suffix() {
         provider: Provider::GitHub,
         owner: "acme".into(),
         repo: "app".into(),
+        account: None,
     };
     assert_eq!(
         github_repo_api_url(&dotcom, "pulls?state=open"),
@@ -280,6 +281,7 @@ fn github_repo_api_url_joins_owner_repo_and_suffix() {
         provider: Provider::GitHub,
         owner: "platform".into(),
         repo: "service".into(),
+        account: None,
     };
     assert_eq!(
         github_repo_api_url(&ghe, "commits/abc123/check-runs?per_page=100"),
@@ -621,6 +623,7 @@ fn gitlab_handle(owner: &str, repo: &str) -> RemoteHandle {
         provider: Provider::GitLab,
         owner: owner.into(),
         repo: repo.into(),
+        account: None,
     }
 }
 
@@ -728,6 +731,7 @@ fn gitea_api_base_uses_api_v1_on_the_github_code_path() {
         provider: Provider::Gitea,
         owner: "team".into(),
         repo: "tool".into(),
+        account: None,
     };
     assert_eq!(provider_api_base(&gitea), "https://codeberg.org/api/v1");
     assert_eq!(
@@ -740,6 +744,7 @@ fn gitea_api_base_uses_api_v1_on_the_github_code_path() {
         provider: Provider::GitHub,
         owner: "acme".into(),
         repo: "app".into(),
+        account: None,
     };
     assert_eq!(provider_api_base(&gh), github_api_base("github.com"));
 }
