@@ -519,12 +519,19 @@ pub async fn hub_t3_send(url: String, payload: Value) -> Result<(), String> {
     if parsed.scheme() != "https" && !(parsed.scheme() == "http" && local) {
         return Err("T3: Webhook-URL muss https sein".into());
     }
-    let res = http_client()?
+    // No redirects: they could downgrade to plain http after the check above.
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("HTTP-Client: {e}"))?;
+    let res = client
         .post(parsed)
         .json(&payload)
         .send()
         .await
-        .map_err(|e| format!("T3: {e}"))?;
+        // The URL is the webhook secret; keep it out of the error toast.
+        .map_err(|e| format!("T3: {}", e.without_url()))?;
     if !res.status().is_success() {
         let status = res.status();
         let body = res.text().await.unwrap_or_default();

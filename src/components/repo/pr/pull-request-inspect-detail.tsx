@@ -5,8 +5,8 @@ import { formatDate, formatRelative } from "@/lib/format";
 import { pickMergeStrategy } from "@/lib/pr-provider";
 import { usePrCapabilities } from "@/lib/pr-provider-store";
 import type { PullRequest } from "@/lib/repo-store";
-import { HUB_PATH_PREFIX } from "@/lib/hub/store";
-import { T3PrContext, type T3PrInfo } from "@/lib/t3-code";
+import { isHubPath } from "@/lib/hub/store";
+import type { T3PrInfo } from "@/lib/t3-code";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ExternalLink,
@@ -30,7 +30,7 @@ import { PrReviewActions } from "./pr-review-actions";
 import { PrReviewersPopover } from "./pr-reviewers-popover";
 import { PrStatsBar } from "./pr-stats-bar";
 import { PrStatusPill } from "./pr-status-pill";
-import { PrT3Menu } from "./pr-t3-menu";
+import { PrT3Menu, PrT3Provider } from "./pr-t3-menu";
 import { PullRequestChecksTab } from "./pull-request-checks-tab";
 import { PullRequestCommitsTab } from "./pull-request-commits-tab";
 import { PullRequestFilesTab } from "./pull-request-files-tab";
@@ -149,7 +149,7 @@ export function PullRequestInspectDetail({
   );
 
   return (
-    <T3PrContext.Provider value={t3Pr}>
+    <PrT3Provider pr={t3Pr}>
     <div className="flex h-full min-h-0 flex-col bg-background/95 backdrop-blur-md">
       <div className="flex-shrink-0 border-b border-border/70 bg-muted/15 px-4 py-3">
         <div className="flex items-center gap-2">
@@ -338,7 +338,7 @@ export function PullRequestInspectDetail({
                 onMergeMessageChange={setMergeMessage}
                 onDeleteSourceBranchChange={setDeleteSourceBranch}
                 onMerge={doMerge}
-                onCheckout={path.startsWith(HUB_PATH_PREFIX) ? undefined : doCheckout}
+                onCheckout={isHubPath(path) ? undefined : doCheckout}
                 onReload={load}
               />
             </AnimatePresence>
@@ -394,6 +394,6 @@ export function PullRequestInspectDetail({
         </div>
       )}
     </div>
-    </T3PrContext.Provider>
+    </PrT3Provider>
   );
 }

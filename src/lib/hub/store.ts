@@ -15,6 +15,8 @@ export const accountKey = (a: Pick<HubAccount, "host" | "login">) => `${a.login}
 
 /** Addresses an account's repo in the shared `pr_*` commands (resolved in Rust, local-only). */
 export const HUB_PATH_PREFIX = "hub:";
+/** Hub paths address a hosted repo without a local clone. */
+export const isHubPath = (path: string) => path.startsWith(HUB_PATH_PREFIX);
 export const hubRepoPath = (a: HubAccount, fullName: string) => `${HUB_PATH_PREFIX}${a.login}@${a.host}/${fullName}`;
 
 export function adapterFor(a: HubAccount): HubAdapter | null {
