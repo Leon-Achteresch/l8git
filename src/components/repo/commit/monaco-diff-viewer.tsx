@@ -4,8 +4,6 @@ import type * as Monaco from "monaco-editor";
 import { useEffect, useMemo, useState } from "react";
 import { parseUnifiedDiff, type DiffLine } from "@/lib/unified-diff";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
-import { useCommitPrefs } from "@/lib/commit-prefs";
-import { DiffLayoutToggle } from "./diff-layout-toggle";
 
 // ─── Language detection ────────────────────────────────────────────────────────
 
@@ -119,8 +117,9 @@ interface MonacoDiffViewerProps {
 
 const DIFF_EDITOR_OPTIONS: Monaco.editor.IDiffEditorConstructionOptions = {
   readOnly: true,
-  // ── Inline mode: single column, del/add lines one below the other ──
-  renderSideBySide: false,
+  // Inline diffs render through CommitDiffViewer's virtualized list instead.
+  renderSideBySide: true,
+  useInlineViewWhenSpaceIsLimited: false,
   // ── Visual tweaks ──────────────────────────────────────────────────
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
@@ -183,30 +182,15 @@ export function MonacoDiffViewer({ unifiedText, filename }: MonacoDiffViewerProp
   const lines = useMemo(() => parseUnifiedDiff(unifiedText), [unifiedText]);
   const { original, modified } = useMemo(() => buildDiffContent(lines), [lines]);
 
-  const layoutMode = useCommitPrefs((s) => s.diffLayoutMode);
-  const options = useMemo<Monaco.editor.IDiffEditorConstructionOptions>(
-    () => ({
-      ...DIFF_EDITOR_OPTIONS,
-      renderSideBySide: layoutMode === "sideBySide",
-    }),
-    [layoutMode],
-  );
-
   return (
-    <div className="monaco-diff-viewer-root flex h-full min-h-0 w-full flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/60 bg-muted/15 px-4 py-2">
-        <span title={filename ?? undefined} className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{filename}</span>
-        <DiffLayoutToggle className="shrink-0" />
-      </div>
-      <div className="min-h-0 flex-1">
-        <DiffEditor
-          language={language}
-          original={original}
-          modified={modified}
-          theme={monacoTheme}
-          options={options}
-        />
-      </div>
+    <div className="monaco-diff-viewer-root h-full min-h-0 w-full overflow-hidden">
+      <DiffEditor
+        language={language}
+        original={original}
+        modified={modified}
+        theme={monacoTheme}
+        options={DIFF_EDITOR_OPTIONS}
+      />
     </div>
   );
 }

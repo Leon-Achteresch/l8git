@@ -22,7 +22,7 @@ import {
 import { diffWords, pairChangedLines, type WordDiffSegment } from "@/lib/word-diff";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Minus, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAgentCodeTokens } from "@/components/agents/ui/agent-code";
 import type { AgentCodeToken } from "@/lib/agents/agent-code-types";
@@ -33,11 +33,12 @@ import { MorphIcon } from "@/components/ui/morph-icon";
 import { workspaceScale } from "@/lib/responsive-workspace";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 
-const LINE_HEIGHT_PX = 18;
+// Matches lineWrap (1rem leading plus py-0.5), so row measurement confirms the estimate.
+const LINE_HEIGHT_PX = 20;
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
 const lineWrap =
-  "box-border block w-max min-w-full whitespace-pre px-4 py-0.5 font-mono text-[0.6875rem]";
+  "box-border block w-max min-w-full whitespace-pre px-4 py-0.5 font-mono text-[0.6875rem] leading-4";
 
 type WordDiffLookup = (index: number) => WordDiffSegment[] | null;
 type SyntaxLookup = (index: number) => AgentCodeToken[] | undefined;
@@ -253,12 +254,41 @@ function diffLineNode(
   );
 }
 
+// Lookups return cached arrays, so scrolling re-renders only rows that just mounted.
+const DiffLineRow = memo(function DiffLineRow({
+  line,
+  segments,
+  tokens,
+  lineNumbers = false,
+}: {
+  line: DiffLine;
+  segments: WordDiffSegment[] | null;
+  tokens: AgentCodeToken[] | undefined;
+  lineNumbers?: boolean;
+}) {
+  if (!lineNumbers) return diffLineNode(line, segments, tokens);
+  return (
+    <div className="flex w-max min-w-full">
+      <span
+        aria-hidden
+        className="flex shrink-0 select-none py-0.5 font-mono text-[0.6875rem] leading-4 tabular-nums text-muted-foreground/60"
+      >
+        <span className="w-10 pr-2 text-right">{line.oldLineNo ?? ""}</span>
+        <span className="w-10 pr-2 text-right">{line.newLineNo ?? ""}</span>
+      </span>
+      <div className="min-w-0 flex-1">{diffLineNode(line, segments, tokens)}</div>
+    </div>
+  );
+});
+
 function VirtualDiffList({
   lines,
   filePath,
+  lineNumbers,
 }: {
   lines: DiffLine[];
   filePath?: string | null;
+  lineNumbers?: boolean;
 }) {
   const lineHeight = LINE_HEIGHT_PX * workspaceScale(useWorkspacePrefs((state) => state.uiScale));
   const wordDiffAt = useWordDiffLookup(lines);
@@ -288,6 +318,7 @@ function VirtualDiffList({
             <div
               key={vi.key}
               data-index={vi.index}
+              // Matches the estimate, so this only corrects odd font metrics or root sizes.
               ref={virtualizer.measureElement}
               style={{
                 position: "absolute",
@@ -297,7 +328,7 @@ function VirtualDiffList({
                 transform: `translateY(${vi.start}px)`,
               }}
             >
-              {diffLineNode(line, wordDiffAt(vi.index), syntaxAt(vi.index))}
+              <DiffLineRow line={line} segments={wordDiffAt(vi.index)} tokens={syntaxAt(vi.index)} lineNumbers={lineNumbers} />
             </div>
           );
         })}
@@ -376,7 +407,7 @@ function AnnotatedVirtualDiffList({
                     <Plus className="h-3 w-3" />
                   </button>
                 )}
-                {diffLineNode(line, wordDiffAt(vi.index), syntaxAt(vi.index))}
+                <DiffLineRow line={line} segments={wordDiffAt(vi.index)} tokens={syntaxAt(vi.index)} />
               </div>
               {annotation ? <div className="px-3 py-1">{annotation}</div> : null}
             </div>
@@ -797,6 +828,7 @@ export function UnifiedDiffBody({
   onAddComment,
   addCommentTitle,
   filePath,
+  lineNumbers,
 }: {
   loading: boolean;
   failed: boolean;
@@ -818,6 +850,8 @@ export function UnifiedDiffBody({
   onAddComment?: (anchor: DiffCommentAnchor) => void;
   addCommentTitle?: string;
   filePath?: string | null;
+  /** Old/new line-number gutter; only the plain read-only list supports it. Not sticky: that cost a third of the scroll frame rate. */
+  lineNumbers?: boolean;
 }) {
   const { t } = useTranslation();
   const interactive = !!(sector && (onStageHunk ?? onUnstageHunk));
@@ -946,7 +980,7 @@ export function UnifiedDiffBody({
         />
       );
     }
-    return <VirtualDiffList lines={lines} filePath={filePath} />;
+    return <VirtualDiffList lines={lines} filePath={filePath} lineNumbers={lineNumbers} />;
   }
 
   return (

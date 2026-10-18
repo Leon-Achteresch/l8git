@@ -285,7 +285,8 @@ test('a thousand scaled file rows stay separate when virtualized and remain sele
   const scroller = files.locator('.overflow-y-auto').last();
   const expectSeparateRows = async () => {
     await expect.poll(() => rows.evaluateAll(buttons => {
-      const bounds = buttons.map(button => {
+      // A pooled row can unmount between Playwright's query and this callback.
+      const bounds = buttons.filter(button => button.isConnected).map(button => {
         const row = button.parentElement!;
         return { row: row.getBoundingClientRect(), wrapper: row.parentElement!.getBoundingClientRect() };
       });

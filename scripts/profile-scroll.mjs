@@ -11,7 +11,13 @@ const page = await context.newPage();
 const cdp = await context.newCDPSession(page);
 await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 await page.goto(`http://127.0.0.1:4177/?scene=${process.env.PROFILE_SCENE || 'performance'}`);
-const anchor = process.env.PROFILE_SCENE === 'performance-history' ? page.locator('[data-commit-hash]').first() : page.getByTestId('files');
+let anchor = process.env.PROFILE_SCENE === 'performance-history' ? page.locator('[data-commit-hash]').first() : page.getByTestId('files');
+if (process.env.PROFILE_SCENE === 'performance-inspect') {
+  // PROFILE_TARGET=files scrolls the changed-files column, anything else the history beside it.
+  await page.locator('[data-commit-hash]').first().click();
+  await page.getByText('computeSomething(0,', { exact: false }).first().waitFor({ timeout: 30_000 });
+  anchor = process.env.PROFILE_TARGET === 'files' ? page.getByRole('group', { name: 'Changed files' }) : process.env.PROFILE_TARGET === 'diff' ? page.getByText('computeSomething(0,', { exact: false }).first() : page.locator('[data-commit-hash]').first();
+}
 await anchor.waitFor();
 const trace = [];
 if (process.env.PROFILE_TRACE_OUT) {
@@ -21,20 +27,22 @@ if (process.env.PROFILE_TRACE_OUT) {
 await cdp.send('Profiler.enable');
 await cdp.send('Profiler.setSamplingInterval', { interval: process.env.PROFILE_TRACE_OUT ? 1000 : 200 });
 await cdp.send('Profiler.start');
-await anchor.evaluate(async (root, frameCount) => {
+await anchor.evaluate(async (root, { frameCount, pxPerFrame }) => {
   const ok = n => n.scrollHeight > n.clientHeight + 100 && /auto|scroll/.test(getComputedStyle(n).overflowY);
   let scroller = [...root.querySelectorAll('*')].find(ok);
   for (let n = root; !scroller && n && n !== document.body; n = n.parentElement) if (ok(n)) scroller = n;
   let i = 0;
   await new Promise(res => {
     const tick = () => {
-      const phase = (i % 120) / 120;
-      scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) * (1 - Math.abs(phase * 2 - 1));
+      const max = scroller.scrollHeight - scroller.clientHeight;
+      // PROFILE_PX_PER_FRAME scrolls at wheel speed instead of sweeping the whole list.
+      if (pxPerFrame > 0) { const pos = (i * pxPerFrame) % (2 * max); scroller.scrollTop = pos <= max ? pos : 2 * max - pos; }
+      else { const phase = (i % 120) / 120; scroller.scrollTop = max * (1 - Math.abs(phase * 2 - 1)); }
       if (++i < frameCount) requestAnimationFrame(tick); else res();
     };
     requestAnimationFrame(tick);
   });
-}, Number(process.env.PROFILE_FRAMES ?? 240));
+}, { frameCount: Number(process.env.PROFILE_FRAMES ?? 240), pxPerFrame: Number(process.env.PROFILE_PX_PER_FRAME ?? 0) });
 const { profile } = await cdp.send('Profiler.stop');
 if (process.env.PROFILE_TRACE_OUT) {
   const completed = new Promise(resolve => cdp.once('Tracing.tracingComplete', resolve));

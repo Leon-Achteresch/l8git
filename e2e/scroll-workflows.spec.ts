@@ -77,8 +77,11 @@ test('history menus keep the current commit and its dialog alive after scrolling
     await expect.poll(async () => {
       hash = await page.locator('[data-commit-hash]').evaluateAll(rows => {
         const row = rows.find(row => {
+          // React can unmount a pooled row between Playwright's query and this callback.
+          const viewport = row.parentElement?.parentElement;
+          if (!viewport) return false;
           const rect = row.getBoundingClientRect();
-          const scroller = row.parentElement!.parentElement!.getBoundingClientRect();
+          const scroller = viewport.getBoundingClientRect();
           return rect.top > scroller.top + 30 && rect.bottom < scroller.bottom - 30;
         });
         return row?.getAttribute('data-commit-hash') ?? '';
@@ -146,7 +149,9 @@ test('recycled history rows cannot retarget a held click or restore focus to a d
     targetHash = await rows.evaluateAll(rows => {
       const target = rows.find(row => {
         const bounds = row.getBoundingClientRect();
-        const viewport = row.parentElement!.parentElement!.getBoundingClientRect();
+        // A pooled row can unmount between Playwright's query and this callback.
+        const viewport = row.parentElement?.parentElement?.getBoundingClientRect();
+        if (!viewport) return false;
         return bounds.top > viewport.top + 60 && bounds.bottom < viewport.bottom - 30;
       });
       return target?.getAttribute('data-commit-hash') ?? '';
@@ -160,7 +165,8 @@ test('recycled history rows cannot retarget a held click or restore focus to a d
   if (!bounds) throw new Error('Missing history pointer target');
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   await page.mouse.down();
-  await scroller.evaluate(node => { node.scrollTop += 64 * 30; });
+  // A pooled node is reused one pool length (256 rows, src/lib/virtual-pool.ts) later.
+  await scroller.evaluate(node => { node.scrollTop += 256 * 30; });
   await expect(slot).toHaveCount(1);
   await expect(slot).not.toHaveAttribute('data-commit-hash', targetHash);
   await page.mouse.up();
@@ -176,7 +182,7 @@ test('recycled history rows cannot retarget a held click or restore focus to a d
   await slot.focus();
   await slot.press('Shift+F10');
   await expect(page.getByRole('menu')).toBeVisible();
-  await scroller.evaluate(node => { node.scrollTop += 64 * 30; });
+  await scroller.evaluate(node => { node.scrollTop += 256 * 30; });
   await expect(slot).not.toHaveAttribute('data-commit-hash', recycledHash!);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
@@ -199,7 +205,9 @@ test('small history scrolls preserve keyboard focus on the same logical commit',
   await commit.focus();
   await commit.evaluate(row => { row.setAttribute('data-small-scroll-history-probe', 'yes'); });
   await scroller.evaluate(node => { node.scrollTop += 30; });
-  await expect(page.locator('[data-small-scroll-history-probe="yes"]')).not.toHaveAttribute('data-commit-hash', hash!);
+  // Pool slots follow the row index, so a one-row scroll keeps this node on its commit.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(page.locator('[data-small-scroll-history-probe="yes"]')).toHaveAttribute('data-commit-hash', hash!);
   await expect(commit).toBeFocused();
   await commit.press('Shift+F10');
   await expect(page.getByRole('menu')).toBeVisible();
@@ -222,7 +230,9 @@ test('opening and closing deep commit details preserves the scrolling element an
     hash = await rows.evaluateAll(rows => {
       const target = rows.find(row => {
         const bounds = row.getBoundingClientRect();
-        const viewport = row.parentElement!.parentElement!.getBoundingClientRect();
+        // A pooled row can unmount between Playwright's query and this callback.
+        const viewport = row.parentElement?.parentElement?.getBoundingClientRect();
+        if (!viewport) return false;
         return bounds.top > viewport.top + 100 && bounds.bottom < viewport.bottom - 30;
       });
       return target?.getAttribute('data-commit-hash') ?? '';

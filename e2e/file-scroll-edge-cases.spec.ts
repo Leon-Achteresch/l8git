@@ -31,7 +31,8 @@ async function recyclableFile(page: Page) {
   return {
     files, scroller, button, element, path, height,
     recycle: async () => {
-      await scroller.evaluate((node, height) => { node.scrollTop += 64 * height; }, height);
+      // A pooled node is reused one pool length (256 rows, src/lib/virtual-pool.ts) later.
+      await scroller.evaluate((node, height) => { node.scrollTop += 256 * height; }, height);
       await expect.poll(() => element.evaluate((node, path) => node.isConnected && node.getAttribute('aria-label') !== `Stage ${path}`, path)).toBe(true);
       const nextPath = (await element.getAttribute('aria-label'))?.replace(/^Stage /, '') ?? '';
       expect(nextPath).toMatch(/^files\/file-\d{4}\.txt$/);
@@ -90,7 +91,9 @@ test('staging after closing a deep file menu retains the scrolling element and i
     path = await files.getByRole('button', { name: /^Stage files\/file-\d{4}\.txt$/ }).evaluateAll(buttons => {
       const button = buttons.find(button => {
         const row = button.getBoundingClientRect();
-        const viewport = button.closest('.overflow-y-auto')!.getBoundingClientRect();
+        // A pooled row can unmount between Playwright's query and this callback.
+        const viewport = button.closest('.overflow-y-auto')?.getBoundingClientRect();
+        if (!viewport) return false;
         return row.top > viewport.top + 20 && row.bottom < viewport.bottom - 20;
       });
       return button?.getAttribute('aria-label')?.replace(/^Stage /, '') ?? '';
@@ -145,7 +148,9 @@ test('small scrolling preserves keyboard focus on the same logical file without 
   await row.button.focus();
   const before = await row.scroller.evaluate(node => node.scrollTop);
   await row.scroller.evaluate((node, height) => { node.scrollTop += height; }, row.height);
-  await expect.poll(() => row.element.evaluate(node => node.getAttribute('aria-label'))).not.toBe(`Stage ${row.path}`);
+  // Pool slots follow the row index, so a one-row scroll keeps this node on its file.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(await row.element.evaluate(node => node.getAttribute('aria-label'))).toBe(`Stage ${row.path}`);
   await expect(row.button).toBeFocused();
   expect(await row.scroller.evaluate(node => node.scrollTop)).toBeGreaterThan(before);
   await row.button.press('Shift+F10');
@@ -226,7 +231,9 @@ test('the first deep scaled right-click keeps the visible file target', async ({
     path = await files.getByRole('button', { name: /^Stage files\/file-\d{4}\.txt$/ }).evaluateAll(buttons => {
       const button = buttons.find(button => {
         const bounds = button.getBoundingClientRect();
-        const viewport = button.closest('.overflow-y-auto')!.getBoundingClientRect();
+        // A pooled row can unmount between Playwright's query and this callback.
+        const viewport = button.closest('.overflow-y-auto')?.getBoundingClientRect();
+        if (!viewport) return false;
         return bounds.top > viewport.top + 20 && bounds.bottom < viewport.bottom - 20;
       });
       return button?.getAttribute('aria-label')?.replace(/^Stage /, '') ?? '';
