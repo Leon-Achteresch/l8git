@@ -2,7 +2,14 @@ import { cn } from "@/lib/utils";
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { Download, FolderGit2, FolderPlus, Plus, type LucideIcon } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m, type Variants } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   OverlayPortal,
@@ -12,13 +19,14 @@ import { RepoSourceDialogs } from "./repo-source-dialogs";
 
 const REPO_ADD_MORPH_ID = "add-repo-dialog-surface";
 
+// `up` is the variant `custom`: true when the menu grows upward beside the button.
 const menuPanelVariants: Variants = {
-  hidden: {
+  hidden: (up: boolean) => ({
     opacity: 0,
     scaleY: 0.9,
-    y: -5,
-  },
-  visible: {
+    y: up ? 5 : -5,
+  }),
+  visible: (up: boolean) => ({
     opacity: 1,
     scaleY: 1,
     y: 0,
@@ -29,27 +37,29 @@ const menuPanelVariants: Variants = {
       mass: 0.42,
       delayChildren: 0.05,
       staggerChildren: 0.078,
+      // Reveal items from the button outward.
+      staggerDirection: up ? -1 : 1,
     },
-  },
-  exit: {
+  }),
+  exit: (up: boolean) => ({
     opacity: 0,
     scaleY: 0.93,
-    y: -4,
+    y: up ? 4 : -4,
     transition: {
       duration: 0.15,
       ease: [0.4, 0, 1, 1],
       staggerChildren: 0.042,
-      staggerDirection: -1,
+      staggerDirection: up ? 1 : -1,
     },
-  },
+  }),
 };
 
 const menuItemVariants: Variants = {
-  hidden: {
+  hidden: (up: boolean) => ({
     opacity: 0,
-    y: -14,
+    y: up ? 14 : -14,
     scaleY: 0.45,
-  },
+  }),
   visible: {
     opacity: 1,
     y: 0,
@@ -61,23 +71,41 @@ const menuItemVariants: Variants = {
       mass: 0.32,
     },
   },
-  exit: {
+  exit: (up: boolean) => ({
     opacity: 0,
-    y: -6,
+    y: up ? 6 : -6,
     scaleY: 0.88,
     transition: { duration: 0.11, ease: [0.4, 0, 1, 1] },
-  },
+  }),
 };
 
-export function AddRepoButton() {
+/** `side` opens the menu to the right of the button, for the narrow left repo rail. */
+export function AddRepoButton({
+  placement = "below",
+}: {
+  placement?: "below" | "side";
+}) {
   const { t } = useTranslation();
   const pickRepo = usePickRepo();
   const [menuOpen, setMenuOpen] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
   const [initOpen, setInitOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const openedByKeyboard = useRef(false);
   const box = useAnchorBox(menuOpen, wrapRef);
+  const beside = placement === "side";
+  // Offset from the rail's edge, not the centred button, so the menu doesn't cover the rail.
+  const [railRight, setRailRight] = useState<number>();
+  useLayoutEffect(() => {
+    if (beside && box) setRailRight(wrapRef.current?.closest("aside")?.getBoundingClientRect().right);
+  }, [beside, box]);
+  // Keep focus on the trigger once the menu unmounts instead of dropping it to <body>.
+  const closeMenu = () => {
+    setMenuOpen(false);
+    buttonRef.current?.focus();
+  };
 
   const menuEntries = useMemo(
     () =>
@@ -87,7 +115,7 @@ export function AddRepoButton() {
           label: t("addRepo.openLocal"),
           key: "open",
           action: () => {
-            setMenuOpen(false);
+            closeMenu();
             void pickRepo();
           },
         },
@@ -96,7 +124,7 @@ export function AddRepoButton() {
           label: t("addRepo.createEmpty"),
           key: "init",
           action: () => {
-            setMenuOpen(false);
+            closeMenu();
             setInitOpen(true);
           },
         },
@@ -105,7 +133,7 @@ export function AddRepoButton() {
           label: t("addRepo.clone"),
           key: "clone",
           action: () => {
-            setMenuOpen(false);
+            closeMenu();
             setCloneOpen(true);
           },
         },
@@ -120,14 +148,42 @@ export function AddRepoButton() {
       if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return;
       setMenuOpen(false);
     };
+    // A mouse open focuses the panel itself: WebKit doesn't focus clicked buttons, so keys would miss the menu.
+    if (openedByKeyboard.current) menuItems()[0]?.focus();
+    else panelRef.current?.focus();
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [menuOpen]);
+
+  const menuItems = () =>
+    Array.from(panelRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+
+  // Bound to the trigger and the panel, so it only sees keys while focus is in the menu.
+  const onMenuKeyDown = (e: KeyboardEvent<HTMLElement>) => {
+    if (!menuOpen) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const list = menuItems();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      const at = list.indexOf(document.activeElement as HTMLElement);
+      const next = at < 0 ? (step > 0 ? 0 : list.length - 1) : (at + step + list.length) % list.length;
+      list[next]?.focus();
+    } else if (e.key === "Escape") {
+      // Stops before the document/window Escape handlers of other panels and popovers.
+      e.preventDefault();
+      e.stopPropagation();
+      closeMenu();
+    } else if (e.key === "Tab") {
+      // Default Tab then moves on from the trigger, like a native menu.
+      closeMenu();
+    }
+  };
 
   return (
     <div className="relative shrink-0" ref={wrapRef}>
       <LayoutGroup>
         <m.button
+          ref={buttonRef}
           type="button"
           layoutId={REPO_ADD_MORPH_ID}
           whileTap={{ scale: 0.92 }}
@@ -137,14 +193,21 @@ export function AddRepoButton() {
             damping: 28,
             mass: 0.35,
           }}
-          onClick={() => setMenuOpen((o) => !o)}
+          onClick={(e) => {
+            // detail 0: activated by Enter/Space, so move focus into the menu.
+            openedByKeyboard.current = e.detail === 0;
+            if (menuOpen) closeMenu();
+            else setMenuOpen(true);
+          }}
+          onKeyDown={onMenuKeyDown}
           title={t("addRepo.buttonTitle")}
           aria-label={t("addRepo.buttonAria")}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           className={cn(
             "flex size-7 items-center justify-center rounded-lg text-muted-foreground/70 transition-colors hover:bg-foreground/10 hover:text-foreground",
-            menuOpen && "rounded-b-none bg-foreground/10 text-foreground",
+            menuOpen && "bg-foreground/10 text-foreground",
+            menuOpen && !beside && "rounded-b-none",
           )}
         >
           <Plus className="h-4 w-4" />
@@ -156,16 +219,31 @@ export function AddRepoButton() {
             <m.div
               ref={panelRef}
               role="menu"
+              tabIndex={-1}
+              onKeyDown={onMenuKeyDown}
               variants={menuPanelVariants}
+              custom={beside}
               initial="hidden"
               animate="visible"
               exit="exit"
-              style={{
-                transformOrigin: "top right",
-                top: box?.bottom ?? 0,
-                right: box ? window.innerWidth - box.right : 0,
-              }}
-              className="fixed z-[80] min-w-[200px] overflow-hidden rounded-b-lg rounded-t-none bg-popover py-1 shadow-lg"
+              style={
+                beside
+                  ? {
+                      transformOrigin: "bottom left",
+                      // Grows upward; the rail button sits low and the window is >= 600px tall.
+                      bottom: box ? window.innerHeight - box.bottom : 0,
+                      left: (railRight ?? box?.right ?? 0) + 8,
+                    }
+                  : {
+                      transformOrigin: "top right",
+                      top: box?.bottom ?? 0,
+                      right: box ? window.innerWidth - box.right : 0,
+                    }
+              }
+              className={cn(
+                "fixed z-[80] min-w-[200px] overflow-hidden bg-popover py-1 shadow-lg outline-none",
+                beside ? "rounded-lg" : "rounded-b-lg rounded-t-none",
+              )}
             >
               {menuEntries.map(({ Icon, label, action, key }) => (
                 <m.button
@@ -173,8 +251,9 @@ export function AddRepoButton() {
                   type="button"
                   role="menuitem"
                   variants={menuItemVariants}
-                  style={{ transformOrigin: "50% 0%" }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                  custom={beside}
+                  style={{ transformOrigin: beside ? "50% 100%" : "50% 0%" }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm outline-none transition-colors hover:bg-muted focus-visible:bg-muted"
                   onClick={action}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

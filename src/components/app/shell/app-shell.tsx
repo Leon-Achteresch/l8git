@@ -117,7 +117,7 @@ function RailShell({ children }: ShellProps) {
           <RepoVerticalList style="rail" />
         </div>
         <div className="flex flex-col items-center gap-1" style={NO_DRAG}>
-          <AddRepoButton />
+          <AddRepoButton placement="side" />
           <ShellDivider />
           <UtilityNav variant="rail" />
         </div>
