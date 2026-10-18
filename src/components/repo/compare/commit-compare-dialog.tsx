@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeftRight, ArrowUp, Check, Copy, Download, FileCode2, GitCompareArrows, LoaderCircle, RefreshCw, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, Check, Copy, Download, FileCode2, GitCompareArrows, LoaderCircle, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { FileFilterInput } from '@/components/repo/file-filter-input';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useRepoStore } from '@/lib/repo-store';
 import { toastError } from '@/lib/error-toast';
@@ -250,7 +251,7 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
             <ResizablePanelGroup key={narrow ? 'compare-vertical' : 'compare-horizontal'} orientation={narrow ? 'vertical' : 'horizontal'} className="min-h-0 flex-1">
               <ResizablePanel id="compare-files" defaultSize={narrow ? '36%' : '29%'} minSize={narrow ? '22%' : '18%'} maxSize={narrow ? '65%' : '60%'} className="flex min-h-0 flex-col">
                 <div className="shrink-0 space-y-2 border-b border-border px-3 py-2">
-                  <div className="relative"><Search aria-hidden="true" className="absolute left-2 top-1.5 size-3.5 text-muted-foreground" /><Input type="search" inputSize="sm" className="pl-7" value={query} onChange={event => setQuery(event.target.value)} aria-label={t('compare.filterFiles')} placeholder={t('compare.filterFiles')} /></div>
+                  <FileFilterInput value={query} onChange={setQuery} />
                   <div className="flex items-center gap-2">
                     <select aria-label={t('compare.fileStatus')} className={`${SELECT_CLASS} flex-1`} value={status} onChange={event => setStatus(event.target.value as typeof status)}><option value="all">{t('compare.allStatuses')}</option>{Object.entries(COMPARE_FILE_STATUS_KEYS).map(([key, label]) => <option key={key} value={key}>{t(`compare.${label}`)}</option>)}</select>
                     <select aria-label={t('compare.sortFiles')} className={`${SELECT_CLASS} flex-1`} value={sort} onChange={event => setSort(event.target.value as CommitCompareFileSort)}><option value="path">{t('compare.sortPath')}</option><option value="changes">{t('compare.sortChanges')}</option><option value="status">{t('compare.sortStatus')}</option></select>

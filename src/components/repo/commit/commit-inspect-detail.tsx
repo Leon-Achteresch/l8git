@@ -58,6 +58,7 @@ export function CommitInspectDetail({
   const diffLoading = !!commitHash && !!selectedFile && (diffState.key !== diffKey || diffState.loading);
   const diffFailed = diffState.key === diffKey && diffState.failed;
   const [blameActive, setBlameActive] = useState(false);
+  const [fileQuery, setFileQuery] = useState("");
   const [restoreDialog, setRestoreDialog] = useState<{ path: string; commitHash: string; files: string[] } | null>(null);
   const explain = useExplainSheet();
 
@@ -101,6 +102,7 @@ export function CommitInspectDetail({
   useEffect(() => {
     setSelectedFile(null);
     setBlameActive(false);
+    setFileQuery("");
     setRestoreDialog(null);
   }, [path, commitHash, setSelectedFile]);
 
@@ -110,8 +112,9 @@ export function CommitInspectDetail({
   }, [loadInspect]);
 
   useEffect(() => {
-    void loadFileDiff();
-    return () => { diffEpoch.current++; };
+    // Holding an arrow key in the file list should not run one git diff per repeat.
+    const timer = window.setTimeout(() => void loadFileDiff(), 100);
+    return () => { window.clearTimeout(timer); diffEpoch.current++; };
   }, [loadFileDiff]);
 
   useEffect(() => {
@@ -214,8 +217,9 @@ export function CommitInspectDetail({
                   setBlameActive(true);
                 }}
                 onDiscardFile={readOnly ? undefined : discardFile}
-              />
-              <div className="flex min-h-0 flex-1 flex-col">
+                query={fileQuery}
+                onQueryChange={setFileQuery}
+              >
                 {blameActive && selectedFile ? (
                   <GitBlameSheet
                     path={path}
@@ -233,7 +237,7 @@ export function CommitInspectDetail({
                     failed={diffFailed}
                   />
                 )}
-              </div>
+              </CommitInspectFileTabs>
             </div>
           </div>
         )}

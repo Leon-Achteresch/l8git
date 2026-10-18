@@ -44,12 +44,17 @@ export function comparisonRefsFromSelection(commits: Pick<Commit, 'hash'>[]): Co
   return { base: commits[1].hash, head: commits[0].hash, mode: 'direct' };
 }
 
-export function filterCompareFiles(files: CommitCompareFile[], query: string, status: CommitCompareFileStatus | 'all', sort: CommitCompareFileSort, reviewed: ReadonlySet<string> = new Set(), hideReviewed = false): CommitCompareFile[] {
+/** Case-insensitive substring match; an empty query matches every path. */
+export function pathMatchesQuery(path: string | null | undefined, query: string): boolean {
   const needle = query.trim().toLocaleLowerCase();
+  return !needle || !!path?.toLocaleLowerCase().includes(needle);
+}
+
+export function filterCompareFiles(files: CommitCompareFile[], query: string, status: CommitCompareFileStatus | 'all', sort: CommitCompareFileSort, reviewed: ReadonlySet<string> = new Set(), hideReviewed = false): CommitCompareFile[] {
   return files.filter(file =>
     (status === 'all' || file.status === status)
     && (!hideReviewed || !reviewed.has(file.path))
-    && (!needle || file.path.toLocaleLowerCase().includes(needle) || file.previous_path?.toLocaleLowerCase().includes(needle)),
+    && (pathMatchesQuery(file.path, query) || pathMatchesQuery(file.previous_path, query)),
   ).sort((a, b) => {
     if (sort === 'changes') {
       const size = b.additions + b.deletions - a.additions - a.deletions;
