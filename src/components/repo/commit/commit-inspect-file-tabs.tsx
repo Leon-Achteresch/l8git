@@ -97,7 +97,7 @@ export function CommitInspectFileTabs({
         defaultSize="22%"
         minSize="15%"
         maxSize="50%"
-        className="flex min-h-0 min-w-0 flex-col bg-muted/15"
+        className="@container flex min-h-0 min-w-0 flex-col bg-muted/15"
       >
         <div
           className="flex h-8 shrink-0 items-center gap-1.5 px-3 text-[11px] text-muted-foreground"
@@ -173,7 +173,7 @@ export function CommitInspectFileTabs({
                         </span>
                       )}
                     </span>
-                    <span className="flex shrink-0 gap-1.5 font-mono text-[10px] tabular-nums">
+                    <span className="hidden shrink-0 gap-1.5 @[12rem]:flex font-mono text-[10px] tabular-nums">
                       {file.binary ? (
                         <span className="text-muted-foreground">
                           {t("commitInspect.binaryBadge")}
