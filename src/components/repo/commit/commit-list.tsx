@@ -1,4 +1,5 @@
 import { historySectionTitleResolver } from "@/lib/commit-history-sections";
+import { virtualPoolSlot } from "@/lib/virtual-pool";
 import {
   buildGraph,
   compareBranchesDisplay,
@@ -695,7 +696,8 @@ export function CommitList({
               contain: "layout style",
             }}
           >
-            {virtualItems.map((vi, slot) => {
+            {virtualItems.map((vi) => {
+              const slot = virtualPoolSlot(vi.index, virtualItems.length);
               const item = flatItems[vi.index];
               if (!item) return null;
               if (item.kind === "header") {

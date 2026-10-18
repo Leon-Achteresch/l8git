@@ -1,13 +1,10 @@
 import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
 import { looksLikeLfsPointerText } from "@/lib/media";
 import { FileCode2, Loader2 } from "lucide-react";
-import { Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
 import { SpinIcon } from "@/components/motion/kit";
 
-const MonacoDiffViewer = lazy(() =>
-  import("./monaco-diff-viewer").then((m) => ({ default: m.MonacoDiffViewer })),
-);
+import { CommitDiffViewer } from "./commit-diff-viewer";
 
 export type FileDiffPayload = { diff: string | null; is_binary: boolean };
 
@@ -64,18 +61,10 @@ export function CommitInspectDiff({
           </div>
         ) : fileDiff?.diff ? (
           <div className="h-full min-h-0 min-w-0 overflow-hidden">
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center">
-                  <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
-                </div>
-              }
-            >
-              <MonacoDiffViewer
-                unifiedText={fileDiff.diff}
-                filename={selectedFile}
-              />
-            </Suspense>
+            <CommitDiffViewer
+              unifiedText={fileDiff.diff}
+              filename={selectedFile}
+            />
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

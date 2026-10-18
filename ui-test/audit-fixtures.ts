@@ -59,7 +59,8 @@ export function seedAuditFixture(scene: string) {
     entries = [];
     commits = [{ ...base, hash: 'b'.repeat(40), short_hash: 'bbbbbbb', subject: 'Recoverable change', parents: [base.hash] }, base];
   }
-  if (scene === 'performance' || scene === 'performance-history') {
+  const perfInspect = scene === 'performance-inspect';
+  if (scene === 'performance' || scene === 'performance-history' || perfInspect) {
     entries = Array.from({ length: 1000 }, (_, i) => ({ ...entries[0], path: `files/file-${String(i).padStart(4, '0')}.txt` }));
     commits = Array.from({ length: 10_000 }, (_, i) => ({ ...base, hash: (10_000 - i).toString(16).padStart(40, '0'), short_hash: String(10_000 - i), subject: `Fixture commit ${i}`, parents: i === 9999 ? [] : [(9999 - i).toString(16).padStart(40, '0')] }));
   }
@@ -125,7 +126,17 @@ export function seedAuditFixture(scene: string) {
       case 'repo_commit_inspect': {
         const commit = args?.commit === 'HEAD' ? (scene === 'review' && args?.path === reviewBasePath ? reviewBaseHead : commits[0]) : commits.find(commit => commit.hash === args?.commit);
         if (!commit) throw Error('Unknown fixture commit');
-        return { header: `commit ${commit.hash}\nAuthor:     ${commit.author} <${commit.email}>\nAuthorDate: ${commit.date}\n\n${[commit.subject, ...(commit.body ? ['', ...commit.body.split('\n')] : [])].map(line => `    ${line}`).join('\n')}\n`, files: [] };
+        const files = perfInspect ? Array.from({ length: 400 }, (_, i) => ({ path: `src/module-${i % 20}/file-${String(i).padStart(4, '0')}.ts`, status: 'M', additions: 1500, deletions: 1500, binary: false })) : [];
+        return { header: `commit ${commit.hash}\nAuthor:     ${commit.author} <${commit.email}>\nAuthorDate: ${commit.date}\n\n${[commit.subject, ...(commit.body ? ['', ...commit.body.split('\n')] : [])].map(line => `    ${line}`).join('\n')}\n`, files };
+      }
+      case 'repo_commit_file_diff': {
+        if (!perfInspect) throw Error(`Unimplemented fixture command: ${command}`);
+        // 3000 changed lines in 30 hunks, the size where diff views start to hurt.
+        const hunks = Array.from({ length: 30 }, (_, h) => [`@@ -${h * 200 + 1},103 +${h * 200 + 1},103 @@`, ' const context = true;',
+          ...Array.from({ length: 50 }, (_, i) => `-  const value${h}_${i} = computeSomething(${i}, "old string literal number ${i}");`),
+          ...Array.from({ length: 50 }, (_, i) => `+  const value${h}_${i} = computeSomethingElse(${i}, "new string literal number ${i}");`),
+          ' const tail = false;', ' // end of hunk']).flat();
+        return { diff: ['diff --git a/x.ts b/x.ts', 'index 1111111..2222222 100644', '--- a/x.ts', '+++ b/x.ts', ...hunks, ''].join('\n'), is_binary: false };
       }
       case 'repo_file_diff': {
         if (hunkFixture) return { staged: hunkDiff(stagedHunks), unstaged: hunkDiff(unstagedHunks()), untracked_plain: null,
@@ -245,7 +256,7 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
-  useUiStore.getState().setSidebarTab(scene === 'performance-history' ? 'history' : scene === 'lfs' ? 'tools' : 'commit');
+  useUiStore.getState().setSidebarTab(scene === 'performance-history' || perfInspect ? 'history' : scene === 'lfs' ? 'tools' : 'commit');
 }
 
 /** Real split UI and AI SDK, with deterministic repository RPCs confined to the audit scene. */

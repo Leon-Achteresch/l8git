@@ -1,3 +1,4 @@
+import { virtualPoolSlot } from "@/lib/virtual-pool";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -344,7 +345,6 @@ function VirtualFileListInner({
 
   const isEmpty =
     conflictRows.length === 0 && stagedRows.length === 0 && unstagedRows.length === 0;
-  let nextFileRowSlot = 0;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -650,7 +650,7 @@ function VirtualFileListInner({
               return (
                 // Only stateless file rows recycle their viewport position.
                 // TanStack still tracks their exact logical ids independently.
-                <div key={`file-slot:${nextFileRowSlot++}`} data-index={vi.index} style={style}>
+                <div key={`file-slot:${virtualPoolSlot(vi.index, virtualItems.length)}`} data-index={vi.index} style={style}>
                   <FileRow
                     row={item.row}
                     selected={item.row.id === selectedRowId}
