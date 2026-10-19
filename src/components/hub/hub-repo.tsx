@@ -1,6 +1,7 @@
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   Code2,
   Copy,
   Download,
@@ -64,9 +65,10 @@ import {
   UserAvatar,
   useHubNav,
 } from "./hub-bits";
+import { HubContributorsTab } from "./hub-contributors";
 import { CHECK_COLOR, CiStrip, langColor, LanguageBar, StarArea } from "./hub-viz";
 
-type Tab = "overview" | "pulls" | "issues" | "releases" | "actions";
+type Tab = "overview" | "pulls" | "issues" | "releases" | "actions" | "contributors";
 
 export function HubRepoPage({ account, fullName }: { account: HubAccount; fullName: string }) {
   const { t } = useTranslation();
@@ -81,6 +83,7 @@ export function HubRepoPage({ account, fullName }: { account: HubAccount; fullNa
     { id: "issues", label: t("hub.repo.issues"), count: r?.openIssues },
     { id: "releases", label: t("hub.repo.releases"), count: r?.releaseCount },
     { id: "actions", label: t("hub.repo.actions") },
+    { id: "contributors", label: t("hub.repo.contributors") },
   ];
 
   return (
@@ -128,6 +131,7 @@ export function HubRepoPage({ account, fullName }: { account: HubAccount; fullNa
             {tab === "issues" && <IssuesTab account={account} fullName={r.fullName} />}
             {tab === "releases" && <ReleasesTab account={account} fullName={r.fullName} />}
             {tab === "actions" && <ActionsTab account={account} fullName={r.fullName} />}
+            {tab === "contributors" && <HubContributorsTab account={account} repo={r} />}
           </>
         )}
       </div>
@@ -463,22 +467,28 @@ function Overview({ repo, onTab }: { repo: HubRepoDetail; onTab: (t: Tab) => voi
             </section>
           )}
 
-          {repo.contributors.length > 0 && <Contributors repo={repo} />}
+          {repo.contributors.length > 0 && <Contributors repo={repo} onOpen={() => onTab("contributors")} />}
         </aside>
       </div>
     </>
   );
 }
 
-function Contributors({ repo }: { repo: HubRepoDetail }) {
+function Contributors({ repo, onOpen }: { repo: HubRepoDetail; onOpen: () => void }) {
   const { t } = useTranslation();
   const list = repo.contributors;
   const max = list[0]?.contributions || 1;
   return (
     <section>
-      <h3 className="mb-2.5 flex items-center gap-2 text-[13px] font-medium">
-        {t("hub.repo.contributors")}
-        <span className="font-mono text-xs text-muted-foreground">{list.length >= 30 ? "30+" : list.length}</span>
+      <h3 className="mb-2.5 text-[13px] font-medium">
+        <button type="button" onClick={onOpen} className="group flex w-full items-center gap-2 text-left hover:text-foreground">
+          {t("hub.repo.contributors")}
+          <span className="font-mono text-xs text-muted-foreground">{list.length >= 30 ? "30+" : list.length}</span>
+          <span className="ml-auto flex items-center gap-0.5 text-xs font-normal text-muted-foreground group-hover:text-foreground">
+            {t("hub.repo.details")}
+            <ChevronRight className="size-3" />
+          </span>
+        </button>
       </h3>
       <div className="flex -space-x-1.5">
         {list.slice(0, 8).map((c) => (

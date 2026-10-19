@@ -4382,7 +4382,8 @@
       "noPrs": "没有拉取请求。",
       "noIssues": "没有议题。",
       "noReleases": "尚无发布。",
-      "noRuns": "未找到 CI 运行。"
+      "noRuns": "未找到 CI 运行。",
+      "details": "详情"
     },
     "repos": {
       "count": "{{count}} 个仓库",
@@ -4406,6 +4407,64 @@
     "welcome": {
       "title": "所有 Git 账户集中一处",
       "body": "连接 GitHub、GitLab 或 Bitbucket——账户数量不限，一键切换。无需打开浏览器即可处理拉取请求、审查、发布、CI、议题和复刻。"
+    },
+    "contrib": {
+      "empty": "暂无贡献者数据。",
+      "computing": "提供方仍在计算统计数据，请稍后重试。",
+      "kpi": {
+        "people": "贡献者",
+        "commits": "提交",
+        "added": "新增行数",
+        "deleted": "删除行数",
+        "active30": "活跃（30 天）",
+        "busFactor": "巴士因子",
+        "busFactorHint": "合计完成一半提交的最少人数"
+      },
+      "activity": "提交活动（最近 52 周）",
+      "others": "另外 {{n}} 人",
+      "leaderboard": "排行榜",
+      "filter": "筛选人员…",
+      "noMatch": "没有匹配的人员。",
+      "col": {
+        "person": "人员",
+        "trend": "最近 24 周",
+        "commits": "提交",
+        "last": "最近活跃"
+      },
+      "highlights": "亮点",
+      "languagesByPerson": "每人的语言",
+      "punchTeam": "团队提交时间",
+      "punch": "提交时间",
+      "punchCell": "{{h}}:00 有 {{n}} 次提交",
+      "localTime": "你的本地时间，基于最近的提交。",
+      "sourceWeekly": "合计覆盖全部历史。",
+      "sourceSample": "合计来自提供方的贡献者列表和最近的提交。",
+      "sampleNote": "语言、目录和时间来自最近 {{commits}} 次提交（{{files}} 个文件）。",
+      "avgSize": "平均提交大小",
+      "lines": "{{n}} 行",
+      "activeWeeks": "活跃周数",
+      "streak": "最长连续",
+      "weeksN": "{{n}} 周",
+      "first": "首次提交",
+      "last": "最近活跃",
+      "mainly": "主要使用 {{lang}}",
+      "noLang": "样本中没有文件详情。",
+      "profile": "打开主页",
+      "weekly": "每周提交",
+      "peak": "峰值 {{n}} · {{when}} 那周",
+      "areas": "最常修改的目录",
+      "recent": "最近提交",
+      "noRecent": "没有最近的提交。",
+      "commitsN": "{{n}} 次提交",
+      "hl": {
+        "top": "提交最多",
+        "builder": "新增行最多",
+        "cleaner": "清理最多",
+        "streak": "最长连续",
+        "newest": "最新成员",
+        "night": "夜猫子",
+        "weekend": "周末程序员"
+      }
     }
   },
   "shellLayout": {

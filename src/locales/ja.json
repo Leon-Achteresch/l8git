@@ -4382,7 +4382,8 @@
       "noPrs": "プルリクエストはありません。",
       "noIssues": "Issue はありません。",
       "noReleases": "まだリリースはありません。",
-      "noRuns": "CI の実行が見つかりません。"
+      "noRuns": "CI の実行が見つかりません。",
+      "details": "詳細"
     },
     "repos": {
       "count": "{{count}} 個のリポジトリ",
@@ -4406,6 +4407,64 @@
     "welcome": {
       "title": "すべての Git アカウントをひとつの場所に",
       "body": "GitHub、GitLab、Bitbucket を接続 — アカウントはいくつでも、ワンクリックで切り替え。プルリクエスト、レビュー、リリース、CI、Issue、フォークをブラウザーを開かずに。"
+    },
+    "contrib": {
+      "empty": "コントリビューターのデータはまだありません。",
+      "computing": "プロバイダーが統計を計算中です。しばらくしてから再試行してください。",
+      "kpi": {
+        "people": "コントリビューター",
+        "commits": "コミット",
+        "added": "追加行",
+        "deleted": "削除行",
+        "active30": "アクティブ（30日）",
+        "busFactor": "バス係数",
+        "busFactorHint": "全コミットの半分を占める最少人数"
+      },
+      "activity": "コミット活動（直近52週）",
+      "others": "他 {{n}} 人",
+      "leaderboard": "ランキング",
+      "filter": "人を絞り込む…",
+      "noMatch": "該当する人はいません。",
+      "col": {
+        "person": "人",
+        "trend": "直近24週",
+        "commits": "コミット",
+        "last": "最終活動"
+      },
+      "highlights": "ハイライト",
+      "languagesByPerson": "人ごとの言語",
+      "punchTeam": "チームのコミット時間帯",
+      "punch": "コミット時間帯",
+      "punchCell": "{{h}}:00 に {{n}} コミット",
+      "localTime": "最近のコミットに基づくローカル時刻。",
+      "sourceWeekly": "合計は全履歴が対象です。",
+      "sourceSample": "合計はプロバイダーのコントリビューター一覧と最近のコミットに基づきます。",
+      "sampleNote": "言語・領域・時間帯は直近 {{commits}} コミット（{{files}} ファイル）に基づきます。",
+      "avgSize": "平均コミットサイズ",
+      "lines": "{{n}} 行",
+      "activeWeeks": "アクティブ週",
+      "streak": "最長連続",
+      "weeksN": "{{n}} 週",
+      "first": "最初のコミット",
+      "last": "最終活動",
+      "mainly": "主に {{lang}}",
+      "noLang": "サンプルにファイル詳細がありません。",
+      "profile": "プロフィールを開く",
+      "weekly": "週ごとのコミット",
+      "peak": "ピーク {{n}} · {{when}} の週",
+      "areas": "よく触る領域",
+      "recent": "最近のコミット",
+      "noRecent": "最近のコミットはありません。",
+      "commitsN": "{{n}} コミット",
+      "hl": {
+        "top": "最多コミット",
+        "builder": "最多追加行",
+        "cleaner": "最大のお掃除",
+        "streak": "最長連続",
+        "newest": "最新メンバー",
+        "night": "夜型",
+        "weekend": "週末コーダー"
+      }
     }
   },
   "shellLayout": {

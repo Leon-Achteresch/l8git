@@ -74,6 +74,31 @@ export type HubLanguage = { name: string; color: string | null; share: number };
 
 export type HubContributor = HubUser & { contributions: number };
 
+/** One recent commit with whatever detail the provider gives cheaply. */
+export type HubCommitSample = {
+  sha: string;
+  message: string;
+  url: string;
+  date: string;
+  /** Stable key for grouping: provider login when known, else the git author name. */
+  login: string;
+  avatarUrl: string | null;
+  additions: number | null;
+  deletions: number | null;
+  /** Only fetched for the newest commits; `null` where not loaded. */
+  files: { path: string; additions: number; deletions: number }[] | null;
+};
+
+/** Weekly totals per author over the repo's whole history (GitHub stats API). */
+export type HubContributorWeeks = HubUser & { weeks: { w: number; a: number; d: number; c: number }[] };
+
+export type HubContributorStats = {
+  /** `null` when the provider has no such endpoint or is still computing it. */
+  weekly: HubContributorWeeks[] | null;
+  computing: boolean;
+  commits: HubCommitSample[];
+};
+
 export type HubRepoDetail = HubRepo & {
   homepage: string | null;
   license: string | null;
@@ -146,6 +171,7 @@ export type HubAdapter = {
   starred(a: HubAccount): Promise<HubRepo[]>;
   repos(a: HubAccount): Promise<HubRepo[]>;
   repo(a: HubAccount, fullName: string): Promise<HubRepoDetail>;
+  contributorStats(a: HubAccount, fullName: string): Promise<HubContributorStats>;
   contributions(a: HubAccount): Promise<ContributionDay[] | null>;
   notifications(a: HubAccount): Promise<HubNotification[] | null>;
   markRead(a: HubAccount, id: string): Promise<void>;

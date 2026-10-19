@@ -296,6 +296,62 @@ export const github: HubAdapter = {
     };
   },
 
+  async contributorStats(a, fullName) {
+    const { owner, name } = split(fullName);
+    const base = `/repos/${enc(owner)}/${enc(name)}`;
+    type Node = {
+      oid: string;
+      messageHeadline: string;
+      committedDate: string;
+      url: string;
+      additions: number;
+      deletions: number;
+      author: { name: string; avatarUrl: string; user: { login: string } | null } | null;
+    };
+    const [weekly, d] = await Promise.all([
+      // 202 with an empty (null) or `{}` body while GitHub computes the stats; `undefined` marks a failed request.
+      hubApi<{ author: { login: string; avatar_url: string; html_url: string } | null; weeks: { w: number; a: number; d: number; c: number }[] }[] | object | null>(
+        a,
+        "GET",
+        `${base}/stats/contributors`,
+      ).catch(() => undefined),
+      gql<{ repository: { defaultBranchRef: { target: { history?: { nodes: Node[] } } } | null } }>(
+        a,
+        `query($o: String!, $n: String!) { repository(owner: $o, name: $n) { defaultBranchRef { target { ... on Commit { history(first: 100) { nodes {
+          oid messageHeadline committedDate url additions deletions
+          author { name avatarUrl user { login } }
+        } } } } } } }`,
+        { o: owner, n: name },
+      ),
+    ]);
+    const nodes = d.repository.defaultBranchRef?.target.history?.nodes ?? [];
+    // shortcut: file paths (for languages) only for the newest 30 commits, one REST call each; raise if the sample feels thin.
+    const details = await Promise.all(
+      nodes.slice(0, 30).map((c) =>
+        hubApi<{ files?: { filename: string; additions: number; deletions: number }[] }>(a, "GET", `${base}/commits/${c.oid}`).catch(() => null),
+      ),
+    );
+    return {
+      weekly: Array.isArray(weekly)
+        ? weekly
+            .filter((w) => w.author)
+            .map((w) => ({ login: w.author!.login, avatarUrl: w.author!.avatar_url, url: w.author!.html_url, weeks: w.weeks }))
+        : null,
+      computing: weekly !== undefined && !Array.isArray(weekly),
+      commits: nodes.map((c, i) => ({
+        sha: c.oid,
+        message: c.messageHeadline,
+        url: c.url,
+        date: c.committedDate,
+        login: c.author?.user?.login ?? c.author?.name ?? "?",
+        avatarUrl: c.author?.avatarUrl ?? null,
+        additions: c.additions,
+        deletions: c.deletions,
+        files: details[i]?.files?.map((f) => ({ path: f.filename, additions: f.additions, deletions: f.deletions })) ?? null,
+      })),
+    };
+  },
+
   async contributions(a) {
     const d = await gql<{
       viewer: { contributionsCollection: { contributionCalendar: { weeks: { contributionDays: { date: string; contributionCount: number }[] }[] } } };

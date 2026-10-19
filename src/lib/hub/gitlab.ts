@@ -173,6 +173,27 @@ export const gitlab: HubAdapter = {
     };
   },
 
+  async contributorStats(a, fullName) {
+    const list = await hubApi<
+      { id: string; title: string; author_name: string; created_at: string; web_url: string; stats?: { additions: number; deletions: number } }[]
+    >(a, "GET", `${pid(fullName)}/repository/commits?per_page=100&with_stats=true`);
+    return {
+      weekly: null,
+      computing: false,
+      commits: list.map((c) => ({
+        sha: c.id,
+        message: c.title,
+        url: c.web_url,
+        date: c.created_at,
+        login: c.author_name,
+        avatarUrl: null,
+        additions: c.stats?.additions ?? null,
+        deletions: c.stats?.deletions ?? null,
+        files: null,
+      })),
+    };
+  },
+
   async contributions() {
     return null;
   },

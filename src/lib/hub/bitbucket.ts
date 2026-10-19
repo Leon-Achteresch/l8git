@@ -192,6 +192,29 @@ export const bitbucket: HubAdapter = {
     };
   },
 
+  async contributorStats(a, fullName) {
+    const d = await hubApi<BbRepo>(a, "GET", r(fullName));
+    const branch = d.mainbranch?.name;
+    const page = await hubApi<
+      Page<{ hash: string; message: string; date: string; author: { raw: string; user?: { nickname?: string; display_name: string; links: { avatar: { href: string } } } }; links: { html: { href: string } } }>
+    >(a, "GET", `${r(fullName)}/commits${branch ? `/${enc(branch)}` : ""}?pagelen=100`);
+    return {
+      weekly: null,
+      computing: false,
+      commits: page.values.map((c) => ({
+        sha: c.hash,
+        message: c.message.split("\n")[0],
+        url: c.links.html.href,
+        date: c.date,
+        login: c.author.user?.nickname ?? c.author.user?.display_name ?? c.author.raw.replace(/\s*<.*>$/, ""),
+        avatarUrl: c.author.user?.links.avatar.href ?? null,
+        additions: null,
+        deletions: null,
+        files: null,
+      })),
+    };
+  },
+
   async contributions() {
     return null;
   },
