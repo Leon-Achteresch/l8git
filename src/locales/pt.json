@@ -4382,7 +4382,8 @@
       "noPrs": "Nenhum pull request.",
       "noIssues": "Nenhuma issue.",
       "noReleases": "Ainda não há releases.",
-      "noRuns": "Nenhuma execução de CI encontrada."
+      "noRuns": "Nenhuma execução de CI encontrada.",
+      "details": "Detalhes"
     },
     "repos": {
       "count": "{{count}} repositórios",
@@ -4406,6 +4407,64 @@
     "welcome": {
       "title": "Todas as suas contas Git em um só lugar",
       "body": "Conecte GitHub, GitLab ou Bitbucket — quantas contas quiser, troque com um clique. Pull requests, revisões, releases, CI, issues e forks sem abrir o navegador."
+    },
+    "contrib": {
+      "empty": "Ainda não há dados de colaboradores.",
+      "computing": "O provedor ainda está calculando as estatísticas. Tente novamente em instantes.",
+      "kpi": {
+        "people": "Colaboradores",
+        "commits": "Commits",
+        "added": "Linhas adicionadas",
+        "deleted": "Linhas removidas",
+        "active30": "Ativos (30 dias)",
+        "busFactor": "Fator ônibus",
+        "busFactorHint": "Menor número de pessoas que juntas fizeram metade dos commits"
+      },
+      "activity": "Atividade de commits, últimas 52 semanas",
+      "others": "mais {{n}}",
+      "leaderboard": "Ranking",
+      "filter": "Filtrar pessoas…",
+      "noMatch": "Ninguém corresponde ao filtro.",
+      "col": {
+        "person": "Pessoa",
+        "trend": "Últimas 24 semanas",
+        "commits": "Commits",
+        "last": "Última atividade"
+      },
+      "highlights": "Destaques",
+      "languagesByPerson": "Linguagens por pessoa",
+      "punchTeam": "Quando a equipe faz commits",
+      "punch": "Quando faz commits",
+      "punchCell": "{{n}} commits às {{h}}:00",
+      "localTime": "Seu horário local, a partir dos commits recentes.",
+      "sourceWeekly": "Os totais cobrem todo o histórico.",
+      "sourceSample": "Os totais vêm da lista de colaboradores e dos commits recentes.",
+      "sampleNote": "Linguagens, áreas e horários vêm dos últimos {{commits}} commits ({{files}} arquivos).",
+      "avgSize": "Tamanho médio do commit",
+      "lines": "{{n}} linhas",
+      "activeWeeks": "Semanas ativas",
+      "streak": "Maior sequência",
+      "weeksN": "{{n}} semanas",
+      "first": "Primeiro commit",
+      "last": "Última atividade",
+      "mainly": "Principalmente {{lang}}",
+      "noLang": "Sem detalhes de arquivos na amostra.",
+      "profile": "Abrir perfil",
+      "weekly": "Commits por semana",
+      "peak": "Pico {{n}} · semana de {{when}}",
+      "areas": "Áreas mais alteradas",
+      "recent": "Commits recentes",
+      "noRecent": "Sem commits recentes.",
+      "commitsN": "{{n}} commits",
+      "hl": {
+        "top": "Mais commits",
+        "builder": "Mais linhas adicionadas",
+        "cleaner": "Maior limpeza",
+        "streak": "Maior sequência",
+        "newest": "Membro mais novo",
+        "night": "Coruja noturna",
+        "weekend": "Programador de fim de semana"
+      }
     }
   },
   "shellLayout": {

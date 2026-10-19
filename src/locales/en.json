@@ -4382,7 +4382,8 @@
       "noPrs": "No pull requests.",
       "noIssues": "No issues.",
       "noReleases": "No releases yet.",
-      "noRuns": "No CI runs found."
+      "noRuns": "No CI runs found.",
+      "details": "Details"
     },
     "repos": {
       "count": "{{count}} repositories",
@@ -4406,6 +4407,64 @@
     "welcome": {
       "title": "All your Git accounts in one place",
       "body": "Connect GitHub, GitLab or Bitbucket — as many accounts as you like, switch with one click. Pull requests, reviews, releases, CI, issues and forks without opening a browser."
+    },
+    "contrib": {
+      "empty": "No contributor data yet.",
+      "computing": "The provider is still computing the statistics. Try again in a moment.",
+      "kpi": {
+        "people": "Contributors",
+        "commits": "Commits",
+        "added": "Lines added",
+        "deleted": "Lines deleted",
+        "active30": "Active (30 days)",
+        "busFactor": "Bus factor",
+        "busFactorHint": "Fewest people who together made half of all commits"
+      },
+      "activity": "Commit activity, last 52 weeks",
+      "others": "{{n}} others",
+      "leaderboard": "Leaderboard",
+      "filter": "Filter people…",
+      "noMatch": "Nobody matches the filter.",
+      "col": {
+        "person": "Person",
+        "trend": "Last 24 weeks",
+        "commits": "Commits",
+        "last": "Last active"
+      },
+      "highlights": "Highlights",
+      "languagesByPerson": "Languages by person",
+      "punchTeam": "When the team commits",
+      "punch": "When they commit",
+      "punchCell": "{{n}} commits at {{h}}:00",
+      "localTime": "Your local time, from recent commits.",
+      "sourceWeekly": "Totals cover the whole history.",
+      "sourceSample": "Totals come from the provider's contributor list and recent commits.",
+      "sampleNote": "Languages, areas and times come from the last {{commits}} commits ({{files}} files).",
+      "avgSize": "Avg. commit size",
+      "lines": "{{n}} lines",
+      "activeWeeks": "Active weeks",
+      "streak": "Longest streak",
+      "weeksN": "{{n}} weeks",
+      "first": "First commit",
+      "last": "Last active",
+      "mainly": "Mostly {{lang}}",
+      "noLang": "No file details in the sample.",
+      "profile": "Open profile",
+      "weekly": "Commits per week",
+      "peak": "Peak {{n}} · week of {{when}}",
+      "areas": "Most-touched areas",
+      "recent": "Recent commits",
+      "noRecent": "No recent commits.",
+      "commitsN": "{{n}} commits",
+      "hl": {
+        "top": "Top committer",
+        "builder": "Most lines added",
+        "cleaner": "Biggest cleaner",
+        "streak": "Longest streak",
+        "newest": "Newest member",
+        "night": "Night owl",
+        "weekend": "Weekend coder"
+      }
     }
   },
   "shellLayout": {
