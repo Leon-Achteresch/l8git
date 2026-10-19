@@ -63,6 +63,11 @@ describe("contributorInsights", () => {
   });
 });
 
+it("treats zeroed line counts on huge repos as unknown", () => {
+  const r = contributorInsights({ weekly: [{ login: "ann", avatarUrl: null, weeks: [{ w: now / 1000, a: 0, d: 0, c: 12_000 }] }], computing: false, commits: [] }, [], now);
+  expect(r.totals.additions).toBeNull();
+});
+
 describe("langName", () => {
   it("maps paths to linguist-style names", () => {
     expect(langName("a/b.tsx")).toBe("TypeScript");

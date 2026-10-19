@@ -136,6 +136,11 @@ export function contributorInsights(stats: HubContributorStats, known: HubContri
         if (i >= 0 && i < WINDOW_WEEKS) p.weekly[i] += x.c;
       }
     }
+    // GitHub zeroes line counts for repos with 10,000+ commits; show "unknown" rather than +0/−0.
+    const all = [...people.values()];
+    if (all.reduce((n, p) => n + p.commits, 0) >= 10_000 && all.every((p) => !p.additions && !p.deletions)) {
+      for (const p of all) p.additions = p.deletions = null;
+    }
   }
 
   const teamLangs = new Map<string, number>();
