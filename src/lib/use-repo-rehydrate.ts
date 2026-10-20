@@ -6,9 +6,9 @@ import { isTauri } from "@tauri-apps/api/core";
 export function useRepoRehydrate() {
   useEffect(() => {
     const run = () => {
-      const { paths, activePath, reload, ensureFavicons } = useRepoStore.getState();
-      const target = activePath ?? paths[0];
-      if (target && (isTauri() || !isPreviewRepo(target))) void reload(target);
+      const { activePath, setActive, ensureFavicons } = useRepoStore.getState();
+      // setActive also brings back the workspace of the repo; no active repo means an empty workspace is shown.
+      if (activePath && (isTauri() || !isPreviewRepo(activePath))) setActive(activePath);
       ensureFavicons();
     };
     if (useRepoStore.persist.hasHydrated()) {

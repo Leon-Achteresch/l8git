@@ -5,6 +5,7 @@ import {
   useAnchorBox,
 } from "@/components/ui/overlay-portal";
 import { useWorkspaceStore, type Workspace } from "@/lib/workspace-store";
+import { switchWorkspace } from "@/lib/workspace-switch";
 import { cn } from "@/lib/utils";
 import { Check, Pencil, Plus } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m, type Variants } from "motion/react";
@@ -45,11 +46,10 @@ const itemVariants: Variants = {
 
 export function RepoWorkspaceSwitch() {
   const { t } = useTranslation();
-  const { workspaces, activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore(
+  const { workspaces, activeWorkspaceId } = useWorkspaceStore(
     useShallow((s) => ({
       workspaces: s.workspaces,
       activeWorkspaceId: s.activeWorkspaceId,
-      setActiveWorkspace: s.setActiveWorkspace,
     })),
   );
 
@@ -142,7 +142,7 @@ export function RepoWorkspaceSwitch() {
                         <ListRow
                           variant="ghost"
                           onClick={() => {
-                            setActiveWorkspace(ws.id);
+                            switchWorkspace(ws.id);
                             setOpen(false);
                           }}
                           className="relative flex-1"

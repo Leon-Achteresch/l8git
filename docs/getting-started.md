@@ -40,6 +40,10 @@ Each repository gets a tab. Tabs can be organized into **groups** (and subgroups
 
 Per tab you can reload the repository or show its language statistics.
 
+### Workspaces
+
+Workspaces split your repositories into separate sets, for example work and private projects. Switch, add or rename them from the workspace button; right-click a tab or group to move it to another workspace. Each workspace remembers the repository you had open in it and shows it again when you switch back. A workspace without repositories shows the start screen so you can open, clone or create one. Opening a repository from search, the dashboard, the inbox or a notification switches to the workspace it belongs to. Deleting a workspace moves its repositories into the active one.
+
 ### Header
 
 The top bar navigates between the app-level views:

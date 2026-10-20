@@ -70,7 +70,6 @@ export const Route = createFileRoute("/")({
 function Home() {
   useRepoRehydrate();
   useRepoStatusPoll();
-  const hasRepos = useRepoStore((s) => s.paths.length > 0);
   const activePath = useRepoStore((s) => s.activePath);
   const repoPath = useRepoStore((s) =>
     s.activePath ? s.repos[s.activePath]?.path : null,
@@ -158,7 +157,7 @@ function Home() {
           ) : (
             <RepoDetails />
           )}
-          {!hasRepos && <EmptyState />}
+          {!activePath && <EmptyState />}
         </div>
       </div>
       <OnboardingTour />

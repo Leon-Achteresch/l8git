@@ -1,6 +1,6 @@
 import type { PersistOptions } from 'zustand/middleware';
 import { useWorkspacePrefs } from './workspace-prefs';
-import { useWorkspaceStore, type Workspace } from './workspace-store';
+import { dropDefaultCopies, useWorkspaceStore, type Workspace } from './workspace-store';
 import { useSidebarPrefs, ALL_SIDEBAR_TABS } from './sidebar-prefs';
 import { useHotkeyPrefs, sanitizeHotkeyOverrides } from './hotkey-prefs';
 import { useAiPromptPrefs, sanitizePromptOverrides } from './ai/prompt-prefs';
@@ -95,7 +95,7 @@ export function applyPreferences(snapshot: PreferencesExport) {
     prepareChange(useSidebarPrefs, value.sidebar),
     prepareChange(useHotkeyPrefs, { overrides: value.shortcuts }),
     prepareChange(useAiPromptPrefs, { overrides: value.prompts, repoOverrides: value.repoPrompts }),
-    prepareChange(useWorkspaceStore, { workspaces: value.workspaces, activeWorkspaceId: value.activeWorkspaceId }),
+    prepareChange(useWorkspaceStore, dropDefaultCopies({ workspaces: value.workspaces, activeWorkspaceId: value.activeWorkspaceId })),
     prepareChange(useRepoGroupsStore, { forest: value.groups }),
     prepareChange(useHistoryPrefs, { repositories: value.history }),
   ];
