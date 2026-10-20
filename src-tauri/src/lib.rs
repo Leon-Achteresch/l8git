@@ -46,8 +46,27 @@ impl sink::EventSink for TauriSink {
     }
 }
 
+/// Without a usable GPU render node, WebKitGTK's DMABuf renderer composites through llvmpipe in the UI and
+/// web process: ~250 MB more memory and no smoother scrolling than its software path. Runs before WebKit reads it.
+#[cfg(target_os = "linux")]
+fn disable_dmabuf_without_gpu() {
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some() {
+        return;
+    }
+    // shortcut: an openable render node counts as a GPU even without 3D (vgem, virtio-gpu without virgl); add an EGL probe if such users report high memory.
+    let gpu = std::fs::read_dir("/dev/dri").into_iter().flatten().flatten().any(|entry| {
+        entry.file_name().to_string_lossy().starts_with("renderD")
+            && std::fs::OpenOptions::new().read(true).write(true).open(entry.path()).is_ok()
+    });
+    if !gpu {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    disable_dmabuf_without_gpu();
     tauri::Builder::default()
         .setup(|app| {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
