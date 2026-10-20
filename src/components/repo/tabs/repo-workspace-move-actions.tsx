@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/context-menu";
 import { repoAvatarHue, repoInitialChar } from "@/lib/repo-avatar";
 import { useRepoStore } from "@/lib/repo-store";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { useWorkspaceStore, workspaceRepo } from "@/lib/workspace-store";
 import { Layers } from "lucide-react";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,14 +30,12 @@ export function RepoWorkspaceMoveActions({ paths }: { paths: string[] }) {
     (workspaceId: string) => {
       useWorkspaceStore.getState().moveReposToWorkspace(paths, workspaceId);
 
-      const { activePath, paths: openPaths } = useRepoStore.getState();
+      const { activePath, paths: openPaths, setActive } = useRepoStore.getState();
       if (!activePath || !paths.includes(activePath)) return;
-      const { workspaces: next, activeWorkspaceId: currentId } =
-        useWorkspaceStore.getState();
-      const remaining =
-        next.find((w) => w.id === currentId)?.repoPaths ?? [];
-      const fallback = remaining.find((p) => openPaths.includes(p));
-      if (fallback) useRepoStore.getState().setActive(fallback);
+      useWorkspaceStore.getState().rememberRepo(activePath);
+      setActive(
+        workspaceRepo(useWorkspaceStore.getState().activeWorkspaceId, openPaths),
+      );
     },
     [paths],
   );

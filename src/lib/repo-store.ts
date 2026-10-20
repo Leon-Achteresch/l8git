@@ -10,6 +10,7 @@ import { trackPullRequests } from '@/lib/notifications';
 import { runRemoteOp } from '@/lib/remote-ops';
 import { useTerminalStore } from '@/lib/terminal-store';
 import { useWorkspacePrefs } from '@/lib/workspace-prefs';
+import { useWorkspaceStore, workspaceRepo } from '@/lib/workspace-store';
 
 // Coalesce concurrent reload() calls per path so that back-to-back operations
 // (e.g. commit + reloadStatus + reloadStashes running in parallel) share the
@@ -369,7 +370,7 @@ type RepoState = {
   addRepo: (path: string) => Promise<string | null>;
   removeRepo: (path: string) => void;
   reorderRepos: (fromIndex: number, toIndex: number) => void;
-  setActive: (path: string) => void;
+  setActive: (path: string | null) => void;
   ensureFavicons: () => void;
   setCustomFavicon: (path: string, dataUrl: string) => void;
   clearCustomFavicon: (path: string) => void;
@@ -530,6 +531,16 @@ type RepoState = {
     newPath: string
   ) => Promise<void>;
 };
+
+/** Activates the workspace that holds `path`, so a repo is never shown without its tab. */
+function enterRepoWorkspace(path: string, leaving: string | null) {
+  const ws = useWorkspaceStore.getState();
+  const active = ws.workspaces.find(w => w.id === ws.activeWorkspaceId);
+  const owner = ws.workspaces.find(w => w.repoPaths.includes(path));
+  if (!owner || active?.repoPaths.includes(path)) return;
+  if (leaving) ws.rememberRepo(leaving);
+  ws.setActiveWorkspace(owner.id);
+}
 
 async function loadFavicon(path: string): Promise<string | null> {
   try {
@@ -816,6 +827,8 @@ export const useRepoStore = create<RepoState>()(
             hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
           });
           useRecentRepos.getState().remember(opened.path);
+          enterRepoWorkspace(opened.path, get().activePath);
+          useWorkspaceStore.getState().addRepoToActiveWorkspace(opened.path);
           set(s => {
             const paths = s.paths.includes(opened.path)
               ? s.paths
@@ -845,6 +858,7 @@ export const useRepoStore = create<RepoState>()(
       },
 
       removeRepo(path) {
+        const wasActive = get().activePath === path;
         nextCommitAvatarGeneration(path);
         try {
           useTerminalStore.getState().closeAllForPath(path);
@@ -861,8 +875,7 @@ export const useRepoStore = create<RepoState>()(
           const { [path]: _stl, ...stashesLoading } = s.stashesLoading;
           const { [path]: _hu, ...hasUpstream } = s.hasUpstream;
           const { [path]: _cs, ...commitSearchByPath } = s.commitSearchByPath;
-          const activePath =
-            s.activePath === path ? (paths[0] ?? null) : s.activePath;
+          const activePath = s.activePath === path ? null : s.activePath;
           return {
             paths,
             repos,
@@ -876,6 +889,10 @@ export const useRepoStore = create<RepoState>()(
             commitSearchByPath,
           };
         });
+        // Stay inside the active workspace instead of jumping to a repo of another one.
+        if (wasActive) {
+          get().setActive(workspaceRepo(useWorkspaceStore.getState().activeWorkspaceId, get().paths));
+        }
       },
 
       reorderRepos(fromIndex, toIndex) {
@@ -898,6 +915,7 @@ export const useRepoStore = create<RepoState>()(
 
       setActive(path) {
         const was = get().activePath;
+        if (path) enterRepoWorkspace(path, was);
         if (was !== path) {
           set(s => {
             let repos = s.repos;
@@ -909,13 +927,13 @@ export const useRepoStore = create<RepoState>()(
             }
             return {
               activePath: path,
-              loading: { ...s.loading, [path]: true },
+              loading: path ? { ...s.loading, [path]: true } : s.loading,
               repos,
               commitSearchByPath,
             };
           });
         }
-        void get().reload(path);
+        if (path) void get().reload(path);
       },
 
       ensureFavicons() {

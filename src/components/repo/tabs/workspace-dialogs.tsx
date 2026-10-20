@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type Workspace, useWorkspaceStore } from "@/lib/workspace-store";
+import { deleteWorkspace } from "@/lib/workspace-switch";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -98,10 +99,9 @@ export function WorkspaceEditDialog({
   workspace: Workspace;
 }) {
   const { t } = useTranslation();
-  const { renameWorkspace, removeWorkspace, workspaces } = useWorkspaceStore(
+  const { renameWorkspace, workspaces } = useWorkspaceStore(
     useShallow((s) => ({
       renameWorkspace: s.renameWorkspace,
-      removeWorkspace: s.removeWorkspace,
       workspaces: s.workspaces,
     })),
   );
@@ -121,7 +121,7 @@ export function WorkspaceEditDialog({
 
   function handleDelete() {
     if (isLast) return;
-    removeWorkspace(workspace.id);
+    deleteWorkspace(workspace.id);
     onClose();
   }
 

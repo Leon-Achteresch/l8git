@@ -1,7 +1,7 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { repoAvatarHue, repoInitialChar } from "@/lib/repo-avatar";
 import { repoLabel, useRepoStore } from "@/lib/repo-store";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { useWorkspaceStore, workspaceRepo } from "@/lib/workspace-store";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@tanstack/react-router";
 import { ChevronsUpDown, Layers, Search, X } from "lucide-react";
@@ -58,13 +58,13 @@ export function RepoTabPicker({
 
   const moveTo = (repoPath: string, workspaceId: string) => {
     useWorkspaceStore.getState().moveReposToWorkspace([repoPath], workspaceId);
-    const { activePath: current, paths: openPaths } = useRepoStore.getState();
+    const { activePath: current, paths: openPaths, setActive } =
+      useRepoStore.getState();
     if (current === repoPath) {
-      const { workspaces: next, activeWorkspaceId: currentId } =
-        useWorkspaceStore.getState();
-      const remaining = next.find((w) => w.id === currentId)?.repoPaths ?? [];
-      const fallback = remaining.find((p) => openPaths.includes(p));
-      if (fallback) useRepoStore.getState().setActive(fallback);
+      useWorkspaceStore.getState().rememberRepo(repoPath);
+      setActive(
+        workspaceRepo(useWorkspaceStore.getState().activeWorkspaceId, openPaths),
+      );
     }
     setMoveFor(null);
   };
