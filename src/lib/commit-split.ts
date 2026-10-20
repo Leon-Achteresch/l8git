@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { generateText } from "ai";
 
 import { buildLanguageModel, resolveAiLanguage, hasAiCredentials } from "@/lib/ai/core";
 import { useCommitPrefs } from "@/lib/commit-prefs";
@@ -445,12 +444,16 @@ export async function planSplitFromUnits(
 
   const language = resolveAiLanguage(options.repoPath);
 
-  const model = buildLanguageModel(
-    aiProviderType,
-    aiProviderApiKey,
-    aiProviderModel,
-    aiProviderBaseUrl,
-  );
+  let model: Awaited<ReturnType<typeof buildLanguageModel>>;
+  let generateText: typeof import("ai").generateText;
+  try {
+    [model, { generateText }] = await Promise.all([
+      buildLanguageModel(aiProviderType, aiProviderApiKey, aiProviderModel, aiProviderBaseUrl),
+      import("ai"),
+    ]);
+  } catch (cause) {
+    throw new SplitPlanError(cause instanceof Error ? cause.message : String(cause));
+  }
   const basePrompt = buildSplitPrompt(units, { language });
   const maxAttempts = Math.max(1, options.maxAttempts ?? 2);
 

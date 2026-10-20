@@ -2,10 +2,8 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import { AiResultActions } from "@/components/ai/ai-result-actions";
 import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
@@ -37,7 +35,17 @@ export type ExplainRequest =
 const MARKDOWN_CLASSES =
   "text-sm leading-relaxed [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded-md [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_hr]:border-border [&_li]:ml-5 [&_li]:pl-1 [&_ol]:list-decimal [&_p+p]:mt-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border/70 [&_pre]:bg-muted/60 [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:list-disc [&_h1+*]:mt-1 [&_h2]:mt-3 [&_h3]:mt-3 [&_ul]:mt-1 [&_ol]:mt-1";
 
-const MARKDOWN_PLUGINS = [remarkGfm];
+// The markdown stack only loads once an explanation renders, not with every commit row.
+const Markdown = lazy(() =>
+  Promise.all([import("react-markdown"), import("remark-gfm")]).then(([md, gfm]) => {
+    const plugins = [gfm.default];
+    return { default: ({ text }: { text: string }) => <md.default remarkPlugins={plugins}>{text}</md.default> };
+  }).catch(() => ({ default: PlainText })),
+);
+
+function PlainText({ text }: { text: string }) {
+  return <p className="whitespace-pre-wrap">{text}</p>;
+}
 
 function requestKeyOf(request: ExplainRequest): string {
   if (request.kind === "commit") return `commit:${request.repoPath}:${request.commitHash}`;
@@ -178,7 +186,9 @@ export function ExplainSheet({
               </p>
             ) : text ? (
               <div className={MARKDOWN_CLASSES}>
-                <ReactMarkdown remarkPlugins={MARKDOWN_PLUGINS}>{text}</ReactMarkdown>
+                <Suspense fallback={<PlainText text={text} />}>
+                  <Markdown text={text} />
+                </Suspense>
               </div>
             ) : busy ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
