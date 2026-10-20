@@ -6,7 +6,7 @@ import {
   normalizeGitOid,
   type GraphRow,
 } from "@/lib/graph";
-import { graphColWidth } from "./commit-graph-cell";
+import { CommitGraphShapes, graphColWidth } from "./commit-graph-cell";
 import type { Branch, Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -734,16 +734,12 @@ export function CommitList({
                 >
                   <CommitRow
                     row={row}
-                    rowHeight={vi.size - 2}
-                    maxLanes={maxLanes}
-                    originColors={originColors}
                     colW={colW}
                     branchesAtCommit={
                       branchesByTipOid.get(oid) ?? EMPTY_BRANCHES
                     }
                     stackLabels={stackLabels}
                     showConventionalIcons={showConventionalIcons}
-                    isBranchTip={branchesByTipOid.has(oid)}
                     matchedPaths={matchedPaths}
                     searchHit={searchHit}
                     focusPulseToken={focusPulseToken}
@@ -771,6 +767,32 @@ export function CommitList({
             />
           )}
       </ContextMenu>
+      {/* One SVG draws the graph for every row in the window, over the rows'
+          graph column (their mx-1.5 inset and my-px gaps); it scrolls with them. */}
+      <svg
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1.5 top-0 text-foreground"
+        width={colW}
+        height={virtualizer.getTotalSize()}
+      >
+        {virtualItems.map((vi) => {
+          const item = flatItems[vi.index];
+          const row = item?.kind === "commit" ? rows[item.rowIndex] : undefined;
+          if (!row) return null;
+          return (
+            <CommitGraphShapes
+              key={`${path}:${virtualPoolSlot(vi.index, virtualItems.length)}`}
+              row={row}
+              maxLanes={maxLanes}
+              isBranchTip={branchesByTipOid.has(normalizeGitOid(row.commit.hash))}
+              originColors={originColors}
+              colWidth={colW}
+              top={vi.start + 1}
+              rowHeight={vi.size - 2}
+            />
+          );
+        })}
+      </svg>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { laneColor } from "@/lib/graph";
 import type { TagRef } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
+import { ChunkedList } from "@/components/ui/chunked-list";
 import { TagRow } from "./tag-row";
 
 export function TagSection({
@@ -48,11 +49,11 @@ export function TagSection({
           {emptyLabel ?? t("tag.defaultEmpty")}
         </p>
       ) : (
-        <ul className="mb-0.5 min-w-0 space-y-px">
+        <ChunkedList className="mb-0.5 min-w-0" rowsClassName="space-y-px" gap="1px" rowRem={1.625}>
           {tags.map((tag) => (
             <TagRow key={tag.name} path={path} tag={tag} laneColor={laneColor(tag.name)} />
           ))}
-        </ul>
+        </ChunkedList>
       )}
     </section>
   );

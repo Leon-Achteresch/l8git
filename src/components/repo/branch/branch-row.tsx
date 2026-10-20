@@ -22,7 +22,6 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react';
-import { m } from 'motion/react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useExplainSheet } from '@/components/ai/explain-sheet';
@@ -106,7 +105,9 @@ function BranchRowInner({
     hideGroupPrefix && slash > 0 ? refPath.slice(slash + 1) : refPath;
 
   const row = (
-    <m.li
+    // Explicit role: in long lists the row sits inside a presentational chunk.
+    <li
+      role='listitem'
       tabIndex={0}
       onFocus={() => focusBranch(path, branch.name)}
       onBlur={() => blurBranch(path, branch.name)}
@@ -164,7 +165,7 @@ function BranchRowInner({
           {displayName}
         </span>
       </span>
-    </m.li>
+    </li>
   );
 
   const showRemoteCheckout = branch.is_remote && !branch.is_current;

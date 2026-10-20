@@ -51,7 +51,9 @@ function TagRowInner({
     .join('\n');
 
   const row = (
+    // Explicit role: in long lists the row sits inside a presentational chunk.
     <m.li
+      role='listitem'
       onClick={e => {
         if (e.button !== 0) return;
         focusCommitFromBranchTip(path, tag.commit);

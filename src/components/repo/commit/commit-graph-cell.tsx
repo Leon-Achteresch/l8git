@@ -25,31 +25,38 @@ export function graphColWidth(
   return Math.min(maxW, Math.max(minW, PAD * 2 + lanes * LANE_W));
 }
 
-export const CommitGraphCell = memo(function CommitGraphCell({
+/**
+ * One commit's lane segments and dot, drawn into the list's shared graph SVG at
+ * the row's offset `top`. A single SVG for the whole window keeps each pooled row
+ * free of its own SVG root, clip and transform while scrolling.
+ */
+export const CommitGraphShapes = memo(function CommitGraphShapes({
   row,
   maxLanes,
-  isBranchTip: isBranchTipProp = false,
-  showRefs = true,
+  isBranchTip = false,
   originColors,
   colWidth,
+  top,
   rowHeight,
 }: {
   row: GraphRow;
   maxLanes: number;
   isBranchTip?: boolean;
-  showRefs?: boolean;
   originColors: ReadonlyMap<string, string>;
-  /** Pre-computed column width from the parent (avoids duplicate pref reads). */
-  colWidth?: number;
+  colWidth: number;
+  /** The row's top edge in the graph SVG's coordinates. */
+  top: number;
   /** The list already measures each row, including responsive wrapping. */
   rowHeight: number;
 }) {
   const lanes = Math.max(1, maxLanes);
-  const colW = colWidth ?? graphColWidth(maxLanes);
+  const colW = colWidth;
   const rowH = Math.max(1, rowHeight);
   const usable = colW - PAD * 2;
   const laneW = usable / lanes;
-  const midY = rowH / 2;
+  const midY = top + rowH / 2;
+  const half = rowH / 2;
+  const bottom = top + rowH;
   const laneX = (i: number) => PAD + i * laneW + laneW / 2;
 
   /** Resolves a colour for an origin key using the graph-build map first,
@@ -59,24 +66,33 @@ export const CommitGraphCell = memo(function CommitGraphCell({
       ? (originColors.get(origin) ?? laneColor(origin))
       : '#888';
 
+  // Butt caps end exactly at the row edges, where each row's own SVG used to
+  // clip its round caps; every other segment end sits under the commit dot.
   const segments: { d: string; color: string }[] = [];
+  // A lane passing straight through in one colour is one path, so no seam shows at midY.
+  const passesThrough = (i: number) =>
+    i !== row.lane &&
+    row.lanesBefore[i] != null &&
+    row.lanesBefore[i] === row.lanesAfter[i] &&
+    !row.mergedLanes.includes(i) &&
+    colorOf(row.laneOriginsBefore[i]) === colorOf(row.laneOriginsAfter[i]);
 
   row.lanesBefore.forEach((hash, i) => {
     if (hash === null) return;
     const originColor = colorOf(row.laneOriginsBefore[i]);
     const x0 = laneX(i);
     if (i === row.lane && hash === row.commit.hash) {
-      segments.push({ d: `M ${x0} 0 L ${x0} ${midY}`, color: originColor });
+      segments.push({ d: `M ${x0} ${top} L ${x0} ${midY}`, color: originColor });
     } else if (row.mergedLanes.includes(i)) {
       const x1 = laneX(row.lane);
-      const c1y = midY * 0.32;
-      const c2y = midY * 0.68;
+      const c1y = top + half * 0.32;
+      const c2y = top + half * 0.68;
       segments.push({
-        d: `M ${x0} 0 C ${x0} ${c1y}, ${x1} ${c2y}, ${x1} ${midY}`,
+        d: `M ${x0} ${top} C ${x0} ${c1y}, ${x1} ${c2y}, ${x1} ${midY}`,
         color: originColor,
       });
     } else {
-      segments.push({ d: `M ${x0} 0 L ${x0} ${midY}`, color: originColor });
+      segments.push({ d: `M ${x0} ${top} L ${x0} ${passesThrough(i) ? bottom : midY}`, color: originColor });
     }
   });
 
@@ -88,22 +104,18 @@ export const CommitGraphCell = memo(function CommitGraphCell({
     const wasContinuing =
       before !== undefined && before !== null && before === hash;
 
-    if (i === row.lane) {
+    if (passesThrough(i)) return;
+    if (i === row.lane || wasContinuing) {
       segments.push({
-        d: `M ${x1} ${midY} L ${x1} ${rowH}`,
-        color: originColor,
-      });
-    } else if (wasContinuing) {
-      segments.push({
-        d: `M ${x1} ${midY} L ${x1} ${rowH}`,
+        d: `M ${x1} ${midY} L ${x1} ${bottom}`,
         color: originColor,
       });
     } else {
       const x0 = laneX(row.lane);
-      const c1y = midY + (rowH - midY) * 0.32;
-      const c2y = midY + (rowH - midY) * 0.68;
+      const c1y = midY + half * 0.32;
+      const c2y = midY + half * 0.68;
       segments.push({
-        d: `M ${x0} ${midY} C ${x0} ${c1y}, ${x1} ${c2y}, ${x1} ${rowH}`,
+        d: `M ${x0} ${midY} C ${x0} ${c1y}, ${x1} ${c2y}, ${x1} ${bottom}`,
         color: originColor,
       });
     }
@@ -114,8 +126,7 @@ export const CommitGraphCell = memo(function CommitGraphCell({
   // and is already consistent with the lane segments above/below.
   const dotStroke = row.color;
 
-  const isBranchTip = showRefs && isBranchTipProp;
-  const hasTag = showRefs && row.commit.tags.length > 0;
+  const hasTag = row.commit.tags.length > 0;
   const isMerge = row.commit.parents.length > 1;
 
   const DIAMOND_R = 5.5;
@@ -194,26 +205,17 @@ export const CommitGraphCell = memo(function CommitGraphCell({
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <svg
-        viewBox={`0 0 ${colW} ${rowH}`}
-        preserveAspectRatio="xMinYMin meet"
-        className="h-full w-full text-foreground"
-        aria-hidden="true"
-      >
-        {segments.map((s, i) => (
-          <path
-            key={i}
-            d={s.d}
-            stroke={s.color}
-            strokeWidth={STROKE}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        ))}
-        {dotEl}
-      </svg>
-    </div>
+    <>
+      {segments.map((s, i) => (
+        <path
+          key={i}
+          d={s.d}
+          stroke={s.color}
+          strokeWidth={STROKE}
+          fill="none"
+        />
+      ))}
+      {dotEl}
+    </>
   );
 });
