@@ -24,7 +24,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAgentCodeTokens } from "@/components/agents/ui/agent-code";
+import { codeTokenClass, useAgentCodeTokens } from "@/components/agents/ui/agent-code";
 import type { AgentCodeToken } from "@/lib/agents/agent-code-types";
 import { languageFromPath } from "@/lib/agents/agent-code-types";
 import { cn } from "@/lib/utils";
@@ -138,16 +138,7 @@ function CodeText({
       {codePieces(tokens, segments).map((piece, i) => (
         <span
           key={i}
-          style={
-            {
-              "--code-light": piece.light ?? "currentColor",
-              "--code-dark": piece.dark ?? piece.light ?? "currentColor",
-            } as React.CSSProperties
-          }
-          className={cn(
-            "text-[var(--code-light)] dark:text-[var(--code-dark)]",
-            piece.changed && highlight,
-          )}
+          className={cn(codeTokenClass(piece.light, piece.dark), piece.changed && highlight)}
         >
           {piece.text}
         </span>

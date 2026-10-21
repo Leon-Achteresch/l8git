@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  type CSSProperties,
   Fragment,
   useEffect,
   useMemo,
@@ -31,6 +30,33 @@ export interface AgentCodeLineProps {
 }
 
 const MAX_HIGHLIGHT_CHARS = 80_000;
+
+// Token colours become one shared class per light/dark pair instead of inline
+// custom properties on every span: identical spans can then share computed
+// styles, which matters for long highlighted lists (diffs) while scrolling.
+const tokenClasses = new Map<string, string>();
+let tokenSheet: CSSStyleSheet | null = null;
+const SAFE_COLOR = /^#[0-9a-f]{3,8}$/i;
+
+/** Class that colours a highlighted token in the light and dark theme. */
+export function codeTokenClass(light?: string, dark?: string): string {
+  const lightColor = light && SAFE_COLOR.test(light) ? light : "currentColor";
+  const darkColor = dark && SAFE_COLOR.test(dark) ? dark : lightColor;
+  const key = `${lightColor}|${darkColor}`;
+  let name = tokenClasses.get(key);
+  if (name) return name;
+  name = `l8-code-token-${tokenClasses.size}`;
+  tokenClasses.set(key, name);
+  if (!tokenSheet) {
+    const style = document.createElement("style");
+    document.head.appendChild(style);
+    tokenSheet = style.sheet!;
+  }
+  // Same specificity as the Tailwind dark variant (`:is(.dark *)`) it replaces.
+  tokenSheet.insertRule(`.${name}{color:${lightColor}}`, tokenSheet.cssRules.length);
+  tokenSheet.insertRule(`.dark .${name}{color:${darkColor}}`, tokenSheet.cssRules.length);
+  return name;
+}
 const MAX_TOKEN_CACHE_ENTRIES = 16;
 const HIGHLIGHT_DEBOUNCE_MS = 140;
 const tokenCache = new Map<string, AgentCodeTokenLines>();
@@ -103,13 +129,7 @@ export function AgentCodeLine({
         ? tokens.map((token) => (
             <span
               key={`${token.offset}-${token.content}`}
-              style={
-                {
-                  "--agent-code-light": token.light ?? "currentColor",
-                  "--agent-code-dark": token.dark ?? token.light ?? "currentColor",
-                } as CSSProperties
-              }
-              className="text-[var(--agent-code-light)] dark:text-[var(--agent-code-dark)]"
+              className={codeTokenClass(token.light, token.dark)}
             >
               {token.content}
             </span>
