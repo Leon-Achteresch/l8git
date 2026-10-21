@@ -25,7 +25,8 @@ import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranch, GitBranchPlus, GitMerge, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
+import { useSkipTransitionOnRecycle } from "@/lib/virtual-pool";
 import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -81,6 +82,8 @@ function CommitRowInner({
   bisectRole: BisectRole | null;
 }) {
   const { commit } = row;
+  const rowRef = useRef<HTMLDivElement>(null);
+  useSkipTransitionOnRecycle(rowRef, commit.hash);
 
   const subjectParts = useMemo(
     () => splitConventionalSubjectDisplay(commit.subject),
@@ -98,6 +101,7 @@ function CommitRowInner({
   return (
     <div
       key={focusPulseToken != null ? `pulse-${focusPulseToken}` : "row"}
+      ref={rowRef}
       onClick={handleClick}
       className={cn(
         focusPulseToken != null && "l8-commit-pulse",

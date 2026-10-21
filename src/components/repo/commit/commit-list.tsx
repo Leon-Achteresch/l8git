@@ -1,5 +1,5 @@
 import { historySectionTitleResolver } from "@/lib/commit-history-sections";
-import { virtualPoolSlot } from "@/lib/virtual-pool";
+import { useVirtualPoolSlots } from "@/lib/virtual-pool";
 import {
   buildGraph,
   compareBranchesDisplay,
@@ -366,6 +366,7 @@ export function CommitList({
   const loadMoreSearchCommits = useRepoStore((s) => s.loadMoreSearchCommits);
   const lastLoadedAt = useRef(0);
   const virtualItems = virtualizer.getVirtualItems();
+  const poolSlots = useVirtualPoolSlots(virtualItems.map((vi) => vi.key));
   useLayoutEffect(() => {
     const focused = focusedRowRef.current;
     if (!focused) return;
@@ -697,7 +698,7 @@ export function CommitList({
             }}
           >
             {virtualItems.map((vi) => {
-              const slot = virtualPoolSlot(vi.index, virtualItems.length);
+              const slot = poolSlots.get(vi.key);
               const item = flatItems[vi.index];
               if (!item) return null;
               if (item.kind === "header") {
@@ -782,7 +783,7 @@ export function CommitList({
           if (!row) return null;
           return (
             <CommitGraphShapes
-              key={`${path}:${virtualPoolSlot(vi.index, virtualItems.length)}`}
+              key={`${path}:${poolSlots.get(vi.key)}`}
               row={row}
               maxLanes={maxLanes}
               isBranchTip={branchesByTipOid.has(normalizeGitOid(row.commit.hash))}
