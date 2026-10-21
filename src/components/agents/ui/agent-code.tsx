@@ -35,22 +35,29 @@ const MAX_HIGHLIGHT_CHARS = 80_000;
 // custom properties on every span: identical spans can then share computed
 // styles, which matters for long highlighted lists (diffs) while scrolling.
 const tokenClasses = new Map<string, string>();
+const insertedTokenClasses = new Set<string>();
 let tokenSheet: CSSStyleSheet | null = null;
 const SAFE_COLOR = /^#[0-9a-f]{3,8}$/i;
+const colorId = (color: string) => (color === "currentColor" ? "cc" : color.slice(1).toLowerCase());
 
 /** Class that colours a highlighted token in the light and dark theme. */
 export function codeTokenClass(light?: string, dark?: string): string {
+  const raw = `${light}|${dark}`;
+  const cached = tokenClasses.get(raw);
+  if (cached) return cached;
   const lightColor = light && SAFE_COLOR.test(light) ? light : "currentColor";
   const darkColor = dark && SAFE_COLOR.test(dark) ? dark : lightColor;
-  const key = `${lightColor}|${darkColor}`;
-  let name = tokenClasses.get(key);
-  if (name) return name;
-  name = `l8-code-token-${tokenClasses.size}`;
-  tokenClasses.set(key, name);
+  // Named after its colours, so a sheet left behind by a hot reload agrees with this one.
+  const name = `l8-code-${colorId(lightColor)}-${colorId(darkColor)}`;
+  tokenClasses.set(raw, name);
+  if (insertedTokenClasses.has(name)) return name;
+  insertedTokenClasses.add(name);
   if (!tokenSheet) {
     const style = document.createElement("style");
     document.head.appendChild(style);
     tokenSheet = style.sheet!;
+    // Pins Tailwind's layer order even if this sheet loads before Tailwind's.
+    tokenSheet.insertRule("@layer theme, base, components, utilities;", 0);
   }
   // In Tailwind's utilities layer and as specific as its dark variant
   // (`:is(.dark *)`), like the utility classes this replaces.
@@ -60,6 +67,7 @@ export function codeTokenClass(light?: string, dark?: string): string {
   );
   return name;
 }
+
 const MAX_TOKEN_CACHE_ENTRIES = 16;
 const HIGHLIGHT_DEBOUNCE_MS = 140;
 const tokenCache = new Map<string, AgentCodeTokenLines>();

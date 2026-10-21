@@ -178,6 +178,7 @@ export function CommitList({
 
   const flatItems = useMemo((): FlatItem[] => {
     const out: FlatItem[] = [];
+    const seen = new Map<string, number>();
     let last = "";
     const sectionTitle = showCommitDateGroups
       ? historySectionTitleResolver()
@@ -186,7 +187,10 @@ export function CommitList({
       if (sectionTitle) {
         const sec = sectionTitle(rows[i].commit.date);
         if (sec !== last) {
-          out.push({ kind: "header", key: `${sec}-${i}`, label: sec });
+          // Keyed by label and repeat, so new commits on top keep every header's key.
+          const repeat = seen.get(sec) ?? 0;
+          seen.set(sec, repeat + 1);
+          out.push({ kind: "header", key: `header:${sec}:${repeat}`, label: sec });
           last = sec;
         }
       }

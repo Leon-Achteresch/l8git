@@ -8,28 +8,35 @@ import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
  * update in place without any DOM move. Rows entering before or between staying
  * rows get a new slot: reusing a node there would make React move the staying
  * rows, which re-attaches them (full style and layout) and drops their focus.
+ * Items `pooled` rejects (keyed by their own identity) still count as staying
+ * rows for that order, but take and free no slot: their entry is NO_SLOT.
  */
+export const NO_SLOT = -1;
+
 export function assignPoolSlots<K>(
   previous: ReadonlyMap<K, number>,
   keys: readonly K[],
+  pooled: (index: number) => boolean = () => true,
 ): Map<K, number> {
   const kept = new Map<K, number>();
   let lastKept = -1;
   keys.forEach((key, i) => {
     const slot = previous.get(key);
     if (slot !== undefined) {
-      kept.set(key, slot);
       lastKept = i;
+      if ((slot !== NO_SLOT) === pooled(i)) kept.set(key, slot);
     }
   });
   // In previous render order, so reused nodes keep their relative DOM order.
-  const freed = [...previous].filter(([key]) => !kept.has(key)).map(([, slot]) => slot);
+  const freed = [...previous]
+    .filter(([key, slot]) => slot !== NO_SLOT && !kept.has(key))
+    .map(([, slot]) => slot);
   const taken = new Set(previous.values());
   let nextFreed = 0;
   let fresh = 0;
   const next = new Map<K, number>();
   keys.forEach((key, i) => {
-    let slot = kept.get(key);
+    let slot = pooled(i) ? kept.get(key) : NO_SLOT;
     if (slot === undefined && i > lastKept && nextFreed < freed.length) slot = freed[nextFreed++];
     if (slot === undefined) {
       while (taken.has(fresh)) fresh++;
@@ -42,11 +49,14 @@ export function assignPoolSlots<K>(
 }
 
 /** Slot per row key for the rows rendered this pass; see assignPoolSlots. */
-export function useVirtualPoolSlots<K>(keys: readonly K[]): ReadonlyMap<K, number> {
+export function useVirtualPoolSlots<K>(
+  keys: readonly K[],
+  pooled?: (index: number) => boolean,
+): ReadonlyMap<K, number> {
   // Assigned against the committed slots only: a render React discards must not
   // become the previous state of the next one.
   const committed = useRef<ReadonlyMap<K, number>>(new Map());
-  const slots = assignPoolSlots(committed.current, keys);
+  const slots = assignPoolSlots(committed.current, keys, pooled);
   useLayoutEffect(() => { committed.current = slots; });
   return slots;
 }

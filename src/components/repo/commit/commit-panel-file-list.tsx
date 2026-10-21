@@ -319,8 +319,11 @@ function VirtualFileListInner({
   // avoids synchronous layout measurements whenever virtual rows mount.
   useLayoutEffect(() => { virtualizer.measure(); }, [uiScale, virtualizer]);
   const virtualItems = virtualizer.getVirtualItems();
-  // Every rendered item counts for the DOM order, though only file rows use a slot.
-  const fileSlots = useVirtualPoolSlots(virtualItems.map((vi) => vi.key));
+  // Every rendered item counts for the DOM order, though only file rows take a slot.
+  const fileSlots = useVirtualPoolSlots(
+    virtualItems.map((vi) => vi.key),
+    (i) => listItems[virtualItems[i].index]?.type === "row",
+  );
   // Recycled DOM must never leave focus pointing at a different file. Keep the
   // exact logical row focused while it remains visible; otherwise release it.
   // This runs before the browser can deliver another keyboard activation.

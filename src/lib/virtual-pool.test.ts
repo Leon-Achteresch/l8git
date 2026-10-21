@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignPoolSlots } from "./virtual-pool";
+import { assignPoolSlots, NO_SLOT } from "./virtual-pool";
 
 const range = (start: number, length: number) =>
   Array.from({ length }, (_, i) => start + i);
@@ -67,5 +67,20 @@ describe("assignPoolSlots", () => {
       slots = assignPoolSlots(slots, range(Math.abs((step % 40) - 20) * 3, 40));
       expect(Math.max(...slots.values())).toBeLessThan(80);
     }
+  });
+
+  it("hands leaving row slots only to entering rows, never to unpooled items", () => {
+    // Every tenth item is a header keyed by its own identity.
+    const pooled = (keys: number[]) => (i: number) => keys[i] % 10 !== 0;
+    const first = range(11, 30);
+    const before = assignPoolSlots(new Map(), first, pooled(first));
+    const next = range(15, 30);
+    const after = assignPoolSlots(before, next, pooled(next));
+    expect(after.get(20)).toBe(NO_SLOT);
+    expect(after.get(40)).toBe(NO_SLOT);
+    const rowSlots = [...after].filter(([key]) => key % 10 !== 0).map(([, slot]) => slot);
+    expect(new Set(rowSlots).size).toBe(rowSlots.length);
+    // The four rows that left (11-14) hand their slots to rows entering at the bottom.
+    expect([41, 42, 43, 44].map((i) => after.get(i))).toEqual([11, 12, 13, 14].map((i) => before.get(i)));
   });
 });
