@@ -32,10 +32,15 @@ export function StashList({
   onOpenBranch: (index: number) => void;
 }) {
   const { t } = useTranslation();
-  // Only rows of the first list render stagger in, not rows of chunks revealed while scrolling.
-  const [entered, setEntered] = useState(false);
+  // Only rows of a repo's first list render stagger in, not rows of chunks revealed while scrolling.
+  // State, not a ref: rows of chunks revealed later must get the re-rendered props.
+  const [enteredPath, setEnteredPath] = useState<string | null>(null);
   const hasStashes = stashes.length > 0;
-  useEffect(() => { if (hasStashes) setEntered(true); }, [hasStashes]);
+  useEffect(() => { if (hasStashes) setEnteredPath(path); }, [hasStashes, path]);
+  const entered = enteredPath === path;
+  // The commit hash, not stash@{N}, so a new stash doesn't shift every row's identity;
+  // a repeat suffix keeps keys unique if the same commit is stored twice.
+  const seen = new Map<string, number>();
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5">
@@ -99,9 +104,11 @@ export function StashList({
           ) : (
             // Chunks off screen skip style and layout; they render near the viewport or on focus.
             <ChunkedList as="div" className="" rowsClassName="space-y-0.5" gap="0.125rem" rowRem={STASH_ROW_REM}>
-            {stashes.map((e, i) => (
-              // The commit hash, not stash@{N}: a new stash must not shift every row's identity.
-              <StaggerItem key={e.hash} index={entered ? Number.POSITIVE_INFINITY : i}>
+            {stashes.map((e, i) => {
+              const repeat = seen.get(e.hash) ?? 0;
+              seen.set(e.hash, repeat + 1);
+              return (
+              <StaggerItem key={repeat ? `${e.hash}:${repeat}` : e.hash} index={entered ? Number.POSITIVE_INFINITY : i}>
               <StashRow
                 path={path}
                 entry={e}
@@ -110,7 +117,8 @@ export function StashList({
                 onOpenBranch={() => onOpenBranch(e.index)}
               />
               </StaggerItem>
-            ))}
+              );
+            })}
             </ChunkedList>
           )}
         </div>
