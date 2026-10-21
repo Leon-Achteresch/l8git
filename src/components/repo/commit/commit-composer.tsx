@@ -58,8 +58,13 @@ let focusRequestedAt = 0;
 /** Focuses the commit message input now, or when the composer mounts within the next seconds. */
 export function focusCommitMessage() {
   const input = document.querySelector<HTMLInputElement>("[data-commit-message-input]");
-  if (input) input.focus();
-  else focusRequestedAt = Date.now();
+  if (input) {
+    input.focus();
+    return;
+  }
+  focusRequestedAt = Date.now();
+  // The user moving focus elsewhere first cancels the request, so a later composer can't steal it.
+  document.addEventListener("focusin", () => (focusRequestedAt = 0), { once: true });
 }
 
 const spring = { type: "spring" as const, stiffness: 460, damping: 34, mass: 0.42 };

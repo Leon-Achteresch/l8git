@@ -96,10 +96,13 @@ export function ChunkedList({
     setRendered((prev) => (ids.every((id) => prev.has(id)) ? prev : new Set([...prev, ...ids])));
   // Without IntersectionObserver (tests, old engines) every chunk renders.
   const isRendered = (id: number) => !hasObserver || rendered.has(id);
-  const chunkIds = chunks.map((c) => c.id).join(",");
-  const observer = useRef<{ io: IntersectionObserver; root: HTMLElement | null } | null>(null);
-  // (Re)creates the observer when the scrolling ancestor changes and watches exactly the pending chunks.
-  const watchPending = () => {
+  // Sizes too: a filter that shrinks chunks without changing their ids slides others into view.
+  const chunkIds = chunks.map((c) => `${c.id}:${c.keys.length}`).join(",");
+  const observer = useRef<{ io: IntersectionObserver; root: HTMLElement | null; watched: WeakSet<Element> } | null>(null);
+  // (Re)creates the observer when the scrolling ancestor changes and watches the pending chunks. `full`
+  // (the chunks changed) starts over so removed chunks are dropped; otherwise only new ones are added,
+  // so revealing chunks one by one during a scroll stays linear.
+  const watchPending = (full: boolean) => {
     const list = listRef.current;
     if (!list || !hasObserver) return;
     const root = scrollRoot(list);
@@ -114,17 +117,24 @@ export function ChunkedList({
         },
         { root, rootMargin: "100% 0px" },
       );
-      observer.current = { io, root };
+      observer.current = { io, root, watched: new WeakSet() };
+    } else if (full) {
+      observer.current.io.disconnect();
+      observer.current.watched = new WeakSet();
     }
-    const { io } = observer.current!;
-    io.disconnect(); // drops chunks that were removed or already rendered
-    for (const el of list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]")) io.observe(el);
+    const { io, watched } = observer.current!;
+    for (const el of list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]")) {
+      if (watched.has(el)) continue;
+      watched.add(el);
+      io.observe(el);
+    }
   };
   // When the chunks change (mount, filtering, new rows): render the ones within a viewport of the
   // visible area before paint, so nothing visible flashes blank, and forget chunks that are gone.
   useLayoutEffect(() => {
     const list = listRef.current;
-    if (!list || !hasObserver) return;
+    // A hidden list has no boxes: every chunk would look near, so leave them pending.
+    if (!list || !hasObserver || list.getClientRects().length === 0) return;
     const root = scrollRoot(list);
     const view = root?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight, height: window.innerHeight };
     const near: number[] = [];
@@ -140,17 +150,23 @@ export function ChunkedList({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chunkIds stands for chunks
   }, [chunkIds]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- watchPending reads refs and the DOM
-  useEffect(watchPending, [chunkIds, rendered]);
+  useEffect(() => watchPending(true), [chunkIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- watchPending reads refs and the DOM
+  useEffect(() => watchPending(false), [rendered]);
   // A list that mounted short may get a scrolling ancestor only once it grows: re-pick on resize.
   useEffect(() => {
     const list = listRef.current;
     if (!list || !hasObserver) return;
-    const resize = new ResizeObserver(() => {
-      if (observer.current && observer.current.root !== scrollRoot(list)) watchPending();
-    });
+    // The window too: a sibling or the window can make the container scroll while the list keeps its size.
+    const repick = () => {
+      if (observer.current && observer.current.root !== scrollRoot(list)) watchPending(true);
+    };
+    const resize = new ResizeObserver(repick);
     resize.observe(list);
+    window.addEventListener("resize", repick);
     return () => {
       resize.disconnect();
+      window.removeEventListener("resize", repick);
       observer.current?.io.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only

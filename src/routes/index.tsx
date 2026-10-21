@@ -80,8 +80,11 @@ function Home() {
   const ready = useDeferredValue(true, false);
   const tabNow = useUiStore((s) => s.sidebarTab);
   // Repo and tab are deferred together: switching both at once mounts one panel, not two.
-  const shown = useDeferredValue(`${activePath ?? ""}\n${tabNow}`);
-  const [shownPath, shownTab] = shown.split("\n");
+  // "\0" can't occur in a path.
+  const shown = useDeferredValue(`${repoPath ?? ""}\0${tabNow}`);
+  const [deferredPath, shownTab] = shown.split("\0");
+  // Opening the first repo: the deferred path is still empty, so the panel takes the live one.
+  const shownPath = deferredPath || repoPath || "";
   const sidebarTab = shownTab as typeof tabNow;
   const mergeEditorPath = useUiStore((s) => s.mergeEditorPath);
   const closeMergeEditor = useUiStore((s) => s.closeMergeEditor);
@@ -118,7 +121,8 @@ function Home() {
           {!ready ? null : activePath && repoPath ? (
             <RepoTabLayout path={repoPath}>
               <PanelSwap
-                panelKey={shown}
+                // The commit panel reads the live repo itself, so it remounts with it right away, once.
+                panelKey={sidebarTab === "commit" ? `${repoPath}\0commit` : `${shownPath}\0${sidebarTab}`}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 {sidebarTab === "commit" ? (

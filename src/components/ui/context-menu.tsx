@@ -160,6 +160,7 @@ function ContextMenuTrigger({
       ref={setRef}
       {...props}
       // The replayed first right-click already reached the consumer's handler as the real one.
+      // shortcut: only this prop skips the replay; an asChild child's own onContextMenu still sees it twice. Guard it there if one is ever added.
       onContextMenu={onContextMenu && ((event) => { if (!replaying) onContextMenu(event) })}
     />
   )
