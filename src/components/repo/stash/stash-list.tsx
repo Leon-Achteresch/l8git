@@ -3,6 +3,7 @@ import { ChunkedList } from "@/components/ui/chunked-list";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { StashEntry } from "@/lib/repo-store";
 import { Archive, Loader2, Plus, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StashRow } from "./stash-row";
 import { SpinIcon, StaggerItem } from "@/components/motion/kit";
@@ -31,6 +32,10 @@ export function StashList({
   onOpenBranch: (index: number) => void;
 }) {
   const { t } = useTranslation();
+  // Only rows of the first list render stagger in, not rows of chunks revealed while scrolling.
+  const [entered, setEntered] = useState(false);
+  const hasStashes = stashes.length > 0;
+  useEffect(() => { if (hasStashes) setEntered(true); }, [hasStashes]);
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5">
@@ -95,7 +100,8 @@ export function StashList({
             // Chunks off screen skip style and layout; they render near the viewport or on focus.
             <ChunkedList as="div" className="" rowsClassName="space-y-0.5" gap="0.125rem" rowRem={STASH_ROW_REM}>
             {stashes.map((e, i) => (
-              <StaggerItem key={e.refname} index={i}>
+              // The commit hash, not stash@{N}: a new stash must not shift every row's identity.
+              <StaggerItem key={e.hash} index={entered ? Number.POSITIVE_INFINITY : i}>
               <StashRow
                 path={path}
                 entry={e}

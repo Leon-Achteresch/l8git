@@ -370,7 +370,11 @@ export function CommitList({
   const loadMoreSearchCommits = useRepoStore((s) => s.loadMoreSearchCommits);
   const lastLoadedAt = useRef(0);
   const virtualItems = virtualizer.getVirtualItems();
-  const poolSlots = useVirtualPoolSlots(virtualItems.map((vi) => vi.key));
+  // Date headers keep their own keys; only commit rows share pooled nodes.
+  const poolSlots = useVirtualPoolSlots(
+    virtualItems.map((vi) => vi.key),
+    (i) => flatItems[virtualItems[i].index]?.kind === "commit",
+  );
   useLayoutEffect(() => {
     const focused = focusedRowRef.current;
     if (!focused) return;
@@ -708,7 +712,7 @@ export function CommitList({
               if (item.kind === "header") {
                 return (
                   <HistoryVirtualRow
-                    key={`${path}:${slot}`}
+                    key={`${path}:${vi.key}`}
                     item={vi}
                     observer={rowObserver}
                   >

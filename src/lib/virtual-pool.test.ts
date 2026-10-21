@@ -83,4 +83,13 @@ describe("assignPoolSlots", () => {
     // The four rows that left (11-14) hand their slots to rows entering at the bottom.
     expect([41, 42, 43, 44].map((i) => after.get(i))).toEqual([11, 12, 13, 14].map((i) => before.get(i)));
   });
+
+  it("gives an item that becomes pooled a fresh node instead of counting it as staying", () => {
+    const keys = range(0, 10);
+    const before = assignPoolSlots(new Map(), keys, (i) => i !== 9);
+    expect(before.get(9)).toBe(NO_SLOT);
+    const after = assignPoolSlots(before, keys, () => true);
+    for (const key of range(0, 9)) expect(after.get(key)).toBe(before.get(key));
+    expect(after.get(9)).toBe(9);
+  });
 });

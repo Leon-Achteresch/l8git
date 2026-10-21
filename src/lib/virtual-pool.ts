@@ -18,14 +18,15 @@ export function assignPoolSlots<K>(
   keys: readonly K[],
   pooled: (index: number) => boolean = () => true,
 ): Map<K, number> {
+  const isPooled = keys.map((_, i) => pooled(i));
+  // Pooled slots of staying rows; an item that switched between pooled and not gets a new node.
   const kept = new Map<K, number>();
   let lastKept = -1;
   keys.forEach((key, i) => {
     const slot = previous.get(key);
-    if (slot !== undefined) {
-      lastKept = i;
-      if ((slot !== NO_SLOT) === pooled(i)) kept.set(key, slot);
-    }
+    if (slot === undefined || (slot !== NO_SLOT) !== isPooled[i]) return;
+    lastKept = i;
+    if (slot !== NO_SLOT) kept.set(key, slot);
   });
   // In previous render order, so reused nodes keep their relative DOM order.
   const freed = [...previous]
@@ -36,7 +37,7 @@ export function assignPoolSlots<K>(
   let fresh = 0;
   const next = new Map<K, number>();
   keys.forEach((key, i) => {
-    let slot = pooled(i) ? kept.get(key) : NO_SLOT;
+    let slot = isPooled[i] ? kept.get(key) : NO_SLOT;
     if (slot === undefined && i > lastKept && nextFreed < freed.length) slot = freed[nextFreed++];
     if (slot === undefined) {
       while (taken.has(fresh)) fresh++;

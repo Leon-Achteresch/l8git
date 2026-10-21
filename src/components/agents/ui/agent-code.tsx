@@ -57,7 +57,7 @@ export function codeTokenClass(light?: string, dark?: string): string {
     document.head.appendChild(style);
     tokenSheet = style.sheet!;
     // Pins Tailwind's layer order even if this sheet loads before Tailwind's.
-    tokenSheet.insertRule("@layer theme, base, components, utilities;", 0);
+    tokenSheet.insertRule("@layer properties, theme, base, components, utilities;", 0);
   }
   // In Tailwind's utilities layer and as specific as its dark variant
   // (`:is(.dark *)`), like the utility classes this replaces.
