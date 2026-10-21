@@ -1,4 +1,5 @@
 import { Check, Loader2, Plus, Search } from "lucide-react";
+import { ChunkedList } from "@/components/ui/chunked-list";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -36,7 +37,12 @@ function PrList({ q }: { q: HubQuery<HubPr[]> }) {
   if (q.error) return <ErrorRow error={q.error} onRetry={refresh} />;
   if (!q.data) return <SkeletonRows n={5} />;
   if (q.data.length === 0) return <EmptyRow>{t("hub.pulls.empty")}</EmptyRow>;
-  return <div className="divide-y divide-border/40">{q.data.map((p) => <PrRow key={p.id} pr={p} showRepo />)}</div>;
+  // Chunked: rows render only near the viewport. The extra border continues the dividers across chunks.
+  return (
+    <ChunkedList as="div" className="[&>*+*>*]:border-t [&>*+*>*]:border-border/40" rowsClassName="divide-y divide-border/40" gap="0px" rowRem={3.375}>
+      {q.data.map((p) => <PrRow key={p.id} pr={p} showRepo />)}
+    </ChunkedList>
+  );
 }
 
 export function HomeView({ account, sidebar }: { account: HubAccount; sidebar: HubQuery<HubSidebar> }) {

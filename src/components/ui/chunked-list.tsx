@@ -1,8 +1,12 @@
-import { Children, isValidElement, useLayoutEffect, useRef, type ReactNode } from "react";
+import { Children, isValidElement, startTransition, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 type Key = string | number;
 
 const CHUNK_ROWS = 25;
+// The first chunk always renders; the rest render once they come within a viewport of the scroller,
+// so mounting thousands of rows never blocks a frame.
+const FIRST_CHUNKS = 1;
+const hasObserver = typeof IntersectionObserver !== "undefined";
 // Chunks are paint-contained; this much bleed keeps row focus rings and shadows unclipped.
 const BLEED = "4px";
 
@@ -36,16 +40,33 @@ export function assignChunks(
 }
 
 /**
+ * The nearest ancestor that actually scrolls. Not the overflow style alone: overflow-x: hidden
+ * makes overflow-y compute to auto on boxes that just grow, and a Radix viewport turns scrollable
+ * only after its scrollbar mounts, so it is recognized by its attribute.
+ */
+function scrollRoot(list: HTMLElement): HTMLElement | null {
+  for (let el = list.parentElement; el; el = el.parentElement) {
+    if (el.hasAttribute("data-radix-scroll-area-viewport")) return el;
+    // The chunks' bleed alone can overflow a parent that just grows by a few pixels.
+    if (/auto|scroll/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 16) return el;
+  }
+  return null;
+}
+
+/**
  * A `ul` whose rows are grouped into chunks with `content-visibility: auto`, so
  * the browser skips style, paint and hit testing for chunks off screen. Long
  * non-virtualized lists (thousands of branches) otherwise cost every scroll frame.
  * `rowRem` is a row's height plus its gap; it only sizes chunks never rendered yet.
+ * Only chunks within a viewport of the visible area render with the list; the others render (and
+ * stay) once scrolled near or once focus reaches a neighbouring chunk, so Tab still walks every row.
  */
 export function ChunkedList({
   className,
   rowsClassName,
   gap,
   rowRem,
+  as: List = "ul",
   children,
 }: {
   className: string;
@@ -54,8 +75,11 @@ export function ChunkedList({
   /** The same spacing as a CSS length, used between chunks. */
   gap: string;
   rowRem: number;
+  /** `div` for rows that are not list items. */
+  as?: "ul" | "div";
   children: ReactNode;
 }) {
+  const Chunk = List === "ul" ? "li" : "div";
   const membership = useRef<ReadonlyMap<Key, number>>(new Map());
   const nextId = useRef(0);
   // Always chunked, even for a few rows: switching structure at a threshold would remount every row.
@@ -66,14 +90,99 @@ export function ChunkedList({
   useLayoutEffect(() => {
     membership.current = next;
   });
+  const listRef = useRef<HTMLUListElement & HTMLDivElement>(null);
+  const [rendered, setRendered] = useState<ReadonlySet<number>>(() => new Set(chunks.slice(0, FIRST_CHUNKS).map((c) => c.id)));
+  const reveal = (ids: number[]) =>
+    setRendered((prev) => (ids.every((id) => prev.has(id)) ? prev : new Set([...prev, ...ids])));
+  // Without IntersectionObserver (tests, old engines) every chunk renders.
+  const isRendered = (id: number) => !hasObserver || rendered.has(id);
+  // Sizes too: a filter that shrinks chunks without changing their ids slides others into view.
+  const chunkIds = chunks.map((c) => `${c.id}:${c.keys.length}`).join(",");
+  const observer = useRef<{ io: IntersectionObserver; root: HTMLElement | null; watched: WeakSet<Element> } | null>(null);
+  // (Re)creates the observer when the scrolling ancestor changes and watches the pending chunks. `full`
+  // (the chunks changed) starts over so removed chunks are dropped; otherwise only new ones are added,
+  // so revealing chunks one by one during a scroll stays linear.
+  const watchPending = (full: boolean) => {
+    const list = listRef.current;
+    if (!list || !hasObserver) return;
+    const root = scrollRoot(list);
+    if (observer.current?.root !== root) {
+      observer.current?.io.disconnect();
+      const io = new IntersectionObserver(
+        (entries) => {
+          const ids = entries.filter((e) => e.isIntersecting).map((e) => Number((e.target as HTMLElement).dataset.chunk));
+          for (const e of entries) if (e.isIntersecting) io.unobserve(e.target);
+          // Interruptible: chunks come into range a viewport early, so rendering them never blocks a scroll frame.
+          if (ids.length) startTransition(() => reveal(ids));
+        },
+        { root, rootMargin: "100% 0px" },
+      );
+      observer.current = { io, root, watched: new WeakSet() };
+    } else if (full) {
+      observer.current.io.disconnect();
+      observer.current.watched = new WeakSet();
+    }
+    const { io, watched } = observer.current!;
+    for (const el of list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]")) {
+      if (watched.has(el)) continue;
+      watched.add(el);
+      io.observe(el);
+    }
+  };
+  // When the chunks change (mount, filtering, new rows): render the ones within a viewport of the
+  // visible area before paint, so nothing visible flashes blank, and forget chunks that are gone.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    // A hidden list has no boxes: every chunk would look near, so leave them pending.
+    if (!list || !hasObserver || list.getClientRects().length === 0) return;
+    const root = scrollRoot(list);
+    const view = root?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight, height: window.innerHeight };
+    const near: number[] = [];
+    for (const el of list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]")) {
+      const box = el.getBoundingClientRect();
+      if (box.bottom >= view.top - view.height && box.top <= view.bottom + view.height) near.push(Number(el.dataset.chunk));
+    }
+    const present = new Set(chunks.map((c) => c.id));
+    setRendered((prev) => {
+      const kept = [...prev].filter((id) => present.has(id));
+      return kept.length === prev.size && near.every((id) => prev.has(id)) ? prev : new Set([...kept, ...near]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chunkIds stands for chunks
+  }, [chunkIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- watchPending reads refs and the DOM
+  useEffect(() => watchPending(true), [chunkIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- watchPending reads refs and the DOM
+  useEffect(() => watchPending(false), [rendered]);
+  // A list that mounted short may get a scrolling ancestor only once it grows: re-pick on resize.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !hasObserver) return;
+    // The window too: a sibling or the window can make the container scroll while the list keeps its size.
+    const repick = () => {
+      if (observer.current && observer.current.root !== scrollRoot(list)) watchPending(true);
+    };
+    const resize = new ResizeObserver(repick);
+    resize.observe(list);
+    window.addEventListener("resize", repick);
+    return () => {
+      resize.disconnect();
+      window.removeEventListener("resize", repick);
+      observer.current?.io.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
+  }, []);
   // A flex column keeps the chunks' negative bleed margins from collapsing into each other.
   return (
-    <ul className={`${className} flex flex-col`}>
+    <List ref={listRef} className={`${className} flex flex-col`}>
       {chunks.map((chunk, i) => (
         // Presentational wrappers: the rows stay items of the outer list.
-        <li
+        <Chunk
           key={chunk.id}
           role="none"
+          data-chunk={chunk.id}
+          data-chunk-pending={isRendered(chunk.id) ? undefined : ""}
+          // Focus inside a chunk renders its neighbours, so Tab and Shift+Tab never run out of rows.
+          onFocus={() => reveal([chunks[i - 1]?.id, chunks[i + 1]?.id].filter((id) => id !== undefined))}
           style={{
             contentVisibility: "auto",
             containIntrinsicHeight: `auto ${chunk.keys.length * rowRem}rem`,
@@ -83,13 +192,17 @@ export function ChunkedList({
             marginBottom: `-${BLEED}`,
             // The bleed must not take clicks from the neighbouring chunk's rows.
             pointerEvents: "none",
+            // A chunk not rendered yet holds its estimated height.
+            minHeight: isRendered(chunk.id) ? undefined : `calc(${chunk.keys.length * rowRem}rem + 2 * ${BLEED})`,
           }}
         >
-          <ul role="none" className={rowsClassName} style={{ pointerEvents: "auto" }}>
-            {chunk.keys.map((key) => byKey.get(key))}
-          </ul>
-        </li>
+          {isRendered(chunk.id) && (
+            <List role="none" className={rowsClassName} style={{ pointerEvents: "auto" }}>
+              {chunk.keys.map((key) => byKey.get(key))}
+            </List>
+          )}
+        </Chunk>
       ))}
-    </ul>
+    </List>
   );
 }

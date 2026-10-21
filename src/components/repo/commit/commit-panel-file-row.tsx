@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { memo, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
+import { useRowT } from "@/lib/i18n";
 import { StatusIcon } from "./commit-panel-status-icon";
 import type { ChangeRow } from "./commit-panel-types";
 
@@ -30,7 +31,7 @@ function FileRowInner({
   onToggle: (entry: StatusEntry, rowId: string) => void;
   depth?: number;
 }) {
-  const { t } = useTranslation();
+  const t = useRowT();
   const checked = row.sector === "staged";
   const toggleLabel = t(checked ? "commitActions.unstageFile" : "commitActions.stageFile", { path: row.path });
   const separator = row.path.lastIndexOf("/");

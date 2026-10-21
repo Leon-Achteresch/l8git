@@ -25,7 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSidebarPrefs } from "@/lib/sidebar-prefs";
 import type { Branch, TagRef } from "@/lib/repo-store";
 import { Brush, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 function SectionCount({ count }: { count: number }) {
@@ -97,7 +97,8 @@ interface BranchTreeProps {
   onDelete: (b: Branch, force: boolean) => void | Promise<void>;
 }
 
-export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) {
+// Memoized: the sidebar re-renders on every tab switch and repo refresh, and this tree holds thousands of rows.
+export const BranchTree = memo(function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) {
   const { t } = useTranslation();
   const showBranchFilter = useSidebarPrefs((s) => s.showBranchFilter);
   const defaultOpenSections = useSidebarPrefs((s) => s.defaultOpenSections);
@@ -270,4 +271,4 @@ export function BranchTree({ path, branches, tags, onDelete }: BranchTreeProps) 
       ) : null}
     </div>
   );
-}
+});

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { TagKind } from '@/lib/repo-store';
 import { FileText, ShieldCheck, Tag } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useRowT } from '@/lib/i18n';
 
 const ICONS: Record<TagKind, typeof Tag> = {
   lightweight: Tag,
@@ -24,7 +24,7 @@ export function TagKindBadge({
   compact?: boolean;
   className?: string;
 }) {
-  const { t } = useTranslation();
+  const t = useRowT();
   const Icon = ICONS[kind] ?? Tag;
   const label = t(`tagKind.${kind}`);
 

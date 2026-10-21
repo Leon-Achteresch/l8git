@@ -1,6 +1,6 @@
 import { PanelLoading } from "@/components/ui/panel-loading";
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useDeferredValue } from "react";
 
 import { PanelSwap } from "@/components/motion/panel-swap";
 import { CommitPanel } from "@/components/repo/commit/commit-panel";
@@ -74,7 +74,18 @@ function Home() {
   const repoPath = useRepoStore((s) =>
     s.activePath ? s.repos[s.activePath]?.path : null,
   );
-  const sidebarTab = useUiStore((s) => s.sidebarTab);
+  // The repo view mounts thousands of nodes. It renders in an interruptible pass after the first
+  // frame, and a tab switch keeps the old panel up until the new one is ready (the tab rail itself
+  // updates at once), so neither blocks frames.
+  const ready = useDeferredValue(true, false);
+  const tabNow = useUiStore((s) => s.sidebarTab);
+  // Repo and tab are deferred together: switching both at once mounts one panel, not two.
+  // "\0" can't occur in a path.
+  const shown = useDeferredValue(`${repoPath ?? ""}\0${tabNow}`);
+  const [deferredPath, shownTab] = shown.split("\0");
+  // Opening the first repo: the deferred path is still empty, so the panel takes the live one.
+  const shownPath = deferredPath || repoPath || "";
+  const sidebarTab = shownTab as typeof tabNow;
   const mergeEditorPath = useUiStore((s) => s.mergeEditorPath);
   const closeMergeEditor = useUiStore((s) => s.closeMergeEditor);
   const blameEditorPath = useUiStore((s) => s.blameEditorPath);
@@ -103,14 +114,15 @@ function Home() {
         </Suspense>
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {activePath && <RepoSidebar />}
+        {activePath && ready && <RepoSidebar />}
         <div
           className={`min-w-0 flex-1  pb-3 ${activePath ? "flex min-h-0 flex-col overflow-hidden" : "overflow-y-auto"}`}
         >
-          {activePath && repoPath ? (
+          {!ready ? null : activePath && repoPath ? (
             <RepoTabLayout path={repoPath}>
               <PanelSwap
-                panelKey={`${activePath}::${sidebarTab}`}
+                // The commit panel reads the live repo itself, so it remounts with it right away, once.
+                panelKey={sidebarTab === "commit" ? `${repoPath}\0commit` : `${shownPath}\0${sidebarTab}`}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 {sidebarTab === "commit" ? (
@@ -120,31 +132,31 @@ function Home() {
                   <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     {sidebarTab === "stash" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <StashPanel path={repoPath} />
+                        <StashPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "pr" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <PullRequestPanel path={repoPath} />
+                        <PullRequestPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "submodules" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <SubmodulesPanel path={repoPath} />
+                        <SubmodulesPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "worktrees" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <WorktreePanel path={repoPath} />
+                        <WorktreePanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "hooks" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <GitHooksPanel path={repoPath} />
+                        <GitHooksPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "ci" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <RepoCiPanel path={repoPath} />
+                        <RepoCiPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "tools" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <ToolsPanel path={repoPath} />
+                        <ToolsPanel path={shownPath} />
                       </div>
                     ) : (
                       <RepoDetails />

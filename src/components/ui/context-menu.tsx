@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
+import { ContextMenu as ContextMenuPrimitive, Slot } from "radix-ui"
 
 import { AnimatePresence, m } from "motion/react"
 
@@ -15,31 +15,153 @@ const [ContextMenuOpenProvider, useContextMenuOpen] =
   createOpenContext("ContextMenu")
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
+// `focus`: where focus was inside the trigger (child indices, tag), so it survives the remount.
+type Replay = { x: number; y: number; focus: { path: number[]; tag: string } | null }
+// True while the first right-click is replayed into the freshly mounted menu.
+let replaying = false
+// Set while a `deferMount` menu has not mounted Radix yet: the trigger calls it on the first right-click.
+const DeferredMountContext = React.createContext<((replay: Replay) => void) | null>(null)
+const ReplayContext = React.createContext<React.RefObject<Replay | null> | null>(null)
+
 function ContextMenu({
   onOpenChange,
+  deferMount = false,
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
+}: React.ComponentProps<typeof ContextMenuPrimitive.Root> & {
+  /**
+   * Mount Radix only on the first right-click. Every mounted menu adds document listeners that run
+   * on each keystroke and costs a render, so rows of long lists set this. The trigger's element is
+   * remounted once when the menu mounts.
+   */
+  deferMount?: boolean
+}) {
   const [value, change] = useControllableOpen({ onOpenChange })
+  const [mounted, setMounted] = React.useState(!deferMount)
+  const replay = React.useRef<Replay | null>(null)
+  const mount = React.useCallback((next: Replay) => {
+    replay.current = next
+    setMounted(true)
+  }, [])
+  if (!mounted) {
+    return (
+      <ReplayContext.Provider value={null}>
+        <DeferredMountContext.Provider value={mount}>{props.children}</DeferredMountContext.Provider>
+      </ReplayContext.Provider>
+    )
+  }
   return (
-    <ContextMenuOpenProvider value={value}>
-      <ContextMenuPrimitive.Root
-        data-slot="context-menu"
-        onOpenChange={change}
-        {...props}
-      />
-    </ContextMenuOpenProvider>
+    <DeferredMountContext.Provider value={null}>
+      <ReplayContext.Provider value={replay}>
+        <ContextMenuOpenProvider value={value}>
+          <ContextMenuPrimitive.Root
+            data-slot="context-menu"
+            onOpenChange={change}
+            {...props}
+          />
+        </ContextMenuOpenProvider>
+      </ReplayContext.Provider>
+    </DeferredMountContext.Provider>
   )
+}
+
+const LONG_PRESS_MS = 700 // Radix's touch long-press delay
+
+function focusWithin(root: Element, el: Element | null): Replay["focus"] {
+  if (!el || !root.contains(el)) return null
+  const path: number[] = []
+  for (let node: Element = el; node !== root; node = node.parentElement!) {
+    path.unshift(Array.prototype.indexOf.call(node.parentElement!.children, node))
+  }
+  return { path, tag: el.tagName }
 }
 
 function ContextMenuTrigger({
   className,
+  ref,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Trigger>) {
+  const mount = React.useContext(DeferredMountContext)
+  const replay = React.useContext(ReplayContext)
+  const element = React.useRef<HTMLSpanElement | null>(null)
+  const setRef = React.useCallback(
+    (node: HTMLSpanElement | null) => {
+      element.current = node
+      if (typeof ref === "function") ref(node)
+      else if (ref) ref.current = node
+    },
+    [ref]
+  )
+  React.useLayoutEffect(() => {
+    const pending = replay?.current
+    const node = element.current
+    if (!pending || !node) return
+    replay.current = null
+    // The first right-click arrived before Radix mounted: open the menu where it happened.
+    if (pending.focus) {
+      let target: Element | undefined = node
+      for (const i of pending.focus.path) target = target?.children[i]
+      // Fall back to the trigger if the remounted markup differs.
+      ;(target instanceof HTMLElement && target.tagName === pending.focus.tag ? target : node).focus()
+    }
+    replaying = true
+    try {
+      node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: pending.x, clientY: pending.y }))
+    } finally {
+      replaying = false
+    }
+  }, [replay])
+  const longPress = React.useRef(0)
+  const clearLongPress = () => window.clearTimeout(longPress.current)
+  React.useEffect(() => clearLongPress, [])
+  if (mount) {
+    // Same element and attributes Radix renders for a closed menu.
+    const { asChild, disabled, onContextMenu, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, style, ...rest } = props
+    const Comp = asChild ? Slot.Root : "span"
+    // Radix opens on a touch long press too; until it is mounted, start that press here.
+    const endTouch =
+      (handler?: React.PointerEventHandler<HTMLSpanElement>) => (event: React.PointerEvent<HTMLSpanElement>) => {
+        handler?.(event)
+        if (event.pointerType !== "mouse") clearLongPress()
+      }
+    return (
+      <Comp
+        data-state="closed"
+        data-disabled={disabled ? "" : undefined}
+        data-slot="context-menu-trigger"
+        className={cn("select-none", className)}
+        {...rest}
+        ref={setRef}
+        style={{ WebkitTouchCallout: "none", ...style }}
+        onContextMenu={(event: React.MouseEvent<HTMLSpanElement>) => {
+          onContextMenu?.(event)
+          if (disabled || event.defaultPrevented) return
+          event.preventDefault()
+          clearLongPress()
+          mount({ x: event.clientX, y: event.clientY, focus: focusWithin(event.currentTarget, document.activeElement) })
+        }}
+        onPointerDown={(event: React.PointerEvent<HTMLSpanElement>) => {
+          onPointerDown?.(event)
+          if (disabled || event.defaultPrevented || event.pointerType === "mouse") return
+          clearLongPress()
+          const point = { x: event.clientX, y: event.clientY, focus: null }
+          longPress.current = window.setTimeout(() => mount(point), LONG_PRESS_MS)
+        }}
+        onPointerMove={endTouch(onPointerMove)}
+        onPointerUp={endTouch(onPointerUp)}
+        onPointerCancel={endTouch(onPointerCancel)}
+      />
+    )
+  }
+  const { onContextMenu } = props
   return (
     <ContextMenuPrimitive.Trigger
       data-slot="context-menu-trigger"
       className={cn("select-none", className)}
+      ref={setRef}
       {...props}
+      // The replayed first right-click already reached the consumer's handler as the real one.
+      // shortcut: only this prop skips the replay; an asChild child's own onContextMenu still sees it twice. Guard it there if one is ever added.
+      onContextMenu={onContextMenu && ((event) => { if (!replaying) onContextMenu(event) })}
     />
   )
 }
@@ -85,6 +207,7 @@ function ContextMenuContent({
   side?: "top" | "right" | "bottom" | "left"
 }) {
   const isOpen = useContextMenuOpen()
+  if (React.useContext(DeferredMountContext)) return null
   return (
     <AnimatePresence>
       {isOpen ? (

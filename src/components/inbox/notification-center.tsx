@@ -12,8 +12,12 @@ import type { ComponentType, ReactNode } from "react";
 import { StaggerItem, SpinIcon } from "@/components/motion/kit";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ChunkedList } from "@/components/ui/chunked-list";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+
+/** Roughly a notification card's height; only sizes chunks not rendered yet. */
+const NOTIFICATION_ROW_REM = 5;
 
 export type NotificationCenterTab = "all" | "mine" | "review" | "ci";
 
@@ -144,7 +148,7 @@ function NotificationCard({
   const unread = item.unread === true;
   return (
     <StaggerItem index={index}>
-      <m.article
+      <article
         role="button"
         tabIndex={0}
         title={item.tooltip}
@@ -225,7 +229,7 @@ function NotificationCard({
             </div>
           ) : null}
         </div>
-      </m.article>
+      </article>
     </StaggerItem>
   );
 }
@@ -353,7 +357,8 @@ export function NotificationCenter({
                     </h3>
                     <span className="text-[0.6875rem] tabular-nums text-muted-foreground">{group.count}</span>
                   </header>
-                  <div className="flex flex-col">
+                  {/* Chunked: off-screen chunks skip paint and hit testing, which hundreds of items otherwise cost every scroll frame. */}
+                  <ChunkedList as="div" className="" rowsClassName="flex flex-col" gap="0px" rowRem={NOTIFICATION_ROW_REM}>
                     {group.items.map((item, index) => (
                       <NotificationCard
                         key={item.id}
@@ -364,7 +369,7 @@ export function NotificationCenter({
                         onAction={onAction}
                       />
                     ))}
-                  </div>
+                  </ChunkedList>
                 </section>
               );
             })
