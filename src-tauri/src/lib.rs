@@ -72,6 +72,13 @@ fn tune_webkit_without_gpu() {
         ("GLIBC_TUNABLES", "glibc.malloc.trim_threshold=131072:glibc.malloc.mmap_threshold=262144"),
         // JSC grows the JS heap to 32 MB before its first full GC; start collecting at 8 MB.
         ("JSC_largeHeapSize", "8388608"),
+        // JSC's own low-memory GC policy (its "mini VM mode" minus the JIT cut): grow the heap 1.2x instead of 2x
+        // past live data, collect fully, sweep dead blocks at once and drop bytecode of functions no longer run.
+        // -13 MB with a repo open, about half the web process after long scrolls, same scroll FPS.
+        ("JSC_smallHeapGrowthFactor", "1.2"),
+        ("JSC_useGenerationalGC", "false"),
+        ("JSC_sweepSynchronously", "true"),
+        ("JSC_useUnlinkedCodeBlockJettisoning", "true"),
         // GTK (GLX) and WebKit (EGL) would load Mesa's llvmpipe (LLVM) only to probe: -12 MB private in this
         // process. WebGL is off too, so the terminal uses xterm's DOM renderer instead of WebGL on llvmpipe.
         ("GDK_GL", "disable"),
