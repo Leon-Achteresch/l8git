@@ -50,6 +50,8 @@ impl sink::EventSink for TauriSink {
 /// Memory knobs set by `tune_webkit_without_gpu`, dropped again once WebKit's processes have started.
 #[cfg(target_os = "linux")]
 static WEBKIT_MEMORY_ENV: std::sync::OnceLock<Vec<&'static str>> = std::sync::OnceLock::new();
+#[cfg(target_os = "linux")]
+static THP_DISABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Without a usable GPU render node, WebKitGTK's DMABuf renderer composites through llvmpipe in the UI and
 /// web process: ~250 MB more memory and no smoother scrolling than its software path. Such machines are the weak
@@ -107,6 +109,18 @@ fn tune_webkit_without_gpu() {
         }
     }
     let _ = WEBKIT_MEMORY_ENV.set(set);
+    // With transparent huge pages "always", the kernel backs libpas', malloc's and GLib's mostly empty arenas
+    // with 2 MB pages: -13 MB in the network process, -16 MB in the web process. Inherited across exec like the
+    // env above, and cleared again with it; a disable the user already set stays.
+    if thp_prctl(libc::PR_GET_THP_DISABLE, 0) == 0 {
+        THP_DISABLED.store(thp_prctl(libc::PR_SET_THP_DISABLE, 1) == 0, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// The kernel reads prctl's arguments as unsigned longs and rejects nonzero unused ones.
+#[cfg(target_os = "linux")]
+fn thp_prctl(option: libc::c_int, value: libc::c_ulong) -> libc::c_int {
+    unsafe { libc::prctl(option, value, 0 as libc::c_ulong, 0 as libc::c_ulong, 0 as libc::c_ulong) }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -135,6 +149,10 @@ pub fn run() {
             #[cfg(target_os = "linux")]
             for key in WEBKIT_MEMORY_ENV.get().into_iter().flatten() {
                 std::env::remove_var(key);
+            }
+            #[cfg(target_os = "linux")]
+            if THP_DISABLED.load(std::sync::atomic::Ordering::Relaxed) {
+                thp_prctl(libc::PR_SET_THP_DISABLE, 0);
             }
             sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
             Ok(())
