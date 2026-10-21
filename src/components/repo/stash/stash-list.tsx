@@ -3,7 +3,7 @@ import { ChunkedList } from "@/components/ui/chunked-list";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { StashEntry } from "@/lib/repo-store";
 import { Archive, Loader2, Plus, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { StashRow } from "./stash-row";
 import { SpinIcon, StaggerItem } from "@/components/motion/kit";
@@ -21,6 +21,8 @@ export function StashList({
   onRefresh,
   onOpenCreate,
   onOpenBranch,
+  entered,
+  onEntered,
 }: {
   path: string;
   stashes: StashEntry[];
@@ -30,14 +32,15 @@ export function StashList({
   onRefresh: () => void;
   onOpenCreate: () => void;
   onOpenBranch: (index: number) => void;
+  /** Kept by the parent: selecting a stash remounts this list in another layout. */
+  entered: boolean;
+  onEntered: () => void;
 }) {
   const { t } = useTranslation();
-  // Only rows of a repo's first list render stagger in, not rows of chunks revealed while scrolling.
+  // Only rows of the first list render stagger in, not rows of chunks revealed while scrolling.
   // State, not a ref: rows of chunks revealed later must get the re-rendered props.
-  const [enteredPath, setEnteredPath] = useState<string | null>(null);
   const hasStashes = stashes.length > 0;
-  useEffect(() => { if (hasStashes) setEnteredPath(path); }, [hasStashes, path]);
-  const entered = enteredPath === path;
+  useEffect(() => { if (hasStashes) onEntered(); }, [hasStashes, onEntered]);
   // The commit hash, not stash@{N}, so a new stash doesn't shift every row's identity;
   // a repeat suffix keeps keys unique if the same commit is stored twice.
   const seen = new Map<string, number>();

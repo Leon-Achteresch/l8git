@@ -4,7 +4,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { useRepoStore, type StashEntry } from "@/lib/repo-store";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StashBranchDialog } from "./stash-branch-dialog";
 import { StashCreateDialog } from "./stash-create-dialog";
 import { StashInspectDetail } from "./stash-inspect-detail";
@@ -25,6 +25,8 @@ export function StashPanel({ path }: { path: string }) {
     const index = typeof value === 'function' ? value(selectedIndex) : value;
     setSelectedHash(stashes.find(e => e.index === index)?.hash ?? null);
   };
+  const [listEntered, setListEntered] = useState(false);
+  const onListEntered = useCallback(() => setListEntered(true), []);
   const [createOpen, setCreateOpen] = useState(false);
   const [branchEntry, setBranchEntry] = useState<StashEntry | null>(null);
   const setBranchIndex = (index: number | null) => setBranchEntry(stashes.find(e => e.index === index) ?? null);
@@ -76,6 +78,8 @@ export function StashPanel({ path }: { path: string }) {
               onRefresh={() => void reloadStashes(path)}
               onOpenCreate={() => setCreateOpen(true)}
               onOpenBranch={(idx: number) => setBranchIndex(idx)}
+              entered={listEntered}
+              onEntered={onListEntered}
             />
           </ResizablePanel>
           <ResizableHandle
@@ -109,6 +113,8 @@ export function StashPanel({ path }: { path: string }) {
             onRefresh={() => void reloadStashes(path)}
             onOpenCreate={() => setCreateOpen(true)}
             onOpenBranch={(idx: number) => setBranchIndex(idx)}
+            entered={listEntered}
+            onEntered={onListEntered}
           />
         </div>
       )}
