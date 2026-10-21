@@ -1,6 +1,7 @@
 mod exports;
 mod agent_addons;
 mod agent_review;
+mod avatar;
 pub mod agent_transport;
 mod capability_market;
 mod capability_sync;
@@ -138,6 +139,7 @@ pub fn run() {
             sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
             Ok(())
         })
+        .register_asynchronous_uri_scheme_protocol("avatar", avatar::handle)
         .manage(agent_transport::AgentTransportState::default())
         .manage(pty::PtyState::default())
         .plugin(tauri_plugin_process::init())

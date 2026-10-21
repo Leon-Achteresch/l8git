@@ -64,6 +64,7 @@ keyring = { version = "3", features = ["windows-native", "apple-native", "linux-
 dirs = "6"
 log = "0.4"
 httpdate = "1"
+percent-encoding = "2"
 
 axum = { version = "0.8", features = ["ws"], optional = true }
 x25519-dalek = { version = "2", optional = true }
