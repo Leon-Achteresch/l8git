@@ -34,23 +34,49 @@ const HOLD_FOR: Duration = Duration::from_secs(60);
 /// `Some(image)` or `None` for "this avatar does not exist".
 type Entry = Option<(String, Vec<u8>)>;
 
-/// Where a redirect may lead: https on the default port without credentials, and not to this machine or the
-/// local network by address, which Rust could reach outside the webview's rules.
+/// Where a redirect may lead: https on the default port without credentials. Local addresses are refused here
+/// for literals and in `PublicDns` for names, as the UI process could reach them outside the webview's rules.
 fn public_https(url: &reqwest::Url) -> bool {
     let Some(host) = url.host_str() else { return false };
     let public = match host.trim_start_matches('[').trim_end_matches(']').parse::<std::net::IpAddr>() {
-        Ok(std::net::IpAddr::V4(ip)) => {
-            !(ip.is_loopback() || ip.is_private() || ip.is_link_local() || ip.is_unspecified() || ip.is_broadcast())
+        Ok(ip) => public_ip(ip),
+        Err(_) => true,
+    };
+    public && url.scheme() == "https" && url.port().is_none() && url.username().is_empty() && url.password().is_none()
+}
+
+fn public_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(ip) => {
+            let [a, b, ..] = ip.octets();
+            // 0/8, loopback, private, link-local, CGNAT (100.64/10, Tailscale) and broadcast.
+            !(a == 0 || ip.is_loopback() || ip.is_private() || ip.is_link_local() || (a == 100 && b & 0xc0 == 64))
+                && !ip.is_broadcast()
         }
-        // Loopback, unspecified, unique local (fc00::/7), link-local (fe80::/10) and IPv4-mapped.
-        Ok(std::net::IpAddr::V6(ip)) => {
+        std::net::IpAddr::V6(ip) => {
             let first = ip.segments()[0];
+            // Loopback, unspecified, unique local (fc00::/7), link-local (fe80::/10) and IPv4-mapped.
             !(ip.is_loopback() || ip.is_unspecified() || first & 0xfe00 == 0xfc00 || first & 0xffc0 == 0xfe80)
                 && ip.to_ipv4_mapped().is_none()
         }
-        Err(_) => host != "localhost" && !host.ends_with(".localhost"),
-    };
-    public && url.scheme() == "https" && url.port().is_none() && url.username().is_empty() && url.password().is_none()
+    }
+}
+
+/// System DNS without local answers, so a redirect to a name (`localhost.`, DNS rebinding) can't reach them.
+struct PublicDns;
+
+impl reqwest::dns::Resolve for PublicDns {
+    fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        Box::pin(async move {
+            // reqwest sets the port itself.
+            let addrs = tokio::net::lookup_host((name.as_str(), 0)).await?;
+            let public = addrs.filter(|addr| public_ip(addr.ip())).collect::<Vec<_>>();
+            if public.is_empty() {
+                return Err("avatar host resolves to a local address".into());
+            }
+            Ok(Box::new(public.into_iter()) as reqwest::dns::Addrs)
+        })
+    }
 }
 
 fn allowed(url: &reqwest::Url) -> bool {
@@ -74,6 +100,7 @@ fn client() -> Option<Arc<reqwest::Client>> {
         reqwest::Client::builder()
             .timeout(Duration::from_secs(20))
             .user_agent(concat!("l8git/", env!("CARGO_PKG_VERSION")))
+            .dns_resolver(Arc::new(PublicDns))
             // Follows what the webview followed before: Gravatar sends `d=<url>` defaults through i*.wp.com.
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
                 if attempt.previous().len() < 5 && public_https(attempt.url()) {
@@ -318,10 +345,26 @@ mod tests {
         assert!(public_https(&reqwest::Url::parse("https://i0.wp.com/x.png").unwrap()));
         assert!(!public_https(&reqwest::Url::parse("http://i0.wp.com/x.png").unwrap()));
         assert!(!public_https(&reqwest::Url::parse("https://127.0.0.1:8080/x").unwrap()));
-        for local in ["https://127.0.0.1/x", "https://192.168.1.1/x", "https://169.254.169.254/x", "https://[::1]/x", "https://[fd00::1]/x", "https://[::ffff:10.0.0.1]/x", "https://localhost/x"] {
+        let literals = [
+            "https://100.100.1.1/x",
+            "https://0.1.2.3/x",
+            "https://127.0.0.1/x",
+            "https://192.168.1.1/x",
+            "https://169.254.169.254/x",
+            "https://[::1]/x",
+            "https://[fd00::1]/x",
+            "https://[::ffff:10.0.0.1]/x",
+        ];
+        for local in literals {
             assert!(!public_https(&reqwest::Url::parse(local).unwrap()), "{local}");
         }
         assert!(public_https(&reqwest::Url::parse("https://8.8.8.8/x").unwrap()));
+    }
+
+    #[tokio::test]
+    async fn dns_refuses_local_answers() {
+        use reqwest::dns::Resolve;
+        assert!(PublicDns.resolve("localhost".parse().unwrap()).await.is_err());
     }
 
     #[test]
