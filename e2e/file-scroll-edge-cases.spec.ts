@@ -31,7 +31,7 @@ async function recyclableFile(page: Page) {
   return {
     files, scroller, button, element, path, height,
     recycle: async () => {
-      // A pooled node is reused one pool length (256 rows, src/lib/virtual-pool.ts) later.
+      // A jump past the whole window reuses every pooled node in place (src/lib/virtual-pool.ts).
       await scroller.evaluate((node, height) => { node.scrollTop += 256 * height; }, height);
       await expect.poll(() => element.evaluate((node, path) => node.isConnected && node.getAttribute('aria-label') !== `Stage ${path}`, path)).toBe(true);
       const nextPath = (await element.getAttribute('aria-label'))?.replace(/^Stage /, '') ?? '';

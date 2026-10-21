@@ -20,14 +20,16 @@ commit details (diff, changed files, history beside them) stuttered on big commi
 - Inline diffs in commit details and commit compare render through the
   virtualized `UnifiedDiffBody` (`CommitDiffViewer`). Monaco only loads for
   side-by-side.
-- Pooled rows use `virtualPoolSlot(index, windowLength)`: a slot only changes
-  item when its own row leaves the window.
+- Pooled rows use `useVirtualPoolSlots` (`src/lib/virtual-pool.ts`): a row
+  keeps its slot while it stays in the window, and a row entering below the
+  staying rows takes over the node of a row that left (later change, FPS loop 3).
 - Diff rows are `1.25rem` (leading-4 plus py-0.5), which now matches the
   virtualizer estimate, so row measurement no longer corrects scroll offsets;
   diff line rendering is memoized per row. The commit-details diff shows old/new
   line numbers; the gutter is not sticky, since sticky cost a third of the frame rate.
-- The pool holds 256 slots, so window size changes never remount rows; a node is
-  reused only one pool length later.
+- Window size changes never remount staying rows. Rows entering above or
+  between staying rows get fresh nodes, since reusing one there would make React
+  move (re-attach) the staying rows.
 
 Tried and dropped, because they measured worse: virtualizing the changed-files
 column (a few hundred plain rows scroll natively faster than a JS-driven window),

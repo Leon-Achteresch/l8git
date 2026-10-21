@@ -1,4 +1,4 @@
-import { virtualPoolSlot } from "@/lib/virtual-pool";
+import { useVirtualPoolSlots } from "@/lib/virtual-pool";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -319,6 +319,11 @@ function VirtualFileListInner({
   // avoids synchronous layout measurements whenever virtual rows mount.
   useLayoutEffect(() => { virtualizer.measure(); }, [uiScale, virtualizer]);
   const virtualItems = virtualizer.getVirtualItems();
+  // Every rendered item counts for the DOM order, though only file rows take a slot.
+  const fileSlots = useVirtualPoolSlots(
+    virtualItems.map((vi) => vi.key),
+    (i) => listItems[virtualItems[i].index]?.type === "row",
+  );
   // Recycled DOM must never leave focus pointing at a different file. Keep the
   // exact logical row focused while it remains visible; otherwise release it.
   // This runs before the browser can deliver another keyboard activation.
@@ -650,7 +655,7 @@ function VirtualFileListInner({
               return (
                 // Only stateless file rows recycle their viewport position.
                 // TanStack still tracks their exact logical ids independently.
-                <div key={`file-slot:${virtualPoolSlot(vi.index, virtualItems.length)}`} data-index={vi.index} style={style}>
+                <div key={`file-slot:${fileSlots.get(vi.key)}`} data-index={vi.index} style={style}>
                   <FileRow
                     row={item.row}
                     selected={item.row.id === selectedRowId}
