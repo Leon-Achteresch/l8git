@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { avatarSrc } from "@/lib/avatar-src";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -45,7 +46,7 @@ export function CommitAvatar({
   name: string;
   size?: Size;
 }) {
-  const first = url?.trim() || undefined;
+  const first = useMemo(() => avatarSrc(url?.trim() || undefined), [url]);
   const fallbackSlot =
     fallbackUrl === undefined
       ? { mode: "none" as const }
@@ -56,7 +57,8 @@ export function CommitAvatar({
               ? fallbackUrl.trim()
               : undefined,
         };
-  const second = fallbackSlot.mode === "chain" ? fallbackSlot.src : undefined;
+  const secondRaw = fallbackSlot.mode === "chain" ? fallbackSlot.src : undefined;
+  const second = useMemo(() => avatarSrc(secondRaw), [secondRaw]);
   const [phase, setPhase] = useState<Phase>("primary");
   const pendingSecondRef = useRef(false);
 

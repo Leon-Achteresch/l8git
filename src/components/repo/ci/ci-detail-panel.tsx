@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { avatarSrc } from "@/lib/avatar-src";
 import { toastError } from "@/lib/error-toast";
 import { isHubPath } from "@/lib/hub/store";
 import { invoke } from "@tauri-apps/api/core";
@@ -166,7 +167,7 @@ export function CiDetailPanel({
               {run.actor_avatar && (
                 <span className="flex items-center gap-1 text-[0.6875rem] text-muted-foreground/70">
                   <img
-                    src={run.actor_avatar}
+                    src={avatarSrc(run.actor_avatar)}
                     alt={run.actor_login ?? ""}
                     className="h-4 w-4 rounded-full"
                   />
