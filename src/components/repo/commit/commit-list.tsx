@@ -771,6 +771,7 @@ export function CommitList({
           graph column (their mx-1.5 inset and my-px gaps); it scrolls with them. */}
       <svg
         aria-hidden="true"
+        data-commit-graph=""
         className="pointer-events-none absolute left-1.5 top-0 text-foreground"
         width={colW}
         height={virtualizer.getTotalSize()}

@@ -277,13 +277,23 @@ test('wrapped history rows and graph geometry settle after deep scrolling and re
   const checkGeometry = async () => {
     await expect.poll(() => rows.evaluateAll(rows => {
       if (rows.length < 3) return 1000;
-      return Math.max(...rows.flatMap((row, index) => {
-        const rect = row.getBoundingClientRect();
-        const next = rows[index + 1]?.getBoundingClientRect();
-        const graph = row.querySelector<SVGSVGElement>('svg[viewBox]')!;
-        return [Math.abs(graph.viewBox.baseVal.height - graph.getBoundingClientRect().height),
-          next ? Math.max(0, rect.bottom - next.top) : 0];
-      }));
+      // One SVG draws the graph for all rows: it must not be scaled, and every row's
+      // commit dot must sit on that row's vertical centre.
+      const graph = document.querySelector<SVGSVGElement>('svg[data-commit-graph]')!;
+      const dots = [...graph.querySelectorAll<SVGGraphicsElement>('circle, polygon')].map(dot => {
+        const box = dot.getBoundingClientRect();
+        return box.top + box.height / 2;
+      });
+      return Math.max(
+        Math.abs(graph.height.baseVal.value - graph.getBoundingClientRect().height),
+        ...rows.flatMap((row, index) => {
+          const rect = row.getBoundingClientRect();
+          const next = rows[index + 1]?.getBoundingClientRect();
+          const centre = rect.top + rect.height / 2;
+          return [Math.min(...dots.map(y => Math.abs(y - centre))),
+            next ? Math.max(0, rect.bottom - next.top) : 0];
+        }),
+      );
     })).toBeLessThan(1);
   };
   await checkGeometry();
