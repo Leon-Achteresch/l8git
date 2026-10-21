@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use sha2::{Digest, Sha256};
 use tauri::http::{header, Request, Response, StatusCode};
@@ -26,16 +26,21 @@ const FRESH: Duration = Duration::from_secs(24 * 3600);
 /// A 404 (no Gravatar for this email) is rechecked sooner than a found image is refreshed.
 const MISSING_FRESH: Duration = Duration::from_secs(3600);
 const PRUNE_AFTER: Duration = Duration::from_secs(30 * 24 * 3600);
+/// How long a failed fetch answers for its URL, so a hanging host isn't asked again by every row.
+const FAILED_FOR: Duration = Duration::from_secs(60);
 
 /// `Some(image)` or `None` for "this avatar does not exist".
 type Entry = Option<(String, Vec<u8>)>;
+/// A fetch in progress (or failed lately), shared by every row asking for the same avatar meanwhile.
+type Fetch = Arc<tokio::sync::OnceCell<Option<Entry>>>;
+
+/// What a webview may load directly too: https on the default port without credentials.
+fn public_https(url: &reqwest::Url) -> bool {
+    url.scheme() == "https" && url.port().is_none() && url.username().is_empty() && url.password().is_none()
+}
 
 fn allowed(url: &reqwest::Url) -> bool {
-    url.scheme() == "https"
-        && url.port().is_none()
-        && url.username().is_empty()
-        && url.password().is_none()
-        && url.host_str().is_some_and(|host| HOSTS.contains(&host))
+    public_https(url) && url.host_str().is_some_and(|host| HOSTS.contains(&host))
 }
 
 fn parse(path: &str) -> Option<reqwest::Url> {
@@ -55,8 +60,9 @@ fn client() -> Option<Arc<reqwest::Client>> {
         reqwest::Client::builder()
             .timeout(Duration::from_secs(20))
             .user_agent(concat!("l8git/", env!("CARGO_PKG_VERSION")))
+            // Follows what the webview followed before: Gravatar sends `d=<url>` defaults through i*.wp.com.
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.previous().len() < 5 && allowed(attempt.url()) {
+                if attempt.previous().len() < 5 && public_https(attempt.url()) {
                     attempt.follow()
                 } else {
                     attempt.stop()
@@ -75,14 +81,20 @@ pub fn handle<R: Runtime>(ctx: UriSchemeContext<'_, R>, request: Request<Vec<u8>
     tauri::async_runtime::spawn(async move {
         let response = match url {
             None => status(StatusCode::FORBIDDEN),
-            Some(url) => match serve(dir.as_deref(), url).await {
-                Some(Some((content_type, body))) => Response::builder()
-                    .header(header::CONTENT_TYPE, content_type)
-                    // Lets WebKit's memory cache serve rows that remount while scrolling without a round trip.
-                    .header(header::CACHE_CONTROL, "max-age=3600")
-                    .body(body)
-                    .unwrap_or_else(|_| status(StatusCode::BAD_GATEWAY)),
-                Some(None) => status(StatusCode::NOT_FOUND),
+            Some(url) => match serve(dir, url).await {
+                Some((Some((content_type, body)), fresh)) => {
+                    let mut response = Response::builder()
+                        .header(header::CONTENT_TYPE, &content_type)
+                        // Lets WebKit's memory cache serve rows that remount while scrolling without a round trip;
+                        // a stale copy is asked for again, to pick up the refreshed one.
+                        .header(header::CACHE_CONTROL, if fresh { "max-age=3600" } else { "no-cache" });
+                    if content_type.starts_with("image/svg") {
+                        // Scripts in an SVG never run as an <img>; this keeps them off if it is ever opened directly.
+                        response = response.header(header::CONTENT_SECURITY_POLICY, "sandbox");
+                    }
+                    response.body(body).unwrap_or_else(|_| status(StatusCode::BAD_GATEWAY))
+                }
+                Some((None, _)) => status(StatusCode::NOT_FOUND),
                 None => status(StatusCode::BAD_GATEWAY),
             },
         };
@@ -96,45 +108,65 @@ fn status(code: StatusCode) -> Response<Vec<u8>> {
     response
 }
 
-/// One fetch per URL at a time: a history view asks for the same author's avatar from many rows at once.
-async fn serve(dir: Option<&Path>, url: reqwest::Url) -> Option<Entry> {
-    static INFLIGHT: OnceLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> = OnceLock::new();
-    let inflight = INFLIGHT.get_or_init(Default::default);
+/// The avatar and whether it is fresh. A stale copy is served at once while it is refreshed in the background.
+async fn serve(dir: Option<PathBuf>, url: reqwest::Url) -> Option<(Entry, bool)> {
     let key = Sha256::digest(url.as_str()).iter().map(|b| format!("{b:02x}")).collect::<String>();
-    let lock = inflight.lock().ok()?.entry(key.clone()).or_default().clone();
-    let entry = {
-        let _turn = lock.lock().await;
-        load_or_fetch(dir.map(|dir| dir.join(&key)), url).await
+    if let Some(dir) = &dir {
+        static PRUNED: std::sync::Once = std::sync::Once::new();
+        PRUNED.call_once(|| {
+            let dir = dir.clone();
+            tokio::task::spawn_blocking(move || prune(&dir));
+        });
+    }
+    let path = dir.map(|dir| dir.join(&key));
+    let cached = match path.clone() {
+        Some(path) => tokio::task::spawn_blocking(move || read_entry(&path)).await.ok().flatten(),
+        None => None,
     };
+    if let Some((age, entry)) = cached {
+        let fresh = age < if entry.is_some() { FRESH } else { MISSING_FRESH };
+        if !fresh {
+            tauri::async_runtime::spawn(fetch_shared(key, path, url));
+        }
+        return Some((entry, fresh));
+    }
+    fetch_shared(key, path, url).await.map(|entry| (entry, true))
+}
+
+/// One fetch per URL at a time: a history view asks for the same author's avatar from many rows at once, and
+/// they all get its result.
+async fn fetch_shared(key: String, path: Option<PathBuf>, url: reqwest::Url) -> Option<Entry> {
+    static INFLIGHT: OnceLock<Mutex<HashMap<String, (Instant, Fetch)>>> = OnceLock::new();
+    let inflight = INFLIGHT.get_or_init(Default::default);
+    let fetch = {
+        let mut map = inflight.lock().ok()?;
+        map.retain(|_, (since, fetch)| fetch.get().is_none() || since.elapsed() < FAILED_FOR);
+        map.entry(key.clone()).or_insert_with(|| (Instant::now(), Fetch::default())).1.clone()
+    };
+    let entry = fetch
+        .get_or_init(|| async move {
+            let entry = fetch_url(url).await;
+            if let (Some(entry), Some(path)) = (entry.clone(), path) {
+                let _ = tokio::task::spawn_blocking(move || write_entry(&path, &entry)).await;
+            }
+            entry
+        })
+        .await
+        .clone();
+    // Done fetches leave the map; failed ones stay there for FAILED_FOR from the failure.
     if let Ok(mut map) = inflight.lock() {
-        // Only the map and this task hold it: nobody is waiting for this URL.
-        if Arc::strong_count(&lock) == 2 {
-            map.remove(&key);
+        if map.get(&key).is_some_and(|(_, current)| Arc::ptr_eq(current, &fetch)) {
+            if entry.is_some() {
+                map.remove(&key);
+            } else {
+                map.insert(key, (Instant::now(), fetch));
+            }
         }
     }
     entry
 }
 
-async fn load_or_fetch(path: Option<PathBuf>, url: reqwest::Url) -> Option<Entry> {
-    let cached = path.as_deref().and_then(read_entry);
-    if let Some((age, entry)) = &cached {
-        if *age < if entry.is_some() { FRESH } else { MISSING_FRESH } {
-            return Some(entry.clone());
-        }
-    }
-    match fetch(url).await {
-        Some(entry) => {
-            if let Some(path) = &path {
-                write_entry(path, &entry);
-            }
-            Some(entry)
-        }
-        // Offline or the host failed: a stale copy beats no avatar.
-        None => cached.map(|(_, entry)| entry),
-    }
-}
-
-async fn fetch(url: reqwest::Url) -> Option<Entry> {
+async fn fetch_url(url: reqwest::Url) -> Option<Entry> {
     // Taken before queueing, so the client lives through a whole burst of avatars.
     let client = client()?;
     // WebKit's per-host connection limit, for all hosts together: a long history opens no dozens of TLS sessions.
@@ -144,15 +176,14 @@ async fn fetch(url: reqwest::Url) -> Option<Entry> {
     if matches!(response.status(), StatusCode::NOT_FOUND | StatusCode::GONE) {
         return Some(None);
     }
-    let content_type = response.headers().get(header::CONTENT_TYPE)?.to_str().ok()?.to_ascii_lowercase();
-    if !response.status().is_success()
-        || !content_type.starts_with("image/")
-        // SVG can carry script; no avatar CDN serves it.
-        || content_type.starts_with("image/svg")
-        || response.content_length().is_some_and(|len| len > MAX_BYTES as u64)
-    {
+    if !response.status().is_success() || response.content_length().is_some_and(|len| len > MAX_BYTES as u64) {
         return None;
     }
+    let declared = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_ascii_lowercase);
     let mut body = Vec::new();
     while let Some(chunk) = response.chunk().await.ok()? {
         body.extend_from_slice(&chunk);
@@ -160,7 +191,24 @@ async fn fetch(url: reqwest::Url) -> Option<Entry> {
             return None;
         }
     }
-    Some(Some((content_type, body)))
+    // Like WebKit's image decoders, trust the bytes over the declared type.
+    let content_type = sniff(&body)
+        .or_else(|| declared.is_some_and(|t| t.starts_with("image/svg+xml")).then_some("image/svg+xml"))?;
+    Some(Some((content_type.to_owned(), body)))
+}
+
+fn sniff(body: &[u8]) -> Option<&'static str> {
+    let at = |offset: usize, magic: &[u8]| body.get(offset..offset + magic.len()) == Some(magic);
+    Some(match () {
+        _ if at(0, b"\x89PNG\r\n\x1a\n") => "image/png",
+        _ if at(0, b"\xff\xd8\xff") => "image/jpeg",
+        _ if at(0, b"GIF8") => "image/gif",
+        _ if at(0, b"RIFF") && at(8, b"WEBP") => "image/webp",
+        _ if at(4, b"ftypavif") => "image/avif",
+        _ if at(0, b"\0\0\x01\0") => "image/x-icon",
+        _ if at(0, b"BM") => "image/bmp",
+        _ => return None,
+    })
 }
 
 /// File format: empty = missing avatar, else `<content type>\n<image bytes>`.
@@ -180,8 +228,6 @@ fn write_entry(path: &Path, entry: &Entry) {
     if std::fs::create_dir_all(dir).is_err() {
         return;
     }
-    static PRUNED: std::sync::Once = std::sync::Once::new();
-    PRUNED.call_once(|| prune(dir));
     let bytes = match entry {
         None => Vec::new(),
         Some((content_type, body)) => [content_type.as_bytes(), b"\n", body].concat(),
@@ -224,6 +270,28 @@ mod tests {
         assert!(ok("https://www.gravatar.com:8443/x").is_none());
         assert!(ok("file:///etc/passwd").is_none());
         assert!(parse("/not a url").is_none());
+        // Redirects may leave the CDNs, but only to what the webview could load itself.
+        assert!(public_https(&reqwest::Url::parse("https://i0.wp.com/x.png").unwrap()));
+        assert!(!public_https(&reqwest::Url::parse("http://i0.wp.com/x.png").unwrap()));
+        assert!(!public_https(&reqwest::Url::parse("https://127.0.0.1:8080/x").unwrap()));
+    }
+
+    #[test]
+    fn hosts_match_the_frontend() {
+        let ts = include_str!("../../src/lib/avatar-src.ts");
+        let list = &ts[ts.find("new Set([").unwrap()..];
+        let list = &list[..list.find("])").unwrap()];
+        let ts_hosts = list.split('"').skip(1).step_by(2).collect::<Vec<_>>();
+        assert_eq!(ts_hosts, HOSTS);
+    }
+
+    #[test]
+    fn sniffs_image_bytes() {
+        assert_eq!(sniff(b"\x89PNG\r\n\x1a\n...."), Some("image/png"));
+        assert_eq!(sniff(b"\xff\xd8\xff\xe0"), Some("image/jpeg"));
+        assert_eq!(sniff(b"RIFF\0\0\0\0WEBPVP8 "), Some("image/webp"));
+        assert_eq!(sniff(b"<html>"), None);
+        assert_eq!(sniff(b""), None);
     }
 
     #[test]

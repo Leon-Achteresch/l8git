@@ -111,7 +111,8 @@ fn tune_webkit_without_gpu() {
     let _ = WEBKIT_MEMORY_ENV.set(set);
     // With transparent huge pages "always", the kernel backs libpas', malloc's and GLib's mostly empty arenas
     // with 2 MB pages: -13 MB in the network process, -16 MB in the web process. Inherited across exec like the
-    // env above, and cleared again with it; a disable the user already set stays.
+    // env above and cleared again with it, so the same timing holds: only WebKit processes started before setup get
+    // it. A disable the user already set stays.
     if thp_prctl(libc::PR_GET_THP_DISABLE, 0) == 0 {
         THP_DISABLED.store(thp_prctl(libc::PR_SET_THP_DISABLE, 1) == 0, std::sync::atomic::Ordering::Relaxed);
     }
