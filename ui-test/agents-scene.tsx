@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { AgentsPage } from "@/routes/agents";
+import { AgentsPage } from "@/components/agents/agents-page";
 import { claudeChatStore } from "@/lib/agents/providers/claude/chat-store";
 import { useAgentProviderStore } from "@/lib/agents/provider-store";
 import { useRepoStore } from "@/lib/repo-store";
