@@ -58,8 +58,8 @@ function scrollRoot(list: HTMLElement): HTMLElement | null {
  * the browser skips style, paint and hit testing for chunks off screen. Long
  * non-virtualized lists (thousands of branches) otherwise cost every scroll frame.
  * `rowRem` is a row's height plus its gap; it only sizes chunks never rendered yet.
- * Only the first chunks render with the list; later ones render (and stay) once scrolled near
- * or once focus reaches the chunk before them, so Tab still walks every row.
+ * Only chunks within a viewport of the visible area render with the list; the others render (and
+ * stay) once scrolled near or once focus reaches a neighbouring chunk, so Tab still walks every row.
  */
 export function ChunkedList({
   className,
@@ -91,26 +91,17 @@ export function ChunkedList({
     membership.current = next;
   });
   const listRef = useRef<HTMLUListElement & HTMLDivElement>(null);
-  const [rendered, setRendered] = useState<ReadonlySet<number>>(() => new Set());
+  const [rendered, setRendered] = useState<ReadonlySet<number>>(() => new Set(chunks.slice(0, FIRST_CHUNKS).map((c) => c.id)));
   const reveal = (ids: number[]) =>
     setRendered((prev) => (ids.every((id) => prev.has(id)) ? prev : new Set([...prev, ...ids])));
   // Without IntersectionObserver (tests, old engines) every chunk renders.
-  const isRendered = (index: number, id: number) => !hasObserver || index < FIRST_CHUNKS || rendered.has(id);
-  // Chunks rendered for their position are recorded too, so a row inserted above never turns them
-  // back into placeholders.
-  useLayoutEffect(() => {
-    const ids = chunks.slice(0, FIRST_CHUNKS).map((c) => c.id).filter((id) => !rendered.has(id));
-    if (ids.length) reveal(ids);
-  });
+  const isRendered = (id: number) => !hasObserver || rendered.has(id);
+  const chunkIds = chunks.map((c) => c.id).join(",");
   const observer = useRef<{ io: IntersectionObserver; root: HTMLElement | null } | null>(null);
-  useEffect(() => () => observer.current?.io.disconnect(), []);
-  // Watch the chunks still waiting, against the nearest ancestor that scrolls now: a list that
-  // mounted short may only get a scrolling ancestor once it grows.
-  useEffect(() => {
+  // (Re)creates the observer when the scrolling ancestor changes and watches exactly the pending chunks.
+  const watchPending = () => {
     const list = listRef.current;
     if (!list || !hasObserver) return;
-    const pending = list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]");
-    if (!pending.length) return;
     const root = scrollRoot(list);
     if (observer.current?.root !== root) {
       observer.current?.io.disconnect();
@@ -125,9 +116,45 @@ export function ChunkedList({
       );
       observer.current = { io, root };
     }
-    // observe() ignores elements it already watches.
-    for (const el of pending) observer.current!.io.observe(el);
-  });
+    const { io } = observer.current!;
+    io.disconnect(); // drops chunks that were removed or already rendered
+    for (const el of list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]")) io.observe(el);
+  };
+  // When the chunks change (mount, filtering, new rows): render the ones within a viewport of the
+  // visible area before paint, so nothing visible flashes blank, and forget chunks that are gone.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list || !hasObserver) return;
+    const root = scrollRoot(list);
+    const view = root?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight, height: window.innerHeight };
+    const near: number[] = [];
+    for (const el of list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]")) {
+      const box = el.getBoundingClientRect();
+      if (box.bottom >= view.top - view.height && box.top <= view.bottom + view.height) near.push(Number(el.dataset.chunk));
+    }
+    const present = new Set(chunks.map((c) => c.id));
+    setRendered((prev) => {
+      const kept = [...prev].filter((id) => present.has(id));
+      return kept.length === prev.size && near.every((id) => prev.has(id)) ? prev : new Set([...kept, ...near]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chunkIds stands for chunks
+  }, [chunkIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- watchPending reads refs and the DOM
+  useEffect(watchPending, [chunkIds, rendered]);
+  // A list that mounted short may get a scrolling ancestor only once it grows: re-pick on resize.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !hasObserver) return;
+    const resize = new ResizeObserver(() => {
+      if (observer.current && observer.current.root !== scrollRoot(list)) watchPending();
+    });
+    resize.observe(list);
+    return () => {
+      resize.disconnect();
+      observer.current?.io.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
+  }, []);
   // A flex column keeps the chunks' negative bleed margins from collapsing into each other.
   return (
     <List ref={listRef} className={`${className} flex flex-col`}>
@@ -137,12 +164,9 @@ export function ChunkedList({
           key={chunk.id}
           role="none"
           data-chunk={chunk.id}
-          data-chunk-pending={isRendered(i, chunk.id) ? undefined : ""}
-          // Focus inside a chunk renders the next one, so Tab never runs out of rows.
-          onFocus={() => {
-            const next = chunks[i + 1];
-            if (next && !isRendered(i + 1, next.id)) reveal([next.id]);
-          }}
+          data-chunk-pending={isRendered(chunk.id) ? undefined : ""}
+          // Focus inside a chunk renders its neighbours, so Tab and Shift+Tab never run out of rows.
+          onFocus={() => reveal([chunks[i - 1]?.id, chunks[i + 1]?.id].filter((id) => id !== undefined))}
           style={{
             contentVisibility: "auto",
             containIntrinsicHeight: `auto ${chunk.keys.length * rowRem}rem`,
@@ -153,10 +177,10 @@ export function ChunkedList({
             // The bleed must not take clicks from the neighbouring chunk's rows.
             pointerEvents: "none",
             // A chunk not rendered yet holds its estimated height.
-            minHeight: isRendered(i, chunk.id) ? undefined : `calc(${chunk.keys.length * rowRem}rem + 2 * ${BLEED})`,
+            minHeight: isRendered(chunk.id) ? undefined : `calc(${chunk.keys.length * rowRem}rem + 2 * ${BLEED})`,
           }}
         >
-          {isRendered(i, chunk.id) && (
+          {isRendered(chunk.id) && (
             <List role="none" className={rowsClassName} style={{ pointerEvents: "auto" }}>
               {chunk.keys.map((key) => byKey.get(key))}
             </List>

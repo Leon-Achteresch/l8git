@@ -28,11 +28,6 @@ export function StashRow({
   onSelect: () => void;
   onOpenBranch: () => void;
 }) {
-  const { t } = useTranslation();
-  const stashApply = useRepoStore((s) => s.stashApply);
-  const stashPop = useRepoStore((s) => s.stashPop);
-  const stashDrop = useRepoStore((s) => s.stashDrop);
-
   const branchLabel = entry.branch.trim() || "—";
   const title = entry.subject.trim() || entry.message;
 
@@ -63,62 +58,73 @@ export function StashRow({
     <ContextMenu deferMount>
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem
-          onSelect={() => {
-            void (async () => {
-              try {
-                const out = await stashApply(path, entry.index, entry.hash);
-                toast.success(out || t("stash.toastApplyFallback"));
-              } catch (e) {
-                toastError(String(e));
-              }
-            })();
-          }}
-        >
-          <Layers className="h-3.5 w-3.5" />
-          {t("stash.menuApply")}
-        </ContextMenuItem>
-        <ContextMenuItem
-          onSelect={() => {
-            const ok = window.confirm(t("stash.confirmPop"));
-            if (!ok) return;
-            void (async () => {
-              try {
-                const out = await stashPop(path, entry.index, entry.hash);
-                toast.success(out || t("stash.toastPopFallback"));
-              } catch (e) {
-                toastError(String(e));
-              }
-            })();
-          }}
-        >
-          <Inbox className="h-3.5 w-3.5" />
-          {t("stash.menuPop")}
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => onOpenBranch()}>
-          <GitBranch className="h-3.5 w-3.5" />
-          {t("stash.menuCreateBranch")}
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          variant="destructive"
-          onSelect={() => {
-            const ok = window.confirm(t("stash.confirmDrop", { ref: `stash@{${entry.index}}` }));
-            if (!ok) return;
-            void (async () => {
-              try {
-                await stashDrop(path, entry.index, entry.hash);
-                toast.success(t("stash.toastDropSuccess"));
-              } catch (e) {
-                toastError(String(e));
-              }
-            })();
-          }}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {t("common.remove")}
-        </ContextMenuItem>
+        <StashRowMenuItems path={path} entry={entry} onOpenBranch={onOpenBranch} />
       </ContextMenuContent>
     </ContextMenu>
+  );
+}
+
+/** Rendered only while the menu is open, so closed rows skip translating every label. */
+function StashRowMenuItems({ path, entry, onOpenBranch }: { path: string; entry: StashEntry; onOpenBranch: () => void }) {
+  const { t } = useTranslation();
+  const { stashApply, stashPop, stashDrop } = useRepoStore.getState();
+  return (
+    <>
+      <ContextMenuItem
+        onSelect={() => {
+          void (async () => {
+            try {
+              const out = await stashApply(path, entry.index, entry.hash);
+              toast.success(out || t("stash.toastApplyFallback"));
+            } catch (e) {
+              toastError(String(e));
+            }
+          })();
+        }}
+      >
+        <Layers className="h-3.5 w-3.5" />
+        {t("stash.menuApply")}
+      </ContextMenuItem>
+      <ContextMenuItem
+        onSelect={() => {
+          const ok = window.confirm(t("stash.confirmPop"));
+          if (!ok) return;
+          void (async () => {
+            try {
+              const out = await stashPop(path, entry.index, entry.hash);
+              toast.success(out || t("stash.toastPopFallback"));
+            } catch (e) {
+              toastError(String(e));
+            }
+          })();
+        }}
+      >
+        <Inbox className="h-3.5 w-3.5" />
+        {t("stash.menuPop")}
+      </ContextMenuItem>
+      <ContextMenuItem onSelect={() => onOpenBranch()}>
+        <GitBranch className="h-3.5 w-3.5" />
+        {t("stash.menuCreateBranch")}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        variant="destructive"
+        onSelect={() => {
+          const ok = window.confirm(t("stash.confirmDrop", { ref: `stash@{${entry.index}}` }));
+          if (!ok) return;
+          void (async () => {
+            try {
+              await stashDrop(path, entry.index, entry.hash);
+              toast.success(t("stash.toastDropSuccess"));
+            } catch (e) {
+              toastError(String(e));
+            }
+          })();
+        }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        {t("common.remove")}
+      </ContextMenuItem>
+    </>
   );
 }

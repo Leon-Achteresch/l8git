@@ -78,7 +78,11 @@ function Home() {
   // frame, and a tab switch keeps the old panel up until the new one is ready (the tab rail itself
   // updates at once), so neither blocks frames.
   const ready = useDeferredValue(true, false);
-  const sidebarTab = useDeferredValue(useUiStore((s) => s.sidebarTab));
+  const tabNow = useUiStore((s) => s.sidebarTab);
+  // Repo and tab are deferred together: switching both at once mounts one panel, not two.
+  const shown = useDeferredValue(`${activePath ?? ""}\n${tabNow}`);
+  const [shownPath, shownTab] = shown.split("\n");
+  const sidebarTab = shownTab as typeof tabNow;
   const mergeEditorPath = useUiStore((s) => s.mergeEditorPath);
   const closeMergeEditor = useUiStore((s) => s.closeMergeEditor);
   const blameEditorPath = useUiStore((s) => s.blameEditorPath);
@@ -114,7 +118,7 @@ function Home() {
           {!ready ? null : activePath && repoPath ? (
             <RepoTabLayout path={repoPath}>
               <PanelSwap
-                panelKey={`${activePath}::${sidebarTab}`}
+                panelKey={shown}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 {sidebarTab === "commit" ? (
@@ -124,31 +128,31 @@ function Home() {
                   <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     {sidebarTab === "stash" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <StashPanel path={repoPath} />
+                        <StashPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "pr" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <PullRequestPanel path={repoPath} />
+                        <PullRequestPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "submodules" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <SubmodulesPanel path={repoPath} />
+                        <SubmodulesPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "worktrees" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <WorktreePanel path={repoPath} />
+                        <WorktreePanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "hooks" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <GitHooksPanel path={repoPath} />
+                        <GitHooksPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "ci" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <RepoCiPanel path={repoPath} />
+                        <RepoCiPanel path={shownPath} />
                       </div>
                     ) : sidebarTab === "tools" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
-                        <ToolsPanel path={repoPath} />
+                        <ToolsPanel path={shownPath} />
                       </div>
                     ) : (
                       <RepoDetails />

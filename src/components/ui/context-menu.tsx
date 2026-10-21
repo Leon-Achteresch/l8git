@@ -15,8 +15,10 @@ const [ContextMenuOpenProvider, useContextMenuOpen] =
   createOpenContext("ContextMenu")
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
-// `focusPath`: child indices from the trigger to the element that had focus, so focus survives the remount.
-type Replay = { x: number; y: number; focusPath: number[] | null }
+// `focus`: where focus was inside the trigger (child indices, tag), so it survives the remount.
+type Replay = { x: number; y: number; focus: { path: number[]; tag: string } | null }
+// True while the first right-click is replayed into the freshly mounted menu.
+let replaying = false
 // Set while a `deferMount` menu has not mounted Radix yet: the trigger calls it on the first right-click.
 const DeferredMountContext = React.createContext<((replay: Replay) => void) | null>(null)
 const ReplayContext = React.createContext<React.RefObject<Replay | null> | null>(null)
@@ -64,13 +66,13 @@ function ContextMenu({
 
 const LONG_PRESS_MS = 700 // Radix's touch long-press delay
 
-function childPath(root: Element, el: Element | null): number[] | null {
+function focusWithin(root: Element, el: Element | null): Replay["focus"] {
   if (!el || !root.contains(el)) return null
   const path: number[] = []
   for (let node: Element = el; node !== root; node = node.parentElement!) {
     path.unshift(Array.prototype.indexOf.call(node.parentElement!.children, node))
   }
-  return path
+  return { path, tag: el.tagName }
 }
 
 function ContextMenuTrigger({
@@ -95,12 +97,18 @@ function ContextMenuTrigger({
     if (!pending || !node) return
     replay.current = null
     // The first right-click arrived before Radix mounted: open the menu where it happened.
-    if (pending.focusPath) {
+    if (pending.focus) {
       let target: Element | undefined = node
-      for (const i of pending.focusPath) target = target?.children[i]
-      if (target instanceof HTMLElement) target.focus()
+      for (const i of pending.focus.path) target = target?.children[i]
+      // Fall back to the trigger if the remounted markup differs.
+      ;(target instanceof HTMLElement && target.tagName === pending.focus.tag ? target : node).focus()
     }
-    node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: pending.x, clientY: pending.y }))
+    replaying = true
+    try {
+      node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: pending.x, clientY: pending.y }))
+    } finally {
+      replaying = false
+    }
   }, [replay])
   const longPress = React.useRef(0)
   const clearLongPress = () => window.clearTimeout(longPress.current)
@@ -129,13 +137,13 @@ function ContextMenuTrigger({
           if (disabled || event.defaultPrevented) return
           event.preventDefault()
           clearLongPress()
-          mount({ x: event.clientX, y: event.clientY, focusPath: childPath(event.currentTarget, document.activeElement) })
+          mount({ x: event.clientX, y: event.clientY, focus: focusWithin(event.currentTarget, document.activeElement) })
         }}
         onPointerDown={(event: React.PointerEvent<HTMLSpanElement>) => {
           onPointerDown?.(event)
           if (disabled || event.defaultPrevented || event.pointerType === "mouse") return
           clearLongPress()
-          const point = { x: event.clientX, y: event.clientY, focusPath: null }
+          const point = { x: event.clientX, y: event.clientY, focus: null }
           longPress.current = window.setTimeout(() => mount(point), LONG_PRESS_MS)
         }}
         onPointerMove={endTouch(onPointerMove)}
@@ -144,12 +152,15 @@ function ContextMenuTrigger({
       />
     )
   }
+  const { onContextMenu } = props
   return (
     <ContextMenuPrimitive.Trigger
       data-slot="context-menu-trigger"
       className={cn("select-none", className)}
       ref={setRef}
       {...props}
+      // The replayed first right-click already reached the consumer's handler as the real one.
+      onContextMenu={onContextMenu && ((event) => { if (!replaying) onContextMenu(event) })}
     />
   )
 }

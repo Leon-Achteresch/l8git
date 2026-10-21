@@ -52,6 +52,16 @@ function languageShort(lang: string): string {
   );
 }
 
+// Set when focus was requested before the composer existed (its panel renders deferred).
+let focusRequestedAt = 0;
+
+/** Focuses the commit message input now, or when the composer mounts within the next seconds. */
+export function focusCommitMessage() {
+  const input = document.querySelector<HTMLInputElement>("[data-commit-message-input]");
+  if (input) input.focus();
+  else focusRequestedAt = Date.now();
+}
+
 const spring = { type: "spring" as const, stiffness: 460, damping: 34, mass: 0.42 };
 
 type CommitComposerProps = {
@@ -124,6 +134,11 @@ export function CommitComposer({
   const [bodyOpen, setBodyOpen] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const subjectRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (Date.now() - focusRequestedAt > 3000) return;
+    focusRequestedAt = 0;
+    subjectRef.current?.focus();
+  }, []);
   const showBody = bodyOpen || body.trim().length > 0;
   const busy = committing || aiGenerating || !draftsReady;
   const shortcut = /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘↵" : "Ctrl+Enter";

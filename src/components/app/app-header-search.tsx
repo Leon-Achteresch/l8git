@@ -83,6 +83,7 @@ import { RepoSourceDialogs } from "@/components/repo/tabs/repo-source-dialogs";
 import { toastError } from "@/lib/error-toast";
 import { useEverTrue } from "@/lib/use-ever-true";
 import { useCommitPrefs } from "@/lib/commit-prefs";
+import { focusCommitMessage } from "@/components/repo/commit/commit-composer";
 import { useHotkeyBindings } from "@/lib/hotkey-prefs";
 import { cn } from "@/lib/utils";
 import i18n from "@/lib/i18n";
@@ -406,12 +407,8 @@ export function AppHeaderSearch({
             onSelect: () => {
               setOpen(false);
               setSidebarTab("commit");
-              window.setTimeout(() => {
-                const el = document.querySelector<HTMLInputElement>(
-                  "[data-commit-message-input]",
-                );
-                el?.focus();
-              }, 60);
+              // After the dialog has returned focus; the panel itself may still be rendering.
+              window.setTimeout(focusCommitMessage, 60);
             },
           },
           {
