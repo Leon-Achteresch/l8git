@@ -43,10 +43,12 @@ export function assignPoolSlots<K>(
 
 /** Slot per row key for the rows rendered this pass; see assignPoolSlots. */
 export function useVirtualPoolSlots<K>(keys: readonly K[]): ReadonlyMap<K, number> {
-  const slots = useRef<Map<K, number>>(new Map());
-  // Deterministic for the same keys, so a repeated (StrictMode) render agrees.
-  slots.current = assignPoolSlots(slots.current, keys);
-  return slots.current;
+  // Assigned against the committed slots only: a render React discards must not
+  // become the previous state of the next one.
+  const committed = useRef<ReadonlyMap<K, number>>(new Map());
+  const slots = assignPoolSlots(committed.current, keys);
+  useLayoutEffect(() => { committed.current = slots; });
+  return slots;
 }
 
 /**

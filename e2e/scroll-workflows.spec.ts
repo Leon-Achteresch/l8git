@@ -165,7 +165,7 @@ test('recycled history rows cannot retarget a held click or restore focus to a d
   if (!bounds) throw new Error('Missing history pointer target');
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   await page.mouse.down();
-  // A pooled node is reused one pool length (256 rows, src/lib/virtual-pool.ts) later.
+  // A jump past the whole window reuses every pooled node in place (src/lib/virtual-pool.ts).
   await scroller.evaluate(node => { node.scrollTop += 256 * 30; });
   await expect(slot).toHaveCount(1);
   await expect(slot).not.toHaveAttribute('data-commit-hash', targetHash);

@@ -52,9 +52,12 @@ export function codeTokenClass(light?: string, dark?: string): string {
     document.head.appendChild(style);
     tokenSheet = style.sheet!;
   }
-  // Same specificity as the Tailwind dark variant (`:is(.dark *)`) it replaces.
-  tokenSheet.insertRule(`.${name}{color:${lightColor}}`, tokenSheet.cssRules.length);
-  tokenSheet.insertRule(`.dark .${name}{color:${darkColor}}`, tokenSheet.cssRules.length);
+  // In Tailwind's utilities layer and as specific as its dark variant
+  // (`:is(.dark *)`), like the utility classes this replaces.
+  tokenSheet.insertRule(
+    `@layer utilities{.${name}{color:${lightColor}}.dark .${name}{color:${darkColor}}}`,
+    tokenSheet.cssRules.length,
+  );
   return name;
 }
 const MAX_TOKEN_CACHE_ENTRIES = 16;

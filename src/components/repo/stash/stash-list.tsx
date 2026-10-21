@@ -131,12 +131,15 @@ function StashVirtualRows({
     overscan: 4,
     getItemKey: (i) => stashes[i]?.refname ?? i,
   });
+  const items = virtualizer.getVirtualItems();
   // Only the rows shown when the list appears stagger in, not rows scrolled into view later.
+  // The first pass has no scroll element yet, so it renders no rows.
   const [entered, setEntered] = useState(false);
-  useEffect(() => setEntered(true), []);
+  const shown = items.length > 0;
+  useEffect(() => { if (shown) setEntered(true); }, [shown]);
   return (
     <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-      {virtualizer.getVirtualItems().map((vi) => {
+      {items.map((vi) => {
         const e = stashes[vi.index];
         if (!e) return null;
         return (
@@ -144,7 +147,7 @@ function StashVirtualRows({
             key={vi.key}
             data-index={vi.index}
             ref={virtualizer.measureElement}
-            className="pb-0.5"
+            className={vi.index < stashes.length - 1 ? "pb-0.5" : undefined}
             style={{ position: "absolute", top: 0, left: 0, right: 0, transform: `translateY(${vi.start}px)` }}
           >
             <StaggerItem index={entered ? Number.POSITIVE_INFINITY : vi.index}>
