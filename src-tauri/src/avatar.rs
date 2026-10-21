@@ -26,13 +26,12 @@ const FRESH: Duration = Duration::from_secs(24 * 3600);
 /// A 404 (no Gravatar for this email) is rechecked sooner than a found image is refreshed.
 const MISSING_FRESH: Duration = Duration::from_secs(3600);
 const PRUNE_AFTER: Duration = Duration::from_secs(30 * 24 * 3600);
-/// How long a failed fetch answers for its URL, so a hanging host isn't asked again by every row.
-const FAILED_FOR: Duration = Duration::from_secs(60);
+/// How long a failed fetch (or an image the disk cache could not keep) answers for its URL, so a hanging host
+/// or a full disk doesn't mean a fetch per row.
+const HOLD_FOR: Duration = Duration::from_secs(60);
 
 /// `Some(image)` or `None` for "this avatar does not exist".
 type Entry = Option<(String, Vec<u8>)>;
-/// A fetch in progress (or failed lately), shared by every row asking for the same avatar meanwhile.
-type Fetch = Arc<tokio::sync::OnceCell<Option<Entry>>>;
 
 /// What a webview may load directly too: https on the default port without credentials.
 fn public_https(url: &reqwest::Url) -> bool {
@@ -136,34 +135,60 @@ async fn serve(dir: Option<PathBuf>, url: reqwest::Url) -> Option<(Entry, bool)>
 /// One fetch per URL at a time: a history view asks for the same author's avatar from many rows at once, and
 /// they all get its result.
 async fn fetch_shared(key: String, path: Option<PathBuf>, url: reqwest::Url) -> Option<Entry> {
-    static INFLIGHT: OnceLock<Mutex<HashMap<String, (Instant, Fetch)>>> = OnceLock::new();
-    let inflight = INFLIGHT.get_or_init(Default::default);
-    let fetch = {
-        let mut map = inflight.lock().ok()?;
-        map.retain(|_, (since, fetch)| fetch.get().is_none() || since.elapsed() < FAILED_FOR);
-        map.entry(key.clone()).or_insert_with(|| (Instant::now(), Fetch::default())).1.clone()
-    };
-    let entry = fetch
-        .get_or_init(|| async move {
-            let entry = fetch_url(url).await;
-            if let (Some(entry), Some(path)) = (entry.clone(), path) {
-                let _ = tokio::task::spawn_blocking(move || write_entry(&path, &entry)).await;
+    static INFLIGHT: OnceLock<Shared<Option<Entry>>> = OnceLock::new();
+    let fetch = || async move {
+        let entry = fetch_url(url).await;
+        let saved = match (entry.clone(), path) {
+            (Some(entry), Some(path)) => {
+                tokio::task::spawn_blocking(move || write_entry(&path, &entry)).await.unwrap_or(false)
             }
-            entry
-        })
-        .await
-        .clone();
-    // Done fetches leave the map; failed ones stay there for FAILED_FOR from the failure.
-    if let Ok(mut map) = inflight.lock() {
-        if map.get(&key).is_some_and(|(_, current)| Arc::ptr_eq(current, &fetch)) {
-            if entry.is_some() {
-                map.remove(&key);
-            } else {
-                map.insert(key, (Instant::now(), fetch));
+            _ => false,
+        };
+        (entry, !saved)
+    };
+    INFLIGHT.get_or_init(|| Shared::new(HOLD_FOR)).get(key, fetch).await
+}
+
+/// Fetches shared by key: callers asking while one runs get its result. A result marked "hold" keeps answering
+/// for `hold` after it arrived; others leave once done, so the next caller fetches (or reads the disk) again.
+struct Shared<T> {
+    hold: Duration,
+    map: Mutex<HashMap<String, (Instant, Arc<tokio::sync::OnceCell<(T, bool)>>)>>,
+}
+
+impl<T: Clone> Shared<T> {
+    fn new(hold: Duration) -> Self {
+        Self { hold, map: Mutex::default() }
+    }
+
+    async fn get<F: std::future::Future<Output = (T, bool)>>(&self, key: String, fetch: impl FnOnce() -> F) -> T {
+        let cell = {
+            let Ok(mut map) = self.map.lock() else { return fetch().await.0 };
+            map.retain(|_, (since, cell)| cell.get().is_none() || since.elapsed() < self.hold);
+            map.entry(key.clone()).or_insert_with(|| (Instant::now(), Default::default())).1.clone()
+        };
+        let mut ran = false;
+        let (value, hold) = cell
+            .get_or_init(|| {
+                ran = true;
+                fetch()
+            })
+            .await
+            .clone();
+        // Only the caller that fetched dates the result, so steady requests don't keep a failure alive.
+        if ran {
+            if let Ok(mut map) = self.map.lock() {
+                if map.get(&key).is_some_and(|(_, current)| Arc::ptr_eq(current, &cell)) {
+                    if hold {
+                        map.insert(key, (Instant::now(), cell));
+                    } else {
+                        map.remove(&key);
+                    }
+                }
             }
         }
+        value
     }
-    entry
 }
 
 async fn fetch_url(url: reqwest::Url) -> Option<Entry> {
@@ -204,6 +229,7 @@ fn sniff(body: &[u8]) -> Option<&'static str> {
         _ if at(0, b"\xff\xd8\xff") => "image/jpeg",
         _ if at(0, b"GIF8") => "image/gif",
         _ if at(0, b"RIFF") && at(8, b"WEBP") => "image/webp",
+        // shortcut: AVIF only by its "avif" brand (not mif1/avis); add brands if such avatars show initials.
         _ if at(4, b"ftypavif") => "image/avif",
         _ if at(0, b"\0\0\x01\0") => "image/x-icon",
         _ if at(0, b"BM") => "image/bmp",
@@ -223,10 +249,10 @@ fn read_entry(path: &Path) -> Option<(Duration, Entry)> {
     Some((age, Some((content_type, bytes[split + 1..].to_vec()))))
 }
 
-fn write_entry(path: &Path, entry: &Entry) {
-    let Some(dir) = path.parent() else { return };
+fn write_entry(path: &Path, entry: &Entry) -> bool {
+    let Some(dir) = path.parent() else { return false };
     if std::fs::create_dir_all(dir).is_err() {
-        return;
+        return false;
     }
     let bytes = match entry {
         None => Vec::new(),
@@ -234,9 +260,7 @@ fn write_entry(path: &Path, entry: &Entry) {
     };
     // Write then rename, so a concurrent reader never sees half a file.
     let tmp = path.with_extension("tmp");
-    if std::fs::write(&tmp, bytes).is_ok() {
-        let _ = std::fs::rename(&tmp, path);
-    }
+    std::fs::write(&tmp, bytes).is_ok() && std::fs::rename(&tmp, path).is_ok()
 }
 
 /// Avatars not refreshed for a month belong to authors no longer viewed.
@@ -294,11 +318,37 @@ mod tests {
         assert_eq!(sniff(b""), None);
     }
 
+    #[tokio::test]
+    async fn shared_fetches_run_once_and_held_results_answer_until_they_expire() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let calls = AtomicUsize::new(0);
+        let fetch = |value: u8, hold: bool| {
+            let calls = &calls;
+            move || async move {
+                calls.fetch_add(1, Ordering::SeqCst);
+                tokio::task::yield_now().await;
+                (value, hold)
+            }
+        };
+        let shared = Shared::new(Duration::from_secs(60));
+        let (a, b) = tokio::join!(shared.get("k".into(), fetch(1, false)), shared.get("k".into(), fetch(2, false)));
+        assert_eq!((a, b, calls.load(Ordering::SeqCst)), (1, 1, 1));
+        // Done and not held: the next caller fetches again.
+        assert_eq!(shared.get("k".into(), fetch(3, false)).await, 3);
+        // Held (a failure, or an image the disk could not keep): answers without fetching.
+        assert_eq!(shared.get("f".into(), fetch(4, true)).await, 4);
+        assert_eq!(shared.get("f".into(), fetch(5, true)).await, 4);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        let expired = Shared::new(Duration::ZERO);
+        assert_eq!(expired.get("f".into(), fetch(6, true)).await, 6);
+        assert_eq!(expired.get("f".into(), fetch(7, true)).await, 7);
+    }
+
     #[test]
     fn entries_round_trip() {
         let dir = std::env::temp_dir().join(format!("l8git-avatar-test-{}", std::process::id()));
         let path = dir.join("entry");
-        write_entry(&path, &Some(("image/png".into(), vec![1, b'\n', 2])));
+        assert!(write_entry(&path, &Some(("image/png".into(), vec![1, b'\n', 2]))));
         assert_eq!(read_entry(&path).unwrap().1, Some(("image/png".into(), vec![1, b'\n', 2])));
         write_entry(&path, &None);
         assert_eq!(read_entry(&path).unwrap().1, None);
