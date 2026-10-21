@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { StashEntry } from "@/lib/repo-store";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Archive, Loader2, Plus, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StashRow } from "./stash-row";
 import { SpinIcon, StaggerItem } from "@/components/motion/kit";
@@ -27,6 +29,10 @@ export function StashList({
   onOpenBranch: (index: number) => void;
 }) {
   const { t } = useTranslation();
+  const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const contentRef = useCallback((node: HTMLDivElement | null) => {
+    setScroller(node?.closest<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? null);
+  }, []);
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5">
@@ -73,7 +79,7 @@ export function StashList({
         </div>
       </div>
       <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-0.5 p-2">
+        <div ref={contentRef} className="p-2">
           {loading && stashes.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
               <SpinIcon icon={Loader2} className="h-8 w-8 opacity-40" />
@@ -88,8 +94,60 @@ export function StashList({
               </span>
             </div>
           ) : (
-            stashes.map((e, i) => (
-              <StaggerItem key={e.refname} index={i}>
+            <StashVirtualRows
+              scroller={scroller}
+              path={path}
+              stashes={stashes}
+              selectedIndex={selectedIndex}
+              onSelectIndex={onSelectIndex}
+              onOpenBranch={onOpenBranch}
+            />
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+function StashVirtualRows({
+  scroller,
+  path,
+  stashes,
+  selectedIndex,
+  onSelectIndex,
+  onOpenBranch,
+}: {
+  scroller: HTMLElement | null;
+  path: string;
+  stashes: StashEntry[];
+  selectedIndex: number | null;
+  onSelectIndex: (index: number) => void;
+  onOpenBranch: (index: number) => void;
+}) {
+  const virtualizer = useVirtualizer({
+    count: stashes.length,
+    getScrollElement: () => scroller,
+    estimateSize: () => 72,
+    overscan: 4,
+    getItemKey: (i) => stashes[i]?.refname ?? i,
+  });
+  // Only the rows shown when the list appears stagger in, not rows scrolled into view later.
+  const [entered, setEntered] = useState(false);
+  useEffect(() => setEntered(true), []);
+  return (
+    <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+      {virtualizer.getVirtualItems().map((vi) => {
+        const e = stashes[vi.index];
+        if (!e) return null;
+        return (
+          <div
+            key={vi.key}
+            data-index={vi.index}
+            ref={virtualizer.measureElement}
+            className="pb-0.5"
+            style={{ position: "absolute", top: 0, left: 0, right: 0, transform: `translateY(${vi.start}px)` }}
+          >
+            <StaggerItem index={entered ? Number.POSITIVE_INFINITY : vi.index}>
               <StashRow
                 path={path}
                 entry={e}
@@ -97,11 +155,10 @@ export function StashList({
                 onSelect={() => onSelectIndex(e.index)}
                 onOpenBranch={() => onOpenBranch(e.index)}
               />
-              </StaggerItem>
-            ))
-          )}
-        </div>
-      </ScrollArea>
+            </StaggerItem>
+          </div>
+        );
+      })}
     </div>
   );
 }
