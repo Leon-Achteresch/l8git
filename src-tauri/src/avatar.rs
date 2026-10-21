@@ -11,8 +11,9 @@ use sha2::{Digest, Sha256};
 use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 
-/// Dedicated avatar CDNs only, so the scheme is no open proxy. Must match PROXIED_HOSTS in
-/// src/lib/avatar-src.ts; other hosts (self-hosted GitLab/Gitea/GHE) load directly in the webview.
+/// Dedicated avatar CDNs only, so the scheme is no open proxy (their redirects may leave them, see
+/// `public_https`). Must match PROXIED_HOSTS in src/lib/avatar-src.ts; other hosts (self-hosted GitLab/Gitea/GHE)
+/// load directly in the webview.
 const HOSTS: &[&str] = &[
     "www.gravatar.com",
     "secure.gravatar.com",
@@ -33,9 +34,23 @@ const HOLD_FOR: Duration = Duration::from_secs(60);
 /// `Some(image)` or `None` for "this avatar does not exist".
 type Entry = Option<(String, Vec<u8>)>;
 
-/// What a webview may load directly too: https on the default port without credentials.
+/// Where a redirect may lead: https on the default port without credentials, and not to this machine or the
+/// local network by address, which Rust could reach outside the webview's rules.
 fn public_https(url: &reqwest::Url) -> bool {
-    url.scheme() == "https" && url.port().is_none() && url.username().is_empty() && url.password().is_none()
+    let Some(host) = url.host_str() else { return false };
+    let public = match host.trim_start_matches('[').trim_end_matches(']').parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(ip)) => {
+            !(ip.is_loopback() || ip.is_private() || ip.is_link_local() || ip.is_unspecified() || ip.is_broadcast())
+        }
+        // Loopback, unspecified, unique local (fc00::/7), link-local (fe80::/10) and IPv4-mapped.
+        Ok(std::net::IpAddr::V6(ip)) => {
+            let first = ip.segments()[0];
+            !(ip.is_loopback() || ip.is_unspecified() || first & 0xfe00 == 0xfc00 || first & 0xffc0 == 0xfe80)
+                && ip.to_ipv4_mapped().is_none()
+        }
+        Err(_) => host != "localhost" && !host.ends_with(".localhost"),
+    };
+    public && url.scheme() == "https" && url.port().is_none() && url.username().is_empty() && url.password().is_none()
 }
 
 fn allowed(url: &reqwest::Url) -> bool {
@@ -82,16 +97,13 @@ pub fn handle<R: Runtime>(ctx: UriSchemeContext<'_, R>, request: Request<Vec<u8>
             None => status(StatusCode::FORBIDDEN),
             Some(url) => match serve(dir, url).await {
                 Some((Some((content_type, body)), fresh)) => {
-                    let mut response = Response::builder()
-                        .header(header::CONTENT_TYPE, &content_type)
+                    Response::builder()
+                        .header(header::CONTENT_TYPE, content_type)
                         // Lets WebKit's memory cache serve rows that remount while scrolling without a round trip;
-                        // a stale copy is asked for again, to pick up the refreshed one.
-                        .header(header::CACHE_CONTROL, if fresh { "max-age=3600" } else { "no-cache" });
-                    if content_type.starts_with("image/svg") {
-                        // Scripts in an SVG never run as an <img>; this keeps them off if it is ever opened directly.
-                        response = response.header(header::CONTENT_SECURITY_POLICY, "sandbox");
-                    }
-                    response.body(body).unwrap_or_else(|_| status(StatusCode::BAD_GATEWAY))
+                        // a stale copy only until the background refresh (or its held failure) is through.
+                        .header(header::CACHE_CONTROL, if fresh { "max-age=3600" } else { "max-age=60" })
+                        .body(body)
+                        .unwrap_or_else(|_| status(StatusCode::BAD_GATEWAY))
                 }
                 Some((None, _)) => status(StatusCode::NOT_FOUND),
                 None => status(StatusCode::BAD_GATEWAY),
@@ -161,7 +173,10 @@ impl<T: Clone> Shared<T> {
         Self { hold, map: Mutex::default() }
     }
 
-    async fn get<F: std::future::Future<Output = (T, bool)>>(&self, key: String, fetch: impl FnOnce() -> F) -> T {
+    async fn get<F: std::future::Future<Output = (T, bool)>>(&'static self, key: String, fetch: impl FnOnce() -> F) -> T
+    where
+        T: Send + Sync,
+    {
         let cell = {
             let Ok(mut map) = self.map.lock() else { return fetch().await.0 };
             map.retain(|_, (since, cell)| cell.get().is_none() || since.elapsed() < self.hold);
@@ -181,6 +196,13 @@ impl<T: Clone> Shared<T> {
                 if map.get(&key).is_some_and(|(_, current)| Arc::ptr_eq(current, &cell)) {
                     if hold {
                         map.insert(key, (Instant::now(), cell));
+                        // Held images would otherwise stay until the next request.
+                        tokio::spawn(async move {
+                            tokio::time::sleep(self.hold).await;
+                            if let Ok(mut map) = self.map.lock() {
+                                map.retain(|_, (since, cell)| cell.get().is_none() || since.elapsed() < self.hold);
+                            }
+                        });
                     } else {
                         map.remove(&key);
                     }
@@ -204,11 +226,6 @@ async fn fetch_url(url: reqwest::Url) -> Option<Entry> {
     if !response.status().is_success() || response.content_length().is_some_and(|len| len > MAX_BYTES as u64) {
         return None;
     }
-    let declared = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_ascii_lowercase);
     let mut body = Vec::new();
     while let Some(chunk) = response.chunk().await.ok()? {
         body.extend_from_slice(&chunk);
@@ -216,10 +233,9 @@ async fn fetch_url(url: reqwest::Url) -> Option<Entry> {
             return None;
         }
     }
-    // Like WebKit's image decoders, trust the bytes over the declared type.
-    let content_type = sniff(&body)
-        .or_else(|| declared.is_some_and(|t| t.starts_with("image/svg+xml")).then_some("image/svg+xml"))?;
-    Some(Some((content_type.to_owned(), body)))
+    // Like WebKit's image decoders, trust the bytes over the declared type. No SVG: it can carry script, and
+    // redirects may come from any public host.
+    Some(Some((sniff(&body)?.to_owned(), body)))
 }
 
 fn sniff(body: &[u8]) -> Option<&'static str> {
@@ -260,7 +276,11 @@ fn write_entry(path: &Path, entry: &Entry) -> bool {
     };
     // Write then rename, so a concurrent reader never sees half a file.
     let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, bytes).is_ok() && std::fs::rename(&tmp, path).is_ok()
+    let saved = std::fs::write(&tmp, bytes).is_ok() && std::fs::rename(&tmp, path).is_ok();
+    if !saved {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    saved
 }
 
 /// Avatars not refreshed for a month belong to authors no longer viewed.
@@ -298,6 +318,10 @@ mod tests {
         assert!(public_https(&reqwest::Url::parse("https://i0.wp.com/x.png").unwrap()));
         assert!(!public_https(&reqwest::Url::parse("http://i0.wp.com/x.png").unwrap()));
         assert!(!public_https(&reqwest::Url::parse("https://127.0.0.1:8080/x").unwrap()));
+        for local in ["https://127.0.0.1/x", "https://192.168.1.1/x", "https://169.254.169.254/x", "https://[::1]/x", "https://[fd00::1]/x", "https://[::ffff:10.0.0.1]/x", "https://localhost/x"] {
+            assert!(!public_https(&reqwest::Url::parse(local).unwrap()), "{local}");
+        }
+        assert!(public_https(&reqwest::Url::parse("https://8.8.8.8/x").unwrap()));
     }
 
     #[test]
@@ -330,7 +354,7 @@ mod tests {
                 (value, hold)
             }
         };
-        let shared = Shared::new(Duration::from_secs(60));
+        let shared: &'static _ = Box::leak(Box::new(Shared::new(Duration::from_secs(60))));
         let (a, b) = tokio::join!(shared.get("k".into(), fetch(1, false)), shared.get("k".into(), fetch(2, false)));
         assert_eq!((a, b, calls.load(Ordering::SeqCst)), (1, 1, 1));
         // Done and not held: the next caller fetches again.
@@ -339,7 +363,7 @@ mod tests {
         assert_eq!(shared.get("f".into(), fetch(4, true)).await, 4);
         assert_eq!(shared.get("f".into(), fetch(5, true)).await, 4);
         assert_eq!(calls.load(Ordering::SeqCst), 3);
-        let expired = Shared::new(Duration::ZERO);
+        let expired: &'static _ = Box::leak(Box::new(Shared::new(Duration::ZERO)));
         assert_eq!(expired.get("f".into(), fetch(6, true)).await, 6);
         assert_eq!(expired.get("f".into(), fetch(7, true)).await, 7);
     }
