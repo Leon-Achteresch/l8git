@@ -46,27 +46,65 @@ impl sink::EventSink for TauriSink {
     }
 }
 
-/// Without a usable GPU render node, WebKitGTK's DMABuf renderer composites through llvmpipe in the UI and
-/// web process: ~250 MB more memory and no smoother scrolling than its software path. Runs before WebKit reads it.
+/// Memory knobs set by `tune_webkit_without_gpu`, dropped again once WebKit's processes have started.
 #[cfg(target_os = "linux")]
-fn disable_dmabuf_without_gpu() {
-    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some() {
-        return;
-    }
+static WEBKIT_MEMORY_ENV: std::sync::OnceLock<Vec<&'static str>> = std::sync::OnceLock::new();
+
+/// Without a usable GPU render node, WebKitGTK's DMABuf renderer composites through llvmpipe in the UI and
+/// web process: ~250 MB more memory and no smoother scrolling than its software path. Such machines are the weak
+/// ones, so also trade WebKit's memory headroom for footprint. Runs before WebKit reads the environment; knobs the
+/// user set win.
+#[cfg(target_os = "linux")]
+fn tune_webkit_without_gpu() {
     // shortcut: an openable render node counts as a GPU even without 3D (vgem, virtio-gpu without virgl); add an EGL probe if such users report high memory.
     let gpu = std::fs::read_dir("/dev/dri").into_iter().flatten().flatten().any(|entry| {
         entry.file_name().to_string_lossy().starts_with("renderD")
             && std::fs::OpenOptions::new().read(true).write(true).open(entry.path()).is_ok()
     });
-    if !gpu {
+    if gpu {
+        return;
+    }
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
+    let memory_env = [
+        // glibc keeps freed heap tops and raises its mmap threshold up to 32 MB; return memory early instead.
+        ("GLIBC_TUNABLES", "glibc.malloc.trim_threshold=131072:glibc.malloc.mmap_threshold=262144"),
+        // JSC grows the JS heap to 32 MB before its first full GC; start collecting at 8 MB.
+        ("JSC_largeHeapSize", "8388608"),
+        // GTK (GLX) and WebKit (EGL) would load Mesa's llvmpipe (LLVM) only to probe: -12 MB private in this
+        // process. WebGL is off too, so the terminal uses xterm's DOM renderer instead of WebGL on llvmpipe.
+        ("GDK_GL", "disable"),
+        ("__EGL_VENDOR_LIBRARY_FILENAMES", "/dev/null"),
+    ];
+    let set = memory_env
+        .into_iter()
+        .filter(|(key, _)| std::env::var_os(key).is_none())
+        // A user-chosen EGL vendor directory would be overridden by the FILENAMES list.
+        .filter(|(key, _)| {
+            *key != "__EGL_VENDOR_LIBRARY_FILENAMES"
+                || std::env::var_os("__EGL_VENDOR_LIBRARY_DIRS").is_none()
+        })
+        .map(|(key, value)| {
+            std::env::set_var(key, value);
+            key
+        })
+        .collect::<Vec<_>>();
+    // GLIBC_TUNABLES only reaches child processes; give this process the same malloc limits.
+    #[cfg(target_env = "gnu")]
+    if set.contains(&"GLIBC_TUNABLES") {
+        unsafe {
+            libc::mallopt(libc::M_TRIM_THRESHOLD, 131072);
+            libc::mallopt(libc::M_MMAP_THRESHOLD, 262144);
+        }
+    }
+    let _ = WEBKIT_MEMORY_ENV.set(set);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
-    disable_dmabuf_without_gpu();
+    tune_webkit_without_gpu();
     tauri::Builder::default()
         .setup(|app| {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -81,6 +119,14 @@ pub fn run() {
                     };
                     let _ = window.set_background_color(Some(color));
                 }
+            }
+            // WebKit's network and web process have started with the memory knobs; keep them away from the
+            // terminals, git and agents we spawn. Only processes started before setup get them (a web process
+            // relaunched after a crash runs with WebKit's defaults). Other threads may getenv meanwhile; glibc
+            // never frees environ strings, so the worst case is one stale lookup.
+            #[cfg(target_os = "linux")]
+            for key in WEBKIT_MEMORY_ENV.get().into_iter().flatten() {
+                std::env::remove_var(key);
             }
             sink::set_sink(std::sync::Arc::new(TauriSink(app.handle().clone())));
             Ok(())

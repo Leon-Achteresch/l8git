@@ -655,8 +655,11 @@ const WEBGL_REAP_GRACE_MS = 30_000;
 const SLOT_REAP_GRACE_MS = 45_000;
 const IDLE_SLOTS_KEEP_WARM = 1;
 
+// Set once the webview has no WebGL2 at all (e.g. no GPU), so later attaches skip the failing context.
+let webglUnsupported = false;
+
 function attachWebgl(slot: Slot): void {
-  if (slot.webglAddon || !slot.term.element) return;
+  if (webglUnsupported || slot.webglAddon || !slot.term.element) return;
   const elem = slot.term.element;
   const before = new Set<HTMLCanvasElement>(
     elem.querySelectorAll<HTMLCanvasElement>("canvas"),
@@ -693,6 +696,7 @@ function attachWebgl(slot: Slot): void {
     slot.webglAddon = webgl;
     slot.webglCanvases = added;
   } catch (e) {
+    if (String(e).includes("not supported")) webglUnsupported = true;
     console.warn("[l8git-webgl] unavailable:", e);
   }
 }
