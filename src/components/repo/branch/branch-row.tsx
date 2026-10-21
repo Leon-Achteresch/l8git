@@ -50,12 +50,10 @@ function BranchRowInner({
   laneColor: string;
   onDelete?: (b: Branch, force: boolean) => void;
 }) {
-  const { t } = useTranslation();
-  const checkoutBranch = useRepoStore(s => s.checkoutBranch);
-  const focusBranch = useBranchFocusStore(s => s.focusBranch);
-  const blurBranch = useBranchFocusStore(s => s.blurBranch);
-  const focusCommitFromBranchTip = useUiStore(s => s.focusCommitFromBranchTip);
-  const requestPrCreate = useUiStore(s => s.requestPrCreate);
+  // Actions are read on use: rows of long lists should not each subscribe to stores.
+  const { checkoutBranch } = useRepoStore.getState();
+  const { focusBranch, blurBranch } = useBranchFocusStore.getState();
+  const { focusCommitFromBranchTip, requestPrCreate } = useUiStore.getState();
   const [checkoutDraft, setCheckoutDraft] = useState<CheckoutDraft | null>(
     null
   );
@@ -130,10 +128,7 @@ function BranchRowInner({
     >
       <span className='relative z-0 flex size-4 shrink-0 items-center justify-center'>
         {branch.is_current ? (
-          <Check
-            className='h-3.5 w-3.5 text-foreground'
-            aria-label={t('branch.currentBranchAria')}
-          />
+          <CurrentBranchCheck />
         ) : (
           <span
             aria-hidden
@@ -199,135 +194,183 @@ function BranchRowInner({
 
   return (
     <>
-      <ContextMenu>
+      <ContextMenu deferMount>
         <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
         <ContextMenuContent>
-          <ContextMenuItem
-            onSelect={() => {
-              window.requestAnimationFrame(openExplain);
+          <BranchRowMenuItems
+            branch={branch}
+            showLocalSwitch={showLocalSwitch}
+            showRemoteCheckout={showRemoteCheckout}
+            showRemoteDelete={showRemoteDelete}
+            hasLegacyItems={hasLegacyItems}
+            onExplain={() => window.requestAnimationFrame(openExplain)}
+            onCreatePr={() => window.requestAnimationFrame(() => requestPrCreate(path, branch.name))}
+            onCheckout={() => {
+              void (async () => {
+                try {
+                  await checkoutBranch(path, branch.name);
+                } catch (e) {
+                  toastError(String(e));
+                }
+              })();
             }}
+            onMerge={() => window.requestAnimationFrame(() => setMergeOpen(true))}
+            onRebase={() => window.requestAnimationFrame(() => setRebaseOpen(true))}
+            onRemoteCheckout={openRemoteCheckout}
+            onRemoteDelete={openRemoteDeleteConfirm}
+            onDelete={showDelete && onDelete ? (force: boolean) => onDelete(branch, force) : undefined}
+          />
+        </ContextMenuContent>
+      </ContextMenu>
+      {/* Closed dialogs render nothing; mounting them in every row of a long list is costly. */}
+      {checkoutDraft && (
+        <RemoteCheckoutDialog
+          open
+          onClose={() => setCheckoutDraft(null)}
+          path={path}
+          remoteRef={checkoutDraft.remoteRef}
+          defaultLocalName={checkoutDraft.defaultLocalName}
+        />
+      )}
+      {deleteRemoteRef && (
+        <RemoteDeleteConfirmDialog
+          open
+          onClose={() => setDeleteRemoteRef(null)}
+          path={path}
+          remoteRef={deleteRemoteRef}
+        />
+      )}
+      {mergeOpen && (
+        <MergeDialog
+          open
+          onClose={() => setMergeOpen(false)}
+          path={path}
+          sourceBranch={branch.name}
+        />
+      )}
+      {rebaseOpen && (
+        <RebaseDialog
+          open
+          onClose={() => setRebaseOpen(false)}
+          path={path}
+          upstream={branch.name}
+        />
+      )}
+      {explain.element}
+    </>
+  );
+}
+
+function CurrentBranchCheck() {
+  const { t } = useTranslation();
+  return (
+    <Check
+      className='h-3.5 w-3.5 text-foreground'
+      aria-label={t('branch.currentBranchAria')}
+    />
+  );
+}
+
+/** Rendered only while the menu is open, so closed rows skip translating every label. */
+function BranchRowMenuItems({
+  branch,
+  showLocalSwitch,
+  showRemoteCheckout,
+  showRemoteDelete,
+  hasLegacyItems,
+  onExplain,
+  onCreatePr,
+  onCheckout,
+  onMerge,
+  onRebase,
+  onRemoteCheckout,
+  onRemoteDelete,
+  onDelete,
+}: {
+  branch: Branch;
+  showLocalSwitch: boolean;
+  showRemoteCheckout: boolean;
+  showRemoteDelete: boolean;
+  hasLegacyItems: boolean;
+  onExplain: () => void;
+  onCreatePr: () => void;
+  onCheckout: () => void;
+  onMerge: () => void;
+  onRebase: () => void;
+  onRemoteCheckout: () => void;
+  onRemoteDelete: () => void;
+  onDelete?: (force: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <ContextMenuItem onSelect={onExplain}>
+        <Sparkles className='h-3.5 w-3.5 text-primary' />
+        {t('branch.menuExplainBranch')}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onSelect={onCreatePr}>
+        <GitPullRequest className='h-3.5 w-3.5' />
+        {t('branch.createPullRequest')}
+      </ContextMenuItem>
+      {hasLegacyItems ? <ContextMenuSeparator /> : null}
+      {showLocalSwitch ? (
+        <>
+          <ContextMenuItem onSelect={onCheckout}>
+            <GitBranch className='h-3.5 w-3.5' />
+            {t('branch.menuCheckout')}
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={onMerge}>
+            <GitMerge className='h-3.5 w-3.5' />
+            {t('branch.menuMergeIntoCurrent')}
+          </ContextMenuItem>
+        </>
+      ) : null}
+      {!branch.is_current ? (
+        <ContextMenuItem onSelect={onRebase}>
+          <Layers className='h-3.5 w-3.5' />
+          {t('branch.menuRebaseOnto')}
+        </ContextMenuItem>
+      ) : null}
+      {showRemoteCheckout ? (
+        <ContextMenuItem onSelect={onRemoteCheckout}>
+          <GitBranch className='h-3.5 w-3.5' />
+          {t('branch.menuCheckoutRemoteLocal')}
+        </ContextMenuItem>
+      ) : null}
+      {showRemoteDelete ? (
+        <>
+          {showRemoteCheckout ? <ContextMenuSeparator /> : null}
+          <ContextMenuItem variant='destructive' onSelect={onRemoteDelete}>
+            <Trash2 className='h-3.5 w-3.5' />
+            {t('branch.menuDeleteRemote')}
+          </ContextMenuItem>
+        </>
+      ) : null}
+      {onDelete ? (
+        <>
+          {(showLocalSwitch || showRemoteCheckout || showRemoteDelete) && (
+            <ContextMenuSeparator />
+          )}
+          <ContextMenuItem
+            variant='destructive'
+            disabled={branch.is_current}
+            onSelect={() => onDelete(false)}
           >
-            <Sparkles className='h-3.5 w-3.5 text-primary' />
-            {t('branch.menuExplainBranch')}
+            <Trash2 className='h-3.5 w-3.5' />
+            {t('branch.delete')}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
-            onSelect={() => {
-              window.requestAnimationFrame(() =>
-                requestPrCreate(path, branch.name),
-              );
-            }}
+            variant='destructive'
+            disabled={branch.is_current}
+            onSelect={() => onDelete(true)}
           >
-            <GitPullRequest className='h-3.5 w-3.5' />
-            {t('branch.createPullRequest')}
+            <Trash2 className='h-3.5 w-3.5' />
+            {t('branch.menuForceDelete')}
           </ContextMenuItem>
-          {hasLegacyItems ? <ContextMenuSeparator /> : null}
-          {showLocalSwitch ? (
-            <>
-              <ContextMenuItem
-                onSelect={() => {
-                  void (async () => {
-                    try {
-                      await checkoutBranch(path, branch.name);
-                    } catch (e) {
-                      toastError(String(e));
-                    }
-                  })();
-                }}
-              >
-                <GitBranch className='h-3.5 w-3.5' />
-                {t('branch.menuCheckout')}
-              </ContextMenuItem>
-              <ContextMenuItem
-                onSelect={() => {
-                  window.requestAnimationFrame(() => setMergeOpen(true));
-                }}
-              >
-                <GitMerge className='h-3.5 w-3.5' />
-                {t('branch.menuMergeIntoCurrent')}
-              </ContextMenuItem>
-            </>
-          ) : null}
-          {!branch.is_current ? (
-            <ContextMenuItem
-              onSelect={() => {
-                window.requestAnimationFrame(() => setRebaseOpen(true));
-              }}
-            >
-              <Layers className='h-3.5 w-3.5' />
-              {t('branch.menuRebaseOnto')}
-            </ContextMenuItem>
-          ) : null}
-          {showRemoteCheckout ? (
-            <ContextMenuItem onSelect={openRemoteCheckout}>
-              <GitBranch className='h-3.5 w-3.5' />
-              {t('branch.menuCheckoutRemoteLocal')}
-            </ContextMenuItem>
-          ) : null}
-          {showRemoteDelete ? (
-            <>
-              {showRemoteCheckout ? <ContextMenuSeparator /> : null}
-              <ContextMenuItem
-                variant='destructive'
-                onSelect={openRemoteDeleteConfirm}
-              >
-                <Trash2 className='h-3.5 w-3.5' />
-                {t('branch.menuDeleteRemote')}
-              </ContextMenuItem>
-            </>
-          ) : null}
-          {showDelete && onDelete ? (
-            <>
-              {(showLocalSwitch || showRemoteCheckout || showRemoteDelete) && (
-                <ContextMenuSeparator />
-              )}
-              <ContextMenuItem
-                variant='destructive'
-                disabled={branch.is_current}
-                onSelect={() => onDelete(branch, false)}
-              >
-                <Trash2 className='h-3.5 w-3.5' />
-                {t('branch.delete')}
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                variant='destructive'
-                disabled={branch.is_current}
-                onSelect={() => onDelete(branch, true)}
-              >
-                <Trash2 className='h-3.5 w-3.5' />
-                {t('branch.menuForceDelete')}
-              </ContextMenuItem>
-            </>
-          ) : null}
-        </ContextMenuContent>
-      </ContextMenu>
-      <RemoteCheckoutDialog
-        open={!!checkoutDraft}
-        onClose={() => setCheckoutDraft(null)}
-        path={path}
-        remoteRef={checkoutDraft?.remoteRef ?? ''}
-        defaultLocalName={checkoutDraft?.defaultLocalName ?? ''}
-      />
-      <RemoteDeleteConfirmDialog
-        open={!!deleteRemoteRef}
-        onClose={() => setDeleteRemoteRef(null)}
-        path={path}
-        remoteRef={deleteRemoteRef ?? ''}
-      />
-      <MergeDialog
-        open={mergeOpen}
-        onClose={() => setMergeOpen(false)}
-        path={path}
-        sourceBranch={branch.name}
-      />
-      <RebaseDialog
-        open={rebaseOpen}
-        onClose={() => setRebaseOpen(false)}
-        path={path}
-        upstream={branch.name}
-      />
-      {explain.element}
+        </>
+      ) : null}
     </>
   );
 }

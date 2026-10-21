@@ -1,6 +1,6 @@
 import { PanelLoading } from "@/components/ui/panel-loading";
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useDeferredValue } from "react";
 
 import { PanelSwap } from "@/components/motion/panel-swap";
 import { CommitPanel } from "@/components/repo/commit/commit-panel";
@@ -74,7 +74,11 @@ function Home() {
   const repoPath = useRepoStore((s) =>
     s.activePath ? s.repos[s.activePath]?.path : null,
   );
-  const sidebarTab = useUiStore((s) => s.sidebarTab);
+  // The repo view mounts thousands of nodes. It renders in an interruptible pass after the first
+  // frame, and a tab switch keeps the old panel up until the new one is ready (the tab rail itself
+  // updates at once), so neither blocks frames.
+  const ready = useDeferredValue(true, false);
+  const sidebarTab = useDeferredValue(useUiStore((s) => s.sidebarTab));
   const mergeEditorPath = useUiStore((s) => s.mergeEditorPath);
   const closeMergeEditor = useUiStore((s) => s.closeMergeEditor);
   const blameEditorPath = useUiStore((s) => s.blameEditorPath);
@@ -103,11 +107,11 @@ function Home() {
         </Suspense>
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {activePath && <RepoSidebar />}
+        {activePath && ready && <RepoSidebar />}
         <div
           className={`min-w-0 flex-1  pb-3 ${activePath ? "flex min-h-0 flex-col overflow-hidden" : "overflow-y-auto"}`}
         >
-          {activePath && repoPath ? (
+          {!ready ? null : activePath && repoPath ? (
             <RepoTabLayout path={repoPath}>
               <PanelSwap
                 panelKey={`${activePath}::${sidebarTab}`}

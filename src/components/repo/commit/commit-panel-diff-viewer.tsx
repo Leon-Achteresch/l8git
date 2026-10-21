@@ -10,7 +10,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FileDiff, ListChecks, Pencil, RefreshCw, Sparkles } from "lucide-react";
-import { lazy, Suspense, useEffect, useMemo } from "react";
+import { lazy, memo, Suspense, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { CommitDiffViewMode } from "@/lib/commit-prefs";
@@ -28,7 +28,8 @@ const MonacoStagingDiff = lazy(() =>
   loadStagingDiff().then((m) => ({ default: m.MonacoStagingDiff })),
 );
 
-export function DiffViewer({
+// Memoized: the commit panel re-renders on every keystroke in the message field.
+export const DiffViewer = memo(function DiffViewer({
   repoPath,
   selectedRow,
   isBinary,
@@ -262,4 +263,4 @@ export function DiffViewer({
       {explain.element}
     </div>
   );
-}
+});

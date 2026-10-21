@@ -162,6 +162,17 @@ type ActionItem = {
   keywords?: string;
 };
 
+/** The first `limit` items matching `test`; stops early so a keystroke does not scan thousands of commits. */
+function firstMatches<T>(items: readonly T[], limit: number, test: (item: T) => boolean): T[] {
+  const out: T[] = [];
+  for (const item of items) {
+    if (!test(item)) continue;
+    out.push(item);
+    if (out.length === limit) break;
+  }
+  return out;
+}
+
 export function AppHeaderSearch({
   variant = "pill",
 }: {
@@ -270,31 +281,27 @@ export function AppHeaderSearch({
 
   const filteredBranches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = q
-      ? branches.filter((b) => b.name.toLowerCase().includes(q))
-      : branches;
-    return list.slice(0, 8);
+    return firstMatches(branches, 8, (b) => !q || b.name.toLowerCase().includes(q));
   }, [branches, query]);
 
   const filteredTags = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = q ? tags.filter((tag) => tag.name.toLowerCase().includes(q)) : tags;
-    return list.slice(0, 5);
+    return firstMatches(tags, 5, (tag) => !q || tag.name.toLowerCase().includes(q));
   }, [tags, query]);
 
   const filteredCommits = useMemo(() => {
     if (!repo) return [];
     const q = query.trim().toLowerCase();
     if (!q) return repo.commits.slice(0, 10);
-    return repo.commits
-      .filter(
-        (c) =>
-          c.subject.toLowerCase().includes(q) ||
-          c.short_hash.toLowerCase().startsWith(q) ||
-          c.hash.toLowerCase().startsWith(q) ||
-          c.author.toLowerCase().includes(q),
-      )
-      .slice(0, 15);
+    return firstMatches(
+      repo.commits,
+      15,
+      (c) =>
+        c.subject.toLowerCase().includes(q) ||
+        c.short_hash.toLowerCase().startsWith(q) ||
+        c.hash.toLowerCase().startsWith(q) ||
+        c.author.toLowerCase().includes(q),
+    );
   }, [repo, query]);
 
   const selectedCommit = useMemo(() => {
@@ -303,7 +310,11 @@ export function AppHeaderSearch({
     return historySelection;
   }, [activePath, historySelection]);
 
-  const headCommit = repo?.commits.find(commit => commit.hash === repo.branches.find(branch => branch.is_current)?.tip) ?? (repo && repo.commits.length > 0 ? { hash: "HEAD", short_hash: "HEAD" } : null);
+  const headCommit = useMemo(() => {
+    if (!repo) return null;
+    const tip = repo.branches.find(branch => branch.is_current)?.tip;
+    return repo.commits.find(commit => commit.hash === tip) ?? (repo.commits.length > 0 ? { hash: "HEAD", short_hash: "HEAD" } : null);
+  }, [repo]);
   const currentBranch = repo?.branch ?? "";
   const stagedCount =
     statusEntries?.filter((entry) => entry.staged).length ?? 0;
@@ -936,14 +947,17 @@ export function AppHeaderSearch({
     translation.language,
   ]);
 
+  // Normalized once per action list, not on every keystroke.
+  const actionHaystacks = useMemo(
+    () => allActions.map((a) => normalizeHelpSearch(`${a.label} ${a.keywords ?? ""}`)),
+    [allActions],
+  );
   const filteredActions = useMemo(() => {
     const q = normalizeHelpSearch(query);
     if (!q) return allActions;
-    return allActions.filter(
-      (a) =>
-        q.split(/\s+/).every(token => normalizeHelpSearch(`${a.label} ${a.keywords ?? ""}`).includes(token)),
-    );
-  }, [allActions, query]);
+    const tokens = q.split(/\s+/);
+    return allActions.filter((_, i) => tokens.every(token => actionHaystacks[i].includes(token)));
+  }, [allActions, actionHaystacks, query]);
 
   const actionGroups = useMemo(() => {
     const order: ActionGroupId[] = ["repos", "git", "views", "repo", "prci", "help"];

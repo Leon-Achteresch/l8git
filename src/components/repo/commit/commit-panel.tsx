@@ -56,6 +56,7 @@ import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
 import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog";
 import { useTranslation } from "react-i18next";
 import { isPreviewRepo } from "@/lib/preview-repo";
+import { useEverTrue } from "@/lib/use-ever-true";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
@@ -134,6 +135,10 @@ export function CommitPanel() {
   const [selectedLines, setSelectedLines] = useState<ReadonlySet<string>>(EMPTY_LINES);
   const [discardLinesDialog, setDiscardLinesDialog] = useState<{ plan: ReviewedHunks; count: number } | null>(null);
 
+  // Closed dialogs mount on first use and then stay: the panel re-renders on every keystroke.
+  const stashUsed = useEverTrue(stashOpen);
+  const aiSetupUsed = useEverTrue(aiSetupOpen);
+  const discardUsed = useEverTrue(discardDialog !== null);
   const { subject, body } = splitCommitMessage(message);
   const subjectLen = Array.from(subject).length;
 
@@ -1064,27 +1069,33 @@ export function CommitPanel() {
         <CommitSplitDialog open={splitOpen} onOpenChange={setSplitOpen} path={activePath} />
       ) : null}
 
-      <StashCreateDialog
-        open={stashOpen}
-        onClose={() => setStashOpen(false)}
-        path={activePath}
-      />
+      {stashUsed && (
+        <StashCreateDialog
+          open={stashOpen}
+          onClose={() => setStashOpen(false)}
+          path={activePath}
+        />
+      )}
 
-      <AiSetupDialog
-        open={aiSetupOpen}
-        onOpenChange={setAiSetupOpen}
-        onReady={() => void runAiGeneration()}
-      />
+      {aiSetupUsed && (
+        <AiSetupDialog
+          open={aiSetupOpen}
+          onOpenChange={setAiSetupOpen}
+          onReady={() => void runAiGeneration()}
+        />
+      )}
 
-      <CommitDiscardDialog
-        plan={discardDialog}
-        busy={discardPending}
-        error={discardError}
-        onClose={() => setDiscardDialog(null)}
-        onConfirm={(plan) => void confirmDiscard(plan)}
-        onRefresh={() => void refreshDiscardPreview()}
-        onStash={() => { setDiscardDialog(null); setStashOpen(true); }}
-      />
+      {discardUsed && (
+        <CommitDiscardDialog
+          plan={discardDialog}
+          busy={discardPending}
+          error={discardError}
+          onClose={() => setDiscardDialog(null)}
+          onConfirm={(plan) => void confirmDiscard(plan)}
+          onRefresh={() => void refreshDiscardPreview()}
+          onStash={() => { setDiscardDialog(null); setStashOpen(true); }}
+        />
+      )}
 
       <AlertDialog
         open={discardLinesDialog !== null}

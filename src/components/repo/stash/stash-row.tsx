@@ -60,7 +60,7 @@ export function StashRow({
   );
 
   return (
-    <ContextMenu>
+    <ContextMenu deferMount>
       <ContextMenuTrigger asChild>{inner}</ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem

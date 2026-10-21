@@ -1,7 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "radix-ui";
-import { m, type HTMLMotionProps } from "motion/react";
 
 import { cn } from "@/lib/utils";
 
@@ -53,13 +52,8 @@ function ListRow({
     return <Slot.Root {...shared} {...props} />;
   }
 
-  return (
-    <m.button
-      type="button"
-      {...shared}
-      {...(props as HTMLMotionProps<"button">)}
-    />
-  );
+  // A plain button: rows of long and virtualized lists should not each carry a motion node.
+  return <button type="button" {...shared} {...props} />;
 }
 
 function ListRowLabel({ className, ...props }: React.ComponentProps<"span">) {

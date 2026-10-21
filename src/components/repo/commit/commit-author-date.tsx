@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { useTranslation } from "react-i18next";
+import { useLanguage } from "@/lib/i18n";
 import { formatDate, formatRelative } from "@/lib/format";
 import { CommitAvatar } from "./commit-avatar";
 import { useGravatarUrl } from "@/lib/gravatar";
@@ -16,7 +16,7 @@ function CommitAuthorDateInner({
   date: string;
 }) {
   // Pooled, memoized author rows also need to refresh localized dates.
-  useTranslation();
+  useLanguage();
   const gravatarUrl = useGravatarUrl(email ?? "");
   const remoteAvatar = authorAvatar?.trim() || undefined;
   return (

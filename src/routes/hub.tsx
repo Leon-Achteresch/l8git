@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, type CSSProperties } from "react";
+import { useDeferredValue, useState, type CSSProperties } from "react";
 
 import { useHubNav, type HubView } from "@/components/hub/hub-bits";
 import { HubConnectDialog } from "@/components/hub/hub-connect-dialog";
@@ -31,6 +31,8 @@ function HubPage() {
   const account = useActiveAccount();
   const [connecting, setConnecting] = useState(false);
   const sidebar = useHubQuery(account, "sidebar", (ad, a) => ad.sidebar(a));
+  // The views render in an interruptible pass after the sidebar's first frame.
+  const ready = useDeferredValue(true, false);
 
   return (
     <div className="flex h-full min-h-0" style={ROOT_STYLE}>
@@ -38,7 +40,7 @@ function HubPage() {
         <>
           <HubSidebar account={account} view={view} repo={repo} sidebar={sidebar} onConnect={() => setConnecting(true)} />
           <main className="min-w-0 flex-1 overflow-y-auto">
-            {view === "pr" && repo && pr ? (
+            {!ready ? null : view === "pr" && repo && pr ? (
               <PullRequestInspectDetail
                 key={`${accountKey(account)}/${repo}#${pr}`}
                 path={hubRepoPath(account, repo)}

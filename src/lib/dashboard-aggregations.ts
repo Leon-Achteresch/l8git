@@ -240,47 +240,32 @@ export function selectRecentActivity(args: {
   prs?: readonly PullRequest[];
   limit?: number;
 }): RecentActivityItem[] {
-  const items: (RecentActivityItem & { ts: number })[] = [];
+  // Keeps only the newest `limit` entries while scanning: repos have tens of thousands of
+  // commits, and building and sorting an item for each one blocked the dashboard's first frame.
+  const limit = args.limit ?? 10;
+  if (limit <= 0) return [];
+  const top: { ts: number; dt: Date; make: (date: string) => RecentActivityItem }[] = [];
+  const consider = (value: string, make: (date: string) => RecentActivityItem) => {
+    const dt = parseCommitDate(value);
+    if (!dt) return;
+    const ts = dt.getTime();
+    if (top.length === limit && !(ts > top[top.length - 1].ts)) return;
+    // Equal timestamps stay in input order, like a stable sort.
+    let i = top.length;
+    while (i > 0 && top[i - 1].ts < ts) i--;
+    top.splice(i, 0, { ts, dt, make });
+    if (top.length > limit) top.pop();
+  };
   for (const c of args.commits ?? []) {
-    const dt = parseCommitDate(c.date);
-    if (!dt) continue;
-    items.push({
-      id: `c-${c.hash}`,
-      kind: "commit",
-      title: c.subject || c.short_hash,
-      subtitle: c.author,
-      date: dt.toISOString(),
-      ts: dt.getTime(),
-    });
+    consider(c.date, (date) => ({ id: `c-${c.hash}`, kind: "commit", title: c.subject || c.short_hash, subtitle: c.author, date }));
   }
   for (const s of args.stashes ?? []) {
-    const dt = parseCommitDate(s.date);
-    if (!dt) continue;
-    items.push({
-      id: `s-${s.refname}`,
-      kind: "stash",
-      title: s.subject || s.message || s.refname,
-      subtitle: s.branch,
-      date: dt.toISOString(),
-      ts: dt.getTime(),
-    });
+    consider(s.date, (date) => ({ id: `s-${s.refname}`, kind: "stash", title: s.subject || s.message || s.refname, subtitle: s.branch, date }));
   }
   for (const pr of args.prs ?? []) {
-    const dt = parseCommitDate(pr.updated_at || pr.created_at);
-    if (!dt) continue;
-    items.push({
-      id: `p-${pr.number}`,
-      kind: "pr",
-      title: `#${pr.number} ${pr.title}`,
-      subtitle: pr.author,
-      date: dt.toISOString(),
-      ts: dt.getTime(),
-    });
+    consider(pr.updated_at || pr.created_at, (date) => ({ id: `p-${pr.number}`, kind: "pr", title: `#${pr.number} ${pr.title}`, subtitle: pr.author, date }));
   }
-  return items
-    .sort((a, b) => b.ts - a.ts)
-    .slice(0, args.limit ?? 10)
-    .map(({ ts: _ts, ...rest }) => rest);
+  return top.map(({ dt, make }) => make(dt.toISOString()));
 }
 
 export type HealthSeverity = "ok" | "warn" | "error" | "unknown";

@@ -11,9 +11,9 @@ import { useRepoStore } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import { Tag as TagIcon, Trash2 } from 'lucide-react';
-import { m } from 'motion/react';
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRowT } from '@/lib/i18n';
 import { RemoteTagDeleteDialog } from './remote-tag-delete-dialog';
 import { TagKindBadge } from './tag-kind-badge';
 
@@ -26,9 +26,10 @@ function TagRowInner({
   tag: TagRef;
   laneColor: string;
 }) {
-  const { t } = useTranslation();
-  const focusCommitFromBranchTip = useUiStore(s => s.focusCommitFromBranchTip);
-  const deleteTag = useRepoStore(s => s.deleteTag);
+  const t = useRowT();
+  // Actions are read on use: rows of long lists should not each subscribe to stores.
+  const { focusCommitFromBranchTip } = useUiStore.getState();
+  const { deleteTag } = useRepoStore.getState();
   const [remoteDeleteOpen, setRemoteDeleteOpen] = useState(false);
 
   async function performLocalDelete() {
@@ -52,7 +53,7 @@ function TagRowInner({
 
   const row = (
     // Explicit role: in long lists the row sits inside a presentational chunk.
-    <m.li
+    <li
       role='listitem'
       onClick={e => {
         if (e.button !== 0) return;
@@ -89,44 +90,64 @@ function TagRowInner({
           </span>
         )}
       </span>
-    </m.li>
+    </li>
   );
 
   if (!path) return row;
 
   return (
     <>
-      <ContextMenu>
+      <ContextMenu deferMount>
         <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
         <ContextMenuContent>
-          <ContextMenuItem
-            variant='destructive'
-            onSelect={() => {
-              const ok = window.confirm(t('tagRow.confirmLocalDelete', { name: tag.name }));
-              if (ok) void performLocalDelete();
-            }}
-          >
-            <Trash2 className='h-3.5 w-3.5' />
-            {t('tagRow.menuLocalDelete')}
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem
-            variant='destructive'
-            onSelect={() => {
-              window.requestAnimationFrame(() => setRemoteDeleteOpen(true));
-            }}
-          >
-            <Trash2 className='h-3.5 w-3.5' />
-            {t('tagRow.menuRemoteDelete')}
-          </ContextMenuItem>
+          <TagRowMenuItems
+            tagName={tag.name}
+            onLocalDelete={() => void performLocalDelete()}
+            onRemoteDelete={() => window.requestAnimationFrame(() => setRemoteDeleteOpen(true))}
+          />
         </ContextMenuContent>
       </ContextMenu>
-      <RemoteTagDeleteDialog
-        open={remoteDeleteOpen}
-        onClose={() => setRemoteDeleteOpen(false)}
-        path={path}
-        tagName={tag.name}
-      />
+      {/* Closed, the dialog renders nothing; mounting it in every row of a long list is costly. */}
+      {remoteDeleteOpen && (
+        <RemoteTagDeleteDialog
+          open
+          onClose={() => setRemoteDeleteOpen(false)}
+          path={path}
+          tagName={tag.name}
+        />
+      )}
+    </>
+  );
+}
+
+/** Rendered only while the menu is open, so closed rows skip translating its labels. */
+function TagRowMenuItems({
+  tagName,
+  onLocalDelete,
+  onRemoteDelete,
+}: {
+  tagName: string;
+  onLocalDelete: () => void;
+  onRemoteDelete: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <ContextMenuItem
+        variant='destructive'
+        onSelect={() => {
+          const ok = window.confirm(t('tagRow.confirmLocalDelete', { name: tagName }));
+          if (ok) onLocalDelete();
+        }}
+      >
+        <Trash2 className='h-3.5 w-3.5' />
+        {t('tagRow.menuLocalDelete')}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem variant='destructive' onSelect={onRemoteDelete}>
+        <Trash2 className='h-3.5 w-3.5' />
+        {t('tagRow.menuRemoteDelete')}
+      </ContextMenuItem>
     </>
   );
 }

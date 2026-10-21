@@ -276,6 +276,8 @@ export function PulseIcon({ icon: Icon, active = true, className, ...props }: Mo
   return <Icon {...props} className={cn(active && "animate-pulse", className)} />;
 }
 
+const STAGGER_MAX_ANIMATED = 40;
+
 export function StaggerItem({
   index = 0,
   children,
@@ -285,6 +287,10 @@ export function StaggerItem({
   children: React.ReactNode;
   className?: string;
 }) {
+  // Items this far down start off screen; animating hundreds of them at once only costs frames.
+  // Decided once per item: switching element types later would remount it.
+  const [animated] = React.useState(index < STAGGER_MAX_ANIMATED);
+  if (!animated) return <div className={className}>{children}</div>;
   return (
     <m.div
       className={className}
