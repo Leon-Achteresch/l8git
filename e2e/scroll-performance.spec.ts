@@ -64,7 +64,8 @@ test('a one-row history scroll leaves every still-visible row node on its commit
   });
   expect(moved).toBe(0);
   // A remount of every row would leave no probes and pass the check above vacuously.
-  expect(await rows.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThan(10);
+  // One row (plus overscan) may leave; the rest must be the same nodes.
+  expect(await rows.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 3);
 });
 
 test('a one-row file list scroll leaves every still-visible file row on its file', async ({ page }) => {
@@ -75,9 +76,11 @@ test('a one-row file list scroll leaves every still-visible file row on its file
   const scroller = await scrollerOf(slots.first());
   await scroller.evaluate(node => { node.scrollTop = 4000; });
   await page.waitForTimeout(100);
-  await slots.evaluateAll(nodes => {
+  const tagged = await slots.evaluateAll(nodes => {
     for (const node of nodes) (node as HTMLElement & { __probe?: string }).__probe = node.querySelector('button[aria-label^="Stage files/"]')?.getAttribute('aria-label') ?? '';
+    return nodes.length;
   });
+  expect(tagged).toBeGreaterThan(5);
 
   const rowHeight = await slots.first().evaluate(node => node.getBoundingClientRect().height);
   await scroller.evaluate((node, by) => { node.scrollTop += by; }, rowHeight);
@@ -93,5 +96,6 @@ test('a one-row file list scroll leaves every still-visible file row on its file
   });
   expect(moved).toBe(0);
   // A remount of every row would leave no probes and pass the check above vacuously.
-  expect(await slots.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThan(5);
+  // One row (plus overscan) may leave; the rest must be the same nodes.
+  expect(await slots.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 3);
 });

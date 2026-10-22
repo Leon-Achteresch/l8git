@@ -122,7 +122,8 @@ function Home() {
             <RepoTabLayout path={repoPath}>
               <PanelSwap
                 // The commit and history panels read the live repo themselves, so they remount with it right away, once.
-                panelKey={sidebarTab === "commit" || sidebarTab === "history" ? `${repoPath}\0${sidebarTab}` : `${shownPath}\0${sidebarTab}`}
+                // History only while the tab isn't switching too, or the outgoing history would mount for one frame.
+                panelKey={sidebarTab === "commit" || (sidebarTab === "history" && tabNow === "history") ? `${repoPath}\0${sidebarTab}` : `${shownPath}\0${sidebarTab}`}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 {sidebarTab === "commit" ? (
