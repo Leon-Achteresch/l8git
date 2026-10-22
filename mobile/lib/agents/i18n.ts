@@ -37,7 +37,7 @@ const subscribeLanguage = (onChange: () => void) => {
 const getLanguage = () => i18n.language;
 
 export function useLanguage(): string {
-  return useSyncExternalStore(subscribeLanguage, getLanguage);
+  return useSyncExternalStore(subscribeLanguage, getLanguage, getLanguage);
 }
 
 export function useRowT() {

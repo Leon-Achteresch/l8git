@@ -84,7 +84,7 @@ const getLanguage = () => i18n.language;
  * useTranslation copies the i18n instance on every mount, which adds up in virtualized lists.
  */
 export function useLanguage(): string {
-  return useSyncExternalStore(subscribeLanguage, getLanguage);
+  return useSyncExternalStore(subscribeLanguage, getLanguage, getLanguage);
 }
 
 /** `t` for list rows, re-rendering on language changes without useTranslation's per-mount cost. */

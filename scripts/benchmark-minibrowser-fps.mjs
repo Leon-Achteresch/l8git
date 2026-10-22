@@ -105,7 +105,8 @@ try {
           const report = await new Promise((done, fail) => {
             pending = done;
             setTimeout(() => fail(new Error(`${config}/${view.name}: no report in 240s`)), 240_000).unref();
-            browser.on('error', fail);
+            browser.once('error', fail);
+            browser.once('exit', (code) => fail(new Error(`${config}/${view.name}: MiniBrowser exited (${code}) before reporting`)));
           });
           if (report.error) throw new Error(`${config}/${view.name}: ${report.error}`);
           samples.push({ ...report, memoryMb: await memory(browser.pid) });

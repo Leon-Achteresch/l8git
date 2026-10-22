@@ -129,7 +129,8 @@ function Home() {
                   <CommitPanel />
                 ) : (
                   <Suspense fallback={<PanelLoading />}>
-                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  {/* Until the deferred switch commits, the old repo's panel stays visible but takes no input. */}
+                  <div inert={shownPath !== repoPath} className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     {sidebarTab === "stash" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">
                         <StashPanel path={shownPath} />

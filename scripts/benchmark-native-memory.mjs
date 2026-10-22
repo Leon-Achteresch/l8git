@@ -112,7 +112,9 @@ c.commit()`, `${dir}/tauri_localhost_0.localstorage`, JSON.stringify(items)]);
   await stop(app);
   app = null;
   const knobs = Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(WEBKIT_|JSC_|GDK_|LIBGL_|GSK_|MALLOC_|Malloc|L8GIT_)/.test(key)));
-  const pressure = readFileSync('/proc/pressure/memory', 'utf8').split('\n')[0];
+  // PSI is missing on kernels without CONFIG_PSI and on WSL; the samples must still be written.
+  let pressure = null;
+  try { pressure = readFileSync('/proc/pressure/memory', 'utf8').split('\n')[0]; } catch {}
   const result = { scope: 'Release l8git under Xvfb (no GPU: Mesa software GL), isolated HOME and D-Bus session. KB from /proc/<pid>/smaps_rollup; USS = private clean+dirty.', repo: repo ?? null, knobs, pressure, samples };
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, JSON.stringify(result, null, 2) + '\n');
