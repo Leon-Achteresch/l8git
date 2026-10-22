@@ -121,8 +121,8 @@ function Home() {
           {!ready ? null : activePath && repoPath ? (
             <RepoTabLayout path={repoPath}>
               <PanelSwap
-                // The commit panel reads the live repo itself, so it remounts with it right away, once.
-                panelKey={sidebarTab === "commit" ? `${repoPath}\0commit` : `${shownPath}\0${sidebarTab}`}
+                // The commit and history panels read the live repo themselves, so they remount with it right away, once.
+                panelKey={sidebarTab === "commit" || sidebarTab === "history" ? `${repoPath}\0${sidebarTab}` : `${shownPath}\0${sidebarTab}`}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 {sidebarTab === "commit" ? (
@@ -132,7 +132,7 @@ function Home() {
                   {/* Until the deferred switch commits, the old repo's panel stays visible but takes no input.
                       RepoDetails (the fallback) reads the live repo itself, so it stays usable. */}
                   <div
-                    inert={shownPath !== repoPath && ["stash", "pr", "submodules", "worktrees", "hooks", "ci", "tools"].includes(sidebarTab)}
+                    inert={shownPath !== repoPath && sidebarTab !== "history"}
                     className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     {sidebarTab === "stash" ? (
                       <div className="min-h-0 flex-1 overflow-hidden">

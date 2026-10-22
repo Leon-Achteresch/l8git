@@ -63,6 +63,8 @@ test('a one-row history scroll leaves every still-visible row node on its commit
     }).length;
   });
   expect(moved).toBe(0);
+  // A remount of every row would leave no probes and pass the check above vacuously.
+  expect(await rows.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThan(10);
 });
 
 test('a one-row file list scroll leaves every still-visible file row on its file', async ({ page }) => {
@@ -90,4 +92,6 @@ test('a one-row file list scroll leaves every still-visible file row on its file
     }).length;
   });
   expect(moved).toBe(0);
+  // A remount of every row would leave no probes and pass the check above vacuously.
+  expect(await slots.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThan(5);
 });
