@@ -121,9 +121,10 @@ function Home() {
           {!ready ? null : activePath && repoPath ? (
             <RepoTabLayout path={repoPath}>
               <PanelSwap
-                // The commit and history panels read the live repo themselves, so they remount with it right away, once.
-                // History only while the tab isn't switching too, or the outgoing history would mount for one frame.
-                panelKey={sidebarTab === "commit" || (sidebarTab === "history" && tabNow === "history") ? `${repoPath}\0${sidebarTab}` : `${shownPath}\0${sidebarTab}`}
+                // The commit and history panels read the live repo themselves, so they remount with it right away.
+                // Keyed on the deferred path, they'd show the new repo with the old repo's selection and dialogs;
+                // a repo and tab switch together costs one throwaway mount instead.
+                panelKey={sidebarTab === "commit" || sidebarTab === "history" ? `${repoPath}\0${sidebarTab}` : `${shownPath}\0${sidebarTab}`}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 {sidebarTab === "commit" ? (

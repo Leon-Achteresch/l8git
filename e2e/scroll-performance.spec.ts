@@ -64,8 +64,8 @@ test('a one-row history scroll leaves every still-visible row node on its commit
   });
   expect(moved).toBe(0);
   // A remount of every row would leave no probes and pass the check above vacuously.
-  // One row (plus overscan) may leave; the rest must be the same nodes.
-  expect(await rows.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 3);
+  // One row leaves (two at a fractional row boundary); the rest must be the same nodes.
+  expect(await rows.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 2);
 });
 
 test('a one-row file list scroll leaves every still-visible file row on its file', async ({ page }) => {
@@ -96,6 +96,6 @@ test('a one-row file list scroll leaves every still-visible file row on its file
   });
   expect(moved).toBe(0);
   // A remount of every row would leave no probes and pass the check above vacuously.
-  // One row (plus overscan) may leave; the rest must be the same nodes.
-  expect(await slots.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 3);
+  // One row leaves (two at a fractional row boundary); the rest must be the same nodes.
+  expect(await slots.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 2);
 });
