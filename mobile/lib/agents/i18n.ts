@@ -1,4 +1,5 @@
 import i18n from 'i18next';
+import { useSyncExternalStore } from 'react';
 
 import enTranslation from '@desktop/locales/en.json';
 import type { AppLocale as RequestedLocale } from '@desktop/lib/locales';
@@ -26,6 +27,22 @@ export async function loadLocaleResources(_locale: RequestedLocale): Promise<voi
 export async function changeAppLanguage(locale: RequestedLocale): Promise<void> {
   await loadLocaleResources(locale);
   await i18n.changeLanguage(FALLBACK_LOCALE);
+}
+
+// Same row hooks as the desktop i18n module, for shared desktop components.
+const subscribeLanguage = (onChange: () => void) => {
+  i18n.on('languageChanged', onChange);
+  return () => i18n.off('languageChanged', onChange);
+};
+const getLanguage = () => i18n.language;
+
+export function useLanguage(): string {
+  return useSyncExternalStore(subscribeLanguage, getLanguage);
+}
+
+export function useRowT() {
+  useLanguage();
+  return i18n.t;
 }
 
 export default i18n;
