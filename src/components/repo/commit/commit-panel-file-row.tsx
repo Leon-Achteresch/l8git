@@ -10,8 +10,10 @@ import {
   Square,
   Undo2,
 } from "lucide-react";
-import { memo, type ComponentProps } from "react";
+import { memo, useRef, type ComponentProps } from "react";
+import { useSkipTransitionOnRecycle } from "@/lib/virtual-pool";
 import { useTranslation } from "react-i18next";
+import { useRowT } from "@/lib/i18n";
 import { StatusIcon } from "./commit-panel-status-icon";
 import type { ChangeRow } from "./commit-panel-types";
 
@@ -30,7 +32,9 @@ function FileRowInner({
   onToggle: (entry: StatusEntry, rowId: string) => void;
   depth?: number;
 }) {
-  const { t } = useTranslation();
+  const t = useRowT();
+  const rowRef = useRef<HTMLDivElement>(null);
+  useSkipTransitionOnRecycle(rowRef, row.id);
   const checked = row.sector === "staged";
   const toggleLabel = t(checked ? "commitActions.unstageFile" : "commitActions.stageFile", { path: row.path });
   const separator = row.path.lastIndexOf("/");
@@ -51,6 +55,7 @@ function FileRowInner({
 
   return (
     <div
+      ref={rowRef}
       data-change-row-id={row.id}
       tabIndex={0}
       onClick={(e) => {

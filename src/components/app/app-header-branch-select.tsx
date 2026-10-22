@@ -23,11 +23,12 @@ function branchDisplayName(b: Branch) {
   return i >= 0 ? b.name.slice(i + 1) : b.name;
 }
 
+// One collator: localeCompare with options builds a new one per call, which is slow for thousands of branches.
+const collator = new Intl.Collator(undefined, { sensitivity: "base" });
+
 function cmpBranches(a: Branch, b: Branch) {
   if (a.is_current !== b.is_current) return a.is_current ? -1 : 1;
-  return branchDisplayName(a).localeCompare(branchDisplayName(b), undefined, {
-    sensitivity: "base",
-  });
+  return collator.compare(branchDisplayName(a), branchDisplayName(b));
 }
 
 export function AppHeaderBranchSelect({ className }: { className?: string } = {}) {
@@ -45,15 +46,10 @@ export function AppHeaderBranchSelect({ className }: { className?: string } = {}
   );
   const checkoutBranch = useRepoStore((s) => s.checkoutBranch);
 
-  const locals = useMemo(() => {
-    if (!repo) return [];
-    return repo.branches.filter((b) => !b.is_remote).slice().sort(cmpBranches);
-  }, [repo]);
-
-  const remotes = useMemo(() => {
-    if (!repo) return [];
-    return repo.branches.filter((b) => b.is_remote).slice().sort(cmpBranches);
-  }, [repo]);
+  // Keyed on the branch list: the repo object changes with every status refresh.
+  const branches = repo?.branches;
+  const locals = useMemo(() => (branches ?? []).filter((b) => !b.is_remote).sort(cmpBranches), [branches]);
+  const remotes = useMemo(() => (branches ?? []).filter((b) => b.is_remote).sort(cmpBranches), [branches]);
 
   const onPick = useCallback(
     (b: Branch) => {

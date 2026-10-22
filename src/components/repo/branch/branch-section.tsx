@@ -13,7 +13,11 @@ import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { ChunkedList } from "@/components/ui/chunked-list";
 import { BranchRow } from "./branch-row";
+
+/** Roughly a branch row plus its space-y-0.5 gap (rows with badges are taller). */
+const BRANCH_ROW_REM = 1.95;
 
 export function BranchSection({
   path,
@@ -99,7 +103,7 @@ export function BranchSection({
       ) : (
         <>
           {grouping.flat.length > 0 && (
-            <ul className="mb-0.5 min-w-0 space-y-0.5">
+            <ChunkedList className="mb-0.5 min-w-0" rowsClassName="space-y-0.5" gap="0.125rem" rowRem={BRANCH_ROW_REM}>
               {grouping.flat.map((b) => (
                 <BranchRow
                   key={b.name}
@@ -109,7 +113,7 @@ export function BranchSection({
                   onDelete={onDelete}
                 />
               ))}
-            </ul>
+            </ChunkedList>
           )}
 
           {grouping.groups.length > 0 && (
@@ -132,7 +136,7 @@ export function BranchSection({
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="pb-0 pt-0 [&>div]:pb-1 [&>div]:pt-0.5">
-                    <ul className="min-w-0 space-y-0.5 pl-1">
+                    <ChunkedList className="min-w-0 pl-1" rowsClassName="space-y-0.5" gap="0.125rem" rowRem={BRANCH_ROW_REM}>
                       {g.branches.map((b) => (
                         <BranchRow
                           key={b.name}
@@ -142,7 +146,7 @@ export function BranchSection({
                           onDelete={onDelete}
                         />
                       ))}
-                    </ul>
+                    </ChunkedList>
                   </AccordionContent>
                 </AccordionItem>
               ))}

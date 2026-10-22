@@ -13,7 +13,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { memo } from "react";
-import { useTranslation } from "react-i18next";
+import { useRowT } from "@/lib/i18n";
 
 export type CommitChangedFile = {
   untracked?: boolean;
@@ -40,7 +40,7 @@ export const CommitInspectFileItem = memo(function CommitInspectFileItem({
   onDiscard?: (path: string) => void;
   onCheckedChange?: (path: string, checked: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const t = useRowT();
   const baseName = file.path.split("/").pop() ?? file.path;
   const directory = file.path.split("/").slice(0, -1).join("/");
 

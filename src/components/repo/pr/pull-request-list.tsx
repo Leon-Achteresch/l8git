@@ -6,7 +6,7 @@ import type { Branch, PullRequest } from "@/lib/repo-store";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PrEmptyState } from "./pr-empty-state";
 import { PrListGroupHeader } from "./pr-list-group-header";
@@ -135,10 +135,7 @@ export function PullRequestList({
   }, [filtered, filter, t, i18n.language]);
 
   const flatItems = useMemo(() => {
-    const out: (
-      | { kind: "header"; key: string; label: string; count: number }
-      | { kind: "pr"; pr: PullRequest }
-    )[] = [];
+    const out: PrListItem[] = [];
     for (const g of groups) {
       if (g.label) {
         out.push({
@@ -153,19 +150,8 @@ export function PullRequestList({
     return out;
   }, [groups]);
 
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const getItemKey = useCallback((i: number) => {
-    const it = flatItems[i];
-    if (!it) return i;
-    return it.kind === "header" ? it.key : it.pr.number;
-  }, [flatItems]);
-  const virtualizer = useVirtualizer({
-    count: flatItems.length,
-    getScrollElement: () => scrollerRef.current,
-    estimateSize: (i) => (flatItems[i]?.kind === "header" ? 34 : 64),
-    overscan: 8,
-    getItemKey,
-  });
+  // State, not a ref: the rows' virtualizer mounts before a parent ref would be attached.
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
 
   const TABS: { id: Filter; label: string }[] = useMemo(
     () => [
@@ -307,7 +293,7 @@ export function PullRequestList({
       </AnimatePresence>
 
       {filter !== "open" && hasMoreHistory && <Button variant="outline" size="sm" className="mx-3 my-2" onClick={onLoadHistory} disabled={historyLoading}>{historyLoading ? t("common.loading") : t("audit.loadMore")}</Button>}
-      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
         <div className="py-2">
           {loading && !prs ? (
             <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
@@ -328,44 +314,86 @@ export function PullRequestList({
               <span>{t("pr.noneInCategory")}</span>
             </PrEmptyState>
           ) : (
-            <div
-              style={{
-                height: virtualizer.getTotalSize(),
-                position: "relative",
-              }}
-            >
-              {virtualizer.getVirtualItems().map((vi) => {
-                const item = flatItems[vi.index];
-                if (!item) return null;
-                return (
-                  <div
-                    key={vi.key}
-                    data-index={vi.index}
-                    ref={virtualizer.measureElement}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      transform: `translateY(${vi.start}px)`,
-                    }}
-                  >
-                    {item.kind === "header" ? (
-                      <PrListGroupHeader label={item.label} count={item.count} />
-                    ) : (
-                      <PrRow
-                        pr={item.pr}
-                        selected={item.pr.number === selectedNumber}
-                        onSelect={onSelect}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <PrVirtualRows
+              scroller={scroller}
+              flatItems={flatItems}
+              selectedNumber={selectedNumber}
+              onSelect={onSelect}
+            />
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+type PrListItem =
+  | { kind: "header"; key: string; label: string; count: number }
+  | { kind: "pr"; pr: PullRequest };
+
+/**
+ * Owns the virtualizer, so scrolling re-renders only the rows and not the list header,
+ * whose layout-animated filter pill would make motion re-measure the page on every frame.
+ */
+function PrVirtualRows({
+  scroller,
+  flatItems,
+  selectedNumber,
+  onSelect,
+}: {
+  scroller: HTMLDivElement | null;
+  flatItems: PrListItem[];
+  selectedNumber: number | null;
+  onSelect: (n: number) => void;
+}) {
+  const getItemKey = useCallback((i: number) => {
+    const it = flatItems[i];
+    if (!it) return i;
+    return it.kind === "header" ? it.key : it.pr.number;
+  }, [flatItems]);
+  const virtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => scroller,
+    estimateSize: (i) => (flatItems[i]?.kind === "header" ? 34 : 64),
+    // Rows are tall: four already cover about 250px past each edge.
+    overscan: 4,
+    getItemKey,
+  });
+  return (
+    <div
+      style={{
+        height: virtualizer.getTotalSize(),
+        position: "relative",
+      }}
+    >
+      {virtualizer.getVirtualItems().map((vi) => {
+        const item = flatItems[vi.index];
+        if (!item) return null;
+        return (
+          <div
+            key={vi.key}
+            data-index={vi.index}
+            ref={virtualizer.measureElement}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              transform: `translateY(${vi.start}px)`,
+            }}
+          >
+            {item.kind === "header" ? (
+              <PrListGroupHeader label={item.label} count={item.count} />
+            ) : (
+              <PrRow
+                pr={item.pr}
+                selected={item.pr.number === selectedNumber}
+                onSelect={onSelect}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

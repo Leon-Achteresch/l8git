@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
-export const APP_LOGO_SRC = "/icons/web/icon-512.png";
+// 192 px covers the largest logo (80 px) at 2x; WebKit keeps the decoded bitmap (512 px: 1 MB) while shown.
+export const APP_LOGO_SRC = "/icons/web/icon-192.png";
 
 type AppLogoProps = {
   className?: string;
@@ -12,7 +13,7 @@ type AppLogoProps = {
  * Einheitliches App-Logo: immer rund (kein Rechteck/Kasten) und immer
  * vollständig sichtbar (object-contain, kein object-cover-Cropping).
  *
- * Die Quelle `icon-512.png` ist bereits eine runde PNG mit transparenten
+ * Die Quelle `icon-192.png` ist bereits eine runde PNG mit transparenten
  * Ecken + Safe-Padding, damit der weiße Ring nirgends angeschnitten wird –
  * auch nicht durch ring/shadow oder OS-Masken.
  */

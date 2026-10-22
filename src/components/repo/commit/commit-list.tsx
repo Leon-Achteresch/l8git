@@ -1,12 +1,12 @@
 import { historySectionTitleResolver } from "@/lib/commit-history-sections";
-import { virtualPoolSlot } from "@/lib/virtual-pool";
+import { useVirtualPoolSlots } from "@/lib/virtual-pool";
 import {
   buildGraph,
   compareBranchesDisplay,
   normalizeGitOid,
   type GraphRow,
 } from "@/lib/graph";
-import { graphColWidth } from "./commit-graph-cell";
+import { CommitGraphShapes, graphColWidth } from "./commit-graph-cell";
 import type { Branch, Commit } from "@/lib/repo-store";
 import { useRepoStore } from "@/lib/repo-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -178,6 +178,7 @@ export function CommitList({
 
   const flatItems = useMemo((): FlatItem[] => {
     const out: FlatItem[] = [];
+    const seen = new Map<string, number>();
     let last = "";
     const sectionTitle = showCommitDateGroups
       ? historySectionTitleResolver()
@@ -186,7 +187,10 @@ export function CommitList({
       if (sectionTitle) {
         const sec = sectionTitle(rows[i].commit.date);
         if (sec !== last) {
-          out.push({ kind: "header", key: `${sec}-${i}`, label: sec });
+          // Keyed by label and repeat, so new commits on top keep every header's key.
+          const repeat = seen.get(sec) ?? 0;
+          seen.set(sec, repeat + 1);
+          out.push({ kind: "header", key: `header:${sec}:${repeat}`, label: sec });
           last = sec;
         }
       }
@@ -366,6 +370,11 @@ export function CommitList({
   const loadMoreSearchCommits = useRepoStore((s) => s.loadMoreSearchCommits);
   const lastLoadedAt = useRef(0);
   const virtualItems = virtualizer.getVirtualItems();
+  // Date headers keep their own keys; only commit rows share pooled nodes.
+  const poolSlots = useVirtualPoolSlots(
+    virtualItems.map((vi) => vi.key),
+    (i) => flatItems[virtualItems[i].index]?.kind === "commit",
+  );
   useLayoutEffect(() => {
     const focused = focusedRowRef.current;
     if (!focused) return;
@@ -697,13 +706,13 @@ export function CommitList({
             }}
           >
             {virtualItems.map((vi) => {
-              const slot = virtualPoolSlot(vi.index, virtualItems.length);
+              const slot = poolSlots.get(vi.key);
               const item = flatItems[vi.index];
               if (!item) return null;
               if (item.kind === "header") {
                 return (
                   <HistoryVirtualRow
-                    key={`${path}:${slot}`}
+                    key={`${path}:${vi.key}`}
                     item={vi}
                     observer={rowObserver}
                   >
@@ -734,16 +743,12 @@ export function CommitList({
                 >
                   <CommitRow
                     row={row}
-                    rowHeight={vi.size - 2}
-                    maxLanes={maxLanes}
-                    originColors={originColors}
                     colW={colW}
                     branchesAtCommit={
                       branchesByTipOid.get(oid) ?? EMPTY_BRANCHES
                     }
                     stackLabels={stackLabels}
                     showConventionalIcons={showConventionalIcons}
-                    isBranchTip={branchesByTipOid.has(oid)}
                     matchedPaths={matchedPaths}
                     searchHit={searchHit}
                     focusPulseToken={focusPulseToken}
@@ -771,6 +776,33 @@ export function CommitList({
             />
           )}
       </ContextMenu>
+      {/* One SVG draws the graph for every row in the window, over the rows'
+          graph column (their mx-1.5 inset and my-px gaps); it scrolls with them. */}
+      <svg
+        aria-hidden="true"
+        data-commit-graph=""
+        className="pointer-events-none absolute left-1.5 top-0 text-foreground"
+        width={colW}
+        height={virtualizer.getTotalSize()}
+      >
+        {virtualItems.map((vi) => {
+          const item = flatItems[vi.index];
+          const row = item?.kind === "commit" ? rows[item.rowIndex] : undefined;
+          if (!row) return null;
+          return (
+            <CommitGraphShapes
+              key={`${path}:${poolSlots.get(vi.key)}`}
+              row={row}
+              maxLanes={maxLanes}
+              isBranchTip={branchesByTipOid.has(normalizeGitOid(row.commit.hash))}
+              originColors={originColors}
+              colWidth={colW}
+              top={vi.start + 1}
+              rowHeight={vi.size - 2}
+            />
+          );
+        })}
+      </svg>
     </div>
   );
 }

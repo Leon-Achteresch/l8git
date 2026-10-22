@@ -25,14 +25,14 @@ import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranch, GitBranchPlus, GitMerge, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
+import { useSkipTransitionOnRecycle } from "@/lib/virtual-pool";
 import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CommitAuthorDate } from "./commit-author-date";
 import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
-import { CommitGraphCell } from "./commit-graph-cell";
 import { CommitHashBadge } from "./commit-hash-badge";
 import { useExplainSheet } from "@/components/ai/explain-sheet";
 import { ResetDialog } from "@/components/repo/reset/reset-dialog";
@@ -55,14 +55,10 @@ export type BisectRole = 'bad' | 'good' | 'current' | 'result' | 'pending-bad' |
 
 function CommitRowInner({
   row,
-  rowHeight,
-  maxLanes,
-  originColors,
   colW,
   branchesAtCommit,
   stackLabels,
   showConventionalIcons,
-  isBranchTip,
   matchedPaths,
   searchHit,
   focusPulseToken,
@@ -72,14 +68,11 @@ function CommitRowInner({
   bisectRole,
 }: {
   row: GraphRow;
-  rowHeight: number;
-  maxLanes: number;
-  originColors: ReadonlyMap<string, string>;
+  /** Width kept free for the list's shared graph SVG. */
   colW: number;
   branchesAtCommit: readonly Branch[];
   stackLabels: ReadonlyMap<string, StackLabel>;
   showConventionalIcons: boolean;
-  isBranchTip: boolean;
   matchedPaths?: string[];
   searchHit: boolean;
   focusPulseToken?: number;
@@ -89,6 +82,8 @@ function CommitRowInner({
   bisectRole: BisectRole | null;
 }) {
   const { commit } = row;
+  const rowRef = useRef<HTMLDivElement>(null);
+  useSkipTransitionOnRecycle(rowRef, commit.hash);
 
   const subjectParts = useMemo(
     () => splitConventionalSubjectDisplay(commit.subject),
@@ -106,6 +101,7 @@ function CommitRowInner({
   return (
     <div
       key={focusPulseToken != null ? `pulse-${focusPulseToken}` : "row"}
+      ref={rowRef}
       onClick={handleClick}
       className={cn(
         focusPulseToken != null && "l8-commit-pulse",
@@ -138,9 +134,7 @@ function CommitRowInner({
           "before:pointer-events-none before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-[2px] before:rounded-sm before:bg-git-added before:content-['']",
       )}
     >
-      <div className="relative shrink-0 self-stretch" style={{ width: colW }}>
-        <CommitGraphCell row={row} rowHeight={rowHeight} maxLanes={maxLanes} isBranchTip={isBranchTip} originColors={originColors} colWidth={colW} />
-      </div>
+      <div className="shrink-0" style={{ width: colW }} />
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-2 py-1 pr-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <div className="flex min-w-0 flex-1 basis-[12rem] items-center gap-1.5">

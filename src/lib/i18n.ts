@@ -1,4 +1,5 @@
 import i18n from "i18next";
+import { useSyncExternalStore } from "react";
 import { initReactI18next } from "react-i18next";
 
 import {
@@ -71,5 +72,25 @@ await i18n.use(initReactI18next).init({
   fallbackLng: FALLBACK_LOCALE,
   interpolation: { escapeValue: false },
 });
+
+const subscribeLanguage = (onChange: () => void) => {
+  i18n.on("languageChanged", onChange);
+  return () => i18n.off("languageChanged", onChange);
+};
+const getLanguage = () => i18n.language;
+
+/**
+ * Re-renders on language changes. For list rows that format text themselves: react-i18next's
+ * useTranslation copies the i18n instance on every mount, which adds up in virtualized lists.
+ */
+export function useLanguage(): string {
+  return useSyncExternalStore(subscribeLanguage, getLanguage, getLanguage);
+}
+
+/** `t` for list rows, re-rendering on language changes without useTranslation's per-mount cost. */
+export function useRowT() {
+  useLanguage();
+  return i18n.t;
+}
 
 export default i18n;

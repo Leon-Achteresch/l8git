@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { m } from "motion/react";
 
 type LabelTone = React.ComponentProps<typeof Badge>["variant"];
 
@@ -20,18 +19,15 @@ const LABEL_TONES: Record<string, LabelTone> = {
 export function PrLabelChip({ label }: { label: string }) {
   const tone = LABEL_TONES[label.toLowerCase()] ?? "secondary";
 
+  // No mount animation: virtual rows remount as they scroll into view, so it replayed on every scroll.
   return (
-    <m.span
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.12 }}
-    >
+    <span>
       <Badge
         variant={tone}
         className="h-5 px-2 text-[0.625rem] font-medium tracking-tight rounded-md border"
       >
         {label}
       </Badge>
-    </m.span>
+    </span>
   );
 }

@@ -3,8 +3,10 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { AlertTriangle, CheckCircle2, CircleDot, Lock, MessageSquare, Star, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useRowT } from "@/lib/i18n";
 
 import { PrGlyph } from "@/components/repo/pr/pr-glyph";
+import { avatarSrc } from "@/lib/avatar-src";
 import { formatRelative } from "@/lib/format";
 import type { CheckState, HubPr, HubProviderId, HubRepo } from "@/lib/hub/types";
 import { cn } from "@/lib/utils";
@@ -29,7 +31,7 @@ export function compact(n: number): string {
 export function UserAvatar({ src, login, size = 20, className }: { src: string | null | undefined; login: string; size?: number; className?: string }) {
   return src ? (
     <img
-      src={src.includes("githubusercontent") ? `${src}${src.includes("?") ? "&" : "?"}s=${size * 2}` : src}
+      src={avatarSrc(src.includes("githubusercontent") ? `${src}${src.includes("?") ? "&" : "?"}s=${size * 2}` : src)}
       alt=""
       title={login}
       width={size}
@@ -66,7 +68,7 @@ export function ProviderMark({ provider, className }: { provider: HubProviderId;
 }
 
 export function CheckIcon({ state, className }: { state: CheckState; className?: string }) {
-  const { t } = useTranslation();
+  const t = useRowT();
   const cls = cn("size-3.5 shrink-0", className);
   if (state === "success") return <CheckCircle2 className={cn(cls, "text-git-added")} aria-label={t("hub.checks.success")} />;
   if (state === "failure") return <XCircle className={cn(cls, "text-destructive")} aria-label={t("hub.checks.failure")} />;
@@ -123,7 +125,7 @@ export function SkeletonRows({ n = 4 }: { n?: number }) {
 }
 
 export function PrRow({ pr, showRepo, actions }: { pr: HubPr; showRepo?: boolean; actions?: ReactNode }) {
-  const { t } = useTranslation();
+  const t = useRowT();
   const nav = useHubNav();
   const glyphState = pr.draft && pr.state === "open" ? "draft" : pr.state;
   return (

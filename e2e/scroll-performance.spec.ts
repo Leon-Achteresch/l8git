@@ -54,11 +54,18 @@ test('a one-row history scroll leaves every still-visible row node on its commit
   await scroller.evaluate((node, by) => { node.scrollTop += by; }, rowHeight);
   await page.waitForTimeout(100);
   // Positional slots handed each node its neighbour's commit, re-rendering the whole window.
-  const moved = await rows.evaluateAll(nodes => nodes.filter(node => {
-    const probe = (node as HTMLElement & { __probe?: string }).__probe;
-    return probe !== undefined && probe !== node.getAttribute('data-commit-hash');
-  }).length);
+  // Only a row that left the window may hand its node to an entering one.
+  const moved = await rows.evaluateAll(nodes => {
+    const shown = new Set(nodes.map(node => node.getAttribute('data-commit-hash')));
+    return nodes.filter(node => {
+      const probe = (node as HTMLElement & { __probe?: string }).__probe;
+      return probe !== undefined && shown.has(probe) && probe !== node.getAttribute('data-commit-hash');
+    }).length;
+  });
   expect(moved).toBe(0);
+  // A remount of every row would leave no probes and pass the check above vacuously.
+  // One row leaves (two at a fractional row boundary); the rest must be the same nodes.
+  expect(await rows.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 2);
 });
 
 test('a one-row file list scroll leaves every still-visible file row on its file', async ({ page }) => {
@@ -69,16 +76,26 @@ test('a one-row file list scroll leaves every still-visible file row on its file
   const scroller = await scrollerOf(slots.first());
   await scroller.evaluate(node => { node.scrollTop = 4000; });
   await page.waitForTimeout(100);
-  await slots.evaluateAll(nodes => {
+  const tagged = await slots.evaluateAll(nodes => {
     for (const node of nodes) (node as HTMLElement & { __probe?: string }).__probe = node.querySelector('button[aria-label^="Stage files/"]')?.getAttribute('aria-label') ?? '';
+    return nodes.length;
   });
+  expect(tagged).toBeGreaterThan(5);
 
   const rowHeight = await slots.first().evaluate(node => node.getBoundingClientRect().height);
   await scroller.evaluate((node, by) => { node.scrollTop += by; }, rowHeight);
   await page.waitForTimeout(100);
-  const moved = await slots.evaluateAll(nodes => nodes.filter(node => {
-    const probe = (node as HTMLElement & { __probe?: string }).__probe;
-    return probe !== undefined && probe !== (node.querySelector('button[aria-label^="Stage files/"]')?.getAttribute('aria-label') ?? '');
-  }).length);
+  // Only a row that left the window may hand its node to an entering one.
+  const moved = await slots.evaluateAll(nodes => {
+    const label = (node: Element) => node.querySelector('button[aria-label^="Stage files/"]')?.getAttribute('aria-label') ?? '';
+    const shown = new Set(nodes.map(label));
+    return nodes.filter(node => {
+      const probe = (node as HTMLElement & { __probe?: string }).__probe;
+      return probe !== undefined && shown.has(probe) && probe !== label(node);
+    }).length;
+  });
   expect(moved).toBe(0);
+  // A remount of every row would leave no probes and pass the check above vacuously.
+  // One row leaves (two at a fractional row boundary); the rest must be the same nodes.
+  expect(await slots.evaluateAll(nodes => nodes.filter(node => (node as HTMLElement & { __probe?: string }).__probe !== undefined).length)).toBeGreaterThanOrEqual(tagged - 2);
 });

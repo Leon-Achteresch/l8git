@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { avatarSrc } from "@/lib/avatar-src";
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -301,7 +302,7 @@ export const WorkflowRunRow = memo(function WorkflowRunRow({
               <span className="flex items-center gap-1 text-[0.6875rem] text-muted-foreground">
                 {run.actor_avatar && (
                   <img
-                    src={run.actor_avatar}
+                    src={avatarSrc(run.actor_avatar)}
                     alt={run.actor_login}
                     className="h-3.5 w-3.5 rounded-full"
                   />

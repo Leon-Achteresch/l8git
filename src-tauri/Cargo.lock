@@ -2369,6 +2369,7 @@ dependencies = [
  "notify",
  "notify-debouncer-full",
  "once_cell",
+ "percent-encoding",
  "portable-pty",
  "qrcode",
  "rand 0.8.7",

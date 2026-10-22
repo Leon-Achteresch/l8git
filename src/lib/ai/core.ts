@@ -1,10 +1,7 @@
 import { budgetContext } from "./context";
 import { reviewAiContext } from "./context-review";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
-import { generateText, streamText, type LanguageModel } from "ai";
+import type { LanguageModel } from "ai";
 
 import {
   AI_PROVIDER_DEFAULT_MODELS,
@@ -38,23 +35,26 @@ export interface AiProviderConfig {
   baseUrl: string;
 }
 
-export function buildLanguageModel(
+// The AI SDK and its provider schemas are ~1 MB of JS; load them only when a model is built.
+export async function buildLanguageModel(
   type: AiProviderType,
   apiKey: string,
   model: string,
   baseUrl: string,
-): LanguageModel {
+): Promise<LanguageModel> {
   const resolvedModel = model.trim() || AI_PROVIDER_DEFAULT_MODELS[type];
 
+  if (type === "anthropic") {
+    return (await import("@ai-sdk/anthropic")).createAnthropic({ apiKey })(resolvedModel);
+  }
+  if (type === "google") {
+    return (await import("@ai-sdk/google")).createGoogleGenerativeAI({ apiKey })(resolvedModel);
+  }
+
+  const { createOpenAI } = await import("@ai-sdk/openai");
   switch (type) {
     case "openai":
       return createOpenAI({ apiKey })(resolvedModel);
-
-    case "anthropic":
-      return createAnthropic({ apiKey })(resolvedModel);
-
-    case "google":
-      return createGoogleGenerativeAI({ apiKey })(resolvedModel);
 
     case "openrouter":
       return createOpenAI({
@@ -90,7 +90,7 @@ export function hasAiCredentials(config: AiProviderConfig = getAiProviderConfig(
   return false;
 }
 
-export function resolveLanguageModel(feature?: AiFeature): LanguageModel {
+export async function resolveLanguageModel(feature?: AiFeature): Promise<LanguageModel> {
   const config = getAiProviderConfig();
   if (!hasAiCredentials(config)) {
     throw new AiError("noApiKey", i18n.t("errors.aiNoApiKey"), feature);
@@ -156,7 +156,6 @@ export async function generateAiText(options: GenerateAiTextOptions): Promise<st
     throw new AiError("aborted", i18n.t("errors.aiAborted"), feature);
   }
 
-  const model = options.model ?? resolveLanguageModel(feature);
   const trimmedHint = hint?.trim() ?? "";
   let finalPrompt = trimmedHint
     ? `${prompt}\n\nAdditional instruction from the user for this attempt — follow it strictly:\n${trimmedHint}`
@@ -164,6 +163,8 @@ export async function generateAiText(options: GenerateAiTextOptions): Promise<st
 
   let reviewedSystem = system;
   try {
+    // Inside the try so a failed provider chunk load still maps to an AiError.
+    const model = options.model ?? (await resolveLanguageModel(feature));
     if (!options.model && typeof document !== 'undefined' && useWorkspacePrefs.getState().previewAiContext) {
       const reviewed = await reviewAiContext({ prompt: finalPrompt, system: system ?? '' }, signal);
       finalPrompt = reviewed.prompt;
@@ -171,6 +172,7 @@ export async function generateAiText(options: GenerateAiTextOptions): Promise<st
     }
     if (signal?.aborted) throw new DOMException('Canceled', 'AbortError');
     let text = "";
+    const { generateText, streamText } = await import("ai");
     if (onDelta) {
       const result = streamText({
         model,

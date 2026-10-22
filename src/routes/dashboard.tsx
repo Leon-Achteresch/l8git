@@ -5,7 +5,7 @@ import {
   ListChecks,
   Activity as ActivityIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ActivityPanel } from "@/components/dashboard/activity-panel";
@@ -54,6 +54,9 @@ function DashboardPage() {
     return Array.from(set);
   }, [workspacePaths, knownPaths]);
 
+  // The panels render in an interruptible pass after the header's first frame.
+  const ready = useDeferredValue(true, false);
+
   return (
     <main className="mx-auto w-full max-w-[1400px] space-y-6 px-6 py-6">
       <div className="flex items-center justify-between gap-3">
@@ -76,7 +79,7 @@ function DashboardPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="active" key={activeWorkspaceId}>
+      {ready && <Tabs defaultValue="active" key={activeWorkspaceId}>
         <TabsList variant="line" className="rounded-2xl border border-border/60 bg-card/60 p-1">
           <TabsTrigger value="active">{t("dashboard.tabs.active")}</TabsTrigger>
           <TabsTrigger value="all">
@@ -93,7 +96,7 @@ function DashboardPage() {
         <TabsContent value="all" className="mt-4">
           <AllReposTable paths={allPaths} />
         </TabsContent>
-      </Tabs>
+      </Tabs>}
     </main>
   );
 }

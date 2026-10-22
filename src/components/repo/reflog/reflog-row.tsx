@@ -50,7 +50,7 @@ export function ReflogRow({
   const variant = TONE_VARIANT[reflogActionTone(entry.action)];
 
   return (
-    <ContextMenu>
+    <ContextMenu deferMount>
       <ContextMenuTrigger asChild>
         <m.div className='flex items-center gap-2 rounded-lg border border-border/50 bg-card/40 px-2.5 py-2 transition-colors hover:border-border hover:bg-card/70'>
           <span className='hidden w-20 shrink-0 font-mono text-[0.6875rem] text-muted-foreground sm:inline'>

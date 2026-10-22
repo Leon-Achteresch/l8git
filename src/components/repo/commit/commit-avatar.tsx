@@ -1,7 +1,8 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { avatarSrc } from "@/lib/avatar-src";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Size = "xs" | "sm" | "md";
 
@@ -19,6 +20,21 @@ const FALLBACK_CLASSES: Record<Size, string> = {
 
 type Phase = "primary" | "fallback" | "off";
 
+// Rows remount avatars while scrolling. An image that just failed (e.g. a Gravatar
+// 404) is not requested again for every row; it is retried after a minute, or
+// right away once the network comes back.
+const FAILED_RETRY_MS = 60_000;
+const failedAt = new Map<string, number>();
+window.addEventListener("online", () => failedAt.clear());
+const usable = (src: string | undefined) => {
+  if (!src) return undefined;
+  const failed = failedAt.get(src);
+  if (failed === undefined) return src;
+  if (Date.now() - failed < FAILED_RETRY_MS) return undefined;
+  failedAt.delete(src);
+  return src;
+};
+
 export function CommitAvatar({
   url,
   fallbackUrl,
@@ -30,7 +46,7 @@ export function CommitAvatar({
   name: string;
   size?: Size;
 }) {
-  const first = url?.trim() || undefined;
+  const first = useMemo(() => avatarSrc(url?.trim() || undefined), [url]);
   const fallbackSlot =
     fallbackUrl === undefined
       ? { mode: "none" as const }
@@ -41,7 +57,8 @@ export function CommitAvatar({
               ? fallbackUrl.trim()
               : undefined,
         };
-  const second = fallbackSlot.mode === "chain" ? fallbackSlot.src : undefined;
+  const secondRaw = fallbackSlot.mode === "chain" ? fallbackSlot.src : undefined;
+  const second = useMemo(() => avatarSrc(secondRaw), [secondRaw]);
   const [phase, setPhase] = useState<Phase>("primary");
   const pendingSecondRef = useRef(false);
 
@@ -56,11 +73,15 @@ export function CommitAvatar({
     setPhase("fallback");
   }, [second]);
 
+  // A URL known to fail is skipped as if its error had just fired. Checked once per
+  // URL, so a re-render after the retry window doesn't swap a showing fallback back.
+  const firstUsable = useMemo(() => usable(first), [first]);
+  const secondUsable = useMemo(() => usable(second), [second]);
   const activeSrc: string | undefined =
     phase === "primary"
-      ? first
+      ? (firstUsable ?? (first ? secondUsable : undefined))
       : phase === "fallback"
-        ? second
+        ? secondUsable
         : undefined;
 
   return (
@@ -72,6 +93,7 @@ export function CommitAvatar({
           alt={name}
           onLoadingStatusChange={(s) => {
             if (s !== "error") return;
+            failedAt.set(activeSrc, Date.now());
             setPhase((p) => {
               if (p === "primary") {
                 if (second) return "fallback";
