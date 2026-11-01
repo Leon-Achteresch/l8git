@@ -2,23 +2,22 @@ import { chromium } from '@playwright/test';
 import { preview } from 'vite';
 import { resolve } from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import { driveTarget, openTarget, TARGETS } from './benchmark-targets.mjs';
 
-const server = await preview({ configFile: resolve('vite.profile.config.ts'), ...(process.env.PROFILE_BUILD_DIR ? { build: { outDir: resolve(process.env.PROFILE_BUILD_DIR) } } : {}), preview: { host: '127.0.0.1', port: 4177, strictPort: true } });
+// PROFILE_ORIGIN profiles a running dev server instead (source file:line, but React dev build).
+const origin = process.env.PROFILE_ORIGIN ?? 'http://127.0.0.1:4177';
+const server = process.env.PROFILE_ORIGIN ? null : await preview({ configFile: resolve('vite.profile.config.ts'), ...(process.env.PROFILE_BUILD_DIR ? { build: { outDir: resolve(process.env.PROFILE_BUILD_DIR) } } : {}), preview: { host: '127.0.0.1', port: 4177, strictPort: true } });
 const browser = await chromium.launch();
 try {
 const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'no-preference' });
 const page = await context.newPage();
 const cdp = await context.newCDPSession(page);
-await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-await page.goto(`http://127.0.0.1:4177/?scene=${process.env.PROFILE_SCENE || 'performance'}`);
-let anchor = process.env.PROFILE_SCENE === 'performance-history' ? page.locator('[data-commit-hash]').first() : page.getByTestId('files');
-if (process.env.PROFILE_SCENE === 'performance-inspect') {
-  // PROFILE_TARGET=files scrolls the changed-files column, anything else the history beside it.
-  await page.locator('[data-commit-hash]').first().click();
-  await page.getByText('computeSomething(0,', { exact: false }).first().waitFor({ timeout: 30_000 });
-  anchor = process.env.PROFILE_TARGET === 'files' ? page.getByRole('group', { name: 'Changed files' }) : process.env.PROFILE_TARGET === 'diff' ? page.getByText('computeSomething(0,', { exact: false }).first() : page.locator('[data-commit-hash]').first();
-}
-await anchor.waitFor();
+await cdp.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.PROFILE_THROTTLE ?? 4) });
+// PROFILE_VIEW is a benchmark-targets.mjs name; PROFILE_SCENE/PROFILE_TARGET are the older spelling.
+const legacy = { performance: 'files', 'performance-history': 'history', 'performance-inspect': { files: 'inspect-files', diff: 'inspect-diff' }[process.env.PROFILE_TARGET] ?? 'inspect-history' };
+const target = TARGETS.find(t => t.name === (process.env.PROFILE_VIEW ?? legacy[process.env.PROFILE_SCENE || 'performance']));
+if (!target) throw new Error('Unknown PROFILE_VIEW');
+await openTarget(page, target, origin);
 const trace = [];
 if (process.env.PROFILE_TRACE_OUT) {
   cdp.on('Tracing.dataCollected', event => trace.push(...event.value));
@@ -27,22 +26,7 @@ if (process.env.PROFILE_TRACE_OUT) {
 await cdp.send('Profiler.enable');
 await cdp.send('Profiler.setSamplingInterval', { interval: process.env.PROFILE_TRACE_OUT ? 1000 : 200 });
 await cdp.send('Profiler.start');
-await anchor.evaluate(async (root, { frameCount, pxPerFrame }) => {
-  const ok = n => n.scrollHeight > n.clientHeight + 100 && /auto|scroll/.test(getComputedStyle(n).overflowY);
-  let scroller = [...root.querySelectorAll('*')].find(ok);
-  for (let n = root; !scroller && n && n !== document.body; n = n.parentElement) if (ok(n)) scroller = n;
-  let i = 0;
-  await new Promise(res => {
-    const tick = () => {
-      const max = scroller.scrollHeight - scroller.clientHeight;
-      // PROFILE_PX_PER_FRAME scrolls at wheel speed instead of sweeping the whole list.
-      if (pxPerFrame > 0) { const pos = (i * pxPerFrame) % (2 * max); scroller.scrollTop = pos <= max ? pos : 2 * max - pos; }
-      else { const phase = (i % 120) / 120; scroller.scrollTop = max * (1 - Math.abs(phase * 2 - 1)); }
-      if (++i < frameCount) requestAnimationFrame(tick); else res();
-    };
-    requestAnimationFrame(tick);
-  });
-}, { frameCount: Number(process.env.PROFILE_FRAMES ?? 240), pxPerFrame: Number(process.env.PROFILE_PX_PER_FRAME ?? 0) });
+await driveTarget(page, target, { frameCount: Number(process.env.PROFILE_FRAMES ?? 240), pxPerFrame: Number(process.env.PROFILE_PX_PER_FRAME ?? 0) });
 const { profile } = await cdp.send('Profiler.stop');
 if (process.env.PROFILE_TRACE_OUT) {
   const completed = new Promise(resolve => cdp.once('Tracing.tracingComplete', resolve));
@@ -64,5 +48,5 @@ for (const id of profile.samples) {
 console.log([...self].sort((a, b) => b[1] - a[1]).slice(0, 35).map(([k, v]) => `${(100 * v / total).toFixed(1)}%  ${k}`).join('\n'));
 } finally {
   await browser.close();
-  await new Promise((r, j) => server.httpServer.close(e => e ? j(e) : r()));
+  if (server) await new Promise((r, j) => server.httpServer.close(e => e ? j(e) : r()));
 }

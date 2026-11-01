@@ -25,10 +25,11 @@ import { toastError } from '@/lib/error-toast';
 import { normalizeGitOid } from '@/lib/graph';
 import type { Branch, Commit } from '@/lib/repo-store';
 import { useRepoStore } from '@/lib/repo-store';
+import { readRepoViewState, saveRepoViewState } from '@/lib/repo-view-state';
 import { useHistoryHotkeys } from '@/lib/use-history-hotkeys';
 import { useUiStore } from '@/lib/ui-store';
 import { writeLocalStorageDebounced } from '@/lib/utils';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Copy, GitCompareArrows, LoaderCircle, SearchX, X } from 'lucide-react';
@@ -66,11 +67,16 @@ export function CommitHistoryPanel({
   const branches = useRepoStore(s => s.repos[path]?.branches ?? EMPTY_BRANCHES);
   const selectedBranchNames =
     useUiStore(s => s.branchFilterByPath[path]) ?? EMPTY_BRANCH_SET;
-  const [selectedHash, setSelectedHash] = useState<string | null>(null);
+  const [savedSelection] = useState(() => readRepoViewState(path).historySelection);
+  const [selectedHash, setSelectedHash] = useState<string | null>(savedSelection?.selectedHash ?? null);
   const [selectedHashes, setSelectedHashes] =
-    useState<ReadonlySet<string>>(EMPTY_HASH_SET);
-  const [anchorHash, setAnchorHash] = useState<string | null>(null);
-  const [cursorHash, setCursorHash] = useState<string | null>(null);
+    useState<ReadonlySet<string>>(savedSelection?.selectedHashes ?? EMPTY_HASH_SET);
+  const [anchorHash, setAnchorHash] = useState<string | null>(savedSelection?.anchorHash ?? null);
+  const [cursorHash, setCursorHash] = useState<string | null>(savedSelection?.cursorHash ?? null);
+
+  useLayoutEffect(() => {
+    saveRepoViewState(path, { historySelection: { selectedHash, selectedHashes, anchorHash, cursorHash } });
+  }, [path, selectedHash, selectedHashes, anchorHash, cursorHash]);
 
   const sidebarTab = useUiStore(s => s.sidebarTab);
   const activePath = useRepoStore(s => s.activePath);
@@ -108,13 +114,6 @@ export function CommitHistoryPanel({
       return undefined;
     }
   });
-
-  useEffect(() => {
-    setSelectedHash(null);
-    setSelectedHashes(prev => (prev.size === 0 ? prev : EMPTY_HASH_SET));
-    setAnchorHash(null);
-    setCursorHash(null);
-  }, [path]);
 
   const historyFilter = useHistoryPrefs(state => state.repositories[path]?.filter ?? EMPTY_HISTORY_FILTER);
   const setHistoryFilter = useHistoryPrefs(state => state.setFilter);
@@ -400,6 +399,7 @@ export function CommitHistoryPanel({
   ) : (
     <CommitList
       path={path}
+      viewContext={historyFilterKey({ ...historyFilter, refs: [...selectedBranchNames] })}
       commits={filteredCommits}
       matchPathsByHash={matchPathsByHash}
       onLoadMore={filtered ? history.loadMore : undefined}
