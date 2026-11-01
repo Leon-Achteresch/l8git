@@ -13,19 +13,24 @@ export function useRememberedRepoScroll(
   useLayoutEffect(() => {
     const element = ref.current;
     // Filtered history and file status may still be loading on mount.
-    if (!element || count === 0) return;
-    const scope = JSON.stringify([path, view, context]);
-    if (restored.current?.element !== element || restored.current.scope !== scope) {
-      element.scrollTop = readRepoScroll(path, view, context);
-      restored.current = { element, scope };
+    if (!element || count === 0) {
+      restored.current = null;
+      return;
     }
+    const scope = JSON.stringify([path, view, context]);
     const remember = () => saveRepoViewState(path, {
       [view]: { context, offset: element.scrollTop },
     });
+    if (restored.current?.element !== element || restored.current.scope !== scope) {
+      element.scrollTop = readRepoScroll(path, view, context);
+      restored.current = { element, scope };
+      remember();
+    }
     element.addEventListener("scroll", remember, { passive: true });
     return () => {
       // A switch can unmount the viewport before its final scroll event arrives.
-      if (element.isConnected && hasRepoViewState(path)) remember();
+      // An empty reload may already have clamped the viewport to zero.
+      if (element.isConnected && hasRepoViewState(path) && element.scrollHeight > element.clientHeight) remember();
       element.removeEventListener("scroll", remember);
     };
   }, [ref, path, view, context, count]);

@@ -399,7 +399,7 @@ export function CommitHistoryPanel({
   ) : (
     <CommitList
       path={path}
-      viewContext={historyFilterKey(queryFilter)}
+      viewContext={historyFilterKey({ ...historyFilter, refs: [...selectedBranchNames] })}
       commits={filteredCommits}
       matchPathsByHash={matchPathsByHash}
       onLoadMore={filtered ? history.loadMore : undefined}

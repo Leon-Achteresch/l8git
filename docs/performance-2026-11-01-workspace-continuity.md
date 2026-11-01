@@ -86,3 +86,22 @@ Local evidence is in `test-results/release-runtime.json`,
 `test-results/release-benchmark-smoke.json` and
 `test-results/release-native-memory.json`. macOS/Windows native verification and
 the distributable installers are handled by GitHub's CI/release workflows.
+
+## PR review follow-up
+
+The scroll context now uses user-selected branch names rather than resolved tip
+hashes, while history queries still use the current tips. Background history
+reloads invalidate the restoration marker during their temporary empty state and
+do not save its clamped zero offset. When a non-empty list returns, its actually
+reachable offset is saved immediately, including zero for a permanently short
+list. Performance fixture branches and tags now point to recent commits; their
+counts and metadata are unchanged.
+
+Four new browser regressions reproduced each failure before its correction:
+empty filtered reload, advancing branch tip, recent fixture refs and the
+long-to-short-to-long history sequence across a tab switch. All four and the
+existing related checks pass (19 targeted UI scenarios in total). The final
+independent high-effort review has no open findings. The full 1,565-test unit
+suite, production and fixture builds, bundle limits and final renderer runtime
+budgets also pass. The latest renderer evidence is in
+`test-results/pr115-final-runtime.json`.

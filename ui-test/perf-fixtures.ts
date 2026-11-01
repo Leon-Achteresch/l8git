@@ -21,11 +21,11 @@ const people = Array.from({ length: 120 }, (_, i) => `dev-${String(i).padStart(3
 const groups = ['feature', 'fix', 'chore', 'release', 'user/alice', 'user/bob', 'spike', 'deps'];
 
 const branches: Branch[] = [
-  { name: 'main', tip: hash(0), is_current: true, is_remote: false },
-  ...Array.from({ length: 400 }, (_, i) => ({ name: `${groups[i % groups.length]}/topic-${String(i).padStart(4, '0')}`, tip: hash(i), is_current: false, is_remote: false, behind: i % 7 })),
-  ...Array.from({ length: 1200 }, (_, i) => ({ name: `origin/${groups[i % groups.length]}/remote-${String(i).padStart(4, '0')}`, tip: hash(i), is_current: false, is_remote: true })),
+  { name: 'main', tip: hash(9999), is_current: true, is_remote: false },
+  ...Array.from({ length: 400 }, (_, i) => ({ name: `${groups[i % groups.length]}/topic-${String(i).padStart(4, '0')}`, tip: hash(9999 - i), is_current: false, is_remote: false, behind: i % 7 })),
+  ...Array.from({ length: 1200 }, (_, i) => ({ name: `origin/${groups[i % groups.length]}/remote-${String(i).padStart(4, '0')}`, tip: hash(9999 - i), is_current: false, is_remote: true })),
 ];
-const tags: TagRef[] = Array.from({ length: 400 }, (_, i) => ({ name: `v${Math.floor(i / 100)}.${Math.floor(i / 10) % 10}.${i % 10}`, commit: hash(i * 3), kind: i % 3 ? 'lightweight' : 'annotated', message: null, tagger: null }));
+const tags: TagRef[] = Array.from({ length: 400 }, (_, i) => ({ name: `v${Math.floor(i / 100)}.${Math.floor(i / 10) % 10}.${i % 10}`, commit: hash(9999 - i * 3), kind: i % 3 ? 'lightweight' : 'annotated', message: null, tagger: null }));
 const prs: PullRequest[] = Array.from({ length: 2000 }, (_, i) => ({
   number: 5000 - i, title: `Improve ${groups[i % groups.length]} handling for module ${i % 97} and friends`, state: i % 5 === 0 ? 'merged' : i % 11 === 0 ? 'closed' : 'open', is_draft: i % 6 === 1,
   author: people[i % people.length], author_avatar: null, source_branch: `feature/topic-${i}`, target_branch: 'main', html_url: `https://github.com/acme/big/pull/${5000 - i}`,
