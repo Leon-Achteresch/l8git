@@ -57,11 +57,17 @@ import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog"
 import { useTranslation } from "react-i18next";
 import { isPreviewRepo } from "@/lib/preview-repo";
 import { useEverTrue } from "@/lib/use-ever-true";
+import { readRepoViewState, saveRepoViewState } from "@/lib/repo-view-state";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
 
 export function CommitPanel() {
+  const path = useRepoStore((s) => s.activePath);
+  return <CommitPanelContent key={path ?? ""} />;
+}
+
+function CommitPanelContent() {
   const { t } = useTranslation();
   const activePath = useRepoStore((s) => s.activePath);
   const entries =
@@ -111,15 +117,18 @@ export function CommitPanel() {
   const [stashOpen, setStashOpen] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const aiReady = useCommitPrefs(() => isAiConfigured());
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(() => readRepoViewState(activePath ?? "").selectedFile ?? null);
+  useLayoutEffect(() => {
+    if (activePath) saveRepoViewState(activePath, { selectedFile: selectedRowId });
+  }, [activePath, selectedRowId]);
   const [blameTarget, setBlameTarget] = useState<string | null>(null);
   const [undoDialogOpen, setUndoDialogOpen] = useState(false);
   const [undoTarget, setUndoTarget] = useState<{ hash: string; commitMessage: string; path: string } | null>(null);
   const [signingInfo, setSigningInfo] = useState<SigningInfo | null>(null);
   const signingRevision = useSigningRevision((s) => s.revision);
 
-  const [anchorRowId, setAnchorRowId] = useState<string | null>(null);
-  const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(new Set<string>());
+  const [anchorRowId, setAnchorRowId] = useState<string | null>(() => readRepoViewState(activePath ?? "").selectedFile ?? null);
+  const [multiSelectedIds, setMultiSelectedIds] = useState<ReadonlySet<string>>(() => selectedRowId ? new Set([selectedRowId]) : new Set<string>());
   const [discardDialog, setDiscardDialog] = useState<DiscardPlan | null>(null);
   const [discardPending, setDiscardPending] = useState(false);
   const [discardError, setDiscardError] = useState<string | null>(null);
@@ -196,9 +205,6 @@ export function CommitPanel() {
     setDiscardDialog(null);
     setDiscardLinesDialog(null);
     setDiscardError(null);
-    setSelectedRowId(null);
-    setAnchorRowId(null);
-    setMultiSelectedIds(new Set());
     setCommitError(null);
     return () => {
       aiAbortRef.current?.abort();

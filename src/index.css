@@ -575,6 +575,13 @@
   animation: l8-shimmer 1.6s ease-in-out infinite;
 }
 
+/* Press feedback stays on the compositor and never delays the action. */
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-animations="off"]) .l8-button:active:not(:disabled):not([aria-disabled="true"]) {
+    scale: 0.98;
+  }
+}
+
 /* Subtle premium transitions for interactive rows */
 .l8-row-transition {
   transition:

@@ -65,7 +65,21 @@ const approval: AgentPendingRequest = {
   raw: {},
 };
 
-function seedAgentsScene() {
+// 200 completed turns, ~1200 transcript items: the length of a long working session.
+const longTurns: AgentConversation["turns"] = Array.from({ length: 200 }, (_, t) => ({
+  id: `long-${t}`,
+  status: "completed",
+  items: [
+    { id: `u${t}`, type: "userMessage", content: [{ type: "text", text: `Step ${t}: refactor module ${t % 17} and keep the tests green.` }] },
+    { id: `r${t}`, type: "reasoning", summary: [`considering module ${t}`], content: [], redacted: false, __completed: true },
+    { id: `f${t}`, type: "readTool", tool: "Read", path: `src/module-${t % 17}/index.ts`, status: "completed" },
+    { id: `g${t}`, type: "searchTool", tool: "Grep", pattern: `useThing${t}`, path: "src", status: "completed" },
+    { id: `c${t}`, type: "commandExecution", command: "bun run test", cwd: PATH, background: false, stdout: "ok", stderr: "", exitCode: 0, aggregatedOutput: "ok", status: "completed" },
+    { id: `a${t}`, type: "agentMessage", text: `Done with step ${t}. I changed three files:\n- src/module-${t % 17}/index.ts\n- src/module-${t % 17}/util.ts\n- tests/module-${t % 17}.test.ts\n\nAll ${t * 3} tests pass and the build is green. ${"Additional detail about the change. ".repeat(4)}` },
+  ],
+}));
+
+function seedAgentsScene(long: boolean) {
   const calls: Array<{ name: string; args: unknown[] }> = [];
   window.__L8GIT_AGENT_CALLS__ = calls;
   const record = (name: string) => async (...args: unknown[]) => {
@@ -87,7 +101,7 @@ function seedAgentsScene() {
       },
     ],
     threadsByPath: { [PATH]: [thread] },
-    conversations: { "thread-1": conversation },
+    conversations: { "thread-1": long ? { ...conversation, turns: longTurns } : conversation },
     requestsByThread: { "thread-1": [approval] },
     rateLimits: {
       limitId: "5h", limitName: "5-hour limit", planType: "Max",
@@ -104,8 +118,8 @@ function seedAgentsScene() {
   });
 }
 
-export default function AgentsScene() {
-  useState(() => { seedAgentsScene(); return true; });
+export default function AgentsScene({ long = false }: { long?: boolean }) {
+  useState(() => { seedAgentsScene(long); return true; });
   return (
     <>
       <div className="h-screen">

@@ -1,4 +1,6 @@
 import { useVirtualPoolSlots } from "@/lib/virtual-pool";
+import { readRepoScroll, readRepoViewState, saveRepoViewState } from "@/lib/repo-view-state";
+import { useRememberedRepoScroll } from "@/lib/use-remembered-repo-scroll";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -201,9 +203,13 @@ function VirtualFileListInner({
   const openMergeEditor = useUiStore((s) => s.openMergeEditor);
   const uiScale = workspaceScale(useWorkspacePrefs((s) => s.uiScale));
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [collapsed, setCollapsed] = useState<ReadonlySet<SectionId>>(new Set<SectionId>());
-  const [collapsedFolders, setCollapsedFolders] = useState<ReadonlySet<string>>(new Set<string>());
+  const [savedList] = useState(() => readRepoViewState(activePath).fileList);
+  const [searchQuery, setSearchQuery] = useState(savedList?.query ?? "");
+  const [collapsed, setCollapsed] = useState<ReadonlySet<SectionId>>(() => savedList?.collapsed ?? new Set<SectionId>());
+  const [collapsedFolders, setCollapsedFolders] = useState<ReadonlySet<string>>(() => savedList?.collapsedFolders ?? new Set<string>());
+  useLayoutEffect(() => {
+    saveRepoViewState(activePath, { fileList: { query: searchQuery, collapsed, collapsedFolders } });
+  }, [activePath, searchQuery, collapsed, collapsedFolders]);
   const treeView = useCommitPrefs((s) => s.fileTreeView);
 
   const toggleFolder = (id: string) => {
@@ -306,8 +312,10 @@ function VirtualFileListInner({
     return item.row.id;
   }, [listItems]);
 
+  const scrollContext = JSON.stringify([searchQuery, [...collapsed].sort(), [...collapsedFolders].sort(), treeView, uiScale]);
   const virtualizer = useVirtualizer({
     count: listItems.length,
+    initialOffset: () => readRepoScroll(activePath, "filesScroll", scrollContext),
     getScrollElement: () => scrollerRef.current,
     estimateSize: (index) => estimateItemSize(listItems[index], uiScale),
     overscan: 4,
@@ -315,6 +323,7 @@ function VirtualFileListInner({
     paddingEnd: 4,
     getItemKey,
   });
+  useRememberedRepoScroll(scrollerRef, activePath, "filesScroll", scrollContext, listItems.length);
   // Single-line row geometry scales with the root font size. A fixed wrapper
   // avoids synchronous layout measurements whenever virtual rows mount.
   useLayoutEffect(() => { virtualizer.measure(); }, [uiScale, virtualizer]);

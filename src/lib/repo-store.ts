@@ -1,4 +1,5 @@
 import { useRecentRepos } from "./recent-repos";
+import { forgetRepoViewState } from "./repo-view-state";
 import { readPullRequests } from './provider-reads';
 import { invoke } from '@tauri-apps/api/core';
 import { create } from 'zustand';
@@ -858,6 +859,7 @@ export const useRepoStore = create<RepoState>()(
       },
 
       removeRepo(path) {
+        forgetRepoViewState(path);
         const wasActive = get().activePath === path;
         nextCommitAvatarGeneration(path);
         try {

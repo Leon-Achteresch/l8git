@@ -1,7 +1,6 @@
 import { ContextReviewDialog } from "@/components/ai/context-review-dialog";
 import { useInboxRefresh } from "@/lib/use-inbox-refresh";
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
-import { m } from "motion/react";
 import { lazy, Suspense, useEffect } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -31,7 +30,6 @@ const GitCommandLogPage = lazy(() =>
   })),
 );
 import { MotionProvider } from "@/components/motion/motion-provider";
-import { easeOutSoft } from "@/components/motion/kit";
 import { useRepoStore } from "@/lib/repo-store";
 import { useAppHotkeys } from "@/lib/use-app-hotkeys";
 import { useUiStore } from "@/lib/ui-store";
@@ -101,17 +99,13 @@ function RootLayout() {
             className={`min-h-0 flex-1 bg-background ${(pathname === "/settings" || pathname === "/hub") ? "overflow-hidden" : "overflow-y-auto"}`}
             tabIndex={-1}
           >
-            <m.div
-              key={pathname}
+            <div
               className={(pathname === "/settings" || pathname === "/hub") ? "h-full min-h-0 overflow-hidden" : "h-full"}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={easeOutSoft}
             >
               <RouteErrorBoundary resetKey={pathname}>
                 <Outlet />
               </RouteErrorBoundary>
-            </m.div>
+            </div>
           </main>
         </AppShell>
         <Toaster />

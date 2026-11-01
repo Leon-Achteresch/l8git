@@ -12,15 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { FIXTURE_PATH, PATCH, seedAuditFixture } from './audit-fixtures';
 import { seedHistoryFixture } from './history-fixture';
+import { seedPerfFixture } from './perf-fixtures';
 export default function AuditScenes({ scene }: { scene: string }) {
-  useState(() => { if (scene !== 'agents' && !seedHistoryFixture(scene)) seedAuditFixture(scene); return true; });
+  useState(() => { if (scene !== 'agents' && scene !== 'performance-agents' && !seedHistoryFixture(scene) && !seedPerfFixture(scene)) seedAuditFixture(scene); return true; });
   const [reviewOpen, setReviewOpen] = useState(true);
   const [remoteOpen, setRemoteOpen] = useState(true);
   const [sent, setSent] = useState('');
   const [splitOpen, setSplitOpen] = useState(true);
   const [splitResult, setSplitResult] = useState('');
   if (scene === "ci") return <CiScene />;
-  if (scene === "agents") return <AgentsScene />;
+  if (scene === "agents" || scene === "performance-agents") return <AgentsScene long={scene === "performance-agents"} />;
   if (scene === 'context') return <div className="p-6"><Button onClick={() => void reviewAiContext({ system: 'Summarize the changes.', prompt: PATCH }).then(c => setSent(c.prompt)).catch(() => {})}>Preview AI context</Button><ContextReviewDialog /><output aria-label="Sent context">{sent}</output></div>;
   if (scene === 'review') return <><AgentReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} session={{ worktreePath: FIXTURE_PATH, basePath: '/tmp/base-fixture', branch: 'agents/fixture' }} /><Toaster /></>;
   if (scene === 'split' || scene === 'split-worktree') return <><CommitSplitDialog open={splitOpen} onOpenChange={setSplitOpen} path={FIXTURE_PATH} ownerRepoPath={scene === 'split-worktree' ? '/tmp/base-fixture' : FIXTURE_PATH} onApplied={result => setSplitResult(JSON.stringify(result))} /><div className="p-6"><Button onClick={() => setSplitOpen(true)}>Open split dialog</Button><output aria-label="Split result">{splitResult}</output></div><Toaster /></>;

@@ -1,5 +1,7 @@
 import { historySectionTitleResolver } from "@/lib/commit-history-sections";
 import { useVirtualPoolSlots } from "@/lib/virtual-pool";
+import { readRepoScroll } from "@/lib/repo-view-state";
+import { useRememberedRepoScroll } from "@/lib/use-remembered-repo-scroll";
 import {
   buildGraph,
   compareBranchesDisplay,
@@ -85,6 +87,7 @@ function resolveNextSearchMatchRowIndex(
 
 export function CommitList({
   path,
+  viewContext,
   commits,
   matchPathsByHash,
   searchActive,
@@ -97,6 +100,7 @@ export function CommitList({
   onLoadMore,
 }: {
   path: string;
+  viewContext: string;
   onLoadMore?: () => unknown;
   commits: Commit[];
   matchPathsByHash: ReadonlyMap<string, string[]>;
@@ -335,8 +339,10 @@ export function CommitList({
     [flatItems, rows],
   );
 
+  const scrollContext = JSON.stringify([viewContext, searchActive, searchEpoch, showCommitDateGroups, uiScale]);
   const virtualizer = useVirtualizer({
     count: flatItems.length,
+    initialOffset: () => readRepoScroll(path, "historyScroll", scrollContext),
     getScrollElement: () => scrollerRef.current,
     estimateSize: (index) => {
       const it = flatItems[index];
@@ -350,6 +356,7 @@ export function CommitList({
     overscan: 8,
     getItemKey,
   });
+  useRememberedRepoScroll(scrollerRef, path, "historyScroll", scrollContext, flatItems.length);
   const rowObserver = useMemo(
     () =>
       createHistoryRowObserver((index, height, key) => {
