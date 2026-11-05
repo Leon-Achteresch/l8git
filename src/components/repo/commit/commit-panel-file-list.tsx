@@ -36,6 +36,8 @@ import {
   X,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useBranchRestore } from "@/lib/github-ui/branch-context";
+import { useRepoStore } from "@/lib/repo-store";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { FileRow, FileRowMenu } from "./commit-panel-file-row";
@@ -324,6 +326,17 @@ function VirtualFileListInner({
     getItemKey,
   });
   useRememberedRepoScroll(scrollerRef, activePath, "filesScroll", scrollContext, listItems.length);
+  // ID 68: restore the incoming branch's list scroll once its rows are present.
+  const branchRestore = useBranchRestore((s) => s.request);
+  const currentBranch = useRepoStore((s) => s.repos[activePath]?.branch ?? null);
+  const scrollRestoredRef = useRef(0);
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el || !branchRestore || branchRestore.scrollTop == null || scrollRestoredRef.current === branchRestore.id) return;
+    if (branchRestore.path !== activePath || branchRestore.branch !== currentBranch || listItems.length === 0) return;
+    scrollRestoredRef.current = branchRestore.id;
+    el.scrollTop = branchRestore.scrollTop;
+  }, [branchRestore, activePath, currentBranch, listItems.length]);
   // Single-line row geometry scales with the root font size. A fixed wrapper
   // avoids synchronous layout measurements whenever virtual rows mount.
   useLayoutEffect(() => { virtualizer.measure(); }, [uiScale, virtualizer]);

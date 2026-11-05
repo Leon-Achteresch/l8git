@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 import { CommitInspectHeader } from "./commit-inspect-header";
 import { CommitSignatureBadge } from "./commit-signature-badge";
 import { CommitInspectMessage } from "./commit-inspect-message";
+import { CommitDecisionTrail } from "../github/commit-decision-trail";
 import { CommitInspectFileTabs } from "./commit-inspect-file-tabs";
 import { CommitInspectDiff, FileDiffPayload } from "./commit-inspect-diff";
 import { CommitChangedFile } from "./commit-inspect-file-item";
@@ -204,6 +205,7 @@ export function CommitInspectDetail({
             {payload?.header ? (
               <CommitInspectMessage message={payload.header} />
             ) : null}
+            {commitHash && <CommitDecisionTrail path={path} sha={commitHash} />}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/5">
               <CommitInspectFileTabs
                 files={payload?.files ?? []}
@@ -235,6 +237,7 @@ export function CommitInspectDetail({
                     fileDiff={fileDiff}
                     loading={diffLoading}
                     failed={diffFailed}
+                    previewable
                   />
                 )}
               </CommitInspectFileTabs>

@@ -7,12 +7,21 @@ export type ReviewDraftComment = {
   line: number;
   body: string;
   createdAt: string;
+  side?: "LEFT" | "RIGHT";
+  startLine?: number;
+  startSide?: "LEFT" | "RIGHT";
+  /** Full head SHA the anchor was taken from; pinned submission keeps comments on that commit. */
+  commitId?: string;
 };
 
 export type ReviewDraftInput = {
   filePath: string;
   line: number;
   body: string;
+  side?: "LEFT" | "RIGHT";
+  startLine?: number;
+  startSide?: "LEFT" | "RIGHT";
+  commitId?: string;
 };
 
 export function draftKey(path: string, number: number): string {
@@ -43,13 +52,15 @@ export function draftsByLine(
 
 export function toReviewPayload(
   drafts: ReviewDraftComment[],
-): { path: string; line: number; body: string }[] {
+): { path: string; line: number; body: string; side?: "LEFT" | "RIGHT"; start_line?: number; start_side?: "LEFT" | "RIGHT" }[] {
   return sortDrafts(drafts)
     .filter((draft) => draft.body.trim().length > 0)
     .map((draft) => ({
       path: draft.filePath,
       line: draft.line,
       body: draft.body.trim(),
+      ...(draft.side ? { side: draft.side } : {}),
+      ...(draft.startLine === undefined ? {} : { start_line: draft.startLine, start_side: draft.startSide ?? draft.side ?? "RIGHT" }),
     }));
 }
 
@@ -83,6 +94,9 @@ export const useReviewDraftStore = create<ReviewDraftState>()(
             line: input.line,
             body: input.body,
             createdAt: new Date().toISOString(),
+            ...(input.side ? { side: input.side } : {}),
+            ...(input.startLine === undefined ? {} : { startLine: input.startLine, startSide: input.startSide ?? input.side ?? "RIGHT" }),
+            ...(input.commitId ? { commitId: input.commitId } : {}),
           };
           return { drafts: { ...state.drafts, [key]: [...existing, draft] } };
         }),

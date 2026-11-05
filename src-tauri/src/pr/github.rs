@@ -204,6 +204,7 @@ pub(super) async fn gh_files(
                 // Patch payload intentionally omitted — fetched on demand.
                 out.push(PrFile {
                     path: str_or_empty(&f["filename"]),
+                    previous_path: f["previous_filename"].as_str().filter(|previous| !previous.is_empty() && Some(*previous) != f["filename"].as_str()).map(str::to_string),
                     status: str_or_empty(&f["status"]),
                     additions: f["additions"].as_u64().unwrap_or(0),
                     deletions: f["deletions"].as_u64().unwrap_or(0),
@@ -277,12 +278,21 @@ pub fn gh_review_payload(event: &str, body: &str, comments: &[ReviewDraftComment
     let mapped: Vec<Value> = comments
         .iter()
         .map(|c| {
-            json!({
+            let mut value = json!({
                 "path": c.path,
                 "line": c.line,
                 "side": c.side.clone().unwrap_or_else(|| "RIGHT".to_string()),
                 "body": c.body,
-            })
+            });
+            if let Some(start) = c.start_line {
+                value["start_line"] = json!(start);
+                value["start_side"] = json!(c
+                    .start_side
+                    .as_deref()
+                    .or(c.side.as_deref())
+                    .unwrap_or("RIGHT"));
+            }
+            value
         })
         .collect();
     if mapped.is_empty() {

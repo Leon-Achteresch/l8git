@@ -11,7 +11,12 @@ import { isHubPath } from "@/lib/hub/store";
 import { trackWorkflowRuns } from "@/lib/notifications";
 import { writeLocalStorageDebounced } from "@/lib/utils";
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { ChevronRight } from "lucide-react";
+
+const GithubCiExtensions = lazy(() =>
+  import("@/components/repo/github-ci/github-ci-extensions").then((m) => ({ default: m.GithubCiExtensions })),
+);
 import { useTranslation } from "react-i18next";
 import { CiDetailPanel } from "./ci-detail-panel";
 import { RemoteCiCheck, WorkflowRun } from "./ci-types";
@@ -47,6 +52,7 @@ function RepoCiWorkspace({ path }: { path: string }) {
     return () => observer.disconnect();
   }, []);
   const [mode, setMode] = useState<CiMode>("runs");
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [selectedRun, setSelectedRun] = useState<WorkflowRun | null>(null);
 
   // Restore persisted split sizes
@@ -176,6 +182,22 @@ function RepoCiWorkspace({ path }: { path: string }) {
           />
         </div>
       )}
+      {path ? (
+        <div className="shrink-0 border-t border-border/50">
+          <button type="button" aria-expanded={extrasOpen} onClick={() => setExtrasOpen((x) => !x)}
+            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold text-muted-foreground hover:text-foreground">
+            <ChevronRight className={`size-3 transition-transform ${extrasOpen ? "rotate-90" : ""}`} />
+            {t("ci.githubTools")}
+          </button>
+          {extrasOpen && (
+            <div className="max-h-[50vh] overflow-y-auto">
+              <Suspense fallback={<div className="p-3 text-xs text-muted-foreground">{t("common.loading")}</div>}>
+                <GithubCiExtensions path={path} selectedRunId={selectedRun?.id} />
+              </Suspense>
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 

@@ -1,3 +1,4 @@
+import { TemplateInsertMenu } from "../github/comment-templates";
 import { CommitAvatar } from "@/components/repo/commit/commit-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,8 +24,9 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "sonner";
 import { SpinIcon } from "@/components/motion/kit";
 import { PrT3Menu } from "./pr-t3-menu";
@@ -33,6 +35,7 @@ function SuggestionPreview({
   repoPath,
   filePath,
   line,
+  startLine,
   lines,
   applyEnabled,
   applyDisabledHint,
@@ -40,6 +43,7 @@ function SuggestionPreview({
   repoPath: string;
   filePath: string;
   line: number;
+  startLine?: number;
   lines: string[];
   applyEnabled: boolean;
   applyDisabledHint: string;
@@ -54,7 +58,7 @@ function SuggestionPreview({
         path: repoPath,
         file: filePath,
       });
-      const next = applySuggestionToContent(content, line, lines);
+      const next = applySuggestionToContent(content, line, lines, startLine);
       if (next === null) {
         toastError(t("prReview.suggestionOutOfRange", { file: filePath, line }));
         return;
@@ -116,6 +120,7 @@ function CommentBody({
   repoPath,
   filePath,
   line,
+  startLine,
   applyEnabled,
   applyDisabledHint,
 }: {
@@ -123,6 +128,7 @@ function CommentBody({
   repoPath: string;
   filePath: string;
   line: number;
+  startLine?: number;
   applyEnabled: boolean;
   applyDisabledHint: string;
 }) {
@@ -140,6 +146,7 @@ function CommentBody({
             repoPath={repoPath}
             filePath={filePath}
             line={line}
+            startLine={startLine}
             lines={segment.lines}
             applyEnabled={applyEnabled}
             applyDisabledHint={applyDisabledHint}
@@ -157,6 +164,7 @@ export function InlineCommentComposer({
   submitLabel,
   onSubmit,
   onCancel,
+  onBodyChange,
 }: {
   lineText: string;
   initialBody?: string;
@@ -164,9 +172,12 @@ export function InlineCommentComposer({
   submitLabel: string;
   onSubmit: (body: string) => void;
   onCancel: () => void;
+  /** Lets a parent keep the text when the composer moves (range extension remounts it). */
+  onBodyChange?: (body: string) => void;
 }) {
   const { t } = useTranslation();
   const [body, setBody] = useState(initialBody);
+  useEffect(() => onBodyChange?.(body), [body]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="rounded border border-primary/30 bg-primary/5 p-2">
@@ -189,6 +200,7 @@ export function InlineCommentComposer({
           <Lightbulb className="mr-1 h-3 w-3" />
           {t("prReview.suggestionMode")}
         </Button>
+        <TemplateInsertMenu current={body} onInsert={(tpl) => setBody((prev) => (prev.trim() ? `${prev}\n\n${tpl}` : tpl))} />
         <span className="flex-1" />
         <Button
           type="button"
@@ -252,7 +264,7 @@ export function InlineDraftCard({
       <div className="flex items-center gap-1.5">
         <Badge variant="info">{t("prReview.draftBadge")}</Badge>
         <span className="font-mono text-[0.625rem] text-muted-foreground">
-          {t("prReview.lineLabel", { line: draft.line })}
+          {rangeLabel(t, draft) ?? t("prReview.lineLabel", { line: draft.line })}
         </span>
         <span className="flex-1" />
         <Button
@@ -281,11 +293,25 @@ export function InlineDraftCard({
         repoPath={repoPath}
         filePath={draft.filePath}
         line={draft.line}
-        applyEnabled={applyEnabled}
-        applyDisabledHint={applyDisabledHint}
+        startLine={localStartLine(draft)}
+        applyEnabled={applyEnabled && draft.side !== "LEFT" && (draft.startSide ?? "RIGHT") !== "LEFT"}
+        applyDisabledHint={draft.side === "LEFT" || draft.startSide === "LEFT" ? t("prRanges.applyOldSide") : applyDisabledHint}
       />
     </div>
   );
+}
+
+export type ThreadRange = { line: number; side?: "LEFT" | "RIGHT"; startLine?: number; startSide?: "LEFT" | "RIGHT"; outdated?: boolean };
+
+/** Same-side new-file range start for local apply; mixed or old-side ranges are never applied locally. */
+function localStartLine(r: { line: number; side?: "LEFT" | "RIGHT"; startLine?: number; startSide?: "LEFT" | "RIGHT" }): number | undefined {
+  return r.startLine !== undefined && r.startLine < r.line && (r.side ?? "RIGHT") === "RIGHT" && (r.startSide ?? "RIGHT") === "RIGHT" ? r.startLine : undefined;
+}
+
+function rangeLabel(t: TFunction, r: { line: number; side?: "LEFT" | "RIGHT"; startLine?: number; startSide?: "LEFT" | "RIGHT" }): string | null {
+  const sign = (side?: "LEFT" | "RIGHT") => (side === "LEFT" ? "-" : "+");
+  if (r.startLine === undefined) return r.side === "LEFT" ? t("prRanges.oldLine", { line: r.line }) : null;
+  return t("prRanges.lines", { start: `${sign(r.startSide ?? r.side)}${r.startLine}`, end: `${sign(r.side)}${r.line}` });
 }
 
 export type ThreadResolveState = {
@@ -301,10 +327,13 @@ export function InlineThreadCard({
   applyEnabled,
   applyDisabledHint,
   resolveState,
+  range,
   onReplied,
   onResolved,
 }: {
   thread: PrCommentThread;
+  /** Provider anchor metadata (GitHub review threads); absent means single new-side line as before. */
+  range?: ThreadRange;
   repoPath: string;
   prNumber: number;
   canReply: boolean;
@@ -375,6 +404,11 @@ export function InlineThreadCard({
         )}
         <MessageSquare className="h-3 w-3 shrink-0 text-primary" />
         <span className="text-[0.6875rem] font-medium">{first.author}</span>
+        {range && (rangeLabel(t, range) || range.outdated) && (
+          <span className="shrink-0 font-mono text-[0.625rem] text-muted-foreground">
+            {range.outdated ? t("prRanges.outdated") : rangeLabel(t, range)}
+          </span>
+        )}
         {isResolved && (
           <Badge variant="success">{t("prReview.threadResolved")}</Badge>
         )}
@@ -432,8 +466,9 @@ export function InlineThreadCard({
                 repoPath={repoPath}
                 filePath={thread.filePath}
                 line={thread.line}
-                applyEnabled={applyEnabled}
-                applyDisabledHint={applyDisabledHint}
+                startLine={range ? localStartLine(range) : undefined}
+                applyEnabled={applyEnabled && !(range && (range.outdated || range.side === "LEFT" || range.startSide === "LEFT"))}
+                applyDisabledHint={range?.outdated ? t("prRanges.applyOutdated") : range && (range.side === "LEFT" || range.startSide === "LEFT") ? t("prRanges.applyOldSide") : applyDisabledHint}
               />
             </div>
           ))}

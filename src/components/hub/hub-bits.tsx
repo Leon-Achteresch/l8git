@@ -204,3 +204,15 @@ export function RepoRow({ repo, onOpen }: { repo: HubRepo; onOpen: () => void })
     </button>
   );
 }
+
+export function PageHead({ title, sub, action }: { title: string; sub?: string; action?: ReactNode }) {
+  return (
+    <div className="flex items-end justify-between gap-4 px-6 pt-6 pb-4">
+      <div className="min-w-0">
+        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {sub && <p className="mt-0.5 text-[13px] text-muted-foreground">{sub}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}

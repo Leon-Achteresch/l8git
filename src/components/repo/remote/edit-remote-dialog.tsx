@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toastError } from "@/lib/error-toast";
+import { invalidateGithubTarget } from "@/lib/github-ui/target";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { CloudUpload, Loader2, X } from "lucide-react";
@@ -89,6 +90,7 @@ export function EditRemoteDialog({
           name: n,
           url,
         });
+        invalidateGithubTarget(path);
         await Promise.all([reload(path), reloadStatus(path)]);
         toast.success(out.trim() || t("editRemote.toastAddedFallback"));
         onClose();
@@ -99,6 +101,7 @@ export function EditRemoteDialog({
         name: selectedName,
         url,
       });
+      invalidateGithubTarget(path);
       await Promise.all([reload(path), reloadStatus(path)]);
       toast.success(out.trim() || t("editRemote.toastSavedFallback"));
       onClose();

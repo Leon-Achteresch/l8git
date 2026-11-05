@@ -1,5 +1,9 @@
 import CiScene from "./ci-scene";
 import AgentsScene from "./agents-scene";
+import GithubFixesScene from "./github-fixes-scene";
+import GithubP1Scene from "./github-p1-scene";
+import PrRangesScene from "./pr-ranges-scene";
+import GithubTaskFlowScene from "./github-task-flow-scene";
 import { useState } from 'react';
 import { RouterProvider } from '@tanstack/react-router';
 import { router } from '@/lib/router';
@@ -14,13 +18,17 @@ import { FIXTURE_PATH, PATCH, seedAuditFixture } from './audit-fixtures';
 import { seedHistoryFixture } from './history-fixture';
 import { seedPerfFixture } from './perf-fixtures';
 export default function AuditScenes({ scene }: { scene: string }) {
-  useState(() => { if (scene !== 'agents' && scene !== 'performance-agents' && !seedHistoryFixture(scene) && !seedPerfFixture(scene)) seedAuditFixture(scene); return true; });
+  useState(() => { if (!scene.startsWith('ghfx') && !scene.startsWith('ghp1') && !scene.startsWith('ghtf') && scene !== 'pr-ranges' && scene !== 'agents' && scene !== 'performance-agents' && !seedHistoryFixture(scene) && !seedPerfFixture(scene)) seedAuditFixture(scene); return true; });
   const [reviewOpen, setReviewOpen] = useState(true);
   const [remoteOpen, setRemoteOpen] = useState(true);
   const [sent, setSent] = useState('');
   const [splitOpen, setSplitOpen] = useState(true);
   const [splitResult, setSplitResult] = useState('');
   if (scene === "ci") return <CiScene />;
+  if (scene.startsWith("ghfx")) return <GithubFixesScene scene={scene} />;
+  if (scene.startsWith("ghp1")) return <GithubP1Scene scene={scene} />;
+  if (scene.startsWith("ghtf")) return <GithubTaskFlowScene scene={scene} />;
+  if (scene === "pr-ranges") return <PrRangesScene />;
   if (scene === "agents" || scene === "performance-agents") return <AgentsScene long={scene === "performance-agents"} />;
   if (scene === 'context') return <div className="p-6"><Button onClick={() => void reviewAiContext({ system: 'Summarize the changes.', prompt: PATCH }).then(c => setSent(c.prompt)).catch(() => {})}>Preview AI context</Button><ContextReviewDialog /><output aria-label="Sent context">{sent}</output></div>;
   if (scene === 'review') return <><AgentReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} session={{ worktreePath: FIXTURE_PATH, basePath: '/tmp/base-fixture', branch: 'agents/fixture' }} /><Toaster /></>;

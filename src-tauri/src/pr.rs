@@ -1,6 +1,7 @@
 mod github;
 mod gitlab;
 mod bitbucket;
+mod guards;
 pub use github::*;
 pub use gitlab::*;
 pub use bitbucket::*;
@@ -81,6 +82,8 @@ pub struct CommitAvatarEntry {
 #[derive(Serialize)]
 pub struct PrFile {
     path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    previous_path: Option<String>,
     status: String,
     additions: u64,
     deletions: u64,
@@ -113,6 +116,10 @@ pub struct ReviewDraftComment {
     pub body: String,
     #[serde(default)]
     pub side: Option<String>,
+    #[serde(default)]
+    pub start_line: Option<u64>,
+    #[serde(default)]
+    pub start_side: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -1215,9 +1222,24 @@ pub async fn pr_file_patch(
     path: String,
     number: u64,
     file: String,
+    expected_head_sha: Option<String>,
+    expected_base_sha: Option<String>,
 ) -> Result<Option<String>, String> {
+    let expected = guards::patch_precondition(expected_head_sha.as_deref(), expected_base_sha.as_deref())?;
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
+    if let Some(expected) = expected {
+        if !matches!(h.provider, Provider::GitHub | Provider::Gitea) {
+            return Err("Pinned PR patch reads currently require GitHub or Gitea comparison revisions".into());
+        }
+        let cred = credential(&h)?;
+        let client = http_client()?;
+        let url = github_repo_api_url(&h, &format!("pulls/{number}"));
+        return guards::with_pinned_patch(&expected,
+            || guards::read_github_patch_pins(&client, &cred, &h.host, &url),
+            || gh_file_patch(&client, &cred, &h, number, &file),
+        ).await;
+    }
     let cred = credential(&h)?;
     let client = http_client()?;
     match h.provider {
@@ -1383,6 +1405,8 @@ pub async fn pr_add_comment(
             line: l,
             body: body.clone(),
             side: None,
+            start_line: None,
+            start_side: None,
         }),
         _ => None,
     };
@@ -1510,6 +1534,17 @@ pub async fn pr_submit_review(
     let client = http_client()?;
     let ev = event.to_uppercase();
     let drafts = comments.unwrap_or_default();
+    for draft in &drafts {
+        let valid_side = |side: Option<&str>| side.is_none_or(|s| matches!(s, "LEFT" | "RIGHT"));
+        if draft.line == 0 || draft.path.trim().is_empty() || !valid_side(draft.side.as_deref())
+            || !valid_side(draft.start_side.as_deref()) {
+            return Err("Invalid review comment anchor".into());
+        }
+        if let Some(start) = draft.start_line {
+            if h.provider != Provider::GitHub { return Err("Multiline review comments are currently supported only on GitHub".into()); }
+            if start == 0 || start >= draft.line { return Err("Invalid multiline review range".into()); }
+        }
+    }
     match h.provider {
         Provider::GitHub | Provider::Gitea => {
             let url = github_repo_api_url(&h, &format!("pulls/{number}/reviews"));
@@ -1624,9 +1659,11 @@ pub async fn pr_merge(
     strategy: String,
     message: Option<String>,
     delete_source_branch: Option<bool>,
+    expected_head_sha: Option<String>,
 ) -> Result<PrMergeResult, String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
+    let expected_head_sha = guards::merge_precondition(h.provider, expected_head_sha.as_deref())?;
     let cred = credential(&h)?;
     let client = http_client()?;
     let delete_source = delete_source_branch.unwrap_or(false);
@@ -1642,8 +1679,7 @@ pub async fn pr_merge(
             if let Some(m) = message.filter(|s| !s.trim().is_empty()) {
                 body["commit_message"] = Value::String(m);
             }
-            let res = github_request(&client, &cred, reqwest::Method::PUT, &url, Some(body)).await?;
-            let v = github_read_json(res, &h.host).await?;
+            let v = guards::send_merge_request(&client, &cred, h.provider, &h.host, &url, body, expected_head_sha.as_deref()).await?;
             Ok(PrMergeResult {
                 sha: v["sha"].as_str().map(|s| s.to_string()),
                 merged: v["merged"].as_bool().unwrap_or(false),
@@ -1689,8 +1725,7 @@ pub async fn pr_merge(
                     body["merge_commit_message"] = Value::String(m);
                 }
             }
-            let res = gl_request(&client, &cred, reqwest::Method::PUT, &url, Some(body)).await?;
-            let v = gl_read_json(res, &h.host).await?;
+            let v = guards::send_merge_request(&client, &cred, h.provider, &h.host, &url, body, expected_head_sha.as_deref()).await?;
             let state = str_or_empty(&v["state"]).to_lowercase();
             Ok(PrMergeResult {
                 sha: v["merge_commit_sha"]

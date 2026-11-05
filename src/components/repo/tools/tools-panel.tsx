@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UndoConfirmDialog } from "@/components/repo/undo/undo-confirm-dialog";
 import { LfsSection } from "./lfs-section";
+import { GitWorkbench } from "../workbench/git-workbench";
+import { Suspense, lazy } from "react";
+
+const ChangeWorkflowPanel = lazy(() =>
+  import("../change-workflow/change-workflow-panel").then((m) => ({ default: m.ChangeWorkflowPanel })),
+);
+import { isHubPath } from "@/lib/hub/store";
 import { useRepoToolsStore, type ToolAction } from "@/lib/repo-tools-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { useUiStore } from "@/lib/ui-store";
@@ -97,6 +104,13 @@ export function ToolsPanel({ path }: { path: string }) {
         </div>
 
         <LfsSection path={path} />
+
+        {!isHubPath(path) && <GitWorkbench path={path} />}
+        {!isHubPath(path) && (
+          <Suspense fallback={null}>
+            <ChangeWorkflowPanel path={path} />
+          </Suspense>
+        )}
 
         {tools && tools.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-1 px-6 py-8 text-center">

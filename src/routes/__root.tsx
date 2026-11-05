@@ -1,5 +1,7 @@
 import { ContextReviewDialog } from "@/components/ai/context-review-dialog";
 import { useInboxRefresh } from "@/lib/use-inbox-refresh";
+import { useCheckReminderPoller } from "@/lib/github-ui/check-reminders";
+import { useBranchContextBridge } from "@/lib/github-ui/branch-context";
 import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect } from "react";
 import { isTauri } from "@tauri-apps/api/core";
@@ -43,6 +45,8 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   useInboxRefresh();
+  useCheckReminderPoller();
+  useBranchContextBridge();
   useEffect(() => {
     if (!import.meta.env.DEV || isTauri()) return;
     const seed = () => seedPreviewRepo();

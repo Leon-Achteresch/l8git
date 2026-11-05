@@ -1,5 +1,6 @@
-export async function sendNotification(): Promise<void> {
-  return undefined;
+export function sendNotification(options?: unknown): void {
+  // Tests may observe would-be native notifications; nothing native is ever shown.
+  (window as { __L8GIT_TEST_NOTIFY__?: (o: unknown) => void }).__L8GIT_TEST_NOTIFY__?.(options);
 }
 
 export async function isPermissionGranted(): Promise<boolean> {

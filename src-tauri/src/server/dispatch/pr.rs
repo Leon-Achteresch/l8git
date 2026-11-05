@@ -48,8 +48,8 @@ pub async fn dispatch(
             crate::pr::pr_files(path, number).await
         }
 
-        "pr_file_patch" (path: String, number: u64, file: String) => {
-            crate::pr::pr_file_patch(path, number, file).await
+        "pr_file_patch" (path: String, number: u64, file: String, expected_head_sha: Option<String>, expected_base_sha: Option<String>) => {
+            crate::pr::pr_file_patch(path, number, file, expected_head_sha, expected_base_sha).await
         }
 
         "pr_conversation" (path: String, number: u64) => {
@@ -90,9 +90,10 @@ pub async fn dispatch(
             number: u64,
             strategy: String,
             message: Option<String>,
-            delete_source_branch: Option<bool>
+            delete_source_branch: Option<bool>,
+            expected_head_sha: Option<String>
         ) => {
-            crate::pr::pr_merge(path, number, strategy, message, delete_source_branch).await
+            crate::pr::pr_merge(path, number, strategy, message, delete_source_branch, expected_head_sha).await
         }
 
         "pr_checkout" (path: String, number: u64) => {

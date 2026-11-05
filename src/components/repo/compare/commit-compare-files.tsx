@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Checkbox } from '@/components/ui/checkbox';
 import { COMPARE_FILE_STATUS_KEYS, type CommitCompareFile } from '@/lib/commit-compare';
 import { cn } from '@/lib/utils';
+import { classifyFile } from '@/lib/workbench-ui/file-classes';
 
 const STATUS_COLORS = {
   A: 'text-git-added', M: 'text-git-modified', D: 'text-git-removed',
@@ -53,6 +54,7 @@ export function CommitCompareFiles({ files, selectedPath, reviewed, onSelect, on
                     <span className="mt-1 flex items-center gap-2 text-[10px]">
                       <span className={STATUS_COLORS[file.status]}>{t(`compare.${COMPARE_FILE_STATUS_KEYS[file.status]}`)}</span>
                       {file.binary ? <span className="text-muted-foreground">{t('commitInspect.binaryBadge')}</span> : <><span className="font-mono text-git-added">+{file.additions}</span><span className="font-mono text-git-removed">−{file.deletions}</span></>}
+                      {classifyFile(file.path).filter((c) => c !== 'docs' && c !== 'test').map((c) => <span key={c} className="rounded bg-muted px-1 text-muted-foreground">{t(`diffProfile.class.${c}`)}</span>)}
                       {checked && <Check aria-hidden="true" className="ml-auto size-3 text-git-added" />}
                     </span>
                   </span>

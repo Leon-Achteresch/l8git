@@ -14,6 +14,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { SpinIcon } from "@/components/motion/kit";
+import { submitRangeReview } from "@/lib/github-expansion/api";
+import { planReviewSubmission } from "@/lib/github-ui/review-submit";
+import { isTarget, useGithubTarget } from "@/lib/github-ui/target";
 
 type ReviewEvent = "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
 
@@ -21,11 +24,14 @@ export function PullRequestReviewDraftsBar({
   path,
   number,
   caps,
+  headSha,
   onSubmitted,
 }: {
   path: string;
   number: number;
   caps: ProviderCapabilities | null;
+  /** Current PR head; only used to warn when pinned drafts were anchored at an older head. */
+  headSha?: string;
   onSubmitted: () => void;
 }) {
   const { t } = useTranslation();
@@ -33,26 +39,38 @@ export function PullRequestReviewDraftsBar({
   const clearDrafts = useReviewDraftStore((s) => s.clearDrafts);
   const [summary, setSummary] = useState("");
   const [busy, setBusy] = useState<ReviewEvent | null>(null);
+  const target = useGithubTarget(path);
 
   if (drafts.length === 0) return null;
 
   const comments = toReviewPayload(drafts);
   const batched = caps?.can_draft_reviews ?? false;
+  const plan = planReviewSubmission(drafts, caps?.provider, headSha);
 
   async function submit(event: ReviewEvent) {
     if (event === "REQUEST_CHANGES" && !summary.trim()) {
       toastError(t("prReview.summaryRequired"));
       return;
     }
+    if (plan.kind === "mixed") {
+      toastError(t("prRanges.mixedHeads"));
+      return;
+    }
     setBusy(event);
     try {
-      await invoke("pr_submit_review", {
-        path,
-        number,
-        event,
-        body: summary.trim(),
-        comments,
-      });
+      if (plan.kind === "pinned") {
+        // Pinned to the commit the anchors were taken from; never the legacy unpinned path.
+        if (!isTarget(target)) throw new Error(t("prRanges.pinnedNoAccount"));
+        await submitRangeReview(target.account, target.fullName, number, plan.commitId, event, summary.trim(), plan.comments);
+      } else {
+        await invoke("pr_submit_review", {
+          path,
+          number,
+          event,
+          body: summary.trim(),
+          comments,
+        });
+      }
       clearDrafts(draftKey(path, number));
       setSummary("");
       toast.success(t("prReview.submitted", { count: comments.length }));
@@ -88,6 +106,14 @@ export function PullRequestReviewDraftsBar({
           {t("prReview.discardAll")}
         </Button>
       </div>
+      {plan.kind === "pinned" && plan.headMoved && (
+        <p className="text-[0.625rem] text-amber-600" role="status" data-testid="review-head-moved">
+          {t("prRanges.headMoved", { commit: plan.commitId.slice(0, 7) })}
+        </p>
+      )}
+      {plan.kind === "mixed" && (
+        <p className="text-[0.625rem] text-rose-500" role="status">{t("prRanges.mixedHeads")}</p>
+      )}
       <div className="flex items-center gap-2">
         <Input
           value={summary}

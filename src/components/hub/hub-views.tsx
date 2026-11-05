@@ -1,4 +1,4 @@
-import { Check, Loader2, Plus, Search } from "lucide-react";
+import { Loader2, Plus, Search } from "lucide-react";
 import { ChunkedList } from "@/components/ui/chunked-list";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,26 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toastError } from "@/lib/error-toast";
-import { formatRelative } from "@/lib/format";
 import { adapterFor, useHubStore } from "@/lib/hub/store";
 import type { HubAccount, HubPr, HubSidebar, PullKind } from "@/lib/hub/types";
 import { useHubQuery, type HubQuery } from "@/lib/hub/use-hub-query";
 import { cn } from "@/lib/utils";
 
-import { EmptyRow, ErrorRow, openExternal, Panel, PrRow, RepoRow, SkeletonRows, useHubNav } from "./hub-bits";
+import { EmptyRow, ErrorRow, PageHead, Panel, PrRow, RepoRow, SkeletonRows, useHubNav } from "./hub-bits";
+import { HubInbox } from "./hub-inbox";
+import { HubSavedSearches } from "./hub-saved-searches";
 import { ContributionSkyline } from "./hub-viz";
 
-function PageHead({ title, sub, action }: { title: string; sub?: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex items-end justify-between gap-4 px-6 pt-6 pb-4">
-      <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {sub && <p className="mt-0.5 text-[13px] text-muted-foreground">{sub}</p>}
-      </div>
-      {action}
-    </div>
-  );
-}
 
 function PrList({ q }: { q: HubQuery<HubPr[]> }) {
   const { t } = useTranslation();
@@ -133,9 +123,9 @@ function HomeStat({ label, value, sub, onClick, accent }: { label: string; value
 
 export function PullsView({ account, initial }: { account: HubAccount; initial: PullKind }) {
   const { t } = useTranslation();
-  const [kind, setKind] = useState<PullKind>(initial);
-  const q = useHubQuery(account, `pulls:${kind}`, (ad, a) => ad.pulls(a, kind));
-  const kinds: PullKind[] = ["authored", "review", "assigned", "mentioned"];
+  const [kind, setKind] = useState<PullKind | "saved">(initial);
+  const q = useHubQuery(account, `pulls:${kind}`, (ad, a) => (kind === "saved" ? Promise.resolve([]) : ad.pulls(a, kind)));
+  const kinds: (PullKind | "saved")[] = ["authored", "review", "assigned", "mentioned", ...(account.provider === "github" ? (["saved"] as const) : [])];
   return (
     <div>
       <PageHead title={initial === "review" ? t("hub.nav.reviews") : t("hub.nav.pulls")} sub={t("hub.pulls.sub")} />
@@ -150,11 +140,11 @@ export function PullsView({ account, initial }: { account: HubAccount; initial: 
               kind === k ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
-            {t(`hub.pulls.kind.${k}`)}
+            {k === "saved" ? t("search.saved") : t(`hub.pulls.kind.${k}`)}
           </button>
         ))}
       </div>
-      <PrList q={q} />
+      {kind === "saved" ? <HubSavedSearches account={account} /> : <PrList q={q} />}
     </div>
   );
 }
@@ -272,65 +262,7 @@ function NewRepoDialog({ account, open, onOpenChange }: { account: HubAccount; o
 }
 
 export function InboxView({ account }: { account: HubAccount }) {
-  const { t } = useTranslation();
-  const refresh = useHubStore((s) => s.refresh);
-  const q = useHubQuery(account, "notifications", (ad, a) => ad.notifications(a));
-  const [done, setDone] = useState<Set<string>>(new Set());
-  const list = (q.data ?? []).filter((n) => !done.has(n.id));
-
-  async function markRead(id: string) {
-    setDone((s) => new Set(s).add(id));
-    try {
-      await adapterFor(account)!.markRead(account, id);
-    } catch (e) {
-      setDone((s) => {
-        const n = new Set(s);
-        n.delete(id);
-        return n;
-      });
-      toastError(String(e));
-    }
-  }
-
-  return (
-    <div>
-      <PageHead title={t("hub.nav.inbox")} sub={t("hub.inbox.sub")} />
-      <div className="border-t border-border/60">
-        {q.error ? (
-          <ErrorRow error={q.error} onRetry={refresh} />
-        ) : q.data === undefined ? (
-          <SkeletonRows n={6} />
-        ) : q.data === null ? (
-          <EmptyRow>{t("hub.inbox.unsupported")}</EmptyRow>
-        ) : list.length === 0 ? (
-          <div className="grid place-items-center gap-2 py-16 text-center">
-            <span className="grid size-10 place-items-center rounded-full bg-git-added/15 text-git-added">
-              <Check className="size-5" />
-            </span>
-            <p className="text-[13px] text-muted-foreground">{t("hub.inbox.zero")}</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border/40">
-            {list.map((n) => (
-              <div key={n.id} className="group flex min-h-12 items-center gap-3 px-5 py-2 text-[13px] hover:bg-muted/40">
-                <span className={cn("size-2 shrink-0 rounded-full", n.unread ? "bg-[var(--chart-1)]" : "bg-transparent")} />
-                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => n.url && openExternal(n.url)}>
-                  <span className="block truncate">{n.title}</span>
-                  <span className="mt-0.5 flex gap-1.5 text-xs text-muted-foreground">
-                    <span className="font-mono">{n.repo}</span>· {n.type} · {n.reason.replace(/_/g, " ")} · {formatRelative(n.updatedAt)}
-                  </span>
-                </button>
-                <Button variant="ghost" size="xs" className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100" onClick={() => void markRead(n.id)}>
-                  <Check />
-                  {t("hub.inbox.done")}
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <HubInbox account={account} />;
 }
 
 export function HubWelcome({ onConnect }: { onConnect: () => void }) {

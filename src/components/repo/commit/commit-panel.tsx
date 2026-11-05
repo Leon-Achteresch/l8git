@@ -58,6 +58,7 @@ import { useTranslation } from "react-i18next";
 import { isPreviewRepo } from "@/lib/preview-repo";
 import { useEverTrue } from "@/lib/use-ever-true";
 import { readRepoViewState, saveRepoViewState } from "@/lib/repo-view-state";
+import { rememberBranchFile, useBranchRestore } from "@/lib/github-ui/branch-context";
 
 const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
@@ -275,6 +276,19 @@ function CommitPanelContent() {
       return prev;
     });
   }, [changeRows]);
+
+  // ID 68: apply the incoming branch's remembered file once that branch's own rows exist.
+  const branchRestore = useBranchRestore((s) => s.request);
+  const branchRestoredRef = useRef(0);
+  useEffect(() => {
+    const file = branchRestore?.file;
+    if (!branchRestore || !file || branchRestoredRef.current === branchRestore.id) return;
+    if (branchRestore.path !== activePath || branchRestore.branch !== currentBranch || !changeRows.some((r) => r.id === file)) return;
+    branchRestoredRef.current = branchRestore.id;
+    setSelectedRowId(file);
+    setAnchorRowId(file);
+    setMultiSelectedIds(new Set([file]));
+  }, [branchRestore, activePath, currentBranch, changeRows]);
 
   useEffect(() => {
     const validIds = new Set(changeRows.map((r) => r.id));
@@ -535,9 +549,12 @@ function CommitPanelContent() {
     });
   }, []);
 
+  const branchRef = useRef({ activePath, currentBranch });
+  branchRef.current = { activePath, currentBranch };
   const handleRowSelect = useCallback((id: string, shiftKey: boolean) => {
     if (hunkPendingRef.current) return;
     setSelectedRowId(id);
+    if (branchRef.current.activePath) rememberBranchFile(branchRef.current.activePath, branchRef.current.currentBranch, id);
     if (shiftKey) {
       const anchor = latestAnchorRowIdRef.current;
       if (anchor && anchor !== id) {

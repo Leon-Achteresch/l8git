@@ -36,7 +36,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,8 +43,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
 import { formatRelative } from "@/lib/format";
 import { accountKey, adapterFor, hubRepoPath, useHubStore } from "@/lib/hub/store";
@@ -66,6 +63,8 @@ import {
   useHubNav,
 } from "./hub-bits";
 import { HubContributorsTab } from "./hub-contributors";
+import { IssueCreateDialog } from "@/components/repo/github/issue-create-dialog";
+import { IssueDetailSheet } from "@/components/repo/github/issue-detail-sheet";
 import { CHECK_COLOR, CiStrip, langColor, LanguageBar, StarArea } from "./hub-viz";
 
 type Tab = "overview" | "pulls" | "issues" | "releases" | "actions" | "contributors";
@@ -637,6 +636,7 @@ function IssuesTab({ account, fullName }: { account: HubAccount; fullName: strin
   const { t } = useTranslation();
   const [state, setState] = useState<"open" | "closed">("open");
   const [creating, setCreating] = useState(false);
+  const [openIssue, setOpenIssue] = useState<number | null>(null);
   const refresh = useHubStore((s) => s.refresh);
   const q = useHubQuery(account, `issues:${fullName}:${state}`, (ad, a) => ad.issues(a, fullName, state));
   return (
@@ -669,7 +669,7 @@ function IssuesTab({ account, fullName }: { account: HubAccount; fullName: strin
       ) : (
         <div className="divide-y divide-border/40">
           {q.data.map((i) => (
-            <button key={i.id} type="button" onClick={() => openExternal(i.url)} className="flex min-h-11 w-full items-center gap-3 px-5 py-2 text-left text-[13px] transition-colors hover:bg-muted/40">
+            <button key={i.id} type="button" onClick={() => (account.provider === "github" ? setOpenIssue(i.number) : openExternal(i.url))} className="flex min-h-11 w-full items-center gap-3 px-5 py-2 text-left text-[13px] transition-colors hover:bg-muted/40">
               <span className={cn("size-3.5 shrink-0 rounded-full border-2", i.state === "open" ? "border-git-added" : "border-[var(--chart-2)]")} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
@@ -693,56 +693,9 @@ function IssuesTab({ account, fullName }: { account: HubAccount; fullName: strin
           ))}
         </div>
       )}
-      <NewIssueDialog account={account} fullName={fullName} open={creating} onOpenChange={setCreating} />
+      <IssueCreateDialog account={account} fullName={fullName} open={creating} onOpenChange={setCreating} onCreated={refresh} />
+      {openIssue !== null && <IssueDetailSheet account={account} fullName={fullName} number={openIssue} onClose={() => setOpenIssue(null)} onChanged={refresh} />}
     </Panel>
-  );
-}
-
-function NewIssueDialog({ account, fullName, open, onOpenChange }: { account: HubAccount; fullName: string; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { t } = useTranslation();
-  const refresh = useHubStore((s) => s.refresh);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function submit() {
-    setBusy(true);
-    try {
-      const url = await adapterFor(account)!.createIssue(account, fullName, title.trim(), body);
-      toast.success(t("hub.issue.created"), { action: { label: t("hub.open"), onClick: () => openExternal(url) } });
-      setTitle("");
-      setBody("");
-      onOpenChange(false);
-      refresh();
-    } catch (e) {
-      toastError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("hub.issue.newIn", { repo: fullName })}</DialogTitle>
-        </DialogHeader>
-        <form
-          className="grid gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (title.trim()) void submit();
-          }}
-        >
-          <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("hub.issue.title")} />
-          <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder={t("hub.issue.body")} rows={8} />
-          <DialogFooter>
-            <Button type="submit" disabled={busy || !title.trim()}>
-              {busy && <Loader2 className="animate-spin" />}
-              {t("hub.issue.submit")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 

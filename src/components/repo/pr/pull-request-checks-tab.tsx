@@ -5,6 +5,7 @@ import {
 import { toastError } from "@/lib/error-toast";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
+import { CheckReminderBar } from "../github/check-reminder-bar";
 
 export function PullRequestChecksTab({
   path,
@@ -37,5 +38,12 @@ export function PullRequestChecksTab({
     };
   }, [path, number]);
 
-  return <CiChecksList checks={checks} loading={loading} path={path} />;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {checks && checks.length > 0 && <CheckReminderBar path={path} number={number} checks={checks} />}
+      <div className="min-h-0 flex-1">
+        <CiChecksList checks={checks} loading={loading} path={path} />
+      </div>
+    </div>
+  );
 }

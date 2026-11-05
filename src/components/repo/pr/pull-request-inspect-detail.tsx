@@ -11,6 +11,8 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   ExternalLink,
   FileCode2,
+  NotebookPen,
+  BookOpen,
   GitCommit,
   Loader2,
   MessageSquare,
@@ -19,7 +21,11 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const ReviewNarrativePanel = lazy(() =>
+  import("../change-workflow/review-narrative-panel").then((m) => ({ default: m.ReviewNarrativePanel })),
+);
 import { useTranslation } from "react-i18next";
 import { PrAuthorPopover } from "./pr-author-popover";
 import { PrBranchRoute } from "./pr-branch-route";
@@ -35,6 +41,15 @@ import { PullRequestChecksTab } from "./pull-request-checks-tab";
 import { PullRequestCommitsTab } from "./pull-request-commits-tab";
 import { PullRequestFilesTab } from "./pull-request-files-tab";
 import { PullRequestReviewDraftsBar } from "./pull-request-review-drafts-bar";
+import { PrGithubManage } from "../github/pr-github-manage";
+import { PrMergeReadiness } from "../github/pr-merge-readiness";
+import { usePrGithub } from "@/lib/github-ui/use-pr-github";
+import { isTarget, useGithubTarget } from "@/lib/github-ui/target";
+import { useSubjectKey } from "@/lib/github-ui/review-memory";
+import { useGithubWorkspace } from "@/lib/github-expansion/store";
+import { PrPersonalTab } from "../github/pr-personal-tab";
+import { PrLinkedIssues } from "../github/pr-linked-issues";
+import { PrReviewWorktree } from "../github/pr-review-worktree";
 
 export type PullRequestDetail = PullRequest & {
   body_markdown: string;
@@ -44,7 +59,7 @@ export type PullRequestDetail = PullRequest & {
   auto_merge_method?: string | null;
 };
 
-type Tab = "conversation" | "commits" | "files" | "checks";
+type Tab = "conversation" | "commits" | "files" | "checks" | "story" | "mine";
 
 export function PullRequestInspectDetail({
   path,
@@ -57,8 +72,6 @@ export function PullRequestInspectDetail({
   onClose: () => void;
   onMutated: () => void;
 }) {
-  const [detail, setDetail] = useState<PullRequestDetail | null>(null);
-  const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>("conversation");
   const [strategy, setStrategy] = useState<MergeStrategy>("squash");
   const [mergeMessage, setMergeMessage] = useState("");
@@ -66,25 +79,50 @@ export function PullRequestInspectDetail({
   const [busy, setBusy] = useState<string | null>(null);
   const { t } = useTranslation();
   const caps = usePrCapabilities(path);
+  // `pr_detail` is routed by the repo's current origin, so the detail is tagged with the resolved
+  // remote identity too: origin A→B renders/acts on nothing of A's, even before effects run.
+  // Unresolved remotes (re-read after an edit) load nothing; non-GitHub misses keep a stable key.
+  const [loaded, setLoaded] = useState<{ key: string; detail: PullRequestDetail } | null>(null);
+  // Same shared remote snapshot `usePrGithub` resolves in this render, so detail and `gh` never mix scopes.
+  const res = useGithubTarget(path);
+  const remote = isTarget(res) ? `${res.account.login}@${res.account.host}/${res.fullName}` : res.reason === "loading" ? null : res.reason;
+  const detailKey = remote ? `${path}#${number}@${remote}` : null;
+  const detail = loaded && loaded.key === detailKey ? loaded.detail : null;
+  const gh = usePrGithub(path, number, detail?.updated_at);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const loading = !detailKey || loadingKey === detailKey;
+  const subjectKey = useSubjectKey(path, "pull", number);
+  const updateSubject = useGithubWorkspace((s) => s.updateSubject);
   const effectiveStrategy = caps
     ? pickMergeStrategy(strategy, caps.merge_strategies)
     : strategy;
 
+  const liveKey = useRef(detailKey);
+  const gen = useRef(0);
   const load = useCallback(async () => {
-    setLoading(true);
+    const key = detailKey;
+    // A load captured by an older render (stale callback) must not touch the live scope.
+    if (!key || liveKey.current !== key) return;
+    // Only the newest read writes: also covers A→B→A, where a late first-A read shares the key.
+    const my = ++gen.current;
+    const live = () => gen.current === my && liveKey.current === key;
+    setLoadingKey(key);
     try {
       const d = await invoke<PullRequestDetail>("pr_detail", { path, number });
-      setDetail(d);
+      if (live()) setLoaded({ key, detail: d });
     } catch (e) {
+      if (!live()) return;
       toastError(String(e));
-      setDetail(null);
+      setLoaded(null);
     } finally {
-      setLoading(false);
+      if (live()) setLoadingKey(null);
     }
-  }, [path, number]);
+  }, [detailKey, path, number]);
 
   useEffect(() => {
-    setDetail(null);
+    liveKey.current = detailKey;
+    gen.current++; // drop any in-flight read for the previous scope
+    setLoaded(null);
     setTab("conversation");
     void load();
   }, [load]);
@@ -136,6 +174,8 @@ export function PullRequestInspectDetail({
       { id: "commits", label: t("prInspect.tabCommits"), icon: GitCommit },
       { id: "files", label: t("prInspect.tabFiles"), icon: FileCode2 },
       { id: "checks", label: t("prInspect.tabChecks"), icon: ShieldCheck },
+      { id: "story", label: t("mine.storyTab"), icon: BookOpen },
+      { id: "mine", label: t("mine.tab"), icon: NotebookPen },
     ],
     [t],
   );
@@ -268,6 +308,24 @@ export function PullRequestInspectDetail({
           </m.div>
         )}
 
+        {detail && !isHubPath(path) && detail.state.toLowerCase() === "open" && (
+          <PrReviewWorktree path={path} number={number} headBranch={detail.source_branch} headSha={detail.head_sha} />
+        )}
+        {detail && gh.target && <PrLinkedIssues target={gh.target} number={number} refreshKey={detail.updated_at} />}
+
+        {detail && (
+          <PrGithubManage
+            path={path}
+            number={number}
+            detail={detail}
+            gh={gh}
+            onChanged={() => {
+              onMutated();
+              void load();
+            }}
+          />
+        )}
+
         <LayoutGroup id="pr-detail-tabs">
           <nav className="mt-3.5 flex items-center gap-1 border-t border-border/40 pt-2">
             {TABS.map(({ id, label, icon: Icon }) => {
@@ -324,6 +382,14 @@ export function PullRequestInspectDetail({
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex-shrink-0 px-4 pt-3">
+            <PrMergeReadiness
+              gh={gh}
+              open={detail.state.toLowerCase() === "open"}
+              onChanged={() => {
+                onMutated();
+                void load();
+              }}
+            />
             <AnimatePresence mode="wait" initial={false}>
               <PrMergeBanner
                 key={`${detail.state}-${String(detail.mergeable)}-${String(detail.is_draft)}`}
@@ -354,6 +420,7 @@ export function PullRequestInspectDetail({
               path={path}
               number={number}
               caps={caps}
+              headSha={detail.head_sha}
               onSubmitted={() => void load()}
             />
           </div>
@@ -384,10 +451,31 @@ export function PullRequestInspectDetail({
                   number={number}
                   baseRef={detail.target_branch}
                   headRef={detail.source_branch}
+                  headSha={detail.head_sha}
+                  baseSha={gh.meta?.headRefOid === detail.head_sha ? gh.meta.baseRefOid : undefined}
                 />
               )}
               {tab === "checks" && (
                 <PullRequestChecksTab path={path} number={number} />
+              )}
+              {tab === "story" && (
+                <Suspense fallback={null}>
+                  {gh.meta?.headRefOid === detail.head_sha ? (
+                    <ReviewNarrativePanel path={path} number={number} baseSha={gh.meta.baseRefOid} headSha={detail.head_sha} />
+                  ) : (
+                    <div className="p-4 text-xs text-muted-foreground">{t("mine.storyNeedsPins")}</div>
+                  )}
+                </Suspense>
+              )}
+              {tab === "mine" && (
+                <PrPersonalTab
+                  path={path}
+                  number={number}
+                  onOpenFile={(file) => {
+                    updateSubject(subjectKey, { position: { file } });
+                    setTab("files");
+                  }}
+                />
               )}
             </m.div>
           </AnimatePresence>

@@ -671,3 +671,9 @@ html[data-animations="off"] *::after {
 .l8-commit-pulse {
   animation: l8-commit-pulse 0.85s ease-in-out;
 }
+
+/* Git --color-moved: moved blocks are marked apart from genuinely added/removed lines. */
+.diff-moved-line > * {
+  box-shadow: inset 3px 0 0 color-mix(in oklab, var(--color-sky-500) 80%, transparent);
+  background-image: linear-gradient(color-mix(in oklab, var(--color-sky-500) 12%, transparent), color-mix(in oklab, var(--color-sky-500) 12%, transparent));
+}

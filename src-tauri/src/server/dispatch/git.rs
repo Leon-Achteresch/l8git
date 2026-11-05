@@ -5,6 +5,14 @@ pub async fn dispatch(
 ) -> Option<Result<serde_json::Value, String>> {
     crate::dispatch_table! { cmd, args, ctx;
 
+        "git_expansion" (path: String, request: crate::git_expansion::GitExpansionRequest) => {
+            crate::git_expansion::git_expansion(path, request).await
+        }
+
+        "repo_diff_preview" (path: String, request: crate::diff_preview::DiffPreviewRequest) => {
+            crate::diff_preview::repo_diff_preview(path, request).await
+        }
+
         "repo_compare_commits" (path: String, base: String, head: String, mode: Option<String>) => {
             crate::compare::repo_compare_commits(path, base, head, mode).await
         }
