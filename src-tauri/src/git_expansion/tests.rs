@@ -627,12 +627,20 @@ fn radar_includes_uncommitted_changes_in_distinct_worktrees_at_same_head() {
         .find(|overlap| overlap["file"] == "f.txt")
         .unwrap();
     assert_eq!(overlap["worktreePaths"].as_array().unwrap().len(), 2);
-    assert!(evidence["worktrees"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|w| w["path"] != fixture.root.to_str().unwrap())
-        .all(|w| w["pendingFiles"] == json!(["f.txt"])));
+    let worktrees = evidence["worktrees"].as_array().unwrap();
+    assert_eq!(worktrees.len(), 3);
+    let root = fixture.root.canonicalize().unwrap();
+    for worktree in worktrees {
+        let path = PathBuf::from(worktree["path"].as_str().unwrap())
+            .canonicalize()
+            .unwrap();
+        let pending = if path == root {
+            json!([])
+        } else {
+            json!(["f.txt"])
+        };
+        assert_eq!(worktree["pendingFiles"], pending);
+    }
     left.close().unwrap();
     right.close().unwrap();
 }

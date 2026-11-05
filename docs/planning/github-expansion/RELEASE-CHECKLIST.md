@@ -16,6 +16,12 @@ This section supersedes the intermediate snapshots below; it is not release clea
 - Deterministic performance checks passed: 10000-commit graph median 8.23ms (500ms cap); 1000-hunk diff median 3.67ms (300ms cap). `/tmp/l8git-final-algorithms.log`.
 - Mobile TypeScript passed; mobile tests **26 suites / 200 tests** passed, `/tmp/l8git-final-mobile.log`. Relay **11 tests** passed, `/tmp/l8git-final-relay.log`.
 - Native Rust all-target result remains **783 passed**, `/tmp/l8git-final-native-tests.log`; no Rust source changed during these UI corrections.
+
+### Windows CI fixture correction
+
+The initial Windows job `42102575351/127508919200` failed three test assertions. Two LF fixtures inherited the runner's `core.autocrlf=true`, and the radar assertion compared Git's forward-slash worktree path to an unnormalized Windows path. Only tests were changed: the Hub fixture now explicitly uses LF (`core.autocrlf=false`), and the radar assertion canonicalizes paths and verifies all three worktrees, including the clean main worktree. No production behavior or deferred P2 was changed.
+
+Focused local validation: radar **1/1** passed; Hub **8/8** passed with a temporary global Git configuration setting `autocrlf=true`. Logs: `/tmp/l8git-windows-fixture-local.log`, `/tmp/l8git-windows-fixture-hub.log`. An independent high review found no confirmed issues. The next Windows CI run must confirm the platform result.
 - Full serial Chromium run: **129/132 passed** in 11.6 minutes. Two older workflow tests timed out during overlapping local build load; both passed unchanged in an isolated 2/2 rerun. The third failure was a false exact-read-count assertion in the new suggestion test. Opus corrected only that test; the full narrow range spec then passed 4/4 and an independent high review found no issues. All 132 tests have now passed across the full run plus targeted reruns; this is not represented as one clean full run. CI must establish the clean final browser gate. Logs: `/tmp/l8git-final-browser.log`, `/tmp/l8git-final-browser-timeout-rerun.log`; first-run evidence `/tmp/l8git-final-browser-failures`.
 - Production UI-test build and renderer startup/heap checks passed. Median home ready1561ms, repository ready862ms, retained JS heap29472708 bytes, warmed retained growth2639372 bytes,704 DOM nodes; all within existing limits. `/tmp/l8git-final-runtime-budgets.json`. Native platform CI and release publication remain pending. Local checks included the preserved unrelated app-shell edit; clean-checkout CI must validate the committed release source.
 

@@ -1027,6 +1027,7 @@ mod tests {
             fixture.git(&repo, &["config", "user.name", "Fixture"]);
             fixture.git(&repo, &["config", "user.email", "fixture@example.test"]);
             fixture.git(&repo, &["config", "commit.gpgsign", "false"]);
+            fixture.git(&repo, &["config", "core.autocrlf", "false"]);
             std::fs::write(repo.join("file.txt"), "initial\n").unwrap();
             fixture.git(&repo, &["add", "file.txt"]);
             fixture.git(&repo, &["commit", "-m", "initial"]);
