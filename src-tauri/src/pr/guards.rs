@@ -89,6 +89,8 @@ mod tests {
     fn credential() -> HttpsCredential { HttpsCredential { username: None, password: "fixture-not-a-secret".into() } }
     fn client() -> reqwest::Client { reqwest::Client::builder().no_proxy().timeout(Duration::from_secs(5)).build().unwrap() }
     fn request(stream: &mut TcpStream) -> (String, Value) {
+        // Accepted sockets may inherit the nonblocking listener mode on native platforms.
+        stream.set_nonblocking(false).unwrap();
         stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         let mut bytes = Vec::new();
         let boundary = loop {
