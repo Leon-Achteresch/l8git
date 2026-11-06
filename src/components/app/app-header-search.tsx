@@ -1,3 +1,5 @@
+import { parseGithubSubjectUrl } from "@/lib/github-expansion/api";
+import { accountKey, useHubStore } from "@/lib/hub/store";
 import { Button } from "@/components/ui/button";
 import {
   Fragment,
@@ -49,6 +51,7 @@ import {
   Undo2,
   Webhook,
   Wrench,
+  Link2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -184,6 +187,9 @@ export function AppHeaderSearch({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const hubAccounts = useHubStore((s) => s.accounts);
+  // 21: a pasted GitHub issue/PR URL for a connected account opens internally.
+  const githubLink = useMemo(() => parseGithubSubjectUrl(query.trim(), hubAccounts), [query, hubAccounts]);
   const highlightedValue = useRef<string>("");
   const pickRepo = usePickRepo();
   const bindings = useHotkeyBindings();
@@ -1132,8 +1138,28 @@ export function AppHeaderSearch({
             onValueChange={setQuery}
           />
           <CommandList className="max-h-none flex-1">
-            {!hasResults && (
+            {!hasResults && !githubLink && (
               <CommandEmpty>{t("appSearch.empty")}</CommandEmpty>
+            )}
+
+            {githubLink && (
+              <CommandGroup heading="GitHub">
+                <CommandItem
+                  value={`github-link ${query}`}
+                  onSelect={() => {
+                    setOpen(false);
+                    const l = githubLink;
+                    void useHubStore.getState().activate(accountKey(l.account), false).then(() =>
+                      router.navigate({ to: "/hub", search: l.kind === "pull" ? { view: "pr", repo: l.repo, pr: l.number } : { view: "repo", repo: l.repo, issue: l.number } }),
+                    );
+                  }}
+                >
+                  <Link2 className="size-3.5" />
+                  <span className="min-w-0 flex-1 truncate text-xs">
+                    {t(l10nKeyForLink(githubLink.kind), { repo: githubLink.repo, number: githubLink.number })}
+                  </span>
+                </CommandItem>
+              </CommandGroup>
             )}
 
             {actionGroups.map((group, idx) => (
@@ -1376,3 +1402,5 @@ export function AppHeaderSearch({
     </>
   );
 }
+
+const l10nKeyForLink = (kind: "issue" | "pull") => (kind === "pull" ? "ghx.openPullInternal" : "ghx.openIssueInternal");

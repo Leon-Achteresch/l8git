@@ -1,3 +1,7 @@
+import { MentionTextarea } from "@/components/repo/github/mention-textarea";
+import { PrCreateAssist } from "@/components/repo/github/pr-create-assist";
+import { accountScope, useGithubWorkspace } from "@/lib/github-expansion/store";
+import { useGithubTarget } from "@/lib/github-ui/target";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ListRow } from "@/components/ui/list-row";
 import { invoke } from "@tauri-apps/api/core";
@@ -28,7 +32,6 @@ import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   OverlayPortal,
   useAnchorBox,
@@ -48,6 +51,13 @@ const SHELL_TRANSITION = {
   damping: 34,
   mass: 0.85,
 };
+
+/** Draft key = account/repo scope + "pr-create"; local fallback when no GitHub account matches. */
+function usePrDraftKey(path: string): string | null {
+  const target = useGithubTarget(path);
+  if (target && "account" in target) return JSON.stringify([accountScope(target.account, target.fullName), "pr-create"]);
+  return target.reason === "loading" ? null : JSON.stringify(["local", path, "pr-create"]);
+}
 
 function titleFromBranch(branch: string) {
   return branch
@@ -317,11 +327,30 @@ export function PullRequestCreatePanel({
   const { t } = useTranslation();
   const defaultBase = useMemo(() => pickDefaultBase(branches), [branches]);
   const initialHeadValue = (initialHead || currentBranch).trim();
-  const [head, setHead] = useState(initialHeadValue);
-  const [base, setBase] = useState(defaultBase);
-  const [title, setTitle] = useState(() => titleFromBranch(initialHeadValue));
-  const [body, setBody] = useState("");
-  const [draft, setDraft] = useState(false);
+  const draftKey = usePrDraftKey(path);
+  const saved = useGithubWorkspace((s) => (draftKey ? s.drafts[draftKey] : undefined));
+  const saveDraft = useGithubWorkspace((s) => s.saveDraft);
+  const [head, setHead] = useState(saved?.head || initialHeadValue);
+  const [base, setBase] = useState(saved?.base || defaultBase);
+  const [title, setTitle] = useState(() => saved?.title ?? titleFromBranch(initialHeadValue));
+  const [body, setBody] = useState(saved?.body ?? "");
+  const [draft, setDraft] = useState(saved?.draft ?? false);
+  const restoredRef = useRef(!!saved);
+  // Restore once the account-scoped key resolves (remote lookup is async).
+  useEffect(() => {
+    if (!saved || restoredRef.current) return;
+    restoredRef.current = true;
+    setHead(saved.head || initialHeadValue);
+    setBase(saved.base || defaultBase);
+    setTitle(saved.title);
+    setBody(saved.body);
+    setDraft(saved.draft);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!draftKey) return;
+    const id = window.setTimeout(() => saveDraft(draftKey, { title, body, base, head, draft }), 400);
+    return () => window.clearTimeout(id);
+  }, [draftKey, title, body, base, head, draft, saveDraft]);
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiStarted, setAiStarted] = useState(false);
@@ -429,6 +458,7 @@ export function PullRequestCreatePanel({
         draft: canDraft && draft,
       });
       toast.success(t("pr.createdToast", { number: pr.number }));
+      if (draftKey) saveDraft(draftKey, null);
       onCreated?.(pr);
       onClose();
     } catch (err) {
@@ -533,15 +563,18 @@ export function PullRequestCreatePanel({
               {t("pr.aiDescription")}
             </Button>
           </div>
-          <Textarea
+          <PrCreateAssist path={path} head={head} base={base} body={body} onBody={setBody} />
+          <MentionTextarea
             id="pr-create-body"
+            path={path}
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={setBody}
             rows={5}
             spellCheck
             placeholder={t("pr.bodyPlaceholder")}
             disabled={busy}
           />
+          {draftKey && saved && <p className="text-[0.625rem] text-muted-foreground">{t("prCreate.draftSaved")}</p>}
           {aiStarted ? (
             <AiResultActions
               busy={aiBusy}

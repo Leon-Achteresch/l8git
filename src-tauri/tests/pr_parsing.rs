@@ -373,6 +373,17 @@ fn gh_map_pr_maps_an_open_pull_request() {
 }
 
 #[test]
+fn pull_file_rename_preserves_the_previous_path_for_comparison_fingerprints() {
+    let renamed = json(&gl_map_file(&jval!({ "old_path": "old/name.ts", "new_path": "new/name.ts", "renamed_file": true, "diff": "@@ -1 +1 @@\n-old\n+new\n" })));
+    assert_eq!(renamed["path"], "new/name.ts");
+    assert_eq!(renamed["previous_path"], "old/name.ts");
+    let same = json(&gl_map_file(&jval!({ "old_path": "same.ts", "new_path": "same.ts", "diff": "" })));
+    assert!(same.get("previous_path").is_none());
+    let added = json(&gl_map_file(&jval!({ "new_path": "new.ts", "new_file": true, "diff": "" })));
+    assert!(added.get("previous_path").is_none());
+}
+
+#[test]
 fn gh_map_pr_derives_merged_and_draft_states() {
     let merged = json(&gh_map_pr(&jval!({
         "number": 1, "state": "closed", "draft": false, "merged_at": "2024-02-01T00:00:00Z"
@@ -1298,12 +1309,16 @@ fn gh_review_payload_bundles_draft_comments() {
             line: 12,
             body: "rename this".into(),
             side: None,
+            start_line: None,
+            start_side: None,
         },
         ReviewDraftComment {
             path: "src/old.ts".into(),
             line: 3,
             body: "why removed?".into(),
             side: Some("LEFT".into()),
+            start_line: None,
+            start_side: None,
         },
     ];
     let payload = gh_review_payload("REQUEST_CHANGES", "two nits", &drafts);

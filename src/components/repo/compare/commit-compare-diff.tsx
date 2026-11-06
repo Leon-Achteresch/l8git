@@ -42,7 +42,12 @@ export function CommitCompareDiffView({ path, comparison, file, diff, loading, e
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {diff.truncated && <p role="status" className="shrink-0 border-b border-border bg-git-modified/10 px-4 py-2 text-xs text-git-modified">{t('compare.patchTruncated')}</p>}
       <div className="min-h-0 flex-1 overflow-hidden">
-        <CommitDiffViewer key={`${comparison.base_hash}:${comparison.head_hash}:${file.path}`} unifiedText={diff.patch} filename={file.path} />
+        <CommitDiffViewer
+          key={`${comparison.base_hash}:${comparison.head_hash}:${file.path}`}
+          unifiedText={diff.patch}
+          filename={file.path}
+          preview={{ path, request: { kind: comparison.mode === 'merge-base' ? 'merge-base' : 'compare', file: file.path, previousFile: file.previous_path ?? undefined, base: comparison.base_hash, head: comparison.head_hash }, revisions: { base: comparisonEffectiveBase(comparison), head: comparison.head_hash } }}
+        />
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import { Switch } from "@/components/ui/switch";
+import { useGithubWorkspace } from "@/lib/github-expansion/store";
 import {
   Card,
   CardContent,
@@ -33,6 +35,10 @@ const KIND_LABELS: Record<NotificationKind, { label: string; hint: string }> = {
   remoteOpDone: {
     label: "notifications.kindRemoteOpDoneLabel",
     hint: "notifications.kindRemoteOpDoneHint",
+  },
+  checkReminder: {
+    label: "notifications.kindCheckReminderLabel",
+    hint: "notifications.kindCheckReminderHint",
   },
 };
 
@@ -136,7 +142,39 @@ export function NotificationsCard() {
             </Button>
           )}
         </div>
+        <QuietHoursRow />
       </CardContent>
     </Card>
+  );
+}
+
+const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const fromTime = (v: string) => {
+  const [h, m] = v.split(":").map(Number);
+  return Number.isInteger(h) && Number.isInteger(m) ? h * 60 + m : null;
+};
+
+/** 36: native popups are suppressed in this local-time window; inbox entries are kept. */
+function QuietHoursRow() {
+  const { t } = useTranslation();
+  const quiet = useGithubWorkspace((s) => s.quietHours);
+  const set = useGithubWorkspace((s) => s.setQuietHours);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
+      <div className="space-y-0.5">
+        <p className="text-sm font-medium text-foreground">{t("notifications.quietLabel")}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{t("notifications.quietHint")}</p>
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <input type="time" aria-label={t("notifications.quietFrom")} value={toTime(quiet.startMinute)} disabled={!quiet.enabled}
+          onChange={(e) => { const m = fromTime(e.target.value); if (m !== null) set({ ...quiet, startMinute: m }); }}
+          className="h-7 rounded-md border border-input bg-transparent px-1.5" />
+        <span>–</span>
+        <input type="time" aria-label={t("notifications.quietTo")} value={toTime(quiet.endMinute)} disabled={!quiet.enabled}
+          onChange={(e) => { const m = fromTime(e.target.value); if (m !== null) set({ ...quiet, endMinute: m }); }}
+          className="h-7 rounded-md border border-input bg-transparent px-1.5" />
+        <Switch checked={quiet.enabled} onCheckedChange={(enabled) => set({ ...quiet, enabled })} aria-label={t("notifications.quietLabel")} />
+      </div>
+    </div>
   );
 }

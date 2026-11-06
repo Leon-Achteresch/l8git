@@ -1,3 +1,4 @@
+import { isQuietHour, useGithubWorkspace } from "@/lib/github-expansion/store";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   isPermissionGranted,
@@ -12,13 +13,15 @@ export type NotificationKind =
   | "ciFailed"
   | "reviewRequested"
   | "agentTurn"
-  | "remoteOpDone";
+  | "remoteOpDone"
+  | "checkReminder";
 
 export const NOTIFICATION_KINDS: NotificationKind[] = [
   "ciFailed",
   "reviewRequested",
   "agentTurn",
   "remoteOpDone",
+  "checkReminder",
 ];
 
 export const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -47,6 +50,7 @@ export const useNotificationPrefs = create<NotificationPrefsState>()(
         reviewRequested: true,
         agentTurn: true,
         remoteOpDone: true,
+        checkReminder: true,
       },
       setEnabled: (enabled) => set({ enabled }),
       setKind: (kind, value) =>
@@ -161,6 +165,8 @@ export type NotifyInput = {
 
 export async function notify(input: NotifyInput): Promise<boolean> {
   if (!isNotificationAllowed(useNotificationPrefs.getState(), input.kind)) return false;
+  // Quiet hours only silence native popups; inbox entries are unaffected.
+  if (isQuietHour(useGithubWorkspace.getState().quietHours)) return false;
   if (await isWindowFocused()) return false;
   if (!shouldEmit(dedupeCache, input.key, Date.now())) return false;
   const status = useNotificationPermission.getState().status;

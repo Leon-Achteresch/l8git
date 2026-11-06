@@ -47,6 +47,7 @@ beforeEach(() => {
       reviewRequested: true,
       agentTurn: true,
       remoteOpDone: true,
+      checkReminder: true,
     },
   });
 });
@@ -84,6 +85,7 @@ describe("isNotificationAllowed", () => {
     reviewRequested: false,
     agentTurn: true,
     remoteOpDone: true,
+      checkReminder: true,
   };
 
   it("respects the global switch", () => {
@@ -236,6 +238,7 @@ describe("notify", () => {
         reviewRequested: true,
         agentTurn: true,
         remoteOpDone: true,
+      checkReminder: true,
       },
     });
     expect(await notify(input)).toBe(false);

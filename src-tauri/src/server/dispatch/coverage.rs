@@ -2,6 +2,7 @@
 /// local credentials or window control just to satisfy command parity.
 pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     "save_user_export",
+    "save_user_export_bytes",
     "runtime_diagnostics",
     "fetch_claude_usage", "git_command_log_live", "read_image_data_url",
     "jira_credentials_status", "jira_delete_credentials", "jira_fetch_comments", "jira_fetch_issue",
@@ -10,7 +11,7 @@ pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     "remote_add_root", "remote_pair", "remote_remove_root", "remote_set_config",
     "remote_start", "remote_status", "remote_stop",
     // Hub tokens act on hosting accounts; keep that proxy off the remote server.
-    "hub_api", "hub_connect", "hub_disconnect", "hub_oauth_available", "hub_oauth_poll",
+    "hub_api", "hub_download", "hub_task_worktree", "hub_apply_suggestions", "hub_identity_profile", "hub_connect", "hub_disconnect", "hub_oauth_available", "hub_oauth_poll",
     "hub_oauth_start", "hub_use_for_git",
     // Would let a remote client make the host POST to any URL.
     "hub_t3_send",

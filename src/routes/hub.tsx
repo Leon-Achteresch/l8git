@@ -6,6 +6,7 @@ import { HubConnectDialog } from "@/components/hub/hub-connect-dialog";
 import { HubRepoPage } from "@/components/hub/hub-repo";
 import { HubSidebar } from "@/components/hub/hub-sidebar";
 import { HomeView, HubWelcome, InboxView, PullsView, ReposView } from "@/components/hub/hub-views";
+import { IssueDetailSheet } from "@/components/repo/github/issue-detail-sheet";
 import { PullRequestInspectDetail } from "@/components/repo/pr/pull-request-inspect-detail";
 import { accountKey, hubRepoPath, useActiveAccount, useHubStore } from "@/lib/hub/store";
 import { useHubQuery } from "@/lib/hub/use-hub-query";
@@ -13,10 +14,11 @@ import { useHubQuery } from "@/lib/hub/use-hub-query";
 const VIEWS: HubView[] = ["home", "inbox", "prs", "reviews", "starred", "repos", "repo", "pr"];
 
 export const Route = createFileRoute("/hub")({
-  validateSearch: (s: Record<string, unknown>): { view?: HubView; repo?: string; pr?: number } => ({
+  validateSearch: (s: Record<string, unknown>): { view?: HubView; repo?: string; pr?: number; issue?: number } => ({
     view: VIEWS.includes(s.view as HubView) ? (s.view as HubView) : undefined,
     repo: typeof s.repo === "string" && s.repo.includes("/") ? s.repo : undefined,
     pr: Number.isInteger(s.pr) && (s.pr as number) > 0 ? (s.pr as number) : undefined,
+    issue: Number.isInteger(s.issue) && (s.issue as number) > 0 ? (s.issue as number) : undefined,
   }),
   component: HubPage,
 });
@@ -25,7 +27,7 @@ export const Route = createFileRoute("/hub")({
 const ROOT_STYLE = { "--hub-accent": "oklch(0.76 0.15 65)" } as CSSProperties;
 
 function HubPage() {
-  const { view = "home", repo, pr } = Route.useSearch();
+  const { view = "home", repo, pr, issue } = Route.useSearch();
   const nav = useHubNav();
   const refresh = useHubStore((s) => s.refresh);
   const account = useActiveAccount();
@@ -49,7 +51,12 @@ function HubPage() {
                 onMutated={refresh}
               />
             ) : view === "repo" && repo ? (
-              <HubRepoPage key={`${account.login}@${account.host}/${repo}`} account={account} fullName={repo} />
+              <>
+                <HubRepoPage key={`${account.login}@${account.host}/${repo}`} account={account} fullName={repo} />
+                {issue && account.provider === "github" && (
+                  <IssueDetailSheet key={`${repo}#${issue}`} account={account} fullName={repo} number={issue} onClose={() => nav("repo", repo)} onChanged={refresh} />
+                )}
+              </>
             ) : view === "prs" || view === "reviews" ? (
               <PullsView key={view} account={account} initial={view === "reviews" ? "review" : "authored"} />
             ) : view === "starred" || view === "repos" ? (

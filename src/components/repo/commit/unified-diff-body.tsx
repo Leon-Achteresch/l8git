@@ -32,6 +32,7 @@ import { Minus as MinusData, Plus as PlusData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
 import { workspaceScale } from "@/lib/responsive-workspace";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
+import { anchorAt, sideLineKey, type DiffAnchor } from "@/lib/github-ui/diff-ranges";
 
 // Matches lineWrap (1rem leading plus py-0.5), so row measurement confirms the estimate.
 const LINE_HEIGHT_PX = 20;
@@ -276,10 +277,12 @@ function VirtualDiffList({
   lines,
   filePath,
   lineNumbers,
+  movedLines,
 }: {
   lines: DiffLine[];
   filePath?: string | null;
   lineNumbers?: boolean;
+  movedLines?: ReadonlySet<number>;
 }) {
   const lineHeight = LINE_HEIGHT_PX * workspaceScale(useWorkspacePrefs((state) => state.uiScale));
   const wordDiffAt = useWordDiffLookup(lines);
@@ -318,6 +321,8 @@ function VirtualDiffList({
                 right: 0,
                 transform: `translateY(${vi.start}px)`,
               }}
+              data-moved={movedLines?.has(vi.index) || undefined}
+              className={movedLines?.has(vi.index) ? "diff-moved-line" : undefined}
             >
               <DiffLineRow line={line} segments={wordDiffAt(vi.index)} tokens={syntaxAt(vi.index)} lineNumbers={lineNumbers} />
             </div>
@@ -327,6 +332,14 @@ function VirtualDiffList({
     </div>
   );
 }
+
+/** Opt-in side-aware anchors (old and new lines) with Shift-extend ranges; keys are `sideLineKey`. */
+export type DiffRangeProps = {
+  annotations: ReadonlyMap<string, React.ReactNode>;
+  highlighted: ReadonlySet<string>;
+  onSelect: (anchor: DiffAnchor, extend: boolean) => void;
+  title: string;
+};
 
 export type DiffCommentAnchor = {
   newLineNo: number;
@@ -339,12 +352,14 @@ function AnnotatedVirtualDiffList({
   annotationsByNewLine,
   onAddComment,
   addCommentTitle,
+  range,
 }: {
   lines: DiffLine[];
   filePath?: string | null;
   annotationsByNewLine?: ReadonlyMap<number, React.ReactNode>;
   onAddComment?: (anchor: DiffCommentAnchor) => void;
   addCommentTitle?: string;
+  range?: DiffRangeProps;
 }) {
   const lineHeight = LINE_HEIGHT_PX * workspaceScale(useWorkspacePrefs((state) => state.uiScale));
   const wordDiffAt = useWordDiffLookup(lines);
@@ -371,8 +386,11 @@ function AnnotatedVirtualDiffList({
           const line = lines[vi.index];
           if (!line) return null;
           const newLineNo = line.newLineNo;
-          const annotation =
-            newLineNo != null ? annotationsByNewLine?.get(newLineNo) : undefined;
+          const anchor = range ? anchorAt(lines, vi.index) : null;
+          const sideKey = anchor ? sideLineKey(anchor.side, anchor.line) : null;
+          const annotation = range
+            ? sideKey ? range.annotations.get(sideKey) : undefined
+            : newLineNo != null ? annotationsByNewLine?.get(newLineNo) : undefined;
           return (
             <div
               key={vi.key}
@@ -386,8 +404,22 @@ function AnnotatedVirtualDiffList({
                 transform: `translateY(${vi.start}px)`,
               }}
             >
-              <div className="group relative">
-                {onAddComment && newLineNo != null && (
+              <div
+                className={`group relative${sideKey && range?.highlighted.has(sideKey) ? " bg-primary/10 shadow-[inset_2px_0_0_var(--color-primary)]" : ""}`}
+                data-range-selected={(sideKey && range?.highlighted.has(sideKey)) || undefined}
+              >
+                {range && anchor && (
+                  <button
+                    type="button"
+                    title={range.title}
+                    aria-label={`${range.title} (${anchor.side === "LEFT" ? "-" : "+"}${anchor.line})`}
+                    onClick={(e) => range.onSelect(anchor, e.shiftKey)}
+                    className="absolute left-0.5 top-[1px] z-10 flex h-4 w-4 items-center justify-center rounded bg-primary text-primary-foreground opacity-0 shadow-sm group-hover:opacity-100 focus-visible:opacity-100"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                )}
+                {!range && onAddComment && newLineNo != null && (
                   <button
                     type="button"
                     title={addCommentTitle}
@@ -820,6 +852,8 @@ export function UnifiedDiffBody({
   addCommentTitle,
   filePath,
   lineNumbers,
+  movedLines,
+  commentRange,
 }: {
   loading: boolean;
   failed: boolean;
@@ -843,6 +877,10 @@ export function UnifiedDiffBody({
   filePath?: string | null;
   /** Old/new line-number gutter; only the plain read-only list supports it. Not sticky: that cost a third of the scroll frame rate. */
   lineNumbers?: boolean;
+  /** Zero-based patch-line indices Git reported as moved (read-only list only). */
+  movedLines?: ReadonlySet<number>;
+  /** Side-aware range commenting; replaces the new-line-only comment anchors when set. */
+  commentRange?: DiffRangeProps;
 }) {
   const { t } = useTranslation();
   const interactive = !!(sector && (onStageHunk ?? onUnstageHunk));
@@ -960,7 +998,7 @@ export function UnifiedDiffBody({
       untrackedPlain != null && untrackedPlain.length > 0
         ? linesFromUntracked(untrackedPlain)
         : displayedDiffLines;
-    if (annotationsByNewLine || onAddComment) {
+    if (annotationsByNewLine || onAddComment || commentRange) {
       return (
         <AnnotatedVirtualDiffList
           lines={lines}
@@ -968,10 +1006,11 @@ export function UnifiedDiffBody({
           annotationsByNewLine={annotationsByNewLine}
           onAddComment={onAddComment}
           addCommentTitle={addCommentTitle}
+          range={commentRange}
         />
       );
     }
-    return <VirtualDiffList lines={lines} filePath={filePath} lineNumbers={lineNumbers} />;
+    return <VirtualDiffList lines={lines} filePath={filePath} lineNumbers={lineNumbers} movedLines={movedLines} />;
   }
 
   return (

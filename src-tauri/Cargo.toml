@@ -1,6 +1,6 @@
 [package]
 name = "l8git"
-version = "1.0.0"
+version = "1.1.0"
 description = "Fast multi-repository Git desktop client"
 authors = ["Leon Achteresch"]
 license = "MIT"

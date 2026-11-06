@@ -55,6 +55,11 @@ describe("draftsByLine", () => {
 });
 
 describe("toReviewPayload", () => {
+  it("preserves multiline anchors and the original diff side", () => {
+    expect(toReviewPayload([draft({ id: "range", line: 8, startLine: 3, side: "LEFT" })])).toEqual([
+      { path: "src/app.ts", line: 8, body: "nit", side: "LEFT", start_line: 3, start_side: "LEFT" },
+    ]);
+  });
   it("maps drafts onto the backend comment shape", () => {
     expect(
       toReviewPayload([

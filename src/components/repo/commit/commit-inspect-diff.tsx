@@ -15,6 +15,7 @@ export function CommitInspectDiff({
   fileDiff,
   loading,
   failed,
+  previewable = false,
 }: {
   repoPath: string;
   commitHash: string | null;
@@ -22,6 +23,8 @@ export function CommitInspectDiff({
   fileDiff: FileDiffPayload | null;
   loading: boolean;
   failed: boolean;
+  /** Real commits only (not stashes): enables display options via repo_diff_preview. */
+  previewable?: boolean;
 }) {
   const { t } = useTranslation();
   const isLfs = looksLikeLfsPointerText(fileDiff?.diff);
@@ -64,6 +67,7 @@ export function CommitInspectDiff({
             <CommitDiffViewer
               unifiedText={fileDiff.diff}
               filename={selectedFile}
+              preview={previewable && commitHash ? { path: repoPath, request: { kind: "commit", file: selectedFile, head: commitHash }, revisions: { base: `${commitHash}^`, head: commitHash } } : undefined}
             />
           </div>
         ) : (

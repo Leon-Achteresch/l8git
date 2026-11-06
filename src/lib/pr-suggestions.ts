@@ -49,12 +49,14 @@ export function buildSuggestionBody(lineText: string, comment = ""): string {
   return `${head}\`\`\`suggestion\n${lineText}\n\`\`\``;
 }
 
+/** Replaces lines `startLine..line` (single line by default) with the suggestion. */
 export function applySuggestionToContent(
   content: string,
   line: number,
   replacement: string[],
+  startLine = line,
 ): string | null {
-  if (!Number.isInteger(line) || line < 1) return null;
+  if (!Number.isInteger(line) || line < 1 || !Number.isInteger(startLine) || startLine < 1 || startLine > line) return null;
   const usesCrlf = content.includes("\r\n");
   const normalized = content.replace(/\r\n/g, "\n");
   const endsWithNewline = normalized.endsWith("\n");
@@ -62,7 +64,7 @@ export function applySuggestionToContent(
   if (endsWithNewline) lines.pop();
   if (line > lines.length) return null;
 
-  const next = [...lines.slice(0, line - 1), ...replacement, ...lines.slice(line)];
+  const next = [...lines.slice(0, startLine - 1), ...replacement, ...lines.slice(line)];
   const joined = next.join("\n") + (endsWithNewline ? "\n" : "");
   return usesCrlf ? joined.replace(/\n/g, "\r\n") : joined;
 }

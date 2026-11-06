@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError } from "@/lib/error-toast";
 import { useGitAccounts, type GitAccount } from "@/lib/git-accounts";
+import { invalidateGithubTarget } from "@/lib/github-ui/target";
 import { runRemoteOp } from "@/lib/remote-ops";
 import { useRepoStore } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
@@ -120,6 +121,7 @@ export function CreateRemoteRepoDialog({
         name: "origin",
         url: created.clone_url,
       });
+      invalidateGithubTarget(path);
 
       if (pushAfter) {
         try {

@@ -15,6 +15,8 @@ mod cursor;
 mod favicon;
 mod hub;
 pub mod git;
+pub mod git_expansion;
+pub mod diff_preview;
 pub mod jira;
 pub mod jira_mcp;
 pub mod jira_policy;
@@ -168,6 +170,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             exports::save_user_export,
+            exports::save_user_export_bytes,
             exports::runtime_diagnostics,
             remote::remote_status,
             remote::remote_set_config,
@@ -312,6 +315,12 @@ pub fn run() {
             hub::hub_disconnect,
             hub::hub_use_for_git,
             hub::hub_api,
+            hub::hub_download,
+            hub::hub_task_worktree,
+            hub::hub_apply_suggestions,
+            hub::hub_identity_profile,
+            git_expansion::git_expansion,
+            diff_preview::repo_diff_preview,
             hub::hub_oauth_available,
             hub::hub_oauth_start,
             hub::hub_oauth_poll,

@@ -210,8 +210,10 @@ pub(super) async fn bb_files(
         let status = str_or_empty(&s["status"]);
         let additions = s["lines_added"].as_u64().unwrap_or(0);
         let deletions = s["lines_removed"].as_u64().unwrap_or(0);
+        let previous_path = s["old"]["path"].as_str().filter(|previous| !previous.is_empty() && *previous != path).map(str::to_string);
         out.push(PrFile {
             path,
+            previous_path,
             status,
             additions,
             deletions,

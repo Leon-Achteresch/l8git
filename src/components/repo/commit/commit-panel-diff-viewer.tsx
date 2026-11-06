@@ -22,6 +22,7 @@ import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
 import type { ChangeRow, FileDiffResponse } from "./commit-panel-types";
 import { StatusIcon } from "./commit-panel-status-icon";
 import { UnifiedDiffBody } from "./unified-diff-body";
+import { DiffOptionToggles, useDiffPreview } from "./commit-diff-viewer";
 
 const loadStagingDiff = () => import("./monaco-staging-diff");
 const MonacoStagingDiff = lazy(() =>
@@ -68,6 +69,13 @@ export const DiffViewer = memo(function DiffViewer({
 }) {
   const { t } = useTranslation();
   const explain = useExplainSheet();
+  // Display-only options for tracked text diffs; staging always uses the original patch.
+  const preview = useDiffPreview(
+    selectedRow && selectedRow.sector !== "conflict" && !(selectedRow.sector === "unstaged" && selectedRow.entry.untracked) && viewMode === "stage"
+      ? { path: repoPath, request: { kind: selectedRow.sector === "staged" ? "staged" : "unstaged", file: selectedRow.path } }
+      : undefined,
+  );
+  const movedLines = useMemo(() => new Set(preview.res?.movedLines ?? []), [preview.res]);
 
   useEffect(() => {
     if (viewMode !== "edit") return;
@@ -131,6 +139,7 @@ export const DiffViewer = memo(function DiffViewer({
   }
 
   const sector = selectedRow.sector === "staged" ? "staged" : "unstaged";
+  const transformed = preview.active;
   const explainableDiff = showMedia ? null : unifiedText?.trim() || null;
 
   return (
@@ -204,7 +213,13 @@ export const DiffViewer = memo(function DiffViewer({
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden">
+        {/* Overlay, not in the header: an extra header control wraps it at large UI scales. */}
+        {viewMode === "stage" && selectedRow.sector !== "conflict" && !(selectedRow.sector === "unstaged" && selectedRow.entry.untracked) && !showMedia && (
+          <div className="absolute right-3 top-1.5 z-10 rounded-md bg-background/90 shadow-xs backdrop-blur-xs">
+            <DiffOptionToggles p={preview} compact />
+          </div>
+        )}
         {showMedia ? (
           <MediaDiffPanel
             key={selectedRow.id}
@@ -216,6 +231,26 @@ export const DiffViewer = memo(function DiffViewer({
             afterLabel={t("media.sideWorkingTree")}
             checkLfs={isLfs}
           />
+        ) : viewMode === "stage" && transformed ? (
+          <div className="flex h-full flex-col">
+            <p role="status" className="shrink-0 border-b border-border bg-muted/30 px-4 py-1 text-[11px] text-muted-foreground">
+              {preview.error ? t("diffView.previewFailed", { error: preview.error }) : t("diffView.stagingDisabled")}
+            </p>
+            <div className="min-h-0 flex-1">
+              <UnifiedDiffBody
+                loading={preview.loading && !preview.res}
+                failed={!!preview.error}
+                isBinary={!!preview.res?.binary}
+                unifiedText={preview.res?.patch ?? null}
+                untrackedPlain={null}
+                emptyHint={preview.opts.ignoreWhitespace ? t("diffView.whitespaceOnly") : t("commitInspect.noTextChanges")}
+                failedHint={t("commitPanel.diffLoadFailed")}
+                filePath={selectedRow.path}
+                lineNumbers
+                movedLines={movedLines}
+              />
+            </div>
+          </div>
         ) : viewMode === "stage" ? (
           <UnifiedDiffBody
             loading={diffLoading}

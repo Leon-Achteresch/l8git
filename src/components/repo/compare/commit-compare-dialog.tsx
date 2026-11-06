@@ -26,6 +26,8 @@ import {
   type CommitComparison,
 } from '@/lib/commit-compare';
 import { CommitCompareFiles } from './commit-compare-files';
+import { DiffProfileBar } from './diff-profile-bar';
+import { BUILTIN_PROFILES, applyProfile, useDiffProfiles } from '@/lib/workbench-ui/file-classes';
 import { CommitCompareDiffView } from './commit-compare-diff';
 import { WorkflowHelpLink } from '@/components/help/workflow-help-link';
 import { comparisonReportFilename, comparisonReviewReport } from '@/lib/commit-compare-report';
@@ -104,7 +106,13 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
   const refError = validateCompareRefs(draft);
   const draftDirty = !!request && (draft.base.trim() !== request.base || draft.head.trim() !== request.head || draft.mode !== request.mode);
   const suggestions = useMemo(() => [...new Set(['HEAD', 'HEAD~1', ...(repo?.branches.map(branch => branch.name) ?? []), ...(repo?.tags.map(tag => `refs/tags/${tag.name}`) ?? [])])].slice(0, 200), [repo?.branches, repo?.tags]);
-  const visibleFiles = useMemo(() => filterCompareFiles(comparison?.files ?? EMPTY_FILES, query, status, sort, reviewed, hideReviewed), [comparison?.files, query, status, sort, reviewed, hideReviewed]);
+  const filteredFiles = useMemo(() => filterCompareFiles(comparison?.files ?? EMPTY_FILES, query, status, sort, reviewed, hideReviewed), [comparison?.files, query, status, sort, reviewed, hideReviewed]);
+  const profileId = useDiffProfiles((s) => s.active);
+  const customProfiles = useDiffProfiles((s) => s.custom);
+  const [showHidden, setShowHidden] = useState(false);
+  const profileHide = useMemo(() => [...BUILTIN_PROFILES, ...customProfiles].find((p) => p.id === profileId)?.hide ?? [], [profileId, customProfiles]);
+  const profileSplit = useMemo(() => applyProfile(filteredFiles, profileHide), [filteredFiles, profileHide]);
+  const visibleFiles = showHidden ? filteredFiles : profileSplit.shown;
   const selectedFile = comparison?.files.find(file => file.path === selectedPath) ?? null;
   const visibleIndex = visibleFiles.findIndex(file => file.path === selectedPath);
 
@@ -258,6 +266,7 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-muted-foreground"><span>{t('compare.reviewProgress', { reviewed: reviewed.size, count: comparison.files.length })}</span><label htmlFor={hideReviewedId} className="flex cursor-pointer items-center gap-1.5"><Checkbox id={hideReviewedId} checked={hideReviewed} onCheckedChange={value => setHideReviewed(value === true)} className="size-3.5" />{t('compare.hideReviewed')}</label></div>
                 </div>
+                <div className="shrink-0 border-b border-border px-3 py-1.5"><DiffProfileBar hiddenCount={profileSplit.hidden.length} showHidden={showHidden} onShowHidden={setShowHidden} /></div>
                 <CommitCompareFiles files={visibleFiles} selectedPath={selectedPath} reviewed={reviewed} onSelect={selectFile} onReviewedChange={setReviewed} />
               </ResizablePanel>
               <ResizableHandle withHandle />
