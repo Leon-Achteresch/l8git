@@ -1,0 +1,572 @@
+{
+  "baselineRevision": "b02ac6aa72e34b06f0279c3d23d9b27d4e08c31e",
+  "optimizedRevision": "8744c5bdd4ef6a3d6b1614006f2308d67f5b4b55",
+  "machine": "Apple M3, macOS arm64",
+  "samplesPerScenario": 5,
+  "timingDefinitions": {
+    "readyMs": "Existing Playwright visibility check, two animation frames, then transport/evaluation of performance.now(). Preserved for historical comparison and CI budget.",
+    "paintReadyMs": "MutationObserver inside the page detects expected content, then records performance.now() after two animation frames. A rendering-opportunity proxy, not native launch time or a display presentation timestamp.",
+    "jsBytes": "Completed decoded JavaScript resource bodies at the later readyMs signal; background-service overlap can change this count."
+  },
+  "webkit": {
+    "before": {
+      "scope": "Shipped production entry, de locale, WebKit, no CPU throttle, cold browser contexts, local HTTP, mocked native IPC (80 commits/1000 changed files). Excludes native process and WebView launch.",
+      "scenarios": {
+        "empty": {
+          "metrics": {
+            "readyMs": 137,
+            "paintReadyMs": 115,
+            "jsBytes": 1628673
+          },
+          "samples": [
+            {
+              "readyMs": 157,
+              "paintReadyMs": 145,
+              "jsBytes": 1628673
+            },
+            {
+              "readyMs": 146,
+              "paintReadyMs": 116,
+              "jsBytes": 1628673
+            },
+            {
+              "readyMs": 136,
+              "paintReadyMs": 113,
+              "jsBytes": 1628673
+            },
+            {
+              "readyMs": 137,
+              "paintReadyMs": 114,
+              "jsBytes": 1628673
+            },
+            {
+              "readyMs": 135,
+              "paintReadyMs": 115,
+              "jsBytes": 1628673
+            }
+          ]
+        },
+        "commit": {
+          "metrics": {
+            "readyMs": 307,
+            "paintReadyMs": 291,
+            "jsBytes": 2199769
+          },
+          "samples": [
+            {
+              "readyMs": 312,
+              "paintReadyMs": 295,
+              "jsBytes": 2199769
+            },
+            {
+              "readyMs": 305,
+              "paintReadyMs": 290,
+              "jsBytes": 2115196
+            },
+            {
+              "readyMs": 302,
+              "paintReadyMs": 284,
+              "jsBytes": 2201185
+            },
+            {
+              "readyMs": 315,
+              "paintReadyMs": 293,
+              "jsBytes": 2313933
+            },
+            {
+              "readyMs": 307,
+              "paintReadyMs": 291,
+              "jsBytes": 2115196
+            }
+          ]
+        },
+        "history": {
+          "metrics": {
+            "readyMs": 335,
+            "paintReadyMs": 318,
+            "jsBytes": 2300164
+          },
+          "samples": [
+            {
+              "readyMs": 356,
+              "paintReadyMs": 318,
+              "jsBytes": 2412912
+            },
+            {
+              "readyMs": 334,
+              "paintReadyMs": 319,
+              "jsBytes": 2288942
+            },
+            {
+              "readyMs": 337,
+              "paintReadyMs": 318,
+              "jsBytes": 2300164
+            },
+            {
+              "readyMs": 331,
+              "paintReadyMs": 317,
+              "jsBytes": 2288942
+            },
+            {
+              "readyMs": 335,
+              "paintReadyMs": 320,
+              "jsBytes": 2300164
+            }
+          ]
+        }
+      }
+    },
+    "after": {
+      "scope": "Shipped production entry, de locale, WebKit, no CPU throttle, cold browser contexts, local HTTP, mocked native IPC (80 commits/1000 changed files). Excludes native process and WebView launch.",
+      "scenarios": {
+        "empty": {
+          "metrics": {
+            "readyMs": 146,
+            "paintReadyMs": 127,
+            "jsBytes": 1828032
+          },
+          "samples": [
+            {
+              "readyMs": 195,
+              "paintReadyMs": 187,
+              "jsBytes": 1629157
+            },
+            {
+              "readyMs": 151,
+              "paintReadyMs": 121,
+              "jsBytes": 1828032
+            },
+            {
+              "readyMs": 141,
+              "paintReadyMs": 127,
+              "jsBytes": 1828032
+            },
+            {
+              "readyMs": 146,
+              "paintReadyMs": 129,
+              "jsBytes": 1828032
+            },
+            {
+              "readyMs": 145,
+              "paintReadyMs": 119,
+              "jsBytes": 1828032
+            }
+          ]
+        },
+        "commit": {
+          "metrics": {
+            "readyMs": 294,
+            "paintReadyMs": 268,
+            "jsBytes": 2305284
+          },
+          "samples": [
+            {
+              "readyMs": 281,
+              "paintReadyMs": 274,
+              "jsBytes": 2106547
+            },
+            {
+              "readyMs": 294,
+              "paintReadyMs": 266,
+              "jsBytes": 2305284
+            },
+            {
+              "readyMs": 289,
+              "paintReadyMs": 268,
+              "jsBytes": 2305284
+            },
+            {
+              "readyMs": 297,
+              "paintReadyMs": 257,
+              "jsBytes": 2305284
+            },
+            {
+              "readyMs": 320,
+              "paintReadyMs": 271,
+              "jsBytes": 2305284
+            }
+          ]
+        },
+        "history": {
+          "metrics": {
+            "readyMs": 295,
+            "paintReadyMs": 270,
+            "jsBytes": 1979368
+          },
+          "samples": [
+            {
+              "readyMs": 319,
+              "paintReadyMs": 270,
+              "jsBytes": 1979368
+            },
+            {
+              "readyMs": 295,
+              "paintReadyMs": 271,
+              "jsBytes": 1979368
+            },
+            {
+              "readyMs": 298,
+              "paintReadyMs": 266,
+              "jsBytes": 1979368
+            },
+            {
+              "readyMs": 290,
+              "paintReadyMs": 266,
+              "jsBytes": 1979368
+            },
+            {
+              "readyMs": 292,
+              "paintReadyMs": 270,
+              "jsBytes": 1979368
+            }
+          ]
+        }
+      }
+    }
+  },
+  "chromium4x": {
+    "before": {
+      "scope": "Shipped production entry, de locale, Chromium, 4x CPU throttle, cold browser contexts, local HTTP, mocked native IPC (80 commits/1000 changed files). Excludes native process and WebView launch.",
+      "scenarios": {
+        "empty": {
+          "metrics": {
+            "readyMs": 350,
+            "paintReadyMs": 303,
+            "jsBytes": 1827549,
+            "scriptMs": 167
+          },
+          "samples": [
+            {
+              "readyMs": 350,
+              "paintReadyMs": 304,
+              "jsBytes": 1827549,
+              "scriptMs": 165
+            },
+            {
+              "readyMs": 334,
+              "paintReadyMs": 300,
+              "jsBytes": 1707529,
+              "scriptMs": 165
+            },
+            {
+              "readyMs": 346,
+              "paintReadyMs": 301,
+              "jsBytes": 1827549,
+              "scriptMs": 167
+            },
+            {
+              "readyMs": 351,
+              "paintReadyMs": 306,
+              "jsBytes": 1827549,
+              "scriptMs": 174
+            },
+            {
+              "readyMs": 351,
+              "paintReadyMs": 303,
+              "jsBytes": 1827549,
+              "scriptMs": 173
+            }
+          ]
+        },
+        "commit": {
+          "metrics": {
+            "readyMs": 608,
+            "paintReadyMs": 571,
+            "jsBytes": 2313933,
+            "scriptMs": 345
+          },
+          "samples": [
+            {
+              "readyMs": 641,
+              "paintReadyMs": 595,
+              "jsBytes": 2313933,
+              "scriptMs": 363
+            },
+            {
+              "readyMs": 606,
+              "paintReadyMs": 568,
+              "jsBytes": 2313933,
+              "scriptMs": 340
+            },
+            {
+              "readyMs": 614,
+              "paintReadyMs": 564,
+              "jsBytes": 2313933,
+              "scriptMs": 339
+            },
+            {
+              "readyMs": 608,
+              "paintReadyMs": 574,
+              "jsBytes": 2313933,
+              "scriptMs": 345
+            },
+            {
+              "readyMs": 606,
+              "paintReadyMs": 571,
+              "jsBytes": 2313933,
+              "scriptMs": 345
+            }
+          ]
+        },
+        "history": {
+          "metrics": {
+            "readyMs": 666,
+            "paintReadyMs": 617,
+            "jsBytes": 2412912,
+            "scriptMs": 369
+          },
+          "samples": [
+            {
+              "readyMs": 673,
+              "paintReadyMs": 620,
+              "jsBytes": 2412912,
+              "scriptMs": 374
+            },
+            {
+              "readyMs": 649,
+              "paintReadyMs": 608,
+              "jsBytes": 2412912,
+              "scriptMs": 368
+            },
+            {
+              "readyMs": 666,
+              "paintReadyMs": 617,
+              "jsBytes": 2412912,
+              "scriptMs": 365
+            },
+            {
+              "readyMs": 678,
+              "paintReadyMs": 624,
+              "jsBytes": 2412912,
+              "scriptMs": 375
+            },
+            {
+              "readyMs": 665,
+              "paintReadyMs": 615,
+              "jsBytes": 2412912,
+              "scriptMs": 369
+            }
+          ]
+        }
+      }
+    },
+    "after": {
+      "scope": "Shipped production entry, de locale, Chromium, 4x CPU throttle, cold browser contexts, local HTTP, mocked native IPC (80 commits/1000 changed files). Excludes native process and WebView launch.",
+      "scenarios": {
+        "empty": {
+          "metrics": {
+            "readyMs": 352,
+            "paintReadyMs": 310,
+            "jsBytes": 1828032,
+            "scriptMs": 169
+          },
+          "samples": [
+            {
+              "readyMs": 443,
+              "paintReadyMs": 403,
+              "jsBytes": 1708012,
+              "scriptMs": 187
+            },
+            {
+              "readyMs": 359,
+              "paintReadyMs": 310,
+              "jsBytes": 1828032,
+              "scriptMs": 174
+            },
+            {
+              "readyMs": 347,
+              "paintReadyMs": 304,
+              "jsBytes": 1828032,
+              "scriptMs": 169
+            },
+            {
+              "readyMs": 352,
+              "paintReadyMs": 307,
+              "jsBytes": 1828032,
+              "scriptMs": 169
+            },
+            {
+              "readyMs": 346,
+              "paintReadyMs": 310,
+              "jsBytes": 1820760,
+              "scriptMs": 169
+            }
+          ]
+        },
+        "commit": {
+          "metrics": {
+            "readyMs": 629,
+            "paintReadyMs": 596,
+            "jsBytes": 2305284,
+            "scriptMs": 341
+          },
+          "samples": [
+            {
+              "readyMs": 629,
+              "paintReadyMs": 598,
+              "jsBytes": 2305284,
+              "scriptMs": 345
+            },
+            {
+              "readyMs": 627,
+              "paintReadyMs": 587,
+              "jsBytes": 2305284,
+              "scriptMs": 337
+            },
+            {
+              "readyMs": 619,
+              "paintReadyMs": 584,
+              "jsBytes": 2305284,
+              "scriptMs": 340
+            },
+            {
+              "readyMs": 663,
+              "paintReadyMs": 632,
+              "jsBytes": 2305284,
+              "scriptMs": 365
+            },
+            {
+              "readyMs": 638,
+              "paintReadyMs": 596,
+              "jsBytes": 2305284,
+              "scriptMs": 341
+            }
+          ]
+        },
+        "history": {
+          "metrics": {
+            "readyMs": 638,
+            "paintReadyMs": 577,
+            "jsBytes": 1979368,
+            "scriptMs": 346
+          },
+          "samples": [
+            {
+              "readyMs": 707,
+              "paintReadyMs": 639,
+              "jsBytes": 1979368,
+              "scriptMs": 395
+            },
+            {
+              "readyMs": 633,
+              "paintReadyMs": 570,
+              "jsBytes": 1979368,
+              "scriptMs": 344
+            },
+            {
+              "readyMs": 638,
+              "paintReadyMs": 580,
+              "jsBytes": 1979368,
+              "scriptMs": 353
+            },
+            {
+              "readyMs": 639,
+              "paintReadyMs": 577,
+              "jsBytes": 1979368,
+              "scriptMs": 346
+            },
+            {
+              "readyMs": 636,
+              "paintReadyMs": 577,
+              "jsBytes": 1979368,
+              "scriptMs": 346
+            }
+          ]
+        }
+      }
+    }
+  },
+  "additionalWebkitFirstUseVerification": {
+    "scope": "Shipped production entry, de locale, WebKit, no CPU throttle, cold browser contexts, local HTTP, mocked native IPC (80 commits/1000 changed files). Excludes native process and WebView launch.",
+    "scenarios": {
+      "empty": {
+        "metrics": {
+          "readyMs": 144,
+          "paintReadyMs": 118,
+          "jsBytes": 1828032
+        },
+        "samples": [
+          {
+            "readyMs": 156,
+            "paintReadyMs": 149,
+            "jsBytes": 1629157
+          },
+          {
+            "readyMs": 144,
+            "paintReadyMs": 117,
+            "jsBytes": 1828032
+          },
+          {
+            "readyMs": 133,
+            "paintReadyMs": 118,
+            "jsBytes": 1828032
+          }
+        ]
+      },
+      "commit": {
+        "metrics": {
+          "readyMs": 292,
+          "paintReadyMs": 267,
+          "jsBytes": 2305284
+        },
+        "samples": [
+          {
+            "readyMs": 282,
+            "paintReadyMs": 269,
+            "jsBytes": 2305284
+          },
+          {
+            "readyMs": 292,
+            "paintReadyMs": 266,
+            "jsBytes": 2305284
+          },
+          {
+            "readyMs": 303,
+            "paintReadyMs": 267,
+            "jsBytes": 2305284
+          }
+        ]
+      },
+      "history": {
+        "metrics": {
+          "readyMs": 305,
+          "paintReadyMs": 268,
+          "jsBytes": 1979368
+        },
+        "samples": [
+          {
+            "readyMs": 305,
+            "paintReadyMs": 271,
+            "jsBytes": 1979368
+          },
+          {
+            "readyMs": 301,
+            "paintReadyMs": 265,
+            "jsBytes": 1979368
+          },
+          {
+            "readyMs": 316,
+            "paintReadyMs": 268,
+            "jsBytes": 1979368
+          }
+        ]
+      }
+    }
+  },
+  "sourceHashes": {
+    "src/components/repo/commit/commit-history-panel.tsx": "3e6876250e5bf20723b68e808619ada8d925268d8473e63331391b94156518f3",
+    "src/components/repo/github/issue-from-diff.tsx": "ea6a48ae6d3757fdcd9c50c4f280682d4621f80cda3acf7986ae4c44422e1af5",
+    "src/components/ui/loadable-panel.tsx": "37a08335658bc9e9133ca6d0004bc87d124c961da4407bd55ee3eef2b0a49591",
+    "src/lib/startup-services.test.ts": "868ecfda12a1c09e297fdba673ca32a383403370cc7d2c58375c78aa56dd6e58",
+    "src/lib/startup-services.ts": "e5ef71769fb439af562ecd6e04e683911ab9491df868acbbb7eaedcd95ea6172",
+    "src/lib/use-repo-rehydrate.ts": "bbb87d6df2f0eadaa5a2e273fb5b1a9ed4249cba7c5af284be533d254a448a64",
+    "src/main.tsx": "565200fd2b70a0a50bfecff8ee404ab2e4670a0b6012c8a75341dbde42ee6d48",
+    "src/routes/__root.tsx": "d7e2f146faf2993b5a8327fa1c185bb71d895342bf966a8d57d67957265f34e6",
+    "src/routes/index.tsx": "dd1ff55ebc1803f8c0013cdd374dafb70299e8160708da03573ecd6d318d9150"
+  },
+  "notes": [
+    "App sources are identical between the five-sample captures and the additional three-sample WebKit first-use run. Post-timing checks now also open and close commit details.",
+    "No concurrent compilers or test runners during timings. Native process/WebView launch, actual Git execution and OS-cache-cold startup are excluded.",
+    "WebKit restored views improve. Empty-view variation and the throttled Chromium commit-view regression are retained in the report; 150 ms for all views is not achieved."
+  ]
+}

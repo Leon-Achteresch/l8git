@@ -1,5 +1,5 @@
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 import { BranchMultiSelect } from '@/components/repo/commit/branch-multi-select';
-import { UndoConfirmDialog } from '@/components/repo/undo/undo-confirm-dialog';
 import { isRemoteCanceled, runRemoteOp } from '@/lib/remote-ops';
 import {
   AlertDialog,
@@ -66,12 +66,14 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { CreateRemoteRepoDialog } from './create-remote-repo-dialog';
-import { EditRemoteDialog } from './edit-remote-dialog';
-import { PushUpstreamDialog } from './push-upstream-dialog';
 import { ToolbarButton } from './toolbar-button';
 import { ToolbarGroup } from './toolbar-group';
 import { SpinIcon } from "@/components/motion/kit";
+
+const CreateRemoteRepoDialog = deferredDialog(() => import("./create-remote-repo-dialog").then(m => m.CreateRemoteRepoDialog));
+const EditRemoteDialog = deferredDialog(() => import("./edit-remote-dialog").then(m => m.EditRemoteDialog));
+const PushUpstreamDialog = deferredDialog(() => import("./push-upstream-dialog").then(m => m.PushUpstreamDialog));
+const UndoConfirmDialog = deferredDialog(() => import("@/components/repo/undo/undo-confirm-dialog").then(m => m.UndoConfirmDialog));
 
 type RemoteOp = 'fetch' | 'pull' | 'push';
 

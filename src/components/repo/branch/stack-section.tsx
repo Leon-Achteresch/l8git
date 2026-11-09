@@ -1,3 +1,4 @@
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { useRepoStore } from "@/lib/repo-store";
@@ -8,8 +9,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { StackChain } from "./stack-chain";
-import { StackCreateBranchDialog } from "./stack-create-branch-dialog";
-import { StackPrChainDialog } from "./stack-pr-chain-dialog";
+
+const StackCreateBranchDialog = deferredDialog(() => import("./stack-create-branch-dialog").then(m => m.StackCreateBranchDialog));
+const StackPrChainDialog = deferredDialog(() => import("./stack-pr-chain-dialog").then(m => m.StackPrChainDialog));
 
 export function StackSection({ path }: { path: string }) {
   const { t } = useTranslation();

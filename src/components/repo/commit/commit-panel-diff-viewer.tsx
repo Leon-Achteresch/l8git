@@ -1,4 +1,4 @@
-import { useExplainSheet } from "@/components/ai/explain-sheet";
+import { useExplainSheet } from "@/components/ai/use-explain-sheet";
 import { Button } from "@/components/ui/button";
 import {
   Empty,

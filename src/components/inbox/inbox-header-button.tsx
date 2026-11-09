@@ -1,9 +1,9 @@
 import { Inbox, XIcon } from "lucide-react";
 import { LayoutGroup, m, useReducedMotion } from "motion/react";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
-import { InboxPopup } from "@/components/inbox/inbox-popup";
+const InboxPopup = lazy(() => import("@/components/inbox/inbox-popup").then(m => ({ default: m.InboxPopup })));
 import { Button } from "@/components/ui/button";
 import { OverlayPortal, useAnchorBox } from "@/components/ui/overlay-portal";
 import {
@@ -153,7 +153,7 @@ export function InboxHeaderButton() {
               animate={{ opacity: 1 }}
               transition={{ duration: reduce ? 0 : 0.16, delay: reduce ? 0 : 0.08 }}
             >
-              <InboxPopup />
+              <Suspense fallback={null}><InboxPopup /></Suspense>
             </m.div>
           </m.div>
         ) : null}

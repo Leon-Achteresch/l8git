@@ -1,3 +1,4 @@
+import { consumeCommitFocusRequest } from "@/lib/commit-focus";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -50,21 +51,6 @@ function languageShort(lang: string): string {
     AI_LANGUAGES.find((l) => l.label.toLowerCase() === lang.toLowerCase())?.short ??
     lang.slice(0, 2).toUpperCase()
   );
-}
-
-// Set when focus was requested before the composer existed (its panel renders deferred).
-let focusRequestedAt = 0;
-
-/** Focuses the commit message input now, or when the composer mounts within the next seconds. */
-export function focusCommitMessage() {
-  const input = document.querySelector<HTMLInputElement>("[data-commit-message-input]");
-  if (input) {
-    input.focus();
-    return;
-  }
-  focusRequestedAt = Date.now();
-  // The user moving focus elsewhere first cancels the request, so a later composer can't steal it.
-  document.addEventListener("focusin", () => (focusRequestedAt = 0), { once: true });
 }
 
 const spring = { type: "spring" as const, stiffness: 460, damping: 34, mass: 0.42 };
@@ -140,8 +126,7 @@ export function CommitComposer({
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const subjectRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (Date.now() - focusRequestedAt > 3000) return;
-    focusRequestedAt = 0;
+    if (!consumeCommitFocusRequest()) return;
     subjectRef.current?.focus();
   }, []);
   const showBody = bodyOpen || body.trim().length > 0;

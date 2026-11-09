@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:ui": "playwright test",
+    "benchmark:startup": "node scripts/benchmark-startup.mjs",
     "benchmark:scroll": "vite build --config vite.ui-test.config.ts && node scripts/benchmark-scroll.mjs",
     "tauri": "tauri",
     "tauri:icon": "bunx tauri icon \"public/icons/ios/AppIcon~ios-marketing.png\""

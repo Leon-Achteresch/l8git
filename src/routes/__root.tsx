@@ -16,8 +16,9 @@ const AppUpdateDialog = lazy(() =>
 import { AppShell } from "@/components/app/shell/app-shell";
 import { RouteErrorBoundary } from "@/components/app/route-error-boundary";
 import { Toaster } from "@/components/ui/sonner";
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 
-import { HotkeysOverlay } from "@/components/app/hotkeys-overlay";
+const HotkeysOverlay = deferredDialog(() => import("@/components/app/hotkeys-overlay").then(m => m.HotkeysOverlay));
 import { RemoteProgressDock } from "@/components/app/remote-progress-dock";
 
 const ReflogPage = lazy(() =>
@@ -38,6 +39,7 @@ import { useUiStore } from "@/lib/ui-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { seedPreviewRepo } from "@/lib/preview-repo";
 import { useState } from "react";
+import { scheduleStartupServices } from "@/lib/startup-services";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -58,6 +60,9 @@ function RootLayout() {
   }, []);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useEffect(() => {
+    if (pathname !== "/") scheduleStartupServices();
+  }, [pathname]);
   useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
   const addRepo = useRepoStore((s) => s.addRepo);
   const uiDensity = useWorkspacePrefs((s) => s.uiDensity);

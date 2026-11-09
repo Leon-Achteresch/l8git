@@ -57,6 +57,9 @@ test("late CI context and worktree results never cross into another run", async 
   await hold(page, "hub_task_worktree");
   await page.getByRole("button", { name: /Create worktree at/ }).click();
   await page.locator("#ghci-run").selectOption("1");
+  // The picker updates before the selected run's panel commits. Release only
+  // after the old context is gone, so this actually exercises a late result.
+  await expect(context).toHaveCount(0);
   await release(page, "hub_task_worktree");
   // The created worktree for run 2 stays reachable rather than silently lost…
   await expect(page.getByText(/ci\/fix-2-test-2 @ bbbbbbb.*Nothing was sent/)).toBeVisible();

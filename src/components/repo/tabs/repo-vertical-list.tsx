@@ -13,9 +13,21 @@ export function RepoVerticalList({ style }: { style: "rail" | "list" }) {
 
   useEffect(() => {
     if (!activePath) return;
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-repo-path="${CSS.escape(activePath)}"]`)
-      ?.scrollIntoView({ block: "nearest" });
+    const list = listRef.current;
+    const active = list?.querySelector<HTMLElement>(`[data-repo-path="${CSS.escape(activePath)}"]`);
+    if (!list || !active) return;
+    if (typeof ResizeObserver === "undefined") {
+      active.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    // Scroll after the browser's initial layout instead of forcing a layout
+    // while the repository panels are still mounting. Keep deep active tabs visible.
+    const observer = new ResizeObserver(() => {
+      observer.disconnect();
+      active.scrollIntoView({ block: "nearest" });
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
   }, [activePath, filteredForest]);
 
   return (
