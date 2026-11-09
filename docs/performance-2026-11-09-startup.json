@@ -1,0 +1,263 @@
+{
+  "baselineRevision": "26d5f67d2a04aa520936886c36b665ab433564eb",
+  "machine": "Apple M3, macOS arm64",
+  "scope": "Shipped production entry, de locale, Chromium, 4x CPU throttle, cold browser contexts, local HTTP, mocked native IPC (80 commits/1000 changed files). Excludes native process and WebView launch.",
+  "samplesPerScenario": 5,
+  "scenarios": {
+    "empty": {
+      "before": {
+        "metrics": {
+          "readyMs": 433,
+          "jsBytes": 2700918,
+          "scriptMs": 205
+        },
+        "samples": [
+          {
+            "readyMs": 510,
+            "jsBytes": 2700918,
+            "scriptMs": 220
+          },
+          {
+            "readyMs": 417,
+            "jsBytes": 2700918,
+            "scriptMs": 200
+          },
+          {
+            "readyMs": 419,
+            "jsBytes": 2700918,
+            "scriptMs": 205
+          },
+          {
+            "readyMs": 433,
+            "jsBytes": 2700918,
+            "scriptMs": 200
+          },
+          {
+            "readyMs": 435,
+            "jsBytes": 2700918,
+            "scriptMs": 207
+          }
+        ]
+      },
+      "after": {
+        "metrics": {
+          "readyMs": 344,
+          "jsBytes": 1714632,
+          "scriptMs": 168
+        },
+        "samples": [
+          {
+            "readyMs": 359,
+            "jsBytes": 1827380,
+            "scriptMs": 169
+          },
+          {
+            "readyMs": 365,
+            "jsBytes": 1827380,
+            "scriptMs": 177
+          },
+          {
+            "readyMs": 344,
+            "jsBytes": 1628504,
+            "scriptMs": 168
+          },
+          {
+            "readyMs": 341,
+            "jsBytes": 1628504,
+            "scriptMs": 168
+          },
+          {
+            "readyMs": 344,
+            "jsBytes": 1714632,
+            "scriptMs": 167
+          }
+        ]
+      },
+      "reductionPercent": {
+        "readyMs": 20.6,
+        "jsBytes": 36.5,
+        "scriptMs": 18.0
+      }
+    },
+    "commit": {
+      "before": {
+        "metrics": {
+          "readyMs": 679,
+          "jsBytes": 2700918,
+          "scriptMs": 376
+        },
+        "samples": [
+          {
+            "readyMs": 679,
+            "jsBytes": 2700918,
+            "scriptMs": 376
+          },
+          {
+            "readyMs": 684,
+            "jsBytes": 2700918,
+            "scriptMs": 375
+          },
+          {
+            "readyMs": 664,
+            "jsBytes": 2700918,
+            "scriptMs": 376
+          },
+          {
+            "readyMs": 716,
+            "jsBytes": 2700918,
+            "scriptMs": 396
+          },
+          {
+            "readyMs": 667,
+            "jsBytes": 2700918,
+            "scriptMs": 370
+          }
+        ]
+      },
+      "after": {
+        "metrics": {
+          "readyMs": 610,
+          "jsBytes": 2313764,
+          "scriptMs": 345
+        },
+        "samples": [
+          {
+            "readyMs": 610,
+            "jsBytes": 2313764,
+            "scriptMs": 346
+          },
+          {
+            "readyMs": 610,
+            "jsBytes": 2313764,
+            "scriptMs": 345
+          },
+          {
+            "readyMs": 609,
+            "jsBytes": 2313764,
+            "scriptMs": 344
+          },
+          {
+            "readyMs": 611,
+            "jsBytes": 2313764,
+            "scriptMs": 347
+          },
+          {
+            "readyMs": 607,
+            "jsBytes": 2313764,
+            "scriptMs": 342
+          }
+        ]
+      },
+      "reductionPercent": {
+        "readyMs": 10.2,
+        "jsBytes": 14.3,
+        "scriptMs": 8.2
+      }
+    },
+    "history": {
+      "before": {
+        "metrics": {
+          "readyMs": 735,
+          "jsBytes": 2700918,
+          "scriptMs": 406
+        },
+        "samples": [
+          {
+            "readyMs": 747,
+            "jsBytes": 2700918,
+            "scriptMs": 420
+          },
+          {
+            "readyMs": 725,
+            "jsBytes": 2700918,
+            "scriptMs": 406
+          },
+          {
+            "readyMs": 722,
+            "jsBytes": 2700918,
+            "scriptMs": 403
+          },
+          {
+            "readyMs": 735,
+            "jsBytes": 2700918,
+            "scriptMs": 402
+          },
+          {
+            "readyMs": 738,
+            "jsBytes": 2700918,
+            "scriptMs": 407
+          }
+        ]
+      },
+      "after": {
+        "metrics": {
+          "readyMs": 664,
+          "jsBytes": 2412743,
+          "scriptMs": 366
+        },
+        "samples": [
+          {
+            "readyMs": 652,
+            "jsBytes": 2412743,
+            "scriptMs": 366
+          },
+          {
+            "readyMs": 665,
+            "jsBytes": 2412743,
+            "scriptMs": 365
+          },
+          {
+            "readyMs": 663,
+            "jsBytes": 2412743,
+            "scriptMs": 368
+          },
+          {
+            "readyMs": 664,
+            "jsBytes": 2412743,
+            "scriptMs": 368
+          },
+          {
+            "readyMs": 665,
+            "jsBytes": 2412743,
+            "scriptMs": 366
+          }
+        ]
+      },
+      "reductionPercent": {
+        "readyMs": 9.7,
+        "jsBytes": 10.7,
+        "scriptMs": 9.9
+      }
+    }
+  },
+  "sourceSha256": {
+    "scripts/benchmark-startup.mjs": "252a8f1fc229e0bc9aec14be5ff9d1158f8545d879cde75ffe4d2579ba2d555c",
+    "src/components/ai/explain-sheet.tsx": "a52d9c377c707c6f9f9e3a3196b71542fbc20498ddcf86873965f84c53a0c2e8",
+    "src/components/ai/use-explain-sheet.tsx": "c8e888eee1edd238136047343aa459f5f31bdf82774927fe9616e8c404dfc2bd",
+    "src/components/app/app-command-palette.tsx": "3b3df2b791ff42cabff17504b98a798efc6b1a13953ab1091a6cc902a9447cd6",
+    "src/components/app/app-header-search.tsx": "f4d435c0a1d106a6c6fbe2700ed0216a68ecc6006796a69bb28c908558a407bf",
+    "src/components/inbox/inbox-header-button.tsx": "a9d4f89c20a5c9c87e4a858c0bcde8a5de9e334622055947127fd8f5367c4cab",
+    "src/components/repo/branch/branch-row.tsx": "9bc4711d42f780bf8d88db8be981f966f35ac0ea45d63b204e7104a5520f4679",
+    "src/components/repo/branch/stack-section.tsx": "17111cb4e1c964f9be87e54b6c9fad3058c96ad95030c3f2070cb09dda39e673",
+    "src/components/repo/commit/commit-composer.tsx": "4198e95d78e59c934d57c22e18fe8940250e1595437289b60edd4d766773bf0c",
+    "src/components/repo/commit/commit-history-panel.tsx": "c44b27ffb75cd0e582e680cadf55bffd47424bc38107815288cebb906e6bcc77",
+    "src/components/repo/commit/commit-inspect-detail.tsx": "fa71654e50c772b84d634df4e1f09e8f029c8c92baf739257f8cd206cbc6c4f7",
+    "src/components/repo/commit/commit-panel-diff-viewer.tsx": "0922b05c89556f7b05f03b8111f2fb30a16131e9e0c629cde4712946d0e027b8",
+    "src/components/repo/commit/commit-panel.tsx": "3c1e3e5e1b610adc186593eff82f39a8840a0932fbf64b1f8d779a761dc2426d",
+    "src/components/repo/commit/commit-row.tsx": "9f318d16747f07131ad3fd49e853277516572bd4ba565a4fd1c21e4c8323e4c1",
+    "src/components/repo/layout/branch-tree.tsx": "5a5e4d29d563dc97e16dc5c858a67f787c205a19bcb283657195b22868e5bded",
+    "src/components/repo/remote/repo-remote-toolbar.tsx": "2bafe2eb2a97a91d13d5e8f93c95b088b1af946e6bc3760e6d902ac2895ced05",
+    "src/components/repo/tabs/repo-vertical-list.tsx": "58f6e64d78080c2381ec3902307b68dd14f8a485ef3cb715f99679c574e6ef10",
+    "src/components/ui/chunked-list.tsx": "8cf003442cf4df95e325845b17707324168791942f276452bbcf03de0d69d78f",
+    "src/components/ui/deferred-dialog.tsx": "68a22549ed8f1fde95a0278eca86ddc25acd394601b0e9ac356e50c1b13390c5",
+    "src/components/ui/loadable-panel.tsx": "5282b2a169bfffdbe80aa757b3eeac6a7ec4d534eb7c3197c840e1e74e9c295c",
+    "src/hooks/use-container-size.ts": "8671344f1a4f15c62b57a646484383078a8d5428b58e6d1d91296b5b7b2eda8f",
+    "src/lib/commit-focus.ts": "de3ba45dac93214a5eaadd0110928efe18e18a0fef2ed17a5b1f50e1bcfb974a",
+    "src/lib/startup-services.test.ts": "a915975473a6de73b7ba2697b01eab7a6a971bcfa52bd40877a06194036236fd",
+    "src/lib/startup-services.ts": "fa4c3dbfd2f3672abf4272f580d1e8e0a59d72132b4d23b408644328608933ba",
+    "src/main.tsx": "c01bdc4ee8ff0282cd5571c55b22ec42cafd20653a0572862aacad2b48c079ec",
+    "src/routes/__root.tsx": "2a8b48e55890eb5436c98c155322929a3725852a9c070e80f49575407c832b17",
+    "src/routes/index.tsx": "ba4ad72a94158f1a83b40038a7c203baeae1f0caa6aeb9b52df0a95e9f924cb3",
+    "vite.config.ts": "903c759c234d8c325161f023ab6a9693e8130c245d1e3037f47e5e64091f224d"
+  }
+}

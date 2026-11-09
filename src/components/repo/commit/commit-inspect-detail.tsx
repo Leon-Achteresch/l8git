@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useExplainSheet } from "@/components/ai/explain-sheet";
+import { useExplainSheet } from "@/components/ai/use-explain-sheet";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";

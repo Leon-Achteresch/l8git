@@ -105,6 +105,11 @@ export function ChunkedList({
   const watchPending = (full: boolean) => {
     const list = listRef.current;
     if (!list || !hasObserver) return;
+    const pending = list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]");
+    if (pending.length === 0) {
+      if (full) observer.current?.io.disconnect();
+      return;
+    }
     const root = scrollRoot(list);
     if (observer.current?.root !== root) {
       observer.current?.io.disconnect();
@@ -123,7 +128,7 @@ export function ChunkedList({
       observer.current.watched = new WeakSet();
     }
     const { io, watched } = observer.current!;
-    for (const el of list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]")) {
+    for (const el of pending) {
       if (watched.has(el)) continue;
       watched.add(el);
       io.observe(el);
@@ -133,14 +138,19 @@ export function ChunkedList({
   // visible area before paint, so nothing visible flashes blank, and forget chunks that are gone.
   useLayoutEffect(() => {
     const list = listRef.current;
-    // A hidden list has no boxes: every chunk would look near, so leave them pending.
-    if (!list || !hasObserver || list.getClientRects().length === 0) return;
-    const root = scrollRoot(list);
-    const view = root?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight, height: window.innerHeight };
+    if (!list || !hasObserver) return;
+    const pending = list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]");
     const near: number[] = [];
-    for (const el of list.querySelectorAll<HTMLElement>(":scope > [data-chunk-pending]")) {
-      const box = el.getBoundingClientRect();
-      if (box.bottom >= view.top - view.height && box.top <= view.bottom + view.height) near.push(Number(el.dataset.chunk));
+    // Most startup lists fit in the already-rendered first chunk. No geometry
+    // is needed in that case; reading it would force layout for each list.
+    // A hidden list has no boxes, so leave its pending chunks untouched too.
+    if (pending.length > 0 && list.getClientRects().length > 0) {
+      const root = scrollRoot(list);
+      const view = root?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight, height: window.innerHeight };
+      for (const el of pending) {
+        const box = el.getBoundingClientRect();
+        if (box.bottom >= view.top - view.height && box.top <= view.bottom + view.height) near.push(Number(el.dataset.chunk));
+      }
     }
     const present = new Set(chunks.map((c) => c.id));
     setRendered((prev) => {
@@ -159,6 +169,7 @@ export function ChunkedList({
     if (!list || !hasObserver) return;
     // The window too: a sibling or the window can make the container scroll while the list keeps its size.
     const repick = () => {
+      if (!list.querySelector(":scope > [data-chunk-pending]")) return;
       if (observer.current && observer.current.root !== scrollRoot(list)) watchPending(true);
     };
     const resize = new ResizeObserver(repick);

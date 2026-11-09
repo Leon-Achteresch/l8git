@@ -1,8 +1,8 @@
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 import { useHistoryQuery, EMPTY_HISTORY_FILTER } from '@/lib/use-history-query';
 import { hasHistoryFilters, historyFilterKey } from '@/lib/history-filters';
 import { useHistoryPrefs } from '@/lib/history-prefs';
 import { HistoryFilters } from './history-filters';
-import { CommitCompareDialog } from '../compare/commit-compare-dialog';
 import { comparisonRefsFromSelection, type CommitCompareRefs } from '@/lib/commit-compare';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +20,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable';
-import { NewBranchDialog } from '@/components/repo/branch/new-branch-dialog';
 import { toastError } from '@/lib/error-toast';
 import { normalizeGitOid } from '@/lib/graph';
 import type { Branch, Commit } from '@/lib/repo-store';
@@ -39,8 +38,11 @@ import { CherryPickStatusBanner } from './cherry-pick-status-banner';
 import { CommitInspectDetail } from './commit-inspect-detail';
 import { CommitList } from './commit-list';
 import { MergeStatusBanner } from '../merge/merge-status-banner';
-import { RebaseInteractiveEditor } from '../rebase/rebase-interactive-editor';
 import { RebaseStatusBanner } from '../rebase/rebase-status-banner';
+
+const CommitCompareDialog = deferredDialog(() => import("../compare/commit-compare-dialog").then(m => m.CommitCompareDialog));
+const NewBranchDialog = deferredDialog(() => import("@/components/repo/branch/new-branch-dialog").then(m => m.NewBranchDialog));
+const RebaseInteractiveEditor = deferredDialog(() => import("../rebase/rebase-interactive-editor").then(m => m.RebaseInteractiveEditor));
 
 const layoutStorageKey = 'l8git.history-split.layout.v1';
 const EMPTY_HASH_SET: ReadonlySet<string> = new Set();

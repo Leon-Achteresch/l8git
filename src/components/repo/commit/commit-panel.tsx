@@ -13,8 +13,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { StashCreateDialog } from "@/components/repo/stash/stash-create-dialog";
-import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { getCommitMessageTemplate, useCommitPrefs } from "@/lib/commit-prefs";
 import { useCommitMessagePrefs } from "@/lib/commit-message-prefs";
 import { commitPreflight, joinCommitMessage, splitCommitMessage } from "@/lib/commit-message";
@@ -23,7 +21,6 @@ import { createCommitDraftStream, EmptyGeneratedCommitDraft, generateFreshCommit
 import { useRepoPrefs } from "@/lib/repo-prefs";
 import { toastError, translateKnownError } from "@/lib/error-toast";
 import { captureDiscardDiffs, changedDiscardContents, changedDiscardPaths, discardPlanGroups, discardPlanVerified, makeDiscardPlan, refreshDiscardPlan, rowStagingAction, visibleSelectionRange, type DiscardPlan } from "@/lib/commit-actions";
-import { CommitDiscardDialog } from "./commit-discard-dialog";
 import { loadSigningInfo, type SigningInfo } from "@/lib/git-signing";
 import { useRepoStore, type StatusEntry } from "@/lib/repo-store";
 import { useSigningRevision } from "@/lib/signing-store";
@@ -36,7 +33,7 @@ import { parseDiffWithHunks, type ParsedDiff } from "@/lib/unified-diff";
 import { useCommitPanelHotkeys } from "@/lib/use-commit-panel-hotkeys";
 import { applyReviewedHunks, captureReviewedHunks, type ReviewedHunkAction, type ReviewedHunks } from "@/lib/reviewed-hunks";
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DiffViewer } from "./commit-panel-diff-viewer";
 import { VirtualFileList } from "./commit-panel-file-list";
 import { MergeStatusBanner } from "@/components/repo/merge/merge-status-banner";
@@ -52,13 +49,21 @@ import { generateAiCommitMessage } from "@/lib/ai-commit";
 import { AiError } from "@/lib/ai/core";
 import { AiResultActions } from "@/components/ai/ai-result-actions";
 import { isAiConfigured } from "@/lib/ai-setup";
-import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
-import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog";
 import { useTranslation } from "react-i18next";
 import { isPreviewRepo } from "@/lib/preview-repo";
 import { useEverTrue } from "@/lib/use-ever-true";
 import { readRepoViewState, saveRepoViewState } from "@/lib/repo-view-state";
 import { rememberBranchFile, useBranchRestore } from "@/lib/github-ui/branch-context";
+
+const StashCreateDialog = lazy(() => import("@/components/repo/stash/stash-create-dialog").then(m => ({ default: m.StashCreateDialog })));
+
+const GitBlameSheet = lazy(() => import("@/components/repo/blame/git-blame-sheet").then(m => ({ default: m.GitBlameSheet })));
+
+const CommitDiscardDialog = lazy(() => import("./commit-discard-dialog").then(m => ({ default: m.CommitDiscardDialog })));
+
+const AiSetupDialog = lazy(() => import("@/components/onboarding/ai-setup-dialog").then(m => ({ default: m.AiSetupDialog })));
+
+const CommitSplitDialog = lazy(() => import("@/components/repo/commit/commit-split-dialog").then(m => ({ default: m.CommitSplitDialog })));
 
 const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
@@ -927,11 +932,11 @@ function CommitPanelContent() {
     <div className="relative flex min-h-0 flex-1 flex-col">
       {blameTarget && activePath && (
         <div className="absolute inset-0 z-50 overflow-hidden">
-          <GitBlameSheet
+          <Suspense fallback={null}><GitBlameSheet
             path={activePath}
             file={blameTarget}
             onClose={() => setBlameTarget(null)}
-          />
+          /></Suspense>
         </div>
       )}
 
@@ -1088,6 +1093,7 @@ function CommitPanelContent() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Suspense fallback={null}>
       {splitOpen && activePath ? (
         <CommitSplitDialog open={splitOpen} onOpenChange={setSplitOpen} path={activePath} />
       ) : null}
@@ -1119,6 +1125,8 @@ function CommitPanelContent() {
           onStash={() => { setDiscardDialog(null); setStashOpen(true); }}
         />
       )}
+
+      </Suspense>
 
       <AlertDialog
         open={discardLinesDialog !== null}

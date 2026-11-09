@@ -16,8 +16,9 @@ const AppUpdateDialog = lazy(() =>
 import { AppShell } from "@/components/app/shell/app-shell";
 import { RouteErrorBoundary } from "@/components/app/route-error-boundary";
 import { Toaster } from "@/components/ui/sonner";
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 
-import { HotkeysOverlay } from "@/components/app/hotkeys-overlay";
+const HotkeysOverlay = deferredDialog(() => import("@/components/app/hotkeys-overlay").then(m => m.HotkeysOverlay));
 import { RemoteProgressDock } from "@/components/app/remote-progress-dock";
 
 const ReflogPage = lazy(() =>

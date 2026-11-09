@@ -1,6 +1,6 @@
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { BranchCleanupDialog } from "@/components/repo/branch/branch-cleanup-dialog";
 import { useBranchCleanupPrefs } from "@/lib/branch-cleanup-prefs";
 import { useBranchCleanupStore } from "@/lib/branch-cleanup-store";
 import {
@@ -27,6 +27,8 @@ import type { Branch, TagRef } from "@/lib/repo-store";
 import { Brush, Search, X } from "lucide-react";
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+
+const BranchCleanupDialog = deferredDialog(() => import("@/components/repo/branch/branch-cleanup-dialog").then(m => m.BranchCleanupDialog));
 
 function SectionCount({ count }: { count: number }) {
   return (
