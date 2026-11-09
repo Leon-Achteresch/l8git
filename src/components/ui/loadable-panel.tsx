@@ -5,7 +5,10 @@ import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 export function loadablePanel<P extends object>(load: () => Promise<ComponentType<P>>, fallback: ReactNode) {
   let Component: ComponentType<P> | undefined;
   let pending: Promise<ComponentType<P>> | undefined;
-  const preload = () => pending ??= load().then(loaded => (Component = loaded));
+  const preload = () => pending ??= load().then(loaded => (Component = loaded)).catch(error => {
+    pending = undefined;
+    throw error;
+  });
 
   function LoadablePanel(props: P) {
     const [state, setState] = useState<{ Component?: ComponentType<P>; error?: unknown }>(() => ({ Component }));

@@ -137,6 +137,9 @@ try {
     }
   }
 } finally {
-  await browser.close();
-  await new Promise((done, reject) => server.httpServer.close(error => error ? reject(error) : done()));
+  try {
+    await browser.close();
+  } finally {
+    await new Promise((done, reject) => server.httpServer.close(error => error ? reject(error) : done()));
+  }
 }

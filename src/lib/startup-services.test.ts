@@ -29,7 +29,10 @@ describe("startup services", () => {
     vi.stubGlobal("requestIdleCallback", (callback: () => void) => { idle = callback; return 1; });
     vi.stubGlobal("cancelIdleCallback", () => { idle = undefined; });
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 
   it("crosses a paint before arming services and starts only once across route remounts", async () => {
     const { scheduleStartupServices } = await import("./startup-services");
@@ -70,5 +73,21 @@ describe("startup services", () => {
     paint();
     idle?.();
     await vi.waitFor(() => expect(checkForAppUpdate).toHaveBeenCalledOnce());
+  });
+
+  it("handles each failed service independently without an unhandled rejection", async () => {
+    const updateFailure = new Error("Update startup failed");
+    const notificationFailure = new Error("Notification startup failed");
+    checkForAppUpdate.mockRejectedValueOnce(updateFailure);
+    armNotifications.mockImplementationOnce(() => { throw notificationFailure; });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { scheduleStartupServices } = await import("./startup-services");
+    scheduleStartupServices();
+    paint();
+    paint();
+    idle?.();
+    await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(2));
+    expect(error).toHaveBeenCalledWith("[l8git] Update service startup failed", updateFailure);
+    expect(error).toHaveBeenCalledWith("[l8git] Notification service startup failed", notificationFailure);
   });
 });

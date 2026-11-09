@@ -36,7 +36,10 @@ The empty workspace's median script time fell from 205 to 168 ms; restored commi
 and history script time fell from 376 to 345 ms and 406 to 366 ms respectively.
 Raw numeric samples and source hashes are in
 [performance-2026-11-09-startup.json](performance-2026-11-09-startup.json).
-This is a measured improvement, not a claim of a universal minimum launch time.
+The samples and hashes identify optimization commit `362c30f`. Subsequent review
+fixes add failed-import recovery, independent background error logging and
+benchmark cleanup; the normal startup sequence is unchanged. This is a measured
+improvement, not a claim of a universal minimum launch time.
 
 ## Changes
 
@@ -64,7 +67,7 @@ terminal bundles remain available on demand.
 ## Verification
 
 - Typecheck, production build, locale consistency and bundle/security budgets.
-- 216 frontend suites / 1,714 tests; 783 native Rust tests with `headless`;
+- 217 frontend suites / 1,717 tests; 783 native Rust tests with `headless`;
   mobile typecheck and 200 tests; 11 relay tests.
 - Full 132-test Chromium workflow run; after the layout changes, all 39 focused
   responsive, scroll, focus/recycling and workspace-continuity tests passed again.

@@ -259,5 +259,6 @@
     "src/routes/__root.tsx": "2a8b48e55890eb5436c98c155322929a3725852a9c070e80f49575407c832b17",
     "src/routes/index.tsx": "ba4ad72a94158f1a83b40038a7c203baeae1f0caa6aeb9b52df0a95e9f924cb3",
     "vite.config.ts": "903c759c234d8c325161f023ab6a9693e8130c245d1e3037f47e5e64091f224d"
-  }
+  },
+  "optimizedRevision": "362c30f237aa27327dcefb5f6db2e286868e1a16"
 }
