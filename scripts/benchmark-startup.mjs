@@ -11,6 +11,7 @@ if (!Number.isSafeInteger(runs) || runs < 3 || runs % 2 !== 1) throw Error('STAR
 if (!Number.isFinite(throttle) || throttle < 1) throw Error('STARTUP_THROTTLE must be >= 1');
 const useWebkit = process.env.STARTUP_BROWSER === 'webkit';
 const locale = process.env.STARTUP_LOCALE ?? 'de';
+const trace = process.env.STARTUP_TRACE === '1' || !!process.env.STARTUP_PROFILE_DIR;
 if (!['de', 'en', 'es', 'fr', 'pt', 'zh', 'ja'].includes(locale)) throw Error('Unknown STARTUP_LOCALE');
 const labels = JSON.parse(await readFile(`src/locales/${locale}.json`, 'utf8'));
 const server = await preview({ configFile: false, root: process.cwd(), build: { outDir: resolve(process.env.STARTUP_DIST ?? 'dist') }, preview: { host: '127.0.0.1', port: 4177, strictPort: true } });
@@ -21,7 +22,7 @@ try {
     const samples = [];
     for (let run = 0; run < runs; run++) {
       const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'reduce' });
-      await context.addInitScript(({ scenario, locale }) => {
+      await context.addInitScript(({ scenario, locale, trace, emptyLabel }) => {
         const repoPath = '/tmp/startup-fixture';
         const save = (key, state) => localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
         save('l8git-locale', { locale });
@@ -31,6 +32,37 @@ try {
         const commits = Array.from({ length: 80 }, (_, i) => ({ hash: (80 - i).toString(16).padStart(40, '0'), short_hash: String(80 - i), author: 'Fixture', email: 'fixture@example.com', date: '2026-11-01T12:00:00Z', subject: `Startup commit ${i}`, body: '', parents: i === 79 ? [] : [(79 - i).toString(16).padStart(40, '0')], tags: [] }));
         const entries = Array.from({ length: 1000 }, (_, i) => ({ path: `files/file-${String(i).padStart(4, '0')}.txt`, index_status: ' ', worktree_status: 'M', staged: false, unstaged: true, untracked: false, additions_staged: 0, deletions_staged: 0, additions_unstaged: 1, deletions_unstaged: 1, binary: false, embedded_repo: false }));
         window.__STARTUP_CALLS__ = [];
+        let readyQueued = false;
+        const seen = new Set();
+        const milestones = { shell: '#main-content', commit: '[data-commit-message-input]', history: '[data-commit-hash]', files: '[data-testid="files"]' };
+        if (trace) {
+          window.__STARTUP_TIMELINE__ = [];
+          window.__STARTUP_IPC_TIMES__ = [];
+        }
+        const observer = new MutationObserver(() => {
+          if (trace) {
+            for (const [name, selector] of Object.entries(milestones)) {
+              if (!seen.has(name) && document.querySelector(selector)) {
+                seen.add(name);
+                window.__STARTUP_TIMELINE__.push({ name, at: performance.now() });
+              }
+            }
+          }
+          if (readyQueued) return;
+          const ready = scenario === 'empty'
+            ? [...document.querySelectorAll('#main-content button')].some(button => button.textContent.trim() === emptyLabel)
+            : scenario === 'commit'
+              ? document.querySelector('[data-commit-message-input]') && document.querySelector('[data-testid="files"]')?.textContent.includes('file-0000.txt')
+              : document.querySelector('[data-commit-hash]')?.textContent.includes('Startup commit 0');
+          if (!ready) return;
+          readyQueued = true;
+          // Time in the browser, before Playwright's selector polling/transport.
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            window.__STARTUP_PAINT_READY_MS__ = performance.now();
+            if (!trace) observer.disconnect();
+          }));
+        });
+        observer.observe(document, { childList: true, subtree: true });
         // Tauri's API checks this flag separately from its IPC bridge.
         window.isTauri = true;
         window.__TAURI_INTERNALS__ = {
@@ -40,12 +72,15 @@ try {
           convertFileSrc: path => path,
           invoke: async (cmd, args) => {
             window.__STARTUP_CALLS__.push(cmd);
+            window.__STARTUP_IPC_TIMES__?.push({ command: cmd, at: performance.now() });
             if (cmd.startsWith('plugin:event|')) return 1;
             if (cmd.startsWith('plugin:window|') || cmd.startsWith('plugin:webview|')) return null;
             if (cmd === 'open_repo') return { path: repoPath, branch: 'main', commits, branches: [{ name: 'main', is_current: true, is_remote: false, tip: commits[0].hash }], tags: [] };
             if (cmd === 'repo_status') return entries;
             if (cmd === 'repo_full_status') return { entries, upstream_sync: { ahead: 0, behind: 0 }, has_upstream: false };
             if (cmd === 'repo_log_page' || cmd === 'repo_history_page') return [];
+            if (cmd === 'repo_commit_inspect') return { header: `commit ${args.commit}\nAuthor: Fixture <fixture@example.com>\nDate: 2026-11-01T12:00:00Z\n\n    Startup inspect details\n`, files: [] };
+            if (cmd === 'commit_signature_status') return { state: 'unsigned', code: 'N', signer: null, key: null };
             if (cmd === 'rebase_status') return { in_progress: false, kind: 'none', step: 0, total: 0, conflicted_paths: [], todo: [] };
             if (cmd === 'merge_state' || cmd === 'cherry_pick_state') return { in_progress: false, conflicted_paths: [] };
             if (cmd === 'repo_upstream_sync_counts') return { ahead: 0, behind: 0 };
@@ -57,7 +92,7 @@ try {
           },
         };
         window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
-      }, { scenario, locale });
+      }, { scenario, locale, trace, emptyLabel: labels.emptyState.ctaOpen });
       const page = await context.newPage();
       page.setDefaultTimeout(15_000);
       const errors = [];
@@ -81,8 +116,16 @@ try {
       } else await page.getByText('Startup commit 0', { exact: true }).first().waitFor();
       // Include a rendering opportunity after the ready DOM, not merely module evaluation.
       await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
-      const sample = await page.evaluate(() => ({ readyMs: Math.round(performance.now()), jsBytes: performance.getEntriesByType('resource').filter(e => e.name.endsWith('.js')).reduce((sum, e) => sum + e.decodedBodySize, 0), scripts: performance.getEntriesByType('resource').filter(e => e.name.endsWith('.js')).map(e => new URL(e.name).pathname), calls: window.__STARTUP_CALLS__ }));
+      const sample = await page.evaluate(() => ({ readyMs: Math.round(performance.now()), paintReadyMs: Math.round(window.__STARTUP_PAINT_READY_MS__), jsBytes: performance.getEntriesByType('resource').filter(e => e.name.endsWith('.js')).reduce((sum, e) => sum + e.decodedBodySize, 0), scripts: performance.getEntriesByType('resource').filter(e => e.name.endsWith('.js')).map(e => new URL(e.name).pathname), calls: window.__STARTUP_CALLS__ }));
+      if (!Number.isFinite(sample.paintReadyMs)) throw Error('Browser readiness signal missing');
+      if (scenario !== 'empty' && sample.calls.filter(command => command === 'open_repo').length !== 1) {
+        throw Error('Restoring a repository must issue exactly one initial open_repo');
+      }
       sample.requestedScripts = [...requestedScripts];
+      if (trace) sample.trace = await page.evaluate(() => ({
+        milestones: window.__STARTUP_TIMELINE__, ipc: window.__STARTUP_IPC_TIMES__,
+        resources: performance.getEntriesByType('resource').filter(e => e.name.endsWith('.js')).map(e => ({ name: new URL(e.name).pathname, start: e.startTime, end: e.responseEnd })),
+      }));
       if (cdp && process.env.STARTUP_PROFILE_DIR) {
         const { profile } = await cdp.send('Profiler.stop');
         await mkdir(process.env.STARTUP_PROFILE_DIR, { recursive: true });
@@ -115,12 +158,18 @@ try {
       await page.getByRole('link', { name: labels.header.repo, exact: true }).click();
       if (scenario === 'empty') await page.getByRole('button', { name: labels.emptyState.ctaOpen, exact: true }).waitFor();
       else if (scenario === 'commit') await page.locator('[data-commit-message-input]').waitFor();
-      else await page.getByText('Startup commit 0', { exact: true }).first().waitFor();
+      else {
+        await page.getByText('Startup commit 0', { exact: true }).first().click();
+        await page.getByRole('button', { name: /Startup inspect details/ }).waitFor();
+        await page.getByRole('button', { name: labels.dialogs.closeAria, exact: true }).click();
+        await page.getByRole('button', { name: /Startup inspect details/ }).waitFor({ state: 'hidden' });
+        await page.getByText('Startup commit 0', { exact: true }).first().waitFor();
+      }
       if (errors.length) throw Error(errors.join('; '));
       samples.push(sample);
       await context.close();
     }
-    const metrics = Object.fromEntries(['readyMs', 'jsBytes', ...(useWebkit ? [] : ['scriptMs'])].map(key => [key, samples.map(s => s[key]).sort((a, b) => a - b)[Math.floor(runs / 2)]]));
+    const metrics = Object.fromEntries(['readyMs', 'paintReadyMs', 'jsBytes', ...(useWebkit ? [] : ['scriptMs'])].map(key => [key, samples.map(s => s[key]).sort((a, b) => a - b)[Math.floor(runs / 2)]]));
     result.scenarios[scenario] = { samples, metrics };
     console.log(scenario, metrics);
   }
@@ -131,7 +180,7 @@ try {
     for (const [scenario, { samples, metrics }] of Object.entries(result.scenarios)) {
       if (metrics.readyMs > 6000) throw Error(`${scenario}: startup exceeded 6000 ms`);
       for (const sample of samples) {
-        const eagerDialog = sample.requestedScripts.find(path => /\/(app-command-palette|commit-split-dialog|rebase-interactive-editor|explain-sheet)-/.test(path));
+        const eagerDialog = sample.requestedScripts.find(path => /\/(app-command-palette|commit-split-dialog|rebase-interactive-editor|explain-sheet|commit-inspect-detail|issue-create-dialog)-/.test(path));
         if (eagerDialog) throw Error(`${scenario}: closed UI loaded at startup: ${eagerDialog}`);
       }
     }

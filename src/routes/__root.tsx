@@ -39,6 +39,7 @@ import { useUiStore } from "@/lib/ui-store";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
 import { seedPreviewRepo } from "@/lib/preview-repo";
 import { useState } from "react";
+import { scheduleStartupServices } from "@/lib/startup-services";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -59,6 +60,9 @@ function RootLayout() {
   }, []);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useEffect(() => {
+    if (pathname !== "/") scheduleStartupServices();
+  }, [pathname]);
   useAppHotkeys({ onShowShortcuts: () => setHotkeysOpen(true) });
   const addRepo = useRepoStore((s) => s.addRepo);
   const uiDensity = useWorkspacePrefs((s) => s.uiDensity);

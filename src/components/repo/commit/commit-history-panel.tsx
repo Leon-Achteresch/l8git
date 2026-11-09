@@ -35,7 +35,8 @@ import { Copy, GitCompareArrows, LoaderCircle, SearchX, X } from 'lucide-react';
 import { StackGraphLegend } from '../branch/stack-graph-legend';
 import { BisectStatusBanner } from '../bisect/bisect-status-banner';
 import { CherryPickStatusBanner } from './cherry-pick-status-banner';
-import { CommitInspectDetail } from './commit-inspect-detail';
+import { loadablePanel } from '@/components/ui/loadable-panel';
+import { PanelLoading } from '@/components/ui/panel-loading';
 import { CommitList } from './commit-list';
 import { MergeStatusBanner } from '../merge/merge-status-banner';
 import { RebaseStatusBanner } from '../rebase/rebase-status-banner';
@@ -43,6 +44,7 @@ import { RebaseStatusBanner } from '../rebase/rebase-status-banner';
 const CommitCompareDialog = deferredDialog(() => import("../compare/commit-compare-dialog").then(m => m.CommitCompareDialog));
 const NewBranchDialog = deferredDialog(() => import("@/components/repo/branch/new-branch-dialog").then(m => m.NewBranchDialog));
 const RebaseInteractiveEditor = deferredDialog(() => import("../rebase/rebase-interactive-editor").then(m => m.RebaseInteractiveEditor));
+const CommitInspectDetail = loadablePanel(() => import("./commit-inspect-detail").then(m => m.CommitInspectDetail), <PanelLoading />).Component;
 
 const layoutStorageKey = 'l8git.history-split.layout.v1';
 const EMPTY_HASH_SET: ReadonlySet<string> = new Set();

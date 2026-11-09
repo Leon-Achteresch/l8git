@@ -30,6 +30,7 @@ describe("startup services", () => {
     vi.stubGlobal("cancelIdleCallback", () => { idle = undefined; });
   });
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -89,5 +90,33 @@ describe("startup services", () => {
     await vi.waitFor(() => expect(error).toHaveBeenCalledTimes(2));
     expect(error).toHaveBeenCalledWith("[l8git] Update service startup failed", updateFailure);
     expect(error).toHaveBeenCalledWith("[l8git] Notification service startup failed", notificationFailure);
+  });
+
+  it("starts services when a hidden or failed view never reaches a frame", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const { armStartupServicesFallback } = await import("./startup-services");
+    armStartupServicesFallback();
+    armStartupServicesFallback();
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(checkForAppUpdate).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.dynamicImportSettled();
+    expect(checkForAppUpdate).toHaveBeenCalledOnce();
+    expect(armNotifications).toHaveBeenCalledOnce();
+  });
+
+  it("clears the fallback once the visible view starts services", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const { armStartupServicesFallback, scheduleStartupServices } = await import("./startup-services");
+    armStartupServicesFallback();
+    scheduleStartupServices();
+    paint();
+    paint();
+    idle?.();
+    await vi.dynamicImportSettled();
+    expect(checkForAppUpdate).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(armNotifications).toHaveBeenCalledOnce();
   });
 });

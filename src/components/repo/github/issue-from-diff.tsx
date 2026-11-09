@@ -9,8 +9,10 @@ import { CircleDot } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { IssueCreateDialog } from "./issue-create-dialog";
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 import { parseLineRange } from "./pr-permalink-button";
+
+const IssueCreateDialog = deferredDialog(() => import("./issue-create-dialog").then(m => m.IssueCreateDialog));
 
 /** Fenced snippet + SHA-pinned permalink for an issue body. Fence grows past any backticks in the code. */
 export function issueBodyFromCode(file: string, sha: string, url: string, start: number, end: number, code: string): string {

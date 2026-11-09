@@ -9,6 +9,8 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import "./lib/i18n";
 import "./index.css";
 import { router } from "./lib/router";
+import { prepareStartupRepository } from "./lib/use-repo-rehydrate";
+import { armStartupServicesFallback } from "./lib/startup-services";
 
 void import("./lib/theme").then(({ applyTheme, getStoredTheme }) => {
   applyTheme(getStoredTheme());
@@ -33,6 +35,8 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 if (isTauri()) {
   void invoke("pty_close_all").catch(() => {});
 
+  prepareStartupRepository();
+  armStartupServicesFallback();
   void loadAiKey();
 }
 
