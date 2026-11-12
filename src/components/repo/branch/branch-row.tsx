@@ -1,3 +1,4 @@
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -24,12 +25,13 @@ import {
 } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useExplainSheet } from '@/components/ai/explain-sheet';
+import { useExplainSheet } from '@/components/ai/use-explain-sheet';
 import { pickDefaultBaseBranch } from '@/lib/ai/explain-inputs';
-import { RebaseDialog } from '../rebase/rebase-dialog';
-import { MergeDialog } from './merge-dialog';
-import { RemoteCheckoutDialog } from './remote-checkout-dialog';
-import { RemoteDeleteConfirmDialog } from './remote-delete-confirm-dialog';
+
+const RebaseDialog = deferredDialog(() => import("../rebase/rebase-dialog").then(m => m.RebaseDialog));
+const MergeDialog = deferredDialog(() => import("./merge-dialog").then(m => m.MergeDialog));
+const RemoteCheckoutDialog = deferredDialog(() => import("./remote-checkout-dialog").then(m => m.RemoteCheckoutDialog));
+const RemoteDeleteConfirmDialog = deferredDialog(() => import("./remote-delete-confirm-dialog").then(m => m.RemoteDeleteConfirmDialog));
 
 type CheckoutDraft = { remoteRef: string; defaultLocalName: string };
 

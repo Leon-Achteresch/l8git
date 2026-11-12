@@ -1,9 +1,9 @@
 import { PanelLoading } from "@/components/ui/panel-loading";
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useDeferredValue } from "react";
+import { lazy, Suspense, useDeferredValue, useEffect } from "react";
+import { scheduleStartupServices } from "@/lib/startup-services";
 
-import { CommitPanel } from "@/components/repo/commit/commit-panel";
-import { RepoDetails } from "@/components/repo/layout/repo-details";
+import { loadablePanel } from "@/components/ui/loadable-panel";
 import { RepoTabLayout } from "@/components/repo/layout/repo-tab-layout";
 import { EmptyState } from "@/components/repo/layout/empty-state";
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour";
@@ -62,6 +62,19 @@ const ToolsPanel = lazy(() =>
   })),
 );
 
+const commitPanel = loadablePanel(() => import("@/components/repo/commit/commit-panel").then(m => m.CommitPanel), <PanelLoading />, scheduleStartupServices);
+const historyPanel = loadablePanel(() => import("@/components/repo/layout/repo-details").then(m => m.RepoDetails), <PanelLoading />, scheduleStartupServices);
+const CommitPanel = commitPanel.Component;
+const RepoDetails = historyPanel.Component;
+
+// Hydration is synchronous on desktop. Fetch the saved panel in parallel with
+// the first render and open_repo, not after the repository read completes.
+if (useRepoStore.getState().activePath) {
+  const tab = useUiStore.getState().sidebarTab;
+  if (tab === "commit") void commitPanel.preload().catch(() => {});
+  else if (tab === "history") void historyPanel.preload().catch(() => {});
+}
+
 export const Route = createFileRoute("/")({
   component: Home,
 });
@@ -73,10 +86,11 @@ function Home() {
   const repoPath = useRepoStore((s) =>
     s.activePath ? s.repos[s.activePath]?.path : null,
   );
-  // The repo view mounts thousands of nodes. It renders in an interruptible pass after the first
-  // frame, and a tab switch keeps the old panel up until the new one is ready (the tab rail itself
-  // updates at once), so neither blocks frames.
-  const ready = useDeferredValue(true, false);
+  useEffect(() => {
+    // These services belong to the app lifetime, including a quick jump to
+    // another route before the first idle callback. Do not cancel on navigation.
+    if (!activePath) scheduleStartupServices();
+  }, [activePath]);
   const tabNow = useUiStore((s) => s.sidebarTab);
   // Repo and tab are deferred together: switching both at once mounts one panel, not two.
   // "\0" can't occur in a path.
@@ -113,11 +127,11 @@ function Home() {
         </Suspense>
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {activePath && ready && <RepoSidebar />}
+        {activePath && <RepoSidebar />}
         <div
           className={`min-w-0 flex-1  pb-3 ${activePath ? "flex min-h-0 flex-col overflow-hidden" : "overflow-y-auto"}`}
         >
-          {!ready ? null : activePath && repoPath ? (
+          {activePath && repoPath ? (
             <RepoTabLayout path={repoPath}>
               <div
                 // The commit and history panels read the live repo themselves, so they remount with it right away.
@@ -167,12 +181,13 @@ function Home() {
                       <RepoDetails />
                     )}
                   </div>
+                  {sidebarTab !== "history" && <StartupServicesReady />}
                   </Suspense>
                 )}
               </div>
             </RepoTabLayout>
           ) : (
-            <RepoDetails />
+            activePath ? <PanelLoading /> : null
           )}
           {!activePath && <EmptyState />}
         </div>
@@ -180,4 +195,10 @@ function Home() {
       <OnboardingTour />
     </main>
   );
+}
+
+/** The surrounding Suspense boundary reveals this only with its selected panel. */
+function StartupServicesReady() {
+  useEffect(() => { scheduleStartupServices(); }, []);
+  return null;
 }

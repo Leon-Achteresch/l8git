@@ -88,6 +88,20 @@ jobs:
       - name: Browser workflows
         run: bun run test:ui
 
+      - name: Shipped entry startup and first-use loading
+        env:
+          STARTUP_RUNS: 3
+          STARTUP_CHECK_BUDGETS: 1
+        run: bun run benchmark:startup
+
+      - name: Preserve startup measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-startup
+          path: test-results/startup.json
+          if-no-files-found: ignore
+
       - name: Renderer startup and memory budgets
         run: |
           bunx vite build --config vite.ui-test.config.ts

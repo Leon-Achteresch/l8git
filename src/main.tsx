@@ -9,6 +9,8 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import "./lib/i18n";
 import "./index.css";
 import { router } from "./lib/router";
+import { prepareStartupRepository } from "./lib/use-repo-rehydrate";
+import { armStartupServicesFallback } from "./lib/startup-services";
 
 void import("./lib/theme").then(({ applyTheme, getStoredTheme }) => {
   applyTheme(getStoredTheme());
@@ -33,15 +35,8 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 if (isTauri()) {
   void invoke("pty_close_all").catch(() => {});
 
-  const whenIdle =
-    typeof requestIdleCallback === "function"
-      ? (cb: () => void) => requestIdleCallback(cb, { timeout: 5000 })
-      : (cb: () => void) => setTimeout(cb, 3000);
-  whenIdle(() => {
-    void import("@/lib/app-updater").then((m) => m.checkForAppUpdate());
-    void import("@/lib/notifications-wiring").then((m) => m.armNotifications());
-  });
-
+  prepareStartupRepository();
+  armStartupServicesFallback();
   void loadAiKey();
 }
 

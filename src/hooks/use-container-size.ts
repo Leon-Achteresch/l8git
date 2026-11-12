@@ -15,11 +15,13 @@ export function useContainerSize<T extends HTMLElement>(
       const height = element.clientHeight;
       setSize(previous => previous.width === width && previous.height === height ? previous : { width, height });
     };
-    measure();
     if (typeof ResizeObserver === "undefined") {
+      measure();
       window.addEventListener("resize", measure);
       return () => window.removeEventListener("resize", measure);
     }
+    // The observer delivers the initial size after layout too. A synchronous
+    // clientWidth read here forces a separate layout for every mounting panel.
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();

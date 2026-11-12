@@ -2,11 +2,10 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AiResultActions } from "@/components/ai/ai-result-actions";
-import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -22,7 +21,6 @@ import {
   generateCommitExplanation,
   generateDiffExplanation,
 } from "@/lib/ai/explain-sources";
-import { isAiConfigured } from "@/lib/ai-setup";
 import { SpinIcon } from "@/components/motion/kit";
 import { Check as CheckData, Copy as CopyData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
@@ -226,42 +224,4 @@ export function ExplainSheet({
       </SheetContent>
     </Sheet>
   );
-}
-
-export interface ExplainSheetController {
-  open: (request: ExplainRequest) => void;
-  element: ReactNode;
-}
-
-export function useExplainSheet(): ExplainSheetController {
-  const [request, setRequest] = useState<ExplainRequest | null>(null);
-  const [pending, setPending] = useState<ExplainRequest | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  const open = useCallback((next: ExplainRequest) => {
-    setMounted(true);
-    if (!isAiConfigured()) {
-      setPending(next);
-      return;
-    }
-    setRequest(next);
-  }, []);
-
-  const element = mounted ? (
-    <>
-      <ExplainSheet request={request} onClose={() => setRequest(null)} />
-      <AiSetupDialog
-        open={!!pending}
-        onOpenChange={(next) => {
-          if (!next) setPending(null);
-        }}
-        onReady={() => {
-          setRequest(pending);
-          setPending(null);
-        }}
-      />
-    </>
-  ) : null;
-
-  return { open, element };
 }

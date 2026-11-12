@@ -17,6 +17,11 @@ export default defineConfig(async () => ({
     tanstackRouter({
       target: "react",
       autoCodeSplitting: true,
+      // The memory router always starts at /. Avoid a serial route request before
+      // the first frame; other pages remain split by the router.
+      codeSplittingOptions: {
+        splitBehavior: ({ routeId }) => routeId === "/" ? [] : undefined,
+      },
       routeFileIgnorePattern: "settings-content",
     }),
     react(),

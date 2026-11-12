@@ -1,3 +1,4 @@
+import { deferredDialog } from "@/components/ui/deferred-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,19 +35,20 @@ import { CommitAuthorDate } from "./commit-author-date";
 import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
 import { CommitHashBadge } from "./commit-hash-badge";
-import { useExplainSheet } from "@/components/ai/explain-sheet";
-import { ResetDialog } from "@/components/repo/reset/reset-dialog";
-import { RebaseInteractiveEditor } from "@/components/repo/rebase/rebase-interactive-editor";
+import { useExplainSheet } from "@/components/ai/use-explain-sheet";
 import {
   dropCommit,
   fixupStaged,
 } from "@/components/repo/rebase/rebase-quick-actions";
 import type { RebaseTodoAction } from "@/lib/repo-store";
-import { CommitTagDialog } from "./commit-tag-dialog";
 import { CommitTags } from "./commit-tags";
-import { NewBranchDialog } from "@/components/repo/branch/new-branch-dialog";
 import type { CommitSelectMode } from "./commit-history-panel";
 import { PulseIcon } from "@/components/motion/kit";
+
+const ResetDialog = deferredDialog(() => import("@/components/repo/reset/reset-dialog").then(m => m.ResetDialog));
+const RebaseInteractiveEditor = deferredDialog(() => import("@/components/repo/rebase/rebase-interactive-editor").then(m => m.RebaseInteractiveEditor));
+const CommitTagDialog = deferredDialog(() => import("./commit-tag-dialog").then(m => m.CommitTagDialog));
+const NewBranchDialog = deferredDialog(() => import("@/components/repo/branch/new-branch-dialog").then(m => m.NewBranchDialog));
 
 const EMPTY_BRANCHES: Branch[] = [];
 const MAX_VISIBLE_BRANCHES = 2;
