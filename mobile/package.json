@@ -61,7 +61,7 @@
     "tailwindcss": "3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^5.1.0"
   },
   "scripts": {
     "postinstall": "node scripts/link-nativewind-tailwind.mjs",
