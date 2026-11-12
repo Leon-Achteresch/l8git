@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from "@tauri-apps/api/core";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -35,7 +36,7 @@ export function RepoLanguageStats({
     setError(null);
     invoke<LanguageStat[]>("repo_language_stats", { path })
       .then(setStats)
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(formatBackendError(e)))
       .finally(() => setLoading(false));
   }, [open, path]);
 

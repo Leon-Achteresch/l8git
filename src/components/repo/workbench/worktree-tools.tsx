@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAgentWorktreeStore } from "@/lib/agents/agent-worktrees";
@@ -103,7 +104,7 @@ export function WorktreeHousekeepingTool({ path }: { path: string }) {
       setPreview(null);
       void load();
     } catch (e) {
-      toast.error(String(e));
+      toast.error(formatBackendError(e));
     }
   }
   return (

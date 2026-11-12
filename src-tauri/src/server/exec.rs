@@ -16,7 +16,7 @@ where
         .build()
     {
         Ok(runtime) => runtime,
-        Err(error) => return Err(format!("Blocking-Executor nicht verfügbar: {error}")),
+        Err(error) => return Err(crate::coded!(ServerExecutorUnavailable, error = error)),
     };
     runtime.block_on(async move {
         tokio::select! {

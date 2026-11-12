@@ -9,7 +9,6 @@ import { concatBytes, randomBytes, utf8ToBytes } from '@noble/hashes/utils.js';
 export const PROTOCOL_VERSION = 1;
 export const HANDSHAKE_CONTEXT = 'l8git-hs-v1';
 export const AUTH_CONTEXT = 'l8git-auth-v1';
-export const RELAY_CONTEXT = 'l8git-relay-v1';
 export const HKDF_INFO = 'l8git-remote-v1';
 
 export const PSK_BYTES = 32;
@@ -142,10 +141,6 @@ export function verifyTag(expected: Uint8Array, provided: string): boolean {
     return false;
   }
   return equalBytes(expected, raw);
-}
-
-export function relayToken(psk: Uint8Array): string {
-  return toBase64Url(sha256(concatBytes(psk, utf8ToBytes(RELAY_CONTEXT))));
 }
 
 export interface SessionKeys {

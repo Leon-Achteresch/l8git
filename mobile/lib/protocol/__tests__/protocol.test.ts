@@ -4,6 +4,7 @@ import {
   channelArg,
   parsePairing,
   ProtocolClient,
+  ProtocolError,
   type HostPairing,
 } from '../client';
 import {
@@ -11,7 +12,6 @@ import {
   fromBase64,
   generateEphemeralKeyPair,
   counterNonce,
-  relayToken,
   toBase64,
   toBase64Url,
 } from '../crypto';
@@ -57,11 +57,6 @@ describe('crypto primitives', () => {
     expect(toBase64(a.c2s)).toBe(toBase64(b.c2s));
     expect(toBase64(a.s2c)).toBe(toBase64(b.s2c));
     expect(toBase64(a.c2s)).not.toBe(toBase64(a.s2c));
-  });
-
-  it('derives a stable relay token', () => {
-    expect(relayToken(fromBase64(PSK))).toBe(relayToken(fromBase64(PSK)));
-    expect(relayToken(fromBase64(PSK))).not.toBe(relayToken(fromBase64(OTHER_PSK)));
   });
 });
 
@@ -155,19 +150,19 @@ describe('ProtocolClient against a spec-compliant test server', () => {
     client.close();
   });
 
-  it('accepts a binary welcome frame as delivered by the relay', async () => {
+  it('accepts a binary welcome frame', async () => {
     const { client, server } = createHarness({
       hostId: HOST_ID,
       psk: PSK,
       binaryWelcome: true,
-      host: { name: 'relayed', version: '1.2.3', platform: 'linux' },
+      host: { name: 'binary-host', version: '1.2.3', platform: 'linux' },
       handlers: {
         repo_status: () => ({ branch: 'main' }),
       },
     });
 
     const host = await client.connect('ws://mock', pairing);
-    expect(host).toEqual({ name: 'relayed', version: '1.2.3', platform: 'linux' });
+    expect(host).toEqual({ name: 'binary-host', version: '1.2.3', platform: 'linux' });
     expect(client.status).toBe('ready');
     expect(server.isAuthenticated).toBe(true);
     expect(await client.request('repo_status', {})).toEqual({ branch: 'main' });
@@ -271,6 +266,24 @@ describe('ProtocolClient against a spec-compliant test server', () => {
     client.close();
   });
 
+  it('shows a coded remote error as its message, never as the raw code', async () => {
+    const coded = '\u001fBranch name must not be empty.\u001fl8e:{"code":"field.required","params":{"field":"branchName"}}\u001f';
+    const { client } = createHarness({
+      hostId: HOST_ID,
+      psk: PSK,
+      handlers: {
+        git_fetch: () => {
+          throw new Error(coded);
+        },
+      },
+    });
+    await client.connect('ws://mock', pairing);
+    const error = await client.request('git_fetch', {}).catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(ProtocolError);
+    expect((error as ProtocolError).message).toBe('Branch name must not be empty.');
+    client.close();
+  });
+
   it('delivers the four global events to subscribers', async () => {
     const received: [string, unknown][] = [];
     const { client, server } = createHarness({ hostId: HOST_ID, psk: PSK });
@@ -293,7 +306,7 @@ describe('ProtocolClient against a spec-compliant test server', () => {
       'git-progress-done',
     ]);
 
-    offs.forEach((off) => off());
+    offs.forEach((off) => { off(); });
     server.emitEvent('repo-changed', '/tmp/other');
     await tick();
     expect(received).toHaveLength(4);
@@ -321,7 +334,7 @@ describe('ProtocolClient against a spec-compliant test server', () => {
     await expect(inflight).rejects.toThrow(/canceled/);
     await tick();
     expect(server.canceled).toEqual([1]);
-    settlers.forEach((resolve) => resolve(null));
+    settlers.forEach((resolve) => { resolve(null); });
     client.close();
   });
 

@@ -36,6 +36,7 @@ import type {
   AgentThreadSummary,
   AgentTurn,
 } from "@/lib/agents/types";
+import { arrayValue, errorMessage, isRecord, sortThreadSummaries as sortThreads, stringValue } from "@/lib/agents/chat/values";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -82,22 +83,6 @@ let sequence = 1;
 
 function id(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${sequence++}`;
-}
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === "object" && value !== null;
-}
-
-function stringValue(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function arrayValue(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function readJson<T>(key: string, fallback: T): T {
@@ -162,12 +147,6 @@ function rememberTranscript(threadId: string, turns: AgentTurn[]) {
   transcripts.delete(threadId);
   transcripts.set(threadId, turns);
   saveTranscripts();
-}
-
-function sortThreads(threads: AgentThreadSummary[]): AgentThreadSummary[] {
-  return [...threads].sort(
-    (a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt - a.updatedAt,
-  );
 }
 
 function summary(value: CursorSessionSummary): AgentThreadSummary {

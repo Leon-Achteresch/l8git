@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { enc, gql, hubApi } from "@/lib/hub/api";
 import { invoke } from "@tauri-apps/api/core";
 import type { HubAccount } from "@/lib/hub/types";
@@ -466,7 +467,7 @@ export async function markNotificationsRead(a: HubAccount, ids: string[]): Promi
   for (const id of [...new Set(ids)]) {
     if (!/^[0-9]+$/.test(id)) { failed.push({ id, error: "Invalid notification ID" }); continue; }
     try { await hubApi(a, "PATCH", `/notifications/threads/${id}`); succeeded.push(id); }
-    catch (error) { failed.push({ id, error: String(error) }); }
+    catch (error) { failed.push({ id, error: formatBackendError(error) }); }
   }
   return { succeeded, failed };
 }

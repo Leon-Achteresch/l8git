@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/github-expansion/api";
 import { loadAllProjectFields, projectFieldRows, type ProjectFieldRow } from "@/lib/github-ui/project-fields";
 import { subjectKey, useGithubWorkspace } from "@/lib/github-expansion/store";
+import { issueErrorMessage } from "@/lib/hub/issue-errors";
 import { hubRepoPath } from "@/lib/hub/store";
 import type { HubAccount } from "@/lib/hub/types";
 import { ChevronDown, ExternalLink, Loader2, Milestone, Tag, Users, X } from "lucide-react";
@@ -60,7 +62,7 @@ export function IssueDetailSheet({ account: a, fullName: repo, number, onClose, 
       setComments(c.items);
       setCommentPage({ page: 1, hasMore: c.hasMore });
     } catch (e) {
-      toastError(String(e));
+      toastError(issueErrorMessage(e));
     }
   }, [a, repo, number]);
   useEffect(() => void load(), [load]);
@@ -73,7 +75,7 @@ export function IssueDetailSheet({ account: a, fullName: repo, number, onClose, 
       onChanged();
       return true;
     } catch (e) {
-      toastError(String(e));
+      toastError(issueErrorMessage(e));
       return false;
     } finally {
       setBusy(null);
@@ -237,7 +239,7 @@ function Relations({ account: a, repo, number }: { account: HubAccount; repo: st
   const [addSub, setAddSub] = useState("");
   const [addDep, setAddDep] = useState("");
   const load = useCallback(() => {
-    listSubIssues(a, repo, number).then((r) => setSubs(r.items), (e) => setError(String(e)));
+    listSubIssues(a, repo, number).then((r) => setSubs(r.items), (e) => setError(formatBackendError(e)));
     listIssueDependencies(a, repo, number, "blocked_by").then((r) => setBlockedBy(r.items), () => setBlockedBy(null));
     listIssueDependencies(a, repo, number, "blocking").then((r) => setBlocking(r.items), () => setBlocking(null));
   }, [a, repo, number]);
@@ -294,14 +296,14 @@ function Projects({ account: a, nodeId }: { account: HubAccount; nodeId: string 
   const [items, setItems] = useState<ProjectItem[] | null>(null);
   const [fields, setFields] = useState<Record<string, ProjectField[] | string>>({});
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(() => listSubjectProjects(a, nodeId).then((r) => setItems(r.items), (e) => setError(String(e))), [a, nodeId]);
+  const load = useCallback(() => listSubjectProjects(a, nodeId).then((r) => setItems(r.items), (e) => setError(formatBackendError(e))), [a, nodeId]);
   useEffect(() => void load(), [load]);
   const projectIds = [...new Set(items?.map((i) => i.project.id) ?? [])].join("\n");
   useEffect(() => {
     if (!projectIds) return;
     let live = true;
     for (const id of projectIds.split("\n")) {
-      loadAllProjectFields(a, id).then((f) => live && setFields((p) => ({ ...p, [id]: f })), (e) => live && setFields((p) => ({ ...p, [id]: String(e) })));
+      loadAllProjectFields(a, id).then((f) => live && setFields((p) => ({ ...p, [id]: f })), (e) => live && setFields((p) => ({ ...p, [id]: formatBackendError(e) })));
     }
     return () => { live = false; };
   }, [a, projectIds]);

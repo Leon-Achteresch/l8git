@@ -19,6 +19,7 @@
 //! The file holds no secrets: only switches, the active conversation and issue
 //! keys. The credential stays in the OS keychain, which the child opens itself.
 
+use crate::coded;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -80,7 +81,7 @@ impl JiraPolicy {
 
 pub fn policy_path() -> Result<PathBuf, String> {
     let base = dirs::config_dir()
-        .ok_or_else(|| "Kein Konfigurationsverzeichnis gefunden.".to_string())?;
+        .ok_or_else(|| coded!(ConfigDirMissing))?;
     Ok(base.join("l8git").join("jira-policy.json"))
 }
 
@@ -144,10 +145,10 @@ pub async fn jira_write_policy(policy: JiraPolicy) -> Result<(), String> {
 #[tauri::command]
 pub fn jira_mcp_command() -> Result<Vec<String>, String> {
     let exe = std::env::current_exe()
-        .map_err(|e| format!("Programmpfad konnte nicht bestimmt werden: {e}"))?;
+        .map_err(|e| coded!(ExePathFailed, error = e))?;
     let exe = exe
         .to_str()
-        .ok_or_else(|| "Programmpfad ist kein gültiges UTF-8.".to_string())?;
+        .ok_or_else(|| coded!(ExePathNotUtf8))?;
     Ok(vec![exe.to_string(), crate::jira_mcp::SUBCOMMAND.to_string()])
 }
 
@@ -170,7 +171,7 @@ pub const CURSOR_SERVER_KEY: &str = "l8git-jira";
 pub fn cursor_mcp_path() -> Result<PathBuf, String> {
     dirs::home_dir()
         .map(|home| home.join(".cursor").join("mcp.json"))
-        .ok_or_else(|| "Kein Home-Verzeichnis gefunden.".to_string())
+        .ok_or_else(|| coded!(HomeDirMissing))
 }
 
 /// Merges (or removes) the l8git entry inside an existing `mcp.json`, leaving
@@ -182,14 +183,11 @@ pub fn merge_cursor_mcp(
 ) -> Result<Option<String>, String> {
     let mut root = match existing {
         Some(raw) if !raw.trim().is_empty() => serde_json::from_str::<serde_json::Value>(raw)
-            .map_err(|_| {
-                "Cursor: ~/.cursor/mcp.json ist kein gültiges JSON — bitte manuell prüfen."
-                    .to_string()
-            })?,
+            .map_err(|_| coded!(JiraCursorMcpInvalidJson))?,
         _ => serde_json::json!({}),
     };
     if !root.is_object() {
-        return Err("Cursor: ~/.cursor/mcp.json enthält kein Objekt.".into());
+        return Err(coded!(JiraCursorMcpNotObject));
     }
     let servers = root
         .as_object_mut()
@@ -197,7 +195,7 @@ pub fn merge_cursor_mcp(
         .entry("mcpServers")
         .or_insert_with(|| serde_json::json!({}));
     if !servers.is_object() {
-        return Err("Cursor: mcpServers in ~/.cursor/mcp.json ist kein Objekt.".into());
+        return Err(coded!(JiraCursorMcpServersNotObject));
     }
     let servers = servers.as_object_mut().expect("checked above");
     let before = servers.get(CURSOR_SERVER_KEY).cloned();
@@ -224,7 +222,7 @@ pub fn cursor_mcp_entry(repo: &str) -> Result<serde_json::Value, String> {
     let command = jira_mcp_command()?;
     let (executable, subcommand) = command
         .split_first()
-        .ok_or_else(|| "Programmpfad konnte nicht bestimmt werden.".to_string())?;
+        .ok_or_else(|| coded!(ExePathUnknown))?;
     let mut args: Vec<String> = subcommand.to_vec();
     if !repo.is_empty() {
         args.push("--repo".into());

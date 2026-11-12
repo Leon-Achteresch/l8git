@@ -21,7 +21,7 @@ pub(super) async fn github_request(
 
 pub(super) async fn github_read_json(res: reqwest::Response, host: &str) -> Result<Value, String> {
     if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!("GitHub: 401. Bitte unter Einstellungen bei {host} anmelden."));
+        return Err(coded!(ProviderSignInRequired, provider = "GitHub", host = host));
     }
     if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }
@@ -35,11 +35,7 @@ pub(super) async fn github_read_json(res: reqwest::Response, host: &str) -> Resu
                 || body.contains("saml_enforcement")
                 || body.contains("organization SAML"))
         {
-            return Err(format!(
-                "GitHub 403: Das Personal Access Token ist nicht für SAML Single Sign-On autorisiert. \
-                Bitte das Token unter {host} → Settings → Applications → Authorized OAuth Apps \
-                für die Organisation freischalten."
-            ));
+            return Err(coded!(ProviderGithubSaml, host = host));
         }
         return Err(format!("GitHub {status}: {}", body.trim()));
     }

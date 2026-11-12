@@ -30,7 +30,10 @@ export function collectCandidates(threads: Iterable<ReviewThread>, patchLines: (
         else {
           const lines = patchLines(t.path);
           if (!lines) rejection = "noPatch";
-          else if (!(expectedLines = headLinesFromPatch(lines, startLine, endLine))) rejection = "notInDiff";
+          else {
+            expectedLines = headLinesFromPatch(lines, startLine, endLine);
+            if (!expectedLines) rejection = "notInDiff";
+          }
         }
         out.push({ ...base, expectedLines, rejection });
       });

@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/platform/ipc";
 import { flushKvWrites, hydrateKv, kvGet, kvSet } from "@/lib/platform/kv";
 import { platform } from "@/lib/platform";
+import { findBackendError } from "@/lib/backend-error";
 import { parseCommitInspectMetadata } from "@/lib/commit-inspect-metadata";
 import { splitCommitMessage } from "@/lib/commit-message";
 import type { StatusEntry, WorktreeEntry } from "@/lib/repo-store";
@@ -511,8 +512,16 @@ async function reviewHeadHash(path: string, transport: AgentReviewInvoke): Promi
 }
 
 async function reviewOperationActive(path: string, transport: AgentReviewInvoke): Promise<boolean> {
-  const states = await Promise.all(["merge_state", "rebase_status", "cherry_pick_state"].map(
-    (command) => transport<{ in_progress: boolean }>(command, { path }),
+  const states = await Promise.all(["merge_state", "rebase_status", "cherry_pick_state", "git_am_state"].map(
+    (command) => transport<{ in_progress: boolean }>(command, { path }).catch((error) => {
+      const { code, params, message } = findBackendError(error);
+      // Older hosts do not implement git_am_state; all other failures must still block finishing.
+      if (command === "git_am_state" && (
+        code === "server.unknownCommand" && params.command === command ||
+        message === `Unbekannter Befehl: ${command}` || message === `Unknown command: ${command}`
+      )) return { in_progress: false };
+      throw error;
+    }),
   ));
   return states.some((state) => state.in_progress);
 }

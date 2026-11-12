@@ -1,0 +1,92 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "src/**",
+      "mobile/**",
+      "e2e/**",
+      "ui-test/**",
+      "scripts/**",
+      "!**/*.json",
+      "!**/*.css",
+      "!src/routeTree.gen.ts",
+      "!mobile/node_modules",
+      "!**/dist*",
+      "!**/test-results",
+      "!**/.expo"
+    ]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "domains": {
+      "react": "recommended"
+    },
+    "rules": {
+      "recommended": true,
+      "a11y": {
+        "noNoninteractiveElementToInteractiveRole": "warn",
+        "noInteractiveElementToNoninteractiveRole": "warn",
+        "useAriaPropsSupportedByRole": "warn",
+        "noStaticElementInteractions": "warn",
+        "noNoninteractiveTabindex": "warn",
+        "useFocusableInteractive": "warn",
+        "useKeyWithClickEvents": "warn",
+        "noLabelWithoutControl": "warn",
+        "useSemanticElements": "warn",
+        "noSvgWithoutTitle": "warn",
+        "noRedundantRoles": "warn",
+        "noHeaderScope": "warn",
+        "noAutofocus": "warn"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "warn",
+        "noComponentHookFactories": "warn",
+        "noReactNativeRawText": "warn"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn",
+        "noControlCharactersInRegex": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/**",
+        "ui-test/**",
+        "scripts/**",
+        "e2e/**"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noReactNativeRawText": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/**"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "usePlaywrightValidDescribeCallback": "off"
+          }
+        }
+      }
+    }
+  ]
+}

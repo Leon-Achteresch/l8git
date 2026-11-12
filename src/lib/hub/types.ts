@@ -132,6 +132,14 @@ export type HubIssue = {
   state: "open" | "closed";
 };
 
+export type HubIssueDetail = HubIssue & { body: string };
+export type HubIssueUpdate = { title?: string; body?: string; state?: "open" | "closed" };
+/** Labels by name; assignees by the provider's own id (GitHub login, GitLab user id). */
+export type HubIssueMeta = { labels?: string[]; assignees?: string[] };
+/** `color` is bare hex without "#". */
+export type HubChoice = { id: string; label: string; color?: string };
+export type HubChoicePage = { items: HubChoice[]; page: number; hasMore: boolean };
+
 export type HubRun = {
   id: string;
   name: string;
@@ -181,7 +189,13 @@ export type HubAdapter = {
   runs(a: HubAccount, fullName: string): Promise<HubRun[] | null>;
   star(a: HubAccount, fullName: string, on: boolean): Promise<void>;
   fork(a: HubAccount, fullName: string): Promise<HubRepo>;
-  createIssue(a: HubAccount, fullName: string, title: string, body: string): Promise<string>;
+  createIssue(a: HubAccount, fullName: string, title: string, body: string, meta?: HubIssueMeta): Promise<string>;
+  /** Choices for a new issue; absent where the provider can't list them cheaply. */
+  issueLabels?(a: HubAccount, fullName: string, page: number): Promise<HubChoicePage>;
+  issueAssignees?(a: HubAccount, fullName: string, page: number): Promise<HubChoicePage>;
+  /** Generic view/edit; GitHub has its own richer issue sheet instead. */
+  issue?(a: HubAccount, fullName: string, number: number): Promise<HubIssueDetail>;
+  updateIssue?(a: HubAccount, fullName: string, number: number, patch: HubIssueUpdate): Promise<HubIssueDetail>;
   createRepo(a: HubAccount, name: string, description: string, isPrivate: boolean): Promise<HubRepo>;
   approvePr(a: HubAccount, fullName: string, number: number): Promise<void>;
   mergePr(a: HubAccount, fullName: string, number: number): Promise<void>;

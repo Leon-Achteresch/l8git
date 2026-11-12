@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 
@@ -28,7 +29,7 @@ export function useActivityBuckets(
       .catch((err) => {
         if (cancelled) return;
         setData(null);
-        setError(String(err));
+        setError(formatBackendError(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

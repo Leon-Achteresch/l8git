@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
@@ -62,7 +63,7 @@ export const useStackStore = create<StackStoreState>((set, get) => ({
     } catch (e) {
       set((s) => ({
         lists: { ...s.lists, [path]: s.lists[path] ?? EMPTY_STACK_LIST },
-        error: { ...s.error, [path]: String(e) },
+        error: { ...s.error, [path]: formatBackendError(e) },
       }));
     } finally {
       set((s) => ({ loading: { ...s.loading, [path]: false } }));

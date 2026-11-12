@@ -71,7 +71,6 @@ pub struct ServerState {
     pub host: HostInfo,
     pub host_id: String,
     pub psk: [u8; PSK_LEN],
-    pub relay: Option<String>,
     pub roots: RwLock<Vec<PathBuf>>,
     pub events: broadcast::Sender<BroadcastEvent>,
     watched: Mutex<HashMap<String, HashSet<u64>>>,
@@ -92,7 +91,6 @@ impl ServerState {
         host_id: String,
         psk: [u8; PSK_LEN],
         roots: Vec<PathBuf>,
-        relay: Option<String>,
     ) -> Arc<Self> {
         let (events, _) = broadcast::channel(EVENT_CAPACITY);
         Arc::new(Self {
@@ -101,7 +99,6 @@ impl ServerState {
             host: HostInfo::detect(),
             host_id,
             psk,
-            relay,
             roots: RwLock::new(roots),
             events,
             watched: Mutex::new(HashMap::new()),
@@ -329,7 +326,7 @@ mod tests {
     use super::*;
 
     fn state() -> Arc<ServerState> {
-        ServerState::new("host".into(), [9u8; PSK_LEN], vec![], None)
+        ServerState::new("host".into(), [9u8; PSK_LEN], vec![])
     }
 
     #[test]

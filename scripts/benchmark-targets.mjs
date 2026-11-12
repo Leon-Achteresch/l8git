@@ -93,7 +93,8 @@ async function openTerminal(page) {
 
 async function recordFrames(page, run) {
   await page.evaluate(() => {
-    const intervals = window.__benchmarkFrames = [];
+    const intervals = [];
+    window.__benchmarkFrames = intervals;
     let previous;
     const tick = now => {
       if (previous !== undefined) intervals.push(now - previous);

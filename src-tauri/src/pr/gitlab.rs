@@ -50,9 +50,7 @@ pub(super) async fn gl_request(
 
 pub(super) async fn gl_read_json(res: reqwest::Response, host: &str) -> Result<Value, String> {
     if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "GitLab: 401. Bitte unter Einstellungen bei {host} anmelden."
-        ));
+        return Err(coded!(ProviderSignInRequired, provider = "GitLab", host = host));
     }
     if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }

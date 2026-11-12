@@ -1,3 +1,4 @@
+use crate::coded;
 use std::collections::VecDeque;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
@@ -165,7 +166,7 @@ fn claude_home_dir(config_dir: Option<&str>) -> Result<PathBuf, String> {
         Some(value) => Ok(PathBuf::from(value)),
         None => dirs::home_dir()
             .map(|home| home.join(".claude"))
-            .ok_or_else(|| "Claude-Konfigurationsverzeichnis konnte nicht bestimmt werden.".into()),
+            .ok_or_else(|| coded!(ClaudeConfigDirUnknown)),
     }
 }
 
@@ -610,7 +611,7 @@ fn read_session_cwd(file_path: &Path) -> Option<String> {
 
 fn session_file(session_id: &str, path: &str, config_dir: Option<&str>) -> Result<PathBuf, String> {
     if !valid_session_id(session_id) {
-        return Err("Ungültige Claude-Session-ID.".into());
+        return Err(coded!(AgentSessionIdInvalid, agent = "Claude"));
     }
     let projects = claude_projects_dir(config_dir)?;
     let direct = projects.join(project_dir_name(path)).join(format!("{session_id}.jsonl"));
@@ -624,7 +625,7 @@ fn session_file(session_id: &str, path: &str, config_dir: Option<&str>) -> Resul
             return Ok(candidate);
         }
     }
-    Err("Claude-Unterhaltung wurde nicht gefunden.".into())
+    Err(coded!(AgentConversationNotFound, agent = "Claude"))
 }
 
 type SummaryCacheKey = (PathBuf, u64, u64);
@@ -730,7 +731,7 @@ pub async fn claude_read_session(
             metadata.len(),
             &[path],
         )
-        .ok_or_else(|| "Claude-Unterhaltung konnte nicht gelesen werden.".to_string())?;
+        .ok_or_else(|| coded!(AgentConversationReadFailed, agent = "Claude"))?;
         let file = File::open(file_path).map_err(|error| error.to_string())?;
         let entries = BufReader::new(file)
             .lines()
@@ -760,7 +761,7 @@ pub async fn claude_rename_session(
     tokio::task::spawn_blocking(move || {
         let title = title.trim();
         if title.is_empty() || title.len() > 300 || title.chars().any(char::is_control) {
-            return Err("Ungültiger Claude-Unterhaltungstitel.".into());
+            return Err(coded!(AgentConversationTitleInvalid, agent = "Claude"));
         }
         let file_path = session_file(&session_id, &path, config_dir.as_deref())?;
         let mut file = OpenOptions::new()
@@ -835,7 +836,7 @@ fn fork_jsonl_contents(
         }
     }
     if !found {
-        return Err("Ungültiger Checkpoint für Fork.".into());
+        return Err(coded!(ClaudeCheckpointInvalid));
     }
     let parent_record = json!({
         "type": "fork-parent",
@@ -862,7 +863,7 @@ pub async fn claude_fork_session(
         let contents = fork_jsonl_contents(&file_path, &up_to_message_uuid, &new_session_id, &session_id)?;
         let target = file_path
             .parent()
-            .ok_or_else(|| "Ungültiger Claude-Sitzungspfad.".to_string())?
+            .ok_or_else(|| coded!(ClaudeSessionPathInvalid))?
             .join(format!("{new_session_id}.jsonl"));
         atomic_write(&target, contents.as_bytes())?;
         Ok(new_session_id)
@@ -873,12 +874,12 @@ pub async fn claude_fork_session(
 
 fn claude_json(args: &[&str], cwd: Option<&str>, config_dir: Option<&str>) -> Result<Value, String> {
     let executable = resolve_cli_path("claude")
-        .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+        .ok_or_else(|| coded!(AgentCliMissing, agent = "Claude Code"))?;
     let mut command = cli_command(executable);
     command.args(args).stdin(Stdio::null());
     if let Some(cwd) = cwd {
         if !Path::new(cwd).is_dir() {
-            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
         }
         command.current_dir(cwd);
     }
@@ -941,7 +942,7 @@ fn claude_version_status_from_output(raw: &str) -> ClaudeVersionStatus {
 pub async fn claude_version_status() -> Result<ClaudeVersionStatus, String> {
     tokio::task::spawn_blocking(|| {
         let executable = resolve_cli_path("claude")
-            .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+            .ok_or_else(|| coded!(AgentCliMissing, agent = "Claude Code"))?;
         let output = cli_command(executable)
             .arg("--version")
             .stdin(Stdio::null())
@@ -1015,10 +1016,10 @@ fn claude_install_owner_info(binary_path: &str) -> Result<InstallOwnerInfo, Stri
     let path = PathBuf::from(binary_path.trim());
     let kind = classify_install_owner(binary_path);
     if kind == "unknown" {
-        return Err("Unbekannte Installationsquelle: Update kann nicht automatisch ausgeführt werden.".into());
+        return Err(coded!(ClaudeUpdateSourceUnknown));
     }
     if !path_is_writable(&path) {
-        return Err("Binary-Pfad ist nicht beschreibbar: Update kann nicht ausgeführt werden.".into());
+        return Err(coded!(ClaudeBinaryNotWritable));
     }
     Ok(InstallOwnerInfo {
         kind,
@@ -1046,7 +1047,7 @@ pub async fn claude_auth_status(config_dir: Option<String>) -> Result<Value, Str
 pub async fn claude_start_login(config_dir: Option<String>) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
         let executable = resolve_cli_path("claude")
-            .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+            .ok_or_else(|| coded!(AgentCliMissing, agent = "Claude Code"))?;
         stop_login_process_for(config_dir.as_deref());
         let mut command = cli_command(executable);
         command.args(["auth", "login"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
@@ -1087,7 +1088,7 @@ pub async fn claude_logout(config_dir: Option<String>) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
         stop_login_process_for(config_dir.as_deref());
         let executable = resolve_cli_path("claude")
-            .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+            .ok_or_else(|| coded!(AgentCliMissing, agent = "Claude Code"))?;
         let mut command = cli_command(executable);
         command.args(["auth", "logout"]);
         if let Some(config_dir) = config_dir.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
@@ -1098,7 +1099,7 @@ pub async fn claude_logout(config_dir: Option<String>) -> Result<(), String> {
             return Ok(());
         }
         record_stderr(&String::from_utf8_lossy(&output.stderr));
-        Err("Claude-Abmeldung ist fehlgeschlagen.".to_string())
+        Err(coded!(ClaudeLogoutFailed))
     })
     .await
     .map_err(|error| error.to_string())?
@@ -1158,7 +1159,7 @@ pub struct EffectiveSettings {
 fn settings_scope_paths(config_dir: Option<&str>, repo: &str) -> Result<Vec<(&'static str, PathBuf)>, String> {
     let repo = PathBuf::from(repo);
     if !repo.is_dir() {
-        return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+        return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
     }
     let mut paths = Vec::new();
     if let Some(managed) = managed_settings_path() {
@@ -1213,17 +1214,17 @@ pub async fn claude_write_settings(
 ) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
         if !json.is_object() {
-            return Err("Settings müssen ein JSON-Objekt sein.".into());
+            return Err(coded!(ClaudeSettingsNotObject));
         }
         if scope == "managed" {
-            return Err("Managed-Settings sind schreibgeschützt.".into());
+            return Err(coded!(ClaudeManagedReadOnly));
         }
         let paths = settings_scope_paths(config_dir.as_deref(), &repo)?;
         let target = paths
             .into_iter()
             .find(|(candidate, _)| *candidate == scope)
             .map(|(_, path)| path)
-            .ok_or_else(|| "Unbekannter Settings-Bereich.".to_string())?;
+            .ok_or_else(|| coded!(ClaudeSettingsScopeUnknown))?;
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         }
@@ -1329,7 +1330,7 @@ pub async fn claude_list_skills(path: String) -> Result<Vec<ClaudeSkill>, String
     tokio::task::spawn_blocking(move || {
         let repo = PathBuf::from(&path);
         if !repo.is_dir() {
-            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
         }
         let mut skills = Vec::new();
         if let Some(home) = dirs::home_dir() {
@@ -1368,7 +1369,7 @@ pub async fn claude_list_hooks(path: String) -> Result<Vec<ClaudeHook>, String> 
     tokio::task::spawn_blocking(move || {
         let repo = PathBuf::from(&path);
         if !repo.is_dir() {
-            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
         }
         let mut hooks = Vec::new();
         if let Some(home) = dirs::home_dir() {
@@ -1396,12 +1397,12 @@ fn managed_roots(repo: &Path) -> Vec<PathBuf> {
 fn managed_path(repo: &Path, target: &str) -> Result<PathBuf, String> {
     let target = PathBuf::from(target);
     let canonical = fs::canonicalize(&target)
-        .map_err(|_| "Die Datei existiert nicht mehr.".to_string())?;
+        .map_err(|_| coded!(FileGone))?;
     let allowed = managed_roots(repo)
         .into_iter()
         .any(|root| canonical.starts_with(&root));
     if !allowed {
-        return Err("Nur Dateien in .claude dürfen bearbeitet werden.".into());
+        return Err(coded!(ClaudeOnlyClaudeFiles));
     }
     Ok(canonical)
 }
@@ -1454,11 +1455,11 @@ pub async fn claude_list_capability_files(
 ) -> Result<Vec<ClaudeCapabilityFile>, String> {
     tokio::task::spawn_blocking(move || {
         if kind != "commands" && kind != "agents" {
-            return Err("Unbekannte Capability-Art.".into());
+            return Err(coded!(CapabilityKindUnknown));
         }
         let repo = PathBuf::from(&path);
         if !repo.is_dir() {
-            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
         }
         let mut files = Vec::new();
         if let Some(home) = dirs::home_dir() {
@@ -1485,7 +1486,7 @@ pub async fn claude_read_capability_file(path: String, file: String) -> Result<S
 fn atomic_write(target: &Path, contents: &[u8]) -> Result<(), String> {
     let directory = target
         .parent()
-        .ok_or_else(|| "Ungültiger Zielpfad.".to_string())?;
+        .ok_or_else(|| coded!(TargetPathInvalid))?;
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
@@ -1518,7 +1519,7 @@ pub async fn claude_write_capability_file(
     tokio::task::spawn_blocking(move || {
         let target = managed_path(&PathBuf::from(&path), &file)?;
         if !is_regular_file(&target) {
-            return Err("Nur reguläre Dateien können geschrieben werden.".into());
+            return Err(coded!(OnlyRegularFiles));
         }
         atomic_write(&target, contents.as_bytes())
     })
@@ -1557,26 +1558,26 @@ pub async fn claude_set_hook_disabled(
         let target = managed_path(&PathBuf::from(&path), &source)?;
         let parts = key.split(':').collect::<Vec<_>>();
         let [_, event_name, group_index, handler_index] = parts.as_slice() else {
-            return Err("Ungültiger Hook-Schlüssel.".into());
+            return Err(coded!(HookKeyInvalid));
         };
-        let group_index = group_index.parse::<usize>().map_err(|_| "Ungültiger Hook-Schlüssel.".to_string())?;
-        let handler_index = handler_index.parse::<usize>().map_err(|_| "Ungültiger Hook-Schlüssel.".to_string())?;
+        let group_index = group_index.parse::<usize>().map_err(|_| coded!(HookKeyInvalid))?;
+        let handler_index = handler_index.parse::<usize>().map_err(|_| coded!(HookKeyInvalid))?;
         let contents = fs::read(&target).map_err(|error| error.to_string())?;
         let mut settings: Value = serde_json::from_slice(&contents).map_err(|error| error.to_string())?;
         let group = settings
             .get_mut("hooks")
             .and_then(|hooks| hooks.get_mut(*event_name))
             .and_then(|groups| groups.get_mut(group_index))
-            .ok_or_else(|| "Hook wurde nicht gefunden.".to_string())?;
+            .ok_or_else(|| coded!(HookNotFound))?;
         let handler = match group.get_mut("hooks").and_then(Value::as_array_mut) {
             Some(handlers) => handlers
                 .get_mut(handler_index)
-                .ok_or_else(|| "Hook wurde nicht gefunden.".to_string())?,
+                .ok_or_else(|| coded!(HookNotFound))?,
             None => group,
         };
         let object = handler
             .as_object_mut()
-            .ok_or_else(|| "Hook wurde nicht gefunden.".to_string())?;
+            .ok_or_else(|| coded!(HookNotFound))?;
         if disabled {
             object.insert("disabled".into(), Value::Bool(true));
         } else {
@@ -1585,7 +1586,7 @@ pub async fn claude_set_hook_disabled(
         let serialized = serde_json::to_string_pretty(&settings).map_err(|error| error.to_string())?;
         let current = fs::read(&target).map_err(|error| error.to_string())?;
         if current != contents {
-            return Err("Datei wurde zwischenzeitlich geändert.".into());
+            return Err(coded!(FileChangedMeanwhile));
         }
         atomic_write(&target, format!("{serialized}\n").as_bytes())
     })
@@ -1595,7 +1596,7 @@ pub async fn claude_set_hook_disabled(
 
 fn claude_cli(args: &[&str], repo: &Path) -> Result<(), String> {
     let executable = resolve_cli_path("claude")
-        .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+        .ok_or_else(|| coded!(AgentCliMissing, agent = "Claude Code"))?;
     let output = cli_command(executable)
         .args(args)
         .current_dir(repo)
@@ -1606,7 +1607,7 @@ fn claude_cli(args: &[&str], repo: &Path) -> Result<(), String> {
         return Ok(());
     }
     let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    Err(if message.is_empty() { "Claude-CLI-Befehl ist fehlgeschlagen.".into() } else { message })
+    Err(if message.is_empty() { coded!(AgentCliCommandFailed, agent = "Claude") } else { message })
 }
 
 fn cli_argument(value: &str) -> Result<&str, String> {
@@ -1616,7 +1617,7 @@ fn cli_argument(value: &str) -> Result<&str, String> {
         || value.starts_with('-')
         || value.chars().any(char::is_control)
     {
-        return Err("Ungültiger Name.".into());
+        return Err(coded!(NameInvalid));
     }
     Ok(value)
 }
@@ -1630,7 +1631,7 @@ pub async fn claude_set_plugin_enabled(
     tokio::task::spawn_blocking(move || {
         let repo = PathBuf::from(&path);
         if !repo.is_dir() {
-            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
         }
         let plugin = cli_argument(&plugin)?;
         claude_cli(&["plugin", if enabled { "enable" } else { "disable" }, plugin], &repo)
@@ -1644,7 +1645,7 @@ pub async fn claude_uninstall_plugin(path: String, plugin: String) -> Result<(),
     tokio::task::spawn_blocking(move || {
         let repo = PathBuf::from(&path);
         if !repo.is_dir() {
-            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
         }
         let plugin = cli_argument(&plugin)?;
         claude_cli(&["plugin", "uninstall", plugin], &repo)
@@ -1658,7 +1659,7 @@ pub async fn claude_mcp_remove(path: String, name: String) -> Result<(), String>
     tokio::task::spawn_blocking(move || {
         let repo = PathBuf::from(&path);
         if !repo.is_dir() {
-            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
         }
         let name = cli_argument(&name)?;
         claude_cli(&["mcp", "remove", name], &repo)
@@ -1672,11 +1673,11 @@ pub async fn claude_mcp_login(path: String, name: String) -> Result<(), String> 
     tokio::task::spawn_blocking(move || {
         let repo = PathBuf::from(&path);
         if !repo.is_dir() {
-            return Err("Claude-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Claude"));
         }
         let name = cli_argument(&name)?;
         let executable = resolve_cli_path("claude")
-            .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+            .ok_or_else(|| coded!(AgentCliMissing, agent = "Claude Code"))?;
         cli_command(executable)
             .args(["mcp", "login", name])
             .current_dir(repo)

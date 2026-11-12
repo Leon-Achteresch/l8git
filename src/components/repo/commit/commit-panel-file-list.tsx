@@ -694,6 +694,7 @@ function VirtualFileListInner({
         <ContextMenu key={`${activePath}\n${menuTarget && !menuTargetCurrent ? "invalid" : "current"}`}>
         <ContextMenuTrigger asChild><span ref={menuTriggerRef} hidden aria-hidden="true" /></ContextMenuTrigger>
         {menuTarget && menuTargetCurrent && <FileRowMenu
+          repoPath={activePath}
           row={menuTarget.row}
           inMultiSelection={multiSelectedIds.has(menuTarget.row.id)}
           multiSelectedCount={multiSelectedIds.size}

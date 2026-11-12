@@ -27,7 +27,7 @@ export function seedAuditFixture(scene: string) {
   if (scene === 'app') {
     window.__L8GIT_TEST_INVOKE__ = async (cmd) => {
       if (cmd === 'git_credential_helper') return null;
-      if (cmd === 'remote_status') return { running: false, managed: false, port: 9418, relay: null, roots: [], binary: null, configPath: null };
+      if (cmd === 'remote_status') return { running: false, managed: false, port: 9418, roots: [], binary: null, configPath: null };
       throw new Error(`Unavailable in offline fixture: ${cmd}`);
     };
     useRepoStore.setState({ paths: [], activePath: null });
@@ -106,7 +106,7 @@ export function seedAuditFixture(scene: string) {
       if (command === 'git_bisect_status') return { active: false, current: null, good: null, bad: null, remaining: null };
     }
     switch (command) {
-      case 'remote_status': return { running: false, managed: false, port: 9418, relay: null, roots: [], binary: null, configPath: null };
+      case 'remote_status': return { running: false, managed: false, port: 9418, roots: [], binary: null, configPath: null };
       case 'open_repo': return info(String(args?.path ?? FIXTURE_PATH));
       case 'repo_log_page': return commits.slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));
       case 'repo_history_page': {
@@ -163,7 +163,7 @@ export function seedAuditFixture(scene: string) {
       case 'reflog_list': return scene === 'recovery' ? commits.slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 100)).map((commit, index) => ({ selector: `HEAD@{${Number(args?.skip ?? 0) + index}}`, hash: commit.hash, short_hash: commit.short_hash, action: 'commit', subject: commit.subject, message: commit.subject, date: commit.date })) : [];
       case 'undo_preview': return { action: 'commit', supported: commits.length > 1, target_hash: base.hash, target_short_hash: base.short_hash, target_subject: base.subject, description_key: 'undo.action.commit', snapshot: `fixture-${commits[0].hash}-${recoveryVersion}`, current_hash: commits[0].hash, current_short_hash: commits[0].short_hash, head_name: 'main', mode: 'soft' };
       case 'undo_last_operation': {
-        if (args?.expectedSnapshot !== `fixture-${commits[0].hash}-${recoveryVersion}`) throw Error('__UNDO_CHANGED__');
+        if (args?.expectedSnapshot !== `fixture-${commits[0].hash}-${recoveryVersion}`) throw Error('\u001fThe last operation changed after this preview.\u001fl8e:{"code":"undo.changed"}\u001f');
         const from = commits[0].hash;
         commits = [base]; recoveryVersion++;
         entries = [{ path: 'example.txt', index_status: 'M', worktree_status: ' ', staged: true, unstaged: false, untracked: false, additions_staged: 1, deletions_staged: 1, additions_unstaged: 0, deletions_unstaged: 0, binary: false, embedded_repo: false }];
@@ -172,8 +172,8 @@ export function seedAuditFixture(scene: string) {
       case 'reset_to_reflog_entry': {
         const index = Number(String(args?.selector).match(/^HEAD@\{(\d+)\}$/)?.[1]);
         const target = commits[index];
-        if (!target || args?.expectedHash !== target.hash) throw Error('__REFLOG_CHANGED__');
-        if (args?.expectedHead !== commits[0].hash) throw Error('__HEAD_CHANGED__');
+        if (!target || args?.expectedHash !== target.hash) throw Error('\u001fThe reflog changed after this entry was selected.\u001fl8e:{"code":"undo.reflogChanged"}\u001f');
+        if (args?.expectedHead !== commits[0].hash) throw Error('\u001fHEAD changed after this entry was selected.\u001fl8e:{"code":"undo.headChanged"}\u001f');
         const from = commits[0].hash;
         commits = commits.slice(index); recoveryVersion++; entries = [];
         return { undone_action: 'reset', from_hash: from, to_hash: target.hash, head_name: 'main' };
@@ -230,6 +230,7 @@ export function seedAuditFixture(scene: string) {
       case 'git_merge_commit': if (!resolved) throw Error('Unresolved conflict'); merge = false; return 'Merge completed';
       case 'rebase_status': return { in_progress: false, conflicted_paths: [] };
       case 'cherry_pick_state': return { in_progress: false, head: null, conflicted_paths: [] };
+      case 'git_am_state': return { in_progress: false, subject: null, step: null, total: null, conflicted_paths: [] };
       case 'agent_review_summary': return { baseBranch: 'main', sessionBranch: 'agents/fixture', mergeBase: base.hash, files: [{ path: 'example.txt', additions: 1, deletions: 1, binary: false, untracked: false }], additions: 1, deletions: 1, commits: commits.length - 1, uncommitted: entries.length, fingerprint: args?.includeFingerprint ? await fileFingerprint('example.txt') : null };
       case 'agent_review_file_diff': return { diff: PATCH, untrackedPlain: null, isBinary: false, fingerprint: await fileFingerprint('example.txt') };
       case 'agent_review_discard_change':

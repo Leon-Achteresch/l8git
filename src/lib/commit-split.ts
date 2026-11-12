@@ -675,7 +675,7 @@ export async function applySplitPlan(options: {
         })) {
           throw new SplitPlanError(i18n.t("commitSplit.errorHunkGone", { file }), true);
         }
-        ordered.forEach((unit, index) => indexByUnitId.set(unit.id, index));
+        ordered.forEach((unit, index) => { indexByUnitId.set(unit.id, index); });
         parsedByFile.set(file, parsed);
       }
     } catch (cause) {
@@ -726,7 +726,7 @@ export async function applySplitPlan(options: {
       throw new SplitPlanError(cause instanceof Error ? cause.message : String(cause), true);
     }
     committed += 1;
-    group.unitIds.forEach((id) => committedUnitIds.add(id));
+    group.unitIds.forEach((id) => { committedUnitIds.add(id); });
   }
 
   return { committed, cancelled: false, remaining: 0 };

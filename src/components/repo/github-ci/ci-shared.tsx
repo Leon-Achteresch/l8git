@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { openExternal } from "@/components/hub/hub-bits";
 import type { CiRun } from "@/lib/github-expansion/ci";
 import { safeExternalUrl } from "@/lib/github-ci-ui/ci-model";
@@ -36,7 +37,7 @@ export function ErrorNote({ error, className }: { error: unknown; className?: st
   return (
     <div role="alert" className={cn("rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs", className)}>
       <p className="font-medium text-destructive">{t(`ghci.error.${kind}`)}</p>
-      <p className="mt-0.5 break-words font-mono text-[0.625rem] text-muted-foreground">{String(error)}</p>
+      <p className="mt-0.5 break-words font-mono text-[0.625rem] text-muted-foreground">{formatBackendError(error)}</p>
     </div>
   );
 }

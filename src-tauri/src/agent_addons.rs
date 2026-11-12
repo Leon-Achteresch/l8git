@@ -1,3 +1,4 @@
+use crate::coded;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -31,14 +32,14 @@ fn target_file(path: &str, provider: &str) -> Result<PathBuf, String> {
         .iter()
         .find(|(id, _)| *id == provider)
         .map(|(_, file)| *file)
-        .ok_or_else(|| format!("Für {provider} wird die MCP-Konfiguration nicht als Datei verwaltet."))?;
+        .ok_or_else(|| coded!(McpConfigNotFile, provider = provider))?;
     let repo = PathBuf::from(path);
     if !repo.is_dir() {
-        return Err("Arbeitsverzeichnis existiert nicht.".into());
+        return Err(coded!(WorkingDirMissing));
     }
     let repo_canon = repo
         .canonicalize()
-        .map_err(|error| format!("Ungültiges Arbeitsverzeichnis: {error}"))?;
+        .map_err(|error| coded!(WorkingDirInvalid, error = error))?;
     // `relative` ist eine Konstante ohne "..", der Pfad kann also nur über
     // einen Symlink aus dem Repository zeigen. Das prüfen wir, sobald die
     // Datei existiert — vorher gibt es nichts zu kanonisieren.
@@ -51,7 +52,7 @@ fn target_file(path: &str, provider: &str) -> Result<PathBuf, String> {
 
 fn read_target(provider: String, file: &Path) -> Result<AddonConfigFile, String> {
     if fs::metadata(file).is_ok_and(|meta| meta.len() > MAX_CONFIG_BYTES as u64) {
-        return Err("Die MCP-Konfiguration ist zu groß zum Bearbeiten.".into());
+        return Err(coded!(McpConfigTooLargeEdit));
     }
     let (exists, contents) = match fs::read_to_string(file) {
         Ok(text) => (true, text),
@@ -92,10 +93,10 @@ pub async fn agent_addon_config_write(
 ) -> Result<AddonConfigFile, String> {
     tokio::task::spawn_blocking(move || {
         if contents.len() > MAX_CONFIG_BYTES {
-            return Err("Die MCP-Konfiguration ist zu groß zum Speichern.".into());
+            return Err(coded!(McpConfigTooLargeSave));
         }
         serde_json::from_str::<serde_json::Value>(&contents)
-            .map_err(|error| format!("Ungültiges JSON: {error}"))?;
+            .map_err(|error| coded!(JsonInvalid, error = error))?;
         let file = target_file(&path, &provider)?;
         if let Some(parent) = file.parent() {
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;

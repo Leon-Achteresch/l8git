@@ -74,7 +74,7 @@ const remoteEntries = new Map<string, RemoteEntry>();
 const remoteGen = new Map<string, number>();
 const remotePending = new Set<string>();
 const remoteListeners = new Set<() => void>();
-const emitRemotes = () => remoteListeners.forEach((l) => l());
+const emitRemotes = () => remoteListeners.forEach((l) => { l(); });
 const subscribeRemotes = (l: () => void) => {
   remoteListeners.add(l);
   return () => void remoteListeners.delete(l);

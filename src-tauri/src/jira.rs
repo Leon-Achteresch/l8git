@@ -18,6 +18,8 @@
 //! * Errors are redacted so a token can never end up in a log or a chat
 //!   transcript.
 
+use crate::coded;
+use crate::error::{coded, ErrorCode, Label, Param};
 use std::time::Duration;
 
 use base64::engine::general_purpose::STANDARD as B64;
@@ -145,19 +147,19 @@ fn has_control_chars(value: &str) -> bool {
 pub fn normalize_base_url(input: &str) -> Result<String, String> {
     let raw = input.trim();
     if raw.is_empty() {
-        return Err("Jira: Die Base-URL darf nicht leer sein.".into());
+        return Err(coded(ErrorCode::JiraFieldRequired, &[("field", Param::Label(Label::JiraBaseUrl))]));
     }
     if raw.len() > MAX_BASE_URL_LEN {
-        return Err("Jira: Die Base-URL ist zu lang.".into());
+        return Err(coded(ErrorCode::JiraFieldTooLong, &[("field", Param::Label(Label::JiraBaseUrl))]));
     }
     if has_control_chars(raw) {
-        return Err("Jira: Die Base-URL enthält ungültige Zeichen.".into());
+        return Err(coded(ErrorCode::JiraFieldInvalidChars, &[("field", Param::Label(Label::JiraBaseUrl))]));
     }
     // Checked on the raw input: `Url::parse` would silently resolve `..` away,
     // which turns a typo (or a paste of a crafted link) into a different,
     // silently accepted target path.
     if raw.contains("..") {
-        return Err("Jira: Der Pfad der Base-URL ist ungültig.".into());
+        return Err(coded!(JiraBaseUrlPathInvalid));
     }
     let candidate = if raw.contains("://") {
         raw.to_string()
@@ -165,34 +167,31 @@ pub fn normalize_base_url(input: &str) -> Result<String, String> {
         format!("https://{raw}")
     };
     let url = reqwest::Url::parse(&candidate)
-        .map_err(|_| "Jira: Die Base-URL ist keine gültige URL.".to_string())?;
+        .map_err(|_| coded!(JiraBaseUrlInvalid))?;
 
     let host = url
         .host_str()
-        .ok_or_else(|| "Jira: Die Base-URL enthält keinen Host.".to_string())?
+        .ok_or_else(|| coded!(JiraBaseUrlNoHost))?
         .to_ascii_lowercase();
     let loopback = host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]";
     match url.scheme() {
         "https" => {}
         "http" if loopback => {}
         "http" => {
-            return Err(
-                "Jira: Nur HTTPS ist erlaubt — sonst würde der API-Token unverschlüsselt übertragen."
-                    .into(),
-            )
+            return Err(coded!(JiraHttpsRequired))
         }
-        other => return Err(format!("Jira: Das Schema \"{other}\" wird nicht unterstützt.")),
+        other => return Err(coded!(JiraSchemeUnsupported, scheme = other)),
     }
     if !url.username().is_empty() || url.password().is_some() {
-        return Err("Jira: Die Base-URL darf keine Zugangsdaten enthalten.".into());
+        return Err(coded!(JiraBaseUrlCredentials));
     }
     if url.query().is_some() || url.fragment().is_some() {
-        return Err("Jira: Die Base-URL darf keine Query oder Fragment enthalten.".into());
+        return Err(coded!(JiraBaseUrlQuery));
     }
 
     let path = url.path().trim_end_matches('/');
     if path.contains("..") || path.contains('%') {
-        return Err("Jira: Der Pfad der Base-URL ist ungültig.".into());
+        return Err(coded!(JiraBaseUrlPathInvalid));
     }
 
     let mut origin = format!("{}://{}", url.scheme(), host);
@@ -207,10 +206,10 @@ pub fn normalize_base_url(input: &str) -> Result<String, String> {
 pub fn validate_issue_key(input: &str) -> Result<String, String> {
     let key = input.trim().to_ascii_uppercase();
     if key.is_empty() || key.len() > MAX_ISSUE_KEY_LEN {
-        return Err("Jira: Ungültiger Ticket-Schlüssel.".into());
+        return Err(coded!(JiraIssueKeyInvalid));
     }
     let Some((project, number)) = key.split_once('-') else {
-        return Err("Jira: Ticket-Schlüssel müssen die Form PROJECT-123 haben.".into());
+        return Err(coded!(JiraIssueKeyFormat));
     };
     let project_ok = !project.is_empty()
         && project.starts_with(|c: char| c.is_ascii_uppercase())
@@ -220,7 +219,7 @@ pub fn validate_issue_key(input: &str) -> Result<String, String> {
     let number_ok =
         !number.is_empty() && number.len() <= 10 && number.chars().all(|c| c.is_ascii_digit());
     if !project_ok || !number_ok {
-        return Err("Jira: Ticket-Schlüssel müssen die Form PROJECT-123 haben.".into());
+        return Err(coded!(JiraIssueKeyFormat));
     }
     Ok(key)
 }
@@ -230,13 +229,13 @@ pub fn validate_issue_key(input: &str) -> Result<String, String> {
 pub fn validate_jql(input: &str) -> Result<String, String> {
     let jql = input.trim();
     if jql.is_empty() {
-        return Err("Jira: Die JQL-Abfrage darf nicht leer sein.".into());
+        return Err(coded(ErrorCode::JiraFieldRequired, &[("field", Param::Label(Label::JiraJql))]));
     }
     if jql.chars().count() > MAX_JQL_LEN {
-        return Err("Jira: Die JQL-Abfrage ist zu lang.".into());
+        return Err(coded(ErrorCode::JiraFieldTooLong, &[("field", Param::Label(Label::JiraJql))]));
     }
     if jql.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
-        return Err("Jira: Die JQL-Abfrage enthält ungültige Zeichen.".into());
+        return Err(coded(ErrorCode::JiraFieldInvalidChars, &[("field", Param::Label(Label::JiraJql))]));
     }
     Ok(jql.replace(['\n', '\t'], " ").trim().to_string())
 }
@@ -244,13 +243,13 @@ pub fn validate_jql(input: &str) -> Result<String, String> {
 pub fn validate_email(input: &str) -> Result<String, String> {
     let email = input.trim();
     if email.is_empty() || email.len() > MAX_EMAIL_LEN || has_control_chars(email) {
-        return Err("Jira: Die E-Mail-Adresse ist ungültig.".into());
+        return Err(coded!(JiraEmailInvalid));
     }
     let Some((local, domain)) = email.split_once('@') else {
-        return Err("Jira: Die E-Mail-Adresse ist ungültig.".into());
+        return Err(coded!(JiraEmailInvalid));
     };
     if local.is_empty() || domain.is_empty() || !domain.contains('.') || email.contains(':') {
-        return Err("Jira: Die E-Mail-Adresse ist ungültig.".into());
+        return Err(coded!(JiraEmailInvalid));
     }
     Ok(email.to_string())
 }
@@ -258,13 +257,13 @@ pub fn validate_email(input: &str) -> Result<String, String> {
 pub fn validate_api_token(input: &str) -> Result<String, String> {
     let token = input.trim();
     if token.is_empty() {
-        return Err("Jira: Der API-Token darf nicht leer sein.".into());
+        return Err(coded(ErrorCode::JiraFieldRequired, &[("field", Param::Label(Label::JiraApiToken))]));
     }
     if token.len() > MAX_TOKEN_LEN {
-        return Err("Jira: Der API-Token ist zu lang.".into());
+        return Err(coded(ErrorCode::JiraFieldTooLong, &[("field", Param::Label(Label::JiraApiToken))]));
     }
     if has_control_chars(token) {
-        return Err("Jira: Der API-Token enthält ungültige Zeichen.".into());
+        return Err(coded(ErrorCode::JiraFieldInvalidChars, &[("field", Param::Label(Label::JiraApiToken))]));
     }
     Ok(token.to_string())
 }
@@ -309,23 +308,23 @@ pub fn build_api_url(base: &str, path: &str) -> Result<String, String> {
         || path.contains("..")
         || has_control_chars(path)
     {
-        return Err("Jira: Ungültiger API-Pfad.".into());
+        return Err(coded!(JiraApiPathInvalid));
     }
     let base = base.trim_end_matches('/');
     let candidate = format!("{base}{path}");
     let parsed = reqwest::Url::parse(&candidate)
-        .map_err(|_| "Jira: Die angeforderte URL ist ungültig.".to_string())?;
+        .map_err(|_| coded!(JiraRequestUrlInvalid))?;
     let base_parsed = reqwest::Url::parse(base)
-        .map_err(|_| "Jira: Die gespeicherte Base-URL ist ungültig.".to_string())?;
+        .map_err(|_| coded!(JiraStoredBaseUrlInvalid))?;
     let same_origin = parsed.scheme() == base_parsed.scheme()
         && parsed.host_str() == base_parsed.host_str()
         && parsed.port_or_known_default() == base_parsed.port_or_known_default();
     let base_path = base_parsed.path().trim_end_matches('/');
     if !same_origin || !parsed.path().starts_with(base_path) {
-        return Err("Jira: Die angeforderte URL verlässt die konfigurierte Jira-Instanz.".into());
+        return Err(coded!(JiraRequestUrlForeign));
     }
     if !parsed.username().is_empty() || parsed.password().is_some() {
-        return Err("Jira: Die angeforderte URL ist ungültig.".into());
+        return Err(coded!(JiraRequestUrlInvalid));
     }
     Ok(parsed.to_string())
 }
@@ -561,10 +560,10 @@ pub fn describe_http_error(status: u16, body: &str, token: &str) -> String {
     let detail = redact_secret(body.trim(), token);
     let (detail, _) = truncate_text(&detail, 400);
     match status {
-        401 => "Jira 401: Anmeldung fehlgeschlagen. Bitte E-Mail und API-Token in den Einstellungen prüfen.".into(),
-        403 => "Jira 403: Der Zugriff wurde verweigert. Fehlen dem Konto Leserechte für dieses Projekt?".into(),
-        404 => "Jira 404: Nicht gefunden. Existiert das Ticket und ist es für dieses Konto sichtbar?".into(),
-        429 => "Jira 429: Rate-Limit erreicht. Bitte später erneut versuchen.".into(),
+        401 => coded!(JiraUnauthorized),
+        403 => coded!(JiraForbidden),
+        404 => coded!(JiraNotFound),
+        429 => coded!(JiraRateLimited),
         _ if detail.is_empty() => format!("Jira {status}."),
         _ => format!("Jira {status}: {detail}"),
     }
@@ -616,11 +615,11 @@ async fn jira_get(
 
     let status = response.status();
     if status.is_redirection() {
-        return Err("Jira: Die Instanz hat eine Weiterleitung angefordert — abgebrochen, damit der Token die konfigurierte Domain nicht verlässt.".into());
+        return Err(coded!(JiraRedirectBlocked));
     }
     if let Some(length) = response.content_length() {
         if length > MAX_RESPONSE_BYTES {
-            return Err("Jira: Die Antwort ist zu groß.".into());
+            return Err(coded!(JiraResponseTooLarge));
         }
     }
     let bytes = response
@@ -628,7 +627,7 @@ async fn jira_get(
         .await
         .map_err(|e| format!("Jira: {}", redact_secret(&e.to_string(), &credentials.api_token)))?;
     if bytes.len() as u64 > MAX_RESPONSE_BYTES {
-        return Err("Jira: Die Antwort ist zu groß.".into());
+        return Err(coded!(JiraResponseTooLarge));
     }
     if !status.is_success() {
         let body = String::from_utf8_lossy(&bytes);
@@ -638,9 +637,7 @@ async fn jira_get(
             &credentials.api_token,
         ));
     }
-    serde_json::from_slice::<Value>(&bytes).map_err(|_| {
-        "Jira: Die Antwort war kein JSON. Zeigt die Base-URL wirklich auf eine Jira-Instanz?".into()
-    })
+    serde_json::from_slice::<Value>(&bytes).map_err(|_| coded!(JiraResponseNotJson))
 }
 
 // ---------------------------------------------------------------------------
@@ -663,9 +660,7 @@ async fn load_credentials() -> Result<JiraCredentials, String> {
     tokio::task::spawn_blocking(load_credentials_blocking)
         .await
         .map_err(|e| e.to_string())??
-        .ok_or_else(|| {
-            "Jira ist nicht konfiguriert. Bitte Base-URL, E-Mail und API-Token in den Einstellungen hinterlegen.".to_string()
-        })
+        .ok_or_else(|| coded!(JiraNotConfigured))
 }
 
 pub fn status_of(credentials: Option<&JiraCredentials>) -> JiraCredentialStatus {
@@ -696,7 +691,7 @@ pub async fn jira_save_credentials(
         api_token: validate_api_token(&api_token)?,
     };
     let payload = serde_json::to_string(&credentials)
-        .map_err(|_| "Jira: Zugangsdaten konnten nicht serialisiert werden.".to_string())?;
+        .map_err(|_| coded!(JiraCredentialsSerializeFailed))?;
     tokio::task::spawn_blocking(move || set_secret(KEYRING_KEY, &payload))
         .await
         .map_err(|e| e.to_string())??;

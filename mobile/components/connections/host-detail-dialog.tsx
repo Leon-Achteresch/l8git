@@ -18,7 +18,7 @@ import {
 import { SolidPill } from '~/components/ui/glass';
 import { Icon } from '~/components/ui/icon';
 import { Text } from '~/components/ui/text';
-import { classifyEndpoint, useConnections, useHostMeta, useHostRuntime } from '~/lib/connections';
+import { useConnections, useHostMeta, useHostRuntime } from '~/lib/connections';
 import { palette } from '~/lib/theme';
 
 function RowIcon({ icon }: { icon: LucideIcon }) {
@@ -83,11 +83,6 @@ export function HostDetailDialog({
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: hostRingColor(runtime.status) }} />
             <Text className="text-foreground text-xs font-semibold capitalize">{runtime.status}</Text>
           </View>
-          {runtime.endpointKind ? (
-            <Badge variant="secondary">
-              <Text>{runtime.endpointKind === 'lan' ? 'LAN' : 'Relay'}</Text>
-            </Badge>
-          ) : null}
           {activeHostId === meta?.hostId ? (
             <Badge>
               <Icon as={Star} size={10} color={palette.primaryForeground} />
@@ -108,7 +103,6 @@ export function HostDetailDialog({
             leading={<RowIcon icon={Radio} />}
             title="Endpoint"
             subtitle={runtime.endpoint ?? 'not connected'}
-            meta={runtime.endpoint ? classifyEndpoint(runtime.endpoint) : undefined}
             className="bg-elevated"
           />
           <ListRow

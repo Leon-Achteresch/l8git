@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -45,7 +46,7 @@ export function LanguageBreakdown({ path }: { path: string | null }) {
       .catch((err) => {
         if (cancelled) return;
         setStats([]);
-        setError(String(err));
+        setError(formatBackendError(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

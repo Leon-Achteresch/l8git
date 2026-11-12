@@ -1,5 +1,5 @@
 import { enc, hubApi } from "./api";
-import type { CheckState, HubAccount, HubAdapter, HubPr, HubRepo, PullKind } from "./types";
+import type { CheckState, HubAccount, HubAdapter, HubIssueDetail, HubPr, HubRepo, PullKind } from "./types";
 
 type GlProject = {
   id: number;
@@ -38,6 +38,23 @@ type GlMr = {
   user_notes_count: number;
   head_pipeline?: { status: string } | null;
 };
+
+type GlIssue = { id: number; iid: number; title: string; description?: string | null; web_url: string; created_at: string; user_notes_count: number; labels: string[]; state: string; author: { username: string; avatar_url: string | null } | null };
+
+function glIssue(i: GlIssue): HubIssueDetail {
+  return {
+    id: String(i.id),
+    number: i.iid,
+    title: i.title,
+    body: i.description ?? "",
+    url: i.web_url,
+    author: i.author ? { login: i.author.username, avatarUrl: i.author.avatar_url } : null,
+    createdAt: i.created_at,
+    comments: i.user_notes_count,
+    labels: i.labels.map((name) => ({ name, color: null })),
+    state: i.state === "opened" ? "open" : "closed",
+  };
+}
 
 const pid = (fullName: string) => `/projects/${enc(fullName)}`;
 
@@ -219,20 +236,8 @@ export const gitlab: HubAdapter = {
   },
 
   async issues(a, fullName, state) {
-    const list = await hubApi<
-      { id: number; iid: number; title: string; web_url: string; created_at: string; user_notes_count: number; labels: string[]; state: string; author: { username: string; avatar_url: string | null } | null }[]
-    >(a, "GET", `${pid(fullName)}/issues?state=${state === "open" ? "opened" : "closed"}&per_page=50&order_by=updated_at`);
-    return list.map((i) => ({
-      id: String(i.id),
-      number: i.iid,
-      title: i.title,
-      url: i.web_url,
-      author: i.author ? { login: i.author.username, avatarUrl: i.author.avatar_url } : null,
-      createdAt: i.created_at,
-      comments: i.user_notes_count,
-      labels: i.labels.map((name) => ({ name, color: null })),
-      state: i.state === "opened" ? "open" : "closed",
-    }));
+    const list = await hubApi<GlIssue[]>(a, "GET", `${pid(fullName)}/issues?state=${state === "open" ? "opened" : "closed"}&per_page=50&order_by=updated_at`);
+    return list.map(glIssue);
   },
 
   async repoPulls(a, fullName, state) {
@@ -280,8 +285,35 @@ export const gitlab: HubAdapter = {
     return repo(await hubApi<GlProject>(a, "POST", `${pid(fullName)}/fork`, {}));
   },
 
-  async createIssue(a, fullName, title, body) {
-    return (await hubApi<{ web_url: string }>(a, "POST", `${pid(fullName)}/issues`, { title, description: body })).web_url;
+  async createIssue(a, fullName, title, body, meta = {}) {
+    const extra = {
+      ...(meta.labels?.length ? { labels: meta.labels.join(",") } : {}),
+      ...(meta.assignees?.length ? { assignee_ids: meta.assignees.map(Number) } : {}),
+    };
+    return (await hubApi<{ web_url: string }>(a, "POST", `${pid(fullName)}/issues`, { title, description: body, ...extra })).web_url;
+  },
+
+  async issueLabels(a, fullName, page) {
+    const list = await hubApi<{ name: string; color: string | null }[]>(a, "GET", `${pid(fullName)}/labels?per_page=100&page=${page}`);
+    return { items: list.map((l) => ({ id: l.name, label: l.name, color: l.color?.replace(/^#/, "") || undefined })), page, hasMore: list.length === 100 };
+  },
+
+  async issueAssignees(a, fullName, page) {
+    const list = await hubApi<{ id: number; username: string }[]>(a, "GET", `${pid(fullName)}/members/all?per_page=100&page=${page}`);
+    return { items: list.map((u) => ({ id: String(u.id), label: u.username })), page, hasMore: list.length === 100 };
+  },
+
+  async issue(a, fullName, number) {
+    return glIssue(await hubApi<GlIssue>(a, "GET", `${pid(fullName)}/issues/${number}`));
+  },
+
+  async updateIssue(a, fullName, number, patch) {
+    const body = {
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.body !== undefined ? { description: patch.body } : {}),
+      ...(patch.state ? { state_event: patch.state === "open" ? "reopen" : "close" } : {}),
+    };
+    return glIssue(await hubApi<GlIssue>(a, "PUT", `${pid(fullName)}/issues/${number}`, body));
   },
 
   async createRepo(a, name, description, isPrivate) {

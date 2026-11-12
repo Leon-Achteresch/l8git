@@ -310,10 +310,10 @@ pub fn handle_request(request: &Value) -> Option<Value> {
 #[tauri::command]
 pub fn renderer_mcp_command() -> Result<Vec<String>, String> {
     let exe = std::env::current_exe()
-        .map_err(|error| format!("Programmpfad konnte nicht bestimmt werden: {error}"))?;
+        .map_err(|error| crate::coded!(ExePathFailed, error = error))?;
     let exe = exe
         .to_str()
-        .ok_or_else(|| "Programmpfad ist kein gültiges UTF-8.".to_string())?;
+        .ok_or_else(|| crate::coded!(ExePathNotUtf8))?;
     Ok(vec![exe.to_string(), SUBCOMMAND.to_string()])
 }
 

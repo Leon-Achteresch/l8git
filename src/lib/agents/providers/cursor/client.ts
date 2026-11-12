@@ -59,7 +59,7 @@ export class CursorClient {
 
   async send(options: CursorRunOptions): Promise<void> {
     if (this.transport) throw new Error("Cursor bearbeitet bereits eine Anfrage.");
-    const sessionId = `cursor-${this.threadId}:${(this.run += 1)}`;
+    const sessionId = `cursor-${this.threadId}:${++this.run}`;
     const transport = await openAgentTransport(
       "cursor",
       sessionId,

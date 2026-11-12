@@ -19,6 +19,8 @@ import {
   Archive,
   Check,
   ChevronDown,
+  FileDiff,
+  FileDown,
   Loader2,
   Pencil,
   Plus,
@@ -100,6 +102,8 @@ type CommitComposerProps = {
   onStash: () => void;
   onUndo: () => void;
   onSplitCommits?: () => void;
+  onExportPatch?: (staged: boolean) => void;
+  onApplyPatch?: () => void;
 };
 
 export function CommitComposer({
@@ -133,6 +137,8 @@ export function CommitComposer({
   onStash,
   onUndo,
   onSplitCommits,
+  onExportPatch,
+  onApplyPatch,
 }: CommitComposerProps) {
   const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
@@ -573,6 +579,25 @@ export function CommitComposer({
                   <DropdownMenuItem onClick={onUndo}>
                     <Undo2 className="size-3.5" />
                     {t("commitPanel.undoLastCommit")}
+                  </DropdownMenuItem>
+                )}
+                {(onExportPatch || onApplyPatch) && <DropdownMenuSeparator />}
+                {onExportPatch && (
+                  <>
+                    <DropdownMenuItem onClick={() => onExportPatch(false)}>
+                      <FileDown className="size-3.5" />
+                      {t("patches.exportChanges")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onExportPatch(true)} disabled={stagedFiles === 0}>
+                      <FileDown className="size-3.5" />
+                      {t("patches.exportStaged")}
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {onApplyPatch && (
+                  <DropdownMenuItem onClick={onApplyPatch}>
+                    <FileDiff className="size-3.5" />
+                    {t("patches.applyMenu")}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

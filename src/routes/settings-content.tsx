@@ -44,6 +44,8 @@ import { AnimationsCard } from "@/components/settings/animations-card";
 import { BranchCleanupCard } from "@/components/settings/branch-cleanup-card";
 import { RemoteServerCard } from "@/components/settings/remote-server-card";
 import { GitSigningCard } from "@/components/settings/git-signing-card";
+import { ExternalToolsCard } from "@/components/settings/external-tools-card";
+import { externalToolsSupported } from "@/lib/external-tools";
 import { HotkeysSection } from "@/components/settings/hotkeys-section";
 import { JiraCard } from "@/components/settings/jira-card";
 import { InterfaceElementsCard } from "@/components/settings/interface-elements-card";
@@ -1157,6 +1159,12 @@ export function Settings() {
                   </CardContent>
                 </Card>
               </StaggerCard>
+
+              {externalToolsSupported() && (
+                <StaggerCard index={2}>
+                  <ExternalToolsCard />
+                </StaggerCard>
+              )}
 
               <StaggerCard index={2}>
                 <BranchCleanupCard />

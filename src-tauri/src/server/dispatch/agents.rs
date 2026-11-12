@@ -380,7 +380,7 @@ mod tests {
 
     #[tokio::test]
     async fn agent_options_pointing_outside_the_allowlist_never_reach_the_cli() {
-        let state = ServerState::new("host".into(), [5u8; 32], vec![std::env::temp_dir()], None);
+        let state = ServerState::new("host".into(), [5u8; 32], vec![std::env::temp_dir()]);
         let (tx, _rx) = mpsc::channel(OUTBOX_CAPACITY);
         let ctx = DispatchCtx::new(
             state,
@@ -400,7 +400,7 @@ mod tests {
         )
         .await
         .expect("the command is dispatched");
-        assert!(result.unwrap_err().contains("nicht freigegeben"));
+        assert!(result.unwrap_err().contains("not shared"));
     }
 
     #[test]

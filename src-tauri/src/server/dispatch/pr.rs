@@ -204,7 +204,7 @@ mod tests {
     use tokio::sync::mpsc;
 
     fn ctx() -> (DispatchCtx, mpsc::Receiver<Value>) {
-        let state = ServerState::new("host".into(), [7u8; 32], vec![], None);
+        let state = ServerState::new("host".into(), [7u8; 32], vec![]);
         let (tx, rx) = mpsc::channel(crate::server::state::OUTBOX_CAPACITY);
         let conn = Arc::new(ConnectionHandle::new(1, tx));
         (DispatchCtx::new(state, conn, 42, "pr"), rx)
@@ -250,7 +250,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(err, Err("Nur .yml/.yaml Dateien erlaubt.".to_string()));
+        assert_eq!(err, Err(crate::coded!(WorkflowExtension)));
     }
 
     #[tokio::test]
@@ -259,7 +259,7 @@ mod tests {
         let err = super::dispatch("pr_set_auto_merge", json!({ "path": "." }), &ctx)
             .await
             .unwrap();
-        assert_eq!(err, Err("Fehlendes Argument \"prNodeId\".".to_string()));
+        assert_eq!(err, Err(crate::coded!(ServerMissingArgument, name = "prNodeId")));
 
         let err = super::dispatch(
             "get_workflow_jobs",
@@ -268,6 +268,6 @@ mod tests {
         )
         .await
         .unwrap();
-        assert!(err.unwrap_err().starts_with("Ungültiges Argument \"runId\""));
+        assert!(err.unwrap_err().contains("Invalid argument \"runId\""));
     }
 }

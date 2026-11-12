@@ -1,0 +1,55 @@
+name: Dependency audit
+
+# Separate from CI so a newly published advisory does not block PRs that leave the lockfiles alone.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main, development]
+    paths:
+      - bun.lock
+      - package.json
+      - mobile/package.json
+      - src-tauri/Cargo.lock
+      - src-tauri/Cargo.toml
+      - .github/workflows/audit.yml
+  pull_request:
+    paths:
+      - bun.lock
+      - package.json
+      - mobile/package.json
+      - src-tauri/Cargo.lock
+      - src-tauri/Cargo.toml
+      - .github/workflows/audit.yml
+
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - name: cargo audit
+        working-directory: src-tauri
+        run: cargo audit
+
+  bun-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # bun audit reads bun.lock directly; no install needed.
+      - name: bun audit
+        run: bun audit

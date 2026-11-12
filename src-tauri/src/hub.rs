@@ -3,6 +3,8 @@
 //! provider through `hub_api`, which pins every request to the account's API
 //! base so a token can never be sent to a foreign host.
 
+use crate::coded;
+use crate::error::{required, Label};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -43,7 +45,7 @@ pub struct HubResponse {
 fn norm_host(host: &str) -> Result<String, String> {
     let h = host.trim().trim_end_matches('/').to_ascii_lowercase();
     if h.is_empty() || h.contains('/') || h.contains('@') || h.contains(char::is_whitespace) {
-        return Err("Ungültiger Host".into());
+        return Err(coded!(HubInvalidHost));
     }
     Ok(h)
 }
@@ -83,7 +85,7 @@ fn api_url(host: &str, provider: Provider, path: &str) -> Result<String, String>
         || path.contains('\\')
         || path.split(['/', '?']).any(|seg| seg == ".." || seg == ".")
     {
-        return Err("Ungültiger API-Pfad".into());
+        return Err(coded!(HubInvalidApiPath));
     }
     if provider == Provider::GitHub && path == "/graphql" {
         return Ok(crate::pr::github_graphql_endpoint(host));
@@ -128,7 +130,7 @@ async fn send(
         "PUT" => reqwest::Method::PUT,
         "PATCH" => reqwest::Method::PATCH,
         "DELETE" => reqwest::Method::DELETE,
-        other => return Err(format!("HTTP-Methode {other} nicht erlaubt")),
+        other => return Err(coded!(HubMethodNotAllowed, method = other)),
     };
     let client = http_client()?;
     let mut req = authed(client.request(method, &url), provider, secret);
@@ -168,8 +170,10 @@ async fn send(
     if let Some(errors) = data["errors"].as_array().filter(|e| !e.is_empty()) {
         // GraphQL reports partial failures with 200; surface them when nothing came back.
         if data["data"].is_null() {
-            let msg = errors[0]["message"].as_str().unwrap_or("GraphQL-Fehler");
-            return Err(format!("{host}: {msg}"));
+            return Err(match errors[0]["message"].as_str() {
+                Some(msg) => format!("{host}: {msg}"),
+                None => coded!(HubGraphqlFailed, host = host),
+            });
         }
     }
     Ok(HubResponse { status: status.as_u16(), data })
@@ -177,13 +181,13 @@ async fn send(
 
 fn load_secret(host: &str, login: &str) -> Result<StoredSecret, String> {
     let raw = get_secret(&secret_key(host, login))?
-        .ok_or_else(|| format!("Kein Token für {login}@{host}. Bitte erneut verbinden."))?;
+        .ok_or_else(|| coded!(HubNoToken, login = login, host = host))?;
     serde_json::from_str(&raw).map_err(|e| e.to_string())
 }
 
 /// `login@host/owner/repo` → that hub account's repo, for the shared PR commands.
 pub(crate) fn remote_handle(spec: &str) -> Result<RemoteHandle, String> {
-    let bad = || format!("Ungültiges Hub-Repo: {spec}");
+    let bad = || coded!(HubInvalidRepo, spec = spec);
     let (login, rest) = spec.split_once('@').ok_or_else(bad)?;
     let (host, full) = rest.split_once('/').ok_or_else(bad)?;
     let host = norm_host(host)?;
@@ -230,7 +234,7 @@ async fn viewer(host: &str, provider: Provider, secret: &StoredSecret) -> Result
     Ok(HubAccount {
         host: host.to_string(),
         provider: provider.as_str(),
-        login: login.ok_or("Anbieter lieferte keinen Benutzernamen")?,
+        login: login.ok_or_else(|| coded!(HubNoUsername))?,
         name,
         avatar_url: avatar,
     })
@@ -320,7 +324,7 @@ pub async fn hub_connect(
 ) -> Result<Vec<HubAccount>, String> {
     let host = norm_host(&host)?;
     let provider = match provider.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
-        Some(id) => Provider::from_id(id).ok_or_else(|| format!("Unbekannter Anbieter {id}"))?,
+        Some(id) => Provider::from_id(id).ok_or_else(|| coded!(HubUnknownProvider, provider = id))?,
         None => provider_for(&host)?,
     };
     let chosen = Some(provider.as_str().to_string());
@@ -328,7 +332,7 @@ pub async fn hub_connect(
         "token" => {
             let token = token.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
             vec![StoredSecret {
-                token: token.ok_or("Token darf nicht leer sein")?,
+                token: token.ok_or_else(|| required(Label::Token))?,
                 username: username.map(|u| u.trim().to_string()).filter(|u| !u.is_empty()),
                 from_git: false,
                 provider: chosen,
@@ -357,7 +361,7 @@ pub async fn hub_connect(
                 provider: chosen,
             }]
         }
-        other => return Err(format!("Unbekannte Anmeldemethode {other}")),
+        other => return Err(coded!(HubUnknownSignInMethod, method = other)),
     };
     let mut out = Vec::new();
     for secret in secrets {
@@ -917,7 +921,7 @@ async fn github_oauth_post(url: &str, form: &[(&str, &str)]) -> Result<Value, St
 
 #[tauri::command]
 pub async fn hub_oauth_start() -> Result<DeviceCode, String> {
-    let id = GITHUB_CLIENT_ID.filter(|s| !s.is_empty()).ok_or("OAuth nicht konfiguriert")?;
+    let id = GITHUB_CLIENT_ID.filter(|s| !s.is_empty()).ok_or_else(|| coded!(HubOauthNotConfigured))?;
     let v = github_oauth_post(
         "https://github.com/login/device/code",
         &[("client_id", id), ("scope", GITHUB_SCOPES)],
@@ -944,7 +948,7 @@ pub struct OauthPoll {
 
 #[tauri::command]
 pub async fn hub_oauth_poll(device_code: String) -> Result<OauthPoll, String> {
-    let id = GITHUB_CLIENT_ID.filter(|s| !s.is_empty()).ok_or("OAuth nicht konfiguriert")?;
+    let id = GITHUB_CLIENT_ID.filter(|s| !s.is_empty()).ok_or_else(|| coded!(HubOauthNotConfigured))?;
     let v = github_oauth_post(
         "https://github.com/login/oauth/access_token",
         &[
@@ -967,10 +971,10 @@ pub async fn hub_oauth_poll(device_code: String) -> Result<OauthPoll, String> {
     match v["error"].as_str() {
         Some("authorization_pending") => Ok(OauthPoll { account: None, slow_down: false }),
         Some("slow_down") => Ok(OauthPoll { account: None, slow_down: true }),
-        _ => Err(format!(
-            "GitHub: {}",
-            v["error_description"].as_str().unwrap_or("Anmeldung fehlgeschlagen")
-        )),
+        _ => Err(match v["error_description"].as_str() {
+            Some(description) => format!("GitHub: {description}"),
+            None => coded!(HubSignInFailed),
+        }),
     }
 }
 
@@ -978,10 +982,10 @@ pub async fn hub_oauth_poll(device_code: String) -> Result<OauthPoll, String> {
 /// Posted from Rust because the webview's fetch would be blocked by CORS.
 #[tauri::command]
 pub async fn hub_t3_send(url: String, payload: Value) -> Result<(), String> {
-    let parsed = reqwest::Url::parse(url.trim()).map_err(|_| "T3: ungültige Webhook-URL".to_string())?;
+    let parsed = reqwest::Url::parse(url.trim()).map_err(|_| coded!(T3InvalidWebhookUrl))?;
     let local = matches!(parsed.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"));
     if parsed.scheme() != "https" && !(parsed.scheme() == "http" && local) {
-        return Err("T3: Webhook-URL muss https sein".into());
+        return Err(coded!(T3WebhookHttps));
     }
     // No redirects: they could downgrade to plain http after the check above.
     let client = reqwest::Client::builder()

@@ -73,7 +73,7 @@ export function seedHistoryFixture(scene: string): boolean {
     window.__L8GIT_TEST_CALLS__!.push({ command, args });
     const secondary = args?.path === HISTORY_SECONDARY_PATH;
     switch (command) {
-      case 'remote_status': return { running: false, managed: false, port: 9418, relay: null, roots: [], binary: null, configPath: null };
+      case 'remote_status': return { running: false, managed: false, port: 9418, roots: [], binary: null, configPath: null };
       case 'open_repo': return secondary ? secondaryInfo : info;
       case 'repo_history_page': return applyFilter(secondary ? [secondaryCommit] : commits, args?.filter as HistoryFilter).slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));
       case 'repo_log_page': return (secondary ? [secondaryCommit] : commits).slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));

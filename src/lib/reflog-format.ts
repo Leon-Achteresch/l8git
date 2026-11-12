@@ -1,3 +1,5 @@
+import { findBackendError, formatBackendError } from './backend-error';
+
 export type ReflogEntry = {
   selector: string;
   hash: string;
@@ -37,13 +39,13 @@ export type RestoredBranch = {
 
 export type ReflogResetMode = 'keep' | 'hard';
 
-export const UNDO_UNSUPPORTED = '__UNDO_UNSUPPORTED__';
 
 const KNOWN_DESCRIPTION_KEYS = new Set([
   'undo.action.merge',
   'undo.action.rebase',
   'undo.action.reset',
   'undo.action.cherryPick',
+  'undo.action.am',
   'undo.action.revert',
   'undo.action.commit',
   'undo.action.amend',
@@ -55,10 +57,8 @@ export function undoDescriptionKey(key: string): string {
 }
 
 export function parseUndoUnsupported(error: unknown): string | null {
-  const message = String(error);
-  const index = message.indexOf(`${UNDO_UNSUPPORTED}|`);
-  if (index < 0) return null;
-  return message.slice(index + UNDO_UNSUPPORTED.length + 1).trim();
+  const { code, params } = findBackendError(error);
+  return code === 'undo.unsupported' && typeof params.action === 'string' ? params.action.trim() : null;
 }
 
 export function parseLocalChangesBlock(error: unknown): string[] | null {
@@ -88,27 +88,22 @@ function parsePathList(payload: string): string[] | null {
 
 export type RecoveryError = { key: string; files: string[]; raw: string; stale: boolean };
 
-export function parseRecoveryPathsBlock(error: unknown): string[] | null {
-  const raw = String(error);
-  const marker = '__RECOVERY_PATHS_BLOCK__|';
-  const index = raw.indexOf(marker);
-  return index < 0 ? null : parsePathList(raw.slice(index + marker.length)) ?? [];
-}
+const RECOVERY_CODES: Record<string, { key: string; stale: boolean }> = {
+  'undo.invalidBranchName': { key: 'recovery.branchNameInvalid', stale: false },
+  'undo.changed': { key: 'recovery.undoChanged', stale: true },
+  'undo.reflogChanged': { key: 'recovery.resetChanged', stale: true },
+  'undo.headChanged': { key: 'recovery.resetChanged', stale: true },
+  'undo.pathsBlocked': { key: 'recovery.pathsBlocked', stale: false },
+  'undo.localChanges': { key: 'recovery.trackedBlocked', stale: false },
+};
 
 export function recoveryError(error: unknown): RecoveryError {
-  const raw = String(error);
-  if (raw.includes('__INVALID_RECOVERY_BRANCH__')) return { key: 'recovery.branchNameInvalid', files: [], raw, stale: false };
-  const changed = ['__UNDO_CHANGED__', '__REFLOG_CHANGED__', '__HEAD_CHANGED__'];
-  if (changed.some((marker) => raw.includes(marker))) {
-    return { key: raw.includes('__UNDO_CHANGED__') ? 'recovery.undoChanged' : 'recovery.resetChanged', files: [], raw, stale: true };
-  }
-  const collisions = parseRecoveryPathsBlock(error);
-  if (collisions) {
-    return { key: 'recovery.pathsBlocked', files: collisions, raw, stale: false };
-  }
-  const files = parseLocalChangesBlock(error);
-  if (files) return { key: 'recovery.trackedBlocked', files, raw, stale: false };
-  return { key: 'recovery.operationFailed', files: [], raw, stale: false };
+  const { code, params } = findBackendError(error);
+  const raw = formatBackendError(error);
+  const known = code ? RECOVERY_CODES[code] : undefined;
+  if (!known) return { key: 'recovery.operationFailed', files: [], raw, stale: false };
+  const files = Array.isArray(params.files) ? params.files : [];
+  return { ...known, files, raw };
 }
 
 /** Positional selectors alone do not identify an operation after the reflog moves. */

@@ -22,6 +22,7 @@ pub mod jira_mcp;
 pub mod jira_policy;
 pub mod lfs;
 mod media;
+pub mod error;
 pub mod pathsafe;
 pub mod pr;
 mod providers;
@@ -263,6 +264,14 @@ pub fn run() {
             git::git_cherry_pick_skip,
             git::git_cherry_pick_abort,
             git::cherry_pick_state,
+            git::git_format_patch,
+            git::git_export_diff_patch,
+            git::git_patch_check,
+            git::git_patch_apply,
+            git::git_am_state,
+            git::git_am_continue,
+            git::git_am_skip,
+            git::git_am_abort,
             git::merge_state,
             git::git_merge_abort,
             git::git_get_conflict_versions,
@@ -388,6 +397,10 @@ pub fn run() {
             git::repo_activity_buckets,
             git::repo_branch_activity,
             git::commit_signing_info,
+            git::git_external_tool_settings,
+            git::git_set_external_tool,
+            git::git_open_difftool,
+            git::git_open_mergetool,
             git::set_commit_signing,
             git::commit_signature_status,
             git::branch_push_remote,

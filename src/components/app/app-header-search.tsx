@@ -99,6 +99,8 @@ import { useUiStore, type SidebarTab } from "@/lib/ui-store";
 import { useTerminalStore } from "@/lib/terminal-store";
 import { usePickRepo } from "@/lib/use-pick-repo";
 import { useWorkspacePrefs } from "@/lib/workspace-prefs";
+import { openCommitInRepo, useCrossRepoCommitSearch } from "@/lib/cross-repo-commit-search";
+import { CrossRepoCommitGroups } from "@/components/app/cross-repo-commit-groups";
 import { getWorkflowGuides, normalizeHelpSearch } from "@/lib/workflow-help";
 
 // The palette's dialogs are the app's single largest eager import — the
@@ -310,6 +312,9 @@ export function AppHeaderSearch({
         c.author.toLowerCase().includes(q),
     );
   }, [repo, query]);
+
+  const otherRepoPaths = useMemo(() => openPaths.filter((p) => p !== activePath), [openPaths, activePath]);
+  const otherRepoCommits = useCrossRepoCommitSearch(otherRepoPaths, query, open);
 
   const selectedCommit = useMemo(() => {
     if (!activePath || !historySelection) return null;
@@ -1022,6 +1027,17 @@ export function AppHeaderSearch({
     [activePath, requestCommitHistoryFocus, setRepoSidebarTab, router],
   );
 
+  const onOpenOtherRepoCommit = useCallback(
+    (path: string, hash: string) => {
+      setOpen(false);
+      void router.navigate({ to: "/" });
+      void openCommitInRepo(path, hash).then((ok) => {
+        if (!ok) toast.error(t("appSearch.commitNotFound"));
+      });
+    },
+    [router, t],
+  );
+
   // ─── secondary action (⌘↵) ───────────────────────────────────────────────
 
   const performCheckout = useCallback(
@@ -1069,7 +1085,8 @@ export function AppHeaderSearch({
     filteredBranches.length > 0 ||
     filteredTags.length > 0 ||
     filteredCommits.length > 0 ||
-    filteredActions.length > 0;
+    filteredActions.length > 0 ||
+    otherRepoCommits.groups.length > 0;
 
   const queryTrimmed = query.trim();
   const showDeepSearchHint =
@@ -1138,7 +1155,7 @@ export function AppHeaderSearch({
             onValueChange={setQuery}
           />
           <CommandList className="max-h-none flex-1">
-            {!hasResults && !githubLink && (
+            {!hasResults && !githubLink && otherRepoCommits.pending === 0 && (
               <CommandEmpty>{t("appSearch.empty")}</CommandEmpty>
             )}
 
@@ -1261,6 +1278,8 @@ export function AppHeaderSearch({
                 ))}
               </CommandGroup>
             )}
+
+            <CrossRepoCommitGroups groups={otherRepoCommits.groups} onSelect={onOpenOtherRepoCommit} />
           </CommandList>
 
           {/* Footer */}
@@ -1277,6 +1296,16 @@ export function AppHeaderSearch({
                   staged: stagedCount,
                   unstaged: unstagedCount,
                 })}
+              </span>
+            )}
+            {otherRepoCommits.pending > 0 && (
+              <span role="status" className="text-muted-foreground/50">
+                {t("appSearch.searchingOtherRepos")}
+              </span>
+            )}
+            {otherRepoCommits.failed.length > 0 && (
+              <span className="text-muted-foreground/50" title={otherRepoCommits.failed.map((f) => `${f.path}: ${f.error}`).join("\n")}>
+                {t("appSearch.otherReposFailed", { repos: otherRepoCommits.failed.map((f) => repoLabel(f.path)).join(", ") })}
               </span>
             )}
             {showDeepSearchHint && (

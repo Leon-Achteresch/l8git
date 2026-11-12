@@ -1,3 +1,5 @@
+use crate::coded;
+use crate::error::{required, Label};
 use std::io::{Read, Write};
 use std::process::Stdio;
 use std::thread;
@@ -62,10 +64,7 @@ fn git_credential(
                 if !status.success() {
                     let msg = String::from_utf8_lossy(&stderr_buf).trim().to_string();
                     if msg.is_empty() {
-                        return Err(
-                            "Git Credential abgebrochen (z. B. Credential-Manager geschlossen)."
-                                .into(),
-                        );
+                        return Err(coded!(CredentialsCanceled));
                     }
                     return Err(msg);
                 }
@@ -84,7 +83,7 @@ pub struct HttpsCredential {
 pub fn read_https_credential(host: &str) -> Result<HttpsCredential, String> {
     let h = host.trim();
     if h.is_empty() {
-        return Err("Host darf nicht leer sein".into());
+        return Err(required(Label::Host));
     }
     let input = format!("protocol=https\nhost={h}\n\n");
     let out = git_credential("fill", &input, true, Duration::from_secs(25))?;
@@ -101,11 +100,7 @@ pub fn read_https_credential(host: &str) -> Result<HttpsCredential, String> {
             }
         }
     }
-    let password = password.ok_or_else(|| {
-        format!(
-            "Keine Zugangsdaten für {h}. Bitte unter Einstellungen bei {h} anmelden."
-        )
-    })?;
+    let password = password.ok_or_else(|| coded!(CredentialsMissing, host = h))?;
     Ok(HttpsCredential { username, password })
 }
 
@@ -114,13 +109,13 @@ pub async fn git_sign_in(host: String, username: String, token: String) -> Resul
     tokio::task::spawn_blocking(move || {
         let host = host.trim().to_string();
         if host.is_empty() {
-            return Err("Host darf nicht leer sein".into());
+            return Err(required(Label::Host));
         }
         if username.trim().is_empty() {
-            return Err("Benutzername darf nicht leer sein".into());
+            return Err(required(Label::Username));
         }
         if token.is_empty() {
-            return Err("Token darf nicht leer sein".into());
+            return Err(required(Label::Token));
         }
         let input = format!("protocol=https\nhost={host}\nusername={username}\npassword={token}\n\n");
         git_credential("approve", &input, true, Duration::from_secs(45))?;
@@ -142,7 +137,7 @@ pub async fn git_sign_in_via_credential_manager(
     tokio::task::spawn_blocking(move || {
         let host = host.trim().to_string();
         if host.is_empty() {
-            return Err("Host darf nicht leer sein".into());
+            return Err(required(Label::Host));
         }
         let input = format!("protocol=https\nhost={host}\n\n");
         let filled = git_credential("fill", &input, false, Duration::from_secs(180))?;
@@ -158,10 +153,7 @@ pub async fn git_sign_in_via_credential_manager(
             }
         }
         if !has_password {
-            return Err(
-                "Keine Zugangsdaten erhalten. Bitte Anmeldung im Credential Manager abschließen oder abbrechen."
-                    .into(),
-            );
+            return Err(coded!(CredentialsNotReceived));
         }
         git_credential("approve", &filled, true, Duration::from_secs(45))?;
         Ok(CredentialManagerSignIn { username })

@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from '@tauri-apps/api/core';
 import { create } from 'zustand';
 
@@ -62,7 +63,7 @@ export const useReflogStore = create<ReflogState>((set, get) => {
           exhausted: { ...state.exhausted, [path]: page.length < REFLOG_PAGE_SIZE },
         }));
       } catch (error) {
-        if (generations.get(path) === generation) set((state) => ({ error: { ...state.error, [path]: String(error) } }));
+        if (generations.get(path) === generation) set((state) => ({ error: { ...state.error, [path]: formatBackendError(error) } }));
       } finally {
         if (generations.get(path) === generation) set((state) => ({ loading: { ...state.loading, [path]: false } }));
       }
@@ -90,7 +91,7 @@ export const useReflogStore = create<ReflogState>((set, get) => {
           exhausted: { ...state.exhausted, [path]: page.length < REFLOG_PAGE_SIZE + 1 },
         }));
       } catch (error) {
-        if (generations.get(path) === generation) set((state) => ({ error: { ...state.error, [path]: String(error) } }));
+        if (generations.get(path) === generation) set((state) => ({ error: { ...state.error, [path]: formatBackendError(error) } }));
       } finally {
         if (generations.get(path) === generation) set((state) => ({ loading: { ...state.loading, [path]: false } }));
       }

@@ -73,7 +73,7 @@ function harness() {
   const flush = () => {
     const queued = [...frames.values()];
     frames.clear();
-    queued.forEach((callback) => callback());
+    queued.forEach((callback) => { callback(); });
   };
   return { observer, watched, callbacks, frames, measured, deliver, flush };
 }

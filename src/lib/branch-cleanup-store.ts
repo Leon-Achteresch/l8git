@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 
@@ -70,7 +71,7 @@ export const useBranchCleanupStore = create<BranchCleanupState>((set, get) => ({
     } catch (e) {
       set((s) => ({
         candidates: { ...s.candidates, [path]: [] },
-        error: { ...s.error, [path]: String(e) },
+        error: { ...s.error, [path]: formatBackendError(e) },
       }));
     } finally {
       set((s) => ({ loading: { ...s.loading, [path]: false } }));
@@ -87,7 +88,7 @@ export const useBranchCleanupStore = create<BranchCleanupState>((set, get) => ({
         await invoke("delete_branch", { path, name: req.name, force: true });
         archived.push({ name: req.name, hash: req.tip });
       } catch (e) {
-        failures.push({ name: req.name, error: String(e) });
+        failures.push({ name: req.name, error: formatBackendError(e) });
         continue;
       }
       if (!req.remoteRef) continue;
@@ -97,7 +98,7 @@ export const useBranchCleanupStore = create<BranchCleanupState>((set, get) => ({
           remoteRef: req.remoteRef,
         });
       } catch (e) {
-        remoteFailures.push({ name: req.remoteRef, error: String(e) });
+        remoteFailures.push({ name: req.remoteRef, error: formatBackendError(e) });
       }
     }
 
@@ -125,7 +126,7 @@ export const useBranchCleanupStore = create<BranchCleanupState>((set, get) => ({
         await invoke("branch_restore", { path, name: ref.name, hash: ref.hash });
         restored.push(ref.name);
       } catch (e) {
-        failures.push({ name: ref.name, error: String(e) });
+        failures.push({ name: ref.name, error: formatBackendError(e) });
       }
     }
     if (restored.length > 0) await useRepoStore.getState().reload(path);

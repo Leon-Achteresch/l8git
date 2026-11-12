@@ -37,6 +37,9 @@ import {
   createHistoryRowObserver,
 } from "./history-row-measurement";
 import { HistoryVirtualRow } from "./history-virtual-row";
+import { exportCommitPatches, oldestFirst, patchFilesSupported } from "@/lib/patches";
+import { toastError } from "@/lib/error-toast";
+import { toast } from "sonner";
 
 const EMPTY_HASHES: ReadonlySet<string> = new Set();
 const EMPTY_BRANCHES: Branch[] = [];
@@ -327,6 +330,17 @@ export function CommitList({
       void onCherryPick(hashes, opts);
     },
     [onCherryPick],
+  );
+
+  const onExportPatchesCb = useCallback(
+    (hashes: string[]) => {
+      exportCommitPatches(path, oldestFirst(hashes, commits))
+        .then((files) => {
+          if (files) toast.success(i18n.t("patches.exportedToast", { count: files.length }));
+        })
+        .catch((err) => toastError(String(err)));
+    },
+    [path, commits, i18n],
   );
 
   const getItemKey = useCallback(
@@ -779,6 +793,7 @@ export function CommitList({
               {...contextSelection}
               isMergeCommit={contextSelection.commit.parents.length > 1}
               onCherryPick={onCherryPickCb}
+              onExportPatches={patchFilesSupported() ? onExportPatchesCb : undefined}
               onCloseAutoFocus={restoreContextRowFocus}
             />
           )}

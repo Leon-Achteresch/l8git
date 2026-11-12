@@ -1,3 +1,4 @@
+use crate::coded;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -33,13 +34,13 @@ pub struct CursorSessionSummary {
 pub fn cursor_executable() -> Result<PathBuf, String> {
     resolve_cli_path("cursor-agent")
         .or_else(|| resolve_cli_path("agent"))
-        .ok_or_else(|| "Cursor CLI wurde nicht gefunden.".to_string())
+        .ok_or_else(|| coded!(AgentCliMissing, agent = "Cursor"))
 }
 
 fn chats_dir() -> Result<PathBuf, String> {
     dirs::home_dir()
         .map(|home| home.join(".cursor").join("chats"))
-        .ok_or_else(|| "Cursor-Chatverzeichnis konnte nicht bestimmt werden.".into())
+        .ok_or_else(|| coded!(CursorChatDirUnknown))
 }
 
 fn valid_session_id(value: &str) -> bool {
@@ -151,7 +152,7 @@ pub async fn cursor_list_sessions(paths: Vec<String>) -> Result<Vec<CursorSessio
 
 fn chat_directory(session_id: &str) -> Result<PathBuf, String> {
     if !valid_session_id(session_id) {
-        return Err("Ungültige Cursor-Session-ID.".into());
+        return Err(coded!(AgentSessionIdInvalid, agent = "Cursor"));
     }
     let chats = chats_dir()?;
     for workspace in fs::read_dir(chats).map_err(|error| error.to_string())?.flatten() {
@@ -160,7 +161,7 @@ fn chat_directory(session_id: &str) -> Result<PathBuf, String> {
             return Ok(candidate);
         }
     }
-    Err("Cursor-Unterhaltung wurde nicht gefunden.".into())
+    Err(coded!(AgentConversationNotFound, agent = "Cursor"))
 }
 
 #[tauri::command]
@@ -168,7 +169,7 @@ pub async fn cursor_delete_session(session_id: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
         let directory = chat_directory(&session_id)?;
         let trash = dirs::home_dir()
-            .ok_or_else(|| "Home-Verzeichnis wurde nicht gefunden.".to_string())?
+            .ok_or_else(|| coded!(HomeDirMissing))?
             .join(".cursor")
             .join("l8git-trash");
         fs::create_dir_all(&trash).map_err(|error| error.to_string())?;
@@ -188,7 +189,7 @@ pub async fn cursor_rename_session(session_id: String, title: String) -> Result<
     tokio::task::spawn_blocking(move || {
         let title = title.trim().to_string();
         if title.is_empty() || title.len() > 300 || title.chars().any(char::is_control) {
-            return Err("Ungültiger Cursor-Unterhaltungstitel.".into());
+            return Err(coded!(AgentConversationTitleInvalid, agent = "Cursor"));
         }
         let meta_path = chat_directory(&session_id)?.join("meta.json");
         let mut meta: Value = serde_json::from_str(
@@ -196,7 +197,7 @@ pub async fn cursor_rename_session(session_id: String, title: String) -> Result<
         )
         .map_err(|error| error.to_string())?;
         let Some(object) = meta.as_object_mut() else {
-            return Err("Cursor-Metadaten sind ungültig.".into());
+            return Err(coded!(CursorMetadataInvalid));
         };
         object.insert("title".into(), Value::String(title));
         fs::write(
@@ -216,7 +217,7 @@ pub async fn cursor_list_hooks(path: String) -> Result<Vec<crate::claude::Claude
     tokio::task::spawn_blocking(move || {
         let repo = PathBuf::from(&path);
         if !repo.is_dir() {
-            return Err("Cursor-Arbeitsverzeichnis existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Cursor"));
         }
         let mut hooks = Vec::new();
         if let Some(home) = dirs::home_dir() {
@@ -235,21 +236,21 @@ pub async fn cursor_list_hooks(path: String) -> Result<Vec<crate::claude::Claude
 pub async fn cursor_cli(args: Vec<String>, cwd: Option<String>) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
         let Some(first) = args.first() else {
-            return Err("Cursor-Befehl fehlt.".into());
+            return Err(coded!(AgentCommandMissing, agent = "Cursor"));
         };
         if !ALLOWED_COMMANDS.contains(&first.as_str()) {
-            return Err(format!("Cursor-Befehl ist nicht erlaubt: {first}"));
+            return Err(coded!(AgentCommandNotAllowed, agent = "Cursor", command = first));
         }
         if args.iter().any(|argument| {
             argument.len() > 256 || argument.chars().any(char::is_control)
         }) {
-            return Err("Ungültiges Argument für die Cursor CLI.".into());
+            return Err(coded!(AgentArgumentInvalid, agent = "Cursor"));
         }
         let mut command = cli_command(cursor_executable()?);
         command.args(&args).stdin(Stdio::null());
         if let Some(cwd) = cwd.as_deref() {
             if !Path::new(cwd).is_dir() {
-                return Err("Cursor-Arbeitsverzeichnis existiert nicht.".into());
+                return Err(coded!(AgentWorkdirMissing, agent = "Cursor"));
             }
             command.current_dir(cwd);
         }
@@ -257,7 +258,7 @@ pub async fn cursor_cli(args: Vec<String>, cwd: Option<String>) -> Result<String
         if !output.status.success() {
             let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
             return Err(if message.is_empty() {
-                format!("Cursor CLI ist fehlgeschlagen: {first}")
+                coded!(AgentCliFailed, agent = "Cursor", error = first)
             } else {
                 message
             });

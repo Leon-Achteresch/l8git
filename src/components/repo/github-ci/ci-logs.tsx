@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -73,7 +74,7 @@ export function CiLogs({ target, run, jobs, job, onJob, cache }: { target: Githu
 
 function LogError({ error }: { error: unknown }) {
   const { t } = useTranslation();
-  const msg = error instanceof Error ? error.message : String(error);
+  const msg = formatBackendError(error);
   if (msg === "zip") return <Muted>{t("ghci.logs.zipNotText")}</Muted>;
   if (msg === "too-large") return <Muted>{t("ghci.logs.tooLarge")}</Muted>;
   return <ErrorNote error={error} />;

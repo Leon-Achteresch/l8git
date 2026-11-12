@@ -35,6 +35,7 @@ import type {
   AgentThreadSummary,
   AgentTurn,
 } from "@/lib/agents/types";
+import { arrayValue, errorMessage, isRecord, sortThreadSummaries as sortThreads, stringValue } from "@/lib/agents/chat/values";
 
 type UnknownRecord = Record<string, unknown>;
 type Command = { name: string; description: string; argumentHint: string };
@@ -78,22 +79,6 @@ export type OpenCodeChatState = AgentChatState & {
   configSelections: OpenCodeConfigSelection[];
   setConfigSelection: (id: string, value: string | boolean) => void;
 };
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === "object" && value !== null;
-}
-
-function stringValue(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function arrayValue(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 function id(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${sequence++}`;
@@ -157,12 +142,6 @@ const persistedConfigSelections: OpenCodeConfigSelection[] = (() => {
     }];
   });
 })();
-
-function sortThreads(threads: AgentThreadSummary[]): AgentThreadSummary[] {
-  return [...threads].sort(
-    (a, b) => Number(b.isPinned) - Number(a.isPinned) || b.updatedAt - a.updatedAt,
-  );
-}
 
 function emptyConversation(thread: AgentThreadSummary): AgentConversation {
   const state = openCodeChatStore.getState();

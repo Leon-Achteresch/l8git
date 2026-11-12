@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +55,9 @@ import { AiResultActions } from "@/components/ai/ai-result-actions";
 import { isAiConfigured } from "@/lib/ai-setup";
 import { AiSetupDialog } from "@/components/onboarding/ai-setup-dialog";
 import { CommitSplitDialog } from "@/components/repo/commit/commit-split-dialog";
+import { ApplyPatchDialog } from "@/components/repo/commit/apply-patch-dialog";
+import { exportChangesPatch, patchFilesSupported } from "@/lib/patches";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { isPreviewRepo } from "@/lib/preview-repo";
 import { useEverTrue } from "@/lib/use-ever-true";
@@ -117,6 +121,7 @@ function CommitPanelContent() {
   const [aiSetupOpen, setAiSetupOpen] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
+  const [applyPatchOpen, setApplyPatchOpen] = useState(false);
   const aiReady = useCommitPrefs(() => isAiConfigured());
   const [selectedRowId, setSelectedRowId] = useState<string | null>(() => readRepoViewState(activePath ?? "").selectedFile ?? null);
   useLayoutEffect(() => {
@@ -908,7 +913,7 @@ function CommitPanelContent() {
       setAiResultShown(false);
     } catch (e) {
       const rawError = e instanceof Error ? e.message : String(e);
-      const error = rawError.includes("__HEAD_CHANGED__") ? t("commitGuidance.preflight.amendTargetChanged") : rawError;
+      const error = rawError.includes("__HEAD_CHANGED__") ? t("commitGuidance.preflight.amendTargetChanged") : formatBackendError(rawError);
       setCommitError(error);
       toastError(error);
     } finally {
@@ -1073,7 +1078,21 @@ function CommitPanelContent() {
             ? () => setSplitOpen(true)
             : undefined
         }
+        onExportPatch={
+          activePath && patchFilesSupported()
+            ? (staged) => {
+                exportChangesPatch(activePath, staged)
+                  .then((file) => { if (file) toast.success(t("patches.exportedChangesToast", { file })); })
+                  .catch((e) => toastError(String(e)));
+              }
+            : undefined
+        }
+        onApplyPatch={activePath && patchFilesSupported() ? () => setApplyPatchOpen(true) : undefined}
       />
+
+      {applyPatchOpen && activePath ? (
+        <ApplyPatchDialog open path={activePath} onClose={() => setApplyPatchOpen(false)} />
+      ) : null}
 
       <AlertDialog open={publishedAmendOpen} onOpenChange={setPublishedAmendOpen}>
         <AlertDialogContent>

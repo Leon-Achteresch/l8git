@@ -23,9 +23,9 @@ for (const newline of ['\n', '\r\n']) {
     if (action === 'unstage') git('add', '--', 'selected.txt');
     const parsed = parseDiffWithHunks(git('diff', '--no-ext-diff', '--no-color', '--no-renames', ...(action === 'unstage' ? ['--cached'] : []), '--', 'selected.txt'));
     const selected = new Set<string>();
-    parsed.hunks.forEach((hunk, hunkIndex) => hunk.lines.forEach((line, lineIndex) => {
+    parsed.hunks.forEach((hunk, hunkIndex) => { hunk.lines.forEach((line, lineIndex) => {
       if ((line.kind === 'add' || line.kind === 'del') && /(?:line|changed) (?:8|28)\r?$/.test(line.text)) selected.add(`${hunkIndex}:${lineIndex}`);
-    }));
+    }); });
     const patches = action === 'discard' ? buildPatchesForDiscard(parsed, selected) : buildPatchesForSelection(parsed, selected, action === 'unstage');
     expect(patches).toHaveLength(2);
     const flags = action === 'discard' ? [] : ['--cached', ...(action === 'unstage' ? ['--reverse'] : [])];

@@ -2,6 +2,7 @@ use super::{
     current_branch_name, repo_coordination_mutex, repo_mutation_mutex, resolve_git_commit, run_git,
     run_git_merged_output, spawn_git,
 };
+use crate::error::{required, Label};
 use serde::Serialize;
 use std::path::PathBuf;
 
@@ -113,7 +114,7 @@ pub async fn git_worktree_add(
         let _coordination = coordination.lock().map_err(|error| error.to_string())?;
         let wt = worktree_path;
         if wt.is_empty() {
-            return Err("Worktree-Pfad darf nicht leer sein".into());
+            return Err(required(Label::WorktreePath));
         }
         let mut args: Vec<String> = vec!["worktree".into(), "add".into()];
         if let Some(nb) = new_branch.filter(|s| !s.trim().is_empty()) {
@@ -143,7 +144,7 @@ pub async fn git_worktree_remove(
         let _coordination = coordination.lock().map_err(|error| error.to_string())?;
         let wt = worktree_path;
         if wt.is_empty() {
-            return Err("Worktree-Pfad darf nicht leer sein".into());
+            return Err(required(Label::WorktreePath));
         }
         let mut args = vec!["worktree", "remove"];
         if force {
@@ -307,7 +308,7 @@ pub async fn git_worktree_move(
         let wt = worktree_path;
         let np = new_path;
         if wt.is_empty() || np.is_empty() {
-            return Err("Worktree-Pfad darf nicht leer sein".into());
+            return Err(required(Label::WorktreePath));
         }
         run_git(&repo, &["worktree", "move", "--", wt.as_str(), np.as_str()])?;
         Ok(())

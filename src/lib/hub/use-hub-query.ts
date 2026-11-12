@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { useEffect, useState } from "react";
 
 import { accountKey, adapterFor, hubCache, useHubStore } from "./store";
@@ -34,7 +35,7 @@ export function useHubQuery<T>(
         setState({ data, error: null, loading: false, for: full });
         markSynced();
       },
-      (e) => live && setState((s) => ({ ...s, error: String(e), loading: false })),
+      (e) => live && setState((s) => ({ ...s, error: formatBackendError(e), loading: false })),
     );
     return () => {
       live = false;

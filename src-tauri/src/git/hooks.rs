@@ -1,3 +1,4 @@
+use crate::coded;
 use super::{run_git, spawn_git};
 use serde::Serialize;
 use std::{io::Write, path::PathBuf, process::Stdio};
@@ -95,14 +96,14 @@ pub async fn get_git_hook_content(path: String, hook_name: String) -> Result<Str
         let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
-            return Err(format!("Unbekannter Hook-Name: {name}"));
+            return Err(coded!(HookUnknownName, name = name));
         }
         let hook_path = resolve_hooks_dir(&repo)?.join(&name);
         if !hook_path.exists() {
             return Ok(String::new());
         }
         std::fs::read_to_string(&hook_path)
-            .map_err(|e| format!("Fehler beim Lesen des Hooks: {e}"))
+            .map_err(|e| coded!(HookReadFailed, error = e))
     }).await
 }
 
@@ -112,14 +113,14 @@ pub async fn save_git_hook(path: String, hook_name: String, content: String) -> 
         let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
-            return Err(format!("Unbekannter Hook-Name: {name}"));
+            return Err(coded!(HookUnknownName, name = name));
         }
         let hooks_dir = resolve_hooks_dir(&repo)?;
         std::fs::create_dir_all(&hooks_dir)
-            .map_err(|e| format!("Hooks-Verzeichnis konnte nicht erstellt werden: {e}"))?;
+            .map_err(|e| coded!(HookFolderCreateFailed, error = e))?;
         let hook_path = hooks_dir.join(&name);
         std::fs::write(&hook_path, &content)
-            .map_err(|e| format!("Fehler beim Schreiben des Hooks: {e}"))?;
+            .map_err(|e| coded!(HookWriteFailed, error = e))?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -128,7 +129,7 @@ pub async fn save_git_hook(path: String, hook_name: String, content: String) -> 
                 .permissions();
             perms.set_mode(perms.mode() | 0o111);
             std::fs::set_permissions(&hook_path, perms)
-                .map_err(|e| format!("Fehler beim Setzen der Ausführungsrechte: {e}"))?;
+                .map_err(|e| coded!(HookPermissionsFailed, error = e))?;
         }
         Ok(())
     }).await
@@ -140,14 +141,14 @@ pub async fn delete_git_hook(path: String, hook_name: String) -> Result<(), Stri
         let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
-            return Err(format!("Unbekannter Hook-Name: {name}"));
+            return Err(coded!(HookUnknownName, name = name));
         }
         let hook_path = resolve_hooks_dir(&repo)?.join(&name);
         if !hook_path.exists() {
             return Ok(());
         }
         std::fs::remove_file(&hook_path)
-            .map_err(|e| format!("Fehler beim Löschen des Hooks: {e}"))
+            .map_err(|e| coded!(HookDeleteFailed, error = e))
     }).await
 }
 
@@ -157,11 +158,11 @@ pub async fn toggle_git_hook(path: String, hook_name: String, enabled: bool) -> 
         let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
-            return Err(format!("Unbekannter Hook-Name: {name}"));
+            return Err(coded!(HookUnknownName, name = name));
         }
         let hook_path = resolve_hooks_dir(&repo)?.join(&name);
         if !hook_path.exists() {
-            return Err(format!("Hook '{name}' ist nicht installiert."));
+            return Err(coded!(HookNotInstalled, name = name));
         }
         #[cfg(unix)]
         {
@@ -175,7 +176,7 @@ pub async fn toggle_git_hook(path: String, hook_name: String, enabled: bool) -> 
                 perms.set_mode(perms.mode() & !0o111);
             }
             std::fs::set_permissions(&hook_path, perms)
-                .map_err(|e| format!("Fehler beim Setzen der Berechtigungen: {e}"))?;
+                .map_err(|e| coded!(HookPermissionsFailed, error = e))?;
         }
         #[cfg(not(unix))]
         let _ = enabled;
@@ -245,11 +246,11 @@ pub async fn run_git_hook(path: String, hook_name: String) -> Result<HookRunResu
         let repo = PathBuf::from(path);
         let name = hook_name.trim().to_string();
         if !ALL_HOOKS.contains(&name.as_str()) {
-            return Err(format!("Unbekannter Hook-Name: {name}"));
+            return Err(coded!(HookUnknownName, name = name));
         }
         let hook_path = resolve_hooks_dir(&repo)?.join(&name);
         if !hook_path.exists() {
-            return Err(format!("Hook '{name}' ist nicht installiert."));
+            return Err(coded!(HookNotInstalled, name = name));
         }
 
         let mut cmd = crate::cmd::cli_command(hook_shell(&repo));
@@ -272,7 +273,7 @@ pub async fn run_git_hook(path: String, hook_name: String) -> Result<HookRunResu
 
         let output = cmd
             .output()
-            .map_err(|e| format!("Hook konnte nicht gestartet werden: {e}"))?;
+            .map_err(|e| coded!(HookStartFailed, error = e))?;
 
         let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
         let stderr = String::from_utf8_lossy(&output.stderr);

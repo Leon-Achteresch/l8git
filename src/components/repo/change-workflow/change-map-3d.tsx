@@ -149,7 +149,7 @@ export default function ChangeMap3D({ rows, index, dependencies, selected, onCho
       canvas.removeEventListener("pointermove", onMove);
       observer.disconnect();
       controls.dispose();
-      disposables.forEach((d) => d.dispose());
+      disposables.forEach((d) => { d.dispose(); });
       renderer.dispose();
       canvas.remove();
     };

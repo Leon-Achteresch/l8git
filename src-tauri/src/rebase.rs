@@ -356,7 +356,8 @@ fn build_status(repo: &Path) -> Result<RebaseStatus, String> {
         });
     }
 
-    if let Some(dir) = apply_dir.filter(|d| d.is_dir()) {
+    // `applying` marks a `git am` session, which shares this directory.
+    if let Some(dir) = apply_dir.filter(|d| d.is_dir() && !d.join("applying").exists()) {
         let head_name = read_trimmed(&dir.join("head-name"))
             .map(|s| s.trim_start_matches("refs/heads/").to_string());
         let onto = read_trimmed(&dir.join("onto"));

@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getBranchRules, getIssue, getMergeReadiness, getPullMeta, type GithubIssue, type MergeReadiness, type PullMeta } from "@/lib/github-expansion/api";
@@ -53,7 +54,7 @@ export function usePrGithub(path: string, number: number, refreshKey: unknown): 
       const rules = await getBranchRules(account, fullName, r.baseRefName).then((x) => x as BranchRule[], () => null);
       put({ rules });
     } catch (e) {
-      put({ error: String(e) });
+      put({ error: formatBackendError(e) });
     } finally {
       put({ loading: false });
     }

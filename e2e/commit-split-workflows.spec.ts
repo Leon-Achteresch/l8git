@@ -85,8 +85,8 @@ test('whole-file edits and later index changes reject the captured plan with vis
     .toEqual({ committed: 0, staged: ['new-notes.txt'] });
   const calls = await checkedCalls(page);
   expect(calls).toHaveLength(2);
-  expect((calls[1].args?.expected as Record<string, unknown>).worktreeFingerprint)
-    .not.toBe((calls[0].args?.expected as Record<string, unknown>).worktreeFingerprint);
+  expect((calls[1].args!.expected as Record<string, unknown>).worktreeFingerprint)
+    .not.toBe((calls[0].args!.expected as Record<string, unknown>).worktreeFingerprint);
   const reset = await page.evaluate(() => window.__L8GIT_TEST_CALLS__!.filter(call => ['unstage_files', 'git_reset'].includes(call.command)));
   expect(reset).toEqual([]);
 });
@@ -118,8 +118,8 @@ test('failure after the first split commit preserves staging and retry recollect
   expect(await page.evaluate(() => window.__L8GIT_SPLIT_FIXTURE__!.committed)).toBe(3);
   const all = await checkedCalls(page);
   expect(all).toHaveLength(4);
-  expect((all[2].args?.expected as Record<string, unknown>).head).toBe((rejected[1].args?.expected as Record<string, unknown>).head);
-  expect((all[2].args?.expected as Record<string, unknown>).indexFingerprint).not.toBe((rejected[1].args?.expected as Record<string, unknown>).indexFingerprint);
+  expect((all[2].args!.expected as Record<string, unknown>).head).toBe((rejected[1].args!.expected as Record<string, unknown>).head);
+  expect((all[2].args!.expected as Record<string, unknown>).indexFingerprint).not.toBe((rejected[1].args!.expected as Record<string, unknown>).indexFingerprint);
   expect(all[2].args?.selections).toEqual([{ file: 'example.txt', patches: [expect.stringContaining('new split 2')] }]);
   expect(all[3].args?.selections).toEqual([{ file: 'new-notes.txt', patches: null }]);
 });

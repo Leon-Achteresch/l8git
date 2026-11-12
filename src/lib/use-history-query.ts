@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { readGit, type HistoryFilter } from './ipc/git';
 export type { HistoryFilter } from './ipc/git';
 export { EMPTY_HISTORY_FILTER } from './history-filters';
@@ -32,7 +33,7 @@ export function useHistoryQuery(path: string, filter: HistoryFilter, enabled: bo
       count.current = skip + commits.length;
       setState(previous => ({ key, commits: reset ? commits : [...previous.commits, ...commits], loading: false, exhausted: commits.length < PAGE_SIZE, error: '' }));
     } catch (error) {
-      if (generation.current === epoch) setState(previous => ({ ...previous, loading: false, error: String(error) }));
+      if (generation.current === epoch) setState(previous => ({ ...previous, loading: false, error: formatBackendError(error) }));
     } finally {
       if (generation.current === epoch) pending.current = false;
     }

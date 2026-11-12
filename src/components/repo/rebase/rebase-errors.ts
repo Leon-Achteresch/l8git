@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import i18n from '@/lib/i18n';
 import { toastError } from '@/lib/error-toast';
 
@@ -69,7 +70,7 @@ export function describeRebaseError(err: unknown): string {
     const m = p.re.exec(raw);
     if (m) return i18n.t(p.key, { value: m[1] });
   }
-  return raw;
+  return formatBackendError(raw);
 }
 
 export function toastRebaseError(err: unknown) {

@@ -24,7 +24,7 @@ import type { StackLabel } from "@/lib/stack";
 import { useUiStore } from "@/lib/ui-store";
 import { splitConventionalSubjectDisplay } from "@/lib/conventional-commit";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, CircleDot, Combine, GitBranch, GitBranchPlus, GitMerge, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDot, Combine, FileDown, GitBranch, GitBranchPlus, GitMerge, History, ListOrdered, Pencil, RotateCcw, SkipForward, Sparkles, Tag, Trash2, Undo2, XCircle } from "lucide-react";
 import { memo, useMemo, useRef, useState } from "react";
 import { useSkipTransitionOnRecycle } from "@/lib/virtual-pool";
 import i18n from "i18next";
@@ -82,6 +82,7 @@ function CommitRowInner({
   bisectRole: BisectRole | null;
 }) {
   const { commit } = row;
+  const { t } = useTranslation();
   const rowRef = useRef<HTMLDivElement>(null);
   useSkipTransitionOnRecycle(rowRef, commit.hash);
 
@@ -194,6 +195,14 @@ function CommitRowInner({
               )}
             </span>
             <CommitTags tags={commit.tags} />
+            {commit.previous_path ? (
+              <span
+                className="min-w-0 max-w-[45%] shrink truncate rounded-full border border-border bg-muted px-1.5 py-px text-[0.625rem] font-medium text-muted-foreground"
+                title={t("historyFilters.renamedFrom", { path: commit.previous_path })}
+              >
+                {t("historyFilters.renamedFrom", { path: commit.previous_path })}
+              </span>
+            ) : null}
           </div>
           <div className="flex min-w-0 max-w-full items-center gap-1.5 @[40rem]:ml-auto">
             {bisectRole === 'bad' && <XCircle className="h-3.5 w-3.5 shrink-0 text-git-removed" />}
@@ -254,6 +263,7 @@ function CommitRowActionsInner({
   multiSelected,
   selectedHashes,
   onCherryPick,
+  onExportPatches,
   bisectRole,
   bisectActive,
   staged,
@@ -265,6 +275,7 @@ function CommitRowActionsInner({
   multiSelected: boolean;
   selectedHashes: ReadonlySet<string>;
   onCherryPick: (hashes: string[], opts?: { mainline?: number }) => void;
+  onExportPatches?: (hashes: string[]) => void;
   bisectRole: BisectRole | null;
   bisectActive: boolean;
   staged: boolean;
@@ -384,6 +395,19 @@ function CommitRowActionsInner({
             <GitBranchPlus className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium">{cherryPickLabel}</span>
           </ContextMenuItem>
+          {onExportPatches && (
+            <ContextMenuItem
+              onSelect={() => onExportPatches(cherryPickTargets())}
+              className="gap-2 cursor-pointer"
+            >
+              <FileDown className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">
+                {isPartOfMulti
+                  ? t("patches.exportCommits", { count: selectedHashes.size })
+                  : t("patches.exportCommit")}
+              </span>
+            </ContextMenuItem>
+          )}
           <ContextMenuItem
             onSelect={() => {
               void (async () => {

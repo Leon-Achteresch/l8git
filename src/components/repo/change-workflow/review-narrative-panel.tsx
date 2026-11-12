@@ -295,7 +295,8 @@ function PatchLines({ patch, loaded, error, side, range, onPick }: {
         const no = side === "head" ? l.newLineNo : l.oldLineNo;
         const onSide = no !== undefined && (l.kind === "ctx" || l.kind === (side === "head" ? "add" : "del"));
         const inRange = onSide && !!range && no! >= range.start && no! <= range.end;
-        const ref = inRange && !marked ? ((marked = true), first) : undefined;
+        const ref = inRange && !marked ? first : undefined;
+        if (inRange) marked = true;
         const cls = cn("flex w-full gap-2 whitespace-pre px-1 text-left",
           l.kind === "add" && "bg-emerald-500/10", l.kind === "del" && "bg-rose-500/10", l.kind === "hunk" && "bg-muted/50 text-muted-foreground",
           inRange && "outline outline-1 outline-primary bg-primary/15", !onSide && l.kind !== "hunk" && "opacity-60");

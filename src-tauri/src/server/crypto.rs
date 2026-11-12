@@ -14,7 +14,6 @@ pub const PROTOCOL_VERSION: u8 = 1;
 pub const HANDSHAKE_CONTEXT: &[u8] = b"l8git-hs-v1";
 pub const AUTH_CONTEXT: &[u8] = b"l8git-auth-v1";
 pub const HKDF_INFO: &[u8] = b"l8git-remote-v1";
-pub const RELAY_CONTEXT: &[u8] = b"l8git-relay-v1";
 
 pub const PSK_LEN: usize = 32;
 pub const HOST_ID_LEN: usize = 16;
@@ -65,14 +64,6 @@ pub fn decode_psk(value: &str) -> Result<[u8; PSK_LEN], String> {
         .try_into()
         .map_err(|_| format!("psk must be {PSK_LEN} bytes"))?;
     Ok(psk)
-}
-
-pub fn relay_token(psk: &[u8; PSK_LEN]) -> String {
-    use sha2::Digest;
-    let mut hasher = Sha256::new();
-    hasher.update(psk);
-    hasher.update(RELAY_CONTEXT);
-    B64URL.encode(hasher.finalize())
 }
 
 fn decode_key(value: &str, label: &str) -> Result<[u8; 32], String> {

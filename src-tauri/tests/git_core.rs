@@ -342,7 +342,7 @@ async fn commit_changes_requires_a_message_and_creates_a_commit() {
     let err = git::commit_changes(repo.s(), "   ".into(), None)
         .await
         .unwrap_err();
-    assert!(err.contains("leer"), "{err}");
+    assert!(err.contains("must not be empty"), "{err}");
     assert_eq!(repo.subjects(), vec!["initial"]);
 
     git::commit_changes(repo.s(), "  second change  ".into(), None)
@@ -1053,7 +1053,7 @@ async fn annotated_tags_require_a_message() {
     )
     .await
     .unwrap_err();
-    assert!(err.contains("Nachricht"), "{err}");
+    assert!(err.contains("Tag message"), "{err}");
     assert_eq!(repo.git(&["tag", "--list"]), "");
 }
 

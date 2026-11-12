@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { create } from "zustand";
 
 import {
@@ -109,7 +110,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return formatBackendError(error);
 }
 
 function numberValue(value: unknown, fallback = 0): number {

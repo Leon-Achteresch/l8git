@@ -1,3 +1,4 @@
+use crate::coded;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -28,7 +29,7 @@ pub async fn reveal_repo_folder(path: String) -> Result<(), String> {
 fn _reveal_repo_folder(path: String) -> Result<(), String> {
     let p = PathBuf::from(&path);
     if !p.is_dir() {
-        return Err("Pfad ist kein Ordner.".into());
+        return Err(coded!(PathNotFolder));
     }
 
     #[cfg(target_os = "macos")]
@@ -38,7 +39,7 @@ fn _reveal_repo_folder(path: String) -> Result<(), String> {
             .status()
             .map_err(|e| format!("{e}"))?;
         if !st.success() {
-            return Err("Ordner konnte nicht geöffnet werden.".into());
+            return Err(coded!(ShellOpenFolderFailed));
         }
         Ok(())
     }
@@ -50,7 +51,7 @@ fn _reveal_repo_folder(path: String) -> Result<(), String> {
             .status()
             .map_err(|e| format!("{e}"))?;
         if !st.success() {
-            return Err("Ordner konnte nicht geöffnet werden.".into());
+            return Err(coded!(ShellOpenFolderFailed));
         }
         return Ok(());
     }
@@ -62,7 +63,7 @@ fn _reveal_repo_folder(path: String) -> Result<(), String> {
             .status()
             .map_err(|e| format!("{e}"))?;
         if !st.success() {
-            return Err("Ordner konnte nicht geöffnet werden.".into());
+            return Err(coded!(ShellOpenFolderFailed));
         }
         return Ok(());
     }
@@ -101,7 +102,7 @@ pub async fn open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), 
 fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
     let p = PathBuf::from(&path);
     if !p.is_dir() {
-        return Err("Pfad ist kein Ordner.".into());
+        return Err(coded!(PathNotFolder));
     }
 
     #[cfg(target_os = "macos")]
@@ -120,7 +121,7 @@ fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
             .status()
             .map_err(|e| format!("{e}"))?;
         if !st.success() {
-            return Err("Terminal konnte nicht geöffnet werden.".into());
+            return Err(coded!(ShellTerminalOpenFailed));
         }
         Ok(())
     }
@@ -132,11 +133,11 @@ fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
                 Command::new(&git_bash)
                     .current_dir(&p)
                     .spawn()
-                    .map_err(|e| format!("Git Bash konnte nicht gestartet werden: {e}"))?;
+                    .map_err(|e| coded!(ShellGitBashStartFailed, error = e))?;
                 return Ok(());
             }
             return Err(
-                "Git Bash nicht gefunden (erwartet unter Programme\\Git, Git for Windows).".into(),
+                coded!(ShellGitBashMissing),
             );
         }
         let wd = p.to_string_lossy();
@@ -204,7 +205,7 @@ fn _open_repo_terminal(path: String, use_git_bash: bool) -> Result<(), String> {
         Command::new("xterm")
             .current_dir(&p)
             .spawn()
-            .map_err(|e| format!("Konnte kein Terminal starten: {e}"))?;
+            .map_err(|e| coded!(ShellTerminalStartFailed, error = e))?;
         return Ok(());
     }
 
@@ -376,11 +377,11 @@ pub async fn open_repo_in_ide(path: String, ide_launch: String) -> Result<(), St
 fn _open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
     let raw = ide_launch.trim();
     if raw.is_empty() {
-        return Err("Keine IDE konfiguriert (Einstellungen).".into());
+        return Err(coded!(ShellIdeNotConfigured));
     }
     let repo = PathBuf::from(&path);
     if !repo.is_dir() {
-        return Err("Repository-Pfad ungültig.".into());
+        return Err(coded!(RepoPathInvalid));
     }
 
     let parts: Vec<String> = raw
@@ -388,7 +389,7 @@ fn _open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
         .map(|s| s.to_string())
         .collect();
     if parts.is_empty() {
-        return Err("Keine IDE konfiguriert.".into());
+        return Err(coded!(ShellIdeNotConfigured));
     }
 
     // `code`/`cursor` sind auf Windows .cmd-Shims: ohne CREATE_NO_WINDOW blitzt eine Konsole auf.
@@ -398,7 +399,7 @@ fn _open_repo_in_ide(path: String, ide_launch: String) -> Result<(), String> {
     }
     cmd.arg(&repo);
     cmd.spawn()
-        .map_err(|e| format!("IDE konnte nicht gestartet werden: {e}"))?;
+        .map_err(|e| coded!(ShellIdeStartFailed, error = e))?;
     Ok(())
 }
 

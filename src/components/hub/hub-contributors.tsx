@@ -217,7 +217,7 @@ const ActivityChart = memo(function ActivityChart({ people, weeks, colorFor }: {
     const base = weeks.map(() => 0);
     const stacked = series.map((s) => {
       const lo = [...base];
-      s.values.forEach((v, i) => (base[i] += v));
+      s.values.forEach((v, i) => { base[i] += v; });
       return { key: s.key, lo, hi: [...base] };
     });
     const max = Math.max(1, ...base);
@@ -319,7 +319,9 @@ function PersonDetail({
   const busiest = p.weekly.reduce((best, v, i) => (v > p.weekly[best] ? i : best), 0);
   const facts: [string, ReactNode][] = [
     [t("hub.contrib.kpi.commits"), `${compact(p.commits)} · ${pct(p.commits, total)}`],
+    // biome-ignore lint/correctness/useJsxKeyInIterable: tuple value, keyed where facts are mapped
     [t("hub.contrib.kpi.added"), <span className="text-git-added">{p.additions == null ? "–" : `+${compact(p.additions)}`}</span>],
+    // biome-ignore lint/correctness/useJsxKeyInIterable: tuple value, keyed where facts are mapped
     [t("hub.contrib.kpi.deleted"), <span className="text-destructive">{p.deletions == null ? "–" : `−${compact(p.deletions)}`}</span>],
     [t("hub.contrib.avgSize"), p.avgSize == null ? "–" : t("hub.contrib.lines", { n: Math.round(p.avgSize) })],
     [t("hub.contrib.activeWeeks"), String(p.activeWeeks)],

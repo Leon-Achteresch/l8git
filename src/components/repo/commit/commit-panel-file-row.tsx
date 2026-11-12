@@ -5,11 +5,14 @@ import {
 import type { StatusEntry } from "@/lib/repo-store";
 import {
   CheckSquare,
+  Columns2,
   EyeOff,
   GitCommitHorizontal,
+  GitMerge,
   Square,
   Undo2,
 } from "lucide-react";
+import { externalToolsSupported, openExternalDiff, openExternalMerge } from "@/lib/external-tools";
 import { memo, useRef, type ComponentProps } from "react";
 import { useSkipTransitionOnRecycle } from "@/lib/virtual-pool";
 import { useTranslation } from "react-i18next";
@@ -121,6 +124,7 @@ function EmbeddedRepoBadge() {
 }
 
 export function FileRowMenu({
+  repoPath,
   row,
   inMultiSelection,
   multiSelectedCount,
@@ -129,6 +133,7 @@ export function FileRowMenu({
   onIgnore,
   onCloseAutoFocus,
 }: {
+  repoPath: string;
   row: ChangeRow;
   inMultiSelection: boolean;
   multiSelectedCount: number;
@@ -145,6 +150,17 @@ export function FileRowMenu({
         <ContextMenuItem onSelect={() => onBlame(row.path)}>
           <GitCommitHorizontal className="h-3.5 w-3.5" />
           {t("commitPanel.fileRowBlame")}
+        </ContextMenuItem>
+      )}
+      {!externalToolsSupported() ? null : row.sector === "conflict" ? (
+        <ContextMenuItem onSelect={() => void openExternalMerge(repoPath, row.path)}>
+          <GitMerge className="h-3.5 w-3.5" />
+          {t("externalTools.openMerge")}
+        </ContextMenuItem>
+      ) : !row.entry.untracked && (
+        <ContextMenuItem onSelect={() => void openExternalDiff(repoPath, row.path, { mode: row.sector === "staged" ? "staged" : "unstaged" })}>
+          <Columns2 className="h-3.5 w-3.5" />
+          {t("externalTools.openDiff")}
         </ContextMenuItem>
       )}
       {onIgnore && (

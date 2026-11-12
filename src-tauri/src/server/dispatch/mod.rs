@@ -29,7 +29,7 @@ pub async fn dispatch(cmd: &str, args: Value, ctx: &DispatchCtx) -> Result<Value
     }
     // Hub tokens stay local-only: a remote client must not reach them via `hub:` paths.
     if args["path"].as_str().is_some_and(|p| p.starts_with(crate::pr::HUB_PATH_PREFIX)) {
-        return Err("Hub-Konten sind nur lokal verfügbar".into());
+        return Err(crate::coded!(ServerHubLocalOnly));
     }
     if let Some(result) = git::dispatch(cmd, args.clone(), ctx).await {
         return result;
@@ -46,7 +46,7 @@ pub async fn dispatch(cmd: &str, args: Value, ctx: &DispatchCtx) -> Result<Value
     if let Some(result) = system::dispatch(cmd, args, ctx).await {
         return result;
     }
-    Err(format!("Unbekannter Befehl: {cmd}"))
+    Err(crate::coded!(ServerUnknownCommand, command = cmd))
 }
 
 pub fn camel_case(name: &str) -> String {
@@ -75,9 +75,9 @@ pub fn arg<T: DeserializeOwned>(args: &Value, name: &str) -> Result<T, String> {
         .cloned();
     match found {
         Some(value) => serde_json::from_value(value)
-            .map_err(|e| format!("Ungültiges Argument \"{camel}\": {e}")),
+            .map_err(|e| crate::coded!(ServerInvalidArgument, name = camel, error = e)),
         None => serde_json::from_value(Value::Null)
-            .map_err(|_| format!("Fehlendes Argument \"{camel}\".")),
+            .map_err(|_| crate::coded!(ServerMissingArgument, name = camel)),
     }
 }
 
@@ -96,8 +96,10 @@ pub fn channel_arg<T>(args: &Value, ctx: &DispatchCtx, name: &str) -> Result<Cha
         None | Some(Value::Null) => {}
         Some(Value::Object(map)) if map.get(CHANNEL_SENTINEL) == Some(&Value::Bool(true)) => {}
         Some(_) => {
-            return Err(format!(
-                "Argument \"{camel}\" muss der Channel-Platzhalter {{\"{CHANNEL_SENTINEL}\":true}} sein."
+            return Err(crate::coded!(
+                ServerChannelArgument,
+                name = camel,
+                placeholder = format!("{{\"{CHANNEL_SENTINEL}\":true}}")
             ))
         }
     }
@@ -171,7 +173,7 @@ mod tests {
     use tokio::sync::mpsc;
 
     fn ctx() -> (DispatchCtx, mpsc::Receiver<Value>) {
-        let state = ServerState::new("host".into(), [7u8; 32], vec![], None);
+        let state = ServerState::new("host".into(), [7u8; 32], vec![]);
         let (tx, rx) = mpsc::channel(crate::server::state::OUTBOX_CAPACITY);
         let conn = Arc::new(ConnectionHandle::new(1, tx));
         (DispatchCtx::new(state, conn, 42, "demo"), rx)
@@ -224,7 +226,7 @@ mod tests {
     async fn rejects_hub_paths_remotely() {
         let (ctx, _rx) = ctx();
         let err = dispatch("pr_detail", json!({ "path": "hub:alice@github.com/o/r", "number": 1 }), &ctx).await;
-        assert_eq!(err.unwrap_err(), "Hub-Konten sind nur lokal verfügbar");
+        assert_eq!(err.unwrap_err(), crate::coded!(ServerHubLocalOnly));
     }
 
     #[tokio::test]
@@ -247,7 +249,7 @@ mod tests {
         assert_eq!(out, json!({ "repoPath": "/tmp/y", "limit": 3 }));
 
         let err = demo("echo_command", json!({}), &ctx).await.unwrap();
-        assert_eq!(err, Err("Fehlendes Argument \"repoPath\".".to_string()));
+        assert_eq!(err, Err(crate::coded!(ServerMissingArgument, name = "repoPath")));
     }
 
     #[tokio::test]
@@ -314,7 +316,7 @@ mod tests {
         assert!(dispatch("nope", json!({}), &ctx)
             .await
             .unwrap_err()
-            .contains("Unbekannter Befehl"));
+            .contains("Unknown command"));
     }
 
     #[tokio::test]

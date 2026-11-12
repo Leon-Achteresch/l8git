@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { ArrowDown, ArrowLeftRight, ArrowUp, Check, Copy, Download, FileCode2, GitCompareArrows, LoaderCircle, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -136,7 +137,7 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
       setState({ key: requestKey, data, loading: false, error: '', cancelled: false });
     } catch (failure) {
       if (comparisonEpoch.current !== epoch) return;
-      setState({ key: requestKey, data: null, loading: false, error: String(failure), cancelled: false });
+      setState({ key: requestKey, data: null, loading: false, error: formatBackendError(failure), cancelled: false });
     }
   }, [path, request, requestKey]);
 
@@ -163,7 +164,7 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
       setDiffState({ key: diffKey, data, loading: false, error: '' });
     } catch (failure) {
       if (diffEpoch.current !== epoch) return;
-      setDiffState({ key: diffKey, data: null, loading: false, error: String(failure) });
+      setDiffState({ key: diffKey, data: null, loading: false, error: formatBackendError(failure) });
     }
   }, [path, comparison, selectedPath, diffKey]);
 

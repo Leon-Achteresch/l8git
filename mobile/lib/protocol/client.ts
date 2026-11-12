@@ -1,3 +1,5 @@
+import { formatBackendError } from '@desktop/lib/backend-error';
+
 import {
   PROTOCOL_VERSION,
   authTag,
@@ -34,10 +36,6 @@ export interface HostPairing {
 
 export type ProtocolClientStatus = 'idle' | 'connecting' | 'ready' | 'closed' | 'error';
 
-export interface SocketOptions {
-  headers?: Record<string, string>;
-}
-
 export interface SocketLike {
   binaryType?: string;
   send(data: string | ArrayBuffer | ArrayBufferView): void;
@@ -48,7 +46,7 @@ export interface SocketLike {
   onclose: ((event: unknown) => void) | null;
 }
 
-export type SocketFactory = (url: string, options?: SocketOptions) => SocketLike;
+export type SocketFactory = (url: string) => SocketLike;
 
 export interface ProtocolClientOptions {
   socketFactory?: SocketFactory;
@@ -67,11 +65,14 @@ export interface RequestOptions {
 
 export class ProtocolError extends Error {
   readonly kind: 'transport' | 'handshake' | 'remote' | 'canceled';
+  /** The host's raw error string; codes in it stay parseable while `message` is display text. */
+  readonly backendError?: string;
 
-  constructor(message: string, kind: ProtocolError['kind'] = 'transport') {
+  constructor(message: string, kind: ProtocolError['kind'] = 'transport', backendError?: string) {
     super(message);
     this.name = 'ProtocolError';
     this.kind = kind;
+    this.backendError = backendError;
   }
 }
 
@@ -128,17 +129,12 @@ export function parsePairing(raw: string): HostPairing {
   };
 }
 
-function defaultSocketFactory(url: string, options?: SocketOptions): SocketLike {
-  const Ctor = globalThis.WebSocket as unknown as new (
-    url: string,
-    protocols?: string | string[] | null,
-    options?: SocketOptions
-  ) => SocketLike;
+function defaultSocketFactory(url: string): SocketLike {
+  const Ctor = globalThis.WebSocket as unknown as new (url: string) => SocketLike;
   if (!Ctor) {
     throw new ProtocolError('no WebSocket implementation available');
   }
-  const supportsOptions = typeof document === 'undefined' && options != null;
-  return supportsOptions ? new Ctor(url, null, options) : new Ctor(url);
+  return new Ctor(url);
 }
 
 interface PendingRequest {
@@ -247,11 +243,7 @@ export class ProtocolClient {
     return channelArg(onMessage);
   }
 
-  async connect(
-    endpoint: string,
-    pairing: HostPairing,
-    socketOptions?: SocketOptions
-  ): Promise<HostInfo> {
+  async connect(endpoint: string, pairing: HostPairing): Promise<HostInfo> {
     if (this.state === 'connecting' || this.state === 'ready') {
       throw new ProtocolError('client is already connected');
     }
@@ -262,7 +254,7 @@ export class ProtocolClient {
     this.id = pairing.hostId;
     this.emitStatus();
 
-    const socket = this.options.socketFactory(endpoint, socketOptions);
+    const socket = this.options.socketFactory(endpoint);
     this.socket = socket;
     socket.binaryType = 'arraybuffer';
 
@@ -608,7 +600,8 @@ export class ProtocolClient {
           this.settle(frame.id, true, frame.data);
         } else {
           this.channels.delete(frame.id);
-          this.settle(frame.id, false, new ProtocolError(frame.error, 'remote'));
+          // Coded host errors become their (English) display text; uncoded ones stay as sent.
+          this.settle(frame.id, false, new ProtocolError(formatBackendError(frame.error), 'remote', frame.error));
         }
         return;
       }

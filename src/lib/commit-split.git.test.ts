@@ -13,7 +13,7 @@ import { applySplitPlan, buildSplitUnits, collectSplitInputs,
 import { parseDiffWithHunks } from "@/lib/unified-diff";
 
 const scratchRepos: string[] = [];
-afterAll(() => scratchRepos.forEach(path => rmSync(path, { recursive: true, force: true })));
+afterAll(() => scratchRepos.forEach(path => { rmSync(path, { recursive: true, force: true }); }));
 
 function splitRepo(original: string) {
   const path = mkdtempSync(join(tmpdir(), "l8git-split-identity-"));
