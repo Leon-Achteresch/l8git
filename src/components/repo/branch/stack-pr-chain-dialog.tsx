@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -181,7 +182,7 @@ export function StackPrChainDialog({
           });
           setEntries(current);
         } catch (err) {
-          current = markChainFailure(current, entry.branch, String(err));
+          current = markChainFailure(current, entry.branch, formatBackendError(err));
           setEntries(current);
           break;
         }

@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import {
   CheckCircle2,
   Loader2,
@@ -26,7 +27,7 @@ import { Eye as EyeData, EyeOff as EyeOffData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return formatBackendError(error);
 }
 
 export function JiraCard() {

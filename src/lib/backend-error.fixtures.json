@@ -1,0 +1,56 @@
+{
+  "coded": [
+    {
+      "wire": "\u001fThere is nothing to undo.\u001fl8e:{\"code\":\"undo.nothingToUndo\"}\u001f",
+      "code": "undo.nothingToUndo",
+      "params": {},
+      "message": "There is nothing to undo."
+    },
+    {
+      "wire": "\u001fUnknown reflog entry: HEAD@{3}\u001fl8e:{\"code\":\"undo.unknownReflogEntry\",\"params\":{\"selector\":\"HEAD@{3}\"}}\u001f",
+      "code": "undo.unknownReflogEntry",
+      "params": { "selector": "HEAD@{3}" },
+      "message": "Unknown reflog entry: HEAD@{3}"
+    },
+    {
+      "wire": "\u001fBranch name must not be empty.\u001fl8e:{\"code\":\"field.required\",\"params\":{\"field\":\"branchName\"}}\u001f",
+      "code": "field.required",
+      "params": { "field": "branchName" },
+      "message": "Branch name must not be empty."
+    },
+    {
+      "wire": "\u001fTracked files have local changes: a.txt, b \"q\".txt\u001fl8e:{\"code\":\"undo.localChanges\",\"params\":{\"files\":[\"a.txt\",\"b \\\"q\\\".txt\"]}}\u001f",
+      "code": "undo.localChanges",
+      "params": { "files": ["a.txt", "b \"q\".txt"] },
+      "message": "Tracked files have local changes: a.txt, b \"q\".txt"
+    },
+    {
+      "wire": "\u001fLooks like l8e: {\"code\":\"x.y\"}\u001fl8e:{\"code\":\"undo.changed\"}\u001f",
+      "code": "undo.changed",
+      "params": {},
+      "message": "Looks like l8e: {\"code\":\"x.y\"}"
+    }
+  ],
+  "uncoded": [
+    "",
+    "fatal: bad object",
+    "__UNDO_CHANGED__",
+    "__LOCAL_CHANGES_BLOCK__|[\"a.txt\"]",
+    "l8e:{\"code\":\"undo.changed\"}",
+    "Message l8e:{\"code\":\"undo.changed\"}",
+    "Message\u001fl8e:{\"code\":\"undo.changed\"}\u001f",
+    "\u001fMessage\u001fl8e:{\"code\":\"undo.changed\"}",
+    "\u001fMessage\u001fl8e:{\"code\":\"undo.changed\"}\u001f trailing",
+    "Wrapped: \u001fMessage\u001fl8e:{\"code\":\"undo.changed\"}\u001f",
+    "\u001fMessage\u001fl8e:not json\u001f",
+    "\u001fMessage\u001fl8e:[\"undo.changed\"]\u001f",
+    "\u001fMessage\u001fl8e:{\"code\":42}\u001f",
+    "\u001fMessage\u001fl8e:{\"params\":{}}\u001f",
+    "\u001fMessage\u001fl8e:{\"code\":\"__proto__.x\"}\u001f",
+    "\u001fMessage\u001fl8e:{\"code\":\"nodot\"}\u001f",
+    "\u001fMessage\u001fl8e:{\"code\":\"a.b\",\"params\":[]}\u001f",
+    "\u001fMessage\u001fl8e:{\"code\":\"a.b\",\"params\":{\"n\":1}}\u001f",
+    "\u001fMessage\u001fl8e:{\"code\":\"a.b\",\"params\":{\"n\":[\"ok\",2]}}\u001f",
+    "\u001fMes\u001fsage\u001fl8e:{\"code\":\"undo.changed\"}\u001f"
+  ]
+}

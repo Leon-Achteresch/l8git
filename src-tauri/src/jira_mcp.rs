@@ -268,10 +268,10 @@ async fn call_tool(policy: &JiraPolicy, repo: &str, name: &str, arguments: &Valu
     }
     match name {
         TOOL_GET_ISSUE => match resolve_key(policy, repo, arguments) {
-            Err(error) => text_content(error, true),
+            Err(error) => text_content(crate::error::message_only(&error), true),
             Ok(key) => match jira::fetch_issue(&key, MAX_BODY_CHARS).await {
                 Ok(issue) => text_content(format_issue(&issue), false),
-                Err(error) => text_content(error, true),
+                Err(error) => text_content(crate::error::message_only(&error), true),
             },
         },
         TOOL_GET_COMMENTS => {
@@ -279,12 +279,12 @@ async fn call_tool(policy: &JiraPolicy, repo: &str, name: &str, arguments: &Valu
                 return text_content("Jira: Das Lesen von Kommentaren ist deaktiviert.".into(), true);
             }
             match resolve_key(policy, repo, arguments) {
-                Err(error) => text_content(error, true),
+                Err(error) => text_content(crate::error::message_only(&error), true),
                 Ok(key) => {
                     let limit = limit_arg(arguments, DEFAULT_COMMENT_LIMIT, MAX_COMMENTS);
                     match jira::fetch_comments(&key, limit).await {
                         Ok(comments) => text_content(format_comments(&key, &comments), false),
-                        Err(error) => text_content(error, true),
+                        Err(error) => text_content(crate::error::message_only(&error), true),
                     }
                 }
             }
@@ -295,12 +295,12 @@ async fn call_tool(policy: &JiraPolicy, repo: &str, name: &str, arguments: &Valu
             }
             let raw = arguments.get("jql").and_then(Value::as_str).unwrap_or("");
             match validate_jql(raw) {
-                Err(error) => text_content(error, true),
+                Err(error) => text_content(crate::error::message_only(&error), true),
                 Ok(jql) => {
                     let limit = limit_arg(arguments, DEFAULT_SEARCH_LIMIT, MAX_SEARCH_RESULTS);
                     match jira::search_issues(&jql, limit).await {
                         Ok(result) => text_content(format_search(&result), false),
-                        Err(error) => text_content(error, true),
+                        Err(error) => text_content(crate::error::message_only(&error), true),
                     }
                 }
             }

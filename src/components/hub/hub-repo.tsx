@@ -46,7 +46,7 @@ import {
 import { toastError } from "@/lib/error-toast";
 import { formatRelative } from "@/lib/format";
 import { accountKey, adapterFor, hubRepoPath, useHubStore } from "@/lib/hub/store";
-import type { HubAccount, HubPr, HubRepoDetail } from "@/lib/hub/types";
+import type { HubAccount, HubIssue, HubPr, HubRepoDetail } from "@/lib/hub/types";
 import { useHubQuery } from "@/lib/hub/use-hub-query";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +64,7 @@ import {
 } from "./hub-bits";
 import { HubContributorsTab } from "./hub-contributors";
 import { IssueCreateDialog } from "@/components/repo/github/issue-create-dialog";
+import { HubIssueSheet } from "@/components/hub/hub-issue-sheet";
 import { IssueDetailSheet } from "@/components/repo/github/issue-detail-sheet";
 import { CHECK_COLOR, CiStrip, langColor, LanguageBar, StarArea } from "./hub-viz";
 
@@ -636,7 +637,9 @@ function IssuesTab({ account, fullName }: { account: HubAccount; fullName: strin
   const { t } = useTranslation();
   const [state, setState] = useState<"open" | "closed">("open");
   const [creating, setCreating] = useState(false);
-  const [openIssue, setOpenIssue] = useState<number | null>(null);
+  const [openIssue, setOpenIssue] = useState<HubIssue | null>(null);
+  const ad = adapterFor(account);
+  const sheet = account.provider === "github" ? "github" : ad?.issue && ad.updateIssue ? "generic" : null;
   const refresh = useHubStore((s) => s.refresh);
   const q = useHubQuery(account, `issues:${fullName}:${state}`, (ad, a) => ad.issues(a, fullName, state));
   return (
@@ -669,7 +672,7 @@ function IssuesTab({ account, fullName }: { account: HubAccount; fullName: strin
       ) : (
         <div className="divide-y divide-border/40">
           {q.data.map((i) => (
-            <button key={i.id} type="button" onClick={() => (account.provider === "github" ? setOpenIssue(i.number) : openExternal(i.url))} className="flex min-h-11 w-full items-center gap-3 px-5 py-2 text-left text-[13px] transition-colors hover:bg-muted/40">
+            <button key={i.id} type="button" onClick={() => (sheet ? setOpenIssue(i) : openExternal(i.url))} className="flex min-h-11 w-full items-center gap-3 px-5 py-2 text-left text-[13px] transition-colors hover:bg-muted/40">
               <span className={cn("size-3.5 shrink-0 rounded-full border-2", i.state === "open" ? "border-git-added" : "border-[var(--chart-2)]")} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
@@ -694,7 +697,12 @@ function IssuesTab({ account, fullName }: { account: HubAccount; fullName: strin
         </div>
       )}
       <IssueCreateDialog account={account} fullName={fullName} open={creating} onOpenChange={setCreating} onCreated={refresh} />
-      {openIssue !== null && <IssueDetailSheet account={account} fullName={fullName} number={openIssue} onClose={() => setOpenIssue(null)} onChanged={refresh} />}
+      {openIssue !== null &&
+        (sheet === "github" ? (
+          <IssueDetailSheet account={account} fullName={fullName} number={openIssue.number} onClose={() => setOpenIssue(null)} onChanged={refresh} />
+        ) : (
+          <HubIssueSheet account={account} fullName={fullName} number={openIssue.number} url={openIssue.url} onClose={() => setOpenIssue(null)} onChanged={refresh} />
+        ))}
     </Panel>
   );
 }

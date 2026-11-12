@@ -224,10 +224,10 @@ fn credential_status_never_exposes_the_token() {
 #[test]
 fn http_errors_are_actionable_and_redacted() {
     let token = "tok-123";
-    assert!(describe_http_error(401, "whatever", token).starts_with("Jira 401"));
-    assert!(describe_http_error(403, "", token).starts_with("Jira 403"));
-    assert!(describe_http_error(404, "", token).starts_with("Jira 404"));
-    assert!(describe_http_error(429, "", token).starts_with("Jira 429"));
+    assert!(describe_http_error(401, "whatever", token).contains("Jira 401"));
+    assert!(describe_http_error(403, "", token).contains("Jira 403"));
+    assert!(describe_http_error(404, "", token).contains("Jira 404"));
+    assert!(describe_http_error(429, "", token).contains("Jira 429"));
     let leaked = describe_http_error(500, "boom tok-123 boom", token);
     assert!(!leaked.contains(token));
     assert!(leaked.contains("500"));

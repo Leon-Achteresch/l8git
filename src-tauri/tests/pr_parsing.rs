@@ -216,14 +216,14 @@ fn parse_origin_url_uppercase_host_still_matches_the_provider_table() {
 fn parse_origin_url_rejects_unusable_remotes() {
     let repo = repo_with_origin("origin-bad", "git@github.com:acme/app.git");
 
-    assert!(handle_err(&repo, "ftp://example.com/acme/app.git").contains("nicht erkannt"));
+    assert!(handle_err(&repo, "ftp://example.com/acme/app.git").contains("not recognized"));
     assert!(handle_err(&repo, "https://github.com/acme").contains("Unerwartetes Remote-URL-Format"));
     assert!(handle_err(&repo, "git@github.com:acme.git").contains("Unerwartetes Remote-URL-Format"));
 
     let bare = TestRepo::new("origin-missing");
     bare.commit("a.txt", "1\n", "c1");
     assert!(err_of(parse_origin_url(&bare.path), "a repo without origin")
-        .contains("Kein Remote 'origin' konfiguriert"));
+        .contains("No remote 'origin' is configured"));
 }
 
 #[test]
@@ -540,7 +540,7 @@ fn current_branch_rejects_a_detached_head() {
     repo.git(&["checkout", "-q", &head]);
     assert!(current_branch(&repo.path)
         .unwrap_err()
-        .contains("Aktueller Branch"));
+        .contains("current branch"));
 }
 
 #[test]
@@ -593,16 +593,16 @@ fn pr_create_web_url_reports_the_unusable_cases() {
 
     assert!(pr_create_web_url(repo.s(), "main".into())
         .unwrap_err()
-        .contains("Standard-Branch"));
+        .contains("default branch"));
     assert!(pr_create_web_url(repo.s(), "  ".into())
         .unwrap_err()
-        .contains("Branch-Name leer"));
+        .contains("Branch name must not be empty"));
     assert!(pr_create_web_url(
         repo.path.join("a.txt").to_string_lossy().to_string(),
         "feature".into()
     )
     .unwrap_err()
-    .contains("kein Verzeichnis"));
+    .contains("not a folder"));
 
     repo.git(&["config", "remote.origin.url", "https://git.internal.example/group/project.git"]);
     assert_eq!(

@@ -34,6 +34,8 @@ jobs:
             patchelf
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -49,6 +51,9 @@ jobs:
       - name: Typecheck
         run: bunx tsc --noEmit
 
+      - name: Lint
+        run: bun run lint
+
       - name: Frontend-Tests
         run: bun run test
 
@@ -62,6 +67,11 @@ jobs:
           node scripts/check-build.mjs
           bun scripts/benchmark-ui.ts
 
+      # Existing warnings stay visible; only deny-by-default correctness lints fail the job.
+      - name: Rust-Clippy
+        working-directory: src-tauri
+        run: cargo clippy --locked --all-targets --features headless -- -W clippy::unwrap_used
+
       - name: Rust-Tests
         working-directory: src-tauri
         run: cargo test --locked --all-targets --features headless
@@ -71,10 +81,6 @@ jobs:
         run: |
           bun run typecheck
           bun run test
-
-      - name: Relay tests
-        working-directory: relay
-        run: cargo test --locked
 
       - name: Browser installation
         run: bunx playwright install --with-deps chromium

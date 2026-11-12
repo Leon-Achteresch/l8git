@@ -1,3 +1,4 @@
+use crate::coded;
 use std::io::Read;
 use std::net::{SocketAddr, TcpStream};
 use std::path::PathBuf;
@@ -9,7 +10,6 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_PORT: u16 = 8484;
-const MISSING_BINARY: &str = "l8gitd nicht gefunden — mit `cargo build --features headless --bin l8gitd` bauen und in den PATH legen.";
 
 static CHILD: Lazy<Mutex<Option<Child>>> = Lazy::new(|| Mutex::new(None));
 
@@ -20,8 +20,6 @@ struct Config {
     roots: Vec<String>,
     #[serde(default)]
     port: Option<u16>,
-    #[serde(default)]
-    relay: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -30,14 +28,13 @@ pub struct RemoteStatus {
     running: bool,
     managed: bool,
     port: u16,
-    relay: Option<String>,
     roots: Vec<String>,
     binary: Option<String>,
     config_path: Option<String>,
 }
 
 fn config_path() -> Result<PathBuf, String> {
-    let base = dirs::config_dir().ok_or_else(|| "Kein Konfigurationsverzeichnis gefunden.".to_string())?;
+    let base = dirs::config_dir().ok_or_else(|| coded!(ConfigDirMissing))?;
     Ok(base.join("l8gitd").join("config.json"))
 }
 
@@ -108,7 +105,6 @@ pub fn remote_status() -> RemoteStatus {
         running: listening(port),
         managed: managed(),
         port,
-        relay: config.relay,
         roots: config.roots,
         binary: binary().map(|p| p.display().to_string()),
         config_path: config_path().ok().map(|p| p.display().to_string()),
@@ -116,15 +112,12 @@ pub fn remote_status() -> RemoteStatus {
 }
 
 #[tauri::command]
-pub fn remote_set_config(port: u16, relay: Option<String>) -> Result<RemoteStatus, String> {
+pub fn remote_set_config(port: u16) -> Result<RemoteStatus, String> {
     if port == 0 {
-        return Err("Ungültiger Port.".to_string());
+        return Err(coded!(RemoteInvalidPort));
     }
     let mut config = load();
     config.port = Some(port);
-    config.relay = relay
-        .map(|r| r.trim().to_string())
-        .filter(|r| !r.is_empty());
     save(&config)?;
     Ok(remote_status())
 }
@@ -136,9 +129,10 @@ pub fn remote_start() -> Result<RemoteStatus, String> {
     if listening(port) {
         return Ok(remote_status());
     }
-    let exe = binary().ok_or_else(|| MISSING_BINARY.to_string())?;
+    let exe = binary().ok_or_else(|| coded!(RemoteDaemonMissing))?;
     let mut command = Command::new(&exe);
     command
+        .env(crate::error::CODED_STDERR_ENV, "1")
         .arg("serve")
         .arg("--port")
         .arg(port.to_string())
@@ -165,22 +159,23 @@ pub fn remote_start() -> Result<RemoteStatus, String> {
     let _ = child.wait();
     let message = message.trim().to_string();
     Err(if message.is_empty() {
-        format!("l8gitd konnte nicht auf Port {port} starten.")
+        coded!(RemoteStartFailed, port = port)
     } else {
         message
     })
 }
 
 fn run_cli(args: &[&str]) -> Result<String, String> {
-    let exe = binary().ok_or_else(|| MISSING_BINARY.to_string())?;
+    let exe = binary().ok_or_else(|| coded!(RemoteDaemonMissing))?;
     let output = Command::new(&exe)
+        .env(crate::error::CODED_STDERR_ENV, "1")
         .args(args)
         .output()
         .map_err(|e| format!("{}: {e}", exe.display()))?;
     if !output.status.success() {
         let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
         return Err(if message.is_empty() {
-            format!("l8gitd {} fehlgeschlagen.", args.join(" "))
+            coded!(RemoteCommandFailed, command = args.join(" "))
         } else {
             message
         });
@@ -202,7 +197,7 @@ pub fn remote_pair() -> Result<Pairing, String> {
         .lines()
         .rev()
         .find(|line| line.trim_start().starts_with('{'))
-        .ok_or_else(|| "Kein Pairing-JSON von l8gitd erhalten.".to_string())?
+        .ok_or_else(|| coded!(RemoteNoPairing))?
         .trim()
         .to_string();
     let qr = stdout.replace(&json, "").trim_matches('\n').to_string();
@@ -232,7 +227,7 @@ pub fn remote_stop() -> Result<RemoteStatus, String> {
             let _ = child.wait();
             Ok(remote_status())
         }
-        None => Err("Der Server läuft nicht in dieser App — extern gestartete Prozesse müssen extern beendet werden.".to_string()),
+        None => Err(coded!(RemoteExternalServer)),
     }
 }
 

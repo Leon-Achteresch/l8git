@@ -211,7 +211,7 @@ mod tests {
     ];
 
     fn ctx() -> DispatchCtx {
-        let state = ServerState::new("host".into(), [3u8; 32], vec![], None);
+        let state = ServerState::new("host".into(), [3u8; 32], vec![]);
         let (tx, _rx) = tokio::sync::mpsc::channel(crate::server::state::OUTBOX_CAPACITY);
         DispatchCtx::new(state, Arc::new(ConnectionHandle::new(1, tx)), 1, "test")
     }
@@ -224,7 +224,7 @@ mod tests {
             let result = out.unwrap_or_else(|| panic!("{cmd} nicht registriert"));
             assert_eq!(
                 result,
-                Err(format!("Fehlendes Argument \"{missing}\".")),
+                Err(crate::coded!(ServerMissingArgument, name = missing)),
                 "{cmd}"
             );
         }
@@ -240,7 +240,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(out, Err("Fehlendes Argument \"path\".".to_string()));
+        assert_eq!(out, Err(crate::coded!(ServerMissingArgument, name = "path")));
 
         let out = super::dispatch(
             "branch_cleanup_candidates",
@@ -249,12 +249,12 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(out, Err("Fehlendes Argument \"path\".".to_string()));
+        assert_eq!(out, Err(crate::coded!(ServerMissingArgument, name = "path")));
 
         let out = super::dispatch("lfs_pointer_info", json!({ "filePath": "a.bin" }), &ctx)
             .await
             .unwrap();
-        assert_eq!(out, Err("Fehlendes Argument \"path\".".to_string()));
+        assert_eq!(out, Err(crate::coded!(ServerMissingArgument, name = "path")));
     }
 
     #[tokio::test]

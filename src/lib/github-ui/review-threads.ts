@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { useCallback, useEffect, useState } from "react";
 
 import { listReviewThreads, type ReviewThread } from "@/lib/github-expansion/api";
@@ -32,7 +33,7 @@ export function useReviewThreadIndex(path: string, number: number) {
         }
         setState({ key, threads, truncated: more, error: null });
       } catch (e) {
-        if (live) setState({ key, threads, truncated: true, error: String(e) });
+        if (live) setState({ key, threads, truncated: true, error: formatBackendError(e) });
       }
     })();
     return () => { live = false; };

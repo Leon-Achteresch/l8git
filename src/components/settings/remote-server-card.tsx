@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,6 @@ type RemoteStatus = {
   running: boolean;
   managed: boolean;
   port: number;
-  relay: string | null;
   roots: string[];
   binary: string | null;
   configPath: string | null;
@@ -41,7 +41,6 @@ export function RemoteServerCard() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const initialized = useRef(false);
   const [port, setPort] = useState("");
-  const [relay, setRelay] = useState("");
   const [busy, setBusy] = useState(false);
   const [pairing, setPairing] = useState<Pairing | null>(null);
 
@@ -50,7 +49,6 @@ export function RemoteServerCard() {
     setStatus(next);
     setStatusError(null);
     setPort(String(next.port));
-    setRelay(next.relay ?? "");
   }, []);
 
   useEffect(() => {
@@ -67,7 +65,7 @@ export function RemoteServerCard() {
           setStatusError(null);
         }
       } catch (error) {
-        if (active) setStatusError(String(error));
+        if (active) setStatusError(formatBackendError(error));
       } finally {
         pending = false;
       }
@@ -85,7 +83,7 @@ export function RemoteServerCard() {
     try {
       apply(await invoke<RemoteStatus>(cmd, args));
     } catch (error) {
-      toast.error(String(error));
+      toast.error(formatBackendError(error));
     } finally {
       setBusy(false);
     }
@@ -101,7 +99,7 @@ export function RemoteServerCard() {
     try {
       setPairing(await invoke<Pairing>("remote_pair"));
     } catch (error) {
-      toast.error(String(error));
+      toast.error(formatBackendError(error));
     } finally {
       setBusy(false);
     }
@@ -131,15 +129,6 @@ export function RemoteServerCard() {
               inputMode="numeric"
               value={port}
               onChange={(e) => setPort(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="remote-server-relay">{t("remoteServer.relayLabel")}</Label>
-            <Input
-              id="remote-server-relay"
-              placeholder="wss://relay.example"
-              value={relay}
-              onChange={(e) => setRelay(e.target.value)}
             />
           </div>
         </div>
@@ -186,7 +175,6 @@ export function RemoteServerCard() {
             onClick={() =>
               void run("remote_set_config", {
                 port: Number(port) || 0,
-                relay: relay.trim() || null,
               })
             }
           >

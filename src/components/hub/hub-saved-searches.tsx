@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatRelative } from "@/lib/format";
@@ -37,7 +38,7 @@ export function HubSavedSearches({ account }: { account: HubAccount }) {
       setPage({ page: p, hasMore: r.hasMore, total: r.total ?? 0, incomplete: !!r.incomplete });
       setError(null);
     } catch (e) {
-      setError(String(e));
+      setError(formatBackendError(e));
     } finally {
       setLoading(false);
     }

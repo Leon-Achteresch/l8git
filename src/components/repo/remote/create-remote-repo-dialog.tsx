@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -146,7 +147,7 @@ export function CreateRemoteRepoDialog({
           toast.warning(
             t("createRemote.createdPushFailed", {
               name: created.full_name,
-              error: String(pushErr),
+              error: formatBackendError(pushErr),
             }),
           );
         }

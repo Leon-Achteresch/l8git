@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -48,7 +49,7 @@ export function ContributorsPanel({
       .catch((err) => {
         if (cancelled) return;
         setData(null);
-        setError(String(err));
+        setError(formatBackendError(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { Copy, GitCompareArrows, LoaderCircle, SearchX, X } from 'lucide-react';
 import { StackGraphLegend } from '../branch/stack-graph-legend';
 import { BisectStatusBanner } from '../bisect/bisect-status-banner';
+import { AmStatusBanner } from './am-status-banner';
 import { CherryPickStatusBanner } from './cherry-pick-status-banner';
 import { loadablePanel } from '@/components/ui/loadable-panel';
 import { PanelLoading } from '@/components/ui/panel-loading';
@@ -441,6 +442,7 @@ export function CommitHistoryPanel({
       )}
       <BisectStatusBanner path={path} />
       <CherryPickStatusBanner path={path} />
+      <AmStatusBanner path={path} />
       <MergeStatusBanner path={path} />
       <RebaseStatusBanner path={path} />
       <StackGraphLegend path={path} />
@@ -479,6 +481,7 @@ export function CommitHistoryPanel({
               <CommitInspectDetail
                 path={path}
                 commitHash={selectedHash}
+                focusFile={selectedCommit?.path}
                 onClose={() => setSelectedHash(null)}
               />
             </ResizablePanel>

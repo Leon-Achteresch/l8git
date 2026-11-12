@@ -21,7 +21,7 @@ describe("repository session views", () => {
   });
 
   it("bounds retained repositories while keeping recently updated views", () => {
-    paths.slice(0, 24).forEach(path => saveRepoViewState(path, { selectedFile: path }));
+    paths.slice(0, 24).forEach(path => { saveRepoViewState(path, { selectedFile: path }); });
     saveRepoViewState(paths[0], { selectedFile: "recent" });
     saveRepoViewState(paths[24], { selectedFile: "new" });
     expect(readRepoViewState(paths[1])).toEqual({});

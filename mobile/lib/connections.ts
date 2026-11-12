@@ -4,18 +4,11 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
-import {
-  ProtocolClient,
-  parsePairing,
-  type HostInfo,
-  type HostPairing,
-  type SocketOptions,
-} from './protocol/client';
-import { decodePsk, relayToken } from './protocol/crypto';
+import { NoLanEndpointError, requireLanEndpoints } from './endpoints';
+import { ProtocolClient, parsePairing, type HostInfo, type HostPairing } from './protocol/client';
+import { decodePsk } from './protocol/crypto';
 
 export type HostStatus = 'idle' | 'connecting' | 'online' | 'reconnecting' | 'error';
-
-export type EndpointKind = 'lan' | 'relay';
 
 export interface HostMeta {
   hostId: string;
@@ -30,7 +23,6 @@ export interface HostMeta {
 export interface HostRuntime {
   status: HostStatus;
   endpoint: string | null;
-  endpointKind: EndpointKind | null;
   latencyMs: number | null;
   lastError: string | null;
   attempt: number;
@@ -41,24 +33,12 @@ export interface HostRuntime {
   nextRetryAt: number | null;
 }
 
-export interface ResolvedEndpoint {
-  raw: string;
-  url: string;
-  kind: EndpointKind;
-  options?: SocketOptions;
-}
-
 const HOSTS_KEY = 'l8git.hosts.v1';
 const ACTIVE_KEY = 'l8git.activeHost.v1';
 const SECURE_PREFIX = 'l8git_pairing_';
-const RELAY_HEADSTART_MS = 1_200;
 const BACKOFF_BASE_MS = 1_000;
 const BACKOFF_CAP_MS = 30_000;
 const STABLE_CONNECTION_MS = 30_000;
-const RELAY_TOKEN_HEADER = 'x-relay-token';
-
-const ENDPOINT_PATTERN = /^(wss?):\/\/([^/?#]+)(\/[^?#]*)?$/i;
-const IPV4_PATTERN = /^\d{1,3}(\.\d{1,3}){3}$/;
 
 const clients = new Map<string, ProtocolClient>();
 const pairings = new Map<string, HostPairing>();
@@ -70,7 +50,6 @@ const inflightConnects = new Map<string, Promise<void>>();
 export const IDLE_RUNTIME: HostRuntime = Object.freeze({
   status: 'idle',
   endpoint: null,
-  endpointKind: null,
   latencyMs: null,
   lastError: null,
   attempt: 0,
@@ -87,41 +66,6 @@ export function idleRuntime(): HostRuntime {
 
 export function secureKeyFor(hostId: string): string {
   return `${SECURE_PREFIX}${hostId.replace(/[^A-Za-z0-9._-]/g, '_')}`;
-}
-
-export function classifyEndpoint(endpoint: string): EndpointKind {
-  const match = ENDPOINT_PATTERN.exec(endpoint.trim());
-  if (!match) {
-    return 'relay';
-  }
-  const [, scheme, authority, path] = match;
-  if (scheme.toLowerCase() !== 'ws') {
-    return 'relay';
-  }
-  if (path && path !== '/' && path !== '/ws') {
-    return 'relay';
-  }
-  const host = authority.replace(/^\[/, '').replace(/\](:\d+)?$/, '').replace(/:\d+$/, '');
-  if (host === 'localhost' || IPV4_PATTERN.test(host) || host.includes(':')) {
-    return 'lan';
-  }
-  return 'relay';
-}
-
-export function resolveEndpoint(endpoint: string, pairing: HostPairing): ResolvedEndpoint {
-  const raw = endpoint.trim();
-  const kind = classifyEndpoint(raw);
-  if (kind === 'lan') {
-    return { raw, url: raw, kind };
-  }
-  const base = raw.replace(/\/+$/, '');
-  const url = base.includes('/client/') ? base : `${base}/client/${pairing.hostId}`;
-  return {
-    raw,
-    url,
-    kind,
-    options: { headers: { [RELAY_TOKEN_HEADER]: relayToken(decodePsk(pairing.psk)) } },
-  };
 }
 
 export function backoffDelay(attempt: number): number {
@@ -273,8 +217,9 @@ export const useConnections = create<ConnectionsState>((set, get) => {
     },
 
     addHost: async (payload) => {
-      const pairing = typeof payload === 'string' ? parsePairing(payload) : payload;
-      decodePsk(pairing.psk);
+      const parsed = typeof payload === 'string' ? parsePairing(payload) : payload;
+      decodePsk(parsed.psk);
+      const pairing: HostPairing = { ...parsed, endpoints: requireLanEndpoints(parsed.endpoints) };
       const secureKey = secureKeyFor(pairing.hostId);
       await SecureStore.setItemAsync(secureKey, JSON.stringify(pairing));
       pairings.set(pairing.hostId, pairing);
@@ -373,7 +318,6 @@ export const useConnections = create<ConnectionsState>((set, get) => {
           patch(hostId, {
             status: 'online',
             endpoint: winner.endpoint,
-            endpointKind: winner.endpoint ? classifyEndpoint(winner.endpoint) : null,
             hostInfo: winner.hostInfo,
             lastError: null,
             attempt: 0,
@@ -389,7 +333,9 @@ export const useConnections = create<ConnectionsState>((set, get) => {
             status: 'error',
             lastError: cause instanceof Error ? cause.message : String(cause),
           });
-          scheduleRetry(hostId);
+          if (!(cause instanceof NoLanEndpointError)) {
+            scheduleRetry(hostId);
+          }
         }
       })();
       inflightConnects.set(hostId, run);
@@ -413,7 +359,6 @@ export const useConnections = create<ConnectionsState>((set, get) => {
       patch(hostId, {
         status: 'idle',
         endpoint: null,
-        endpointKind: null,
         latencyMs: null,
         attempt: 0,
         drops: 0,
@@ -503,17 +448,10 @@ async function raceEndpoints(
   pairing: HostPairing,
   stillWanted: () => boolean
 ): Promise<ProtocolClient> {
-  const endpoints = meta.endpoints.length > 0 ? meta.endpoints : pairing.endpoints;
-  const candidates = endpoints.map((endpoint) => resolveEndpoint(endpoint, pairing));
-  if (candidates.length === 0) {
-    throw new Error('host has no endpoints');
-  }
-  const hasLan = candidates.some((candidate) => candidate.kind === 'lan');
-  const attempts = candidates.map((candidate) => ({
-    candidate,
-    delay: candidate.kind === 'relay' && hasLan ? RELAY_HEADSTART_MS : 0,
-    client: new ProtocolClient(),
-  }));
+  const endpoints = requireLanEndpoints(
+    meta.endpoints.length > 0 ? meta.endpoints : pairing.endpoints
+  );
+  const attempts = endpoints.map((url) => ({ url, client: new ProtocolClient() }));
 
   return new Promise<ProtocolClient>((resolve, reject) => {
     let decided = false;
@@ -528,15 +466,12 @@ async function raceEndpoints(
       }
     };
 
-    for (const { candidate, delay, client } of attempts) {
+    for (const { url, client } of attempts) {
       void (async () => {
-        if (delay > 0) {
-          await sleep(delay);
-        }
         if (decided || !stillWanted()) {
           return;
         }
-        await client.connect(candidate.url, pairing, candidate.options);
+        await client.connect(url, pairing);
         if (decided || !stillWanted()) {
           client.close();
           return;
@@ -546,7 +481,7 @@ async function raceEndpoints(
         resolve(client);
       })().catch((cause: unknown) => {
         failures.push(
-          `${candidate.raw}: ${cause instanceof Error ? cause.message : String(cause)}`
+          `${url}: ${cause instanceof Error ? cause.message : String(cause)}`
         );
       }).finally(() => {
         remaining -= 1;
@@ -556,10 +491,6 @@ async function raceEndpoints(
       });
     }
   });
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function getClient(hostId: string | null | undefined): ProtocolClient | null {

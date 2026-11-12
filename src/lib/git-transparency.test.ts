@@ -80,12 +80,11 @@ describe('mergeCommandEntries', () => {
 
 describe('undo error parsing', () => {
   it('extracts the unsupported action', () => {
-    expect(parseUndoUnsupported('__UNDO_UNSUPPORTED__|checkout')).toBe(
-      'checkout',
-    );
-    expect(parseUndoUnsupported('__UNDO_UNSUPPORTED__|commit (initial)')).toBe(
-      'commit (initial)',
-    );
+    const unsupported = (action: string) =>
+      `\u001fUndo is not supported for this operation: ${action}\u001fl8e:${JSON.stringify({ code: 'undo.unsupported', params: { action } })}\u001f`;
+    expect(parseUndoUnsupported(unsupported('checkout'))).toBe('checkout');
+    expect(parseUndoUnsupported(unsupported('commit (initial)'))).toBe('commit (initial)');
+    expect(parseUndoUnsupported('__UNDO_UNSUPPORTED__|checkout')).toBeNull();
     expect(parseUndoUnsupported('boom')).toBeNull();
   });
 

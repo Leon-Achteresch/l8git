@@ -156,7 +156,7 @@ async fn merge_rejects_unknown_strategies_and_empty_branch_names() {
     let err = git::git_merge(repo.s(), "feature".into(), Some("octopus".into()), None, None, None, None)
         .await
         .unwrap_err();
-    assert!(err.contains("Unbekannte Merge-Strategie"), "{err}");
+    assert!(err.contains("Unknown merge strategy"), "{err}");
     assert!(git::git_merge(repo.s(), "  ".into(), None, None, None, None, None).await.is_err());
 }
 
@@ -253,12 +253,12 @@ async fn cherry_pick_validates_its_arguments() {
     let empty = git::git_cherry_pick(repo.s(), vec!["  ".into()], None)
         .await
         .unwrap_err();
-    assert!(empty.contains("Mindestens ein Commit-Hash"), "{empty}");
+    assert!(empty.contains("At least one commit hash"), "{empty}");
 
     let mainline = git::git_cherry_pick(repo.s(), vec![tip], Some(0))
         .await
         .unwrap_err();
-    assert!(mainline.contains("Mainline-Parent"), "{mainline}");
+    assert!(mainline.contains("mainline parent"), "{mainline}");
 }
 
 #[tokio::test]
@@ -378,7 +378,7 @@ async fn reset_rejects_unknown_modes_without_changing_head_and_rejects_an_empty_
     let err = git::git_reset(repo.s(), "  ".into(), "hard".into(), None)
         .await
         .unwrap_err();
-    assert!(err.contains("Ziel"), "{err}");
+    assert!(err.contains("Target"), "{err}");
 }
 
 #[tokio::test]

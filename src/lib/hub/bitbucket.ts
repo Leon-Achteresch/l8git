@@ -1,7 +1,7 @@
 import { mapConcurrent } from "@/lib/async-cache";
 
 import { enc, hubApi } from "./api";
-import type { CheckState, HubAccount, HubAdapter, HubPr, HubRepo } from "./types";
+import type { CheckState, HubAccount, HubAdapter, HubIssueDetail, HubPr, HubRepo } from "./types";
 
 type BbRepo = {
   full_name: string;
@@ -103,6 +103,24 @@ const r = (fullName: string) => `/repositories/${fullName.split("/").map(enc).jo
 async function memberRepos(a: HubAccount, n: number): Promise<HubRepo[]> {
   const page = await hubApi<Page<BbRepo>>(a, "GET", `/repositories?role=member&sort=-updated_on&pagelen=${n}`);
   return page.values.map(repo);
+}
+
+type BbIssue = { id: number; title: string; content?: { raw: string | null }; created_on: string; state: string; reporter: { nickname?: string; display_name: string; links: { avatar: { href: string } } } | null; links: { html: { href: string } } };
+
+function bbIssue(i: BbIssue): HubIssueDetail {
+  return {
+    id: String(i.id),
+    number: i.id,
+    title: i.title,
+    body: i.content?.raw ?? "",
+    url: i.links.html.href,
+    author: i.reporter ? { login: i.reporter.nickname ?? i.reporter.display_name, avatarUrl: i.reporter.links.avatar.href } : null,
+    createdAt: i.created_on,
+    comments: 0,
+    labels: [],
+    // Same buckets as the list filter; "on hold", "wontfix" etc. count as closed.
+    state: i.state === "new" || i.state === "open" ? "open" : "closed",
+  };
 }
 
 function unsupported(what: string): never {
@@ -229,20 +247,21 @@ export const bitbucket: HubAdapter = {
 
   async issues(a, fullName, state) {
     const q = enc(state === "open" ? `state="new" OR state="open"` : `state="resolved" OR state="closed"`);
-    const page = await hubApi<
-      Page<{ id: number; title: string; created_on: string; state: string; reporter: { nickname?: string; display_name: string; links: { avatar: { href: string } } } | null; links: { html: { href: string } } }>
-    >(a, "GET", `${r(fullName)}/issues?q=${q}&sort=-updated_on&pagelen=50`).catch(() => ({ values: [] }));
-    return page.values.map((i) => ({
-      id: String(i.id),
-      number: i.id,
-      title: i.title,
-      url: i.links.html.href,
-      author: i.reporter ? { login: i.reporter.nickname ?? i.reporter.display_name, avatarUrl: i.reporter.links.avatar.href } : null,
-      createdAt: i.created_on,
-      comments: 0,
-      labels: [],
-      state,
-    }));
+    const page = await hubApi<Page<BbIssue>>(a, "GET", `${r(fullName)}/issues?q=${q}&sort=-updated_on&pagelen=50`).catch(() => ({ values: [] }));
+    return page.values.map((i) => ({ ...bbIssue(i), state }));
+  },
+
+  async issue(a, fullName, number) {
+    return bbIssue(await hubApi<BbIssue>(a, "GET", `${r(fullName)}/issues/${number}`));
+  },
+
+  async updateIssue(a, fullName, number, patch) {
+    const body = {
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.body !== undefined ? { content: { raw: patch.body } } : {}),
+      ...(patch.state ? { state: patch.state === "open" ? "open" : "resolved" } : {}),
+    };
+    return bbIssue(await hubApi<BbIssue>(a, "PUT", `${r(fullName)}/issues/${number}`, body));
   },
 
   async repoPulls(a, fullName, state) {

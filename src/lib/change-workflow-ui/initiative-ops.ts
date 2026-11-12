@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { transitionInitiative, type ChangeInitiative, type InitiativeStep } from "@/lib/change-workflow/model";
 import type { AgentReviewInvoke } from "@/lib/agents/agent-review";
 import { invoke } from "@/lib/platform/ipc";
@@ -28,7 +29,7 @@ function mergedAtPin(step: InitiativeStep, pr: ProviderPr): boolean {
 function finish(initiative: ChangeInitiative, id: string, error: unknown | null): ChangeInitiative {
   return error === null
     ? transitionInitiative(initiative, id, "done")
-    : transitionInitiative(initiative, id, "failed", error instanceof Error ? error.message : String(error));
+    : transitionInitiative(initiative, id, "failed", formatBackendError(error));
 }
 
 /**

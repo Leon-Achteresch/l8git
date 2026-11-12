@@ -24,6 +24,7 @@ function harness(dirty = false) {
   const hosts = new Map(['host-a', 'host-b'].map(hostId => [hostId, {
     removed: false, merged: false, deleted: false, dirty, fingerprint: summary.fingerprint,
     baseBranch: 'main', baseHead: 'abc123', sessionHead: 'def456', deleteFailure: false,
+    amError: null as Error | null,
   }]));
   let availability: ReviewFinishAvailability = { hostId: 'host-a', worktreePath: context.worktreePath, available: true, busy: false };
   let held: Promise<void> | null = null;
@@ -41,6 +42,7 @@ function harness(dirty = false) {
         return { ...summary, fingerprint: repo.fingerprint, uncommitted: repo.dirty ? 1 : 0 };
       case 'repo_status': return args?.path === context.worktreePath && repo.dirty ? [{ path: 'file.txt', index_status: ' ', worktree_status: 'M' }] : [];
       case 'merge_state': case 'rebase_status': case 'cherry_pick_state': return { in_progress: false };
+      case 'git_am_state': if (repo.amError) throw repo.amError; return { in_progress: false };
       case 'repo_commit_inspect': return { header: `commit ${args?.path === context.basePath ? repo.baseHead : repo.sessionHead}\nAuthor: Agent <a@example.com>\n\n    Update\n` };
       case 'agent_review_commit_checked': repo.dirty = false; repo.sessionHead = 'aaa789'; return repo.sessionHead;
       case 'agent_review_branch_merged': return repo.merged;
@@ -75,6 +77,17 @@ function harness(dirty = false) {
 }
 
 describe('mobile finish with the real shared controller', () => {
+  it('commits and merges on an older host without git_am_state', async () => {
+    const h = harness(true);
+    h.hosts.get('host-a')!.amError = Error('Unbekannter Befehl: git_am_state');
+    const controller = h.create();
+    await controller.refresh(); controller.setMessage('Finish on a legacy host'); controller.markReviewed(true);
+    expect(await controller.run('commit')).toBe(true);
+    controller.markReviewed(true);
+    expect(await controller.run('merge')).toBe(true);
+    expect(h.hosts.get('host-a')!.merged).toBe(true);
+  });
+
   it('permits Git finishing on a bound online host when its selected CLI is unavailable', () => {
     const connection = { bound: true, provider: 'codex', status: 'error', error: 'Codex is not installed on this Claude host.' };
     expect(mobileFinishAvailable(true, connection)).toBe(true);

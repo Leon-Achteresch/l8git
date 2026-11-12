@@ -1,3 +1,5 @@
+use crate::coded;
+use crate::error::{required, Label};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -33,13 +35,11 @@ pub struct Config {
     pub roots: Vec<String>,
     #[serde(default)]
     pub port: Option<u16>,
-    #[serde(default)]
-    pub relay: Option<String>,
 }
 
 pub fn config_dir() -> Result<PathBuf, String> {
     let base =
-        dirs::config_dir().ok_or_else(|| "Kein Konfigurationsverzeichnis gefunden.".to_string())?;
+        dirs::config_dir().ok_or_else(|| coded!(ConfigDirMissing))?;
     Ok(base.join("l8gitd"))
 }
 
@@ -59,21 +59,21 @@ pub fn load() -> Config {
 
 pub fn save(config: &Config) -> Result<(), String> {
     let dir = config_dir()?;
-    std::fs::create_dir_all(&dir).map_err(|e| format!("Konfiguration nicht schreibbar: {e}"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| coded!(ConfigWriteFailed, error = e))?;
     let path = dir.join("config.json");
     let raw = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-    std::fs::write(&path, raw).map_err(|e| format!("Konfiguration nicht schreibbar: {e}"))
+    std::fs::write(&path, raw).map_err(|e| coded!(ConfigWriteFailed, error = e))
 }
 
 fn resolve_root(path: &str) -> Result<PathBuf, String> {
     if path.is_empty() {
-        return Err("Pfad darf nicht leer sein.".into());
+        return Err(required(Label::Path));
     }
     let resolved = PathBuf::from(path)
         .canonicalize()
-        .map_err(|e| format!("Pfad nicht auflösbar: {e}"))?;
+        .map_err(|e| coded!(PathUnresolved, error = e))?;
     if !resolved.is_dir() {
-        return Err("Pfad ist kein Ordner.".into());
+        return Err(coded!(PathNotFolder));
     }
     Ok(resolved)
 }
@@ -124,16 +124,14 @@ pub fn check_path(allowed: &[PathBuf], raw: &str) -> Result<(), String> {
         return Ok(());
     }
     if allowed.is_empty() {
-        return Err(format!(
-            "Kein Repo-Root freigegeben. `l8gitd allow <path>` ausführen (angefragt: {raw})"
-        ));
+        return Err(coded!(ServerNoRootAllowed, path = raw));
     }
     for root in allowed {
         if crate::pathsafe::contained(root, candidate).is_ok() {
             return Ok(());
         }
     }
-    Err(format!("Pfad ist nicht freigegeben: {raw}"))
+    Err(coded!(ServerPathNotAllowed, path = raw))
 }
 
 pub fn ensure_allowed(allowed: &[PathBuf], args: &Value) -> Result<(), String> {
@@ -180,14 +178,12 @@ fn root_path(base: &Path, raw: &str) -> PathBuf {
 fn check_root_path(allowed: &[PathBuf], base: &Path, raw: &str) -> Result<(), String> {
     let candidate = root_path(base, raw);
     if allowed.is_empty() {
-        return Err(format!(
-            "Kein Repo-Root freigegeben. `l8gitd allow <path>` ausführen (angefragt: {raw})"
-        ));
+        return Err(coded!(ServerNoRootAllowed, path = raw));
     }
     if allowed.iter().any(|root| crate::pathsafe::contained(root, &candidate).is_ok()) {
         return Ok(());
     }
-    Err(format!("Pfad ist nicht freigegeben: {raw}"))
+    Err(coded!(ServerPathNotAllowed, path = raw))
 }
 
 fn check_root_value(allowed: &[PathBuf], base: &Path, value: &Value) -> Result<(), String> {
@@ -208,7 +204,7 @@ fn check_root_value(allowed: &[PathBuf], base: &Path, value: &Value) -> Result<(
 /// Validate supplied repository/CWD arguments using their execution context.
 /// Relative file arguments retain the generic `ensure_allowed` contract.
 pub fn ensure_command_allowed(allowed: &[PathBuf], command: &str, args: &Value) -> Result<(), String> {
-    let cwd = std::env::current_dir().map_err(|error| format!("Arbeitsverzeichnis nicht auflösbar: {error}"))?;
+    let cwd = std::env::current_dir().map_err(|error| coded!(WorkingDirUnresolved, error = error))?;
     ensure_command_allowed_from(allowed, command, args, &cwd)
 }
 
@@ -228,7 +224,7 @@ fn ensure_command_allowed_from(
             continue;
         }
         let base = if git_worktree && matches!(key.as_str(), "worktreePath" | "newPath") {
-            worktree_base.as_deref().ok_or_else(|| "Fehlendes Argument \"path\".".to_string())?
+            worktree_base.as_deref().ok_or_else(|| coded!(ServerMissingArgument, name = "path"))?
         } else {
             cwd
         };
@@ -263,6 +259,16 @@ fn ensure_command_allowed_from(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn legacy_config_with_relay_field_still_loads() {
+        let raw = r#"{"roots":["/srv/repo"],"port":9000,"relay":"wss://relay.example"}"#;
+        let config: Config = serde_json::from_str(raw).unwrap();
+        assert_eq!(config.roots, vec!["/srv/repo".to_string()]);
+        assert_eq!(config.port, Some(9000));
+        let saved = serde_json::to_value(&config).unwrap();
+        assert!(saved.get("relay").is_none());
+    }
 
     fn scratch(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(

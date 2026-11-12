@@ -65,7 +65,7 @@ export function HubInbox({ account }: { account: HubAccount }) {
       toastError(t("inboxx.partial", { ok: r.succeeded.length, failed: r.failed.length, error: r.failed[0].error }));
     } else if (ids.length > 1) toast.success(t("inboxx.markedMany", { count: ids.length }));
   }
-  const snooze = (keys: string[], s: Snooze) => keys.forEach((k) => update(k, { snooze: s }));
+  const snooze = (keys: string[], s: Snooze) => keys.forEach((k) => { update(k, { snooze: s }); });
   const selectedGroups = groups.filter((g) => selected.has(g.key));
 
   const renderGroup = (g: InboxGroup) => {
@@ -129,7 +129,7 @@ export function HubInbox({ account }: { account: HubAccount }) {
         <div className="sticky top-0 z-10 flex items-center gap-2 border-y border-border/60 bg-background px-5 py-1.5 text-xs">
           <span>{t("inboxx.selected", { count: selected.size })}</span>
           <Button size="xs" variant="outline" onClick={() => { void markRead(selectedGroups.flatMap((g) => g.items.map((i) => i.id))); setSelected(new Set()); }}><Check />{t("inboxx.markRead")}</Button>
-          <SnoozeMenu onPick={(sn) => { selectedGroups.forEach((g) => snooze([g.key], sn(g.latest.updatedAt))); setSelected(new Set()); }} label={t("inboxx.snooze")} />
+          <SnoozeMenu onPick={(sn) => { selectedGroups.forEach((g) => { snooze([g.key], sn(g.latest.updatedAt)); }); setSelected(new Set()); }} label={t("inboxx.snooze")} />
           <Button size="xs" variant="ghost" onClick={() => setSelected(new Set())}>{t("common.clear")}</Button>
         </div>
       )}

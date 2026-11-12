@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import type { AgentMcpServerDraft } from "@/lib/agents/capability-types";
+import { formatBackendError } from "@/lib/backend-error";
 import { invoke } from "@/lib/platform/ipc";
 
 /** Ebenen, auf denen eine CLI ihre Capabilities ablegt. */
@@ -467,6 +468,11 @@ interface CapabilityHubState {
 const EMPTY_INVENTORY: CapabilityInventory = { targets: [], items: [], warnings: [] };
 const inflight = new Map<string, Promise<void>>();
 
+/** Result messages can carry coded backend errors; translate them once on receipt. */
+export function formatOpResults(results: CapabilityOpResult[]): CapabilityOpResult[] {
+  return results.map((result) => ({ ...result, message: formatBackendError(result.message) }));
+}
+
 export const useCapabilityHubStore = create<CapabilityHubState>((set, get) => ({
   path: null,
   loading: false,
@@ -499,7 +505,7 @@ export const useCapabilityHubStore = create<CapabilityHubState>((set, get) => ({
       } catch (error) {
         set({
           loading: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: formatBackendError(error),
           inventory: EMPTY_INVENTORY,
           path,
           loadedAt: Date.now(),
@@ -517,12 +523,12 @@ export const useCapabilityHubStore = create<CapabilityHubState>((set, get) => ({
     if (!path) return [];
     set({ busy: true });
     try {
-      const results = await invoke<CapabilityOpResult[]>("agent_cap_copy", {
+      const results = formatOpResults(await invoke<CapabilityOpResult[]>("agent_cap_copy", {
         path,
         items,
         targets,
         overwrite,
-      });
+      }));
       await get().load(path, true);
       return results;
     } finally {
@@ -535,7 +541,7 @@ export const useCapabilityHubStore = create<CapabilityHubState>((set, get) => ({
     if (!path) return [];
     set({ busy: true });
     try {
-      const results = await invoke<CapabilityOpResult[]>("agent_cap_delete", { path, items });
+      const results = formatOpResults(await invoke<CapabilityOpResult[]>("agent_cap_delete", { path, items }));
       await get().load(path, true);
       return results;
     } finally {
@@ -548,13 +554,14 @@ export const useCapabilityHubStore = create<CapabilityHubState>((set, get) => ({
     if (!path) return [];
     set({ busy: true });
     try {
-      return await invoke<CapabilityPlanEntry[]>("agent_cap_sync_plan", {
+      const entries = await invoke<CapabilityPlanEntry[]>("agent_cap_sync_plan", {
         path,
         source,
         targets,
         kinds,
         includeExtras,
       });
+      return entries.map((entry) => ({ ...entry, detail: formatBackendError(entry.detail) }));
     } finally {
       set({ busy: false });
     }
@@ -565,11 +572,11 @@ export const useCapabilityHubStore = create<CapabilityHubState>((set, get) => ({
     if (!path) return [];
     set({ busy: true });
     try {
-      const results = await invoke<CapabilityOpResult[]>("agent_cap_sync_apply", {
+      const results = formatOpResults(await invoke<CapabilityOpResult[]>("agent_cap_sync_apply", {
         path,
         entries,
         deleteExtras,
-      });
+      }));
       await get().load(path, true);
       return results;
     } finally {

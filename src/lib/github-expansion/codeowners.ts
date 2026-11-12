@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import type { HubAccount } from "@/lib/hub/types";
 import { enc, hubApi } from "@/lib/hub/api";
 import { readTemplate } from "./api";
@@ -113,7 +114,7 @@ export async function listCodeowners(a: HubAccount, repo: string, ref: string): 
   const parsed = parseCodeowners(raw);
   let providerErrors: CodeownerError[] = [], validationError: string | null = null;
   try { providerErrors = (await hubApi<{ errors: CodeownerError[] }>(a, "GET", `/repos/${repo.split("/").map(enc).join("/")}/codeowners/errors?ref=${enc(ref)}`)).errors; }
-  catch (error) { validationError = String(error); }
+  catch (error) { validationError = formatBackendError(error); }
   const invalidLines = new Set(providerErrors.filter(error => !error.path || error.path === path).map(error => error.line));
   return { path, ref, rules: parsed.rules.filter(rule => !invalidLines.has(rule.line)), errors: [...parsed.errors, ...providerErrors], validationError };
 }

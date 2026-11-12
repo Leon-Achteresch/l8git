@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { getPullMeta, listCommitPulls, type DecisionPull, type PullMeta } from "@/lib/github-expansion/api";
 import { isTarget, useGithubTarget } from "@/lib/github-ui/target";
 import { ChevronRight, Loader2 } from "lucide-react";
@@ -24,7 +25,7 @@ export function CommitDecisionTrail({ path, sha }: { path: string; sha: string }
       const pulls = (await listCommitPulls(a, fullName, sha)).items;
       setTrail(await Promise.all(pulls.map(async (p) => ({ pull: p, meta: await getPullMeta(a, fullName, p.number).catch(() => null) }))));
     } catch (e) {
-      setError(String(e));
+      setError(formatBackendError(e));
     }
   }
 

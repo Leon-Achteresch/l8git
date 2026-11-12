@@ -49,7 +49,7 @@ pub fn router(state: Arc<ServerState>) -> Router {
 pub async fn serve(state: Arc<ServerState>, port: u16) -> Result<(), String> {
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
-        .map_err(|e| format!("Port {port} nicht belegbar: {e}"))?;
+        .map_err(|e| crate::coded!(ServerPortUnavailable, port = port, error = e))?;
     log::info!("l8gitd listening on 0.0.0.0:{port} hostId={}", state.host_id);
     serve_on(state, listener).await
 }
@@ -291,18 +291,18 @@ fn handle_frame(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending:
 
 fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending: &Pending, frame: Value) {
     let Some(id) = frame_id(&frame) else {
-        conn.send_response(0, Err("req-Frame ohne id".to_string()));
+        conn.send_response(0, Err(crate::coded!(ServerMissingRequestId)));
         return;
     };
     let Some(cmd) = frame.get("cmd").and_then(Value::as_str).map(str::to_string) else {
-        conn.send_response(id, Err("req-Frame ohne cmd".to_string()));
+        conn.send_response(id, Err(crate::coded!(ServerMissingCommand)));
         return;
     };
     let args = match frame.get("args") {
         None | Some(Value::Null) => json!({}),
         Some(Value::Object(map)) => Value::Object(map.clone()),
         Some(_) => {
-            conn.send_response(id, Err("args muss ein Objekt sein".to_string()));
+            conn.send_response(id, Err(crate::coded!(ServerArgsNotObject)));
             return;
         }
     };
@@ -326,7 +326,7 @@ fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending
             exec::run(dispatch::dispatch(&cmd, args, &ctx), canceled)
         })
         .await
-        .unwrap_or_else(|error| Err(format!("Befehl abgebrochen: {error}")));
+        .unwrap_or_else(|error| Err(crate::coded!(ServerCommandAborted, error = error)));
         if let (Some((cmd, args)), Ok(data)) = (tracked, &result) {
             conn_for_task.record_resource(&cmd, &args, data);
         }
@@ -350,7 +350,7 @@ mod tests {
     use super::*;
 
     fn harness() -> (Arc<ServerState>, Arc<ConnectionHandle>, Pending, mpsc::Receiver<Value>) {
-        let state = ServerState::new("host".into(), [3u8; 32], vec![], None);
+        let state = ServerState::new("host".into(), [3u8; 32], vec![]);
         let (tx, rx) = mpsc::channel(OUTBOX_CAPACITY);
         let conn = Arc::new(ConnectionHandle::new(1, tx));
         (state, conn, Arc::new(Mutex::new(HashMap::new())), rx)
@@ -383,7 +383,7 @@ mod tests {
         assert_eq!(frame["type"], "res");
         assert_eq!(frame["id"], 9);
         assert_eq!(frame["ok"], false);
-        assert!(frame["error"].as_str().unwrap().contains("Unbekannter Befehl"));
+        assert!(frame["error"].as_str().unwrap().contains("Unknown command"));
     }
 
     #[tokio::test]
@@ -398,7 +398,7 @@ mod tests {
         let frame = drain(&mut rx).await;
         assert_eq!(frame["id"], 4);
         assert_eq!(frame["ok"], false);
-        assert!(frame["error"].as_str().unwrap().contains("freigegeben"));
+        assert!(frame["error"].as_str().unwrap().contains("shared"));
     }
 
     #[tokio::test]
@@ -414,7 +414,7 @@ mod tests {
             let frame = drain(&mut rx).await;
             assert_eq!(frame["id"], id);
             assert_eq!(frame["ok"], false);
-            assert!(frame["error"].as_str().unwrap().contains("Kein Repo-Root freigegeben"));
+            assert!(frame["error"].as_str().unwrap().contains("No repository root is shared"));
             assert!(pending.lock().unwrap().is_empty());
         }
     }
@@ -428,7 +428,7 @@ mod tests {
         assert!(drain(&mut rx).await["error"]
             .as_str()
             .unwrap()
-            .contains("cmd"));
+            .contains("no command"));
         handle_frame(
             &state,
             &conn,
@@ -438,7 +438,7 @@ mod tests {
         assert!(drain(&mut rx).await["error"]
             .as_str()
             .unwrap()
-            .contains("Objekt"));
+            .contains("must be an object"));
     }
 
     #[tokio::test]
@@ -526,7 +526,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn a_peer_that_never_says_hello_is_dropped_and_frees_its_session_slot() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
-        let state = ServerState::new("host-quiet".into(), psk, vec![], None);
+        let state = ServerState::new("host-quiet".into(), psk, vec![]);
         let (_in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
         let (wire_tx, _wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
         let error = session(state.clone(), in_rx, wire_tx)
@@ -539,7 +539,7 @@ mod tests {
     #[tokio::test]
     async fn sessions_beyond_the_cap_are_refused() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
-        let state = ServerState::new("host-cap".into(), psk, vec![], None);
+        let state = ServerState::new("host-cap".into(), psk, vec![]);
         let slots: Vec<_> = (0..crate::server::state::MAX_SESSIONS)
             .map(|_| state.acquire_session().unwrap())
             .collect();
@@ -555,7 +555,7 @@ mod tests {
     #[tokio::test]
     async fn a_session_over_plain_channels_completes_the_handshake_and_serves_frames() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
-        let state = ServerState::new("host-x".into(), psk, vec![], None);
+        let state = ServerState::new("host-x".into(), psk, vec![]);
         let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
         let (wire_tx, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
         let task = tokio::spawn(session(state, in_rx, wire_tx));
@@ -599,7 +599,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn an_authenticated_connection_that_goes_quiet_is_torn_down() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
-        let state = ServerState::new("host-halfopen".into(), psk, vec![], None);
+        let state = ServerState::new("host-halfopen".into(), psk, vec![]);
         let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
         let (wire_tx, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
         let task = tokio::spawn(session(state.clone(), in_rx, wire_tx));
@@ -633,7 +633,7 @@ mod tests {
     #[tokio::test]
     async fn a_slow_synchronous_command_never_stalls_the_ping_loop() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
-        let state = ServerState::new("host-slow".into(), psk, vec![], None);
+        let state = ServerState::new("host-slow".into(), psk, vec![]);
         let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
         let (wire_tx, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
         let task = tokio::spawn(session(state, in_rx, wire_tx));
@@ -698,7 +698,7 @@ mod tests {
     #[tokio::test]
     async fn a_session_rejects_a_hello_for_another_host_id() {
         let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
-        let state = ServerState::new("host-x".into(), psk, vec![], None);
+        let state = ServerState::new("host-x".into(), psk, vec![]);
         let (in_tx, in_rx) = mpsc::unbounded_channel::<Frame>();
         let (wire_tx, mut wire_rx) = mpsc::channel::<Frame>(WIRE_CAPACITY);
         let task = tokio::spawn(session(state, in_rx, wire_tx));

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/resizable";
 import { pathMatchesQuery } from "@/lib/commit-compare";
 import { cn } from "@/lib/utils";
-import { FileCode2, Files, GitCommitHorizontal, Undo2 } from "lucide-react";
+import { Columns2, FileCode2, Files, GitCommitHorizontal, Undo2 } from "lucide-react";
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
 import { useTranslation } from "react-i18next";
@@ -28,6 +28,7 @@ export function CommitInspectFileTabs({
   selectedFile,
   onSelectFile,
   onBlame,
+  onExternalDiff,
   onDiscardFile,
   query,
   onQueryChange,
@@ -37,6 +38,7 @@ export function CommitInspectFileTabs({
   selectedFile: string | null;
   onSelectFile: (path: string | null) => void;
   onBlame?: (path: string) => void;
+  onExternalDiff?: (path: string) => void;
   onDiscardFile?: (path: string) => void;
   /** Owned by the parent so the filter survives the reload spinner. */
   query: string;
@@ -199,6 +201,12 @@ export function CommitInspectFileTabs({
                     <GitCommitHorizontal className="size-3.5" />
                     {t("commitPanel.fileRowBlame")}
                   </ContextMenuItem>
+                  {onExternalDiff && (
+                    <ContextMenuItem onSelect={() => onExternalDiff(file.path)}>
+                      <Columns2 className="size-3.5" />
+                      {t("externalTools.openDiff")}
+                    </ContextMenuItem>
+                  )}
                   {onDiscardFile && (
                     <ContextMenuItem
                       variant="destructive"

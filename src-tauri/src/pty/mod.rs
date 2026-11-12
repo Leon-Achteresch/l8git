@@ -63,7 +63,7 @@ pub(crate) async fn pty_open_inner(
     if let Some(dir) = cwd.as_deref() {
         if !dir.is_empty() && !std::path::Path::new(dir).is_dir() {
             log::warn!("pty_open: cwd rejected: {dir}");
-            return Err("Pfad ist kein Ordner.".into());
+            return Err(crate::coded!(PathNotFolder));
         }
     }
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);

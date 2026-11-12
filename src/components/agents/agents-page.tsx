@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -163,7 +164,7 @@ export function AgentsPage() {
       void store.connect().catch(() => {});
       return release;
     });
-    return () => releases.forEach(release => release());
+    return () => releases.forEach(release => { release(); });
   }, []);
 
   useEffect(() => {
@@ -244,7 +245,7 @@ export function AgentsPage() {
     try {
       await action();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(formatBackendError(error));
     } finally {
       setBusy(false);
     }

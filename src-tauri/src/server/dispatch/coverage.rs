@@ -3,6 +3,8 @@
 pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     "save_user_export",
     "save_user_export_bytes",
+    // Read and write arbitrary host paths picked in a native dialog.
+    "git_format_patch", "git_export_diff_patch", "git_patch_check", "git_patch_apply",
     "runtime_diagnostics",
     "fetch_claude_usage", "git_command_log_live", "read_image_data_url",
     "jira_credentials_status", "jira_delete_credentials", "jira_fetch_comments", "jira_fetch_issue",
@@ -15,6 +17,8 @@ pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     "hub_oauth_start", "hub_use_for_git",
     // Would let a remote client make the host POST to any URL.
     "hub_t3_send",
+    // External diff/merge tools open GUI windows on the host and use its global git config.
+    "git_external_tool_settings", "git_set_external_tool", "git_open_difftool", "git_open_mergetool",
 ];
 
 const LIB_RS: &str = include_str!("../../lib.rs");
@@ -161,7 +165,7 @@ mod tests {
     use tokio::sync::mpsc;
 
     fn ctx(cmd: &str) -> (DispatchCtx, mpsc::Receiver<Value>) {
-        let state = ServerState::new("host".into(), [5u8; 32], vec![], None);
+        let state = ServerState::new("host".into(), [5u8; 32], vec![]);
         let (tx, rx) = mpsc::channel(crate::server::state::OUTBOX_CAPACITY);
         let conn = Arc::new(ConnectionHandle::new(1, tx));
         (DispatchCtx::new(state, conn, 1, cmd), rx)
@@ -206,10 +210,7 @@ mod tests {
             let result = dispatch(&arm.name, json!({}), &c).await;
             assert_eq!(
                 result,
-                Err(format!(
-                    "Fehlendes Argument \"{}\".",
-                    camel_case(&required)
-                )),
+                Err(crate::coded!(ServerMissingArgument, name = camel_case(&required))),
                 "{} did not report its first required argument",
                 arm.name
             );
@@ -224,6 +225,6 @@ mod tests {
         assert!(dispatch("l8git_no_such_command", json!({}), &c)
             .await
             .unwrap_err()
-            .contains("Unbekannter Befehl"));
+            .contains("Unknown command"));
     }
 }

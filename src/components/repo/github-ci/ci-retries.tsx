@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { inconsistentJobOutcomes, listRunJobs, listWorkflowRuns, type CiJob, type CiRun } from "@/lib/github-expansion/ci";
 import { attemptNumbers } from "@/lib/github-ci-ui/ci-model";
@@ -37,7 +38,7 @@ export function CiRetries({ target, run }: { target: GithubTarget; run: RunX }) 
           try {
             samples.push({ run: r, jobs: (await listRunJobs(account, fullName, r.id, 1, attempt)).items });
           } catch (e) {
-            failed.push(`#${r.id}/${attempt}: ${String(e)}`);
+            failed.push(`#${r.id}/${attempt}: ${formatBackendError(e)}`);
           }
         }
       }

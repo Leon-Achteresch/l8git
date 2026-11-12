@@ -18,6 +18,7 @@ use crate::capability_sync::{
     result, safe_relative, supports_kind, write_mcp_spec, CapabilityOpResult, CapabilityTargetRef,
     McpSpec,
 };
+use crate::coded;
 
 const SEARCH_TTL: Duration = Duration::from_secs(300);
 const DETAIL_TTL: Duration = Duration::from_secs(600);
@@ -156,14 +157,14 @@ async fn github_raw(full_name: &str, ref_name: &str, path: &str) -> Result<Vec<u
         .await
         .map_err(|error| format!("Download: {error}"))?;
     if !response.status().is_success() {
-        return Err(format!("Download fehlgeschlagen ({}).", response.status()));
+        return Err(coded!(MarketDownloadFailed, status = response.status()));
     }
     let bytes = response
         .bytes()
         .await
         .map_err(|error| format!("Download: {error}"))?;
     if bytes.len() > MAX_FILE_BYTES {
-        return Err(format!("{path} ist größer als 2 MB."));
+        return Err(coded!(MarketFileTooLarge, path = path));
     }
     Ok(bytes.to_vec())
 }
@@ -349,17 +350,14 @@ pub async fn agent_market_search(
         if status == 403 || status == 429 {
             rate_limited = true;
             notes.push(if token.is_some() {
-                "GitHub-Suchlimit erreicht – bitte kurz warten.".to_string()
+                coded!(MarketSearchRateLimited)
             } else {
-                "GitHub-Suchlimit erreicht. Mit einem GitHub-Login in den Einstellungen sind deutlich mehr Suchen möglich.".to_string()
+                coded!(MarketSearchRateLimitedSignIn)
             });
             continue;
         }
         if status >= 400 {
-            notes.push(format!(
-                "GitHub antwortete mit {status}: {}",
-                text(&value, "message")
-            ));
+            notes.push(coded!(MarketSearchFailed, status = status, message = text(&value, "message")));
             continue;
         }
         total_count = total_count.max(number(&value, "total_count"));
@@ -426,7 +424,7 @@ fn safe_full_name(full_name: &str) -> Result<String, String> {
     let trimmed = full_name.trim();
     let mut parts = trimmed.split('/');
     let (Some(owner), Some(repo), None) = (parts.next(), parts.next(), parts.next()) else {
-        return Err("Ungültiger Repository-Name (erwartet: owner/repo).".into());
+        return Err(coded!(MarketRepoNameFormat));
     };
     let valid = |value: &str| {
         !value.is_empty()
@@ -436,7 +434,7 @@ fn safe_full_name(full_name: &str) -> Result<String, String> {
                 .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.'))
     };
     if !valid(owner) || !valid(repo) {
-        return Err("Ungültiger Repository-Name.".into());
+        return Err(coded!(MarketRepoNameInvalid));
     }
     Ok(format!("{owner}/{repo}"))
 }
@@ -450,7 +448,7 @@ fn safe_ref(ref_name: &str) -> Result<String, String> {
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.' | '/'))
         || trimmed.contains("..")
     {
-        return Err("Ungültiger Branch oder Tag.".into());
+        return Err(coded!(MarketRefInvalid));
     }
     Ok(trimmed.to_string())
 }
@@ -468,10 +466,7 @@ async fn repo_tree(full_name: &str, ref_name: &str) -> Result<(Vec<(String, Stri
     let url = format!("https://api.github.com/repos/{full_name}/git/trees/{ref_name}?recursive=1");
     let (status, value) = github_get(&url, token.as_deref()).await?;
     if status >= 400 {
-        return Err(format!(
-            "Repository-Inhalt konnte nicht gelesen werden ({status}): {}",
-            text(&value, "message")
-        ));
+        return Err(coded!(MarketTreeFailed, status = status, message = text(&value, "message")));
     }
     let truncated = value.get("truncated").and_then(Value::as_bool).unwrap_or(false);
     let entries: Vec<(String, String, u64)> = value
@@ -699,10 +694,7 @@ pub async fn agent_market_inspect(
     )
     .await?;
     if status >= 400 {
-        return Err(format!(
-            "Repository konnte nicht geladen werden ({status}): {}",
-            text(&value, "message")
-        ));
+        return Err(coded!(MarketRepoLoadFailed, status = status, message = text(&value, "message")));
     }
     let repo = map_repo(&value, "repo");
     let reference = match ref_name {
@@ -796,10 +788,10 @@ impl InstallBudget {
         self.files += 1;
         self.bytes += size;
         if self.files > MAX_INSTALL_FILES {
-            return Err(format!("Mehr als {MAX_INSTALL_FILES} Dateien – Installation abgebrochen."));
+            return Err(coded!(MarketTooManyFiles, max = MAX_INSTALL_FILES));
         }
         if self.bytes > MAX_TOTAL_BYTES {
-            return Err("Mehr als 20 MB – Installation abgebrochen.".into());
+            return Err(coded!(MarketTooLarge));
         }
         Ok(())
     }
@@ -810,14 +802,14 @@ fn target_directory(
     repo: &Path,
     kind: &str,
 ) -> Result<PathBuf, String> {
-    let layout = layout(&target.cli).ok_or_else(|| "Unbekannte CLI.".to_string())?;
+    let layout = layout(&target.cli).ok_or_else(|| coded!(AgentUnknownProvider, provider = target.cli))?;
     let root = cli_root(layout, &target.scope, repo)
-        .ok_or_else(|| "Zielverzeichnis nicht gefunden.".to_string())?;
+        .ok_or_else(|| coded!(CapabilityTargetDirMissing))?;
     match kind {
         "hookScript" => Ok(root.join("hooks")),
         _ => {
             let directory = kind_dir(layout, kind)
-                .ok_or_else(|| format!("{} kennt diese Capability-Art nicht.", layout.label))?;
+                .ok_or_else(|| coded!(CapabilityKindUnsupportedBy, cli = layout.label))?;
             Ok(root.join(directory))
         }
     }
@@ -832,10 +824,10 @@ async fn install_files(
     overwrite: bool,
     budget: &mut InstallBudget,
 ) -> Result<(String, u32), String> {
-    let target_layout = layout(&target.cli).ok_or_else(|| "Unbekannte CLI.".to_string())?;
+    let target_layout = layout(&target.cli).ok_or_else(|| coded!(AgentUnknownProvider, provider = target.cli))?;
     let directory = target_directory(target, repo, &asset.kind)?;
     let root = cli_root(target_layout, &target.scope, repo)
-        .ok_or_else(|| "Zielverzeichnis nicht gefunden.".to_string())?;
+        .ok_or_else(|| coded!(CapabilityTargetDirMissing))?;
 
     if asset.kind == "skill" {
         let (entries, _) = repo_tree(full_name, ref_name).await?;
@@ -846,11 +838,11 @@ async fn install_files(
             .map(|(path, _, _)| path.clone())
             .collect();
         if files.is_empty() {
-            return Err("Der Skill-Ordner ist leer.".into());
+            return Err(coded!(MarketSkillFolderEmpty));
         }
         let destination = directory.join(safe_relative(&asset.name)?);
         if destination.exists() && !overwrite {
-            return Err("Skill existiert bereits – Überschreiben ist nicht aktiviert.".into());
+            return Err(coded!(MarketSkillExists));
         }
         backup_existing(&root, &destination, &asset.name)?;
         let mut written = 0_u32;
@@ -876,7 +868,7 @@ async fn install_files(
     };
     let destination = directory.join(safe_relative(&relative)?);
     if destination.exists() && !overwrite {
-        return Err("Datei existiert bereits – Überschreiben ist nicht aktiviert.".into());
+        return Err(coded!(MarketFileExists));
     }
     let bytes = github_raw(full_name, ref_name, &asset.path).await?;
     budget.charge(bytes.len())?;
@@ -971,13 +963,13 @@ async fn install_mcp(
     target: &CapabilityTargetRef,
     repo: &Path,
 ) -> Result<(String, u32), String> {
-    let target_layout = layout(&target.cli).ok_or_else(|| "Unbekannte CLI.".to_string())?;
+    let target_layout = layout(&target.cli).ok_or_else(|| coded!(AgentUnknownProvider, provider = target.cli))?;
     let bytes = github_raw(full_name, ref_name, &asset.path).await?;
     let value: Value = serde_json::from_slice(&bytes)
-        .map_err(|error| format!("{} ist kein gültiges JSON: {error}", asset.path))?;
+        .map_err(|error| coded!(CapabilityJsonInvalid, path = asset.path, error = error))?;
     let specs = specs_from_bundle(&value);
     if specs.is_empty() {
-        return Err("Keine MCP-Server in der Datei gefunden.".into());
+        return Err(coded!(MarketNoMcpServers));
     }
     let mut path = String::new();
     for spec in &specs {
@@ -995,15 +987,15 @@ async fn install_hooks(
     target: &CapabilityTargetRef,
     repo: &Path,
 ) -> Result<(String, u32), String> {
-    let target_layout = layout(&target.cli).ok_or_else(|| "Unbekannte CLI.".to_string())?;
+    let target_layout = layout(&target.cli).ok_or_else(|| coded!(AgentUnknownProvider, provider = target.cli))?;
     if !supports_kind(target_layout, "hook") {
-        return Err(format!("{} unterstützt keine Hooks.", target_layout.label));
+        return Err(coded!(CapabilityHooksUnsupported, cli = target_layout.label));
     }
     let bytes = github_raw(full_name, ref_name, &asset.path).await?;
     let value: Value = serde_json::from_slice(&bytes)
-        .map_err(|error| format!("{} ist kein gültiges JSON: {error}", asset.path))?;
+        .map_err(|error| coded!(CapabilityJsonInvalid, path = asset.path, error = error))?;
     let Some(hooks) = value.get("hooks").and_then(Value::as_object) else {
-        return Err("Die Datei enthält keine Hook-Definitionen.".into());
+        return Err(coded!(MarketNoHookDefinitions));
     };
     let mut count = 0_u32;
     let mut path = String::new();
@@ -1019,18 +1011,18 @@ async fn install_hooks(
         }
     }
     if count == 0 {
-        return Err("Keine übertragbaren Hooks gefunden.".into());
+        return Err(coded!(MarketNoTransferableHooks));
     }
     Ok((path, count))
 }
 
 fn add_plugin_marketplace(cli: &str, source: &str, repo: &Path) -> Result<String, String> {
-    let layout = layout(cli).ok_or_else(|| "Unbekannte CLI.".to_string())?;
+    let layout = layout(cli).ok_or_else(|| coded!(AgentUnknownProvider, provider = cli))?;
     if !crate::shell::cli_in_path(layout.command) {
-        return Err(format!("{} ist nicht installiert.", layout.label));
+        return Err(coded!(AgentCliMissing, agent = layout.label));
     }
     if !matches!(cli, "claude" | "codex") {
-        return Err(format!("{} kennt keine Plugin-Marktplätze.", layout.label));
+        return Err(coded!(MarketNoPluginMarketplaces, cli = layout.label));
     }
     let output = crate::cmd::cli_command(layout.command)
         .args(["plugin", "marketplace", "add", source])
@@ -1043,7 +1035,7 @@ fn add_plugin_marketplace(cli: &str, source: &str, repo: &Path) -> Result<String
     }
     let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
     Err(if message.is_empty() {
-        "Der CLI-Befehl ist fehlgeschlagen.".into()
+        coded!(AgentCliCommandFailed, agent = layout.label)
     } else {
         message
     })
@@ -1085,7 +1077,7 @@ pub async fn agent_market_install(
                     .and_then(|inner| inner)
                     .map(|message| (message, 1))
                 }
-                other => Err(format!("Unbekannte Art: {other}")),
+                _ => Err(coded!(CapabilityKindUnknown)),
             };
             results.push(match outcome {
                 Ok((location, count)) => result(
@@ -1128,7 +1120,7 @@ pub async fn agent_market_add_mcp(
             .map(|target| {
                 let target_label = label_of(&target.cli, &target.scope);
                 let outcome = layout(&target.cli)
-                    .ok_or_else(|| "Unbekannte CLI.".to_string())
+                    .ok_or_else(|| coded!(AgentUnknownProvider, provider = target.cli))
                     .and_then(|entry| write_mcp_spec(entry, &target.scope, &repo, &spec));
                 match outcome {
                     Ok(location) => result(
@@ -1172,7 +1164,7 @@ pub async fn agent_market_preview(
     let relative = safe_relative(&file)?;
     let normalized = relative.to_string_lossy().replace('\\', "/");
     let bytes = github_raw(&full_name, &reference, &normalized).await?;
-    String::from_utf8(bytes).map_err(|_| "Die Datei ist keine Textdatei.".to_string())
+    String::from_utf8(bytes).map_err(|_| coded!(MarketNotText))
 }
 
 /// Kleiner Helfer für die UI: JSON-Datei einer CLI direkt lesen/schreiben ist

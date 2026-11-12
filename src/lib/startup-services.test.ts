@@ -13,7 +13,7 @@ describe("startup services", () => {
   const paint = () => {
     const pending = [...frames.values()];
     frames.clear();
-    pending.forEach(callback => callback(0));
+    pending.forEach(callback => { callback(0); });
   };
   beforeEach(() => {
     vi.resetModules();

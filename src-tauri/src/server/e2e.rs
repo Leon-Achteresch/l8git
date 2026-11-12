@@ -34,7 +34,7 @@ impl Drop for Host {
 
 async fn start() -> Host {
     let psk = crypto::decode_psk(&crypto::random_psk_b64()).unwrap();
-    let state = ServerState::new(HOST_ID.into(), psk, vec![], None);
+    let state = ServerState::new(HOST_ID.into(), psk, vec![]);
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
     let addr = listener.local_addr().unwrap();
     let task = tokio::spawn(ws::serve_on(state.clone(), listener));
@@ -132,13 +132,13 @@ async fn a_paired_client_authenticates_and_calls_a_command_over_the_socket() {
 
     let res = client.call(2, "no_such_command", json!({})).await;
     assert_eq!(res["ok"], false);
-    assert!(res["error"].as_str().unwrap().contains("Unbekannter Befehl"));
+    assert!(res["error"].as_str().unwrap().contains("Unknown command"));
 
     let res = client
         .call(3, "repo_status", json!({ "repoPath": "/etc" }))
         .await;
     assert_eq!(res["ok"], false);
-    assert!(res["error"].as_str().unwrap().contains("freigegeben"));
+    assert!(res["error"].as_str().unwrap().contains("shared"));
 
     client.send(json!({ "type": "ping", "t": 99 })).await;
     assert_eq!(

@@ -81,28 +81,23 @@ pub fn lan_ip() -> Option<String> {
     }
 }
 
-pub fn endpoints(port: u16, relay: Option<&str>) -> Vec<String> {
-    let mut list = Vec::new();
+pub fn endpoints(port: u16) -> Vec<String> {
     let host = lan_ip().unwrap_or_else(|| "127.0.0.1".to_string());
     let host = if host.contains(':') {
         format!("[{host}]")
     } else {
         host
     };
-    list.push(format!("ws://{host}:{port}"));
-    if let Some(relay) = relay.map(str::trim).filter(|r| !r.is_empty()) {
-        list.push(relay.to_string());
-    }
-    list
+    vec![format!("ws://{host}:{port}")]
 }
 
-pub fn payload(pairing: &Pairing, port: u16, relay: Option<&str>) -> Value {
+pub fn payload(pairing: &Pairing, port: u16) -> Value {
     json!({
         "v": crypto::PROTOCOL_VERSION,
         "hostId": pairing.host_id,
         "psk": pairing.psk_b64,
         "name": crate::server::state::hostname(),
-        "endpoints": endpoints(port, relay),
+        "endpoints": endpoints(port),
     })
 }
 
@@ -122,12 +117,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn endpoints_contain_a_ws_url_and_the_relay() {
-        let list = endpoints(8484, Some("wss://relay.example"));
+    fn endpoints_contain_only_the_lan_ws_url() {
+        let list = endpoints(8484);
+        assert_eq!(list.len(), 1);
         assert!(list[0].starts_with("ws://"));
         assert!(list[0].ends_with(":8484"));
-        assert_eq!(list[1], "wss://relay.example");
-        assert_eq!(endpoints(8484, Some("   ")).len(), 1);
     }
 
     #[test]
@@ -136,7 +130,7 @@ mod tests {
             host_id: crypto::random_host_id(),
             psk_b64: crypto::random_psk_b64(),
         };
-        let payload = payload(&pairing, 8484, None);
+        let payload = payload(&pairing, 8484);
         assert_eq!(payload["v"], 1);
         assert_eq!(payload["hostId"], pairing.host_id);
         assert_eq!(payload["psk"], pairing.psk_b64);

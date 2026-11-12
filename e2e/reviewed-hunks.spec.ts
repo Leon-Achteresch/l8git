@@ -67,7 +67,7 @@ test('keyboard hunk staging and unstaging use the same checked batch command', a
   await expect(page.getByRole('button', { name: 'Unstage example.txt', exact: true })).toHaveCount(0);
   const calls = await batches(page);
   expect(calls.map(call => call.args?.action)).toEqual(['stage', 'unstage']);
-  expect(calls.every(call => (call.args?.patches as string[]).length === 1 && typeof call.args?.expectedFingerprint === 'string')).toBe(true);
+  expect(calls.every(call => (call.args!.patches as string[]).length === 1 && typeof call.args?.expectedFingerprint === 'string')).toBe(true);
 });
 
 test('discard confirmation keeps the original reviewed token when the diff refreshes behind it', async ({ page }) => {

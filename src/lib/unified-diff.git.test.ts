@@ -59,11 +59,11 @@ function repository(original: string | null, working: string | null, file = 'sel
 
 function selected(parsed: ParsedDiff, kind?: 'add' | 'del', text?: string) {
   const keys = new Set<string>();
-  parsed.hunks.forEach((hunk, hunkIdx) => hunk.lines.forEach((line, lineIdx) => {
+  parsed.hunks.forEach((hunk, hunkIdx) => { hunk.lines.forEach((line, lineIdx) => {
     if ((line.kind === 'add' || line.kind === 'del') && (!kind || line.kind === kind) && (text === undefined || line.text === text)) {
       keys.add(`${hunkIdx}:${lineIdx}`);
     }
-  }));
+  }); });
   return keys;
 }
 

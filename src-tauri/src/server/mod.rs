@@ -5,7 +5,6 @@ pub mod dispatch;
 mod e2e;
 pub mod exec;
 pub mod pairing;
-pub mod relay_client;
 pub mod resources;
 pub mod sink;
 pub mod state;

@@ -110,21 +110,21 @@ export function browserAddonOptionsFromArgs(
   args: readonly string[],
   baseUrl = "",
 ): BrowserAddonOptions {
-  const valueOf = (flag: string): string => {
+  const flagValue = (flag: string): string => {
     const index = args.indexOf(flag);
     if (index < 0) return "";
     const next = args[index + 1];
     return next && !next.startsWith("--") ? next : "";
   };
-  const browser = valueOf("--browser");
+  const browser = flagValue("--browser");
   return {
     browser: KNOWN_BROWSERS.includes(browser) ? (browser as BrowserAddonBrowser) : "",
     headless: args.includes("--headless"),
     isolated: args.includes("--isolated"),
-    viewport: valueOf("--viewport-size"),
-    device: valueOf("--device"),
-    allowedOrigins: valueOf("--allowed-origins"),
-    caps: valueOf("--caps"),
+    viewport: flagValue("--viewport-size"),
+    device: flagValue("--device"),
+    allowedOrigins: flagValue("--allowed-origins"),
+    caps: flagValue("--caps"),
     baseUrl,
   };
 }

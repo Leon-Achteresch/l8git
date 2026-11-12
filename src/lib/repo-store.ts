@@ -61,6 +61,10 @@ export type Commit = {
   parents: string[];
   tags: string[];
   author_avatar?: string | null;
+  /** Single-file history only: the file's path at this commit (it may have been renamed since). */
+  path?: string;
+  /** Single-file history only: set on the commit that renamed the file from this path. */
+  previous_path?: string;
 };
 
 export type CommitSearchHit = {

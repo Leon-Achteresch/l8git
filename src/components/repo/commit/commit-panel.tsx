@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,11 +50,15 @@ import { generateAiCommitMessage } from "@/lib/ai-commit";
 import { AiError } from "@/lib/ai/core";
 import { AiResultActions } from "@/components/ai/ai-result-actions";
 import { isAiConfigured } from "@/lib/ai-setup";
+import { exportChangesPatch, patchFilesSupported } from "@/lib/patches";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { isPreviewRepo } from "@/lib/preview-repo";
 import { useEverTrue } from "@/lib/use-ever-true";
 import { readRepoViewState, saveRepoViewState } from "@/lib/repo-view-state";
 import { rememberBranchFile, useBranchRestore } from "@/lib/github-ui/branch-context";
+
+const ApplyPatchDialog = lazy(() => import("./apply-patch-dialog").then(m => ({ default: m.ApplyPatchDialog })));
 
 const StashCreateDialog = lazy(() => import("@/components/repo/stash/stash-create-dialog").then(m => ({ default: m.StashCreateDialog })));
 
@@ -122,6 +127,7 @@ function CommitPanelContent() {
   const [aiSetupOpen, setAiSetupOpen] = useState(false);
   const [stashOpen, setStashOpen] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
+  const [applyPatchOpen, setApplyPatchOpen] = useState(false);
   const aiReady = useCommitPrefs(() => isAiConfigured());
   const [selectedRowId, setSelectedRowId] = useState<string | null>(() => readRepoViewState(activePath ?? "").selectedFile ?? null);
   useLayoutEffect(() => {
@@ -913,7 +919,7 @@ function CommitPanelContent() {
       setAiResultShown(false);
     } catch (e) {
       const rawError = e instanceof Error ? e.message : String(e);
-      const error = rawError.includes("__HEAD_CHANGED__") ? t("commitGuidance.preflight.amendTargetChanged") : rawError;
+      const error = rawError.includes("__HEAD_CHANGED__") ? t("commitGuidance.preflight.amendTargetChanged") : formatBackendError(rawError);
       setCommitError(error);
       toastError(error);
     } finally {
@@ -1078,7 +1084,21 @@ function CommitPanelContent() {
             ? () => setSplitOpen(true)
             : undefined
         }
+        onExportPatch={
+          activePath && patchFilesSupported()
+            ? (staged) => {
+                exportChangesPatch(activePath, staged)
+                  .then((file) => { if (file) toast.success(t("patches.exportedChangesToast", { file })); })
+                  .catch((e) => toastError(String(e)));
+              }
+            : undefined
+        }
+        onApplyPatch={activePath && patchFilesSupported() ? () => setApplyPatchOpen(true) : undefined}
       />
+
+      {applyPatchOpen && activePath ? (
+        <Suspense fallback={null}><ApplyPatchDialog open path={activePath} onClose={() => setApplyPatchOpen(false)} /></Suspense>
+      ) : null}
 
       <AlertDialog open={publishedAmendOpen} onOpenChange={setPublishedAmendOpen}>
         <AlertDialogContent>

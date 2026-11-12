@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -132,7 +133,7 @@ export function useAgentReviewSummary(session: AgentReviewSession | null, enable
       .catch((cause: unknown) => {
         if (cancelled) return;
         setResult(null);
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(formatBackendError(cause));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

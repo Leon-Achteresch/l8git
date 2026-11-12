@@ -384,7 +384,7 @@ async fn delete_remote_branch_removes_the_branch_and_its_tracking_ref() {
     let err = git::delete_remote_branch(work.s(), "noslash".into())
         .await
         .unwrap_err();
-    assert!(err.contains("Ungültige Remote-Ref"), "{err}");
+    assert!(err.contains("Invalid remote ref"), "{err}");
 }
 
 #[tokio::test]
@@ -632,7 +632,7 @@ async fn fetch_rejects_argument_injection_via_remote_name() {
     let err = git::git_fetch(work.s(), None, None, Some(evil.clone()), None, None)
         .await
         .expect_err("dash remote must be rejected");
-    assert!(err.contains("führendem '-'"), "err: {err}");
+    assert!(err.contains("starting with '-'"), "err: {err}");
     assert!(!marker.exists(), "injected command must not run");
 
     let unknown = git::git_fetch(work.s(), None, None, Some("nope".into()), None, None).await;

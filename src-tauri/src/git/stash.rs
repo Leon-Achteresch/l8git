@@ -1,3 +1,4 @@
+use crate::error::{required, Label};
 use std::collections::HashSet;
 use super::*;
 
@@ -269,7 +270,7 @@ pub async fn git_stash_file_diff(
         let repo = PathBuf::from(&path);
         let f = file.trim();
         if f.is_empty() {
-            return Err("Dateipfad fehlt".into());
+            return Err(required(Label::FilePath));
         }
         let sref = match expected_hash {
             Some(expected) => checked_stash(&repo, index, &expected)?,
@@ -301,7 +302,7 @@ pub async fn git_stash_branch(path: String, index: u32, name: String, expected_h
         let repo = PathBuf::from(&path);
         let n = name.trim();
         if n.is_empty() {
-            return Err("Branch-Name darf nicht leer sein".into());
+            return Err(required(Label::BranchName));
         }
         let sref = stash_ref(index);
         let lock = stash_mutex(&repo)?;

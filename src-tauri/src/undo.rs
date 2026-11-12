@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::cmd::git_command;
+use crate::coded;
+use crate::error::{coded, required, ErrorCode, Label, Param};
 use crate::git::{repo_mutation_mutex, resolve_git_commit};
 
 const ANALYSIS_DEPTH: u32 = 250;
@@ -101,7 +103,7 @@ fn run_git_env(repo: &Path, args: &[&str], env: &[(String, String)]) -> (bool, S
             };
             (output.status.success(), merged)
         }
-        Err(e) => (false, format!("failed to run git: {e}")),
+        Err(e) => (false, coded!(GitRunFailed, error = e)),
     }
 }
 
@@ -140,10 +142,10 @@ fn map_error(message: String) -> String {
         || trimmed.contains("Please commit your changes or stash them before you")
     {
         let files = blocked_files(&trimmed);
-        return format!("__LOCAL_CHANGES_BLOCK__|{}", files.join(","));
+        return coded(ErrorCode::UndoLocalChanges, &[("files", Param::List(files))]);
     }
     if trimmed.is_empty() {
-        return "git: command failed".into();
+        return coded!(GitCommandFailed);
     }
     trimmed
 }
@@ -154,15 +156,13 @@ fn nul_git_output(repo: &Path, args: &[&str]) -> Result<String, String> {
         .arg(repo)
         .args(args)
         .output()
-        .map_err(|e| format!("Recovery safety check could not run Git: {e}"))?;
+        .map_err(|e| coded!(UndoSafetyCheckFailed, error = e))?;
     if !output.status.success() {
         return Err(map_error(
             String::from_utf8_lossy(&output.stderr).into_owned(),
         ));
     }
-    String::from_utf8(output.stdout).map_err(|_| {
-        "Recovery cannot safely check filenames that are not valid UTF-8. Use Git directly after reviewing those files.".into()
-    })
+    String::from_utf8(output.stdout).map_err(|_| coded!(UndoNonUtf8Paths))
 }
 
 fn dirty_tracked_files(repo: &Path) -> Result<Vec<String>, String> {
@@ -174,7 +174,7 @@ fn dirty_tracked_files(repo: &Path) -> Result<Vec<String>, String> {
     let mut files = Vec::new();
     while let Some(record) = records.next() {
         if record.len() < 4 || !record.is_char_boundary(3) || record.as_bytes()[2] != b' ' {
-            return Err("Recovery could not safely read the working tree status.".into());
+            return Err(coded!(UndoStatusUnreadable));
         }
         let xy = &record[..2];
         if xy != "??" && xy != "!!" {
@@ -183,7 +183,7 @@ fn dirty_tracked_files(repo: &Path) -> Result<Vec<String>, String> {
         // In porcelain -z, a rename/copy has the destination first, then its source.
         if xy.contains('R') || xy.contains('C') {
             if records.next().is_none() {
-                return Err("Recovery could not safely read a renamed file.".into());
+                return Err(coded!(UndoStatusUnreadable));
             }
         }
     }
@@ -207,19 +207,19 @@ fn hard_reset_collisions(repo: &Path, target: &str) -> Result<Vec<String>, Strin
             .components()
             .any(|part| !matches!(part, std::path::Component::Normal(_)))
         {
-            return Err("Recovery could not safely check a path in the target commit.".into());
+            return Err(coded!(UndoPathUnchecked, path = file));
         }
         let mut prefix = PathBuf::new();
         for component in relative.components() {
             prefix.push(component);
             let name = prefix
                 .to_str()
-                .ok_or("Recovery could not safely check a filename.")?;
+                .ok_or_else(|| coded!(UndoNonUtf8Paths))?;
             let metadata = match std::fs::symlink_metadata(repo.join(&prefix)) {
                 Ok(metadata) => metadata,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
                 Err(error) => {
-                    return Err(format!("Recovery could not safely check {name}: {error}"))
+                    return Err(coded!(UndoPathUnchecked, path = format!("{name} ({error})")))
                 }
             };
             if metadata.is_dir() {
@@ -288,6 +288,7 @@ fn ensure_repo(repo: &Path) -> Result<(), String> {
 fn pending_operation(repo: &Path) -> Option<String> {
     let candidates = [
         ("rebase-merge", "rebase"),
+        ("rebase-apply/applying", "am"),
         ("rebase-apply", "rebase"),
         ("MERGE_HEAD", "merge"),
         ("CHERRY_PICK_HEAD", "cherry-pick"),
@@ -431,6 +432,7 @@ fn description_key(action: &str, supported: bool) -> String {
         "rebase" => "rebase",
         "reset" => "reset",
         "cherry-pick" => "cherryPick",
+        "am" => "am",
         "revert" => "revert",
         "commit" if action_qualifier(action) == "amend" => "amend",
         "commit" => "commit",
@@ -452,13 +454,11 @@ fn unsupported(action: &str, reflog_snapshot: String) -> Analysis {
 fn analyze(repo: &Path) -> Result<Analysis, String> {
     ensure_repo(repo)?;
     if let Some(op) = pending_operation(repo) {
-        return Err(format!(
-            "A {op} is in progress. Finish or abort it before undoing the last operation."
-        ));
+        return Err(coded!(UndoOperationInProgress, operation = op));
     }
     let entries = read_reflog(repo, ANALYSIS_DEPTH, 0)?;
     let Some(head) = entries.first() else {
-        return Err("There is nothing to undo.".into());
+        return Err(coded!(UndoNothingToUndo));
     };
     // The file length also detects identical operations appended within one second.
     let log_metadata = git_path(repo, "logs/HEAD").and_then(|path| std::fs::metadata(path).ok());
@@ -470,13 +470,23 @@ fn analyze(repo: &Path) -> Result<Analysis, String> {
             .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|duration| duration.as_nanos().to_string()),
     ))
-    .map_err(|error| format!("Could not create an undo preview: {error}"))?;
+    .map_err(|error| coded!(UndoPreviewFailed, error = error))?;
     let action = head.action.clone();
     let base = action_base(&action);
     let qualifier = action_qualifier(&action);
 
     let (mode, target_index) = match base.as_str() {
+        // `am --abort` already restored the pre-am HEAD; undoing it would bring the aborted commits back.
+        "am" if head.subject.split(':').next().unwrap_or("").contains("--abort") => (UndoMode::None, None),
         "merge" | "reset" | "cherry-pick" | "revert" => (UndoMode::Keep, Some(1usize)),
+        "am" => {
+            // Consecutive imports have adjacent am entries; ORIG_HEAD marks only the latest series.
+            let original = resolve_commit(repo, "ORIG_HEAD");
+            let count = entries.iter().take_while(|entry| action_base(&entry.action) == "am").count();
+            let target = original.and_then(|hash| entries.iter().take(count + 1).enumerate()
+                .skip(1).find(|(_, entry)| entry.hash == hash).map(|(index, _)| index));
+            (UndoMode::Keep, target)
+        }
         "commit" if qualifier == "initial" => (UndoMode::None, None),
         "commit" => (UndoMode::Soft, Some(1usize)),
         "rebase" => {
@@ -536,7 +546,7 @@ fn undo_snapshot(
         &analysis.target_hash,
         &analysis.reflog_snapshot,
     ))
-    .map_err(|error| format!("Could not create an undo preview: {error}"))?;
+    .map_err(|error| coded!(UndoPreviewFailed, error = error))?;
     Ok((snapshot, current_hash, name))
 }
 
@@ -548,7 +558,7 @@ fn parse_selector(selector: &str) -> Result<String, String> {
         .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()));
     match inner {
         Some(n) => Ok(format!("HEAD@{{{n}}}")),
-        None => Err(format!("Invalid reflog selector: {trimmed}")),
+        None => Err(coded!(UndoInvalidSelector, selector = trimmed)),
     }
 }
 
@@ -574,7 +584,7 @@ pub async fn undo_preview(path: String) -> Result<UndoPreview, String> {
         let mutex = repo_mutation_mutex(&repo)?;
         let _guard = mutex
             .lock()
-            .map_err(|_| "Repository recovery lock was poisoned.")?;
+            .map_err(|_| coded!(UndoLockPoisoned))?;
         let analysis = analyze(&repo)?;
         let (snapshot, current_hash, name) = undo_snapshot(&repo, &analysis)?;
         let supported = analysis.mode != UndoMode::None;
@@ -613,20 +623,20 @@ pub async fn undo_last_operation(
         let mutex = repo_mutation_mutex(&repo)?;
         let _guard = mutex
             .lock()
-            .map_err(|_| "Repository recovery lock was poisoned.")?;
+            .map_err(|_| coded!(UndoLockPoisoned))?;
         let analysis = analyze(&repo)?;
         let (snapshot, from_hash, name) = undo_snapshot(&repo, &analysis)?;
         if expected_snapshot
             .as_deref()
             .is_some_and(|expected| expected != snapshot)
         {
-            return Err("__UNDO_CHANGED__".into());
+            return Err(coded!(UndoChanged));
         }
         let flag = match analysis.mode {
             UndoMode::Keep => "--keep",
             UndoMode::Soft => "--soft",
             UndoMode::None => {
-                return Err(format!("__UNDO_UNSUPPORTED__|{}", analysis.action));
+                return Err(coded!(UndoUnsupported, action = analysis.action));
             }
         };
         let (ok, out) = run_git_raw(&repo, &["reset", flag, &analysis.target_hash]);
@@ -656,47 +666,39 @@ pub async fn reset_to_reflog_entry(
         let mutex = repo_mutation_mutex(&repo)?;
         let _guard = mutex
             .lock()
-            .map_err(|_| "Repository recovery lock was poisoned.")?;
+            .map_err(|_| coded!(UndoLockPoisoned))?;
         ensure_repo(&repo)?;
         if let Some(op) = pending_operation(&repo) {
-            return Err(format!(
-                "A {op} is in progress. Finish or abort it before resetting."
-            ));
+            return Err(coded!(UndoResetBlockedByOperation, operation = op));
         }
         let selector = parse_selector(&selector)?;
         let flag = match mode.trim() {
             "hard" => "--hard",
             "keep" | "" => "--keep",
-            other => return Err(format!("Unknown reset mode: {other}")),
+            other => return Err(coded!(UndoUnknownResetMode, mode = other)),
         };
         let Some(target) = resolve_commit(&repo, &selector) else {
-            return Err(format!("Unknown reflog entry: {selector}"));
+            return Err(coded!(UndoUnknownReflogEntry, selector = selector));
         };
         if let Some(expected) = expected_hash {
             if expected.trim() != target {
-                return Err("__REFLOG_CHANGED__".into());
+                return Err(coded!(UndoReflogChanged));
             }
         }
         let from_hash = resolve_git_commit(&repo, "HEAD")?;
         if let Some(expected) = expected_head {
             if expected.trim() != from_hash {
-                return Err("__HEAD_CHANGED__".into());
+                return Err(coded!(UndoHeadChanged));
             }
         }
         if flag == "--hard" {
             let dirty = dirty_tracked_files(&repo)?;
             if !dirty.is_empty() {
-                return Err(format!(
-                    "__LOCAL_CHANGES_BLOCK__|{}",
-                    serde_json::to_string(&dirty).unwrap()
-                ));
+                return Err(coded(ErrorCode::UndoLocalChanges, &[("files", Param::List(dirty))]));
             }
             let collisions = hard_reset_collisions(&repo, &target)?;
             if !collisions.is_empty() {
-                return Err(format!(
-                    "__RECOVERY_PATHS_BLOCK__|{}",
-                    serde_json::to_string(&collisions).unwrap()
-                ));
+                return Err(coded(ErrorCode::UndoPathsBlocked, &[("files", Param::List(collisions))]));
             }
         }
         let name = head_name(&repo);
@@ -725,25 +727,25 @@ pub async fn branch_restore(
         ensure_repo(&repo)?;
         let branch = name.trim().to_string();
         if branch.is_empty() {
-            return Err("Branch name must not be empty.".into());
+            return Err(required(Label::BranchName));
         }
         let mutex = repo_mutation_mutex(&repo)?;
         let _guard = mutex
             .lock()
-            .map_err(|_| "Repository recovery lock was poisoned.")?;
+            .map_err(|_| coded!(UndoLockPoisoned))?;
         let full_ref = format!("refs/heads/{branch}");
         if branch.starts_with('-')
             || branch.chars().any(char::is_control)
             || !run_git_raw(&repo, &["check-ref-format", &full_ref]).0
         {
-            return Err("__INVALID_RECOVERY_BRANCH__".into());
+            return Err(coded!(UndoInvalidBranchName));
         }
         let rev = hash.trim().to_string();
         if rev.is_empty() {
-            return Err("Commit must not be empty.".into());
+            return Err(required(Label::Commit));
         }
         let Some(target) = resolve_commit(&repo, &rev) else {
-            return Err(format!("Unknown commit: {rev}"));
+            return Err(coded!(GitUnknownCommit, commit = rev));
         };
         let (exists, _) = run_git_raw(
             &repo,
@@ -755,7 +757,7 @@ pub async fn branch_restore(
             ],
         );
         if exists {
-            return Err(format!("A branch named {branch} already exists."));
+            return Err(coded!(GitBranchExists, branch = branch));
         }
         let (ok, out) = run_git_raw(&repo, &["branch", "--", &branch, &target]);
         if !ok {
@@ -777,10 +779,10 @@ pub async fn commit_full_message(path: String, hash: String) -> Result<String, S
         ensure_repo(&repo)?;
         let rev = hash.trim().to_string();
         if rev.is_empty() {
-            return Err("Commit must not be empty.".into());
+            return Err(required(Label::Commit));
         }
         let Some(target) = resolve_commit(&repo, &rev) else {
-            return Err(format!("Unknown commit: {rev}"));
+            return Err(coded!(GitUnknownCommit, commit = rev));
         };
         let (ok, out) = run_git_raw(&repo, &["log", "-1", "--format=%B", &target]);
         if !ok {
@@ -1056,7 +1058,7 @@ mod tests {
         let err = undo_last_operation(repo.str_path(), None)
             .await
             .unwrap_err();
-        assert_eq!(err, "__UNDO_UNSUPPORTED__|checkout");
+        assert_eq!(err, coded!(UndoUnsupported, action = "checkout"));
         assert_eq!(repo.subjects(), vec!["c1"]);
 
         let fresh = TestRepo::new();
@@ -1064,7 +1066,7 @@ mod tests {
         let err = undo_last_operation(fresh.str_path(), None)
             .await
             .unwrap_err();
-        assert_eq!(err, "__UNDO_UNSUPPORTED__|commit (initial)");
+        assert_eq!(err, coded!(UndoUnsupported, action = "commit (initial)"));
         assert_eq!(fresh.head(), initial);
     }
 
@@ -1082,7 +1084,7 @@ mod tests {
         let err = undo_last_operation(repo.str_path(), None)
             .await
             .unwrap_err();
-        assert!(err.starts_with("__LOCAL_CHANGES_BLOCK__|"), "{err}");
+        assert!(err.contains("\"code\":\"undo.localChanges\""), "{err}");
         assert!(err.contains("a.txt"), "{err}");
         assert_eq!(repo.head(), after_merge);
         assert_eq!(
@@ -1159,7 +1161,7 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert!(blocked.starts_with("__LOCAL_CHANGES_BLOCK__|"), "{blocked}");
+        assert!(blocked.contains("\"code\":\"undo.localChanges\""), "{blocked}");
         assert!(blocked.contains("a.txt"), "{blocked}");
         assert_eq!(repo.head(), base);
 
@@ -1203,7 +1205,7 @@ mod tests {
         let error = undo_last_operation(repo.str_path(), Some(preview.snapshot))
             .await
             .unwrap_err();
-        assert_eq!(error, "__UNDO_CHANGED__");
+        assert_eq!(error, coded!(UndoChanged));
         assert_eq!(repo.head(), newest);
         assert!(repo.staged().is_empty());
     }
@@ -1219,7 +1221,7 @@ mod tests {
         let error = undo_last_operation(repo.str_path(), Some(preview.snapshot))
             .await
             .unwrap_err();
-        assert_eq!(error, "__UNDO_CHANGED__");
+        assert_eq!(error, coded!(UndoChanged));
         assert_eq!(repo.head(), current);
     }
 
@@ -1233,7 +1235,7 @@ mod tests {
         let error = undo_last_operation(repo.str_path(), Some(preview.snapshot))
             .await
             .unwrap_err();
-        assert_eq!(error, "__UNDO_CHANGED__");
+        assert_eq!(error, coded!(UndoChanged));
         assert_eq!(repo.head(), current);
         assert_eq!(head_name(&repo.path).as_deref(), Some("other"));
     }
@@ -1253,7 +1255,7 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert_eq!(error, "__REFLOG_CHANGED__");
+        assert_eq!(error, coded!(UndoReflogChanged));
         assert_eq!(repo.head(), current);
     }
 
@@ -1271,7 +1273,7 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert_eq!(error, "__HEAD_CHANGED__");
+        assert_eq!(error, coded!(UndoHeadChanged));
         assert_eq!(repo.head(), current);
     }
 
@@ -1302,7 +1304,7 @@ mod tests {
             )
             .await
             .unwrap_err();
-            assert!(error.starts_with("__RECOVERY_PATHS_BLOCK__|"), "{error}");
+            assert!(error.contains("\"code\":\"undo.pathsBlocked\""), "{error}");
             assert!(error.contains(name), "{error}");
             assert_eq!(repo.head(), base);
             assert_eq!(
@@ -1363,7 +1365,7 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert!(error.starts_with("__RECOVERY_PATHS_BLOCK__|"), "{error}");
+        assert!(error.contains("\"code\":\"undo.pathsBlocked\""), "{error}");
         assert_eq!(repo.head(), base);
         assert_eq!(
             fs::read_to_string(repo.path.join("bundle/nested/local.txt")).unwrap(),
@@ -1416,7 +1418,7 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert!(error.starts_with("__RECOVERY_PATHS_BLOCK__|"), "{error}");
+        assert!(error.contains("\"code\":\"undo.pathsBlocked\""), "{error}");
         assert!(repo.path.join("incoming").is_symlink());
         assert_eq!(
             fs::read_to_string(outside.path.join("local.txt")).unwrap(),
@@ -1441,7 +1443,7 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert_eq!(error, "__LOCAL_CHANGES_BLOCK__|[\" spaced, name.txt\"]");
+        assert_eq!(error, coded(ErrorCode::UndoLocalChanges, &[("files", Param::List(vec![" spaced, name.txt".into()]))]));
     }
 
     #[tokio::test]
@@ -1514,7 +1516,7 @@ mod tests {
             let error = branch_restore(repo.str_path(), name.into(), current.clone())
                 .await
                 .unwrap_err();
-            assert_eq!(error, "__INVALID_RECOVERY_BRANCH__", "{name}");
+            assert_eq!(error, coded!(UndoInvalidBranchName), "{name}");
             assert_eq!(head_name(&repo.path).as_deref(), Some("main"));
         }
         assert_eq!(repo.git(&["branch", "--format=%(refname:short)"]), "main");
@@ -1636,13 +1638,13 @@ mod tests {
         assert!(parse_selector("stash@{0}").is_err());
         assert_eq!(
             map_error("error: Entry 'a.txt' not uptodate. Cannot merge.\nfatal: nope".into()),
-            "__LOCAL_CHANGES_BLOCK__|a.txt"
+            coded(ErrorCode::UndoLocalChanges, &[("files", Param::List(vec!["a.txt".into()]))])
         );
         assert_eq!(
             map_error("error: Entry 'x/y.txt' would be overwritten by merge. Cannot merge.".into()),
-            "__LOCAL_CHANGES_BLOCK__|x/y.txt"
+            coded(ErrorCode::UndoLocalChanges, &[("files", Param::List(vec!["x/y.txt".into()]))])
         );
         assert_eq!(map_error("fatal: bad object".into()), "fatal: bad object");
-        assert_eq!(map_error("  ".into()), "git: command failed");
+        assert_eq!(map_error("  ".into()), coded!(GitCommandFailed));
     }
 }

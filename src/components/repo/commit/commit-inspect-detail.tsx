@@ -12,6 +12,7 @@ import { useExplainSheet } from "@/components/ai/use-explain-sheet";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
+import { externalToolsSupported, openExternalDiff } from "@/lib/external-tools";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2, Sparkles } from "lucide-react";
@@ -34,14 +35,21 @@ export function CommitInspectDetail({
   commitHash,
   onClose,
   readOnly = false,
+  focusFile,
 }: {
   path: string;
   commitHash: string | null;
   onClose: () => void;
   readOnly?: boolean;
+  /** File to open first, e.g. the path a followed file had at this commit. */
+  focusFile?: string;
 }) {
   const { t } = useTranslation();
+  // Read at load time only: a changed focus must not refetch the commit.
+  const focusFileRef = useRef(focusFile);
+  focusFileRef.current = focusFile;
   const inspectKey = JSON.stringify([path, commitHash]);
+  const appliedFocus = useRef<{ key: string; file?: string } | null>(null);
   const inspectEpoch = useRef(0);
   const diffEpoch = useRef(0);
   const [inspectState, setInspectState] = useState({ key: '', payload: null as InspectPayload | null, loading: false, failed: false });
@@ -74,13 +82,19 @@ export function CommitInspectDetail({
       const out = await invoke<InspectPayload>("repo_commit_inspect", { path, commit: commitHash });
       if (inspectEpoch.current !== epoch) return;
       setInspectState({ key: inspectKey, payload: out, loading: false, failed: false });
-      setSelectedFile(current => out.files.some(file => file.path === current) ? current : out.files[0]?.path ?? null);
+      setSelectedFile(current => [current, focusFileRef.current].find(file => out.files.some(entry => entry.path === file)) ?? out.files[0]?.path ?? null);
     } catch (error) {
       if (inspectEpoch.current !== epoch) return;
       setInspectState({ key: inspectKey, payload: null, loading: false, failed: true });
       toastError(String(error));
     }
   }, [path, commitHash, inspectKey, setSelectedFile]);
+
+  useEffect(() => {
+    if (!payload || appliedFocus.current?.key === inspectKey && appliedFocus.current.file === focusFile) return;
+    appliedFocus.current = { key: inspectKey, file: focusFile };
+    if (focusFile && payload?.files.some(file => file.path === focusFile)) setSelectedFile(focusFile);
+  }, [focusFile, inspectKey, payload, setSelectedFile]);
 
   const loadFileDiff = useCallback(async () => {
     const epoch = ++diffEpoch.current;
@@ -218,6 +232,11 @@ export function CommitInspectDetail({
                   setSelectedFile(f);
                   setBlameActive(true);
                 }}
+                onExternalDiff={
+                  commitHash && externalToolsSupported()
+                    ? (f) => void openExternalDiff(path, f, { mode: "commit", commit: commitHash })
+                    : undefined
+                }
                 onDiscardFile={readOnly ? undefined : discardFile}
                 query={fileQuery}
                 onQueryChange={setFileQuery}

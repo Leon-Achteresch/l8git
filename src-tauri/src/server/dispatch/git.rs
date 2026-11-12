@@ -202,6 +202,22 @@ pub async fn dispatch(
             crate::git::cherry_pick_state(path).await
         }
 
+        "git_am_state" (path: String) => {
+            crate::git::git_am_state(path).await
+        }
+
+        "git_am_continue" (path: String) => {
+            crate::git::git_am_continue(path).await
+        }
+
+        "git_am_skip" (path: String) => {
+            crate::git::git_am_skip(path).await
+        }
+
+        "git_am_abort" (path: String) => {
+            crate::git::git_am_abort(path).await
+        }
+
         "merge_state" (path: String) => {
             crate::git::merge_state(path).await
         }

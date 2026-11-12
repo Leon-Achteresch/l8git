@@ -1,3 +1,5 @@
+use crate::coded;
+use crate::error::{required, Label};
 use std::time::Duration;
 
 use base64::Engine;
@@ -67,9 +69,7 @@ pub(crate) async fn bitbucket_send_authed(
             .await
             .map_err(|e| format!("Bitbucket: {e}"))?
     } else {
-        return Err(format!(
-            "Bitbucket: Benutzername fehlt. Bitte unter Einstellungen bei {host} mit Benutzername und App-Passwort anmelden."
-        ));
+        return Err(coded!(BitbucketUsernameMissing, host = host));
     };
     if res.status() == reqwest::StatusCode::UNAUTHORIZED && basic_b64.is_some() {
         res = client
@@ -93,26 +93,24 @@ pub(crate) async fn bitbucket_collect_paginated_values(
     let expected_host = reqwest::Url::parse(start_url)
         .ok()
         .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()))
-        .ok_or_else(|| "Bitbucket: Ungültige API-URL.".to_string())?;
+        .ok_or_else(|| coded!(BitbucketInvalidApiUrl))?;
     let mut out: Vec<Value> = Vec::new();
     let mut next: Option<String> = Some(start_url.to_string());
     let mut pages = 0usize;
     while let Some(url) = next.take() {
         pages += 1;
         if pages > MAX_PAGES {
-            return Err("Bitbucket: Seitenlimit bei der API-Pagination erreicht.".into());
+            return Err(coded!(BitbucketPageLimit));
         }
         let page_host = reqwest::Url::parse(&url)
             .ok()
             .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()));
         if page_host.as_deref() != Some(expected_host.as_str()) {
-            return Err("Bitbucket: Pagination verweist auf einen fremden Host; abgebrochen.".into());
+            return Err(coded!(BitbucketForeignHost));
         }
         let res = bitbucket_send_authed(client, &url, cred, host).await?;
         if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-            return Err(format!(
-                "Bitbucket: 401. Zugangsdaten passen nicht zur REST-API (App-Passwort/API-Token mit Atlassian-E-Mail als Benutzername, oder gültiger OAuth-Access-Token). Bitte unter Einstellungen bei {host} prüfen oder neu anmelden."
-            ));
+            return Err(coded!(BitbucketCredentialsRejected, host = host));
         }
         if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }
@@ -195,9 +193,7 @@ async fn github_list(host: &str) -> Result<Vec<RemoteRepo>, String> {
             .await
             .map_err(|e| format!("GitHub: {e}"))?;
         if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-            return Err(format!(
-                "GitHub: 401. Bitte unter Einstellungen bei {host} anmelden."
-            ));
+            return Err(coded!(ProviderSignInRequired, provider = "GitHub", host = host));
         }
         if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }
@@ -252,9 +248,7 @@ async fn gitlab_list(host: &str) -> Result<Vec<RemoteRepo>, String> {
         .await
         .map_err(|e| format!("GitLab: {e}"))?;
     if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "GitLab: 401. Bitte unter Einstellungen bei {host} anmelden."
-        ));
+        return Err(coded!(ProviderSignInRequired, provider = "GitLab", host = host));
     }
     if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }
@@ -337,19 +331,17 @@ pub struct CreatedRepo {
 
 fn validate_repo_name(name: &str) -> Result<(), String> {
     if name.is_empty() {
-        return Err("Repository-Name darf nicht leer sein.".into());
+        return Err(required(Label::RepoName));
     }
     if name.len() > 100 {
-        return Err("Repository-Name ist zu lang (max. 100 Zeichen).".into());
+        return Err(coded!(RepoNameTooLong));
     }
     // Allow letters, digits and the characters commonly accepted as repo slugs.
     let ok = name
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
     if !ok {
-        return Err(
-            "Repository-Name darf nur Buchstaben, Ziffern sowie - _ . enthalten.".into(),
-        );
+        return Err(coded!(RepoNameInvalidChars));
     }
     Ok(())
 }
@@ -381,9 +373,7 @@ async fn github_create(
         .await
         .map_err(|e| format!("GitHub: {e}"))?;
     if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "GitHub: 401. Bitte unter Einstellungen bei {host} anmelden."
-        ));
+        return Err(coded!(ProviderSignInRequired, provider = "GitHub", host = host));
     }
     if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }
@@ -400,7 +390,7 @@ async fn github_create(
     let v: Value = res.json().await.map_err(|e| format!("GitHub: {e}"))?;
     let clone_url = v["clone_url"].as_str().unwrap_or("").to_string();
     if clone_url.is_empty() {
-        return Err("GitHub: Antwort enthielt keine Clone-URL.".into());
+        return Err(coded!(ProviderNoCloneUrl, provider = "GitHub"));
     }
     Ok(CreatedRepo {
         clone_url,
@@ -436,9 +426,7 @@ async fn gitlab_create(
         .await
         .map_err(|e| format!("GitLab: {e}"))?;
     if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "GitLab: 401. Bitte unter Einstellungen bei {host} anmelden."
-        ));
+        return Err(coded!(ProviderSignInRequired, provider = "GitLab", host = host));
     }
     if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }
@@ -460,7 +448,7 @@ async fn gitlab_create(
     let v: Value = res.json().await.map_err(|e| format!("GitLab: {e}"))?;
     let clone_url = v["http_url_to_repo"].as_str().unwrap_or("").to_string();
     if clone_url.is_empty() {
-        return Err("GitLab: Antwort enthielt keine Clone-URL.".into());
+        return Err(coded!(ProviderNoCloneUrl, provider = "GitLab"));
     }
     Ok(CreatedRepo {
         clone_url,
@@ -488,7 +476,7 @@ async fn bitbucket_first_workspace(
             }
         }
     }
-    Err("Bitbucket: Kein Workspace gefunden, in dem das Repository angelegt werden könnte.".into())
+    Err(coded!(BitbucketNoWorkspace))
 }
 
 async fn bitbucket_create(
@@ -530,15 +518,11 @@ async fn bitbucket_create(
     } else if bitbucket_secret_likely_jwt(&cred.password) {
         req.header("Authorization", format!("Bearer {}", cred.password))
     } else {
-        return Err(format!(
-            "Bitbucket: Benutzername fehlt. Bitte unter Einstellungen bei {host} mit Benutzername und App-Passwort anmelden."
-        ));
+        return Err(coded!(BitbucketUsernameMissing, host = host));
     };
     let res = req.send().await.map_err(|e| format!("Bitbucket: {e}"))?;
     if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "Bitbucket: 401. Bitte unter Einstellungen bei {host} anmelden."
-        ));
+        return Err(coded!(ProviderSignInRequired, provider = "Bitbucket", host = host));
     }
     if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }
@@ -554,7 +538,7 @@ async fn bitbucket_create(
     }
     let v: Value = res.json().await.map_err(|e| format!("Bitbucket: {e}"))?;
     let repo = bitbucket_remote_repo_from_value(&v)
-        .ok_or_else(|| "Bitbucket: Antwort enthielt keine Clone-URL.".to_string())?;
+        .ok_or_else(|| coded!(ProviderNoCloneUrl, provider = "Bitbucket"))?;
     let ssh_url = v["links"]["clone"].as_array().and_then(|clones| {
         clones.iter().find_map(|c| {
             if c["name"].as_str() == Some("ssh") {
@@ -584,16 +568,14 @@ pub async fn create_remote_repo(
 ) -> Result<CreatedRepo, String> {
     let h = host.trim();
     if h.is_empty() {
-        return Err("Host darf nicht leer sein".into());
+        return Err(required(Label::Host));
     }
     let name = name.trim().to_string();
     validate_repo_name(&name)?;
     let description = description.map(|d| d.trim().to_string());
     let desc = description.as_deref();
     if h.eq_ignore_ascii_case("dev.azure.com") {
-        return Err(
-            "Azure DevOps: Das Anlegen von Repositories wird hier noch nicht unterstützt.".into(),
-        );
+        return Err(coded!(AzureCreateUnsupported));
     }
     match crate::pr::detect_provider(h) {
         crate::pr::Provider::GitLab => gitlab_create(h, &name, private, desc).await,
@@ -612,10 +594,10 @@ pub async fn create_remote_repo(
 pub async fn list_remote_repos(host: String) -> Result<Vec<RemoteRepo>, String> {
     let h = host.trim();
     if h.is_empty() {
-        return Err("Host darf nicht leer sein".into());
+        return Err(required(Label::Host));
     }
     if h.eq_ignore_ascii_case("dev.azure.com") {
-        return Err("Azure DevOps: Repo-Liste wird hier noch nicht unterstützt.".into());
+        return Err(coded!(AzureListUnsupported));
     }
     match crate::pr::detect_provider(h) {
         crate::pr::Provider::GitLab => gitlab_list(h).await,

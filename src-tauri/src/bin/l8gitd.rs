@@ -2,7 +2,7 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
-use l8git_lib::server::{config, pairing, relay_client, sink, state, ws};
+use l8git_lib::server::{config, pairing, sink, state, ws};
 
 #[derive(Parser)]
 #[command(name = "l8gitd", version, about = "l8git Remote headless host")]
@@ -17,8 +17,6 @@ enum Command {
     Serve {
         #[arg(long, help = "TCP-Port (Default 8484)")]
         port: Option<u16>,
-        #[arg(long, help = "Relay-URL, z. B. wss://relay.example")]
-        relay: Option<String>,
     },
     #[command(about = "Erzeugt bzw. zeigt hostId + psk als QR-Code und JSON")]
     Pair,
@@ -38,7 +36,7 @@ async fn main() -> std::process::ExitCode {
     }
     let cli = Cli::parse();
     let outcome = match cli.command {
-        Command::Serve { port, relay } => serve(port, relay).await,
+        Command::Serve { port } => serve(port).await,
         Command::Pair => pair(),
         Command::Status => status(),
         Command::Allow { path } => allow(&path),
@@ -46,6 +44,12 @@ async fn main() -> std::process::ExitCode {
     match outcome {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
+            // The desktop app sets this to capture stderr and translate the code; everyone else gets plain text.
+            let error = if std::env::var_os(l8git_lib::error::CODED_STDERR_ENV).is_some() {
+                error
+            } else {
+                l8git_lib::error::message_only(&error)
+            };
             eprintln!("l8gitd: {error}");
             std::process::ExitCode::FAILURE
         }
@@ -56,17 +60,12 @@ fn effective_port(cli_port: Option<u16>, config: &config::Config) -> u16 {
     cli_port.or(config.port).unwrap_or(config::DEFAULT_PORT)
 }
 
-async fn serve(cli_port: Option<u16>, cli_relay: Option<String>) -> Result<(), String> {
+async fn serve(cli_port: Option<u16>) -> Result<(), String> {
     let paired = pairing::load()?
-        .ok_or_else(|| "Nicht gepaart. Zuerst `l8gitd pair` ausführen.".to_string())?;
+        .ok_or_else(|| l8git_lib::coded!(RemoteNotPaired))?;
     let mut config = config::load();
     let port = effective_port(cli_port, &config);
-    let relay = cli_relay
-        .map(|r| r.trim().to_string())
-        .filter(|r| !r.is_empty())
-        .or_else(|| config.relay.clone());
-    if relay != config.relay || config.port != Some(port) {
-        config.relay = relay.clone();
+    if config.port != Some(port) {
         config.port = Some(port);
         let _ = config::save(&config);
     }
@@ -75,18 +74,8 @@ async fn serve(cli_port: Option<u16>, cli_relay: Option<String>) -> Result<(), S
     if roots.is_empty() {
         eprintln!("l8gitd: kein Repo-Root freigegeben — `l8gitd allow <path>` ausführen.");
     }
-    let relay_endpoint = match &relay {
-        Some(url) => Some(relay_client::endpoint(url, &paired.host_id)?),
-        None => None,
-    };
-
-    let server = state::ServerState::new(paired.host_id.clone(), paired.psk()?, roots, relay.clone());
+    let server = state::ServerState::new(paired.host_id.clone(), paired.psk()?, roots);
     sink::install(&server);
-
-    if let (Some(url), Some(endpoint)) = (relay, relay_endpoint) {
-        eprintln!("l8gitd: Relay-Client verbindet zu {endpoint}");
-        tokio::spawn(relay_client::run(server.clone(), url));
-    }
 
     let shutdown = server.clone();
     tokio::select! {
@@ -102,7 +91,7 @@ fn pair() -> Result<(), String> {
     let paired = pairing::load_or_create()?;
     let config = config::load();
     let port = effective_port(None, &config);
-    let payload = pairing::payload(&paired, port, config.relay.as_deref());
+    let payload = pairing::payload(&paired, port);
     let json = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
     println!("{}", pairing::qr(&json)?);
     println!("{json}");
@@ -121,7 +110,6 @@ fn status() -> Result<(), String> {
     }
     println!("config:   {}", config::config_path()?.display());
     println!("port:     {port}");
-    println!("relay:    {}", config.relay.as_deref().unwrap_or("-"));
     println!("listening: {}", if listening(port) { "ja" } else { "nein" });
     if config.roots.is_empty() {
         println!("roots:    (leer)");
@@ -132,7 +120,7 @@ fn status() -> Result<(), String> {
         }
     }
     if paired.is_some() {
-        for endpoint in pairing::endpoints(port, config.relay.as_deref()) {
+        for endpoint in pairing::endpoints(port) {
             println!("endpoint: {endpoint}");
         }
     }

@@ -7,6 +7,7 @@
  * object graph.
  */
 
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from "@/lib/platform/ipc";
 import {
   JIRA_GET_COMMENTS,
@@ -99,7 +100,7 @@ export function formatSearch(result: JiraSearchResult): string {
 }
 
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return formatBackendError(error);
 }
 
 /**

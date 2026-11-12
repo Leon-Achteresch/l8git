@@ -1,3 +1,5 @@
+use crate::coded;
+use crate::error::{coded, ErrorCode, Label, Param};
 use std::collections::HashMap;
 use std::io::{BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -209,14 +211,14 @@ fn validate_session_id(session_id: &str) -> Result<(), String> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':'))
     {
-        return Err("Ungültige Agent-Session-ID.".into());
+        return Err(coded!(AgentSessionIdInvalid, agent = "Agent"));
     }
     Ok(())
 }
 
 fn encode_json_line(message: &serde_json::Value) -> Result<Vec<u8>, String> {
     let mut encoded = serde_json::to_vec(message)
-        .map_err(|error| format!("Agent-Nachricht ist kein gültiges JSON: {error}"))?;
+        .map_err(|error| coded!(AgentMessageNotJson, error = error))?;
     encoded.push(b'\n');
     Ok(encoded)
 }
@@ -241,17 +243,17 @@ impl Drop for AgentTransport {
     }
 }
 
-fn safe_argument(value: &str, label: &str) -> Result<String, String> {
+fn safe_argument(value: &str, label: Label) -> Result<String, String> {
     let value = value.trim();
     if value.is_empty() || value.len() > 256 || value.chars().any(char::is_control) {
-        return Err(format!("Ungültiger Wert für {label}."));
+        return Err(coded(ErrorCode::AgentValueInvalid, &[("field", Param::Label(label))]));
     }
     Ok(value.to_string())
 }
 
-fn safe_path_argument(value: &str, label: &str) -> Result<String, String> {
+fn safe_path_argument(value: &str, label: Label) -> Result<String, String> {
     if value.is_empty() || value.len() > 32_768 || value.contains('\0') {
-        return Err(format!("Ungültiger Pfad für {label}."));
+        return Err(coded(ErrorCode::AgentPathInvalid, &[("field", Param::Label(label))]));
     }
     Ok(value.to_string())
 }
@@ -261,13 +263,13 @@ fn add_cursor_directories(
     options: &AgentTransportOptions,
 ) -> Result<(), String> {
     for directory in options.add_dirs.iter().flatten() {
-        let directory = safe_path_argument(directory, "Cursor-Zusatzverzeichnis")?;
+        let directory = safe_path_argument(directory, Label::CursorExtraDir)?;
         let resolved = match options.cwd.as_deref() {
             Some(cwd) => PathBuf::from(cwd).join(&directory),
             None => PathBuf::from(&directory),
         };
         if !resolved.is_dir() {
-            return Err("Ein zusätzliches Cursor-Verzeichnis existiert nicht.".into());
+            return Err(coded!(AgentCursorExtraDirMissing));
         }
         command.args(["--add-dir", &directory]);
     }
@@ -279,7 +281,7 @@ fn add_cursor_directories(
 fn safe_prompt(value: &str) -> Result<String, String> {
     let value = value.trim();
     if value.is_empty() || value.len() > 200_000 || value.contains('\0') {
-        return Err("Ungültiger Prompt für die Cursor CLI.".into());
+        return Err(coded!(AgentPromptInvalid, agent = "Cursor"));
     }
     Ok(value.to_string())
 }
@@ -287,7 +289,7 @@ fn safe_prompt(value: &str) -> Result<String, String> {
 fn resolve_env_value(key: &str, value: &str) -> Result<String, String> {
     match value.strip_prefix("secret:") {
         Some(secret_key) => crate::secrets::get_secret(secret_key)?
-            .ok_or_else(|| format!("Secret für Umgebungsvariable {key} wurde nicht gefunden.")),
+            .ok_or_else(|| coded!(AgentSecretMissing, key = key)),
         None => Ok(value.to_string()),
     }
 }
@@ -297,7 +299,7 @@ fn apply_instance_env(
     env: &Option<HashMap<String, String>>,
 ) -> Result<(), String> {
     for (key, value) in env.iter().flatten() {
-        let key = safe_argument(key, "Umgebungsvariablenname")?;
+        let key = safe_argument(key, Label::EnvVarName)?;
         let resolved = resolve_env_value(&key, value)?;
         command.env(key, resolved);
     }
@@ -623,40 +625,40 @@ fn cursor_process(options: &AgentTransportOptions) -> Result<Command, String> {
         _ => command.args(["--mode", "ask"]),
     };
     if let Some(sandbox) = options.sandbox.as_deref() {
-        let sandbox = safe_argument(sandbox, "Cursor-Sandbox")?;
+        let sandbox = safe_argument(sandbox, Label::CursorSandbox)?;
         if sandbox != "enabled" && sandbox != "disabled" {
-            return Err("Ungültiger Wert für Cursor-Sandbox.".into());
+            return Err(coded(ErrorCode::AgentValueInvalid, &[("field", Param::Label(Label::CursorSandbox))]));
         }
         command.args(["--sandbox", &sandbox]);
     }
     if let Some(model) = options.model.as_deref() {
-        command.args(["--model", &safe_argument(model, "Cursor-Modell")?]);
+        command.args(["--model", &safe_argument(model, Label::CursorModel)?]);
     }
     if options.resume.unwrap_or(false) {
         let resume_session_id = options
             .resume_session_id
             .as_deref()
-            .ok_or_else(|| "Cursor-Resume ohne Session-ID.".to_string())?;
+            .ok_or_else(|| coded(ErrorCode::AgentValueInvalid, &[("field", Param::Label(Label::CursorSession))]))?;
         command.args([
             "--resume",
-            &safe_argument(resume_session_id, "Cursor-Session")?,
+            &safe_argument(resume_session_id, Label::CursorSession)?,
         ]);
     }
     add_cursor_directories(&mut command, options)?;
     if let Some(worktree) = options.worktree.as_deref() {
-        command.args(["--worktree", &safe_argument(worktree, "Cursor-Worktree")?]);
+        command.args(["--worktree", &safe_argument(worktree, Label::CursorWorktree)?]);
     }
     if let Some(cwd) = options.cwd.as_deref() {
         let cwd = PathBuf::from(cwd);
         if !cwd.is_dir() {
-            return Err("Das Arbeitsverzeichnis für die Cursor CLI existiert nicht.".into());
+            return Err(coded!(AgentWorkdirMissing, agent = "Cursor"));
         }
         command.current_dir(cwd);
     }
     let prompt = options
         .prompt
         .as_deref()
-        .ok_or_else(|| "Cursor benötigt einen Prompt.".to_string())?;
+        .ok_or_else(|| coded!(AgentPromptRequired, agent = "Cursor"))?;
     command.arg(safe_prompt(prompt)?);
     Ok(command)
 }
@@ -669,7 +671,7 @@ fn provider_process(
     match provider {
         "codex" => {
             let executable = resolve_cli_path("codex")
-                .ok_or_else(|| "Codex CLI wurde nicht gefunden.".to_string())?;
+                .ok_or_else(|| coded!(AgentCliMissing, agent = "Codex"))?;
             let mut command = cli_command(executable);
             command.args(["app-server", "--listen", "stdio://"]);
             apply_instance_env(&mut command, &options.env)?;
@@ -677,7 +679,7 @@ fn provider_process(
         }
         "claude" => {
             let executable = resolve_cli_path("claude")
-                .ok_or_else(|| "Claude Code CLI wurde nicht gefunden.".to_string())?;
+                .ok_or_else(|| coded!(AgentCliMissing, agent = "Claude Code"))?;
             let trusted = options.is_trusted();
             let mut command = cli_command(executable);
             command.args([
@@ -707,7 +709,7 @@ fn provider_process(
             ]);
             if options.resume.unwrap_or(false) {
                 let resume_session_id = match options.resume_session_id.as_deref() {
-                    Some(value) => safe_argument(value, "Claude-Resume-Session")?,
+                    Some(value) => safe_argument(value, Label::ClaudeResumeSession)?,
                     None => session_id.to_string(),
                 };
                 command.args(["--resume", &resume_session_id]);
@@ -722,13 +724,13 @@ fn provider_process(
                 command.arg("--no-session-persistence");
             }
             if let Some(model) = options.model.as_deref() {
-                command.args(["--model", &safe_argument(model, "Claude-Modell")?]);
+                command.args(["--model", &safe_argument(model, Label::ClaudeModel)?]);
             }
             if let Some(effort) = options.effort.as_deref() {
-                command.args(["--effort", &safe_argument(effort, "Claude-Effort")?]);
+                command.args(["--effort", &safe_argument(effort, Label::ClaudeEffort)?]);
             }
             if let Some(mode) = options.permission_mode.as_deref() {
-                let mode = safe_argument(mode, "Claude-Berechtigungsmodus")?;
+                let mode = safe_argument(mode, Label::ClaudePermissionMode)?;
                 let mode = if !trusted && mode == "bypassPermissions" {
                     "default".to_string()
                 } else {
@@ -742,13 +744,13 @@ fn provider_process(
             if let Some(cwd) = options.cwd.as_deref() {
                 let cwd = PathBuf::from(cwd);
                 if !cwd.is_dir() {
-                    return Err("Das Arbeitsverzeichnis für Claude Code existiert nicht.".into());
+                    return Err(coded!(AgentWorkdirMissing, agent = "Claude Code"));
                 }
                 command.current_dir(cwd);
             }
             if let Some(config_dir) = options.config_dir.as_deref() {
                 let config_dir =
-                    safe_path_argument(config_dir, "Claude-Konfigurationsverzeichnis")?;
+                    safe_path_argument(config_dir, Label::ClaudeConfigDir)?;
                 command.env("CLAUDE_CONFIG_DIR", config_dir);
             }
             command.env("CLAUDE_CODE_ENTRYPOINT", "l8git");
@@ -763,7 +765,7 @@ fn provider_process(
         }
         "opencode" => {
             let executable = resolve_cli_path("opencode")
-                .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
+                .ok_or_else(|| coded!(AgentCliMissing, agent = "OpenCode"))?;
             let mut command = cli_command(executable);
             // ACP multiplexes every session of a repository over one process,
             // so model, mode and session lifecycle are negotiated in-band.
@@ -771,14 +773,14 @@ fn provider_process(
             if let Some(cwd) = options.cwd.as_deref() {
                 let cwd = PathBuf::from(cwd);
                 if !cwd.is_dir() {
-                    return Err("Das Arbeitsverzeichnis für OpenCode existiert nicht.".into());
+                    return Err(coded!(AgentWorkdirMissing, agent = "OpenCode"));
                 }
                 command.current_dir(cwd);
             }
             apply_instance_env(&mut command, &options.env)?;
             Ok((command, "OpenCode"))
         }
-        _ => Err(format!("Unbekannter Agent-Provider: {provider}")),
+        _ => Err(coded!(AgentUnknownProvider, provider = provider)),
     }
 }
 
@@ -827,19 +829,19 @@ pub(crate) async fn agent_transport_open_inner(
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| format!("{label} konnte nicht gestartet werden: {error}"))?;
+            .map_err(|error| coded!(AgentStartFailed, agent = label, error = error))?;
 
         let Some(stdin) = child.stdin.take() else {
             let _ = child.kill();
-            return Err(format!("{label}: stdin ist nicht verfügbar."));
+            return Err(coded!(AgentPipeUnavailable, agent = label, pipe = "stdin"));
         };
         let Some(stdout) = child.stdout.take() else {
             let _ = child.kill();
-            return Err(format!("{label}: stdout ist nicht verfügbar."));
+            return Err(coded!(AgentPipeUnavailable, agent = label, pipe = "stdout"));
         };
         let Some(stderr) = child.stderr.take() else {
             let _ = child.kill();
-            return Err(format!("{label}: stderr ist nicht verfügbar."));
+            return Err(coded!(AgentPipeUnavailable, agent = label, pipe = "stderr"));
         };
 
         #[cfg(windows)]
@@ -869,7 +871,7 @@ pub(crate) async fn agent_transport_open_inner(
         .unwrap()
         .get(&id)
         .map(|session| session.session_id.clone())
-        .ok_or_else(|| "Agent-Transport konnte nicht registriert werden.".to_string())?;
+        .ok_or_else(|| coded!(AgentTransportRegisterFailed))?;
     log::info!("agent transport opened id={id} session={session_id} provider={label}");
     Ok(AgentTransportHandle { id, session_id })
 }
@@ -896,23 +898,23 @@ pub(crate) fn agent_transport_send_inner(
         .unwrap()
         .get(&id)
         .cloned()
-        .ok_or_else(|| "Agent-Transport existiert nicht mehr.".to_string())?;
+        .ok_or_else(|| coded!(AgentTransportGone))?;
     if transport.session_id != session_id {
-        return Err("Agent-Session stimmt nicht mit dem Transport überein.".into());
+        return Err(coded!(AgentSessionMismatch));
     }
     if transport.closed.load(Ordering::Acquire) {
-        return Err("Agent-Transport wurde beendet.".into());
+        return Err(coded!(AgentTransportEnded));
     }
     transport.last_activity.store(now_secs(), Ordering::Relaxed);
     let message = encode_json_line(&message)?;
     let mut guard = transport.stdin.lock().unwrap();
     let stdin = guard
         .as_mut()
-        .ok_or_else(|| "Agent-Transport wurde beendet.".to_string())?;
+        .ok_or_else(|| coded!(AgentTransportEnded))?;
     stdin
         .write_all(&message)
         .and_then(|_| stdin.flush())
-        .map_err(|error| format!("Agent-Nachricht konnte nicht gesendet werden: {error}"))
+        .map_err(|error| coded!(AgentSendFailed, error = error))
 }
 
 #[tauri::command]
@@ -938,7 +940,7 @@ pub(crate) fn agent_transport_close_inner(
     let mut sessions = state.sessions.write().unwrap();
     if let Some(transport) = sessions.get(&id) {
         if transport.session_id != session_id {
-            return Err("Agent-Session stimmt nicht mit dem Transport überein.".into());
+            return Err(coded!(AgentSessionMismatch));
         }
     }
     if let Some(transport) = sessions.remove(&id) {
@@ -978,35 +980,35 @@ const OPENCODE_ALLOWED_COMMANDS: [&str; 4] = ["mcp", "agent", "models", "stats"]
 #[tauri::command]
 pub async fn opencode_cli(args: Vec<String>, cwd: Option<String>) -> Result<String, String> {
     let Some(first) = args.first().cloned() else {
-        return Err("OpenCode-Befehl fehlt.".into());
+        return Err(coded!(AgentCommandMissing, agent = "OpenCode"));
     };
     if !OPENCODE_ALLOWED_COMMANDS.contains(&first.as_str()) {
-        return Err(format!("OpenCode-Befehl ist nicht erlaubt: {first}"));
+        return Err(coded!(AgentCommandNotAllowed, agent = "OpenCode", command = first));
     }
     if args
         .iter()
         .any(|argument| argument.len() > 256 || argument.chars().any(char::is_control))
     {
-        return Err("Ungültiges Argument für die OpenCode CLI.".into());
+        return Err(coded!(AgentArgumentInvalid, agent = "OpenCode"));
     }
     tauri::async_runtime::spawn_blocking(move || {
         let executable = resolve_cli_path("opencode")
-            .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
+            .ok_or_else(|| coded!(AgentCliMissing, agent = "OpenCode"))?;
         let mut command = cli_command(executable);
         command.args(&args).stdin(Stdio::null());
         if let Some(cwd) = cwd.as_deref() {
             if !Path::new(cwd).is_dir() {
-                return Err("OpenCode-Arbeitsverzeichnis existiert nicht.".into());
+                return Err(coded!(AgentWorkdirMissing, agent = "OpenCode"));
             }
             command.current_dir(cwd);
         }
         let output = command
             .output()
-            .map_err(|error| format!("OpenCode CLI ist fehlgeschlagen: {error}"))?;
+            .map_err(|error| coded!(AgentCliFailed, agent = "OpenCode", error = error))?;
         if !output.status.success() {
             let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
             return Err(if message.is_empty() {
-                format!("OpenCode CLI ist fehlgeschlagen: {first}")
+                coded!(AgentCliFailed, agent = "OpenCode", error = first)
             } else {
                 message
             });
@@ -1023,22 +1025,23 @@ pub async fn opencode_delete_session(path: String, session_id: String) -> Result
     validate_session_id(&session_id)?;
     let cwd = PathBuf::from(&path);
     if !cwd.is_dir() {
-        return Err("Das Arbeitsverzeichnis für OpenCode existiert nicht.".into());
+        return Err(coded!(AgentWorkdirMissing, agent = "OpenCode"));
     }
     tauri::async_runtime::spawn_blocking(move || {
         let executable = resolve_cli_path("opencode")
-            .ok_or_else(|| "OpenCode CLI wurde nicht gefunden.".to_string())?;
+            .ok_or_else(|| coded!(AgentCliMissing, agent = "OpenCode"))?;
         let output = cli_command(executable)
             .args(["session", "delete", &session_id])
             .current_dir(cwd)
             .output()
-            .map_err(|error| format!("OpenCode-Session konnte nicht gelöscht werden: {error}"))?;
+            .map_err(|error| coded!(AgentSessionDeleteFailed, agent = "OpenCode", error = error))?;
         if output.status.success() {
             return Ok(());
         }
-        Err(format!(
-            "OpenCode-Session konnte nicht gelöscht werden: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
+        Err(coded!(
+            AgentSessionDeleteFailed,
+            agent = "OpenCode",
+            error = String::from_utf8_lossy(&output.stderr).trim()
         ))
     })
     .await
@@ -1060,10 +1063,10 @@ mod tests {
     #[test]
     fn directory_arguments_preserve_exact_path_bytes_and_reject_nul() {
         for path in ["repo ", "repo\n", " repo", " ", "C:\\repos\\repo "] {
-            assert_eq!(safe_path_argument(path, "test").unwrap(), path);
+            assert_eq!(safe_path_argument(path, crate::error::Label::Path).unwrap(), path);
         }
-        assert!(safe_path_argument("", "test").is_err());
-        assert!(safe_path_argument("repo\0neighbor", "test").is_err());
+        assert!(safe_path_argument("", crate::error::Label::Path).is_err());
+        assert!(safe_path_argument("repo\0neighbor", crate::error::Label::Path).is_err());
     }
 
     #[test]

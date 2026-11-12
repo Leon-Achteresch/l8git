@@ -90,6 +90,7 @@ function repoHarness(dirty = false) {
     baseBranch: "main", sessionBranch: "agents/task", baseHead: "abc1230", sessionHead: "def4560",
     sessionStatus: dirty ? [entry] : [] as StatusEntry[], baseStatus: [] as StatusEntry[],
     integrated: false, removed: false, deleted: false, commits: 1, deleteFailure: false, operation: false,
+    amError: null as unknown, amActive: false,
     mergeWait: null as Promise<void> | null,
     fingerprint: summary.fingerprint,
     reviewFiles: summary.files,
@@ -109,6 +110,7 @@ function repoHarness(dirty = false) {
       case "list_worktrees": if (repo.preflightWait) await repo.preflightWait; return [{ ...baseWorktree, branch: repo.baseBranch }, ...repo.removed ? [] : [{ ...sessionWorktree, branch: repo.sessionBranch }]];
       case "repo_status": return args?.path === context.basePath ? repo.baseStatus : repo.sessionStatus;
       case "merge_state": case "rebase_status": case "cherry_pick_state": return { in_progress: repo.operation };
+      case "git_am_state": if (repo.amError) throw repo.amError; return { in_progress: repo.amActive };
       case "repo_commit_inspect": return { header: `commit ${args?.path === context.basePath ? repo.baseHead : repo.sessionHead}\nAuthor: Agent <agent@example.com>\n\n    feat: update app\n`, files: [] };
       case "stage_files": return;
       case "commit_changes": repo.sessionStatus = []; repo.sessionHead = "aaa7890"; repo.commits += 1; if (repo.omitFingerprintAfterCommit) repo.fingerprint = undefined; return;
@@ -142,6 +144,40 @@ async function readyCleanController(harness: ReturnType<typeof repoHarness>, dep
 }
 
 describe("agent review finish controller", () => {
+  it.each([
+    "Unbekannter Befehl: git_am_state", "Unknown command: git_am_state",
+    Object.assign(new Error("Localized host error"), {
+      backendError: '\u001fUnknown command: git_am_state\u001fl8e:{"code":"server.unknownCommand","params":{"command":"git_am_state"}}\u001f',
+    }),
+  ])("allows legacy hosts that explicitly do not implement git_am_state (%s)", async (error) => {
+    const harness = repoHarness();
+    harness.repo.amError = error;
+    await readyCleanController(harness);
+  });
+
+  it.each(["request git_am_state timed out", "Permission denied", "Unbekannter Befehl: merge_state"])(
+    "keeps finishing blocked for other am-probe errors (%s)", async (message) => {
+      const harness = repoHarness();
+      harness.repo.amError = new Error(message);
+      const controller = new AgentReviewFinishController(context, false);
+      await controller.refresh();
+      expect(controller.getSnapshot()).toMatchObject({ validated: false, checkError: message });
+      expect(await controller.run("merge")).toBe(false);
+      expect(harness.invoke.mock.calls.some(([command]) => command === "git_merge")).toBe(false);
+    },
+  );
+
+  it("still blocks finishing while git am is active", async () => {
+    const harness = repoHarness();
+    harness.repo.amActive = true;
+    const controller = new AgentReviewFinishController(context, false);
+    await controller.refresh(); controller.markReviewed(true);
+    expect(controller.getSnapshot().checkError).toBe("agentReviewFinish.errors.operationInProgress");
+    expect(await controller.run("merge")).toBe(false);
+    expect(controller.getSnapshot().steps[1].error).toBe("agentReviewFinish.errors.operationInProgress");
+    expect(harness.invoke.mock.calls.some(([command]) => command === "git_merge")).toBe(false);
+  });
+
   it("requests content snapshots for preflight and the fresh post-commit review", async () => {
     const harness = repoHarness(true);
     const controller = new AgentReviewFinishController(context, true);

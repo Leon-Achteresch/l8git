@@ -1,3 +1,5 @@
+use crate::coded;
+use crate::error::{required, Label};
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -178,7 +180,7 @@ pub fn watch_repo(path: String) -> Result<(), String> {
 
 pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
     if path.trim().is_empty() {
-        return Err("Pfad darf nicht leer sein".into());
+        return Err(required(Label::Path));
     }
     let key = path;
 
@@ -191,7 +193,7 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
 
     let repo_path = PathBuf::from(&key);
     if !repo_path.exists() {
-        return Err(format!("Pfad existiert nicht: {key}"));
+        return Err(coded!(PathNotFound, path = key));
     }
 
     let emit_key = key.clone();

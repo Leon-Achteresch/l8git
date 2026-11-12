@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,7 +23,7 @@ export function useLoad<T>(key: string | null, load: () => Promise<T>): LoadStat
     setState((s) => ({ key, data: s.key === key ? s.data : null, error: null, loading: true }));
     loadRef.current().then(
       (data) => live && setState({ key, data, error: null, loading: false }),
-      (e) => live && setState({ key, data: null, error: e instanceof Error ? e.message : String(e), loading: false }),
+      (e) => live && setState({ key, data: null, error: formatBackendError(e), loading: false }),
     );
     return () => {
       live = false;
@@ -84,4 +85,4 @@ export function StateBadge({ state, label }: { state: keyof typeof TONE; label: 
 }
 
 export const short = (sha: string) => sha.slice(0, 10);
-export const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+export const errText = (e: unknown) => formatBackendError(e);

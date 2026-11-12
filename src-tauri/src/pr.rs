@@ -6,6 +6,8 @@ pub use github::*;
 pub use gitlab::*;
 pub use bitbucket::*;
 
+use crate::coded;
+use crate::error::{coded, required, ErrorCode, Label, Param};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -339,10 +341,10 @@ pub fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
         return crate::hub::remote_handle(spec);
     }
     let raw = run_git(path, &["config", "--get", "remote.origin.url"])
-        .map_err(|_| "Kein Remote 'origin' konfiguriert.".to_string())?;
+        .map_err(|_| coded!(GitNoOrigin))?;
     let url = raw.trim().to_string();
     if url.is_empty() {
-        return Err("Kein Remote 'origin' konfiguriert.".into());
+        return Err(coded!(GitNoOrigin));
     }
 
     let (host, path_part) = if let Some(rest) = url.strip_prefix("git@") {
@@ -375,7 +377,7 @@ pub fn parse_origin_url(path: &PathBuf) -> Result<RemoteHandle, String> {
         let path_part = split.next().unwrap_or("").to_string();
         (host, path_part)
     } else {
-        return Err(format!("Remote-URL nicht erkannt: {url}"));
+        return Err(coded!(RemoteUrlUnrecognized, url = url));
     };
 
     let path_part = path_part.trim_end_matches(".git").trim_end_matches('/');
@@ -473,6 +475,10 @@ pub fn str_or_empty(v: &Value) -> String {
 
 pub fn first_non_empty(a: String, b: String) -> String {
     if a.is_empty() { b } else { a }
+}
+
+fn github_only(feature: Label) -> String {
+    coded(ErrorCode::GithubOnly, &[("feature", Param::Label(feature))])
 }
 
 pub fn trunc_chars(s: &str, max: usize) -> String {
@@ -710,7 +716,7 @@ pub fn current_branch(repo: &PathBuf) -> Result<String, String> {
         .trim()
         .to_string();
     if branch.is_empty() || branch == "HEAD" {
-        return Err("Aktueller Branch konnte nicht bestimmt werden.".into());
+        return Err(coded!(GitCurrentBranchUnknown));
     }
     Ok(branch)
 }
@@ -738,16 +744,16 @@ pub fn strip_remote_prefix(repo: &PathBuf, name: &str) -> Result<String, String>
 pub fn pr_create_web_url(path: String, branch: String) -> Result<String, String> {
     let p = repo_path(&path);
     if !p.is_dir() {
-        return Err("Pfad ist kein Verzeichnis.".into());
+        return Err(coded!(PathNotFolder));
     }
     let h = parse_origin_url(&p)?;
     let base = origin_default_branch(&p)?;
     let head = strip_remote_prefix(&p, &branch)?;
     if head.is_empty() {
-        return Err("Branch-Name leer.".into());
+        return Err(required(Label::BranchName));
     }
     if head == base {
-        return Err("Für den Standard-Branch gibt es keinen sinnvollen PR-Vergleich.".into());
+        return Err(coded!(PrDefaultBranchCompare));
     }
     let enc_base = encode_uri_component(&base);
     let enc_head = encode_uri_component(&head);
@@ -786,11 +792,11 @@ pub async fn pr_create(
 ) -> Result<PullRequest, String> {
     let p = repo_path(&path);
     if !p.is_dir() {
-        return Err("Pfad ist kein Verzeichnis.".into());
+        return Err(coded!(PathNotFolder));
     }
     let title = title.trim().to_string();
     if title.is_empty() {
-        return Err("Titel darf nicht leer sein.".into());
+        return Err(required(Label::Title));
     }
     let h = parse_origin_url(&p)?;
     let head_source = if head.trim().is_empty() {
@@ -800,7 +806,7 @@ pub async fn pr_create(
     };
     let head = strip_remote_prefix(&p, &head_source)?;
     if head.is_empty() {
-        return Err("Head-Branch darf nicht leer sein.".into());
+        return Err(required(Label::HeadBranch));
     }
     let base = if base.trim().is_empty() {
         origin_default_branch(&p)?
@@ -808,10 +814,10 @@ pub async fn pr_create(
         strip_remote_prefix(&p, &base)?
     };
     if base.is_empty() {
-        return Err("Base-Branch darf nicht leer sein.".into());
+        return Err(required(Label::BaseBranch));
     }
     if head == base {
-        return Err("Head- und Base-Branch müssen unterschiedlich sein.".into());
+        return Err(coded!(PrHeadBaseSame));
     }
 
     let cred = credential(&h)?;
@@ -871,7 +877,7 @@ pub async fn pr_create(
         }
         Provider::Bitbucket => {
             if draft {
-                return Err("Bitbucket unterstützt Draft-Pull-Requests hier nicht.".into());
+                return Err(coded!(PrBitbucketNoDraft));
             }
             let api = bitbucket_api_base(&h.host)?;
             let url = format!(
@@ -920,7 +926,7 @@ pub async fn resolve_repo_commit_avatars(
 ) -> Result<Vec<CommitAvatarEntry>, String> {
     let p = repo_path(&path);
     if !p.is_dir() {
-        return Err("Pfad ist kein Verzeichnis.".into());
+        return Err(coded!(PathNotFolder));
     }
 
     // Dedup hashes while partitioning into cached/missing.
@@ -1291,7 +1297,7 @@ pub async fn pr_checks(path: String, number: u64) -> Result<Vec<PrCheck>, String
 pub async fn repo_commit_checks(path: String) -> Result<RepoCommitChecks, String> {
     let p = repo_path(&path);
     if !is_hub_path(&path) && !p.is_dir() {
-        return Err("Pfad ist kein Verzeichnis.".into());
+        return Err(coded!(PathNotFolder));
     }
     let h = parse_origin_url(&p)?;
     let cred = credential(&h)?;
@@ -1299,7 +1305,7 @@ pub async fn repo_commit_checks(path: String) -> Result<RepoCommitChecks, String
     let head_sha = if is_hub_path(&path) {
         // No clone in the hub: use the default branch tip.
         if h.provider != Provider::GitHub {
-            return Err("Checks im Hub sind nur für GitHub verfügbar.".into());
+            return Err(github_only(Label::HubChecks));
         }
         let url = github_repo_api_url(&h, "commits/HEAD");
         let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
@@ -1314,7 +1320,7 @@ pub async fn repo_commit_checks(path: String) -> Result<RepoCommitChecks, String
             .to_string()
     };
     if head_sha.is_empty() {
-        return Err("Kein HEAD-Commit.".into());
+        return Err(coded!(GitNoHeadCommit));
     }
     let checks = match h.provider {
         Provider::GitHub => {
@@ -1781,7 +1787,7 @@ pub async fn pr_checkout(path: String, number: u64) -> Result<PrCheckoutResult, 
             let detail = bb_detail(&client, &cred, &h, number).await?;
             let src = detail.base.source_branch.clone();
             if src.is_empty() {
-                return Err("Bitbucket: Source-Branch konnte nicht ermittelt werden.".into());
+                return Err(coded!(PrBitbucketSourceBranch));
             }
             (src.clone(), format!("pr-{number}"))
         }
@@ -1869,11 +1875,11 @@ pub struct WorkflowJob {
 pub async fn list_workflow_runs(path: String) -> Result<Vec<WorkflowRun>, String> {
     let p = repo_path(&path);
     if !is_hub_path(&path) && !p.is_dir() {
-        return Err("Pfad ist kein Verzeichnis.".into());
+        return Err(coded!(PathNotFolder));
     }
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Workflow Runs sind nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::WorkflowRuns));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -1933,7 +1939,7 @@ pub async fn get_workflow_jobs(path: String, run_id: u64) -> Result<Vec<Workflow
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Workflow Jobs sind nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::WorkflowJobs));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -1999,7 +2005,7 @@ pub async fn rerun_workflow(path: String, run_id: u64) -> Result<(), String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Re-run ist nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::Rerun));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -2013,7 +2019,7 @@ pub async fn rerun_workflow(path: String, run_id: u64) -> Result<(), String> {
         let response_status = res.status();
         let body = res.text().await.unwrap_or_default();
         if let Some(error) = crate::provider_rate_limit::body_error(response_status, &body) { return Err(error); }
-        Err(format!("Re-run fehlgeschlagen ({status}): {}", body.trim()))
+        Err(coded!(GithubRerunFailed, status = status, body = body.trim()))
     }
 }
 
@@ -2022,7 +2028,7 @@ pub async fn cancel_workflow(path: String, run_id: u64) -> Result<(), String> {
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Abbrechen ist nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::CancelRun));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -2049,7 +2055,7 @@ pub async fn pr_rerun_check(path: String, check_run_id: String) -> Result<(), St
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Check-Run Re-run ist nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::CheckRunRerun));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -2063,7 +2069,7 @@ pub async fn pr_rerun_check(path: String, check_run_id: String) -> Result<(), St
         let response_status = res.status();
         let body = res.text().await.unwrap_or_default();
         if let Some(error) = crate::provider_rate_limit::body_error(response_status, &body) { return Err(error); }
-        Err(format!("Check Re-run fehlgeschlagen ({status}): {}", body.trim()))
+        Err(coded!(GithubRerunFailed, status = status, body = body.trim()))
     }
 }
 
@@ -2073,7 +2079,7 @@ pub async fn pr_rerun_check_suite(path: String, suite_id: String) -> Result<(), 
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Check-Suite Re-run ist nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::CheckSuiteRerun));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -2087,7 +2093,7 @@ pub async fn pr_rerun_check_suite(path: String, suite_id: String) -> Result<(), 
         let response_status = res.status();
         let body = res.text().await.unwrap_or_default();
         if let Some(error) = crate::provider_rate_limit::body_error(response_status, &body) { return Err(error); }
-        Err(format!("Suite Re-run fehlgeschlagen ({status}): {}", body.trim()))
+        Err(coded!(GithubRerunFailed, status = status, body = body.trim()))
     }
 }
 
@@ -2118,7 +2124,7 @@ pub async fn pr_check_annotations(
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Annotationen sind nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::Annotations));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -2184,7 +2190,7 @@ pub async fn pr_branch_protection(
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Branch-Protection ist nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::BranchProtection));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -2192,9 +2198,7 @@ pub async fn pr_branch_protection(
     let url = github_repo_api_url(&h, &format!("branches/{enc_branch}/protection"));
     let res = github_request(&client, &cred, reqwest::Method::GET, &url, None).await?;
     if res.status() == reqwest::StatusCode::NOT_FOUND {
-        return Err(format!(
-            "Kein Branch-Protection-Regelwerk für '{branch}' konfiguriert."
-        ));
+        return Err(coded!(GithubNoBranchProtection, branch = branch));
     }
     let v = github_read_json(res, &h.host).await?;
 
@@ -2264,7 +2268,7 @@ pub async fn pr_set_auto_merge(
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Auto-Merge ist nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::AutoMerge));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -2317,7 +2321,7 @@ pub async fn pr_set_auto_merge(
                 .filter_map(|e| e["message"].as_str())
                 .collect::<Vec<_>>()
                 .join("; ");
-            return Err(format!("GitHub GraphQL Fehler: {msg}"));
+            return Err(coded!(GithubGraphqlError, message = msg));
         }
     }
     Ok(())
@@ -2396,7 +2400,7 @@ async fn github_graphql(
                 .filter_map(|e| e["message"].as_str())
                 .collect::<Vec<_>>()
                 .join("; ");
-            return Err(format!("GitHub GraphQL Fehler: {msg}"));
+            return Err(coded!(GithubGraphqlError, message = msg));
         }
     }
     Ok(v)
@@ -2428,7 +2432,7 @@ pub async fn pr_resolve_thread(
     let p = repo_path(&path);
     let h = parse_origin_url(&p)?;
     if h.provider != Provider::GitHub {
-        return Err("Threads auflösen ist nur für GitHub verfügbar.".into());
+        return Err(github_only(Label::ResolveThreads));
     }
     let cred = credential(&h)?;
     let client = http_client()?;
@@ -2458,7 +2462,7 @@ pub fn list_workflow_files(path: String) -> Result<Vec<String>, String> {
         return Ok(vec![]);
     }
     let mut files: Vec<String> = std::fs::read_dir(&dir)
-        .map_err(|e| format!("Konnte Workflows-Verzeichnis nicht lesen: {e}"))?
+        .map_err(|e| coded!(FolderReadFailed, error = e))?
         .filter_map(|e| e.ok())
         .map(|e| e.file_name().to_string_lossy().to_string())
         .filter(|n| n.ends_with(".yml") || n.ends_with(".yaml"))
@@ -2473,15 +2477,15 @@ pub fn read_workflow_file(path: String, filename: String) -> Result<String, Stri
     let p = repo_path(&path);
     let safe = std::path::Path::new(&filename)
         .file_name()
-        .ok_or("Ungültiger Dateiname.")?
+        .ok_or_else(|| coded!(FileNameInvalid))?
         .to_string_lossy()
         .to_string();
     if !safe.ends_with(".yml") && !safe.ends_with(".yaml") {
-        return Err("Nur .yml/.yaml Dateien erlaubt.".into());
+        return Err(coded!(WorkflowExtension));
     }
     let file_path = p.join(".github").join("workflows").join(&safe);
     std::fs::read_to_string(&file_path)
-        .map_err(|e| format!("Datei konnte nicht gelesen werden: {e}"))
+        .map_err(|e| coded!(FileReadFailed, error = e))
 }
 
 /// Write a workflow file back to .github/workflows/<filename>
@@ -2490,15 +2494,15 @@ pub fn save_workflow_file(path: String, filename: String, content: String) -> Re
     let p = repo_path(&path);
     let safe = std::path::Path::new(&filename)
         .file_name()
-        .ok_or("Ungültiger Dateiname.")?
+        .ok_or_else(|| coded!(FileNameInvalid))?
         .to_string_lossy()
         .to_string();
     if !safe.ends_with(".yml") && !safe.ends_with(".yaml") {
-        return Err("Nur .yml/.yaml Dateien erlaubt.".into());
+        return Err(coded!(WorkflowExtension));
     }
     let file_path = p.join(".github").join("workflows").join(&safe);
     std::fs::write(&file_path, content)
-        .map_err(|e| format!("Datei konnte nicht gespeichert werden: {e}"))
+        .map_err(|e| coded!(FileWriteFailed, error = e))
 }
 
 #[tauri::command]

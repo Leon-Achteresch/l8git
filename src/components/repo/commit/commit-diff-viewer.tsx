@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { SpinIcon } from "@/components/motion/kit";
 import { Toggle } from "@/components/ui/toggle";
 import { useCommitPrefs } from "@/lib/commit-prefs";
@@ -40,7 +41,7 @@ export function useDiffPreview(source: DiffPreviewSource | undefined) {
     let live = true;
     setLoading(true);
     loadDiffPreview(source.path, { ...source.request, ignoreWhitespace: opts.ignoreWhitespace, colorMoved: opts.colorMoved, context })
-      .then((r) => live && setRes(r), (e) => live && setError(String(e)))
+      .then((r) => live && setRes(r), (e) => live && setError(formatBackendError(e)))
       .finally(() => live && setLoading(false));
     return () => {
       live = false;

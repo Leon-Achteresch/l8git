@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -116,7 +117,7 @@ function LfsSectionContent({ path }: { path: string }) {
       const result = await invoke<LfsStatus>("lfs_available", { path });
       if (alive.current && request === requests.current.status) setStatus(result);
     } catch (error) {
-      if (alive.current && request === requests.current.status) setStatusError(String(error));
+      if (alive.current && request === requests.current.status) setStatusError(formatBackendError(error));
     } finally {
       if (alive.current && request === requests.current.status) setStatusLoading(false);
     }
@@ -129,7 +130,7 @@ function LfsSectionContent({ path }: { path: string }) {
       const result = await invoke<LfsPattern[]>("lfs_tracked_patterns", { path });
       if (alive.current && request === requests.current.patterns) setPatterns(result);
     } catch (error) {
-      if (alive.current && request === requests.current.patterns) setPatternsError(String(error));
+      if (alive.current && request === requests.current.patterns) setPatternsError(formatBackendError(error));
     } finally {
       if (alive.current && request === requests.current.patterns) setPatternsLoading(false);
     }
@@ -144,7 +145,7 @@ function LfsSectionContent({ path }: { path: string }) {
         const result = await invoke<LfsFileList>("lfs_ls_files", { path, limit: nextLimit });
         if (alive.current && request === requests.current.files) setFileList(result);
       } catch (error) {
-        if (alive.current && request === requests.current.files) setFilesError(String(error));
+        if (alive.current && request === requests.current.files) setFilesError(formatBackendError(error));
       } finally {
         if (alive.current && request === requests.current.files) setFilesLoading(false);
       }

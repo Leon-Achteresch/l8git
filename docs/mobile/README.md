@@ -11,10 +11,10 @@ cd src-tauri
 cargo build --features headless --bin l8gitd
 ./target/debug/l8gitd pair        # QR-Code + Pairing-JSON
 ./target/debug/l8gitd allow /pfad/zum/repo
-./target/debug/l8gitd serve --port 8484 [--relay wss://...]
+./target/debug/l8gitd serve --port 8484
 ```
 
-Die App scannt den QR-Code (oder fügt das JSON manuell ein) und verbindet sich per LAN oder Relay.
+Die App scannt den QR-Code (oder fügt das JSON manuell ein) und verbindet sich direkt über das lokale Netzwerk. Handy und Host müssen im selben Netz sein; einen Relay-Server gibt es nicht mehr. Hosts, die früher nur über ein Relay gepaart waren, zeigt die App als nicht erreichbar an und müssen im lokalen Netz neu gepaart werden.
 
 ## Agenten-Review abschließen
 

@@ -41,6 +41,7 @@ export function ProviderLogo({
     <span
       aria-hidden
       className={cn("inline-flex size-4 shrink-0 items-center justify-center", className)}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: bundled provider SVGs, no user input
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

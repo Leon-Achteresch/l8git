@@ -18,7 +18,6 @@ src-tauri/src/
    ├─ config.rs               config.json, repo-root allowlist
    ├─ pairing.rs              keyring (service "l8gitd"), QR, LAN IP
    ├─ sink.rs                 broadcast sink used by l8gitd
-   ├─ relay_client.rs         outbound relay link with backoff reconnect
    ├─ e2e.rs                  #[cfg(test)] socket-level protocol tests
    └─ dispatch/
       ├─ mod.rs               dispatch_table! macro + helpers
@@ -28,7 +27,7 @@ src-tauri/src/
 
 Build: `cargo check` (desktop, unchanged), `cargo check --features headless --all-targets`
 and `cargo build --features headless --bin l8gitd`.
-Tests: `cargo test --features headless` (in `src-tauri`) and `cargo test` (in `relay`).
+Tests: `cargo test --features headless` (in `src-tauri`).
 
 `dispatch/coverage.rs` parses `lib.rs` and the five dispatch tables at compile time via
 `include_str!` and fails the build's test run if the two command sets diverge, so a new
@@ -78,7 +77,7 @@ pub struct DispatchCtx {
 | `state.agents: AgentTransportState` | pass as `&ctx.state.agents` to agent inner fns |
 | `state.pty: PtyState` | pass as `&ctx.state.pty` to pty inner fns |
 | `state.host: HostInfo` | name / version / platform, used in the `ready` frame |
-| `state.host_id`, `state.psk`, `state.relay` | pairing + transport config |
+| `state.host_id`, `state.psk` | pairing config |
 | `state.watch(path)` / `unwatch(path)` / `unwatch_all()` | filesystem watcher registration; use these instead of calling `watcher::*` directly so shutdown can clean up |
 | `state.allowed_roots()` / `ensure_allowed(&args)` | repo-root allowlist |
 
@@ -286,43 +285,7 @@ pub async fn session(state: Arc<ServerState>, inbox: Inbox, wire: Wire) -> Resul
 
 - `ws::socket_session` (the axum `/ws` upgrade path) pumps an `axum` `WebSocket` into those
   channels: `Message::Text`/`Message::Binary` → `Frame`, ping/pong dropped, close ends the pump.
-- `relay_client::relay_session` feeds the same `session` from a relay `connId`.
-- The handshake reads `hello` from whichever frame kind arrives first (the relay delivers it
-  as binary), answers `welcome` as `Frame::Text` and everything after that as `Frame::Binary`.
+- The handshake reads `hello` from whichever frame kind arrives first (text or binary),
+  answers `welcome` as `Frame::Text` and everything after that as `Frame::Binary`.
   Text frames after the handshake still end the session.
 - Sealing stays in one writer task per session, so nonces never repeat regardless of transport.
-
-## Relay
-
-The relay is the standalone crate `relay/` (`l8git-relay`, own `Cargo.toml`, no workspace
-link to `src-tauri`). It is blind: it matches parties and pipes bytes.
-
-```
-l8gitd  --ws(s) /host/{hostId}-->  relay  <--ws(s) /client/{hostId}--  mobile app
-        JSON text frames                         raw binary frames
-```
-
-- `x-relay-token` = `base64url(sha256(psk || "l8git-relay-v1"))` (`crypto::relay_token`).
-  The first registration for a `hostId` pins `sha256(token)`; later host *and* client
-  connections must present the same token (constant-time compare), otherwise `403`.
-  A client for an unknown `hostId` gets `403`, one whose host is offline gets `503`.
-- Host multiplexing frames: `{"connId":string,"op":"open"|"data"|"close","data":"<base64>"}`,
-  standard base64 with padding, `data` empty for `open`/`close`. `connId` is relay-assigned
-  (`c0`, `c1`, …, unique per relay process); `open` is always relay→host.
-- Cleanup: a client socket closing sends `close` to the host; a host socket closing drops all
-  of its client sockets; a reconnecting host replaces the previous link (epoch-guarded, so a
-  late teardown of the old socket cannot unregister the new one).
-- Run it: `cd relay && cargo run -- --port 8485 [--bind 0.0.0.0]`, health check `GET /health`.
-  State is in memory only; restarting the relay clears the pinned tokens.
-
-`server/relay_client.rs` is the l8gitd side:
-
-- `endpoint(relay, host_id)` normalizes the configured URL (`http`/`https` are mapped to
-  `ws`/`wss`, trailing `/` stripped) and appends `/host/{hostId}`; `l8gitd serve` validates it
-  before starting and fails fast on a broken `--relay` value.
-- One outbound socket per host, a `ping` every 30 s, reconnect with exponential backoff
-  (1 s → 60 s, `next_backoff`) and jitter (`with_jitter`, 50–100 % of the delay); the backoff
-  resets after a successful connect.
-- Every `open` spawns a full `ws::session` — identical dispatch, allowlist, events and
-  crypto as a direct LAN connection. `data` is decoded and pushed into that session's inbox,
-  `close` (or a dying session) tears it down and reports `close` back to the relay.

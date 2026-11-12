@@ -3,9 +3,11 @@ import { toast } from "sonner";
 import i18n from "@/lib/i18n";
 import { providerUnknownHost } from "@/lib/pr-provider";
 import { providerRetryAt } from './provider-rate-limit';
-import { parseLocalChangesBlock, parseRecoveryPathsBlock } from './reflog-format';
+import { formatBackendError, parseBackendError } from './backend-error';
+import { parseLocalChangesBlock } from './reflog-format';
 
 export function translateKnownError(message: string): string {
+  if (parseBackendError(message).code) return formatBackendError(message);
   const splitErrors: Record<string, string> = {
     __SPLIT_REVIEW_CHANGED__: 'commitSplit.errorReviewChanged',
     __SPLIT_STAGING_CHANGED__: 'commitSplit.errorStagingChanged',
@@ -20,10 +22,6 @@ export function translateKnownError(message: string): string {
   if (invalidPatch >= 0) return i18n.t('commitPanel.partialSelectionInvalid', { file: message.slice(invalidPatch + '__INVALID_REVIEWED_PATCH__|'.length) });
   const changedFile = message.indexOf('__FILE_CHANGED__|');
   if (changedFile >= 0) return i18n.t('helpCenter.fileChanged', { file: message.slice(changedFile + '__FILE_CHANGED__|'.length) });
-  if (message.includes('__UNDO_CHANGED__')) return i18n.t('recovery.undoChanged');
-  if (message.includes('__REFLOG_CHANGED__')) return i18n.t('recovery.resetChanged');
-  const recoveryPaths = parseRecoveryPathsBlock(message);
-  if (recoveryPaths) return `${i18n.t('recovery.pathsBlocked')} ${recoveryPaths.join(', ')}`;
   if (message.includes('__HEAD_CHANGED__')) return i18n.t('helpCenter.headChanged');
   if (message.includes('__BRANCH_CHANGED__')) return i18n.t('helpCenter.branchChanged');
   if (message.includes('__SOURCE_CHANGED__')) return i18n.t('helpCenter.sourceChanged');
@@ -42,7 +40,7 @@ export function translateKnownError(message: string): string {
   if (unknownHost !== null) {
     return i18n.t("errors.providerUnknown", { host: unknownHost });
   }
-  return message;
+  return formatBackendError(message);
 }
 
 export function toastError(message: string) {

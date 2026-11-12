@@ -10,7 +10,7 @@ test('undo requires a fresh preview after the last operation changes', async ({ 
     const original = window.__L8GIT_TEST_INVOKE__!;
     let rejectOnce = true;
     window.__L8GIT_TEST_INVOKE__ = (command, args) => {
-      if (command === 'undo_last_operation' && rejectOnce) { rejectOnce = false; return Promise.reject(Error('__UNDO_CHANGED__')); }
+      if (command === 'undo_last_operation' && rejectOnce) { rejectOnce = false; return Promise.reject(Error('\u001fThe last operation changed after this preview.\u001fl8e:{"code":"undo.changed"}\u001f')); }
       return original(command, args);
     };
   });
@@ -69,7 +69,7 @@ test('recovery shows the exact local paths protected from a hard reset', async (
   await page.evaluate(() => {
     const original = window.__L8GIT_TEST_INVOKE__!;
     window.__L8GIT_TEST_INVOKE__ = (command, args) => command === 'reset_to_reflog_entry'
-      ? Promise.reject(Error('__RECOVERY_PATHS_BLOCK__|' + JSON.stringify(['local,name\n.txt', 'ignored/cache.bin'])))
+      ? Promise.reject(Error('\u001fLocal or ignored files would be overwritten.\u001fl8e:' + JSON.stringify({ code: 'undo.pathsBlocked', params: { files: ['local,name\n.txt', 'ignored/cache.bin'] } }) + '\u001f'))
       : original(command, args);
   });
   const dialog = page.getByRole('alertdialog', { name: 'Reset hard?', exact: true });

@@ -159,7 +159,7 @@ test('pagination retry retains useful matches and resumes the failed page withou
   await applyQuery(page, 'release');
   await expect(loadedStatus(page, 80)).toBeVisible();
   await page.getByRole('button', { name: 'Load more', exact: true }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Error: History page temporarily unavailable' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'History page temporarily unavailable' })).toBeVisible();
   await expect(row(page, 0)).toBeVisible();
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
   await expect(loadedStatus(page, 120)).toBeVisible();
@@ -178,7 +178,7 @@ test('an obsolete slow response cannot overwrite a newer filtered result', async
     const original = window.__L8GIT_TEST_INVOKE__!;
     const testWindow = window as Window & { __RELEASE_HISTORY__?: () => void };
     window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
-      if (command === 'repo_history_page' && (args?.filter as { query: string }).query === 'parser [literal]') {
+      if (command === 'repo_history_page' && (args!.filter as { query: string }).query === 'parser [literal]') {
         window.__L8GIT_TEST_CALLS__!.push({ command: 'history-held', args });
         await new Promise<void>(resolve => { testWindow.__RELEASE_HISTORY__ = resolve; });
       }
@@ -191,7 +191,7 @@ test('an obsolete slow response cannot overwrite a newer filtered result', async
   await expect(loadedStatus(page, 1)).toBeVisible();
   await expect(row(page, 2)).toBeVisible();
   await page.evaluate(() => (window as Window & { __RELEASE_HISTORY__?: () => void }).__RELEASE_HISTORY__?.());
-  await expect.poll(async () => (await historyCalls(page)).some(call => (call.args?.filter as { query: string }).query === 'parser [literal]')).toBe(true);
+  await expect.poll(async () => (await historyCalls(page)).some(call => (call.args!.filter as { query: string }).query === 'parser [literal]')).toBe(true);
   await expect(row(page, 2)).toBeVisible();
   await expect(row(page, 1)).toHaveCount(0);
   await expect(loadedStatus(page, 1)).toBeVisible();
@@ -232,4 +232,47 @@ test('draft escape and a no-match reset restore the previous useful history in a
   await expect(query).toHaveValue('');
   await expect(row(page, 0)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('a followed path takes focus on the same inspected commit without refetching its details', async ({ page }) => {
+  await openHistory(page);
+  await page.evaluate(() => {
+    const original = window.__L8GIT_TEST_INVOKE__!;
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      if (command === 'repo_commit_file_diff') {
+        window.__L8GIT_TEST_CALLS__!.push({ command, args });
+        return { staged: null, unstaged: null, untracked_plain: null, is_binary: false };
+      }
+      if (command === 'repo_history_page') {
+        const filter = args!.filter as { file: string };
+        const result = await original(command, { ...args, filter: { ...filter, file: '' } }) as Record<string, unknown>[];
+        return filter.file ? result.slice(0, 1).map(commit => ({ ...commit, path: 'lib/old.ts' })) : result;
+      }
+      const result = await original(command, args);
+      if (command === 'repo_commit_inspect') return {
+        ...result as Record<string, unknown>,
+        files: ['README.md', 'lib/old.ts'].map(path => ({ path, additions: 1, deletions: 0, binary: false })),
+      };
+      return result;
+    };
+  });
+  await row(page, 0).click();
+  const readme = page.locator('[data-file-path="README.md"]');
+  const followed = page.locator('[data-file-path="lib/old.ts"]');
+  await expect(readme).toHaveAttribute('aria-pressed', 'true');
+  const inspectCalls = () => page.evaluate(commit => (window.__L8GIT_TEST_CALLS__ ?? [])
+    .filter(call => call.command === 'repo_commit_inspect' && call.args?.commit === commit).length, hash(0));
+  const before = await inspectCalls();
+  await form(page).getByRole('button', { name: 'Filters', exact: true }).click();
+  await form(page).getByRole('textbox', { name: 'File or directory', exact: true }).fill('src/new.ts');
+  await form(page).getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(followed).toHaveAttribute('aria-pressed', 'true');
+  expect(await inspectCalls()).toBe(before);
+  await readme.click();
+  await expect(readme).toHaveAttribute('aria-pressed', 'true');
+  const refresh = page.getByRole('button', { name: 'Refresh', exact: true }).last();
+  await refresh.click();
+  await expect.poll(inspectCalls).toBe(before + 1);
+  await expect(refresh).toBeEnabled();
+  await expect(readme).toHaveAttribute('aria-pressed', 'true');
 });

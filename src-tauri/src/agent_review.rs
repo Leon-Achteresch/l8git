@@ -1,3 +1,4 @@
+use crate::coded;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -76,7 +77,7 @@ fn head_branch(repo: &PathBuf) -> Result<String, String> {
         .trim()
         .to_string();
     if name.is_empty() || name == "HEAD" {
-        return Err("Der Branch konnte nicht ermittelt werden (detached HEAD).".into());
+        return Err(coded!(ReviewBranchUnknown));
     }
     Ok(name)
 }
@@ -188,7 +189,7 @@ fn build_summary_locked(
     let base_branch = head_branch(base)?;
     let session_branch = head_branch(worktree)?;
     if base_branch == session_branch {
-        return Err("Basis-Branch und Session-Branch sind identisch.".into());
+        return Err(coded!(ReviewSameBranches));
     }
     let base_head = resolve_git_commit(base, "HEAD")?;
     let session_head = resolve_git_commit(worktree, "HEAD")?;
@@ -196,7 +197,7 @@ fn build_summary_locked(
         .trim()
         .to_string();
     if merge_base.is_empty() {
-        return Err("Es gibt keinen gemeinsamen Vorfahren der beiden Branches.".into());
+        return Err(coded!(ReviewNoCommonAncestor));
     }
 
     let numstat = run_git(
@@ -521,7 +522,7 @@ pub async fn agent_review_summary(
         }
     })
     .await
-    .map_err(|e| format!("Review-Aufgabe abgebrochen: {e}"))?
+    .map_err(|e| coded!(ReviewTaskAborted, error = e))?
 }
 
 struct ReviewCommitExpectation<'a> {
@@ -752,32 +753,32 @@ pub async fn agent_review_file_diff(
         let base = merge_base.trim().to_string();
         let f = file;
         if base.is_empty() || f.is_empty() {
-            return Err("Merge-Basis oder Dateipfad fehlt".into());
+            return Err(coded!(ReviewMergeBaseOrPathMissing));
         }
         build_file_diff(&worktree, &base, &f)
     })
     .await
-    .map_err(|e| format!("Review-Aufgabe abgebrochen: {e}"))?
+    .map_err(|e| coded!(ReviewTaskAborted, error = e))?
 }
 
 fn restore_checkpoint_file(worktree: &PathBuf, file: &CheckpointFile) -> Result<(), String> {
     let relative = file.path.as_str();
     let absolute = WorktreePathGuard::new(worktree)?
         .regular_file(relative)
-        .map_err(|error| format!("Ungültiger Dateipfad im Checkpoint: {relative}: {error}"))?;
+        .map_err(|error| coded!(ReviewCheckpointPathInvalid, path = relative, error = error))?;
     match &file.content {
         Some(content) => {
             if let Some(parent) = absolute.parent() {
                 std::fs::create_dir_all(parent)
-                    .map_err(|e| format!("Verzeichnis konnte nicht angelegt werden: {e}"))?;
+                    .map_err(|e| coded!(FolderCreateFailed, error = e))?;
             }
             std::fs::write(&absolute, content)
-                .map_err(|e| format!("Datei konnte nicht wiederhergestellt werden: {e}"))
+                .map_err(|e| coded!(FileRestoreFailed, error = e))
         }
         None => match std::fs::remove_file(&absolute) {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(format!("Datei konnte nicht gelöscht werden: {e}")),
+            Err(e) => Err(coded!(FileDeleteFailed, error = e)),
         },
     }
 }
@@ -802,7 +803,7 @@ pub async fn agent_review_restore_checkpoint_files(
         Ok(())
     })
     .await
-    .map_err(|e| format!("Restore-Aufgabe abgebrochen: {e}"))?
+    .map_err(|e| coded!(ReviewTaskAborted, error = e))?
 }
 
 #[tauri::command]
@@ -834,7 +835,7 @@ pub async fn agent_review_branch_merged(path: String, branch: String) -> Result<
         }
     })
     .await
-    .map_err(|e| format!("Review-Aufgabe abgebrochen: {e}"))?
+    .map_err(|e| coded!(ReviewTaskAborted, error = e))?
 }
 
 #[cfg(test)]
@@ -959,7 +960,7 @@ mod tests {
         let repo = TestRepo::new();
         fs::write(repo.worktree.join("f.txt"), "remote reviewed\n").unwrap();
         let summary = build_summary_options(&repo.worktree, &repo.base, true).unwrap();
-        let state = ServerState::new("host".into(), [7u8; 32], vec![repo.root.clone()], None);
+        let state = ServerState::new("host".into(), [7u8; 32], vec![repo.root.clone()]);
         let (tx, _rx) = tokio::sync::mpsc::channel(OUTBOX_CAPACITY);
         let ctx = DispatchCtx::new(
             state,
@@ -2035,7 +2036,7 @@ mod tests {
             },
         )
         .unwrap_err();
-        assert!(err.contains("Ungültiger Dateipfad"));
+        assert!(err.contains("Invalid file path"));
     }
 
     #[test]
@@ -2049,7 +2050,7 @@ mod tests {
             },
         )
         .unwrap_err();
-        assert!(err.contains("Ungültiger Dateipfad"));
+        assert!(err.contains("Invalid file path"));
     }
 
     #[test]

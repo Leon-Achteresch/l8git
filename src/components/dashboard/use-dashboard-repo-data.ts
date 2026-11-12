@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
@@ -63,7 +64,7 @@ export class DashboardHealthReader {
       } catch (cause) {
         if (!isCurrent()) return;
         this.publish({ ...this.snapshot, sources: { ...this.snapshot.sources,
-          [source]: { ...this.snapshot.sources[source], loading: false, error: cause instanceof Error ? cause.message : String(cause) } } });
+          [source]: { ...this.snapshot.sources[source], loading: false, error: formatBackendError(cause) } } });
       }
     }));
   };

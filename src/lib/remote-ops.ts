@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { create } from 'zustand';
@@ -156,7 +157,7 @@ export async function runRemoteOp<T>(
     useRemoteOps.getState().recordResult({ opId, op, repoPath, status: 'success', message: '', finishedAt: Date.now() });
     return result;
   } catch (error) {
-    useRemoteOps.getState().recordResult({ opId, op, repoPath, status: isRemoteCanceled(error) ? 'canceled' : 'failed', message: String(error), finishedAt: Date.now(), retry: op === 'fetch' && !isRemoteCanceled(error) ? () => runRemoteOp(op, repoPath, run) : undefined });
+    useRemoteOps.getState().recordResult({ opId, op, repoPath, status: isRemoteCanceled(error) ? 'canceled' : 'failed', message: formatBackendError(error), finishedAt: Date.now(), retry: op === 'fetch' && !isRemoteCanceled(error) ? () => runRemoteOp(op, repoPath, run) : undefined });
     throw error;
   } finally {
     useRemoteOps.getState().finishOp(opId);

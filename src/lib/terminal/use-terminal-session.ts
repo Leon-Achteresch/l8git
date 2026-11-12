@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
@@ -184,7 +185,7 @@ async function openPtyForSession(
 }
 
 function reportOpenError(s: Session, e: unknown): void {
-  const message = String(e);
+  const message = formatBackendError(e);
   console.error("[l8git] openPty failed:", e);
   if (s.callbacks.onError) s.callbacks.onError(message);
   else s.pendingError = message;

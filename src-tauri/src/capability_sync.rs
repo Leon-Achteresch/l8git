@@ -15,6 +15,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::coded;
+use crate::error::{required, Label};
+
 const MAX_ITEMS_PER_KIND: usize = 1_000;
 const MAX_SCAN_DEPTH: usize = 5;
 const MAX_COPY_FILES: usize = 400;
@@ -471,7 +474,7 @@ fn markdown_description(path: &Path) -> String {
 pub(crate) fn safe_relative(rel: &str) -> Result<PathBuf, String> {
     let relative = rel.trim_matches(['/', '\\']);
     if relative.trim().is_empty() {
-        return Err("Leerer Pfad.".into());
+        return Err(coded!(PathMissing));
     }
     let mut out = PathBuf::new();
     for part in relative.split(['/', '\\']) {
@@ -479,12 +482,12 @@ pub(crate) fn safe_relative(rel: &str) -> Result<PathBuf, String> {
             continue;
         }
         if part == ".." || part.contains(':') || part.chars().any(char::is_control) {
-            return Err(format!("Unsicherer Pfad: {rel}"));
+            return Err(coded!(CapabilityUnsafePath, path = rel));
         }
         out.push(part);
     }
     if out.as_os_str().is_empty() {
-        return Err("Leerer Pfad.".into());
+        return Err(coded!(PathMissing));
     }
     Ok(out)
 }
@@ -537,22 +540,19 @@ fn copy_directory(source: &Path, target: &Path) -> Result<u32, String> {
     let mut files = Vec::new();
     walk_files(source, source, 0, &mut files);
     if files.len() >= MAX_COPY_FILES {
-        return Err(format!(
-            "Zu viele Dateien ({}+). Bitte den Ordner manuell kopieren.",
-            MAX_COPY_FILES
-        ));
+        return Err(coded!(CapabilityTooManyFiles, max = MAX_COPY_FILES));
     }
     let mut total = 0_u64;
     for file in &files {
         total += fs::metadata(file).map(|meta| meta.len()).unwrap_or(0);
     }
     if total > MAX_COPY_BYTES {
-        return Err("Der Ordner ist größer als 20 MB.".into());
+        return Err(coded!(CapabilityFolderTooLarge));
     }
     for file in &files {
         let rel = file
             .strip_prefix(source)
-            .map_err(|_| "Unerwarteter Pfad beim Kopieren.".to_string())?;
+            .map_err(|_| coded!(CapabilityUnexpectedCopyPath))?;
         let destination = target.join(rel);
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;
@@ -616,7 +616,7 @@ pub(crate) fn read_json_file(path: &Path) -> Result<Value, String> {
         return Ok(Value::Object(Map::new()));
     }
     serde_json::from_str(&contents)
-        .map_err(|error| format!("{} ist kein gültiges JSON: {error}", path.display()))
+        .map_err(|error| coded!(CapabilityJsonInvalid, path = path.display(), error = error))
 }
 
 /// Schreibt `contents` über eine temporäre Datei im selben Verzeichnis und
@@ -626,7 +626,7 @@ pub(crate) fn read_json_file(path: &Path) -> Result<Value, String> {
 pub(crate) fn atomic_write(target: &Path, contents: &[u8]) -> Result<(), String> {
     let directory = target
         .parent()
-        .ok_or_else(|| "Ungültiger Zielpfad.".to_string())?;
+        .ok_or_else(|| coded!(TargetPathInvalid))?;
     fs::create_dir_all(directory).map_err(|error| error.to_string())?;
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1105,36 +1105,36 @@ fn read_mcp_specs(layout: &CliLayout, scope: &str, repo: &Path) -> Vec<(McpSpec,
 /// geprüft – aufgelöst werden sie erst beim Spawn (`claude.rs`).
 pub(crate) fn validate_mcp_spec(spec: &McpSpec) -> Result<(), String> {
     if spec.name.trim().is_empty() {
-        return Err("Der MCP-Name darf nicht leer sein.".into());
+        return Err(required(Label::McpName));
     }
     if !spec
         .name
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
     {
-        return Err("Der MCP-Name darf nur Buchstaben, Zahlen, _ und - enthalten.".into());
+        return Err(coded!(CapabilityMcpNameInvalidChars));
     }
     match spec.transport.as_str() {
         "http" => {
             let url = spec.url.as_deref().unwrap_or("").trim();
             if !(url.starts_with("http://") || url.starts_with("https://")) {
-                return Err("Für HTTP-MCP ist eine gültige http(s)-URL erforderlich.".into());
+                return Err(coded!(CapabilityMcpHttpUrlRequired));
             }
         }
         "stdio" => {
             if spec.command.as_deref().unwrap_or("").trim().is_empty() {
-                return Err("Für STDIO-MCP ist ein Startbefehl erforderlich.".into());
+                return Err(coded!(CapabilityMcpCommandRequired));
             }
             if spec.args.iter().any(|arg| arg.is_empty()) {
-                return Err("Ein Startargument ist leer.".into());
+                return Err(coded!(CapabilityMcpArgEmpty));
             }
         }
-        other => return Err(format!("Unbekannter Transport: {other}")),
+        other => return Err(coded!(CapabilityMcpUnknownTransport, transport = other)),
     }
     for (key, value) in &spec.env {
         if let Some(reference) = value.strip_prefix("secret:") {
             if reference.trim().is_empty() {
-                return Err(format!("Der Secret-Verweis für {key} ist leer."));
+                return Err(coded!(CapabilityMcpSecretEmpty, key = key));
             }
         }
     }
@@ -1150,9 +1150,9 @@ pub(crate) fn write_mcp_spec(
     validate_mcp_spec(spec)?;
     let (format, user_rel, repo_rel, global_rel) = layout
         .mcp
-        .ok_or_else(|| format!("{} unterstützt keine MCP-Server.", layout.label))?;
+        .ok_or_else(|| coded!(CapabilityMcpUnsupported, cli = layout.label))?;
     let path = config_path(layout, scope, repo, user_rel, repo_rel, global_rel)
-        .ok_or_else(|| "Kein Zielpfad für die MCP-Konfiguration.".to_string())?;
+        .ok_or_else(|| coded!(CapabilityMcpNoTargetPath))?;
     backup_config(&path)?;
     match format {
         McpFormat::CodexToml => {
@@ -1194,9 +1194,9 @@ fn delete_mcp_spec(
 ) -> Result<PathBuf, String> {
     let (format, user_rel, repo_rel, global_rel) = layout
         .mcp
-        .ok_or_else(|| format!("{} unterstützt keine MCP-Server.", layout.label))?;
+        .ok_or_else(|| coded!(CapabilityMcpUnsupported, cli = layout.label))?;
     let path = config_path(layout, scope, repo, user_rel, repo_rel, global_rel)
-        .ok_or_else(|| "Kein Zielpfad für die MCP-Konfiguration.".to_string())?;
+        .ok_or_else(|| coded!(CapabilityMcpNoTargetPath))?;
     backup_config(&path)?;
     match format {
         McpFormat::CodexToml => rewrite_codex_mcp(&path, name, None)?,
@@ -1223,7 +1223,7 @@ pub(crate) fn write_skill_or_command_file(
         || file_name == "."
         || file_name == ".."
     {
-        return Err(format!("Ungültiger Dateiname: {file_name}"));
+        return Err(coded!(FileNameInvalid));
     }
     let path = directory.join(file_name);
     atomic_write(&path, contents.as_bytes())?;
@@ -1304,7 +1304,7 @@ pub(crate) fn merge_hook(
     group: &Value,
 ) -> Result<PathBuf, String> {
     let path = hooks_path(layout, scope, repo)
-        .ok_or_else(|| format!("{} unterstützt keine Hooks.", layout.label))?;
+        .ok_or_else(|| coded!(CapabilityHooksUnsupported, cli = layout.label))?;
     backup_config(&path)?;
     let mut root = read_json_file(&path)?;
     if !root.is_object() {
@@ -1340,7 +1340,7 @@ fn delete_hook(
     index: usize,
 ) -> Result<PathBuf, String> {
     let path = hooks_path(layout, scope, repo)
-        .ok_or_else(|| format!("{} unterstützt keine Hooks.", layout.label))?;
+        .ok_or_else(|| coded!(CapabilityHooksUnsupported, cli = layout.label))?;
     backup_config(&path)?;
     let mut root = read_json_file(&path)?;
     let removed = root
@@ -1358,7 +1358,7 @@ fn delete_hook(
         })
         .unwrap_or(false);
     if !removed {
-        return Err("Hook wurde nicht gefunden.".into());
+        return Err(coded!(HookNotFound));
     }
     write_json_file(&path, &root)?;
     Ok(path)
@@ -1630,7 +1630,7 @@ pub(crate) fn normalized_rel(target: &CliLayout, kind: &str, rel: &str) -> Strin
 
 fn permission_hint(error: &std::io::Error, scope: &str) -> String {
     if error.kind() == std::io::ErrorKind::PermissionDenied && scope == "global" {
-        "Keine Schreibrechte auf der globalen Ebene – dafür sind Administratorrechte nötig.".into()
+        coded!(CapabilityGlobalWriteDenied)
     } else {
         error.to_string()
     }
@@ -1682,7 +1682,8 @@ fn copy_one(
     };
 
     let (Some(source_layout), Some(target_layout)) = (layout(&item.cli), layout(&target.cli)) else {
-        return fail("Unbekannte CLI.".into());
+        let unknown = if layout(&item.cli).is_none() { &item.cli } else { &target.cli };
+        return fail(coded!(AgentUnknownProvider, provider = unknown));
     };
     if item.cli == target.cli && item.scope == target.scope {
         return result(
@@ -1703,7 +1704,7 @@ fn copy_one(
             &source_label,
             &target_label,
             "unsupported",
-            format!("{} kennt diese Capability-Art nicht.", target_layout.label),
+            coded!(CapabilityKindUnsupportedBy, cli = target_layout.label),
             None,
             None,
         );
@@ -1715,13 +1716,13 @@ fn copy_one(
                 kind_dir(source_layout, &item.kind),
                 kind_dir(target_layout, &item.kind),
             ) else {
-                return fail("Capability-Art wird nicht unterstützt.".into());
+                return fail(coded!(CapabilityKindUnsupported));
             };
             let Some(source_root) = cli_root(source_layout, &item.scope, repo) else {
-                return fail("Quellverzeichnis nicht gefunden.".into());
+                return fail(coded!(CapabilitySourceDirMissing));
             };
             let Some(target_root) = cli_root(target_layout, &target.scope, repo) else {
-                return fail("Zielverzeichnis nicht gefunden.".into());
+                return fail(coded!(CapabilityTargetDirMissing));
             };
             let relative = match safe_relative(&item.rel) {
                 Ok(value) => value,
@@ -1729,7 +1730,7 @@ fn copy_one(
             };
             let source_path = source_root.join(source_dir).join(&relative);
             if !source_path.exists() {
-                return fail("Quelle existiert nicht mehr.".into());
+                return fail(coded!(CapabilitySourceGone));
             }
             let target_rel = match safe_relative(&normalized_rel(target_layout, &item.kind, &item.rel)) {
                 Ok(value) => value,
@@ -1786,7 +1787,7 @@ fn copy_one(
                 .into_iter()
                 .find(|(spec, _)| spec.name == item.rel)
             else {
-                return fail("MCP-Server wurde nicht gefunden.".into());
+                return fail(coded!(CapabilityMcpNotFound));
             };
             let existing = read_mcp_specs(target_layout, &target.scope, repo)
                 .into_iter()
@@ -1819,14 +1820,14 @@ fn copy_one(
         }
         "hook" => {
             let Some((event, index)) = item.rel.split_once('#') else {
-                return fail("Ungültiger Hook-Schlüssel.".into());
+                return fail(coded!(HookKeyInvalid));
             };
             let index = index.parse::<usize>().unwrap_or(usize::MAX);
             let Some((hook, _)) = read_hooks(source_layout, &item.scope, repo)
                 .into_iter()
                 .find(|(hook, _)| hook.event == event && hook.index == index)
             else {
-                return fail("Hook wurde nicht gefunden.".into());
+                return fail(coded!(HookNotFound));
             };
             match merge_hook(target_layout, &target.scope, repo, event, &hook.group) {
                 Ok(path) => result(
@@ -1842,7 +1843,7 @@ fn copy_one(
                 Err(error) => fail(error),
             }
         }
-        _ => fail("Unbekannte Capability-Art.".into()),
+        _ => fail(coded!(CapabilityKindUnknown)),
     }
 }
 
@@ -1853,16 +1854,16 @@ fn delete_one(repo: &Path, item: &CapabilityRef) -> CapabilityOpResult {
         result(&item.kind, &name, &source_label, &source_label, "error", message, None, None)
     };
     let Some(source_layout) = layout(&item.cli) else {
-        return fail("Unbekannte CLI.".into());
+        return fail(coded!(AgentUnknownProvider, provider = item.cli));
     };
     let Some(root) = cli_root(source_layout, &item.scope, repo) else {
-        return fail("Verzeichnis nicht gefunden.".into());
+        return fail(coded!(CapabilityDirMissing));
     };
 
     match item.kind.as_str() {
         "skill" | "command" | "agent" => {
             let Some(directory) = kind_dir(source_layout, &item.kind) else {
-                return fail("Capability-Art wird nicht unterstützt.".into());
+                return fail(coded!(CapabilityKindUnsupported));
             };
             let relative = match safe_relative(&item.rel) {
                 Ok(value) => value,
@@ -1870,7 +1871,7 @@ fn delete_one(repo: &Path, item: &CapabilityRef) -> CapabilityOpResult {
             };
             let target = root.join(directory).join(relative);
             if !target.exists() {
-                return fail("Datei existiert nicht mehr.".into());
+                return fail(coded!(FileGone));
             }
             let backup = match backup_existing(&root, &target, &name.replace([':', '/'], "-")) {
                 Ok(value) => value,
@@ -1910,10 +1911,10 @@ fn delete_one(repo: &Path, item: &CapabilityRef) -> CapabilityOpResult {
         },
         "hook" => {
             let Some((event, index)) = item.rel.split_once('#') else {
-                return fail("Ungültiger Hook-Schlüssel.".into());
+                return fail(coded!(HookKeyInvalid));
             };
             let Ok(index) = index.parse::<usize>() else {
-                return fail("Ungültiger Hook-Schlüssel.".into());
+                return fail(coded!(HookKeyInvalid));
             };
             match delete_hook(source_layout, &item.scope, repo, event, index) {
                 Ok(path) => result(
@@ -1929,7 +1930,7 @@ fn delete_one(repo: &Path, item: &CapabilityRef) -> CapabilityOpResult {
                 Err(error) => fail(error),
             }
         }
-        _ => fail("Unbekannte Capability-Art.".into()),
+        _ => fail(coded!(CapabilityKindUnknown)),
     }
 }
 
@@ -1970,7 +1971,7 @@ fn plan_for(
                     target_cli: target.cli.clone(),
                     target_scope: target.scope.clone(),
                     action: "unsupported".into(),
-                    detail: format!("{} kennt diese Art nicht.", target_layout.label),
+                    detail: coded!(CapabilityKindUnsupportedBy, cli = target_layout.label),
                 });
                 continue;
             }

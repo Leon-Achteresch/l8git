@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-import type { CapabilityOpResult, CapabilityTargetRef } from "@/lib/agents/capability-hub";
+import { formatOpResults, type CapabilityOpResult, type CapabilityTargetRef } from "@/lib/agents/capability-hub";
+import { formatBackendError } from "@/lib/backend-error";
 import { invoke } from "@/lib/platform/ipc";
 
 export const MARKET_KINDS = ["skill", "mcp", "plugin", "hook", "command"] as const;
@@ -161,11 +162,11 @@ export const useCapabilityMarketStore = create<MarketState>((set, get) => ({
         sort,
         minStars: minStars > 0 ? minStars : null,
       });
-      set({ result, loading: false });
+      set({ result: { ...result, notes: result.notes.map((note) => formatBackendError(note)) }, loading: false });
     } catch (error) {
       set({
         loading: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: formatBackendError(error),
       });
     }
   },
@@ -182,7 +183,7 @@ export const useCapabilityMarketStore = create<MarketState>((set, get) => ({
     } catch (error) {
       set({
         inspecting: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: formatBackendError(error),
       });
       return null;
     }
@@ -193,14 +194,14 @@ export const useCapabilityMarketStore = create<MarketState>((set, get) => ({
     if (!detail) return [];
     set({ installing: true });
     try {
-      return await invoke<CapabilityOpResult[]>("agent_market_install", {
+      return formatOpResults(await invoke<CapabilityOpResult[]>("agent_market_install", {
         path,
         fullName: detail.repo.fullName,
         refName: detail.refName,
         assets,
         targets,
         overwrite,
-      });
+      }));
     } finally {
       set({ installing: false });
     }
@@ -209,14 +210,19 @@ export const useCapabilityMarketStore = create<MarketState>((set, get) => ({
   addMcp: async (path, spec, targets) => {
     set({ installing: true });
     try {
-      return await invoke<CapabilityOpResult[]>("agent_market_add_mcp", { path, spec, targets });
+      return formatOpResults(await invoke<CapabilityOpResult[]>("agent_market_add_mcp", { path, spec, targets }));
     } finally {
       set({ installing: false });
     }
   },
 
-  preview: async (fullName, refName, file) =>
-    invoke<string>("agent_market_preview", { fullName, refName, file }),
+  preview: async (fullName, refName, file) => {
+    try {
+      return await invoke<string>("agent_market_preview", { fullName, refName, file });
+    } catch (error) {
+      throw new Error(formatBackendError(error));
+    }
+  },
 }));
 
 export interface ParsedHook {

@@ -1,3 +1,5 @@
+import { listAssignees, listLabels } from "@/lib/github-expansion/api";
+
 import { enc, gql, hubApi } from "./api";
 import type {
   CheckState,
@@ -462,10 +464,20 @@ export const github: HubAdapter = {
     return restRepo(r);
   },
 
-  async createIssue(a, fullName, title, body) {
+  async createIssue(a, fullName, title, body, meta = {}) {
     const { owner, name } = split(fullName);
-    const r = await hubApi<{ html_url: string }>(a, "POST", `/repos/${enc(owner)}/${enc(name)}/issues`, { title, body });
+    const r = await hubApi<{ html_url: string }>(a, "POST", `/repos/${enc(owner)}/${enc(name)}/issues`, { title, body, ...meta });
     return r.html_url;
+  },
+
+  async issueLabels(a, fullName, page) {
+    const p = await listLabels(a, fullName, page);
+    return { ...p, items: p.items.map((l) => ({ id: l.name, label: l.name, color: l.color })) };
+  },
+
+  async issueAssignees(a, fullName, page) {
+    const p = await listAssignees(a, fullName, page);
+    return { ...p, items: p.items.map((u) => ({ id: u.login, label: u.login })) };
   },
 
   async createRepo(a, name, description, isPrivate) {

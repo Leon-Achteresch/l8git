@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -6,14 +7,16 @@ import { createIssue } from "@/lib/github-expansion/api";
 import { renderIssueAnswers, validateIssueAnswers, type FormAnswers, type IssueFormField } from "@/lib/github-expansion/forms";
 import { submitIssueForm } from "@/lib/github-expansion/issue-forms";
 import { initialAnswers, loadTemplateEntries, templateLabel, templatePrefill, type TemplateEntry } from "@/lib/github-ui/issue-forms-ui";
+import { issueErrorMessage } from "@/lib/hub/issue-errors";
 import { adapterFor, hubRepoPath } from "@/lib/hub/store";
-import type { HubAccount } from "@/lib/hub/types";
-import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import type { HubAccount, HubChoicePage } from "@/lib/hub/types";
+import { Loader2, Tag, Users } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { GhMarkdown } from "./gh-markdown";
+import { GhPickPopover, type PickItem } from "./gh-pick-popover";
 import { MentionTextarea } from "./mention-textarea";
 
 /** Body text prefilled from a body draft (e.g. "issue from selected diff"). */
@@ -31,6 +34,8 @@ export function IssueCreateDialog({ account: a, fullName, open, onOpenChange, in
   const [answers, setAnswers] = useState<FormAnswers>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState<{ labels: string[]; assignees: string[] }>({ labels: [], assignees: [] });
+  const adapter = adapterFor(a);
 
   useEffect(() => {
     if (!open) return;
@@ -39,8 +44,9 @@ export function IssueCreateDialog({ account: a, fullName, open, onOpenChange, in
     setChosen("");
     setAnswers({});
     setErrors({});
+    setPicked({ labels: [], assignees: [] });
     setListError(null);
-    if (github) loadTemplateEntries(a, fullName).then(setForms, (e) => { setForms([]); setListError(String(e)); });
+    if (github) loadTemplateEntries(a, fullName).then(setForms, (e) => { setForms([]); setListError(formatBackendError(e)); });
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const entry = forms?.find((f) => f.path === chosen) ?? null;
@@ -62,16 +68,17 @@ export function IssueCreateDialog({ account: a, fullName, open, onOpenChange, in
     setBusy(true);
     try {
       // Template labels/assignees go in the same create request, so GitHub accepts or rejects them atomically.
+      const meta = { labels: [...new Set([...prefill.labels, ...picked.labels])], assignees: [...new Set([...prefill.assignees, ...picked.assignees])] };
       const url = !github
-        ? await adapterFor(a)!.createIssue(a, fullName, title.trim(), body)
+        ? await adapter!.createIssue(a, fullName, title.trim(), body, picked)
         : form && !initialBody
-          ? (await submitIssueForm(a, fullName, title.trim(), form, answers)).html_url
-          : (await createIssue(a, fullName, title.trim(), form ? `${renderIssueAnswers(form, answers)}\n\n${initialBody}` : body, { labels: prefill.labels, assignees: prefill.assignees })).html_url;
+          ? (await submitIssueForm(a, fullName, title.trim(), { ...form, ...meta }, answers)).html_url
+          : (await createIssue(a, fullName, title.trim(), form ? `${renderIssueAnswers(form, answers)}\n\n${initialBody}` : body, meta)).html_url;
       toast.success(t("hub.issue.created"), { action: { label: t("hub.open"), onClick: () => window.open(url, "_blank", "noopener,noreferrer") } });
       onOpenChange(false);
       onCreated?.();
     } catch (e) {
-      toastError(String(e));
+      toastError(issueErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -110,6 +117,12 @@ export function IssueCreateDialog({ account: a, fullName, open, onOpenChange, in
           ) : (
             <MentionTextarea path={hubRepoPath(a, fullName)} value={body} onChange={setBody} placeholder={t("hub.issue.body")} rows={8} />
           )}
+          {(adapter?.issueLabels || adapter?.issueAssignees) && (
+            <div className="flex flex-wrap gap-1.5">
+              {adapter.issueLabels && <ChoicePicker icon={<Tag className="h-3 w-3" />} title={t("ghx.labels")} load={(p) => adapter.issueLabels!(a, fullName, p)} selected={picked.labels} onApply={(labels) => setPicked((p) => ({ ...p, labels }))} />}
+              {adapter.issueAssignees && <ChoicePicker icon={<Users className="h-3 w-3" />} title={t("ghx.assignees")} load={(p) => adapter.issueAssignees!(a, fullName, p)} selected={picked.assignees} onApply={(assignees) => setPicked((p) => ({ ...p, assignees }))} />}
+            </div>
+          )}
           {form && initialBody && <p className="text-[0.625rem] text-muted-foreground">{t("issueForm.contextAppended")}</p>}
           <DialogFooter>
             <Button type="submit" disabled={busy || !title.trim()}>
@@ -120,6 +133,21 @@ export function IssueCreateDialog({ account: a, fullName, open, onOpenChange, in
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ChoicePicker({ icon, title, load, selected, onApply }: { icon: ReactNode; title: string; load: (page: number) => Promise<HubChoicePage>; selected: string[]; onApply: (ids: string[]) => void }) {
+  // GitLab assignees are numeric ids; remember labels of picked items for the trigger text.
+  const [names, setNames] = useState<Record<string, string>>({});
+  return (
+    <GhPickPopover
+      title={title}
+      trigger={<Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs">{icon}{selected.length ? selected.map((id) => names[id] ?? id).join(", ") : title}</Button>}
+      load={async (p) => { const r = await load(p); setNames((n) => ({ ...n, ...Object.fromEntries(r.items.map((i) => [i.id, i.label])) })); return r; }}
+      toItem={(x) => x as PickItem}
+      selected={selected}
+      onApply={async (ids) => onApply(ids)}
+    />
   );
 }
 

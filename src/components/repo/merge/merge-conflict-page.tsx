@@ -1,4 +1,11 @@
 import { ListRow } from "@/components/ui/list-row";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { externalToolsSupported, openExternalMerge } from "@/lib/external-tools";
 import { AppHeader } from "@/components/app/app-header";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -18,6 +25,7 @@ import {
   FastForward,
   FileCode2,
   GitCommit,
+  GitMerge,
   Loader2,
   X,
 } from "lucide-react";
@@ -300,22 +308,43 @@ export function MergeConflictPage({
               const isSelected = file === selectedFile;
               return (
                 <li key={file}>
-                  <ListRow
-                    size="sm"
-                    active={isSelected}
-                    onClick={() => setSelectedFile(file)}
-                    className="rounded-none px-3"
-                    title={file}
-                  >
-                    {state?.resolved ? (
-                      <CheckCircle2 className="text-git-added" />
-                    ) : (
-                      <AlertTriangle className="text-git-modified" />
-                    )}
-                    <span className="truncate font-mono">
-                      {file.split("/").pop()}
-                    </span>
-                  </ListRow>
+                  <ContextMenu>
+                    <ContextMenuTrigger asChild>
+                      <ListRow
+                        size="sm"
+                        active={isSelected}
+                        onClick={() => setSelectedFile(file)}
+                        className="rounded-none px-3"
+                        title={file}
+                      >
+                        {state?.resolved ? (
+                          <CheckCircle2 className="text-git-added" />
+                        ) : (
+                          <AlertTriangle className="text-git-modified" />
+                        )}
+                        <span className="truncate font-mono">
+                          {file.split("/").pop()}
+                        </span>
+                      </ListRow>
+                    </ContextMenuTrigger>
+                    {externalToolsSupported() && <ContextMenuContent>
+                      <ContextMenuItem
+                        onSelect={() =>
+                          void openExternalMerge(path, file).then(() =>
+                            // Drop cached versions so the editor shows what the tool saved.
+                            setFileStates((prev) => {
+                              const next = { ...prev };
+                              delete next[file];
+                              return next;
+                            }),
+                          )
+                        }
+                      >
+                        <GitMerge className="size-3.5" />
+                        {t("externalTools.openMerge")}
+                      </ContextMenuItem>
+                    </ContextMenuContent>}
+                  </ContextMenu>
                 </li>
               );
             })}

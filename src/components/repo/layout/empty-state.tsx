@@ -32,7 +32,7 @@ export function EmptyState() {
       <p className="mt-3 text-xs text-muted-foreground">{t('audit.dropHint')}</p>
       {recent.length > 0 && <section className="mt-10 border-t border-border pt-5" aria-label={t('audit.recentRepos')}>
         <h2 className="mb-2 text-xs font-medium text-muted-foreground">{t('audit.recentRepos')}</h2>
-        {recent.map(path => <button key={path} className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" onClick={() => void addRepo(path)}>
+        {recent.map(path => <button key={path} type="button" className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" onClick={() => void addRepo(path)}>
           <FolderGit2 className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{path.split(/[\\/]/).pop()}</span><span className="block truncate text-xs text-muted-foreground">{path}</span></span><ArrowUpRight className="size-4 text-muted-foreground" />
         </button>)}
       </section>}

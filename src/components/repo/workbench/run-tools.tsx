@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { BehaviorSide, GitExpansionResponseMap, IntegrationResult, OverlapResult, PlanStep } from "@/lib/git-expansion";
@@ -164,7 +165,7 @@ function WorktreeOverlaps({ res }: { res: OverlapResult }) {
           </ul>
         </div>
       ))}
-      {res.worktreeErrors.map((e) => <p key={e.path} className="text-[0.625rem] text-rose-500">{t("wb.worktreeError", { path: e.path, error: e.error })}</p>)}
+      {res.worktreeErrors.map((e) => <p key={e.path} className="text-[0.625rem] text-rose-500">{t("wb.worktreeError", { path: e.path, error: formatBackendError(e.error) })}</p>)}
       <p className="text-[0.625rem] text-muted-foreground">{t("wb.worktreeNote")}</p>
     </div>
   );

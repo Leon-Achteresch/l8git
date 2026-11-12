@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import type { FormAnswers, IssueForm } from "@/lib/github-expansion/forms";
 import { listIssueTemplates, loadIssueTemplate, type IssueTemplate, type MarkdownIssueTemplate } from "@/lib/github-expansion/issue-forms";
 import type { HubAccount } from "@/lib/hub/types";
@@ -11,7 +12,7 @@ export async function loadTemplateEntries(a: HubAccount, repo: string): Promise<
     try {
       return { ...t, loaded: await loadIssueTemplate(a, repo, t) };
     } catch (e) {
-      return { ...t, loaded: null, error: String(e) };
+      return { ...t, loaded: null, error: formatBackendError(e) };
     }
   }));
 }

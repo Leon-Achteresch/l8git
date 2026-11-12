@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/error-toast";
@@ -40,7 +41,7 @@ export function useGx(path: string) {
       try {
         return await gitExpansion(path, req);
       } catch (e) {
-        setError(String(e));
+        setError(formatBackendError(e));
         toastError(String(e));
         return null;
       } finally {

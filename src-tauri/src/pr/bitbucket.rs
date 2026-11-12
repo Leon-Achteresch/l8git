@@ -3,9 +3,7 @@ use super::*;
 
 pub(super) async fn bb_read_json(res: reqwest::Response, host: &str) -> Result<Value, String> {
     if res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "Bitbucket: 401. Bitte unter Einstellungen bei {host} anmelden."
-        ));
+        return Err(coded!(ProviderSignInRequired, provider = "Bitbucket", host = host));
     }
     if !res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&res) { return Err(error); }
@@ -237,10 +235,7 @@ pub(super) async fn bb_file_patch(
     );
     let diff_res = bitbucket_send_authed(client, &diff_url, cred, &h.host).await?;
     if diff_res.status() == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(format!(
-            "Bitbucket: 401. Bitte unter Einstellungen bei {} anmelden.",
-            h.host
-        ));
+        return Err(coded!(ProviderSignInRequired, provider = "Bitbucket", host = h.host));
     }
     if !diff_res.status().is_success() {
         if let Some(error) = crate::provider_rate_limit::response_error(&diff_res) { return Err(error); }

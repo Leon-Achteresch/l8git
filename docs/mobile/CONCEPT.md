@@ -4,20 +4,20 @@ Status: v1 contract. All implementation agents must follow this document exactly
 
 ## Goal
 
-A React Native (Expo) app under `mobile/` that connects to one or more l8git hosts, mirrors the desktop feature set (multi-repo workspace, commits, history, diffs, branches, stashes, PRs, CI, dashboard, inbox) and supports the Agents tab completely (overview, chat for all four providers, approvals, capabilities, worktree review). Hosts run a new headless Rust binary `l8gitd` that reuses the existing `l8git_lib` command implementations. Connections work over LAN directly and over the internet through a self-hosted relay. Multiple simultaneous host connections are a first-class requirement.
+A React Native (Expo) app under `mobile/` that connects to one or more l8git hosts, mirrors the desktop feature set (multi-repo workspace, commits, history, diffs, branches, stashes, PRs, CI, dashboard, inbox) and supports the Agents tab completely (overview, chat for all four providers, approvals, capabilities, worktree review). Hosts run a new headless Rust binary `l8gitd` that reuses the existing `l8git_lib` command implementations. Connections run only directly over the local network; phone and host must share a network. Multiple simultaneous host connections are a first-class requirement.
 
 ## Architecture overview
 
 ```
 ┌─────────────┐   ws:// (LAN)              ┌──────────────────────┐
 │  RN app     │ ─────────────────────────► │  l8gitd (headless)   │
-│  (Expo)     │   ws(s):// via relay       │  axum WS server      │
-│             │ ─────► ┌───────┐ ────────► │  reuses l8git_lib    │
-└─────────────┘        │ relay │           │  commands + agents   │
-                       └───────┘           └──────────────────────┘
+│  (Expo)     │                            │  axum WS server      │
+│             │                            │  reuses l8git_lib    │
+└─────────────┘                            │  commands + agents   │
+                                           └──────────────────────┘
 ```
 
-- All frames are end-to-end encrypted (see Crypto). Relay and network only ever see ciphertext. Therefore plain `ws://` is acceptable on every leg.
+- All frames are end-to-end encrypted (see Crypto). The network only ever sees ciphertext. Therefore plain `ws://` is acceptable.
 - The desktop Tauri app is unchanged in behavior; it shares the Rust command implementations with `l8gitd` via refactored inner functions.
 - The mobile app reuses the existing TypeScript agent provider stores (`src/lib/agents/**`) via a platform seam; the ~250 KB of provider protocol logic is NOT reimplemented.
 
@@ -27,7 +27,6 @@ A React Native (Expo) app under `mobile/` that connects to one or more l8git hos
 l8git/
 ├─ src/               desktop frontend (unchanged except platform seam)
 ├─ src-tauri/         Rust: lib + tauri app + NEW bin l8gitd (src-tauri/src/server/)
-├─ relay/             NEW small Rust crate: blind frame relay
 ├─ mobile/            NEW Expo app
 └─ docs/mobile/       this document + protocol notes
 ```
@@ -75,19 +74,9 @@ Rust: `x25519-dalek`, `chacha20poly1305`, `hkdf`, `hmac`, `sha2`, `subtle`, `ran
 
 `l8gitd pair` generates (once, persisted in the OS keyring via the existing `secrets.rs` mechanics, service `l8gitd`): `hostId` (16 random bytes, base64url), `psk` (32 random bytes). It prints a QR code (crate `qrcode`, render to terminal) plus the JSON for manual entry:
 
-`{"v":1,"hostId":"...","psk":"<base64>","name":"<hostname>","endpoints":["ws://<lan-ip>:<port>","<relayUrl if configured>"]}`
+`{"v":1,"hostId":"...","psk":"<base64>","name":"<hostname>","endpoints":["ws://<lan-ip>:<port>"]}`
 
-The phone scans this once per host and stores it in `expo-secure-store`. Multiple pairings = multiple hosts.
-
-### Relay
-
-Small axum crate in `relay/`. Blind: it only matches parties and pipes bytes.
-
-- Host registers: WS `GET /host/{hostId}` with header `x-relay-token: <base64url sha256(psk || "l8git-relay-v1")>`. First registration for a hostId stores the token hash; later registrations must present the same token (trust-on-first-use per hostId).
-- Client connects: WS `GET /client/{hostId}` with the same `x-relay-token` header.
-- Multiplexing over the single host WS: relay wraps every message as `{"connId":string,"op":"open"|"data"|"close","data":"<base64>"}` (JSON text frames host↔relay). Client↔relay frames are raw binary, piped 1:1 into `data`.
-- The E2E handshake runs through the relay unchanged (hello/welcome as `data` payloads). The relay never sees plaintext beyond the hello/welcome messages, which contain no secrets.
-- `l8gitd` takes `--relay wss://host` config; it maintains a persistent outbound relay connection with exponential backoff reconnect.
+The phone scans this once per host and stores it in `expo-secure-store`. Multiple pairings = multiple hosts. The app keeps only direct LAN endpoints (`ws://` to an IP address or `localhost`) and ignores any other URL in older pairing payloads. A saved host without a LAN endpoint stays in the list and shows as unreachable with a "re-pair on the local network" message.
 
 ## Rust: l8gitd
 
@@ -97,7 +86,7 @@ Small axum crate in `relay/`. Blind: it only matches parties and pipes bytes.
 - Dispatcher: `server/dispatch/<module>.rs` per domain, wired through a shared macro provided by the server skeleton that handles arg deserialization (camelCase), channel substitution and JSON result serialization. Every existing command is exposed; there is no curated allowlist — auth gates the whole surface.
 - State: `l8gitd` owns `AgentTransportState`, `PtyState` and watcher state in a plain struct passed to dispatch.
 - Sessions: multiple concurrent client connections are supported; channel frames and events go to the connection that issued the request (events: broadcast to all authenticated connections).
-- CLI: `l8gitd serve [--port 8484] [--relay wss://...]`, `l8gitd pair`, `l8gitd status`. Repos: the server serves whatever repo paths clients request, guarded by `pathsafe` + a persisted allowlist of repo roots (`l8gitd allow <path>`, auto-populated with paths already in the desktop workspace file if present).
+- CLI: `l8gitd serve [--port 8484]`, `l8gitd pair`, `l8gitd status`. Repos: the server serves whatever repo paths clients request, guarded by `pathsafe` + a persisted allowlist of repo roots (`l8gitd allow <path>`, auto-populated with paths already in the desktop workspace file if present).
 
 ## TypeScript platform seam (desktop refactor, minimal blast radius)
 
@@ -125,7 +114,7 @@ export function platform(): PlatformIpc
 - Expo SDK (latest), TypeScript, Expo Router. Libraries: nativewind v4 + react-native-reusables, react-native-reanimated, zustand, @tanstack/react-query, @noble/{curves,ciphers,hashes}, expo-camera (QR pairing), expo-secure-store, @react-native-async-storage/async-storage, lucide-react-native, react-native-svg, expo-haptics.
 - Design: dark-first, zinc/near-black surfaces matching desktop l8git, Geist font (`@expo-google-fonts` equivalent or bundled), accent colors per domain, 60fps list scrolling (FlashList optional; FlatList acceptable v1), reanimated shared transitions for screen changes, skeleton loaders, haptic feedback on approvals.
 - Navigation: bottom tabs — Inbox, Repos, Agents, Dashboard, Settings. Repo detail is a stack under Repos with segmented sections (Status/Commit, History, Branches, Stash, PRs, CI). Agents tab: overview list → thread chat; approvals surfaced globally (badge + inline cards).
-- Connection manager (`mobile/lib/connections.ts`, zustand): N simultaneous connections, one per paired host; per-host status (connecting/online/offline/error), auto-reconnect with exponential backoff + jitter, app-state aware (reconnect on foreground, keep alive briefly in background), endpoint racing (try LAN first, fall back to relay), ping/pong liveness every 20 s.
+- Connection manager (`mobile/lib/connections.ts`, zustand): N simultaneous connections, one per paired host; per-host status (connecting/online/offline/error), auto-reconnect with exponential backoff + jitter, app-state aware (reconnect on foreground, keep alive briefly in background), endpoint racing across the paired LAN endpoints, ping/pong liveness every 20 s.
 - Data layer: TanStack Query for all request/response domains. Query keys always start with `[hostId, repoPath, domain, ...]`. Invalidation wired to `repo-changed`, `git-progress-done` and agent events. Mutations for all write operations with optimistic updates where cheap.
 - Agents: the four provider chat stores from `src/lib/agents/**` are imported directly (via `@desktop/*` alias) and driven through the remote `PlatformIpc`. The Agents chat pane binds to one active host at a time; Inbox/Overview/Dashboard aggregate across all connected hosts via direct queries. Approvals (`AgentPendingRequest`) are the flagship mobile flow: push-style in-app banner, approve/deny with haptics.
 - Claude MCP control-requests (`mcp_message`) are handled by the same imported store code on the phone — no extra work, but the connection must stay open during turns; reconnect uses `AgentStreamEvent.sequence` replay detection already present in `rpc-client.ts`.
@@ -137,6 +126,6 @@ Monaco-based merge editor, interactive terminal UI (protocol supports PTY; UI la
 ## Quality bar
 
 - No code comments (repo convention).
-- Rust: `cargo check` green for desktop lib AND `cargo build --features headless --bin l8gitd` AND `cargo build -p l8git-relay`.
+- Rust: `cargo check` green for desktop lib AND `cargo build --features headless --bin l8gitd`.
 - TS: `bun run build` green at repo root; `bunx tsc --noEmit` green in `mobile/`.
 - Every protocol implementation (crypto handshake, framing, dispatcher arg mapping) ships with a minimal runnable check (Rust unit test / vitest) proving a full round-trip.

@@ -1,3 +1,4 @@
+import { formatBackendError } from '@/lib/backend-error';
 import { useNavigate } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { RefreshCw } from "lucide-react";
@@ -44,7 +45,7 @@ export function AllReposTable({ paths }: { paths: string[] }) {
     setError(null);
     invoke<RepoOverview[]>("repos_overview", { paths })
       .then(setRows)
-      .catch((err) => setError(String(err)))
+      .catch((err) => setError(formatBackendError(err)))
       .finally(() => setLoading(false));
   }, [paths]);
 
