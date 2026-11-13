@@ -5986,5 +5986,14 @@
       "noChanges": "Não há alterações em arquivos rastreados para exportar.",
       "mixed": "Escolha patches de caixa de correio ou diffs simples, não ambos."
     }
+  },
+  "commitHover": {
+    "coAuthoredWith": "Coautoria com {{names}}",
+    "commit": "Commit",
+    "changed": "Alterado",
+    "files_one": "{{count}} arquivo",
+    "files_other": "{{count}} arquivos",
+    "committed": "Confirmado",
+    "branch": "Branch"
   }
 }

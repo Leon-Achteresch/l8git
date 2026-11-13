@@ -5986,5 +5986,14 @@
       "noChanges": "No hay cambios en archivos versionados para exportar.",
       "mixed": "Elige parches de buzón o diffs simples, no ambos."
     }
+  },
+  "commitHover": {
+    "coAuthoredWith": "Coautoría con {{names}}",
+    "commit": "Commit",
+    "changed": "Cambios",
+    "files_one": "{{count}} archivo",
+    "files_other": "{{count}} archivos",
+    "committed": "Confirmado",
+    "branch": "Rama"
   }
 }

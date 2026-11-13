@@ -5986,5 +5986,14 @@
       "noChanges": "没有可导出的已跟踪文件更改。",
       "mixed": "请只选择邮箱格式补丁或普通 diff 中的一种。"
     }
+  },
+  "commitHover": {
+    "coAuthoredWith": "与 {{names}} 共同编写",
+    "commit": "提交",
+    "changed": "变更",
+    "files_one": "{{count}} 个文件",
+    "files_other": "{{count}} 个文件",
+    "committed": "提交于",
+    "branch": "分支"
   }
 }

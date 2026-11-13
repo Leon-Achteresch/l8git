@@ -5986,5 +5986,14 @@
       "noChanges": "There are no tracked changes to export.",
       "mixed": "Select either mailbox patches or plain diffs, not both."
     }
+  },
+  "commitHover": {
+    "coAuthoredWith": "Co-authored with {{names}}",
+    "commit": "Commit",
+    "changed": "Changed",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "committed": "Committed",
+    "branch": "Branch"
   }
 }

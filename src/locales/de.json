@@ -5986,5 +5986,14 @@
       "noChanges": "Es gibt keine versionierten Änderungen zum Exportieren.",
       "mixed": "Wähle entweder Mailbox-Patches oder einfache Diffs, nicht beides."
     }
+  },
+  "commitHover": {
+    "coAuthoredWith": "Gemeinsam mit {{names}}",
+    "commit": "Commit",
+    "changed": "Geändert",
+    "files_one": "{{count}} Datei",
+    "files_other": "{{count}} Dateien",
+    "committed": "Committet",
+    "branch": "Branch"
   }
 }
