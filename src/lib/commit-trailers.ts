@@ -12,7 +12,6 @@ export function parseCoAuthors(body: string): CoAuthor[] {
 
 export function parseGitDate(raw: string): string | null {
   const m = raw.match(/^\w{3} (\w{3}) (\d{1,2}) (\d\d:\d\d:\d\d) (\d{4}) ([+-]\d{4})$/);
-  if (!m) return null;
-  const d = new Date(`${m[1]} ${m[2]}, ${m[4]} ${m[3]} GMT${m[5]}`);
+  const d = new Date(m ? `${m[1]} ${m[2]}, ${m[4]} ${m[3]} GMT${m[5]}` : raw);
   return isNaN(d.getTime()) ? null : d.toISOString();
 }

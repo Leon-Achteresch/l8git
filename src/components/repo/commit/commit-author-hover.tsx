@@ -184,7 +184,7 @@ export function CommitAuthorHover({
         onClick={(e) => e.stopPropagation()}
         onContextMenu={(e) => e.stopPropagation()}
       >
-        <HoverBody {...body} />
+        <HoverBody key={`${body.path}\0${body.hash}`} {...body} />
       </HoverCardContent>
     </HoverCard>
   );

@@ -12,6 +12,8 @@ describe("commit author hover", () => {
 
   it("parses git fuller dates", () => {
     expect(parseGitDate("Thu Nov 13 10:05:09 2026 +0100")).toBe("2026-11-13T09:05:09.000Z");
+    expect(parseGitDate("2026-11-13T10:05:09+01:00")).toBe("2026-11-13T09:05:09.000Z");
     expect(parseGitDate("garbage")).toBeNull();
+    expect(parseGitDate("")).toBeNull();
   });
 });
