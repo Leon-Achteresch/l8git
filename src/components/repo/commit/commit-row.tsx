@@ -32,6 +32,7 @@ import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CommitAuthorDate } from "./commit-author-date";
+import { CommitAuthorHover, parseCoAuthors } from "./commit-author-hover";
 import { CommitBranchBadge } from "./commit-branch-badge";
 import { CommitConventionalIcons } from "./commit-conventional-icons";
 import { CommitHashBadge } from "./commit-hash-badge";
@@ -56,6 +57,7 @@ const MAX_VISIBLE_BRANCHES = 2;
 export type BisectRole = 'bad' | 'good' | 'current' | 'result' | 'pending-bad' | 'pending-good';
 
 function CommitRowInner({
+  path,
   row,
   colW,
   branchesAtCommit,
@@ -69,6 +71,7 @@ function CommitRowInner({
   onSelectHash,
   bisectRole,
 }: {
+  path: string;
   row: GraphRow;
   /** Width kept free for the list's shared graph SVG. */
   colW: number;
@@ -94,6 +97,11 @@ function CommitRowInner({
   );
 
   const isMergeCommit = commit.parents.length > 1;
+  const coAuthors = useMemo(() => parseCoAuthors(commit.body), [commit.body]);
+  const branchNames = useMemo(
+    () => branchesAtCommit.map((b) => b.name.replace(/^refs\/heads\//, "")),
+    [branchesAtCommit],
+  );
 
   const handleClick = (e: React.MouseEvent) => {
     const mode: CommitSelectMode =
@@ -216,13 +224,26 @@ function CommitRowInner({
             {isMergeCommit ? (
               <GitMerge className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
             ) : null}
-            <CommitAuthorDate
-              key={JSON.stringify([commit.email, commit.author_avatar])}
+            <CommitAuthorHover
+              path={path}
+              hash={commit.hash}
+              shortHash={commit.short_hash}
               author={commit.author}
               email={commit.email}
               authorAvatar={commit.author_avatar}
               date={commit.date}
-            />
+              coAuthors={coAuthors}
+              branches={branchNames}
+            >
+              <CommitAuthorDate
+                key={JSON.stringify([commit.email, commit.author_avatar])}
+                author={commit.author}
+                email={commit.email}
+                authorAvatar={commit.author_avatar}
+                date={commit.date}
+                coAuthor={coAuthors[0]}
+              />
+            </CommitAuthorHover>
             <CommitHashBadge hash={commit.short_hash} />
           </div>
         </div>

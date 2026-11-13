@@ -763,6 +763,7 @@ export function CommitList({
                   observer={rowObserver}
                 >
                   <CommitRow
+                    path={path}
                     row={row}
                     colW={colW}
                     branchesAtCommit={

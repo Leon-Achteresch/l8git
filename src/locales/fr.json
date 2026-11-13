@@ -5986,5 +5986,14 @@
       "noChanges": "Aucune modification de fichier suivi à exporter.",
       "mixed": "Choisissez des patchs mailbox ou des diffs simples, pas les deux."
     }
+  },
+  "commitHover": {
+    "coAuthoredWith": "Co-écrit avec {{names}}",
+    "commit": "Commit",
+    "changed": "Modifié",
+    "files_one": "{{count}} fichier",
+    "files_other": "{{count}} fichiers",
+    "committed": "Validé",
+    "branch": "Branche"
   }
 }

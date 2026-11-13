@@ -5986,5 +5986,14 @@
       "noChanges": "エクスポートする追跡済みファイルの変更はありません。",
       "mixed": "メールボックス形式のパッチか通常の diff のどちらか一方を選択してください。"
     }
+  },
+  "commitHover": {
+    "coAuthoredWith": "{{names}} との共同作成",
+    "commit": "コミット",
+    "changed": "変更",
+    "files_one": "{{count}} ファイル",
+    "files_other": "{{count}} ファイル",
+    "committed": "コミット日時",
+    "branch": "ブランチ"
   }
 }
