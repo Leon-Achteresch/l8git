@@ -1464,7 +1464,7 @@
     "noMatchesBody": "Change or clear the filter to see more files."
   },
   "commitSplit": {
-    "menuEntry": "用 AI 拆分更改",
+    "menuEntry": "拆分更改",
     "title": "拆分为多个逻辑提交",
     "description": "{{files}} 个文件中的 {{units}} 个变更单元将被归入不同提交。",
     "unstagedNotice": "为进行拆分，暂存区已被重置。你的文件不受影响。",
@@ -1472,7 +1472,7 @@
     "planning": "AI 正在对更改进行分组…",
     "applying": "正在创建提交…",
     "noChanges": "没有可供拆分的待处理更改。",
-    "retry": "重新生成方案",
+    "retry": "重新读取更改",
     "warnings": "来自 AI 回复的提示：{{list}}",
     "messagePlaceholder": "提交信息",
     "deleteGroup": "删除分组",
@@ -1505,7 +1505,9 @@
     "errorOperationInProgress": "合并、变基、拣选、还原或二分查找正在进行。请先完成或中止操作，再创建拆分方案。",
     "errorNothingStaged": "此拆分组没有可提交的更改。请检查工作副本并生成新方案。",
     "errorStagingChanged": "计划生成后暂存区发生了变化。已保留你暂存的选择。请先检查这些内容，再创建新的拆分计划。",
-    "errorHunkGone": "{{file}} 中计划的更改已不在工作树中。请重新生成方案。"
+    "errorHunkGone": "{{file}} 中计划的更改已不在工作树中。请重新生成方案。",
+    "manualHint": "手动分配文件和代码块，并为每组命名。AI 建议为可选项。",
+    "aiSuggest": "生成 AI 建议"
   },
   "bisect": {
     "ended": "二分查找已结束。",
@@ -4082,7 +4084,7 @@
       "summary": "分离互不相关的工作，同时保留剩余编辑。",
       "steps": [
         "检查所有已修改文件，识别独立的改动。",
-        "暂存第一个改动的修改块或行，或使用 AI 拆分建议并检查每个分组。",
+        "打开“拆分更改”，命名第一个组，并将文件或代码块分配到其他组。AI 建议为可选项。",
         "为该组编写明确的提交说明并提交。",
         "对剩余改动重复此过程，最后检查并测试完整工作区。"
       ],

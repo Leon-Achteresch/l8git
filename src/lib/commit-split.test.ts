@@ -9,6 +9,7 @@ import {
   addSplitGroup,
   applySplitPlan,
   collectSplitInputs,
+  createManualSplitPlan,
   readCommitSplitSnapshot,
   buildSplitPrompt,
   buildSplitUnits,
@@ -540,5 +541,17 @@ describe("split collection snapshot provenance", () => {
     expect(readCommitSplitSnapshot({ ...snapshot, head: "a".repeat(64) }).head).toHaveLength(64);
     expect(readCommitSplitSnapshot({ ...snapshot, head: null }).head).toBeNull();
     expect(readCommitSplitSnapshot(snapshot).worktreeFingerprint).toBe(snapshot.worktreeFingerprint);
+  });
+});
+
+
+describe("manual split planning", () => {
+  it("keeps every unit exactly once without a provider or suggested commit message", () => {
+    const units = buildSplitUnits([{ file: "new.txt", diff: null, wholeFile: true, untracked: true, binary: false, additions: 1, deletions: 0 }]);
+    const plan = createManualSplitPlan(units);
+    expect(planUnitIds(plan)).toEqual(units.map(unit => unit.id));
+    expect(planIssues(plan, units)).toEqual(["message"]);
+    expect(planIssues(renameSplitGroup(plan, "g1", "feat: deliberate change"), units)).toEqual([]);
+    expect(createManualSplitPlan([])).toEqual({ groups: [] });
   });
 });

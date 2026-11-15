@@ -1464,7 +1464,7 @@
     "noMatchesBody": "Change or clear the filter to see more files."
   },
   "commitSplit": {
-    "menuEntry": "Split changes with AI",
+    "menuEntry": "Split changes",
     "title": "Split into logical commits",
     "description": "{{units}} change units across {{files}} files are grouped into commits.",
     "unstagedNotice": "The staging area was reset for the split. Your files are untouched.",
@@ -1472,7 +1472,7 @@
     "planning": "The AI is grouping the changes…",
     "applying": "Creating commits…",
     "noChanges": "There are no pending changes to split.",
-    "retry": "Generate a new proposal",
+    "retry": "Reload changes",
     "warnings": "Notes from the AI answer: {{list}}",
     "messagePlaceholder": "Commit message",
     "deleteGroup": "Delete group",
@@ -1505,7 +1505,9 @@
     "errorOperationInProgress": "A merge, rebase, cherry-pick, revert or bisect is active. Finish or abort it before creating a split plan.",
     "errorNothingStaged": "This split group has no changes to commit. Review the working copy and generate a new proposal.",
     "errorStagingChanged": "The staging area changed after this plan was prepared. Your staged selection has been kept. Review it before creating a new split plan.",
-    "errorHunkGone": "The planned changes in {{file}} are no longer in the working tree. Please generate a new proposal."
+    "errorHunkGone": "The planned changes in {{file}} are no longer in the working tree. Please generate a new proposal.",
+    "manualHint": "Assign files and hunks and name each group. An AI proposal is optional.",
+    "aiSuggest": "Suggest with AI"
   },
   "bisect": {
     "ended": "Bisect finished.",
@@ -4082,7 +4084,7 @@
       "summary": "Separate unrelated work without losing the remaining edits.",
       "steps": [
         "Review all changed files and identify independent changes.",
-        "Stage the hunks or lines for the first change, or use the AI split proposal and inspect every group.",
+        "Open Split changes, name the first group and assign files or hunks to additional groups. An AI proposal is optional.",
         "Commit that group with a focused message.",
         "Repeat for the remaining changes. Review and test the final working copy."
       ],

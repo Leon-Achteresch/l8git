@@ -53,6 +53,10 @@ export interface SplitPlan {
   groups: SplitGroup[];
 }
 
+export function createManualSplitPlan(units: readonly SplitUnit[]): SplitPlan {
+  return { groups: units.length ? [{ id: "g1", message: "", rationale: "", unitIds: units.map(unit => unit.id) }] : [] };
+}
+
 export interface RawSplitGroup {
   message: string;
   rationale: string;

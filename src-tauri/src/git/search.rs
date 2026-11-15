@@ -2,14 +2,35 @@ use super::{run_git, spawn_git, tags_by_target, Commit, CommitSearchResult};
 use std::{collections::HashMap, path::PathBuf};
 
 fn is_commit_meta_token(s: &str) -> bool {
-    let b = s.as_bytes();
-    if b.len() < 41 {
+    let Some((hash, _)) = s.split_once('\x1f') else {
         return false;
+    };
+    matches!(hash.len(), 40 | 64) && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+#[cfg(test)]
+mod metadata_tests {
+    use super::is_commit_meta_token;
+
+    #[test]
+    fn accepts_both_git_object_formats_without_confusing_paths_or_unicode() {
+        assert!(is_commit_meta_token(&format!(
+            "{}\x1fshort\x1fauthor",
+            "a".repeat(40)
+        )));
+        assert!(is_commit_meta_token(&format!(
+            "{}\x1fshort\x1fauthor",
+            "B".repeat(64)
+        )));
+        for token in [
+            "ä".repeat(30),
+            format!("{}\x1fpath", "a".repeat(41)),
+            "file/path".into(),
+            format!("{}\x1fpath", "g".repeat(64)),
+        ] {
+            assert!(!is_commit_meta_token(&token));
+        }
     }
-    if b[40] != b'\x1f' {
-        return false;
-    }
-    s[..40].chars().all(|c| c.is_ascii_hexdigit())
 }
 
 fn match_commit_record(
@@ -73,13 +94,16 @@ pub async fn repo_search_commits(
         let capped = limit.clamp(1, 500);
         let scan = scan_limit.map(|n| n.clamp(1, SEARCH_MAX_SCAN_LIMIT).saturating_add(skip));
         type SearchCache = HashMap<String, (std::time::Instant, Vec<CommitSearchResult>)>;
-        static CACHE: std::sync::OnceLock<std::sync::Mutex<SearchCache>> = std::sync::OnceLock::new();
+        static CACHE: std::sync::OnceLock<std::sync::Mutex<SearchCache>> =
+            std::sync::OnceLock::new();
         let refs = run_git(&repo, &["show-ref"]).unwrap_or_default();
         let head = run_git(&repo, &["rev-parse", "HEAD"]).unwrap_or_default();
         let cache_key = format!("{path}|{refs}|{head}|{needle}|{hide_t3}|{with_paths}|{scan:?}");
         if let Ok(cache) = CACHE.get_or_init(Default::default).lock() {
             if let Some((at, hits)) = cache.get(&cache_key) {
-                if at.elapsed().as_secs() < 30 { return Ok(hits.iter().skip(skip).take(capped).cloned().collect()); }
+                if at.elapsed().as_secs() < 30 {
+                    return Ok(hits.iter().skip(skip).take(capped).cloned().collect());
+                }
             }
         }
         let tag_map = tags_by_target(&repo);
@@ -88,7 +112,9 @@ pub async fn repo_search_commits(
         let pretty = format!("--pretty=format:{format}");
         let max_count = scan.map(|n| format!("--max-count={n}"));
         let mut search_args: Vec<&str> = vec!["log", "-z"];
-        if let Some(ref max) = max_count { search_args.push(max); }
+        if let Some(ref max) = max_count {
+            search_args.push(max);
+        }
         let exclude_arg = "--exclude=refs/t3/*".to_string();
         if hide_t3 {
             search_args.push(&exclude_arg);
@@ -97,10 +123,7 @@ pub async fn repo_search_commits(
         if with_paths {
             search_args.push("--name-only");
         }
-        let out = run_git(
-            &repo,
-            &search_args,
-        )?;
+        let out = run_git(&repo, &search_args)?;
         let tokens: Vec<&str> = out.split('\0').filter(|t| !t.is_empty()).collect();
         let mut out_results: Vec<CommitSearchResult> = Vec::new();
         let mut i = 0usize;
@@ -168,14 +191,22 @@ pub async fn repo_search_commits(
                 matched_paths,
             });
         }
-        let page = out_results.iter().skip(skip).take(capped).cloned().collect();
+        let page = out_results
+            .iter()
+            .skip(skip)
+            .take(capped)
+            .cloned()
+            .collect();
         if out_results.len() <= 10_000 {
             if let Ok(mut cache) = CACHE.get_or_init(Default::default).lock() {
                 cache.retain(|_, (at, _)| at.elapsed().as_secs() < 30);
-                if cache.len() >= 8 { cache.clear(); }
+                if cache.len() >= 8 {
+                    cache.clear();
+                }
                 cache.insert(cache_key, (std::time::Instant::now(), out_results));
             }
         }
         Ok(page)
-    }).await
+    })
+    .await
 }

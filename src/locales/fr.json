@@ -1464,7 +1464,7 @@
     "noMatchesBody": "Change or clear the filter to see more files."
   },
   "commitSplit": {
-    "menuEntry": "Découper les modifications avec l'IA",
+    "menuEntry": "Répartir les modifications",
     "title": "Découper en commits logiques",
     "description": "{{units}} unités de modification réparties sur {{files}} fichiers sont regroupées en commits.",
     "unstagedNotice": "L'index a été réinitialisé pour le découpage. Vos fichiers sont intacts.",
@@ -1472,7 +1472,7 @@
     "planning": "L'IA regroupe les modifications…",
     "applying": "Création des commits…",
     "noChanges": "Aucune modification en attente à découper.",
-    "retry": "Générer une nouvelle proposition",
+    "retry": "Relire les modifications",
     "warnings": "Remarques de la réponse de l'IA : {{list}}",
     "messagePlaceholder": "Message de commit",
     "deleteGroup": "Supprimer le groupe",
@@ -1505,7 +1505,9 @@
     "errorOperationInProgress": "Une fusion, un rebase, un cherry-pick, un revert ou un bisect est en cours. Terminez-le ou abandonnez-le avant de créer un plan.",
     "errorNothingStaged": "Ce groupe ne contient aucune modification à committer. Examinez la copie de travail et générez une nouvelle proposition.",
     "errorStagingChanged": "La zone de staging a changé depuis la préparation du plan. Votre sélection indexée a été conservée. Vérifiez-la avant de créer un nouveau plan de découpage.",
-    "errorHunkGone": "Les modifications prévues dans {{file}} ne sont plus présentes dans le working tree. Générez une nouvelle proposition."
+    "errorHunkGone": "Les modifications prévues dans {{file}} ne sont plus présentes dans le working tree. Générez une nouvelle proposition.",
+    "manualHint": "Affectez les fichiers et blocs et nommez chaque groupe. La proposition IA est facultative.",
+    "aiSuggest": "Proposer avec IA"
   },
   "bisect": {
     "ended": "Bisect terminé.",
@@ -4082,7 +4084,7 @@
       "summary": "Séparez les travaux indépendants sans perdre les modifications restantes.",
       "steps": [
         "Examinez tous les fichiers modifiés et identifiez les changements indépendants.",
-        "Indexez les blocs ou lignes du premier changement, ou utilisez la proposition de découpage de l’IA en vérifiant chaque groupe.",
+        "Ouvrez Répartir les modifications, nommez le premier groupe et affectez les fichiers ou blocs à d’autres groupes. La proposition IA est facultative.",
         "Commitez ce groupe avec un message ciblé.",
         "Recommencez pour les changements restants. Examinez et testez la copie de travail finale."
       ],

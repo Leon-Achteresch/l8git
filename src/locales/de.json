@@ -1464,7 +1464,7 @@
     "noMatchesBody": "Ändere oder leere den Filter, um weitere Dateien zu sehen."
   },
   "commitSplit": {
-    "menuEntry": "Änderungen per AI aufteilen",
+    "menuEntry": "Änderungen aufteilen",
     "title": "In logische Commits aufteilen",
     "description": "{{units}} Änderungseinheiten in {{files}} Dateien werden zu Commits gruppiert.",
     "unstagedNotice": "Für die Aufteilung wurde die Staging-Area zurückgesetzt. Deine Dateien bleiben unverändert.",
@@ -1472,7 +1472,7 @@
     "planning": "Die KI gruppiert die Änderungen…",
     "applying": "Commits werden erstellt…",
     "noChanges": "Es gibt keine offenen Änderungen zum Aufteilen.",
-    "retry": "Vorschlag neu erzeugen",
+    "retry": "Änderungen neu lesen",
     "warnings": "Hinweise aus der KI-Antwort: {{list}}",
     "messagePlaceholder": "Commit-Nachricht",
     "deleteGroup": "Gruppe löschen",
@@ -1505,7 +1505,9 @@
     "errorOperationInProgress": "Merge, Rebase, Cherry-Pick, Revert oder Bisect ist aktiv. Schließe den Vorgang ab oder brich ihn ab, bevor du einen Split-Plan erstellst.",
     "errorNothingStaged": "Diese Split-Gruppe enthält keine Änderungen für einen Commit. Prüfe das Arbeitsverzeichnis und erstelle einen neuen Vorschlag.",
     "errorStagingChanged": "Der Staging-Bereich wurde nach der Planung verändert. Deine vorgemerkte Auswahl bleibt erhalten. Prüfe sie, bevor du einen neuen Split-Plan erstellst.",
-    "errorHunkGone": "Die geplanten Änderungen in {{file}} sind nicht mehr im Arbeitsverzeichnis. Bitte den Vorschlag neu erzeugen."
+    "errorHunkGone": "Die geplanten Änderungen in {{file}} sind nicht mehr im Arbeitsverzeichnis. Bitte den Vorschlag neu erzeugen.",
+    "manualHint": "Ordne Dateien und Hunks selbst zu und benenne jede Gruppe. Ein KI-Vorschlag ist optional.",
+    "aiSuggest": "KI-Vorschlag erstellen"
   },
   "bisect": {
     "ended": "Bisect beendet.",
@@ -4082,7 +4084,7 @@
       "summary": "Trenne unabhängige Arbeit, ohne die übrigen Änderungen zu verlieren.",
       "steps": [
         "Prüfe alle geänderten Dateien und erkenne unabhängige Änderungen.",
-        "Stage die Hunks oder Zeilen für die erste Änderung, oder prüfe jede Gruppe des KI-Vorschlags zum Aufteilen.",
+        "Öffne Änderungen aufteilen, benenne die erste Gruppe und ordne Dateien oder Hunks weiteren Gruppen zu. Ein KI-Vorschlag ist optional.",
         "Committe diese Gruppe mit einer passenden Nachricht.",
         "Wiederhole das für die übrigen Änderungen. Prüfe und teste die gesamte Arbeitskopie."
       ],
