@@ -1080,7 +1080,7 @@ function CommitPanelContent() {
           }).catch((e) => toastError(e instanceof Error ? e.message : String(e)));
         }}
         onSplitCommits={
-          activePath && aiReady && entries.length > 0
+          activePath && entries.length > 0
             ? () => setSplitOpen(true)
             : undefined
         }
@@ -1115,7 +1115,7 @@ function CommitPanelContent() {
 
       <Suspense fallback={null}>
       {splitOpen && activePath ? (
-        <CommitSplitDialog open={splitOpen} onOpenChange={setSplitOpen} path={activePath} />
+        <CommitSplitDialog aiAvailable={aiReady} open={splitOpen} onOpenChange={setSplitOpen} path={activePath} />
       ) : null}
 
       {stashUsed && (

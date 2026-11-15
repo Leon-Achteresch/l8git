@@ -1464,7 +1464,7 @@
     "noMatchesBody": "Change or clear the filter to see more files."
   },
   "commitSplit": {
-    "menuEntry": "Dividir alterações com IA",
+    "menuEntry": "Dividir alterações",
     "title": "Dividir em commits lógicos",
     "description": "{{units}} unidades de alteração em {{files}} arquivos são agrupadas em commits.",
     "unstagedNotice": "A área de stage foi limpa para a divisão. Seus arquivos não foram tocados.",
@@ -1472,7 +1472,7 @@
     "planning": "A IA está agrupando as alterações…",
     "applying": "Criando commits…",
     "noChanges": "Não há alterações pendentes para dividir.",
-    "retry": "Gerar uma nova proposta",
+    "retry": "Recarregar alterações",
     "warnings": "Observações da resposta da IA: {{list}}",
     "messagePlaceholder": "Mensagem de commit",
     "deleteGroup": "Excluir grupo",
@@ -1505,7 +1505,9 @@
     "errorOperationInProgress": "Há um merge, rebase, cherry-pick, revert ou bisect em andamento. Conclua ou aborte a operação antes de criar um plano.",
     "errorNothingStaged": "Este grupo não tem alterações para um commit. Revise a cópia de trabalho e gere uma nova proposta.",
     "errorStagingChanged": "A área de staging mudou após a preparação deste plano. Sua seleção foi mantida no índice. Revise-a antes de criar um novo plano de divisão.",
-    "errorHunkGone": "As alterações planejadas em {{file}} não estão mais no working tree. Gere uma nova proposta."
+    "errorHunkGone": "As alterações planejadas em {{file}} não estão mais no working tree. Gere uma nova proposta.",
+    "manualHint": "Atribua arquivos e trechos e nomeie cada grupo. A proposta de IA é opcional.",
+    "aiSuggest": "Sugerir com IA"
   },
   "bisect": {
     "ended": "Bisect concluído.",
@@ -4082,7 +4084,7 @@
       "summary": "Separe trabalhos independentes sem perder as edições restantes.",
       "steps": [
         "Revise todos os arquivos modificados e identifique mudanças independentes.",
-        "Prepare os blocos ou linhas da primeira mudança, ou use a proposta de divisão da IA e examine cada grupo.",
+        "Abra Dividir alterações, nomeie o primeiro grupo e atribua arquivos ou trechos a outros grupos. A proposta de IA é opcional.",
         "Commite esse grupo com uma mensagem focada.",
         "Repita para as mudanças restantes. Revise e teste a cópia de trabalho final."
       ],

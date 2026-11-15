@@ -32,6 +32,7 @@ import {
   addSplitGroup,
   applySplitPlan,
   collectSplitInputs,
+  createManualSplitPlan,
   moveUnits,
   planIssues,
   planSplitFromUnits,
@@ -71,12 +72,14 @@ export function CommitSplitDialog({
   path,
   ownerRepoPath = path,
   onApplied,
+  aiAvailable = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   path: string;
   ownerRepoPath?: string;
   onApplied?: (result: CommitSplitResult) => void;
+  aiAvailable?: boolean;
 }) {
   const { t } = useTranslation();
   const [phase, setPhase] = useState<Phase>("loading");
@@ -119,7 +122,7 @@ export function CommitSplitDialog({
       } catch (cause) {
         if (!ownsRequest(epoch, path, ownerRepoPath)) return;
         setError(translateKnownError(cause instanceof Error ? cause.message : String(cause)));
-        setPhase("failed");
+        setPhase("ready");
       }
     },
     [path, ownerRepoPath, ownsRequest],
@@ -147,13 +150,14 @@ export function CommitSplitDialog({
         setPhase("empty");
         return;
       }
-      await requestPlan(collected.units, epoch);
+      setPlan(createManualSplitPlan(collected.units));
+      setPhase("ready");
     } catch (cause) {
       if (!ownsRequest(epoch, path, ownerRepoPath)) return;
       setError(translateKnownError(cause instanceof Error ? cause.message : String(cause)));
       setPhase("failed");
     }
-  }, [path, ownerRepoPath, ownsRequest, requestPlan]);
+  }, [path, ownerRepoPath, ownsRequest]);
 
   useEffect(() => {
     if (!open) return;
@@ -323,6 +327,11 @@ export function CommitSplitDialog({
 
         {phase === "ready" ? (
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <p className="text-xs text-muted-foreground">{t("commitSplit.manualHint")}</p>
+            {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+            {aiAvailable && <Button type="button" size="xs" variant="outline" onClick={() => void requestPlan(units)}>
+              <Sparkles />{t("commitSplit.aiSuggest")}
+            </Button>}
             {warnings.length > 0 ? (
               <p className="rounded-md bg-muted px-2 py-1.5 text-[0.6875rem] text-muted-foreground">
                 {t("commitSplit.warnings", { list: warnings.join(", ") })}
