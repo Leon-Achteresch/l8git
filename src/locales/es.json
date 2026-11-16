@@ -1969,6 +1969,21 @@
     "modeTwoWayTitle": "Compara directamente la versión propia con la ajena"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "Estado del rebase (HEAD)",
+      "theirsIncoming": "Commit que se está reaplicando",
+      "theirsCommit": "Commit que se está reaplicando: {{commit}}",
+      "ours": "Estado del rebase",
+      "theirs": "Commit reaplicado",
+      "takeOursHint": "Usar el estado del rebase (1)",
+      "takeTheirsHint": "Usar el commit reaplicado (2)",
+      "allOurs": "Todo del estado del rebase",
+      "allTheirs": "Todo del commit reaplicado",
+      "acceptAllOursHint": "Resolver todos los conflictos con el estado del rebase",
+      "acceptAllTheirsHint": "Resolver todos los conflictos con el commit que se está reaplicando",
+      "explanation": "Durante un rebase, la izquierda (ours/HEAD) muestra el estado actual del destino, incluidos los commits ya reaplicados. La derecha (theirs) muestra el commit que se está reaplicando.",
+      "targetBase": "Base de destino: {{target}}."
+    },
     "oursHead": "Nuestro (HEAD)",
     "theirsIncoming": "Suyo (entrante)",
     "vs": "vs",

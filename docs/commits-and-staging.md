@@ -108,6 +108,8 @@ History search applies message, author, date and path filters together. Message 
 
 Conflicted files cannot be shown as a normal diff; the panel offers **Open conflict editor** instead.
 
+During a rebase, both editor layouts label the left side **Rebased state (HEAD)** and the right side **Commit being replayed**, including the commit ID and subject when available. The note identifies the target base and explains that HEAD can already contain earlier replayed commits. The single-conflict and resolve-all buttons use the same roles: `1` takes the rebased state (Git stage 2), `2` takes the replayed commit (stage 3), and `3` keeps both. Outside a rebase, the usual Ours/Theirs labels remain.
+
 The conflict editor is a three-way view of base, ours and theirs. You edit the merged result directly and mark the file resolved, which stages it. An **AI suggestion** can propose a resolution — it is always a proposal you review, never applied automatically.
 
 Merge, rebase and cherry-pick states are visible as banners with continue / skip / abort actions and the list of conflicted paths.

@@ -1,6 +1,6 @@
 # Entscheidung über das vorhandene Feature-Portfolio
 
-Stand: 15.11.2026. Die Feature-Recherche ist auf direkten Nutzerauftrag beendet. Bewertet werden die bereits gesammelten Vorschläge; dies ist keine neue Recherche. Änderungen entstehen auf `development`, Ziel des PR ist `main`.
+Stand: 16.11.2026. Die Feature-Recherche ist auf direkten Nutzerauftrag beendet. Bewertet werden die bereits gesammelten Vorschläge; dies ist keine neue Recherche. Änderungen entstehen auf `development`, Ziel des PR ist `main`.
 
 Die Umsetzung beschränkt sich auf klar abgegrenzte Ergänzungen mit bekanntem Daten-/Aktionsvertrag. Ein bedingter Kandidat aus fremden Nutzerfällen ist keine Zusage, dass ein neuer Datenkern, fremde Rechte oder ein übergreifender Workflow lokal funktionieren. Der übrige Umfang wird hier ausdrücklich zurückgestellt und nicht als umgesetzt ausgegeben. Bestehende Funktionen bleiben nutzbar.
 
@@ -8,21 +8,23 @@ Die Umsetzung beschränkt sich auf klar abgegrenzte Ergänzungen mit bekanntem D
 
 Der vorhandene Split-Dialog startet mit einem lokalen manuellen Plan ohne KI-Aufruf. Dateien/Hunks lassen sich in benannte Gruppen verschieben; ein fehlender Committext blockiert Anwenden. KI-Vorschläge bleiben bei vorhandener Konfiguration eine ausdrückliche Option; der bestehende Snapshot-/Coverage-/Commit-Schutz bleibt bestehen. Der bestehende Erfassungspfad kann vorgemerkte Änderungen aus dem Index lösen und weist darauf hin; daraus entsteht kein persistenter Changelist- oder paralleler Indexspeicher. Außerdem erkennt die Historien-Suche Metadatensätze mit SHA-1 und SHA-256 ohne UTF-8-Schnitt an Byte 40.
 
+Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konflikteditor die Rebase-Seiten und Einzel-/Alle-Übernahmen dem aktuellen Zwischenstand (HEAD) bzw. dem erneut angewendeten Commit zu. Zielbasis und Commitkennung stammen aus dem vorhandenen Rebase-Status. HEAD wird ausdrücklich nicht mit der unveränderten Zielbasis gleichgesetzt. Die Git-Stufen und Tastenkürzel bleiben erhalten.
+
 ## Entscheidung je vorhandener Portfolio-ID
 
 | ID | Vorhandene Idee | Entscheidung / Grenze |
 | --- | --- | --- |
 | F02 | Gemeinsamer Fetch-Start für ausgewählte Repos (F02). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F06 | Sicherungsentscheidung vor Cleanup erklären (F06). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
-| F11 | Konfliktseiten beim Rebase klar zuordnen (F11). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
+| F11 | Konfliktseiten beim Rebase klar zuordnen (F11). | Umgesetzt: eindeutige Rebase-Seiten, Commitkennung/-betreff, Zielbasis und passende Übernahmeaktionen in beiden Editoren; normaler Merge bleibt unverändert. Kein neuer Rebase-Unterbau. |
 | F09 | Vorhandene Staging-Einstellung erklären (F09). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
-| F10 | Ignore-Ursache für einen benannten Pfad erklären (F10). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
+| F10 | Ignore-Ursache für einen benannten Pfad erklären (F10). | Nächstes kleines Paket: lesende Prüfung eines benannten Pfads auf Regeldatei, Zeile und Muster. Ein check-ignore-IPC und schmaler Einstieg fehlen; keine Regeländerung oder Force-add-Aktion. |
 | F12 | Manuelle Änderungsgruppen ohne KI (F12). | Teilumfang: manuelle temporäre Commitgruppen, keine dauerhaften Changelists. |
 | F20 | Inhaltsvergleich geänderter Submodule-Pins (F20). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F16 | PR-Vergleich zum gemerkten Review-Stand (F16). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F22 | Unterdrückten Textdiff bewusst anzeigen (F22). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F17 | Einzelne CI-Testergebnisse mit Herkunft lesen (F17, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
-| F21 | Submodule direkt als Kindrepo öffnen (F21). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
+| F21 | Submodule direkt als Kindrepo öffnen (F21). | Nach F10: bestehendes Kindrepo ausdrücklich öffnen. Initialisierung, kanonischen Kindpfad und tatsächliche Repository-Wurzel vor dem Öffnen prüfen; kein automatisches Init oder Update. |
 | F14 | Übernommene Fixes trotz anderer Commit-ID finden (F14, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F15 | Blame vor der gewählten Änderung öffnen (F15, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F18 | Lokale Commits auf den richtigen Branch umordnen (F18, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |

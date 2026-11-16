@@ -1969,6 +1969,21 @@
     "modeTwoWayTitle": "Compare ours directly against theirs"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "Rebased state (HEAD)",
+      "theirsIncoming": "Commit being replayed",
+      "theirsCommit": "Commit being replayed: {{commit}}",
+      "ours": "Rebased state",
+      "theirs": "Replayed commit",
+      "takeOursHint": "Take rebased state (1)",
+      "takeTheirsHint": "Take replayed commit (2)",
+      "allOurs": "All rebased state",
+      "allTheirs": "All replayed commit",
+      "acceptAllOursHint": "Resolve all conflicts with the rebased state",
+      "acceptAllTheirsHint": "Resolve all conflicts with the commit being replayed",
+      "explanation": "During a rebase, the left side (ours/HEAD) is the current target state, including previously replayed commits. The right side (theirs) is the commit being replayed.",
+      "targetBase": "Target base: {{target}}."
+    },
     "oursHead": "Ours (HEAD)",
     "theirsIncoming": "Theirs (incoming)",
     "vs": "vs",

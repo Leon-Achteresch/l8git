@@ -1969,6 +1969,21 @@
     "modeTwoWayTitle": "自分側 (ours) を相手側 (theirs) と直接比較"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "リベースの現在の状態（HEAD）",
+      "theirsIncoming": "再適用中のコミット",
+      "theirsCommit": "再適用中のコミット: {{commit}}",
+      "ours": "リベースの状態",
+      "theirs": "再適用コミット",
+      "takeOursHint": "リベースの状態を採用（1）",
+      "takeTheirsHint": "再適用中のコミットを採用（2）",
+      "allOurs": "すべてリベースの状態を採用",
+      "allTheirs": "すべて再適用コミットを採用",
+      "acceptAllOursHint": "すべての競合をリベースの現在の状態で解決",
+      "acceptAllTheirsHint": "すべての競合を再適用中のコミットで解決",
+      "explanation": "リベース中、左側（ours/HEAD）はすでに再適用されたコミットを含む適用先の現在の状態です。右側（theirs）は今まさに再適用しているコミットです。",
+      "targetBase": "適用先のベース: {{target}}。"
+    },
     "oursHead": "自分側 (HEAD)",
     "theirsIncoming": "相手側 (取り込み)",
     "vs": "対",

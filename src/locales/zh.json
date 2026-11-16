@@ -1969,6 +1969,21 @@
     "modeTwoWayTitle": "直接对比我方与对方"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "变基当前状态（HEAD）",
+      "theirsIncoming": "正在重放的提交",
+      "theirsCommit": "正在重放的提交：{{commit}}",
+      "ours": "变基当前状态",
+      "theirs": "重放的提交",
+      "takeOursHint": "采用变基当前状态（1）",
+      "takeTheirsHint": "采用正在重放的提交（2）",
+      "allOurs": "全部采用变基当前状态",
+      "allTheirs": "全部采用重放的提交",
+      "acceptAllOursHint": "使用变基当前状态解决所有冲突",
+      "acceptAllTheirsHint": "使用正在重放的提交解决所有冲突",
+      "explanation": "变基时，左侧（ours/HEAD）是目标的当前状态，包含已重放的提交。右侧（theirs）是当前正在重放的提交。",
+      "targetBase": "目标基点：{{target}}。"
+    },
     "oursHead": "我方（HEAD）",
     "theirsIncoming": "对方（传入）",
     "vs": "对比",

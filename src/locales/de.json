@@ -1969,6 +1969,21 @@
     "modeTwoWayTitle": "Ours direkt gegen Theirs vergleichen"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "Rebase-Zwischenstand (HEAD)",
+      "theirsIncoming": "Erneut angewendeter Commit",
+      "theirsCommit": "Erneut angewendeter Commit: {{commit}}",
+      "ours": "Zwischenstand",
+      "theirs": "Wiederholter Commit",
+      "takeOursHint": "Rebase-Zwischenstand übernehmen (1)",
+      "takeTheirsHint": "Erneut angewendeten Commit übernehmen (2)",
+      "allOurs": "Überall Zwischenstand",
+      "allTheirs": "Überall wiederholter Commit",
+      "acceptAllOursHint": "Alle Konflikte mit dem Rebase-Zwischenstand auflösen",
+      "acceptAllTheirsHint": "Alle Konflikte mit dem erneut angewendeten Commit auflösen",
+      "explanation": "Beim Rebase zeigt die linke Seite (ours/HEAD) den aktuellen Zielstand einschließlich bereits erneut angewendeter Commits. Rechts (theirs) steht der gerade erneut angewendete Commit.",
+      "targetBase": "Zielbasis: {{target}}."
+    },
     "oursHead": "Ours (HEAD)",
     "theirsIncoming": "Theirs (Incoming)",
     "vs": "vs",

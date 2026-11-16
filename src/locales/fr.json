@@ -1969,6 +1969,21 @@
     "modeTwoWayTitle": "Comparer ours directement avec theirs"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "État du rebase (HEAD)",
+      "theirsIncoming": "Commit en cours de réapplication",
+      "theirsCommit": "Commit en cours de réapplication : {{commit}}",
+      "ours": "État du rebase",
+      "theirs": "Commit réappliqué",
+      "takeOursHint": "Utiliser l’état du rebase (1)",
+      "takeTheirsHint": "Utiliser le commit réappliqué (2)",
+      "allOurs": "Tout depuis l’état du rebase",
+      "allTheirs": "Tout depuis le commit réappliqué",
+      "acceptAllOursHint": "Résoudre tous les conflits avec l’état du rebase",
+      "acceptAllTheirsHint": "Résoudre tous les conflits avec le commit en cours de réapplication",
+      "explanation": "Pendant un rebase, la gauche (ours/HEAD) montre l’état actuel de la destination, y compris les commits déjà réappliqués. La droite (theirs) montre le commit en cours de réapplication.",
+      "targetBase": "Base de destination : {{target}}."
+    },
     "oursHead": "Ours (HEAD)",
     "theirsIncoming": "Theirs (entrant)",
     "vs": "vs",

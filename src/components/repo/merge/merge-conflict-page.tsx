@@ -373,6 +373,7 @@ export function MergeConflictPage({
                 <MergeEditor3Way
                   key={`3way-${selectedFile}`}
                   versions={current.versions}
+                  rebaseState={rebaseState}
                   language={detectLanguage(selectedFile)}
                   filePath={selectedFile}
                   repoPath={path}
@@ -383,6 +384,7 @@ export function MergeConflictPage({
                 <MergeEditor2Way
                   key={`2way-${selectedFile}`}
                   versions={current.versions}
+                  rebaseState={rebaseState}
                   language={detectLanguage(selectedFile)}
                   filePath={selectedFile}
                   repoPath={path}
