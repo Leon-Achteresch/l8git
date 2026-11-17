@@ -52,6 +52,8 @@ function BranchRowInner({
   laneColor: string;
   onDelete?: (b: Branch, force: boolean) => void;
 }) {
+  const { t } = useTranslation();
+  const upstreamGone = !branch.is_remote && branch.upstream_status === "gone";
   // Actions are read on use: rows of long lists should not each subscribe to stores.
   const { checkoutBranch } = useRepoStore.getState();
   const { focusBranch, blurBranch } = useBranchFocusStore.getState();
@@ -162,6 +164,11 @@ function BranchRowInner({
           {displayName}
         </span>
       </span>
+      {upstreamGone && (
+        <span className="max-w-[55%] shrink-0 break-words text-right text-[0.625rem] leading-tight text-git-modified">
+          {t("branch.upstreamMissingLocally")}
+        </span>
+      )}
     </li>
   );
 
@@ -389,6 +396,7 @@ export const BranchRow = memo(BranchRowInner, (a, b) => {
       ab.is_current === bb.is_current &&
       ab.is_remote === bb.is_remote &&
       ab.tip === bb.tip &&
-      ab.behind === bb.behind)
+      ab.behind === bb.behind &&
+      ab.upstream_status === bb.upstream_status)
   );
 });

@@ -2303,6 +2303,7 @@
     "noRemotes": "未配置远程。"
   },
   "branch": {
+    "upstreamMissingLocally": "本地缺少上游",
     "menuExplainBranch": "解释此分支",
     "defaultEmpty": "没有分支",
     "delete": "删除",

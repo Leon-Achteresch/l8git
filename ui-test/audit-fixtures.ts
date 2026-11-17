@@ -118,7 +118,13 @@ export function seedAuditFixture(scene: string) {
     const branch = reviewing && path === FIXTURE_PATH ? 'agents/fixture' : 'main';
     const head = reviewing && path === reviewBasePath ? reviewBaseHead : commits[0];
     return { path, branch, commits: reviewing && path === reviewBasePath ? [head] : commits, branches: [
-      { name: 'main', tip: reviewing ? reviewBaseHead.hash : commits[0].hash, is_current: branch === 'main', is_remote: false },
+      { name: 'main', tip: reviewing ? reviewBaseHead.hash : commits[0].hash, is_current: branch === 'main', is_remote: false,
+        ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? { upstream_status: 'gone' as const } : {}) },
+      ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? [
+        { name: 'resolved', tip: head.hash, is_current: false, is_remote: false, upstream_status: 'resolved' as const, behind: 2 },
+        { name: 'unconfigured', tip: head.hash, is_current: false, is_remote: false, upstream_status: 'unconfigured' as const },
+        { name: 'unknown', tip: head.hash, is_current: false, is_remote: false, upstream_status: 'unknown' as const },
+      ] : []),
       ...(reviewing && !reviewBranchDeleted ? [{ name: 'agents/fixture', tip: commits[0].hash, is_current: branch === 'agents/fixture', is_remote: false }] : []),
       ...restoredBranches,
     ], tags: [] };
@@ -337,6 +343,14 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
+  if (scene === 'upstream-missing') {
+    const secondary = '/tmp/l8git-upstream-legacy';
+    useRepoStore.setState(state => ({
+      paths: [FIXTURE_PATH, secondary],
+      repos: { ...state.repos, [secondary]: info(secondary) },
+    }));
+    useWorkspaceStore.getState().initDefaultWorkspace([secondary]);
+  }
   if (scene === 'workspace-fetch-preview') {
     const scoped = [`${FIXTURE_PATH}/primary`, `${FIXTURE_PATH}/alias`, `${FIXTURE_PATH}/broken`];
     const outsider = `${FIXTURE_PATH}/outsider`;

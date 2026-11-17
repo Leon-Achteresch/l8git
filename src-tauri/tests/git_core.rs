@@ -3,6 +3,65 @@ mod common;
 use common::{find_entry, json, TestRepo};
 use l8git_lib::git;
 
+#[tokio::test]
+async fn branch_ipc_distinguishes_local_upstream_states_without_changing_refs_or_config() {
+    let repo = TestRepo::new("branch-upstream");
+    let first = repo.commit("base.txt", "one\n", "first");
+    let second = repo.commit("base.txt", "two\n", "second");
+    let source = TestRepo::new("branch-upstream-source");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    for name in ["Behind", "gone", "unmapped"] {
+        repo.git(&["branch", name, &first]);
+        repo.git(&[
+            "config",
+            &format!("branch.{name}.remote"),
+            if name == "unmapped" {
+                "not-configured"
+            } else {
+                "origin"
+            },
+        ]);
+        repo.git(&[
+            "config",
+            &format!("branch.{name}.merge"),
+            &format!("refs/heads/{name}"),
+        ]);
+    }
+    repo.git(&["update-ref", "refs/remotes/origin/Behind", &second]);
+    let refs = repo.git(&["show-ref"]);
+    let config = repo.read(".git/config");
+    let snapshot = json(&git::open_repo(repo.s(), None).await.unwrap());
+    let branches = snapshot["branches"].as_array().unwrap();
+    for (name, status) in [
+        ("main", "unconfigured"),
+        ("Behind", "resolved"),
+        ("gone", "gone"),
+        ("unmapped", "unknown"),
+    ] {
+        let branch = branches
+            .iter()
+            .find(|branch| branch["name"] == name)
+            .unwrap();
+        assert_eq!(branch["upstream_status"], status, "{name}");
+        assert_eq!(
+            branch["behind"],
+            if name == "Behind" {
+                serde_json::json!(1)
+            } else {
+                serde_json::Value::Null
+            }
+        );
+    }
+    let remote = branches
+        .iter()
+        .find(|branch| branch["name"] == "origin/Behind")
+        .unwrap();
+    assert!(remote.get("upstream_status").is_none());
+    assert_eq!(repo.git(&["show-ref"]), refs);
+    assert_eq!(repo.read(".git/config"), config);
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+}
+
 fn lines() -> String {
     (1..=20).map(|n| format!("l{n}\n")).collect()
 }

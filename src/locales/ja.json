@@ -2303,6 +2303,7 @@
     "noRemotes": "リモートが設定されていません。"
   },
   "branch": {
+    "upstreamMissingLocally": "上流がローカルにありません",
     "menuExplainBranch": "このブランチを説明",
     "defaultEmpty": "ブランチがありません",
     "delete": "削除",

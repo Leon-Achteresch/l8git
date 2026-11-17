@@ -2303,6 +2303,7 @@
     "noRemotes": "Nenhum remoto configurado."
   },
   "branch": {
+    "upstreamMissingLocally": "Upstream ausente localmente",
     "menuExplainBranch": "Explicar este branch",
     "defaultEmpty": "Nenhum branch",
     "delete": "Excluir",

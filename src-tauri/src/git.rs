@@ -37,6 +37,17 @@ pub struct Branch {
     is_remote: bool,
     tip: String,
     behind: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    upstream_status: Option<BranchUpstreamStatus>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+enum BranchUpstreamStatus {
+    Gone,
+    Unconfigured,
+    Resolved,
+    Unknown,
 }
 
 #[derive(Serialize)]

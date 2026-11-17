@@ -86,6 +86,7 @@ export type Branch = {
   is_remote: boolean;
   tip: string;
   behind?: number;
+  upstream_status?: 'gone' | 'unconfigured' | 'resolved' | 'unknown';
 };
 
 export type TagKind = 'lightweight' | 'annotated' | 'signed';
