@@ -3,9 +3,14 @@ use super::coordination::RemoteProcessLock;
 use sha2::{Digest, Sha256};
 use std::sync::TryLockError;
 
+#[cfg(all(test, feature = "headless", any(target_os = "macos", target_os = "linux")))]
+mod workspace_fetch_fixture;
+#[cfg(all(test, feature = "headless", any(target_os = "macos", target_os = "linux")))]
+pub(crate) use workspace_fetch_fixture::*;
+
 async fn spawn_repo_remote(
     path: String,
-    run: impl FnOnce(PathBuf, &RemoteProcessLock) -> Result<String, String> + Send + 'static,
+    run: impl FnOnce(PathBuf, &Path, &RemoteProcessLock) -> Result<String, String> + Send + 'static,
 ) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path);
@@ -16,7 +21,7 @@ async fn spawn_repo_remote(
             TryLockError::Poisoned(error) => error.to_string(),
         })?;
         let process_lock = RemoteProcessLock::acquire(&common_dir)?;
-        run(repo, &process_lock)
+        run(repo, &common_dir, &process_lock)
     })
     .await
 }
@@ -101,9 +106,41 @@ pub struct FetchScope {
     target: Option<FetchTarget>,
 }
 
+struct ResolvedFetchTarget {
+    remote: String,
+    checkout: PathBuf,
+    url: String,
+    refspecs: Vec<u8>,
+}
+
+impl ResolvedFetchTarget {
+    fn summary(&self) -> FetchTarget {
+        // Hash the effective target without exposing credentials or local paths.
+        let mut hash = Sha256::new();
+        for value in [
+            self.checkout.as_os_str().as_encoded_bytes(),
+            self.url.as_bytes(),
+            &self.refspecs,
+        ] {
+            hash.update((value.len() as u64).to_le_bytes());
+            hash.update(value);
+        }
+        FetchTarget {
+            remote: self.remote.clone(),
+            fingerprint: format!("{:x}", hash.finalize()),
+        }
+    }
+}
+
+fn workspace_remotes(repo: &PathBuf) -> Result<Vec<String>, String> {
+    let output = String::from_utf8(run_git_command_bytes(git_command(), repo, &["remote"])?)
+        .map_err(|_| "Git returned remote names that are not valid UTF-8".to_string())?;
+    Ok(output.lines().map(str::to_owned).collect())
+}
+
 // The workspace contract is for an explicit named remote with one configured
 // URL and configured refspecs. Git resolves insteadOf and excludes pushurl.
-fn workspace_fetch_target(repo: &PathBuf, remotes: &[String]) -> Option<FetchTarget> {
+fn workspace_fetch_target(repo: &PathBuf, remotes: &[String]) -> Option<ResolvedFetchTarget> {
     let [remote] = remotes else { return None };
     if remote.is_empty() || remote == "." || remote.starts_with('-') || remote.trim() != remote {
         return None;
@@ -140,21 +177,11 @@ fn workspace_fetch_target(repo: &PathBuf, remotes: &[String]) -> Option<FetchTar
     {
         return None;
     }
-    // Keep credentials and local endpoint paths out of IPC. Include checkout
-    // context because Git can resolve local URLs relative to that directory.
-    let checkout = repo.canonicalize().ok()?;
-    let mut hash = Sha256::new();
-    for value in [
-        checkout.as_os_str().as_encoded_bytes(),
-        url.as_bytes(),
-        &refspecs,
-    ] {
-        hash.update((value.len() as u64).to_le_bytes());
-        hash.update(value);
-    }
-    Some(FetchTarget {
+    Some(ResolvedFetchTarget {
         remote: remote.clone(),
-        fingerprint: format!("{:x}", hash.finalize()),
+        checkout: repo.canonicalize().ok()?,
+        url: url.to_owned(),
+        refspecs,
     })
 }
 
@@ -166,13 +193,8 @@ pub async fn repo_fetch_scope(path: String) -> Result<FetchScope, String> {
             .into_os_string()
             .into_string()
             .map_err(|_| "Git common directory is not valid UTF-8".to_string())?;
-        let remotes: Vec<_> =
-            String::from_utf8(run_git_command_bytes(git_command(), &repo, &["remote"])?)
-                .map_err(|_| "Git returned remote names that are not valid UTF-8".to_string())?
-                .lines()
-                .map(str::to_owned)
-                .collect();
-        let target = workspace_fetch_target(&repo, &remotes);
+        let remotes = workspace_remotes(&repo)?;
+        let target = workspace_fetch_target(&repo, &remotes).map(|target| target.summary());
         Ok(FetchScope {
             common_dir,
             remotes,
@@ -191,7 +213,7 @@ pub async fn git_fetch(
     all_remotes: Option<bool>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_repo_remote(path, move |repo, lock| {
+    spawn_repo_remote(path, move |repo, _, lock| {
         let prune_branches = prune_branches.unwrap_or(true);
         let prune_tags = prune_tags.unwrap_or(false);
         let mut args: Vec<String> = vec!["fetch".to_string()];
@@ -248,7 +270,7 @@ pub async fn git_pull(
     remote: Option<String>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_repo_remote(path, move |repo, lock| {
+    spawn_repo_remote(path, move |repo, _, lock| {
         let autostash = strategy.as_deref() == Some("autostash");
         if !autostash {
             let dirty = dirty_tracked_files(&repo)?;
@@ -294,7 +316,7 @@ pub async fn git_push(
     dry_run: Option<bool>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_repo_remote(path, move |repo, lock| {
+    spawn_repo_remote(path, move |repo, _, lock| {
         let mut args: Vec<String> = vec!["push".to_string()];
 
         match force_mode.as_deref() {

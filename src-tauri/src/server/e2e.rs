@@ -14,6 +14,10 @@ use crate::server::crypto::{self, Session, Welcome};
 use crate::server::state::ServerState;
 use crate::server::ws;
 
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[path = "../../tests/common/mod.rs"]
+mod workspace_test_repos;
+
 const HOST_ID: &str = "e2e-host";
 const TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -145,6 +149,57 @@ async fn a_paired_client_authenticates_and_calls_a_command_over_the_socket() {
         client.recv().await.unwrap(),
         json!({ "type": "pong", "t": 99 })
     );
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn workspace_fetch_ipc_over_the_paired_socket_uses_server_membership() {
+    use workspace_test_repos::TestRepo;
+
+    let repo = TestRepo::new("workspace-fetch-socket");
+    let source = TestRepo::new("workspace-fetch-socket-source");
+    source.commit("fixture.txt", "first\n", "first");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    let host = start().await;
+    host.state.roots.write().unwrap().push(repo.path.clone());
+    let mut client = handshake(&host, HOST_ID).await.unwrap();
+    assert_eq!(client.authenticate().await["type"], "ready");
+
+    let path = repo.s();
+    let preview = client
+        .call(1, "repo_fetch_scope", json!({ "path": path }))
+        .await;
+    assert_eq!(preview["ok"], true);
+    assert_eq!(preview["data"]["target"]["remote"], "origin");
+    let args =
+        json!({ "path": path, "workspaceId": "workspace", "target": preview["data"]["target"] });
+    let command = "__test_workspace_fetch";
+    assert_eq!(client.call(2, command, args.clone()).await["ok"], false);
+    {
+        let mut fixture = host.state.workspace_fetch_fixture.write().unwrap();
+        fixture.active_workspace = Some("workspace".into());
+        fixture.opened.push(repo.path.clone());
+        fixture.approvals.push(
+            crate::git::WorkspaceFetchApproval::capture("workspace", repo.path.clone()).unwrap(),
+        );
+    }
+    assert_eq!(client.call(3, command, args.clone()).await["ok"], true);
+    assert_eq!(repo.rev("refs/remotes/origin/main"), source.head());
+
+    host.state
+        .workspace_fetch_fixture
+        .write()
+        .unwrap()
+        .approvals
+        .clear();
+    let mut retry = args;
+    retry["opId"] = json!("socket-retry");
+    let rejected = client.call(4, command, retry).await;
+    assert_eq!(rejected["ok"], false);
+    assert!(rejected["error"]
+        .as_str()
+        .unwrap()
+        .contains("no approved membership"));
 }
 
 #[tokio::test]

@@ -67,6 +67,11 @@ pub(super) struct RemoteProcessLock {
 }
 
 impl RemoteProcessLock {
+    #[cfg(all(test, feature = "headless", any(target_os = "macos", target_os = "linux")))]
+    pub(super) fn directory(&self) -> &std::fs::File {
+        &self.directory
+    }
+
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub(super) fn acquire(common_dir: &Path) -> Result<Self, String> {
         use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};

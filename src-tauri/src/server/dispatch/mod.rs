@@ -31,6 +31,19 @@ pub async fn dispatch(cmd: &str, args: Value, ctx: &DispatchCtx) -> Result<Value
     if args["path"].as_str().is_some_and(|p| p.starts_with(crate::pr::HUB_PATH_PREFIX)) {
         return Err(crate::coded!(ServerHubLocalOnly));
     }
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    if cmd == "__test_workspace_fetch" {
+        ctx.state.ensure_command_allowed(cmd, &args)?;
+        return to_json(
+            crate::git::workspace_fetch_fixture(
+                ctx.state.workspace_fetch_fixture.clone(),
+                arg(&args, "path")?,
+                arg(&args, "workspace_id")?,
+                arg(&args, "op_id")?,
+            )
+            .await,
+        );
+    }
     if let Some(result) = git::dispatch(cmd, args.clone(), ctx).await {
         return result;
     }
