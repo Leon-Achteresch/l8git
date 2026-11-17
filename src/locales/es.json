@@ -1163,6 +1163,8 @@
     "providerSelfHostedExample": "Git autoalojado"
   },
   "repoDetails": {
+    "bareNotice": "Este repositorio bare no tiene copia de trabajo. El historial y las referencias están disponibles.",
+    "bareOpenHistory": "Abrir historial",
     "loading": "Cargando…"
   },
   "updates": {

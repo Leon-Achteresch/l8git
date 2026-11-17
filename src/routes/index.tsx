@@ -1,7 +1,9 @@
 import { PanelLoading } from "@/components/ui/panel-loading";
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useDeferredValue, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { scheduleStartupServices } from "@/lib/startup-services";
+import { Button } from "@/components/ui/button";
 
 import { loadablePanel } from "@/components/ui/loadable-panel";
 import { RepoTabLayout } from "@/components/repo/layout/repo-tab-layout";
@@ -80,12 +82,15 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
+  const { t } = useTranslation();
   useRepoRehydrate();
   useRepoStatusPoll();
   const activePath = useRepoStore((s) => s.activePath);
   const repoPath = useRepoStore((s) =>
     s.activePath ? s.repos[s.activePath]?.path : null,
   );
+  const isBare = useRepoStore(s => s.activePath !== null && s.repos[s.activePath]?.is_bare === true);
+  const setSidebarTab = useUiStore(s => s.setSidebarTab);
   useEffect(() => {
     // These services belong to the app lifetime, including a quick jump to
     // another route before the first idle callback. Do not cancel on navigation.
@@ -133,6 +138,18 @@ function Home() {
         >
           {activePath && repoPath ? (
             <RepoTabLayout path={repoPath}>
+              {isBare && (
+                <div className="mx-4 mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2">
+                  <p role="status" className="text-xs text-muted-foreground">
+                    {t("repoDetails.bareNotice")}
+                  </p>
+                  {sidebarTab !== "history" && (
+                    <Button size="sm" variant="outline" onClick={() => setSidebarTab("history")}>
+                      {t("repoDetails.bareOpenHistory")}
+                    </Button>
+                  )}
+                </div>
+              )}
               <div
                 // The commit and history panels read the live repo themselves, so they remount with it right away.
                 // Keyed on the deferred path, they'd show the new repo with the old repo's selection and dialogs;
@@ -141,7 +158,7 @@ function Home() {
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
                 {sidebarTab === "commit" ? (
-                  <CommitPanel />
+                  isBare ? null : <CommitPanel />
                 ) : (
                   <Suspense fallback={<PanelLoading />}>
                   {/* Until the deferred switch commits, the old repo's panel stays visible but takes no input.

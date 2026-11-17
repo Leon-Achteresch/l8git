@@ -117,7 +117,8 @@ export function seedAuditFixture(scene: string) {
     const reviewing = scene === 'review';
     const branch = reviewing && path === FIXTURE_PATH ? 'agents/fixture' : 'main';
     const head = reviewing && path === reviewBasePath ? reviewBaseHead : commits[0];
-    return { path, branch, commits: reviewing && path === reviewBasePath ? [head] : commits, branches: [
+    return { path, branch, ...(scene === 'bare-open' && path === FIXTURE_PATH ? { is_bare: true } : {}),
+      commits: reviewing && path === reviewBasePath ? [head] : commits, branches: [
       { name: 'main', tip: reviewing ? reviewBaseHead.hash : commits[0].hash, is_current: branch === 'main', is_remote: false,
         ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? { upstream_status: 'gone' as const } : {}) },
       ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? [
@@ -343,6 +344,11 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
+  if (scene === 'bare-open') {
+    const legacy = '/tmp/l8git-bare-legacy';
+    useRepoStore.setState({ paths: [FIXTURE_PATH, legacy], repos: {} });
+    useWorkspaceStore.getState().initDefaultWorkspace([legacy]);
+  }
   if (scene === 'upstream-missing') {
     const secondary = '/tmp/l8git-upstream-legacy';
     useRepoStore.setState(state => ({

@@ -127,28 +127,33 @@ async fn open_repo_target(
         }
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
 
-        // One rev-parse answers both "is this a repository" and "what is HEAD".
+        // One rev-parse identifies the repository kind and resolves HEAD.
         // A repository without commits makes the HEAD half fail, so that case
         // falls back to the plain repository check and reports no commits.
-        let (branch, head_exists) = match run_git(
+        let (bare, branch, head_exists) = match run_git(
             &repo,
-            &["rev-parse", "--is-inside-work-tree", "--abbrev-ref", "HEAD"],
+            &["rev-parse", "--is-bare-repository", "--abbrev-ref", "HEAD"],
         ) {
             Ok(out) => {
-                let branch = out
-                    .lines()
-                    .nth(1)
+                let mut lines = out.lines();
+                let bare = lines.next().unwrap_or_default().to_owned();
+                let branch = lines.next()
                     .map(str::trim)
                     .filter(|s| !s.is_empty())
                     .unwrap_or("HEAD")
                     .to_string();
-                (branch, true)
+                (bare, branch, true)
             }
             Err(_) => {
-                run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
+                let bare = run_git(&repo, &["rev-parse", "--is-bare-repository"])
                     .map_err(|_| format!("'{}' is not a git repository", repo.display()))?;
-                ("HEAD".to_string(), false)
+                (bare, "HEAD".to_string(), false)
             }
+        };
+        let is_bare = match bare.trim() {
+            "true" => true,
+            "false" => false,
+            _ => return Err("Git returned an invalid bare repository flag".into()),
         };
 
         // Log, tags and branches are independent reads. Running them together
@@ -178,6 +183,7 @@ async fn open_repo_target(
 
         Ok(RepoInfo {
             path: repo.to_string_lossy().to_string(),
+            is_bare,
             branch,
             commits,
             branches,

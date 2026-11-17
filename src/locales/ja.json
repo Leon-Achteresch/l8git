@@ -1163,6 +1163,8 @@
     "providerSelfHostedExample": "セルフホストの Git"
   },
   "repoDetails": {
+    "bareNotice": "このベアリポジトリには作業コピーがありません。履歴と参照は確認できます。",
+    "bareOpenHistory": "履歴を開く",
     "loading": "読み込み中…"
   },
   "updates": {

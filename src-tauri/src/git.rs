@@ -62,6 +62,7 @@ pub struct TagRef {
 #[derive(Serialize)]
 pub struct RepoInfo {
     path: String,
+    is_bare: bool,
     branch: String,
     commits: Vec<Commit>,
     branches: Vec<Branch>,

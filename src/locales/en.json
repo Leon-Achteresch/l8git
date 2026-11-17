@@ -1163,6 +1163,8 @@
     "providerSelfHostedExample": "Self-hosted Git"
   },
   "repoDetails": {
+    "bareNotice": "This bare repository has no working copy. History and refs are available.",
+    "bareOpenHistory": "Open history",
     "loading": "Loading…"
   },
   "updates": {

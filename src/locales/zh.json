@@ -1163,6 +1163,8 @@
     "providerSelfHostedExample": "自托管 Git"
   },
   "repoDetails": {
+    "bareNotice": "此裸仓库没有工作副本。可以查看历史记录和引用。",
+    "bareOpenHistory": "打开历史记录",
     "loading": "加载中…"
   },
   "updates": {

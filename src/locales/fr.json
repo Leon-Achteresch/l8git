@@ -1163,6 +1163,8 @@
     "providerSelfHostedExample": "Git auto-hébergé"
   },
   "repoDetails": {
+    "bareNotice": "Ce dépôt nu n’a pas de copie de travail. L’historique et les références sont disponibles.",
+    "bareOpenHistory": "Ouvrir l’historique",
     "loading": "Chargement…"
   },
   "updates": {

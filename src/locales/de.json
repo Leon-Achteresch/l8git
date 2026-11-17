@@ -1163,6 +1163,8 @@
     "providerSelfHostedExample": "Self-hosted Git"
   },
   "repoDetails": {
+    "bareNotice": "Dieses Bare-Repository hat keine Arbeitskopie. Historie und Referenzen sind verfügbar.",
+    "bareOpenHistory": "Historie öffnen",
     "loading": "Lade …"
   },
   "updates": {
