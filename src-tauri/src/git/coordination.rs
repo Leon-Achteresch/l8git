@@ -62,12 +62,12 @@ pub(super) fn repo_remote_mutex(common_dir: &Path) -> Result<Arc<Mutex<()>>, Str
 }
 
 pub(super) struct RemoteProcessLock {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     directory: std::fs::File,
 }
 
 impl RemoteProcessLock {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub(super) fn acquire(common_dir: &Path) -> Result<Self, String> {
         use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
 
@@ -90,13 +90,13 @@ impl RemoteProcessLock {
         Ok(Self { directory })
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     pub(super) fn acquire(_common_dir: &Path) -> Result<Self, String> {
         Ok(Self {})
     }
 
     pub(super) fn inherit(&self, _command: &mut Command) {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             use std::os::{fd::AsRawFd, unix::process::CommandExt};
 
@@ -115,7 +115,7 @@ impl RemoteProcessLock {
     }
 
     pub(super) fn finish(&self, _status: ExitStatus) {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             use std::os::{fd::AsRawFd, unix::process::ExitStatusExt};
 

@@ -316,8 +316,8 @@ exit 1
     daemon(&ctx, "git_fetch", retry).await.unwrap();
     assert_eq!(repo.rev("refs/remotes/origin/main"), second);
 
-    #[cfg(target_os = "macos")]
-    for (streamed, kill_parent) in [(false, false), (false, true), (true, true)] {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    for (streamed, kill_parent) in [(false, false), (false, true), (true, false), (true, true)] {
         fs::remove_file(repo.path.join(".git/upload-started")).unwrap();
         fs::write(&hold, "").unwrap();
         let mut owner = tokio::process::Command::new(std::env::current_exe().unwrap())
@@ -371,7 +371,7 @@ exit 1
     }
 }
 
-#[cfg(all(target_os = "macos", feature = "headless"))]
+#[cfg(all(any(target_os = "macos", target_os = "linux"), feature = "headless"))]
 #[tokio::test]
 #[ignore = "started as a separate process by the remote reservation test"]
 async fn remote_reservation_fixture_process() {
