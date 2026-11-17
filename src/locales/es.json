@@ -6012,5 +6012,21 @@
     "files_other": "{{count}} archivos",
     "committed": "Confirmado",
     "branch": "Rama"
+  },
+  "ignoreExplanation": {
+    "title": "Explicar regla de exclusión…",
+    "description": "Introduce una ruta para comprobar sus reglas de exclusión. Solo se leen las reglas actuales de Git y el índice.",
+    "path": "Ruta relativa al repositorio",
+    "pathHint": "Relativa a la raíz del repositorio. Se conservan los espacios; la ruta no tiene que existir.",
+    "check": "Comprobar ruta",
+    "checking": "Comprobando…",
+    "ignored": "Git ignora esta ruta.",
+    "negated": "Una regla negativa permite esta ruta; no se ignora.",
+    "noMatch": "Ninguna regla de exclusión coincide con esta ruta.",
+    "noMatchHint": "Esto no explica todos los archivos ausentes de la lista. Los archivos rastreados no se comprueban con las reglas de exclusión.",
+    "source": "Archivo de reglas",
+    "line": "Línea",
+    "pattern": "Patrón",
+    "invalidPath": "Introduce una ruta relativa a la raíz del repositorio, sin «..» ni un directorio .git. Los directorios superiores deben permanecer dentro del repositorio."
   }
 }

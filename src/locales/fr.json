@@ -6012,5 +6012,21 @@
     "files_other": "{{count}} fichiers",
     "committed": "Validé",
     "branch": "Branche"
+  },
+  "ignoreExplanation": {
+    "title": "Expliquer la règle d’exclusion…",
+    "description": "Saisissez un chemin pour vérifier ses règles d’exclusion. Seuls les règles Git actuelles et l’index sont lus.",
+    "path": "Chemin relatif au dépôt",
+    "pathHint": "Relatif à la racine du dépôt. Les espaces sont conservés ; le chemin ne doit pas nécessairement exister.",
+    "check": "Vérifier le chemin",
+    "checking": "Vérification…",
+    "ignored": "Git ignore ce chemin.",
+    "negated": "Une règle négative autorise ce chemin ; il n’est pas ignoré.",
+    "noMatch": "Aucune règle d’exclusion ne correspond à ce chemin.",
+    "noMatchHint": "Cela n’explique pas tous les fichiers absents de la liste. Les fichiers suivis ne sont pas vérifiés par les règles d’exclusion.",
+    "source": "Fichier de règles",
+    "line": "Ligne",
+    "pattern": "Motif",
+    "invalidPath": "Saisissez un chemin relatif à la racine du dépôt, sans « .. » ni répertoire .git. Les répertoires parents doivent rester dans le dépôt."
   }
 }

@@ -6012,5 +6012,21 @@
     "files_other": "{{count}} arquivos",
     "committed": "Confirmado",
     "branch": "Branch"
+  },
+  "ignoreExplanation": {
+    "title": "Explicar regra de exclusão…",
+    "description": "Introduza um caminho para verificar as regras de exclusão. Apenas as regras atuais do Git e o índice são lidos.",
+    "path": "Caminho relativo ao repositório",
+    "pathHint": "Relativo à raiz do repositório. Os espaços são preservados; o caminho não precisa de existir.",
+    "check": "Verificar caminho",
+    "checking": "A verificar…",
+    "ignored": "O Git ignora este caminho.",
+    "negated": "Uma regra negativa permite este caminho; não é ignorado.",
+    "noMatch": "Nenhuma regra de exclusão corresponde a este caminho.",
+    "noMatchHint": "Isto não explica todos os ficheiros ausentes da lista. Os ficheiros rastreados não são verificados pelas regras de exclusão.",
+    "source": "Ficheiro de regras",
+    "line": "Linha",
+    "pattern": "Padrão",
+    "invalidPath": "Introduza um caminho relativo à raiz do repositório, sem «..» nem um diretório .git. Os diretórios superiores devem permanecer dentro do repositório."
   }
 }

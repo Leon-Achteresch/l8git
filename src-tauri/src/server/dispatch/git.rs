@@ -382,6 +382,10 @@ pub async fn dispatch(
             crate::git::add_to_gitignore(path, patterns).await
         }
 
+        "git_check_ignore" (path: String, file: String) => {
+            crate::git::git_check_ignore(path, file).await
+        }
+
         "list_stashes" (path: String) => {
             crate::git::list_stashes(path).await
         }

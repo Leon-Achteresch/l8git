@@ -6012,5 +6012,21 @@
     "files_other": "{{count}} files",
     "committed": "Committed",
     "branch": "Branch"
+  },
+  "ignoreExplanation": {
+    "title": "Explain ignore rule…",
+    "description": "Enter a path to check its ignore rules. This only reads Git’s current rules and index.",
+    "path": "Repository-relative path",
+    "pathHint": "Relative to the repository root. Whitespace is preserved; the path need not exist.",
+    "check": "Check path",
+    "checking": "Checking…",
+    "ignored": "Git ignores this path.",
+    "negated": "A negated rule allows this path; it is not ignored.",
+    "noMatch": "No ignore rule matched this path.",
+    "noMatchHint": "This does not establish why a file is missing from the list. Tracked files are not checked against ignore rules.",
+    "source": "Rule file",
+    "line": "Line",
+    "pattern": "Pattern",
+    "invalidPath": "Enter a path relative to the repository root, without “..” or a .git directory. Parent directories must stay inside the repository."
   }
 }

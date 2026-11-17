@@ -305,6 +305,8 @@ mod merge;
 pub use merge::*;
 mod staging;
 pub use staging::*;
+mod ignore;
+pub use ignore::*;
 mod status;
 pub use status::*;
 mod commit;

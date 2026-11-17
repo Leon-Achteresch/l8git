@@ -59,6 +59,7 @@ import { readRepoViewState, saveRepoViewState } from "@/lib/repo-view-state";
 import { rememberBranchFile, useBranchRestore } from "@/lib/github-ui/branch-context";
 
 const ApplyPatchDialog = lazy(() => import("./apply-patch-dialog").then(m => ({ default: m.ApplyPatchDialog })));
+const IgnoreExplanationDialog = lazy(() => import("./ignore-explanation-dialog").then(m => ({ default: m.IgnoreExplanationDialog })));
 
 const StashCreateDialog = lazy(() => import("@/components/repo/stash/stash-create-dialog").then(m => ({ default: m.StashCreateDialog })));
 
@@ -128,6 +129,7 @@ function CommitPanelContent() {
   const [stashOpen, setStashOpen] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const [applyPatchOpen, setApplyPatchOpen] = useState(false);
+  const [ignoreExplanationOpen, setIgnoreExplanationOpen] = useState(false);
   const aiReady = useCommitPrefs(() => isAiConfigured());
   const [selectedRowId, setSelectedRowId] = useState<string | null>(() => readRepoViewState(activePath ?? "").selectedFile ?? null);
   useLayoutEffect(() => {
@@ -1094,10 +1096,15 @@ function CommitPanelContent() {
             : undefined
         }
         onApplyPatch={activePath && patchFilesSupported() ? () => setApplyPatchOpen(true) : undefined}
+        onExplainIgnore={() => setIgnoreExplanationOpen(true)}
       />
 
       {applyPatchOpen && activePath ? (
         <Suspense fallback={null}><ApplyPatchDialog open path={activePath} onClose={() => setApplyPatchOpen(false)} /></Suspense>
+      ) : null}
+
+      {ignoreExplanationOpen && activePath ? (
+        <Suspense fallback={null}><IgnoreExplanationDialog path={activePath} onClose={() => setIgnoreExplanationOpen(false)} /></Suspense>
       ) : null}
 
       <AlertDialog open={publishedAmendOpen} onOpenChange={setPublishedAmendOpen}>

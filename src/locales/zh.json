@@ -6012,5 +6012,21 @@
     "files_other": "{{count}} 个文件",
     "committed": "提交于",
     "branch": "分支"
+  },
+  "ignoreExplanation": {
+    "title": "解释忽略规则…",
+    "description": "输入路径以检查其忽略规则。此操作只读取当前 Git 规则和索引。",
+    "path": "仓库相对路径",
+    "pathHint": "相对于仓库根目录。保留空白字符，路径无需存在。",
+    "check": "检查路径",
+    "checking": "正在检查…",
+    "ignored": "Git 忽略了此路径。",
+    "negated": "否定规则允许此路径，因此它未被忽略。",
+    "noMatch": "没有忽略规则匹配此路径。",
+    "noMatchHint": "这不能解释列表中所有文件缺失的原因。已跟踪的文件不会按忽略规则检查。",
+    "source": "规则文件",
+    "line": "行号",
+    "pattern": "模式",
+    "invalidPath": "请输入相对于仓库根目录的路径，不含“..”或 .git 目录。父目录必须位于仓库内部。"
   }
 }

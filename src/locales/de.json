@@ -6012,5 +6012,21 @@
     "files_other": "{{count}} Dateien",
     "committed": "Committet",
     "branch": "Branch"
+  },
+  "ignoreExplanation": {
+    "title": "Ignore-Regel erklären…",
+    "description": "Gib einen Pfad ein, um seine Ignore-Regeln zu prüfen. Dabei werden nur die aktuellen Git-Regeln und der Index gelesen.",
+    "path": "Repo-relativer Pfad",
+    "pathHint": "Relativ zum Repository-Stamm. Leerzeichen bleiben erhalten; der Pfad muss nicht existieren.",
+    "check": "Pfad prüfen",
+    "checking": "Wird geprüft…",
+    "ignored": "Git ignoriert diesen Pfad.",
+    "negated": "Eine Gegenregel gibt diesen Pfad frei; er wird nicht ignoriert.",
+    "noMatch": "Keine Ignore-Regel trifft auf diesen Pfad zu.",
+    "noMatchHint": "Das erklärt nicht jede fehlende Datei in der Liste. Bereits versionierte Dateien werden nicht gegen Ignore-Regeln geprüft.",
+    "source": "Regeldatei",
+    "line": "Zeile",
+    "pattern": "Muster",
+    "invalidPath": "Gib einen Pfad relativ zum Repository-Stamm ein, ohne „..“ oder .git-Verzeichnis. Elternverzeichnisse dürfen nicht aus dem Repository herausführen."
   }
 }
