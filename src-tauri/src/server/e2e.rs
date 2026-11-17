@@ -202,6 +202,228 @@ async fn workspace_fetch_ipc_over_the_paired_socket_uses_server_membership() {
         .contains("no approved membership"));
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[tokio::test]
+async fn single_fetch_ipc_reports_progress_log_and_releases_remote_reservation() {
+    use std::fs;
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    use workspace_test_repos::TestRepo;
+
+    async fn fetch_result(client: &mut Client, id: i64, op_id: &str) -> (Value, Value, bool) {
+        let mut response = None;
+        let mut done = None;
+        let mut progress = false;
+        while response.is_none() || done.is_none() {
+            let frame = client.recv().await.expect("fetch completion arrives");
+            if frame["type"] == "res" && frame["id"] == id {
+                response = Some(frame);
+            } else if frame["type"] == "event" && frame["payload"]["opId"] == op_id {
+                if frame["name"] == "git-progress-done" {
+                    done = Some(frame["payload"].clone());
+                } else if frame["name"] == "git-progress" && frame["payload"]["op"] == "fetch" {
+                    progress = true;
+                }
+            }
+        }
+        (response.unwrap(), done.unwrap(), progress)
+    }
+
+    async fn wait_for_transport(started: &std::path::Path) {
+        tokio::time::timeout(TIMEOUT, async {
+            while !started.exists() {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("fetch reached the local transport");
+    }
+
+    let repo = TestRepo::new("single-fetch-ipc");
+    let source = TestRepo::new("single-fetch-ipc-source");
+    let links = TestRepo::new("single-fetch-ipc-links");
+    let alias = links.path.join("alias");
+    symlink(&repo.path, &alias).unwrap();
+    let first = source.commit("fixture.txt", "first\n", "first");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    let transport = repo.path.join(".git/fixture-upload-pack");
+    let hold = repo.path.join(".git/hold-transport");
+    let started = repo.path.join(".git/transport-started");
+    let fail = repo.path.join(".git/fail-transport");
+    repo.write(
+        ".git/fixture-upload-pack",
+        r#"#!/bin/sh
+dir=${0%/*}
+: > "$dir/transport-started"
+printf 'Counting objects: 50%% (1/2)\r' >&2
+for attempt in $(seq 1 750); do
+    if [ ! -f "$dir/hold-transport" ]; then
+        [ ! -f "$dir/fail-transport" ] || exit 17
+        exec git-upload-pack "$@"
+    fi
+    sleep 0.02
+done
+exit 1
+"#,
+    );
+    fs::set_permissions(&transport, fs::Permissions::from_mode(0o700)).unwrap();
+    let command = format!("'{}'", transport.to_str().unwrap().replace('\'', "'\\''"));
+    repo.git(&["config", "remote.origin.uploadpack", &command]);
+
+    let host = start().await;
+    // The production daemon installs this same sink before serving. This
+    // acceptance test is run in its own test process because the sink is global.
+    crate::server::sink::install(&host.state);
+    host.state.roots.write().unwrap().push(repo.path.clone());
+    let mut owner = handshake(&host, HOST_ID).await.unwrap();
+    let mut competitor = handshake(&host, HOST_ID).await.unwrap();
+    assert_eq!(owner.authenticate().await["type"], "ready");
+    assert_eq!(competitor.authenticate().await["type"], "ready");
+
+    let path = repo.s();
+    let preview = owner
+        .call(1, "repo_fetch_scope", json!({ "path": path }))
+        .await;
+    assert_eq!(preview["ok"], true);
+    assert_eq!(preview["data"]["remotes"], json!(["origin"]));
+    assert_eq!(preview["data"]["target"]["remote"], "origin");
+    assert!(preview["data"]["target"]["fingerprint"]
+        .as_str()
+        .is_some_and(|value| value.len() == 64));
+    assert!(!started.exists());
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+
+    let request = |id: i64, op_id: &str| {
+        json!({ "type": "req", "id": id, "cmd": "git_fetch",
+        "args": { "path": path, "remote": "origin", "opId": op_id } })
+    };
+    fs::write(&hold, "").unwrap();
+    owner.send(request(2, "single-success")).await;
+    wait_for_transport(&started).await;
+    let conflict = competitor
+        .call(
+            3,
+            "git_fetch",
+            json!({
+                "path": alias, "remote": "origin", "opId": "single-conflict",
+            }),
+        )
+        .await;
+    assert_eq!(conflict["ok"], false);
+    assert!(conflict["error"]
+        .as_str()
+        .unwrap()
+        .contains("git.remoteBusy"));
+    for (id, command) in [(9, "git_pull"), (10, "git_push")] {
+        let conflict = competitor
+            .call(
+                id,
+                command,
+                json!({
+                    "path": alias, "remote": "origin", "setUpstream": false, "dryRun": true,
+                }),
+            )
+            .await;
+        assert_eq!(conflict["ok"], false);
+        assert!(conflict["error"]
+            .as_str()
+            .unwrap()
+            .contains("git.remoteBusy"));
+    }
+    fs::remove_file(&hold).unwrap();
+    let (result, done, progress) = fetch_result(&mut owner, 2, "single-success").await;
+    assert_eq!(result["ok"], true);
+    assert_eq!(done["ok"], true);
+    assert!(
+        progress,
+        "streamed Git progress must reach the authenticated client"
+    );
+    assert_eq!(repo.rev("refs/remotes/origin/main"), first);
+
+    fs::write(&fail, "").unwrap();
+    owner.send(request(4, "single-failure")).await;
+    let (result, done, _) = fetch_result(&mut owner, 4, "single-failure").await;
+    assert_eq!(result["ok"], false);
+    assert_eq!(done["ok"], false);
+    assert_eq!(done["canceled"], false);
+    fs::remove_file(&fail).unwrap();
+
+    fs::remove_file(&started).unwrap();
+    fs::write(&hold, "").unwrap();
+    owner.send(request(5, "single-cancel")).await;
+    wait_for_transport(&started).await;
+    let canceled = competitor
+        .call(6, "git_remote_cancel", json!({ "opId": "single-cancel" }))
+        .await;
+    assert_eq!(canceled["ok"], true);
+    assert_eq!(canceled["data"], true);
+    let (result, done, _) = fetch_result(&mut owner, 5, "single-cancel").await;
+    assert_eq!(result["ok"], false);
+    assert_eq!(done["canceled"], true);
+    fs::remove_file(&hold).unwrap();
+
+    let second = source.commit("fixture.txt", "second\n", "second");
+    owner.send(request(7, "single-retry")).await;
+    let (result, done, _) = fetch_result(&mut owner, 7, "single-retry").await;
+    assert_eq!(result["ok"], true);
+    assert_eq!(done["ok"], true);
+    assert_eq!(repo.rev("refs/remotes/origin/main"), second);
+
+    repo.git(&["switch", "-c", "main", "--track", "origin/main"]);
+    let third = source.commit("fixture.txt", "third\n", "third");
+    let pull = owner
+        .call(
+            11,
+            "git_pull",
+            json!({
+                "path": path, "remote": "origin", "strategy": "ff-only",
+            }),
+        )
+        .await;
+    assert_eq!(pull["ok"], true, "{pull}");
+    assert_eq!(repo.head(), third);
+    let push = owner
+        .call(
+            12,
+            "git_push",
+            json!({
+                "path": path, "remote": "origin", "setUpstream": false, "dryRun": true,
+            }),
+        )
+        .await;
+    assert_eq!(push["ok"], true, "{push}");
+    assert_eq!(source.head(), third);
+
+    let log = owner.call(8, "git_command_log", json!({})).await;
+    let entries = log["data"].as_array().unwrap();
+    let outcomes: Vec<_> = entries
+        .iter()
+        .filter(|row| {
+            row["args"][0] == "fetch"
+                && (row["repoPath"] == path || row["repoPath"] == json!(alias))
+        })
+        .map(|row| row["exitOk"].as_bool().unwrap())
+        .collect();
+    assert_eq!(
+        outcomes.len(),
+        4,
+        "conflicting fetch must never reach the runner"
+    );
+    assert_eq!(outcomes.iter().filter(|success| **success).count(), 2);
+    for command in ["pull", "push"] {
+        assert_eq!(
+            entries
+                .iter()
+                .filter(|row| {
+                    row["args"][0] == command
+                        && (row["repoPath"] == path || row["repoPath"] == json!(alias))
+                })
+                .count(),
+            1,
+            "only the accepted {command} may reach the runner"
+        );
+    }
+}
+
 #[tokio::test]
 async fn a_request_before_authentication_is_refused_and_closes_the_socket() {
     let host = start().await;
