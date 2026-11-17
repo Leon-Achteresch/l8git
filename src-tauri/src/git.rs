@@ -148,10 +148,17 @@ fn merged_ok_message(stdout: &str, stderr: &str) -> String {
     ok.trim().to_string()
 }
 
-fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<String, String> {
+fn run_git_merged_output_at(
+    cwd: Option<&PathBuf>,
+    args: &[&str],
+    lock: Option<&coordination::RemoteProcessLock>,
+) -> Result<String, String> {
     let mut cmd = git_command();
     if let Some(dir) = cwd {
         cmd.arg("-C").arg(dir);
+    }
+    if let Some(lock) = lock {
+        lock.inherit(&mut cmd);
     }
     let log_path = cwd
         .map(|d| d.to_string_lossy().to_string())
@@ -164,6 +171,9 @@ fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<Stri
             return Err(format!("failed to run git: {e}"));
         }
     };
+    if let Some(lock) = lock {
+        lock.finish(output.status);
+    }
     span.finish(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -177,7 +187,7 @@ fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<Stri
 }
 
 pub(crate) fn run_git_merged_output(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
-    run_git_merged_output_at(Some(repo), args)
+    run_git_merged_output_at(Some(repo), args, None)
 }
 
 async fn spawn_git<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {

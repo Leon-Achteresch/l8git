@@ -1,6 +1,7 @@
 use super::{git_command, run_git_command_bytes};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::{Command, ExitStatus};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 pub(super) fn repo_common_dir(repo: &PathBuf) -> Result<PathBuf, String> {
@@ -30,8 +31,7 @@ pub(super) fn repo_common_dir(repo: &PathBuf) -> Result<PathBuf, String> {
 
 type RepoMutexRegistry = OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>>;
 
-fn common_dir_mutex(repo: &PathBuf, registry: &RepoMutexRegistry) -> Result<Arc<Mutex<()>>, String> {
-    let key = repo_common_dir(repo)?;
+fn common_dir_mutex(key: PathBuf, registry: &RepoMutexRegistry) -> Result<Arc<Mutex<()>>, String> {
     let mut locks = registry
         .get_or_init(Default::default)
         .lock()
@@ -51,14 +51,87 @@ fn common_dir_mutex(repo: &PathBuf, registry: &RepoMutexRegistry) -> Result<Arc<
 /// before any of those locks to keep the order consistent across commands.
 pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
     static LOCKS: RepoMutexRegistry = OnceLock::new();
-    common_dir_mutex(repo, &LOCKS)
+    common_dir_mutex(repo_common_dir(repo)?, &LOCKS)
 }
 
 /// Process-local reservation for remote commands. Separate from ref mutation
 /// coordination so a slow remote does not hold the worktree/branch mutex.
-pub(super) fn repo_remote_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
+pub(super) fn repo_remote_mutex(common_dir: &Path) -> Result<Arc<Mutex<()>>, String> {
     static LOCKS: RepoMutexRegistry = OnceLock::new();
-    common_dir_mutex(repo, &LOCKS)
+    common_dir_mutex(common_dir.to_owned(), &LOCKS)
+}
+
+pub(super) struct RemoteProcessLock {
+    #[cfg(target_os = "macos")]
+    directory: std::fs::File,
+}
+
+impl RemoteProcessLock {
+    #[cfg(target_os = "macos")]
+    pub(super) fn acquire(common_dir: &Path) -> Result<Self, String> {
+        use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
+
+        // Lock the existing directory inode. No mutable lockfile or shared
+        // runtime directory is needed.
+        let directory = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(common_dir)
+            .map_err(|error| {
+                format!("Could not open Git common directory for reservation: {error}")
+            })?;
+        if unsafe { libc::flock(directory.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            let error = std::io::Error::last_os_error();
+            if error.kind() == std::io::ErrorKind::WouldBlock {
+                return Err(crate::coded!(GitRemoteBusy));
+            }
+            return Err(format!("Could not reserve Git common directory: {error}"));
+        }
+        Ok(Self { directory })
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub(super) fn acquire(_common_dir: &Path) -> Result<Self, String> {
+        Ok(Self {})
+    }
+
+    pub(super) fn inherit(&self, _command: &mut Command) {
+        #[cfg(target_os = "macos")]
+        {
+            use std::os::{fd::AsRawFd, unix::process::CommandExt};
+
+            let fd = self.directory.as_raw_fd();
+            // The runner owns this FD until spawn returns. Clear CLOEXEC in
+            // the forked Git process only, using an async-signal-safe syscall.
+            unsafe {
+                _command.pre_exec(move || {
+                    if libc::fcntl(fd, libc::F_SETFD, 0) == -1 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    Ok(())
+                });
+            }
+        }
+    }
+
+    pub(super) fn finish(&self, _status: ExitStatus) {
+        #[cfg(target_os = "macos")]
+        {
+            use std::os::{fd::AsRawFd, unix::process::ExitStatusExt};
+
+            // Git normally waits for its transport. Unlock after a normal
+            // exit so idle helpers that inherited the FD don't retain it.
+            // After a signal, let surviving holders close their own FDs.
+            if _status.signal().is_none()
+                && unsafe { libc::flock(self.directory.as_raw_fd(), libc::LOCK_UN) } != 0
+            {
+                log::warn!(
+                    "Could not unlock Git common directory: {}",
+                    std::io::Error::last_os_error()
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]

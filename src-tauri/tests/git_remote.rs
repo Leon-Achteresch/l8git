@@ -294,7 +294,7 @@ exit 1
         tokio::spawn(async move { daemon(&ctx, "git_fetch", daemon_fetch).await })
     };
     wait_for_upload(&repo).await;
-    assert_busy(timeout(deadline, fetch(alias, None)).await.unwrap());
+    assert_busy(timeout(deadline, fetch(alias.clone(), None)).await.unwrap());
     let cancel = json!({ "opId": "reservation-cancel" });
     assert_eq!(
         daemon(&ctx, "git_remote_cancel", cancel).await.unwrap(),
@@ -315,6 +315,80 @@ exit 1
     let retry = json!({ "path": linked.s(), "remote": "origin", "opId": "reservation-retry" });
     daemon(&ctx, "git_fetch", retry).await.unwrap();
     assert_eq!(repo.rev("refs/remotes/origin/main"), second);
+
+    #[cfg(target_os = "macos")]
+    for (streamed, kill_parent) in [(false, false), (false, true), (true, true)] {
+        fs::remove_file(repo.path.join(".git/upload-started")).unwrap();
+        fs::write(&hold, "").unwrap();
+        let mut owner = tokio::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--ignored", "--exact", "remote_reservation_fixture_process"])
+            .env("L8GIT_TEST_RESERVATION_REPO", &repo.path)
+            .env(
+                "L8GIT_TEST_RESERVATION_STREAMED",
+                if streamed { "1" } else { "0" },
+            )
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        wait_for_upload(&repo).await;
+        assert_busy(timeout(deadline, fetch(alias.clone(), None)).await.unwrap());
+        let pull = json!({ "path": linked.s(), "remote": "origin" });
+        assert_busy(
+            timeout(deadline, daemon(&ctx, "git_pull", pull))
+                .await
+                .unwrap(),
+        );
+        fetch(independent.s(), None).await.unwrap();
+
+        if kill_parent {
+            // Only kill the fixture application. Its Git and upload-pack
+            // remain alive with the transport gate still held.
+            owner.kill().await.unwrap();
+            assert!(!owner.wait().await.unwrap().success());
+            assert_busy(timeout(deadline, fetch(alias.clone(), None)).await.unwrap());
+        }
+        fs::remove_file(&hold).unwrap();
+        if !kill_parent {
+            assert!(timeout(deadline, owner.wait())
+                .await
+                .unwrap()
+                .unwrap()
+                .success());
+        }
+        timeout(deadline, async {
+            loop {
+                match fetch(linked.s(), None).await {
+                    Ok(_) => break,
+                    Err(error) if error.contains(r#""code":"git.remoteBusy""#) => {
+                        sleep(Duration::from_millis(20)).await;
+                    }
+                    Err(error) => panic!("unexpected retry error: {error}"),
+                }
+            }
+        })
+        .await
+        .expect("reservation did not release after the fixture Git exited");
+    }
+}
+
+#[cfg(all(target_os = "macos", feature = "headless"))]
+#[tokio::test]
+#[ignore = "started as a separate process by the remote reservation test"]
+async fn remote_reservation_fixture_process() {
+    let Ok(path) = std::env::var("L8GIT_TEST_RESERVATION_REPO") else {
+        return;
+    };
+    let streamed = std::env::var("L8GIT_TEST_RESERVATION_STREAMED").as_deref() == Ok("1");
+    git::git_fetch(
+        path,
+        None,
+        None,
+        Some("origin".into()),
+        None,
+        streamed.then(|| "fixture-child".into()),
+    )
+    .await
+    .unwrap();
 }
 
 #[tokio::test]

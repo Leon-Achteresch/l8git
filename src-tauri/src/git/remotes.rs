@@ -1,19 +1,22 @@
 use super::*;
+use super::coordination::RemoteProcessLock;
 use sha2::{Digest, Sha256};
 use std::sync::TryLockError;
 
 async fn spawn_repo_remote(
     path: String,
-    run: impl FnOnce(PathBuf) -> Result<String, String> + Send + 'static,
+    run: impl FnOnce(PathBuf, &RemoteProcessLock) -> Result<String, String> + Send + 'static,
 ) -> Result<String, String> {
     spawn_git(move || {
         let repo = PathBuf::from(path);
-        let reservation = coordination::repo_remote_mutex(&repo)?;
+        let common_dir = coordination::repo_common_dir(&repo)?;
+        let reservation = coordination::repo_remote_mutex(&common_dir)?;
         let _guard = reservation.try_lock().map_err(|error| match error {
             TryLockError::WouldBlock => coded!(GitRemoteBusy),
             TryLockError::Poisoned(error) => error.to_string(),
         })?;
-        run(repo)
+        let process_lock = RemoteProcessLock::acquire(&common_dir)?;
+        run(repo, &process_lock)
     })
     .await
 }
@@ -188,7 +191,7 @@ pub async fn git_fetch(
     all_remotes: Option<bool>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_repo_remote(path, move |repo| {
+    spawn_repo_remote(path, move |repo, lock| {
         let prune_branches = prune_branches.unwrap_or(true);
         let prune_tags = prune_tags.unwrap_or(false);
         let mut args: Vec<String> = vec!["fetch".to_string()];
@@ -205,7 +208,7 @@ pub async fn git_fetch(
             args.push(r);
         }
         let repo_path = repo.to_string_lossy().to_string();
-        run_remote_op("fetch", &repo_path, Some(&repo), args, op_id)
+        run_remote_op("fetch", &repo_path, Some(&repo), args, op_id, Some(lock))
     })
     .await
 }
@@ -245,7 +248,7 @@ pub async fn git_pull(
     remote: Option<String>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_repo_remote(path, move |repo| {
+    spawn_repo_remote(path, move |repo, lock| {
         let autostash = strategy.as_deref() == Some("autostash");
         if !autostash {
             let dirty = dirty_tracked_files(&repo)?;
@@ -274,7 +277,7 @@ pub async fn git_pull(
             }
         }
         let repo_path = repo.to_string_lossy().to_string();
-        run_remote_op("pull", &repo_path, Some(&repo), args, op_id)
+        run_remote_op("pull", &repo_path, Some(&repo), args, op_id, Some(lock))
     })
     .await
 }
@@ -291,7 +294,7 @@ pub async fn git_push(
     dry_run: Option<bool>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_repo_remote(path, move |repo| {
+    spawn_repo_remote(path, move |repo, lock| {
         let mut args: Vec<String> = vec!["push".to_string()];
 
         match force_mode.as_deref() {
@@ -337,7 +340,7 @@ pub async fn git_push(
         }
 
         let repo_path = repo.to_string_lossy().to_string();
-        run_remote_op("push", &repo_path, Some(&repo), args, op_id)
+        run_remote_op("push", &repo_path, Some(&repo), args, op_id, Some(lock))
     })
     .await
 }
@@ -450,7 +453,7 @@ pub async fn git_clone(url: String, dest: String, op_id: Option<String>) -> Resu
             u.to_string(),
             d.to_string(),
         ];
-        run_remote_op("clone", d, None, args, op_id)
+        run_remote_op("clone", d, None, args, op_id, None)
     })
     .await
 }

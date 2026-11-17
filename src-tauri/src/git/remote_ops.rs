@@ -1,4 +1,5 @@
 use super::*;
+use super::coordination::RemoteProcessLock;
 
 pub const REMOTE_CANCELED: &str = "__REMOTE_CANCELED__";
 const PROGRESS_EVENT: &str = "git-progress";
@@ -176,6 +177,7 @@ fn run_git_streamed(
     cwd: Option<&PathBuf>,
     args: &[String],
     op_id: &str,
+    lock: Option<&RemoteProcessLock>,
     on_progress: impl FnMut(ProgressLine),
 ) -> Result<StreamOutcome, String> {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -193,6 +195,9 @@ fn run_git_streamed(
     {
         use std::os::unix::process::CommandExt;
         cmd.process_group(0);
+    }
+    if let Some(lock) = lock {
+        lock.inherit(&mut cmd);
     }
 
     let mut child = cmd.spawn().map_err(|e| format!("failed to run git: {e}"))?;
@@ -241,6 +246,11 @@ fn run_git_streamed(
     }
 
     let canceled = canceled.load(Ordering::Relaxed);
+    if !canceled {
+        if let (Some(lock), Ok(status)) = (lock, &status) {
+            lock.finish(*status);
+        }
+    }
     Ok(StreamOutcome {
         success: status.map(|s| s.success()).unwrap_or(false) && !canceled,
         stdout: stdout_text.trim().to_string(),
@@ -263,20 +273,21 @@ pub(super) fn run_remote_op(
     cwd: Option<&PathBuf>,
     args: Vec<String>,
     op_id: Option<String>,
+    lock: Option<&RemoteProcessLock>,
 ) -> Result<String, String> {
     let op_id = op_id
         .map(|id| id.trim().to_string())
         .filter(|id| !id.is_empty());
     let Some(op_id) = op_id else {
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        return run_git_merged_output_at(cwd, &refs);
+        return run_git_merged_output_at(cwd, &refs, lock);
     };
 
     let mut args = args;
     args.insert(1, "--progress".to_string());
 
     let span = cmdlog::start(repo_path, &args);
-    let outcome = run_git_streamed(cwd, &args, &op_id, |line| {
+    let outcome = run_git_streamed(cwd, &args, &op_id, lock, |line| {
         emit_progress(&GitProgressEvent {
             op_id: op_id.clone(),
             repo_path: repo_path.to_string(),
@@ -411,7 +422,7 @@ mod remote_progress_tests {
     ) -> (StreamOutcome, Vec<ProgressLine>) {
         let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
         let mut lines: Vec<ProgressLine> = Vec::new();
-        let outcome = run_git_streamed(cwd, &owned, op_id, |line| lines.push(line)).unwrap();
+        let outcome = run_git_streamed(cwd, &owned, op_id, None, |line| lines.push(line)).unwrap();
         (outcome, lines)
     }
 
