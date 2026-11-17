@@ -45,6 +45,29 @@ mod macos {
         }
     }
 
+    fn allowed_staging_command(command: &str, body: &Value) -> bool {
+        match command {
+            "open_repo" | "repo_status" | "repo_full_status" | "list_stashes"
+            | "list_git_remotes" | "merge_state" | "cherry_pick_state" => true,
+            "repo_file_diff" => matches!(body["file"].as_str(), Some("mode.sh" | "text.txt")),
+            "stage_files" | "unstage_files" if body["files"] == serde_json::json!(["mode.sh"]) => {
+                println!("NATIVE_STAGING_MUTATION {command}");
+                true
+            }
+            "git_apply_reviewed_hunks" if body["file"] == "text.txt" => {
+                let Some(action @ ("stage" | "unstage")) = body["action"].as_str() else {
+                    return false;
+                };
+                if !matches!(body["patches"].as_array(), Some(patches) if patches.len() == 1) {
+                    return false;
+                }
+                println!("NATIVE_STAGING_MUTATION {command}:{action}");
+                true
+            }
+            _ => false,
+        }
+    }
+
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let home = PathBuf::from(std::env::var("HOME")?);
         let fixture = home.parent().ok_or("Missing isolated home parent")?;
@@ -60,11 +83,15 @@ mod macos {
             .as_str()
             .ok_or("Missing parent path")?
             .to_owned();
-        let child = spec["child"]
-            .as_str()
-            .ok_or("Missing child path")?
-            .to_owned();
-        for path in [&parent, &child] {
+        let staging = spec["kind"] == "staging";
+        let child = spec["child"].as_str().map(str::to_owned);
+        if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
+            return Err("Unexpected staging fixture layout".into());
+        }
+        if !staging && child.is_none() {
+            return Err("Missing child path".into());
+        }
+        for path in std::iter::once(&parent).chain(child.iter()) {
             let canonical = PathBuf::from(path).canonicalize()?;
             if !canonical.starts_with(fixture.join("repos")) || canonical.to_str() != Some(path) {
                 return Err("Repository must be a canonical fixture path".into());
@@ -76,16 +103,27 @@ mod macos {
         if !assets.join("index.html").is_file() {
             return Err("Build the frontend before native acceptance".into());
         }
-        let script = format!(
-            "const fixture = {};\n{}",
-            spec,
-            include_str!("../../scripts/native-submodule-acceptance.js")
-        );
+        let (identifier, title, script, result_tag) = if staging {
+            (
+                "com.leon.l8git.native-staging-acceptance",
+                "l8git Native Staging Acceptance",
+                include_str!("../../scripts/native-staging-acceptance.js"),
+                "NATIVE_STAGING_RESULT",
+            )
+        } else {
+            (
+                "com.leon.l8git.native-submodule-acceptance",
+                "l8git Native Submodule Acceptance",
+                include_str!("../../scripts/native-submodule-acceptance.js"),
+                "NATIVE_SUBMODULE_RESULT",
+            )
+        };
+        let script = format!("const fixture = {spec};\n{script}");
 
         let mut context = tauri::generate_context!();
         let config = context.config_mut();
-        config.identifier = "com.leon.l8git.native-submodule-acceptance".into();
-        config.product_name = Some("l8git Native Submodule Acceptance".into());
+        config.identifier = identifier.into();
+        config.product_name = Some(title.into());
         config.build.dev_url = None;
         config.app.windows.clear();
         // All remote origins are excluded, including avatars, updater and fonts.
@@ -96,7 +134,7 @@ mod macos {
 
         // Real Tauri command macros and product implementations, without the
         // production plugins, credentials, agents, watchers or update handlers.
-        let git_ipc: fn(Invoke<Wry>) -> bool = tauri::generate_handler![
+        let submodule_ipc: fn(Invoke<Wry>) -> bool = tauri::generate_handler![
             git::open_repo,
             git::repo_status,
             git::repo_full_status,
@@ -110,6 +148,19 @@ mod macos {
             git::open_submodule_repo,
             git::git_submodule_pin_diff,
         ];
+        let staging_ipc: fn(Invoke<Wry>) -> bool = tauri::generate_handler![
+            git::open_repo,
+            git::repo_status,
+            git::repo_full_status,
+            git::list_stashes,
+            git::list_git_remotes,
+            git::merge_state,
+            git::cherry_pick_state,
+            git::repo_file_diff,
+            git::stage_files,
+            git::unstage_files,
+            git::git_apply_reviewed_hunks,
+        ];
         let app = tauri::Builder::default()
             .invoke_handler(move |invoke: Invoke<Wry>| {
                 let InvokeBody::Json(body) = invoke.message.payload() else {
@@ -118,23 +169,30 @@ mod macos {
                 };
                 if invoke.message.command() == "native_acceptance_result" {
                     let passed = body["ok"] == true;
-                    println!("NATIVE_SUBMODULE_RESULT {body}");
+                    println!("{result_tag} {body}");
                     let app = invoke.message.webview_ref().app_handle().clone();
                     invoke.resolver.resolve(());
                     app.exit(if passed { 0 } else { 1 });
                     return true;
                 }
-                match body["path"].as_str() {
-                    Some(path) if path == parent || path == child => git_ipc(invoke),
-                    _ => {
-                        invoke.resolver.reject("IPC outside the fixture scope");
-                        true
+                let path = body["path"].as_str();
+                if staging {
+                    if path == Some(parent.as_str())
+                        && allowed_staging_command(invoke.message.command(), body)
+                    {
+                        return staging_ipc(invoke);
                     }
+                } else if path == Some(parent.as_str())
+                    || (child.is_some() && path == child.as_deref())
+                {
+                    return submodule_ipc(invoke);
                 }
+                invoke.resolver.reject("IPC outside the fixture scope");
+                true
             })
             .setup(move |app| {
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title("l8git Native Submodule Acceptance")
+                    .title(title)
                     .inner_size(1180.0, 760.0)
                     .incognito(true)
                     .on_navigation(|url| {
