@@ -2280,6 +2280,12 @@
     "linesCount_other": "{{count}} 行"
   },
   "blamePage": {
+    "openPrevious": "打开上一修订",
+    "backToOriginal": "返回原始追溯视图",
+    "previousRevision": "上一修订 · {{commit}}",
+    "noLineMapping": "打开时不会定位到对应行。",
+    "noPrevious": "Git 未找到此行对应的上一文件版本。",
+    "previousUnavailable": "无法在本地读取上一文件版本。",
     "title": "Git Blame",
     "closeAria": "关闭 Git Blame",
     "gutterLabel": "Blame",

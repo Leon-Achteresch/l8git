@@ -274,7 +274,7 @@ pub(super) fn git_with_input(
     use std::io::Write;
     use std::process::Stdio;
     let span = crate::cmdlog::start(&repo.to_string_lossy(), args);
-    let mut child = match crate::cmd::git_command()
+    let mut child = match crate::cmd::local_git_command()
         .arg("-C")
         .arg(repo)
         .args(args)

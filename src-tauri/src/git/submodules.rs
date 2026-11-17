@@ -3,25 +3,13 @@ use super::{
     validate_branch_name, WorktreePathGuard,
 };
 use serde::Serialize;
+use crate::cmd::local_git_command;
 use std::{
     collections::BTreeMap,
     fs,
     io::ErrorKind,
     path::{Path, PathBuf},
 };
-
-fn local_git_command() -> std::process::Command {
-    let mut command = crate::cmd::git_command();
-    command
-        .env("GIT_NO_LAZY_FETCH", "1")
-        // Older Git versions may attempt lazy fetch despite the flag above.
-        .env("GIT_ALLOW_PROTOCOL", "")
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("GIT_NO_REPLACE_OBJECTS", "1")
-        .args(["-c", "core.fsmonitor=false"]);
-    command
-}
 
 fn local_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
     super::run_git_command(local_git_command(), repo, args)

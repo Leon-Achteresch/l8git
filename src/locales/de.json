@@ -2280,6 +2280,12 @@
     "linesCount_other": "{{count}} Zeilen"
   },
   "blamePage": {
+    "openPrevious": "Vorherigen Stand öffnen",
+    "backToOriginal": "Zurück zur ursprünglichen Blame-Ansicht",
+    "previousRevision": "Vorheriger Stand · {{commit}}",
+    "noLineMapping": "Dieser Stand öffnet ohne zugeordnete Zeilenposition.",
+    "noPrevious": "Git hat für diese Zeile keinen vorherigen Dateistand ermittelt.",
+    "previousUnavailable": "Der vorherige Dateistand konnte lokal nicht gelesen werden.",
     "title": "Git Blame",
     "closeAria": "Git Blame schließen",
     "gutterLabel": "Blame",

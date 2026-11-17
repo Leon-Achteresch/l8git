@@ -23,6 +23,7 @@ export type BlameEntry = {
   summary: string;
   line_no: number;
   content: string;
+  previous?: { commit: string; file: string } | null;
 };
 
 type BlameItem = {

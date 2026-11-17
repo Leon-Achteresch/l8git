@@ -14,7 +14,9 @@ function buildGroups(entries: BlameEntry[]): BlameGroup[] {
   while (i < entries.length) {
     const entry = entries[i]!;
     let j = i + 1;
-    while (j < entries.length && entries[j]!.commit_hash === entry.commit_hash) {
+    while (j < entries.length && entries[j]!.commit_hash === entry.commit_hash
+      && entries[j]!.previous?.commit === entry.previous?.commit
+      && entries[j]!.previous?.file === entry.previous?.file) {
       j++;
     }
     groups.push({ entry, startLine: i, lineCount: j - i });
@@ -54,7 +56,10 @@ export function BlameGutter({
               type="button"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
-                onGroupClick(group.entry, rect);
+                const offset = e.detail === 0 ? 0 : Math.floor((e.clientY - rect.top) / LINE_HEIGHT);
+                const index = group.startLine + Math.max(0, Math.min(offset, group.lineCount - 1));
+                const lineRect = new DOMRect(rect.x, rect.y + (index - group.startLine) * LINE_HEIGHT, rect.width, LINE_HEIGHT);
+                onGroupClick(entries[index]!, lineRect);
               }}
               style={{ position: "absolute", top, left: 0, right: 0, height }}
               className={`flex items-start gap-0 text-left group transition-colors hover:bg-primary/6 ${

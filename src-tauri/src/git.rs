@@ -219,11 +219,16 @@ fn reject_dash_arg(value: &str, label: Label) -> Result<(), String> {
 }
 
 pub(crate) fn resolve_git_commit(repo: &PathBuf, rev: &str) -> Result<String, String> {
+    resolve_git_commit_with(git_command(), repo, rev)
+}
+
+fn resolve_git_commit_with(command: std::process::Command, repo: &PathBuf, rev: &str) -> Result<String, String> {
     let rev = rev.trim();
     if rev.is_empty() || rev.starts_with('-') || rev.chars().any(char::is_control) {
         return Err(format!("Invalid commit revision: {rev}"));
     }
-    run_git(
+    run_git_command(
+        command,
         repo,
         &[
             "rev-parse",

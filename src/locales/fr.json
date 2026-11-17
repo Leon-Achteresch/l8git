@@ -2280,6 +2280,12 @@
     "linesCount_other": "{{count}} lignes"
   },
   "blamePage": {
+    "openPrevious": "Ouvrir la révision précédente",
+    "backToOriginal": "Revenir au blame d’origine",
+    "previousRevision": "Révision précédente · {{commit}}",
+    "noLineMapping": "Cette révision s’ouvre sans position de ligne correspondante.",
+    "noPrevious": "Git n’a identifié aucune version précédente du fichier pour cette ligne.",
+    "previousUnavailable": "Impossible de lire localement la version précédente du fichier.",
     "title": "Git blame",
     "closeAria": "Fermer Git blame",
     "gutterLabel": "Blame",

@@ -133,6 +133,22 @@ export function seedAuditFixture(scene: string) {
     switch (command) {
       case 'remote_status': return { running: false, managed: false, port: 9418, roots: [], binary: null, configPath: null };
       case 'open_repo': return info(String(args?.path ?? FIXTURE_PATH));
+      case 'repo_list_files':
+        if (scene === 'blame-previous') return ['example.txt', 'other.txt'];
+        throw Error('Unexpected blame file listing');
+      case 'repo_blame': {
+        if (scene !== 'blame-previous') throw Error('Unexpected blame read');
+        const older = 'b'.repeat(40);
+        const historical = args?.commit === older && args?.file === 'old example.txt';
+        if (args?.commit && !historical) throw Error('Unexpected historical blame target');
+        const changed = args?.file === 'example.txt' && !historical;
+        const hash = changed ? 'c'.repeat(40) : older;
+        return [{ commit_hash: hash, short_hash: hash.slice(0, 8),
+          author: changed ? 'Changed Author' : 'Root Author', date: '', timestamp: 1788609600,
+          summary: changed ? 'Changed line' : 'Root revision', line_no: 1,
+          content: changed ? 'new revision content' : historical ? 'old revision content' : 'other file content',
+          previous: changed ? { commit: older, file: 'old example.txt' } : null }];
+      }
       case 'repo_fetch_scope':
         if (scene !== 'workspace-fetch-preview') throw Error('Unexpected fetch preview');
         if (args?.path === `${FIXTURE_PATH}/broken`) throw Error('Repository no longer available');

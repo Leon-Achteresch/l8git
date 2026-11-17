@@ -693,16 +693,63 @@ async fn repo_blame_maps_every_line_to_its_introducing_commit() {
     assert_eq!(entries[0].summary, "first commit");
     assert_eq!(entries[0].short_hash, first[..8]);
     assert!(entries[0].timestamp > 0);
+    assert!(entries[0].previous.is_none());
 
     assert_eq!(entries[2].line_no, 3);
     assert_eq!(entries[2].content, "gamma");
     assert_eq!(entries[2].commit_hash, second);
     assert_eq!(entries[2].author, "Second Author");
+    let previous = entries[2].previous.as_ref().unwrap();
+    assert_eq!(previous.commit, first);
+    assert_eq!(previous.file, "f.txt");
 
     let historic = git::repo_blame(repo.s(), "f.txt".into(), Some(first.clone()))
         .await
         .unwrap();
     assert_eq!(historic.len(), 2);
+}
+
+#[tokio::test]
+async fn blame_predecessor_opens_the_git_reported_renamed_path_from_local_objects() {
+    let repo = TestRepo::new("blame-previous");
+    let old_path = "old résumé [notes].txt";
+    let new_path = "new [notes].txt";
+    let tail: String = (0..40).map(|i| format!("unchanged fixture line {i}\n")).collect();
+    let root = repo.commit(old_path, &format!("old_value\n{tail}"), "root");
+    repo.git(&["mv", "--", old_path, new_path]);
+    repo.write(new_path, &format!("new_value\n{tail}"));
+    let changed = repo.commit_all("rename and edit");
+    let head = repo.head();
+    let status = repo.porcelain();
+    let entries = git::repo_blame(repo.s(), new_path.into(), None).await.unwrap();
+    assert_eq!(entries[0].commit_hash, changed);
+    assert_eq!(entries[0].content, "new_value");
+    let previous = entries[0].previous.as_ref().unwrap();
+    assert_eq!(previous.file, old_path);
+    assert_eq!(previous.commit, root);
+    assert!(entries[1].previous.is_none());
+    let historical = git::repo_blame(repo.s(), previous.file.clone(), Some(previous.commit.clone()))
+        .await.unwrap();
+    assert_eq!(historical[0].content, "old_value");
+    assert_eq!(repo.head(), head);
+    assert_eq!(repo.porcelain(), status);
+
+    let object = repo.git(&["rev-parse", &format!("{root}:{old_path}")]);
+    std::fs::remove_file(repo.path.join(".git/objects").join(&object[..2]).join(&object[2..])).unwrap();
+    assert!(git::repo_blame(repo.s(), previous.file.clone(), Some(previous.commit.clone())).await.is_err());
+}
+
+#[tokio::test]
+async fn shallow_blame_boundary_does_not_invent_a_predecessor() {
+    let source = TestRepo::new("blame-shallow-source");
+    source.commit("text.txt", "old\n", "root");
+    source.commit("text.txt", "new\n", "edit");
+    let path = common::scratch_path("blame-shallow");
+    source.git(&["clone", "--depth", "1", &source.file_url(), path.to_str().unwrap()]);
+    let shallow = TestRepo::adopt(path);
+    let entries = git::repo_blame(shallow.s(), "text.txt".into(), None).await.unwrap();
+    assert_eq!(entries[0].content, "new");
+    assert!(entries[0].previous.is_none());
 }
 
 #[tokio::test]

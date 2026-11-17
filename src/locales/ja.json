@@ -2280,6 +2280,12 @@
     "linesCount_other": "{{count}} 行"
   },
   "blamePage": {
+    "openPrevious": "前のリビジョンを開く",
+    "backToOriginal": "元の Blame に戻る",
+    "previousRevision": "前のリビジョン · {{commit}}",
+    "noLineMapping": "対応する行位置を指定せずに開きます。",
+    "noPrevious": "Git はこの行に対応する前のファイル版を特定できませんでした。",
+    "previousUnavailable": "前のファイル版をローカルで読み込めませんでした。",
     "title": "Git Blame",
     "closeAria": "Git Blame を閉じる",
     "gutterLabel": "Blame",

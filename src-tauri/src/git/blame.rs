@@ -1,4 +1,11 @@
 use super::*;
+use crate::cmd::local_git_command;
+
+#[derive(Serialize)]
+pub struct BlamePrevious {
+    pub commit: String,
+    pub file: String,
+}
 
 #[derive(Serialize)]
 pub struct BlameEntry {
@@ -10,6 +17,7 @@ pub struct BlameEntry {
     pub summary: String,
     pub line_no: u32,
     pub content: String,
+    pub previous: Option<BlamePrevious>,
 }
 
 fn format_blame_date(ts: i64) -> String {
@@ -34,17 +42,68 @@ fn format_blame_date(ts: i64) -> String {
     }
 }
 
+fn full_oid(oid: &str) -> bool {
+    matches!(oid.len(), 40 | 64) && oid.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn previous_path(raw: &str) -> Option<String> {
+    let path = if raw.starts_with('"') {
+        let quoted = raw.strip_prefix('"')?.strip_suffix('"')?;
+        let mut bytes = quoted.bytes();
+        let mut decoded = Vec::new();
+        while let Some(byte) = bytes.next() {
+            decoded.push(match byte {
+                b'"' => return None,
+                b'\\' => match bytes.next()? {
+                    b'\\' => b'\\',
+                    b'"' => b'"',
+                    b'a' => 7,
+                    b'b' => 8,
+                    b't' => b'\t',
+                    b'n' => b'\n',
+                    b'v' => 11,
+                    b'f' => 12,
+                    b'r' => b'\r',
+                    first @ b'0'..=b'3' => {
+                        let second = bytes.next()?;
+                        let third = bytes.next()?;
+                        if !(b'0'..=b'7').contains(&second) || !(b'0'..=b'7').contains(&third) {
+                            return None;
+                        }
+                        (first - b'0') * 64 + (second - b'0') * 8 + (third - b'0')
+                    }
+                    _ => return None,
+                },
+                _ => byte,
+            });
+        }
+        String::from_utf8(decoded).ok()?
+    } else {
+        raw.to_owned()
+    };
+    // Keep the exact Git path. Reject provenance that the file API would
+    // normalize or that this platform cannot address losslessly.
+    (file_reads::file_path(&path).ok()? == path).then_some(path)
+}
+
+fn parse_previous(value: &str) -> Option<BlamePrevious> {
+    let (commit, file) = value.split_once(' ')?;
+    if !full_oid(commit) || commit.bytes().all(|byte| byte == b'0') {
+        return None;
+    }
+    Some(BlamePrevious {
+        commit: commit.into(),
+        file: previous_path(file)?,
+    })
+}
+
 fn parse_blame_porcelain(output: &str) -> Vec<BlameEntry> {
     let mut entries = Vec::new();
-    let mut commit_cache: HashMap<String, (String, String, i64, String)> = HashMap::new();
-    let mut iter = output.lines().peekable();
+    let mut iter = output.lines();
 
     while let Some(header) = iter.next() {
         let parts: Vec<&str> = header.splitn(4, ' ').collect();
-        if parts.len() < 3
-            || !matches!(parts[0].len(), 40 | 64)
-            || !parts[0].bytes().all(|byte| byte.is_ascii_hexdigit())
-        {
+        if parts.len() < 3 || !full_oid(parts[0]) {
             continue;
         }
 
@@ -54,7 +113,9 @@ fn parse_blame_porcelain(output: &str) -> Vec<BlameEntry> {
         let mut author_buf: Option<String> = None;
         let mut ts_buf: Option<i64> = None;
         let mut summary_buf: Option<String> = None;
-        let mut content = String::new();
+        let mut previous = None;
+        let mut boundary = false;
+        let content;
 
         loop {
             match iter.next() {
@@ -73,29 +134,29 @@ fn parse_blame_porcelain(output: &str) -> Vec<BlameEntry> {
                 Some(l) if l.starts_with("summary ") => {
                     summary_buf = Some(l[8..].to_string());
                 }
+                Some(l) if l.starts_with("previous ") => {
+                    previous = parse_previous(&l[9..]);
+                }
+                Some("boundary") => boundary = true,
                 Some(_) => {}
-                None => break,
+                None => return entries,
             }
         }
 
-        let (author, date, timestamp, summary) =
-            if let (Some(a), Some(ts), Some(s)) = (author_buf, ts_buf, summary_buf) {
-                let d = format_blame_date(ts);
-                commit_cache.insert(commit_hash.clone(), (a.clone(), d.clone(), ts, s.clone()));
-                (a, d, ts, s)
-            } else {
-                commit_cache.get(&commit_hash).cloned().unwrap_or_default()
-            };
+        if boundary || commit_hash.bytes().all(|byte| byte == b'0') {
+            previous = None;
+        }
 
         entries.push(BlameEntry {
             short_hash: commit_hash[..8.min(commit_hash.len())].to_string(),
             commit_hash,
-            author,
-            date,
-            timestamp,
-            summary,
+            author: author_buf.unwrap_or_default(),
+            date: ts_buf.map(format_blame_date).unwrap_or_default(),
+            timestamp: ts_buf.unwrap_or_default(),
+            summary: summary_buf.unwrap_or_default(),
             line_no,
             content,
+            previous,
         });
     }
 
@@ -113,12 +174,23 @@ pub async fn repo_blame(
         let file = file_reads::file_path(&file)?;
         let commit = commit
             .as_deref()
-            .map(|revision| file_reads::commit_revision(&repo, revision))
+            .map(|revision| -> Result<String, String> {
+                if revision.chars().any(char::is_control) {
+                    return Err("Invalid commit revision".into());
+                }
+                let resolved = resolve_git_commit_with(local_git_command(), &repo, revision)?;
+                if full_oid(revision) && !resolved.eq_ignore_ascii_case(revision) {
+                    return Err("Commit object is unavailable locally".into());
+                }
+                Ok(resolved)
+            })
             .transpose()?;
         let mut args = vec![
+            "-c",
+            "core.quotePath=true",
             "--literal-pathspecs",
             "blame",
-            "--porcelain",
+            "--line-porcelain",
             "--no-textconv",
         ];
         if let Some(ref c) = commit {
@@ -130,7 +202,7 @@ pub async fn repo_blame(
         args.push("--");
         args.push(file.as_str());
         let output = if commit.is_some() {
-            run_git(&repo, &args)?
+            run_git_command(local_git_command(), &repo, &args)?
         } else {
             use std::io::Read;
             let absolute = WorktreePathGuard::new(&repo)?.path(&file)?;
