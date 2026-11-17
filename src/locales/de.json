@@ -4126,10 +4126,10 @@
       "title": "Arbeit zwischenlagern und wieder aufnehmen",
       "summary": "Nutze einen Stash, wenn du vorübergehend eine saubere Arbeitskopie brauchst.",
       "steps": [
-        "Öffne Stashes und erstelle einen Stash mit einem aussagekräftigen Namen.",
+        "Öffne Stashes und erstelle einen Stash mit einem aussagekräftigen Namen. Beim Anlegen lässt „Index behalten“ bereits gestagte Änderungen im Index.",
         "Nimm ungetrackte Dateien auf, wenn neue Dateien zu dieser Arbeit gehören.",
         "Wechsle den Branch oder führe die nötige Operation aus.",
-        "Apply behält die Sicherung. Pop entfernt sie nach erfolgreicher Anwendung. Prüfe und löse mögliche Konflikte."
+        "Apply behält die Sicherung. Pop entfernt sie nach erfolgreicher Anwendung. Prüfe und löse mögliche Konflikte. Ab Git 2.52 versuchen Apply und Pop mit stash.index=true in der Git-Konfiguration, die gespeicherte Aufteilung in gestagte und ungestagte Änderungen wiederherzustellen."
       ],
       "caution": "Ignorierte Dateien werden durch die übliche Option für ungetrackte Dateien nicht aufgenommen. Bei Konflikten behält Pop den Stash; prüfe vor erneutem Anwenden die Arbeitskopie."
     },

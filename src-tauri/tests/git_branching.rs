@@ -408,6 +408,51 @@ async fn stash_push_and_pop_move_changes_out_of_and_back_into_the_worktree() {
 }
 
 #[tokio::test]
+async fn stash_index_config_restores_staging_through_apply_and_pop() {
+    let repo = TestRepo::new("stash-index-config");
+    let version = repo.git(&["--version"]);
+    let mut components = version.split_whitespace().nth(2).unwrap().split('.');
+    let major = components.next().unwrap().parse::<u32>().unwrap();
+    let minor = components.next().unwrap().parse::<u32>().unwrap();
+    if (major, minor) < (2, 52) {
+        eprintln!("Skipping stash.index semantics on {version}");
+        return;
+    }
+
+    repo.commit("staged.txt", "base\n", "staged file");
+    repo.commit("unstaged.txt", "base\n", "unstaged file");
+    repo.write("staged.txt", "prepared\n");
+    repo.write("unstaged.txt", "still editing\n");
+    repo.git(&["add", "--", "staged.txt"]);
+    repo.git(&["config", "--local", "stash.index", "false"]);
+    git::git_stash_push(repo.s(), None, false, true).await.unwrap();
+    assert_eq!(repo.porcelain().trim_end(), "M  staged.txt");
+    let stash = repo.rev("stash@{0}");
+
+    let restore_base = || {
+        repo.git(&["restore", "--staged", "--worktree", "--", "staged.txt", "unstaged.txt"]);
+    };
+    restore_base();
+    git::git_stash_apply(repo.s(), 0, stash.clone()).await.unwrap();
+    assert_eq!(repo.porcelain().trim_end(), " M staged.txt\n M unstaged.txt");
+    assert_eq!(repo.rev("stash@{0}"), stash);
+
+    restore_base();
+    repo.git(&["config", "--local", "stash.index", "true"]);
+    git::git_stash_apply(repo.s(), 0, stash.clone()).await.unwrap();
+    assert_eq!(repo.porcelain().trim_end(), "M  staged.txt\n M unstaged.txt");
+    assert_eq!(repo.rev("stash@{0}"), stash);
+
+    restore_base();
+    git::git_stash_pop(repo.s(), 0, stash).await.unwrap();
+    assert_eq!(repo.porcelain().trim_end(), "M  staged.txt\n M unstaged.txt");
+    assert_eq!(repo.read("staged.txt"), "prepared\n");
+    assert_eq!(repo.read("unstaged.txt"), "still editing\n");
+    assert!(git::list_stashes(repo.s()).await.unwrap().is_empty());
+    assert_eq!(repo.git(&["config", "--local", "--get", "stash.index"]), "true");
+}
+
+#[tokio::test]
 async fn stash_list_parses_the_default_wip_message() {
     let repo = TestRepo::new("stash-wip");
     repo.commit("a.txt", "v1\n", "c1");

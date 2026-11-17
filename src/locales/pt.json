@@ -4126,10 +4126,10 @@
       "title": "Guardar o trabalho temporariamente e retomá-lo",
       "summary": "Use um stash quando precisar de uma cópia de trabalho limpa por um tempo.",
       "steps": [
-        "Abra Stashes e crie um stash com um nome descritivo.",
+        "Abra Stashes e crie um stash com um nome descritivo. Ao criar o stash, a opção de manter o índice deixa no índice as alterações já preparadas.",
         "Inclua arquivos não rastreados se os novos arquivos fizerem parte deste trabalho.",
         "Troque de branch ou execute a operação necessária.",
-        "Aplique o stash para manter a cópia salva, ou use pop para removê-la após uma aplicação bem-sucedida. Examine e resolva conflitos."
+        "Aplique o stash para manter a cópia salva, ou use pop para removê-la após uma aplicação bem-sucedida. Examine e resolva conflitos. No Git 2.52 ou posterior, com stash.index=true na configuração do Git, Apply e Pop tentam restaurar a separação salva entre alterações preparadas e não preparadas."
       ],
       "caution": "A opção habitual de arquivos não rastreados não inclui arquivos ignorados. Um pop com conflitos mantém o stash; examine a cópia de trabalho antes de reaplicá-lo."
     },

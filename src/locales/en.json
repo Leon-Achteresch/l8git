@@ -4126,10 +4126,10 @@
       "title": "Set work aside and return to it",
       "summary": "Use a stash when you need a temporary clean working copy.",
       "steps": [
-        "Open Stashes and create a stash with a descriptive name.",
+        "Open Stashes and create a stash with a descriptive name. Keep index leaves staged changes staged when you create the stash.",
         "Include untracked files if your new files belong to this work.",
         "Switch branches or perform the required operation.",
-        "Apply the stash to keep its saved copy, or pop it to remove the saved copy after a successful application. Inspect and resolve any conflicts."
+        "Apply the stash to keep its saved copy, or pop it to remove the saved copy after a successful application. Inspect and resolve any conflicts. With Git 2.52 or later and stash.index=true in Git config, Apply and Pop try to restore the saved split between staged and unstaged changes."
       ],
       "caution": "Ignored files are not included by the usual untracked-files option. A conflicting pop keeps the stash; inspect the working copy before applying it again."
     },

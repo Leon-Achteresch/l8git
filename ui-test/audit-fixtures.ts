@@ -92,6 +92,7 @@ export function seedAuditFixture(scene: string) {
   let reviewMerged = false;
   let reviewRemoved = false;
   let reviewBranchDeleted = false;
+  let stashPopped = false;
   let reviewBaseHead = base;
   let recoveryVersion = 0;
   const restoredBranches: { name: string; tip: string; is_current: boolean; is_remote: boolean }[] = [];
@@ -301,7 +302,13 @@ export function seedAuditFixture(scene: string) {
         { path: `${FIXTURE_PATH}-linked`, branch: 'fixture-linked', head: base.hash, is_main: false, is_locked: false, is_prunable: false },
       ] : [];
       case 'stack_list': return { stacks: [], branches: [] };
-      case 'list_stashes': case 'list_remotes': case 'resolve_repo_commit_avatars': case 'git_command_log': return [];
+      case 'list_stashes': return scene === 'stash-help' && !stashPopped ? [{
+        index: 0, refname: 'stash@{0}', branch: 'main', subject: 'Staging fixture',
+        date: base.date, hash: '9'.repeat(40), message: 'On main: Staging fixture',
+      }] : [];
+      case 'git_stash_apply': if (scene === 'stash-help') return ''; throw Error('Unexpected stash apply');
+      case 'git_stash_pop': if (scene === 'stash-help') { stashPopped = true; return ''; } throw Error('Unexpected stash pop');
+      case 'list_remotes': case 'resolve_repo_commit_avatars': case 'git_command_log': return [];
       case 'read_repo_favicon': case 'git_credential_helper': return null;
       default: throw Error(`Unimplemented fixture command: ${command}`);
     }

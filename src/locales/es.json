@@ -4126,10 +4126,10 @@
       "title": "Apartar el trabajo y retomarlo después",
       "summary": "Usa un stash cuando necesites temporalmente una copia de trabajo limpia.",
       "steps": [
-        "Abre Stashes y crea uno con un nombre descriptivo.",
+        "Abre Stashes y crea uno con un nombre descriptivo. Al crear el stash, la opción de conservar el índice deja preparadas las modificaciones que ya estaban en el índice.",
         "Incluye los archivos no seguidos si los archivos nuevos forman parte de este trabajo.",
         "Cambia de rama o realiza la operación necesaria.",
-        "Aplica el stash para conservar la copia guardada o usa pop para eliminarla tras una aplicación correcta. Revisa y resuelve los conflictos."
+        "Aplica el stash para conservar la copia guardada o usa pop para eliminarla tras una aplicación correcta. Revisa y resuelve los conflictos. Desde Git 2.52, con stash.index=true en la configuración de Git, Apply y Pop intentan recuperar la separación guardada entre los cambios preparados y los no preparados."
       ],
       "caution": "La opción habitual de archivos no seguidos no incluye los archivos ignorados. Un pop con conflictos conserva el stash; revisa la copia de trabajo antes de aplicarlo de nuevo."
     },

@@ -4126,10 +4126,10 @@
       "title": "Mettre le travail de côté et le reprendre",
       "summary": "Utilisez un stash pour obtenir temporairement une copie de travail propre.",
       "steps": [
-        "Ouvrez Stashes et créez un stash avec un nom descriptif.",
+        "Ouvrez Stashes et créez un stash avec un nom descriptif. À la création du stash, l’option de conservation de l’index laisse les modifications indexées dans l’index.",
         "Incluez les fichiers non suivis si les nouveaux fichiers font partie de ce travail.",
         "Changez de branche ou effectuez l’opération nécessaire.",
-        "Appliquez le stash pour garder sa copie sauvegardée, ou utilisez pop pour la supprimer après une application réussie. Examinez et résolvez les conflits."
+        "Appliquez le stash pour garder sa copie sauvegardée, ou utilisez pop pour la supprimer après une application réussie. Examinez et résolvez les conflits. À partir de Git 2.52, avec stash.index=true dans la configuration Git, Apply et Pop tentent de rétablir la répartition enregistrée entre les modifications indexées et non indexées."
       ],
       "caution": "L’option habituelle des fichiers non suivis n’inclut pas les fichiers ignorés. Un pop avec conflits conserve le stash ; examinez la copie de travail avant de l’appliquer à nouveau."
     },
