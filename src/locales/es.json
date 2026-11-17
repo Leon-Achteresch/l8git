@@ -3531,6 +3531,19 @@
     "exitFail": "Terminado con error",
     "noRepo": "sin repo"
   },
+  "workspaceFetchPreview": {
+    "title": "Vista previa de fetch del espacio de trabajo",
+    "hint": "Comprueba los repositorios seleccionados de {{workspace}}. La vista previa no ejecuta fetch.",
+    "empty": "No hay repositorios abiertos en este espacio.",
+    "lastFetch": "Último fetch correcto de esta sesión: {{time}}",
+    "noFetch": "No hay ningún fetch correcto registrado en esta sesión.",
+    "active": "Hay una operación remota en curso.",
+    "remotes": "Remotos configurados: {{names}}",
+    "noRemotes": "No hay remotos configurados.",
+    "shared": "Comparte un directorio de Git con otro repositorio seleccionado.",
+    "inspect": "Comprobar repositorios seleccionados",
+    "canceled": "Vista previa cancelada."
+  },
   "remoteProgress": {
     "op_fetch": "Fetch",
     "op_pull": "Pull",

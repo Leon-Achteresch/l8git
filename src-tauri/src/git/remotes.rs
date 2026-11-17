@@ -65,6 +65,30 @@ pub async fn branch_push_remote(path: String) -> Result<String, String> {
     .await
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchScope {
+    common_dir: String,
+    remotes: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn repo_fetch_scope(path: String) -> Result<FetchScope, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path);
+        let common_dir = coordination::repo_common_dir(&repo)?
+            .into_os_string()
+            .into_string()
+            .map_err(|_| "Git common directory is not valid UTF-8".to_string())?;
+        let remotes = run_git(&repo, &["remote"])?
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        Ok(FetchScope { common_dir, remotes })
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn git_fetch(
     path: String,

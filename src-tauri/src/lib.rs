@@ -247,6 +247,7 @@ pub fn run() {
             shell::detect_clis,
             repo_tools::list_repo_tools,
             git::git_fetch,
+            git::repo_fetch_scope,
             git::git_pull,
             git::git_push,
             git::list_git_remotes,

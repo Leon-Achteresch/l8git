@@ -3,12 +3,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
-/// Coordinates mutations of shared refs and worktree registrations. Index
-/// mutations retain their own per-worktree mutex; callers acquire this lock
-/// before any of those locks to keep the order consistent across commands.
-pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
-    static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> = OnceLock::new();
-
+pub(super) fn repo_common_dir(repo: &PathBuf) -> Result<PathBuf, String> {
     let directory = run_git(
         repo,
         &["rev-parse", "--path-format=absolute", "--git-common-dir"],
@@ -16,13 +11,21 @@ pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, 
     // Remove only Git's record terminator. A bare common directory can itself
     // end in spaces or a newline, which are part of its exact filesystem name.
     let directory = directory.strip_suffix('\n').unwrap_or(&directory);
+    #[cfg(windows)]
+    let directory = directory.strip_suffix('\r').unwrap_or(directory);
     let directory = PathBuf::from(directory);
     if !directory.is_absolute() {
         return Err("Git returned a relative common directory".into());
     }
-    let key = directory
-        .canonicalize()
-        .map_err(|error| error.to_string())?;
+    directory.canonicalize().map_err(|error| error.to_string())
+}
+
+/// Coordinates mutations of shared refs and worktree registrations. Index
+/// mutations retain their own per-worktree mutex; callers acquire this lock
+/// before any of those locks to keep the order consistent across commands.
+pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
+    static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> = OnceLock::new();
+    let key = repo_common_dir(repo)?;
     let mut locks = LOCKS
         .get_or_init(Default::default)
         .lock()

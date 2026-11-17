@@ -3,6 +3,7 @@ import { useRepoStore, type StatusEntry, type Commit, type SubmoduleEntry } from
 import { useUiStore } from '@/lib/ui-store';
 import { useWorkspaceStore } from '@/lib/workspace-store';
 import { useCommitPrefs } from '@/lib/commit-prefs';
+import { useRemoteOps } from '@/lib/remote-ops';
 import type { HistoryFilter } from '@/lib/ipc/git';
 export const FIXTURE_PATH = '/tmp/l8git-audit-fixture';
 const SUBMODULE_PATH = 'vendor/space [lib]';
@@ -132,6 +133,10 @@ export function seedAuditFixture(scene: string) {
     switch (command) {
       case 'remote_status': return { running: false, managed: false, port: 9418, roots: [], binary: null, configPath: null };
       case 'open_repo': return info(String(args?.path ?? FIXTURE_PATH));
+      case 'repo_fetch_scope':
+        if (scene !== 'workspace-fetch-preview') throw Error('Unexpected fetch preview');
+        if (args?.path === `${FIXTURE_PATH}/broken`) throw Error('Repository no longer available');
+        return { commonDir: '/tmp/fixture-common/.git', remotes: ['origin', 'mirror'] };
       case 'list_submodules':
         return scene === 'submodules' && args?.path === FIXTURE_PATH ? [submodule, uninitialized] : [];
       case 'get_submodule_commits': return [];
@@ -315,6 +320,22 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
+  if (scene === 'workspace-fetch-preview') {
+    const scoped = [`${FIXTURE_PATH}/primary`, `${FIXTURE_PATH}/alias`, `${FIXTURE_PATH}/broken`];
+    const outsider = `${FIXTURE_PATH}/outsider`;
+    useRepoStore.setState({ paths: [FIXTURE_PATH, ...scoped, outsider] });
+    useWorkspaceStore.setState({
+      activeWorkspaceId: 'preview',
+      workspaces: [
+        { id: 'preview', name: 'Preview workspace', repoPaths: [FIXTURE_PATH, ...scoped, '/tmp/not-open'] },
+        { id: 'other', name: 'Other workspace', repoPaths: [outsider] },
+      ],
+    });
+    useRemoteOps.getState().recordResult({
+      opId: 'fixture-previous-fetch', op: 'fetch', repoPath: scoped[0],
+      status: 'success', message: '', finishedAt: Date.parse('2026-09-05T12:00:00Z'),
+    });
+  }
   useUiStore.getState().setSidebarTab(scene === 'performance-history' || perfInspect ? 'history' : scene === 'lfs' ? 'tools' : 'commit');
 }
 

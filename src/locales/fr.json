@@ -3531,6 +3531,19 @@
     "exitFail": "Terminée avec une erreur",
     "noRepo": "aucun dépôt"
   },
+  "workspaceFetchPreview": {
+    "title": "Aperçu de la récupération pour l’espace de travail",
+    "hint": "Vérifiez les dépôts sélectionnés de {{workspace}}. Cet aperçu ne lance aucune récupération.",
+    "empty": "Aucun dépôt ouvert dans cet espace.",
+    "lastFetch": "Dernière récupération réussie de cette session : {{time}}",
+    "noFetch": "Aucune récupération réussie enregistrée dans cette session.",
+    "active": "Une opération distante est en cours.",
+    "remotes": "Dépôts distants configurés : {{names}}",
+    "noRemotes": "Aucun dépôt distant configuré.",
+    "shared": "Partage un répertoire Git avec un autre dépôt sélectionné.",
+    "inspect": "Vérifier les dépôts sélectionnés",
+    "canceled": "Aperçu annulé."
+  },
   "remoteProgress": {
     "op_fetch": "Fetch",
     "op_pull": "Pull",

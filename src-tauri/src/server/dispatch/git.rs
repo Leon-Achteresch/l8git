@@ -71,6 +71,10 @@ pub async fn dispatch(
             crate::git::branch_push_remote(path).await
         }
 
+        "repo_fetch_scope" (path: String) => {
+            crate::git::repo_fetch_scope(path).await
+        }
+
         "git_fetch" (
             path: String,
             prune_branches: Option<bool>,

@@ -8,6 +8,55 @@ fn remote_head(bare: &TestRepo, branch: &str) -> String {
 }
 
 #[tokio::test]
+async fn fetch_scope_groups_linked_worktrees_and_reads_only_configured_remote_names() {
+    let repo = TestRepo::new("fetch-scope");
+    let source = TestRepo::new("fetch-scope-source");
+    repo.commit("local.txt", "local\n", "local");
+    source.commit("remote.txt", "remote\n", "remote");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    let alias_path = common::scratch_path("fetch-scope-alias");
+    repo.git(&["worktree", "add", "--detach", alias_path.to_str().unwrap()]);
+    let alias = TestRepo::adopt(alias_path);
+    let isolated = TestRepo::new("fetch-scope-isolated");
+    let config = repo.read(".git/config");
+    let refs = repo.git(&["show-ref"]);
+
+    let primary = common::json(&git::repo_fetch_scope(repo.s()).await.unwrap());
+    assert_eq!(primary["remotes"], serde_json::json!(["origin"]));
+    assert_eq!(primary, common::json(&git::repo_fetch_scope(alias.s()).await.unwrap()));
+    let unrelated = common::json(&git::repo_fetch_scope(isolated.s()).await.unwrap());
+    assert_eq!(unrelated["remotes"], serde_json::json!([]));
+    assert_ne!(unrelated["commonDir"], primary["commonDir"]);
+    assert!(git::repo_fetch_scope(repo.path.join("missing").to_string_lossy().into())
+        .await
+        .is_err());
+    assert_eq!(repo.read(".git/config"), config);
+    assert_eq!(repo.git(&["show-ref"]), refs);
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+}
+
+#[tokio::test]
+async fn separate_fetches_keep_success_when_another_local_remote_fails() {
+    let source = TestRepo::new("fetch-results-source");
+    let head = source.commit("remote.txt", "remote\n", "fixture remote commit");
+    let good = TestRepo::new("fetch-results-good");
+    let bad = TestRepo::new("fetch-results-bad");
+    let good_head = good.commit("app.txt", "good\n", "local good");
+    let bad_head = bad.commit("app.txt", "bad\n", "local bad");
+    good.git(&["remote", "add", "origin", &source.file_url()]);
+    bad.git(&["remote", "add", "origin", &format!("{}/missing.git", source.file_url())]);
+    let fetch = |path, id: &str| git::git_fetch(path, Some(true), Some(false),
+        Some("origin".into()), None, Some(id.into()));
+    assert!(fetch(good.s(), "f02-local-good").await.is_ok());
+    assert!(fetch(bad.s(), "f02-local-bad").await.is_err());
+    assert_eq!(good.rev("refs/remotes/origin/main"), head);
+    assert!(!bad.try_git(&["rev-parse", "--verify", "refs/remotes/origin/main"]).0);
+    assert_eq!(good.head(), good_head);
+    assert_eq!(bad.head(), bad_head);
+    assert!(good.porcelain().is_empty() && bad.porcelain().is_empty());
+}
+
+#[tokio::test]
 async fn list_git_remotes_returns_one_entry_per_remote() {
     let repo = TestRepo::new("remotes-list");
     repo.commit("a.txt", "1\n", "c1");

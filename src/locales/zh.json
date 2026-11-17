@@ -3531,6 +3531,19 @@
     "exitFail": "执行出错",
     "noRepo": "无仓库"
   },
+  "workspaceFetchPreview": {
+    "title": "工作区获取预览",
+    "hint": "检查 {{workspace}} 中选中的仓库。预览不会执行 fetch。",
+    "empty": "此工作区没有打开的仓库。",
+    "lastFetch": "本次会话最后一次成功获取：{{time}}",
+    "noFetch": "本次会话没有成功获取的记录。",
+    "active": "远程操作正在进行。",
+    "remotes": "已配置的远程仓库：{{names}}",
+    "noRemotes": "未配置远程仓库。",
+    "shared": "与另一个选中的仓库共用 Git 目录。",
+    "inspect": "检查选中的仓库",
+    "canceled": "已取消预览。"
+  },
   "remoteProgress": {
     "op_fetch": "获取",
     "op_pull": "拉取",
