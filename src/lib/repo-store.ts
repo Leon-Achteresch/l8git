@@ -108,6 +108,7 @@ export type TagCreateOptions = {
 export type RepoInfo = {
   path: string;
   is_bare?: boolean;
+  is_shallow?: boolean;
   branch: string;
   commits: Commit[];
   branches: Branch[];

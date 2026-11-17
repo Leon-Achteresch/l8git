@@ -127,33 +127,58 @@ async fn open_repo_target(
         }
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
 
-        // One rev-parse identifies the repository kind and resolves HEAD.
-        // A repository without commits makes the HEAD half fail, so that case
-        // falls back to the plain repository check and reports no commits.
-        let (bare, branch, head_exists) = match run_git(
+        // Read both repository flags alongside HEAD. An unborn HEAD makes
+        // this command fail, so retry with just the flags and show no commits.
+        let (bare, shallow, branch, head_exists) = match run_git(
             &repo,
-            &["rev-parse", "--is-bare-repository", "--abbrev-ref", "HEAD"],
+            &[
+                "rev-parse",
+                "--is-bare-repository",
+                "--abbrev-ref",
+                "HEAD",
+                "--is-shallow-repository",
+            ],
         ) {
             Ok(out) => {
                 let mut lines = out.lines();
                 let bare = lines.next().unwrap_or_default().to_owned();
-                let branch = lines.next()
+                let branch = lines
+                    .next()
                     .map(str::trim)
                     .filter(|s| !s.is_empty())
                     .unwrap_or("HEAD")
                     .to_string();
-                (bare, branch, true)
+                let shallow = lines.next().unwrap_or_default().to_owned();
+                (bare, shallow, branch, true)
             }
             Err(_) => {
-                let bare = run_git(&repo, &["rev-parse", "--is-bare-repository"])
-                    .map_err(|_| format!("'{}' is not a git repository", repo.display()))?;
-                (bare, "HEAD".to_string(), false)
+                let flags = run_git(
+                    &repo,
+                    &[
+                        "rev-parse",
+                        "--is-bare-repository",
+                        "--is-shallow-repository",
+                    ],
+                )
+                .map_err(|_| format!("'{}' is not a git repository", repo.display()))?;
+                let mut lines = flags.lines();
+                (
+                    lines.next().unwrap_or_default().to_owned(),
+                    lines.next().unwrap_or_default().to_owned(),
+                    "HEAD".to_string(),
+                    false,
+                )
             }
         };
         let is_bare = match bare.trim() {
             "true" => true,
             "false" => false,
             _ => return Err("Git returned an invalid bare repository flag".into()),
+        };
+        let is_shallow = match shallow.trim() {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
         };
 
         // Log, tags and branches are independent reads. Running them together
@@ -184,6 +209,7 @@ async fn open_repo_target(
         Ok(RepoInfo {
             path: repo.to_string_lossy().to_string(),
             is_bare,
+            is_shallow,
             branch,
             commits,
             branches,

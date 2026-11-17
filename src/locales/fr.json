@@ -1163,6 +1163,7 @@
     "providerSelfHostedExample": "Git auto-hébergé"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "Historique superficiel. Git s’arrête à une limite locale. Des commits antérieurs à cette limite peuvent manquer dans cette vue.",
     "bareNotice": "Ce dépôt nu n’a pas de copie de travail. L’historique et les références sont disponibles.",
     "bareOpenHistory": "Ouvrir l’historique",
     "loading": "Chargement…"

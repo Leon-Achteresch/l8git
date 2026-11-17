@@ -1163,6 +1163,7 @@
     "providerSelfHostedExample": "自托管 Git"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "浅层历史记录。Git 在本地历史边界停止，因此此视图可能缺少边界之前的提交。",
     "bareNotice": "此裸仓库没有工作副本。可以查看历史记录和引用。",
     "bareOpenHistory": "打开历史记录",
     "loading": "加载中…"

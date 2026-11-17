@@ -1163,6 +1163,7 @@
     "providerSelfHostedExample": "Self-hosted Git"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "Flache Historie. Git endet an einer lokalen Historiengrenze. Dahinter können ältere Commits in der Ansicht fehlen.",
     "bareNotice": "Dieses Bare-Repository hat keine Arbeitskopie. Historie und Referenzen sind verfügbar.",
     "bareOpenHistory": "Historie öffnen",
     "loading": "Lade …"

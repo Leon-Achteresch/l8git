@@ -63,6 +63,8 @@ pub struct TagRef {
 pub struct RepoInfo {
     path: String,
     is_bare: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_shallow: Option<bool>,
     branch: String,
     commits: Vec<Commit>,
     branches: Vec<Branch>,

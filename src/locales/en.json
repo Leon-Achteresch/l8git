@@ -1163,6 +1163,7 @@
     "providerSelfHostedExample": "Self-hosted Git"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "Shallow history. Git stops at a local history boundary, so older commits beyond it may be missing from this view.",
     "bareNotice": "This bare repository has no working copy. History and refs are available.",
     "bareOpenHistory": "Open history",
     "loading": "Loading…"

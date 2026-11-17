@@ -1163,6 +1163,7 @@
     "providerSelfHostedExample": "セルフホストの Git"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "浅い履歴です。Git はローカルの履歴境界で止まるため、それより古いコミットはこのビューに表示されない場合があります。",
     "bareNotice": "このベアリポジトリには作業コピーがありません。履歴と参照は確認できます。",
     "bareOpenHistory": "履歴を開く",
     "loading": "読み込み中…"

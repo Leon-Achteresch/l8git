@@ -118,6 +118,8 @@ export function seedAuditFixture(scene: string) {
     const branch = reviewing && path === FIXTURE_PATH ? 'agents/fixture' : 'main';
     const head = reviewing && path === reviewBasePath ? reviewBaseHead : commits[0];
     return { path, branch, ...(scene === 'bare-open' && path === FIXTURE_PATH ? { is_bare: true } : {}),
+      ...(scene === 'shallow-history' && path !== '/tmp/l8git-shallow-legacy'
+        ? { is_shallow: path === FIXTURE_PATH } : {}),
       commits: reviewing && path === reviewBasePath ? [head] : commits, branches: [
       { name: 'main', tip: reviewing ? reviewBaseHead.hash : commits[0].hash, is_current: branch === 'main', is_remote: false,
         ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? { upstream_status: 'gone' as const } : {}) },
@@ -344,6 +346,11 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
+  if (scene === 'shallow-history') {
+    const paths = [FIXTURE_PATH, '/tmp/l8git-shallow-full', '/tmp/l8git-shallow-legacy'];
+    useRepoStore.setState({ paths, repos: {} });
+    useWorkspaceStore.getState().initDefaultWorkspace(paths);
+  }
   if (scene === 'bare-open') {
     const legacy = '/tmp/l8git-bare-legacy';
     useRepoStore.setState({ paths: [FIXTURE_PATH, legacy], repos: {} });
@@ -381,7 +388,7 @@ export function seedAuditFixture(scene: string) {
       status: 'success', message: '', finishedAt: Date.parse('2026-09-05T12:00:00Z'),
     });
   }
-  useUiStore.getState().setSidebarTab(scene === 'performance-history' || perfInspect ? 'history' : scene === 'lfs' ? 'tools' : 'commit');
+  useUiStore.getState().setSidebarTab(scene === 'performance-history' || scene === 'shallow-history' || perfInspect ? 'history' : scene === 'lfs' ? 'tools' : 'commit');
 }
 
 /** Real split UI and AI SDK, with deterministic repository RPCs confined to the audit scene. */

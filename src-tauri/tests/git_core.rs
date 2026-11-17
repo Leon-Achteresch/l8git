@@ -4,6 +4,39 @@ use common::{find_entry, json, TestRepo};
 use l8git_lib::git;
 
 #[tokio::test]
+async fn open_repo_reports_the_local_shallow_history_boundary() {
+    use std::io::Write;
+
+    for shallow in [false, true] {
+        let repo = TestRepo::new("open-shallow");
+        repo.commit("base.txt", "older\n", "older");
+        let head = repo.commit("base.txt", "newer\n", "newer");
+        let boundary = repo.path.join(".git/shallow");
+        if shallow {
+            // Seed an actual shallow marker in this disposable fixture.
+            let mut marker = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&boundary)
+                .unwrap();
+            writeln!(marker, "{head}").unwrap();
+        }
+        let before = std::fs::read(&boundary).ok();
+        let refs = repo.git(&["show-ref"]);
+        let info = json(&git::open_repo(repo.s(), None).await.unwrap());
+        assert_eq!(info["is_shallow"], shallow);
+        assert_eq!(info["commits"][0]["hash"], head);
+        assert_eq!(
+            info["commits"].as_array().unwrap().len(),
+            if shallow { 1 } else { 2 }
+        );
+        assert_eq!(std::fs::read(&boundary).ok(), before);
+        assert_eq!(repo.git(&["show-ref"]), refs);
+        assert!(!repo.exists(".git/FETCH_HEAD"));
+    }
+}
+
+#[tokio::test]
 async fn branch_ipc_distinguishes_local_upstream_states_without_changing_refs_or_config() {
     let repo = TestRepo::new("branch-upstream");
     let first = repo.commit("base.txt", "one\n", "first");
