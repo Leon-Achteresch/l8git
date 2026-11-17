@@ -2583,6 +2583,7 @@
     "submitBusy": "…"
   },
   "diff": {
+    "fileModeChanged": "Dateimodus geändert",
     "cancel": "Abbrechen",
     "lineDeselectTitle": "Zeile abwählen",
     "lineSelectTitle": "Zeile auswählen",

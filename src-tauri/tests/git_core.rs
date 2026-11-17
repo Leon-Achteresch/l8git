@@ -533,6 +533,77 @@ async fn repo_file_diff_separates_staged_unstaged_untracked_and_binary() {
     assert!(binary["untracked_plain"].is_null());
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn repo_file_diff_preserves_mode_only_headers_on_both_sides() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let repo = TestRepo::new("file-diff-mode-only");
+    repo.git(&["config", "core.fileMode", "true"]);
+    for file in ["mode.txt", "text.txt", "mixed.txt"] {
+        repo.write(file, "base content\n");
+        std::fs::set_permissions(repo.path.join(file), std::fs::Permissions::from_mode(0o644))
+            .unwrap();
+    }
+    repo.write_bytes("blob.bin", &[0, 1, 2]);
+    std::fs::set_permissions(
+        repo.path.join("blob.bin"),
+        std::fs::Permissions::from_mode(0o644),
+    )
+    .unwrap();
+    repo.commit_all("initial");
+    repo.write("text.txt", "text edit\n");
+    repo.write("mixed.txt", "mixed edit\n");
+    for file in ["mode.txt", "mixed.txt", "blob.bin"] {
+        std::fs::set_permissions(repo.path.join(file), std::fs::Permissions::from_mode(0o755))
+            .unwrap();
+    }
+
+    let status = json(&git::repo_status(repo.s()).await.unwrap());
+    assert_eq!(find_entry(&status, "blob.bin")["binary"], true);
+    assert_eq!(find_entry(&status, "mode.txt")["binary"], false);
+
+    let mode_patch = "diff --git a/mode.txt b/mode.txt\nold mode 100644\nnew mode 100755\n";
+    for sector in ["unstaged", "staged"] {
+        let mode = json(
+            &git::repo_file_diff(repo.s(), "mode.txt".into(), false, Some(true))
+                .await
+                .unwrap(),
+        );
+        assert_eq!(mode[sector], mode_patch);
+        let other = if sector == "unstaged" {
+            "staged"
+        } else {
+            "unstaged"
+        };
+        assert!(mode[other].is_null());
+        assert_eq!(mode["is_binary"], false);
+        assert!(mode["fingerprint"].is_string());
+        if sector == "unstaged" {
+            git::stage_files(repo.s(), vec!["mode.txt".into()])
+                .await
+                .unwrap();
+        }
+    }
+
+    for (file, content, mixed) in [
+        ("text.txt", "text edit", false),
+        ("mixed.txt", "mixed edit", true),
+    ] {
+        let diff = json(
+            &git::repo_file_diff(repo.s(), file.into(), false, Some(true))
+                .await
+                .unwrap(),
+        );
+        let patch = diff["unstaged"].as_str().unwrap();
+        assert!(patch.contains("\n@@ ") && patch.contains(&format!("\n+{content}\n")));
+        assert_eq!(
+            patch.contains("\nold mode 100644\nnew mode 100755\n"),
+            mixed
+        );
+    }
+}
+
 #[tokio::test]
 async fn repo_file_diff_reports_binary_for_tracked_blobs() {
     let repo = TestRepo::new("file-diff-binary");

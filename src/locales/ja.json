@@ -2583,6 +2583,7 @@
     "submitBusy": "…"
   },
   "diff": {
+    "fileModeChanged": "ファイルモードが変更されました",
     "cancel": "キャンセル",
     "lineDeselectTitle": "行の選択を解除",
     "lineSelectTitle": "行を選択",

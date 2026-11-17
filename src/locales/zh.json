@@ -2583,6 +2583,7 @@
     "submitBusy": "…"
   },
   "diff": {
+    "fileModeChanged": "文件模式已更改",
     "cancel": "取消",
     "lineDeselectTitle": "取消选择该行",
     "lineSelectTitle": "选择该行",

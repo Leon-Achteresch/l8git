@@ -179,6 +179,16 @@ export function parseDiffWithHunks(text: string): ParsedDiff {
   return { metaLines, hunks };
 }
 
+/** The single-file patch emitted by Git for a mode change without a blob change. */
+export function isModeOnlyDiff({ metaLines, hunks }: ParsedDiff): boolean {
+  if (hunks.length || metaLines.length !== 3) return false;
+  const [file, oldHeader, newHeader] = metaLines;
+  if (!file.startsWith('diff --git ')) return false;
+  const oldMode = /^old mode ([0-7]{6})$/.exec(oldHeader)?.[1];
+  const newMode = /^new mode ([0-7]{6})$/.exec(newHeader)?.[1];
+  return !!oldMode && !!newMode && oldMode !== newMode;
+}
+
 /**
  * Convert a `ParsedDiff` to a flat array of `InteractiveDiffLine` values
  * suitable for rendering with the virtualizer.
