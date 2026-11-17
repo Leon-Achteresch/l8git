@@ -1,4 +1,5 @@
 use super::*;
+use sha2::{Digest, Sha256};
 use std::sync::TryLockError;
 
 async fn spawn_repo_remote(
@@ -84,9 +85,74 @@ pub async fn branch_push_remote(path: String) -> Result<String, String> {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct FetchTarget {
+    remote: String,
+    fingerprint: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FetchScope {
     common_dir: String,
     remotes: Vec<String>,
+    target: Option<FetchTarget>,
+}
+
+// The workspace contract is for an explicit named remote with one configured
+// URL and configured refspecs. Git resolves insteadOf and excludes pushurl.
+fn workspace_fetch_target(repo: &PathBuf, remotes: &[String]) -> Option<FetchTarget> {
+    let [remote] = remotes else { return None };
+    if remote.is_empty() || remote == "." || remote.starts_with('-') || remote.trim() != remote {
+        return None;
+    }
+    let config = |field: &str| {
+        let key = format!("remote.{remote}.{field}");
+        run_git_command_bytes(
+            git_command(),
+            repo,
+            &["config", "--null", "--get-all", "--", &key],
+        )
+        .ok()
+    };
+    let configured = config("url")?;
+    let configured = configured.strip_suffix(b"\0")?;
+    if configured.is_empty() || configured.contains(&0) {
+        return None;
+    }
+    let urls = run_git_command_bytes(
+        git_command(),
+        repo,
+        &["remote", "get-url", "--all", "--", remote],
+    )
+    .ok()?;
+    let url = std::str::from_utf8(urls.strip_suffix(b"\n")?).ok()?;
+    if url.is_empty() || url.trim() != url || url.chars().any(char::is_control) {
+        return None;
+    }
+    let refspecs = config("fetch")?;
+    if refspecs
+        .strip_suffix(b"\0")?
+        .split(|byte| *byte == 0)
+        .any(|value| value.is_empty())
+    {
+        return None;
+    }
+    // Keep credentials and local endpoint paths out of IPC. Include checkout
+    // context because Git can resolve local URLs relative to that directory.
+    let checkout = repo.canonicalize().ok()?;
+    let mut hash = Sha256::new();
+    for value in [
+        checkout.as_os_str().as_encoded_bytes(),
+        url.as_bytes(),
+        &refspecs,
+    ] {
+        hash.update((value.len() as u64).to_le_bytes());
+        hash.update(value);
+    }
+    Some(FetchTarget {
+        remote: remote.clone(),
+        fingerprint: format!("{:x}", hash.finalize()),
+    })
 }
 
 #[tauri::command]
@@ -97,11 +163,18 @@ pub async fn repo_fetch_scope(path: String) -> Result<FetchScope, String> {
             .into_os_string()
             .into_string()
             .map_err(|_| "Git common directory is not valid UTF-8".to_string())?;
-        let remotes = run_git(&repo, &["remote"])?
-            .lines()
-            .map(str::to_owned)
-            .collect();
-        Ok(FetchScope { common_dir, remotes })
+        let remotes: Vec<_> =
+            String::from_utf8(run_git_command_bytes(git_command(), &repo, &["remote"])?)
+                .map_err(|_| "Git returned remote names that are not valid UTF-8".to_string())?
+                .lines()
+                .map(str::to_owned)
+                .collect();
+        let target = workspace_fetch_target(&repo, &remotes);
+        Ok(FetchScope {
+            common_dir,
+            remotes,
+            target,
+        })
     })
     .await
 }

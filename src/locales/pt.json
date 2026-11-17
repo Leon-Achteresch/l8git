@@ -3532,6 +3532,14 @@
     "noRepo": "sem repo"
   },
   "workspaceFetchPreview": {
+    "target": "Destino do fetch: {{remote}}",
+    "noTarget": "Não há um destino de fetch inequívoco configurado.",
+    "confirm": "Confirmar destinos",
+    "retryValidation": "Verificar destinos novamente",
+    "repoChanged": "O repositório mudou. Verifique a seleção novamente.",
+    "targetChanged": "O destino do fetch mudou. Verifique a seleção novamente.",
+    "unavailable": "Não foi possível verificar novamente o repositório.",
+    "matched": "Os destinos correspondem à prévia. O fetch do espaço de trabalho ainda está indisponível.",
     "title": "Prévia de fetch do espaço de trabalho",
     "hint": "Confira os repositórios selecionados em {{workspace}}. A prévia não executa fetch.",
     "empty": "Nenhum repositório aberto neste espaço.",

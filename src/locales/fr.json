@@ -3532,6 +3532,14 @@
     "noRepo": "aucun dépôt"
   },
   "workspaceFetchPreview": {
+    "target": "Cible de fetch : {{remote}}",
+    "noTarget": "Aucune cible de fetch unique n’est configurée.",
+    "confirm": "Confirmer les cibles",
+    "retryValidation": "Revérifier les cibles",
+    "repoChanged": "Le dépôt a changé. Vérifiez à nouveau la sélection.",
+    "targetChanged": "La cible de fetch a changé. Vérifiez à nouveau la sélection.",
+    "unavailable": "Impossible de vérifier à nouveau le dépôt.",
+    "matched": "Les cibles correspondent à l’aperçu. Le fetch de l’espace de travail reste indisponible.",
     "title": "Aperçu de la récupération pour l’espace de travail",
     "hint": "Vérifiez les dépôts sélectionnés de {{workspace}}. Cet aperçu ne lance aucune récupération.",
     "empty": "Aucun dépôt ouvert dans cet espace.",

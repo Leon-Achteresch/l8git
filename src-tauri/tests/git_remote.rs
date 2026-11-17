@@ -23,7 +23,10 @@ async fn fetch_scope_groups_linked_worktrees_and_reads_only_configured_remote_na
 
     let primary = common::json(&git::repo_fetch_scope(repo.s()).await.unwrap());
     assert_eq!(primary["remotes"], serde_json::json!(["origin"]));
-    assert_eq!(primary, common::json(&git::repo_fetch_scope(alias.s()).await.unwrap()));
+    assert_eq!(primary["target"]["remote"], "origin");
+    let linked = common::json(&git::repo_fetch_scope(alias.s()).await.unwrap());
+    assert_eq!(primary["commonDir"], linked["commonDir"]);
+    assert_ne!(primary["target"]["fingerprint"], linked["target"]["fingerprint"]);
     let unrelated = common::json(&git::repo_fetch_scope(isolated.s()).await.unwrap());
     assert_eq!(unrelated["remotes"], serde_json::json!([]));
     assert_ne!(unrelated["commonDir"], primary["commonDir"]);
@@ -33,6 +36,109 @@ async fn fetch_scope_groups_linked_worktrees_and_reads_only_configured_remote_na
     assert_eq!(repo.read(".git/config"), config);
     assert_eq!(repo.git(&["show-ref"]), refs);
     assert!(!repo.exists(".git/FETCH_HEAD"));
+}
+
+#[tokio::test]
+async fn fetch_target_tracks_effective_url_and_refspecs_without_contacting_remotes() {
+    async fn scope(repo: &TestRepo) -> serde_json::Value {
+        common::json(&git::repo_fetch_scope(repo.s()).await.unwrap())
+    }
+
+    let repo = TestRepo::new("target-repo");
+    let first = TestRepo::bare("target-first");
+    let second = TestRepo::bare("target-second");
+    repo.commit("base.txt", "base\n", "base");
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&["remote", "add", "origin", &first.file_url()]);
+    let baseline = scope(&repo).await;
+    assert_eq!(baseline["target"]["remote"], "origin");
+    assert_eq!(
+        baseline["target"]["fingerprint"].as_str().unwrap().len(),
+        64
+    );
+    assert!(!baseline.to_string().contains(&first.file_url()));
+
+    repo.git(&["remote", "set-url", "--push", "origin", &second.file_url()]);
+    assert_eq!(scope(&repo).await, baseline);
+    repo.git(&[
+        "config",
+        &format!("url.{}.insteadOf", second.file_url()),
+        &first.file_url(),
+    ]);
+    let rewritten = scope(&repo).await;
+    assert_eq!(rewritten["commonDir"], baseline["commonDir"]);
+    assert_ne!(rewritten["target"], baseline["target"]);
+    assert!(!rewritten.to_string().contains(&second.file_url()));
+
+    repo.git(&[
+        "config",
+        "remote.origin.fetch",
+        "+refs/heads/main:refs/remotes/origin/main",
+    ]);
+    let changed_refspec = scope(&repo).await;
+    assert_ne!(changed_refspec["target"], rewritten["target"]);
+    assert_eq!(changed_refspec, scope(&repo).await);
+    let refs = repo.git(&["show-ref"]);
+    let config = repo.read(".git/config");
+    assert_eq!(scope(&repo).await, changed_refspec);
+    assert_eq!(repo.git(&["show-ref"]), refs);
+    assert_eq!(repo.read(".git/config"), config);
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+
+    repo.git(&["remote", "add", "mirror", &second.file_url()]);
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&["remote", "remove", "mirror"]);
+    repo.git(&["config", "--add", "remote.origin.url", &second.file_url()]);
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&["config", "--unset-all", "remote.origin.url"]);
+    assert_eq!(scope(&repo).await["remotes"], serde_json::json!(["origin"]));
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&[
+        "config",
+        "remote.origin.url",
+        &format!("{}\n{}", first.file_url(), second.file_url()),
+    ]);
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&["config", "remote.origin.url", &first.file_url()]);
+    repo.git(&["config", "--unset-all", "remote.origin.fetch"]);
+    assert!(scope(&repo).await["target"].is_null());
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+}
+
+#[cfg(feature = "headless")]
+#[tokio::test]
+async fn fetch_scope_dispatch_checks_the_repository_root_and_returns_the_same_target() {
+    use l8git_lib::server::{
+        dispatch,
+        state::{ConnectionHandle, DispatchCtx, ServerState},
+    };
+    use serde_json::json;
+    use std::sync::Arc;
+
+    let repo = TestRepo::new("target-ipc");
+    let source = TestRepo::bare("target-ipc-source");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    let state = ServerState::new("test".into(), [0; 32], vec![repo.path.clone()]);
+    let (tx, _rx) = tokio::sync::mpsc::channel(1);
+    let command = "repo_fetch_scope";
+    let ctx = DispatchCtx::new(
+        state.clone(),
+        Arc::new(ConnectionHandle::new(1, tx)),
+        1,
+        command,
+    );
+    let args = json!({ "path": repo.s() });
+    state.ensure_command_allowed(command, &args).unwrap();
+    let result = dispatch::dispatch(command, args, &ctx).await.unwrap();
+    assert_eq!(
+        result,
+        common::json(&git::repo_fetch_scope(repo.s()).await.unwrap())
+    );
+    assert_eq!(result["target"]["remote"], "origin");
+    assert!(!result.to_string().contains(&source.file_url()));
+    assert!(state
+        .ensure_command_allowed(command, &json!({ "path": source.s() }))
+        .is_err());
 }
 
 #[tokio::test]

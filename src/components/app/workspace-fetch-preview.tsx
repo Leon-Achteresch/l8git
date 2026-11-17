@@ -8,8 +8,21 @@ import { useRemoteOps } from '@/lib/remote-ops';
 import { repoLabel, useRepoStore } from '@/lib/repo-store';
 import { useWorkspaceStore } from '@/lib/workspace-store';
 
-type FetchScope = { commonDir: string; remotes: string[] };
+type FetchScope = {
+  commonDir: string;
+  remotes: string[];
+  target: { remote: string; fingerprint: string } | null;
+};
 type PreviewResult = FetchScope | { error: string };
+type TargetCheck = 'matched' | 'repoChanged' | 'targetChanged' | 'noTarget' | 'unavailable';
+
+function checkTarget(expected: FetchScope, current: PreviewResult): TargetCheck {
+  if ('error' in current) return 'unavailable';
+  if (current.commonDir !== expected.commonDir) return 'repoChanged';
+  if (!current.target) return 'noTarget';
+  return current.target.remote === expected.target?.remote
+    && current.target.fingerprint === expected.target.fingerprint ? 'matched' : 'targetChanged';
+}
 
 export function WorkspaceFetchPreview() {
   const workspace = useWorkspaceStore(s => s.workspaces.find(w => w.id === s.activeWorkspaceId));
@@ -31,6 +44,7 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
   const ops = useRemoteOps(s => s.ops);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [results, setResults] = useState<Record<string, PreviewResult>>({});
+  const [checks, setChecks] = useState<Record<string, TargetCheck> | null>(null);
   const [status, setStatus] = useState<'idle' | 'checking' | 'canceling' | 'canceled'>('idle');
   const pending = useRef<AbortController | null>(null);
   useEffect(() => () => {
@@ -38,45 +52,65 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
     pending.current = null;
   }, []);
   const busy = status === 'checking' || status === 'canceling';
-
-  const inspection = async () => {
-    if (pending.current || !selected.size) return;
-    const controller = new AbortController();
-    pending.current = controller;
-    setResults({});
-    setStatus('checking');
-    const stillInScope = (path: string) => {
-      const { activeWorkspaceId, workspaces } = useWorkspaceStore.getState();
-      return !controller.signal.aborted && activeWorkspaceId === workspaceId
-        && useRepoStore.getState().paths.includes(path)
-        && workspaces.find(w => w.id === workspaceId)?.repoPaths.includes(path);
-    };
-    try {
-      for (const path of paths.filter(path => selected.has(path))) {
-        if (!stillInScope(path)) break;
-        let result: PreviewResult;
-        try {
-          result = await invoke<FetchScope>('repo_fetch_scope', { path });
-        } catch (error) {
-          result = { error: formatBackendError(error) };
-        }
-        if (!stillInScope(path)) break;
-        setResults(previous => ({ ...previous, [path]: result }));
-      }
-    } finally {
-      if (pending.current === controller) {
-        pending.current = null;
-        setStatus(controller.signal.aborted ? 'canceled' : 'idle');
-      }
-    }
-  };
-
+  const chosen = paths.filter(path => selected.has(path));
   const commonDirs = new Map<string, number>();
   for (const result of Object.values(results)) {
     if ('commonDir' in result) {
       commonDirs.set(result.commonDir, (commonDirs.get(result.commonDir) ?? 0) + 1);
     }
   }
+  const canConfirm = chosen.length > 0 && chosen.every(path => {
+    const result = results[path];
+    return result && 'commonDir' in result && result.target && commonDirs.get(result.commonDir) === 1;
+  });
+  const matched = canConfirm && chosen.every(path => checks?.[path] === 'matched');
+
+  const inspection = async (confirm: boolean) => {
+    if (pending.current || !chosen.length || (confirm && !canConfirm)) return;
+    const controller = new AbortController();
+    pending.current = controller;
+    if (!confirm) setResults({});
+    setChecks(confirm ? {} : null);
+    setStatus('checking');
+    const stillInScope = () => {
+      const { activeWorkspaceId, workspaces } = useWorkspaceStore.getState();
+      const members = workspaces.find(w => w.id === workspaceId)?.repoPaths;
+      const open = useRepoStore.getState().paths;
+      return !controller.signal.aborted && activeWorkspaceId === workspaceId
+        && chosen.every(path => members?.includes(path) && open.includes(path));
+    };
+    const invalidate = () => { if (!stillInScope()) controller.abort(); };
+    const unsubscribeWorkspace = useWorkspaceStore.subscribe(invalidate);
+    const unsubscribeRepos = useRepoStore.subscribe(invalidate);
+    const freshChecks: Record<string, TargetCheck> = {};
+    try {
+      invalidate();
+      for (const path of chosen) {
+        if (!stillInScope()) break;
+        let result: PreviewResult;
+        try {
+          result = await invoke<FetchScope>('repo_fetch_scope', { path });
+        } catch (error) {
+          result = { error: formatBackendError(error) };
+        }
+        if (!stillInScope()) break;
+        if (confirm) {
+          const expected = results[path];
+          if ('commonDir' in expected) freshChecks[path] = checkTarget(expected, result);
+        } else {
+          setResults(previous => ({ ...previous, [path]: result }));
+        }
+      }
+      if (confirm && stillInScope()) setChecks(freshChecks);
+    } finally {
+      unsubscribeWorkspace();
+      unsubscribeRepos();
+      if (pending.current === controller) {
+        pending.current = null;
+        setStatus(controller.signal.aborted ? 'canceled' : 'idle');
+      }
+    }
+  };
 
   return (
     <details className="rounded-lg border p-3">
@@ -90,6 +124,7 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
               const last = history.find(entry => entry.repoPath === path && entry.op === 'fetch' && entry.status === 'success');
               const ownActivity = ops.some(entry => entry.repoPath === path);
               const shared = result && 'commonDir' in result && (commonDirs.get(result.commonDir) ?? 0) > 1;
+              const check = checks?.[path];
               const id = `${listId}-${index}`;
               return (
                 <li key={path} className="flex min-w-0 items-start gap-2 py-2">
@@ -102,6 +137,7 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
                         return next;
                       });
                       setResults({});
+                      setChecks(null);
                       setStatus('idle');
                     }} />
                   <div className="min-w-0 space-y-0.5 text-xs text-muted-foreground">
@@ -114,15 +150,26 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
                         ? t('workspaceFetchPreview.remotes', { names: result.remotes.join(', ') })
                         : t('workspaceFetchPreview.noRemotes')}</p>)}
                     {shared && <p>{t('workspaceFetchPreview.shared')}</p>}
+                    {result && 'commonDir' in result && (
+                      <p>{result.target
+                        ? t('workspaceFetchPreview.target', { remote: result.target.remote })
+                        : t('workspaceFetchPreview.noTarget')}</p>
+                    )}
+                    {check && check !== 'matched' && <p role="status" className="text-destructive">
+                      {t(`workspaceFetchPreview.${check}`)}
+                    </p>}
                   </div>
                 </li>
               );
             })}
           </ul>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" disabled={!selected.size || busy} onClick={() => void inspection()}>
+            <Button size="sm" variant="outline" disabled={!selected.size || busy} onClick={() => void inspection(false)}>
               {t('workspaceFetchPreview.inspect')}
             </Button>
+            {canConfirm && <Button size="sm" variant="outline" disabled={busy} onClick={() => void inspection(true)}>
+              {t(checks ? 'workspaceFetchPreview.retryValidation' : 'workspaceFetchPreview.confirm')}
+            </Button>}
             {status === 'checking' && <Button size="sm" variant="ghost" onClick={() => {
               pending.current?.abort();
               setStatus('canceling');
@@ -131,6 +178,9 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
               {t(status === 'checking' ? 'common.loading' : 'workspaceFetchPreview.canceled')}
             </span>}
           </div>
+          {matched && <p role="status" className="mt-2 text-xs text-muted-foreground">
+            {t('workspaceFetchPreview.matched')}
+          </p>}
         </>
       )}
     </details>

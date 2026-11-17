@@ -3532,6 +3532,14 @@
     "noRepo": "kein Repo"
   },
   "workspaceFetchPreview": {
+    "target": "Fetch-Ziel: {{remote}}",
+    "noTarget": "Kein eindeutiges Fetch-Ziel konfiguriert.",
+    "confirm": "Ziele bestätigen",
+    "retryValidation": "Zielprüfung wiederholen",
+    "repoChanged": "Das Repository hat sich geändert. Prüfe die Auswahl neu.",
+    "targetChanged": "Das Fetch-Ziel hat sich geändert. Prüfe die Auswahl neu.",
+    "unavailable": "Das Repository konnte nicht erneut geprüft werden.",
+    "matched": "Die Ziele stimmen mit der Vorschau überein. Der Sammel-Fetch ist noch gesperrt.",
     "title": "Fetch-Vorschau für den Workspace",
     "hint": "Prüfe die ausgewählten Repositories in {{workspace}}. Die Vorschau führt keinen Fetch aus.",
     "empty": "In diesem Workspace sind keine Repositories geöffnet.",

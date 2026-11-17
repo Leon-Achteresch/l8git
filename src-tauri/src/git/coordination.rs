@@ -1,19 +1,27 @@
-use super::run_git;
+use super::{git_command, run_git_command_bytes};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 pub(super) fn repo_common_dir(repo: &PathBuf) -> Result<PathBuf, String> {
-    let directory = run_git(
+    let directory = run_git_command_bytes(
+        git_command(),
         repo,
         &["rev-parse", "--path-format=absolute", "--git-common-dir"],
     )?;
     // Remove only Git's record terminator. A bare common directory can itself
     // end in spaces or a newline, which are part of its exact filesystem name.
-    let directory = directory.strip_suffix('\n').unwrap_or(&directory);
+    let directory = directory.strip_suffix(b"\n").unwrap_or(&directory);
     #[cfg(windows)]
-    let directory = directory.strip_suffix('\r').unwrap_or(directory);
-    let directory = PathBuf::from(directory);
+    let directory = directory.strip_suffix(b"\r").unwrap_or(directory);
+    #[cfg(unix)]
+    let directory = {
+        use std::os::unix::ffi::OsStrExt;
+        PathBuf::from(std::ffi::OsStr::from_bytes(directory))
+    };
+    #[cfg(not(unix))]
+    let directory =
+        PathBuf::from(std::str::from_utf8(directory).map_err(|error| error.to_string())?);
     if !directory.is_absolute() {
         return Err("Git returned a relative common directory".into());
     }
@@ -55,6 +63,7 @@ pub(super) fn repo_remote_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String
 
 #[cfg(test)]
 mod tests {
+    use super::super::run_git;
     use super::*;
     use std::fs;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -263,5 +272,20 @@ mod tests {
             &repo_coordination_mutex(&alias).unwrap()
         ));
         assert!(bare.as_os_str().as_encoded_bytes().ends_with(b" \n"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn common_directory_keeps_non_utf8_path_bytes() {
+        use std::os::unix::ffi::OsStrExt;
+
+        let root = TestRoot::new();
+        let repo = root.0.join(std::ffi::OsStr::from_bytes(b"bare-\xff"));
+        fs::create_dir_all(&repo).unwrap();
+        run_git(&repo, &["init", "-q", "--bare", "."]).unwrap();
+        assert_eq!(
+            repo_common_dir(&repo).unwrap(),
+            repo.canonicalize().unwrap()
+        );
     }
 }

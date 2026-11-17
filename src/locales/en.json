@@ -3532,6 +3532,14 @@
     "noRepo": "no repo"
   },
   "workspaceFetchPreview": {
+    "target": "Fetch target: {{remote}}",
+    "noTarget": "No unambiguous fetch target is configured.",
+    "confirm": "Confirm targets",
+    "retryValidation": "Retry target check",
+    "repoChanged": "The repository has changed. Check the selection again.",
+    "targetChanged": "The fetch target has changed. Check the selection again.",
+    "unavailable": "Could not recheck the repository.",
+    "matched": "The targets match the preview. Workspace fetch is still unavailable.",
     "title": "Workspace fetch preview",
     "hint": "Check the selected repositories in {{workspace}}. This preview does not run a fetch.",
     "empty": "No open repositories in this workspace.",

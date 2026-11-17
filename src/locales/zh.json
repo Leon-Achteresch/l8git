@@ -3532,6 +3532,14 @@
     "noRepo": "无仓库"
   },
   "workspaceFetchPreview": {
+    "target": "抓取目标：{{remote}}",
+    "noTarget": "未配置明确的抓取目标。",
+    "confirm": "确认目标",
+    "retryValidation": "重新检查目标",
+    "repoChanged": "仓库已更改。请重新检查所选仓库。",
+    "targetChanged": "抓取目标已更改。请重新检查所选仓库。",
+    "unavailable": "无法重新检查仓库。",
+    "matched": "目标与预览一致。工作区批量抓取仍不可用。",
     "title": "工作区获取预览",
     "hint": "检查 {{workspace}} 中选中的仓库。预览不会执行 fetch。",
     "empty": "此工作区没有打开的仓库。",

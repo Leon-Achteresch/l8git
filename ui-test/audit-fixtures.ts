@@ -136,7 +136,8 @@ export function seedAuditFixture(scene: string) {
       case 'repo_fetch_scope':
         if (scene !== 'workspace-fetch-preview') throw Error('Unexpected fetch preview');
         if (args?.path === `${FIXTURE_PATH}/broken`) throw Error('Repository no longer available');
-        return { commonDir: '/tmp/fixture-common/.git', remotes: ['origin', 'mirror'] };
+        return { commonDir: '/tmp/fixture-common/.git', remotes: ['origin'],
+          target: { remote: 'origin', fingerprint: 'fixture-fetch-target' } };
       case 'list_submodules':
         return scene === 'submodules' && args?.path === FIXTURE_PATH ? [submodule, uninitialized] : [];
       case 'get_submodule_commits': return [];
@@ -330,6 +331,14 @@ export function seedAuditFixture(scene: string) {
         { id: 'preview', name: 'Preview workspace', repoPaths: [FIXTURE_PATH, ...scoped, '/tmp/not-open'] },
         { id: 'other', name: 'Other workspace', repoPaths: [outsider] },
       ],
+    });
+    window.addEventListener('remove-fetch-preview-member', () => {
+      useWorkspaceStore.getState().removeRepoFromAllWorkspaces(scoped[0]);
+    });
+    window.addEventListener('reattach-fetch-preview-member', () => {
+      const original = useWorkspaceStore.getState().workspaces;
+      useWorkspaceStore.getState().removeRepoFromAllWorkspaces(scoped[0]);
+      useWorkspaceStore.setState({ workspaces: original });
     });
     useRemoteOps.getState().recordResult({
       opId: 'fixture-previous-fetch', op: 'fetch', repoPath: scoped[0],
