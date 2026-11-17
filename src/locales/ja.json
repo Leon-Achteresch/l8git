@@ -5697,6 +5697,7 @@
       "waitFailed": "Git の待機中にエラーが発生しました: {{error}}",
       "applyFailed": "git apply に失敗しました。",
       "unknownRemote": "不明なリモート: {{remote}}",
+      "remoteBusy": "このリポジトリではすでにリモート操作が実行されています。完了後に再試行してください。",
       "headNotOnBranch": "HEAD がブランチを指していません。",
       "unknownMergeStrategy": "不明なマージ戦略: {{strategy}}",
       "mainlineParent": "メインライン親は 1 以上である必要があります。",

@@ -5697,6 +5697,7 @@
       "waitFailed": "Error al esperar a Git: {{error}}",
       "applyFailed": "git apply falló.",
       "unknownRemote": "Remoto desconocido: {{remote}}",
+      "remoteBusy": "Ya hay una operación remota en curso para este repositorio. Vuelve a intentarlo cuando termine.",
       "headNotOnBranch": "HEAD no apunta a ninguna rama.",
       "unknownMergeStrategy": "Estrategia de fusión desconocida: {{strategy}}",
       "mainlineParent": "El padre principal (mainline) debe ser al menos 1.",

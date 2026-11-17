@@ -1,4 +1,21 @@
 use super::*;
+use std::sync::TryLockError;
+
+async fn spawn_repo_remote(
+    path: String,
+    run: impl FnOnce(PathBuf) -> Result<String, String> + Send + 'static,
+) -> Result<String, String> {
+    spawn_git(move || {
+        let repo = PathBuf::from(path);
+        let reservation = coordination::repo_remote_mutex(&repo)?;
+        let _guard = reservation.try_lock().map_err(|error| match error {
+            TryLockError::WouldBlock => coded!(GitRemoteBusy),
+            TryLockError::Poisoned(error) => error.to_string(),
+        })?;
+        run(repo)
+    })
+    .await
+}
 
 pub(super) fn normalized_remote(repo: &PathBuf, remote: Option<&str>) -> Result<Option<String>, String> {
     let Some(r) = remote else {
@@ -98,8 +115,7 @@ pub async fn git_fetch(
     all_remotes: Option<bool>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_git(move || {
-        let repo = PathBuf::from(&path);
+    spawn_repo_remote(path, move |repo| {
         let prune_branches = prune_branches.unwrap_or(true);
         let prune_tags = prune_tags.unwrap_or(false);
         let mut args: Vec<String> = vec!["fetch".to_string()];
@@ -156,8 +172,7 @@ pub async fn git_pull(
     remote: Option<String>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_git(move || {
-        let repo = PathBuf::from(&path);
+    spawn_repo_remote(path, move |repo| {
         let autostash = strategy.as_deref() == Some("autostash");
         if !autostash {
             let dirty = dirty_tracked_files(&repo)?;
@@ -203,9 +218,7 @@ pub async fn git_push(
     dry_run: Option<bool>,
     op_id: Option<String>,
 ) -> Result<String, String> {
-    spawn_git(move || {
-        let repo = PathBuf::from(&path);
-
+    spawn_repo_remote(path, move |repo| {
         let mut args: Vec<String> = vec!["push".to_string()];
 
         match force_mode.as_deref() {

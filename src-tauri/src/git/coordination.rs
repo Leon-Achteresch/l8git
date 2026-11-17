@@ -20,13 +20,11 @@ pub(super) fn repo_common_dir(repo: &PathBuf) -> Result<PathBuf, String> {
     directory.canonicalize().map_err(|error| error.to_string())
 }
 
-/// Coordinates mutations of shared refs and worktree registrations. Index
-/// mutations retain their own per-worktree mutex; callers acquire this lock
-/// before any of those locks to keep the order consistent across commands.
-pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
-    static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> = OnceLock::new();
+type RepoMutexRegistry = OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>>;
+
+fn common_dir_mutex(repo: &PathBuf, registry: &RepoMutexRegistry) -> Result<Arc<Mutex<()>>, String> {
     let key = repo_common_dir(repo)?;
-    let mut locks = LOCKS
+    let mut locks = registry
         .get_or_init(Default::default)
         .lock()
         .map_err(|error| error.to_string())?;
@@ -38,6 +36,21 @@ pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, 
     let lock = Arc::new(Mutex::new(()));
     locks.insert(key, Arc::downgrade(&lock));
     Ok(lock)
+}
+
+/// Coordinates mutations of shared refs and worktree registrations. Index
+/// mutations retain their own per-worktree mutex; callers acquire this lock
+/// before any of those locks to keep the order consistent across commands.
+pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
+    static LOCKS: RepoMutexRegistry = OnceLock::new();
+    common_dir_mutex(repo, &LOCKS)
+}
+
+/// Process-local reservation for remote commands. Separate from ref mutation
+/// coordination so a slow remote does not hold the worktree/branch mutex.
+pub(super) fn repo_remote_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
+    static LOCKS: RepoMutexRegistry = OnceLock::new();
+    common_dir_mutex(repo, &LOCKS)
 }
 
 #[cfg(test)]

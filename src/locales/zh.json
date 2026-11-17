@@ -5697,6 +5697,7 @@
       "waitFailed": "等待 Git 时出错：{{error}}",
       "applyFailed": "git apply 失败。",
       "unknownRemote": "未知的远程：{{remote}}",
+      "remoteBusy": "此仓库已有远程操作正在进行。请在该操作完成后重试。",
       "headNotOnBranch": "HEAD 未指向任何分支。",
       "unknownMergeStrategy": "未知的合并策略：{{strategy}}",
       "mainlineParent": "主线父提交必须至少为 1。",

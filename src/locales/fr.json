@@ -5697,6 +5697,7 @@
       "waitFailed": "Échec de l’attente de Git : {{error}}",
       "applyFailed": "git apply a échoué.",
       "unknownRemote": "Remote inconnu : {{remote}}",
+      "remoteBusy": "Une opération distante est déjà en cours pour ce dépôt. Réessayez lorsqu’elle sera terminée.",
       "headNotOnBranch": "HEAD ne pointe vers aucune branche.",
       "unknownMergeStrategy": "Stratégie de fusion inconnue : {{strategy}}",
       "mainlineParent": "Le parent principal (mainline) doit valoir au moins 1.",

@@ -73,6 +73,7 @@ error_codes! {
     GitWaitFailed = "git.waitFailed" => "Waiting for Git failed: {error}",
     GitApplyFailed = "git.applyFailed" => "git apply failed.",
     GitUnknownRemote = "git.unknownRemote" => "Unknown remote: {remote}",
+    GitRemoteBusy = "git.remoteBusy" => "A remote operation is already running for this repository. Try again when it finishes.",
     GitHeadNotOnBranch = "git.headNotOnBranch" => "HEAD does not point to a branch.",
     GitUnknownMergeStrategy = "git.unknownMergeStrategy" => "Unknown merge strategy: {strategy}",
     GitMainlineParent = "git.mainlineParent" => "The mainline parent must be at least 1.",

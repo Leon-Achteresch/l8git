@@ -5697,6 +5697,7 @@
       "waitFailed": "Fehler beim Warten auf Git: {{error}}",
       "applyFailed": "git apply fehlgeschlagen.",
       "unknownRemote": "Unbekannter Remote: {{remote}}",
+      "remoteBusy": "Für dieses Repository läuft bereits ein Remote-Vorgang. Versuche es nach dessen Abschluss erneut.",
       "headNotOnBranch": "HEAD zeigt auf keinen Branch.",
       "unknownMergeStrategy": "Unbekannte Merge-Strategie: {{strategy}}",
       "mainlineParent": "Mainline-Parent muss mindestens 1 sein.",
