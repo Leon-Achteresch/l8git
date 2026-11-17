@@ -69,10 +69,18 @@ async fn recv(socket: &mut Socket) -> Option<Message> {
 }
 
 async fn handshake(host: &Host, host_id: &str) -> Result<Client, String> {
-    let (mut socket, _) = tokio_tungstenite::connect_async(format!("ws://{}/ws", host.addr))
+    handshake_endpoint(host.addr, &host.psk, host_id).await
+}
+
+async fn handshake_endpoint(
+    addr: SocketAddr,
+    psk: &[u8; crypto::PSK_LEN],
+    host_id: &str,
+) -> Result<Client, String> {
+    let (mut socket, _) = tokio_tungstenite::connect_async(format!("ws://{addr}/ws"))
         .await
         .map_err(|e| e.to_string())?;
-    let (pending, hello) = crypto::client_hello(&host.psk, host_id);
+    let (pending, hello) = crypto::client_hello(psk, host_id);
     socket
         .send(Message::Text(serde_json::to_string(&hello).unwrap().into()))
         .await
@@ -83,6 +91,156 @@ async fn handshake(host: &Host, host_id: &str) -> Result<Client, String> {
     let welcome: Welcome = serde_json::from_str(raw.as_str()).map_err(|e| e.to_string())?;
     let session = pending.finish(&welcome)?;
     Ok(Client { socket, session })
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[tokio::test]
+#[ignore = "requires a disposable Linux user/keyring and loopback-only runtime"]
+async fn linux_cli_keyring_acceptance() {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::process::Stdio;
+    use workspace_test_repos::TestRepo;
+
+    assert_eq!(std::env::consts::OS, "linux", "requires Linux");
+    assert_eq!(std::env::var("L8GIT_CLI_DISPOSABLE").as_deref(), Ok("1"));
+    for interface in fs::read_dir("/sys/class/net").expect("inspect fixture network") {
+        assert_eq!(
+            interface.unwrap().file_name(),
+            "lo",
+            "requires loopback-only networking"
+        );
+    }
+    let binary = PathBuf::from(std::env::var_os("L8GIT_CLI_BIN").expect("set L8GIT_CLI_BIN"));
+    assert!(binary.is_absolute() && binary.is_file());
+    for key in [
+        crate::server::pairing::HOST_ID_KEY,
+        crate::server::pairing::PSK_KEY,
+    ] {
+        let entry = keyring::Entry::new(crate::server::pairing::KEYRING_SERVICE, key)
+            .expect("native keyring must be available");
+        assert!(
+            matches!(entry.get_password(), Err(keyring::Error::NoEntry)),
+            "requires an available, empty l8gitd credential store for the disposable user"
+        );
+    }
+
+    struct Credentials;
+    impl Drop for Credentials {
+        fn drop(&mut self) {
+            if crate::server::pairing::reset().is_err() {
+                eprintln!("could not clear the disposable l8gitd credentials");
+            }
+        }
+    }
+    let _credentials = Credentials;
+    let private = TestRepo::new("cli-keyring-private");
+    let home = private.path.join("home");
+    let config = private.path.join("config");
+    fs::create_dir(&home).unwrap();
+    fs::create_dir(&config).unwrap();
+    let repo = TestRepo::new("cli-keyring-allowed");
+    let denied = TestRepo::new("cli-keyring-denied");
+    let source = TestRepo::new("cli-keyring-source");
+    source.commit("fixture.txt", "local source\n", "seed");
+    for checkout in [&repo, &denied] {
+        checkout.git(&["remote", "add", "origin", &source.file_url()]);
+    }
+
+    let command = || {
+        let mut child = tokio::process::Command::new(&binary);
+        child
+            .env("HOME", &home)
+            .env("XDG_CONFIG_HOME", &config)
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_ALLOW_PROTOCOL", "file")
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .kill_on_drop(true);
+        child
+    };
+    let paired = tokio::time::timeout(TIMEOUT, command().arg("pair").output())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        paired.status.success(),
+        "pair failed: {}",
+        String::from_utf8_lossy(&paired.stderr)
+    );
+    // Pairing output contains the disposable PSK. Keep it in memory and
+    // never print the command output or the JSON.
+    let payload: Value = serde_json::from_slice(
+        paired
+            .stdout
+            .split(|byte| *byte == b'\n')
+            .rfind(|line| !line.is_empty())
+            .expect("pair returns a JSON line"),
+    )
+    .expect("pair returns valid JSON");
+    let host_id = payload["hostId"].as_str().expect("host id");
+    let psk = crypto::decode_psk(payload["psk"].as_str().expect("PSK")).expect("valid fixture PSK");
+
+    let allowed = tokio::time::timeout(TIMEOUT, command().arg("allow").arg(&repo.path).output())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        allowed.status.success(),
+        "allow failed: {}",
+        String::from_utf8_lossy(&allowed.stderr)
+    );
+    assert!(config.join("l8gitd/config.json").is_file());
+
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let addr = listener.local_addr().unwrap();
+    drop(listener);
+    let mut daemon = command()
+        .args(["serve", "--port", &addr.port().to_string()])
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
+    tokio::time::timeout(TIMEOUT, async {
+        loop {
+            assert!(
+                daemon.try_wait().unwrap().is_none(),
+                "serve exited before listening"
+            );
+            if TcpStream::connect(addr).await.is_ok() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("daemon listening on the private port");
+
+    let mut client = handshake_endpoint(addr, &psk, host_id).await.unwrap();
+    assert_eq!(client.authenticate().await["type"], "ready");
+    let preview = client
+        .call(1, "repo_fetch_scope", json!({ "path": repo.s() }))
+        .await;
+    assert_eq!(preview["ok"], true);
+    assert_eq!(preview["data"]["target"]["remote"], "origin");
+    assert_eq!(
+        preview["data"]["commonDir"],
+        repo.path
+            .join(".git")
+            .canonicalize()
+            .unwrap()
+            .to_str()
+            .unwrap()
+    );
+    assert!(!preview.to_string().contains("file://"));
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+    let outside = client
+        .call(2, "repo_fetch_scope", json!({ "path": denied.s() }))
+        .await;
+    assert_eq!(outside["ok"], false);
+    assert!(outside["error"].as_str().unwrap().contains("shared"));
+
+    drop(client);
+    daemon.kill().await.unwrap();
 }
 
 impl Client {
