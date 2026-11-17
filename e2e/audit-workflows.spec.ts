@@ -76,12 +76,14 @@ test('agent review completes commit, merge and cleanup in order', async ({ page 
   await expect(finish.getByRole('button', { name: 'Merge', exact: true })).toBeEnabled();
   await finish.getByRole('button', { name: 'Merge', exact: true }).click();
   await expect(finish.getByRole('button', { name: 'Clean up', exact: true })).toBeEnabled();
+  await expect(finish.getByText(/Removing this worktree can delete ignored files/)).toBeVisible();
   await finish.getByRole('button', { name: 'Clean up', exact: true }).click();
   await expect.poll(async () => page.evaluate(() => (window as any).__L8GIT_TEST_CALLS__.filter((c: any) => ['agent_review_commit_checked', 'git_merge', 'git_worktree_remove_checked', 'agent_review_delete_branch_checked'].includes(c.command)).map((c: any) => c.command))).toEqual(['agent_review_commit_checked', 'git_merge', 'git_worktree_remove_checked', 'agent_review_delete_branch_checked']);
   const calls = await page.evaluate(() => window.__L8GIT_TEST_CALLS__ ?? []);
   expect(calls.find(call => call.command === 'git_merge')?.args).toMatchObject({ expectedBranch: 'main', expectedHead: 'a'.repeat(40), expectedSourceHead: 'b'.repeat(40), strategy: 'ff' });
   expect(calls.find(call => call.command === 'git_worktree_remove_checked')?.args).toMatchObject({ expectedBranch: 'agents/fixture', expectedHead: 'b'.repeat(40), mergedInto: 'main' });
   expect(calls.find(call => call.command === 'agent_review_delete_branch_checked')?.args).toMatchObject({ path: '/tmp/base-fixture', branch: 'agents/fixture', expectedHead: 'b'.repeat(40), expectedBaseBranch: 'main' });
+  await expect(finish.getByText(/Removing this worktree can delete ignored files/)).toHaveCount(0);
 });
 
 test('repository sidebar supports keyboard resizing and recovery is discoverable', async ({ page }) => {

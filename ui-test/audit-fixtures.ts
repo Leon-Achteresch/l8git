@@ -296,6 +296,9 @@ export function seedAuditFixture(scene: string) {
       case 'list_worktrees': return scene === 'review' ? [
         { path: reviewBasePath, branch: 'main', head: reviewBaseHead.hash, is_main: true, is_locked: false, is_prunable: false },
         ...(!reviewRemoved ? [{ path: FIXTURE_PATH, branch: 'agents/fixture', head: commits[0].hash, is_main: false, is_locked: false, is_prunable: false }] : []),
+      ] : scene === 'worktree-cleanup' ? [
+        { path: FIXTURE_PATH, branch: 'main', head: base.hash, is_main: true, is_locked: false, is_prunable: false },
+        { path: `${FIXTURE_PATH}-linked`, branch: 'fixture-linked', head: base.hash, is_main: false, is_locked: false, is_prunable: false },
       ] : [];
       case 'stack_list': return { stacks: [], branches: [] };
       case 'list_stashes': case 'list_remotes': case 'resolve_repo_commit_avatars': case 'git_command_log': return [];
