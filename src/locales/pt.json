@@ -1747,6 +1747,8 @@
     "detailPinnedSuperRepo": "Fixado no super-repo",
     "detailRemoteHead": "Head remoto",
     "commitsBehindShort": "↓{{count}} commits",
+    "detailOpenRepo": "Abrir repositório",
+    "detailOpeningRepo": "Abrindo repositório…",
     "detailPull": "Pull",
     "detailTerminal": "Terminal",
     "detailGitmodules": ".Gitmodules",
@@ -5664,6 +5666,11 @@
       "dirMissing": "Nenhuma pasta de configuração foi encontrada.",
       "writeFailed": "Não foi possível gravar a configuração: {{error}}",
       "homeMissing": "Nenhuma pasta pessoal foi encontrada."
+    },
+    "submodule": {
+      "notInitialized": "Inicialize este submódulo antes de abrir o repositório.",
+      "notRegistered": "Este caminho não está mais registrado como submódulo.",
+      "unsafePath": "O caminho selecionado não leva a uma árvore de trabalho segura do submódulo."
     },
     "git": {
       "startFailed": "Não foi possível iniciar o Git: {{error}}",

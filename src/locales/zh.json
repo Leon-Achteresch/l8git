@@ -1747,6 +1747,8 @@
     "detailPinnedSuperRepo": "在父仓库中锁定",
     "detailRemoteHead": "远程 HEAD",
     "commitsBehindShort": "↓{{count}} 个提交",
+    "detailOpenRepo": "打开仓库",
+    "detailOpeningRepo": "正在打开仓库…",
     "detailPull": "拉取",
     "detailTerminal": "终端",
     "detailGitmodules": ".Gitmodules",
@@ -5664,6 +5666,11 @@
       "dirMissing": "未找到配置文件夹。",
       "writeFailed": "无法写入配置：{{error}}",
       "homeMissing": "未找到主文件夹。"
+    },
+    "submodule": {
+      "notInitialized": "请先初始化此子模块，再打开其仓库。",
+      "notRegistered": "此路径已不再注册为子模块。",
+      "unsafePath": "所选路径未指向安全的子模块工作树。"
     },
     "git": {
       "startFailed": "无法启动 Git：{{error}}",

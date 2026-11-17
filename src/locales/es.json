@@ -1747,6 +1747,8 @@
     "detailPinnedSuperRepo": "Fijado en el superrepo",
     "detailRemoteHead": "HEAD remoto",
     "commitsBehindShort": "↓{{count}} commits",
+    "detailOpenRepo": "Abrir repositorio",
+    "detailOpeningRepo": "Abriendo repositorio…",
     "detailPull": "Pull",
     "detailTerminal": "Terminal",
     "detailGitmodules": ".Gitmodules",
@@ -5664,6 +5666,11 @@
       "dirMissing": "No se encontró ninguna carpeta de configuración.",
       "writeFailed": "No se pudo escribir la configuración: {{error}}",
       "homeMissing": "No se encontró la carpeta de inicio."
+    },
+    "submodule": {
+      "notInitialized": "Inicializa este submódulo antes de abrir su repositorio.",
+      "notRegistered": "Esta ruta ya no está registrada como submódulo.",
+      "unsafePath": "La ruta seleccionada no lleva a un árbol de trabajo seguro del submódulo."
     },
     "git": {
       "startFailed": "No se pudo iniciar Git: {{error}}",

@@ -486,6 +486,10 @@ pub async fn dispatch(
             crate::git::list_submodules(path).await
         }
 
+        "open_submodule_repo" (path: String, submodule_path: String, hide_t3_checkpoints: Option<bool>) => {
+            crate::git::open_submodule_repo(path, submodule_path, hide_t3_checkpoints).await
+        }
+
         "get_submodule_commits" (path: String, submodule_path: String, pinned_commit: String) => {
             crate::git::get_submodule_commits(path, submodule_path, pinned_commit).await
         }

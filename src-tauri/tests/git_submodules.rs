@@ -69,6 +69,8 @@ async fn paths_with_spaces_tabs_newlines_and_trailing_space_are_exact() {
         .unwrap();
     assert_eq!(history.len(), 1);
     assert!(history[0].is_pinned);
+    let opened = common::json(&git::open_submodule_repo(host.s(), path.into(), None).await.unwrap());
+    assert_eq!(opened["path"], sub.path.canonicalize().unwrap().to_str().unwrap());
     git::git_submodule_sync(host.s(), Some(path.into()))
         .await
         .unwrap();
@@ -510,4 +512,198 @@ async fn conflict_gitlinks_use_ours_and_preserve_conflict_status() {
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].commit, ours);
     assert_eq!(entries[0].status, "conflict");
+}
+
+#[tokio::test]
+async fn opening_the_selected_checkout_returns_its_own_head_and_preserves_git_state() {
+    let selected = "vendor/space [lib]";
+    let (host, _source, child) = fixture("sub-open", selected, "library");
+    let head = child.commit("lib.txt", "local commit\n", "child commit");
+    child.git(&["checkout", "--detach", &head]);
+    child.write("lib.txt", "unsaved child edit\n");
+    let head_path = |repo: &TestRepo, name: &str| {
+        std::path::PathBuf::from(repo.git(&["rev-parse", "--absolute-git-dir"])).join(name)
+    };
+    let files = [
+        host.path.join(".gitmodules"),
+        host.path.join("app.txt"),
+        child.path.join(".git"),
+        child.path.join("lib.txt"),
+        head_path(&host, "config"),
+        head_path(&child, "config"),
+        head_path(&host, "index"),
+        head_path(&child, "index"),
+        head_path(&host, "HEAD"),
+        head_path(&child, "HEAD"),
+    ];
+    let read = || files.each_ref().map(|path| std::fs::read(path).unwrap());
+    let before = read();
+    let refs = |repo: &TestRepo| repo.git(&["show-ref", "--head"]);
+    let before_refs = [refs(&host), refs(&child)];
+
+    let opened = common::json(
+        &git::open_submodule_repo(host.s(), selected.into(), None)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        opened["path"],
+        child.path.canonicalize().unwrap().to_str().unwrap()
+    );
+    assert_eq!(opened["branch"], "HEAD");
+    assert_eq!(opened["commits"][0]["hash"], head);
+    assert_eq!(before, read());
+    assert_eq!(before_refs, [refs(&host), refs(&child)]);
+}
+
+#[tokio::test]
+async fn opening_requires_an_exact_registered_and_initialized_checkout() {
+    let selected = "vendor/lib";
+    let (host, _source, child) = fixture("sub-open-invalid", selected, "library");
+    let other = TestRepo::new("sub-open-unregistered");
+    other.commit("other.txt", "other\n", "other");
+    host.git(&["clone", "-q", "--", &other.file_url(), "embedded"]);
+    for path in [
+        "",
+        ".",
+        "../outside",
+        "/outside",
+        "vendor",
+        "vendor/./lib",
+        "vendor/lib/",
+        "vendor/lib/lib.txt",
+        "embedded",
+        ".git/modules/library",
+    ] {
+        assert!(
+            git::open_submodule_repo(host.s(), path.into(), None)
+                .await
+                .is_err(),
+            "{path:?}"
+        );
+    }
+    assert!(git::open_submodule_repo(
+        host.path.join("vendor").to_string_lossy().into(),
+        "lib".into(),
+        None
+    )
+    .await
+    .is_err());
+
+    let gitfile = child.path.join(".git");
+    let initialized = std::fs::read(&gitfile).unwrap();
+    std::fs::write(&gitfile, "gitdir: /missing/submodule-metadata\n").unwrap();
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(
+        error.contains("git repository") || error.contains("does not point to a valid repository"),
+        "{error}"
+    );
+    std::fs::write(&gitfile, "gitdir: ../../.git\n").unwrap();
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.unsafePath"), "{error}");
+    std::fs::write(&gitfile, initialized).unwrap();
+    child.git(&["config", "core.worktree", &other.s()]);
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.unsafePath"), "{error}");
+
+    std::fs::remove_file(&gitfile).unwrap();
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.notInitialized"), "{error}");
+    assert!(!gitfile.exists());
+    assert_eq!(child.read("lib.txt"), "library\n");
+    std::fs::remove_dir_all(&child.path).unwrap();
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.notInitialized"), "{error}");
+    assert!(!child.path.exists());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn opening_rejects_symlinks_within_and_outside_the_parent_checkout() {
+    use std::os::unix::fs::symlink;
+    let selected = "vendor/lib";
+    let (host, outside, child) = fixture("sub-open-links", selected, "library");
+    let relocated = host.path.join("relocated");
+    std::fs::rename(&child.path, &relocated).unwrap();
+    for target in [&outside.path, &relocated] {
+        symlink(target, &child.path).unwrap();
+        assert!(git::open_submodule_repo(host.s(), selected.into(), None)
+            .await
+            .is_err());
+        std::fs::remove_file(&child.path).unwrap();
+    }
+    let vendor = child.path.parent().unwrap();
+    std::fs::remove_dir(vendor).unwrap();
+    std::fs::create_dir(host.path.join("alias-target")).unwrap();
+    std::fs::rename(relocated, host.path.join("alias-target/lib")).unwrap();
+    symlink(host.path.join("alias-target"), vendor).unwrap();
+    assert!(git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .is_err());
+    std::fs::remove_file(vendor).unwrap();
+    symlink(outside.path.parent().unwrap(), vendor).unwrap();
+    assert!(git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .is_err());
+}
+
+#[cfg(feature = "headless")]
+#[tokio::test]
+async fn open_submodule_ipc_requires_an_explicit_path_and_a_shared_parent() {
+    use l8git_lib::server::{
+        dispatch,
+        state::{ConnectionHandle, DispatchCtx, ServerState, OUTBOX_CAPACITY},
+    };
+    use serde_json::json;
+    use std::sync::Arc;
+
+    let (host, outside, child) = fixture("sub-open-ipc", "vendor/lib", "library");
+    let state = ServerState::new("test".into(), [0; 32], vec![host.path.clone()]);
+    let (tx, _rx) = tokio::sync::mpsc::channel(OUTBOX_CAPACITY);
+    let command = "open_submodule_repo";
+    let ctx = DispatchCtx::new(
+        state.clone(),
+        Arc::new(ConnectionHandle::new(1, tx)),
+        1,
+        command,
+    );
+    let args =
+        json!({ "path": host.s(), "submodulePath": "vendor/lib", "hideT3Checkpoints": false });
+    state.ensure_command_allowed(command, &args).unwrap();
+    let opened = dispatch::dispatch(command, args, &ctx).await.unwrap();
+    assert_eq!(
+        opened["path"],
+        child.path.canonicalize().unwrap().to_str().unwrap()
+    );
+    assert_eq!(opened["commits"][0]["hash"], child.head());
+    for args in [
+        json!({ "path": host.s() }),
+        json!({ "path": host.s(), "submodulePath": null }),
+        json!({ "path": host.s(), "submodulePath": ["vendor/lib"] }),
+        json!({ "path": host.s(), "submodulePath": outside.s() }),
+        json!({ "path": host.s(), "submodulePath": "../outside" }),
+    ] {
+        assert!(dispatch::dispatch(command, args, &ctx).await.is_err());
+    }
+    assert!(state
+        .ensure_command_allowed(
+            command,
+            &json!({ "path": outside.s(), "submodulePath": "vendor/lib" })
+        )
+        .is_err());
 }

@@ -103,8 +103,28 @@ pub async fn open_repo(
     path: String,
     hide_t3_checkpoints: Option<bool>,
 ) -> Result<RepoInfo, String> {
+    open_repo_target(path, hide_t3_checkpoints, None).await
+}
+
+#[tauri::command]
+pub async fn open_submodule_repo(
+    path: String,
+    submodule_path: String,
+    hide_t3_checkpoints: Option<bool>,
+) -> Result<RepoInfo, String> {
+    open_repo_target(path, hide_t3_checkpoints, Some(submodule_path)).await
+}
+
+async fn open_repo_target(
+    path: String,
+    hide_t3_checkpoints: Option<bool>,
+    submodule_path: Option<String>,
+) -> Result<RepoInfo, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(&path);
+        let mut repo = PathBuf::from(path);
+        if let Some(selected) = submodule_path {
+            repo = submodules::submodule_repo_path(&repo, &selected)?;
+        }
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
 
         // One rev-parse answers both "is this a repository" and "what is HEAD".
@@ -126,7 +146,7 @@ pub async fn open_repo(
             }
             Err(_) => {
                 run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
-                    .map_err(|_| format!("'{path}' is not a git repository"))?;
+                    .map_err(|_| format!("'{}' is not a git repository", repo.display()))?;
                 ("HEAD".to_string(), false)
             }
         };

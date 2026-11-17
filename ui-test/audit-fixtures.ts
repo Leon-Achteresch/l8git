@@ -1,10 +1,12 @@
 import { useOnboardingPrefs } from '@/lib/onboarding-prefs';
-import { useRepoStore, type StatusEntry, type Commit } from '@/lib/repo-store';
+import { useRepoStore, type StatusEntry, type Commit, type SubmoduleEntry } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import { useWorkspaceStore } from '@/lib/workspace-store';
 import { useCommitPrefs } from '@/lib/commit-prefs';
 import type { HistoryFilter } from '@/lib/ipc/git';
 export const FIXTURE_PATH = '/tmp/l8git-audit-fixture';
+const SUBMODULE_PATH = 'vendor/space [lib]';
+const CHILD_REPO_PATH = `/private${FIXTURE_PATH}/${SUBMODULE_PATH}`;
 export const PATCH = 'diff --git a/example.txt b/example.txt\nindex 1111111..2222222 100644\n--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old content\n+reviewed content\n';
 export type TestInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 type SplitFixtureControl = { indexRevision: number; worktreeRevision: number; failGroup: number | null;
@@ -35,6 +37,15 @@ export function seedAuditFixture(scene: string) {
   }
   let entries: StatusEntry[] = [{ path: 'example.txt', index_status: scene === 'conflict' ? 'U' : ' ', worktree_status: scene === 'conflict' ? 'U' : 'M', staged: false, unstaged: true, untracked: false, additions_staged: 0, deletions_staged: 0, additions_unstaged: 1, deletions_unstaged: 1, binary: false, embedded_repo: false }];
   const base: Commit = { hash: 'a'.repeat(40), short_hash: 'aaaaaaa', subject: 'Initial fixture', author: 'Fixture', email: 'fixture@example.com', date: '2026-09-05T12:00:00Z', body: '', parents: [], tags: [], author_avatar: null };
+  const submodule: SubmoduleEntry = {
+    name: 'Library', path: SUBMODULE_PATH, url: 'https://example.com/library.git',
+    commit: base.hash, status: 'modified', branch: null, description: null,
+    remote_commit: null, behind_count: null, local_changes: 1, is_detached: true, gitmodules_raw: '',
+  };
+  const uninitialized: SubmoduleEntry = {
+    ...submodule, name: 'Missing dependency', path: 'vendor/missing', status: 'uninitialized',
+    local_changes: null, is_detached: false,
+  };
   let commits = [base];
   const stagedHunks = new Set<number>();
   const worktreeHunks = new Set([0, 1, 2]);
@@ -108,6 +119,14 @@ export function seedAuditFixture(scene: string) {
     switch (command) {
       case 'remote_status': return { running: false, managed: false, port: 9418, roots: [], binary: null, configPath: null };
       case 'open_repo': return info(String(args?.path ?? FIXTURE_PATH));
+      case 'list_submodules':
+        return scene === 'submodules' && args?.path === FIXTURE_PATH ? [submodule, uninitialized] : [];
+      case 'get_submodule_commits': return [];
+      case 'open_submodule_repo':
+        if (scene === 'submodules' && args?.path === FIXTURE_PATH && args?.submodulePath === SUBMODULE_PATH) {
+          return { ...info(CHILD_REPO_PATH), branch: 'HEAD' };
+        }
+        throw Error('Unexpected submodule selection');
       case 'repo_log_page': return commits.slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));
       case 'repo_history_page': {
         const filter = args?.filter as HistoryFilter;

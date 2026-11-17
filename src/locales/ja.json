@@ -1747,6 +1747,8 @@
     "detailPinnedSuperRepo": "親リポジトリで固定",
     "detailRemoteHead": "リモートの HEAD",
     "commitsBehindShort": "↓{{count}} コミット",
+    "detailOpenRepo": "リポジトリを開く",
+    "detailOpeningRepo": "リポジトリを開いています…",
     "detailPull": "プル",
     "detailTerminal": "ターミナル",
     "detailGitmodules": ".Gitmodules",
@@ -5664,6 +5666,11 @@
       "dirMissing": "設定フォルダーが見つかりません。",
       "writeFailed": "設定を書き込めませんでした: {{error}}",
       "homeMissing": "ホームフォルダーが見つかりません。"
+    },
+    "submodule": {
+      "notInitialized": "リポジトリを開く前にこのサブモジュールを初期化してください。",
+      "notRegistered": "このパスはサブモジュールとして登録されていません。",
+      "unsafePath": "選択したパスは安全なサブモジュールの作業ツリーを指していません。"
     },
     "git": {
       "startFailed": "Git を起動できませんでした: {{error}}",

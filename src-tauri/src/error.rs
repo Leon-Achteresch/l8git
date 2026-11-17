@@ -86,6 +86,9 @@ error_codes! {
     GitBranchExists = "git.branchExists" => "A branch named {branch} already exists.",
     GitRunFailed = "git.runFailed" => "Could not run Git: {error}",
     GitCommandFailed = "git.commandFailed" => "The Git command failed.",
+    SubmoduleNotInitialized = "submodule.notInitialized" => "Initialize this submodule before opening its repository.",
+    SubmoduleNotRegistered = "submodule.notRegistered" => "This path is no longer registered as a submodule.",
+    SubmoduleUnsafePath = "submodule.unsafePath" => "The selected path does not lead to a safe submodule worktree.",
 
     HookUnknownName = "hooks.unknownName" => "Unknown hook name: {name}",
     HookReadFailed = "hooks.readFailed" => "Could not read the hook: {error}",

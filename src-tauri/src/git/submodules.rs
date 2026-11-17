@@ -3,7 +3,12 @@ use super::{
     validate_branch_name, WorktreePathGuard,
 };
 use serde::Serialize;
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::ErrorKind,
+    path::{Path, PathBuf},
+};
 
 #[derive(Serialize, Clone)]
 pub struct SubmoduleEntry {
@@ -214,24 +219,96 @@ struct SubmoduleExtra {
     description: Option<String>,
 }
 
+fn canonical_git_path(repo: &PathBuf, args: &[&str]) -> Result<PathBuf, String> {
+    let path = run_git(repo, args)?;
+    let path = path.strip_suffix('\n').unwrap_or(&path);
+    #[cfg(windows)]
+    let path = path.strip_suffix('\r').unwrap_or(path);
+    let path = Path::new(path);
+    if !path.is_absolute() {
+        return Err("Git returned a relative repository path".into());
+    }
+    path.canonicalize().map_err(|error| error.to_string())
+}
+
 fn submodule_is_initialized(sub_dir: &PathBuf) -> Result<bool, String> {
-    match std::fs::symlink_metadata(sub_dir.join(".git")) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+    match fs::symlink_metadata(sub_dir.join(".git")) {
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(error.to_string()),
         _ => {}
     }
-    let root = run_git(sub_dir, &["rev-parse", "--show-toplevel"])?;
-    let root = root.strip_suffix('\n').unwrap_or(&root);
-    #[cfg(windows)]
-    let root = root.strip_suffix('\r').unwrap_or(root);
-    let root = PathBuf::from(root)
-        .canonicalize()
-        .map_err(|error| error.to_string())?;
+    let root = canonical_git_path(sub_dir, &["rev-parse", "--show-toplevel"])?;
     let expected = sub_dir.canonicalize().map_err(|error| error.to_string())?;
     if root != expected {
         return Err(format!("__INVALID_WORKTREE_PATH__|{}", sub_dir.display()));
     }
     Ok(true)
+}
+
+/// Resolve one exact index gitlink for opening in the app.
+pub(super) fn submodule_repo_path(repo: &PathBuf, selected: &str) -> Result<PathBuf, String> {
+    let invalid = || crate::coded!(SubmoduleUnsafePath);
+    let uninitialized = || crate::coded!(SubmoduleNotInitialized);
+    let guard = WorktreePathGuard::new(repo)?;
+    if guard.cwd != guard.root || super::file_reads::file_path(selected).as_deref() != Ok(selected)
+    {
+        return Err(invalid());
+    }
+    // Pathspecs can match descendants. Require the exact path and gitlink mode.
+    let entries = run_git(
+        &guard.root,
+        &[
+            "--literal-pathspecs",
+            "ls-files",
+            "--stage",
+            "-z",
+            "--",
+            selected,
+        ],
+    )?;
+    if !entries.split_terminator('\0').any(|record| {
+        record
+            .split_once('\t')
+            .is_some_and(|(header, path)| path == selected && header.starts_with("160000 "))
+    }) {
+        return Err(crate::coded!(SubmoduleNotRegistered));
+    }
+
+    // Reject links along the selected route, including redirects within the parent.
+    let mut component_path = guard.root.clone();
+    for component in Path::new(selected).components() {
+        component_path.push(component);
+        match fs::symlink_metadata(&component_path) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+            Ok(_) => return Err(invalid()),
+            Err(error) if error.kind() == ErrorKind::NotFound => return Err(uninitialized()),
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    let child = component_path
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    if child.strip_prefix(&guard.root).ok() != Some(Path::new(selected)) || child.to_str().is_none()
+    {
+        return Err(invalid());
+    }
+    match fs::symlink_metadata(child.join(".git")) {
+        Ok(metadata) if metadata.is_file() || metadata.is_dir() => {}
+        Ok(_) => return Err(invalid()),
+        Err(error) if error.kind() == ErrorKind::NotFound => return Err(uninitialized()),
+        Err(error) => return Err(error.to_string()),
+    }
+    if canonical_git_path(&child, &["rev-parse", "--show-toplevel"])? != child {
+        return Err(invalid());
+    }
+    // A gitfile can point at another worktree of the parent repository.
+    let common_dir_args = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
+    if canonical_git_path(&child, &common_dir_args)?
+        == canonical_git_path(&guard.root, &common_dir_args)?
+    {
+        return Err(invalid());
+    }
+    Ok(child)
 }
 
 fn get_submodule_extra(sub_dir: &PathBuf) -> Result<Option<SubmoduleExtra>, String> {

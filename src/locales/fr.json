@@ -1747,6 +1747,8 @@
     "detailPinnedSuperRepo": "Épinglé dans le dépôt parent",
     "detailRemoteHead": "Head distante",
     "commitsBehindShort": "↓{{count}} commits",
+    "detailOpenRepo": "Ouvrir le dépôt",
+    "detailOpeningRepo": "Ouverture du dépôt…",
     "detailPull": "Pull",
     "detailTerminal": "Terminal",
     "detailGitmodules": ".Gitmodules",
@@ -5664,6 +5666,11 @@
       "dirMissing": "Aucun dossier de configuration trouvé.",
       "writeFailed": "Impossible d’écrire la configuration : {{error}}",
       "homeMissing": "Aucun dossier personnel trouvé."
+    },
+    "submodule": {
+      "notInitialized": "Initialisez ce sous-module avant d’ouvrir son dépôt.",
+      "notRegistered": "Ce chemin n’est plus enregistré comme sous-module.",
+      "unsafePath": "Le chemin sélectionné ne mène pas à un arbre de travail sûr pour le sous-module."
     },
     "git": {
       "startFailed": "Impossible de démarrer Git : {{error}}",

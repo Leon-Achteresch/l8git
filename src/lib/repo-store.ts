@@ -372,7 +372,7 @@ type RepoState = {
   getGitHookContent: (path: string, hookName: string) => Promise<string>;
   runGitHook: (path: string, hookName: string) => Promise<HookRunResult>;
   loadPRs: (path: string, force?: boolean) => Promise<void>;
-  addRepo: (path: string) => Promise<string | null>;
+  addRepo: (path: string, submodule?: { submodulePath: string; signal: AbortSignal }) => Promise<string | null>;
   removeRepo: (path: string) => void;
   reorderRepos: (fromIndex: number, toIndex: number) => void;
   setActive: (path: string | null) => void;
@@ -824,13 +824,16 @@ export const useRepoStore = create<RepoState>()(
         }
       },
 
-      async addRepo(path) {
-        set(s => ({ loading: { ...s.loading, [path]: true } }));
+      async addRepo(path, submodule) {
+        if (submodule && (submodule.signal.aborted || get().activePath !== path)) return null;
+        if (!submodule) set(s => ({ loading: { ...s.loading, [path]: true } }));
         try {
-          const opened = await invoke<RepoInfo>('open_repo', {
+          const opened = await invoke<RepoInfo>(submodule ? 'open_submodule_repo' : 'open_repo', {
             path,
             hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
+            ...(submodule && { submodulePath: submodule.submodulePath }),
           });
+          if (submodule && (submodule.signal.aborted || get().activePath !== path)) return null;
           useRecentRepos.getState().remember(opened.path);
           enterRepoWorkspace(opened.path, get().activePath);
           useWorkspaceStore.getState().addRepoToActiveWorkspace(opened.path);
@@ -843,7 +846,7 @@ export const useRepoStore = create<RepoState>()(
               paths,
               activePath: opened.path,
               repos: { ...s.repos, [opened.path]: opened },
-              loading: restLoad,
+              loading: submodule ? s.loading : restLoad,
             };
           });
           scheduleRemoteCommitAvatars(opened.path, opened.commits);
@@ -853,6 +856,7 @@ export const useRepoStore = create<RepoState>()(
           await get().reloadStashes(opened.path);
           return opened.path;
         } catch (e) {
+          if (submodule) throw e;
           const msg = String(e);
           toastError(msg);
           set(s => ({

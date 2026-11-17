@@ -1747,6 +1747,8 @@
     "detailPinnedSuperRepo": "Pinned in super-repo",
     "detailRemoteHead": "Remote head",
     "commitsBehindShort": "↓{{count}} commits",
+    "detailOpenRepo": "Open repository",
+    "detailOpeningRepo": "Opening repository…",
     "detailPull": "Pull",
     "detailTerminal": "Terminal",
     "detailGitmodules": ".Gitmodules",
@@ -5664,6 +5666,11 @@
       "dirMissing": "No configuration folder was found.",
       "writeFailed": "Could not write the configuration: {{error}}",
       "homeMissing": "No home folder was found."
+    },
+    "submodule": {
+      "notInitialized": "Initialize this submodule before opening its repository.",
+      "notRegistered": "This path is no longer registered as a submodule.",
+      "unsafePath": "The selected path does not lead to a safe submodule worktree."
     },
     "git": {
       "startFailed": "Could not start Git: {{error}}",
