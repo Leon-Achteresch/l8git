@@ -10,6 +10,23 @@ use std::{
     path::{Path, PathBuf},
 };
 
+fn local_git_command() -> std::process::Command {
+    let mut command = crate::cmd::git_command();
+    command
+        .env("GIT_NO_LAZY_FETCH", "1")
+        // Older Git versions may attempt lazy fetch despite the flag above.
+        .env("GIT_ALLOW_PROTOCOL", "")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_NO_REPLACE_OBJECTS", "1")
+        .args(["-c", "core.fsmonitor=false"]);
+    command
+}
+
+fn local_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
+    super::run_git_command(local_git_command(), repo, args)
+}
+
 #[derive(Serialize, Clone)]
 pub struct SubmoduleEntry {
     pub name: String,
@@ -220,7 +237,7 @@ struct SubmoduleExtra {
 }
 
 fn canonical_git_path(repo: &PathBuf, args: &[&str]) -> Result<PathBuf, String> {
-    let path = run_git(repo, args)?;
+    let path = local_git(repo, args)?;
     let path = path.strip_suffix('\n').unwrap_or(&path);
     #[cfg(windows)]
     let path = path.strip_suffix('\r').unwrap_or(path);
@@ -245,7 +262,7 @@ fn submodule_is_initialized(sub_dir: &PathBuf) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Resolve one exact index gitlink for opening in the app.
+/// Resolve one exact index gitlink to its own local checkout.
 pub(super) fn submodule_repo_path(repo: &PathBuf, selected: &str) -> Result<PathBuf, String> {
     let invalid = || crate::coded!(SubmoduleUnsafePath);
     let uninitialized = || crate::coded!(SubmoduleNotInitialized);
@@ -255,7 +272,7 @@ pub(super) fn submodule_repo_path(repo: &PathBuf, selected: &str) -> Result<Path
         return Err(invalid());
     }
     // Pathspecs can match descendants. Require the exact path and gitlink mode.
-    let entries = run_git(
+    let entries = local_git(
         &guard.root,
         &[
             "--literal-pathspecs",
@@ -309,6 +326,107 @@ pub(super) fn submodule_repo_path(repo: &PathBuf, selected: &str) -> Result<Path
         return Err(invalid());
     }
     Ok(child)
+}
+
+#[derive(Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum SubmodulePinDiff {
+    SamePin,
+    Diff { patch: String, truncated: bool },
+}
+
+fn local_object_error(error: String) -> String {
+    if error.is_empty() {
+        return crate::coded!(GitCommandFailed);
+    }
+    if error.lines().any(|line| {
+        line.contains("could not get object info")
+            || line.contains("unable to read ")
+            || line.contains("Could not read ")
+            || line.contains("bad tree object")
+            || line.contains("from promisor remote")
+            || line.contains("lazy fetching disabled")
+    }) {
+        crate::coded!(SubmoduleObjectsUnavailable, error = error)
+    } else {
+        error
+    }
+}
+
+#[tauri::command]
+pub async fn git_submodule_pin_diff(
+    path: String,
+    submodule_path: String,
+    before: String,
+    after: String,
+) -> Result<SubmodulePinDiff, String> {
+    spawn_git(move || {
+        let is_oid = |pin: &str| {
+            matches!(pin.len(), 40 | 64) && pin.bytes().all(|byte| byte.is_ascii_hexdigit())
+        };
+        if !is_oid(&before) || !is_oid(&after) {
+            return Err(crate::coded!(SubmoduleInvalidPin));
+        }
+        let child = submodule_repo_path(&PathBuf::from(path), &submodule_path)?;
+        let format = local_git(&child, &["rev-parse", "--show-object-format"])?;
+        let oid_len = match format.trim() {
+            "sha1" => 40,
+            "sha256" => 64,
+            _ => return Err(crate::coded!(SubmoduleInvalidPin)),
+        };
+        if before.len() != oid_len || after.len() != oid_len {
+            return Err(crate::coded!(SubmoduleInvalidPin));
+        }
+        if before.eq_ignore_ascii_case(&after) {
+            return Ok(SubmodulePinDiff::SamePin);
+        }
+        let before = before.to_ascii_lowercase();
+        let after = after.to_ascii_lowercase();
+        for pin in [&before, &after] {
+            let kind = local_git(&child, &["cat-file", "-t", pin]).map_err(local_object_error)?;
+            if kind.trim() != "commit" {
+                return Err(crate::coded!(SubmoduleInvalidPin));
+            }
+        }
+        let mut command = local_git_command();
+        // An empty index path prevents diff-tree from substituting the
+        // checked-out copy for a blob that should come from the object store.
+        command.env("GIT_INDEX_FILE", "");
+        let output = crate::diff_preview::read_diff_output(
+            command,
+            &child,
+            &[
+                "diff-tree",
+                "-r",
+                "-p",
+                "--no-commit-id",
+                "--no-color",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--no-renames",
+                "--submodule=short",
+                "--src-prefix=a/",
+                "--dst-prefix=b/",
+                &before,
+                &after,
+                "--",
+            ],
+        )
+        .map_err(local_object_error)?;
+        // Check diagnostics as well as the exit status before displaying a patch.
+        if output.stderr.lines().any(|line| {
+            line.starts_with("error: ")
+                || line.starts_with("fatal: ")
+                || line.contains("lazy fetching disabled")
+        }) {
+            return Err(local_object_error(output.stderr));
+        }
+        Ok(SubmodulePinDiff::Diff {
+            patch: output.patch,
+            truncated: output.truncated,
+        })
+    })
+    .await
 }
 
 fn get_submodule_extra(sub_dir: &PathBuf) -> Result<Option<SubmoduleExtra>, String> {

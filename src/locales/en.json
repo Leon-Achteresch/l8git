@@ -1722,6 +1722,9 @@
     "detailActionsHeading": "Actions"
   },
   "submodule": {
+    "comparePins": "Compare submodule pins",
+    "samePin": "Both sides point to the same submodule commit.",
+    "sameContents": "These commits have identical file contents.",
     "none": "No submodules",
     "noCommits": "No commits available",
     "lastCommits": "Latest commits in submodule",
@@ -5668,6 +5671,8 @@
       "homeMissing": "No home folder was found."
     },
     "submodule": {
+      "invalidPin": "Both submodule pins must be full commit IDs.",
+      "objectsUnavailable": "Required objects are missing or unreadable in the local submodule. {{error}}",
       "notInitialized": "Initialize this submodule before opening its repository.",
       "notRegistered": "This path is no longer registered as a submodule.",
       "unsafePath": "The selected path does not lead to a safe submodule worktree."

@@ -7,6 +7,11 @@ import type { HistoryFilter } from '@/lib/ipc/git';
 export const FIXTURE_PATH = '/tmp/l8git-audit-fixture';
 const SUBMODULE_PATH = 'vendor/space [lib]';
 const CHILD_REPO_PATH = `/private${FIXTURE_PATH}/${SUBMODULE_PATH}`;
+const PIN_BEFORE = '1'.repeat(40);
+const PIN_INDEX = '2'.repeat(40);
+const PIN_CHECKOUT = '3'.repeat(40);
+const pinPatch = (path: string, before: string, after: string, dirty = false) =>
+  `diff --git a/${path} b/${path}\n${before === after ? '' : `index ${before.slice(0, 7)}..${after.slice(0, 7)} 160000\n`}--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-Subproject commit ${before}\n+Subproject commit ${after}${dirty ? '-dirty' : ''}\n`;
 export const PATCH = 'diff --git a/example.txt b/example.txt\nindex 1111111..2222222 100644\n--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old content\n+reviewed content\n';
 export type TestInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 type SplitFixtureControl = { indexRevision: number; worktreeRevision: number; failGroup: number | null;
@@ -65,6 +70,13 @@ export function seedAuditFixture(scene: string) {
   if (hunkFixture) updateHunkStatus();
   if (scene === 'partial-staging') {
     entries = ['first.txt', 'second.txt', 'third.txt'].map(path => ({ ...entries[0], path, index_status: 'M', worktree_status: 'M', staged: true, unstaged: true, additions_staged: 1, deletions_staged: 1 }));
+  }
+  if (scene === 'submodule-pin-diff') {
+    entries = [
+      { ...entries[0], path: SUBMODULE_PATH, index_status: 'M', staged: true, additions_staged: 1, deletions_staged: 1 },
+      { ...entries[0], path: 'vendor/dirty' },
+      entries[0],
+    ];
   }
   if (scene === 'recovery') {
     entries = [];
@@ -127,6 +139,14 @@ export function seedAuditFixture(scene: string) {
           return { ...info(CHILD_REPO_PATH), branch: 'HEAD' };
         }
         throw Error('Unexpected submodule selection');
+      case 'git_submodule_pin_diff':
+        if (scene !== 'submodule-pin-diff' || args?.path !== FIXTURE_PATH) throw Error('Unexpected comparison');
+        if (args.submodulePath === 'vendor/dirty' && args.before === PIN_INDEX && args.after === PIN_INDEX) return { status: 'samePin' };
+        if (args.submodulePath === SUBMODULE_PATH && (
+          (args.before === PIN_BEFORE && args.after === PIN_INDEX) ||
+          (args.before === PIN_INDEX && args.after === PIN_CHECKOUT)
+        )) return { status: 'diff', patch: PATCH, truncated: false };
+        throw Error('Unexpected pin pair');
       case 'repo_log_page': return commits.slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));
       case 'repo_history_page': {
         const filter = args?.filter as HistoryFilter;
@@ -161,6 +181,15 @@ export function seedAuditFixture(scene: string) {
         if (hunkFixture) return { staged: hunkDiff(stagedHunks), unstaged: hunkDiff(unstagedHunks()), untracked_plain: null,
           is_binary: false, fingerprint: args?.includeFingerprint ? await fileFingerprint(String(args?.file)) : null };
         const entry = entries.find(entry => entry.path === args?.file) ?? entries[0];
+        if (scene === 'submodule-pin-diff' && args?.file === SUBMODULE_PATH) return {
+          staged: pinPatch(SUBMODULE_PATH, PIN_BEFORE, PIN_INDEX),
+          unstaged: pinPatch(SUBMODULE_PATH, PIN_INDEX, PIN_CHECKOUT, true),
+          untracked_plain: null, is_binary: false,
+        };
+        if (scene === 'submodule-pin-diff' && args?.file === 'vendor/dirty') return {
+          staged: null, unstaged: pinPatch('vendor/dirty', PIN_INDEX, PIN_INDEX, true),
+          untracked_plain: null, is_binary: false,
+        };
         return { staged: entry?.staged ? PATCH : null, unstaged: entry?.unstaged ? PATCH : null, untracked_plain: null, is_binary: false, fingerprint: args?.includeFingerprint ? await fileFingerprint(String(args?.file)) : null };
       }
       case 'git_apply_reviewed_hunks': {

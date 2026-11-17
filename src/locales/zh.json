@@ -1722,6 +1722,9 @@
     "detailActionsHeading": "操作"
   },
   "submodule": {
+    "comparePins": "比较子模块固定提交",
+    "samePin": "两端指向同一个子模块提交。",
+    "sameContents": "这两个提交的文件内容相同。",
     "none": "没有子模块",
     "noCommits": "没有可用的提交",
     "lastCommits": "子模块中的最新提交",
@@ -5668,6 +5671,8 @@
       "homeMissing": "未找到主文件夹。"
     },
     "submodule": {
+      "invalidPin": "两个子模块固定提交都必须使用完整的提交 ID。",
+      "objectsUnavailable": "本地子模块缺少所需对象，或对象无法读取。{{error}}",
       "notInitialized": "请先初始化此子模块，再打开其仓库。",
       "notRegistered": "此路径已不再注册为子模块。",
       "unsafePath": "所选路径未指向安全的子模块工作树。"

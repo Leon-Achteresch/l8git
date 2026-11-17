@@ -98,8 +98,34 @@ fn preview(repo: PathBuf, request: DiffPreviewRequest) -> Result<DiffPreviewResp
     args.extend(["--".into(), file]);
     if let Some(previous) = previous { args.push(previous); }
     let borrowed: Vec<&str> = args.iter().map(String::as_str).collect();
-    let span = crate::cmdlog::start(&repo.to_string_lossy(), &borrowed);
-    let mut child = crate::cmd::git_command().arg("-C").arg(&repo).args(&args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|error| error.to_string())?;
+    let BoundedDiffOutput { patch: output, truncated, .. } =
+        read_diff_output(crate::cmd::git_command(), &repo, &borrowed)?;
+    let (patch, moved_lines) = if request.color_moved { strip_colors(&output) } else { (output, vec![]) };
+    let binary = patch.lines().any(|line| line.starts_with("Binary files ") || line.starts_with("GIT binary patch"));
+    Ok(DiffPreviewResponse { patch, moved_lines, truncated, binary, base_sha, head_sha })
+}
+
+pub(crate) struct BoundedDiffOutput {
+    pub patch: String,
+    pub truncated: bool,
+    pub stderr: String,
+}
+
+pub(crate) fn read_diff_output(
+    mut command: std::process::Command,
+    repo: &std::path::Path,
+    args: &[&str],
+) -> Result<BoundedDiffOutput, String> {
+    let span = crate::cmdlog::start(&repo.to_string_lossy(), args);
+    let mut child = command
+        .arg("-C")
+        .arg(repo)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| error.to_string())?;
     let mut stdout = child.stdout.take().ok_or("Missing diff stdout")?;
     let mut stderr = child.stderr.take().ok_or("Missing diff stderr")?;
     let errors = std::thread::spawn(move || {
@@ -112,18 +138,27 @@ fn preview(repo: PathBuf, request: DiffPreviewRequest) -> Result<DiffPreviewResp
     let read = (&mut stdout).take(LIMIT as u64 + 1).read_to_end(&mut bytes);
     let truncated = bytes.len() > LIMIT;
     drop(stdout);
-    if truncated || read.is_err() { let _ = child.kill(); }
+    if truncated || read.is_err() {
+        let _ = child.kill();
+    }
     let status = child.wait().map_err(|error| error.to_string())?;
     let errors = errors.join().unwrap_or_default();
+    let stderr = String::from_utf8_lossy(&errors).trim().to_owned();
     span.finish(status.success() || truncated);
     read.map_err(|error| error.to_string())?;
-    if !status.success() && !truncated { return Err(String::from_utf8_lossy(&errors).trim().into()); }
+    if !status.success() && !truncated {
+        return Err(stderr);
+    }
     bytes.truncate(LIMIT);
     let mut output = String::from_utf8_lossy(&bytes).to_string();
-    if truncated { output.truncate(output.rfind('\n').map(|index| index + 1).unwrap_or(0)); }
-    let (patch, moved_lines) = if request.color_moved { strip_colors(&output) } else { (output, vec![]) };
-    let binary = patch.lines().any(|line| line.starts_with("Binary files ") || line.starts_with("GIT binary patch"));
-    Ok(DiffPreviewResponse { patch, moved_lines, truncated, binary, base_sha, head_sha })
+    if truncated {
+        output.truncate(output.rfind('\n').map(|index| index + 1).unwrap_or(0));
+    }
+    Ok(BoundedDiffOutput {
+        patch: output,
+        truncated,
+        stderr,
+    })
 }
 
 #[tauri::command]

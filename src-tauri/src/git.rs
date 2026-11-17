@@ -77,8 +77,16 @@ pub struct GitRemote {
 }
 
 pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
+    run_git_command(git_command(), repo, args)
+}
+
+fn run_git_command(
+    mut command: std::process::Command,
+    repo: &PathBuf,
+    args: &[&str],
+) -> Result<String, String> {
     let span = cmdlog::start(&repo.to_string_lossy(), args);
-    let output = match git_command().arg("-C").arg(repo).args(args).output() {
+    let output = match command.arg("-C").arg(repo).args(args).output() {
         Ok(output) => output,
         Err(e) => {
             span.finish(false);

@@ -1722,6 +1722,9 @@
     "detailActionsHeading": "Acciones"
   },
   "submodule": {
+    "comparePins": "Comparar referencias del submódulo",
+    "samePin": "Ambos lados apuntan al mismo commit del submódulo.",
+    "sameContents": "El contenido de los archivos es idéntico en ambos commits.",
     "none": "No hay submódulos",
     "noCommits": "No hay commits disponibles",
     "lastCommits": "Últimos commits del submódulo",
@@ -5668,6 +5671,8 @@
       "homeMissing": "No se encontró la carpeta de inicio."
     },
     "submodule": {
+      "invalidPin": "Ambas referencias del submódulo deben ser identificadores completos de commits.",
+      "objectsUnavailable": "Faltan objetos necesarios en el submódulo local o no se pueden leer. {{error}}",
       "notInitialized": "Inicializa este submódulo antes de abrir su repositorio.",
       "notRegistered": "Esta ruta ya no está registrada como submódulo.",
       "unsafePath": "La ruta seleccionada no lleva a un árbol de trabajo seguro del submódulo."

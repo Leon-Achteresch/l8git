@@ -1722,6 +1722,9 @@
     "detailActionsHeading": "Actions"
   },
   "submodule": {
+    "comparePins": "Comparer les références du sous-module",
+    "samePin": "Les deux côtés pointent vers le même commit du sous-module.",
+    "sameContents": "Le contenu des fichiers est identique dans les deux commits.",
     "none": "Aucun sous-module",
     "noCommits": "Aucun commit disponible",
     "lastCommits": "Derniers commits du sous-module",
@@ -5668,6 +5671,8 @@
       "homeMissing": "Aucun dossier personnel trouvé."
     },
     "submodule": {
+      "invalidPin": "Les deux références du sous-module doivent être des identifiants de commit complets.",
+      "objectsUnavailable": "Des objets nécessaires sont manquants ou illisibles dans le sous-module local. {{error}}",
       "notInitialized": "Initialisez ce sous-module avant d’ouvrir son dépôt.",
       "notRegistered": "Ce chemin n’est plus enregistré comme sous-module.",
       "unsafePath": "Le chemin sélectionné ne mène pas à un arbre de travail sûr pour le sous-module."

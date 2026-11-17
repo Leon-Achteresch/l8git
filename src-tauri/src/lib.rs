@@ -370,6 +370,7 @@ pub fn run() {
             git::repo_list_files,
             git::list_submodules,
             git::open_submodule_repo,
+            git::git_submodule_pin_diff,
             git::get_submodule_commits,
             git::git_submodule_init,
             git::git_submodule_update,

@@ -1722,6 +1722,9 @@
     "detailActionsHeading": "Ações"
   },
   "submodule": {
+    "comparePins": "Comparar referências do submódulo",
+    "samePin": "Os dois lados apontam para o mesmo commit do submódulo.",
+    "sameContents": "O conteúdo dos arquivos é idêntico nos dois commits.",
     "none": "Nenhum submódulo",
     "noCommits": "Nenhum commit disponível",
     "lastCommits": "Commits mais recentes no submódulo",
@@ -5668,6 +5671,8 @@
       "homeMissing": "Nenhuma pasta pessoal foi encontrada."
     },
     "submodule": {
+      "invalidPin": "As duas referências do submódulo devem ser IDs completos de commits.",
+      "objectsUnavailable": "Há objetos necessários ausentes ou ilegíveis no submódulo local. {{error}}",
       "notInitialized": "Inicialize este submódulo antes de abrir o repositório.",
       "notRegistered": "Este caminho não está mais registrado como submódulo.",
       "unsafePath": "O caminho selecionado não leva a uma árvore de trabalho segura do submódulo."

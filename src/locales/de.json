@@ -1722,6 +1722,9 @@
     "detailActionsHeading": "Aktionen"
   },
   "submodule": {
+    "comparePins": "Submodul-Pins vergleichen",
+    "samePin": "Beide Seiten verweisen auf denselben Submodul-Commit.",
+    "sameContents": "Die Dateiinhalte dieser Commits sind identisch.",
     "none": "Keine Submodule",
     "noCommits": "Keine Commits verfügbar",
     "lastCommits": "Letzte Commits im Submodul",
@@ -5668,6 +5671,8 @@
       "homeMissing": "Kein Home-Verzeichnis gefunden."
     },
     "submodule": {
+      "invalidPin": "Beide Submodul-Pins müssen vollständige Commit-IDs sein.",
+      "objectsUnavailable": "Benötigte Objekte fehlen im lokalen Submodul oder sind nicht lesbar. {{error}}",
       "notInitialized": "Initialisiere dieses Submodul, bevor du sein Repository öffnest.",
       "notRegistered": "Dieser Pfad ist nicht mehr als Submodul registriert.",
       "unsafePath": "Der gewählte Pfad führt zu keinem sicheren Submodul-Arbeitsverzeichnis."

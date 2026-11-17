@@ -89,6 +89,8 @@ error_codes! {
     SubmoduleNotInitialized = "submodule.notInitialized" => "Initialize this submodule before opening its repository.",
     SubmoduleNotRegistered = "submodule.notRegistered" => "This path is no longer registered as a submodule.",
     SubmoduleUnsafePath = "submodule.unsafePath" => "The selected path does not lead to a safe submodule worktree.",
+    SubmoduleInvalidPin = "submodule.invalidPin" => "Both submodule pins must be full commit IDs.",
+    SubmoduleObjectsUnavailable = "submodule.objectsUnavailable" => "Required objects are missing or unreadable in the local submodule. {error}",
 
     HookUnknownName = "hooks.unknownName" => "Unknown hook name: {name}",
     HookReadFailed = "hooks.readFailed" => "Could not read the hook: {error}",
