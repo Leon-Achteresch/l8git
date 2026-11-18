@@ -17,7 +17,10 @@ mod macos {
         borrow::Cow,
         collections::BTreeMap,
         path::PathBuf,
-        sync::{Arc, Mutex},
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc, Mutex,
+        },
     };
     use tauri::{
         ipc::{Invoke, InvokeBody},
@@ -119,6 +122,7 @@ mod macos {
             .to_owned();
         let staging = spec["kind"] == "staging";
         let worktree = spec["kind"] == "worktree";
+        let notes = spec["kind"] == "notes";
         let child = spec["child"].as_str().map(str::to_owned);
         if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
             return Err("Unexpected staging fixture layout".into());
@@ -138,7 +142,14 @@ mod macos {
         if !assets.join("index.html").is_file() {
             return Err("Build the frontend before native acceptance".into());
         }
-        let (identifier, title, script, result_tag) = if worktree {
+        let (identifier, title, script, result_tag) = if notes {
+            (
+                "com.leon.l8git.native-notes-acceptance",
+                "l8git Native Commit Notes Acceptance",
+                include_str!("../../scripts/native-notes-acceptance.js"),
+                "NATIVE_NOTES_RESULT",
+            )
+        } else if worktree {
             (
                 "com.leon.l8git.native-worktree-acceptance",
                 "l8git Native Worktree Acceptance",
@@ -215,6 +226,22 @@ mod macos {
             git::cherry_pick_state,
             git::list_worktrees,
         ];
+        let notes_ipc: fn(Invoke<Wry>) -> bool = tauri::generate_handler![
+            git::open_repo,
+            git::repo_status,
+            git::repo_full_status,
+            git::list_stashes,
+            git::list_git_remotes,
+            git::merge_state,
+            git::cherry_pick_state,
+            git::repo_history_page,
+            git::repo_log_page,
+            git::repo_commit_inspect,
+            git::repo_commit_file_diff,
+            git::commit_signature_status,
+            git::repo_commit_note,
+        ];
+        let notes_calls = AtomicUsize::new(0);
         let trace = Arc::new(WorktreeTrace::default());
         let invoke_trace = trace.clone();
         let app = tauri::Builder::default()
@@ -232,7 +259,24 @@ mod macos {
                     return true;
                 }
                 let path = body["path"].as_str();
-                if worktree {
+                if notes {
+                    let command = invoke.message.command();
+                    if command == "native_notes_count" {
+                        invoke.resolver.resolve(notes_calls.load(Ordering::Relaxed));
+                        return true;
+                    }
+                    if path == Some(parent.as_str())
+                        || (child.is_some() && path == child.as_deref())
+                    {
+                        if command == "repo_commit_note" {
+                            notes_calls.fetch_add(1, Ordering::Relaxed);
+                            let input =
+                                serde_json::json!({ "path": path, "commit": body["commit"] });
+                            println!("NATIVE_NOTES_IPC {input}");
+                        }
+                        return notes_ipc(invoke);
+                    }
+                } else if worktree {
                     let command = invoke.message.command();
                     if command == "native_worktree_phase" {
                         if let Some(phase @ ("add" | "remove" | "inactive-add")) =

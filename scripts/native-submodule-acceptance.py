@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import selectors
+import shutil
 from pathlib import Path
 import signal
 import subprocess
@@ -97,6 +98,107 @@ def worktree_fixture(root, env):
     return {"kind": "worktree", "parent": str(linked), "child": str(other), "outside": str(main)}
 
 
+NOTES_REF = "refs/notes/commits"
+NOTE_LIMIT = 64 * 1024
+
+
+def notes_fixture(root, env):
+    primary, other = (root / "repos" / name for name in ("notes-primary", "notes-other"))
+    primary.mkdir(parents=True)
+    git(primary, env, "init", "--quiet", "--initial-branch=main")
+    cases = {}
+    for kind in ("literal", "missing", "empty", "exact", "oversized", "error"):
+        subject = f"Native F42 {kind} commit"
+        (primary / "fixture.txt").write_text(f"{subject} patch line\n", encoding="utf-8")
+        git(primary, env, "add", "--", "fixture.txt")
+        git(primary, env, "commit", "--quiet", "-m", subject, "-m", "Ordinary F42 commit body")
+        cases[kind] = {"sha": git(primary, env, "rev-parse", "HEAD"), "subject": subject}
+        if kind == "literal":
+            # The same full commit ID in both repos makes path isolation observable.
+            shutil.copytree(primary, other)
+
+    def add_note(repo, case, value):
+        payload = root / "tmp/note-payload"
+        payload.write_bytes(value)
+        blob = git(repo, env, "hash-object", "-w", payload)
+        git(repo, env, "notes", f"--ref={NOTES_REF}", "add", "--allow-empty", "-C", blob, case["sha"])
+        case["blob"] = blob
+        payload.unlink()
+        return blob
+
+    literal = "<strong>Plain text</strong> *Markdown*\nDeuxième ligne — 本文\n"
+    other_literal = "Independent repo note for the same commit ID\n"
+    add_note(primary, cases["literal"], literal.encode("utf-8"))
+    add_note(primary, cases["empty"], b"")
+    add_note(primary, cases["exact"], b"x" * NOTE_LIMIT)
+    add_note(primary, cases["oversized"], b"y" * (NOTE_LIMIT + 1))
+    missing_blob = add_note(primary, cases["error"], b"Synthetic missing blob\n")
+    (primary / ".git/objects" / missing_blob[:2] / missing_blob[2:]).unlink()
+    cases["other"] = {key: cases["literal"][key] for key in ("sha", "subject")}
+    add_note(other, cases["other"], other_literal.encode("utf-8"))
+    # A separate Notes ref must not turn the missing default note into a hit.
+    git(primary, env, "notes", "--ref=acceptance-other", "add", "-m", "Outside default notes",
+        cases["missing"]["sha"])
+    return {"kind": "notes", "parent": str(primary), "child": str(other), "outside": str(root),
+            "cases": cases, "literal": literal, "otherLiteral": other_literal}
+
+
+def verify_notes_trace(trace, spec):
+    starts, exits = {}, {}
+    for line in trace.read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        if event["event"] == "start":
+            starts[event["sid"]] = event["argv"]
+        elif event["event"] == "exit":
+            exits[event["sid"]] = event["code"]
+    expected_ipc = []
+    expected_git = []
+    for kind in ("literal", "missing", "empty", "exact", "oversized", "error", "other", "literal"):
+        case = spec["cases"][kind]
+        path = spec["child"] if kind == "other" else spec["parent"]
+        sha = case["sha"]
+        expected_ipc.append((path, sha))
+        expected_git.extend([
+            (path, ["rev-parse", "--is-bare-repository", "--is-inside-work-tree",
+                    "--show-object-format", "--show-prefix"], 0),
+            (path, ["--git-dir=.git", "cat-file", "-t", sha], 0),
+            (path, ["--git-dir=.git", "notes", f"--ref={NOTES_REF}", "list", sha],
+             1 if kind == "missing" else 0),
+        ])
+        if kind == "missing":
+            continue
+        blob = case["blob"]
+        expected_git.append((path, ["--git-dir=.git", "cat-file", "-t", blob], 128 if kind == "error" else 0))
+        if kind != "error":
+            expected_git.append((path, ["--git-dir=.git", "cat-file", "-s", blob], 0))
+            if kind != "oversized":
+                expected_git.append((path, ["--git-dir=.git", "cat-file", "blob", blob], 0))
+
+    observed_git = []
+    inspect_paths = set()
+    for sid, argv in starts.items():
+        if "-C" not in argv:
+            raise RuntimeError(f"Git process without fixture checkout: {argv}")
+        index = argv.index("-C")
+        path, args = argv[index + 1], argv[index + 2:]
+        if path not in (spec["parent"], spec["child"]):
+            raise RuntimeError(f"Unexpected Git path: {argv}")
+        if "--no-pager" in argv[:index]:
+            observed_git.append((path, args, exits.get(sid)))
+        elif args[0] == "show":
+            if "--no-notes" not in args or exits.get(sid) != 0:
+                raise RuntimeError(f"Normal commit details did not pass with notes disabled: {argv}")
+            inspect_paths.add(path)
+        elif any(arg in ("notes", "fetch", "push", "pull", "remote-ext", "remote-https") for arg in args):
+            raise RuntimeError(f"Unexpected Notes or transport command: {argv}")
+    if inspect_paths != {spec["parent"], spec["child"]} or observed_git != expected_git:
+        raise RuntimeError(f"Unexpected native Git trace: {observed_git}")
+    print(f"NATIVE_NOTES_GIT verified {len(observed_git)} real Notes subprocesses, "
+          "including exit 1 for a missing mapping and exit 128 for a missing blob. "
+          "Both normal commit detail paths used --no-notes.")
+    return expected_ipc
+
+
 def run_worktree_phases(process, root, env, spec):
     # Only this Python process runs external Git. The app's sandbox denies all repo writes.
     primary = Path(spec["outside"])
@@ -161,13 +263,15 @@ def main():
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--staging-metadata", action="store_true", help="run the F39 staging fixture")
     modes.add_argument("--worktree-catalog", action="store_true", help="run the F05 worktree fixture")
+    modes.add_argument("--commit-notes", action="store_true", help="run the F42 local commit notes fixture")
     args = parser.parse_args()
     staging, worktree = args.staging_metadata, args.worktree_catalog
     if sys.platform != "darwin" or not Path(SANDBOX).is_file():
         raise SystemExit("The runner requires macOS sandbox-exec and WKWebView.")
     if not BIN.is_file() or not (ROOT / "dist/index.html").is_file():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
-    mode = "worktrees" if worktree else "staging" if staging else "submodules"
+    notes = args.commit_notes
+    mode = "notes" if notes else "worktrees" if worktree else "staging" if staging else "submodules"
     with tempfile.TemporaryDirectory(prefix=f"l8git-native-{mode}-") as temp:
         root = Path(temp).resolve()
         home, scratch = root / "home", root / "tmp"
@@ -181,13 +285,25 @@ def main():
             "GIT_AUTHOR_EMAIL": "native@example.invalid", "GIT_COMMITTER_NAME": "Native Fixture",
             "GIT_COMMITTER_EMAIL": "native@example.invalid",
         }
-        create_fixture = worktree_fixture if worktree else staging_fixture if staging else submodule_fixture
+        create_fixture = {"notes": notes_fixture, "worktrees": worktree_fixture,
+                          "staging": staging_fixture, "submodules": submodule_fixture}[mode]
+        if notes:
+            env["GIT_ALLOW_PROTOCOL"] = ""
+            env["GIT_NO_LAZY_FETCH"] = "1"
         spec = create_fixture(root, env)
         (root / "fixture.json").write_text(json.dumps(spec))
         env["GIT_ALLOW_PROTOCOL"] = ""
         env["GIT_NO_LAZY_FETCH"] = "1"
         repos = root / "repos"
         repo = Path(spec["parent"])
+        if notes:
+            def notes_repo_state():
+                return [(git(path, env, "show-ref", "--head"), git(path, env, "status", "--porcelain"),
+                         git(path, env, "remote")) for path in (spec["parent"], spec["child"])]
+
+            initial_notes_state = notes_repo_state()
+            if any(dirty or remotes for _, dirty, remotes in initial_notes_state):
+                raise RuntimeError("Notes fixtures require clean repos without remotes")
         if worktree:
             allowed_changes = ("catalog-main/.git/worktrees", "catalog-external-1")
         else:
@@ -203,7 +319,7 @@ def main():
             (subpath {json.dumps(str(home))})
             (subpath {json.dumps(str(scratch))})
             (literal "/dev/null"))"""
-        elif worktree:
+        elif worktree or notes:
             write_policy = f"""(deny file-write*)
         (allow file-write*
             (subpath {json.dumps(str(home))})
@@ -241,7 +357,10 @@ if sys.argv[1]:
     probe.unlink()
 """
         writable_probe = str(repo / ".git/acceptance-probe") if staging else ""
-        if worktree:
+        if notes:
+            protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/notes/commits"),
+                         str(Path(spec["child"]) / ".git/refs/notes/commits")]
+        elif worktree:
             protected = [str(repo / "fixture.txt"), str(Path(spec["outside"]) / ".git/config")]
         else:
             protected = [str(repo / "mode.sh"), str(root / "protected")] if staging else [str(repo / "app.txt")]
@@ -251,7 +370,9 @@ if sys.argv[1]:
                          if staging else "writes to the synthetic repositories denied")
         print(f"Sandbox preflight passed: IP bind denied; {sandbox_proof}.", flush=True)
 
-        process = subprocess.Popen([*command, BIN], cwd=root, env=env, text=True,
+        trace = scratch / "git-trace.jsonl"
+        app_env = {**env, "GIT_TRACE2_EVENT": str(trace)} if notes else env
+        process = subprocess.Popen([*command, BIN], cwd=root, env=app_env, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             if worktree:
@@ -275,11 +396,22 @@ if sys.argv[1]:
         if worktree:
             print("Owned native process exited and temporary profile and fixtures will be removed.", flush=True)
             return
-        result_prefix = "NATIVE_STAGING_RESULT " if staging else "NATIVE_SUBMODULE_RESULT "
+        result_prefix = ("NATIVE_NOTES_RESULT " if notes else
+                         "NATIVE_STAGING_RESULT " if staging else "NATIVE_SUBMODULE_RESULT ")
         results = [json.loads(line.removeprefix(result_prefix))
                    for line in output.splitlines() if line.startswith(result_prefix)]
         if process.returncode or len(results) != 1 or not results[0]["ok"]:
             raise SystemExit("Native acceptance failed; see the runner output.")
+        if notes:
+            expected = verify_notes_trace(trace, spec)
+            prefix = "NATIVE_NOTES_IPC "
+            calls = [json.loads(line.removeprefix(prefix))
+                     for line in output.splitlines() if line.startswith(prefix)]
+            if [(call["path"], call["commit"]) for call in calls] != expected:
+                raise RuntimeError("Unexpected commit or repository in native Notes IPC")
+            if notes_repo_state() != initial_notes_state:
+                raise RuntimeError("Fixture refs, status or remotes changed during Notes acceptance")
+            print("Fixture refs, clean status and absence of remotes independently verified with local Git.")
         if staging:
             expected = ["stage_files", "unstage_files", "git_apply_reviewed_hunks:stage",
                         "git_apply_reviewed_hunks:unstage"]

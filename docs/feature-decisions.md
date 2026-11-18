@@ -81,6 +81,8 @@ Die Commitdetails lokaler Desktop-Repositories lesen die Standard-Ref `refs/note
 
 Der Abruf akzeptiert nur vollständige SHA-1- oder SHA-256-IDs lokaler Commitobjekte am Repository-Stamm. Er zeigt maximal 64 KiB UTF-8-Text, einschließlich Zeilenumbrüchen und Leerzeichen. Steuerzeichen außer Tab, CR und LF sowie inkompatible Objekte werden abgelehnt. Die Git-Aufrufe laufen lesend mit gesperrtem Nachladen und teilen ein Zeitbudget von zwei Sekunden. Bei Zeitüberschreitung wird das laufende direkte Git-Kind beendet. Ein Ansichtswechsel verwirft verspätete Antworten. Die Anzeige ist eine Momentaufnahme der über Git ermittelten Blob-ID. Ref-Wechsel und der Austausch des Repository-Verzeichnisses durch einen externen Prozess können mit den Leseaufrufen konkurrieren.
 
+Die [native macOS-Abnahme](audits/native-commit-notes-acceptance.md) deckt Produktionsrenderer, Desktop-IPC und lokale Git-Prozesse im privaten WKWebView-Fixture ab.
+
 ## Prüfung und Abbildungen
 
 Screenshots unter `docs/screenshots/` zeigen echte gerenderte Komponenten mit synthetischen Testdaten. Sie sind kein Nachweis einer Live-Instanz oder erfolgreich ausgeführter Fachoperationen. Konkrete ausgeführte Tests stehen im PR; unerreichbare/native Grenzen werden dort separat benannt. Historische Ideen und Reserven bleiben im Forschungsarchiv erhalten; daraus werden keine automatischen Folgeaufträge.
