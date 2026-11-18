@@ -1,36 +1,18 @@
-use super::{run_git, spawn_git, tags_by_target, Commit, CommitSearchResult};
+use super::tags::{tag_map_from_refs, tag_refs_with};
+use super::{git_command, run_git_command, spawn_git, Commit, CommitSearchResult};
 use std::{collections::HashMap, path::PathBuf};
 
-fn is_commit_meta_token(s: &str) -> bool {
-    let Some((hash, _)) = s.split_once('\x1f') else {
-        return false;
-    };
-    matches!(hash.len(), 40 | 64) && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+fn is_full_oid(hash: &str, width: usize) -> bool {
+    hash.len() == width && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-#[cfg(test)]
-mod metadata_tests {
-    use super::is_commit_meta_token;
-
-    #[test]
-    fn accepts_both_git_object_formats_without_confusing_paths_or_unicode() {
-        assert!(is_commit_meta_token(&format!(
-            "{}\x1fshort\x1fauthor",
-            "a".repeat(40)
-        )));
-        assert!(is_commit_meta_token(&format!(
-            "{}\x1fshort\x1fauthor",
-            "B".repeat(64)
-        )));
-        for token in [
-            "ä".repeat(30),
-            format!("{}\x1fpath", "a".repeat(41)),
-            "file/path".into(),
-            format!("{}\x1fpath", "g".repeat(64)),
-        ] {
-            assert!(!is_commit_meta_token(&token));
-        }
-    }
+fn search_git_command() -> std::process::Command {
+    let mut command = git_command();
+    command
+        .env("GIT_NO_LAZY_FETCH", "1")
+        .env("GIT_ALLOW_PROTOCOL", "")
+        .env("GIT_OPTIONAL_LOCKS", "0");
+    command
 }
 
 fn match_commit_record(
@@ -83,8 +65,16 @@ pub async fn repo_search_commits(
 ) -> Result<Vec<CommitSearchResult>, String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
-        run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
+        let git = |args: &[&str]| run_git_command(search_git_command(), &repo, args);
+        let object_format = git(&["rev-parse", "--show-object-format"])
             .map_err(|_| format!("'{path}' is not a git repository"))?;
+        let width = match object_format.trim() {
+            // Older Git versions echo an unrecognized rev-parse option.
+            // Those versions only supported SHA-1 repositories.
+            "sha1" | "--show-object-format" => 40,
+            "sha256" => 64,
+            _ => return Err("Unsupported Git object format for commit search".into()),
+        };
         let needle = query.trim().to_lowercase();
         if needle.chars().count() < SEARCH_MIN_QUERY_LEN {
             return Ok(Vec::new());
@@ -96,9 +86,11 @@ pub async fn repo_search_commits(
         type SearchCache = HashMap<String, (std::time::Instant, Vec<CommitSearchResult>)>;
         static CACHE: std::sync::OnceLock<std::sync::Mutex<SearchCache>> =
             std::sync::OnceLock::new();
-        let refs = run_git(&repo, &["show-ref"]).unwrap_or_default();
-        let head = run_git(&repo, &["rev-parse", "HEAD"]).unwrap_or_default();
-        let cache_key = format!("{path}|{refs}|{head}|{needle}|{hide_t3}|{with_paths}|{scan:?}");
+        let exact_oid = is_full_oid(&needle, width);
+        let refs = git(&["show-ref"]).unwrap_or_default();
+        let head = git(&["rev-parse", "HEAD"]).unwrap_or_default();
+        let cache_key =
+            format!("{path}|{width}|{refs}|{head}|{needle}|{hide_t3}|{with_paths}|{scan:?}");
         if let Ok(cache) = CACHE.get_or_init(Default::default).lock() {
             if let Some((at, hits)) = cache.get(&cache_key) {
                 if at.elapsed().as_secs() < 30 {
@@ -106,12 +98,12 @@ pub async fn repo_search_commits(
                 }
             }
         }
-        let tag_map = tags_by_target(&repo);
+        let tag_map = tag_map_from_refs(&tag_refs_with(&repo, search_git_command()));
         let sep = "\x1f";
         let format = format!("%H{sep}%h{sep}%an{sep}%ae{sep}%cI{sep}%P{sep}%s{sep}%b%x00");
         let pretty = format!("--pretty=format:{format}");
         let max_count = scan.map(|n| format!("--max-count={n}"));
-        let mut search_args: Vec<&str> = vec!["log", "-z"];
+        let mut search_args = vec!["log", "-z", "--no-show-signature", "--no-notes"];
         if let Some(ref max) = max_count {
             search_args.push(max);
         }
@@ -123,67 +115,58 @@ pub async fn repo_search_commits(
         if with_paths {
             search_args.push("--name-only");
         }
-        let out = run_git(&repo, &search_args)?;
-        let tokens: Vec<&str> = out.split('\0').filter(|t| !t.is_empty()).collect();
+        let out = git(&search_args)?;
+        let mut records = out.split_terminator('\0');
         let mut out_results: Vec<CommitSearchResult> = Vec::new();
-        let mut i = 0usize;
-        while i < tokens.len() {
-            let meta = tokens[i];
-            if !is_commit_meta_token(meta) {
-                i += 1;
-                continue;
+        while let Some(meta) = records.next() {
+            let [hash, short_hash, author, email, date, parents, subject, body]: [&str; 8] = meta
+                .splitn(8, sep)
+                .collect::<Vec<_>>()
+                .try_into()
+                .map_err(|_| "Invalid Git commit search record")?;
+            if !is_full_oid(hash, width) {
+                return Err("Invalid Git object ID in commit search record".into());
             }
-            let mut parts = meta.splitn(8, sep);
-            let hash = parts.next().unwrap_or_default().to_string();
-            let short_hash = parts.next().unwrap_or_default().to_string();
-            let author = parts.next().unwrap_or_default().to_string();
-            let email = parts.next().unwrap_or_default().to_string();
-            let date = parts.next().unwrap_or_default().to_string();
-            let parents_str = parts.next().unwrap_or_default();
-            let subject = parts.next().unwrap_or_default().to_string();
-            let body = parts.next().unwrap_or_default().to_string();
-            i += 1;
-            let mut paths: Vec<String> = Vec::new();
-            let mut first_path_token = true;
-            while i < tokens.len() && !is_commit_meta_token(tokens[i]) {
-                let raw = tokens[i];
-                let p = if first_path_token {
-                    raw.strip_prefix('\n').unwrap_or(raw)
-                } else {
-                    raw
-                };
-                first_path_token = false;
-                if !p.is_empty() {
-                    paths.push(p.to_string());
+            // With pretty=format (not tformat), the empty NUL token is the
+            // boundary between commits. Filenames can contain US and look
+            // like metadata, so only read metadata at a record boundary.
+            let paths = records.by_ref().take_while(|token| !token.is_empty());
+            let matched_paths = if exact_oid {
+                paths.for_each(drop);
+                if !hash.eq_ignore_ascii_case(&needle) {
+                    continue;
                 }
-                i += 1;
-            }
-            let Some(matched_paths) = match_commit_record(
-                needle.as_str(),
-                hash.as_str(),
-                short_hash.as_str(),
-                author.as_str(),
-                email.as_str(),
-                subject.as_str(),
-                body.as_str(),
-                paths.as_slice(),
-            ) else {
-                continue;
+                Vec::new()
+            } else {
+                let paths: Vec<String> = paths
+                    .enumerate()
+                    .filter_map(|(index, raw)| {
+                        let path = if index == 0 {
+                            raw.strip_prefix('\n').unwrap_or(raw)
+                        } else {
+                            raw
+                        };
+                        (!path.is_empty()).then(|| path.to_string())
+                    })
+                    .collect();
+                let Some(matched) = match_commit_record(
+                    &needle, hash, short_hash, author, email, subject, body, &paths,
+                ) else {
+                    continue;
+                };
+                matched
             };
-            let parents = parents_str
-                .split_whitespace()
-                .map(|s| s.to_string())
-                .collect();
-            let tags = tag_map.get(&hash).cloned().unwrap_or_default();
+            let parents = parents.split_whitespace().map(String::from).collect();
+            let tags = tag_map.get(hash).cloned().unwrap_or_default();
             out_results.push(CommitSearchResult {
                 commit: Commit {
-                    hash: hash.clone(),
-                    short_hash,
-                    author,
-                    email,
-                    date,
-                    subject,
-                    body,
+                    hash: hash.to_string(),
+                    short_hash: short_hash.to_string(),
+                    author: author.to_string(),
+                    email: email.to_string(),
+                    date: date.to_string(),
+                    subject: subject.to_string(),
+                    body: body.to_string(),
                     parents,
                     tags,
                     author_avatar: None,

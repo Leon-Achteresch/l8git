@@ -58,7 +58,7 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 | F44 | Lockfehler mit bekanntem Vorgangskontext erklären (F44, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F45 | Rerere-Status korrekt benennen und Nachkontrolle erklären (F45, bedingt). | Umgesetzt im Git-Workbench. Die Anzeige unterscheidet Pfade mit ausstehender Aufzeichnung von Konflikten ohne automatische Rerere-Auflösung und verweist zur Kontrolle auf Diff und Index im Commit-Panel. |
 | F49 | Mitautoren-Trailer vor dem Commit prüfen (F49, bedingt). | Umgesetzt in der Nachrichtenhilfe des Commit- und Split-Editors. Die Vorschau zeigt erkennbare Mitautoren-Zeilen mit Hinweisen zur Form und Platzierung und führt zur Bearbeitung im Entwurf. |
-| F51 | SHA-256-Commits in der vorhandenen Suche finden (F51, bedingt). | Umgesetzt im oben ausdrücklich beschriebenen Umfang. |
+| F51 | SHA-256-Commits in der vorhandenen Suche finden (F51, bedingt). | Die Commit-Suche gleicht vollständige IDs im lokalen Git-Objektformat exakt ab. Abkürzungen und Freitext verwenden den bestehenden Suchweg. |
 | F48 | Unvollständigen Checkout bei Pfadfehlern erklären (F48, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F50 | Ersetzungsansicht beim Historienlesen erklären (F50, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F52 | Gemeldeten großen Blob in der Historie finden (F52, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
@@ -102,6 +102,12 @@ Die Auswahl neben Basis und Kopf zeigt den Kurznamen und die Art jeder Ref. Die 
 Der Vergleich sucht qualifizierte Einzel-Refs exakt und löst annotierte Tags bis zum Commit auf. Eine gelöschte Ref führt zu einem Auflösungsfehler, selbst wenn Git unter diesem Namen eine andere Ref finden könnte. Dateidiffs verwenden die aufgelösten SHAs des Vergleichs. Die Auswahl arbeitet mit den im geöffneten Repository bekannten Refs und lesenden Git-Kommandos mit gesperrtem Objekt-Nachladen. Eine bewegte Ref wird bei einer erneuten Auflösung auf ihrem dann aktuellen Stand gelesen. [Git-Revisionsregeln](https://git-scm.com/docs/gitrevisions), [Exakte Ref-Suche](https://git-scm.com/docs/git-show-ref)
 
 Die [native macOS-Abnahme](audits/native-qualified-compare-acceptance.md) belegt den regulären Befehlspaletten-Einstieg bis zum sichtbaren Diff in einem privaten WKWebView.
+
+### F51 · Vollständige Commit-IDs in der lokalen Suche
+
+Die Commit-Suche liest das Objektformat des geöffneten Repositorys aus Git. Eine hexadezimale Eingabe in voller Länge (40 Zeichen bei SHA-1, 64 bei SHA-256) findet den Commit mit genau dieser ID, auch bei Großbuchstaben. Erwähnungen im Committext und vorhandene Blobs ergeben dabei keinen Treffer. Kürzere Eingaben und Freitext durchsuchen wie bisher IDs, Committext, Autor und gegebenenfalls Pfade. Die NUL-Grenzen der Git-Ausgabe trennen Commitdaten eindeutig von Dateinamen.
+
+Der Git-Abruf bleibt lokal und sperrt Objekt-Nachladen und Transportprotokolle. Die Suche ist auf die von `git log --all` unter den bestehenden Filtern und Scan-Grenzen erreichbaren Commits begrenzt. Die Trefferzahl kann bereits einen Commit auf einer noch ungeladenen Historienseite enthalten. Die Treffernavigation fokussiert nur geladene Zeilen. Die Abnahme verbindet echte SHA-1-/SHA-256-Git-Fixtures für Öffnen, Suche und Commitdetails mit dem regulären Sucheinstieg im privaten Headless-Chromium über synthetisches IPC. Weitere SHA-256-Pfade und die native Oberfläche liegen außerhalb dieser Abnahme.
 
 ## Prüfung und Abbildungen
 

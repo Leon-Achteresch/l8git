@@ -795,6 +795,87 @@ async fn repo_search_commits_matches_subject_author_email_and_hash() {
 }
 
 #[tokio::test]
+async fn repo_search_commits_preserves_object_identity_and_output_boundaries() {
+    let path = common::scratch_path("search-sha256");
+    std::fs::create_dir_all(&path).unwrap();
+    let (ok, output) = common::git_raw(&path, &["init", "-q", "--object-format=sha256"]);
+    assert!(ok, "{output}");
+    let repo = TestRepo::adopt(path);
+    let root = repo.commit("root.txt", "root\n", "Original SHA-256 commit");
+    assert_eq!(root.len(), 64);
+    let blob = repo.git(&["rev-parse", "HEAD:root.txt"]);
+    let missing = "e".repeat(64);
+    repo.write("a.txt", "ordinary path\n");
+    #[cfg(unix)]
+    let meta_like = format!("{missing}\x1ffake\x1fFixture\x1fmail\x1fdate\x1f\x1fdecoy path\x1f");
+    #[cfg(not(unix))]
+    let meta_like = format!("{missing}-decoy path");
+    repo.write(&meta_like, "metadata-shaped path\n");
+    let tip = repo.commit_all(&format!("Mention {root}, {missing}, and {blob} as text"));
+    repo.git(&["commit", "--allow-empty", "-qm", "Empty searchable commit"]);
+    let before = repo.git(&["show-ref", "--head"]);
+    let opened = git::open_repo(repo.s(), None).await.unwrap();
+    assert_eq!(json(&opened)["commits"][2]["hash"], root);
+    let read = |query: String, skip, limit, paths| {
+        git::repo_search_commits(repo.s(), query, skip, limit, None, Some(paths), None)
+    };
+    let exact = read(root.to_ascii_uppercase(), 0, 1, true).await.unwrap();
+    assert_eq!(exact.len(), 1);
+    assert_eq!(json(&exact[0].commit)["hash"], root);
+    assert!(exact[0].matched_paths.is_empty());
+    let inspect = git::repo_commit_inspect(repo.s(), root.clone()).await.unwrap();
+    let inspect = json(&inspect);
+    assert!(inspect["header"]
+        .as_str()
+        .unwrap()
+        .starts_with(&format!("commit {root}\n")));
+    assert_eq!(inspect["files"][0]["path"], "root.txt");
+    let without_paths = read(root.clone(), 0, 1, false).await.unwrap();
+    assert_eq!(json(&without_paths[0].commit)["hash"], root);
+    assert!(read(root.clone(), 1, 1, true).await.unwrap().is_empty());
+    assert!(read(missing, 0, 10, true).await.unwrap().is_empty());
+    assert!(read(blob, 0, 10, true).await.unwrap().is_empty());
+    assert!(read("g".repeat(64), 0, 10, true).await.unwrap().is_empty());
+    assert!(
+        git::repo_search_commits(repo.s(), root.clone(), 0, 1, None, None, Some(1))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let paths = read("decoy path".into(), 0, 10, true).await.unwrap();
+    assert_eq!(paths.len(), 1);
+    assert_eq!(json(&paths[0].commit)["hash"], tip);
+    assert_eq!(paths[0].matched_paths, [meta_like]);
+    let abbreviated = read(root[..40].to_string(), 0, 10, false).await.unwrap();
+    assert_eq!(
+        abbreviated.len(),
+        2,
+        "40 characters are a partial search in SHA-256"
+    );
+    let text = read("Empty searchable".into(), 0, 10, true).await.unwrap();
+    assert_eq!(text.len(), 1);
+    assert_eq!(json(&text[0].commit)["hash"], repo.head());
+    assert_eq!(repo.git(&["show-ref", "--head"]), before);
+    assert!(repo.git(&["status", "--porcelain"]).is_empty());
+
+    let sha1 = TestRepo::new("search-sha1-full");
+    let sha1_root = sha1.commit("root.txt", "root\n", "Original SHA-1 commit");
+    assert_eq!(sha1_root.len(), 40);
+    sha1.commit("mention.txt", "mention\n", &format!("Mention {sha1_root}"));
+    let exact = git::repo_search_commits(sha1.s(), sha1_root.clone(), 0, 10, None, None, None)
+        .await
+        .unwrap();
+    assert_eq!(exact.len(), 1);
+    assert_eq!(json(&exact[0].commit)["hash"], sha1_root);
+    assert!(
+        git::repo_search_commits(sha1.s(), root, 0, 10, None, None, None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn repo_search_commits_ignores_queries_below_the_minimum_length() {
     let repo = TestRepo::new("search-min");
     repo.commit("a.txt", "1\n", "aaa bbb");
