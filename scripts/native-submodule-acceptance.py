@@ -226,6 +226,42 @@ def compare_fixture(root, env):
             "cases": cases, "tagObject": git(primary, env, "rev-parse", "refs/tags/release")}
 
 
+def search_fixture(root, env):
+    primary, other = (root / "repos" / name for name in ("search-sha256", "search-sha1"))
+    for path, object_format in ((primary, "sha256"), (other, "sha1")):
+        path.mkdir(parents=True)
+        git(path, env, "init", "--quiet", "--initial-branch=main", f"--object-format={object_format}")
+        if git(path, env, "rev-parse", "--show-object-format") != object_format:
+            raise RuntimeError(f"Unexpected fixture object format: {path.name}")
+
+    def commit(path, label):
+        subject = f"Native F51 {label}"
+        (path / "fixture.txt").write_text(f"{subject}\n", encoding="utf-8")
+        git(path, env, "add", "--", "fixture.txt")
+        git(path, env, "commit", "--quiet", "-m", subject)
+        return {"sha": git(path, env, "rev-parse", "HEAD"), "subject": subject}
+
+    old = commit(primary, "outside initial page")
+    for index in range(80):
+        git(primary, env, "commit", "--quiet", "--allow-empty", "-m", f"Native F51 padding {index}")
+    loaded = commit(primary, "SHA-256 loaded match")
+    blob = git(primary, env, "rev-parse", "HEAD:fixture.txt")
+    missing = "e" * 64
+    git(primary, env, "commit", "--quiet", "--allow-empty", "-m",
+        "Native F51 text-only decoy", "-m", f"{loaded['sha']} {blob} {missing}")
+    sha1 = commit(other, "SHA-1 loaded match")
+    git(other, env, "commit", "--quiet", "--allow-empty", "-m", f"Native F51 mention {sha1['sha']}")
+    page = git(primary, env, "log", "--all", "--max-count=80", "--format=%H").splitlines()
+    absent = subprocess.run(["/usr/bin/git", "-C", primary, "cat-file", "-e", missing], env=env,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if old["sha"] in page or loaded["sha"] not in page or absent.returncode != 1:
+        raise RuntimeError("Unexpected fixture page or object availability")
+    if git(primary, env, "cat-file", "-t", blob) != "blob":
+        raise RuntimeError("Expected a local non-commit object")
+    return {"kind": "search", "parent": str(primary), "child": str(other), "outside": str(root),
+            "cases": {"old": old, "loaded": loaded, "blob": blob, "missing": missing, "other": sha1}}
+
+
 def run_external_phases(process, on_line):
     deadline = time.monotonic() + 100
     buffer = b""
@@ -362,6 +398,63 @@ def verify_compare_trace(trace, output, spec):
     print(f"NATIVE_COMPARE_GIT verified {len(reads)} processes, {len(summaries)} summary and {len(diffs)} pinned diff IPC.")
 
 
+def verify_search_trace(trace, output, spec):
+    prefix = "NATIVE_SEARCH_IPC "
+    calls = [json.loads(line.removeprefix(prefix)) for line in output.splitlines() if line.startswith(prefix)]
+    primary, other = spec["parent"], spec["child"]
+    cases = spec["cases"]
+    loaded, sha1 = cases["loaded"]["sha"], cases["other"]["sha"]
+    queries = [(call["path"], call["query"]) for call in calls if call["command"] == "repo_search_commits"]
+    expected = [(primary, cases["old"]["sha"]), (primary, cases["blob"]), (primary, loaded.upper()),
+                (primary, cases["missing"]), (other, sha1), (other, loaded)]
+    if queries != expected:
+        raise RuntimeError(f"Unexpected native search IPC: {queries}")
+    details = [(call["path"], call["commit"]) for call in calls if call["command"] == "repo_commit_inspect"]
+    if details != [(primary, loaded), (other, sha1)]:
+        raise RuntimeError(f"Unexpected native detail IPC: {details}")
+    if any(call["command"] == "repo_log_page" and call["path"] == primary for call in calls):
+        raise RuntimeError("The SHA-256 fixture loaded another history page during the navigation check")
+
+    events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
+    exits = {event["sid"]: event["code"] for event in events if event["event"] == "exit"}
+    reads, formats, scans, inspections = 0, [], [], []
+    initial_page = False
+    for event in events:
+        if event["event"] != "start":
+            continue
+        argv = event["argv"]
+        if "-C" not in argv:
+            raise RuntimeError(f"Git process without fixture checkout: {argv}")
+        index = argv.index("-C")
+        path, args = argv[index + 1], argv[index + 2:]
+        read = (args[0] in ("rev-parse", "show-ref", "for-each-ref", "log", "status", "rev-list", "show", "diff-tree")
+                or args[:2] in (["stash", "list"], ["symbolic-ref", "--quiet"])
+                or args in (["diff", "--cached", "--numstat", "-z"], ["diff", "--numstat", "-z"])
+                or (args[:2] == ["--literal-pathspecs", "diff-tree"]
+                    and "--no-ext-diff" in args and "--no-textconv" in args
+                    and args[-2:] == ["--", "fixture.txt"])
+                or args in (["remote", "-v"], ["config", "--null", "--name-only", "--list"])
+                or (args[0] == "config" and any(arg in ("--get", "--get-regexp") for arg in args)))
+        if path not in (primary, other) or not read:
+            raise RuntimeError(f"Unexpected Git process in search fixture: {argv}")
+        reads += 1
+        if exits.get(event["sid"]) != 0:
+            continue
+        if args == ["rev-parse", "--show-object-format"]:
+            formats.append(path)
+        if path == primary and args[:3] == ["log", "-z", "--max-count=80"] and "--all" in args:
+            initial_page = True
+        if args[:4] == ["log", "-z", "--no-show-signature", "--no-notes"] and "--all" in args:
+            scans.append(path)
+        if args[0] == "show" and "--format=fuller" in args:
+            inspections.append((path, args[-1]))
+    paths = [path for path, _ in queries]
+    if not initial_page or formats != paths or scans != paths or inspections != details:
+        raise RuntimeError(f"Unexpected search Git evidence: {initial_page=} {formats=} {scans=} {inspections=}")
+    print(f"NATIVE_SEARCH_GIT verified {reads} local read processes, {len(scans)} search IPC "
+          f"and {len(inspections)} exact detail IPC. No additional SHA-256 history page was loaded.")
+
+
 def snapshot(root, allowed_changes=()):
     return {
         str(path.relative_to(root)): (path.stat().st_mode, hashlib.sha256(path.read_bytes()).hexdigest())
@@ -377,6 +470,7 @@ def main():
     modes.add_argument("--worktree-catalog", action="store_true", help="run the F05 worktree fixture")
     modes.add_argument("--commit-notes", action="store_true", help="run the F42 local commit notes fixture")
     modes.add_argument("--qualified-compare", action="store_true", help="run the F46 qualified compare fixture")
+    modes.add_argument("--commit-search", action="store_true", help="run the F51 full commit ID search fixture")
     args = parser.parse_args()
     staging, worktree = args.staging_metadata, args.worktree_catalog
     if sys.platform != "darwin" or not Path(SANDBOX).is_file():
@@ -385,7 +479,10 @@ def main():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
     notes = args.commit_notes
     compare = args.qualified_compare
-    mode = "compare" if compare else "notes" if notes else "worktrees" if worktree else "staging" if staging else "submodules"
+    search = args.commit_search
+    mode = ("search" if search else "compare" if compare else "notes" if notes else
+            "worktrees" if worktree else "staging" if staging else "submodules")
+    verify_repo_state = notes or compare or search
     with tempfile.TemporaryDirectory(prefix=f"l8git-native-{mode}-") as temp:
         root = Path(temp).resolve()
         home, scratch = root / "home", root / "tmp"
@@ -401,8 +498,8 @@ def main():
         }
         create_fixture = {"notes": notes_fixture, "worktrees": worktree_fixture,
                           "staging": staging_fixture, "submodules": submodule_fixture,
-                          "compare": compare_fixture}[mode]
-        if notes or compare:
+                          "compare": compare_fixture, "search": search_fixture}[mode]
+        if verify_repo_state:
             env["GIT_ALLOW_PROTOCOL"] = ""
             env["GIT_NO_LAZY_FETCH"] = "1"
         spec = create_fixture(root, env)
@@ -411,7 +508,7 @@ def main():
         env["GIT_NO_LAZY_FETCH"] = "1"
         repos = root / "repos"
         repo = Path(spec["parent"])
-        if notes or compare:
+        if verify_repo_state:
             def repo_state():
                 return [(git(path, env, "show-ref", "--head"), git(path, env, "status", "--porcelain"),
                          git(path, env, "remote")) for path in (spec["parent"], spec["child"])]
@@ -436,7 +533,7 @@ def main():
             (subpath {json.dumps(str(home))})
             (subpath {json.dumps(str(scratch))})
             (literal "/dev/null"))"""
-        elif worktree or notes or compare:
+        elif worktree or verify_repo_state:
             write_policy = f"""(deny file-write*)
         (allow file-write*
             (subpath {json.dumps(str(home))})
@@ -477,6 +574,9 @@ if sys.argv[1]:
         if compare:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/HEAD"),
                          str(repo / ".git/refs/heads/release"), str(Path(spec["child"]) / ".git/index")]
+        elif search:
+            protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/heads/main"),
+                         str(Path(spec["child"]) / ".git/HEAD"), str(Path(spec["child"]) / ".git/index")]
         elif notes:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/notes/commits"),
                          str(Path(spec["child"]) / ".git/refs/notes/commits")]
@@ -491,7 +591,7 @@ if sys.argv[1]:
         print(f"Sandbox preflight passed: IP bind denied; {sandbox_proof}.", flush=True)
 
         trace = scratch / "git-trace.jsonl"
-        app_env = {**env, "GIT_TRACE2_EVENT": str(trace)} if notes or compare else env
+        app_env = {**env, "GIT_TRACE2_EVENT": str(trace)} if verify_repo_state else env
         process = subprocess.Popen([*command, BIN], cwd=root, env=app_env, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
         try:
@@ -519,7 +619,8 @@ if sys.argv[1]:
         if worktree:
             print("Owned native process exited and temporary profile and fixtures will be removed.", flush=True)
             return
-        result_prefix = ("NATIVE_COMPARE_RESULT " if compare else "NATIVE_NOTES_RESULT " if notes else
+        result_prefix = ("NATIVE_SEARCH_RESULT " if search else
+                         "NATIVE_COMPARE_RESULT " if compare else "NATIVE_NOTES_RESULT " if notes else
                          "NATIVE_STAGING_RESULT " if staging else "NATIVE_SUBMODULE_RESULT ")
         results = [json.loads(line.removeprefix(result_prefix))
                    for line in output.splitlines() if line.startswith(result_prefix)]
@@ -542,6 +643,11 @@ if sys.argv[1]:
                 raise RuntimeError("Compare fixture changed beyond the one external ref deletion")
             verify_compare_trace(trace, output, spec)
             print("Remaining refs, HEAD, clean status and absence of remotes verified with local Git.")
+        if search:
+            verify_search_trace(trace, output, spec)
+            if repo_state() != initial_repo_state:
+                raise RuntimeError("Fixture refs, status or remotes changed during search acceptance")
+            print("Fixture refs, HEAD, clean status and absence of remotes verified with local Git.")
         if staging:
             expected = ["stage_files", "unstage_files", "git_apply_reviewed_hunks:stage",
                         "git_apply_reviewed_hunks:unstage"]
@@ -553,7 +659,12 @@ if sys.argv[1]:
                     or git(repo, env, "diff", "--no-color", "--no-ext-diff", "--no-textconv") != original_diff):
                 raise RuntimeError("Fixture must finish with a clean index and the original working-tree patch")
             print("Mutation sequence, final index and working-tree diff independently verified with local Git.")
-    print("Owned native process exited and temporary profile and fixtures were removed.")
+    if search:
+        if process.poll() is None or root.exists():
+            raise RuntimeError("Search process or temporary fixture still exists after cleanup")
+        print(f"NATIVE_SEARCH_CLEANUP process {process.pid} exited and private fixture directory was removed.")
+    else:
+        print("Owned native process exited and temporary profile and fixtures were removed.")
 
 
 if __name__ == "__main__":

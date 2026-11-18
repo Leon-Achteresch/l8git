@@ -124,6 +124,7 @@ mod macos {
         let worktree = spec["kind"] == "worktree";
         let notes = spec["kind"] == "notes";
         let compare = spec["kind"] == "compare";
+        let search = spec["kind"] == "search";
         let child = spec["child"].as_str().map(str::to_owned);
         if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
             return Err("Unexpected staging fixture layout".into());
@@ -143,7 +144,14 @@ mod macos {
         if !assets.join("index.html").is_file() {
             return Err("Build the frontend before native acceptance".into());
         }
-        let (identifier, title, script, result_tag) = if compare {
+        let (identifier, title, script, result_tag) = if search {
+            (
+                "com.leon.l8git.native-search-acceptance",
+                "l8git Native Commit Search Acceptance",
+                include_str!("../../scripts/native-search-acceptance.js"),
+                "NATIVE_SEARCH_RESULT",
+            )
+        } else if compare {
             (
                 "com.leon.l8git.native-compare-acceptance",
                 "l8git Native Compare Acceptance",
@@ -261,6 +269,20 @@ mod macos {
             compare::repo_compare_commits,
             compare::repo_compare_file_diff,
         ];
+        let search_ipc: fn(Invoke<Wry>) -> bool = tauri::generate_handler![
+            git::open_repo,
+            git::repo_status,
+            git::repo_full_status,
+            git::list_stashes,
+            git::list_git_remotes,
+            git::merge_state,
+            git::cherry_pick_state,
+            git::repo_log_page,
+            git::repo_search_commits,
+            git::repo_commit_inspect,
+            git::repo_commit_file_diff,
+            git::commit_signature_status,
+        ];
         let trace = Arc::new(WorktreeTrace::default());
         let invoke_trace = trace.clone();
         let app = tauri::Builder::default()
@@ -278,7 +300,20 @@ mod macos {
                     return true;
                 }
                 let path = body["path"].as_str();
-                if compare {
+                if search {
+                    if path == Some(parent.as_str()) || path == child.as_deref() {
+                        let command = invoke.message.command();
+                        if matches!(
+                            command,
+                            "repo_search_commits" | "repo_commit_inspect" | "repo_log_page"
+                        ) {
+                            let mut data = body.clone();
+                            data["command"] = command.into();
+                            println!("NATIVE_SEARCH_IPC {data}");
+                        }
+                        return search_ipc(invoke);
+                    }
+                } else if compare {
                     let command = invoke.message.command();
                     if command == "native_compare_delete" {
                         println!("NATIVE_COMPARE_PHASE delete");
