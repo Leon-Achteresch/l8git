@@ -19,6 +19,8 @@ pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     "hub_oauth_start", "hub_use_for_git",
     // Would let a remote client make the host POST to any URL.
     "hub_t3_send",
+    "workspace_fetch_desktop_available", "workspace_fetch_desktop_confirm",
+    "workspace_fetch_desktop_revoke", "workspace_fetch_desktop_validate",
     // External diff/merge tools open GUI windows on the host and use its global git config.
     "git_external_tool_settings", "git_set_external_tool", "git_open_difftool", "git_open_mergetool",
 ];
