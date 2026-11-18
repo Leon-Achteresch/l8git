@@ -5786,6 +5786,7 @@
       "unknownCommit": "不明なコミット: {{commit}}",
       "branchExists": "{{branch}} という名前のブランチは既に存在します。",
       "runFailed": "Git を実行できませんでした: {{error}}",
+      "missingLocalCommitFile": "この部分クローンにはコミットがありますが、差分の表示に必要なファイル内容の一部がローカルにありません。",
       "commandFailed": "Git コマンドが失敗しました。"
     },
     "hooks": {

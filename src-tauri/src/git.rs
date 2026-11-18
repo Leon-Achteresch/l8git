@@ -108,10 +108,18 @@ pub(crate) fn run_git_command(
 }
 
 fn run_git_command_bytes(
-    mut command: std::process::Command,
+    command: std::process::Command,
     repo: &PathBuf,
     args: &[&str],
 ) -> Result<Vec<u8>, String> {
+    run_git_command_output(command, repo, args).map(|output| output.stdout)
+}
+
+fn run_git_command_output(
+    mut command: std::process::Command,
+    repo: &PathBuf,
+    args: &[&str],
+) -> Result<std::process::Output, String> {
     let span = cmdlog::start(&repo.to_string_lossy(), args);
     let output = match command.arg("-C").arg(repo).args(args).output() {
         Ok(output) => output,
@@ -128,7 +136,7 @@ fn run_git_command_bytes(
             &String::from_utf8_lossy(&output.stderr),
         ));
     }
-    Ok(output.stdout)
+    Ok(output)
 }
 
 fn merged_failure_message(stdout: &str, stderr: &str) -> String {

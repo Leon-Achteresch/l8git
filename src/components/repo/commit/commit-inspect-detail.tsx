@@ -11,6 +11,7 @@ import {
 import { useExplainSheet } from "@/components/ai/use-explain-sheet";
 import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { Button } from "@/components/ui/button";
+import { backendErrorCode } from "@/lib/backend-error";
 import { toastError } from "@/lib/error-toast";
 import { externalToolsSupported, openExternalDiff } from "@/lib/external-tools";
 import { isHubPath } from "@/lib/hub/store";
@@ -30,7 +31,12 @@ import { CommitChangedFile } from "./commit-inspect-file-item";
 import { SpinIcon, pulseKeyframes, pulseTransition } from "@/components/motion/kit";
 import { m } from "motion/react";
 
-type InspectPayload = { header: string; files: CommitChangedFile[] };
+type InspectPayload = {
+  header: string;
+  files: CommitChangedFile[];
+  file_stats_unavailable?: boolean;
+};
+type DiffError = "readFailed" | "missingLocalContent" | null;
 
 export function CommitInspectDetail({
   path,
@@ -64,10 +70,10 @@ export function CommitInspectDetail({
     setFileSelection(previous => ({ key: inspectKey, file: typeof next === 'function' ? next(previous.key === inspectKey ? previous.file : null) : next }));
   }, [inspectKey]);
   const diffKey = JSON.stringify([path, commitHash, selectedFile]);
-  const [diffState, setDiffState] = useState({ key: '', data: null as FileDiffPayload | null, loading: false, failed: false });
+  const [diffState, setDiffState] = useState({ key: '', data: null as FileDiffPayload | null, loading: false, error: null as DiffError });
   const fileDiff = diffState.key === diffKey ? diffState.data : null;
   const diffLoading = !!commitHash && !!selectedFile && (diffState.key !== diffKey || diffState.loading);
-  const diffFailed = diffState.key === diffKey && diffState.failed;
+  const diffError = diffState.key === diffKey ? diffState.error : null;
   const [blameActive, setBlameActive] = useState(false);
   const [fileQuery, setFileQuery] = useState("");
   const [restoreDialog, setRestoreDialog] = useState<{ path: string; commitHash: string; files: string[] } | null>(null);
@@ -101,18 +107,24 @@ export function CommitInspectDetail({
   const loadFileDiff = useCallback(async () => {
     const epoch = ++diffEpoch.current;
     if (!commitHash || !selectedFile) {
-      setDiffState({ key: diffKey, data: null, loading: false, failed: false });
+      setDiffState({ key: diffKey, data: null, loading: false, error: null });
       return;
     }
-    setDiffState({ key: diffKey, data: null, loading: true, failed: false });
+    setDiffState({ key: diffKey, data: null, loading: true, error: null });
     try {
       const out = await invoke<FileDiffPayload>("repo_commit_file_diff", { path, commit: commitHash, file: selectedFile });
       if (diffEpoch.current !== epoch) return;
-      setDiffState({ key: diffKey, data: out, loading: false, failed: false });
+      setDiffState({ key: diffKey, data: out, loading: false, error: null });
     } catch (error) {
       if (diffEpoch.current !== epoch) return;
-      setDiffState({ key: diffKey, data: null, loading: false, failed: true });
-      toastError(String(error));
+      const missingLocalContent = backendErrorCode(error) === "git.missingLocalCommitFile";
+      setDiffState({
+        key: diffKey,
+        data: null,
+        loading: false,
+        error: missingLocalContent ? "missingLocalContent" : "readFailed",
+      });
+      if (!missingLocalContent) toastError(String(error));
     }
   }, [path, commitHash, selectedFile, diffKey]);
 
@@ -228,6 +240,7 @@ export function CommitInspectDetail({
             <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/5">
               <CommitInspectFileTabs
                 files={payload?.files ?? []}
+                statsUnavailable={payload?.file_stats_unavailable}
                 selectedFile={selectedFile}
                 onSelectFile={(f) => {
                   setSelectedFile(f);
@@ -260,7 +273,8 @@ export function CommitInspectDetail({
                     selectedFile={selectedFile}
                     fileDiff={fileDiff}
                     loading={diffLoading}
-                    failed={diffFailed}
+                    failed={diffError === "readFailed"}
+                    missingLocalContent={diffError === "missingLocalContent"}
                     previewable
                   />
                 )}

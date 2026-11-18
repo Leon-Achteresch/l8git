@@ -5786,6 +5786,7 @@
       "unknownCommit": "Commit desconocido: {{commit}}",
       "branchExists": "Ya existe una rama llamada {{branch}}.",
       "runFailed": "No se pudo ejecutar Git: {{error}}",
+      "missingLocalCommitFile": "El commit está en este clon parcial, pero parte del contenido necesario para mostrar las diferencias no está disponible localmente.",
       "commandFailed": "El comando de Git falló."
     },
     "hooks": {

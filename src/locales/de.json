@@ -5786,6 +5786,7 @@
       "unknownCommit": "Unbekannter Commit: {{commit}}",
       "branchExists": "Ein Branch namens {{branch}} existiert bereits.",
       "runFailed": "Git konnte nicht ausgeführt werden: {{error}}",
+      "missingLocalCommitFile": "Der Commit ist in diesem Partial Clone vorhanden. Ein Teil des für den Diff benötigten Dateiinhalts fehlt lokal.",
       "commandFailed": "Der Git-Befehl ist fehlgeschlagen."
     },
     "hooks": {

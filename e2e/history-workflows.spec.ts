@@ -358,3 +358,61 @@ test('a followed path takes focus on the same inspected commit without refetchin
   await expect(refresh).toBeEnabled();
   await expect(readme).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('the commit inspector distinguishes a missing local promisor blob from other diff results', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 800 });
+  await openHistory(page);
+  await page.evaluate(() => {
+    const original = window.__L8GIT_TEST_INVOKE__!;
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      if (command === 'repo_commit_file_diff') {
+        window.__L8GIT_TEST_CALLS__!.push({ command, args });
+        if (args?.file === 'missing.txt') {
+          throw '\x1fMissing local content\x1fl8e:{"code":"git.missingLocalCommitFile","params":{}}\x1f';
+        }
+        if (args?.file === 'read-error.txt') {
+          throw 'fatal: could not read file from promisor remote';
+        }
+        return {
+          diff: args?.file === 'present.txt' ? 'diff --git a/present.txt b/present.txt\n--- a/present.txt\n+++ b/present.txt\n@@ -1 +1 @@\n-old\n+readable fixture line\n' : null,
+          is_binary: false,
+        };
+      }
+      const result = await original(command, args);
+      if (command === 'repo_commit_inspect') return {
+        ...result as Record<string, unknown>,
+        file_stats_unavailable: true,
+        files: ['missing.txt', 'present.txt', 'read-error.txt', 'unchanged.txt'].map(
+          path => ({ path, additions: 0, deletions: 0, binary: false }),
+        ),
+      };
+      return result;
+    };
+  });
+
+  await row(page, 0).click();
+  const list = page.getByRole('group', { name: 'Changed files', exact: true });
+  const missing = list.getByRole('button', { name: 'missing.txt', exact: true });
+  const hint = page.getByRole('status').filter({ hasText: 'some file content needed for the diff is missing locally' });
+  await expect(missing).toHaveAttribute('aria-pressed', 'true');
+  await expect(hint).toBeVisible();
+  await expect(page.getByText('+0', { exact: true })).toHaveCount(0);
+
+  await missing.focus();
+  await missing.press('ArrowDown');
+  const present = list.getByRole('button', { name: 'present.txt', exact: true });
+  await expect(present).toBeFocused();
+  await expect(hint).toHaveCount(0);
+  await expect(page.getByText('readable fixture line', { exact: true })).toBeVisible();
+
+  await present.press('ArrowDown');
+  await expect(page.getByText('Could not load diff.', { exact: true })).toBeVisible();
+  await expect(hint).toHaveCount(0);
+  await list.getByRole('button', { name: 'unchanged.txt', exact: true }).click();
+  await expect(page.getByText('No text changes', { exact: true })).toBeVisible();
+  await expect(hint).toHaveCount(0);
+
+  const diffRequests = await page.evaluate(() => (window.__L8GIT_TEST_CALLS__ ?? [])
+    .filter(call => call.command === 'repo_commit_file_diff').map(call => call.args?.file));
+  expect(diffRequests).toEqual(['missing.txt', 'present.txt', 'read-error.txt', 'unchanged.txt']);
+});

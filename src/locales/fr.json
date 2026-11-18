@@ -5786,6 +5786,7 @@
       "unknownCommit": "Commit inconnu : {{commit}}",
       "branchExists": "Une branche nommée {{branch}} existe déjà.",
       "runFailed": "Impossible d’exécuter Git : {{error}}",
+      "missingLocalCommitFile": "Le commit est présent dans ce clone partiel, mais une partie du contenu nécessaire à la comparaison manque en local.",
       "commandFailed": "La commande Git a échoué."
     },
     "hooks": {

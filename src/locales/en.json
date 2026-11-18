@@ -5786,6 +5786,7 @@
       "unknownCommit": "Unknown commit: {{commit}}",
       "branchExists": "A branch named {{branch}} already exists.",
       "runFailed": "Could not run Git: {{error}}",
+      "missingLocalCommitFile": "This partial clone has the commit, but some file content needed for the diff is missing locally.",
       "commandFailed": "The Git command failed."
     },
     "hooks": {

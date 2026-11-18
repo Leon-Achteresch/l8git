@@ -86,6 +86,7 @@ error_codes! {
     GitUnknownCommit = "git.unknownCommit" => "Unknown commit: {commit}",
     GitBranchExists = "git.branchExists" => "A branch named {branch} already exists.",
     GitRunFailed = "git.runFailed" => "Could not run Git: {error}",
+    GitMissingLocalCommitFile = "git.missingLocalCommitFile" => "This partial clone has the commit, but some file content needed for the diff is missing locally.",
     GitCommandFailed = "git.commandFailed" => "The Git command failed.",
     SubmoduleNotInitialized = "submodule.notInitialized" => "Initialize this submodule before opening its repository.",
     SubmoduleNotRegistered = "submodule.notRegistered" => "This path is no longer registered as a submodule.",

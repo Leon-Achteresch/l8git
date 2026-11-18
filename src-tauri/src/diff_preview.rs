@@ -1,5 +1,5 @@
 //! Read-only display diffs. These transformed patches must never feed staging.
-use crate::git::{literal_file_path, resolve_git_commit, run_git};
+use crate::git::{literal_file_path, resolve_git_commit, resolve_git_commit_with, run_git, run_git_command};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::path::PathBuf;
@@ -81,8 +81,12 @@ fn preview(repo: PathBuf, request: DiffPreviewRequest) -> Result<DiffPreviewResp
             (Some(base.clone()), Some(head.clone()), vec![base, head])
         }
         "commit" => {
-            let head = resolve_git_commit(&repo, request.head.as_deref().ok_or("Missing commit ref")?)?;
-            let parents = run_git(&repo, &["rev-list", "--parents", "-n", "1", &head])?;
+            let head = resolve_git_commit_with(
+                crate::cmd::local_git_command(),
+                &repo,
+                request.head.as_deref().ok_or("Missing commit ref")?,
+            )?;
+            let parents = run_git_command(crate::cmd::local_git_command(), &repo, &["rev-list", "--parents", "-n", "1", &head])?;
             let parent = parents.split_whitespace().nth(1).map(str::to_string);
             args.extend(["diff-tree".into(), "-p".into(), "-r".into(), "--no-commit-id".into()]);
             let revisions = if let Some(parent) = &parent { vec![parent.clone(), head.clone()] } else { args.push("--root".into()); vec![head.clone()] };
@@ -98,8 +102,13 @@ fn preview(repo: PathBuf, request: DiffPreviewRequest) -> Result<DiffPreviewResp
     args.extend(["--".into(), file]);
     if let Some(previous) = previous { args.push(previous); }
     let borrowed: Vec<&str> = args.iter().map(String::as_str).collect();
+    let command = if request.kind == "commit" {
+        crate::cmd::local_git_command()
+    } else {
+        crate::cmd::git_command()
+    };
     let BoundedDiffOutput { patch: output, truncated, .. } =
-        read_diff_output(crate::cmd::git_command(), &repo, &borrowed)?;
+        read_diff_output(command, &repo, &borrowed)?;
     let (patch, moved_lines) = if request.color_moved { strip_colors(&output) } else { (output, vec![]) };
     let binary = patch.lines().any(|line| line.starts_with("Binary files ") || line.starts_with("GIT binary patch"));
     Ok(DiffPreviewResponse { patch, moved_lines, truncated, binary, base_sha, head_sha })

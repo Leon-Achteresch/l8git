@@ -5786,6 +5786,7 @@
       "unknownCommit": "未知的提交：{{commit}}",
       "branchExists": "名为 {{branch}} 的分支已存在。",
       "runFailed": "无法运行 Git：{{error}}",
+      "missingLocalCommitFile": "此部分克隆包含该提交，但显示差异所需的部分文件内容在本地缺失。",
       "commandFailed": "Git 命令失败。"
     },
     "hooks": {
