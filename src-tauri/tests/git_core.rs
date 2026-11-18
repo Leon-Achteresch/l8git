@@ -836,7 +836,7 @@ async fn repo_search_commits_errors_outside_a_repository() {
         )
         .await,
     );
-    assert!(err.contains("is not a git repository"), "{err}");
+    assert!(err.contains("not a git repository"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1148,20 +1148,58 @@ async fn open_repo_reports_branch_commits_branches_and_tags() {
 }
 
 #[tokio::test]
-async fn open_repo_handles_a_repository_without_commits() {
-    // A freshly initialised repository has no resolvable HEAD. Opening it must
-    // still succeed and simply report nothing to show.
+async fn open_repo_shows_the_intended_branch_until_the_first_commit() {
     let repo = TestRepo::new("open-repo-empty");
+    repo.git(&["symbolic-ref", "HEAD", "refs/heads/fixture/first"]);
+    // A file named HEAD must not turn an invalid revision into a path argument.
+    repo.write("HEAD", "fixture\n");
 
     let info = json(&git::open_repo(repo.s(), None).await.unwrap());
-    assert_eq!(info["commits"].as_array().unwrap().len(), 0);
-    assert_eq!(info["branches"].as_array().unwrap().len(), 0);
-    assert_eq!(info["tags"].as_array().unwrap().len(), 0);
-    assert!(
-        info["branch"].as_str().unwrap() == "main" || info["branch"].as_str().unwrap() == "HEAD",
-        "unexpected branch {}",
-        info["branch"]
+    assert_eq!(info["is_unborn"], true);
+    assert_eq!(info["branch"], "fixture/first");
+    for field in ["commits", "branches", "tags"] {
+        assert_eq!(info[field], serde_json::json!([]));
+    }
+    assert_eq!(
+        repo.git(&["symbolic-ref", "HEAD"]),
+        "refs/heads/fixture/first"
     );
+    assert!(!repo.exists(".git/refs/heads/fixture/first"));
+
+    repo.git(&["add", "--", "HEAD"]);
+    git::commit_changes(repo.s(), "first commit".into(), None)
+        .await
+        .unwrap();
+    let opened = json(&git::open_repo(repo.s(), None).await.unwrap());
+    assert_eq!(opened["branch"], "fixture/first");
+    assert_eq!(opened["is_unborn"], false);
+    assert_eq!(opened["branches"][0]["name"], "fixture/first");
+    assert_eq!(opened["commits"][0]["hash"], repo.head());
+
+    repo.git(&["checkout", "--detach"]);
+    let detached = json(&git::open_repo(repo.s(), None).await.unwrap());
+    assert_eq!(detached["branch"], "HEAD");
+    assert_eq!(detached["is_unborn"], false);
+    assert_eq!(detached["commits"][0]["hash"], repo.head());
+}
+
+#[tokio::test]
+async fn open_repo_rejects_broken_head_targets() {
+    for contents in [
+        "broken\n".to_string(),
+        "1".repeat(40) + "\n",
+        "ref: refs/heads/missing\n".to_string(),
+    ] {
+        let repo = TestRepo::new("open-repo-broken");
+        repo.write(".git/refs/heads/main", &contents);
+        assert!(git::open_repo(repo.s(), None).await.is_err(), "{contents}");
+    }
+
+    let repo = TestRepo::new("open-repo-blob");
+    repo.write("blob", "fixture contents\n");
+    let hash = repo.git(&["hash-object", "-w", "blob"]);
+    repo.write(".git/refs/heads/main", &format!("{hash}\n"));
+    assert!(git::open_repo(repo.s(), None).await.is_err());
 }
 
 #[tokio::test]
@@ -1189,7 +1227,7 @@ async fn open_repo_rejects_directories_that_are_not_repositories() {
     let dir = common::scratch_path("open-repo-invalid");
     std::fs::create_dir_all(&dir).unwrap();
     let err = common::expect_err(git::open_repo(dir.to_string_lossy().to_string(), None).await);
-    assert!(err.contains("is not a git repository"), "{err}");
+    assert!(err.contains("not a git repository"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

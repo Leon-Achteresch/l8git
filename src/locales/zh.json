@@ -2851,6 +2851,8 @@
     "createdPushFailed": "已创建 {{name}}，但推送失败：{{error}}"
   },
   "branchMenu": {
+    "noFirstCommit": "尚无提交",
+    "unbornLabel": "{{branch}} · 尚无提交",
     "switchTitle": "切换分支",
     "pickAria": "选择分支",
     "sectionLocal": "本地",

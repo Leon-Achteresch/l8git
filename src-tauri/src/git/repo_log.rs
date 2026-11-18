@@ -115,6 +115,52 @@ pub async fn open_submodule_repo(
     open_repo_target(path, hide_t3_checkpoints, Some(submodule_path)).await
 }
 
+/// Resolve only a direct, valid local branch whose ref is actually absent.
+fn unborn_branch(repo: &PathBuf, head_error: &str) -> Result<String, String> {
+    let target = run_git_command_bytes(
+        git_command(),
+        repo,
+        &["symbolic-ref", "--quiet", "--no-recurse", "HEAD"],
+    )
+    .map_err(|_| head_error.to_owned())?;
+    let target = std::str::from_utf8(&target).map_err(|err| err.to_string())?;
+    let target = target.trim_end_matches(['\r', '\n']);
+    let name = target.strip_prefix("refs/heads/").ok_or(head_error)?;
+    run_git(repo, &["check-ref-format", target]).map_err(|_| head_error.to_owned())?;
+
+    let inspect = |args: &[&str]| {
+        git_command()
+            .arg("-C")
+            .arg(repo)
+            .args(args)
+            .output()
+            .map_err(|err| err.to_string())
+    };
+    let exists = inspect(&["show-ref", "--exists", target])?;
+    let missing = match exists.status.code() {
+        Some(2) => true,
+        // Older Git lacks --exists. Verify that the target is neither another
+        // symref nor a direct or broken ref reported by for-each-ref.
+        Some(129) => {
+            let symbolic = inspect(&["symbolic-ref", "--quiet", "--no-recurse", target])?;
+            let refs = inspect(&["for-each-ref", "--format=%(refname)", "--", target])?;
+            symbolic.status.code() == Some(1)
+                && symbolic.stderr.is_empty()
+                && refs.status.success()
+                && refs.stderr.is_empty()
+                && !String::from_utf8_lossy(&refs.stdout)
+                    .lines()
+                    .any(|line| line == target)
+        }
+        _ => false,
+    };
+    if missing {
+        Ok(name.to_owned())
+    } else {
+        Err(head_error.into())
+    }
+}
+
 async fn open_repo_target(
     path: String,
     hide_t3_checkpoints: Option<bool>,
@@ -127,9 +173,14 @@ async fn open_repo_target(
         }
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
 
-        // Read both repository flags alongside HEAD. An unborn HEAD makes
-        // this command fail, so retry with just the flags and show no commits.
-        let (bare, shallow, branch, head_exists) = match run_git(
+        // Keep the HEAD probe local, including when peeling a promisor object.
+        let mut probe = git_command();
+        probe
+            .env("GIT_NO_LAZY_FETCH", "1")
+            .env("GIT_ALLOW_PROTOCOL", "");
+        // Invalid revisions must fail even if a worktree file is named HEAD.
+        let (bare, shallow, branch, head_exists) = match run_git_command(
+            probe,
             &repo,
             &[
                 "rev-parse",
@@ -137,6 +188,8 @@ async fn open_repo_target(
                 "--abbrev-ref",
                 "HEAD",
                 "--is-shallow-repository",
+                "HEAD^{commit}",
+                "--",
             ],
         ) {
             Ok(out) => {
@@ -151,7 +204,7 @@ async fn open_repo_target(
                 let shallow = lines.next().unwrap_or_default().to_owned();
                 (bare, shallow, branch, true)
             }
-            Err(_) => {
+            Err(head_error) => {
                 let flags = run_git(
                     &repo,
                     &[
@@ -160,14 +213,17 @@ async fn open_repo_target(
                         "--is-shallow-repository",
                     ],
                 )
-                .map_err(|_| format!("'{}' is not a git repository", repo.display()))?;
+                .map_err(|error| format!("Cannot open '{}': {error}", repo.display()))?;
                 let mut lines = flags.lines();
-                (
-                    lines.next().unwrap_or_default().to_owned(),
-                    lines.next().unwrap_or_default().to_owned(),
-                    "HEAD".to_string(),
-                    false,
-                )
+                let bare = lines.next().unwrap_or_default().to_owned();
+                let shallow = lines.next().unwrap_or_default().to_owned();
+                let unborn = unborn_branch(&repo, &head_error)?;
+                let branch = if bare == "true" {
+                    "HEAD".into()
+                } else {
+                    unborn
+                };
+                (bare, shallow, branch, false)
             }
         };
         let is_bare = match bare.trim() {
@@ -210,6 +266,7 @@ async fn open_repo_target(
             path: repo.to_string_lossy().to_string(),
             is_bare,
             is_shallow,
+            is_unborn: !is_bare && !head_exists,
             branch,
             commits,
             branches,

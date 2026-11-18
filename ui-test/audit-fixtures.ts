@@ -79,6 +79,11 @@ export function seedAuditFixture(scene: string) {
     local_changes: null, is_detached: false,
   };
   let commits = [base];
+  const detachedPath = '/tmp/l8git-detached-fixture';
+  let firstCommit = false;
+  let holdUnbornOpen = false;
+  let unbornRefreshes = 0;
+
   const stagedHunks = new Set<number>();
   const worktreeHunks = new Set([0, 1, 2]);
   const hunkFixture = scene === 'hunk-batch' ? { changeBeforeApply: false, revision: 0 } : null;
@@ -140,6 +145,16 @@ export function seedAuditFixture(scene: string) {
     return files;
   };
   const info = (path = FIXTURE_PATH) => {
+    if (scene === 'unborn-open') {
+      if (path === detachedPath) {
+        return { path, branch: 'HEAD', is_unborn: false, commits: [base], branches: [], tags: [] };
+      }
+      const branch = 'fixture/first';
+      return {
+        path, branch, is_unborn: !firstCommit, commits: firstCommit ? commits : [], tags: [],
+        branches: firstCommit ? [{ name: branch, tip: commits[0].hash, is_current: true, is_remote: false }] : [],
+      };
+    }
     const reviewing = scene === 'review';
     const branch = reviewing && path === FIXTURE_PATH ? 'agents/fixture' : 'main';
     const head = reviewing && path === reviewBasePath ? reviewBaseHead : commits[0];
@@ -167,7 +182,17 @@ export function seedAuditFixture(scene: string) {
     }
     switch (command) {
       case 'remote_status': return { running: false, managed: false, port: 9418, roots: [], binary: null, configPath: null };
-      case 'open_repo': return info(String(args?.path ?? FIXTURE_PATH));
+      case 'open_repo': {
+        const opened = info(String(args?.path ?? FIXTURE_PATH));
+        if (scene === 'unborn-open' && args?.path === FIXTURE_PATH && holdUnbornOpen) {
+          holdUnbornOpen = false;
+          await new Promise<void>(resolve => {
+            window.addEventListener('release-unborn-open', () => resolve(), { once: true });
+            document.documentElement.dataset.unbornHeld = String(unbornRefreshes);
+          });
+        }
+        return opened;
+      }
       case 'repo_list_files':
         if (scene === 'blame-previous') return ['example.txt', 'other.txt'];
         throw Error('Unexpected blame file listing');
@@ -323,6 +348,7 @@ export function seedAuditFixture(scene: string) {
         // Fall through to the ordinary synthetic commit.
       case 'commit_changes':
         if (!entries.some(e => e.staged)) throw Error('Nothing staged');
+        if (scene === 'unborn-open') firstCommit = true;
         commits = [{ ...base, hash: 'b'.repeat(40), short_hash: 'bbbbbbb', subject: String(args?.message), parents: [base.hash] }, base]; entries = []; return null;
       case 'agent_review_commit_checked':
         if (args?.expectedBaseBranch !== 'main' || args?.expectedSessionBranch !== 'agents/fixture' ||
@@ -379,6 +405,18 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
+  if (scene === 'unborn-open') {
+    const paths = [FIXTURE_PATH, detachedPath];
+    useRepoStore.setState({ paths, repos: {} });
+    useWorkspaceStore.getState().initDefaultWorkspace(paths);
+    window.addEventListener('hold-unborn-open', () => {
+      const refresh = ++unbornRefreshes;
+      holdUnbornOpen = true;
+      void useRepoStore.getState().reload(FIXTURE_PATH).then(() => {
+        document.documentElement.dataset.unbornCompleted = String(refresh);
+      });
+    });
+  }
   if (scene === 'shallow-history') {
     const paths = [FIXTURE_PATH, '/tmp/l8git-shallow-full', '/tmp/l8git-shallow-legacy'];
     useRepoStore.setState({ paths, repos: {} });

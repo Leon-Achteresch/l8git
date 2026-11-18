@@ -74,6 +74,8 @@ export function AppHeaderBranchSelect({ className }: { className?: string } = {}
 
   const disabled = repoLoading || repo.branches.length === 0;
   const shown = repo.branch || "…";
+  const unborn = repo.is_unborn === true && repo.is_bare !== true;
+  const unbornLabel = unborn ? t("branchMenu.unbornLabel", { branch: shown }) : undefined;
 
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
@@ -81,8 +83,8 @@ export function AppHeaderBranchSelect({ className }: { className?: string } = {}
         <m.button
           type="button"
           disabled={disabled}
-          title={t("branchMenu.switchTitle")}
-          aria-label={t("branchMenu.pickAria")}
+          title={unbornLabel ?? t("branchMenu.switchTitle")}
+          aria-label={unbornLabel ?? t("branchMenu.pickAria")}
           style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
           whileHover={disabled ? undefined : { scale: 1.02 }}
           whileTap={disabled ? undefined : { scale: 0.97 }}
@@ -90,7 +92,7 @@ export function AppHeaderBranchSelect({ className }: { className?: string } = {}
           className={cn(
             "mr-0.5 inline-flex h-7 max-w-[min(10rem,calc(100vw-300px))] shrink-0 items-center gap-1 rounded-md border border-border/80 bg-background/95 px-1.5 text-xs font-medium text-foreground shadow-none backdrop-blur-sm",
             disabled
-              ? "cursor-default opacity-50"
+              ? cn("cursor-default", !unborn && "opacity-50")
               : "cursor-pointer hover:bg-muted/50",
             className,
           )}
@@ -99,9 +101,14 @@ export function AppHeaderBranchSelect({ className }: { className?: string } = {}
             className="size-3 shrink-0 text-muted-foreground"
             strokeWidth={2}
           />
-          <m.span className="min-w-0 flex-1 truncate text-left tabular-nums">
-            {shown}
-          </m.span>
+          <span className={cn("min-w-0 flex-1 text-left", unborn && "leading-none")}>
+            <span className="block truncate tabular-nums">{shown}</span>
+            {unborn && (
+              <span className="block truncate text-[0.625rem] text-muted-foreground">
+                {t("branchMenu.noFirstCommit")}
+              </span>
+            )}
+          </span>
           <m.span
             className="flex size-3 shrink-0 items-center justify-center text-muted-foreground"
             animate={{ rotate: menuOpen ? 180 : 0 }}

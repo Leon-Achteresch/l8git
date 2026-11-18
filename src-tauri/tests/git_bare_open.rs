@@ -50,6 +50,8 @@ async fn regular_open_distinguishes_empty_bare_and_unborn_checkout() {
     for (repo, expected) in [(&bare, true), (&normal, false)] {
         let info = json(&git::open_repo(repo.s(), None).await.unwrap());
         assert_eq!(info["is_bare"], expected);
+        assert_eq!(info["is_unborn"], !expected);
+        assert_eq!(info["branch"], if expected { "HEAD" } else { "main" });
         assert_eq!(info["commits"], serde_json::json!([]));
         assert_eq!(info["branches"], serde_json::json!([]));
         assert_eq!(info["tags"], serde_json::json!([]));

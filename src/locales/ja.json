@@ -2851,6 +2851,8 @@
     "createdPushFailed": "{{name}} を作成しましたが、プッシュに失敗しました: {{error}}"
   },
   "branchMenu": {
+    "noFirstCommit": "コミットなし",
+    "unbornLabel": "{{branch}} · コミットなし",
     "switchTitle": "ブランチを切り替え",
     "pickAria": "ブランチを選択",
     "sectionLocal": "ローカル",

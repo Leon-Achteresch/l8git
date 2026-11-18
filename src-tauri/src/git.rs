@@ -65,6 +65,7 @@ pub struct RepoInfo {
     is_bare: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     is_shallow: Option<bool>,
+    is_unborn: bool,
     branch: String,
     commits: Vec<Commit>,
     branches: Vec<Branch>,

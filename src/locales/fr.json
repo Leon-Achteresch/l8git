@@ -2851,6 +2851,8 @@
     "createdPushFailed": "{{name}} créé, mais le push a échoué : {{error}}"
   },
   "branchMenu": {
+    "noFirstCommit": "Aucun commit",
+    "unbornLabel": "{{branch}} · Aucun commit",
     "switchTitle": "Changer de branche",
     "pickAria": "Choisir une branche",
     "sectionLocal": "Locales",

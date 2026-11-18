@@ -19,7 +19,6 @@ import { useWorkspaceStore, workspaceRepo } from '@/lib/workspace-store';
 // same in-flight request instead of triggering N identical 200-commit
 // round-trips. A small trailing debounce swallows rapid follow-ups.
 const reloadInFlight = new Map<string, Promise<void>>();
-const reloadPending = new Map<string, number>();
 const statusInFlight = new Map<string, Promise<void>>();
 const statusPending = new Map<string, number>();
 const localStatusInFlight = new Map<string, Promise<void>>();
@@ -110,6 +109,7 @@ export type RepoInfo = {
   path: string;
   is_bare?: boolean;
   is_shallow?: boolean;
+  is_unborn?: boolean;
   branch: string;
   commits: Commit[];
   branches: Branch[];
@@ -383,7 +383,7 @@ type RepoState = {
   ensureFavicons: () => void;
   setCustomFavicon: (path: string, dataUrl: string) => void;
   clearCustomFavicon: (path: string) => void;
-  reload: (path: string) => Promise<void>;
+  reload: (path: string, afterCommit?: boolean) => Promise<void>;
   refreshOpenRepo: (path: string) => Promise<void>;
   reloadAll: () => Promise<void>;
   deleteBranch: (path: string, name: string, force?: boolean) => Promise<void>;
@@ -871,6 +871,7 @@ export const useRepoStore = create<RepoState>()(
       },
 
       removeRepo(path) {
+        reloadInFlight.delete(path);
         forgetRepoViewState(path);
         const wasActive = get().activePath === path;
         nextCommitAvatarGeneration(path);
@@ -973,25 +974,23 @@ export const useRepoStore = create<RepoState>()(
         });
       },
 
-      async reload(path) {
+      async reload(path, afterCommit = false) {
         const existing = reloadInFlight.get(path);
-        if (existing) return existing;
+        if (existing && !afterCommit) return existing;
 
-        const pending = reloadPending.get(path);
-        if (pending !== undefined) window.clearTimeout(pending);
-
-        // First load of a repo (e.g. app boot) fires immediately; the
-        // coalescing delay only matters for watcher-triggered re-loads.
-        const delay = get().repos[path] ? RELOAD_COALESCE_MS : 0;
+        // A commit refresh must supersede an open that may have read pre-commit HEAD.
+        const delay = afterCommit || !get().repos[path] ? 0 : RELOAD_COALESCE_MS;
         const promise = new Promise<void>(resolve => {
-          const handle = window.setTimeout(async () => {
-            reloadPending.delete(path);
-            set(s => ({ loading: { ...s.loading, [path]: true } }));
+          window.setTimeout(async () => {
+            const current = () => reloadInFlight.get(path) === promise;
             try {
+              if (!current()) return;
+              set(s => ({ loading: { ...s.loading, [path]: true } }));
               const opened = await invoke<RepoInfo>('open_repo', {
                 path,
                 hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
               });
+              if (!current()) return;
               set(s => {
                 const { [path]: __, ...restLoad } = s.loading;
                 return {
@@ -1007,17 +1006,16 @@ export const useRepoStore = create<RepoState>()(
               }
               await get().reloadStashes(path);
             } catch (e) {
-              const msg = String(e);
-              toastError(msg);
+              if (!current()) return;
+              toastError(String(e));
               set(s => ({
                 loading: { ...s.loading, [path]: false },
               }));
             } finally {
-              reloadInFlight.delete(path);
+              if (current()) reloadInFlight.delete(path);
               resolve();
             }
           }, delay);
-          reloadPending.set(path, handle);
         });
         reloadInFlight.set(path, promise);
         return promise;
@@ -1163,7 +1161,7 @@ export const useRepoStore = create<RepoState>()(
         if (expectedIdentity) await invoke('commit_changes_with_identity', { path, message, expectedIdentity });
         else await invoke('commit_changes', { path, message });
         await Promise.all([
-          get().reload(path),
+          get().reload(path, true),
           get().reloadStatus(path),
           get().reloadStashes(path),
         ]);
