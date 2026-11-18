@@ -1370,6 +1370,16 @@
     "confirmDesc": "Ceci exécutera : {{run}}",
     "gitSection": "Outils Git"
   },
+  "commitIdentity": {
+    "title": "L’identité du commit diffère",
+    "description": "L’identité résolue par Git diffère du profil attribué. Vérifiez les valeurs avant de créer le commit.",
+    "profile": "Profil : {{label}}",
+    "author": "Auteur Git",
+    "committer": "Committeur Git",
+    "continue": "Créer le commit avec cette identité",
+    "changed": "L’identité Git a changé. Relancez le commit pour vérifier les valeurs actuelles.",
+    "operation": "La vérification de l’identité est indisponible pendant cette opération Git. Utilisez l’action de poursuite de l’opération."
+  },
   "commitPanel": {
     "explainDiff": "Expliquer le diff",
     "changes": "Modifications",

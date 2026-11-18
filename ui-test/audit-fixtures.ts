@@ -1,3 +1,4 @@
+import { useIdentityProfiles } from "@/lib/github-expansion/identity";
 import { useOnboardingPrefs } from '@/lib/onboarding-prefs';
 import { useRepoStore, type StatusEntry, type Commit, type SubmoduleEntry } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
@@ -42,6 +43,31 @@ export function seedAuditFixture(scene: string) {
     return;
   }
   let entries: StatusEntry[] = [{ path: 'example.txt', index_status: scene === 'conflict' ? 'U' : ' ', worktree_status: scene === 'conflict' ? 'U' : 'M', staged: false, unstaged: true, untracked: false, additions_staged: 0, deletions_staged: 0, additions_unstaged: 1, deletions_unstaged: 1, binary: false, embedded_repo: false }];
+  let identity = {
+    gitDir: `${FIXTURE_PATH}/.git`,
+    author: { name: 'Local Author', email: 'author@example.invalid' },
+    committer: { name: 'Profile Name', email: 'profile@example.invalid' },
+  };
+  if (scene === 'commit-identity') {
+    const profiles = useIdentityProfiles.getState();
+    const profile = { id: 'fixture-profile', label: 'Work', name: 'Profile Name', email: 'profile@example.invalid',
+      signing_format: 'openpgp' as const, signing_key: '', sign_commits: false };
+    profiles.saveProfile(profile);
+    profiles.assignGroup(`repo:${FIXTURE_PATH}`, profile.id);
+    window.addEventListener('identity-update-effective', () => {
+      identity = { ...identity, author: { name: 'Updated Author', email: 'updated@example.invalid' } };
+    });
+    window.addEventListener('identity-update-profile', () => {
+      profiles.saveProfile({ ...profile, name: 'Updated Profile' });
+    });
+    window.addEventListener('identity-match-profile', () => {
+      identity = { ...identity, author: identity.committer };
+    });
+    window.addEventListener('identity-switch-repo', () => {
+      useRepoStore.setState({ activePath: '/tmp/identity-secondary' });
+      useRepoStore.setState({ activePath: FIXTURE_PATH });
+    });
+  }
   const base: Commit = { hash: 'a'.repeat(40), short_hash: 'aaaaaaa', subject: 'Initial fixture', author: 'Fixture', email: 'fixture@example.com', date: '2026-09-05T12:00:00Z', body: '', parents: [], tags: [], author_avatar: null };
   const submodule: SubmoduleEntry = {
     name: 'Library', path: SUBMODULE_PATH, url: 'https://example.com/library.git',
@@ -288,6 +314,13 @@ export function seedAuditFixture(scene: string) {
         entries = entries.flatMap(entry => !files.includes(entry.path) ? [entry] : entry.staged ? [{ ...entry, unstaged: false, untracked: false, worktree_status: ' ', additions_unstaged: 0, deletions_unstaged: 0 }] : []);
         return null;
       }
+      case 'commit_identity_preview':
+        if (scene !== 'commit-identity' || args?.path !== FIXTURE_PATH) throw Error('Unexpected identity preview');
+        return identity;
+      case 'commit_changes_with_identity':
+        if (scene !== 'commit-identity' || args?.path !== FIXTURE_PATH ||
+            JSON.stringify(args.expectedIdentity) !== JSON.stringify(identity)) throw Error('__COMMIT_IDENTITY_CHANGED__');
+        // Fall through to the ordinary synthetic commit.
       case 'commit_changes':
         if (!entries.some(e => e.staged)) throw Error('Nothing staged');
         commits = [{ ...base, hash: 'b'.repeat(40), short_hash: 'bbbbbbb', subject: String(args?.message), parents: [base.hash] }, base]; entries = []; return null;

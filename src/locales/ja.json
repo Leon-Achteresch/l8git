@@ -1370,6 +1370,16 @@
     "confirmDesc": "次を実行します: {{run}}",
     "gitSection": "Git ツール"
   },
+  "commitIdentity": {
+    "title": "コミットの識別情報が異なります",
+    "description": "Git が解決した識別情報は、割り当てられたプロファイルと異なります。コミットする前に値を確認してください。",
+    "profile": "プロファイル: {{label}}",
+    "author": "Git の作者",
+    "committer": "Git のコミッター",
+    "continue": "この識別情報でコミット",
+    "changed": "Git の識別情報が変更されました。コミットを再開して現在の値を確認してください。",
+    "operation": "この Git 操作中は識別情報を確認できません。操作を続行するための専用アクションを使用してください。"
+  },
   "commitPanel": {
     "explainDiff": "差分を説明",
     "changes": "変更",

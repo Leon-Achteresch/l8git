@@ -316,6 +316,14 @@ pub async fn dispatch(
             crate::git::commit_changes(path, message, sign).await
         }
 
+        "commit_identity_preview" (path: String) => {
+            crate::git::commit_identity_preview(path).await
+        }
+
+        "commit_changes_with_identity" (path: String, message: String, expected_identity: crate::git::CommitIdentity) => {
+            crate::git::commit_changes_with_identity(path, message, expected_identity).await
+        }
+
         "commit_amend" (path: String, message: String, expected_head: Option<String>) => {
             crate::git::commit_amend(path, message, expected_head).await
         }

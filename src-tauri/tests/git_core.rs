@@ -445,10 +445,134 @@ async fn commit_changes_requires_a_message_and_creates_a_commit() {
 }
 
 #[tokio::test]
+async fn commit_identity_binds_linked_worktree_and_rechecks_git_include() {
+    let repo = TestRepo::new("identity-main");
+    repo.commit("base.txt", "base\n", "base");
+    let path = common::scratch_path("identity-linked");
+    repo.git(&["worktree", "add", "-b", "linked", path.to_str().unwrap()]);
+    let linked = TestRepo::adopt(path);
+    let git_dir = linked.git(&["rev-parse", "--absolute-git-dir"]);
+    let include = repo.path.join("identity.conf");
+    repo.write(
+        "identity.conf",
+        "[author]\n name = Included Author\n email = included@example.invalid\n",
+    );
+    repo.git(&[
+        "config",
+        &format!("includeIf.gitdir:{git_dir}.path"),
+        include.to_str().unwrap(),
+    ]);
+    let reviewed = json(&git::commit_identity_preview(linked.s()).await.unwrap());
+    let other = json(&git::commit_identity_preview(repo.s()).await.unwrap());
+    assert_ne!(reviewed["gitDir"], other["gitDir"]);
+    assert_eq!(reviewed["author"]["name"], "Included Author");
+    assert_eq!(reviewed["committer"]["name"], "Test User");
+    assert_eq!(other["author"]["name"], "Test User");
+
+    linked.write("base.txt", "changed\n");
+    linked.git(&["add", "base.txt"]);
+    let head = linked.head();
+    let mut wrong_worktree = reviewed.clone();
+    wrong_worktree["gitDir"] = other["gitDir"].clone();
+    assert!(git::commit_changes_with_identity(
+        linked.s(),
+        "wrong worktree".into(),
+        serde_json::from_value(wrong_worktree).unwrap()
+    )
+    .await
+    .unwrap_err()
+    .contains("__COMMIT_IDENTITY_CHANGED__"));
+
+    repo.write(
+        "identity.conf",
+        "[author]\n name = Changed Author\n email = changed@example.invalid\n",
+    );
+    assert!(git::commit_changes_with_identity(
+        linked.s(),
+        "stale review".into(),
+        serde_json::from_value(reviewed).unwrap()
+    )
+    .await
+    .unwrap_err()
+    .contains("__COMMIT_IDENTITY_CHANGED__"));
+    assert_eq!(linked.head(), head);
+    assert_eq!(linked.git(&["diff", "--cached", "--name-only"]), "base.txt");
+    let fresh = git::commit_identity_preview(linked.s()).await.unwrap();
+    git::commit_changes_with_identity(linked.s(), "fresh review".into(), fresh)
+        .await
+        .unwrap();
+    assert_eq!(
+        linked.git(&["show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD"]),
+        "Changed Author|changed@example.invalid|Test User|test@example.com"
+    );
+}
+
+#[tokio::test]
+async fn commit_identity_environment_uses_the_same_git_process_defaults() {
+    if std::env::var_os("L8GIT_TEST_IDENTITY_CHILD").is_none() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "commit_identity_environment_uses_the_same_git_process_defaults",
+                "--nocapture",
+            ])
+            .env("L8GIT_TEST_IDENTITY_CHILD", "1")
+            .env("GIT_COMMITTER_NAME", "Environment Committer")
+            .env("GIT_COMMITTER_EMAIL", "override@example.invalid")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        return;
+    }
+    let repo = TestRepo::new("identity-env");
+    repo.write("base.txt", "base\n");
+    repo.git(&["add", "base.txt"]);
+    let fresh = git::commit_identity_preview(repo.s()).await.unwrap();
+    assert_eq!(
+        json(&fresh)["committer"]["email"],
+        "override@example.invalid"
+    );
+    git::commit_changes_with_identity(repo.s(), "environment review".into(), fresh)
+        .await
+        .unwrap();
+    assert_eq!(
+        repo.git(&["show", "-s", "--format=%cn <%ce>"]),
+        "Environment Committer <override@example.invalid>"
+    );
+}
+
+#[tokio::test]
+async fn commit_identity_rejects_an_operation_started_after_preview() {
+    let repo = TestRepo::new("identity-in-progress");
+    let head = repo.commit("base.txt", "base\n", "base");
+    repo.write("base.txt", "staged\n");
+    repo.git(&["add", "base.txt"]);
+    let reviewed = git::commit_identity_preview(repo.s()).await.unwrap();
+    repo.write(".git/CHERRY_PICK_HEAD", &format!("{head}\n"));
+    assert!(git::commit_identity_preview(repo.s())
+        .await
+        .err()
+        .unwrap()
+        .contains("__COMMIT_IDENTITY_OPERATION__"));
+    assert!(
+        git::commit_changes_with_identity(repo.s(), "operation started".into(), reviewed)
+            .await
+            .unwrap_err()
+            .contains("__COMMIT_IDENTITY_OPERATION__")
+    );
+    assert_eq!(repo.head(), head);
+}
+
+#[tokio::test]
 async fn commit_amend_rewrites_head_without_adding_a_commit() {
     let repo = TestRepo::new("amend");
     repo.commit("a.txt", "one\n", "initial");
     let first = repo.commit("b.txt", "two\n", "second");
+    repo.git(&["config", "user.name", "New Committer"]);
 
     repo.write("b.txt", "two-fixed\n");
     repo.git(&["add", "--", "b.txt"]);
@@ -459,6 +583,7 @@ async fn commit_amend_rewrites_head_without_adding_a_commit() {
     assert_eq!(repo.subjects(), vec!["second, fixed", "initial"]);
     assert_ne!(repo.head(), first);
     assert_eq!(repo.git(&["show", "HEAD:b.txt"]), "two-fixed");
+    assert_eq!(repo.git(&["show", "-s", "--format=%an|%cn"]), "Test User|New Committer");
     assert!(git::commit_amend(repo.s(), "".into(), None).await.is_err());
 }
 

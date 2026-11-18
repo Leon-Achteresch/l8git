@@ -1370,6 +1370,16 @@
     "confirmDesc": "This will run: {{run}}",
     "gitSection": "Git tools"
   },
+  "commitIdentity": {
+    "title": "Commit identity differs",
+    "description": "Git resolved a different identity from the assigned profile. Review the values before committing.",
+    "profile": "Profile: {{label}}",
+    "author": "Git author",
+    "committer": "Git committer",
+    "continue": "Commit with this identity",
+    "changed": "The Git identity changed. Start the commit again to review the current values.",
+    "operation": "Identity review is unavailable during this Git operation. Use the operation’s own continuation action."
+  },
   "commitPanel": {
     "explainDiff": "Explain diff",
     "changes": "Changes",

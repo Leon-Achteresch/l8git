@@ -1,3 +1,5 @@
+import { commitIdentityAssignment, matchesCommitProfile, useIdentityProfiles, type CommitIdentity, type IdentityProfile } from "@/lib/github-expansion/identity";
+import { useRepoGroupsStore } from "@/lib/repo-groups-store";
 import { formatBackendError } from '@/lib/backend-error';
 import {
   AlertDialog,
@@ -71,6 +73,8 @@ const AiSetupDialog = lazy(() => import("@/components/onboarding/ai-setup-dialog
 
 const CommitSplitDialog = lazy(() => import("@/components/repo/commit/commit-split-dialog").then(m => ({ default: m.CommitSplitDialog })));
 
+type IdentityConfirmation = { revision: number; identity: CommitIdentity; profile: IdentityProfile };
+
 const EMPTY_STATUS: StatusEntry[] = [];
 const EMPTY_LINES: ReadonlySet<string> = new Set();
 
@@ -115,6 +119,31 @@ function CommitPanelContent() {
   const committingRef = useRef(false);
   const [amendLoading, setAmendLoading] = useState(false);
   const [publishedAmendOpen, setPublishedAmendOpen] = useState(false);
+  const [identityConfirmation, setIdentityConfirmation] = useState<IdentityConfirmation | null>(null);
+  const identityRevision = useRef(0);
+  useEffect(() => {
+    if (!activePath) return;
+    let assignment = commitIdentityAssignment(activePath);
+    const invalidate = () => {
+      const current = commitIdentityAssignment(activePath);
+      if (useRepoStore.getState().activePath === activePath &&
+          current.group === assignment.group && current.profile === assignment.profile) return;
+      assignment = current;
+      identityRevision.current++;
+      setIdentityConfirmation(null);
+    };
+    const unsubscribe = [
+      useRepoGroupsStore.subscribe(invalidate),
+      useIdentityProfiles.subscribe(invalidate),
+      useRepoStore.subscribe((state, previous) => {
+        if (state.activePath !== previous.activePath) invalidate();
+      }),
+    ];
+    return () => {
+      for (const stop of unsubscribe) stop();
+      identityRevision.current++;
+    };
+  }, [activePath]);
   const [commitErrorState, setCommitErrorState] = useState<{ path: string; message: string } | null>(null);
   const commitError = commitErrorState?.path === activePath ? commitErrorState.message : null;
   const setCommitError = useCallback((error: string | null) => {
@@ -885,8 +914,16 @@ function CommitPanelContent() {
     }
   };
 
-  const performCommit = async () => {
+  const performCommit = async (confirmation?: IdentityConfirmation) => {
     if (!canCommit || committingRef.current) return;
+    const { profile, group } = commitIdentityAssignment(activePath);
+    const revision = identityRevision.current;
+    if (confirmation && (amendMode || confirmation.revision !== revision || confirmation.profile !== profile)) return;
+    const stillCurrent = () => {
+      const current = commitIdentityAssignment(activePath);
+      return useRepoStore.getState().activePath === activePath &&
+        identityRevision.current === revision && current.group === group && current.profile === profile;
+    };
     committingRef.current = true;
     setCommitting(true);
     setCommitError(null);
@@ -898,6 +935,7 @@ function CommitPanelContent() {
           ? readCommitHead(activePath)
           : Promise.resolve(undefined),
       ]);
+      if (!stillCurrent()) return;
       const rows = buildChangeRows(freshEntries);
       const reason = commitPreflight({
         message,
@@ -915,13 +953,25 @@ function CommitPanelContent() {
       if (amendMode) {
         await amendCommit(activePath, fullMessage, draft?.amend?.hash);
       } else {
-        await commitChanges(activePath, fullMessage);
+        let identity = confirmation?.identity;
+        if (profile && !identity) {
+          identity = await invoke<CommitIdentity>("commit_identity_preview", { path: activePath });
+          if (!stillCurrent()) return;
+          if (!matchesCommitProfile(identity, profile)) {
+            setIdentityConfirmation({ revision, identity, profile });
+            return;
+          }
+        }
+        await commitChanges(activePath, fullMessage, identity);
       }
       useCommitMessagePrefs.getState().completeCommit(activePath, getCommitMessageTemplate());
       setAiResultShown(false);
     } catch (e) {
       const rawError = e instanceof Error ? e.message : String(e);
-      const error = rawError.includes("__HEAD_CHANGED__") ? t("commitGuidance.preflight.amendTargetChanged") : formatBackendError(rawError);
+      const error = rawError.includes("__COMMIT_IDENTITY_CHANGED__") ? t("commitIdentity.changed")
+        : rawError.includes("__COMMIT_IDENTITY_OPERATION__") ? t("commitIdentity.operation")
+        : rawError.includes("__HEAD_CHANGED__") ? t("commitGuidance.preflight.amendTargetChanged")
+        : formatBackendError(rawError);
       setCommitError(error);
       toastError(error);
     } finally {
@@ -931,7 +981,7 @@ function CommitPanelContent() {
   };
 
   const onCommit = () => {
-    if (!canCommit || committingRef.current) return;
+    if (!canCommit || committingRef.current || identityConfirmation) return;
     if (amendMayBePublished) setPublishedAmendOpen(true);
     else void performCommit();
   };
@@ -1106,6 +1156,38 @@ function CommitPanelContent() {
       {ignoreExplanationOpen && activePath ? (
         <Suspense fallback={null}><IgnoreExplanationDialog path={activePath} onClose={() => setIgnoreExplanationOpen(false)} /></Suspense>
       ) : null}
+
+      {identityConfirmation && (
+        <AlertDialog open onOpenChange={(open) => { if (!open) setIdentityConfirmation(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("commitIdentity.title")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("commitIdentity.description")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <dl className="grid gap-2 break-words text-sm">
+              <div>
+                <dt className="text-muted-foreground">{t("commitIdentity.profile", { label: identityConfirmation.profile.label })}</dt>
+                <dd>{identityConfirmation.profile.name} &lt;{identityConfirmation.profile.email}&gt;</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{t("commitIdentity.author")}</dt>
+                <dd>{identityConfirmation.identity.author.name} &lt;{identityConfirmation.identity.author.email}&gt;</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{t("commitIdentity.committer")}</dt>
+                <dd>{identityConfirmation.identity.committer.name} &lt;{identityConfirmation.identity.committer.email}&gt;</dd>
+              </div>
+            </dl>
+            <AlertDialogFooter>
+              <AlertDialogCancel size="sm">{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction size="sm" onClick={() => {
+                setIdentityConfirmation(null);
+                void performCommit(identityConfirmation);
+              }}>{t("commitIdentity.continue")}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
       <AlertDialog open={publishedAmendOpen} onOpenChange={setPublishedAmendOpen}>
         <AlertDialogContent>

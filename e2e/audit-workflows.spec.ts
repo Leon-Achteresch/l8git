@@ -46,6 +46,7 @@ test('stage, commit and undo through the real commit panel', async ({ page }) =>
   await expect(page.getByTestId('files').getByText('Staged', { exact: true })).toBeVisible();
   const calls = await page.evaluate(() => (window as any).__L8GIT_TEST_CALLS__);
   expect(calls.find((c: any) => c.command === 'commit_changes').args.message).toBe('Fix example');
+  expect(calls.some((c: any) => ['commit_identity_preview', 'commit_changes_with_identity'].includes(c.command))).toBe(false);
   expect(calls.find((c: any) => c.command === 'git_reset').args).toMatchObject({ target: 'HEAD~1', mode: 'soft' });
 });
 

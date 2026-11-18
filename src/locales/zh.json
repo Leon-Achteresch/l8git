@@ -1370,6 +1370,16 @@
     "confirmDesc": "将执行：{{run}}",
     "gitSection": "Git 工具"
   },
+  "commitIdentity": {
+    "title": "提交身份不一致",
+    "description": "Git 解析出的身份与分配的配置不一致。请在提交前核对这些值。",
+    "profile": "配置：{{label}}",
+    "author": "Git 作者",
+    "committer": "Git 提交者",
+    "continue": "使用此身份提交",
+    "changed": "Git 身份已更改。请重新发起提交以核对当前值。",
+    "operation": "此 Git 操作期间无法检查身份。请使用该操作自己的继续按钮。"
+  },
   "commitPanel": {
     "explainDiff": "解释差异",
     "changes": "更改",

@@ -1,10 +1,90 @@
 use super::*;
+use serde::Deserialize;
+
+#[derive(Deserialize, Serialize, PartialEq)]
+pub struct CommitIdent {
+    name: String,
+    email: String,
+}
+
+#[derive(Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitIdentity {
+    git_dir: PathBuf,
+    author: CommitIdent,
+    committer: CommitIdent,
+}
+
+fn read_ident(repo: &PathBuf, var: &str) -> Result<CommitIdent, String> {
+    let output = run_git(repo, &["var", var])?;
+    let (name, email) = output
+        .trim_end()
+        .rsplit_once("> ")
+        .and_then(|(ident, _date)| ident.rsplit_once(" <"))
+        .ok_or("Git returned an unreadable commit identity")?;
+    Ok(CommitIdent {
+        name: name.into(),
+        email: email.into(),
+    })
+}
+
+fn read_commit_identity(repo: &PathBuf) -> Result<CommitIdentity, String> {
+    let raw = run_git(repo, &["rev-parse", "--absolute-git-dir"])?;
+    let git_dir = PathBuf::from(raw.strip_suffix('\n').unwrap_or(&raw))
+        .canonicalize()
+        .map_err(|err| err.to_string())?;
+    // These operations can supply an author independently of git var.
+    for marker in [
+        "MERGE_HEAD",
+        "CHERRY_PICK_HEAD",
+        "REVERT_HEAD",
+        "rebase-merge",
+        "rebase-apply",
+        "sequencer",
+    ] {
+        if git_dir
+            .join(marker)
+            .try_exists()
+            .map_err(|err| err.to_string())?
+        {
+            return Err("__COMMIT_IDENTITY_OPERATION__".into());
+        }
+    }
+    Ok(CommitIdentity {
+        git_dir,
+        author: read_ident(repo, "GIT_AUTHOR_IDENT")?,
+        committer: read_ident(repo, "GIT_COMMITTER_IDENT")?,
+    })
+}
+
+#[tauri::command]
+pub async fn commit_identity_preview(path: String) -> Result<CommitIdentity, String> {
+    spawn_git(move || read_commit_identity(&PathBuf::from(path))).await
+}
+
+#[tauri::command]
+pub async fn commit_changes_with_identity(
+    path: String,
+    message: String,
+    expected_identity: CommitIdentity,
+) -> Result<(), String> {
+    commit_impl(path, message, None, Some(expected_identity)).await
+}
 
 #[tauri::command]
 pub async fn commit_changes(
     path: String,
     message: String,
     sign: Option<bool>,
+) -> Result<(), String> {
+    commit_impl(path, message, sign, None).await
+}
+
+async fn commit_impl(
+    path: String,
+    message: String,
+    sign: Option<bool>,
+    expected_identity: Option<CommitIdentity>,
 ) -> Result<(), String> {
     spawn_git(move || {
         let repo = PathBuf::from(&path);
@@ -22,6 +102,11 @@ pub async fn commit_changes(
         }
         args.push("-m");
         args.push(trimmed);
+        if let Some(expected) = expected_identity {
+            if read_commit_identity(&repo)? != expected {
+                return Err("__COMMIT_IDENTITY_CHANGED__".into());
+            }
+        }
         run_git(&repo, &args)?;
         Ok(())
     })

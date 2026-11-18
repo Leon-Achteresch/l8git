@@ -1,3 +1,4 @@
+import type { CommitIdentity } from "@/lib/github-expansion/identity";
 import { useRecentRepos } from "./recent-repos";
 import { forgetRepoViewState } from "./repo-view-state";
 import { readPullRequests } from './provider-reads';
@@ -397,7 +398,7 @@ type RepoState = {
   reloadLocalStatus: (path: string) => Promise<void>;
   stageFiles: (path: string, files: string[]) => Promise<void>;
   unstageFiles: (path: string, files: string[]) => Promise<void>;
-  commitChanges: (path: string, message: string) => Promise<void>;
+  commitChanges: (path: string, message: string, expectedIdentity?: CommitIdentity) => Promise<void>;
   amendCommit: (path: string, message: string, expectedHead?: string) => Promise<void>;
   cloneRepo: (url: string, dest: string) => Promise<string>;
   initRepo: (path: string) => Promise<string | null>;
@@ -1158,8 +1159,9 @@ export const useRepoStore = create<RepoState>()(
         await get().reloadStatus(path);
       },
 
-      async commitChanges(path, message) {
-        await invoke('commit_changes', { path, message });
+      async commitChanges(path, message, expectedIdentity) {
+        if (expectedIdentity) await invoke('commit_changes_with_identity', { path, message, expectedIdentity });
+        else await invoke('commit_changes', { path, message });
         await Promise.all([
           get().reload(path),
           get().reloadStatus(path),

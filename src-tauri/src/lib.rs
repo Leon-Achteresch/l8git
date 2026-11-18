@@ -307,6 +307,8 @@ pub fn run() {
             git::git_commit_split_snapshot,
             git::git_commit_split_group_checked,
             git::commit_changes,
+            git::commit_identity_preview,
+            git::commit_changes_with_identity,
             git::commit_amend,
             git::list_stashes,
             git::git_stash_push,

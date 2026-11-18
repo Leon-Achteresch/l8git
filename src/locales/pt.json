@@ -1370,6 +1370,16 @@
     "confirmDesc": "Isto vai executar: {{run}}",
     "gitSection": "Ferramentas Git"
   },
+  "commitIdentity": {
+    "title": "A identidade do commit é diferente",
+    "description": "A identidade resolvida pelo Git é diferente do perfil atribuído. Revise os valores antes de fazer o commit.",
+    "profile": "Perfil: {{label}}",
+    "author": "Autor do Git",
+    "committer": "Committer do Git",
+    "continue": "Fazer commit com esta identidade",
+    "changed": "A identidade do Git mudou. Inicie o commit novamente para revisar os valores atuais.",
+    "operation": "A revisão de identidade está indisponível durante esta operação do Git. Use a ação de continuação da operação."
+  },
   "commitPanel": {
     "explainDiff": "Explicar diff",
     "changes": "Alterações",

@@ -1370,6 +1370,16 @@
     "confirmDesc": "Es wird ausgeführt: {{run}}",
     "gitSection": "Git-Werkzeuge"
   },
+  "commitIdentity": {
+    "title": "Commit-Identität weicht ab",
+    "description": "Die von Git ermittelte Identität weicht vom zugewiesenen Profil ab. Prüfe die Werte vor dem Commit.",
+    "profile": "Profil: {{label}}",
+    "author": "Git-Autor",
+    "committer": "Git-Committer",
+    "continue": "Mit dieser Identität committen",
+    "changed": "Die Git-Identität hat sich geändert. Starte den Commit erneut, um die aktuellen Werte zu prüfen.",
+    "operation": "Für diesen Git-Vorgang ist keine Identitätsprüfung verfügbar. Nutze die Fortsetzen-Aktion des Vorgangs."
+  },
   "commitPanel": {
     "explainDiff": "Diff erklären",
     "changes": "Änderungen",
