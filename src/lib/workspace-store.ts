@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { revokeDesktopWorkspaceFetch } from "@/lib/workspace-fetch-desktop";
 import i18n from "@/lib/i18n";
 import { platformStorage } from "@/lib/platform/kv";
 import {
@@ -195,3 +196,13 @@ export function workspaceRepo(
   const forest = useRepoGroupsStore.getState().forest;
   return flattenRepoPaths(filterForest(forest, open))[0] ?? [...open][0] ?? null;
 }
+
+useWorkspaceStore.subscribe((next, previous) => {
+  const prior = previous.workspaces.find(workspace => workspace.id === previous.activeWorkspaceId);
+  const current = next.workspaces.find(workspace => workspace.id === next.activeWorkspaceId);
+  if (next.activeWorkspaceId !== previous.activeWorkspaceId ||
+    prior?.repoPaths.length !== current?.repoPaths.length ||
+    prior?.repoPaths.some(path => !current?.repoPaths.includes(path))) {
+    revokeDesktopWorkspaceFetch();
+  }
+});

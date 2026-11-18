@@ -1,5 +1,4 @@
-//! Test-only server authority and execution path. The production workspace
-//! is renderer-owned, so no desktop or release daemon command is exposed.
+//! Native workspace approval and pinned target validation.
 use super::*;
 use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
@@ -9,15 +8,19 @@ use std::sync::{Arc, RwLock};
 #[derive(Default)]
 pub(crate) struct WorkspaceFetchAuthority {
     state: RwLock<WorkspaceFetchState>,
+    #[cfg(all(test, feature = "headless"))]
     before_spawn: FixtureBarrier,
+    #[cfg(all(test, feature = "headless"))]
     before_publish: FixtureBarrier,
 }
 
+#[cfg(all(test, feature = "headless"))]
 #[derive(Default)]
 struct FixtureBarrier(
     std::sync::Mutex<Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>>,
 );
 
+#[cfg(all(test, feature = "headless"))]
 impl FixtureBarrier {
     fn pause(&self) -> Result<(), String> {
         let barrier = self.0.lock().map_err(|error| error.to_string())?.take();
@@ -50,17 +53,33 @@ struct WorkspaceFetchSession {
     membership: Option<WorkspaceFetchMembership>,
 }
 
-struct WorkspaceFetchMembership {
+pub(super) struct WorkspaceFetchMembership {
     workspace: String,
     approvals: Vec<Arc<WorkspaceFetchApproval>>,
 }
 
-pub(crate) struct RegisteredWorkspaceSession<'a> {
-    authority: &'a WorkspaceFetchAuthority,
+impl WorkspaceFetchMembership {
+    pub(super) fn review(&self) -> Vec<(PathBuf, String, String)> {
+        self.approvals
+            .iter()
+            .map(|entry| {
+                let summary = entry.target.summary();
+                (
+                    entry.target.checkout.clone(),
+                    summary.remote,
+                    summary.fingerprint,
+                )
+            })
+            .collect()
+    }
+}
+
+pub(crate) struct RegisteredWorkspaceSession {
+    authority: Arc<WorkspaceFetchAuthority>,
     id: u64,
 }
 
-impl Drop for RegisteredWorkspaceSession<'_> {
+impl Drop for RegisteredWorkspaceSession {
     fn drop(&mut self) {
         self.authority
             .state
@@ -72,7 +91,10 @@ impl Drop for RegisteredWorkspaceSession<'_> {
 }
 
 impl WorkspaceFetchAuthority {
-    pub(crate) fn register(&self, id: u64) -> Result<RegisteredWorkspaceSession<'_>, String> {
+    pub(crate) fn register(
+        self: &Arc<Self>,
+        id: u64,
+    ) -> Result<RegisteredWorkspaceSession, String> {
         use std::collections::hash_map::Entry;
         let mut state = self.state.write().map_err(|err| err.to_string())?;
         let Entry::Vacant(entry) = state.sessions.entry(id) else {
@@ -80,15 +102,17 @@ impl WorkspaceFetchAuthority {
         };
         entry.insert(WorkspaceFetchSession::default());
         Ok(RegisteredWorkspaceSession {
-            authority: self,
+            authority: self.clone(),
             id,
         })
     }
 
+    #[cfg(all(test, feature = "headless"))]
     pub(crate) fn is_registered(&self, id: u64) -> bool {
         self.state.read().unwrap().sessions.contains_key(&id)
     }
 
+    #[cfg(all(test, feature = "headless"))]
     pub(crate) fn pause_before_spawn(
         &self,
     ) -> (std::sync::mpsc::Receiver<()>, std::sync::mpsc::Sender<()>) {
@@ -97,6 +121,7 @@ impl WorkspaceFetchAuthority {
 
     // Only the native host calls these methods. IPC receives the revision of
     // a host decision, never a membership list or permission to modify it.
+    #[cfg(all(test, feature = "headless"))]
     pub(crate) fn replace_membership(
         &self,
         id: u64,
@@ -106,6 +131,15 @@ impl WorkspaceFetchAuthority {
         // Fail closed while resolving the replacement. A close, revoke or
         // newer host update during capture prevents publication.
         let revision = self.invalidate(id)?;
+        let approvals = Self::capture_membership(workspace, opened)?;
+        self.before_publish.pause()?;
+        self.publish(id, revision, approvals)
+    }
+
+    pub(super) fn capture_membership(
+        workspace: &str,
+        opened: Vec<PathBuf>,
+    ) -> Result<WorkspaceFetchMembership, String> {
         let mut approvals = Vec::with_capacity(opened.len());
         let mut common_dirs = HashSet::new();
         for path in opened {
@@ -115,7 +149,18 @@ impl WorkspaceFetchAuthority {
             }
             approvals.push(Arc::new(approval));
         }
-        self.before_publish.pause()?;
+        Ok(WorkspaceFetchMembership {
+            workspace: workspace.into(),
+            approvals,
+        })
+    }
+
+    pub(super) fn publish(
+        &self,
+        id: u64,
+        revision: u64,
+        membership: WorkspaceFetchMembership,
+    ) -> Result<u64, String> {
         let mut state = self.state.write().map_err(|err| err.to_string())?;
         let session = state
             .sessions
@@ -124,10 +169,7 @@ impl WorkspaceFetchAuthority {
         if session.revision != revision {
             return Err("Workspace fetch host update was superseded".into());
         }
-        session.membership = Some(WorkspaceFetchMembership {
-            workspace: workspace.into(),
-            approvals,
-        });
+        session.membership = Some(membership);
         Ok(revision)
     }
 
@@ -135,7 +177,7 @@ impl WorkspaceFetchAuthority {
         self.invalidate(id).map(|_| ())
     }
 
-    fn invalidate(&self, id: u64) -> Result<u64, String> {
+    pub(super) fn invalidate(&self, id: u64) -> Result<u64, String> {
         let mut state = self.state.write().map_err(|err| err.to_string())?;
         let WorkspaceFetchState { sessions, revision } = &mut *state;
         let session = sessions
@@ -250,6 +292,7 @@ impl WorkspaceFetchApproval {
     }
 }
 
+#[cfg(all(test, feature = "headless"))]
 pub(crate) async fn workspace_fetch_fixture(
     authority: Arc<WorkspaceFetchAuthority>,
     session_id: u64,
@@ -258,6 +301,25 @@ pub(crate) async fn workspace_fetch_fixture(
     revision: u64,
     op_id: Option<String>,
     cancellation: Arc<ScopedRemoteCancellation>,
+) -> Result<String, String> {
+    workspace_fetch_checked(
+        authority,
+        session_id,
+        path,
+        workspace_id,
+        revision,
+        Some((op_id, cancellation)),
+    )
+    .await
+}
+
+pub(super) async fn workspace_fetch_checked(
+    authority: Arc<WorkspaceFetchAuthority>,
+    session_id: u64,
+    path: String,
+    workspace_id: String,
+    revision: u64,
+    execution: Option<(Option<String>, Arc<ScopedRemoteCancellation>)>,
 ) -> Result<String, String> {
     let approval = {
         let state = authority.state.read().map_err(|err| err.to_string())?;
@@ -278,13 +340,13 @@ pub(crate) async fn workspace_fetch_fixture(
         {
             return Err("Workspace fetch target changed".into());
         }
-        if !target.url.starts_with("file:///") {
+        if execution.is_some() && !target.url.starts_with("file:///") {
             return Err("Workspace fetch fixture requires a local file URL".into());
         }
         // Passing the expanded URL back to Git must not apply a second
         // insteadOf rewrite. This check is local and never opens a transport.
         let literal = run_git_command_bytes(
-            git_command(),
+            crate::cmd::local_git_command(),
             checkout,
             &["ls-remote", "--get-url", "--", &target.url],
         )?;
@@ -316,6 +378,7 @@ pub(crate) async fn workspace_fetch_fixture(
         // An update or disconnect during local Git validation invalidates the
         // earlier approval. Serialize the last check with actual child spawn,
         // releasing the session guard before waiting for the child.
+        #[cfg(all(test, feature = "headless"))]
         authority.before_spawn.pause()?;
         let state = authority.state.read().map_err(|err| err.to_string())?;
         state
@@ -323,6 +386,9 @@ pub(crate) async fn workspace_fetch_fixture(
             .get(&session_id)
             .ok_or("Workspace fetch session is closed")?
             .approval(revision, &workspace_id, &repo)?;
+        let Some((op_id, cancellation)) = execution else {
+            return Ok(String::new());
+        };
         run_remote_op_with_spawn_guard(
             "fetch",
             &repo.to_string_lossy(),
@@ -337,9 +403,11 @@ pub(crate) async fn workspace_fetch_fixture(
     .await
 }
 
+#[cfg(all(test, feature = "headless"))]
 #[path = "../../../tests/common/mod.rs"]
-mod test_repos;
+pub(super) mod test_repos;
 
+#[cfg(all(test, feature = "headless"))]
 mod tests {
     use super::test_repos::TestRepo;
     use super::*;

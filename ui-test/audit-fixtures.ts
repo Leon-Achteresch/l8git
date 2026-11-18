@@ -216,6 +216,19 @@ export function seedAuditFixture(scene: string) {
           content: changed ? 'new revision content' : historical ? 'old revision content' : 'other file content',
           previous: changed ? { commit: older, file: 'old example.txt' } : null }];
       }
+      case 'workspace_fetch_desktop_available':
+        return scene === 'workspace-fetch-preview' && new URLSearchParams(location.search).get('nativeWorkspaceFixture') === '1';
+      case 'workspace_fetch_desktop_confirm':
+        if (args?.workspaceId !== 'preview' || JSON.stringify(args?.selection) !== JSON.stringify([
+          { path: `${FIXTURE_PATH}/primary`, fingerprint: 'fixture-fetch-target' },
+        ])) throw Error('Unexpected native selection');
+        return 41;
+      case 'workspace_fetch_desktop_validate':
+        if (args?.revision !== 41 || args?.path !== `${FIXTURE_PATH}/primary` || args?.workspaceId !== 'preview') {
+          throw Error('Unconfirmed native selection');
+        }
+        return null;
+      case 'workspace_fetch_desktop_revoke': return null;
       case 'repo_fetch_scope':
         if (scene !== 'workspace-fetch-preview') throw Error('Unexpected fetch preview');
         if (args?.path === `${FIXTURE_PATH}/broken`) throw Error('Repository no longer available');

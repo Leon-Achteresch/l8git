@@ -7,6 +7,7 @@ import { invoke } from '@/lib/platform/ipc';
 import { useRemoteOps } from '@/lib/remote-ops';
 import { repoLabel, useRepoStore } from '@/lib/repo-store';
 import { useWorkspaceStore } from '@/lib/workspace-store';
+import { desktopWorkspaceFetchAvailable, revokeDesktopWorkspaceFetch } from '@/lib/workspace-fetch-desktop';
 
 type FetchScope = {
   commonDir: string;
@@ -47,6 +48,13 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
   const [checks, setChecks] = useState<Record<string, TargetCheck> | null>(null);
   const [status, setStatus] = useState<'idle' | 'checking' | 'canceling' | 'canceled'>('idle');
   const pending = useRef<AbortController | null>(null);
+  const [nativeConfirmation, setNativeConfirmation] = useState(false);
+  const [confirmationError, setConfirmationError] = useState('');
+  useEffect(() => {
+    let active = true;
+    void desktopWorkspaceFetchAvailable().then(supported => { if (active) setNativeConfirmation(supported); });
+    return () => { active = false; };
+  }, []);
   useEffect(() => () => {
     pending.current?.abort();
     pending.current = null;
@@ -69,6 +77,7 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
     if (pending.current || !chosen.length || (confirm && !canConfirm)) return;
     const controller = new AbortController();
     pending.current = controller;
+    setConfirmationError('');
     if (!confirm) setResults({});
     setChecks(confirm ? {} : null);
     setStatus('checking');
@@ -85,10 +94,24 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
     const freshChecks: Record<string, TargetCheck> = {};
     try {
       invalidate();
+      let revision: number | null = null;
+      if (confirm && nativeConfirmation && stillInScope()) {
+        const selection = chosen.map(path => ({
+          path, fingerprint: (results[path] as FetchScope).target?.fingerprint,
+        }));
+        revision = await invoke<number | null>('workspace_fetch_desktop_confirm', { workspaceId, selection });
+        if (revision === null || !stillInScope()) {
+          controller.abort();
+          return;
+        }
+      }
       for (const path of chosen) {
         if (!stillInScope()) break;
         let result: PreviewResult;
         try {
+          if (revision !== null) {
+            await invoke('workspace_fetch_desktop_validate', { path, workspaceId, revision });
+          }
           result = await invoke<FetchScope>('repo_fetch_scope', { path });
         } catch (error) {
           result = { error: formatBackendError(error) };
@@ -102,6 +125,8 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
         }
       }
       if (confirm && stillInScope()) setChecks(freshChecks);
+    } catch (error) {
+      if (stillInScope()) setConfirmationError(formatBackendError(error));
     } finally {
       unsubscribeWorkspace();
       unsubscribeRepos();
@@ -136,6 +161,8 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
                         else next.delete(path);
                         return next;
                       });
+                      revokeDesktopWorkspaceFetch();
+                      setConfirmationError('');
                       setResults({});
                       setChecks(null);
                       setStatus('idle');
@@ -172,12 +199,14 @@ function FetchPreview({ workspaceId, workspaceName, paths }: {
             </Button>}
             {status === 'checking' && <Button size="sm" variant="ghost" onClick={() => {
               pending.current?.abort();
+              revokeDesktopWorkspaceFetch();
               setStatus('canceling');
             }}>{t('common.cancel')}</Button>}
             {status !== 'idle' && <span role="status" className="text-xs text-muted-foreground">
               {t(status === 'checking' ? 'common.loading' : 'workspaceFetchPreview.canceled')}
             </span>}
           </div>
+          {confirmationError && <p role="status" className="mt-2 text-xs text-destructive">{confirmationError}</p>}
           {matched && <p role="status" className="mt-2 text-xs text-muted-foreground">
             {t('workspaceFetchPreview.matched')}
           </p>}

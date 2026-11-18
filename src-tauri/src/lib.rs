@@ -128,11 +128,25 @@ fn thp_prctl(option: libc::c_int, value: libc::c_ulong) -> libc::c_int {
     unsafe { libc::prctl(option, value, 0 as libc::c_ulong, 0 as libc::c_ulong, 0 as libc::c_ulong) }
 }
 
+#[tauri::command]
+fn workspace_fetch_desktop_available() -> bool {
+    cfg!(any(target_os = "macos", target_os = "linux"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
     tune_webkit_without_gpu();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    let builder = builder.manage(git::DesktopWorkspaceFetch::default())
+        .on_window_event(|window, event| {
+            use tauri::Manager;
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed) {
+                window.state::<git::DesktopWorkspaceFetch>().close(window.label());
+            }
+        });
+    builder
         .setup(|app| {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
@@ -249,6 +263,13 @@ pub fn run() {
             repo_tools::list_repo_tools,
             git::git_fetch,
             git::repo_fetch_scope,
+            workspace_fetch_desktop_available,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            git::workspace_fetch_desktop_confirm,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            git::workspace_fetch_desktop_revoke,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            git::workspace_fetch_desktop_validate,
             git::git_pull,
             git::git_push,
             git::list_git_remotes,

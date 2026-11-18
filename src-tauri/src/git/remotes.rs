@@ -3,10 +3,15 @@ use super::coordination::RemoteProcessLock;
 use sha2::{Digest, Sha256};
 use std::sync::TryLockError;
 
-#[cfg(all(test, feature = "headless", any(target_os = "macos", target_os = "linux")))]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 mod workspace_fetch_fixture;
 #[cfg(all(test, feature = "headless", any(target_os = "macos", target_os = "linux")))]
 pub(crate) use workspace_fetch_fixture::*;
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+mod workspace_fetch_desktop;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub use workspace_fetch_desktop::*;
 
 async fn spawn_repo_remote(
     path: String,

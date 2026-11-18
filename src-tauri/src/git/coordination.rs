@@ -67,7 +67,7 @@ pub(super) struct RemoteProcessLock {
 }
 
 impl RemoteProcessLock {
-    #[cfg(all(test, feature = "headless", any(target_os = "macos", target_os = "linux")))]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub(super) fn directory(&self) -> &std::fs::File {
         &self.directory
     }

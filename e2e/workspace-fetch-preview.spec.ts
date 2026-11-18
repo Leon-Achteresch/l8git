@@ -129,3 +129,28 @@ test('cancel discards a late read and prevents checking the remaining repositori
   await expect(dialog.getByRole('button', { name: inspect })).toBeEnabled();
   expect(await calls(page)).toEqual([{ command: 'repo_fetch_scope', args: { path: `${parent}/primary` } }]);
 });
+
+test('desktop preview forwards the native confirmation revision and revokes it on membership loss', async ({ page }) => {
+  await page.goto('/?scene=workspace-fetch-preview&nativeWorkspaceFixture=1');
+  await page.getByRole('button', { name: 'Activity & recovery', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Activity & recovery', exact: true });
+  await dialog.getByText('Workspace fetch preview', { exact: true }).click();
+  const nativeCalls = () => page.evaluate(() => window.__L8GIT_TEST_CALLS__!.filter(
+    call => call.command.startsWith('workspace_fetch_desktop_'),
+  ));
+  await expect.poll(nativeCalls).toContainEqual({ command: 'workspace_fetch_desktop_available', args: undefined });
+  await dialog.getByRole('checkbox', { name: 'primary', exact: true }).check();
+  await dialog.getByRole('button', { name: inspect }).click();
+  await dialog.getByRole('button', { name: confirm }).press('Enter');
+  await expect(dialog.getByText('The targets match the preview. Workspace fetch is still unavailable.')).toBeVisible();
+  await expect.poll(nativeCalls).toContainEqual({
+    command: 'workspace_fetch_desktop_validate', args: { path: `${parent}/primary`, workspaceId: 'preview', revision: 41 },
+  });
+  const screenshot = process.env.L8GIT_F02_CONFIRMATION_SCREENSHOT;
+  if (screenshot) await page.screenshot({ path: screenshot });
+  await page.evaluate(() => window.dispatchEvent(new Event('remove-fetch-preview-member')));
+  await expect(dialog.getByRole('checkbox', { name: 'primary', exact: true })).toHaveCount(0);
+  await expect.poll(async () => (await nativeCalls()).filter(call => call.command === 'workspace_fetch_desktop_revoke').length)
+    .toBeGreaterThan(1);
+  expect((await calls(page)).every(call => call.command === 'repo_fetch_scope')).toBe(true);
+});

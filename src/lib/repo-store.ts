@@ -1,3 +1,4 @@
+import { revokeDesktopWorkspaceFetch } from "@/lib/workspace-fetch-desktop";
 import type { CommitIdentity } from "@/lib/github-expansion/identity";
 import { useRecentRepos } from "./recent-repos";
 import { forgetRepoViewState } from "./repo-view-state";
@@ -1948,3 +1949,10 @@ export function repoLabel(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
 }
+
+useRepoStore.subscribe((next, previous) => {
+  if (previous.paths.length !== next.paths.length ||
+      previous.paths.some(path => !next.paths.includes(path))) {
+    revokeDesktopWorkspaceFetch();
+  }
+});
