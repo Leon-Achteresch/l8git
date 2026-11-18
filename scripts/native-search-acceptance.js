@@ -25,26 +25,89 @@
     throw new Error(`Timed out waiting for ${label}\n${document.body?.innerText.slice(0, 2200)}`);
   };
 
-  const search = async (sha, hits) => {
+  const fillSearch = async query => {
     const input = await wait('regular commit search input', searchInput);
     input.focus();
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, sha);
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, query);
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    await wait(`${hits} matches for ${sha}`, () =>
+  };
+
+  const search = async (query, hits) => {
+    await fillSearch(query);
+    await wait(`${hits} matches for ${query}`, () =>
       find(`[title="${hits} matches"]`, element => element.textContent.trim() === String(hits)) &&
       next()?.disabled === (hits === 0));
   };
 
-  const details = async testCase => {
+  const focusMatch = async testCase => {
     next().click();
-    const focused = await wait(`focus on full ID ${testCase.sha}`, () => {
+    return wait(`focus on full ID ${testCase.sha}`, () => {
       const item = row(testCase.sha);
       return item && document.activeElement === item && item;
     });
+  };
+
+  const details = async testCase => {
+    const focused = await focusMatch(testCase);
     focused.firstElementChild.click();
-    await wait(`details for ${testCase.subject}`, () =>
-      find('button[title]', button => button.title === `${testCase.subject}\nShow metadata`) &&
-      find('[data-file-path="fixture.txt"]', () => true));
+    return wait(`details for ${testCase.subject}`, () =>
+      find('[data-file-path="fixture.txt"]', () => true) &&
+      find('button[title]', button => button.title === `${testCase.subject}\nShow metadata`));
+  };
+
+  const historyText = async () => {
+    const checkRow = testCase => wait(`history subject ${testCase.subject}`, () => {
+      const item = row(testCase.sha);
+      return item && find('span', element => element.textContent === testCase.subject, item);
+    });
+    const checkCommit = (commit, testCase) => {
+      if (commit?.hash !== testCase.sha || commit.subject !== testCase.subject || commit.body !== testCase.body + '\n') {
+        throw new Error(`Unexpected native history response for ${testCase.subject}: ${JSON.stringify(commit)}`);
+      }
+    };
+    for (const [path, entries] of [[fixture.parent, cases.primary], [fixture.child, cases.other]]) {
+      operation = `open history in ${path}`;
+      if (path === fixture.child) {
+        (await wait('SHA-1 repository tab', () => tab(path))).click();
+        await wait('SHA-1 repository active and query reset', () =>
+          tab(path).dataset.active === 'true' && searchInput()?.value === '');
+      }
+      for (const entry of entries) await checkRow(entry);
+      const opened = await ipc('open_repo', { path });
+      entries.forEach((entry, index) => checkCommit(opened.commits[index], entry));
+      steps.push(`Exact initial history subjects and bodies for ${entries[0].sha.length}-character IDs`);
+
+      if (path === fixture.parent) {
+        operation = 'scroll SHA-256 history past the first page';
+        if (row(cases.older.sha) || opened.commits.length !== 80) throw new Error('Unexpected initial page');
+        const viewport = row(entries[0].sha).closest('.overflow-y-auto');
+        viewport.scrollTop = viewport.scrollHeight;
+        await checkRow(cases.older);
+        const page = await ipc('repo_log_page', { path, skip: 80, limit: 80 });
+        checkCommit(page.at(-1), cases.older);
+        viewport.scrollTop = 0;
+        await checkRow(entries[0]);
+        steps.push('Scrolled to the next native history page and verified the older Latin-1 commit subject and body');
+      }
+      for (const entry of entries) {
+        operation = `full ID, text search and detail for ${entry.subject}`;
+        // A one-letter draft clears the store synchronously in the toolbar
+        // effect and avoids mistaking a previous one-hit count for this query.
+        for (const query of [entry.sha.toUpperCase(), entry.body]) {
+          await fillSearch('x');
+          await wait('previous commit search cleared', () => next()?.disabled);
+          await search(query, 1);
+          if (query === entry.body) {
+            (await details(entry)).click();
+            await wait(`expanded body for ${entry.subject}`, () =>
+              find('div', element => element.childElementCount === 0 && element.textContent === entry.body));
+          } else {
+            await focusMatch(entry);
+          }
+        }
+        steps.push(`Exact full ID and body searches plus rendered detail for ${entry.subject}`);
+      }
+    }
   };
 
   const run = async () => {
@@ -55,7 +118,7 @@
     seed('l8git-repo', { paths: [fixture.parent, fixture.child], activePath: fixture.parent, customFavicons: {} });
     seed('l8git-ui', { sidebarTab: 'history' });
     const denied = await Promise.allSettled([
-      ipc('repo_search_commits', { path: fixture.outside, query: cases.loaded.sha, skip: 0, limit: 80 }),
+      ipc('repo_search_commits', { path: fixture.outside, query: cases.loaded?.sha ?? cases.primary[0].sha, skip: 0, limit: 80 }),
       ipc('git_fetch', { path: fixture.parent }),
     ]);
     if (denied.some(result => result.status !== 'rejected')) throw new Error('Unexpected fixture permissions');
@@ -63,6 +126,11 @@
     operation = 'regular History panel and an unloaded SHA-256 match';
     const sidebar = await wait('repository sidebar', () => document.querySelector('[data-testid="repository-sidebar"]'));
     (await wait('History tab', () => named('[role="tab"]', 'History', sidebar))).click();
+    if (fixture.historyText) {
+      await historyText();
+      await ipc('native_acceptance_result', { ok: true, steps });
+      return;
+    }
     await wait('loaded history row', () => visible(row(cases.loaded.sha)));
     await search(cases.old.sha, 1);
     next().focus();

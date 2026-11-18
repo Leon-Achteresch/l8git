@@ -79,7 +79,7 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 
 Die regulären Git-Lesewege für Historie, Suche und Commitdetail verwenden pro Aufruf `--encoding=UTF-8`. Eine anders konfigurierte Git-Ausgabekodierung bleibt gespeichert, beeinflusst aber diese Aufrufe nicht. Korrekt deklarierte Nachrichten werden von Git umkodiert. Ohne Encoding-Header behandelt Git die Nachricht als UTF-8. Falsch deklarierte Bytes können als Ersatzzeichen erscheinen oder falsche Zeichen ergeben.
 
-Der Test `commit_text_reads_use_utf8_with_non_utf8_git_config` prüft SHA-1 und SHA-256 mit echten Latin-1-, UTF-8- und ASCII-Commits und absichtlich auf Latin-1 gesetzter Logausgabe. Diffs, Pfade, Notes, Blame und zusätzliche Textoberflächen wie Submodul-Historie, Bisect und Commitbereich der KI-Erklärung sind eigene Lesewege.
+Der Test `commit_text_reads_use_utf8_with_non_utf8_git_config` prüft SHA-1 und SHA-256 mit echten Latin-1-, UTF-8- und ASCII-Commits und absichtlich auf Latin-1 gesetzter Logausgabe. Die [native macOS-Abnahme](audits/native-history-text-acceptance.md) bestätigt Öffnen und Paginierung, Suche und sichtbare Details im privaten WKWebView. Diffs, Pfade, Notes, Blame und zusätzliche Textoberflächen wie Submodul-Historie, Bisect und Commitbereich der KI-Erklärung sind eigene Lesewege.
 
 ### F42 · Lokale Commit-Notes
 

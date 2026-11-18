@@ -262,6 +262,45 @@ def search_fixture(root, env):
             "cases": {"old": old, "loaded": loaded, "blob": blob, "missing": missing, "other": sha1}}
 
 
+def history_text_fixture(root, env):
+    repos = root / "repos"
+    def commit(path, subject, body, encoding):
+        message = f"{subject}\n\n{body}\n".encode(encoding)
+        (path / "fixture.txt").write_text(f"{subject}\n", encoding="utf-8")
+        git(path, env, "add", "--", "fixture.txt")
+        subprocess.run(["/usr/bin/git", "-C", path, "-c", f"i18n.commitEncoding={encoding}",
+                        "commit", "--quiet", "-F", "-"], input=message, env=env, check=True)
+        sha = git(path, env, "rev-parse", "HEAD")
+        raw = subprocess.check_output(["/usr/bin/git", "-C", path, "cat-file", "commit", sha], env=env)
+        header, stored = raw.split(b"\n\n", 1)
+        latin1 = encoding == "ISO-8859-1"
+        if stored != message or (b"\nencoding ISO-8859-1" in header) != latin1:
+            raise RuntimeError(f"Unexpected commit encoding in {sha}")
+        return {"sha": sha, "subject": subject, "body": body}
+
+    cases = {}
+    for key, object_format, width in (("primary", "sha256", 64), ("other", "sha1", 40)):
+        path = repos / object_format
+        path.mkdir(parents=True)
+        git(path, env, "init", "--quiet", "--initial-branch=main", f"--object-format={object_format}")
+        git(path, env, "config", "i18n.logOutputEncoding", "ISO-8859-1")
+        if key == "primary":
+            cases["older"] = commit(path, "Réunion ancienne", "Le procès-verbal.", "ISO-8859-1")
+            for index in range(80):
+                git(path, env, "commit", "--quiet", "--allow-empty", "-m", f"Native F40 padding {index}")
+        utf8 = commit(path, f"Crème {object_format}", "Déjà vu, côté été.", "UTF-8")
+        latin1 = commit(path, f"Café {object_format}", "À bientôt, chère équipe.", "ISO-8859-1")
+        cases[key] = [latin1, utf8]
+        if any(len(case["sha"]) != width for case in cases[key]):
+            raise RuntimeError(f"Unexpected fixture object format for {path}")
+        raw = subprocess.check_output(["/usr/bin/git", "-C", path, "log", "-2", "--format=%s"], env=env)
+        expected = "".join(f"{case['subject']}\n" for case in cases[key]).encode("ISO-8859-1")
+        if raw != expected:
+            raise RuntimeError(f"Expected ordinary Git output to honor the Latin-1 configuration for {path}")
+    return {"kind": "search", "historyText": True, "parent": str(repos / "sha256"),
+            "child": str(repos / "sha1"), "outside": str(root), "cases": cases}
+
+
 def run_external_phases(process, on_line):
     deadline = time.monotonic() + 100
     buffer = b""
@@ -403,16 +442,26 @@ def verify_search_trace(trace, output, spec):
     calls = [json.loads(line.removeprefix(prefix)) for line in output.splitlines() if line.startswith(prefix)]
     primary, other = spec["parent"], spec["child"]
     cases = spec["cases"]
-    loaded, sha1 = cases["loaded"]["sha"], cases["other"]["sha"]
+    history_text = spec.get("historyText", False)
     queries = [(call["path"], call["query"]) for call in calls if call["command"] == "repo_search_commits"]
-    expected = [(primary, cases["old"]["sha"]), (primary, cases["blob"]), (primary, loaded.upper()),
-                (primary, cases["missing"]), (other, sha1), (other, loaded)]
+    if history_text:
+        entries = [(path, case) for key, path in (("primary", primary), ("other", other)) for case in cases[key]]
+        expected = [(path, query) for path, case in entries for query in (case["sha"].upper(), case["body"])]
+        expected_details = [(path, case["sha"]) for path, case in entries]
+    else:
+        loaded, sha1 = cases["loaded"]["sha"], cases["other"]["sha"]
+        expected = [(primary, cases["old"]["sha"]), (primary, cases["blob"]), (primary, loaded.upper()),
+                    (primary, cases["missing"]), (other, sha1), (other, loaded)]
+        expected_details = [(primary, loaded), (other, sha1)]
     if queries != expected:
         raise RuntimeError(f"Unexpected native search IPC: {queries}")
     details = [(call["path"], call["commit"]) for call in calls if call["command"] == "repo_commit_inspect"]
-    if details != [(primary, loaded), (other, sha1)]:
+    if details != expected_details:
         raise RuntimeError(f"Unexpected native detail IPC: {details}")
-    if any(call["command"] == "repo_log_page" and call["path"] == primary for call in calls):
+    pages = [call["skip"] for call in calls if call["command"] == "repo_log_page" and call["path"] == primary]
+    if history_text and 80 not in pages:
+        raise RuntimeError("Expected native history pagination at offset 80")
+    if not history_text and pages:
         raise RuntimeError("The SHA-256 fixture loaded another history page during the navigation check")
 
     events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
@@ -437,6 +486,11 @@ def verify_search_trace(trace, output, spec):
                 or (args[0] == "config" and any(arg in ("--get", "--get-regexp") for arg in args)))
         if path not in (primary, other) or not read:
             raise RuntimeError(f"Unexpected Git process in search fixture: {argv}")
+        if history_text:
+            reads_message = ((args[0] == "log" and any("%s" in arg and "%b" in arg for arg in args)) or
+                             (args[0] == "show" and "--format=fuller" in args))
+            if reads_message and ("--encoding=UTF-8" not in args or exits.get(event["sid"]) != 0):
+                raise RuntimeError(f"Expected a successful UTF-8 Git message read: {argv}")
         reads += 1
         if exits.get(event["sid"]) != 0:
             continue
@@ -451,8 +505,10 @@ def verify_search_trace(trace, output, spec):
     paths = [path for path, _ in queries]
     if not initial_page or formats != paths or scans != paths or inspections != details:
         raise RuntimeError(f"Unexpected search Git evidence: {initial_page=} {formats=} {scans=} {inspections=}")
+    pagination = ("Verified SHA-256 history pagination at offset 80." if history_text else
+                  "No additional SHA-256 history page was loaded.")
     print(f"NATIVE_SEARCH_GIT verified {reads} local read processes, {len(scans)} search IPC "
-          f"and {len(inspections)} exact detail IPC. No additional SHA-256 history page was loaded.")
+          f"and {len(inspections)} exact detail IPC. {pagination}")
 
 
 def snapshot(root, allowed_changes=()):
@@ -471,6 +527,7 @@ def main():
     modes.add_argument("--commit-notes", action="store_true", help="run the F42 local commit notes fixture")
     modes.add_argument("--qualified-compare", action="store_true", help="run the F46 qualified compare fixture")
     modes.add_argument("--commit-search", action="store_true", help="run the F51 full commit ID search fixture")
+    modes.add_argument("--history-text", action="store_true", help="run the F40 UTF-8 history text fixture")
     args = parser.parse_args()
     staging, worktree = args.staging_metadata, args.worktree_catalog
     if sys.platform != "darwin" or not Path(SANDBOX).is_file():
@@ -479,8 +536,8 @@ def main():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
     notes = args.commit_notes
     compare = args.qualified_compare
-    search = args.commit_search
-    mode = ("search" if search else "compare" if compare else "notes" if notes else
+    search = args.commit_search or args.history_text
+    mode = ("history-text" if args.history_text else "search" if search else "compare" if compare else "notes" if notes else
             "worktrees" if worktree else "staging" if staging else "submodules")
     verify_repo_state = notes or compare or search
     with tempfile.TemporaryDirectory(prefix=f"l8git-native-{mode}-") as temp:
@@ -498,7 +555,8 @@ def main():
         }
         create_fixture = {"notes": notes_fixture, "worktrees": worktree_fixture,
                           "staging": staging_fixture, "submodules": submodule_fixture,
-                          "compare": compare_fixture, "search": search_fixture}[mode]
+                          "compare": compare_fixture, "search": search_fixture,
+                          "history-text": history_text_fixture}[mode]
         if verify_repo_state:
             env["GIT_ALLOW_PROTOCOL"] = ""
             env["GIT_NO_LAZY_FETCH"] = "1"
@@ -577,6 +635,8 @@ if sys.argv[1]:
         elif search:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/heads/main"),
                          str(Path(spec["child"]) / ".git/HEAD"), str(Path(spec["child"]) / ".git/index")]
+            if args.history_text:
+                protected.extend(str(Path(path) / ".git/config") for path in (spec["parent"], spec["child"]))
         elif notes:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/notes/commits"),
                          str(Path(spec["child"]) / ".git/refs/notes/commits")]
