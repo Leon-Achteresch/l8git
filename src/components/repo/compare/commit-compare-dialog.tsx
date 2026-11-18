@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { FileFilterInput } from '@/components/repo/file-filter-input';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -172,6 +173,10 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
     ...(repo?.tags.map(tag => ({ name: tag.name, ref: `refs/tags/${tag.name}`, kind: 'tag' as const })) ?? []),
   ], [repo?.branches, repo?.tags]);
   const filteredFiles = useMemo(() => filterCompareFiles(comparison?.files ?? EMPTY_FILES, query, status, sort, reviewed, hideReviewed), [comparison?.files, query, status, sort, reviewed, hideReviewed]);
+  const showRenameHelp = comparison && (
+    comparison.files.some(file => file.status === 'R' && file.previous_path) ||
+    (comparison.files.some(file => file.status === 'A') && comparison.files.some(file => file.status === 'D'))
+  );
   const profileId = useDiffProfiles((s) => s.active);
   const customProfiles = useDiffProfiles((s) => s.custom);
   const [showHidden, setShowHidden] = useState(false);
@@ -326,7 +331,24 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
             <ResizablePanelGroup key={narrow ? 'compare-vertical' : 'compare-horizontal'} orientation={narrow ? 'vertical' : 'horizontal'} className="min-h-0 flex-1">
               <ResizablePanel id="compare-files" defaultSize={narrow ? '36%' : '29%'} minSize={narrow ? '22%' : '18%'} maxSize={narrow ? '65%' : '60%'} className="flex min-h-0 flex-col">
                 <div className="shrink-0 space-y-2 border-b border-border px-3 py-2">
-                  <FileFilterInput value={query} onChange={setQuery} />
+                  <div className="flex min-w-0 items-center gap-1">
+                    <div className="min-w-0 flex-1">
+                      <FileFilterInput value={query} onChange={setQuery} />
+                    </div>
+                    {showRenameHelp && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button type="button" size="xs" variant="ghost" className="max-w-40 min-w-0">
+                            <span className="truncate">{t('compare.renameHelp')}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="text-xs" aria-label={t('compare.renameHelp')}>
+                          <p>{t('compare.renameHelpExplanation')}</p>
+                          <p>{t('compare.renameHelpDiff')}</p>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <select aria-label={t('compare.fileStatus')} className={`${SELECT_CLASS} flex-1`} value={status} onChange={event => setStatus(event.target.value as typeof status)}><option value="all">{t('compare.allStatuses')}</option>{Object.entries(COMPARE_FILE_STATUS_KEYS).map(([key, label]) => <option key={key} value={key}>{t(`compare.${label}`)}</option>)}</select>
                     <select aria-label={t('compare.sortFiles')} className={`${SELECT_CLASS} flex-1`} value={sort} onChange={event => setSort(event.target.value as CommitCompareFileSort)}><option value="path">{t('compare.sortPath')}</option><option value="changes">{t('compare.sortChanges')}</option><option value="status">{t('compare.sortStatus')}</option></select>

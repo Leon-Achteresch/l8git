@@ -97,6 +97,74 @@ async fn comparison_retains_renames_binary_and_literal_special_names() {
 }
 
 #[tokio::test]
+async fn similarity_changes_the_same_move_from_rename_to_delete_add() {
+    let repo = TestRepo::new("compare-move");
+    let base = repo.commit(
+        "old.txt",
+        "Original document\nSome original lines\n",
+        "Original",
+    );
+    repo.git(&["mv", "old.txt", "new.txt"]);
+    let moved = repo.commit_all("Move document");
+    let rewritten = repo.commit(
+        "new.txt",
+        "Entirely rewritten material\nUnrelated content\n",
+        "Rewrite document",
+    );
+    let refs = repo.git(&["show-ref", "--head"]);
+
+    let rename = repo_compare_commits(repo.s(), base.clone(), moved.clone(), None)
+        .await
+        .unwrap();
+    assert_eq!(rename.files.len(), 1);
+    assert_eq!(rename.files[0].status, "R");
+    assert_eq!(rename.files[0].path, "new.txt");
+    assert_eq!(rename.files[0].previous_path.as_deref(), Some("old.txt"));
+    let rename_diff = repo_compare_file_diff(
+        repo.s(),
+        base.clone(),
+        moved,
+        None,
+        "new.txt".into(),
+        Some("old.txt".into()),
+    )
+    .await
+    .unwrap();
+    assert!(rename_diff.patch.contains("rename from old.txt"));
+
+    let separate = repo_compare_commits(repo.s(), base.clone(), rewritten.clone(), None)
+        .await
+        .unwrap();
+    assert_eq!(separate.files.len(), 2);
+    for (path, status, content) in [
+        ("old.txt", "D", "-Original document"),
+        ("new.txt", "A", "+Entirely rewritten material"),
+    ] {
+        let file = separate
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .unwrap();
+        assert_eq!(file.status, status);
+        assert!(file.previous_path.is_none());
+        let diff = repo_compare_file_diff(
+            repo.s(),
+            base.clone(),
+            rewritten.clone(),
+            None,
+            path.into(),
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(diff.patch.contains(content));
+        assert!(!diff.patch.contains("rename from"));
+    }
+    assert_eq!(repo.git(&["show-ref", "--head"]), refs);
+    assert!(repo.git(&["status", "--porcelain"]).is_empty());
+}
+
+#[tokio::test]
 async fn comparison_rejects_bad_refs_modes_and_paths_without_mutation() {
     let repo = TestRepo::new("compare-invalid");
     repo.commit("a.txt", "a\n", "base");

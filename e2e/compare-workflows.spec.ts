@@ -107,6 +107,38 @@ test('qualified compare picks separate display names from refs and discards a la
   await expect(page.getByRole('menuitemradio', { name: /release/ })).toHaveCount(0);
 });
 
+for (const rewritten of [false, true]) {
+  test(`rename help explains ${rewritten ? 'separate delete/add' : 'a recognized rename'} without reading Git`, async ({ page }) => {
+    await page.setViewportSize({ width: 640, height: 800 });
+    const dialog = await openComparison(page, rewritten ? 'compare-rewrite' : 'git-workflow');
+    const calls = () => page.evaluate(() => window.__L8GIT_TEST_CALLS__!);
+    const diffCalls = async () => (await calls()).filter(call => call.command === 'repo_compare_file_diff');
+    await expect.poll(async () => (await diffCalls()).length).toBe(1);
+    const initial = await calls();
+    const file = dialog.getByRole('button', { name: /docs\/new name\.txt/ });
+    await expect(file).toContainText(rewritten ? 'Added' : 'Renamed');
+    await expect(file.getByText('← docs/old name.txt', { exact: true })).toHaveCount(rewritten ? 0 : 1);
+    const trigger = dialog.getByRole('button', { name: 'Rename detection' });
+    await trigger.focus();
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press('Enter');
+    const help = page.getByRole('dialog', { name: 'Rename detection', exact: true });
+    await expect(help.getByText(/content similarity in this comparison/)).toBeVisible();
+    await expect(help.getByText(/Select a file to review its content diff/)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(help).toBeHidden();
+    await expect(trigger).toBeFocused();
+    expect(await calls()).toEqual(initial);
+
+    const otherFile = dialog.getByRole('button', { name: rewritten ? /docs\/old name\.txt.*Deleted/ : /src\/example\.txt/ });
+    await otherFile.press('Enter');
+    await expect(otherFile).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(async () => (await diffCalls()).at(-1)?.args).toMatchObject({
+      file: rewritten ? 'docs/old name.txt' : 'src/example.txt', previousFile: null,
+    });
+  });
+}
+
 test('comparison preserves rename paths and reviews files against pinned snapshots', async ({ page }) => {
   const dialog = await openComparison(page);
   await expect(dialog.getByText('Only file metadata changed. Review the rename, permissions or type changes below.', { exact: true })).toBeVisible();

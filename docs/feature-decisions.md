@@ -69,11 +69,17 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 | F57 | Vorhandene Cleanupregeln für Committext erklären (F57, bedingt). | Die Nachrichtenhilfe im Commit-Panel erklärt die direkte Übergabe mit `-m`, Vorlagen, Git-Cleanup-Modi und den Unterschied zwischen `#123` und `Refs: #123` beim üblichen Kommentarmarker. Die Erklärung ist statisch. Git-Konfiguration und Hooks bestimmen weiter die tatsächliche Verarbeitung. |
 | F59 | Fehlenden Partial-Clone-Inhalt erklären (F59, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F60 | Vorhandenen Submodul-URL-Abgleich erklären. | Die Submodulhilfe erklärt, wie Sync die versionierte URL-Vorlage in die lokale Konfiguration übernimmt und dabei lokale Überschreibungen ersetzen kann. Update richtet den Checkout auf den gespeicherten Commit aus. |
-| F58 | Renameanzeige als Erkennung erklären (F58, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
+| F58 | Renameanzeige als Erkennung erklären (F58, bedingt). | Die Dateiliste im Vergleich erklärt Gits Ähnlichkeitserkennung bei einem erkannten Rename mit Altpfad oder bei sichtbaren Löschungen und Hinzufügungen. Die Hilfe verweist auf den bestehenden Inhaltsdiff je Datei. |
 | F61 | Bare-Repository beim Öffnen klar einordnen. | Der reguläre Öffnungspfad kennzeichnet bestätigte Bare-Repositories. Im Commit-Tab erklärt der Hinweis die fehlende Arbeitskopie und führt zur vorhandenen Historie. Historie und Referenzen bleiben im selben Repository erreichbar. |
 | F63 | Vorgesehenen Branch vor dem ersten Commit zeigen. | Der normale Repository-Einstieg zeigt den Namen aus einem gültigen symbolischen HEAD mit fehlender Branch-Ref. Die Branchanzeige erklärt den fehlenden ersten Commit. Bare-Repositories, detached HEAD und Lesefehler behalten ihre eigenen Zustände. |
 | F62 | Ausgelassene Mergewege am Pfadfilter erklären (F62, bedingt). | Der aktive Pfadfilter erklärt Gits Vereinfachung des Pfadverlaufs. Sein vorhandener Entfernen-Knopf hebt nur die Pfadbeschränkung auf und gibt den Fokus an die Verlaufssuche zurück. |
 | F64 | Verweis und Schließabsicht bei Issues erklären. | Die Commitnachrichtenhilfe erklärt Refs und Closes direkt bei der Auswahl. Ob der Host ein Issue automatisch schließt, hängt vom Host, vom Zielbranch und von den Repository-Einstellungen ab. Die Aktionen fügen editierbare Trailer ein. |
+
+### F58 · Umbenennungserkennung im Vergleich
+
+Der native Vergleich verwendet `--find-renames -l1000` für Status, Statistik und Patch. Die gewählte Basis und der Kopf bestimmen, welche Inhalte Git vergleicht. Ein echter Test mit demselben Dateiumzug ergibt bei identischem Inhalt einen Rename mit Altpfad und nach einer vollständigen Neufassung zwei getrennte Einträge. Der Inhaltsdiff verwendet bei einem Rename beide Pfade, bei getrennten Einträgen jeweils den gewählten Pfad.
+
+Die Erklärung öffnet sich aus den geladenen Status- und Altpfadangaben. Sie führt keinen weiteren Git-Aufruf aus und leitet aus einer Löschung und Hinzufügung keine Paarung ab. Die Auswertung bleibt abhängig von Vergleichsbasis, Ähnlichkeit und Gits Kandidatenlimit.
 
 ### F62 · Mergewege im Pfadverlauf
 

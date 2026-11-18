@@ -333,15 +333,27 @@ export function seedAuditFixture(scene: string) {
       case 'repo_compare_commits': return {
         base: String(args?.base), head: String(args?.head), mode: args?.mode ?? 'direct', base_hash: base.hash, head_hash: 'd'.repeat(40),
         merge_base: args?.mode === 'merge-base' ? 'e'.repeat(40) : null, ahead: 3, behind: 1,
-        files: [
+        files: scene === 'compare-rewrite' ? [
+          { path: 'docs/old name.txt', previous_path: null, status: 'D', additions: 0, deletions: 1, binary: false },
+          { path: 'docs/new name.txt', previous_path: null, status: 'A', additions: 1, deletions: 0, binary: false },
+        ] : [
           { path: 'docs/new name.txt', previous_path: 'docs/old name.txt', status: 'R', additions: 0, deletions: 0, binary: false },
           { path: 'src/example.txt', previous_path: null, status: 'M', additions: 1, deletions: 1, binary: false },
         ], additions: 1, deletions: 1, total_files: 2, truncated: false,
       };
-      case 'repo_compare_file_diff': return {
-        patch: args?.file === 'docs/new name.txt' ? 'diff --git a/docs/old name.txt b/docs/new name.txt\nsimilarity index 100%\nrename from docs/old name.txt\nrename to docs/new name.txt\n' : PATCH,
-        truncated: false, binary: false,
-      };
+      case 'repo_compare_file_diff': {
+        const file = String(args?.file);
+        if (scene === 'compare-rewrite') {
+          const patch = file === 'docs/old name.txt'
+            ? `diff --git a/${file} b/${file}\ndeleted file mode 100644\n--- a/${file}\n+++ /dev/null\n@@ -1 +0,0 @@\n-Original fixture document\n`
+            : `diff --git a/${file} b/${file}\nnew file mode 100644\n--- /dev/null\n+++ b/${file}\n@@ -0,0 +1 @@\n+Rewritten fixture document\n`;
+          return { patch, truncated: false, binary: false };
+        }
+        return {
+          patch: file === 'docs/new name.txt' ? 'diff --git a/docs/old name.txt b/docs/new name.txt\nsimilarity index 100%\nrename from docs/old name.txt\nrename to docs/new name.txt\n' : PATCH,
+          truncated: false, binary: false,
+        };
+      }
       case 'stage_files': entries = entries.map(e => (args?.files as string[] | undefined)?.some(file => file === '.' || file === e.path) ? ({ ...e, staged: true, unstaged: false, index_status: 'M', worktree_status: ' ', additions_staged: 1, deletions_staged: 1 }) : e); return null;
       case 'unstage_files': entries = entries.map(e => (args?.files as string[] | undefined)?.some(file => file === '.' || file === e.path) ? ({ ...e, staged: false, unstaged: true, index_status: ' ', worktree_status: 'M', additions_staged: 0, deletions_staged: 0, additions_unstaged: 1, deletions_unstaged: 1 }) : e); return null;
       case 'git_discard_files': { const files = await checkFiles(args); entries = entries.filter(entry => !files.includes(entry.path)); return null; }
