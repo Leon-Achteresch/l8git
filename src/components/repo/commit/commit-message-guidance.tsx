@@ -229,6 +229,21 @@ export function CommitMessageGuidance({ subject, body, onSubjectChange, onBodyCh
               <p className="text-muted-foreground">{t("commitGuidance.coAuthor.attribution")}</p>
             </section>
           )}
+          {!compact && (
+            <details className="space-y-1.5 border-t border-border/50 pt-2 text-muted-foreground">
+              <summary className="cursor-pointer rounded-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {t("commitGuidance.cleanup.title")}
+              </summary>
+              <p>{t("commitGuidance.cleanup.input")}</p>
+              <p>{t("commitGuidance.cleanup.default")}</p>
+              <ul className="space-y-0.5">
+                {(["strip", "whitespace", "verbatim", "scissors"] as const).map(mode => (
+                  <li key={mode}><code>{mode}</code>{" · "}{t(`commitGuidance.cleanup.${mode}`)}</li>
+                ))}
+              </ul>
+              <p>{t("commitGuidance.cleanup.limits")}</p>
+            </details>
+          )}
         </div>
       ) : null}
     </div>

@@ -3788,6 +3788,16 @@
     "hashesCopied": "{{count}} identifiants de commits copiés."
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Nettoyage du message par Git",
+      "input": "Commit et Amend transmettent le brouillon après suppression des espaces aux extrémités avec -m, sans ouvrir l’éditeur de Git. Le modèle de l8git remplit le brouillon. Le réglage commit.template de Git fournit un texte initial à son éditeur et est ignoré avec -m.",
+      "default": "Le panneau de commit laisse Git nettoyer le message. Git utilise commit.cleanup si ce réglage est défini. Par défaut, Git utilise strip lors de l’édition et whitespace quand le texte lui est transmis directement.",
+      "strip": "Comme whitespace, avec suppression des lignes qui commencent par le marqueur de commentaire de Git. Avec le marqueur habituel #, une ligne qui commence par #123 peut disparaître. Dans ce cas, une ligne comme Refs: #123 est conservée.",
+      "whitespace": "Supprime les espaces de fin de ligne et les lignes vides au début et à la fin, réduit les lignes vides consécutives à une et conserve les commentaires.",
+      "verbatim": "Laisse intact le message reçu par Git.",
+      "scissors": "Comme whitespace, avec suppression du texte à partir de la ligne de ciseaux lors de l’édition dans l’éditeur de Git.",
+      "limits": "Le réglage effectif et le marqueur de commentaire ne sont pas vérifiés ici. Les hooks Git peuvent aussi modifier ou refuser le message."
+    },
     "coAuthor": {
       "title": "Aperçu des trailers de coauteurs",
       "subject": "Objet",

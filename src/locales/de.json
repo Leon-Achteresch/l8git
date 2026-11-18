@@ -3858,6 +3858,16 @@
     "fileChanged": "„{{file}}“ wurde nach der Vorschau geändert. Lade die Vorschau neu und prüfe die aktuellen Änderungen vor dem Verwerfen."
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Git-Bereinigung der Commitnachricht",
+      "input": "Commit und Amend übergeben den getrimmten Entwurf mit -m, ohne den Git-Editor zu öffnen. Die l8git-Vorlage füllt den Entwurf. Gits commit.template liefert Text für den Git-Editor und wird bei -m ignoriert.",
+      "default": "Das Commit-Panel überlässt die Bereinigung Git. Git verwendet commit.cleanup, wenn es gesetzt ist. Standardmäßig nutzt Git im Editor strip und bei direkter Textübergabe whitespace.",
+      "strip": "Wie whitespace, entfernt aber zusätzlich Zeilen, die mit Gits Kommentarmarkierung beginnen. Beim üblichen # kann eine mit #123 beginnende Zeile verschwinden. Eine Zeile wie Refs: #123 bleibt in diesem Fall erhalten.",
+      "whitespace": "Entfernt Leerraum am Zeilenende sowie leere Zeilen am Anfang und Ende, fasst aufeinanderfolgende Leerzeilen zusammen und behält Kommentarzeilen.",
+      "verbatim": "Überspringt die Bereinigung der an Git übergebenen Nachricht.",
+      "scissors": "Wie whitespace. Beim Bearbeiten im Git-Editor schneidet Git zusätzlich ab der Scherenzeile ab.",
+      "limits": "Die wirksame Einstellung und die Kommentarmarkierung werden hier nicht geprüft. Git-Hooks können die Nachricht außerdem ändern oder ablehnen."
+    },
     "coAuthor": {
       "title": "Vorschau der Mitautoren-Trailer",
       "subject": "Betreff",

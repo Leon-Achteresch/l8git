@@ -3788,6 +3788,16 @@
     "hashesCopied": "已复制 {{count}} 个提交哈希。"
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Git 提交消息清理",
+      "input": "提交和修订通过 -m 传入去掉首尾空白的草稿，无需打开 Git 编辑器。l8git 模板用于预填草稿。Git 的 commit.template 为其编辑器提供初始文本，使用 -m 时会被忽略。",
+      "default": "提交面板由 Git 负责清理。配置了 commit.cleanup 时，Git 会采用该配置。默认情况下，通过编辑器编辑时使用 strip，直接传入文本时使用 whitespace。",
+      "strip": "与 whitespace 类似，还会删除以 Git 注释标记开头的行。使用常见的 # 标记时，以 #123 开头的行可能被删除。此时 Refs: #123 这样的行会保留。",
+      "whitespace": "移除行尾空白及开头和结尾的空行，将连续空行合并为一行，并保留注释行。",
+      "verbatim": "跳过对 Git 收到的消息的清理。",
+      "scissors": "与 whitespace 类似，但在 Git 编辑器中编辑时还会从剪切标记行开始截断。",
+      "limits": "此处不检查实际生效的设置或注释标记。Git 钩子也可能修改或拒绝消息。"
+    },
     "coAuthor": {
       "title": "共同作者尾注预览",
       "subject": "主题",

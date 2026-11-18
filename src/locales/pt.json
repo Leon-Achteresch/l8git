@@ -3788,6 +3788,16 @@
     "hashesCopied": "{{count}} hashes dos commits copiados."
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Limpeza da mensagem pelo Git",
+      "input": "Commit e Amend enviam o rascunho aparado com -m, sem abrir o editor do Git. O modelo do l8git preenche o rascunho. O commit.template do Git fornece o texto inicial para seu editor e é ignorado com -m.",
+      "default": "O painel de commit deixa a limpeza a cargo do Git. O Git usa commit.cleanup quando configurado. Por padrão, usa strip ao editar e whitespace quando recebe texto diretamente.",
+      "strip": "Como whitespace, mas também remove linhas que começam com o marcador de comentários do Git. Com o marcador usual #, uma linha que começa com #123 pode desaparecer. Nesse caso, uma linha como Refs: #123 é preservada.",
+      "whitespace": "Remove espaços no fim das linhas e linhas vazias no início e no fim, reduz linhas vazias consecutivas a uma e preserva os comentários.",
+      "verbatim": "Ignora a limpeza da mensagem recebida pelo Git.",
+      "scissors": "Como whitespace, mas corta a partir da linha de tesoura ao editar no editor do Git.",
+      "limits": "A configuração efetiva e o marcador de comentários não são verificados aqui. Hooks do Git também podem alterar ou rejeitar a mensagem."
+    },
     "coAuthor": {
       "title": "Prévia dos trailers de coautoria",
       "subject": "Assunto",

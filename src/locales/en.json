@@ -3858,6 +3858,16 @@
     "fileChanged": "“{{file}}” changed after the preview. Reload the preview and review its current changes before discarding."
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Git message cleanup",
+      "input": "Commit and Amend pass the trimmed draft with -m, without opening Git’s editor. The l8git template fills the draft. Git’s commit.template supplies initial text for its own editor and is ignored with -m.",
+      "default": "The Commit panel leaves cleanup to Git. Git uses commit.cleanup when configured. Git’s default is strip when editing and whitespace when passing text directly.",
+      "strip": "Like whitespace, and removes lines that start with Git’s comment marker. With the usual # marker, a line starting with #123 can disappear. A line written as Refs: #123 is kept in this case.",
+      "whitespace": "Removes trailing whitespace and leading and trailing blank lines, collapses consecutive blank lines, and keeps comment lines.",
+      "verbatim": "Skips cleanup on the message Git receives.",
+      "scissors": "Like whitespace, and cuts from the scissors line onward when editing in Git’s editor.",
+      "limits": "The effective setting and comment marker are not checked here. Git hooks can also change or reject the message."
+    },
     "coAuthor": {
       "title": "Co-author trailer preview",
       "subject": "Subject",

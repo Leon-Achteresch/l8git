@@ -568,6 +568,99 @@ async fn commit_identity_rejects_an_operation_started_after_preview() {
 }
 
 #[tokio::test]
+async fn commit_and_amend_follow_git_message_cleanup_configuration() {
+    let repo = TestRepo::new("message-cleanup");
+    repo.write_bytes(
+        ".git/fixture-template",
+        b"Fixture template subject\n\n# template comment\n",
+    );
+    repo.git(&["config", "commit.template", ".git/fixture-template"]);
+
+    let draft = "Fixture subject\n\n# comment\n#123\nRefs: #123  \n\n\n# ------------------------ >8 ------------------------\nText below the marker";
+    let whitespace = "Fixture subject\n\n# comment\n#123\nRefs: #123\n\n# ------------------------ >8 ------------------------\nText below the marker";
+    let strip = "Fixture subject\n\nRefs: #123\n\nText below the marker";
+    let read_message = || repo.git_out(&["show", "-s", "--format=%B", "HEAD"]);
+    for (mode, expected) in [
+        (None, whitespace),
+        (Some("default"), whitespace),
+        (Some("whitespace"), whitespace),
+        (Some("strip"), strip),
+        (Some("verbatim"), draft),
+        (Some("scissors"), whitespace),
+    ] {
+        if let Some(mode) = mode {
+            repo.git(&["config", "commit.cleanup", mode]);
+        }
+        repo.write("fixture.txt", &format!("{mode:?}\n"));
+        repo.git(&["add", "--", "fixture.txt"]);
+        git::commit_changes(repo.s(), draft.into(), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            read_message().trim_end_matches('\n'),
+            expected,
+            "commit {mode:?}"
+        );
+        git::commit_amend(repo.s(), format!("{draft}\nAmended"), Some(repo.head()))
+            .await
+            .unwrap();
+        assert_eq!(
+            read_message().trim_end_matches('\n'),
+            format!("{expected}\nAmended"),
+            "amend {mode:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    {
+        let scissors = "Fixture subject\n\n# comment\n#123\nRefs: #123";
+        let edit = |editor: &str, args: &[&str]| {
+            let output = std::process::Command::new("git")
+                .current_dir(&repo.path)
+                .env("GIT_EDITOR", editor)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{:?}", output.stderr);
+        };
+        for (mode, expected) in [("default", strip), ("scissors", scissors)] {
+            repo.git(&["config", "commit.cleanup", mode]);
+            edit("true", &["commit", "--amend", "-e", "-m", draft]);
+            assert_eq!(
+                read_message().trim_end_matches('\n'),
+                expected,
+                "editor {mode}"
+            );
+        }
+        repo.git(&["config", "commit.cleanup", "default"]);
+        edit(
+            "sh -c 'echo Edited >> \"$1\"' --",
+            &["commit", "--allow-empty"],
+        );
+        let templated = read_message();
+        assert!(templated.starts_with("Fixture template subject\n"));
+        assert!(templated.contains("Edited"));
+        assert!(!templated.contains("# template comment"));
+    }
+
+    repo.git(&["config", "commit.cleanup", "strip"]);
+    repo.git(&["config", "core.commentChar", "!"]);
+    repo.write("fixture.txt", "custom comment character\n");
+    repo.git(&["add", "--", "fixture.txt"]);
+    git::commit_amend(
+        repo.s(),
+        "Fixture subject\n\n! custom comment\n#123\nRefs: #123".into(),
+        Some(repo.head()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        read_message().trim_end_matches('\n'),
+        "Fixture subject\n\n#123\nRefs: #123"
+    );
+}
+
+#[tokio::test]
 async fn commit_amend_rewrites_head_without_adding_a_commit() {
     let repo = TestRepo::new("amend");
     repo.commit("a.txt", "one\n", "initial");

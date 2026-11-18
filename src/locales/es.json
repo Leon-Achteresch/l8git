@@ -3788,6 +3788,16 @@
     "hashesCopied": "{{count}} hashes de commits copiados."
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Limpieza del mensaje en Git",
+      "input": "Commit y Amend pasan el borrador recortado con -m, sin abrir el editor de Git. La plantilla de l8git rellena el borrador. La opción commit.template de Git da texto inicial a su editor y se ignora con -m.",
+      "default": "El panel de commit deja la limpieza en manos de Git. Git usa commit.cleanup si está configurado. De forma predeterminada, usa strip al editar y whitespace al recibir el texto directamente.",
+      "strip": "Como whitespace, y además elimina las líneas que empiezan con el marcador de comentarios de Git. Con el marcador habitual #, una línea que empiece con #123 puede desaparecer. En ese caso, se conserva una línea como Refs: #123.",
+      "whitespace": "Quita los espacios al final de las líneas y las líneas vacías al principio y al final, reduce las líneas vacías consecutivas a una y conserva los comentarios.",
+      "verbatim": "Omite la limpieza del mensaje que recibe Git.",
+      "scissors": "Como whitespace, y además corta desde la línea de tijeras al editar en el editor de Git.",
+      "limits": "Aquí no se comprueban la configuración efectiva ni el marcador de comentarios. Los hooks de Git también pueden modificar o rechazar el mensaje."
+    },
     "coAuthor": {
       "title": "Vista previa de tráileres de coautoría",
       "subject": "Asunto",
