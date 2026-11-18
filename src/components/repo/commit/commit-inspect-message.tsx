@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 export function CommitInspectMessage({ message }: { message: string }) {
   const { t, i18n } = useTranslation();
+  const dateLabel = t("commitInspect.authorDate");
   // Keyed by message so the next commit opens collapsed again.
   const [openFor, setOpenFor] = useState<string | null>(null);
   const open = openFor === message;
@@ -60,13 +61,15 @@ export function CommitInspectMessage({ message }: { message: string }) {
         )}
         {formattedDate && (
           <time
-            className="hidden shrink-0 text-muted-foreground/75 @md:inline"
+            className="sr-only shrink-0 text-muted-foreground/75 @md:not-sr-only"
+            title={`${dateLabel}: ${formattedDate}`}
             dateTime={
               parsedDate && !Number.isNaN(parsedDate.getTime())
                 ? parsedDate.toISOString()
                 : undefined
             }
           >
+            <span className="sr-only">{dateLabel}: </span>
             {formattedDate}
           </time>
         )}

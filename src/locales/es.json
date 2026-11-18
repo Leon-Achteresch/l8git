@@ -2248,6 +2248,7 @@
       "tooLarge": "Esta nota de Git supera el límite de visualización de 64 KiB.",
       "empty": "Esta nota de Git está vacía."
     },
+    "authorDate": "Fecha de autoría",
     "metadata": "Mostrar metadatos",
     "explainCommit": "Explicar",
     "changedFiles": "Archivos modificados",
@@ -6098,6 +6099,7 @@
     "changed": "Cambios",
     "files_one": "{{count}} archivo",
     "files_other": "{{count}} archivos",
+    "committerDate": "Fecha de confirmación",
     "committed": "Confirmado",
     "branch": "Rama"
   },

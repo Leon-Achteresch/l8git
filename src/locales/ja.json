@@ -2248,6 +2248,7 @@
       "tooLarge": "この Git ノートは表示上限の 64 KiB を超えています。",
       "empty": "この Git ノートは空です。"
     },
+    "authorDate": "作成日時",
     "metadata": "メタデータを表示",
     "explainCommit": "説明",
     "changedFiles": "変更されたファイル",
@@ -6098,6 +6099,7 @@
     "changed": "変更",
     "files_one": "{{count}} ファイル",
     "files_other": "{{count}} ファイル",
+    "committerDate": "コミット日時",
     "committed": "コミット日時",
     "branch": "ブランチ"
   },

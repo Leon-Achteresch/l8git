@@ -2248,6 +2248,7 @@
       "tooLarge": "此 Git 注记超出了 64 KiB 的显示上限。",
       "empty": "此 Git 注记为空。"
     },
+    "authorDate": "作者时间",
     "metadata": "显示元数据",
     "explainCommit": "解释",
     "changedFiles": "更改的文件",
@@ -6098,6 +6099,7 @@
     "changed": "变更",
     "files_one": "{{count}} 个文件",
     "files_other": "{{count}} 个文件",
+    "committerDate": "提交者时间",
     "committed": "提交于",
     "branch": "分支"
   },

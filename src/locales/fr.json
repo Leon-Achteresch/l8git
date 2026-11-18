@@ -2248,6 +2248,7 @@
       "tooLarge": "Cette note Git dépasse la limite d’affichage de 64 Kio.",
       "empty": "Cette note Git est vide."
     },
+    "authorDate": "Date d’auteur",
     "metadata": "Afficher les métadonnées",
     "explainCommit": "Expliquer",
     "changedFiles": "Fichiers modifiés",
@@ -6098,6 +6099,7 @@
     "changed": "Modifié",
     "files_one": "{{count}} fichier",
     "files_other": "{{count}} fichiers",
+    "committerDate": "Date de validation",
     "committed": "Validé",
     "branch": "Branche"
   },

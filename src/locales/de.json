@@ -2248,6 +2248,7 @@
       "tooLarge": "Diese Git-Note überschreitet die Anzeigegrenze von 64 KiB.",
       "empty": "Diese Git-Note ist leer."
     },
+    "authorDate": "Autorzeit",
     "metadata": "Metadaten anzeigen",
     "explainCommit": "Erklären",
     "changedFiles": "Geänderte Dateien",
@@ -6098,6 +6099,7 @@
     "changed": "Geändert",
     "files_one": "{{count}} Datei",
     "files_other": "{{count}} Dateien",
+    "committerDate": "Committerzeit",
     "committed": "Committet",
     "branch": "Branch"
   },

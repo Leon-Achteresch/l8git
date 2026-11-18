@@ -1313,6 +1313,42 @@ async fn open_repo_rejects_directories_that_are_not_repositories() {
 }
 
 #[tokio::test]
+async fn history_and_inspector_read_their_respective_git_dates() {
+    let repo = TestRepo::new("commit-dates");
+    let author_date = "2026-10-07T11:15:00+02:00";
+    let committer_date = "2026-10-08T14:00:00+02:00";
+    repo.write("story.txt", "fixture\n");
+    repo.git(&["add", "--", "story.txt"]);
+    let output = std::process::Command::new("git")
+        .current_dir(&repo.path)
+        .env("GIT_AUTHOR_DATE", author_date)
+        .env("GIT_COMMITTER_DATE", committer_date)
+        .args(["commit", "-qm", "Different dates"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{:?}", output.stderr);
+    let hash = repo.head();
+    assert_eq!(
+        repo.git(&["show", "-s", "--format=%aI%n%cI", &hash]),
+        format!("{author_date}\n{committer_date}")
+    );
+
+    let opened = json(&git::open_repo(repo.s(), None).await.unwrap());
+    assert_eq!(opened["commits"][0]["hash"], hash);
+    assert_eq!(opened["commits"][0]["date"], committer_date);
+    let details = git::repo_commit_inspect(repo.s(), hash.clone())
+        .await
+        .unwrap();
+    assert!(details.header.starts_with(&format!("commit {hash}\n")));
+    assert!(details
+        .header
+        .contains("\nAuthorDate: Wed Oct 7 11:15:00 2026 +0200\n"));
+    assert!(details
+        .header
+        .contains("\nCommitDate: Thu Oct 8 14:00:00 2026 +0200\n"));
+}
+
+#[tokio::test]
 async fn commit_text_reads_use_utf8_with_non_utf8_git_config() {
     for (format, width) in [("sha1", 40), ("sha256", 64)] {
         let path = common::scratch_path("commit-text");

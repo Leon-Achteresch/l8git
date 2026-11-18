@@ -48,6 +48,41 @@ async function switchRepo(page: Page, name: string) {
   await expect(palette).toBeHidden();
 }
 
+test('history and commit details identify their date types at wide and narrow widths', async ({ page }) => {
+  await page.setViewportSize({ width: 1680, height: 820 });
+  await openHistory(page);
+  const first = row(page, 0);
+  const historyTime = first.locator('time');
+  await expect(historyTime).toHaveAttribute('datetime', '2026-10-08T12:00:00Z');
+  await expect(historyTime).toHaveAttribute('title', /^Committer date: /);
+  await expect(historyTime).toMatchAriaSnapshot('- time: "Committer date: 6h ago"');
+  await first.click();
+  const inspectorTime = page.locator('time[title^="Author date: "]');
+  await expect(inspectorTime).toHaveAttribute('datetime', '2026-10-07T09:15:00.000Z');
+  await expect(inspectorTime).toHaveCSS('position', 'static');
+  await expect(inspectorTime).toHaveText('Author date: Oct 7, 2026, 9:15 AM');
+  const disclosure = page.getByRole('button', { name: /Release login redirect fix.*Author date:/ });
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+  await disclosure.click();
+  const header = page.locator('pre').filter({ hasText: 'AuthorDate: 2026-10-07T09:15:00Z' });
+  await expect(header).toContainText('CommitDate: 2026-10-08T12:00:00Z');
+
+  await page.setViewportSize({ width: 640, height: 800 });
+  await expect(inspectorTime).toHaveCSS('position', 'absolute');
+  await expect(disclosure).toHaveAccessibleName(/Release login redirect fix.*Author date:/);
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+  await expect(header).toBeVisible();
+  await expect(historyTime).toHaveAttribute('title', /^Committer date: /);
+
+  await page.setViewportSize({ width: 1680, height: 820 });
+  const second = row(page, 1);
+  await second.click();
+  await expect(page.getByRole('button', { name: /Document token expiry.*Author date:/ }))
+    .toHaveAttribute('aria-expanded', 'false');
+  await expect(second.locator('time')).toHaveAttribute('datetime', '2026-10-07T23:59:00Z');
+  await expect(inspectorTime).toHaveAttribute('datetime', '2026-10-07T23:59:00.000Z');
+});
+
 test('message filters apply explicitly and find literal text in commit bodies', async ({ page }) => {
   await openHistory(page);
   const query = form(page).getByRole('searchbox', { name: 'Commit message', exact: true });

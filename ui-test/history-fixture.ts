@@ -97,7 +97,8 @@ export function seedHistoryFixture(scene: string): boolean {
       case 'repo_commit_inspect': {
         const commit = secondary ? secondaryCommit : commits.find(commit => commit.hash === args?.commit || (args?.commit === 'HEAD' && commit === commits[0]));
         if (!commit) throw Error('Unknown history fixture commit');
-        return { header: `commit ${commit.hash}\nAuthor: ${commit.author} <${commit.email}>\nAuthorDate: ${commit.date}\n\n    ${commit.subject}\n\n    ${commit.body}\n`, files: [] };
+        const authorDate = commit.hash === historyFixtureHash(0) ? '2026-10-07T09:15:00Z' : commit.date;
+        return { header: `commit ${commit.hash}\nAuthor: ${commit.author} <${commit.email}>\nAuthorDate: ${authorDate}\nCommitDate: ${commit.date}\n\n    ${commit.subject}\n\n    ${commit.body}\n`, files: [] };
       }
       case 'commit_signature_status': return { state: 'unsigned', signer: null, key: null };
       case 'git_bisect_status': return { active: false, done: false, current_hash: null, result_hash: null, marked_bad: [], marked_good: [] };
