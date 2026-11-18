@@ -7,8 +7,8 @@ use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
-use notify::{EventKind, RecursiveMode, Watcher};
-use notify_debouncer_full::{new_debouncer, Debouncer, FileIdCache};
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify_debouncer_full::{new_debouncer_opt, Debouncer, FileIdCache, NoCache};
 
 struct Entry {
     stop: Arc<AtomicBool>,
@@ -250,7 +250,13 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
     }
 
     let (tx, rx) = channel();
-    let mut debouncer = new_debouncer(Duration::from_millis(600), None, tx)
+    let mut debouncer = new_debouncer_opt::<_, RecommendedWatcher, NoCache>(
+        Duration::from_millis(600),
+        None,
+        tx,
+        NoCache::new(),
+        notify::Config::default(),
+    )
         .map_err(|e| format!("watcher init failed: {e}"))?;
 
     #[allow(unused_mut)]
