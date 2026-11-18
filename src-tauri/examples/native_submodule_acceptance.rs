@@ -189,6 +189,7 @@ mod macos {
         let search = spec["kind"] == "search";
         let history_path = spec["historyPath"] == true;
         let history_dates = spec["historyDates"] == true;
+        let workspace_fetch = spec["kind"] == "workspace-fetch";
         let child = spec["child"].as_str().map(str::to_owned);
         if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
             return Err("Unexpected staging fixture layout".into());
@@ -216,7 +217,14 @@ mod macos {
         if !assets.join("index.html").is_file() {
             return Err("Build the frontend before native acceptance".into());
         }
-        let (identifier, title, script, result_tag) = if search {
+        let (identifier, title, script, result_tag) = if workspace_fetch {
+            (
+                "com.leon.l8git.native-workspace-fetch-acceptance",
+                "l8git Native Workspace Fetch Acceptance",
+                include_str!("../../scripts/native-workspace-fetch-acceptance.js"),
+                "NATIVE_WORKSPACE_FETCH_RESULT",
+            )
+        } else if search {
             (
                 "com.leon.l8git.native-search-acceptance",
                 "l8git Native Commit Search Acceptance",
@@ -356,11 +364,42 @@ mod macos {
             git::repo_commit_file_diff,
             git::commit_signature_status,
         ];
+        #[tauri::command]
+        fn workspace_fetch_desktop_available() -> bool { true }
+        let workspace_ipc: fn(Invoke<Wry>) -> bool = tauri::generate_handler![
+            git::open_repo,
+            git::repo_status,
+            git::repo_full_status,
+            git::list_stashes,
+            git::list_git_remotes,
+            git::merge_state,
+            git::cherry_pick_state,
+            git::repo_fetch_scope,
+            workspace_fetch_desktop_available,
+            git::workspace_fetch_desktop_confirm,
+            git::workspace_fetch_desktop_validate,
+            git::workspace_fetch_desktop_revoke,
+            git::repo_log_page,
+            git::repo_history_page,
+            git::git_bisect_status,
+        ];
+        let fixture_for_capture = fixture.to_owned();
+        let workspace_revision = Mutex::new(None::<u64>);
         let trace = Arc::new(WorktreeTrace::default());
         let invoke_trace = trace.clone();
         let compare_invocations = Mutex::new(Vec::<String>::new());
-        let app = tauri::Builder::default()
-            .invoke_handler(move |invoke: Invoke<Wry>| {
+        let builder = tauri::Builder::default();
+        let builder = if workspace_fetch {
+            builder.manage(git::DesktopWorkspaceFetch::default()).plugin(tauri_plugin_dialog::init())
+                .on_window_event(|window, event| {
+                    if matches!(event, tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed) {
+                        window.state::<git::DesktopWorkspaceFetch>().close(window.label());
+                    }
+                })
+        } else {
+            builder
+        };
+        let app = builder.invoke_handler(move |invoke: Invoke<Wry>| {
                 let InvokeBody::Json(body) = invoke.message.payload() else {
                     invoke.resolver.reject("Acceptance requires JSON IPC");
                     return true;
@@ -403,7 +442,42 @@ mod macos {
                     }
                     calls.push(invoke.message.command().into());
                 }
-                if search {
+                if workspace_fetch {
+                    let command = invoke.message.command();
+                    if command == "native_f02_reviewed_revision" {
+                        invoke.resolver.resolve(*workspace_revision.lock().unwrap());
+                        return true;
+                    }
+                    if matches!(command, "native_f02_checkpoint" | "native_f02_checkpoint_done") {
+                        if let Some(tag @ ("preview" | "confirmed" | "revoked" | "repo-closed")) = body["tag"].as_str() {
+                            if command == "native_f02_checkpoint" {
+                                println!("NATIVE_F02_CAPTURE {tag}");
+                                invoke.resolver.resolve(());
+                            } else {
+                                invoke.resolver.resolve(fixture_for_capture.join(format!("captured-{tag}")).is_file());
+                            }
+                        } else {
+                            invoke.resolver.reject("Unexpected fixture screenshot");
+                        }
+                        return true;
+                    }
+                    let fixture_path = |path: Option<&str>| path == Some(parent.as_str()) || path == child.as_deref();
+                    let allowed = match command {
+                        "workspace_fetch_desktop_available" | "workspace_fetch_desktop_revoke" => true,
+                        "workspace_fetch_desktop_confirm" => body["selection"].as_array().is_some_and(|selection|
+                            !selection.is_empty() && selection.iter().all(|row| fixture_path(row["path"].as_str()))),
+                        _ => path.is_some() && fixture_path(path),
+                    };
+                    if allowed {
+                        if command == "workspace_fetch_desktop_validate" {
+                            *workspace_revision.lock().unwrap() = body["revision"].as_u64();
+                        }
+                        if command.starts_with("workspace_fetch_desktop_") || command == "repo_fetch_scope" {
+                            println!("NATIVE_F02_IPC {command} {body}");
+                        }
+                        return workspace_ipc(invoke);
+                    }
+                } else if search {
                     if path == Some(parent.as_str()) || path == child.as_deref() {
                         let command = invoke.message.command();
                         if matches!(

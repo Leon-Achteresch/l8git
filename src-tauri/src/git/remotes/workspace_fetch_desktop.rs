@@ -132,13 +132,14 @@ pub async fn workspace_fetch_desktop_confirm(
     let (id, revision) = state.begin(window.label())?;
     let authority = state.authority.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(picked) = window
-            .dialog()
-            .file()
+        let mut picker = window.dialog().file()
             .set_title("Confirm repository folders for Workspace Fetch")
-            .set_parent(&window)
-            .blocking_pick_folders()
-        else {
+            .set_parent(&window);
+        if let Some(parent) = Path::new(&selection[0].path).canonicalize().ok()
+            .and_then(|checkout| checkout.parent().map(Path::to_path_buf)) {
+            picker = picker.set_directory(parent);
+        }
+        let Some(picked) = picker.blocking_pick_folders() else {
             return Ok(None);
         };
         let paths = picked

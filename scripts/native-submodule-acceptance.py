@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import plistlib
 import selectors
 import shutil
 from pathlib import Path
@@ -682,6 +683,92 @@ def verify_history_dates_trace(trace, output, spec):
     print(f"NATIVE_HISTORY_DATES_GIT verified {len(reads)} local Git reads and {len(actual)} native fuller IPC calls.")
 
 
+def workspace_fetch_fixture(root, env):
+    source, approved, other = (root / "repos" / name for name in ("source", "approved", "other"))
+    for repo in (source, approved, other):
+        repo.mkdir(parents=True)
+        git(repo, env, "init", "--quiet", "--initial-branch=main")
+        (repo / "fixture.txt").write_text(f"{repo.name} fixture\n")
+        git(repo, env, "add", "--", "fixture.txt")
+        git(repo, env, "commit", "--quiet", "-m", f"{repo.name} fixture")
+        if repo != source:
+            git(repo, env, "remote", "add", "origin", source.as_uri())
+    return {"kind": "workspace-fetch", "parent": str(approved), "child": str(other)}
+
+
+def run_workspace_fetch_phases(process, root, screenshots):
+    desktop = shutil.which("agent-desktop")
+    if not desktop:
+        raise RuntimeError("Native workspace screenshots require agent-desktop")
+    title = "l8git Native Workspace Fetch Acceptance"
+    captured = set()
+
+    def desktop_call(*args):
+        result = subprocess.run([desktop, *args], capture_output=True, text=True, timeout=10)
+        return json.loads(result.stdout)
+
+    def window_id():
+        windows = desktop_call("list-windows", "--app", "F02Fixture").get("data", [])
+        owned = [window for window in windows if window.get("title") == title and window.get("pid") == process.pid]
+        if len(owned) != 1:
+            raise RuntimeError("Could not identify the owned workspace window")
+        return owned[0]["id"]
+
+    def nodes(tree):
+        yield tree
+        for child in tree.get("children", []):
+            yield from nodes(child)
+
+    def wait_in_sheet(check):
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            state = desktop_call("snapshot", "--window-id", window_id(), "--surface", "sheet", "-i", "--compact")
+            tree = state.get("data", {}).get("tree")
+            if tree and (found := check(list(nodes(tree)))):
+                return found
+            time.sleep(0.1)
+        raise RuntimeError("The expected control was not present in the private native picker")
+
+    def confirm_picker():
+        folder = wait_in_sheet(lambda rows: next((row["ref_id"] for row in rows
+            if row.get("role") == "textfield" and row.get("value") == "approved"), None))
+        # The AXOpen adapter may report an unverified action. Inspect the
+        # folder actually reached before clicking Open, without retrying.
+        desktop_call("click", folder)
+
+        def confirmed_button(rows):
+            if any(row.get("name") == "Where:" and row.get("value") == "approved" for row in rows):
+                return next((row["ref_id"] for row in rows if row.get("name") == "Open"), None)
+            return None
+
+        confirmation = desktop_call("click", wait_in_sheet(confirmed_button))
+        if not confirmation.get("ok"):
+            raise RuntimeError("Could not confirm the approved fixture checkout")
+        print("NATIVE_F02_PICKER confirmed the approved folder using the owned accessibility window.", flush=True)
+
+    def advance(line):
+        if line.startswith("NATIVE_F02_IPC workspace_fetch_desktop_confirm "):
+            confirm_picker()
+            return
+        if not line.startswith("NATIVE_F02_CAPTURE "):
+            return
+        tag = line.split()[-1]
+        if tag not in ("preview", "confirmed", "revoked", "repo-closed") or tag in captured:
+            raise RuntimeError(f"Unexpected screenshot checkpoint: {tag}")
+        path = screenshots / f"F02-native-{tag}.png"
+        subprocess.run([desktop, "screenshot", "--window-id", window_id(), str(path)],
+                       stdout=subprocess.DEVNULL, check=True, timeout=12)
+        if not path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+            raise RuntimeError("Invalid fixture screenshot")
+        captured.add(tag)
+        (root / f"captured-{tag}").touch()
+
+    output = run_external_phases(process, advance)
+    if captured != {"preview", "confirmed", "revoked", "repo-closed"}:
+        raise RuntimeError("Missing workspace fixture screenshots")
+    return output
+
+
 def partial_clone_fixture(root, env):
     source, partial = root / "repos/source", root / "repos/partial"
     source.mkdir(parents=True)
@@ -782,8 +869,12 @@ def main():
     modes.add_argument("--history-path", action="store_true", help="run the F62 native path history fixture")
     modes.add_argument("--history-dates", action="store_true", help="run the F54 native author and committer dates fixture")
     modes.add_argument("--partial-clone", action="store_true", help="run the F59 native commit-file fixture")
+    modes.add_argument("--workspace-fetch", action="store_true", help="run the F02 native workspace confirmation fixture")
+    parser.add_argument("--screenshots", type=Path, help="output directory for F02 fixture PNGs")
     parser.add_argument("--headless", action="store_true", help="run F59 production Rust commands without WKWebView")
     args = parser.parse_args()
+    if args.workspace_fetch and not (args.screenshots and args.screenshots.is_dir()):
+        parser.error("--workspace-fetch requires an existing --screenshots directory")
     if args.headless and not args.partial_clone:
         parser.error("--headless requires --partial-clone")
     staging, worktree = args.staging_metadata, args.worktree_catalog
@@ -794,10 +885,10 @@ def main():
     notes = args.commit_notes
     compare = args.qualified_compare or args.compare_rename
     search = args.commit_search or args.history_text or args.history_path or args.history_dates or args.partial_clone
-    mode = ("partial-clone" if args.partial_clone else "history-dates" if args.history_dates else "history-path" if args.history_path else "history-text" if args.history_text else
+    mode = ("workspace-fetch" if args.workspace_fetch else "partial-clone" if args.partial_clone else "history-dates" if args.history_dates else "history-path" if args.history_path else "history-text" if args.history_text else
             "search" if search else "compare-rename" if args.compare_rename else "compare" if compare else "notes" if notes else
             "worktrees" if worktree else "staging" if staging else "submodules")
-    verify_repo_state = notes or compare or search
+    verify_repo_state = notes or compare or search or args.workspace_fetch
     with tempfile.TemporaryDirectory(prefix=f"l8git-native-{mode}-") as temp:
         root = Path(temp).resolve()
         home, scratch = root / "home", root / "tmp"
@@ -815,7 +906,7 @@ def main():
                           "staging": staging_fixture, "submodules": submodule_fixture,
                           "compare": compare_fixture, "compare-rename": compare_rename_fixture, "search": search_fixture,
                           "history-text": history_text_fixture, "history-path": history_path_fixture,
-                          "history-dates": history_dates_fixture, "partial-clone": partial_clone_fixture}[mode]
+                          "history-dates": history_dates_fixture, "partial-clone": partial_clone_fixture, "workspace-fetch": workspace_fetch_fixture}[mode]
         if verify_repo_state:
             env["GIT_ALLOW_PROTOCOL"] = ""
             env["GIT_NO_LAZY_FETCH"] = "1"
@@ -831,7 +922,7 @@ def main():
                          git(path, env, "remote")) for path in (spec["parent"], spec["child"])]
 
             initial_repo_state = repo_state()
-            expected_remotes = ["origin", "origin"] if args.partial_clone else ["", ""]
+            expected_remotes = ["origin", "origin"] if args.partial_clone or args.workspace_fetch else ["", ""]
             if any(dirty for _, dirty, _ in initial_repo_state) or [
                 remotes for _, _, remotes in initial_repo_state
             ] != expected_remotes:
@@ -891,7 +982,10 @@ if sys.argv[1]:
     probe.unlink()
 """
         writable_probe = str(repo / ".git/acceptance-probe") if staging else ""
-        if args.partial_clone:
+        if args.workspace_fetch:
+            protected = [str(Path(path) / file) for path in (spec["parent"], spec["child"])
+                         for file in (".git/config", ".git/index", ".git/HEAD", ".git/refs/heads/main", "fixture.txt")]
+        elif args.partial_clone:
             protected = [str(Path(path) / file) for path in (spec["parent"], spec["child"])
                          for file in (".git/config", ".git/index", ".git/HEAD", ".git/refs/heads/main", "present.txt")]
         elif args.compare_rename:
@@ -920,15 +1014,28 @@ if sys.argv[1]:
 
         trace = scratch / "git-trace.jsonl"
         app_env = {**env, "GIT_TRACE2_EVENT": str(trace)} if verify_repo_state else env
+        executable = BIN
+        if args.workspace_fetch:
+            bundle = root / "F02Fixture.app/Contents"
+            executable = bundle / "MacOS/F02Fixture"
+            executable.parent.mkdir(parents=True)
+            shutil.copy2(BIN, executable)
+            (bundle / "Info.plist").write_bytes(plistlib.dumps({
+                "CFBundleExecutable": "F02Fixture", "CFBundleName": "F02Fixture",
+                "CFBundleDisplayName": "F02Fixture", "CFBundlePackageType": "APPL",
+                "CFBundleIdentifier": "com.leon.l8git.native-workspace-fetch-acceptance",
+            }))
         if args.headless:
-            command.append(BIN)
+            command.append(executable)
             command.append("--partial-clone-headless")
         else:
-            command.append(BIN)
+            command.append(executable)
         process = subprocess.Popen(command, cwd=root, env=app_env, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
         try:
-            if worktree:
+            if args.workspace_fetch:
+                output = run_workspace_fetch_phases(process, root, args.screenshots.resolve())
+            elif worktree:
                 run_worktree_phases(process, root, env, spec)
                 output = ""
             elif args.qualified_compare:
@@ -946,13 +1053,13 @@ if sys.argv[1]:
         finally:
             if before != snapshot(repos, allowed_changes):
                 raise RuntimeError("Protected fixture files changed during native acceptance")
-        if not args.qualified_compare:
+        if not args.qualified_compare and not args.workspace_fetch:
             print(output, end="", flush=True)
         print(f"Protected fixture snapshot unchanged ({len(before)} files).", flush=True)
         if worktree:
             print("Owned native process exited and temporary profile and fixtures will be removed.", flush=True)
             return
-        result_prefix = ("F59_HEADLESS_RESULT " if args.headless else "NATIVE_SEARCH_RESULT " if search else
+        result_prefix = ("NATIVE_WORKSPACE_FETCH_RESULT " if args.workspace_fetch else "F59_HEADLESS_RESULT " if args.headless else "NATIVE_SEARCH_RESULT " if search else
                          "NATIVE_COMPARE_RESULT " if compare else "NATIVE_NOTES_RESULT " if notes else
                          "NATIVE_STAGING_RESULT " if staging else "NATIVE_SUBMODULE_RESULT ")
         results = [json.loads(line.removeprefix(result_prefix))
@@ -981,7 +1088,17 @@ if sys.argv[1]:
                 raise RuntimeError("Compare fixture changed beyond the one external ref deletion")
             verify_compare_trace(trace, output, spec)
             print("Remaining refs, HEAD, clean status and absence of remotes verified with local Git.")
-        if args.partial_clone:
+        if args.workspace_fetch:
+            commands = [event["argv"] for line in trace.read_text().splitlines()
+                        if (event := json.loads(line))["event"] == "start"]
+            if any("fetch" in args or "git-upload-pack" in args for args in commands):
+                raise RuntimeError("A workspace preview attempted a transport")
+            if not any("ls-remote" in args and "--get-url" in args for args in commands):
+                raise RuntimeError("The native target validation did not reach Git")
+            if repo_state() != initial_repo_state:
+                raise RuntimeError("Workspace preview changed fixture refs, status or remotes")
+            print(f"NATIVE_F02_GIT {len(commands)} Git processes, no transport; refs and status unchanged.", flush=True)
+        elif args.partial_clone:
             verify_partial_clone_trace(trace, spec)
             if not args.headless:
                 prefix = "NATIVE_SEARCH_IPC "
@@ -1018,10 +1135,10 @@ if sys.argv[1]:
                     or git(repo, env, "diff", "--no-color", "--no-ext-diff", "--no-textconv") != original_diff):
                 raise RuntimeError("Fixture must finish with a clean index and the original working-tree patch")
             print("Mutation sequence, final index and working-tree diff independently verified with local Git.")
-    if search or args.compare_rename:
+    if search or args.compare_rename or args.workspace_fetch:
         if process.poll() is None or root.exists():
             raise RuntimeError("Native process or temporary fixture still exists after cleanup")
-        tag = ("F59_CLEANUP" if args.partial_clone else
+        tag = ("F02_CLEANUP" if args.workspace_fetch else "F59_CLEANUP" if args.partial_clone else
                "NATIVE_COMPARE_RENAME_CLEANUP" if args.compare_rename else "NATIVE_SEARCH_CLEANUP")
         print(f"{tag} process {process.pid} exited and private fixture directory was removed.")
     else:
