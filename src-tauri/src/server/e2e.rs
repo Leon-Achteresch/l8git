@@ -332,32 +332,52 @@ async fn workspace_fetch_ipc_over_the_paired_socket_uses_server_membership() {
     let args =
         json!({ "path": path, "workspaceId": "workspace", "target": preview["data"]["target"] });
     let command = "__test_workspace_fetch";
+    let authority = &host.state.workspace_fetch_authority;
+    let mut args = args;
+    args["workspaceRevision"] = json!(0);
     assert_eq!(client.call(2, command, args.clone()).await["ok"], false);
-    {
-        let mut fixture = host.state.workspace_fetch_fixture.write().unwrap();
-        fixture.active_workspace = Some("workspace".into());
-        fixture.opened.push(repo.path.clone());
-        fixture.approvals.push(
-            crate::git::WorkspaceFetchApproval::capture("workspace", repo.path.clone()).unwrap(),
-        );
-    }
+    let revision = authority.replace_membership(1, "workspace", vec![repo.path.clone()]).unwrap();
+    args["workspaceRevision"] = json!(revision);
+
+    // An independently authenticated connection shares the root, but
+    // cannot borrow the first session's revision or spoof its ID.
+    let mut other = handshake(&host, HOST_ID).await.unwrap();
+    assert_eq!(other.authenticate().await["type"], "ready");
+    let mut borrowed = args.clone();
+    borrowed["sessionId"] = json!(1);
+    let rejected = other.call(1, command, borrowed).await;
+    assert_eq!(rejected["ok"], false);
+    assert!(rejected["error"].as_str().unwrap().contains("active, open membership"));
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+
     assert_eq!(client.call(3, command, args.clone()).await["ok"], true);
     assert_eq!(repo.rev("refs/remotes/origin/main"), source.head());
 
-    host.state
-        .workspace_fetch_fixture
-        .write()
-        .unwrap()
-        .approvals
-        .clear();
-    let mut retry = args;
+    authority.revoke(1).unwrap();
+    let mut retry = args.clone();
     retry["opId"] = json!("socket-retry");
     let rejected = client.call(4, command, retry).await;
     assert_eq!(rejected["ok"], false);
-    assert!(rejected["error"]
-        .as_str()
-        .unwrap()
-        .contains("no approved membership"));
+    assert!(rejected["error"].as_str().unwrap().contains("active, open membership"));
+    let closed_revision = authority.replace_membership(1, "workspace", vec![repo.path.clone()]).unwrap();
+    client.socket.close(None).await.unwrap();
+    tokio::time::timeout(TIMEOUT, async {
+        while authority.is_registered(1) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.expect("disconnect dropped the host's session registration");
+
+    // Even a new native approval on a fresh connection cannot revive the
+    // previous session's request. The current connection's revision works.
+    let mut reconnected = handshake(&host, HOST_ID).await.unwrap();
+    assert_eq!(reconnected.authenticate().await["type"], "ready");
+    let current = authority.replace_membership(3, "workspace", vec![repo.path.clone()]).unwrap();
+    args["workspaceRevision"] = json!(closed_revision);
+    let stale = reconnected.call(1, command, args.clone()).await;
+    assert_eq!(stale["ok"], false);
+    assert!(stale["error"].as_str().unwrap().contains("approval is stale"));
+    args["workspaceRevision"] = json!(current);
+    assert_eq!(reconnected.call(2, command, args).await["ok"], true);
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]

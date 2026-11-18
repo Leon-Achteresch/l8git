@@ -1,19 +1,145 @@
 //! Test-only server authority and execution path. The production workspace
 //! is renderer-owned, so no desktop or release daemon command is exposed.
 use super::*;
+use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::sync::{Arc, RwLock};
 
 #[derive(Default)]
-pub(crate) struct WorkspaceFetchFixture {
-    pub(crate) active_workspace: Option<String>,
-    pub(crate) opened: Vec<PathBuf>,
-    pub(crate) approvals: Vec<WorkspaceFetchApproval>,
+pub(crate) struct WorkspaceFetchAuthority {
+    state: RwLock<WorkspaceFetchState>,
 }
 
-pub(crate) struct WorkspaceFetchApproval {
+#[derive(Default)]
+struct WorkspaceFetchState {
+    sessions: HashMap<u64, WorkspaceFetchSession>,
+    revision: u64,
+}
+
+#[derive(Default)]
+struct WorkspaceFetchSession {
+    revision: u64,
+    membership: Option<WorkspaceFetchMembership>,
+}
+
+struct WorkspaceFetchMembership {
     workspace: String,
+    approvals: Vec<Arc<WorkspaceFetchApproval>>,
+}
+
+pub(crate) struct RegisteredWorkspaceSession<'a> {
+    authority: &'a WorkspaceFetchAuthority,
+    id: u64,
+}
+
+impl Drop for RegisteredWorkspaceSession<'_> {
+    fn drop(&mut self) {
+        self.authority
+            .state
+            .write()
+            .unwrap_or_else(|err| err.into_inner())
+            .sessions
+            .remove(&self.id);
+    }
+}
+
+impl WorkspaceFetchAuthority {
+    pub(crate) fn register(&self, id: u64) -> Result<RegisteredWorkspaceSession<'_>, String> {
+        use std::collections::hash_map::Entry;
+        let mut state = self.state.write().map_err(|err| err.to_string())?;
+        let Entry::Vacant(entry) = state.sessions.entry(id) else {
+            return Err("Workspace fetch session already registered".into());
+        };
+        entry.insert(WorkspaceFetchSession::default());
+        Ok(RegisteredWorkspaceSession {
+            authority: self,
+            id,
+        })
+    }
+
+    pub(crate) fn is_registered(&self, id: u64) -> bool {
+        self.state.read().unwrap().sessions.contains_key(&id)
+    }
+
+    // Only the native host calls these methods. IPC receives the revision of
+    // a host decision, never a membership list or permission to modify it.
+    pub(crate) fn replace_membership(
+        &self,
+        id: u64,
+        workspace: &str,
+        opened: Vec<PathBuf>,
+    ) -> Result<u64, String> {
+        // Fail closed while resolving the replacement. A close, revoke or
+        // newer host update during capture prevents publication.
+        let revision = self.invalidate(id)?;
+        let mut approvals = Vec::with_capacity(opened.len());
+        let mut common_dirs = HashSet::new();
+        for path in opened {
+            let approval = WorkspaceFetchApproval::capture(path)?;
+            if !common_dirs.insert(approval.common_dir.clone()) {
+                return Err("Workspace fetch membership is ambiguous".into());
+            }
+            approvals.push(Arc::new(approval));
+        }
+        let mut state = self.state.write().map_err(|err| err.to_string())?;
+        let session = state
+            .sessions
+            .get_mut(&id)
+            .ok_or("Workspace fetch session is closed")?;
+        if session.revision != revision {
+            return Err("Workspace fetch host update was superseded".into());
+        }
+        session.membership = Some(WorkspaceFetchMembership {
+            workspace: workspace.into(),
+            approvals,
+        });
+        Ok(revision)
+    }
+
+    pub(crate) fn revoke(&self, id: u64) -> Result<(), String> {
+        self.invalidate(id).map(|_| ())
+    }
+
+    fn invalidate(&self, id: u64) -> Result<u64, String> {
+        let mut state = self.state.write().map_err(|err| err.to_string())?;
+        let WorkspaceFetchState { sessions, revision } = &mut *state;
+        let session = sessions
+            .get_mut(&id)
+            .ok_or("Workspace fetch session is closed")?;
+        session.membership = None;
+        *revision = revision
+            .checked_add(1)
+            .ok_or("Workspace fetch revision exhausted")?;
+        session.revision = *revision;
+        Ok(*revision)
+    }
+}
+
+impl WorkspaceFetchSession {
+    fn approval(
+        &self,
+        revision: u64,
+        workspace: &str,
+        repo: &Path,
+    ) -> Result<&Arc<WorkspaceFetchApproval>, String> {
+        let membership = self
+            .membership
+            .as_ref()
+            .filter(|membership| membership.workspace == workspace)
+            .ok_or("Workspace fetch requires active, open membership")?;
+        if revision != self.revision {
+            return Err("Workspace fetch approval is stale".into());
+        }
+        membership
+            .approvals
+            .iter()
+            .find(|entry| entry.path == repo)
+            .ok_or_else(|| "Workspace fetch requires active, open membership".into())
+    }
+}
+
+struct WorkspaceFetchApproval {
     path: PathBuf,
     checkout: File,
     common_dir: PathBuf,
@@ -46,11 +172,22 @@ fn resolved_target(repo: &PathBuf) -> Result<ResolvedFetchTarget, String> {
 impl WorkspaceFetchApproval {
     // The fixture administrator calls this directly. Neither preview IPC nor
     // the workspace fetch request can create or update an approval.
-    pub(crate) fn capture(workspace: &str, path: PathBuf) -> Result<Self, String> {
+    fn capture(path: PathBuf) -> Result<Self, String> {
         let target = resolved_target(&path)?;
+        let top = run_git(
+            &target.checkout,
+            &["rev-parse", "--path-format=absolute", "--show-toplevel"],
+        )?;
+        if Path::new(top.strip_suffix('\n').unwrap_or(&top))
+            .canonicalize()
+            .ok()
+            .as_ref()
+            != Some(&target.checkout)
+        {
+            return Err("Workspace fetch requires an opened checkout root".into());
+        }
         let common_dir = coordination::repo_common_dir(&target.checkout)?;
         Ok(Self {
-            workspace: workspace.into(),
             path,
             checkout: open_directory(&target.checkout)?,
             common_directory: open_directory(&common_dir)?,
@@ -80,30 +217,23 @@ impl WorkspaceFetchApproval {
 }
 
 pub(crate) async fn workspace_fetch_fixture(
-    authority: Arc<RwLock<WorkspaceFetchFixture>>,
+    authority: Arc<WorkspaceFetchAuthority>,
+    session_id: u64,
     path: String,
     workspace_id: String,
+    revision: u64,
     op_id: Option<String>,
 ) -> Result<String, String> {
+    let approval = {
+        let state = authority.state.read().map_err(|err| err.to_string())?;
+        state
+            .sessions
+            .get(&session_id)
+            .ok_or("Workspace fetch session is closed")?
+            .approval(revision, &workspace_id, Path::new(&path))?
+            .clone()
+    };
     spawn_repo_remote(path, move |repo, common_dir, lock| {
-        // Keep the trusted membership stable through this fixture operation.
-        let authority = authority.read().map_err(|error| error.to_string())?;
-        if authority.active_workspace.as_deref() != Some(&workspace_id)
-            || !authority.opened.contains(&repo)
-        {
-            return Err("Workspace fetch requires active, open membership".into());
-        }
-        let mut approved = authority
-            .approvals
-            .iter()
-            .filter(|entry| entry.workspace == workspace_id && entry.path == repo);
-        let approval = approved
-            .next()
-            .ok_or("Workspace fetch has no approved membership")?;
-        if approved.next().is_some() {
-            return Err("Workspace fetch membership is ambiguous".into());
-        }
-
         approval.verify_identity(&repo, common_dir, lock)?;
         let checkout = &approval.target.checkout;
         let target = resolved_target(checkout)?;
@@ -148,13 +278,23 @@ pub(crate) async fn workspace_fetch_fixture(
                 .map(str::to_owned),
         );
         approval.verify_identity(&repo, common_dir, lock)?;
-        run_remote_op(
+        // An update or disconnect during local Git validation invalidates the
+        // earlier approval. Serialize the last check with actual child spawn,
+        // releasing the session guard before waiting for the child.
+        let state = authority.state.read().map_err(|err| err.to_string())?;
+        state
+            .sessions
+            .get(&session_id)
+            .ok_or("Workspace fetch session is closed")?
+            .approval(revision, &workspace_id, &repo)?;
+        run_remote_op_with_spawn_guard(
             "fetch",
             &repo.to_string_lossy(),
             Some(checkout),
             args,
             op_id,
             Some(lock),
+            state,
         )
     })
     .await
@@ -211,23 +351,22 @@ mod tests {
             ]);
         }
 
-        fn approve(&self) {
-            let mut authority = self.ctx.state.workspace_fetch_fixture.write().unwrap();
-            authority.active_workspace = Some(WORKSPACE.into());
-            authority.opened = vec![self.repo.path.clone()];
-            authority.approvals =
-                vec![WorkspaceFetchApproval::capture(WORKSPACE, self.repo.path.clone()).unwrap()];
+        fn approve(&self) -> u64 {
+            self.ctx
+                .state
+                .workspace_fetch_authority
+                .replace_membership(self.ctx.conn.id, WORKSPACE, vec![self.repo.path.clone()])
+                .unwrap()
         }
 
-        async fn fetch(&self, op_id: Option<&str>) -> Result<Value, String> {
+        async fn fetch(&self, revision: u64, op_id: Option<&str>) -> Result<Value, String> {
             dispatch(
                 COMMAND,
                 json!({
-                    "path": self.repo.s(), "workspaceId": WORKSPACE, "opId": op_id,
-                    // A caller cannot supply its own approval using preview data
-                    // or request a different transport through extra fields.
+                    "path": self.repo.s(), "workspaceId": WORKSPACE, "workspaceRevision": revision, "opId": op_id,
                     "target": { "remote": "origin", "fingerprint": "client-value" },
                     "remote": self.alias,
+                    "sessionId": self.ctx.conn.id + 1,
                 }),
                 &self.ctx,
             )
@@ -247,9 +386,9 @@ mod tests {
                 .collect()
         }
 
-        async fn reject(&self, op_id: Option<&str>, expected: &str) {
+        async fn reject(&self, revision: u64, op_id: Option<&str>, expected: &str) {
             let before = self.fetch_commands();
-            let error = self.fetch(op_id).await.unwrap_err();
+            let error = self.fetch(revision, op_id).await.unwrap_err();
             assert!(error.contains(expected), "{error}");
             assert_eq!(
                 self.fetch_commands(),
@@ -262,6 +401,12 @@ mod tests {
     #[tokio::test]
     async fn workspace_fetch_ipc_binds_start_and_retry_to_server_approval() {
         let fixture = Fixture::new();
+        let _session = fixture
+            .ctx
+            .state
+            .workspace_fetch_authority
+            .register(fixture.ctx.conn.id)
+            .unwrap();
         let preview = dispatch(
             "repo_fetch_scope",
             json!({ "path": fixture.repo.s() }),
@@ -282,9 +427,9 @@ mod tests {
         assert_eq!(preview["target"].as_object().unwrap().len(), 2);
         assert!(!preview.to_string().contains("file://"));
 
-        fixture.reject(None, "active, open membership").await;
-        fixture.approve();
-        fixture.fetch(None).await.unwrap();
+        fixture.reject(0, None, "active, open membership").await;
+        let revision = fixture.approve();
+        fixture.fetch(revision, None).await.unwrap();
         assert_eq!(
             fixture.repo.rev("refs/remotes/origin/main"),
             fixture.source.head()
@@ -293,13 +438,18 @@ mod tests {
         let metadata = fixture.source.path.join(".git");
         let offline = fixture.source.path.join("offline-git");
         std::fs::rename(&metadata, &offline).unwrap();
-        let failed = fixture.fetch(Some("workspace-first-attempt")).await;
+        let failed = fixture
+            .fetch(revision, Some("workspace-first-attempt"))
+            .await;
         std::fs::rename(&offline, &metadata).unwrap();
         assert!(
             failed.is_err(),
             "an offline file remote unexpectedly fetched"
         );
-        fixture.fetch(Some("workspace-retry")).await.unwrap();
+        fixture
+            .fetch(revision, Some("workspace-retry"))
+            .await
+            .unwrap();
         assert_eq!(fixture.repo.rev("refs/remotes/origin/main"), next);
         let commands = fixture.fetch_commands();
         assert_eq!(commands.len(), 3);
@@ -320,40 +470,52 @@ mod tests {
     #[tokio::test]
     async fn workspace_fetch_ipc_holds_stale_requests_before_spawn() {
         let fixture = Fixture::new();
-        fixture.approve();
-        let authority = &fixture.ctx.state.workspace_fetch_fixture;
+        let authority = &fixture.ctx.state.workspace_fetch_authority;
+        let session = fixture.ctx.conn.id;
+        let _session = authority.register(session).unwrap();
+        let revision = fixture.approve();
         let preview_args = json!({ "path": fixture.repo.s() });
         let original_preview = dispatch("repo_fetch_scope", preview_args.clone(), &fixture.ctx)
             .await
             .unwrap();
 
-        authority.write().unwrap().opened.clear();
-        fixture.reject(None, "active, open membership").await;
-        fixture.approve();
-        authority.write().unwrap().active_workspace = Some("different-workspace".into());
+        let closed = authority
+            .replace_membership(session, WORKSPACE, vec![])
+            .unwrap();
         fixture
-            .reject(Some("retry-workspace"), "active, open membership")
+            .reject(closed, None, "active, open membership")
             .await;
-        fixture.approve();
-        authority.write().unwrap().approvals.clear();
+        let switched = authority
+            .replace_membership(session, "other", vec![fixture.repo.path.clone()])
+            .unwrap();
         fixture
-            .reject(Some("retry-removed"), "no approved membership")
+            .reject(switched, Some("retry-workspace"), "active, open membership")
             .await;
-        fixture.approve();
-        authority
-            .write()
-            .unwrap()
-            .approvals
-            .push(WorkspaceFetchApproval::capture(WORKSPACE, fixture.repo.path.clone()).unwrap());
-        fixture.reject(None, "membership is ambiguous").await;
-        fixture.approve();
+        authority.revoke(session).unwrap();
+        fixture
+            .reject(revision, Some("retry-revoked"), "active, open membership")
+            .await;
+        let revision = fixture.approve();
+        assert!(authority
+            .replace_membership(
+                session,
+                WORKSPACE,
+                vec![fixture.repo.path.clone(), fixture.repo.path.clone()]
+            )
+            .unwrap_err()
+            .contains("ambiguous"));
+
+        fixture
+            .reject(revision, None, "active, open membership")
+            .await;
+        let revision = fixture.approve();
 
         let other = TestRepo::new("workspace-fetch-other-remote");
         other.commit("different.txt", "different\n", "other");
         fixture
             .repo
             .git(&["remote", "set-url", "origin", &other.file_url()]);
-        fixture.reject(None, "target changed").await;
+        fixture.reject(revision, None, "target changed").await;
         fixture
             .repo
             .git(&["remote", "set-url", "origin", &fixture.alias]);
@@ -363,7 +525,7 @@ mod tests {
             "refs/heads/main:refs/remotes/alternate/main",
         ]);
         fixture
-            .reject(Some("retry-refspec"), "target changed")
+            .reject(revision, Some("retry-refspec"), "target changed")
             .await;
         fixture
             .repo
@@ -374,13 +536,19 @@ mod tests {
             .repo
             .git(&["config", &rewrite, &fixture.source.file_url()]);
         fixture
-            .reject(Some("retry-rewritten"), "would be rewritten again")
+            .reject(
+                revision,
+                Some("retry-rewritten"),
+                "would be rewritten again",
+            )
             .await;
         fixture.repo.git(&["config", "--unset", &rewrite]);
 
         let common_dir = coordination::repo_common_dir(&fixture.repo.path).unwrap();
         let lock = RemoteProcessLock::acquire(&common_dir).unwrap();
-        fixture.reject(Some("retry-busy"), "git.remoteBusy").await;
+        fixture
+            .reject(revision, Some("retry-busy"), "git.remoteBusy")
+            .await;
         drop(lock);
 
         // Reusing both Git paths and the exact remote/refspec metadata cannot
@@ -403,8 +571,40 @@ mod tests {
             original_preview
         );
         fixture
-            .reject(Some("retry-replaced"), "repository identity changed")
+            .reject(
+                revision,
+                Some("retry-replaced"),
+                "repository identity changed",
+            )
             .await;
         assert!(!fixture.repo.exists(".git/FETCH_HEAD"));
+    }
+    #[tokio::test]
+    async fn host_retarget_requires_a_new_revision_and_disconnect_retires_it() {
+        let fixture = Fixture::new();
+        let authority = &fixture.ctx.state.workspace_fetch_authority;
+        let session = authority.register(fixture.ctx.conn.id).unwrap();
+        let original = fixture.approve();
+        let other = TestRepo::new("workspace-host-retarget");
+        other.commit("other.txt", "other content", "other");
+        fixture
+            .repo
+            .git(&["remote", "set-url", "origin", &other.file_url()]);
+        fixture.reject(original, None, "target changed").await;
+        let updated = fixture.approve();
+        fixture
+            .reject(original, Some("retry-old-target"), "approval is stale")
+            .await;
+        fixture.fetch(updated, None).await.unwrap();
+        assert_eq!(fixture.repo.rev("refs/remotes/origin/main"), other.head());
+        assert_eq!(
+            fixture.fetch_commands()[0].iter().rev().nth(1),
+            Some(&other.file_url())
+        );
+        drop(session);
+        fixture
+            .reject(updated, Some("retry-disconnected"), "session is closed")
+            .await;
+        assert!(authority.revoke(fixture.ctx.conn.id).is_err());
     }
 }

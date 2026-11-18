@@ -178,6 +178,7 @@ fn run_git_merged_output_at(
     cwd: Option<&PathBuf>,
     args: &[&str],
     lock: Option<&coordination::RemoteProcessLock>,
+    spawn_guard: impl Sized,
 ) -> Result<String, String> {
     let mut cmd = git_command();
     if let Some(dir) = cwd {
@@ -190,7 +191,14 @@ fn run_git_merged_output_at(
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let span = cmdlog::start(&log_path, args);
-    let output = match cmd.args(args).output() {
+    let child = cmd
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
+    drop(spawn_guard);
+    let output = match child.and_then(std::process::Child::wait_with_output) {
         Ok(output) => output,
         Err(e) => {
             span.finish(false);
@@ -213,7 +221,7 @@ fn run_git_merged_output_at(
 }
 
 pub(crate) fn run_git_merged_output(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
-    run_git_merged_output_at(Some(repo), args, None)
+    run_git_merged_output_at(Some(repo), args, None, ())
 }
 
 async fn spawn_git<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {

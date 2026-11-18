@@ -178,6 +178,7 @@ fn run_git_streamed(
     args: &[String],
     op_id: &str,
     lock: Option<&RemoteProcessLock>,
+    spawn_guard: impl Sized,
     on_progress: impl FnMut(ProgressLine),
 ) -> Result<StreamOutcome, String> {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -200,7 +201,9 @@ fn run_git_streamed(
         lock.inherit(&mut cmd);
     }
 
-    let mut child = cmd.spawn().map_err(|e| format!("failed to run git: {e}"))?;
+    let child = cmd.spawn();
+    drop(spawn_guard);
+    let mut child = child.map_err(|e| format!("failed to run git: {e}"))?;
     let pid = child.id();
     #[cfg(windows)]
     let job = create_remote_job(pid);
@@ -275,19 +278,32 @@ pub(super) fn run_remote_op(
     op_id: Option<String>,
     lock: Option<&RemoteProcessLock>,
 ) -> Result<String, String> {
+    run_remote_op_with_spawn_guard(op, repo_path, cwd, args, op_id, lock, ())
+}
+
+/// Hold the caller's authorization lock until the start attempt finishes.
+pub(super) fn run_remote_op_with_spawn_guard(
+    op: &str,
+    repo_path: &str,
+    cwd: Option<&PathBuf>,
+    args: Vec<String>,
+    op_id: Option<String>,
+    lock: Option<&RemoteProcessLock>,
+    spawn_guard: impl Sized,
+) -> Result<String, String> {
     let op_id = op_id
         .map(|id| id.trim().to_string())
         .filter(|id| !id.is_empty());
     let Some(op_id) = op_id else {
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        return run_git_merged_output_at(cwd, &refs, lock);
+        return run_git_merged_output_at(cwd, &refs, lock, spawn_guard);
     };
 
     let mut args = args;
     args.insert(1, "--progress".to_string());
 
     let span = cmdlog::start(repo_path, &args);
-    let outcome = run_git_streamed(cwd, &args, &op_id, lock, |line| {
+    let outcome = run_git_streamed(cwd, &args, &op_id, lock, spawn_guard, |line| {
         emit_progress(&GitProgressEvent {
             op_id: op_id.clone(),
             repo_path: repo_path.to_string(),
@@ -422,7 +438,7 @@ mod remote_progress_tests {
     ) -> (StreamOutcome, Vec<ProgressLine>) {
         let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
         let mut lines: Vec<ProgressLine> = Vec::new();
-        let outcome = run_git_streamed(cwd, &owned, op_id, None, |line| lines.push(line)).unwrap();
+        let outcome = run_git_streamed(cwd, &owned, op_id, None, (), |line| lines.push(line)).unwrap();
         (outcome, lines)
     }
 

@@ -151,6 +151,11 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
         return Err("auth-Tag ungültig".into());
     }
 
+    let (outbox, out_rx) = mpsc::channel::<Value>(OUTBOX_CAPACITY);
+    let conn = Arc::new(ConnectionHandle::new(state.next_connection_id(), outbox));
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    let workspace_session = state.workspace_fetch_authority.register(conn.id)?;
+
     let ready = state.ready_frame();
     let (mut sealer, opener, _) = handshake.split();
     let ready_frame = sealer.seal_json(&ready)?;
@@ -158,8 +163,6 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
         .await
         .map_err(|_| "Verbindung geschlossen".to_string())?;
 
-    let (outbox, out_rx) = mpsc::channel::<Value>(OUTBOX_CAPACITY);
-    let conn = Arc::new(ConnectionHandle::new(state.next_connection_id(), outbox));
     log::info!("l8gitd connection {} authenticated", conn.id);
 
     let writer = tokio::spawn(writer_loop(wire, sealer, out_rx));
@@ -167,6 +170,8 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
 
     let result = read_loop(state.clone(), conn.clone(), opener, inbox).await;
 
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    drop(workspace_session);
     conn.release_resources(&state);
     log::info!("l8gitd connection {} closed", conn.id);
     drop(conn);

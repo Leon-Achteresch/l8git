@@ -36,9 +36,11 @@ pub async fn dispatch(cmd: &str, args: Value, ctx: &DispatchCtx) -> Result<Value
         ctx.state.ensure_command_allowed(cmd, &args)?;
         return to_json(
             crate::git::workspace_fetch_fixture(
-                ctx.state.workspace_fetch_fixture.clone(),
+                ctx.state.workspace_fetch_authority.clone(),
+                ctx.conn.id,
                 arg(&args, "path")?,
                 arg(&args, "workspace_id")?,
+                arg(&args, "workspace_revision")?,
                 arg(&args, "op_id")?,
             )
             .await,

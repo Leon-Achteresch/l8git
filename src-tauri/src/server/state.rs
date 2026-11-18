@@ -73,7 +73,7 @@ pub struct ServerState {
     pub psk: [u8; PSK_LEN],
     pub roots: RwLock<Vec<PathBuf>>,
     #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
-    pub(crate) workspace_fetch_fixture: Arc<RwLock<crate::git::WorkspaceFetchFixture>>,
+    pub(crate) workspace_fetch_authority: Arc<crate::git::WorkspaceFetchAuthority>,
     pub events: broadcast::Sender<BroadcastEvent>,
     watched: Mutex<HashMap<String, HashSet<u64>>>,
     next_connection: AtomicU64,
@@ -103,7 +103,7 @@ impl ServerState {
             psk,
             roots: RwLock::new(roots),
             #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
-            workspace_fetch_fixture: Arc::default(),
+            workspace_fetch_authority: Arc::default(),
             events,
             watched: Mutex::new(HashMap::new()),
             next_connection: AtomicU64::new(1),
