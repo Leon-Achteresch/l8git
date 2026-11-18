@@ -334,6 +334,35 @@ def history_path_fixture(root, env):
             "outside": str(root), "cases": {"merge": merge, "renamed": renamed, "original": original}}
 
 
+def history_dates_fixture(root, env):
+    primary, other = (root / "repos" / name for name in ("dates-main", "dates-other"))
+    for repo in (primary, other):
+        repo.mkdir(parents=True)
+        git(repo, env, "init", "--quiet", "--initial-branch=main")
+
+    def commit(repo, subject, author, committer):
+        (repo / "fixture.txt").write_text(f"{subject}\n", encoding="utf-8")
+        git(repo, env, "add", "fixture.txt")
+        git(repo, {**env, "GIT_AUTHOR_DATE": author, "GIT_COMMITTER_DATE": committer},
+            "commit", "--quiet", "-m", subject)
+        sha = git(repo, env, "rev-parse", "HEAD")
+        author_iso, committer_iso, author_raw, committer_raw = git(
+            repo, env, "show", "-s", "--date=default", "--format=%aI%n%cI%n%ad%n%cd", sha
+        ).splitlines()
+        if (author_iso, committer_iso) != (author, committer):
+            raise RuntimeError(f"Unexpected fixture Git dates: {author_iso}, {committer_iso}")
+        return {"sha": sha, "subject": subject, "authorISO": author_iso, "committerISO": committer_iso,
+                "authorRaw": author_raw, "committerRaw": committer_raw}
+
+    same = "2025-07-09T10:00:00+02:00"
+    equal = commit(primary, "Same Git dates", same, same)
+    different = commit(primary, "Different Git dates",
+                       "2025-07-10T11:15:00+02:00", "2025-07-11T14:00:00-04:00")
+    commit(other, "Other fixture repository", same, same)
+    return {"kind": "search", "historyDates": True, "parent": str(primary), "child": str(other),
+            "outside": str(root), "cases": {"different": different, "equal": equal}}
+
+
 def run_external_phases(process, on_line):
     deadline = time.monotonic() + 100
     buffer = b""
@@ -575,6 +604,24 @@ def verify_history_path_trace(trace, output, spec):
     print(f"NATIVE_HISTORY_PATH_GIT verified {len(reads)} local reads and {len(calls)} history filter IPC calls.")
 
 
+def verify_history_dates_trace(trace, output, spec):
+    calls = search_ipc_calls(output)
+    shas = [spec["cases"][key]["sha"] for key in ("different", "equal")]
+    expected = [(spec["parent"], sha) for sha in shas]
+    actual = [(call["path"], call["commit"]) for call in calls if call["command"] == "repo_commit_inspect"]
+    if actual != expected:
+        raise RuntimeError(f"Unexpected native date inspection IPC: {actual}")
+    reads = list(search_git_reads(trace, spec))
+    shown = [(path, args[-1]) for path, args, code in reads
+             if code == 0 and args[0] == "show" and "--format=fuller" in args]
+    if shown != expected:
+        raise RuntimeError(f"Unexpected Git fuller reads: {shown}")
+    if not any(path == spec["parent"] and args[:3] == ["log", "-z", "--max-count=80"]
+               and any("%cI" in arg for arg in args) and code == 0 for path, args, code in reads):
+        raise RuntimeError("Missing native regular history log with committer dates")
+    print(f"NATIVE_HISTORY_DATES_GIT verified {len(reads)} local Git reads and {len(actual)} native fuller IPC calls.")
+
+
 def snapshot(root, allowed_changes=()):
     return {
         str(path.relative_to(root)): (path.stat().st_mode, hashlib.sha256(path.read_bytes()).hexdigest())
@@ -593,6 +640,7 @@ def main():
     modes.add_argument("--commit-search", action="store_true", help="run the F51 full commit ID search fixture")
     modes.add_argument("--history-text", action="store_true", help="run the F40 UTF-8 history text fixture")
     modes.add_argument("--history-path", action="store_true", help="run the F62 native path history fixture")
+    modes.add_argument("--history-dates", action="store_true", help="run the F54 native author and committer dates fixture")
     args = parser.parse_args()
     staging, worktree = args.staging_metadata, args.worktree_catalog
     if sys.platform != "darwin" or not Path(SANDBOX).is_file():
@@ -601,8 +649,8 @@ def main():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
     notes = args.commit_notes
     compare = args.qualified_compare
-    search = args.commit_search or args.history_text or args.history_path
-    mode = ("history-path" if args.history_path else "history-text" if args.history_text else
+    search = args.commit_search or args.history_text or args.history_path or args.history_dates
+    mode = ("history-dates" if args.history_dates else "history-path" if args.history_path else "history-text" if args.history_text else
             "search" if search else "compare" if compare else "notes" if notes else
             "worktrees" if worktree else "staging" if staging else "submodules")
     verify_repo_state = notes or compare or search
@@ -622,7 +670,8 @@ def main():
         create_fixture = {"notes": notes_fixture, "worktrees": worktree_fixture,
                           "staging": staging_fixture, "submodules": submodule_fixture,
                           "compare": compare_fixture, "search": search_fixture,
-                          "history-text": history_text_fixture, "history-path": history_path_fixture}[mode]
+                          "history-text": history_text_fixture, "history-path": history_path_fixture,
+                          "history-dates": history_dates_fixture}[mode]
         if verify_repo_state:
             env["GIT_ALLOW_PROTOCOL"] = ""
             env["GIT_NO_LAZY_FETCH"] = "1"
@@ -701,7 +750,7 @@ if sys.argv[1]:
         elif search:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/heads/main"),
                          str(Path(spec["child"]) / ".git/HEAD"), str(Path(spec["child"]) / ".git/index")]
-            if args.history_text or args.history_path:
+            if args.history_text or args.history_path or args.history_dates:
                 protected.extend(str(Path(path) / ".git/config") for path in (spec["parent"], spec["child"]))
         elif notes:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/notes/commits"),
@@ -772,6 +821,8 @@ if sys.argv[1]:
         if search:
             if args.history_path:
                 verify_history_path_trace(trace, output, spec)
+            elif args.history_dates:
+                verify_history_dates_trace(trace, output, spec)
             else:
                 verify_search_trace(trace, output, spec)
             if repo_state() != initial_repo_state:

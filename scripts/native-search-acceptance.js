@@ -25,6 +25,21 @@
     throw new Error(`Timed out waiting for ${label}\n${document.body?.innerText.slice(0, 2200)}`);
   };
 
+  const activateByKeyboard = async (button, key) => {
+    let keydown = false;
+    let activation = false;
+    button.addEventListener('keydown', event => {
+      keydown = event.isTrusted && event.key === (key === 'Space' ? ' ' : 'Enter');
+    }, { once: true });
+    button.addEventListener('click', event => {
+      activation = event.isTrusted && event.detail === 0;
+    }, { once: true });
+    button.focus();
+    await wait('focus on action button', () => document.activeElement === button);
+    await ipc('native_history_key', { key });
+    await wait(`trusted keyboard activation with ${key}`, () => keydown && activation);
+  };
+
   const fill = (input, value) => {
     input.focus();
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
@@ -144,18 +159,7 @@
       return chip;
     };
     const removePath = async (chip, key) => {
-      let keydown = false;
-      let activation = false;
-      chip.addEventListener('keydown', event => {
-        keydown = event.isTrusted && event.key === (key === 'Space' ? ' ' : 'Enter');
-      }, { once: true });
-      chip.addEventListener('click', event => {
-        activation = event.isTrusted && event.detail === 0;
-      }, { once: true });
-      chip.focus();
-      await wait('focus on active path chip', () => document.activeElement === chip);
-      await ipc('native_history_path_key', { key });
-      await wait(`trusted keyboard activation with ${key}`, () => keydown && activation);
+      await activateByKeyboard(chip, key);
       await wait('path cleared and focus restored to history search', () =>
         !pathChip() && !hint() && !path.value && document.activeElement === query);
     };
@@ -182,6 +186,45 @@
     steps.push('Trusted Space removed only the path, retained the message filter and restored query focus');
   };
 
+  const historyDates = async () => {
+    const opened = await ipc('open_repo', { path: fixture.parent });
+    for (const [entry, key] of [[cases.different, 'Enter'], [cases.equal, 'Space']]) {
+      operation = `history and inspector dates for ${entry.subject}`;
+      const commit = opened.commits.find(item => item.hash === entry.sha);
+      if (commit?.date !== entry.committerISO) throw new Error('Native history IPC lost the committer ISO date');
+      const historyTime = await wait('history committer time', () => row(entry.sha)?.querySelector('time'));
+      const committerText = new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'medium' })
+        .format(new Date(entry.committerISO));
+      const hasTimeLabel = (time, label) => !!find('span.sr-only', span => span.textContent.trim() === `${label}:`, time) &&
+        !time.closest('[aria-hidden="true"]');
+      if (historyTime.dateTime !== entry.committerISO || historyTime.title !== `Committer date: ${committerText}` ||
+          !hasTimeLabel(historyTime, 'Committer date')) {
+        throw new Error(`History rendered a different time or label: ${historyTime.outerHTML}`);
+      }
+
+      row(entry.sha).firstElementChild.click();
+      const disclosure = await wait(`collapsed inspector for ${entry.subject}`, () =>
+        find('button[aria-expanded="false"]', button => button.title === `${entry.subject}\nShow metadata`));
+      const inspectorTime = disclosure.querySelector('time');
+      const authorDate = new Date(entry.authorISO);
+      const authorText = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(authorDate);
+      if (inspectorTime?.dateTime !== authorDate.toISOString() ||
+          inspectorTime.title !== `Author date: ${authorText}` ||
+          !hasTimeLabel(inspectorTime, 'Author date') ||
+          !inspectorTime.textContent.includes(authorText) ||
+          getComputedStyle(inspectorTime).position === 'absolute') {
+        throw new Error(`Inspector rendered a different time or label: ${inspectorTime?.outerHTML}`);
+      }
+
+      await activateByKeyboard(disclosure, key);
+      const expectedHeader = [`AuthorDate: ${entry.authorRaw}`, `CommitDate: ${entry.committerRaw}`];
+      await wait('expanded Git dates and retained focus', () =>
+        disclosure.getAttribute('aria-expanded') === 'true' && document.activeElement === disclosure &&
+        find('pre', header => expectedHeader.every(line => header.textContent.split('\n').includes(line.trimEnd()))));
+      steps.push(`${entry.subject}: history committer date, compact author date and both Git header labels match; ${key} retained focus`);
+    }
+  };
+
   const run = async () => {
     if (localStorage.length !== 0) throw new Error('WebKit storage was not empty at startup');
     const seed = (key, state) => localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
@@ -190,7 +233,7 @@
     seed('l8git-repo', { paths: [fixture.parent, fixture.child], activePath: fixture.parent, customFavicons: {} });
     seed('l8git-ui', { sidebarTab: 'history' });
     const denied = await Promise.allSettled([
-      ipc('repo_search_commits', { path: fixture.outside, query: cases.loaded?.sha ?? cases.merge ?? cases.primary[0].sha, skip: 0, limit: 80 }),
+      ipc('repo_search_commits', { path: fixture.outside, query: cases.loaded?.sha ?? cases.merge ?? cases.different?.sha ?? cases.primary[0].sha, skip: 0, limit: 80 }),
       ipc('git_fetch', { path: fixture.parent }),
     ]);
     if (denied.some(result => result.status !== 'rejected')) throw new Error('Unexpected fixture permissions');
@@ -198,6 +241,11 @@
     operation = 'regular History panel and an unloaded SHA-256 match';
     const sidebar = await wait('repository sidebar', () => document.querySelector('[data-testid="repository-sidebar"]'));
     (await wait('History tab', () => named('[role="tab"]', 'History', sidebar))).click();
+    if (fixture.historyDates) {
+      await historyDates();
+      await ipc('native_acceptance_result', { ok: true, steps });
+      return;
+    }
     if (fixture.historyPath) {
       await historyPath();
       await ipc('native_acceptance_result', { ok: true, steps });

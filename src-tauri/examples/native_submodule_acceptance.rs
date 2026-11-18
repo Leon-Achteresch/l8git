@@ -158,6 +158,7 @@ mod macos {
         let compare = spec["kind"] == "compare";
         let search = spec["kind"] == "search";
         let history_path = spec["historyPath"] == true;
+        let history_dates = spec["historyDates"] == true;
         let child = spec["child"].as_str().map(str::to_owned);
         if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
             return Err("Unexpected staging fixture layout".into());
@@ -334,7 +335,9 @@ mod macos {
                     return true;
                 }
                 let path = body["path"].as_str();
-                if history_path && invoke.message.command() == "native_history_path_key" {
+                if (history_path || history_dates)
+                    && invoke.message.command() == "native_history_key"
+                {
                     let key = match body["key"].as_str() {
                         Some("Enter") => 36,
                         Some("Space") => 49,
@@ -452,7 +455,7 @@ mod macos {
                 }
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                     .title(title)
-                    .inner_size(1180.0, 760.0)
+                    .inner_size(if history_dates { 1680.0 } else { 1180.0 }, 760.0)
                     .incognito(true)
                     .on_navigation(|url| {
                         url.scheme() == "tauri" && url.host_str() == Some("localhost")
