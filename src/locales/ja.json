@@ -3752,6 +3752,7 @@
     "filteredHistory_other": "{{count}} 件のコミットを読み込み済み"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git はパスの履歴を簡略化します。選んだパスが親コミットの一つと同じ場合、マージやその系統が省略されることがあります。このパスの制限なしでグラフを見るには、パスフィルターを解除してください。他のフィルターは有効なままです。",
     "renamedFrom": "{{path}} から名前変更",
     "searchPlaceholder": "コミットメッセージを検索…",
     "apply": "適用",

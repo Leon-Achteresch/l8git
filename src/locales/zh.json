@@ -3752,6 +3752,7 @@
     "filteredHistory_other": "已加载 {{count}} 个提交"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git 会简化路径历史。当所选路径与某个父提交一致时，Git 可能省略该合并及一条祖先路径。移除路径筛选即可查看没有该路径限制的提交图。其他筛选条件仍然有效。",
     "renamedFrom": "由 {{path}} 重命名",
     "searchPlaceholder": "搜索提交信息…",
     "apply": "应用",

@@ -3752,6 +3752,7 @@
     "filteredHistory_other": "{{count}} commits chargés"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git simplifie l’historique par chemin. Il peut omettre une fusion et une lignée lorsque le chemin sélectionné correspond à l’un des parents. Supprimez le filtre de chemin pour voir le graphe sans cette restriction. Les autres filtres restent actifs.",
     "renamedFrom": "renommé depuis {{path}}",
     "searchPlaceholder": "Rechercher dans les messages de commit…",
     "apply": "Appliquer",

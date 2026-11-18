@@ -3752,6 +3752,7 @@
     "filteredHistory_other": "{{count}} Commits geladen"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git vereinfacht den Pfadverlauf. Es kann einen Merge und einen Elternpfad auslassen, wenn sich am gewählten Pfad gegenüber einem Elterncommit nichts geändert hat. Entferne den Pfadfilter, um den Graphen ohne diese Pfadbeschränkung zu sehen. Andere Filter bleiben aktiv.",
     "renamedFrom": "umbenannt von {{path}}",
     "searchPlaceholder": "Commit-Nachrichten durchsuchen…",
     "apply": "Anwenden",

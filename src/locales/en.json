@@ -3752,6 +3752,7 @@
     "filteredHistory_other": "{{count}} commits loaded"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git simplifies path history. It can omit a merge and a line of ancestry when the selected path matches one parent. Remove the path filter to view the graph without that path restriction. Other filters stay active.",
     "renamedFrom": "renamed from {{path}}",
     "searchPlaceholder": "Search commit messages…",
     "apply": "Apply",

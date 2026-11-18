@@ -3752,6 +3752,7 @@
     "filteredHistory_other": "{{count}} commits carregados"
   },
   "historyFilters": {
+    "pathMergeHelp": "O Git simplifica o histórico por caminho. Ele pode omitir um merge e uma linha de ancestrais quando o caminho selecionado coincide com um dos commits pais. Remova o filtro de caminho para ver o gráfico sem essa restrição. Os outros filtros permanecem ativos.",
     "renamedFrom": "renomeado de {{path}}",
     "searchPlaceholder": "Pesquisar mensagens de commit…",
     "apply": "Aplicar",

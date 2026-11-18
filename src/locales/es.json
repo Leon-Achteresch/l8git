@@ -3752,6 +3752,7 @@
     "filteredHistory_other": "{{count}} commits cargados"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git simplifica el historial por ruta. Puede omitir una fusión y una línea de ascendencia si la ruta seleccionada coincide con uno de sus padres. Quita el filtro de ruta para ver el gráfico sin esa restricción. Los demás filtros siguen activos.",
     "renamedFrom": "renombrado desde {{path}}",
     "searchPlaceholder": "Buscar mensajes de commit…",
     "apply": "Aplicar",

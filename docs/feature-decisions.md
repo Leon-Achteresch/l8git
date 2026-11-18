@@ -72,8 +72,14 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 | F58 | Renameanzeige als Erkennung erklären (F58, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F61 | Bare-Repository beim Öffnen klar einordnen. | Der reguläre Öffnungspfad kennzeichnet bestätigte Bare-Repositories. Im Commit-Tab erklärt der Hinweis die fehlende Arbeitskopie und führt zur vorhandenen Historie. Historie und Referenzen bleiben im selben Repository erreichbar. |
 | F63 | Vorgesehenen Branch vor dem ersten Commit zeigen. | Der normale Repository-Einstieg zeigt den Namen aus einem gültigen symbolischen HEAD mit fehlender Branch-Ref. Die Branchanzeige erklärt den fehlenden ersten Commit. Bare-Repositories, detached HEAD und Lesefehler behalten ihre eigenen Zustände. |
-| F62 | Ausgelassene Mergewege am Pfadfilter erklären (F62, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
+| F62 | Ausgelassene Mergewege am Pfadfilter erklären (F62, bedingt). | Der aktive Pfadfilter erklärt Gits Vereinfachung des Pfadverlaufs. Sein vorhandener Entfernen-Knopf hebt nur die Pfadbeschränkung auf und gibt den Fokus an die Verlaufssuche zurück. |
 | F64 | Verweis und Schließabsicht bei Issues erklären. | Die Commitnachrichtenhilfe erklärt Refs und Closes direkt bei der Auswahl. Ob der Host ein Issue automatisch schließt, hängt vom Host, vom Zielbranch und von den Repository-Einstellungen ab. Die Aktionen fügen editierbare Trailer ein. |
+
+### F62 · Mergewege im Pfadverlauf
+
+Der reguläre Pfadverlauf verwendet `git log` mit Pfadbeschränkung. Git kann Merges und Elternwege auslassen, wenn ein Elterncommit am angegebenen Pfad denselben Stand hat. Für einen einzelnen Dateipfad kann die Historie mit `--follow` über Umbenennungen zurückgehen. Verzeichnisse, Muster und Git-Pathspecs verwenden den bestehenden Aufruf ohne `--follow`.
+
+Die Erklärung erscheint am angewendeten Pfadfilter. Ohne weitere aktive Filter führt sein Entfernen zum regulären Graphen zurück. Bei kombinierten Filtern bleiben die anderen Einschränkungen aktiv.
 
 ### F40 · UTF-8 für gelesene Committexte
 

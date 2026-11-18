@@ -1,5 +1,5 @@
 import { BookmarkPlus, CalendarDays, Check, Search, SlidersHorizontal, Trash2, X } from 'lucide-react';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,8 @@ export function HistoryFilters({ path, value, authors = [], onChange }: Props) {
   const formId = useId();
   const authorsId = useId();
   const dateErrorId = useId();
+  const pathHelpId = useId();
+  const queryInput = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const [presetName, setPresetName] = useState('');
@@ -76,7 +78,10 @@ export function HistoryFilters({ path, value, authors = [], onChange }: Props) {
     setDraft(EMPTY_HISTORY_FILTER);
     onChange(EMPTY_HISTORY_FILTER);
   };
-  const removeField = (field: keyof Omit<HistoryFilter, 'refs'>) => onChange({ ...value, [field]: '' });
+  const removeField = (field: keyof Omit<HistoryFilter, 'refs'>) => {
+    onChange({ ...value, [field]: '' });
+    if (field === 'file') queryInput.current?.focus();
+  };
 
   return (
     <div className="shrink-0 border-b border-border px-3 py-2">
@@ -96,6 +101,7 @@ export function HistoryFilters({ path, value, authors = [], onChange }: Props) {
           <div className="relative min-w-40 flex-1">
             <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2 size-4 text-muted-foreground" />
             <Input
+              ref={queryInput}
               type="search"
               value={draft.query}
               aria-label={t('audit.query')}
@@ -216,7 +222,7 @@ export function HistoryFilters({ path, value, authors = [], onChange }: Props) {
       {activeCount > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label={t('historyFilters.activeFilters')}>
           {(['query', 'author', 'file', 'since', 'until'] as const).filter(field => value[field]).map(field => (
-            <button key={field} type="button" className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => removeField(field)} aria-label={t('historyFilters.removeFilter', { field: t(`audit.${field}`), value: value[field] })} title={value[field]}>
+            <button key={field} type="button" className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => removeField(field)} aria-label={t('historyFilters.removeFilter', { field: t(`audit.${field}`), value: value[field] })} aria-describedby={field === 'file' ? pathHelpId : undefined} title={value[field]}>
               <span className="max-w-56 truncate">{t(`audit.${field}`)}: {value[field]}</span><X aria-hidden="true" className="size-3 shrink-0" />
             </button>
           ))}
@@ -227,6 +233,11 @@ export function HistoryFilters({ path, value, authors = [], onChange }: Props) {
           ))}
           <Button type="button" size="xs" variant="ghost" onClick={reset}><X aria-hidden="true" />{t('historyFilters.clearAll')}</Button>
         </div>
+      )}
+      {value.file && (
+        <p id={pathHelpId} className="mt-1.5 max-w-3xl text-xs text-muted-foreground">
+          {t('historyFilters.pathMergeHelp')}
+        </p>
       )}
     </div>
   );

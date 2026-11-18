@@ -60,7 +60,8 @@ function applyFilter(commits: Commit[], filter: HistoryFilter): Commit[] {
 /** Other audit fixtures keep their existing behavior. */
 export function seedHistoryFixture(scene: string): boolean {
   const sha256Search = scene === 'sha256-search';
-  if (scene !== 'history-workflow' && !sha256Search) return false;
+  const pathMerge = scene === 'history-path-merge';
+  if (scene !== 'history-workflow' && !sha256Search && !pathMerge) return false;
   useOnboardingPrefs.setState({ tourDone: true, tourActive: false, welcomeDismissed: true });
   const commits = sha256Search ? HISTORY_FIXTURE_COMMITS.slice(0, 3).map((commit, index) => ({
     ...commit,
@@ -68,7 +69,10 @@ export function seedHistoryFixture(scene: string): boolean {
     hash: searchFixtureHash(index),
     short_hash: searchFixtureHash(index).slice(0, 41),
     parents: index < 2 ? [searchFixtureHash(index + 1)] : [],
-  })) : HISTORY_FIXTURE_COMMITS;
+  })) : pathMerge ? [
+    { ...HISTORY_FIXTURE_COMMITS[0], subject: 'Merge side work', parents: [historyFixtureHash(1), historyFixtureHash(2)] },
+    ...HISTORY_FIXTURE_COMMITS.slice(1),
+  ] : HISTORY_FIXTURE_COMMITS;
   const branches: Branch[] = [
     { name: 'main', tip: commits[0].hash, is_current: true, is_remote: false },
     { name: 'release/1.2', tip: commits[2].hash, is_current: false, is_remote: false },

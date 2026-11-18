@@ -9,7 +9,7 @@ const form = (page: Page) => page.getByRole('form', { name: 'History filters', e
 const row = (page: Page, index: number) => page.locator(`[data-commit-hash="${hash(index)}"]`);
 const loadedStatus = (page: Page, count: number) => page.getByRole('status').filter({ hasText: new RegExp(`^${count} commit${count === 1 ? '' : 's'} loaded`) });
 
-async function openHistory(page: Page) {
+async function openHistory(page: Page, scene = 'history-workflow') {
   // Keep Today/Yesterday/week headers and date shortcuts deterministic in CI.
   // Preserve native performance/rAF clocks: Motion's WAAPI timeline resets on
   // reload, while Playwright's full clock keeps its performance ticks running.
@@ -21,7 +21,7 @@ async function openHistory(page: Page) {
       get: (target, key, receiver) => key === 'now' ? () => fixedTime : Reflect.get(target, key, receiver),
     });
   }, new Date('2026-10-08T18:00:00Z').getTime());
-  await page.goto('/?scene=history-workflow');
+  await page.goto(`/?scene=${scene}`);
   await expect(form(page).getByRole('searchbox', { name: 'Commit message', exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(row(page, 0)).toBeVisible();
 }
@@ -81,6 +81,53 @@ test('history and commit details identify their date types at wide and narrow wi
     .toHaveAttribute('aria-expanded', 'false');
   await expect(second.locator('time')).toHaveAttribute('datetime', '2026-10-07T23:59:00Z');
   await expect(inspectorTime).toHaveAttribute('datetime', '2026-10-07T23:59:00.000Z');
+});
+
+test('F62 explains path simplification and removes only the active path filter', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 800 });
+  await openHistory(page, 'history-path-merge');
+  const filters = form(page);
+  const query = filters.getByRole('searchbox', { name: 'Commit message', exact: true });
+  const hint = page.getByText(/Git simplifies path history/);
+  const removePath = page.getByRole('button', { name: /^Remove File or directory filter:/ });
+  await expect(row(page, 0)).toContainText('Merge side work');
+  await expect(hint).toHaveCount(0);
+  await filters.getByRole('button', { name: 'Filters', exact: true }).click();
+  const path = filters.getByRole('textbox', { name: 'File or directory', exact: true });
+  await path.fill('docs/');
+  await expect(hint).toHaveCount(0);
+  await filters.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(row(page, 1)).toBeVisible();
+  await expect(row(page, 0)).toHaveCount(0);
+  await expect(hint).toBeVisible();
+  await expect(removePath).toHaveAccessibleDescription(/omit a merge.*Other filters stay active/);
+  await removePath.focus();
+  await expect(removePath).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(query).toBeFocused();
+  await expect(path).toHaveValue('');
+  await expect(hint).toHaveCount(0);
+  await expect(row(page, 0)).toContainText('Merge side work');
+  await expect(row(page, 1)).toBeVisible();
+  expect(await historyCalls(page)).toHaveLength(1);
+
+  await page.getByRole('button', { name: 'All branches', exact: true }).click();
+  await page.getByRole('option', { name: /release\/1\.2/ }).click();
+  await page.keyboard.press('Escape');
+  await path.fill('src/');
+  await applyQuery(page, 'retry budgets');
+  await expect(row(page, 2)).toBeVisible();
+  await removePath.press('Space');
+  await expect(query).toBeFocused();
+  await expect(query).toHaveValue('retry budgets');
+  await expect(path).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Remove branch filter: release/1.2', exact: true })).toBeVisible();
+  await expect.poll(async () => (await historyCalls(page)).at(-1)?.args?.filter).toMatchObject({
+    file: '', query: 'retry budgets', refs: [hash(2)],
+  });
+  await expect(row(page, 2)).toBeVisible();
+  await expect(row(page, 0)).toHaveCount(0);
+  await expect(hint).toHaveCount(0);
 });
 
 test('message filters apply explicitly and find literal text in commit bodies', async ({ page }) => {

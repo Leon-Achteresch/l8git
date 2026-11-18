@@ -152,6 +152,66 @@ async fn general_history_path_filter_retains_git_pathspecs() {
 }
 
 #[tokio::test]
+async fn path_history_omits_a_merge_that_the_regular_graph_retains() {
+    let repo = TestRepo::new("path-merge");
+    let root = repo.commit("docs/old.txt", "document\n", "Add document");
+    repo.git(&["branch", "side"]);
+    repo.git(&["mv", "docs/old.txt", "docs/topic.txt"]);
+    let renamed = repo.commit_all("Rename document");
+    repo.git(&["checkout", "side"]);
+    let side = repo.commit("notes.txt", "unrelated\n", "Add side notes");
+    repo.git(&["checkout", "main"]);
+    repo.git(&["merge", "--no-ff", "-m", "Merge side work", "side"]);
+    let merge = repo.head();
+    let refs = repo.git(&["show-ref", "--head"]);
+
+    let graph = common::json(&git::open_repo(repo.s(), None).await.unwrap());
+    let merge_row = graph["commits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["hash"] == merge)
+        .unwrap();
+    assert_eq!(merge_row["parents"], serde_json::json!([renamed, side]));
+    assert_eq!(
+        repo.git(&["diff", "--name-only", &renamed, &merge, "--", "docs/"]),
+        ""
+    );
+
+    for (file, follows_file) in [
+        ("docs/", false),
+        (":(glob)docs/**", false),
+        ("docs/topic.txt", true),
+    ] {
+        let rows = common::json(
+            &git::repo_history_page(
+                repo.s(),
+                git::HistoryFilter {
+                    file: file.into(),
+                    ..Default::default()
+                },
+                0,
+                80,
+            )
+            .await
+            .unwrap(),
+        );
+        let rows = rows.as_array().unwrap();
+        assert!(!rows.iter().any(|row| row["hash"] == merge), "{file}");
+        let rename_row = rows.iter().find(|row| row["hash"] == renamed).unwrap();
+        assert!(rows.iter().any(|row| row["hash"] == root), "{file}");
+        if follows_file {
+            assert_eq!(rename_row["path"], "docs/topic.txt");
+            assert_eq!(rename_row["previous_path"], "docs/old.txt");
+        } else {
+            assert!(rename_row.get("previous_path").is_none(), "{file}");
+        }
+    }
+    assert_eq!(repo.git(&["show-ref", "--head"]), refs);
+    assert_eq!(repo.git(&["status", "--porcelain"]), "");
+}
+
+#[tokio::test]
 async fn selected_commit_diff_preserves_literal_path_and_reports_invalid_revisions() {
     let repo = TestRepo::new("commit-diff-literal");
     repo.commit(GLOB, "selected\n", "initial");
