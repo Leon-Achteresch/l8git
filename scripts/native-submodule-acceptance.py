@@ -5,11 +5,13 @@ import argparse
 import hashlib
 import json
 import os
+import selectors
 from pathlib import Path
 import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "src-tauri/target/debug/examples/native_submodule_acceptance"
@@ -80,6 +82,72 @@ def staging_fixture(root, env):
     return {"kind": "staging", "parent": str(repo), "outside": str(repo.parent)}
 
 
+def worktree_fixture(root, env):
+    main, linked, other = (root / "repos" / name for name in ("catalog-main", "catalog-linked", "catalog-other"))
+    for repo in (main, other):
+        repo.mkdir(parents=True)
+        git(repo, env, "init", "--quiet", "--initial-branch=main")
+        (repo / "fixture.txt").write_text("synthetic fixture\n")
+        git(repo, env, "add", "--", "fixture.txt")
+        git(repo, env, "commit", "--quiet", "-m", "Catalog baseline")
+    git(main, env, "worktree", "add", "--detach", "--quiet", linked)
+    if not (linked / ".git").is_file() or git(linked, env, "rev-parse", "--path-format=absolute",
+                                            "--git-common-dir") != str(main / ".git"):
+        raise RuntimeError("Expected a linked checkout with a separate Git Common Dir")
+    return {"kind": "worktree", "parent": str(linked), "child": str(other), "outside": str(main)}
+
+
+def run_worktree_phases(process, root, env, spec):
+    # Only this Python process runs external Git. The app's sandbox denies all repo writes.
+    primary = Path(spec["outside"])
+    extras = [root / "repos" / f"catalog-external-{i}" for i in (1, 2, 3)]
+    phases = iter((("add", 5), ("remove", 2), ("inactive-add", 3)))
+    pending = next(phases)
+    deadline = time.monotonic() + 100
+    buffer = b""
+    result = None
+    with selectors.DefaultSelector() as selector:
+        selector.register(process.stdout, selectors.EVENT_READ)
+        while True:
+            if not selector.select(max(0, deadline - time.monotonic())):
+                raise subprocess.TimeoutExpired(process.args, 100)
+            block = os.read(process.stdout.fileno(), 65536)
+            if not block:
+                break
+            buffer += block
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                line = line.decode("utf-8", errors="replace")
+                print(line, flush=True)
+                if line.startswith("NATIVE_WORKTREE_RESULT "):
+                    if result is not None:
+                        raise RuntimeError("Duplicate native worktree result")
+                    result = json.loads(line.removeprefix("NATIVE_WORKTREE_RESULT "))
+                if not line.startswith("NATIVE_WORKTREE_PHASE "):
+                    continue
+                if not pending or line != f"NATIVE_WORKTREE_PHASE {pending[0]}":
+                    raise RuntimeError(f"Unexpected fixture phase: {line}")
+                phase, expected = pending
+                for target in extras if phase != "inactive-add" else extras[:1]:
+                    if phase == "remove":
+                        git(primary, env, "worktree", "remove", target)
+                    else:
+                        git(primary, env, "worktree", "add", "--detach", "--quiet", target)
+                count = sum(entry.startswith("worktree ") for entry in
+                            git(primary, env, "worktree", "list", "--porcelain").splitlines())
+                if count != expected:
+                    raise RuntimeError(f"Unexpected external catalog size in {phase}: {count}")
+                print(f"NATIVE_WORKTREE_EXTERNAL {phase} {count}", flush=True)
+                pending = next(phases, None)
+    if buffer:
+        print(buffer.decode("utf-8", errors="replace"), flush=True)
+    process.wait(timeout=max(0.1, deadline - time.monotonic()))
+    if pending:
+        raise RuntimeError(f"Fixture stopped before external phase {pending[0]}")
+    if process.returncode or not result or result["ok"] is not True:
+        raise RuntimeError("Native worktree acceptance failed; see the fixture trace")
+
+
 def snapshot(root, allowed_changes=()):
     return {
         str(path.relative_to(root)): (path.stat().st_mode, hashlib.sha256(path.read_bytes()).hexdigest())
@@ -90,13 +158,17 @@ def snapshot(root, allowed_changes=()):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--staging-metadata", action="store_true", help="run the F39 staging fixture")
-    staging = parser.parse_args().staging_metadata
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--staging-metadata", action="store_true", help="run the F39 staging fixture")
+    modes.add_argument("--worktree-catalog", action="store_true", help="run the F05 worktree fixture")
+    args = parser.parse_args()
+    staging, worktree = args.staging_metadata, args.worktree_catalog
     if sys.platform != "darwin" or not Path(SANDBOX).is_file():
         raise SystemExit("The runner requires macOS sandbox-exec and WKWebView.")
     if not BIN.is_file() or not (ROOT / "dist/index.html").is_file():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
-    with tempfile.TemporaryDirectory(prefix="l8git-native-staging-" if staging else "l8git-native-submodules-") as temp:
+    mode = "worktrees" if worktree else "staging" if staging else "submodules"
+    with tempfile.TemporaryDirectory(prefix=f"l8git-native-{mode}-") as temp:
         root = Path(temp).resolve()
         home, scratch = root / "home", root / "tmp"
         home.mkdir()
@@ -109,13 +181,17 @@ def main():
             "GIT_AUTHOR_EMAIL": "native@example.invalid", "GIT_COMMITTER_NAME": "Native Fixture",
             "GIT_COMMITTER_EMAIL": "native@example.invalid",
         }
-        spec = staging_fixture(root, env) if staging else submodule_fixture(root, env)
+        create_fixture = worktree_fixture if worktree else staging_fixture if staging else submodule_fixture
+        spec = create_fixture(root, env)
         (root / "fixture.json").write_text(json.dumps(spec))
         env["GIT_ALLOW_PROTOCOL"] = ""
         env["GIT_NO_LAZY_FETCH"] = "1"
         repos = root / "repos"
         repo = Path(spec["parent"])
-        allowed_changes = ("staging/.git/index", "staging/.git/objects") if staging else ()
+        if worktree:
+            allowed_changes = ("catalog-main/.git/worktrees", "catalog-external-1")
+        else:
+            allowed_changes = ("staging/.git/index", "staging/.git/objects") if staging else ()
         before = snapshot(repos, allowed_changes)
         if staging:
             if git(repo, env, "remote") or git(repo, env, "diff", "--cached"):
@@ -124,6 +200,12 @@ def main():
             write_policy = f"""(deny file-write*)
         (allow file-write*
             (subpath {json.dumps(str(repo / '.git'))})
+            (subpath {json.dumps(str(home))})
+            (subpath {json.dumps(str(scratch))})
+            (literal "/dev/null"))"""
+        elif worktree:
+            write_policy = f"""(deny file-write*)
+        (allow file-write*
             (subpath {json.dumps(str(home))})
             (subpath {json.dumps(str(scratch))})
             (literal "/dev/null"))"""
@@ -159,7 +241,10 @@ if sys.argv[1]:
     probe.unlink()
 """
         writable_probe = str(repo / ".git/acceptance-probe") if staging else ""
-        protected = [str(repo / "mode.sh"), str(root / "protected")] if staging else [str(repo / "app.txt")]
+        if worktree:
+            protected = [str(repo / "fixture.txt"), str(Path(spec["outside"]) / ".git/config")]
+        else:
+            protected = [str(repo / "mode.sh"), str(root / "protected")] if staging else [str(repo / "app.txt")]
         subprocess.run([*command, sys.executable, "-I", "-c", probe, writable_probe, *protected],
                        env=env, check=True)
         sandbox_proof = ("only fixture Git data and private app data writable; worktree and outside-file writes denied"
@@ -169,8 +254,12 @@ if sys.argv[1]:
         process = subprocess.Popen([*command, BIN], cwd=root, env=env, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
         try:
-            output, _ = process.communicate(timeout=100)
-        except (subprocess.TimeoutExpired, KeyboardInterrupt):
+            if worktree:
+                run_worktree_phases(process, root, env, spec)
+                output = ""
+            else:
+                output, _ = process.communicate(timeout=100)
+        except (subprocess.TimeoutExpired, KeyboardInterrupt, RuntimeError, subprocess.CalledProcessError):
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
@@ -183,6 +272,9 @@ if sys.argv[1]:
                 raise RuntimeError("Protected fixture files changed during native acceptance")
         print(output, end="", flush=True)
         print(f"Protected fixture snapshot unchanged ({len(before)} files).", flush=True)
+        if worktree:
+            print("Owned native process exited and temporary profile and fixtures will be removed.", flush=True)
+            return
         result_prefix = "NATIVE_STAGING_RESULT " if staging else "NATIVE_SUBMODULE_RESULT "
         results = [json.loads(line.removeprefix(result_prefix))
                    for line in output.splitlines() if line.startswith(result_prefix)]

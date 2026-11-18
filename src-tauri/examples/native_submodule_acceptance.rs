@@ -11,14 +11,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(target_os = "macos")]
 mod macos {
-    use l8git_lib::git;
+    use l8git_lib::{git, sink, watcher};
     use serde_json::Value;
-    use std::{borrow::Cow, path::PathBuf};
+    use std::{
+        borrow::Cow,
+        collections::BTreeMap,
+        path::PathBuf,
+        sync::{Arc, Mutex},
+    };
     use tauri::{
         ipc::{Invoke, InvokeBody},
         utils::assets::{AssetKey, AssetsIter, CspHash},
         utils::config::Csp,
-        Assets, Manager, WebviewUrl, WebviewWindowBuilder, Wry,
+        Assets, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry,
     };
 
     struct BuiltFrontend(PathBuf);
@@ -42,6 +47,35 @@ mod macos {
 
         fn csp_hashes(&self, _: &AssetKey) -> Box<dyn Iterator<Item = CspHash<'_>> + '_> {
             Box::new(std::iter::empty())
+        }
+    }
+
+    #[derive(Default)]
+    struct WorktreeTrace(Mutex<BTreeMap<String, BTreeMap<String, usize>>>);
+
+    impl WorktreeTrace {
+        fn record(&self, path: &str, name: &str) {
+            let mut counts = self.0.lock().unwrap();
+            let count = counts
+                .entry(path.into())
+                .or_default()
+                .entry(name.into())
+                .or_default();
+            *count += 1;
+            println!("NATIVE_WORKTREE_TRACE {name} {path} {count}");
+        }
+    }
+
+    struct WorktreeSink(tauri::AppHandle, Arc<WorktreeTrace>);
+
+    impl sink::EventSink for WorktreeSink {
+        fn emit(&self, name: &str, payload: Value) {
+            if name == "repo-worktrees-changed" {
+                if let Some(path) = payload.as_str() {
+                    self.1.record(path, name);
+                }
+            }
+            let _ = self.0.emit_to("main", name, payload);
         }
     }
 
@@ -84,6 +118,7 @@ mod macos {
             .ok_or("Missing parent path")?
             .to_owned();
         let staging = spec["kind"] == "staging";
+        let worktree = spec["kind"] == "worktree";
         let child = spec["child"].as_str().map(str::to_owned);
         if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
             return Err("Unexpected staging fixture layout".into());
@@ -103,7 +138,14 @@ mod macos {
         if !assets.join("index.html").is_file() {
             return Err("Build the frontend before native acceptance".into());
         }
-        let (identifier, title, script, result_tag) = if staging {
+        let (identifier, title, script, result_tag) = if worktree {
+            (
+                "com.leon.l8git.native-worktree-acceptance",
+                "l8git Native Worktree Acceptance",
+                include_str!("../../scripts/native-worktree-acceptance.js"),
+                "NATIVE_WORKTREE_RESULT",
+            )
+        } else if staging {
             (
                 "com.leon.l8git.native-staging-acceptance",
                 "l8git Native Staging Acceptance",
@@ -161,6 +203,20 @@ mod macos {
             git::unstage_files,
             git::git_apply_reviewed_hunks,
         ];
+        let worktree_ipc: fn(Invoke<Wry>) -> bool = tauri::generate_handler![
+            watcher::watch_repo,
+            watcher::unwatch_repo,
+            git::open_repo,
+            git::repo_status,
+            git::repo_full_status,
+            git::list_stashes,
+            git::list_git_remotes,
+            git::merge_state,
+            git::cherry_pick_state,
+            git::list_worktrees,
+        ];
+        let trace = Arc::new(WorktreeTrace::default());
+        let invoke_trace = trace.clone();
         let app = tauri::Builder::default()
             .invoke_handler(move |invoke: Invoke<Wry>| {
                 let InvokeBody::Json(body) = invoke.message.payload() else {
@@ -176,7 +232,33 @@ mod macos {
                     return true;
                 }
                 let path = body["path"].as_str();
-                if staging {
+                if worktree {
+                    let command = invoke.message.command();
+                    if command == "native_worktree_phase" {
+                        if let Some(phase @ ("add" | "remove" | "inactive-add")) =
+                            body["phase"].as_str()
+                        {
+                            println!("NATIVE_WORKTREE_PHASE {phase}");
+                            invoke.resolver.resolve(());
+                            return true;
+                        }
+                    }
+                    if path == Some(parent.as_str())
+                        || (child.is_some() && path == child.as_deref())
+                    {
+                        if command == "native_worktree_counts" {
+                            let counts = invoke_trace.0.lock().unwrap();
+                            invoke
+                                .resolver
+                                .resolve(counts.get(path.unwrap()).cloned().unwrap_or_default());
+                            return true;
+                        }
+                        if matches!(command, "watch_repo" | "unwatch_repo" | "list_worktrees") {
+                            invoke_trace.record(path.unwrap(), command);
+                        }
+                        return worktree_ipc(invoke);
+                    }
+                } else if staging {
                     if path == Some(parent.as_str())
                         && allowed_staging_command(invoke.message.command(), body)
                     {
@@ -191,6 +273,9 @@ mod macos {
                 true
             })
             .setup(move |app| {
+                if worktree {
+                    sink::set_sink(Arc::new(WorktreeSink(app.handle().clone(), trace)));
+                }
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                     .title(title)
                     .inner_size(1180.0, 760.0)

@@ -39,7 +39,8 @@ mod shell;
 pub mod sink;
 mod stack;
 mod undo;
-mod watcher;
+#[doc(hidden)]
+pub mod watcher;
 
 struct TauriSink(tauri::AppHandle);
 
