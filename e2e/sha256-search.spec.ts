@@ -13,6 +13,7 @@ test('regular commit search focuses the full SHA-256 row and isolates delayed re
   const next = page.getByRole('button', { name: 'Next search match', exact: true });
   const row = page.locator(`[data-commit-hash="${fullId}"]`);
   await expect(row).toBeVisible();
+  await expect(row).toContainText('Café UTF-8');
   await search.fill(fullId.toUpperCase());
   await expect(page.getByTitle('1 matches', { exact: true })).toBeVisible();
   await next.click();
@@ -21,6 +22,8 @@ test('regular commit search focuses the full SHA-256 row and isolates delayed re
   await expect.poll(() => page.evaluate(() => window.__L8GIT_TEST_CALLS__!.findLast(
     call => call.command === 'repo_commit_inspect',
   )?.args?.commit)).toBe(fullId);
+  await page.getByTitle(/^Café UTF-8\s+Show metadata$/).click();
+  await expect(page.getByText('Crème et déjà vu.', { exact: true })).toBeVisible();
   await search.fill('g'.repeat(64));
   await expect(page.getByTitle('0 matches', { exact: true })).toBeVisible();
   await expect(next).toBeDisabled();

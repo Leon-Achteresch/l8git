@@ -279,6 +279,7 @@ pub async fn repo_commit_inspect(
                 "--no-notes",
                 "--no-patch",
                 "--stat=200",
+                COMMIT_TEXT_ENCODING,
                 "--format=fuller",
                 c,
             ],

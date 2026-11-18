@@ -64,6 +64,7 @@ export function seedHistoryFixture(scene: string): boolean {
   useOnboardingPrefs.setState({ tourDone: true, tourActive: false, welcomeDismissed: true });
   const commits = sha256Search ? HISTORY_FIXTURE_COMMITS.slice(0, 3).map((commit, index) => ({
     ...commit,
+    ...(index === 1 ? { subject: 'Café UTF-8', body: 'Crème et déjà vu.' } : {}),
     hash: searchFixtureHash(index),
     short_hash: searchFixtureHash(index).slice(0, 41),
     parents: index < 2 ? [searchFixtureHash(index + 1)] : [],

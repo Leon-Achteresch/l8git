@@ -91,6 +91,9 @@ pub struct GitRemote {
     pub url: String,
 }
 
+// Opt in for log/show reads that return commit messages to UTF-8 clients.
+const COMMIT_TEXT_ENCODING: &str = "--encoding=UTF-8";
+
 pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
     run_git_command(git_command(), repo, args)
 }

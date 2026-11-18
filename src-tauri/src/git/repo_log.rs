@@ -51,6 +51,7 @@ fn fetch_commits_raw(
     }
     args.push("--all".into());
     args.push("--date-order".into());
+    args.push(COMMIT_TEXT_ENCODING.into());
     args.push(format!("--pretty=format:{format}"));
     if skip > 0 {
         args.insert(3, format!("--skip={skip}"));

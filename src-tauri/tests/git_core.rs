@@ -1313,6 +1313,130 @@ async fn open_repo_rejects_directories_that_are_not_repositories() {
 }
 
 #[tokio::test]
+async fn commit_text_reads_use_utf8_with_non_utf8_git_config() {
+    for (format, width) in [("sha1", 40), ("sha256", 64)] {
+        let path = common::scratch_path("commit-text");
+        std::fs::create_dir_all(&path).unwrap();
+        let option = format!("--object-format={format}");
+        let (ok, out) = common::git_raw(&path, &["init", "-q", &option]);
+        assert!(ok, "{out}");
+        let repo = TestRepo::adopt(path);
+        let file = "story.txt";
+        let ascii = repo.commit(file, "first\n", "ASCII history");
+        let make_commit = |encoding: &str, message: &[u8]| {
+            repo.write(file, encoding);
+            repo.git(&["add", "--", file]);
+            repo.write_bytes(".git/fixture-message", message);
+            repo.git(&[
+                "-c",
+                &format!("i18n.commitEncoding={encoding}"),
+                "commit",
+                "-q",
+                "-F",
+                ".git/fixture-message",
+            ]);
+            repo.head()
+        };
+        let utf8 = make_commit("UTF-8", "Café UTF-8\n\nCrème et déjà vu.\n".as_bytes());
+        let latin1 = make_commit(
+            "ISO-8859-1",
+            b"Caf\xe9 Latin-1\n\nD\xe9j\xe0 l'\xe9t\xe9.\n",
+        );
+        std::fs::remove_file(repo.path.join(".git/fixture-message")).unwrap();
+        assert!(repo
+            .git(&["cat-file", "commit", &latin1])
+            .contains("\nencoding ISO-8859-1\n"));
+        repo.git(&["config", "i18n.logOutputEncoding", "ISO-8859-1"]);
+        let raw = std::process::Command::new("git")
+            .current_dir(&repo.path)
+            .args(["log", "-2", "--format=%s"])
+            .output()
+            .unwrap();
+        assert!(raw.status.success());
+        assert_eq!(raw.stdout, b"Caf\xe9 Latin-1\nCaf\xe9 UTF-8\n");
+
+        let refs = repo.git(&["show-ref", "--head"]);
+        let read_files = || {
+            [".git/config", ".git/index", ".git/HEAD", file]
+                .map(|path| std::fs::read(repo.path.join(path)).unwrap())
+        };
+        let before = read_files();
+        let expected = [
+            (&latin1, "Café Latin-1", "Déjà l'été.\n"),
+            (&utf8, "Café UTF-8", "Crème et déjà vu.\n"),
+            (&ascii, "ASCII history", ""),
+        ];
+        let assert_row = |row: &serde_json::Value, (hash, subject, body): (&String, &str, &str)| {
+            assert_eq!(hash.len(), width);
+            assert_eq!(row["hash"], *hash);
+            assert_eq!(row["subject"], subject, "{format} {hash}");
+            assert_eq!(row["body"], body, "{format} {hash}");
+        };
+
+        let opened = json(&git::open_repo(repo.s(), None).await.unwrap());
+        assert_eq!(opened["commits"].as_array().unwrap().len(), expected.len());
+        for (index, entry @ (hash, subject, body)) in expected.into_iter().enumerate() {
+            assert_row(&opened["commits"][index], entry);
+            let page = git::repo_log_page(repo.s(), index, 1, None).await.unwrap();
+            assert_eq!(page.len(), 1);
+            assert_row(&json(&page[0]), entry);
+
+            let details = json(
+                &git::repo_commit_inspect(repo.s(), hash.clone())
+                    .await
+                    .unwrap(),
+            );
+            let header = details["header"].as_str().unwrap();
+            assert!(header.starts_with(&format!("commit {hash}\n")));
+            let message = header
+                .lines()
+                .filter_map(|line| line.strip_prefix("    "))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let expected_message = format!("{subject}\n\n{body}");
+            assert_eq!(message.trim_end(), expected_message.trim_end());
+
+            let hits =
+                git::repo_search_commits(repo.s(), hash.to_uppercase(), 0, 10, None, None, None)
+                    .await
+                    .unwrap();
+            assert_eq!(hits.len(), 1);
+            assert_row(&json(&hits[0].commit), entry);
+        }
+
+        for (index, entry) in expected[..2].iter().copied().enumerate() {
+            let filter = git::HistoryFilter {
+                query: "Café".into(),
+                ..Default::default()
+            };
+            let page = git::repo_history_page(repo.s(), filter, index, 1)
+                .await
+                .unwrap();
+            assert_eq!(page.len(), 1);
+            assert_row(&json(&page[0]), entry);
+        }
+        for query in ["CAFÉ", "déjà"] {
+            let hits = git::repo_search_commits(repo.s(), query.into(), 0, 10, None, None, None)
+                .await
+                .unwrap();
+            assert_eq!(hits.len(), 2);
+            for (hit, entry) in hits.iter().zip(expected) {
+                assert_row(&json(&hit.commit), entry);
+            }
+        }
+        let ascii_hits =
+            git::repo_search_commits(repo.s(), "ascii history".into(), 0, 10, None, None, None)
+                .await
+                .unwrap();
+        assert_eq!(ascii_hits.len(), 1);
+        assert_row(&json(&ascii_hits[0].commit), expected[2]);
+        assert_eq!(repo.git(&["show-ref", "--head"]), refs);
+        assert!(repo.git(&["status", "--porcelain"]).is_empty());
+        assert_eq!(read_files(), before);
+    }
+}
+
+#[tokio::test]
 async fn repo_log_page_pages_through_history() {
     let repo = TestRepo::new("log-page");
     for n in 1..=6 {

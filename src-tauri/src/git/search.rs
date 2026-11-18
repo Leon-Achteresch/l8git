@@ -1,5 +1,7 @@
 use super::tags::{tag_map_from_refs, tag_refs_with};
-use super::{git_command, run_git_command, spawn_git, Commit, CommitSearchResult};
+use super::{
+    git_command, run_git_command, spawn_git, Commit, CommitSearchResult, COMMIT_TEXT_ENCODING,
+};
 use std::{collections::HashMap, path::PathBuf};
 
 fn is_full_oid(hash: &str, width: usize) -> bool {
@@ -111,7 +113,7 @@ pub async fn repo_search_commits(
         if hide_t3 {
             search_args.push(&exclude_arg);
         }
-        search_args.extend_from_slice(&["--all", "--date-order", pretty.as_str()]);
+        search_args.extend_from_slice(&["--all", "--date-order", COMMIT_TEXT_ENCODING, &pretty]);
         if with_paths {
             search_args.push("--name-only");
         }

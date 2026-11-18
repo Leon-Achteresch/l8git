@@ -49,7 +49,7 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 | F36 | Grenzen des vorhandenen Lease-Schutzes erklären (F36, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F38 | Eine Tag-Kollision verständlich einordnen (F38, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F39 | Reine Metadaten im interaktiven Staging lesbar halten. | Ein von Git ausgegebener reiner Moduswechsel zeigt die vorhandenen Patch-Header zur gewählten Seite. Staging und Unstaging erfolgen in diesem Fall über die Ganzdatei-Aktion. |
-| F40 | Historientexte mit passender Kodierung lesen (F40, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
+| F40 | Historientexte mit passender Kodierung lesen (F40, bedingt). | Initiale, paginierte und gefilterte Historie, Commitdetails und Commitsuche fordern Committexte bei Git als UTF-8 an. Git interpretiert die im Commit gespeicherte Kodierung. |
 | F42 | Vorhandene Text-Git-Notes am Commit lesen (F42, bedingt). | Lokal umgesetzt. Die Commit-Details lesen auf ausdrückliches Aufklappen die Note zum gewählten vollständigen SHA aus `refs/notes/commits`. Die Anzeige nennt die Ref und unterscheidet fehlende Note, leeren Text, inkompatible Daten, Größenlimit und Lesefehler. |
 | F41 | Basis und Refangebot eines Offline-Bundles verstehen (F41, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F43 | Vorhandene Submodule-Veröffentlichungsprüfung erklären (F43, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
@@ -74,6 +74,12 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 | F63 | Vorgesehenen Branch vor dem ersten Commit zeigen. | Der normale Repository-Einstieg zeigt den Namen aus einem gültigen symbolischen HEAD mit fehlender Branch-Ref. Die Branchanzeige erklärt den fehlenden ersten Commit. Bare-Repositories, detached HEAD und Lesefehler behalten ihre eigenen Zustände. |
 | F62 | Ausgelassene Mergewege am Pfadfilter erklären (F62, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
 | F64 | Verweis und Schließabsicht bei Issues erklären. | Die Commitnachrichtenhilfe erklärt Refs und Closes direkt bei der Auswahl. Ob der Host ein Issue automatisch schließt, hängt vom Host, vom Zielbranch und von den Repository-Einstellungen ab. Die Aktionen fügen editierbare Trailer ein. |
+
+### F40 · UTF-8 für gelesene Committexte
+
+Die regulären Git-Lesewege für Historie, Suche und Commitdetail verwenden pro Aufruf `--encoding=UTF-8`. Eine anders konfigurierte Git-Ausgabekodierung bleibt gespeichert, beeinflusst aber diese Aufrufe nicht. Korrekt deklarierte Nachrichten werden von Git umkodiert. Ohne Encoding-Header behandelt Git die Nachricht als UTF-8. Falsch deklarierte Bytes können als Ersatzzeichen erscheinen oder falsche Zeichen ergeben.
+
+Der Test `commit_text_reads_use_utf8_with_non_utf8_git_config` prüft SHA-1 und SHA-256 mit echten Latin-1-, UTF-8- und ASCII-Commits und absichtlich auf Latin-1 gesetzter Logausgabe. Diffs, Pfade, Notes, Blame und zusätzliche Textoberflächen wie Submodul-Historie, Bisect und Commitbereich der KI-Erklärung sind eigene Lesewege.
 
 ### F42 · Lokale Commit-Notes
 
