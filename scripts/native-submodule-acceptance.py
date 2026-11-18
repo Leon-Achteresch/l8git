@@ -199,15 +199,37 @@ def verify_notes_trace(trace, spec):
     return expected_ipc
 
 
-def run_worktree_phases(process, root, env, spec):
-    # Only this Python process runs external Git. The app's sandbox denies all repo writes.
-    primary = Path(spec["outside"])
-    extras = [root / "repos" / f"catalog-external-{i}" for i in (1, 2, 3)]
-    phases = iter((("add", 5), ("remove", 2), ("inactive-add", 3)))
-    pending = next(phases)
+def compare_fixture(root, env):
+    primary, other = (root / "repos" / name for name in ("compare-primary", "compare-other"))
+    for path in (primary, other):
+        path.mkdir(parents=True)
+        git(path, env, "init", "--quiet", "--initial-branch=main")
+
+    def commit(path, label):
+        marker = f"native-f46-{label}"
+        (path / "fixture.txt").write_text(f"{marker}\n", encoding="utf-8")
+        git(path, env, "add", "--", "fixture.txt")
+        git(path, env, "commit", "--quiet", "-m", marker)
+        return {"sha": git(path, env, "rev-parse", "HEAD"), "marker": marker}
+
+    cases = {label: commit(primary, label) for label in ("base", "local", "tag", "remote")}
+    # Keep the external mutation to a single loose ref file.
+    git(primary, env, "-c", "core.logAllRefUpdates=false",
+        "update-ref", "refs/heads/release", cases["local"]["sha"])
+    git(primary, env, "tag", "-a", "release", "-m", "Annotated fixture", cases["tag"]["sha"])
+    git(primary, env, "update-ref", "refs/remotes/origin/release", cases["remote"]["sha"])
+    git(primary, env, "update-ref", "refs/remotes/origin/main", cases["base"]["sha"])
+    git(primary, env, "tag", "refs/heads/release", cases["tag"]["sha"])
+    cases["otherBase"] = commit(other, "other-base")
+    cases["other"] = commit(other, "other")
+    return {"kind": "compare", "parent": str(primary), "child": str(other), "outside": str(root),
+            "cases": cases, "tagObject": git(primary, env, "rev-parse", "refs/tags/release")}
+
+
+def run_external_phases(process, on_line):
     deadline = time.monotonic() + 100
     buffer = b""
-    result = None
+    output = []
     with selectors.DefaultSelector() as selector:
         selector.register(process.stdout, selectors.EVENT_READ)
         while True:
@@ -221,33 +243,123 @@ def run_worktree_phases(process, root, env, spec):
                 line, buffer = buffer.split(b"\n", 1)
                 line = line.decode("utf-8", errors="replace")
                 print(line, flush=True)
-                if line.startswith("NATIVE_WORKTREE_RESULT "):
-                    if result is not None:
-                        raise RuntimeError("Duplicate native worktree result")
-                    result = json.loads(line.removeprefix("NATIVE_WORKTREE_RESULT "))
-                if not line.startswith("NATIVE_WORKTREE_PHASE "):
-                    continue
-                if not pending or line != f"NATIVE_WORKTREE_PHASE {pending[0]}":
-                    raise RuntimeError(f"Unexpected fixture phase: {line}")
-                phase, expected = pending
-                for target in extras if phase != "inactive-add" else extras[:1]:
-                    if phase == "remove":
-                        git(primary, env, "worktree", "remove", target)
-                    else:
-                        git(primary, env, "worktree", "add", "--detach", "--quiet", target)
-                count = sum(entry.startswith("worktree ") for entry in
-                            git(primary, env, "worktree", "list", "--porcelain").splitlines())
-                if count != expected:
-                    raise RuntimeError(f"Unexpected external catalog size in {phase}: {count}")
-                print(f"NATIVE_WORKTREE_EXTERNAL {phase} {count}", flush=True)
-                pending = next(phases, None)
+                output.append(line)
+                on_line(line)
     if buffer:
         print(buffer.decode("utf-8", errors="replace"), flush=True)
     process.wait(timeout=max(0.1, deadline - time.monotonic()))
+    return "\n".join(output)
+
+
+def run_worktree_phases(process, root, env, spec):
+    # Only this Python process runs external Git. The app's sandbox denies all repo writes.
+    primary = Path(spec["outside"])
+    extras = [root / "repos" / f"catalog-external-{i}" for i in (1, 2, 3)]
+    phases = iter((("add", 5), ("remove", 2), ("inactive-add", 3)))
+    pending = next(phases)
+
+    def advance(line):
+        nonlocal pending
+        if not line.startswith("NATIVE_WORKTREE_PHASE "):
+            return
+        if not pending or line != f"NATIVE_WORKTREE_PHASE {pending[0]}":
+            raise RuntimeError(f"Unexpected fixture phase: {line}")
+        phase, expected = pending
+        for target in extras if phase != "inactive-add" else extras[:1]:
+            if phase == "remove":
+                git(primary, env, "worktree", "remove", target)
+            else:
+                git(primary, env, "worktree", "add", "--detach", "--quiet", target)
+        count = sum(entry.startswith("worktree ") for entry in
+                    git(primary, env, "worktree", "list", "--porcelain").splitlines())
+        if count != expected:
+            raise RuntimeError(f"Unexpected external catalog size in {phase}: {count}")
+        print(f"NATIVE_WORKTREE_EXTERNAL {phase} {count}", flush=True)
+        pending = next(phases, None)
+
+    output = run_external_phases(process, advance)
     if pending:
         raise RuntimeError(f"Fixture stopped before external phase {pending[0]}")
-    if process.returncode or not result or result["ok"] is not True:
+    results = [json.loads(line.removeprefix("NATIVE_WORKTREE_RESULT ")) for line in output.splitlines()
+               if line.startswith("NATIVE_WORKTREE_RESULT ")]
+    if process.returncode or len(results) != 1 or results[0]["ok"] is not True:
         raise RuntimeError("Native worktree acceptance failed; see the fixture trace")
+
+
+def run_compare_phases(process, env, spec):
+    deleted = False
+
+    def advance(line):
+        nonlocal deleted
+        if line == "NATIVE_COMPARE_PHASE delete":
+            if deleted:
+                raise RuntimeError("Duplicate compare deletion request")
+            path = spec["parent"]
+            git(path, env, "update-ref", "-d", "refs/heads/release", spec["cases"]["local"]["sha"])
+            deleted = True
+            if git(path, env, "rev-parse", "refs/heads/release^{commit}") != spec["cases"]["tag"]["sha"]:
+                raise RuntimeError("Expected a DWIM fallback despite the missing exact fixture ref")
+            print("NATIVE_COMPARE_EXTERNAL deleted only refs/heads/release; DWIM fallback still resolves", flush=True)
+
+    output = run_external_phases(process, advance)
+    if not deleted:
+        raise RuntimeError("Native compare did not reach the external ref deletion")
+    return output
+
+
+def verify_compare_trace(trace, output, spec):
+    calls = [json.loads(line.removeprefix("NATIVE_COMPARE_IPC ")) for line in output.splitlines()
+             if line.startswith("NATIVE_COMPARE_IPC ")]
+    cases = spec["cases"]
+    base = cases["base"]["sha"]
+    expected = [("refs/remotes/origin/main", "HEAD"), (base, "refs/heads/release"),
+                (base, "refs/tags/release"), (base, "refs/remotes/origin/release"),
+                ("HEAD~1", cases["remote"]["sha"]), (base, "refs/heads/release"),
+                (base, "refs/heads/release"), ("HEAD~1", "HEAD")]
+    summaries = [call for call in calls if call["command"] == "repo_compare_commits"]
+    if [(call["base"], call["head"]) for call in summaries] != expected:
+        raise RuntimeError(f"Unexpected compare summary IPC: {summaries}")
+    if [call["path"] for call in summaries] != [spec["parent"]] * 7 + [spec["child"]]:
+        raise RuntimeError(f"Unexpected compare repository IPC: {summaries}")
+    diffs = [(call["path"], call["base"], call["head"], call["file"]) for call in calls
+             if call["command"] == "repo_compare_file_diff"]
+    expected_diffs = [(spec["parent"], base, cases[label]["sha"], "fixture.txt")
+                      for label in ("remote", "local", "tag", "remote")]
+    expected_diffs += [(spec["parent"], cases["tag"]["sha"], cases["remote"]["sha"], "fixture.txt"),
+                       (spec["parent"], base, cases["local"]["sha"], "fixture.txt"),
+                       (spec["child"], cases["otherBase"]["sha"], cases["other"]["sha"], "fixture.txt")]
+    if diffs != expected_diffs:
+        raise RuntimeError(f"Unexpected pinned diff IPC: {diffs}")
+
+    events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
+    exits = {event["sid"]: event["code"] for event in events if event["event"] == "exit"}
+    reads = []
+    for event in events:
+        if event["event"] != "start":
+            continue
+        argv = event["argv"]
+        if "-C" not in argv:
+            raise RuntimeError(f"Git process without fixture checkout: {argv}")
+        index = argv.index("-C")
+        path, args = argv[index + 1], argv[index + 2:]
+        read = (args[0] in ("rev-parse", "show-ref", "for-each-ref", "log", "status", "rev-list",
+                            "merge-base", "diff")
+                or args[:2] in (["--literal-pathspecs", "diff"], ["stash", "list"], ["symbolic-ref", "--quiet"])
+                or args in (["remote", "-v"], ["config", "--null", "--name-only", "--list"])
+                or (args[0] == "config" and any(arg in ("--get", "--get-regexp") for arg in args)))
+        if path not in (spec["parent"], spec["child"]) or not read:
+            raise RuntimeError(f"Unexpected Git process in compare fixture: {argv}")
+        reads.append((args, exits.get(event["sid"])))
+    for ref in ("refs/heads/release", "refs/tags/release", "refs/remotes/origin/release"):
+        args = ["show-ref", "--verify", "--hash", "--", ref]
+        if (args, 0) not in reads:
+            raise RuntimeError(f"Missing exact Git lookup: {ref}")
+    if (["rev-parse", "--verify", "--end-of-options", f"{spec['tagObject']}^{{commit}}"], 0) not in reads:
+        raise RuntimeError("Missing annotated tag object peeling")
+    if not any(args == ["show-ref", "--verify", "--hash", "--", "refs/heads/release"] and code
+               for args, code in reads):
+        raise RuntimeError("Missing failed exact lookup after external deletion")
+    print(f"NATIVE_COMPARE_GIT verified {len(reads)} processes, {len(summaries)} summary and {len(diffs)} pinned diff IPC.")
 
 
 def snapshot(root, allowed_changes=()):
@@ -264,6 +376,7 @@ def main():
     modes.add_argument("--staging-metadata", action="store_true", help="run the F39 staging fixture")
     modes.add_argument("--worktree-catalog", action="store_true", help="run the F05 worktree fixture")
     modes.add_argument("--commit-notes", action="store_true", help="run the F42 local commit notes fixture")
+    modes.add_argument("--qualified-compare", action="store_true", help="run the F46 qualified compare fixture")
     args = parser.parse_args()
     staging, worktree = args.staging_metadata, args.worktree_catalog
     if sys.platform != "darwin" or not Path(SANDBOX).is_file():
@@ -271,7 +384,8 @@ def main():
     if not BIN.is_file() or not (ROOT / "dist/index.html").is_file():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
     notes = args.commit_notes
-    mode = "notes" if notes else "worktrees" if worktree else "staging" if staging else "submodules"
+    compare = args.qualified_compare
+    mode = "compare" if compare else "notes" if notes else "worktrees" if worktree else "staging" if staging else "submodules"
     with tempfile.TemporaryDirectory(prefix=f"l8git-native-{mode}-") as temp:
         root = Path(temp).resolve()
         home, scratch = root / "home", root / "tmp"
@@ -286,8 +400,9 @@ def main():
             "GIT_COMMITTER_EMAIL": "native@example.invalid",
         }
         create_fixture = {"notes": notes_fixture, "worktrees": worktree_fixture,
-                          "staging": staging_fixture, "submodules": submodule_fixture}[mode]
-        if notes:
+                          "staging": staging_fixture, "submodules": submodule_fixture,
+                          "compare": compare_fixture}[mode]
+        if notes or compare:
             env["GIT_ALLOW_PROTOCOL"] = ""
             env["GIT_NO_LAZY_FETCH"] = "1"
         spec = create_fixture(root, env)
@@ -296,16 +411,18 @@ def main():
         env["GIT_NO_LAZY_FETCH"] = "1"
         repos = root / "repos"
         repo = Path(spec["parent"])
-        if notes:
-            def notes_repo_state():
+        if notes or compare:
+            def repo_state():
                 return [(git(path, env, "show-ref", "--head"), git(path, env, "status", "--porcelain"),
                          git(path, env, "remote")) for path in (spec["parent"], spec["child"])]
 
-            initial_notes_state = notes_repo_state()
-            if any(dirty or remotes for _, dirty, remotes in initial_notes_state):
-                raise RuntimeError("Notes fixtures require clean repos without remotes")
+            initial_repo_state = repo_state()
+            if any(dirty or remotes for _, dirty, remotes in initial_repo_state):
+                raise RuntimeError("Read-only fixtures require clean repos without remotes")
         if worktree:
             allowed_changes = ("catalog-main/.git/worktrees", "catalog-external-1")
+        elif compare:
+            allowed_changes = ("compare-primary/.git/refs/heads/release",)
         else:
             allowed_changes = ("staging/.git/index", "staging/.git/objects") if staging else ()
         before = snapshot(repos, allowed_changes)
@@ -319,7 +436,7 @@ def main():
             (subpath {json.dumps(str(home))})
             (subpath {json.dumps(str(scratch))})
             (literal "/dev/null"))"""
-        elif worktree or notes:
+        elif worktree or notes or compare:
             write_policy = f"""(deny file-write*)
         (allow file-write*
             (subpath {json.dumps(str(home))})
@@ -357,7 +474,10 @@ if sys.argv[1]:
     probe.unlink()
 """
         writable_probe = str(repo / ".git/acceptance-probe") if staging else ""
-        if notes:
+        if compare:
+            protected = [str(repo / "fixture.txt"), str(repo / ".git/HEAD"),
+                         str(repo / ".git/refs/heads/release"), str(Path(spec["child"]) / ".git/index")]
+        elif notes:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/notes/commits"),
                          str(Path(spec["child"]) / ".git/refs/notes/commits")]
         elif worktree:
@@ -371,13 +491,15 @@ if sys.argv[1]:
         print(f"Sandbox preflight passed: IP bind denied; {sandbox_proof}.", flush=True)
 
         trace = scratch / "git-trace.jsonl"
-        app_env = {**env, "GIT_TRACE2_EVENT": str(trace)} if notes else env
+        app_env = {**env, "GIT_TRACE2_EVENT": str(trace)} if notes or compare else env
         process = subprocess.Popen([*command, BIN], cwd=root, env=app_env, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             if worktree:
                 run_worktree_phases(process, root, env, spec)
                 output = ""
+            elif compare:
+                output = run_compare_phases(process, env, spec)
             else:
                 output, _ = process.communicate(timeout=100)
         except (subprocess.TimeoutExpired, KeyboardInterrupt, RuntimeError, subprocess.CalledProcessError):
@@ -391,12 +513,13 @@ if sys.argv[1]:
         finally:
             if before != snapshot(repos, allowed_changes):
                 raise RuntimeError("Protected fixture files changed during native acceptance")
-        print(output, end="", flush=True)
+        if not compare:
+            print(output, end="", flush=True)
         print(f"Protected fixture snapshot unchanged ({len(before)} files).", flush=True)
         if worktree:
             print("Owned native process exited and temporary profile and fixtures will be removed.", flush=True)
             return
-        result_prefix = ("NATIVE_NOTES_RESULT " if notes else
+        result_prefix = ("NATIVE_COMPARE_RESULT " if compare else "NATIVE_NOTES_RESULT " if notes else
                          "NATIVE_STAGING_RESULT " if staging else "NATIVE_SUBMODULE_RESULT ")
         results = [json.loads(line.removeprefix(result_prefix))
                    for line in output.splitlines() if line.startswith(result_prefix)]
@@ -409,9 +532,16 @@ if sys.argv[1]:
                      for line in output.splitlines() if line.startswith(prefix)]
             if [(call["path"], call["commit"]) for call in calls] != expected:
                 raise RuntimeError("Unexpected commit or repository in native Notes IPC")
-            if notes_repo_state() != initial_notes_state:
+            if repo_state() != initial_repo_state:
                 raise RuntimeError("Fixture refs, status or remotes changed during Notes acceptance")
             print("Fixture refs, clean status and absence of remotes independently verified with local Git.")
+        if compare:
+            refs, dirty, remotes = initial_repo_state[0]
+            expected_refs = "\n".join(line for line in refs.splitlines() if not line.endswith(" refs/heads/release"))
+            if repo_state() != [(expected_refs, dirty, remotes), initial_repo_state[1]]:
+                raise RuntimeError("Compare fixture changed beyond the one external ref deletion")
+            verify_compare_trace(trace, output, spec)
+            print("Remaining refs, HEAD, clean status and absence of remotes verified with local Git.")
         if staging:
             expected = ["stage_files", "unstage_files", "git_apply_reviewed_hunks:stage",
                         "git_apply_reviewed_hunks:unstage"]

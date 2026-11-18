@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(target_os = "macos")]
 mod macos {
-    use l8git_lib::{git, sink, watcher};
+    use l8git_lib::{compare, git, sink, watcher};
     use serde_json::Value;
     use std::{
         borrow::Cow,
@@ -123,6 +123,7 @@ mod macos {
         let staging = spec["kind"] == "staging";
         let worktree = spec["kind"] == "worktree";
         let notes = spec["kind"] == "notes";
+        let compare = spec["kind"] == "compare";
         let child = spec["child"].as_str().map(str::to_owned);
         if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
             return Err("Unexpected staging fixture layout".into());
@@ -142,7 +143,14 @@ mod macos {
         if !assets.join("index.html").is_file() {
             return Err("Build the frontend before native acceptance".into());
         }
-        let (identifier, title, script, result_tag) = if notes {
+        let (identifier, title, script, result_tag) = if compare {
+            (
+                "com.leon.l8git.native-compare-acceptance",
+                "l8git Native Compare Acceptance",
+                include_str!("../../scripts/native-compare-acceptance.js"),
+                "NATIVE_COMPARE_RESULT",
+            )
+        } else if notes {
             (
                 "com.leon.l8git.native-notes-acceptance",
                 "l8git Native Commit Notes Acceptance",
@@ -242,6 +250,17 @@ mod macos {
             git::repo_commit_note,
         ];
         let notes_calls = AtomicUsize::new(0);
+        let compare_ipc: fn(Invoke<Wry>) -> bool = tauri::generate_handler![
+            git::open_repo,
+            git::repo_status,
+            git::repo_full_status,
+            git::list_stashes,
+            git::list_git_remotes,
+            git::merge_state,
+            git::cherry_pick_state,
+            compare::repo_compare_commits,
+            compare::repo_compare_file_diff,
+        ];
         let trace = Arc::new(WorktreeTrace::default());
         let invoke_trace = trace.clone();
         let app = tauri::Builder::default()
@@ -259,7 +278,31 @@ mod macos {
                     return true;
                 }
                 let path = body["path"].as_str();
-                if notes {
+                if compare {
+                    let command = invoke.message.command();
+                    if command == "native_compare_delete" {
+                        println!("NATIVE_COMPARE_PHASE delete");
+                        invoke.resolver.resolve(());
+                        return true;
+                    }
+                    if command == "native_compare_deleted" {
+                        let exists = PathBuf::from(&parent)
+                            .join(".git/refs/heads/release")
+                            .exists();
+                        invoke.resolver.resolve(!exists);
+                        return true;
+                    }
+                    if path == Some(parent.as_str())
+                        || (child.is_some() && path == child.as_deref())
+                    {
+                        if matches!(command, "repo_compare_commits" | "repo_compare_file_diff") {
+                            let mut data = body.clone();
+                            data["command"] = command.into();
+                            println!("NATIVE_COMPARE_IPC {data}");
+                        }
+                        return compare_ipc(invoke);
+                    }
+                } else if notes {
                     let command = invoke.message.command();
                     if command == "native_notes_count" {
                         invoke.resolver.resolve(notes_calls.load(Ordering::Relaxed));

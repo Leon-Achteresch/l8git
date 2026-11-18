@@ -101,6 +101,8 @@ Die Auswahl neben Basis und Kopf zeigt den Kurznamen und die Art jeder Ref. Die 
 
 Der Vergleich sucht qualifizierte Einzel-Refs exakt und löst annotierte Tags bis zum Commit auf. Eine gelöschte Ref führt zu einem Auflösungsfehler, selbst wenn Git unter diesem Namen eine andere Ref finden könnte. Dateidiffs verwenden die aufgelösten SHAs des Vergleichs. Die Auswahl arbeitet mit den im geöffneten Repository bekannten Refs und lesenden Git-Kommandos mit gesperrtem Objekt-Nachladen. Eine bewegte Ref wird bei einer erneuten Auflösung auf ihrem dann aktuellen Stand gelesen. [Git-Revisionsregeln](https://git-scm.com/docs/gitrevisions), [Exakte Ref-Suche](https://git-scm.com/docs/git-show-ref)
 
+Die [native macOS-Abnahme](audits/native-qualified-compare-acceptance.md) belegt den regulären Befehlspaletten-Einstieg bis zum sichtbaren Diff in einem privaten WKWebView.
+
 ## Prüfung und Abbildungen
 
 Screenshots unter `docs/screenshots/` zeigen echte gerenderte Komponenten mit synthetischen Testdaten. Sie sind kein Nachweis einer Live-Instanz oder erfolgreich ausgeführter Fachoperationen. Konkrete ausgeführte Tests stehen im PR; unerreichbare/native Grenzen werden dort separat benannt. Historische Ideen und Reserven bleiben im Forschungsarchiv erhalten; daraus werden keine automatischen Folgeaufträge.
