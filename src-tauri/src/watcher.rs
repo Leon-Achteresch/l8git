@@ -7,8 +7,8 @@ use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
-use notify::{EventKind, RecursiveMode, Watcher};
-use notify_debouncer_full::new_debouncer;
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify_debouncer_full::{new_debouncer_opt, Debouncer, FileIdCache, NoCache};
 
 struct Entry {
     stop: Arc<AtomicBool>,
@@ -164,8 +164,8 @@ fn depth_from_root(roots: &[PathBuf], path: &Path) -> Option<usize> {
 }
 
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-fn attach_dir<W: Watcher>(
-    watcher: &mut W,
+fn attach_dir<W: Watcher, C: FileIdCache>(
+    watcher: &mut Debouncer<W, C>,
     roots: &[PathBuf],
     dir: &Path,
     depth: usize,
@@ -202,7 +202,7 @@ fn attach_dir<W: Watcher>(
 }
 
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-fn attach_git_dir<W: Watcher>(watcher: &mut W, root: &Path) {
+fn attach_git_dir<W: Watcher, C: FileIdCache>(watcher: &mut Debouncer<W, C>, root: &Path) {
     let git_dir = root.join(".git");
     if !git_dir.is_dir() {
         return;
@@ -250,7 +250,13 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
     }
 
     let (tx, rx) = channel();
-    let mut debouncer = new_debouncer(Duration::from_millis(600), None, tx)
+    let mut debouncer = new_debouncer_opt::<_, RecommendedWatcher, NoCache>(
+        Duration::from_millis(600),
+        None,
+        tx,
+        NoCache::new(),
+        notify::Config::default(),
+    )
         .map_err(|e| format!("watcher init failed: {e}"))?;
 
     #[allow(unused_mut)]
@@ -260,17 +266,16 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
         // ponytail: FSEvents streams are always recursive; notify emulates
         // NonRecursive by filtering, so split watches only multiply events.
         debouncer
-            .watcher()
             .watch(&repo_path, RecursiveMode::Recursive)
             .map_err(|e| format!("watcher attach failed: {e}"))?;
     }
     #[cfg(not(target_os = "macos"))]
     {
-        attach_dir(debouncer.watcher(), &roots, &repo_path, 0, &mut shallow);
+        attach_dir(&mut debouncer, &roots, &repo_path, 0, &mut shallow);
         if shallow.is_empty() {
             return Err("watcher attach failed".into());
         }
-        attach_git_dir(debouncer.watcher(), &repo_path);
+        attach_git_dir(&mut debouncer, &repo_path);
     }
 
     let catalog_path = crate::git::repo_common_dir(&repo_path)
@@ -291,12 +296,10 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
                 !cfg!(target_os = "macos") && roots.iter().any(|root| common == root.join(".git"));
             if !already_watched {
                 let _ = debouncer
-                    .watcher()
                     .watch(common, RecursiveMode::NonRecursive);
             }
             if catalog.is_dir() {
                 let _ = debouncer
-                    .watcher()
                     .watch(&catalog, RecursiveMode::Recursive);
             }
         }
@@ -328,7 +331,6 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
                             catalog_changed = true;
                             if *attach_catalog && p == catalog_path && catalog_path.is_dir() {
                                 let _ = debouncer
-                                    .watcher()
                                     .watch(catalog_path, RecursiveMode::Recursive);
                             }
                         }
@@ -357,7 +359,7 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
                     let Some(depth) = depth_from_root(&roots, p) else {
                         continue;
                     };
-                    attach_dir(debouncer.watcher(), &roots, p, depth, &mut shallow);
+                    attach_dir(&mut debouncer, &roots, p, depth, &mut shallow);
                 }
             }
             // Cover catalog membership updates that the filesystem watcher
@@ -371,7 +373,7 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
                     if next != stamp {
                         catalog_changed = true;
                         if *attach_catalog && stamp == Some(Ok(None)) && path.is_dir() {
-                            let _ = debouncer.watcher().watch(path, RecursiveMode::Recursive);
+                            let _ = debouncer.watch(path, RecursiveMode::Recursive);
                         }
                     }
                     stamp = next;

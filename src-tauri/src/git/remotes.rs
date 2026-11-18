@@ -132,7 +132,7 @@ impl ResolvedFetchTarget {
         }
         FetchTarget {
             remote: self.remote.clone(),
-            fingerprint: format!("{:x}", hash.finalize()),
+            fingerprint: crate::hex(&hash.finalize()),
         }
     }
 }

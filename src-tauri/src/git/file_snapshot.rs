@@ -170,7 +170,7 @@ pub(crate) fn fingerprint(repo: &PathBuf, file: &str) -> Result<String, String> 
     frame(&mut hash, source_entry(repo, file)?.as_bytes());
     let root = path.parent().ok_or_else(|| changed(file))?;
     worktree_entry(&mut hash, &guard, root, &path, file)?;
-    Ok(format!("sha256-v1:{:x}", hash.finalize()))
+    Ok(format!("sha256-v1:{}", crate::hex(&hash.finalize())))
 }
 
 /// Preserve the reviewed raw worktree across a sequence of commits. Unlike a
@@ -197,7 +197,7 @@ pub(super) fn split_worktree_fingerprint(
         worktree_entry(&mut hash, &guard, &guard.cwd, &path, file)?;
         split_nested_revisions(&mut hash, &path)?;
     }
-    Ok(format!("sha256-split-worktree-v1:{:x}", hash.finalize()))
+    Ok(format!("sha256-split-worktree-v1:{}", crate::hex(&hash.finalize())))
 }
 
 // A whole directory can stage an embedded repository as a gitlink. The ordinary
@@ -299,7 +299,7 @@ pub(crate) fn review_content_fingerprint(
         frame(&mut hash, file.as_bytes());
         worktree_entry(&mut hash, &guard, &guard.cwd, path, file)?;
     }
-    Ok(format!("sha256-review-v1:{:x}", hash.finalize()))
+    Ok(format!("sha256-review-v1:{}", crate::hex(&hash.finalize())))
 }
 
 #[cfg(test)]

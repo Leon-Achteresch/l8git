@@ -3,7 +3,7 @@ use base64::Engine as _;
 use chacha20poly1305::aead::{Aead, KeyInit};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as HmacKeyInit, Mac};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -75,7 +75,7 @@ fn decode_key(value: &str, label: &str) -> Result<[u8; 32], String> {
 }
 
 fn tag(psk: &[u8; PSK_LEN], context: &[u8], client_eph: &[u8], server_eph: &[u8], nonce: &[u8]) -> [u8; 32] {
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(psk).expect("hmac accepts any key length");
+    let mut mac = <HmacSha256 as HmacKeyInit>::new_from_slice(psk).expect("hmac accepts any key length");
     mac.update(context);
     mac.update(client_eph);
     mac.update(server_eph);
