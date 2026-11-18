@@ -7,7 +7,7 @@ use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
-use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{event::ModifyKind, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_full::{new_debouncer_opt, Debouncer, FileIdCache, NoCache};
 
 struct Entry {
@@ -342,7 +342,7 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
                     if is_git_meta_path(&roots, p) {
                         git_meta = true;
                     }
-                    if !matches!(ev.kind, EventKind::Create(_)) {
+                    if !matches!(ev.kind, EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(_))) {
                         continue;
                     }
                     if !p.is_dir() {
