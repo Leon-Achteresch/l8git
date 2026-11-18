@@ -4096,7 +4096,7 @@
       "summary": "Understand the recorded dependency version and the checkout inside it.",
       "steps": [
         "Open Submodules and inspect the recorded commit, current checkout and local changes.",
-        "Initialize an uninitialized submodule, or update its checkout to the version recorded by the parent repository.",
+        "Initialize an uninitialized submodule, or update its checkout to the version recorded by the parent repository. Sync copies the versioned URL from .gitmodules into the local configuration of initialized submodules. This can overwrite an intentional local URL override.",
         "If developing the dependency, open its repository, create a branch and commit its changes there.",
         "Make the submodule commit available to your team before staging and committing the updated gitlink in the parent repository."
       ],

@@ -216,6 +216,10 @@ export function seedAuditFixture(scene: string) {
           target: { remote: 'origin', fingerprint: 'fixture-fetch-target' } };
       case 'list_submodules':
         return scene === 'submodules' && args?.path === FIXTURE_PATH ? [submodule, uninitialized] : [];
+      case 'git_submodule_sync':
+        if (scene === 'submodules' && args?.path === FIXTURE_PATH &&
+            (args.submodulePath === null || args.submodulePath === SUBMODULE_PATH)) return '';
+        throw Error('Unexpected submodule sync');
       case 'get_submodule_commits': return [];
       case 'open_submodule_repo':
         if (scene === 'submodules' && args?.path === FIXTURE_PATH && args?.submodulePath === SUBMODULE_PATH) {

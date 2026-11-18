@@ -4096,7 +4096,7 @@
       "summary": "Entenda a versão registrada da dependência e sua cópia de trabalho.",
       "steps": [
         "Abra Submódulos e revise o commit registrado, a versão em checkout e as alterações locais.",
-        "Inicialize um submódulo não inicializado ou atualize seu checkout para a versão registrada pelo repositório pai.",
+        "Inicialize um submódulo não inicializado ou atualize seu checkout para a versão registrada pelo repositório pai. Sync copia a URL versionada de .gitmodules para a configuração local dos submódulos inicializados. Isso pode sobrescrever uma URL definida de propósito na configuração local.",
         "Ao desenvolver a dependência, abra seu repositório, crie uma branch e faça os commits das alterações ali.",
         "Disponibilize o commit do submódulo para a equipe antes de preparar e commitar o gitlink atualizado no repositório pai."
       ],

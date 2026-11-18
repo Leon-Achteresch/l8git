@@ -4096,7 +4096,7 @@
       "summary": "Comprende la versión registrada de la dependencia y su copia de trabajo.",
       "steps": [
         "Abre Submódulos y revisa el commit registrado, la versión seleccionada y los cambios locales.",
-        "Inicializa un submódulo sin inicializar o actualiza su copia a la versión registrada por el repositorio padre.",
+        "Inicializa un submódulo sin inicializar o actualiza su copia a la versión registrada por el repositorio padre. Sincronizar copia la URL versionada de .gitmodules a la configuración local de los submódulos inicializados. Esto puede sobrescribir una URL local configurada a propósito.",
         "Si desarrollas la dependencia, abre su repositorio, crea una rama y haz allí los commits de sus cambios.",
         "Pon el commit del submódulo a disposición del equipo antes de preparar y confirmar el gitlink actualizado en el repositorio padre."
       ],

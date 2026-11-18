@@ -4096,7 +4096,7 @@
       "summary": "Verstehe die gespeicherte Abhängigkeitsversion und die Arbeitskopie darin.",
       "steps": [
         "Öffne Submodule und prüfe den gespeicherten Commit, den aktuellen Checkout und lokale Änderungen.",
-        "Initialisiere ein neues Submodul oder aktualisiere seinen Checkout auf die im übergeordneten Repository gespeicherte Version.",
+        "Initialisiere ein neues Submodul oder aktualisiere seinen Checkout auf die im übergeordneten Repository gespeicherte Version. Sync übernimmt die versionierte URL aus .gitmodules in die lokale Konfiguration initialisierter Submodule. Dabei kann eine bewusst gesetzte lokale URL überschrieben werden.",
         "Öffne zum Entwickeln der Abhängigkeit ihr Repository, erstelle einen Branch und committe ihre Änderungen dort.",
         "Stelle dem Team den Submodul-Commit bereit, bevor du den aktualisierten Gitlink im übergeordneten Repository stagst und committest."
       ],

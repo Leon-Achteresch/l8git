@@ -4096,7 +4096,7 @@
       "summary": "Comprenez la version enregistrée de la dépendance et sa copie de travail.",
       "steps": [
         "Ouvrez Sous-modules et examinez le commit enregistré, la version extraite et les modifications locales.",
-        "Initialisez un sous-module non initialisé ou mettez sa copie de travail à la version enregistrée par le dépôt parent.",
+        "Initialisez un sous-module non initialisé ou mettez sa copie de travail à la version enregistrée par le dépôt parent. Sync copie l’URL versionnée de .gitmodules dans la configuration locale des sous-modules initialisés. Cette action peut écraser une URL définie volontairement en local.",
         "Pour développer la dépendance, ouvrez son dépôt, créez une branche et commitez ses modifications dans ce dépôt.",
         "Rendez le commit du sous-module accessible à l’équipe avant d’indexer et de commiter le gitlink mis à jour dans le dépôt parent."
       ],

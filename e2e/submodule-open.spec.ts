@@ -92,3 +92,32 @@ test('changing selection while opening prevents a late reply from opening a tab'
   await expect(repoTab(page, FIXTURE_PATH)).toHaveAttribute('data-active', 'true');
   await expect(repoTab(page, CHILD_REPO_PATH)).toHaveCount(0);
 });
+
+test('F60 explains URL sync without mutation and keeps single and bulk sync explicit', async ({ page }) => {
+  await openSubmodules(page);
+  const mutating = async () => (await repoCalls(page)).filter(({ command }) => command.startsWith('git_submodule_'));
+  const help = page.getByRole('link', { name: 'Help: Update a submodule deliberately', exact: true });
+  await help.focus();
+  await expect(help).toBeFocused();
+  await page.keyboard.press('Enter');
+  const guide = page.getByRole('article', { name: 'Update a submodule deliberately', exact: true });
+  await expect(guide.getByText(/update its checkout to the version recorded by the parent repository/)).toBeVisible();
+  await expect(guide.getByText(/Sync copies the versioned URL from .gitmodules into the local configuration of initialized submodules/)).toBeVisible();
+  await expect(guide.getByText(/overwrite an intentional local URL override/)).toBeVisible();
+  await expect(guide).not.toContainText(FIXTURE_PATH);
+  await expect(guide).not.toContainText('example.com');
+  expect(await mutating()).toEqual([]);
+
+  await guide.getByRole('button', { name: 'Open submodules', exact: true }).press('Enter');
+  await page.getByRole('button', { name: /space \[lib\]/ }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Sync URL', exact: true }).click();
+  await expect.poll(mutating).toEqual([{
+    command: 'git_submodule_sync',
+    args: { path: FIXTURE_PATH, submodulePath: SUBMODULE_PATH },
+  }]);
+  await page.getByRole('button', { name: 'Sync', exact: true }).press('Enter');
+  await expect.poll(mutating).toEqual([
+    { command: 'git_submodule_sync', args: { path: FIXTURE_PATH, submodulePath: SUBMODULE_PATH } },
+    { command: 'git_submodule_sync', args: { path: FIXTURE_PATH, submodulePath: null } },
+  ]);
+});
