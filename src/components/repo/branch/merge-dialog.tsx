@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 function defaultMergeMessageFor(
-  t: (key: string, opts?: Record<string, string>) => string,
+  t: TFunction,
   strategy: MergeStrategy,
   source: string,
   target: string,

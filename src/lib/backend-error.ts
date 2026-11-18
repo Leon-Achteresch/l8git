@@ -87,7 +87,7 @@ function translate({ code, params, message }: BackendError, t: Translate): strin
  * Display text for any caught error: every coded segment (also one wrapped in a longer message)
  * becomes its translation, or its embedded English message for unknown codes; the rest stays as is.
  */
-export function formatBackendError(error: unknown, t: Translate = i18n.t.bind(i18n) as Translate): string {
+export function formatBackendError(error: unknown, t: Translate = (key, options) => i18n.t(key, options ?? {})): string {
   return errorString(error).replace(SEGMENT, (segment) => {
     const parsed = parseBackendError(segment);
     return parsed.code ? translate(parsed, t) : segment.split(SEP)[1];

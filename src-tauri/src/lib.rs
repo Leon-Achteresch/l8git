@@ -42,6 +42,10 @@ mod undo;
 #[doc(hidden)]
 pub mod watcher;
 
+pub(crate) fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 struct TauriSink(tauri::AppHandle);
 
 impl sink::EventSink for TauriSink {

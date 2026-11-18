@@ -29,7 +29,7 @@ export function RepoHealthList({ items, refreshing, onRefresh }: {
         const tone = item.severity === "error" ? "bg-git-removed" : item.availability !== "ready" || item.severity === "unknown"
           ? "bg-muted-foreground/50" : item.severity === "ok" ? "bg-git-added" : "bg-git-modified";
         const hasValue = item.availability === "ready" || item.availability === "lastKnown" || item.severity === "error" && (item.values?.count ?? 0) > 0;
-        const value = hasValue ? t(item.messageKey, item.values) : t(`dashboard.health.states.${item.availability}`);
+        const value = hasValue ? t(item.messageKey, item.values ?? {}) : t(`dashboard.health.states.${item.availability}`);
         return <li key={item.key} data-testid={`repo-health-${item.key}`} className="space-y-1.5 rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-xs [overflow-wrap:anywhere]">
           <div className="flex items-center gap-2">
             <span aria-hidden className={cn("size-2 shrink-0 rounded-full", tone)} />

@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { formatBackendError } from '@/lib/backend-error';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,7 +100,7 @@ export function CommandFields({ value, onChange }: { value: { line: string; time
 export const useCommand = () => useState<{ line: string; timeout: number }>({ line: "", timeout: 600 });
 export const commandOf = (v: { line: string; timeout: number }): CommandSpec | null => toCommand(v.line, v.timeout);
 
-export function confirmRun(t: (k: string, o?: Record<string, unknown>) => string, cmd: CommandSpec, where: string): boolean {
+export function confirmRun(t: TFunction, cmd: CommandSpec, where: string): boolean {
   return window.confirm(t("wb.confirmRun", { argv: commandLine(cmd), where }));
 }
 

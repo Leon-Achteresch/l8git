@@ -23,7 +23,7 @@ kopiert werden.
   - macOS: `l8git_<version>_universal.dmg` (plus `l8git.app` im DMG)
   - Windows: `l8git_<version>_x64_en-US.msi` (WiX) und `l8git_<version>_x64-setup.exe` (NSIS)
   - Linux (sobald gebaut): `l8git_<version>_amd64.deb`, `l8git_<version>_amd64.AppImage`
-- Updater: `includeUpdaterJson: true` erzeugt `latest.json` neben den Bundles,
+- Updater: `uploadUpdaterJson: true` erzeugt `latest.json` neben den Bundles,
   `updaterJsonPreferNsis: true` laesst den Windows-Eintrag auf das NSIS-Setup zeigen.
   `latest.json` ist **nur** fuer den In-App-Updater, nicht fuer diese Kanaele.
 

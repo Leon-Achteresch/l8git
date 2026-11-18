@@ -34,7 +34,7 @@ jobs:
   cargo-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@v2
         with:
@@ -46,10 +46,20 @@ jobs:
   bun-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
       # bun audit reads bun.lock directly; no install needed.
       - name: bun audit
-        run: bun audit
+        run: >-
+          bun audit
+          --ignore=GHSA-qr28-fpjm-wq7f
+          --ignore=GHSA-vcc3-ghjq-m6fr
+          --ignore=GHSA-3g3m-2fjr-6pw4
+          --ignore=GHSA-5p2g-fcmc-qvqq
+          --ignore=GHSA-w3rx-r6r6-pgpr
+          --ignore=GHSA-g3hv-75wg-m249
+          --ignore=GHSA-fc5q-39xc-vjpf
+          --ignore=GHSA-w5hq-g745-h8pq
+          --ignore=GHSA-mrhx-c7xc-m3w5

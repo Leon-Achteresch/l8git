@@ -73,7 +73,7 @@ export function PrMergeReadiness({ gh, open, onChanged }: { gh: PrGithubState; o
               return (
                 <li key={row.id} className="flex items-start gap-2 text-[0.6875rem]">
                   <Icon className={`mt-0.5 h-3 w-3 shrink-0 ${COLOR[row.tone]}`} />
-                  <span>{t(`ghx.row.${row.key}`, row.values)}</span>
+                  <span>{t(`ghx.row.${row.key}`, row.values ?? {})}</span>
                 </li>
               );
             })}

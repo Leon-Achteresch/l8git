@@ -843,7 +843,7 @@ fn identity_info(repo: &std::path::PathBuf) -> Result<IdentityInfo, String> {
         local.insert(key.to_string(), crate::git::run_git(repo, &["config", "--local", "--get", "--default", "", key])?.trim_end_matches(['\r', '\n']).to_string());
     }
     let bytes = serde_json::to_vec(&(&effective, &local)).map_err(|e| e.to_string())?;
-    Ok(IdentityInfo { effective, local, fingerprint: format!("{:x}", Sha256::digest(bytes)) })
+    Ok(IdentityInfo { effective, local, fingerprint: crate::hex(&Sha256::digest(bytes)) })
 }
 
 #[derive(Serialize)]

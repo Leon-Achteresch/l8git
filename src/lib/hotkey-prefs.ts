@@ -1,4 +1,4 @@
-import { normalizeHotkey, validateHotkey, type Hotkey } from '@tanstack/hotkeys';
+import { normalizeHotkey, validateHotkey, type HotkeyChord } from '@tanstack/hotkeys';
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -182,7 +182,7 @@ export type HotkeyActionId = (typeof ACTION_DEFS)[number]['id'];
 export type HotkeyActionDef = {
   id: HotkeyActionId;
   group: HotkeyActionGroup;
-  defaultHotkey: Hotkey;
+  defaultHotkey: HotkeyChord;
   labelKey: string;
   labelParams?: Record<string, string | number>;
 };
@@ -199,7 +199,7 @@ export const HOTKEY_ACTION_GROUPS: readonly HotkeyActionGroup[] = [
 
 export const HOTKEY_DEFAULTS = Object.fromEntries(
   ACTION_DEFS.map(def => [def.id, def.defaultHotkey])
-) as Record<HotkeyActionId, Hotkey>;
+) as Record<HotkeyActionId, HotkeyChord>;
 
 const ACTION_IDS = new Set<string>(ACTION_DEFS.map(def => def.id));
 
@@ -207,7 +207,7 @@ const GROUP_BY_ID = new Map<HotkeyActionId, HotkeyActionGroup>(
   ACTION_DEFS.map(def => [def.id, def.group])
 );
 
-export type HotkeyBindings = Record<HotkeyActionId, Hotkey>;
+export type HotkeyBindings = Record<HotkeyActionId, HotkeyChord>;
 
 export type HotkeyOverrides = Partial<HotkeyBindings>;
 
@@ -218,7 +218,7 @@ export function sanitizeHotkeyOverrides(input: unknown): HotkeyOverrides {
     if (!ACTION_IDS.has(key)) continue;
     if (typeof value !== 'string' || value.length === 0) continue;
     if (!validateHotkey(value).valid) continue;
-    out[key as HotkeyActionId] = value as Hotkey;
+    out[key as HotkeyActionId] = value as HotkeyChord;
   }
   return out;
 }
@@ -229,7 +229,7 @@ export function resolveHotkeyBindings(
   return { ...HOTKEY_DEFAULTS, ...overrides };
 }
 
-function canonical(hotkey: Hotkey): string {
+function canonical(hotkey: HotkeyChord): string {
   try {
     return normalizeHotkey(hotkey);
   } catch {
@@ -272,7 +272,7 @@ export function computeHotkeyConflicts(
 
 type HotkeyPrefsState = {
   overrides: HotkeyOverrides;
-  setBinding: (id: HotkeyActionId, hotkey: Hotkey) => void;
+  setBinding: (id: HotkeyActionId, hotkey: HotkeyChord) => void;
   resetBinding: (id: HotkeyActionId) => void;
   resetAll: () => void;
 };

@@ -125,7 +125,7 @@ fn index_fingerprint(repo: &PathBuf) -> Result<String, String> {
             }
         }
     }
-    Ok(format!("sha256-split-index-v1:{:x}", hash.finalize()))
+    Ok(format!("sha256-split-index-v1:{}", crate::hex(&hash.finalize())))
 }
 
 fn one_record(output: Vec<u8>) -> Result<String, String> {
