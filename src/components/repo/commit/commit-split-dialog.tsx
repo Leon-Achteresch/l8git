@@ -461,6 +461,7 @@ function SplitGroupCard({
   const selectedHere = unitIds.filter((id) => selection.has(id));
   const targets = groups.filter((group) => group.id !== groupId);
   const parts = splitCommitMessage(message);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
 
   return (
     <section
@@ -487,6 +488,7 @@ function SplitGroupCard({
           {index + 1}
         </Badge>
         <Textarea
+          ref={messageRef}
           value={message}
           onChange={(event) => onMessageChange(event.target.value)}
           rows={2}
@@ -508,7 +510,16 @@ function SplitGroupCard({
         ) : null}
       </header>
 
-      <CommitMessageGuidance subject={parts.subject} body={parts.body} onSubjectChange={onSubjectChange} onBodyChange={onBodyChange} compact />
+      <CommitMessageGuidance subject={parts.subject} body={parts.body} onSubjectChange={onSubjectChange} onBodyChange={onBodyChange}
+        bodyStartsAfterBlankLine={/^[^\n]*\n[ \t]*\n/.test(message.replace(/\r\n?/g, "\n"))}
+        onEditCoAuthor={({ field, start, text }) => {
+          const input = messageRef.current;
+          if (!input) return;
+          const offset = field === "subject" ? 0 : input.value.length - parts.body.length;
+          input.focus();
+          input.setSelectionRange(offset + start, offset + start + text.length);
+        }}
+        compact />
 
       {rationale ? (
         <p className="pl-1 text-[0.6875rem] text-muted-foreground">{rationale}</p>

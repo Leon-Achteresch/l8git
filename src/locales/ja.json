@@ -3787,6 +3787,16 @@
     "hashesCopied": "{{count}}件のコミットハッシュをコピーしました。"
   },
   "commitGuidance": {
+    "coAuthor": {
+      "title": "共同著者トレーラーのプレビュー",
+      "subject": "件名",
+      "bodyLine": "説明の {{line}} 行目",
+      "edit": "行を編集",
+      "editAt": "{{location}}を編集",
+      "placement": "説明の後に空行を入れ、末尾のトレーラーブロックに共同著者の行を置きます。",
+      "format": "共同著者ごとに Co-authored-by: 名前 <メールアドレス> を1行ずつ記入します。",
+      "attribution": "アカウントへの帰属は、ホストとアカウントに紐づくメールアドレスによって決まります。"
+    },
     "typeLabel": "Conventional Commit の種類を選択",
     "type": "種類",
     "conventionalTitle": "Conventional Commit の種類",

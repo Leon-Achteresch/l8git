@@ -3857,6 +3857,16 @@
     "fileChanged": "„{{file}}“ wurde nach der Vorschau geändert. Lade die Vorschau neu und prüfe die aktuellen Änderungen vor dem Verwerfen."
   },
   "commitGuidance": {
+    "coAuthor": {
+      "title": "Vorschau der Mitautoren-Trailer",
+      "subject": "Betreff",
+      "bodyLine": "Beschreibung, Zeile {{line}}",
+      "edit": "Zeile bearbeiten",
+      "editAt": "{{location}} bearbeiten",
+      "placement": "Setze Mitautoren-Zeilen in den letzten Trailerblock, nach einer Leerzeile hinter der Beschreibung.",
+      "format": "Verwende pro Person eine Zeile im Format Co-authored-by: Name <E-Mail>.",
+      "attribution": "Die Kontozuordnung hängt vom Host und der mit dem Konto verknüpften E-Mail-Adresse ab."
+    },
     "typeLabel": "Conventional-Commit-Typ wählen",
     "type": "Typ",
     "conventionalTitle": "Conventional-Commit-Typ",

@@ -3787,6 +3787,16 @@
     "hashesCopied": "{{count}} hashes de commits copiados."
   },
   "commitGuidance": {
+    "coAuthor": {
+      "title": "Vista previa de tráileres de coautoría",
+      "subject": "Asunto",
+      "bodyLine": "Línea {{line}} de la descripción",
+      "edit": "Editar línea",
+      "editAt": "Editar {{location}}",
+      "placement": "Coloca las líneas de coautoría en el bloque final de tráileres, después de una línea en blanco que lo separe de la descripción.",
+      "format": "Usa una línea Co-authored-by: Nombre <correo> por persona.",
+      "attribution": "La atribución depende del alojamiento y del correo vinculado a la cuenta de la persona."
+    },
     "typeLabel": "Elegir un tipo de commit convencional",
     "type": "Tipo",
     "conventionalTitle": "Tipo de commit convencional",

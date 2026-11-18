@@ -3787,6 +3787,16 @@
     "hashesCopied": "已复制 {{count}} 个提交哈希。"
   },
   "commitGuidance": {
+    "coAuthor": {
+      "title": "共同作者尾注预览",
+      "subject": "主题",
+      "bodyLine": "说明第 {{line}} 行",
+      "edit": "编辑此行",
+      "editAt": "编辑{{location}}",
+      "placement": "将共同作者行放在末尾的尾注区块中，并用一个空行与说明隔开。",
+      "format": "每人使用一行 Co-authored-by: 姓名 <邮箱>。",
+      "attribution": "归属取决于托管平台和该用户账户关联的邮箱。"
+    },
     "typeLabel": "选择约定式提交类型",
     "type": "类型",
     "conventionalTitle": "约定式提交类型",

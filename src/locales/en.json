@@ -3857,6 +3857,16 @@
     "fileChanged": "“{{file}}” changed after the preview. Reload the preview and review its current changes before discarding."
   },
   "commitGuidance": {
+    "coAuthor": {
+      "title": "Co-author trailer preview",
+      "subject": "Subject",
+      "bodyLine": "Description line {{line}}",
+      "edit": "Edit line",
+      "editAt": "Edit {{location}}",
+      "placement": "Place the co-author lines in the final trailer block, with a blank line after the description.",
+      "format": "Use one Co-authored-by: Name <email> line per person.",
+      "attribution": "Account attribution depends on the host and the email linked to the person’s account."
+    },
     "typeLabel": "Choose a conventional commit type",
     "type": "Type",
     "conventionalTitle": "Conventional commit type",

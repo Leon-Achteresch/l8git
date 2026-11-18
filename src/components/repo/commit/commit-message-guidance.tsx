@@ -13,12 +13,15 @@ import {
   updateConventionalSubject,
 } from "@/lib/commit-message";
 import { useCommitMessagePrefs } from "@/lib/commit-message-prefs";
+import { inspectCoAuthorDraft, type CoAuthorDraftLine } from "@/lib/commit-trailers";
 
-export function CommitMessageGuidance({ subject, body, onSubjectChange, onBodyChange, disabled = false, compact = false }: {
+export function CommitMessageGuidance({ subject, body, onSubjectChange, onBodyChange, onEditCoAuthor, bodyStartsAfterBlankLine = true, disabled = false, compact = false }: {
   subject: string;
   body: string;
   onSubjectChange: (subject: string) => void;
   onBodyChange: (body: string) => void;
+  onEditCoAuthor?: (line: CoAuthorDraftLine) => void;
+  bodyStartsAfterBlankLine?: boolean;
   disabled?: boolean;
   compact?: boolean;
 }) {
@@ -30,6 +33,10 @@ export function CommitMessageGuidance({ subject, body, onSubjectChange, onBodyCh
   const expanded = compact ? compactExpanded : preferredExpanded;
   const setExpanded = compact ? setCompactExpanded : setPreferredExpanded;
   const analysis = useMemo(() => inspectCommitMessage(subject, body), [subject, body]);
+  const hasCoAuthorEditor = onEditCoAuthor !== undefined;
+  const coAuthors = useMemo(() => hasCoAuthorEditor ? inspectCoAuthorDraft(subject, body, bodyStartsAfterBlankLine) : [],
+    [subject, body, bodyStartsAfterBlankLine, hasCoAuthorEditor]);
+  const hintCount = analysis.insights.length + coAuthors.filter(line => line.formatHint || line.placementHint).length;
   const conventional = analysis.conventional;
   const [trailerKey, setTrailerKey] = useState<"Refs" | "Closes" | "BREAKING CHANGE">("Refs");
   const [trailerValue, setTrailerValue] = useState("");
@@ -114,14 +121,14 @@ export function CommitMessageGuidance({ subject, body, onSubjectChange, onBodyCh
 
         <Button
           type="button" size="xs" variant="ghost"
-          className={cn("ml-auto", analysis.insights.length > 0 ? "text-git-modified" : "text-muted-foreground")}
+          className={cn("ml-auto", hintCount > 0 ? "text-git-modified" : "text-muted-foreground")}
           aria-expanded={expanded} aria-controls={id}
           onClick={() => setExpanded(!expanded)}
           title={t("commitGuidance.nonBlocking")}
         >
           <Info className="size-3" />
-          {analysis.insights.length > 0
-            ? t("commitGuidance.hints", { count: analysis.insights.length })
+          {hintCount > 0
+            ? t("commitGuidance.hints", { count: hintCount })
             : t("commitGuidance.help")}
           {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
         </Button>
@@ -138,7 +145,7 @@ export function CommitMessageGuidance({ subject, body, onSubjectChange, onBodyCh
                 </li>
               ))}
             </ul>
-          ) : <p className="text-muted-foreground">{t(subject.trim() ? "commitGuidance.goodMessage" : "commitGuidance.startHint")}</p>}
+          ) : hintCount === 0 && <p className="text-muted-foreground">{t(subject.trim() ? "commitGuidance.goodMessage" : "commitGuidance.startHint")}</p>}
           <p className="text-muted-foreground/70">{t("commitGuidance.nonBlocking")}</p>
           {!compact ? (
             <div className="flex items-center gap-1">
@@ -190,6 +197,38 @@ export function CommitMessageGuidance({ subject, body, onSubjectChange, onBodyCh
               </Button>
             </div>
           ) : null}
+          {onEditCoAuthor && coAuthors.length > 0 && (
+            <section aria-label={t("commitGuidance.coAuthor.title")} className="space-y-1.5 border-t border-border/50 pt-2">
+              <h3 className="font-medium">{t("commitGuidance.coAuthor.title")}</h3>
+              <ul className="max-h-40 divide-y divide-border/50 overflow-y-auto rounded-md border border-border/50">
+                {coAuthors.map(line => {
+                  const location = line.field === "subject"
+                    ? t("commitGuidance.coAuthor.subject")
+                    : t("commitGuidance.coAuthor.bodyLine", { line: line.line });
+                  return (
+                    <li key={`${line.field}-${line.line}`} className="space-y-1 px-2 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">{location}</span>
+                        <Button type="button" size="xs" variant="ghost" disabled={disabled}
+                          aria-label={t("commitGuidance.coAuthor.editAt", { location })}
+                          onClick={() => onEditCoAuthor(line)}>
+                          {t("commitGuidance.coAuthor.edit")}
+                        </Button>
+                      </div>
+                      <code className="block whitespace-pre-wrap break-all">{line.text}</code>
+                      {(line.placementHint || line.formatHint) && (
+                        <div className="space-y-0.5 border-l-2 border-git-modified pl-2 text-foreground">
+                          {line.placementHint && <p>{t("commitGuidance.coAuthor.placement")}</p>}
+                          {line.formatHint && <p>{t("commitGuidance.coAuthor.format")}</p>}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-muted-foreground">{t("commitGuidance.coAuthor.attribution")}</p>
+            </section>
+          )}
         </div>
       ) : null}
     </div>

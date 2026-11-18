@@ -396,6 +396,11 @@ export function CommitComposer({
           body={body}
           onSubjectChange={onSubjectChange}
           onBodyChange={onBodyChange}
+          onEditCoAuthor={({ field, start, text }) => {
+            const input = field === "subject" ? subjectRef.current : bodyRef.current;
+            input?.focus();
+            input?.setSelectionRange(start, start + text.length);
+          }}
           disabled={busy}
         />
 

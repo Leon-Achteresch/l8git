@@ -3787,6 +3787,16 @@
     "hashesCopied": "{{count}} identifiants de commits copiés."
   },
   "commitGuidance": {
+    "coAuthor": {
+      "title": "Aperçu des trailers de coauteurs",
+      "subject": "Objet",
+      "bodyLine": "Ligne {{line}} de la description",
+      "edit": "Modifier la ligne",
+      "editAt": "Modifier {{location}}",
+      "placement": "Placez les lignes de coauteurs dans le bloc final des trailers, séparé de la description par une ligne vide.",
+      "format": "Utilisez une ligne Co-authored-by: Nom <e-mail> par personne.",
+      "attribution": "L’attribution dépend de l’hébergeur et de l’adresse e-mail associée au compte de la personne."
+    },
     "typeLabel": "Choisir un type de commit conventionnel",
     "type": "Type",
     "conventionalTitle": "Type de commit conventionnel",
