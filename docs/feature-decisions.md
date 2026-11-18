@@ -79,7 +79,7 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 
 Der reguläre Pfadverlauf verwendet `git log` mit Pfadbeschränkung. Git kann Merges und Elternwege auslassen, wenn ein Elterncommit am angegebenen Pfad denselben Stand hat. Für einen einzelnen Dateipfad kann die Historie mit `--follow` über Umbenennungen zurückgehen. Verzeichnisse, Muster und Git-Pathspecs verwenden den bestehenden Aufruf ohne `--follow`.
 
-Die Erklärung erscheint am angewendeten Pfadfilter. Ohne weitere aktive Filter führt sein Entfernen zum regulären Graphen zurück. Bei kombinierten Filtern bleiben die anderen Einschränkungen aktiv.
+Die Erklärung erscheint am angewendeten Pfadfilter. Ohne weitere aktive Filter führt sein Entfernen zum regulären Graphen zurück. Bei kombinierten Filtern bleiben die anderen Einschränkungen aktiv. Die [native macOS-Abnahme](audits/native-path-history-acceptance.md) belegt diese Abläufe mit echtem Git-IPC und Tastaturereignissen im privaten WKWebView.
 
 ### F40 · UTF-8 für gelesene Committexte
 

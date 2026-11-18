@@ -29,6 +29,38 @@ mod macos {
         Assets, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Wry,
     };
 
+    // Send keys only to this private fixture process, never to the desktop.
+    fn post_fixture_key(key: u16) -> Result<(), &'static str> {
+        use std::ffi::c_void;
+
+        #[link(name = "CoreGraphics", kind = "framework")]
+        unsafe extern "C" {
+            fn CGEventCreateKeyboardEvent(
+                source: *const c_void,
+                key: u16,
+                down: bool,
+            ) -> *mut c_void;
+            fn CGEventPostToPid(pid: i32, event: *mut c_void);
+        }
+        #[link(name = "CoreFoundation", kind = "framework")]
+        unsafe extern "C" {
+            fn CFRelease(value: *mut c_void);
+        }
+
+        for down in [true, false] {
+            // Quartz accepts a null source. Release each created event after posting.
+            unsafe {
+                let event = CGEventCreateKeyboardEvent(std::ptr::null(), key, down);
+                if event.is_null() {
+                    return Err("Could not create private keyboard event");
+                }
+                CGEventPostToPid(std::process::id() as i32, event);
+                CFRelease(event);
+            }
+        }
+        Ok(())
+    }
+
     struct BuiltFrontend(PathBuf);
 
     impl Assets<Wry> for BuiltFrontend {
@@ -125,6 +157,7 @@ mod macos {
         let notes = spec["kind"] == "notes";
         let compare = spec["kind"] == "compare";
         let search = spec["kind"] == "search";
+        let history_path = spec["historyPath"] == true;
         let child = spec["child"].as_str().map(str::to_owned);
         if staging && (child.is_some() || PathBuf::from(&parent) != fixture.join("repos/staging")) {
             return Err("Unexpected staging fixture layout".into());
@@ -278,6 +311,7 @@ mod macos {
             git::merge_state,
             git::cherry_pick_state,
             git::repo_log_page,
+            git::repo_history_page,
             git::repo_search_commits,
             git::repo_commit_inspect,
             git::repo_commit_file_diff,
@@ -300,12 +334,30 @@ mod macos {
                     return true;
                 }
                 let path = body["path"].as_str();
+                if history_path && invoke.message.command() == "native_history_path_key" {
+                    let key = match body["key"].as_str() {
+                        Some("Enter") => 36,
+                        Some("Space") => 49,
+                        _ => {
+                            invoke.resolver.reject("Only Enter and Space are allowed");
+                            return true;
+                        }
+                    };
+                    match post_fixture_key(key) {
+                        Ok(()) => invoke.resolver.resolve(()),
+                        Err(error) => invoke.resolver.reject(error),
+                    }
+                    return true;
+                }
                 if search {
                     if path == Some(parent.as_str()) || path == child.as_deref() {
                         let command = invoke.message.command();
                         if matches!(
                             command,
-                            "repo_search_commits" | "repo_commit_inspect" | "repo_log_page"
+                            "repo_search_commits"
+                                | "repo_commit_inspect"
+                                | "repo_log_page"
+                                | "repo_history_page"
                         ) {
                             let mut data = body.clone();
                             data["command"] = command.into();

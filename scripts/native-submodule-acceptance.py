@@ -301,6 +301,39 @@ def history_text_fixture(root, env):
             "child": str(repos / "sha1"), "outside": str(root), "cases": cases}
 
 
+def history_path_fixture(root, env):
+    primary, other = (root / "repos" / name for name in ("history-main", "history-other"))
+    for repo in (primary, other):
+        repo.mkdir(parents=True)
+        git(repo, env, "init", "--quiet", "--initial-branch=main")
+        (repo / "fixture.txt").write_text("Fixture\n", encoding="utf-8")
+        git(repo, env, "add", "fixture.txt")
+        git(repo, env, "commit", "--quiet", "-m", "Fixture base")
+    (primary / "docs").mkdir()
+    (primary / "docs/old.txt").write_text("Document\n", encoding="utf-8")
+    git(primary, env, "add", "docs/old.txt")
+    git(primary, env, "commit", "--quiet", "-m", "Add document")
+    original = git(primary, env, "rev-parse", "HEAD")
+    git(primary, env, "branch", "side")
+    git(primary, env, "mv", "docs/old.txt", "docs/topic.txt")
+    git(primary, env, "commit", "--quiet", "-m", "Rename document")
+    renamed = git(primary, env, "rev-parse", "HEAD")
+    git(primary, env, "checkout", "side")
+    (primary / "notes.txt").write_text("Side work\n", encoding="utf-8")
+    git(primary, env, "add", "notes.txt")
+    git(primary, env, "commit", "--quiet", "-m", "Add side notes")
+    side = git(primary, env, "rev-parse", "HEAD")
+    git(primary, env, "checkout", "main")
+    git(primary, env, "merge", "--no-ff", "-m", "Merge side work", "side")
+    merge = git(primary, env, "rev-parse", "HEAD")
+    if git(primary, env, "show", "-s", "--format=%P", merge).split() != [renamed, side]:
+        raise RuntimeError("Expected a two-parent fixture merge")
+    if git(primary, env, "diff", "--name-only", renamed, merge, "--", "docs/"):
+        raise RuntimeError("Expected the selected directory to be unchanged relative to the first parent")
+    return {"kind": "search", "historyPath": True, "parent": str(primary), "child": str(other),
+            "outside": str(root), "cases": {"merge": merge, "renamed": renamed, "original": original}}
+
+
 def run_external_phases(process, on_line):
     deadline = time.monotonic() + 100
     buffer = b""
@@ -437,9 +470,13 @@ def verify_compare_trace(trace, output, spec):
     print(f"NATIVE_COMPARE_GIT verified {len(reads)} processes, {len(summaries)} summary and {len(diffs)} pinned diff IPC.")
 
 
-def verify_search_trace(trace, output, spec):
+def search_ipc_calls(output):
     prefix = "NATIVE_SEARCH_IPC "
-    calls = [json.loads(line.removeprefix(prefix)) for line in output.splitlines() if line.startswith(prefix)]
+    return [json.loads(line.removeprefix(prefix)) for line in output.splitlines() if line.startswith(prefix)]
+
+
+def verify_search_trace(trace, output, spec):
+    calls = search_ipc_calls(output)
     primary, other = spec["parent"], spec["child"]
     cases = spec["cases"]
     history_text = spec.get("historyText", False)
@@ -464,35 +501,16 @@ def verify_search_trace(trace, output, spec):
     if not history_text and pages:
         raise RuntimeError("The SHA-256 fixture loaded another history page during the navigation check")
 
-    events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
-    exits = {event["sid"]: event["code"] for event in events if event["event"] == "exit"}
     reads, formats, scans, inspections = 0, [], [], []
     initial_page = False
-    for event in events:
-        if event["event"] != "start":
-            continue
-        argv = event["argv"]
-        if "-C" not in argv:
-            raise RuntimeError(f"Git process without fixture checkout: {argv}")
-        index = argv.index("-C")
-        path, args = argv[index + 1], argv[index + 2:]
-        read = (args[0] in ("rev-parse", "show-ref", "for-each-ref", "log", "status", "rev-list", "show", "diff-tree")
-                or args[:2] in (["stash", "list"], ["symbolic-ref", "--quiet"])
-                or args in (["diff", "--cached", "--numstat", "-z"], ["diff", "--numstat", "-z"])
-                or (args[:2] == ["--literal-pathspecs", "diff-tree"]
-                    and "--no-ext-diff" in args and "--no-textconv" in args
-                    and args[-2:] == ["--", "fixture.txt"])
-                or args in (["remote", "-v"], ["config", "--null", "--name-only", "--list"])
-                or (args[0] == "config" and any(arg in ("--get", "--get-regexp") for arg in args)))
-        if path not in (primary, other) or not read:
-            raise RuntimeError(f"Unexpected Git process in search fixture: {argv}")
+    for path, args, code in search_git_reads(trace, spec):
         if history_text:
             reads_message = ((args[0] == "log" and any("%s" in arg and "%b" in arg for arg in args)) or
                              (args[0] == "show" and "--format=fuller" in args))
-            if reads_message and ("--encoding=UTF-8" not in args or exits.get(event["sid"]) != 0):
-                raise RuntimeError(f"Expected a successful UTF-8 Git message read: {argv}")
+            if reads_message and ("--encoding=UTF-8" not in args or code != 0):
+                raise RuntimeError(f"Expected a successful UTF-8 Git message read: {args}")
         reads += 1
-        if exits.get(event["sid"]) != 0:
+        if code != 0:
             continue
         if args == ["rev-parse", "--show-object-format"]:
             formats.append(path)
@@ -509,6 +527,52 @@ def verify_search_trace(trace, output, spec):
                   "No additional SHA-256 history page was loaded.")
     print(f"NATIVE_SEARCH_GIT verified {reads} local read processes, {len(scans)} search IPC "
           f"and {len(inspections)} exact detail IPC. {pagination}")
+
+
+def search_git_reads(trace, spec):
+    events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
+    exits = {event["sid"]: event["code"] for event in events if event["event"] == "exit"}
+    for event in events:
+        if event["event"] != "start":
+            continue
+        argv = event["argv"]
+        if "-C" not in argv:
+            raise RuntimeError(f"Git process without fixture checkout: {argv}")
+        index = argv.index("-C")
+        path, args = argv[index + 1], argv[index + 2:]
+        read = (args[0] in ("rev-parse", "show-ref", "for-each-ref", "log", "status", "rev-list", "show", "diff-tree")
+                or args[:2] in (["stash", "list"], ["symbolic-ref", "--quiet"])
+                or args in (["diff", "--cached", "--numstat", "-z"], ["diff", "--numstat", "-z"])
+                or (args[:2] == ["--literal-pathspecs", "diff-tree"]
+                    and "--no-ext-diff" in args and "--no-textconv" in args
+                    and args[-2:] == ["--", "fixture.txt"])
+                or args in (["remote", "-v"], ["config", "--null", "--name-only", "--list"],
+                            ["config", "--null", "--list"])
+                or (args[0] == "config" and any(arg in ("--get", "--get-regexp") for arg in args)))
+        if path not in (spec["parent"], spec["child"]) or not read:
+            raise RuntimeError(f"Unexpected Git process in search fixture: {argv}")
+        yield path, args, exits.get(event["sid"])
+
+
+def verify_history_path_trace(trace, output, spec):
+    calls = [call for call in search_ipc_calls(output) if call["command"] == "repo_history_page"]
+    expected = [("docs/", ""), (":(glob)docs/**", ""), ("docs/topic.txt", ""),
+                ("docs/", "document"), ("", "document")]
+    actual = [(call["filter"]["file"], call["filter"]["query"]) for call in calls]
+    if actual != expected or any(call["path"] != spec["parent"] or call["skip"] != 0 for call in calls):
+        raise RuntimeError(f"Unexpected history filter IPC: {calls}")
+    reads = list(search_git_reads(trace, spec))
+    logs = [args for path, args, code in reads if path == spec["parent"] and code == 0 and args[0] == "log"]
+    path_logs = [args for args in logs if args[-2:-1] == ["--"]]
+    if [(args[-1], "--follow" in args, "--name-status" in args, "--grep=document" in args)
+            for args in path_logs] != [(file, file == "docs/topic.txt", file == "docs/topic.txt", bool(query))
+                                       for file, query in expected if file]:
+        raise RuntimeError(f"Unexpected Git path history commands: {path_logs}")
+    if not any(args[:3] == ["log", "-z", "--max-count=80"] and "--" not in args for args in logs):
+        raise RuntimeError("Missing regular graph log")
+    if not any("--grep=document" in args and args[-1] == "--" for args in logs):
+        raise RuntimeError("Missing search-only Git history query after removing the path")
+    print(f"NATIVE_HISTORY_PATH_GIT verified {len(reads)} local reads and {len(calls)} history filter IPC calls.")
 
 
 def snapshot(root, allowed_changes=()):
@@ -528,6 +592,7 @@ def main():
     modes.add_argument("--qualified-compare", action="store_true", help="run the F46 qualified compare fixture")
     modes.add_argument("--commit-search", action="store_true", help="run the F51 full commit ID search fixture")
     modes.add_argument("--history-text", action="store_true", help="run the F40 UTF-8 history text fixture")
+    modes.add_argument("--history-path", action="store_true", help="run the F62 native path history fixture")
     args = parser.parse_args()
     staging, worktree = args.staging_metadata, args.worktree_catalog
     if sys.platform != "darwin" or not Path(SANDBOX).is_file():
@@ -536,8 +601,9 @@ def main():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
     notes = args.commit_notes
     compare = args.qualified_compare
-    search = args.commit_search or args.history_text
-    mode = ("history-text" if args.history_text else "search" if search else "compare" if compare else "notes" if notes else
+    search = args.commit_search or args.history_text or args.history_path
+    mode = ("history-path" if args.history_path else "history-text" if args.history_text else
+            "search" if search else "compare" if compare else "notes" if notes else
             "worktrees" if worktree else "staging" if staging else "submodules")
     verify_repo_state = notes or compare or search
     with tempfile.TemporaryDirectory(prefix=f"l8git-native-{mode}-") as temp:
@@ -556,7 +622,7 @@ def main():
         create_fixture = {"notes": notes_fixture, "worktrees": worktree_fixture,
                           "staging": staging_fixture, "submodules": submodule_fixture,
                           "compare": compare_fixture, "search": search_fixture,
-                          "history-text": history_text_fixture}[mode]
+                          "history-text": history_text_fixture, "history-path": history_path_fixture}[mode]
         if verify_repo_state:
             env["GIT_ALLOW_PROTOCOL"] = ""
             env["GIT_NO_LAZY_FETCH"] = "1"
@@ -635,7 +701,7 @@ if sys.argv[1]:
         elif search:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/heads/main"),
                          str(Path(spec["child"]) / ".git/HEAD"), str(Path(spec["child"]) / ".git/index")]
-            if args.history_text:
+            if args.history_text or args.history_path:
                 protected.extend(str(Path(path) / ".git/config") for path in (spec["parent"], spec["child"]))
         elif notes:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/refs/notes/commits"),
@@ -704,7 +770,10 @@ if sys.argv[1]:
             verify_compare_trace(trace, output, spec)
             print("Remaining refs, HEAD, clean status and absence of remotes verified with local Git.")
         if search:
-            verify_search_trace(trace, output, spec)
+            if args.history_path:
+                verify_history_path_trace(trace, output, spec)
+            else:
+                verify_search_trace(trace, output, spec)
             if repo_state() != initial_repo_state:
                 raise RuntimeError("Fixture refs, status or remotes changed during search acceptance")
             print("Fixture refs, HEAD, clean status and absence of remotes verified with local Git.")

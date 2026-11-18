@@ -25,12 +25,13 @@
     throw new Error(`Timed out waiting for ${label}\n${document.body?.innerText.slice(0, 2200)}`);
   };
 
-  const fillSearch = async query => {
-    const input = await wait('regular commit search input', searchInput);
+  const fill = (input, value) => {
     input.focus();
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, query);
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   };
+
+  const fillSearch = async query => fill(await wait('regular commit search input', searchInput), query);
 
   const search = async (query, hits) => {
     await fillSearch(query);
@@ -110,6 +111,77 @@
     }
   };
 
+  const historyPath = async () => {
+    const historyForm = await wait('history filters form', () => document.querySelector('form[aria-label="History filters"]'));
+    const query = named('input', 'Commit message', historyForm);
+    const pathChip = () => find('button', element =>
+      element.getAttribute('aria-label')?.startsWith('Remove File or directory filter:'));
+    const hint = () => find('p', element => element.textContent.startsWith('Git simplifies path history.'));
+    const shown = (sha, subject) => visible(row(sha)) && row(sha).innerText.includes(subject);
+    const graph = () => shown(cases.merge, 'Merge side work') && shown(cases.original, 'Add document');
+    const filtered = () => !row(cases.merge) && shown(cases.renamed, 'Rename document') &&
+      shown(cases.original, 'Add document');
+
+    operation = 'open regular two-parent history';
+    await wait('merge and ordinary path hit', graph);
+    if (hint()) throw new Error('Path hint appeared in the unfiltered graph');
+    (await wait('advanced filters', () => named('button', 'Filters', historyForm))).click();
+    const path = await wait('file or directory input', () => find('input[type="text"]', element =>
+      element.closest('label')?.textContent.trim() === 'File or directory', historyForm));
+    const applyPath = async (file, text = '') => {
+      fill(path, file);
+      if (text) fill(query, text);
+      if (hint()) throw new Error('Path hint appeared before applying the draft');
+      named('button', 'Apply', historyForm).click();
+      await wait(`filtered rows for ${file}`, filtered);
+      const chip = await wait('existing remove-path control', pathChip);
+      const explanation = document.getElementById(chip.getAttribute('aria-describedby'));
+      if (chip.getAttribute('aria-label') !== `Remove File or directory filter: ${file}` ||
+          explanation !== hint() || !visible(explanation) ||
+          !explanation.textContent.includes('Other filters stay active.')) {
+        throw new Error('Missing visible path hint or accessible description of the remove control');
+      }
+      return chip;
+    };
+    const removePath = async (chip, key) => {
+      let keydown = false;
+      let activation = false;
+      chip.addEventListener('keydown', event => {
+        keydown = event.isTrusted && event.key === (key === 'Space' ? ' ' : 'Enter');
+      }, { once: true });
+      chip.addEventListener('click', event => {
+        activation = event.isTrusted && event.detail === 0;
+      }, { once: true });
+      chip.focus();
+      await wait('focus on active path chip', () => document.activeElement === chip);
+      await ipc('native_history_path_key', { key });
+      await wait(`trusted keyboard activation with ${key}`, () => keydown && activation);
+      await wait('path cleared and focus restored to history search', () =>
+        !pathChip() && !hint() && !path.value && document.activeElement === query);
+    };
+
+    for (const file of ['docs/', ':(glob)docs/**', 'docs/topic.txt']) {
+      operation = `path filter and keyboard removal for ${file}`;
+      const chip = await applyPath(file);
+      if (file === 'docs/topic.txt' && !row(cases.renamed).innerText.includes('docs/old.txt')) {
+        throw new Error('Single-file history did not show the predecessor path');
+      }
+      await removePath(chip, 'Enter');
+      await wait('restored merge in the regular graph', graph);
+      steps.push(`${file} omitted the merge, kept the path hit and restored the graph after trusted Enter`);
+    }
+
+    operation = 'remove path while keeping the combined message search';
+    const chip = await applyPath('docs/', 'document');
+    await removePath(chip, 'Space');
+    await wait('message-only history results', filtered);
+    if (query.value !== 'document' || !find('button', element =>
+      element.getAttribute('aria-label') === 'Remove Commit message filter: document')) {
+      throw new Error('Removing the path also removed the active message filter');
+    }
+    steps.push('Trusted Space removed only the path, retained the message filter and restored query focus');
+  };
+
   const run = async () => {
     if (localStorage.length !== 0) throw new Error('WebKit storage was not empty at startup');
     const seed = (key, state) => localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
@@ -118,7 +190,7 @@
     seed('l8git-repo', { paths: [fixture.parent, fixture.child], activePath: fixture.parent, customFavicons: {} });
     seed('l8git-ui', { sidebarTab: 'history' });
     const denied = await Promise.allSettled([
-      ipc('repo_search_commits', { path: fixture.outside, query: cases.loaded?.sha ?? cases.primary[0].sha, skip: 0, limit: 80 }),
+      ipc('repo_search_commits', { path: fixture.outside, query: cases.loaded?.sha ?? cases.merge ?? cases.primary[0].sha, skip: 0, limit: 80 }),
       ipc('git_fetch', { path: fixture.parent }),
     ]);
     if (denied.some(result => result.status !== 'rejected')) throw new Error('Unexpected fixture permissions');
@@ -126,6 +198,11 @@
     operation = 'regular History panel and an unloaded SHA-256 match';
     const sidebar = await wait('repository sidebar', () => document.querySelector('[data-testid="repository-sidebar"]'));
     (await wait('History tab', () => named('[role="tab"]', 'History', sidebar))).click();
+    if (fixture.historyPath) {
+      await historyPath();
+      await ipc('native_acceptance_result', { ok: true, steps });
+      return;
+    }
     if (fixture.historyText) {
       await historyText();
       await ipc('native_acceptance_result', { ok: true, steps });
