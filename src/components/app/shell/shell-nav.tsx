@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { formatForDisplay } from "@tanstack/react-hotkeys";
+import { formatForDisplay, type HotkeyChord } from "@tanstack/react-hotkeys";
 import {
   CircleHelp,
   Earth,
@@ -33,7 +33,7 @@ type NavEntry = {
   label: string;
   icon: LucideIcon;
   active: boolean;
-  kbd?: string;
+  kbd?: HotkeyChord;
 };
 
 function useNavEntries() {

@@ -214,7 +214,7 @@ fn unique_id() -> String {
     )
 }
 fn digest(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    crate::hex(&Sha256::digest(bytes))
 }
 fn id_ok(id: &str) -> Result<(), String> {
     if id.is_empty()

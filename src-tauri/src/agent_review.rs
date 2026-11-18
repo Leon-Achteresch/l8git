@@ -273,7 +273,7 @@ fn review_fingerprint(worktree: &PathBuf, merge_base: &str, file: &str) -> Resul
         digest.update((value.len() as u64).to_le_bytes());
         digest.update(value.as_bytes());
     }
-    Ok(format!("review-v1:{:x}", digest.finalize()))
+    Ok(format!("review-v1:{}", crate::hex(&digest.finalize())))
 }
 
 fn build_file_diff(

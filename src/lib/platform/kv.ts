@@ -67,7 +67,7 @@ export function kvGet(key: string): string | null {
   if (cached !== undefined) return cached;
   const store = storage();
   if (!store) return null;
-  let value: string | null | Promise<string | null>;
+  let value: ReturnType<StateStorage["getItem"]>;
   try {
     value = store.getItem(key);
   } catch {

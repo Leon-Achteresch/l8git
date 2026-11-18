@@ -148,7 +148,7 @@ fn status(code: StatusCode) -> Response<Vec<u8>> {
 
 /// The avatar and whether it is fresh. A stale copy is served at once while it is refreshed in the background.
 async fn serve(dir: Option<PathBuf>, url: reqwest::Url) -> Option<(Entry, bool)> {
-    let key = Sha256::digest(url.as_str()).iter().map(|b| format!("{b:02x}")).collect::<String>();
+    let key = crate::hex(&Sha256::digest(url.as_str()));
     if let Some(dir) = &dir {
         static PRUNED: std::sync::Once = std::sync::Once::new();
         PRUNED.call_once(|| {

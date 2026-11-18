@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { RerereStatus, RestorePreview, SnapshotSummary } from "@/lib/git-expansion";
@@ -49,7 +50,7 @@ export function RestoreHunkTool({ path }: { path: string }) {
 
 type Call = ReturnType<typeof useGx>["call"];
 
-async function applyRestore(t: (k: string, o?: Record<string, unknown>) => string, call: Call, preview: RestorePreview | null, done: () => void) {
+async function applyRestore(t: TFunction, call: Call, preview: RestorePreview | null, done: () => void) {
   if (!preview || !window.confirm(t("wb.restoreConfirm", { file: preview.file, source: preview.source }))) return;
   const r = await call({ op: "restore_apply", previewId: preview.id, expectedFingerprint: preview.fingerprint });
   if (r?.restored) {

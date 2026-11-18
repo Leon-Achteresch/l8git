@@ -35,7 +35,19 @@ export default defineConfig(async () => ({
     },
   },
 
-  build: { manifest: true },
+  build: {
+    manifest: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: "startup", tags: ["$initial" as const], test: /node_modules/ },
+            { name: "startup-app", tags: ["$initial" as const], test: (id: string) => id.includes("/src/") && !id.endsWith("/src/main.tsx") },
+          ],
+        },
+      },
+    },
+  },
 
   worker: {
     format: "es",

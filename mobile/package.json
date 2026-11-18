@@ -5,8 +5,8 @@
   "dependencies": {
     "@expo-google-fonts/geist": "^0.4.2",
     "@expo-google-fonts/geist-mono": "^0.4.3",
-    "@noble/ciphers": "^2.3.0",
-    "@noble/curves": "^2.3.0",
+    "@noble/ciphers": "^2.4.0",
+    "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.3.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@rn-primitives/avatar": "^1.5.2",
@@ -18,7 +18,7 @@
     "@rn-primitives/slot": "^1.5.2",
     "@rn-primitives/switch": "^1.5.2",
     "@rn-primitives/tabs": "^1.5.2",
-    "@tanstack/react-query": "^5.101.4",
+    "@tanstack/react-query": "^5.107.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "expo": "~57.0.14",
@@ -37,9 +37,9 @@
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.2",
     "expo-web-browser": "~57.0.2",
-    "i18next": "^26.1.0",
-    "lucide-react-native": "^1.31.0",
-    "nativewind": "^4.2.6",
+    "i18next": "^27.1.5",
+    "lucide-react-native": "^1.70.0",
+    "nativewind": "^4.2.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",
@@ -50,18 +50,18 @@
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.1",
-    "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.15"
+    "tailwind-merge": "^3.7.0",
+    "zustand": "^5.1.0"
   },
   "devDependencies": {
-    "@mobilewright/test": "^0.0.53",
-    "@types/react": "~19.2.2",
+    "@mobilewright/test": "^0.0.68",
+    "@types/react": "~19.3.0",
     "babel-preset-expo": "^57.0.7",
-    "mobilewright": "^0.0.53",
+    "mobilewright": "^0.0.68",
     "tailwindcss": "3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^5.1.0"
   },
   "scripts": {
     "postinstall": "node scripts/link-nativewind-tailwind.mjs",

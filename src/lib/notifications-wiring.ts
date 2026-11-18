@@ -5,7 +5,7 @@ import { armUsageLedger } from "@/lib/agents/usage-ledger";
 import { toastError } from "@/lib/error-toast";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { onAction, type Options } from "@tauri-apps/plugin-notification";
+import { onAction, type ActiveNotification } from "@tauri-apps/plugin-notification";
 
 import { chatStoreFor } from "@/lib/agents/active-chat-store";
 import { useAgentProviderStore, type NativeAgentProvider } from "@/lib/agents/provider-store";
@@ -119,16 +119,16 @@ export async function navigateToTarget(target: NotificationTarget): Promise<void
   await router.navigate({ to: "/" });
 }
 
-function readTarget(notification: Options): NotificationTarget | null {
-  const extra = notification.extra as { target?: NotificationTarget } | undefined;
+function readTarget(notification: ActiveNotification | null): NotificationTarget | null {
+  const extra = notification?.extra as { target?: NotificationTarget } | undefined;
   return extra?.target ?? null;
 }
 
 function armClickHandling(): () => void {
   let unlisten: (() => void) | undefined;
-  void onAction((notification) => {
+  void onAction((event) => {
     focusMainWindow();
-    const target = readTarget(notification);
+    const target = readTarget(event.notification);
     if (target) void navigateToTarget(target).catch(error => toastError(String(error)));
   })
     .then((listener) => {
