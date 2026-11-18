@@ -17,67 +17,126 @@ import { detectLanguage, EDITOR_OPTIONS } from "./git-blame-utils";
 import { useMonacoTheme } from "./use-monaco-theme";
 import { SpinIcon } from "@/components/motion/kit";
 
-export function GitBlamePage({
-  path,
-  initialFile,
-  onClose,
-}: {
+type GitBlamePageProps = {
   path: string;
   initialFile: string | null;
   onClose: () => void;
-}) {
+};
+
+export function GitBlamePage(props: GitBlamePageProps) {
+  return <BlameContext key={JSON.stringify([props.path, props.initialFile])} {...props} />;
+}
+
+function BlameContext({ path, initialFile, onClose }: GitBlamePageProps) {
   const { t } = useTranslation();
   const theme = useMonacoTheme();
 
   const [selectedFile, setSelectedFile] = useState<string | null>(initialFile);
   const [allFiles, setAllFiles] = useState<string[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
-  const [blameEntries, setBlameEntries] = useState<BlameEntry[]>([]);
+  const [liveEntries, setLiveEntries] = useState<BlameEntry[]>([]);
   const [blameLoading, setBlameLoading] = useState(false);
   const [fileSearch, setFileSearch] = useState("");
   const [activeCard, setActiveCard] = useState<ActiveCard | null>(null);
+  const [previous, setPrevious] = useState<{ file: string; commit: string; entries: BlameEntry[] } | null>(null);
+  const [previousStatus, setPreviousStatus] = useState<"idle" | "loading" | "error">("idle");
 
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const gutterRef = useRef<HTMLDivElement | null>(null);
+  const pendingPrevious = useRef(0);
+  const originView = useRef<Monaco.editor.ICodeEditorViewState | null>(null);
+  const restoreView = useRef(false);
+  const displayedFile = previous?.file ?? selectedFile;
+  const blameEntries = previous?.entries ?? liveEntries;
 
   useEffect(() => {
+    let current = true;
     setFilesLoading(true);
     invoke<string[]>("repo_list_files", { path })
-      .then(setAllFiles)
-      .catch((e) => toastError(String(e)))
-      .finally(() => setFilesLoading(false));
+      .then(files => { if (current) setAllFiles(files); })
+      .catch(e => { if (current) toastError(String(e)); })
+      .finally(() => { if (current) setFilesLoading(false); });
+    return () => { current = false; };
   }, [path]);
 
   useEffect(() => {
     if (!selectedFile) return;
+    let current = true;
     setBlameLoading(true);
-    setBlameEntries([]);
-    setActiveCard(null);
+    setLiveEntries([]);
     invoke<BlameEntry[]>("repo_blame", { path, file: selectedFile, commit: null })
-      .then(setBlameEntries)
-      .catch((e) => toastError(String(e)))
-      .finally(() => setBlameLoading(false));
+      .then(entries => { if (current) setLiveEntries(entries); })
+      .catch(e => { if (current) toastError(String(e)); })
+      .finally(() => { if (current) setBlameLoading(false); });
+    return () => { current = false; };
   }, [path, selectedFile]);
+
+  useEffect(() => () => { pendingPrevious.current++; }, []);
+
+  const closeCard = useCallback(() => {
+    pendingPrevious.current++;
+    setActiveCard(null);
+    setPreviousStatus("idle");
+  }, []);
+
+  const backToOrigin = useCallback(() => {
+    closeCard();
+    restoreView.current = true;
+    setPrevious(null);
+  }, [closeCard]);
+
+  const selectFile = (file: string) => {
+    if (file === selectedFile) {
+      if (previous) backToOrigin();
+      return;
+    }
+    closeCard();
+    originView.current = null;
+    restoreView.current = false;
+    setPrevious(null);
+    setLiveEntries([]);
+    setBlameLoading(true);
+    setSelectedFile(file);
+  };
+
+  const openPrevious = async () => {
+    const target = activeCard?.entry.previous;
+    if (!target || previousStatus === "loading") return;
+    const request = ++pendingPrevious.current;
+    setPreviousStatus("loading");
+    try {
+      const entries = await invoke<BlameEntry[]>("repo_blame", { path, ...target });
+      if (request !== pendingPrevious.current) return;
+      originView.current = editorRef.current?.saveViewState() ?? null;
+      setPrevious({ ...target, entries });
+      closeCard();
+    } catch {
+      if (request === pendingPrevious.current) setPreviousStatus("error");
+    }
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (activeCard) setActiveCard(null);
+        if (activeCard) closeCard();
+        else if (previous) backToOrigin();
         else onClose();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, activeCard]);
+  }, [onClose, activeCard, previous, closeCard, backToOrigin]);
 
   const handleEditorMount = useCallback(
     (editor: Monaco.editor.IStandaloneCodeEditor) => {
       editorRef.current = editor;
-      editor.onDidScrollChange((e) => {
-        if (gutterRef.current) {
-          gutterRef.current.scrollTop = e.scrollTop;
-        }
-      });
+      const syncGutter = (scrollTop: number) => {
+        if (gutterRef.current) gutterRef.current.scrollTop = scrollTop;
+      };
+      editor.onDidScrollChange(e => syncGutter(e.scrollTop));
+      if (restoreView.current && originView.current) editor.restoreViewState(originView.current);
+      restoreView.current = false;
+      syncGutter(editor.getScrollTop());
     },
     [],
   );
@@ -88,8 +147,8 @@ export function GitBlamePage({
   );
 
   const language = useMemo(
-    () => detectLanguage(selectedFile ?? ""),
-    [selectedFile],
+    () => detectLanguage(displayedFile ?? ""),
+    [displayedFile],
   );
 
   const tree = useMemo(() => {
@@ -100,15 +159,17 @@ export function GitBlamePage({
   }, [allFiles, fileSearch]);
 
   const handleGroupClick = useCallback((entry: BlameEntry, rect: DOMRect) => {
+    pendingPrevious.current++;
+    setPreviousStatus("idle");
     setActiveCard((prev) =>
-      prev?.entry.commit_hash === entry.commit_hash
+      prev?.entry.line_no === entry.line_no
         ? null
-        : { entry, top: rect.bottom + 6, left: rect.left },
+        : { entry, top: Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - 220)), left: rect.left },
     );
   }, []);
 
-  const fileName = selectedFile?.split("/").pop() ?? null;
-  const fileDir = selectedFile ? selectedFile.split("/").slice(0, -1).join("/") : null;
+  const fileName = displayedFile?.split("/").pop() ?? null;
+  const fileDir = displayedFile ? displayedFile.split("/").slice(0, -1).join("/") : null;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
@@ -135,6 +196,9 @@ export function GitBlamePage({
             </>
           )}
         </div>
+        {previous && <Button type="button" variant="outline" size="sm" onClick={backToOrigin}>
+          {t("blamePage.backToOriginal")}
+        </Button>}
         <Button
           type="button"
           variant="ghost"
@@ -146,6 +210,10 @@ export function GitBlamePage({
           <X />
         </Button>
       </div>
+      {previous && <div role="status" className="flex flex-wrap gap-x-3 border-b px-4 py-1.5 text-xs text-muted-foreground">
+        <span>{t("blamePage.previousRevision", { commit: previous.commit.slice(0, 8) })}</span>
+        <span>{t("blamePage.noLineMapping")}</span>
+      </div>}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div
@@ -196,7 +264,7 @@ export function GitBlamePage({
             </div>
           ) : (
             <Editor
-              key={selectedFile}
+              key={previous ? JSON.stringify([previous.file, previous.commit]) : selectedFile}
               language={language}
               value={fileContent}
               theme={theme}
@@ -257,7 +325,7 @@ export function GitBlamePage({
                   key={node.fullPath}
                   node={node}
                   selectedFile={selectedFile}
-                  onSelect={setSelectedFile}
+                  onSelect={selectFile}
                   depth={0}
                 />
               ))
@@ -267,7 +335,8 @@ export function GitBlamePage({
       </div>
 
       {activeCard && (
-        <CommitCard card={activeCard} onClose={() => setActiveCard(null)} />
+        <CommitCard card={activeCard} onClose={closeCard}
+          onPrevious={previous ? undefined : () => void openPrevious()} previousStatus={previousStatus} />
       )}
     </div>
   );

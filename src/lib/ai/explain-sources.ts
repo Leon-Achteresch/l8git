@@ -22,6 +22,7 @@ import type { Commit } from "@/lib/repo-store";
 
 type CommitInspectPayload = {
   header: string;
+  file_stats_unavailable?: boolean;
   files: { path: string; additions: number; deletions: number; binary: boolean }[];
 };
 
@@ -95,13 +96,13 @@ export async function loadCommitExplainInput(
   );
 
   const joined = joinFileDiffs(parts, EXPLAIN_COMMIT_DIFF_BUDGET);
-  const statText = stat || formatDiffStat(payload.files);
+  const statText = stat || (payload.file_stats_unavailable ? "" : formatDiffStat(payload.files));
   return {
     subject,
     body,
     stat: statText,
     diff: joined.text,
-    truncated: joined.truncated || textFiles.length < payload.files.length,
+    truncated: joined.truncated || !!payload.file_stats_unavailable || textFiles.length < payload.files.length,
   };
 }
 

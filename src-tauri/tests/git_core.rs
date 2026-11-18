@@ -3,6 +3,98 @@ mod common;
 use common::{find_entry, json, TestRepo};
 use l8git_lib::git;
 
+#[tokio::test]
+async fn open_repo_reports_the_local_shallow_history_boundary() {
+    use std::io::Write;
+
+    for shallow in [false, true] {
+        let repo = TestRepo::new("open-shallow");
+        repo.commit("base.txt", "older\n", "older");
+        let head = repo.commit("base.txt", "newer\n", "newer");
+        let boundary = repo.path.join(".git/shallow");
+        if shallow {
+            // Seed an actual shallow marker in this disposable fixture.
+            let mut marker = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&boundary)
+                .unwrap();
+            writeln!(marker, "{head}").unwrap();
+        }
+        let before = std::fs::read(&boundary).ok();
+        let refs = repo.git(&["show-ref"]);
+        let info = json(&git::open_repo(repo.s(), None).await.unwrap());
+        assert_eq!(info["is_shallow"], shallow);
+        assert_eq!(info["commits"][0]["hash"], head);
+        assert_eq!(
+            info["commits"].as_array().unwrap().len(),
+            if shallow { 1 } else { 2 }
+        );
+        assert_eq!(std::fs::read(&boundary).ok(), before);
+        assert_eq!(repo.git(&["show-ref"]), refs);
+        assert!(!repo.exists(".git/FETCH_HEAD"));
+    }
+}
+
+#[tokio::test]
+async fn branch_ipc_distinguishes_local_upstream_states_without_changing_refs_or_config() {
+    let repo = TestRepo::new("branch-upstream");
+    let first = repo.commit("base.txt", "one\n", "first");
+    let second = repo.commit("base.txt", "two\n", "second");
+    let source = TestRepo::new("branch-upstream-source");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    for name in ["Behind", "gone", "unmapped"] {
+        repo.git(&["branch", name, &first]);
+        repo.git(&[
+            "config",
+            &format!("branch.{name}.remote"),
+            if name == "unmapped" {
+                "not-configured"
+            } else {
+                "origin"
+            },
+        ]);
+        repo.git(&[
+            "config",
+            &format!("branch.{name}.merge"),
+            &format!("refs/heads/{name}"),
+        ]);
+    }
+    repo.git(&["update-ref", "refs/remotes/origin/Behind", &second]);
+    let refs = repo.git(&["show-ref"]);
+    let config = repo.read(".git/config");
+    let snapshot = json(&git::open_repo(repo.s(), None).await.unwrap());
+    let branches = snapshot["branches"].as_array().unwrap();
+    for (name, status) in [
+        ("main", "unconfigured"),
+        ("Behind", "resolved"),
+        ("gone", "gone"),
+        ("unmapped", "unknown"),
+    ] {
+        let branch = branches
+            .iter()
+            .find(|branch| branch["name"] == name)
+            .unwrap();
+        assert_eq!(branch["upstream_status"], status, "{name}");
+        assert_eq!(
+            branch["behind"],
+            if name == "Behind" {
+                serde_json::json!(1)
+            } else {
+                serde_json::Value::Null
+            }
+        );
+    }
+    let remote = branches
+        .iter()
+        .find(|branch| branch["name"] == "origin/Behind")
+        .unwrap();
+    assert!(remote.get("upstream_status").is_none());
+    assert_eq!(repo.git(&["show-ref"]), refs);
+    assert_eq!(repo.read(".git/config"), config);
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+}
+
 fn lines() -> String {
     (1..=20).map(|n| format!("l{n}\n")).collect()
 }
@@ -353,10 +445,227 @@ async fn commit_changes_requires_a_message_and_creates_a_commit() {
 }
 
 #[tokio::test]
+async fn commit_identity_binds_linked_worktree_and_rechecks_git_include() {
+    let repo = TestRepo::new("identity-main");
+    repo.commit("base.txt", "base\n", "base");
+    let path = common::scratch_path("identity-linked");
+    repo.git(&["worktree", "add", "-b", "linked", path.to_str().unwrap()]);
+    let linked = TestRepo::adopt(path);
+    let git_dir = linked.git(&["rev-parse", "--absolute-git-dir"]);
+    let include = repo.path.join("identity.conf");
+    repo.write(
+        "identity.conf",
+        "[author]\n name = Included Author\n email = included@example.invalid\n",
+    );
+    repo.git(&[
+        "config",
+        &format!("includeIf.gitdir:{git_dir}.path"),
+        include.to_str().unwrap(),
+    ]);
+    let reviewed = json(&git::commit_identity_preview(linked.s()).await.unwrap());
+    let other = json(&git::commit_identity_preview(repo.s()).await.unwrap());
+    assert_ne!(reviewed["gitDir"], other["gitDir"]);
+    assert_eq!(reviewed["author"]["name"], "Included Author");
+    assert_eq!(reviewed["committer"]["name"], "Test User");
+    assert_eq!(other["author"]["name"], "Test User");
+
+    linked.write("base.txt", "changed\n");
+    linked.git(&["add", "base.txt"]);
+    let head = linked.head();
+    let mut wrong_worktree = reviewed.clone();
+    wrong_worktree["gitDir"] = other["gitDir"].clone();
+    assert!(git::commit_changes_with_identity(
+        linked.s(),
+        "wrong worktree".into(),
+        serde_json::from_value(wrong_worktree).unwrap()
+    )
+    .await
+    .unwrap_err()
+    .contains("__COMMIT_IDENTITY_CHANGED__"));
+
+    repo.write(
+        "identity.conf",
+        "[author]\n name = Changed Author\n email = changed@example.invalid\n",
+    );
+    assert!(git::commit_changes_with_identity(
+        linked.s(),
+        "stale review".into(),
+        serde_json::from_value(reviewed).unwrap()
+    )
+    .await
+    .unwrap_err()
+    .contains("__COMMIT_IDENTITY_CHANGED__"));
+    assert_eq!(linked.head(), head);
+    assert_eq!(linked.git(&["diff", "--cached", "--name-only"]), "base.txt");
+    let fresh = git::commit_identity_preview(linked.s()).await.unwrap();
+    git::commit_changes_with_identity(linked.s(), "fresh review".into(), fresh)
+        .await
+        .unwrap();
+    assert_eq!(
+        linked.git(&["show", "-s", "--format=%an|%ae|%cn|%ce", "HEAD"]),
+        "Changed Author|changed@example.invalid|Test User|test@example.com"
+    );
+}
+
+#[tokio::test]
+async fn commit_identity_environment_uses_the_same_git_process_defaults() {
+    if std::env::var_os("L8GIT_TEST_IDENTITY_CHILD").is_none() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "commit_identity_environment_uses_the_same_git_process_defaults",
+                "--nocapture",
+            ])
+            .env("L8GIT_TEST_IDENTITY_CHILD", "1")
+            .env("GIT_COMMITTER_NAME", "Environment Committer")
+            .env("GIT_COMMITTER_EMAIL", "override@example.invalid")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        return;
+    }
+    let repo = TestRepo::new("identity-env");
+    repo.write("base.txt", "base\n");
+    repo.git(&["add", "base.txt"]);
+    let fresh = git::commit_identity_preview(repo.s()).await.unwrap();
+    assert_eq!(
+        json(&fresh)["committer"]["email"],
+        "override@example.invalid"
+    );
+    git::commit_changes_with_identity(repo.s(), "environment review".into(), fresh)
+        .await
+        .unwrap();
+    assert_eq!(
+        repo.git(&["show", "-s", "--format=%cn <%ce>"]),
+        "Environment Committer <override@example.invalid>"
+    );
+}
+
+#[tokio::test]
+async fn commit_identity_rejects_an_operation_started_after_preview() {
+    let repo = TestRepo::new("identity-in-progress");
+    let head = repo.commit("base.txt", "base\n", "base");
+    repo.write("base.txt", "staged\n");
+    repo.git(&["add", "base.txt"]);
+    let reviewed = git::commit_identity_preview(repo.s()).await.unwrap();
+    repo.write(".git/CHERRY_PICK_HEAD", &format!("{head}\n"));
+    assert!(git::commit_identity_preview(repo.s())
+        .await
+        .err()
+        .unwrap()
+        .contains("__COMMIT_IDENTITY_OPERATION__"));
+    assert!(
+        git::commit_changes_with_identity(repo.s(), "operation started".into(), reviewed)
+            .await
+            .unwrap_err()
+            .contains("__COMMIT_IDENTITY_OPERATION__")
+    );
+    assert_eq!(repo.head(), head);
+}
+
+#[tokio::test]
+async fn commit_and_amend_follow_git_message_cleanup_configuration() {
+    let repo = TestRepo::new("message-cleanup");
+    repo.write_bytes(
+        ".git/fixture-template",
+        b"Fixture template subject\n\n# template comment\n",
+    );
+    repo.git(&["config", "commit.template", ".git/fixture-template"]);
+
+    let draft = "Fixture subject\n\n# comment\n#123\nRefs: #123  \n\n\n# ------------------------ >8 ------------------------\nText below the marker";
+    let whitespace = "Fixture subject\n\n# comment\n#123\nRefs: #123\n\n# ------------------------ >8 ------------------------\nText below the marker";
+    let strip = "Fixture subject\n\nRefs: #123\n\nText below the marker";
+    let read_message = || repo.git_out(&["show", "-s", "--format=%B", "HEAD"]);
+    for (mode, expected) in [
+        (None, whitespace),
+        (Some("default"), whitespace),
+        (Some("whitespace"), whitespace),
+        (Some("strip"), strip),
+        (Some("verbatim"), draft),
+        (Some("scissors"), whitespace),
+    ] {
+        if let Some(mode) = mode {
+            repo.git(&["config", "commit.cleanup", mode]);
+        }
+        repo.write("fixture.txt", &format!("{mode:?}\n"));
+        repo.git(&["add", "--", "fixture.txt"]);
+        git::commit_changes(repo.s(), draft.into(), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            read_message().trim_end_matches('\n'),
+            expected,
+            "commit {mode:?}"
+        );
+        git::commit_amend(repo.s(), format!("{draft}\nAmended"), Some(repo.head()))
+            .await
+            .unwrap();
+        assert_eq!(
+            read_message().trim_end_matches('\n'),
+            format!("{expected}\nAmended"),
+            "amend {mode:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    {
+        let scissors = "Fixture subject\n\n# comment\n#123\nRefs: #123";
+        let edit = |editor: &str, args: &[&str]| {
+            let output = std::process::Command::new("git")
+                .current_dir(&repo.path)
+                .env("GIT_EDITOR", editor)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{:?}", output.stderr);
+        };
+        for (mode, expected) in [("default", strip), ("scissors", scissors)] {
+            repo.git(&["config", "commit.cleanup", mode]);
+            edit("true", &["commit", "--amend", "-e", "-m", draft]);
+            assert_eq!(
+                read_message().trim_end_matches('\n'),
+                expected,
+                "editor {mode}"
+            );
+        }
+        repo.git(&["config", "commit.cleanup", "default"]);
+        edit(
+            "sh -c 'echo Edited >> \"$1\"' --",
+            &["commit", "--allow-empty"],
+        );
+        let templated = read_message();
+        assert!(templated.starts_with("Fixture template subject\n"));
+        assert!(templated.contains("Edited"));
+        assert!(!templated.contains("# template comment"));
+    }
+
+    repo.git(&["config", "commit.cleanup", "strip"]);
+    repo.git(&["config", "core.commentChar", "!"]);
+    repo.write("fixture.txt", "custom comment character\n");
+    repo.git(&["add", "--", "fixture.txt"]);
+    git::commit_amend(
+        repo.s(),
+        "Fixture subject\n\n! custom comment\n#123\nRefs: #123".into(),
+        Some(repo.head()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        read_message().trim_end_matches('\n'),
+        "Fixture subject\n\n#123\nRefs: #123"
+    );
+}
+
+#[tokio::test]
 async fn commit_amend_rewrites_head_without_adding_a_commit() {
     let repo = TestRepo::new("amend");
     repo.commit("a.txt", "one\n", "initial");
     let first = repo.commit("b.txt", "two\n", "second");
+    repo.git(&["config", "user.name", "New Committer"]);
 
     repo.write("b.txt", "two-fixed\n");
     repo.git(&["add", "--", "b.txt"]);
@@ -367,6 +676,7 @@ async fn commit_amend_rewrites_head_without_adding_a_commit() {
     assert_eq!(repo.subjects(), vec!["second, fixed", "initial"]);
     assert_ne!(repo.head(), first);
     assert_eq!(repo.git(&["show", "HEAD:b.txt"]), "two-fixed");
+    assert_eq!(repo.git(&["show", "-s", "--format=%an|%cn"]), "Test User|New Committer");
     assert!(git::commit_amend(repo.s(), "".into(), None).await.is_err());
 }
 
@@ -441,6 +751,77 @@ async fn repo_file_diff_separates_staged_unstaged_untracked_and_binary() {
     assert!(binary["untracked_plain"].is_null());
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn repo_file_diff_preserves_mode_only_headers_on_both_sides() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let repo = TestRepo::new("file-diff-mode-only");
+    repo.git(&["config", "core.fileMode", "true"]);
+    for file in ["mode.txt", "text.txt", "mixed.txt"] {
+        repo.write(file, "base content\n");
+        std::fs::set_permissions(repo.path.join(file), std::fs::Permissions::from_mode(0o644))
+            .unwrap();
+    }
+    repo.write_bytes("blob.bin", &[0, 1, 2]);
+    std::fs::set_permissions(
+        repo.path.join("blob.bin"),
+        std::fs::Permissions::from_mode(0o644),
+    )
+    .unwrap();
+    repo.commit_all("initial");
+    repo.write("text.txt", "text edit\n");
+    repo.write("mixed.txt", "mixed edit\n");
+    for file in ["mode.txt", "mixed.txt", "blob.bin"] {
+        std::fs::set_permissions(repo.path.join(file), std::fs::Permissions::from_mode(0o755))
+            .unwrap();
+    }
+
+    let status = json(&git::repo_status(repo.s()).await.unwrap());
+    assert_eq!(find_entry(&status, "blob.bin")["binary"], true);
+    assert_eq!(find_entry(&status, "mode.txt")["binary"], false);
+
+    let mode_patch = "diff --git a/mode.txt b/mode.txt\nold mode 100644\nnew mode 100755\n";
+    for sector in ["unstaged", "staged"] {
+        let mode = json(
+            &git::repo_file_diff(repo.s(), "mode.txt".into(), false, Some(true))
+                .await
+                .unwrap(),
+        );
+        assert_eq!(mode[sector], mode_patch);
+        let other = if sector == "unstaged" {
+            "staged"
+        } else {
+            "unstaged"
+        };
+        assert!(mode[other].is_null());
+        assert_eq!(mode["is_binary"], false);
+        assert!(mode["fingerprint"].is_string());
+        if sector == "unstaged" {
+            git::stage_files(repo.s(), vec!["mode.txt".into()])
+                .await
+                .unwrap();
+        }
+    }
+
+    for (file, content, mixed) in [
+        ("text.txt", "text edit", false),
+        ("mixed.txt", "mixed edit", true),
+    ] {
+        let diff = json(
+            &git::repo_file_diff(repo.s(), file.into(), false, Some(true))
+                .await
+                .unwrap(),
+        );
+        let patch = diff["unstaged"].as_str().unwrap();
+        assert!(patch.contains("\n@@ ") && patch.contains(&format!("\n+{content}\n")));
+        assert_eq!(
+            patch.contains("\nold mode 100644\nnew mode 100755\n"),
+            mixed
+        );
+    }
+}
+
 #[tokio::test]
 async fn repo_file_diff_reports_binary_for_tracked_blobs() {
     let repo = TestRepo::new("file-diff-binary");
@@ -507,6 +888,87 @@ async fn repo_search_commits_matches_subject_author_email_and_hash() {
 }
 
 #[tokio::test]
+async fn repo_search_commits_preserves_object_identity_and_output_boundaries() {
+    let path = common::scratch_path("search-sha256");
+    std::fs::create_dir_all(&path).unwrap();
+    let (ok, output) = common::git_raw(&path, &["init", "-q", "--object-format=sha256"]);
+    assert!(ok, "{output}");
+    let repo = TestRepo::adopt(path);
+    let root = repo.commit("root.txt", "root\n", "Original SHA-256 commit");
+    assert_eq!(root.len(), 64);
+    let blob = repo.git(&["rev-parse", "HEAD:root.txt"]);
+    let missing = "e".repeat(64);
+    repo.write("a.txt", "ordinary path\n");
+    #[cfg(unix)]
+    let meta_like = format!("{missing}\x1ffake\x1fFixture\x1fmail\x1fdate\x1f\x1fdecoy path\x1f");
+    #[cfg(not(unix))]
+    let meta_like = format!("{missing}-decoy path");
+    repo.write(&meta_like, "metadata-shaped path\n");
+    let tip = repo.commit_all(&format!("Mention {root}, {missing}, and {blob} as text"));
+    repo.git(&["commit", "--allow-empty", "-qm", "Empty searchable commit"]);
+    let before = repo.git(&["show-ref", "--head"]);
+    let opened = git::open_repo(repo.s(), None).await.unwrap();
+    assert_eq!(json(&opened)["commits"][2]["hash"], root);
+    let read = |query: String, skip, limit, paths| {
+        git::repo_search_commits(repo.s(), query, skip, limit, None, Some(paths), None)
+    };
+    let exact = read(root.to_ascii_uppercase(), 0, 1, true).await.unwrap();
+    assert_eq!(exact.len(), 1);
+    assert_eq!(json(&exact[0].commit)["hash"], root);
+    assert!(exact[0].matched_paths.is_empty());
+    let inspect = git::repo_commit_inspect(repo.s(), root.clone()).await.unwrap();
+    let inspect = json(&inspect);
+    assert!(inspect["header"]
+        .as_str()
+        .unwrap()
+        .starts_with(&format!("commit {root}\n")));
+    assert_eq!(inspect["files"][0]["path"], "root.txt");
+    let without_paths = read(root.clone(), 0, 1, false).await.unwrap();
+    assert_eq!(json(&without_paths[0].commit)["hash"], root);
+    assert!(read(root.clone(), 1, 1, true).await.unwrap().is_empty());
+    assert!(read(missing, 0, 10, true).await.unwrap().is_empty());
+    assert!(read(blob, 0, 10, true).await.unwrap().is_empty());
+    assert!(read("g".repeat(64), 0, 10, true).await.unwrap().is_empty());
+    assert!(
+        git::repo_search_commits(repo.s(), root.clone(), 0, 1, None, None, Some(1))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let paths = read("decoy path".into(), 0, 10, true).await.unwrap();
+    assert_eq!(paths.len(), 1);
+    assert_eq!(json(&paths[0].commit)["hash"], tip);
+    assert_eq!(paths[0].matched_paths, [meta_like]);
+    let abbreviated = read(root[..40].to_string(), 0, 10, false).await.unwrap();
+    assert_eq!(
+        abbreviated.len(),
+        2,
+        "40 characters are a partial search in SHA-256"
+    );
+    let text = read("Empty searchable".into(), 0, 10, true).await.unwrap();
+    assert_eq!(text.len(), 1);
+    assert_eq!(json(&text[0].commit)["hash"], repo.head());
+    assert_eq!(repo.git(&["show-ref", "--head"]), before);
+    assert!(repo.git(&["status", "--porcelain"]).is_empty());
+
+    let sha1 = TestRepo::new("search-sha1-full");
+    let sha1_root = sha1.commit("root.txt", "root\n", "Original SHA-1 commit");
+    assert_eq!(sha1_root.len(), 40);
+    sha1.commit("mention.txt", "mention\n", &format!("Mention {sha1_root}"));
+    let exact = git::repo_search_commits(sha1.s(), sha1_root.clone(), 0, 10, None, None, None)
+        .await
+        .unwrap();
+    assert_eq!(exact.len(), 1);
+    assert_eq!(json(&exact[0].commit)["hash"], sha1_root);
+    assert!(
+        git::repo_search_commits(sha1.s(), root, 0, 10, None, None, None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn repo_search_commits_ignores_queries_below_the_minimum_length() {
     let repo = TestRepo::new("search-min");
     repo.commit("a.txt", "1\n", "aaa bbb");
@@ -548,7 +1010,7 @@ async fn repo_search_commits_errors_outside_a_repository() {
         )
         .await,
     );
-    assert!(err.contains("is not a git repository"), "{err}");
+    assert!(err.contains("not a git repository"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -693,16 +1155,63 @@ async fn repo_blame_maps_every_line_to_its_introducing_commit() {
     assert_eq!(entries[0].summary, "first commit");
     assert_eq!(entries[0].short_hash, first[..8]);
     assert!(entries[0].timestamp > 0);
+    assert!(entries[0].previous.is_none());
 
     assert_eq!(entries[2].line_no, 3);
     assert_eq!(entries[2].content, "gamma");
     assert_eq!(entries[2].commit_hash, second);
     assert_eq!(entries[2].author, "Second Author");
+    let previous = entries[2].previous.as_ref().unwrap();
+    assert_eq!(previous.commit, first);
+    assert_eq!(previous.file, "f.txt");
 
     let historic = git::repo_blame(repo.s(), "f.txt".into(), Some(first.clone()))
         .await
         .unwrap();
     assert_eq!(historic.len(), 2);
+}
+
+#[tokio::test]
+async fn blame_predecessor_opens_the_git_reported_renamed_path_from_local_objects() {
+    let repo = TestRepo::new("blame-previous");
+    let old_path = "old résumé [notes].txt";
+    let new_path = "new [notes].txt";
+    let tail: String = (0..40).map(|i| format!("unchanged fixture line {i}\n")).collect();
+    let root = repo.commit(old_path, &format!("old_value\n{tail}"), "root");
+    repo.git(&["mv", "--", old_path, new_path]);
+    repo.write(new_path, &format!("new_value\n{tail}"));
+    let changed = repo.commit_all("rename and edit");
+    let head = repo.head();
+    let status = repo.porcelain();
+    let entries = git::repo_blame(repo.s(), new_path.into(), None).await.unwrap();
+    assert_eq!(entries[0].commit_hash, changed);
+    assert_eq!(entries[0].content, "new_value");
+    let previous = entries[0].previous.as_ref().unwrap();
+    assert_eq!(previous.file, old_path);
+    assert_eq!(previous.commit, root);
+    assert!(entries[1].previous.is_none());
+    let historical = git::repo_blame(repo.s(), previous.file.clone(), Some(previous.commit.clone()))
+        .await.unwrap();
+    assert_eq!(historical[0].content, "old_value");
+    assert_eq!(repo.head(), head);
+    assert_eq!(repo.porcelain(), status);
+
+    let object = repo.git(&["rev-parse", &format!("{root}:{old_path}")]);
+    std::fs::remove_file(repo.path.join(".git/objects").join(&object[..2]).join(&object[2..])).unwrap();
+    assert!(git::repo_blame(repo.s(), previous.file.clone(), Some(previous.commit.clone())).await.is_err());
+}
+
+#[tokio::test]
+async fn shallow_blame_boundary_does_not_invent_a_predecessor() {
+    let source = TestRepo::new("blame-shallow-source");
+    source.commit("text.txt", "old\n", "root");
+    source.commit("text.txt", "new\n", "edit");
+    let path = common::scratch_path("blame-shallow");
+    source.git(&["clone", "--depth", "1", &source.file_url(), path.to_str().unwrap()]);
+    let shallow = TestRepo::adopt(path);
+    let entries = git::repo_blame(shallow.s(), "text.txt".into(), None).await.unwrap();
+    assert_eq!(entries[0].content, "new");
+    assert!(entries[0].previous.is_none());
 }
 
 #[tokio::test]
@@ -813,20 +1322,58 @@ async fn open_repo_reports_branch_commits_branches_and_tags() {
 }
 
 #[tokio::test]
-async fn open_repo_handles_a_repository_without_commits() {
-    // A freshly initialised repository has no resolvable HEAD. Opening it must
-    // still succeed and simply report nothing to show.
+async fn open_repo_shows_the_intended_branch_until_the_first_commit() {
     let repo = TestRepo::new("open-repo-empty");
+    repo.git(&["symbolic-ref", "HEAD", "refs/heads/fixture/first"]);
+    // A file named HEAD must not turn an invalid revision into a path argument.
+    repo.write("HEAD", "fixture\n");
 
     let info = json(&git::open_repo(repo.s(), None).await.unwrap());
-    assert_eq!(info["commits"].as_array().unwrap().len(), 0);
-    assert_eq!(info["branches"].as_array().unwrap().len(), 0);
-    assert_eq!(info["tags"].as_array().unwrap().len(), 0);
-    assert!(
-        info["branch"].as_str().unwrap() == "main" || info["branch"].as_str().unwrap() == "HEAD",
-        "unexpected branch {}",
-        info["branch"]
+    assert_eq!(info["is_unborn"], true);
+    assert_eq!(info["branch"], "fixture/first");
+    for field in ["commits", "branches", "tags"] {
+        assert_eq!(info[field], serde_json::json!([]));
+    }
+    assert_eq!(
+        repo.git(&["symbolic-ref", "HEAD"]),
+        "refs/heads/fixture/first"
     );
+    assert!(!repo.exists(".git/refs/heads/fixture/first"));
+
+    repo.git(&["add", "--", "HEAD"]);
+    git::commit_changes(repo.s(), "first commit".into(), None)
+        .await
+        .unwrap();
+    let opened = json(&git::open_repo(repo.s(), None).await.unwrap());
+    assert_eq!(opened["branch"], "fixture/first");
+    assert_eq!(opened["is_unborn"], false);
+    assert_eq!(opened["branches"][0]["name"], "fixture/first");
+    assert_eq!(opened["commits"][0]["hash"], repo.head());
+
+    repo.git(&["checkout", "--detach"]);
+    let detached = json(&git::open_repo(repo.s(), None).await.unwrap());
+    assert_eq!(detached["branch"], "HEAD");
+    assert_eq!(detached["is_unborn"], false);
+    assert_eq!(detached["commits"][0]["hash"], repo.head());
+}
+
+#[tokio::test]
+async fn open_repo_rejects_broken_head_targets() {
+    for contents in [
+        "broken\n".to_string(),
+        "1".repeat(40) + "\n",
+        "ref: refs/heads/missing\n".to_string(),
+    ] {
+        let repo = TestRepo::new("open-repo-broken");
+        repo.write(".git/refs/heads/main", &contents);
+        assert!(git::open_repo(repo.s(), None).await.is_err(), "{contents}");
+    }
+
+    let repo = TestRepo::new("open-repo-blob");
+    repo.write("blob", "fixture contents\n");
+    let hash = repo.git(&["hash-object", "-w", "blob"]);
+    repo.write(".git/refs/heads/main", &format!("{hash}\n"));
+    assert!(git::open_repo(repo.s(), None).await.is_err());
 }
 
 #[tokio::test]
@@ -854,8 +1401,168 @@ async fn open_repo_rejects_directories_that_are_not_repositories() {
     let dir = common::scratch_path("open-repo-invalid");
     std::fs::create_dir_all(&dir).unwrap();
     let err = common::expect_err(git::open_repo(dir.to_string_lossy().to_string(), None).await);
-    assert!(err.contains("is not a git repository"), "{err}");
+    assert!(err.contains("not a git repository"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn history_and_inspector_read_their_respective_git_dates() {
+    let repo = TestRepo::new("commit-dates");
+    let author_date = "2026-10-07T11:15:00+02:00";
+    let committer_date = "2026-10-08T14:00:00+02:00";
+    repo.write("story.txt", "fixture\n");
+    repo.git(&["add", "--", "story.txt"]);
+    let output = std::process::Command::new("git")
+        .current_dir(&repo.path)
+        .env("GIT_AUTHOR_DATE", author_date)
+        .env("GIT_COMMITTER_DATE", committer_date)
+        .args(["commit", "-qm", "Different dates"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{:?}", output.stderr);
+    let hash = repo.head();
+    assert_eq!(
+        repo.git(&["show", "-s", "--format=%aI%n%cI", &hash]),
+        format!("{author_date}\n{committer_date}")
+    );
+
+    let opened = json(&git::open_repo(repo.s(), None).await.unwrap());
+    assert_eq!(opened["commits"][0]["hash"], hash);
+    assert_eq!(opened["commits"][0]["date"], committer_date);
+    let details = git::repo_commit_inspect(repo.s(), hash.clone())
+        .await
+        .unwrap();
+    assert!(details.header.starts_with(&format!("commit {hash}\n")));
+    assert!(details
+        .header
+        .contains("\nAuthorDate: Wed Oct 7 11:15:00 2026 +0200\n"));
+    assert!(details
+        .header
+        .contains("\nCommitDate: Thu Oct 8 14:00:00 2026 +0200\n"));
+}
+
+#[tokio::test]
+async fn commit_text_reads_use_utf8_with_non_utf8_git_config() {
+    for (format, width) in [("sha1", 40), ("sha256", 64)] {
+        let path = common::scratch_path("commit-text");
+        std::fs::create_dir_all(&path).unwrap();
+        let option = format!("--object-format={format}");
+        let (ok, out) = common::git_raw(&path, &["init", "-q", &option]);
+        assert!(ok, "{out}");
+        let repo = TestRepo::adopt(path);
+        let file = "story.txt";
+        let ascii = repo.commit(file, "first\n", "ASCII history");
+        let make_commit = |encoding: &str, message: &[u8]| {
+            repo.write(file, encoding);
+            repo.git(&["add", "--", file]);
+            repo.write_bytes(".git/fixture-message", message);
+            repo.git(&[
+                "-c",
+                &format!("i18n.commitEncoding={encoding}"),
+                "commit",
+                "-q",
+                "-F",
+                ".git/fixture-message",
+            ]);
+            repo.head()
+        };
+        let utf8 = make_commit("UTF-8", "Café UTF-8\n\nCrème et déjà vu.\n".as_bytes());
+        let latin1 = make_commit(
+            "ISO-8859-1",
+            b"Caf\xe9 Latin-1\n\nD\xe9j\xe0 l'\xe9t\xe9.\n",
+        );
+        std::fs::remove_file(repo.path.join(".git/fixture-message")).unwrap();
+        assert!(repo
+            .git(&["cat-file", "commit", &latin1])
+            .contains("\nencoding ISO-8859-1\n"));
+        repo.git(&["config", "i18n.logOutputEncoding", "ISO-8859-1"]);
+        let raw = std::process::Command::new("git")
+            .current_dir(&repo.path)
+            .args(["log", "-2", "--format=%s"])
+            .output()
+            .unwrap();
+        assert!(raw.status.success());
+        assert_eq!(raw.stdout, b"Caf\xe9 Latin-1\nCaf\xe9 UTF-8\n");
+
+        let refs = repo.git(&["show-ref", "--head"]);
+        let read_files = || {
+            [".git/config", ".git/index", ".git/HEAD", file]
+                .map(|path| std::fs::read(repo.path.join(path)).unwrap())
+        };
+        let before = read_files();
+        let expected = [
+            (&latin1, "Café Latin-1", "Déjà l'été.\n"),
+            (&utf8, "Café UTF-8", "Crème et déjà vu.\n"),
+            (&ascii, "ASCII history", ""),
+        ];
+        let assert_row = |row: &serde_json::Value, (hash, subject, body): (&String, &str, &str)| {
+            assert_eq!(hash.len(), width);
+            assert_eq!(row["hash"], *hash);
+            assert_eq!(row["subject"], subject, "{format} {hash}");
+            assert_eq!(row["body"], body, "{format} {hash}");
+        };
+
+        let opened = json(&git::open_repo(repo.s(), None).await.unwrap());
+        assert_eq!(opened["commits"].as_array().unwrap().len(), expected.len());
+        for (index, entry @ (hash, subject, body)) in expected.into_iter().enumerate() {
+            assert_row(&opened["commits"][index], entry);
+            let page = git::repo_log_page(repo.s(), index, 1, None).await.unwrap();
+            assert_eq!(page.len(), 1);
+            assert_row(&json(&page[0]), entry);
+
+            let details = json(
+                &git::repo_commit_inspect(repo.s(), hash.clone())
+                    .await
+                    .unwrap(),
+            );
+            let header = details["header"].as_str().unwrap();
+            assert!(header.starts_with(&format!("commit {hash}\n")));
+            let message = header
+                .lines()
+                .filter_map(|line| line.strip_prefix("    "))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let expected_message = format!("{subject}\n\n{body}");
+            assert_eq!(message.trim_end(), expected_message.trim_end());
+
+            let hits =
+                git::repo_search_commits(repo.s(), hash.to_uppercase(), 0, 10, None, None, None)
+                    .await
+                    .unwrap();
+            assert_eq!(hits.len(), 1);
+            assert_row(&json(&hits[0].commit), entry);
+        }
+
+        for (index, entry) in expected[..2].iter().copied().enumerate() {
+            let filter = git::HistoryFilter {
+                query: "Café".into(),
+                ..Default::default()
+            };
+            let page = git::repo_history_page(repo.s(), filter, index, 1)
+                .await
+                .unwrap();
+            assert_eq!(page.len(), 1);
+            assert_row(&json(&page[0]), entry);
+        }
+        for query in ["CAFÉ", "déjà"] {
+            let hits = git::repo_search_commits(repo.s(), query.into(), 0, 10, None, None, None)
+                .await
+                .unwrap();
+            assert_eq!(hits.len(), 2);
+            for (hit, entry) in hits.iter().zip(expected) {
+                assert_row(&json(&hit.commit), entry);
+            }
+        }
+        let ascii_hits =
+            git::repo_search_commits(repo.s(), "ascii history".into(), 0, 10, None, None, None)
+                .await
+                .unwrap();
+        assert_eq!(ascii_hits.len(), 1);
+        assert_row(&json(&ascii_hits[0].commit), expected[2]);
+        assert_eq!(repo.git(&["show-ref", "--head"]), refs);
+        assert!(repo.git(&["status", "--porcelain"]).is_empty());
+        assert_eq!(read_files(), before);
+    }
 }
 
 #[tokio::test]

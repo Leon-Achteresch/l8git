@@ -33,6 +33,7 @@ export function WorktreeList({
   selectedPath,
   onSelectPath,
   onOpenAdd,
+  onRefresh,
   onPrune,
   onRequestMove,
   onRequestLock,
@@ -41,14 +42,15 @@ export function WorktreeList({
   selectedPath: string | null;
   onSelectPath: (p: string | null) => void;
   onOpenAdd: () => void;
+  onRefresh: () => void;
   onPrune: () => void;
   onRequestMove: (entry: WorktreeEntry) => void;
   onRequestLock: (entry: WorktreeEntry) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const worktrees = useRepoStore((s) => s.worktrees[path] ?? EMPTY);
   const loading = useRepoStore((s) => !!s.worktreesLoading[path]);
-  const reloadWorktrees = useRepoStore((s) => s.reloadWorktrees);
+  const check = useRepoStore((s) => s.worktreeChecks[path]);
   const worktreePrune = useRepoStore((s) => s.worktreePrune);
   const [hintOpen, setHintOpen] = useState(false);
   const [pruning, setPruning] = useState(false);
@@ -67,8 +69,11 @@ export function WorktreeList({
   };
 
   const linkedCount = worktrees.length > 1 ? worktrees.length - 1 : 0;
+  const emptyUnknown = worktrees.length === 0 && (!check || check.failed);
   const summarySub =
-    worktrees.length === 0
+    emptyUnknown
+      ? null
+      : worktrees.length === 0
       ? t("worktree.summaryNone")
       : worktrees.length === 1
         ? t("worktree.summaryMainOne")
@@ -85,7 +90,7 @@ export function WorktreeList({
             <h2 className="truncate text-sm font-semibold tracking-tight">
               {t("worktree.introTitle")}
             </h2>
-            <p className="text-[0.6875rem] text-muted-foreground">{summarySub}</p>
+            {summarySub && <p className="text-[0.6875rem] text-muted-foreground">{summarySub}</p>}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -129,7 +134,8 @@ export function WorktreeList({
                 size="icon-sm"
                 className="h-8 w-8"
                 disabled={loading}
-                onClick={() => void reloadWorktrees(path)}
+                aria-label={t("worktree.reloadTooltip")}
+                onClick={onRefresh}
               >
                 <SpinIcon icon={RefreshCw} active={loading} 
                   className={`h-4 w-4`}
@@ -140,6 +146,19 @@ export function WorktreeList({
           </Tooltip>
         </div>
       </div>
+
+      {(check?.failed || check?.checkedAt) && (
+        <p
+          role={check.failed ? "alert" : undefined}
+          className="shrink-0 border-b border-border/40 px-3 py-1 text-[0.6875rem] text-muted-foreground"
+        >
+          {check.failed
+            ? t("worktree.catalogRefreshFailed")
+            : t("worktree.catalogCheckedAt", {
+                time: new Intl.DateTimeFormat(i18n.language, { timeStyle: "medium" }).format(check.checkedAt),
+              })}
+        </p>
+      )}
 
       <ListRow
         size="sm"
@@ -174,7 +193,7 @@ export function WorktreeList({
               <Skeleton className="h-[76px] w-full rounded-xl" />
               <Skeleton className="h-[76px] w-full rounded-xl" />
             </>
-          ) : worktrees.length === 0 ? (
+          ) : emptyUnknown ? null : worktrees.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
               <GitFork className="h-10 w-10 opacity-20" />
               <span className="text-sm font-medium">{t("worktree.noneInRepoTitle")}</span>

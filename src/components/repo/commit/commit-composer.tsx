@@ -22,6 +22,7 @@ import {
   ChevronDown,
   FileDiff,
   FileDown,
+  Search,
   Loader2,
   Pencil,
   Plus,
@@ -90,6 +91,7 @@ type CommitComposerProps = {
   onSplitCommits?: () => void;
   onExportPatch?: (staged: boolean) => void;
   onApplyPatch?: () => void;
+  onExplainIgnore?: () => void;
 };
 
 export function CommitComposer({
@@ -125,6 +127,7 @@ export function CommitComposer({
   onSplitCommits,
   onExportPatch,
   onApplyPatch,
+  onExplainIgnore,
 }: CommitComposerProps) {
   const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
@@ -393,6 +396,11 @@ export function CommitComposer({
           body={body}
           onSubjectChange={onSubjectChange}
           onBodyChange={onBodyChange}
+          onEditCoAuthor={({ field, start, text }) => {
+            const input = field === "subject" ? subjectRef.current : bodyRef.current;
+            input?.focus();
+            input?.setSelectionRange(start, start + text.length);
+          }}
           disabled={busy}
         />
 
@@ -549,6 +557,12 @@ export function CommitComposer({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top">
+                {onExplainIgnore && (
+                  <DropdownMenuItem onClick={onExplainIgnore}>
+                    <Search className="size-3.5" />
+                    {t("ignoreExplanation.title")}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={onToggleAmend} disabled={!amendMode && !canAmend}>
                   <Pencil className="size-3.5" />
                   {t("common.amend")}

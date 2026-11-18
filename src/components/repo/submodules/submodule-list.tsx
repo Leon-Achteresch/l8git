@@ -293,6 +293,7 @@ export function SubmoduleList({
         {selectedEntry && (
           <div className="min-h-0 flex-1">
             <SubmoduleDetail
+              key={selectedEntry.path}
               repoPath={path}
               entry={selectedEntry}
               onPull={() => handlePull(selectedEntry)}

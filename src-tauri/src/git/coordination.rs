@@ -1,29 +1,38 @@
-use super::run_git;
+use super::{git_command, run_git_command_bytes};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::{Command, ExitStatus};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
-/// Coordinates mutations of shared refs and worktree registrations. Index
-/// mutations retain their own per-worktree mutex; callers acquire this lock
-/// before any of those locks to keep the order consistent across commands.
-pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
-    static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> = OnceLock::new();
-
-    let directory = run_git(
+pub(crate) fn repo_common_dir(repo: &PathBuf) -> Result<PathBuf, String> {
+    let directory = run_git_command_bytes(
+        git_command(),
         repo,
         &["rev-parse", "--path-format=absolute", "--git-common-dir"],
     )?;
     // Remove only Git's record terminator. A bare common directory can itself
     // end in spaces or a newline, which are part of its exact filesystem name.
-    let directory = directory.strip_suffix('\n').unwrap_or(&directory);
-    let directory = PathBuf::from(directory);
+    let directory = directory.strip_suffix(b"\n").unwrap_or(&directory);
+    #[cfg(windows)]
+    let directory = directory.strip_suffix(b"\r").unwrap_or(directory);
+    #[cfg(unix)]
+    let directory = {
+        use std::os::unix::ffi::OsStrExt;
+        PathBuf::from(std::ffi::OsStr::from_bytes(directory))
+    };
+    #[cfg(not(unix))]
+    let directory =
+        PathBuf::from(std::str::from_utf8(directory).map_err(|error| error.to_string())?);
     if !directory.is_absolute() {
         return Err("Git returned a relative common directory".into());
     }
-    let key = directory
-        .canonicalize()
-        .map_err(|error| error.to_string())?;
-    let mut locks = LOCKS
+    directory.canonicalize().map_err(|error| error.to_string())
+}
+
+type RepoMutexRegistry = OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>>;
+
+fn common_dir_mutex(key: PathBuf, registry: &RepoMutexRegistry) -> Result<Arc<Mutex<()>>, String> {
+    let mut locks = registry
         .get_or_init(Default::default)
         .lock()
         .map_err(|error| error.to_string())?;
@@ -37,8 +46,102 @@ pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, 
     Ok(lock)
 }
 
+/// Coordinates mutations of shared refs and worktree registrations. Index
+/// mutations retain their own per-worktree mutex; callers acquire this lock
+/// before any of those locks to keep the order consistent across commands.
+pub(crate) fn repo_coordination_mutex(repo: &PathBuf) -> Result<Arc<Mutex<()>>, String> {
+    static LOCKS: RepoMutexRegistry = OnceLock::new();
+    common_dir_mutex(repo_common_dir(repo)?, &LOCKS)
+}
+
+/// Process-local reservation for remote commands. Separate from ref mutation
+/// coordination so a slow remote does not hold the worktree/branch mutex.
+pub(super) fn repo_remote_mutex(common_dir: &Path) -> Result<Arc<Mutex<()>>, String> {
+    static LOCKS: RepoMutexRegistry = OnceLock::new();
+    common_dir_mutex(common_dir.to_owned(), &LOCKS)
+}
+
+pub(super) struct RemoteProcessLock {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    directory: std::fs::File,
+}
+
+impl RemoteProcessLock {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    pub(super) fn directory(&self) -> &std::fs::File {
+        &self.directory
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    pub(super) fn acquire(common_dir: &Path) -> Result<Self, String> {
+        use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
+
+        // Lock the existing directory inode. No mutable lockfile or shared
+        // runtime directory is needed.
+        let directory = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(common_dir)
+            .map_err(|error| {
+                format!("Could not open Git common directory for reservation: {error}")
+            })?;
+        if unsafe { libc::flock(directory.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            let error = std::io::Error::last_os_error();
+            if error.kind() == std::io::ErrorKind::WouldBlock {
+                return Err(crate::coded!(GitRemoteBusy));
+            }
+            return Err(format!("Could not reserve Git common directory: {error}"));
+        }
+        Ok(Self { directory })
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    pub(super) fn acquire(_common_dir: &Path) -> Result<Self, String> {
+        Ok(Self {})
+    }
+
+    pub(super) fn inherit(&self, _command: &mut Command) {
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        {
+            use std::os::{fd::AsRawFd, unix::process::CommandExt};
+
+            let fd = self.directory.as_raw_fd();
+            // The runner owns this FD until spawn returns. Clear CLOEXEC in
+            // the forked Git process only, using an async-signal-safe syscall.
+            unsafe {
+                _command.pre_exec(move || {
+                    if libc::fcntl(fd, libc::F_SETFD, 0) == -1 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    Ok(())
+                });
+            }
+        }
+    }
+
+    pub(super) fn finish(&self, _status: ExitStatus) {
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        {
+            use std::os::{fd::AsRawFd, unix::process::ExitStatusExt};
+
+            // Git normally waits for its transport. Unlock after a normal
+            // exit so idle helpers that inherited the FD don't retain it.
+            // After a signal, let surviving holders close their own FDs.
+            if _status.signal().is_none()
+                && unsafe { libc::flock(self.directory.as_raw_fd(), libc::LOCK_UN) } != 0
+            {
+                log::warn!(
+                    "Could not unlock Git common directory: {}",
+                    std::io::Error::last_os_error()
+                );
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::super::run_git;
     use super::*;
     use std::fs;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -247,5 +350,20 @@ mod tests {
             &repo_coordination_mutex(&alias).unwrap()
         ));
         assert!(bare.as_os_str().as_encoded_bytes().ends_with(b" \n"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn common_directory_keeps_non_utf8_path_bytes() {
+        use std::os::unix::ffi::OsStrExt;
+
+        let root = TestRoot::new();
+        let repo = root.0.join(std::ffi::OsStr::from_bytes(b"bare-\xff"));
+        fs::create_dir_all(&repo).unwrap();
+        run_git(&repo, &["init", "-q", "--bare", "."]).unwrap();
+        assert_eq!(
+            repo_common_dir(&repo).unwrap(),
+            repo.canonicalize().unwrap()
+        );
     }
 }

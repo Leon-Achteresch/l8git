@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { BlameEntry } from "./git-blame-sheet";
+import { Button } from "@/components/ui/button";
 import { formatFullDate, initials, nameToHsl } from "./git-blame-utils";
 
 export type ActiveCard = {
@@ -12,11 +13,15 @@ export type ActiveCard = {
 export function CommitCard({
   card,
   onClose,
+  onPrevious,
+  previousStatus,
 }: {
   card: ActiveCard;
   onClose: () => void;
+  onPrevious?: () => void;
+  previousStatus: "idle" | "loading" | "error";
 }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const color = nameToHsl(card.entry.author);
 
@@ -49,6 +54,16 @@ export function CommitCard({
           </div>
           <span className="text-[0.75rem] font-medium text-foreground">{card.entry.author}</span>
         </div>
+        {onPrevious && (card.entry.previous ? (
+          <>
+            <Button size="sm" variant="outline" onClick={onPrevious} disabled={previousStatus === "loading"}>
+              {t(previousStatus === "loading" ? "blamePage.loading" : "blamePage.openPrevious")}
+            </Button>
+            {previousStatus === "error" && <p role="status" className="text-xs text-destructive">
+              {t("blamePage.previousUnavailable")}
+            </p>}
+          </>
+        ) : <p className="text-xs text-muted-foreground">{t("blamePage.noPrevious")}</p>)}
         <div className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
           <span className="font-mono">{card.entry.short_hash}</span>
           <span className="opacity-40">·</span>

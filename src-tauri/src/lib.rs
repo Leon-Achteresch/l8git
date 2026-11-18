@@ -39,7 +39,8 @@ mod shell;
 pub mod sink;
 mod stack;
 mod undo;
-mod watcher;
+#[doc(hidden)]
+pub mod watcher;
 
 struct TauriSink(tauri::AppHandle);
 
@@ -127,11 +128,25 @@ fn thp_prctl(option: libc::c_int, value: libc::c_ulong) -> libc::c_int {
     unsafe { libc::prctl(option, value, 0 as libc::c_ulong, 0 as libc::c_ulong, 0 as libc::c_ulong) }
 }
 
+#[tauri::command]
+fn workspace_fetch_desktop_available() -> bool {
+    cfg!(any(target_os = "macos", target_os = "linux"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
     tune_webkit_without_gpu();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    let builder = builder.manage(git::DesktopWorkspaceFetch::default())
+        .on_window_event(|window, event| {
+            use tauri::Manager;
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed) {
+                window.state::<git::DesktopWorkspaceFetch>().close(window.label());
+            }
+        });
+    builder
         .setup(|app| {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
@@ -247,6 +262,14 @@ pub fn run() {
             shell::detect_clis,
             repo_tools::list_repo_tools,
             git::git_fetch,
+            git::repo_fetch_scope,
+            workspace_fetch_desktop_available,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            git::workspace_fetch_desktop_confirm,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            git::workspace_fetch_desktop_revoke,
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            git::workspace_fetch_desktop_validate,
             git::git_pull,
             git::git_push,
             git::list_git_remotes,
@@ -294,9 +317,11 @@ pub fn run() {
             git::repo_write_file,
             git::repo_file_content_at,
             git::repo_commit_inspect,
+            git::repo_commit_note,
             git::repo_commit_file_diff,
             git::stage_files,
             git::add_to_gitignore,
+            git::git_check_ignore,
             git::unstage_files,
             git::stage_hunk,
             git::unstage_hunk,
@@ -305,6 +330,8 @@ pub fn run() {
             git::git_commit_split_snapshot,
             git::git_commit_split_group_checked,
             git::commit_changes,
+            git::commit_identity_preview,
+            git::commit_changes_with_identity,
             git::commit_amend,
             git::list_stashes,
             git::git_stash_push,
@@ -368,6 +395,8 @@ pub fn run() {
             git::repo_blame,
             git::repo_list_files,
             git::list_submodules,
+            git::open_submodule_repo,
+            git::git_submodule_pin_diff,
             git::get_submodule_commits,
             git::git_submodule_init,
             git::git_submodule_update,

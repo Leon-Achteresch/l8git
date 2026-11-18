@@ -3,6 +3,47 @@ use common::{json, TestRepo};
 use l8git_lib::compare::{repo_compare_commits, repo_compare_file_diff};
 
 #[tokio::test]
+async fn qualified_refs_pin_the_requested_namespace_and_never_fall_back_on_deletion() {
+    let repo = TestRepo::new("compare-qualified");
+    let local = repo.commit("value.txt", "local\n", "local revision");
+    repo.git(&["branch", "release", &local]);
+    let tagged = repo.commit("value.txt", "tagged\n", "tagged revision");
+    repo.git(&["tag", "-a", "release", "-m", "Annotated fixture", &tagged]);
+    let tag_object = repo.git(&["rev-parse", "refs/tags/release"]);
+    assert_ne!(tag_object, tagged);
+    let remote = repo.commit("value.txt", "remote\n", "remote revision");
+    repo.git(&["update-ref", "refs/remotes/origin/release", &remote]);
+    repo.git(&["tag", "refs/heads/release", &tagged]);
+
+    let state_before = repo.git(&["show-ref", "--head"]);
+    let compare = |base: &str, head: &str| {
+        repo_compare_commits(repo.s(), base.into(), head.into(), None)
+    };
+    let summary = json(&compare("refs/heads/release", "refs/tags/release").await.unwrap());
+    assert_eq!(summary["base"], "refs/heads/release");
+    assert_eq!(summary["head"], "refs/tags/release");
+    assert_eq!(summary["base_hash"], local);
+    assert_eq!(summary["head_hash"], tagged);
+    let patch = repo_compare_file_diff(repo.s(), local.clone(), tagged.clone(), None, "value.txt".into(), None).await.unwrap();
+    assert!(patch.patch.contains("+tagged"));
+    let upstream = json(&compare("refs/remotes/origin/release", "HEAD").await.unwrap());
+    assert_eq!(upstream["base_hash"], remote);
+    let free = json(&compare("release", "refs/tags/release~1").await.unwrap());
+    assert_eq!(free["base_hash"], tagged);
+    assert_eq!(free["head_hash"], local);
+    assert_eq!(repo.git(&["show-ref", "--head"]), state_before);
+
+    repo.git(&["update-ref", "-d", "refs/heads/release"]);
+    assert_eq!(repo.git(&["rev-parse", "refs/heads/release^{commit}"]), tagged);
+    let after_deletion = repo.git(&["show-ref", "--head"]);
+    assert!(compare("refs/heads/release", "HEAD").await.is_err());
+    assert_eq!(repo.git(&["show-ref", "--head"]), after_deletion);
+    assert_eq!(repo.head(), remote);
+    assert_eq!(repo.branch(), "main");
+    assert!(repo.git(&["status", "--porcelain"]).is_empty());
+}
+
+#[tokio::test]
 async fn direct_and_merge_base_comparisons_distinguish_independent_work() {
     let repo = TestRepo::new("compare-diverged");
     let ancestor = repo.commit("base.txt", "base\n", "base");
@@ -53,6 +94,74 @@ async fn comparison_retains_renames_binary_and_literal_special_names() {
     assert!(rename.patch.contains("rename from old.txt"));
     let binary = repo_compare_file_diff(repo.s(), base, head, None, "image.bin".into(), None).await.unwrap();
     assert!(binary.binary);
+}
+
+#[tokio::test]
+async fn similarity_changes_the_same_move_from_rename_to_delete_add() {
+    let repo = TestRepo::new("compare-move");
+    let base = repo.commit(
+        "old.txt",
+        "Original document\nSome original lines\n",
+        "Original",
+    );
+    repo.git(&["mv", "old.txt", "new.txt"]);
+    let moved = repo.commit_all("Move document");
+    let rewritten = repo.commit(
+        "new.txt",
+        "Entirely rewritten material\nUnrelated content\n",
+        "Rewrite document",
+    );
+    let refs = repo.git(&["show-ref", "--head"]);
+
+    let rename = repo_compare_commits(repo.s(), base.clone(), moved.clone(), None)
+        .await
+        .unwrap();
+    assert_eq!(rename.files.len(), 1);
+    assert_eq!(rename.files[0].status, "R");
+    assert_eq!(rename.files[0].path, "new.txt");
+    assert_eq!(rename.files[0].previous_path.as_deref(), Some("old.txt"));
+    let rename_diff = repo_compare_file_diff(
+        repo.s(),
+        base.clone(),
+        moved,
+        None,
+        "new.txt".into(),
+        Some("old.txt".into()),
+    )
+    .await
+    .unwrap();
+    assert!(rename_diff.patch.contains("rename from old.txt"));
+
+    let separate = repo_compare_commits(repo.s(), base.clone(), rewritten.clone(), None)
+        .await
+        .unwrap();
+    assert_eq!(separate.files.len(), 2);
+    for (path, status, content) in [
+        ("old.txt", "D", "-Original document"),
+        ("new.txt", "A", "+Entirely rewritten material"),
+    ] {
+        let file = separate
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .unwrap();
+        assert_eq!(file.status, status);
+        assert!(file.previous_path.is_none());
+        let diff = repo_compare_file_diff(
+            repo.s(),
+            base.clone(),
+            rewritten.clone(),
+            None,
+            path.into(),
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(diff.patch.contains(content));
+        assert!(!diff.patch.contains("rename from"));
+    }
+    assert_eq!(repo.git(&["show-ref", "--head"]), refs);
+    assert!(repo.git(&["status", "--porcelain"]).is_empty());
 }
 
 #[tokio::test]

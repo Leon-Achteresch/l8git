@@ -1,10 +1,13 @@
 export type UnlistenFn = () => void;
 
-export async function listen(
-  _event: string,
-  _cb: (event: { payload: unknown }) => void,
+export async function listen<T>(
+  event: string,
+  cb: (event: { payload: T }) => void,
 ): Promise<UnlistenFn> {
-  return () => undefined;
+  const type = `l8git-test:${event}`;
+  const listener = (event: Event) => cb({ payload: (event as CustomEvent<T>).detail });
+  window.addEventListener(type, listener);
+  return () => window.removeEventListener(type, listener);
 }
 
 export async function once(

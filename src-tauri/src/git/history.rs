@@ -138,6 +138,7 @@ pub async fn repo_history_page(path: String, filter: HistoryFilter, skip: usize,
         // `--skip` drops commits before `--follow` sees them, losing renames and file commits:
         // `follow_page` fetches through the page and skips in Rust instead.
         if !follow { args.extend([format!("--max-count={limit}"), format!("--skip={skip}")]); }
+        args.push(COMMIT_TEXT_ENCODING.into());
         args.push("--format=%H%x1f%h%x1f%an%x1f%ae%x1f%cI%x1f%P%x1f%s%x1f%b".into());
         for (flag, value) in [("--author", &filter.author), ("--since", &filter.since), ("--until", &filter.until), ("--grep", &filter.query)] {
             if !value.trim().is_empty() {

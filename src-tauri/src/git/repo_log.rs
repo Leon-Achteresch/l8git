@@ -51,6 +51,7 @@ fn fetch_commits_raw(
     }
     args.push("--all".into());
     args.push("--date-order".into());
+    args.push(COMMIT_TEXT_ENCODING.into());
     args.push(format!("--pretty=format:{format}"));
     if skip > 0 {
         args.insert(3, format!("--skip={skip}"));
@@ -103,32 +104,138 @@ pub async fn open_repo(
     path: String,
     hide_t3_checkpoints: Option<bool>,
 ) -> Result<RepoInfo, String> {
+    open_repo_target(path, hide_t3_checkpoints, None).await
+}
+
+#[tauri::command]
+pub async fn open_submodule_repo(
+    path: String,
+    submodule_path: String,
+    hide_t3_checkpoints: Option<bool>,
+) -> Result<RepoInfo, String> {
+    open_repo_target(path, hide_t3_checkpoints, Some(submodule_path)).await
+}
+
+/// Resolve only a direct, valid local branch whose ref is actually absent.
+fn unborn_branch(repo: &PathBuf, head_error: &str) -> Result<String, String> {
+    let target = run_git_command_bytes(
+        git_command(),
+        repo,
+        &["symbolic-ref", "--quiet", "--no-recurse", "HEAD"],
+    )
+    .map_err(|_| head_error.to_owned())?;
+    let target = std::str::from_utf8(&target).map_err(|err| err.to_string())?;
+    let target = target.trim_end_matches(['\r', '\n']);
+    let name = target.strip_prefix("refs/heads/").ok_or(head_error)?;
+    run_git(repo, &["check-ref-format", target]).map_err(|_| head_error.to_owned())?;
+
+    let inspect = |args: &[&str]| {
+        git_command()
+            .arg("-C")
+            .arg(repo)
+            .args(args)
+            .output()
+            .map_err(|err| err.to_string())
+    };
+    let exists = inspect(&["show-ref", "--exists", target])?;
+    let missing = match exists.status.code() {
+        Some(2) => true,
+        // Older Git lacks --exists. Verify that the target is neither another
+        // symref nor a direct or broken ref reported by for-each-ref.
+        Some(129) => {
+            let symbolic = inspect(&["symbolic-ref", "--quiet", "--no-recurse", target])?;
+            let refs = inspect(&["for-each-ref", "--format=%(refname)", "--", target])?;
+            symbolic.status.code() == Some(1)
+                && symbolic.stderr.is_empty()
+                && refs.status.success()
+                && refs.stderr.is_empty()
+                && !String::from_utf8_lossy(&refs.stdout)
+                    .lines()
+                    .any(|line| line == target)
+        }
+        _ => false,
+    };
+    if missing {
+        Ok(name.to_owned())
+    } else {
+        Err(head_error.into())
+    }
+}
+
+async fn open_repo_target(
+    path: String,
+    hide_t3_checkpoints: Option<bool>,
+    submodule_path: Option<String>,
+) -> Result<RepoInfo, String> {
     spawn_git(move || {
-        let repo = PathBuf::from(&path);
+        let mut repo = PathBuf::from(path);
+        if let Some(selected) = submodule_path {
+            repo = submodules::submodule_repo_path(&repo, &selected)?;
+        }
         let hide_t3 = hide_t3_checkpoints.unwrap_or(true);
 
-        // One rev-parse answers both "is this a repository" and "what is HEAD".
-        // A repository without commits makes the HEAD half fail, so that case
-        // falls back to the plain repository check and reports no commits.
-        let (branch, head_exists) = match run_git(
+        // Keep the HEAD probe local, including when peeling a promisor object.
+        let mut probe = git_command();
+        probe
+            .env("GIT_NO_LAZY_FETCH", "1")
+            .env("GIT_ALLOW_PROTOCOL", "");
+        // Invalid revisions must fail even if a worktree file is named HEAD.
+        let (bare, shallow, branch, head_exists) = match run_git_command(
+            probe,
             &repo,
-            &["rev-parse", "--is-inside-work-tree", "--abbrev-ref", "HEAD"],
+            &[
+                "rev-parse",
+                "--is-bare-repository",
+                "--abbrev-ref",
+                "HEAD",
+                "--is-shallow-repository",
+                "HEAD^{commit}",
+                "--",
+            ],
         ) {
             Ok(out) => {
-                let branch = out
-                    .lines()
-                    .nth(1)
+                let mut lines = out.lines();
+                let bare = lines.next().unwrap_or_default().to_owned();
+                let branch = lines
+                    .next()
                     .map(str::trim)
                     .filter(|s| !s.is_empty())
                     .unwrap_or("HEAD")
                     .to_string();
-                (branch, true)
+                let shallow = lines.next().unwrap_or_default().to_owned();
+                (bare, shallow, branch, true)
             }
-            Err(_) => {
-                run_git(&repo, &["rev-parse", "--is-inside-work-tree"])
-                    .map_err(|_| format!("'{path}' is not a git repository"))?;
-                ("HEAD".to_string(), false)
+            Err(head_error) => {
+                let flags = run_git(
+                    &repo,
+                    &[
+                        "rev-parse",
+                        "--is-bare-repository",
+                        "--is-shallow-repository",
+                    ],
+                )
+                .map_err(|error| format!("Cannot open '{}': {error}", repo.display()))?;
+                let mut lines = flags.lines();
+                let bare = lines.next().unwrap_or_default().to_owned();
+                let shallow = lines.next().unwrap_or_default().to_owned();
+                let unborn = unborn_branch(&repo, &head_error)?;
+                let branch = if bare == "true" {
+                    "HEAD".into()
+                } else {
+                    unborn
+                };
+                (bare, shallow, branch, false)
             }
+        };
+        let is_bare = match bare.trim() {
+            "true" => true,
+            "false" => false,
+            _ => return Err("Git returned an invalid bare repository flag".into()),
+        };
+        let is_shallow = match shallow.trim() {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
         };
 
         // Log, tags and branches are independent reads. Running them together
@@ -158,6 +265,9 @@ pub async fn open_repo(
 
         Ok(RepoInfo {
             path: repo.to_string_lossy().to_string(),
+            is_bare,
+            is_shallow,
+            is_unborn: !is_bare && !head_exists,
             branch,
             commits,
             branches,

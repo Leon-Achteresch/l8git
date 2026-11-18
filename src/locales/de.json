@@ -1163,6 +1163,9 @@
     "providerSelfHostedExample": "Self-hosted Git"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "Flache Historie. Git endet an einer lokalen Historiengrenze. Dahinter können ältere Commits in der Ansicht fehlen.",
+    "bareNotice": "Dieses Bare-Repository hat keine Arbeitskopie. Historie und Referenzen sind verfügbar.",
+    "bareOpenHistory": "Historie öffnen",
     "loading": "Lade …"
   },
   "updates": {
@@ -1366,6 +1369,16 @@
     "confirmTitle": "\"{{label}}\" ausführen?",
     "confirmDesc": "Es wird ausgeführt: {{run}}",
     "gitSection": "Git-Werkzeuge"
+  },
+  "commitIdentity": {
+    "title": "Commit-Identität weicht ab",
+    "description": "Die von Git ermittelte Identität weicht vom zugewiesenen Profil ab. Prüfe die Werte vor dem Commit.",
+    "profile": "Profil: {{label}}",
+    "author": "Git-Autor",
+    "committer": "Git-Committer",
+    "continue": "Mit dieser Identität committen",
+    "changed": "Die Git-Identität hat sich geändert. Starte den Commit erneut, um die aktuellen Werte zu prüfen.",
+    "operation": "Für diesen Git-Vorgang ist keine Identitätsprüfung verfügbar. Nutze die Fortsetzen-Aktion des Vorgangs."
   },
   "commitPanel": {
     "explainDiff": "Diff erklären",
@@ -1667,6 +1680,8 @@
     "baseOptionHead": "— Von HEAD (Standard) —"
   },
   "worktree": {
+    "catalogCheckedAt": "Worktrees zuletzt geprüft um {{time}}",
+    "catalogRefreshFailed": "Worktrees konnten nicht aktualisiert werden. Angezeigte Einträge können veraltet sein.",
     "none": "Keine Worktrees",
     "noneShort": "Keine Einträge",
     "remove": "Entfernen",
@@ -1690,8 +1705,9 @@
     "whatAreWorktrees": "Was sind Worktrees?",
     "noneInRepoTitle": "Keine Worktrees",
     "noneInRepoBody": "Dieses Repository hat keine verlinkten Worktrees. Erstelle einen über das + Icon oben.",
-    "cardConfirmRemove": "Worktree „{{name}}“ entfernen?\n\n{{path}}",
-    "cardConfirmForceRemove": "Der Worktree enthält Änderungen. Trotzdem entfernen (force)?",
+    "cardConfirmRemove": "Worktree „{{name}}“ entfernen?\n\n{{path}}\n\n$t(worktree.cleanupIgnoredFiles)",
+    "cardConfirmForceRemove": "Der Worktree enthält Änderungen. Trotzdem entfernen (force)?\n\n$t(worktree.cleanupIgnoredFiles)",
+    "cleanupIgnoredFiles": "Beim Entfernen können ignorierte Dateien verloren gehen, auch wenn Git den Worktree als sauber meldet. Snapshots erfassen Änderungen an verfolgten Dateien und nicht ignorierte, unverfolgte Dateien. Stashes mit der Untracked-Option erfassen beides ebenfalls. Ignorierte, unverfolgte Dateien bleiben dabei außen vor. Brich ab und sichere solche Dateien zuerst außerhalb des Worktrees, wenn du sie behalten möchtest.",
     "cardToastRemoved": "Worktree entfernt.",
     "cardToastRemovedForce": "Worktree entfernt (force).",
     "cardConfirmUnlock": "Worktree „{{name}}“ entsperren?",
@@ -1722,6 +1738,9 @@
     "detailActionsHeading": "Aktionen"
   },
   "submodule": {
+    "comparePins": "Submodul-Pins vergleichen",
+    "samePin": "Beide Seiten verweisen auf denselben Submodul-Commit.",
+    "sameContents": "Die Dateiinhalte dieser Commits sind identisch.",
     "none": "Keine Submodule",
     "noCommits": "Keine Commits verfügbar",
     "lastCommits": "Letzte Commits im Submodul",
@@ -1747,6 +1766,8 @@
     "detailPinnedSuperRepo": "Pinned im Super-Repo",
     "detailRemoteHead": "Remote-Head",
     "commitsBehindShort": "↓{{count}} Commits",
+    "detailOpenRepo": "Repository öffnen",
+    "detailOpeningRepo": "Repository wird geöffnet…",
     "detailPull": "Pull",
     "detailTerminal": "Terminal",
     "detailGitmodules": ".Gitmodules",
@@ -1969,6 +1990,21 @@
     "modeTwoWayTitle": "Ours direkt gegen Theirs vergleichen"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "Rebase-Zwischenstand (HEAD)",
+      "theirsIncoming": "Erneut angewendeter Commit",
+      "theirsCommit": "Erneut angewendeter Commit: {{commit}}",
+      "ours": "Zwischenstand",
+      "theirs": "Wiederholter Commit",
+      "takeOursHint": "Rebase-Zwischenstand übernehmen (1)",
+      "takeTheirsHint": "Erneut angewendeten Commit übernehmen (2)",
+      "allOurs": "Überall Zwischenstand",
+      "allTheirs": "Überall wiederholter Commit",
+      "acceptAllOursHint": "Alle Konflikte mit dem Rebase-Zwischenstand auflösen",
+      "acceptAllTheirsHint": "Alle Konflikte mit dem erneut angewendeten Commit auflösen",
+      "explanation": "Beim Rebase zeigt die linke Seite (ours/HEAD) den aktuellen Zielstand einschließlich bereits erneut angewendeter Commits. Rechts (theirs) steht der gerade erneut angewendete Commit.",
+      "targetBase": "Zielbasis: {{target}}."
+    },
     "oursHead": "Ours (HEAD)",
     "theirsIncoming": "Theirs (Incoming)",
     "vs": "vs",
@@ -2204,6 +2240,15 @@
     "stackBadgeTitle": "{{name}} · Stack {{root}} · Ebene {{level}}"
   },
   "commitInspect": {
+    "localNote": {
+      "title": "Lokale Git-Note",
+      "missing": "An diesem Commit ist unter dieser Ref keine lokale Note vorhanden.",
+      "failed": "Die lokale Git-Note konnte nicht gelesen werden.",
+      "unsupported": "Diese Git-Note enthält keinen unterstützten UTF-8-Text.",
+      "tooLarge": "Diese Git-Note überschreitet die Anzeigegrenze von 64 KiB.",
+      "empty": "Diese Git-Note ist leer."
+    },
+    "authorDate": "Autorzeit",
     "metadata": "Metadaten anzeigen",
     "explainCommit": "Erklären",
     "changedFiles": "Geänderte Dateien",
@@ -2259,6 +2304,12 @@
     "linesCount_other": "{{count}} Zeilen"
   },
   "blamePage": {
+    "openPrevious": "Vorherigen Stand öffnen",
+    "backToOriginal": "Zurück zur ursprünglichen Blame-Ansicht",
+    "previousRevision": "Vorheriger Stand · {{commit}}",
+    "noLineMapping": "Dieser Stand öffnet ohne zugeordnete Zeilenposition.",
+    "noPrevious": "Git hat für diese Zeile keinen vorherigen Dateistand ermittelt.",
+    "previousUnavailable": "Der vorherige Dateistand konnte lokal nicht gelesen werden.",
     "title": "Git Blame",
     "closeAria": "Git Blame schließen",
     "gutterLabel": "Blame",
@@ -2276,6 +2327,7 @@
     "noRemotes": "Keine Remotes konfiguriert."
   },
   "branch": {
+    "upstreamMissingLocally": "Upstream fehlt lokal",
     "menuExplainBranch": "Diesen Branch erklären",
     "defaultEmpty": "Keine Branches",
     "delete": "Löschen",
@@ -2552,6 +2604,7 @@
     "submitBusy": "…"
   },
   "diff": {
+    "fileModeChanged": "Dateimodus geändert",
     "cancel": "Abbrechen",
     "lineDeselectTitle": "Zeile abwählen",
     "lineSelectTitle": "Zeile auswählen",
@@ -2809,6 +2862,8 @@
     "createdPushFailed": "{{name}} erstellt, aber der Push ist fehlgeschlagen: {{error}}"
   },
   "branchMenu": {
+    "noFirstCommit": "Noch kein Commit",
+    "unbornLabel": "{{branch}} · Noch kein Commit",
     "switchTitle": "Branch wechseln",
     "pickAria": "Branch auswählen",
     "sectionLocal": "Lokal",
@@ -3510,6 +3565,27 @@
     "exitFail": "Mit Fehler beendet",
     "noRepo": "kein Repo"
   },
+  "workspaceFetchPreview": {
+    "target": "Fetch-Ziel: {{remote}}",
+    "noTarget": "Kein eindeutiges Fetch-Ziel konfiguriert.",
+    "confirm": "Ziele bestätigen",
+    "retryValidation": "Zielprüfung wiederholen",
+    "repoChanged": "Das Repository hat sich geändert. Prüfe die Auswahl neu.",
+    "targetChanged": "Das Fetch-Ziel hat sich geändert. Prüfe die Auswahl neu.",
+    "unavailable": "Das Repository konnte nicht erneut geprüft werden.",
+    "matched": "Die Ziele stimmen mit der Vorschau überein. Der Sammel-Fetch ist noch gesperrt.",
+    "title": "Fetch-Vorschau für den Workspace",
+    "hint": "Prüfe die ausgewählten Repositories in {{workspace}}. Die Vorschau führt keinen Fetch aus.",
+    "empty": "In diesem Workspace sind keine Repositories geöffnet.",
+    "lastFetch": "Letzter erfolgreicher Fetch in dieser Sitzung: {{time}}",
+    "noFetch": "In dieser Sitzung ist kein erfolgreicher Fetch erfasst.",
+    "active": "Ein Remote-Vorgang läuft.",
+    "remotes": "Konfigurierte Remotes: {{names}}",
+    "noRemotes": "Keine Remotes konfiguriert.",
+    "shared": "Teilt ein Git-Verzeichnis mit einem anderen ausgewählten Repository.",
+    "inspect": "Ausgewählte Repositories prüfen",
+    "canceled": "Vorschau abgebrochen."
+  },
   "remoteProgress": {
     "op_fetch": "Fetch",
     "op_pull": "Pull",
@@ -3676,6 +3752,7 @@
     "filteredHistory_other": "{{count}} Commits geladen"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git vereinfacht den Pfadverlauf. Es kann einen Merge und einen Elternpfad auslassen, wenn sich am gewählten Pfad gegenüber einem Elterncommit nichts geändert hat. Entferne den Pfadfilter, um den Graphen ohne diese Pfadbeschränkung zu sehen. Andere Filter bleiben aktiv.",
     "renamedFrom": "umbenannt von {{path}}",
     "searchPlaceholder": "Commit-Nachrichten durchsuchen…",
     "apply": "Anwenden",
@@ -3782,6 +3859,26 @@
     "fileChanged": "„{{file}}“ wurde nach der Vorschau geändert. Lade die Vorschau neu und prüfe die aktuellen Änderungen vor dem Verwerfen."
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Git-Bereinigung der Commitnachricht",
+      "input": "Commit und Amend übergeben den getrimmten Entwurf mit -m, ohne den Git-Editor zu öffnen. Die l8git-Vorlage füllt den Entwurf. Gits commit.template liefert Text für den Git-Editor und wird bei -m ignoriert.",
+      "default": "Das Commit-Panel überlässt die Bereinigung Git. Git verwendet commit.cleanup, wenn es gesetzt ist. Standardmäßig nutzt Git im Editor strip und bei direkter Textübergabe whitespace.",
+      "strip": "Wie whitespace, entfernt aber zusätzlich Zeilen, die mit Gits Kommentarmarkierung beginnen. Beim üblichen # kann eine mit #123 beginnende Zeile verschwinden. Eine Zeile wie Refs: #123 bleibt in diesem Fall erhalten.",
+      "whitespace": "Entfernt Leerraum am Zeilenende sowie leere Zeilen am Anfang und Ende, fasst aufeinanderfolgende Leerzeilen zusammen und behält Kommentarzeilen.",
+      "verbatim": "Überspringt die Bereinigung der an Git übergebenen Nachricht.",
+      "scissors": "Wie whitespace. Beim Bearbeiten im Git-Editor schneidet Git zusätzlich ab der Scherenzeile ab.",
+      "limits": "Die wirksame Einstellung und die Kommentarmarkierung werden hier nicht geprüft. Git-Hooks können die Nachricht außerdem ändern oder ablehnen."
+    },
+    "coAuthor": {
+      "title": "Vorschau der Mitautoren-Trailer",
+      "subject": "Betreff",
+      "bodyLine": "Beschreibung, Zeile {{line}}",
+      "edit": "Zeile bearbeiten",
+      "editAt": "{{location}} bearbeiten",
+      "placement": "Setze Mitautoren-Zeilen in den letzten Trailerblock, nach einer Leerzeile hinter der Beschreibung.",
+      "format": "Verwende pro Person eine Zeile im Format Co-authored-by: Name <E-Mail>.",
+      "attribution": "Die Kontozuordnung hängt vom Host und der mit dem Konto verknüpften E-Mail-Adresse ab."
+    },
     "typeLabel": "Conventional-Commit-Typ wählen",
     "type": "Typ",
     "conventionalTitle": "Conventional-Commit-Typ",
@@ -3834,6 +3931,8 @@
     "goodMessage": "Der Betreff ist lesbar. Erkläre in der Beschreibung bei Bedarf den Grund und die Prüfung.",
     "startHint": "Beschreibe die Änderung in einem konkreten Satz. Die optionale Beschreibung erklärt den Grund und deine Prüfung.",
     "trailerType": "Commit-Trailer-Typ",
+    "refsIntent": "Auf ein Issue verweisen.",
+    "closesIntent": "Automatisches Schließen eines Issues anfordern. Ob es geschlossen wird, hängt vom Host, vom Zielbranch und von den Repository-Einstellungen ab.",
     "trailerValue": "Issue-Referenz oder Migrationserklärung",
     "migrationPlaceholder": "Auswirkungen und Migration erklären…",
     "issuePlaceholder": "#123 oder PROJ-42",
@@ -3855,6 +3954,10 @@
     }
   },
   "compare": {
+    "pickRef": "Referenz für {{side}} wählen",
+    "localBranch": "Lokaler Branch",
+    "remoteBranch": "Remote-Branch",
+    "tag": "Tag",
     "title": "Commits und Branches vergleichen",
     "description": "Vergleiche Branches, Tags oder Commits und prüfe die geänderten Dateien.",
     "base": "Basis",
@@ -3907,6 +4010,9 @@
     "added": "Hinzugefügt",
     "modified": "Geändert",
     "deleted": "Gelöscht",
+    "renameHelp": "Umbenennungserkennung",
+    "renameHelpExplanation": "Git sucht in diesem Vergleich nach gelöschten und hinzugefügten Dateien mit ähnlichem Inhalt. Dieselbe Verschiebung kann als Löschung und Hinzufügung erscheinen, wenn sich die verglichenen Versionen stark unterscheiden.",
+    "renameHelpDiff": "Eine erkannte Umbenennung zeigt den bisherigen Pfad. Wähle eine Datei aus, um ihren Inhaltsdiff zu prüfen.",
     "renamed": "Umbenannt",
     "copied": "Kopiert",
     "typeChanged": "Typ geändert",
@@ -4029,7 +4135,7 @@
       "summary": "Verstehe die gespeicherte Abhängigkeitsversion und die Arbeitskopie darin.",
       "steps": [
         "Öffne Submodule und prüfe den gespeicherten Commit, den aktuellen Checkout und lokale Änderungen.",
-        "Initialisiere ein neues Submodul oder aktualisiere seinen Checkout auf die im übergeordneten Repository gespeicherte Version.",
+        "Initialisiere ein neues Submodul oder aktualisiere seinen Checkout auf die im übergeordneten Repository gespeicherte Version. Sync übernimmt die versionierte URL aus .gitmodules in die lokale Konfiguration initialisierter Submodule. Dabei kann eine bewusst gesetzte lokale URL überschrieben werden.",
         "Öffne zum Entwickeln der Abhängigkeit ihr Repository, erstelle einen Branch und committe ihre Änderungen dort.",
         "Stelle dem Team den Submodul-Commit bereit, bevor du den aktualisierten Gitlink im übergeordneten Repository stagst und committest."
       ],
@@ -4105,10 +4211,10 @@
       "title": "Arbeit zwischenlagern und wieder aufnehmen",
       "summary": "Nutze einen Stash, wenn du vorübergehend eine saubere Arbeitskopie brauchst.",
       "steps": [
-        "Öffne Stashes und erstelle einen Stash mit einem aussagekräftigen Namen.",
+        "Öffne Stashes und erstelle einen Stash mit einem aussagekräftigen Namen. Beim Anlegen lässt „Index behalten“ bereits gestagte Änderungen im Index.",
         "Nimm ungetrackte Dateien auf, wenn neue Dateien zu dieser Arbeit gehören.",
         "Wechsle den Branch oder führe die nötige Operation aus.",
-        "Apply behält die Sicherung. Pop entfernt sie nach erfolgreicher Anwendung. Prüfe und löse mögliche Konflikte."
+        "Apply behält die Sicherung. Pop entfernt sie nach erfolgreicher Anwendung. Prüfe und löse mögliche Konflikte. Ab Git 2.52 versuchen Apply und Pop mit stash.index=true in der Git-Konfiguration, die gespeicherte Aufteilung in gestagte und ungestagte Änderungen wiederherzustellen."
       ],
       "caution": "Ignorierte Dateien werden durch die übliche Option für ungetrackte Dateien nicht aufgenommen. Bei Konflikten behält Pop den Stash; prüfe vor erneutem Anwenden die Arbeitskopie."
     },
@@ -4799,15 +4905,19 @@
     "removeWorktree": "Worktree entfernen",
     "rerere": "Rerere",
     "rerereAutoupdate": "automatisches Stagen an",
+    "rerereAutoupdateOff": "Automatisches Vormerken aus",
     "rerereDisable": "Rerere deaktivieren",
     "rerereEnable": "Rerere aktivieren",
     "rerereForgetConfirm": "Gespeicherte Auflösung für {{file}} vergessen?",
-    "rerereHint": "Gespeicherte Konfliktauflösungen: sehen, was Git wiederverwendet hat, und es gezielt steuern.",
+    "rerereHint": "Konfliktpfade von Rerere prüfen und Auflösungen vor dem Fortfahren kontrollieren.",
     "rerereOff": "Rerere ist deaktiviert",
     "rerereOn": "Rerere ist aktiviert",
-    "rerereRemaining": "Noch offen: {{files}}",
-    "rerereReused": "Im aktuellen Konflikt wiederverwendete Auflösungen",
-    "rerereUnset": "Rerere ist nicht konfiguriert (aus)",
+    "rerereRemaining": "Von Rerere nicht automatisch aufgelöste Konflikte",
+    "rererePendingRecording": "Konfliktpfade mit ausstehender Aufzeichnung der Auflösung",
+    "rerereUnset": "Rerere folgt dem Git-Standard und ist bei vorhandenem lokalem Cache aktiv.",
+    "rerereAutoupdateHint": "Ist automatisches Vormerken an, kann Git eine wiederverwendete Auflösung vormerken. Ist es aus, prüfe die Auflösung und merke sie selbst vor.",
+    "rerereReview": "Prüfe vor dem Fortfahren unter Commit den Diff der Arbeitskopie und die vorgemerkten Änderungen im Index.",
+    "rerereNoPaths": "Git meldet keine Pfade in diesen Rerere-Listen.",
     "rescue": "Retten",
     "rescueBranch": "neuer Branch-Name",
     "rescued": "Branch {{branch}} auf {{head}} erstellt",
@@ -5650,12 +5760,20 @@
       "writeFailed": "Konfiguration nicht schreibbar: {{error}}",
       "homeMissing": "Kein Home-Verzeichnis gefunden."
     },
+    "submodule": {
+      "invalidPin": "Beide Submodul-Pins müssen vollständige Commit-IDs sein.",
+      "objectsUnavailable": "Benötigte Objekte fehlen im lokalen Submodul oder sind nicht lesbar. {{error}}",
+      "notInitialized": "Initialisiere dieses Submodul, bevor du sein Repository öffnest.",
+      "notRegistered": "Dieser Pfad ist nicht mehr als Submodul registriert.",
+      "unsafePath": "Der gewählte Pfad führt zu keinem sicheren Submodul-Arbeitsverzeichnis."
+    },
     "git": {
       "startFailed": "Fehler beim Starten von Git: {{error}}",
       "patchWriteFailed": "Fehler beim Schreiben des Patches: {{error}}",
       "waitFailed": "Fehler beim Warten auf Git: {{error}}",
       "applyFailed": "git apply fehlgeschlagen.",
       "unknownRemote": "Unbekannter Remote: {{remote}}",
+      "remoteBusy": "Für dieses Repository läuft bereits ein Remote-Vorgang. Versuche es nach dessen Abschluss erneut.",
       "headNotOnBranch": "HEAD zeigt auf keinen Branch.",
       "unknownMergeStrategy": "Unbekannte Merge-Strategie: {{strategy}}",
       "mainlineParent": "Mainline-Parent muss mindestens 1 sein.",
@@ -5668,6 +5786,7 @@
       "unknownCommit": "Unbekannter Commit: {{commit}}",
       "branchExists": "Ein Branch namens {{branch}} existiert bereits.",
       "runFailed": "Git konnte nicht ausgeführt werden: {{error}}",
+      "missingLocalCommitFile": "Der Commit ist in diesem Partial Clone vorhanden. Ein Teil des für den Diff benötigten Dateiinhalts fehlt lokal.",
       "commandFailed": "Der Git-Befehl ist fehlgeschlagen."
     },
     "hooks": {
@@ -5995,7 +6114,24 @@
     "changed": "Geändert",
     "files_one": "{{count}} Datei",
     "files_other": "{{count}} Dateien",
+    "committerDate": "Committerzeit",
     "committed": "Committet",
     "branch": "Branch"
+  },
+  "ignoreExplanation": {
+    "title": "Ignore-Regel erklären…",
+    "description": "Gib einen Pfad ein, um seine Ignore-Regeln zu prüfen. Dabei werden nur die aktuellen Git-Regeln und der Index gelesen.",
+    "path": "Repo-relativer Pfad",
+    "pathHint": "Relativ zum Repository-Stamm. Leerzeichen bleiben erhalten; der Pfad muss nicht existieren.",
+    "check": "Pfad prüfen",
+    "checking": "Wird geprüft…",
+    "ignored": "Git ignoriert diesen Pfad.",
+    "negated": "Eine Gegenregel gibt diesen Pfad frei; er wird nicht ignoriert.",
+    "noMatch": "Keine Ignore-Regel trifft auf diesen Pfad zu.",
+    "noMatchHint": "Das erklärt nicht jede fehlende Datei in der Liste. Bereits versionierte Dateien werden nicht gegen Ignore-Regeln geprüft.",
+    "source": "Regeldatei",
+    "line": "Zeile",
+    "pattern": "Muster",
+    "invalidPath": "Gib einen Pfad relativ zum Repository-Stamm ein, ohne „..“ oder .git-Verzeichnis. Elternverzeichnisse dürfen nicht aus dem Repository herausführen."
   }
 }

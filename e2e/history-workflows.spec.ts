@@ -9,7 +9,7 @@ const form = (page: Page) => page.getByRole('form', { name: 'History filters', e
 const row = (page: Page, index: number) => page.locator(`[data-commit-hash="${hash(index)}"]`);
 const loadedStatus = (page: Page, count: number) => page.getByRole('status').filter({ hasText: new RegExp(`^${count} commit${count === 1 ? '' : 's'} loaded`) });
 
-async function openHistory(page: Page) {
+async function openHistory(page: Page, scene = 'history-workflow') {
   // Keep Today/Yesterday/week headers and date shortcuts deterministic in CI.
   // Preserve native performance/rAF clocks: Motion's WAAPI timeline resets on
   // reload, while Playwright's full clock keeps its performance ticks running.
@@ -21,7 +21,7 @@ async function openHistory(page: Page) {
       get: (target, key, receiver) => key === 'now' ? () => fixedTime : Reflect.get(target, key, receiver),
     });
   }, new Date('2026-10-08T18:00:00Z').getTime());
-  await page.goto('/?scene=history-workflow');
+  await page.goto(`/?scene=${scene}`);
   await expect(form(page).getByRole('searchbox', { name: 'Commit message', exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(row(page, 0)).toBeVisible();
 }
@@ -47,6 +47,88 @@ async function switchRepo(page: Page, name: string) {
   await palette.getByRole('option', { name: `Switch to: ${name}`, exact: true }).click();
   await expect(palette).toBeHidden();
 }
+
+test('history and commit details identify their date types at wide and narrow widths', async ({ page }) => {
+  await page.setViewportSize({ width: 1680, height: 820 });
+  await openHistory(page);
+  const first = row(page, 0);
+  const historyTime = first.locator('time');
+  await expect(historyTime).toHaveAttribute('datetime', '2026-10-08T12:00:00Z');
+  await expect(historyTime).toHaveAttribute('title', /^Committer date: /);
+  await expect(historyTime).toMatchAriaSnapshot('- time: "Committer date: 6h ago"');
+  await first.click();
+  const inspectorTime = page.locator('time[title^="Author date: "]');
+  await expect(inspectorTime).toHaveAttribute('datetime', '2026-10-07T09:15:00.000Z');
+  await expect(inspectorTime).toHaveCSS('position', 'static');
+  await expect(inspectorTime).toHaveText('Author date: Oct 7, 2026, 9:15 AM');
+  const disclosure = page.getByRole('button', { name: /Release login redirect fix.*Author date:/ });
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+  await disclosure.click();
+  const header = page.locator('pre').filter({ hasText: 'AuthorDate: 2026-10-07T09:15:00Z' });
+  await expect(header).toContainText('CommitDate: 2026-10-08T12:00:00Z');
+
+  await page.setViewportSize({ width: 640, height: 800 });
+  await expect(inspectorTime).toHaveCSS('position', 'absolute');
+  await expect(disclosure).toHaveAccessibleName(/Release login redirect fix.*Author date:/);
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+  await expect(header).toBeVisible();
+  await expect(historyTime).toHaveAttribute('title', /^Committer date: /);
+
+  await page.setViewportSize({ width: 1680, height: 820 });
+  const second = row(page, 1);
+  await second.click();
+  await expect(page.getByRole('button', { name: /Document token expiry.*Author date:/ }))
+    .toHaveAttribute('aria-expanded', 'false');
+  await expect(second.locator('time')).toHaveAttribute('datetime', '2026-10-07T23:59:00Z');
+  await expect(inspectorTime).toHaveAttribute('datetime', '2026-10-07T23:59:00.000Z');
+});
+
+test('F62 explains path simplification and removes only the active path filter', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 800 });
+  await openHistory(page, 'history-path-merge');
+  const filters = form(page);
+  const query = filters.getByRole('searchbox', { name: 'Commit message', exact: true });
+  const hint = page.getByText(/Git simplifies path history/);
+  const removePath = page.getByRole('button', { name: /^Remove File or directory filter:/ });
+  await expect(row(page, 0)).toContainText('Merge side work');
+  await expect(hint).toHaveCount(0);
+  await filters.getByRole('button', { name: 'Filters', exact: true }).click();
+  const path = filters.getByRole('textbox', { name: 'File or directory', exact: true });
+  await path.fill('docs/');
+  await expect(hint).toHaveCount(0);
+  await filters.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(row(page, 1)).toBeVisible();
+  await expect(row(page, 0)).toHaveCount(0);
+  await expect(hint).toBeVisible();
+  await expect(removePath).toHaveAccessibleDescription(/omit a merge.*Other filters stay active/);
+  await removePath.focus();
+  await expect(removePath).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(query).toBeFocused();
+  await expect(path).toHaveValue('');
+  await expect(hint).toHaveCount(0);
+  await expect(row(page, 0)).toContainText('Merge side work');
+  await expect(row(page, 1)).toBeVisible();
+  expect(await historyCalls(page)).toHaveLength(1);
+
+  await page.getByRole('button', { name: 'All branches', exact: true }).click();
+  await page.getByRole('option', { name: /release\/1\.2/ }).click();
+  await page.keyboard.press('Escape');
+  await path.fill('src/');
+  await applyQuery(page, 'retry budgets');
+  await expect(row(page, 2)).toBeVisible();
+  await removePath.press('Space');
+  await expect(query).toBeFocused();
+  await expect(query).toHaveValue('retry budgets');
+  await expect(path).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Remove branch filter: release/1.2', exact: true })).toBeVisible();
+  await expect.poll(async () => (await historyCalls(page)).at(-1)?.args?.filter).toMatchObject({
+    file: '', query: 'retry budgets', refs: [hash(2)],
+  });
+  await expect(row(page, 2)).toBeVisible();
+  await expect(row(page, 0)).toHaveCount(0);
+  await expect(hint).toHaveCount(0);
+});
 
 test('message filters apply explicitly and find literal text in commit bodies', async ({ page }) => {
   await openHistory(page);
@@ -275,4 +357,62 @@ test('a followed path takes focus on the same inspected commit without refetchin
   await expect.poll(inspectCalls).toBe(before + 1);
   await expect(refresh).toBeEnabled();
   await expect(readme).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('the commit inspector distinguishes a missing local promisor blob from other diff results', async ({ page }) => {
+  await page.setViewportSize({ width: 760, height: 800 });
+  await openHistory(page);
+  await page.evaluate(() => {
+    const original = window.__L8GIT_TEST_INVOKE__!;
+    window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
+      if (command === 'repo_commit_file_diff') {
+        window.__L8GIT_TEST_CALLS__!.push({ command, args });
+        if (args?.file === 'missing.txt') {
+          throw '\x1fMissing local content\x1fl8e:{"code":"git.missingLocalCommitFile","params":{}}\x1f';
+        }
+        if (args?.file === 'read-error.txt') {
+          throw 'fatal: could not read file from promisor remote';
+        }
+        return {
+          diff: args?.file === 'present.txt' ? 'diff --git a/present.txt b/present.txt\n--- a/present.txt\n+++ b/present.txt\n@@ -1 +1 @@\n-old\n+readable fixture line\n' : null,
+          is_binary: false,
+        };
+      }
+      const result = await original(command, args);
+      if (command === 'repo_commit_inspect') return {
+        ...result as Record<string, unknown>,
+        file_stats_unavailable: true,
+        files: ['missing.txt', 'present.txt', 'read-error.txt', 'unchanged.txt'].map(
+          path => ({ path, additions: 0, deletions: 0, binary: false }),
+        ),
+      };
+      return result;
+    };
+  });
+
+  await row(page, 0).click();
+  const list = page.getByRole('group', { name: 'Changed files', exact: true });
+  const missing = list.getByRole('button', { name: 'missing.txt', exact: true });
+  const hint = page.getByRole('status').filter({ hasText: 'some file content needed for the diff is missing locally' });
+  await expect(missing).toHaveAttribute('aria-pressed', 'true');
+  await expect(hint).toBeVisible();
+  await expect(page.getByText('+0', { exact: true })).toHaveCount(0);
+
+  await missing.focus();
+  await missing.press('ArrowDown');
+  const present = list.getByRole('button', { name: 'present.txt', exact: true });
+  await expect(present).toBeFocused();
+  await expect(hint).toHaveCount(0);
+  await expect(page.getByText('readable fixture line', { exact: true })).toBeVisible();
+
+  await present.press('ArrowDown');
+  await expect(page.getByText('Could not load diff.', { exact: true })).toBeVisible();
+  await expect(hint).toHaveCount(0);
+  await list.getByRole('button', { name: 'unchanged.txt', exact: true }).click();
+  await expect(page.getByText('No text changes', { exact: true })).toBeVisible();
+  await expect(hint).toHaveCount(0);
+
+  const diffRequests = await page.evaluate(() => (window.__L8GIT_TEST_CALLS__ ?? [])
+    .filter(call => call.command === 'repo_commit_file_diff').map(call => call.args?.file));
+  expect(diffRequests).toEqual(['missing.txt', 'present.txt', 'read-error.txt', 'unchanged.txt']);
 });

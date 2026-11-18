@@ -10,6 +10,7 @@ import { useUiStore } from '@/lib/ui-store';
 import { useInboxStore } from '@/lib/inbox-store';
 import { useInboxPaths } from '@/components/inbox/use-inbox-paths';
 import { toastError } from '@/lib/error-toast';
+import { WorkspaceFetchPreview } from '@/components/app/workspace-fetch-preview';
 
 export function ActivityCenter() {
   const { t } = useTranslation();
@@ -32,6 +33,7 @@ export function ActivityCenter() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader><DialogTitle>{t('audit.activity')}</DialogTitle><DialogDescription>{t('audit.activityHint')}</DialogDescription></DialogHeader>
+        {open && <WorkspaceFetchPreview />}
         {path && <section className="rounded-lg border p-3">
           <h3 className="text-sm font-semibold">{t('audit.recovery')} · {repoLabel(path)}</h3>
           <p className="mt-1 text-xs text-muted-foreground">{t('audit.recoveryHint')}</p>

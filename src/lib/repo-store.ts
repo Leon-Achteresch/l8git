@@ -1,3 +1,5 @@
+import { revokeDesktopWorkspaceFetch } from "@/lib/workspace-fetch-desktop";
+import type { CommitIdentity } from "@/lib/github-expansion/identity";
 import { useRecentRepos } from "./recent-repos";
 import { forgetRepoViewState } from "./repo-view-state";
 import { readPullRequests } from './provider-reads';
@@ -18,7 +20,7 @@ import { useWorkspaceStore, workspaceRepo } from '@/lib/workspace-store';
 // same in-flight request instead of triggering N identical 200-commit
 // round-trips. A small trailing debounce swallows rapid follow-ups.
 const reloadInFlight = new Map<string, Promise<void>>();
-const reloadPending = new Map<string, number>();
+const worktreeRequests = new Map<string, symbol>();
 const statusInFlight = new Map<string, Promise<void>>();
 const statusPending = new Map<string, number>();
 const localStatusInFlight = new Map<string, Promise<void>>();
@@ -86,6 +88,7 @@ export type Branch = {
   is_remote: boolean;
   tip: string;
   behind?: number;
+  upstream_status?: 'gone' | 'unconfigured' | 'resolved' | 'unknown';
 };
 
 export type TagKind = 'lightweight' | 'annotated' | 'signed';
@@ -106,6 +109,9 @@ export type TagCreateOptions = {
 
 export type RepoInfo = {
   path: string;
+  is_bare?: boolean;
+  is_shallow?: boolean;
+  is_unborn?: boolean;
   branch: string;
   commits: Commit[];
   branches: Branch[];
@@ -357,6 +363,7 @@ type RepoState = {
   submodulesLoading: Record<string, boolean>;
   worktrees: Record<string, WorktreeEntry[]>;
   worktreesLoading: Record<string, boolean>;
+  worktreeChecks: Record<string, { checkedAt?: number; failed: boolean }>;
   gitHooks: Record<string, GitHookEntry[]>;
   gitHooksLoading: Record<string, boolean>;
   reloadGitHooks: (path: string) => Promise<void>;
@@ -372,14 +379,14 @@ type RepoState = {
   getGitHookContent: (path: string, hookName: string) => Promise<string>;
   runGitHook: (path: string, hookName: string) => Promise<HookRunResult>;
   loadPRs: (path: string, force?: boolean) => Promise<void>;
-  addRepo: (path: string) => Promise<string | null>;
+  addRepo: (path: string, submodule?: { submodulePath: string; signal: AbortSignal }) => Promise<string | null>;
   removeRepo: (path: string) => void;
   reorderRepos: (fromIndex: number, toIndex: number) => void;
   setActive: (path: string | null) => void;
   ensureFavicons: () => void;
   setCustomFavicon: (path: string, dataUrl: string) => void;
   clearCustomFavicon: (path: string) => void;
-  reload: (path: string) => Promise<void>;
+  reload: (path: string, afterCommit?: boolean) => Promise<void>;
   refreshOpenRepo: (path: string) => Promise<void>;
   reloadAll: () => Promise<void>;
   deleteBranch: (path: string, name: string, force?: boolean) => Promise<void>;
@@ -394,7 +401,7 @@ type RepoState = {
   reloadLocalStatus: (path: string) => Promise<void>;
   stageFiles: (path: string, files: string[]) => Promise<void>;
   unstageFiles: (path: string, files: string[]) => Promise<void>;
-  commitChanges: (path: string, message: string) => Promise<void>;
+  commitChanges: (path: string, message: string, expectedIdentity?: CommitIdentity) => Promise<void>;
   amendCommit: (path: string, message: string, expectedHead?: string) => Promise<void>;
   cloneRepo: (url: string, dest: string) => Promise<string>;
   initRepo: (path: string) => Promise<string | null>;
@@ -512,7 +519,7 @@ type RepoState = {
     submodulePath: string,
     pinnedCommit: string
   ) => Promise<SubmoduleCommit[]>;
-  reloadWorktrees: (path: string) => Promise<void>;
+  reloadWorktrees: (path: string, signal?: AbortSignal) => Promise<void>;
   worktreeAdd: (
     path: string,
     worktreePath: string,
@@ -625,6 +632,7 @@ export const useRepoStore = create<RepoState>()(
       submodulesLoading: {},
       worktrees: {},
       worktreesLoading: {},
+      worktreeChecks: {},
       gitHooks: {},
       gitHooksLoading: {},
       bisect: {},
@@ -824,13 +832,16 @@ export const useRepoStore = create<RepoState>()(
         }
       },
 
-      async addRepo(path) {
-        set(s => ({ loading: { ...s.loading, [path]: true } }));
+      async addRepo(path, submodule) {
+        if (submodule && (submodule.signal.aborted || get().activePath !== path)) return null;
+        if (!submodule) set(s => ({ loading: { ...s.loading, [path]: true } }));
         try {
-          const opened = await invoke<RepoInfo>('open_repo', {
+          const opened = await invoke<RepoInfo>(submodule ? 'open_submodule_repo' : 'open_repo', {
             path,
             hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
+            ...(submodule && { submodulePath: submodule.submodulePath }),
           });
+          if (submodule && (submodule.signal.aborted || get().activePath !== path)) return null;
           useRecentRepos.getState().remember(opened.path);
           enterRepoWorkspace(opened.path, get().activePath);
           useWorkspaceStore.getState().addRepoToActiveWorkspace(opened.path);
@@ -843,7 +854,7 @@ export const useRepoStore = create<RepoState>()(
               paths,
               activePath: opened.path,
               repos: { ...s.repos, [opened.path]: opened },
-              loading: restLoad,
+              loading: submodule ? s.loading : restLoad,
             };
           });
           scheduleRemoteCommitAvatars(opened.path, opened.commits);
@@ -853,6 +864,7 @@ export const useRepoStore = create<RepoState>()(
           await get().reloadStashes(opened.path);
           return opened.path;
         } catch (e) {
+          if (submodule) throw e;
           const msg = String(e);
           toastError(msg);
           set(s => ({
@@ -863,6 +875,7 @@ export const useRepoStore = create<RepoState>()(
       },
 
       removeRepo(path) {
+        reloadInFlight.delete(path);
         forgetRepoViewState(path);
         const wasActive = get().activePath === path;
         nextCommitAvatarGeneration(path);
@@ -965,25 +978,23 @@ export const useRepoStore = create<RepoState>()(
         });
       },
 
-      async reload(path) {
+      async reload(path, afterCommit = false) {
         const existing = reloadInFlight.get(path);
-        if (existing) return existing;
+        if (existing && !afterCommit) return existing;
 
-        const pending = reloadPending.get(path);
-        if (pending !== undefined) window.clearTimeout(pending);
-
-        // First load of a repo (e.g. app boot) fires immediately; the
-        // coalescing delay only matters for watcher-triggered re-loads.
-        const delay = get().repos[path] ? RELOAD_COALESCE_MS : 0;
+        // A commit refresh must supersede an open that may have read pre-commit HEAD.
+        const delay = afterCommit || !get().repos[path] ? 0 : RELOAD_COALESCE_MS;
         const promise = new Promise<void>(resolve => {
-          const handle = window.setTimeout(async () => {
-            reloadPending.delete(path);
-            set(s => ({ loading: { ...s.loading, [path]: true } }));
+          window.setTimeout(async () => {
+            const current = () => reloadInFlight.get(path) === promise;
             try {
+              if (!current()) return;
+              set(s => ({ loading: { ...s.loading, [path]: true } }));
               const opened = await invoke<RepoInfo>('open_repo', {
                 path,
                 hideT3Checkpoints: useWorkspacePrefs.getState().hideT3Checkpoints,
               });
+              if (!current()) return;
               set(s => {
                 const { [path]: __, ...restLoad } = s.loading;
                 return {
@@ -999,17 +1010,16 @@ export const useRepoStore = create<RepoState>()(
               }
               await get().reloadStashes(path);
             } catch (e) {
-              const msg = String(e);
-              toastError(msg);
+              if (!current()) return;
+              toastError(String(e));
               set(s => ({
                 loading: { ...s.loading, [path]: false },
               }));
             } finally {
-              reloadInFlight.delete(path);
+              if (current()) reloadInFlight.delete(path);
               resolve();
             }
           }, delay);
-          reloadPending.set(path, handle);
         });
         reloadInFlight.set(path, promise);
         return promise;
@@ -1151,10 +1161,11 @@ export const useRepoStore = create<RepoState>()(
         await get().reloadStatus(path);
       },
 
-      async commitChanges(path, message) {
-        await invoke('commit_changes', { path, message });
+      async commitChanges(path, message, expectedIdentity) {
+        if (expectedIdentity) await invoke('commit_changes_with_identity', { path, message, expectedIdentity });
+        else await invoke('commit_changes', { path, message });
         await Promise.all([
-          get().reload(path),
+          get().reload(path, true),
           get().reloadStatus(path),
           get().reloadStashes(path),
         ]);
@@ -1690,21 +1701,35 @@ export const useRepoStore = create<RepoState>()(
         });
       },
 
-      async reloadWorktrees(path) {
-        set(s => ({
-          worktreesLoading: { ...s.worktreesLoading, [path]: true },
-        }));
+      async reloadWorktrees(path, signal) {
+        const active = () => !signal || get().activePath === path;
+        if (signal?.aborted || !active()) return;
+        const request = Symbol();
+        worktreeRequests.set(path, request);
+        const current = () => worktreeRequests.get(path) === request;
+        const abort = () => {
+          if (!current()) return;
+          worktreeRequests.delete(path);
+          set(s => ({ worktreesLoading: { ...s.worktreesLoading, [path]: false } }));
+        };
+        signal?.addEventListener('abort', abort, { once: true });
+        set(s => ({ worktreesLoading: { ...s.worktreesLoading, [path]: true } }));
         try {
           const list = await invoke<WorktreeEntry[]>('list_worktrees', { path });
+          if (!current() || !active()) return;
           set(s => ({
             worktrees: { ...s.worktrees, [path]: list },
-            worktreesLoading: { ...s.worktreesLoading, [path]: false },
+            worktreeChecks: { ...s.worktreeChecks, [path]: { checkedAt: Date.now(), failed: false } },
           }));
         } catch (e) {
-          toastError(String(e));
+          if (!current() || !active()) return;
+          if (!signal) toastError(String(e));
           set(s => ({
-            worktreesLoading: { ...s.worktreesLoading, [path]: false },
+            worktreeChecks: { ...s.worktreeChecks, [path]: { checkedAt: s.worktreeChecks[path]?.checkedAt, failed: true } },
           }));
+        } finally {
+          signal?.removeEventListener('abort', abort);
+          if (current()) abort();
         }
       },
 
@@ -1924,3 +1949,10 @@ export function repoLabel(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
 }
+
+useRepoStore.subscribe((next, previous) => {
+  if (previous.paths.length !== next.paths.length ||
+      previous.paths.some(path => !next.paths.includes(path))) {
+    revokeDesktopWorkspaceFetch();
+  }
+});

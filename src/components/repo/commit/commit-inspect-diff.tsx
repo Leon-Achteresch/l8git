@@ -15,6 +15,7 @@ export function CommitInspectDiff({
   fileDiff,
   loading,
   failed,
+  missingLocalContent = false,
   previewable = false,
 }: {
   repoPath: string;
@@ -23,6 +24,7 @@ export function CommitInspectDiff({
   fileDiff: FileDiffPayload | null;
   loading: boolean;
   failed: boolean;
+  missingLocalContent?: boolean;
   /** Real commits only (not stashes): enables display options via repo_diff_preview. */
   previewable?: boolean;
 }) {
@@ -44,6 +46,10 @@ export function CommitInspectDiff({
         ) : loading ? (
           <div className="flex h-full items-center justify-center">
             <SpinIcon icon={Loader2} className="h-6 w-6 text-primary/50" />
+          </div>
+        ) : missingLocalContent ? (
+          <div role="status" className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
+            {t("backendErrors.git.missingLocalCommitFile")}
           </div>
         ) : failed ? (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">

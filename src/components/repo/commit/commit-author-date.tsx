@@ -1,5 +1,5 @@
 import { forwardRef, memo, type ComponentPropsWithoutRef } from "react";
-import { useLanguage } from "@/lib/i18n";
+import { useRowT } from "@/lib/i18n";
 import { formatDate, formatRelative } from "@/lib/format";
 import { AuthorAvatarStack, type CoAuthor } from "./commit-author-hover";
 import { useGravatarUrl } from "@/lib/gravatar";
@@ -19,7 +19,8 @@ const CommitAuthorDateInner = forwardRef<HTMLDivElement, {
   ...rest
 }, ref) {
   // Pooled, memoized author rows also need to refresh localized dates.
-  useLanguage();
+  const t = useRowT();
+  const timeLabel = t("commitHover.committerDate");
   const gravatarUrl = useGravatarUrl(email ?? "");
   const remoteAvatar = authorAvatar?.trim() || undefined;
   return (
@@ -39,9 +40,10 @@ const CommitAuthorDateInner = forwardRef<HTMLDivElement, {
       </span>
       <time
         dateTime={date}
-        title={formatDate(date)}
+        title={`${timeLabel}: ${formatDate(date)}`}
         className="shrink-0 tabular-nums"
       >
+        <span className="sr-only">{timeLabel}: </span>
         {formatRelative(date)}
       </time>
     </div>

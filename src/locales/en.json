@@ -1163,6 +1163,9 @@
     "providerSelfHostedExample": "Self-hosted Git"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "Shallow history. Git stops at a local history boundary, so older commits beyond it may be missing from this view.",
+    "bareNotice": "This bare repository has no working copy. History and refs are available.",
+    "bareOpenHistory": "Open history",
     "loading": "Loading…"
   },
   "updates": {
@@ -1366,6 +1369,16 @@
     "confirmTitle": "Run \"{{label}}\"?",
     "confirmDesc": "This will run: {{run}}",
     "gitSection": "Git tools"
+  },
+  "commitIdentity": {
+    "title": "Commit identity differs",
+    "description": "Git resolved a different identity from the assigned profile. Review the values before committing.",
+    "profile": "Profile: {{label}}",
+    "author": "Git author",
+    "committer": "Git committer",
+    "continue": "Commit with this identity",
+    "changed": "The Git identity changed. Start the commit again to review the current values.",
+    "operation": "Identity review is unavailable during this Git operation. Use the operation’s own continuation action."
   },
   "commitPanel": {
     "explainDiff": "Explain diff",
@@ -1667,6 +1680,8 @@
     "baseOptionHead": "— From HEAD (default) —"
   },
   "worktree": {
+    "catalogCheckedAt": "Worktrees checked at {{time}}",
+    "catalogRefreshFailed": "Could not refresh worktrees. Any displayed entries may be out of date.",
     "none": "No worktrees",
     "noneShort": "No entries",
     "remove": "Remove",
@@ -1690,8 +1705,9 @@
     "whatAreWorktrees": "What are worktrees?",
     "noneInRepoTitle": "No worktrees",
     "noneInRepoBody": "This repository has no linked worktrees. Add one using the + button above.",
-    "cardConfirmRemove": "Remove worktree “{{name}}”?\n\n{{path}}",
-    "cardConfirmForceRemove": "This worktree has local changes. Remove it anyway (force)?",
+    "cardConfirmRemove": "Remove worktree “{{name}}”?\n\n{{path}}\n\n$t(worktree.cleanupIgnoredFiles)",
+    "cardConfirmForceRemove": "This worktree has local changes. Remove it anyway (force)?\n\n$t(worktree.cleanupIgnoredFiles)",
+    "cleanupIgnoredFiles": "Removing this worktree can delete ignored files even if Git reports it clean. Snapshots include tracked changes and non-ignored untracked files. A stash with the untracked option covers both too. Ignored untracked files are left out. To keep those files, cancel and back them up outside the worktree first.",
     "cardToastRemoved": "Worktree removed.",
     "cardToastRemovedForce": "Worktree removed (force).",
     "cardConfirmUnlock": "Unlock worktree “{{name}}”?",
@@ -1722,6 +1738,9 @@
     "detailActionsHeading": "Actions"
   },
   "submodule": {
+    "comparePins": "Compare submodule pins",
+    "samePin": "Both sides point to the same submodule commit.",
+    "sameContents": "These commits have identical file contents.",
     "none": "No submodules",
     "noCommits": "No commits available",
     "lastCommits": "Latest commits in submodule",
@@ -1747,6 +1766,8 @@
     "detailPinnedSuperRepo": "Pinned in super-repo",
     "detailRemoteHead": "Remote head",
     "commitsBehindShort": "↓{{count}} commits",
+    "detailOpenRepo": "Open repository",
+    "detailOpeningRepo": "Opening repository…",
     "detailPull": "Pull",
     "detailTerminal": "Terminal",
     "detailGitmodules": ".Gitmodules",
@@ -1969,6 +1990,21 @@
     "modeTwoWayTitle": "Compare ours directly against theirs"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "Rebased state (HEAD)",
+      "theirsIncoming": "Commit being replayed",
+      "theirsCommit": "Commit being replayed: {{commit}}",
+      "ours": "Rebased state",
+      "theirs": "Replayed commit",
+      "takeOursHint": "Take rebased state (1)",
+      "takeTheirsHint": "Take replayed commit (2)",
+      "allOurs": "All rebased state",
+      "allTheirs": "All replayed commit",
+      "acceptAllOursHint": "Resolve all conflicts with the rebased state",
+      "acceptAllTheirsHint": "Resolve all conflicts with the commit being replayed",
+      "explanation": "During a rebase, the left side (ours/HEAD) is the current target state, including previously replayed commits. The right side (theirs) is the commit being replayed.",
+      "targetBase": "Target base: {{target}}."
+    },
     "oursHead": "Ours (HEAD)",
     "theirsIncoming": "Theirs (incoming)",
     "vs": "vs",
@@ -2204,6 +2240,15 @@
     "stackBadgeTitle": "{{name}} · stack {{root}} · level {{level}}"
   },
   "commitInspect": {
+    "localNote": {
+      "title": "Local Git note",
+      "missing": "No local note for this commit under this ref.",
+      "failed": "Could not read the local Git note.",
+      "unsupported": "This Git note does not contain supported UTF-8 text.",
+      "tooLarge": "This Git note exceeds the 64 KiB display limit.",
+      "empty": "This Git note is empty."
+    },
+    "authorDate": "Author date",
     "metadata": "Show metadata",
     "explainCommit": "Explain",
     "changedFiles": "Changed files",
@@ -2259,6 +2304,12 @@
     "linesCount_other": "{{count}} lines"
   },
   "blamePage": {
+    "openPrevious": "Open previous revision",
+    "backToOriginal": "Back to original blame",
+    "previousRevision": "Previous revision · {{commit}}",
+    "noLineMapping": "This revision opens without a mapped line.",
+    "noPrevious": "Git did not identify a previous file version for this line.",
+    "previousUnavailable": "The previous file version could not be read locally.",
     "title": "Git Blame",
     "closeAria": "Close Git Blame",
     "gutterLabel": "Blame",
@@ -2276,6 +2327,7 @@
     "noRemotes": "No remotes configured."
   },
   "branch": {
+    "upstreamMissingLocally": "Upstream missing locally",
     "menuExplainBranch": "Explain this branch",
     "defaultEmpty": "No branches",
     "delete": "Delete",
@@ -2552,6 +2604,7 @@
     "submitBusy": "…"
   },
   "diff": {
+    "fileModeChanged": "File mode changed",
     "cancel": "Cancel",
     "lineDeselectTitle": "Deselect line",
     "lineSelectTitle": "Select line",
@@ -2809,6 +2862,8 @@
     "createdPushFailed": "Created {{name}}, but the push failed: {{error}}"
   },
   "branchMenu": {
+    "noFirstCommit": "No commit yet",
+    "unbornLabel": "{{branch}} · No commit yet",
     "switchTitle": "Switch branch",
     "pickAria": "Choose branch",
     "sectionLocal": "Local",
@@ -3510,6 +3565,27 @@
     "exitFail": "Finished with an error",
     "noRepo": "no repo"
   },
+  "workspaceFetchPreview": {
+    "target": "Fetch target: {{remote}}",
+    "noTarget": "No unambiguous fetch target is configured.",
+    "confirm": "Confirm targets",
+    "retryValidation": "Retry target check",
+    "repoChanged": "The repository has changed. Check the selection again.",
+    "targetChanged": "The fetch target has changed. Check the selection again.",
+    "unavailable": "Could not recheck the repository.",
+    "matched": "The targets match the preview. Workspace fetch is still unavailable.",
+    "title": "Workspace fetch preview",
+    "hint": "Check the selected repositories in {{workspace}}. This preview does not run a fetch.",
+    "empty": "No open repositories in this workspace.",
+    "lastFetch": "Last successful fetch this session: {{time}}",
+    "noFetch": "No successful fetch recorded this session.",
+    "active": "Remote operation in progress.",
+    "remotes": "Configured remotes: {{names}}",
+    "noRemotes": "No remotes configured.",
+    "shared": "Shares a Git directory with another selected repository.",
+    "inspect": "Check selected repositories",
+    "canceled": "Preview canceled."
+  },
   "remoteProgress": {
     "op_fetch": "Fetch",
     "op_pull": "Pull",
@@ -3676,6 +3752,7 @@
     "filteredHistory_other": "{{count}} commits loaded"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git simplifies path history. It can omit a merge and a line of ancestry when the selected path matches one parent. Remove the path filter to view the graph without that path restriction. Other filters stay active.",
     "renamedFrom": "renamed from {{path}}",
     "searchPlaceholder": "Search commit messages…",
     "apply": "Apply",
@@ -3782,6 +3859,26 @@
     "fileChanged": "“{{file}}” changed after the preview. Reload the preview and review its current changes before discarding."
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Git message cleanup",
+      "input": "Commit and Amend pass the trimmed draft with -m, without opening Git’s editor. The l8git template fills the draft. Git’s commit.template supplies initial text for its own editor and is ignored with -m.",
+      "default": "The Commit panel leaves cleanup to Git. Git uses commit.cleanup when configured. Git’s default is strip when editing and whitespace when passing text directly.",
+      "strip": "Like whitespace, and removes lines that start with Git’s comment marker. With the usual # marker, a line starting with #123 can disappear. A line written as Refs: #123 is kept in this case.",
+      "whitespace": "Removes trailing whitespace and leading and trailing blank lines, collapses consecutive blank lines, and keeps comment lines.",
+      "verbatim": "Skips cleanup on the message Git receives.",
+      "scissors": "Like whitespace, and cuts from the scissors line onward when editing in Git’s editor.",
+      "limits": "The effective setting and comment marker are not checked here. Git hooks can also change or reject the message."
+    },
+    "coAuthor": {
+      "title": "Co-author trailer preview",
+      "subject": "Subject",
+      "bodyLine": "Description line {{line}}",
+      "edit": "Edit line",
+      "editAt": "Edit {{location}}",
+      "placement": "Place the co-author lines in the final trailer block, with a blank line after the description.",
+      "format": "Use one Co-authored-by: Name <email> line per person.",
+      "attribution": "Account attribution depends on the host and the email linked to the person’s account."
+    },
     "typeLabel": "Choose a conventional commit type",
     "type": "Type",
     "conventionalTitle": "Conventional commit type",
@@ -3834,6 +3931,8 @@
     "goodMessage": "The subject is readable. Use the description to explain the reason and validation when helpful.",
     "startHint": "Describe what changed in one specific sentence. The optional body explains why and how you checked it.",
     "trailerType": "Commit trailer type",
+    "refsIntent": "Reference an issue.",
+    "closesIntent": "Request automatic issue closure. Whether the issue closes depends on the host, target branch and repository settings.",
     "trailerValue": "Issue reference or migration explanation",
     "migrationPlaceholder": "Explain the impact and migration…",
     "issuePlaceholder": "#123 or PROJ-42",
@@ -3855,6 +3954,10 @@
     }
   },
   "compare": {
+    "pickRef": "Choose reference for {{side}}",
+    "localBranch": "Local branch",
+    "remoteBranch": "Remote branch",
+    "tag": "Tag",
     "title": "Compare commits and branches",
     "description": "Compare branches, tags or commits and review changed files.",
     "base": "Base",
@@ -3907,6 +4010,9 @@
     "added": "Added",
     "modified": "Modified",
     "deleted": "Deleted",
+    "renameHelp": "Rename detection",
+    "renameHelpExplanation": "Git matches deleted and added files by content similarity in this comparison. The same move may appear as a deletion and an addition if the compared versions differ enough.",
+    "renameHelpDiff": "A detected rename shows the previous path. Select a file to review its content diff.",
     "renamed": "Renamed",
     "copied": "Copied",
     "typeChanged": "Type changed",
@@ -4029,7 +4135,7 @@
       "summary": "Understand the recorded dependency version and the checkout inside it.",
       "steps": [
         "Open Submodules and inspect the recorded commit, current checkout and local changes.",
-        "Initialize an uninitialized submodule, or update its checkout to the version recorded by the parent repository.",
+        "Initialize an uninitialized submodule, or update its checkout to the version recorded by the parent repository. Sync copies the versioned URL from .gitmodules into the local configuration of initialized submodules. This can overwrite an intentional local URL override.",
         "If developing the dependency, open its repository, create a branch and commit its changes there.",
         "Make the submodule commit available to your team before staging and committing the updated gitlink in the parent repository."
       ],
@@ -4105,10 +4211,10 @@
       "title": "Set work aside and return to it",
       "summary": "Use a stash when you need a temporary clean working copy.",
       "steps": [
-        "Open Stashes and create a stash with a descriptive name.",
+        "Open Stashes and create a stash with a descriptive name. Keep index leaves staged changes staged when you create the stash.",
         "Include untracked files if your new files belong to this work.",
         "Switch branches or perform the required operation.",
-        "Apply the stash to keep its saved copy, or pop it to remove the saved copy after a successful application. Inspect and resolve any conflicts."
+        "Apply the stash to keep its saved copy, or pop it to remove the saved copy after a successful application. Inspect and resolve any conflicts. With Git 2.52 or later and stash.index=true in Git config, Apply and Pop try to restore the saved split between staged and unstaged changes."
       ],
       "caution": "Ignored files are not included by the usual untracked-files option. A conflicting pop keeps the stash; inspect the working copy before applying it again."
     },
@@ -4799,15 +4905,19 @@
     "removeWorktree": "Remove worktree",
     "rerere": "Rerere",
     "rerereAutoupdate": "auto-staging on",
+    "rerereAutoupdateOff": "auto-staging off",
     "rerereDisable": "Disable rerere",
     "rerereEnable": "Enable rerere",
     "rerereForgetConfirm": "Forget the recorded resolution for {{file}}?",
-    "rerereHint": "Recorded conflict resolutions: see what Git reused and control it explicitly.",
+    "rerereHint": "Inspect conflict paths known to rerere and review resolutions before continuing.",
     "rerereOff": "rerere is disabled",
     "rerereOn": "rerere is enabled",
-    "rerereRemaining": "Still unresolved: {{files}}",
-    "rerereReused": "Resolutions reused in the current conflict",
-    "rerereUnset": "rerere is not configured (off)",
+    "rerereRemaining": "Conflicts not auto-resolved by rerere",
+    "rererePendingRecording": "Conflict resolutions pending recording",
+    "rerereUnset": "Rerere follows Git’s default and is enabled when a local cache exists.",
+    "rerereAutoupdateHint": "With auto-staging on, Git can stage a reused resolution. With it off, check and stage the resolution yourself.",
+    "rerereReview": "In Commit, check the working-tree diff and the staged changes in the index before continuing.",
+    "rerereNoPaths": "Git reports no paths in these rerere lists.",
     "rescue": "Rescue",
     "rescueBranch": "new branch name",
     "rescued": "Branch {{branch}} created at {{head}}",
@@ -5650,12 +5760,20 @@
       "writeFailed": "Could not write the configuration: {{error}}",
       "homeMissing": "No home folder was found."
     },
+    "submodule": {
+      "invalidPin": "Both submodule pins must be full commit IDs.",
+      "objectsUnavailable": "Required objects are missing or unreadable in the local submodule. {{error}}",
+      "notInitialized": "Initialize this submodule before opening its repository.",
+      "notRegistered": "This path is no longer registered as a submodule.",
+      "unsafePath": "The selected path does not lead to a safe submodule worktree."
+    },
     "git": {
       "startFailed": "Could not start Git: {{error}}",
       "patchWriteFailed": "Could not write the patch: {{error}}",
       "waitFailed": "Waiting for Git failed: {{error}}",
       "applyFailed": "git apply failed.",
       "unknownRemote": "Unknown remote: {{remote}}",
+      "remoteBusy": "A remote operation is already running for this repository. Try again when it finishes.",
       "headNotOnBranch": "HEAD does not point to a branch.",
       "unknownMergeStrategy": "Unknown merge strategy: {{strategy}}",
       "mainlineParent": "The mainline parent must be at least 1.",
@@ -5668,6 +5786,7 @@
       "unknownCommit": "Unknown commit: {{commit}}",
       "branchExists": "A branch named {{branch}} already exists.",
       "runFailed": "Could not run Git: {{error}}",
+      "missingLocalCommitFile": "This partial clone has the commit, but some file content needed for the diff is missing locally.",
       "commandFailed": "The Git command failed."
     },
     "hooks": {
@@ -5995,7 +6114,24 @@
     "changed": "Changed",
     "files_one": "{{count}} file",
     "files_other": "{{count}} files",
+    "committerDate": "Committer date",
     "committed": "Committed",
     "branch": "Branch"
+  },
+  "ignoreExplanation": {
+    "title": "Explain ignore rule…",
+    "description": "Enter a path to check its ignore rules. This only reads Git’s current rules and index.",
+    "path": "Repository-relative path",
+    "pathHint": "Relative to the repository root. Whitespace is preserved; the path need not exist.",
+    "check": "Check path",
+    "checking": "Checking…",
+    "ignored": "Git ignores this path.",
+    "negated": "A negated rule allows this path; it is not ignored.",
+    "noMatch": "No ignore rule matched this path.",
+    "noMatchHint": "This does not establish why a file is missing from the list. Tracked files are not checked against ignore rules.",
+    "source": "Rule file",
+    "line": "Line",
+    "pattern": "Pattern",
+    "invalidPath": "Enter a path relative to the repository root, without “..” or a .git directory. Parent directories must stay inside the repository."
   }
 }

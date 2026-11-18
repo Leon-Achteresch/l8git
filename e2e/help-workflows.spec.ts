@@ -1,5 +1,42 @@
 import { test, expect } from '@playwright/test';
 
+test('stash help explains saved staging from the real Stash tab without changing Apply or Pop', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto('/?scene=stash-help&lang=en');
+  await page.getByRole('tab', { name: 'Stash', exact: true }).click();
+  const help = page.getByRole('link', { name: 'Help: Set work aside and return to it', exact: true });
+  await help.click();
+  const guide = page.getByRole('article', { name: 'Set work aside and return to it', exact: true });
+  await expect(guide.getByText(/Keep index leaves staged changes staged when you create/)).toBeVisible();
+  await expect(guide.getByText(/Git 2\.52 or later and stash\.index=true .* Apply and Pop try to restore/)).toBeVisible();
+  await expect(guide.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '4');
+  const operations = () => page.evaluate(() => window.__L8GIT_TEST_CALLS__!.filter(
+    ({ command }) => ['git_stash_apply', 'git_stash_pop', 'git_stash_push'].includes(command),
+  ));
+  expect(await operations()).toEqual([]);
+  await guide.getByRole('button', { name: 'Open stashes', exact: true }).click();
+
+  const row = page.getByRole('button', { name: /Staging fixture/ });
+  await row.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Apply', exact: true }).click();
+  const request = { path: '/tmp/l8git-audit-fixture', index: 0, expectedHash: '9'.repeat(40) };
+  await expect.poll(operations).toEqual([{ command: 'git_stash_apply', args: request }]);
+  await expect(row).toBeVisible();
+  await row.click({ button: 'right' });
+  page.once('dialog', dialog => void dialog.dismiss());
+  await page.getByRole('menuitem', { name: 'Pop', exact: true }).click();
+  await expect(row).toBeVisible();
+  expect(await operations()).toEqual([{ command: 'git_stash_apply', args: request }]);
+  await row.click({ button: 'right' });
+  page.once('dialog', dialog => void dialog.accept());
+  await page.getByRole('menuitem', { name: 'Pop', exact: true }).click();
+  await expect(row).toHaveCount(0);
+  expect(await operations()).toEqual([
+    { command: 'git_stash_apply', args: request },
+    { command: 'git_stash_pop', args: request },
+  ]);
+});
+
 test('help searches German workflows and checklists do not execute Git mutations', async ({ page }) => {
   await page.goto('/?scene=git-workflow&lang=de');
   await page.getByRole('link', { name: 'Hilfe & Arbeitsabläufe', exact: true }).click();

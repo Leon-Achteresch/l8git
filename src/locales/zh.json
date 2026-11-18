@@ -1163,6 +1163,9 @@
     "providerSelfHostedExample": "自托管 Git"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "浅层历史记录。Git 在本地历史边界停止，因此此视图可能缺少边界之前的提交。",
+    "bareNotice": "此裸仓库没有工作副本。可以查看历史记录和引用。",
+    "bareOpenHistory": "打开历史记录",
     "loading": "加载中…"
   },
   "updates": {
@@ -1366,6 +1369,16 @@
     "confirmTitle": "运行“{{label}}”？",
     "confirmDesc": "将执行：{{run}}",
     "gitSection": "Git 工具"
+  },
+  "commitIdentity": {
+    "title": "提交身份不一致",
+    "description": "Git 解析出的身份与分配的配置不一致。请在提交前核对这些值。",
+    "profile": "配置：{{label}}",
+    "author": "Git 作者",
+    "committer": "Git 提交者",
+    "continue": "使用此身份提交",
+    "changed": "Git 身份已更改。请重新发起提交以核对当前值。",
+    "operation": "此 Git 操作期间无法检查身份。请使用该操作自己的继续按钮。"
   },
   "commitPanel": {
     "explainDiff": "解释差异",
@@ -1667,6 +1680,8 @@
     "baseOptionHead": "— 基于 HEAD（默认）—"
   },
   "worktree": {
+    "catalogCheckedAt": "工作树检查时间：{{time}}",
+    "catalogRefreshFailed": "无法刷新工作树。显示的条目可能已过时。",
     "none": "没有工作树",
     "noneShort": "没有条目",
     "remove": "移除",
@@ -1690,8 +1705,9 @@
     "whatAreWorktrees": "什么是工作树？",
     "noneInRepoTitle": "没有工作树",
     "noneInRepoBody": "此仓库没有关联的工作树。使用上方的 + 按钮添加。",
-    "cardConfirmRemove": "要移除工作树“{{name}}”吗？\n\n{{path}}",
-    "cardConfirmForceRemove": "此工作树有本地更改。仍要强制移除吗？",
+    "cardConfirmRemove": "要移除工作树“{{name}}”吗？\n\n{{path}}\n\n$t(worktree.cleanupIgnoredFiles)",
+    "cardConfirmForceRemove": "此工作树有本地更改。仍要强制移除吗？\n\n$t(worktree.cleanupIgnoredFiles)",
+    "cleanupIgnoredFiles": "即使 Git 显示工作树干净，移除工作树也可能删除已忽略的文件。快照包含已跟踪文件的改动和未忽略的未跟踪文件。启用未跟踪选项的 stash 也包含这两类内容。已忽略的未跟踪文件不在其中。若要保留这些文件，请取消并先将它们备份到工作树之外。",
     "cardToastRemoved": "工作树已移除。",
     "cardToastRemovedForce": "工作树已强制移除。",
     "cardConfirmUnlock": "要解锁工作树“{{name}}”吗？",
@@ -1722,6 +1738,9 @@
     "detailActionsHeading": "操作"
   },
   "submodule": {
+    "comparePins": "比较子模块固定提交",
+    "samePin": "两端指向同一个子模块提交。",
+    "sameContents": "这两个提交的文件内容相同。",
     "none": "没有子模块",
     "noCommits": "没有可用的提交",
     "lastCommits": "子模块中的最新提交",
@@ -1747,6 +1766,8 @@
     "detailPinnedSuperRepo": "在父仓库中锁定",
     "detailRemoteHead": "远程 HEAD",
     "commitsBehindShort": "↓{{count}} 个提交",
+    "detailOpenRepo": "打开仓库",
+    "detailOpeningRepo": "正在打开仓库…",
     "detailPull": "拉取",
     "detailTerminal": "终端",
     "detailGitmodules": ".Gitmodules",
@@ -1969,6 +1990,21 @@
     "modeTwoWayTitle": "直接对比我方与对方"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "变基当前状态（HEAD）",
+      "theirsIncoming": "正在重放的提交",
+      "theirsCommit": "正在重放的提交：{{commit}}",
+      "ours": "变基当前状态",
+      "theirs": "重放的提交",
+      "takeOursHint": "采用变基当前状态（1）",
+      "takeTheirsHint": "采用正在重放的提交（2）",
+      "allOurs": "全部采用变基当前状态",
+      "allTheirs": "全部采用重放的提交",
+      "acceptAllOursHint": "使用变基当前状态解决所有冲突",
+      "acceptAllTheirsHint": "使用正在重放的提交解决所有冲突",
+      "explanation": "变基时，左侧（ours/HEAD）是目标的当前状态，包含已重放的提交。右侧（theirs）是当前正在重放的提交。",
+      "targetBase": "目标基点：{{target}}。"
+    },
     "oursHead": "我方（HEAD）",
     "theirsIncoming": "对方（传入）",
     "vs": "对比",
@@ -2204,6 +2240,15 @@
     "stackBadgeTitle": "{{name}} · 堆栈 {{root}} · 层级 {{level}}"
   },
   "commitInspect": {
+    "localNote": {
+      "title": "本地 Git 注记",
+      "missing": "此引用下没有该提交的本地注记。",
+      "failed": "无法读取本地 Git 注记。",
+      "unsupported": "此 Git 注记不包含受支持的 UTF-8 文本。",
+      "tooLarge": "此 Git 注记超出了 64 KiB 的显示上限。",
+      "empty": "此 Git 注记为空。"
+    },
+    "authorDate": "作者时间",
     "metadata": "显示元数据",
     "explainCommit": "解释",
     "changedFiles": "更改的文件",
@@ -2259,6 +2304,12 @@
     "linesCount_other": "{{count}} 行"
   },
   "blamePage": {
+    "openPrevious": "打开上一修订",
+    "backToOriginal": "返回原始追溯视图",
+    "previousRevision": "上一修订 · {{commit}}",
+    "noLineMapping": "打开时不会定位到对应行。",
+    "noPrevious": "Git 未找到此行对应的上一文件版本。",
+    "previousUnavailable": "无法在本地读取上一文件版本。",
     "title": "Git Blame",
     "closeAria": "关闭 Git Blame",
     "gutterLabel": "Blame",
@@ -2276,6 +2327,7 @@
     "noRemotes": "未配置远程。"
   },
   "branch": {
+    "upstreamMissingLocally": "本地缺少上游",
     "menuExplainBranch": "解释此分支",
     "defaultEmpty": "没有分支",
     "delete": "删除",
@@ -2552,6 +2604,7 @@
     "submitBusy": "…"
   },
   "diff": {
+    "fileModeChanged": "文件模式已更改",
     "cancel": "取消",
     "lineDeselectTitle": "取消选择该行",
     "lineSelectTitle": "选择该行",
@@ -2809,6 +2862,8 @@
     "createdPushFailed": "已创建 {{name}}，但推送失败：{{error}}"
   },
   "branchMenu": {
+    "noFirstCommit": "尚无提交",
+    "unbornLabel": "{{branch}} · 尚无提交",
     "switchTitle": "切换分支",
     "pickAria": "选择分支",
     "sectionLocal": "本地",
@@ -3510,6 +3565,27 @@
     "exitFail": "执行出错",
     "noRepo": "无仓库"
   },
+  "workspaceFetchPreview": {
+    "target": "抓取目标：{{remote}}",
+    "noTarget": "未配置明确的抓取目标。",
+    "confirm": "确认目标",
+    "retryValidation": "重新检查目标",
+    "repoChanged": "仓库已更改。请重新检查所选仓库。",
+    "targetChanged": "抓取目标已更改。请重新检查所选仓库。",
+    "unavailable": "无法重新检查仓库。",
+    "matched": "目标与预览一致。工作区批量抓取仍不可用。",
+    "title": "工作区获取预览",
+    "hint": "检查 {{workspace}} 中选中的仓库。预览不会执行 fetch。",
+    "empty": "此工作区没有打开的仓库。",
+    "lastFetch": "本次会话最后一次成功获取：{{time}}",
+    "noFetch": "本次会话没有成功获取的记录。",
+    "active": "远程操作正在进行。",
+    "remotes": "已配置的远程仓库：{{names}}",
+    "noRemotes": "未配置远程仓库。",
+    "shared": "与另一个选中的仓库共用 Git 目录。",
+    "inspect": "检查选中的仓库",
+    "canceled": "已取消预览。"
+  },
   "remoteProgress": {
     "op_fetch": "获取",
     "op_pull": "拉取",
@@ -3676,6 +3752,7 @@
     "filteredHistory_other": "已加载 {{count}} 个提交"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git 会简化路径历史。当所选路径与某个父提交一致时，Git 可能省略该合并及一条祖先路径。移除路径筛选即可查看没有该路径限制的提交图。其他筛选条件仍然有效。",
     "renamedFrom": "由 {{path}} 重命名",
     "searchPlaceholder": "搜索提交信息…",
     "apply": "应用",
@@ -3712,6 +3789,26 @@
     "hashesCopied": "已复制 {{count}} 个提交哈希。"
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Git 提交消息清理",
+      "input": "提交和修订通过 -m 传入去掉首尾空白的草稿，无需打开 Git 编辑器。l8git 模板用于预填草稿。Git 的 commit.template 为其编辑器提供初始文本，使用 -m 时会被忽略。",
+      "default": "提交面板由 Git 负责清理。配置了 commit.cleanup 时，Git 会采用该配置。默认情况下，通过编辑器编辑时使用 strip，直接传入文本时使用 whitespace。",
+      "strip": "与 whitespace 类似，还会删除以 Git 注释标记开头的行。使用常见的 # 标记时，以 #123 开头的行可能被删除。此时 Refs: #123 这样的行会保留。",
+      "whitespace": "移除行尾空白及开头和结尾的空行，将连续空行合并为一行，并保留注释行。",
+      "verbatim": "跳过对 Git 收到的消息的清理。",
+      "scissors": "与 whitespace 类似，但在 Git 编辑器中编辑时还会从剪切标记行开始截断。",
+      "limits": "此处不检查实际生效的设置或注释标记。Git 钩子也可能修改或拒绝消息。"
+    },
+    "coAuthor": {
+      "title": "共同作者尾注预览",
+      "subject": "主题",
+      "bodyLine": "说明第 {{line}} 行",
+      "edit": "编辑此行",
+      "editAt": "编辑{{location}}",
+      "placement": "将共同作者行放在末尾的尾注区块中，并用一个空行与说明隔开。",
+      "format": "每人使用一行 Co-authored-by: 姓名 <邮箱>。",
+      "attribution": "归属取决于托管平台和该用户账户关联的邮箱。"
+    },
     "typeLabel": "选择约定式提交类型",
     "type": "类型",
     "conventionalTitle": "约定式提交类型",
@@ -3750,6 +3847,8 @@
     "goodMessage": "标题清晰。可在正文中说明修改原因和验证方式。",
     "startHint": "用一句具体的话说明修改内容。可选正文用于解释原因和验证方式。",
     "trailerType": "提交页脚类型",
+    "refsIntent": "引用一个议题。",
+    "closesIntent": "请求自动关闭议题。议题是否会关闭取决于托管平台、目标分支和仓库设置。",
     "trailerValue": "问题引用或迁移说明",
     "migrationPlaceholder": "说明影响和迁移方法…",
     "issuePlaceholder": "#123 或 PROJ-42",
@@ -3785,6 +3884,10 @@
     }
   },
   "compare": {
+    "pickRef": "为{{side}}选择引用",
+    "localBranch": "本地分支",
+    "remoteBranch": "远程分支",
+    "tag": "标签",
     "title": "比较提交和分支",
     "description": "比较分支、标签或提交并审阅文件变更。",
     "base": "基准",
@@ -3837,6 +3940,9 @@
     "added": "新增",
     "modified": "修改",
     "deleted": "删除",
+    "renameHelp": "重命名检测",
+    "renameHelpExplanation": "Git 会在此次比较中根据内容相似度匹配已删除和新增的文件。如果比较的版本差异较大，同一次移动可能显示为一项删除和一项新增。",
+    "renameHelpDiff": "检测到重命名时会显示原路径。选择文件即可查看其内容差异。",
     "renamed": "重命名",
     "copied": "复制",
     "typeChanged": "类型变更",
@@ -4029,7 +4135,7 @@
       "summary": "理解已记录的依赖版本与子模块内的检出状态。",
       "steps": [
         "打开子模块，检查记录的提交、当前检出版本和本地更改。",
-        "初始化尚未初始化的子模块，或将其检出版本更新为父仓库记录的版本。",
+        "初始化尚未初始化的子模块，或将其检出版本更新为父仓库记录的版本。 “同步”会将 .gitmodules 中受版本控制的 URL 写入已初始化子模块的本地配置。这可能覆盖有意设置的本地 URL。",
         "如果需要开发依赖，请打开依赖的仓库、创建分支，并在该仓库中提交更改。",
         "先让团队能够获取子模块的提交，再在父仓库暂存并提交更新后的 gitlink。"
       ],
@@ -4105,10 +4211,10 @@
       "title": "暂时搁置工作并稍后恢复",
       "summary": "需要临时保持工作区干净时，可使用 stash。",
       "steps": [
-        "打开暂存记录，创建一个说明清楚的 stash。",
+        "打开暂存记录，创建一个说明清楚的 stash。创建 stash 时，保留索引选项会让已暂存的改动留在索引中。",
         "如果新文件属于这项工作，请包含未跟踪文件。",
         "切换分支或执行所需操作。",
-        "使用 Apply 应用并保留保存的副本，或使用 Pop 在应用成功后删除副本。检查并解决冲突。"
+        "使用 Apply 应用并保留保存的副本，或使用 Pop 在应用成功后删除副本。检查并解决冲突。从 Git 2.52 起，在 Git 配置中设置 stash.index=true 后，Apply 和 Pop 会尝试恢复保存时已暂存和未暂存改动的划分。"
       ],
       "caution": "通常的包含未跟踪文件选项不会包含已忽略文件。发生冲突的 pop 会保留 stash；再次应用前请检查工作区。"
     },
@@ -4799,15 +4905,19 @@
     "removeWorktree": "Remove worktree",
     "rerere": "Rerere",
     "rerereAutoupdate": "auto-staging on",
+    "rerereAutoupdateOff": "自动暂存已关闭",
     "rerereDisable": "Disable rerere",
     "rerereEnable": "Enable rerere",
     "rerereForgetConfirm": "Forget the recorded resolution for {{file}}?",
-    "rerereHint": "Recorded conflict resolutions: see what Git reused and control it explicitly.",
+    "rerereHint": "查看 rerere 已知的冲突路径，并在继续之前检查解决结果。",
     "rerereOff": "rerere is disabled",
     "rerereOn": "rerere is enabled",
-    "rerereRemaining": "Still unresolved: {{files}}",
-    "rerereReused": "Resolutions reused in the current conflict",
-    "rerereUnset": "rerere is not configured (off)",
+    "rerereRemaining": "rerere 未自动解决的冲突",
+    "rererePendingRecording": "等待记录解决结果的冲突",
+    "rerereUnset": "rerere 遵循 Git 的默认行为，在本地缓存存在时启用。",
+    "rerereAutoupdateHint": "启用自动暂存时，Git 可以暂存复用的解决结果。关闭时，请检查解决结果并手动暂存。",
+    "rerereReview": "继续之前，请在“提交”中检查工作区差异和索引中已暂存的更改。",
+    "rerereNoPaths": "Git 在这些 rerere 列表中没有报告路径。",
     "rescue": "Rescue",
     "rescueBranch": "new branch name",
     "rescued": "Branch {{branch}} created at {{head}}",
@@ -5650,12 +5760,20 @@
       "writeFailed": "无法写入配置：{{error}}",
       "homeMissing": "未找到主文件夹。"
     },
+    "submodule": {
+      "invalidPin": "两个子模块固定提交都必须使用完整的提交 ID。",
+      "objectsUnavailable": "本地子模块缺少所需对象，或对象无法读取。{{error}}",
+      "notInitialized": "请先初始化此子模块，再打开其仓库。",
+      "notRegistered": "此路径已不再注册为子模块。",
+      "unsafePath": "所选路径未指向安全的子模块工作树。"
+    },
     "git": {
       "startFailed": "无法启动 Git：{{error}}",
       "patchWriteFailed": "无法写入补丁：{{error}}",
       "waitFailed": "等待 Git 时出错：{{error}}",
       "applyFailed": "git apply 失败。",
       "unknownRemote": "未知的远程：{{remote}}",
+      "remoteBusy": "此仓库已有远程操作正在进行。请在该操作完成后重试。",
       "headNotOnBranch": "HEAD 未指向任何分支。",
       "unknownMergeStrategy": "未知的合并策略：{{strategy}}",
       "mainlineParent": "主线父提交必须至少为 1。",
@@ -5668,6 +5786,7 @@
       "unknownCommit": "未知的提交：{{commit}}",
       "branchExists": "名为 {{branch}} 的分支已存在。",
       "runFailed": "无法运行 Git：{{error}}",
+      "missingLocalCommitFile": "此部分克隆包含该提交，但显示差异所需的部分文件内容在本地缺失。",
       "commandFailed": "Git 命令失败。"
     },
     "hooks": {
@@ -5995,7 +6114,24 @@
     "changed": "变更",
     "files_one": "{{count}} 个文件",
     "files_other": "{{count}} 个文件",
+    "committerDate": "提交者时间",
     "committed": "提交于",
     "branch": "分支"
+  },
+  "ignoreExplanation": {
+    "title": "解释忽略规则…",
+    "description": "输入路径以检查其忽略规则。此操作只读取当前 Git 规则和索引。",
+    "path": "仓库相对路径",
+    "pathHint": "相对于仓库根目录。保留空白字符，路径无需存在。",
+    "check": "检查路径",
+    "checking": "正在检查…",
+    "ignored": "Git 忽略了此路径。",
+    "negated": "否定规则允许此路径，因此它未被忽略。",
+    "noMatch": "没有忽略规则匹配此路径。",
+    "noMatchHint": "这不能解释列表中所有文件缺失的原因。已跟踪的文件不会按忽略规则检查。",
+    "source": "规则文件",
+    "line": "行号",
+    "pattern": "模式",
+    "invalidPath": "请输入相对于仓库根目录的路径，不含“..”或 .git 目录。父目录必须位于仓库内部。"
   }
 }

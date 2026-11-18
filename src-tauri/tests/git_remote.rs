@@ -8,6 +8,390 @@ fn remote_head(bare: &TestRepo, branch: &str) -> String {
 }
 
 #[tokio::test]
+async fn fetch_scope_groups_linked_worktrees_and_reads_only_configured_remote_names() {
+    let repo = TestRepo::new("fetch-scope");
+    let source = TestRepo::new("fetch-scope-source");
+    repo.commit("local.txt", "local\n", "local");
+    source.commit("remote.txt", "remote\n", "remote");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    let alias_path = common::scratch_path("fetch-scope-alias");
+    repo.git(&["worktree", "add", "--detach", alias_path.to_str().unwrap()]);
+    let alias = TestRepo::adopt(alias_path);
+    let isolated = TestRepo::new("fetch-scope-isolated");
+    let config = repo.read(".git/config");
+    let refs = repo.git(&["show-ref"]);
+
+    let primary = common::json(&git::repo_fetch_scope(repo.s()).await.unwrap());
+    assert_eq!(primary["remotes"], serde_json::json!(["origin"]));
+    assert_eq!(primary["target"]["remote"], "origin");
+    let linked = common::json(&git::repo_fetch_scope(alias.s()).await.unwrap());
+    assert_eq!(primary["commonDir"], linked["commonDir"]);
+    assert_ne!(primary["target"]["fingerprint"], linked["target"]["fingerprint"]);
+    let unrelated = common::json(&git::repo_fetch_scope(isolated.s()).await.unwrap());
+    assert_eq!(unrelated["remotes"], serde_json::json!([]));
+    assert_ne!(unrelated["commonDir"], primary["commonDir"]);
+    assert!(git::repo_fetch_scope(repo.path.join("missing").to_string_lossy().into())
+        .await
+        .is_err());
+    assert_eq!(repo.read(".git/config"), config);
+    assert_eq!(repo.git(&["show-ref"]), refs);
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+}
+
+#[tokio::test]
+async fn fetch_target_tracks_effective_url_and_refspecs_without_contacting_remotes() {
+    async fn scope(repo: &TestRepo) -> serde_json::Value {
+        common::json(&git::repo_fetch_scope(repo.s()).await.unwrap())
+    }
+
+    let repo = TestRepo::new("target-repo");
+    let first = TestRepo::bare("target-first");
+    let second = TestRepo::bare("target-second");
+    repo.commit("base.txt", "base\n", "base");
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&["remote", "add", "origin", &first.file_url()]);
+    let baseline = scope(&repo).await;
+    assert_eq!(baseline["target"]["remote"], "origin");
+    assert_eq!(
+        baseline["target"]["fingerprint"].as_str().unwrap().len(),
+        64
+    );
+    assert!(!baseline.to_string().contains(&first.file_url()));
+
+    repo.git(&["remote", "set-url", "--push", "origin", &second.file_url()]);
+    assert_eq!(scope(&repo).await, baseline);
+    repo.git(&[
+        "config",
+        &format!("url.{}.insteadOf", second.file_url()),
+        &first.file_url(),
+    ]);
+    let rewritten = scope(&repo).await;
+    assert_eq!(rewritten["commonDir"], baseline["commonDir"]);
+    assert_ne!(rewritten["target"], baseline["target"]);
+    assert!(!rewritten.to_string().contains(&second.file_url()));
+
+    repo.git(&[
+        "config",
+        "remote.origin.fetch",
+        "+refs/heads/main:refs/remotes/origin/main",
+    ]);
+    let changed_refspec = scope(&repo).await;
+    assert_ne!(changed_refspec["target"], rewritten["target"]);
+    assert_eq!(changed_refspec, scope(&repo).await);
+    let refs = repo.git(&["show-ref"]);
+    let config = repo.read(".git/config");
+    assert_eq!(scope(&repo).await, changed_refspec);
+    assert_eq!(repo.git(&["show-ref"]), refs);
+    assert_eq!(repo.read(".git/config"), config);
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+
+    repo.git(&["remote", "add", "mirror", &second.file_url()]);
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&["remote", "remove", "mirror"]);
+    repo.git(&["config", "--add", "remote.origin.url", &second.file_url()]);
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&["config", "--unset-all", "remote.origin.url"]);
+    assert_eq!(scope(&repo).await["remotes"], serde_json::json!(["origin"]));
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&[
+        "config",
+        "remote.origin.url",
+        &format!("{}\n{}", first.file_url(), second.file_url()),
+    ]);
+    assert!(scope(&repo).await["target"].is_null());
+    repo.git(&["config", "remote.origin.url", &first.file_url()]);
+    repo.git(&["config", "--unset-all", "remote.origin.fetch"]);
+    assert!(scope(&repo).await["target"].is_null());
+    assert!(!repo.exists(".git/FETCH_HEAD"));
+}
+
+#[cfg(feature = "headless")]
+#[tokio::test]
+async fn fetch_scope_dispatch_checks_the_repository_root_and_returns_the_same_target() {
+    use l8git_lib::server::{
+        dispatch,
+        state::{ConnectionHandle, DispatchCtx, ServerState},
+    };
+    use serde_json::json;
+    use std::sync::Arc;
+
+    let repo = TestRepo::new("target-ipc");
+    let source = TestRepo::bare("target-ipc-source");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    let state = ServerState::new("test".into(), [0; 32], vec![repo.path.clone()]);
+    let (tx, _rx) = tokio::sync::mpsc::channel(1);
+    let command = "repo_fetch_scope";
+    let ctx = DispatchCtx::new(
+        state.clone(),
+        Arc::new(ConnectionHandle::new(1, tx)),
+        1,
+        command,
+    );
+    let args = json!({ "path": repo.s() });
+    state.ensure_command_allowed(command, &args).unwrap();
+    let result = dispatch::dispatch(command, args, &ctx).await.unwrap();
+    assert_eq!(
+        result,
+        common::json(&git::repo_fetch_scope(repo.s()).await.unwrap())
+    );
+    assert_eq!(result["target"]["remote"], "origin");
+    assert!(!result.to_string().contains(&source.file_url()));
+    assert!(state
+        .ensure_command_allowed(command, &json!({ "path": source.s() }))
+        .is_err());
+}
+
+#[tokio::test]
+async fn separate_fetches_keep_success_when_another_local_remote_fails() {
+    let source = TestRepo::new("fetch-results-source");
+    let head = source.commit("remote.txt", "remote\n", "fixture remote commit");
+    let good = TestRepo::new("fetch-results-good");
+    let bad = TestRepo::new("fetch-results-bad");
+    let good_head = good.commit("app.txt", "good\n", "local good");
+    let bad_head = bad.commit("app.txt", "bad\n", "local bad");
+    good.git(&["remote", "add", "origin", &source.file_url()]);
+    bad.git(&["remote", "add", "origin", &format!("{}/missing.git", source.file_url())]);
+    let fetch = |path, id: &str| git::git_fetch(path, Some(true), Some(false),
+        Some("origin".into()), None, Some(id.into()));
+    assert!(fetch(good.s(), "f02-local-good").await.is_ok());
+    assert!(fetch(bad.s(), "f02-local-bad").await.is_err());
+    assert_eq!(good.rev("refs/remotes/origin/main"), head);
+    assert!(!bad.try_git(&["rev-parse", "--verify", "refs/remotes/origin/main"]).0);
+    assert_eq!(good.head(), good_head);
+    assert_eq!(bad.head(), bad_head);
+    assert!(good.porcelain().is_empty() && bad.porcelain().is_empty());
+
+    bad.git(&["remote", "set-url", "origin", &source.file_url()]);
+    fetch(bad.s(), "f02-local-retry").await.unwrap();
+    assert_eq!(bad.rev("refs/remotes/origin/main"), head);
+    assert_eq!(bad.head(), bad_head);
+    assert!(bad.porcelain().is_empty());
+}
+
+#[cfg(all(unix, feature = "headless"))]
+#[tokio::test]
+async fn remote_reservation_covers_aliases_and_dispatch_until_git_exits() {
+    use l8git_lib::server::{
+        dispatch,
+        state::{ConnectionHandle, DispatchCtx, ServerState, OUTBOX_CAPACITY},
+    };
+    use serde_json::{json, Value};
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    use std::{fs, sync::Arc, time::Duration};
+    use tokio::time::{sleep, timeout};
+
+    async fn daemon(ctx: &DispatchCtx, cmd: &str, args: Value) -> Result<Value, String> {
+        ctx.state.ensure_command_allowed(cmd, &args)?;
+        dispatch::dispatch(cmd, args, ctx).await
+    }
+
+    async fn wait_for_upload(repo: &TestRepo) {
+        timeout(Duration::from_secs(5), async {
+            while !repo.exists(".git/upload-started") {
+                sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("Git did not reach the fixture's file transport");
+    }
+
+    fn assert_busy<T: std::fmt::Debug>(result: Result<T, String>) {
+        let error = result.unwrap_err();
+        assert!(error.contains(r#""code":"git.remoteBusy""#), "{error}");
+    }
+
+    let source = TestRepo::new("reserve-source");
+    let first = source.commit("remote.txt", "first\n", "remote first");
+    let repo = TestRepo::new("reserve-repo");
+    repo.commit("local.txt", "local\n", "local");
+    repo.git(&["remote", "add", "origin", &source.file_url()]);
+    let linked_path = common::scratch_path("reserve-linked");
+    repo.git(&["worktree", "add", "--detach", linked_path.to_str().unwrap()]);
+    let linked = TestRepo::adopt(linked_path);
+    let independent = TestRepo::new("reserve-independent");
+    independent.git(&["remote", "add", "origin", &source.file_url()]);
+    let alias = independent.path.join("alias");
+    symlink(&repo.path, &alias).unwrap();
+    let alias = alias.to_str().unwrap().to_owned();
+
+    // Gate the actual file transport before Git touches tracking refs.
+    let upload = repo.path.join(".git/gate-upload-pack");
+    repo.write(
+        ".git/gate-upload-pack",
+        r#"#!/bin/sh
+dir=${0%/*}
+: > "$dir/upload-started"
+for attempt in $(seq 1 750); do
+    if [ ! -f "$dir/hold-upload" ]; then
+        exec git-upload-pack "$@"
+    fi
+    sleep 0.02
+done
+exit 1
+"#,
+    );
+    fs::set_permissions(&upload, fs::Permissions::from_mode(0o700)).unwrap();
+    let command = format!("'{}'", upload.to_str().unwrap().replace('\'', "'\\''"));
+    repo.git(&["config", "remote.origin.uploadpack", &command]);
+
+    let state = ServerState::new(
+        "test".into(),
+        [0; 32],
+        vec![repo.path.clone(), linked.path.clone()],
+    );
+    let (tx, _rx) = tokio::sync::mpsc::channel(OUTBOX_CAPACITY);
+    let ctx = DispatchCtx::new(
+        state,
+        Arc::new(ConnectionHandle::new(1, tx)),
+        1,
+        "git_fetch",
+    );
+
+    let fetch = |path, op_id: Option<&str>| {
+        git::git_fetch(
+            path,
+            None,
+            None,
+            Some("origin".into()),
+            None,
+            op_id.map(str::to_owned),
+        )
+    };
+    let deadline = Duration::from_secs(5);
+    let hold = repo.path.join(".git/hold-upload");
+    fs::write(&hold, "").unwrap();
+    let direct = tokio::spawn(fetch(repo.s(), None));
+    wait_for_upload(&repo).await;
+
+    timeout(deadline, async {
+        assert_busy(fetch(alias.clone(), Some("reservation-rejected")).await);
+        let pull = json!({ "path": linked.s(), "remote": "origin", "opId": "reservation-pull" });
+        assert_busy(daemon(&ctx, "git_pull", pull).await);
+        let push =
+            json!({ "path": linked.s(), "remote": "origin", "setUpstream": false, "dryRun": true });
+        assert_busy(daemon(&ctx, "git_push", push).await);
+        assert!(!git::git_remote_cancel("reservation-rejected".into())
+            .await
+            .unwrap());
+        fetch(independent.s(), None).await.unwrap();
+        assert_eq!(independent.rev("refs/remotes/origin/main"), first);
+    })
+    .await
+    .expect("competing operations waited for the active checkout");
+    assert!(!direct.is_finished());
+    fs::remove_file(&hold).unwrap();
+    timeout(deadline, direct).await.unwrap().unwrap().unwrap();
+    assert_eq!(repo.rev("refs/remotes/origin/main"), first);
+
+    let second = source.commit("remote.txt", "second\n", "remote second");
+    fs::remove_file(repo.path.join(".git/upload-started")).unwrap();
+    fs::write(&hold, "").unwrap();
+    let daemon_fetch =
+        json!({ "path": linked.s(), "remote": "origin", "opId": "reservation-cancel" });
+    let ctx = Arc::new(ctx);
+    let running = {
+        let ctx = ctx.clone();
+        tokio::spawn(async move { daemon(&ctx, "git_fetch", daemon_fetch).await })
+    };
+    wait_for_upload(&repo).await;
+    assert_busy(timeout(deadline, fetch(alias.clone(), None)).await.unwrap());
+    let cancel = json!({ "opId": "reservation-cancel" });
+    assert_eq!(
+        daemon(&ctx, "git_remote_cancel", cancel).await.unwrap(),
+        true
+    );
+    let error = timeout(deadline, running)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(error, git::REMOTE_CANCELED);
+    assert_eq!(repo.rev("refs/remotes/origin/main"), first);
+    assert!(!git::git_remote_cancel("reservation-cancel".into())
+        .await
+        .unwrap());
+
+    fs::remove_file(&hold).unwrap();
+    let retry = json!({ "path": linked.s(), "remote": "origin", "opId": "reservation-retry" });
+    daemon(&ctx, "git_fetch", retry).await.unwrap();
+    assert_eq!(repo.rev("refs/remotes/origin/main"), second);
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    for (streamed, kill_parent) in [(false, false), (false, true), (true, false), (true, true)] {
+        fs::remove_file(repo.path.join(".git/upload-started")).unwrap();
+        fs::write(&hold, "").unwrap();
+        let mut owner = tokio::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--ignored", "--exact", "remote_reservation_fixture_process"])
+            .env("L8GIT_TEST_RESERVATION_REPO", &repo.path)
+            .env(
+                "L8GIT_TEST_RESERVATION_STREAMED",
+                if streamed { "1" } else { "0" },
+            )
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        wait_for_upload(&repo).await;
+        assert_busy(timeout(deadline, fetch(alias.clone(), None)).await.unwrap());
+        let pull = json!({ "path": linked.s(), "remote": "origin" });
+        assert_busy(
+            timeout(deadline, daemon(&ctx, "git_pull", pull))
+                .await
+                .unwrap(),
+        );
+        fetch(independent.s(), None).await.unwrap();
+
+        if kill_parent {
+            // Only kill the fixture application. Its Git and upload-pack
+            // remain alive with the transport gate still held.
+            owner.kill().await.unwrap();
+            assert!(!owner.wait().await.unwrap().success());
+            assert_busy(timeout(deadline, fetch(alias.clone(), None)).await.unwrap());
+        }
+        fs::remove_file(&hold).unwrap();
+        if !kill_parent {
+            assert!(timeout(deadline, owner.wait())
+                .await
+                .unwrap()
+                .unwrap()
+                .success());
+        }
+        timeout(deadline, async {
+            loop {
+                match fetch(linked.s(), None).await {
+                    Ok(_) => break,
+                    Err(error) if error.contains(r#""code":"git.remoteBusy""#) => {
+                        sleep(Duration::from_millis(20)).await;
+                    }
+                    Err(error) => panic!("unexpected retry error: {error}"),
+                }
+            }
+        })
+        .await
+        .expect("reservation did not release after the fixture Git exited");
+    }
+}
+
+#[cfg(all(any(target_os = "macos", target_os = "linux"), feature = "headless"))]
+#[tokio::test]
+#[ignore = "started as a separate process by the remote reservation test"]
+async fn remote_reservation_fixture_process() {
+    let Ok(path) = std::env::var("L8GIT_TEST_RESERVATION_REPO") else {
+        return;
+    };
+    let streamed = std::env::var("L8GIT_TEST_RESERVATION_STREAMED").as_deref() == Ok("1");
+    git::git_fetch(
+        path,
+        None,
+        None,
+        Some("origin".into()),
+        None,
+        streamed.then(|| "fixture-child".into()),
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
 async fn list_git_remotes_returns_one_entry_per_remote() {
     let repo = TestRepo::new("remotes-list");
     repo.commit("a.txt", "1\n", "c1");

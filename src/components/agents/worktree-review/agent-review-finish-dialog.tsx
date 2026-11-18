@@ -211,6 +211,7 @@ export function AgentReviewFinishDialog({ open, onOpenChange, worktreePath, base
 
         <AgentReviewStepCard step={localizedStep(cleanupStep)} title={t("agentReview.stepCleanup")}>
           <p className="text-[0.6875rem] text-muted-foreground">{t("agentReviewFinish.cleanupHint")}</p>
+          {!state.worktreeRemoved && <p className="text-[0.6875rem] text-muted-foreground">{t("worktree.cleanupIgnoredFiles")}</p>}
           {state.worktreeRemoved ? <p role="status" className="text-[0.6875rem] text-git-added">{t(state.branchDeleted ? "agentReviewFinish.cleanupComplete" : "agentReviewFinish.worktreeRemoved")}</p> : null}
           <AgentReviewStepAction step={cleanupStep} steps={state.steps} label={t(state.worktreeRemoved ? "agentReviewFinish.deleteRemainingBranch" : "agentReview.runCleanup")} disabled={locked}
             onRun={() => void runStep("cleanup")} onRetry={() => void runStep("cleanup", true)} />

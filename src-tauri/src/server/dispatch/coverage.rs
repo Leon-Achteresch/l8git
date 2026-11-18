@@ -6,6 +6,8 @@ pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     // Read and write arbitrary host paths picked in a native dialog.
     "git_format_patch", "git_export_diff_patch", "git_patch_check", "git_patch_apply",
     "runtime_diagnostics",
+    // Local commit details may display private annotations on the desktop.
+    "repo_commit_note",
     "fetch_claude_usage", "git_command_log_live", "read_image_data_url",
     "jira_credentials_status", "jira_delete_credentials", "jira_fetch_comments", "jira_fetch_issue",
     "jira_mcp_command", "jira_save_credentials", "jira_search_issues", "jira_sync_cursor_mcp",
@@ -17,6 +19,8 @@ pub const LOCAL_ONLY_COMMANDS: &[&str] = &[
     "hub_oauth_start", "hub_use_for_git",
     // Would let a remote client make the host POST to any URL.
     "hub_t3_send",
+    "workspace_fetch_desktop_available", "workspace_fetch_desktop_confirm",
+    "workspace_fetch_desktop_revoke", "workspace_fetch_desktop_validate",
     // External diff/merge tools open GUI windows on the host and use its global git config.
     "git_external_tool_settings", "git_set_external_tool", "git_open_difftool", "git_open_mergetool",
 ];

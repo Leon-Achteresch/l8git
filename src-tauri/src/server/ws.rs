@@ -151,6 +151,11 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
         return Err("auth-Tag ungültig".into());
     }
 
+    let (outbox, out_rx) = mpsc::channel::<Value>(OUTBOX_CAPACITY);
+    let conn = Arc::new(ConnectionHandle::new(state.next_connection_id(), outbox));
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    let workspace_session = state.workspace_fetch_authority.register(conn.id)?;
+
     let ready = state.ready_frame();
     let (mut sealer, opener, _) = handshake.split();
     let ready_frame = sealer.seal_json(&ready)?;
@@ -158,8 +163,6 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
         .await
         .map_err(|_| "Verbindung geschlossen".to_string())?;
 
-    let (outbox, out_rx) = mpsc::channel::<Value>(OUTBOX_CAPACITY);
-    let conn = Arc::new(ConnectionHandle::new(state.next_connection_id(), outbox));
     log::info!("l8gitd connection {} authenticated", conn.id);
 
     let writer = tokio::spawn(writer_loop(wire, sealer, out_rx));
@@ -167,6 +170,8 @@ pub async fn session(state: Arc<ServerState>, mut inbox: Inbox, wire: Wire) -> R
 
     let result = read_loop(state.clone(), conn.clone(), opener, inbox).await;
 
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    drop(workspace_session);
     conn.release_resources(&state);
     log::info!("l8gitd connection {} closed", conn.id);
     drop(conn);
@@ -206,6 +211,8 @@ async fn event_loop(state: Arc<ServerState>, conn: Arc<ConnectionHandle>) {
 struct PendingRequest {
     abort: AbortHandle,
     op_id: Option<String>,
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    workspace_cancel: Option<Arc<crate::git::ScopedRemoteCancellation>>,
 }
 
 type Pending = Arc<Mutex<HashMap<i64, PendingRequest>>>;
@@ -253,6 +260,13 @@ async fn read_loop(
 
 impl PendingRequest {
     fn cancel(&self) {
+        #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+        if let Some(cancel) = self.workspace_cancel.clone() {
+            // Mark synchronously so a queued validation cannot outrun cancel.
+            cancel.cancel();
+            self.abort.abort();
+            return;
+        }
         if let Some(op_id) = self.op_id.clone() {
             tokio::task::spawn_blocking(move || crate::git::cancel_remote_op(&op_id));
         }
@@ -316,6 +330,8 @@ fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending
         .and_then(Value::as_str)
         .map(str::to_string);
     let ctx = DispatchCtx::new(state.clone(), conn.clone(), id, &cmd);
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    let workspace_cancel = ctx.workspace_cancel.clone();
     let conn_for_task = conn.clone();
     let pending_for_task = pending.clone();
     let (cancel, canceled) = tokio::sync::oneshot::channel::<()>();
@@ -341,6 +357,8 @@ fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending
         PendingRequest {
             abort: task.abort_handle(),
             op_id,
+            #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+            workspace_cancel,
         },
     );
 }
@@ -453,6 +471,8 @@ mod tests {
             PendingRequest {
                 abort: task.abort_handle(),
                 op_id: None,
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
+                workspace_cancel: None,
             },
         );
         handle_frame(&state, &conn, &pending, json!({ "type": "cancel", "id": 11 }));
@@ -506,6 +526,8 @@ mod tests {
             PendingRequest {
                 abort: task.abort_handle(),
                 op_id: Some("ws-cancel".to_string()),
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
+                workspace_cancel: None,
             },
         );
 

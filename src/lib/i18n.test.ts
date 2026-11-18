@@ -27,6 +27,11 @@ describe("i18n", () => {
       await loadLocaleResources(code);
       expect(i18n.hasResourceBundle(code, "translation")).toBe(true);
       expect(i18n.getResource(code, "translation", "settings.languageTitle")).toBeTruthy();
+      const cleanupNote = i18n.getResource(code, "translation", "worktree.cleanupIgnoredFiles");
+      expect(cleanupNote).toBeTruthy();
+      for (const key of ["cardConfirmRemove", "cardConfirmForceRemove"]) {
+        expect(i18n.t(`worktree.${key}`, { lng: code, name: "fixture", path: "/tmp/fixture" })).toContain(cleanupNote);
+      }
     }
     await changeAppLanguage("ja");
     expect(i18n.t("common.save")).toBeTruthy();

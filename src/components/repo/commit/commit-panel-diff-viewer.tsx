@@ -18,6 +18,8 @@ import { looksLikeLfsPointerText } from "@/lib/media";
 import { useLfsPointer } from "@/lib/use-media-file";
 import type { ParsedDiff } from "@/lib/unified-diff";
 import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
+import { SubmodulePinDiffDialog } from "@/components/repo/submodules/submodule-pin-diff-dialog";
+import { submodulePins } from "@/lib/submodule-pin-diff";
 
 import type { ChangeRow, FileDiffResponse } from "./commit-panel-types";
 import { StatusIcon } from "./commit-panel-status-icon";
@@ -109,6 +111,7 @@ export const DiffViewer = memo(function DiffViewer({
     return diffPayload.untracked_plain;
   }, [diffPayload, selectedRow]);
 
+  const pins = useMemo(() => submodulePins(unifiedText), [unifiedText]);
   const pointerFromDiff =
     looksLikeLfsPointerText(unifiedText) || looksLikeLfsPointerText(untrackedPlain);
 
@@ -154,7 +157,15 @@ export const DiffViewer = memo(function DiffViewer({
             {selectedRow.sector === "staged" ? t("commitPanel.sectorStaged") : t("commitPanel.sectorUnstaged")}
           </span>
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {pins && (
+            <SubmodulePinDiffDialog
+              key={JSON.stringify([repoPath, selectedRow.id, pins.before, pins.after])}
+              path={repoPath}
+              submodulePath={selectedRow.path}
+              pins={pins}
+            />
+          )}
           <Button
             variant="ghost"
             size="sm"

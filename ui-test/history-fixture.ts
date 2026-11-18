@@ -8,6 +8,7 @@ import type { TestInvoke } from './audit-fixtures';
 export const HISTORY_FIXTURE_PATH = '/tmp/l8git-history-fixture';
 export const HISTORY_SECONDARY_PATH = '/tmp/l8git-history-secondary';
 export const historyFixtureHash = (index: number) => (120 - index).toString(16).padStart(40, '0');
+const searchFixtureHash = (index: number) => `${'a'.repeat(40)}${index.toString(16)}${'0'.repeat(23)}`;
 const named = [
   { subject: 'Release login redirect fix', author: 'Alice Rivera', email: 'alice@example.com', date: '2026-10-08T12:00:00Z', body: 'Preserve callback redirects during release rollout.', files: ['src/auth/login.ts'] },
   { subject: 'Document token expiry', author: 'Bob Chen', email: 'bob@example.com', date: '2026-10-07T23:59:00Z', body: 'Release note: parser [literal], token expiry protocol.', files: ['docs/security.md'] },
@@ -56,11 +57,22 @@ function applyFilter(commits: Commit[], filter: HistoryFilter): Commit[] {
     && filesFor(commit).some(file => matchesPath(file, filter.file)));
 }
 
-/** Claim only this scene; other audit fixtures keep their existing behavior. */
+/** Other audit fixtures keep their existing behavior. */
 export function seedHistoryFixture(scene: string): boolean {
-  if (scene !== 'history-workflow') return false;
+  const sha256Search = scene === 'sha256-search';
+  const pathMerge = scene === 'history-path-merge';
+  if (scene !== 'history-workflow' && !sha256Search && !pathMerge) return false;
   useOnboardingPrefs.setState({ tourDone: true, tourActive: false, welcomeDismissed: true });
-  const commits = HISTORY_FIXTURE_COMMITS;
+  const commits = sha256Search ? HISTORY_FIXTURE_COMMITS.slice(0, 3).map((commit, index) => ({
+    ...commit,
+    ...(index === 1 ? { subject: 'Café UTF-8', body: 'Crème et déjà vu.' } : {}),
+    hash: searchFixtureHash(index),
+    short_hash: searchFixtureHash(index).slice(0, 41),
+    parents: index < 2 ? [searchFixtureHash(index + 1)] : [],
+  })) : pathMerge ? [
+    { ...HISTORY_FIXTURE_COMMITS[0], subject: 'Merge side work', parents: [historyFixtureHash(1), historyFixtureHash(2)] },
+    ...HISTORY_FIXTURE_COMMITS.slice(1),
+  ] : HISTORY_FIXTURE_COMMITS;
   const branches: Branch[] = [
     { name: 'main', tip: commits[0].hash, is_current: true, is_remote: false },
     { name: 'release/1.2', tip: commits[2].hash, is_current: false, is_remote: false },
@@ -77,12 +89,20 @@ export function seedHistoryFixture(scene: string): boolean {
       case 'open_repo': return secondary ? secondaryInfo : info;
       case 'repo_history_page': return applyFilter(secondary ? [secondaryCommit] : commits, args?.filter as HistoryFilter).slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));
       case 'repo_log_page': return (secondary ? [secondaryCommit] : commits).slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));
+      case 'repo_search_commits': {
+        if (!sha256Search) throw Error(`Unimplemented history fixture command: ${command}`);
+        const needle = String(args?.query ?? '').toLowerCase();
+        return (secondary ? [secondaryCommit] : commits)
+          .filter(commit => commit.hash === needle)
+          .map(commit => ({ commit, matched_paths: [] }));
+      }
       case 'repo_full_status': return { entries: [], upstream_sync: { ahead: 0, behind: 0 }, has_upstream: true };
       case 'repo_status': return [];
       case 'repo_commit_inspect': {
         const commit = secondary ? secondaryCommit : commits.find(commit => commit.hash === args?.commit || (args?.commit === 'HEAD' && commit === commits[0]));
         if (!commit) throw Error('Unknown history fixture commit');
-        return { header: `commit ${commit.hash}\nAuthor: ${commit.author} <${commit.email}>\nAuthorDate: ${commit.date}\n\n    ${commit.subject}\n\n    ${commit.body}\n`, files: [] };
+        const authorDate = commit.hash === historyFixtureHash(0) ? '2026-10-07T09:15:00Z' : commit.date;
+        return { header: `commit ${commit.hash}\nAuthor: ${commit.author} <${commit.email}>\nAuthorDate: ${authorDate}\nCommitDate: ${commit.date}\n\n    ${commit.subject}\n\n    ${commit.body}\n`, files: [] };
       }
       case 'commit_signature_status': return { state: 'unsigned', signer: null, key: null };
       case 'git_bisect_status': return { active: false, done: false, current_hash: null, result_hash: null, marked_bad: [], marked_good: [] };

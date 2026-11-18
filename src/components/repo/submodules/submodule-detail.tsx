@@ -1,13 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { translateKnownError } from "@/lib/error-toast";
 import {
   useRepoStore,
   type SubmoduleCommit,
   type SubmoduleEntry,
 } from "@/lib/repo-store";
 import { cn } from "@/lib/utils";
-import { Download, Terminal } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Download, FolderGit2, Terminal } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { SubmoduleStatusBadge } from "./submodule-status-badge";
@@ -38,6 +39,35 @@ export function SubmoduleDetail({
   const getSubmoduleCommits = useRepoStore((s) => s.getSubmoduleCommits);
   const [commits, setCommits] = useState<SubmoduleCommit[]>([]);
   const [loadingCommits, setLoadingCommits] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const openRequest = useRef<AbortController | null>(null);
+  // Local change counts are available for initialized checkouts, even when
+  // the parent's index reports a gitlink conflict.
+  const initialized = entry.local_changes != null;
+
+  useLayoutEffect(() => () => openRequest.current?.abort(), []);
+
+  const openRepository = async () => {
+    if (!initialized || openRequest.current) return;
+    const request = new AbortController();
+    openRequest.current = request;
+    setOpening(true);
+    setOpenError(null);
+    try {
+      await useRepoStore.getState().addRepo(repoPath, {
+        submodulePath: entry.path,
+        signal: request.signal,
+      });
+    } catch (error) {
+      if (!request.signal.aborted) {
+        setOpenError(translateKnownError(error instanceof Error ? error.message : String(error)));
+      }
+    } finally {
+      openRequest.current = null;
+      if (!request.signal.aborted) setOpening(false);
+    }
+  };
 
   useEffect(() => {
     setCommits([]);
@@ -68,6 +98,31 @@ export function SubmoduleDetail({
               {entry.path} · {displayUrl}
             </p>
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            className="h-auto min-h-6 max-w-full gap-1.5 whitespace-normal py-1 text-left"
+            disabled={!initialized || opening}
+            aria-busy={opening}
+            onClick={() => void openRepository()}
+          >
+            <FolderGit2 className="size-3 shrink-0" aria-hidden="true" />
+            {t(opening ? "submodule.detailOpeningRepo" : "submodule.detailOpenRepo")}
+          </Button>
+          {!initialized && (
+            <p className="text-xs text-muted-foreground">
+              {t("backendErrors.submodule.notInitialized")}
+            </p>
+          )}
+          {openError && (
+            <p role="alert" className="break-words text-xs text-destructive">
+              {openError}
+            </p>
+          )}
         </div>
 
         <div className="rounded-lg border border-border/60 bg-muted/20 p-3">

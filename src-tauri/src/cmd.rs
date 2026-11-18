@@ -9,6 +9,18 @@ pub(crate) fn git_command() -> Command {
     cmd
 }
 
+pub(crate) fn local_git_command() -> Command {
+    let mut cmd = git_command();
+    cmd.env("GIT_NO_LAZY_FETCH", "1")
+        // Older Git versions may try a promisor fetch despite the flag.
+        .env("GIT_ALLOW_PROTOCOL", "")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_NO_REPLACE_OBJECTS", "1")
+        .args(["-c", "core.fsmonitor=false"]);
+    cmd
+}
+
 /// Every CLI we drive headlessly must start through here: on Windows a bare
 /// `Command` opens a console window per child, and the agent CLIs resolve to
 /// `.cmd` shims that CreateProcess runs via cmd.exe.

@@ -25,6 +25,7 @@ const LAYOUT_ID = "l8git.commit-inspect-split.v2";
 
 export function CommitInspectFileTabs({
   files,
+  statsUnavailable = false,
   selectedFile,
   onSelectFile,
   onBlame,
@@ -35,6 +36,7 @@ export function CommitInspectFileTabs({
   children,
 }: {
   files: CommitChangedFile[];
+  statsUnavailable?: boolean;
   selectedFile: string | null;
   onSelectFile: (path: string | null) => void;
   onBlame?: (path: string) => void;
@@ -107,10 +109,12 @@ export function CommitInspectFileTabs({
         >
           <Files className="size-3.5 shrink-0" />
           <span className="tabular-nums">{files.length}</span>
-          <span className="ml-auto flex gap-2 font-mono tabular-nums">
-            <span className="text-git-added">+{additions}</span>
-            <span className="text-git-removed">−{deletions}</span>
-          </span>
+          {!statsUnavailable && (
+            <span className="ml-auto flex gap-2 font-mono tabular-nums">
+              <span className="text-git-added">+{additions}</span>
+              <span className="text-git-removed">−{deletions}</span>
+            </span>
+          )}
         </div>
         {filterable && (
           <div className="shrink-0 px-2 pb-1.5">
@@ -175,22 +179,24 @@ export function CommitInspectFileTabs({
                         </span>
                       )}
                     </span>
-                    <span className="hidden shrink-0 gap-1.5 @[12rem]:flex font-mono text-[10px] tabular-nums">
-                      {file.binary ? (
-                        <span className="text-muted-foreground">
-                          {t("commitInspect.binaryBadge")}
-                        </span>
-                      ) : (
-                        <>
-                          <span className="text-git-added">
-                            +{file.additions}
+                    {!statsUnavailable && (
+                      <span className="hidden shrink-0 gap-1.5 @[12rem]:flex font-mono text-[10px] tabular-nums">
+                        {file.binary ? (
+                          <span className="text-muted-foreground">
+                            {t("commitInspect.binaryBadge")}
                           </span>
-                          <span className="text-git-removed">
-                            −{file.deletions}
-                          </span>
-                        </>
-                      )}
-                    </span>
+                        ) : (
+                          <>
+                            <span className="text-git-added">
+                              +{file.additions}
+                            </span>
+                            <span className="text-git-removed">
+                              −{file.deletions}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    )}
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent>

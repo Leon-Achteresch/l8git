@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { groupIdOfPath, useRepoGroupsStore } from "@/lib/repo-groups-store";
 import { invoke } from "@/lib/platform/ipc";
 
 export type IdentityValues = { name: string; email: string; signing_format: "openpgp" | "ssh" | "x509"; signing_key: string; sign_commits: boolean };
@@ -52,4 +53,19 @@ export function identityDifferences(profile: IdentityValues, info: IdentityInfo)
     if (key === "gpg.format" && !current) current = "openpgp";
     return current !== value;
   }).map(([key]) => key);
+}
+
+export function commitIdentityAssignment(path: string) {
+  const group = groupIdOfPath(useRepoGroupsStore.getState().forest, path) ?? `repo:${path}`;
+  const { profiles, assignments } = useIdentityProfiles.getState();
+  return { group, profile: profiles.find(profile => profile.id === assignments[group]) };
+}
+
+type CommitIdent = { name: string; email: string };
+export type CommitIdentity = { gitDir: string; author: CommitIdent; committer: CommitIdent };
+
+export function matchesCommitProfile(identity: CommitIdentity, profile: IdentityProfile): boolean {
+  return [identity.author, identity.committer].every(
+    ({ name, email }) => name === profile.name.trim() && email === profile.email,
+  );
 }

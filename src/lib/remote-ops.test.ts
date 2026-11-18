@@ -67,4 +67,21 @@ describe('remote operation lifecycle', () => {
     expect(useRemoteOps.getState().history[0].retry).toBeTypeOf('function');
     expect(useRemoteOps.getState().ops).toEqual([]);
   });
+
+  it('localizes a reservation conflict and retries the same fetch with a new id', async () => {
+    const { runRemoteOp, useRemoteOps } = await import('./remote-ops');
+    const { default: i18n } = await import('./i18n');
+    const busy = '\u001fA remote operation is already running.\u001fl8e:{"code":"git.remoteBusy","params":{}}\u001f';
+    const fetch = vi.fn<(opId: string) => Promise<string>>()
+      .mockRejectedValueOnce(busy)
+      .mockResolvedValueOnce('ok');
+    await expect(runRemoteOp('fetch', '/repo', fetch)).rejects.toBe(busy);
+
+    const [failure] = useRemoteOps.getState().history;
+    expect(failure).toMatchObject({ status: 'failed', message: i18n.t('backendErrors.git.remoteBusy') });
+    expect(useRemoteOps.getState().ops).toEqual([]);
+    await expect(failure.retry?.()).resolves.toBe('ok');
+    expect(fetch.mock.calls[1][0]).not.toBe(fetch.mock.calls[0][0]);
+    expect(useRemoteOps.getState().history[0]).toMatchObject({ status: 'success', repoPath: '/repo' });
+  });
 });

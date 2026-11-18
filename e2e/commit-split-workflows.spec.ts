@@ -39,6 +39,7 @@ async function openSplit(page: Page, scene = 'split', holdPlanning = false) {
   await page.goto(`/?scene=${scene}`, { waitUntil: 'domcontentloaded' });
   const dialog = page.getByRole('dialog', { name: labels.commitSplit.title, exact: true });
   await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await dialog.getByRole('button', { name: labels.commitSplit.aiSuggest, exact: true }).click();
   if (!holdPlanning) await expect(dialog.getByRole('button', { name: labels.commitSplit.apply, exact: true })).toBeEnabled();
   return { dialog, prompts, planning };
 }
@@ -74,6 +75,7 @@ test('whole-file edits and later index changes reject the captured plan with vis
   await expect(dialog).toContainText(labels.commitSplit.errorReviewChanged);
   expect(await page.evaluate(() => window.__L8GIT_SPLIT_FIXTURE__!.committed)).toBe(0);
   await dialog.getByRole('button', { name: labels.commitSplit.retry, exact: true }).click();
+  await dialog.getByRole('button', { name: labels.commitSplit.aiSuggest, exact: true }).click();
   await expect(dialog.getByRole('button', { name: labels.commitSplit.apply, exact: true })).toBeEnabled();
   await page.evaluate(() => {
     const control = window.__L8GIT_SPLIT_FIXTURE__!;
@@ -91,6 +93,27 @@ test('whole-file edits and later index changes reject the captured plan with vis
   expect(reset).toEqual([]);
 });
 
+test('co-author line editing stays in its split group', async ({ page }) => {
+  const { dialog } = await openSplit(page);
+  const messages = dialog.getByRole('textbox', { name: labels.commitPanel.messageLabel, exact: true });
+  const line = "Co-authored-by: Anatole D’Arc <anatole@example.invalid>";
+  await messages.first().fill(`First change\n\n🧪 Details\n${line}`);
+  const guidance = dialog.locator(`button[title="${labels.commitGuidance.nonBlocking}"]`);
+  await guidance.first().press('Enter');
+  await expect(dialog.getByText(/final trailer block/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Edit Description line 2', exact: true }).press('Enter');
+  await expect(messages.first()).toBeFocused();
+  expect(await messages.first().evaluate((input: HTMLTextAreaElement) =>
+    input.value.slice(input.selectionStart, input.selectionEnd))).toBe(line);
+  await messages.first().fill(`First change\n${line}`);
+  await expect(dialog.getByText(/final trailer block/)).toBeVisible();
+  await messages.first().fill(`First change\n\n${line}`);
+  await expect(dialog.getByText(/final trailer block/)).toHaveCount(0);
+  await guidance.nth(1).press('Enter');
+  await expect(dialog.getByRole('region', { name: 'Co-author trailer preview' })).toHaveCount(1);
+  await expect(messages.nth(1)).toHaveValue('docs: second reviewed group');
+});
+
 test('failure after the first split commit preserves staging and retry recollects only remaining changes', async ({ page }) => {
   const { dialog, prompts } = await openSplit(page);
   await page.evaluate(() => { window.__L8GIT_SPLIT_FIXTURE__!.failGroup = 2; });
@@ -104,6 +127,7 @@ test('failure after the first split commit preserves staging and retry recollect
   const automaticReset = await page.evaluate(() => window.__L8GIT_TEST_CALLS__!.filter(call => ['unstage_files', 'git_reset'].includes(call.command)));
   expect(automaticReset).toEqual([]);
   await dialog.getByRole('button', { name: labels.commitSplit.retry, exact: true }).click();
+  await dialog.getByRole('button', { name: labels.commitSplit.aiSuggest, exact: true }).click();
   await expect(dialog.getByRole('button', { name: labels.commitSplit.apply, exact: true })).toBeEnabled();
   await expect(dialog).toContainText('2 change units across 2 files');
   await expect(dialog).toContainText(labels.commitSplit.unstagedNotice);

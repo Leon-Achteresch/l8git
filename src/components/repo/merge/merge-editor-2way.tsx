@@ -9,7 +9,8 @@ import {
   parseConflictBlocks,
   resolveConflict,
 } from "@/lib/conflict-parser";
-import type { ConflictVersions } from "@/lib/repo-store";
+import type { ConflictVersions, RebaseStatus } from "@/lib/repo-store";
+import { conflictSideLabels } from "@/lib/conflict-side-labels";
 import { resolveTheme, getStoredTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Save } from "lucide-react";
@@ -87,6 +88,7 @@ const RESULT_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions = {
 
 interface MergeEditor2WayProps {
   versions: ConflictVersions;
+  rebaseState?: RebaseStatus;
   language: string;
   filePath: string;
   repoPath?: string;
@@ -96,6 +98,7 @@ interface MergeEditor2WayProps {
 
 export function MergeEditor2Way({
   versions,
+  rebaseState,
   language,
   filePath,
   repoPath,
@@ -103,6 +106,7 @@ export function MergeEditor2Way({
   saving,
 }: MergeEditor2WayProps) {
   const { t } = useTranslation();
+  const sideLabels = conflictSideLabels(t, rebaseState);
   const theme = useMonacoTheme();
   const [resultText, setResultText] = useState(versions.current);
   const [activeBlockIdx, setActiveBlockIdx] = useState(0);
@@ -200,17 +204,22 @@ export function MergeEditor2Way({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {sideLabels.explanation && (
+        <p className="shrink-0 border-b border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {sideLabels.explanation}
+        </p>
+      )}
       <div className="min-h-0 flex-1 border-b border-border">
         <div className="flex h-full flex-col">
           <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            <span className="flex items-center gap-1.5">
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-git-added" />
-              {t("mergeEditor.oursHead")}
+              <span className="min-w-0 truncate" title={sideLabels.oursHead}>{sideLabels.oursHead}</span>
             </span>
-            <span className="mx-auto opacity-40">{t("mergeEditor.vs")}</span>
-            <span className="flex items-center gap-1.5">
+            <span className="shrink-0 opacity-40">{t("mergeEditor.vs")}</span>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-git-branch" />
-              {t("mergeEditor.theirsIncoming")}
+              <span className="min-w-0 truncate" title={sideLabels.theirsIncoming}>{sideLabels.theirsIncoming}</span>
             </span>
           </div>
           <div className="min-h-0 flex-1">
@@ -264,12 +273,12 @@ export function MergeEditor2Way({
                 </Button>
               </div>
               <div className="flex items-center gap-1">
-                <Button type="button" size="sm" variant="outline" onClick={() => accept("ours")} title={t("mergeEditor.takeOursHint")}>
-                  {t("mergeEditor.ours")}
+                <Button type="button" size="sm" variant="outline" onClick={() => accept("ours")} title={sideLabels.takeOursHint}>
+                  {sideLabels.ours}
                   <Kbd>1</Kbd>
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => accept("theirs")} title={t("mergeEditor.takeTheirsHint")}>
-                  {t("mergeEditor.theirs")}
+                <Button type="button" size="sm" variant="outline" onClick={() => accept("theirs")} title={sideLabels.takeTheirsHint}>
+                  {sideLabels.theirs}
                   <Kbd>2</Kbd>
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => accept("both")} title={t("mergeEditor.keepBothHint")}>
@@ -284,10 +293,10 @@ export function MergeEditor2Way({
                   variant="ghost"
                   className="gap-1 text-git-added hover:bg-git-added/10 hover:text-git-added"
                   onClick={() => acceptAll("ours")}
-                  title={t("mergeEditor.acceptAllOursHint")}
+                  title={sideLabels.acceptAllOursHint}
                 >
                   <ChevronsLeft className="h-3.5 w-3.5" />
-                  {t("mergeEditor.allOurs")}
+                  {sideLabels.allOurs}
                 </Button>
                 <Button
                   type="button"
@@ -295,9 +304,9 @@ export function MergeEditor2Way({
                   variant="ghost"
                   className="gap-1 text-git-branch hover:bg-git-branch/10 hover:text-git-branch"
                   onClick={() => acceptAll("theirs")}
-                  title={t("mergeEditor.acceptAllTheirsHint")}
+                  title={sideLabels.acceptAllTheirsHint}
                 >
-                  {t("mergeEditor.allTheirs")}
+                  {sideLabels.allTheirs}
                   <ChevronsRight className="h-3.5 w-3.5" />
                 </Button>
               </div>

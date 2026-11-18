@@ -89,12 +89,17 @@ fn strip_signature_block(contents: &str) -> String {
 }
 
 pub(super) fn tag_refs(repo: &PathBuf) -> Vec<TagRef> {
+    tag_refs_with(repo, git_command())
+}
+
+pub(super) fn tag_refs_with(repo: &PathBuf, command: std::process::Command) -> Vec<TagRef> {
     let format = format!(
         "%(refname:strip=2){s}%(objecttype){s}%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end){s}%(taggername){s}%(contents){r}",
         s = TAG_FIELD_SEP,
         r = TAG_RECORD_SEP
     );
-    let Ok(out) = run_git(
+    let Ok(out) = run_git_command(
+        command,
         repo,
         &["for-each-ref", "refs/tags", &format!("--format={format}")],
     ) else {

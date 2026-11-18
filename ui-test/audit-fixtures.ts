@@ -1,10 +1,19 @@
+import { useIdentityProfiles } from "@/lib/github-expansion/identity";
 import { useOnboardingPrefs } from '@/lib/onboarding-prefs';
-import { useRepoStore, type StatusEntry, type Commit } from '@/lib/repo-store';
+import { useRepoStore, type StatusEntry, type Commit, type SubmoduleEntry } from '@/lib/repo-store';
 import { useUiStore } from '@/lib/ui-store';
 import { useWorkspaceStore } from '@/lib/workspace-store';
 import { useCommitPrefs } from '@/lib/commit-prefs';
+import { useRemoteOps } from '@/lib/remote-ops';
 import type { HistoryFilter } from '@/lib/ipc/git';
 export const FIXTURE_PATH = '/tmp/l8git-audit-fixture';
+const SUBMODULE_PATH = 'vendor/space [lib]';
+const CHILD_REPO_PATH = `/private${FIXTURE_PATH}/${SUBMODULE_PATH}`;
+const PIN_BEFORE = '1'.repeat(40);
+const PIN_INDEX = '2'.repeat(40);
+const PIN_CHECKOUT = '3'.repeat(40);
+const pinPatch = (path: string, before: string, after: string, dirty = false) =>
+  `diff --git a/${path} b/${path}\n${before === after ? '' : `index ${before.slice(0, 7)}..${after.slice(0, 7)} 160000\n`}--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-Subproject commit ${before}\n+Subproject commit ${after}${dirty ? '-dirty' : ''}\n`;
 export const PATCH = 'diff --git a/example.txt b/example.txt\nindex 1111111..2222222 100644\n--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old content\n+reviewed content\n';
 export type TestInvoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 type SplitFixtureControl = { indexRevision: number; worktreeRevision: number; failGroup: number | null;
@@ -34,8 +43,47 @@ export function seedAuditFixture(scene: string) {
     return;
   }
   let entries: StatusEntry[] = [{ path: 'example.txt', index_status: scene === 'conflict' ? 'U' : ' ', worktree_status: scene === 'conflict' ? 'U' : 'M', staged: false, unstaged: true, untracked: false, additions_staged: 0, deletions_staged: 0, additions_unstaged: 1, deletions_unstaged: 1, binary: false, embedded_repo: false }];
+  let identity = {
+    gitDir: `${FIXTURE_PATH}/.git`,
+    author: { name: 'Local Author', email: 'author@example.invalid' },
+    committer: { name: 'Profile Name', email: 'profile@example.invalid' },
+  };
+  if (scene === 'commit-identity') {
+    const profiles = useIdentityProfiles.getState();
+    const profile = { id: 'fixture-profile', label: 'Work', name: 'Profile Name', email: 'profile@example.invalid',
+      signing_format: 'openpgp' as const, signing_key: '', sign_commits: false };
+    profiles.saveProfile(profile);
+    profiles.assignGroup(`repo:${FIXTURE_PATH}`, profile.id);
+    window.addEventListener('identity-update-effective', () => {
+      identity = { ...identity, author: { name: 'Updated Author', email: 'updated@example.invalid' } };
+    });
+    window.addEventListener('identity-update-profile', () => {
+      profiles.saveProfile({ ...profile, name: 'Updated Profile' });
+    });
+    window.addEventListener('identity-match-profile', () => {
+      identity = { ...identity, author: identity.committer };
+    });
+    window.addEventListener('identity-switch-repo', () => {
+      useRepoStore.setState({ activePath: '/tmp/identity-secondary' });
+      useRepoStore.setState({ activePath: FIXTURE_PATH });
+    });
+  }
   const base: Commit = { hash: 'a'.repeat(40), short_hash: 'aaaaaaa', subject: 'Initial fixture', author: 'Fixture', email: 'fixture@example.com', date: '2026-09-05T12:00:00Z', body: '', parents: [], tags: [], author_avatar: null };
+  const submodule: SubmoduleEntry = {
+    name: 'Library', path: SUBMODULE_PATH, url: 'https://example.com/library.git',
+    commit: base.hash, status: 'modified', branch: null, description: null,
+    remote_commit: null, behind_count: null, local_changes: 1, is_detached: true, gitmodules_raw: '',
+  };
+  const uninitialized: SubmoduleEntry = {
+    ...submodule, name: 'Missing dependency', path: 'vendor/missing', status: 'uninitialized',
+    local_changes: null, is_detached: false,
+  };
   let commits = [base];
+  const detachedPath = '/tmp/l8git-detached-fixture';
+  let firstCommit = false;
+  let holdUnbornOpen = false;
+  let unbornRefreshes = 0;
+
   const stagedHunks = new Set<number>();
   const worktreeHunks = new Set([0, 1, 2]);
   const hunkFixture = scene === 'hunk-batch' ? { changeBeforeApply: false, revision: 0 } : null;
@@ -55,6 +103,13 @@ export function seedAuditFixture(scene: string) {
   if (scene === 'partial-staging') {
     entries = ['first.txt', 'second.txt', 'third.txt'].map(path => ({ ...entries[0], path, index_status: 'M', worktree_status: 'M', staged: true, unstaged: true, additions_staged: 1, deletions_staged: 1 }));
   }
+  if (scene === 'submodule-pin-diff') {
+    entries = [
+      { ...entries[0], path: SUBMODULE_PATH, index_status: 'M', staged: true, additions_staged: 1, deletions_staged: 1 },
+      { ...entries[0], path: 'vendor/dirty' },
+      entries[0],
+    ];
+  }
   if (scene === 'recovery') {
     entries = [];
     commits = [{ ...base, hash: 'b'.repeat(40), short_hash: 'bbbbbbb', subject: 'Recoverable change', parents: [base.hash] }, base];
@@ -69,6 +124,7 @@ export function seedAuditFixture(scene: string) {
   let reviewMerged = false;
   let reviewRemoved = false;
   let reviewBranchDeleted = false;
+  let stashPopped = false;
   let reviewBaseHead = base;
   let recoveryVersion = 0;
   const restoredBranches: { name: string; tip: string; is_current: boolean; is_remote: boolean }[] = [];
@@ -89,14 +145,40 @@ export function seedAuditFixture(scene: string) {
     return files;
   };
   const info = (path = FIXTURE_PATH) => {
+    if (scene === 'unborn-open') {
+      if (path === detachedPath) {
+        return { path, branch: 'HEAD', is_unborn: false, commits: [base], branches: [], tags: [] };
+      }
+      const branch = 'fixture/first';
+      return {
+        path, branch, is_unborn: !firstCommit, commits: firstCommit ? commits : [], tags: [],
+        branches: firstCommit ? [{ name: branch, tip: commits[0].hash, is_current: true, is_remote: false }] : [],
+      };
+    }
     const reviewing = scene === 'review';
     const branch = reviewing && path === FIXTURE_PATH ? 'agents/fixture' : 'main';
     const head = reviewing && path === reviewBasePath ? reviewBaseHead : commits[0];
-    return { path, branch, commits: reviewing && path === reviewBasePath ? [head] : commits, branches: [
-      { name: 'main', tip: reviewing ? reviewBaseHead.hash : commits[0].hash, is_current: branch === 'main', is_remote: false },
+    return { path, branch, ...(scene === 'bare-open' && path === FIXTURE_PATH ? { is_bare: true } : {}),
+      ...(scene === 'shallow-history' && path !== '/tmp/l8git-shallow-legacy'
+        ? { is_shallow: path === FIXTURE_PATH } : {}),
+      commits: reviewing && path === reviewBasePath ? [head] : commits, branches: [
+      { name: 'main', tip: reviewing ? reviewBaseHead.hash : commits[0].hash, is_current: branch === 'main', is_remote: false,
+        ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? { upstream_status: 'gone' as const } : {}) },
+      ...(scene === 'compare-qualified' && path === FIXTURE_PATH ? [
+        { name: 'release', tip: base.hash, is_current: false, is_remote: false },
+        { name: 'origin/release', tip: 'd'.repeat(40), is_current: false, is_remote: true },
+        { name: 'origin/main', tip: base.hash, is_current: false, is_remote: true },
+      ] : []),
+      ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? [
+        { name: 'resolved', tip: head.hash, is_current: false, is_remote: false, upstream_status: 'resolved' as const, behind: 2 },
+        { name: 'unconfigured', tip: head.hash, is_current: false, is_remote: false, upstream_status: 'unconfigured' as const },
+        { name: 'unknown', tip: head.hash, is_current: false, is_remote: false, upstream_status: 'unknown' as const },
+      ] : []),
       ...(reviewing && !reviewBranchDeleted ? [{ name: 'agents/fixture', tip: commits[0].hash, is_current: branch === 'agents/fixture', is_remote: false }] : []),
       ...restoredBranches,
-    ], tags: [] };
+    ], tags: scene === 'compare-qualified' && path === FIXTURE_PATH
+      ? [{ name: 'release', commit: 'd'.repeat(40), kind: 'annotated' as const, message: 'Fixture release', tagger: null }]
+      : [] };
   };
   window.__L8GIT_TEST_CALLS__ = [];
   window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
@@ -107,7 +189,71 @@ export function seedAuditFixture(scene: string) {
     }
     switch (command) {
       case 'remote_status': return { running: false, managed: false, port: 9418, roots: [], binary: null, configPath: null };
-      case 'open_repo': return info(String(args?.path ?? FIXTURE_PATH));
+      case 'open_repo': {
+        const opened = info(String(args?.path ?? FIXTURE_PATH));
+        if (scene === 'unborn-open' && args?.path === FIXTURE_PATH && holdUnbornOpen) {
+          holdUnbornOpen = false;
+          await new Promise<void>(resolve => {
+            window.addEventListener('release-unborn-open', () => resolve(), { once: true });
+            document.documentElement.dataset.unbornHeld = String(unbornRefreshes);
+          });
+        }
+        return opened;
+      }
+      case 'repo_list_files':
+        if (scene === 'blame-previous') return ['example.txt', 'other.txt'];
+        throw Error('Unexpected blame file listing');
+      case 'repo_blame': {
+        if (scene !== 'blame-previous') throw Error('Unexpected blame read');
+        const older = 'b'.repeat(40);
+        const historical = args?.commit === older && args?.file === 'old example.txt';
+        if (args?.commit && !historical) throw Error('Unexpected historical blame target');
+        const changed = args?.file === 'example.txt' && !historical;
+        const hash = changed ? 'c'.repeat(40) : older;
+        return [{ commit_hash: hash, short_hash: hash.slice(0, 8),
+          author: changed ? 'Changed Author' : 'Root Author', date: '', timestamp: 1788609600,
+          summary: changed ? 'Changed line' : 'Root revision', line_no: 1,
+          content: changed ? 'new revision content' : historical ? 'old revision content' : 'other file content',
+          previous: changed ? { commit: older, file: 'old example.txt' } : null }];
+      }
+      case 'workspace_fetch_desktop_available':
+        return scene === 'workspace-fetch-preview' && new URLSearchParams(location.search).get('nativeWorkspaceFixture') === '1';
+      case 'workspace_fetch_desktop_confirm':
+        if (args?.workspaceId !== 'preview' || JSON.stringify(args?.selection) !== JSON.stringify([
+          { path: `${FIXTURE_PATH}/primary`, fingerprint: 'fixture-fetch-target' },
+        ])) throw Error('Unexpected native selection');
+        return 41;
+      case 'workspace_fetch_desktop_validate':
+        if (args?.revision !== 41 || args?.path !== `${FIXTURE_PATH}/primary` || args?.workspaceId !== 'preview') {
+          throw Error('Unconfirmed native selection');
+        }
+        return null;
+      case 'workspace_fetch_desktop_revoke': return null;
+      case 'repo_fetch_scope':
+        if (scene !== 'workspace-fetch-preview') throw Error('Unexpected fetch preview');
+        if (args?.path === `${FIXTURE_PATH}/broken`) throw Error('Repository no longer available');
+        return { commonDir: '/tmp/fixture-common/.git', remotes: ['origin'],
+          target: { remote: 'origin', fingerprint: 'fixture-fetch-target' } };
+      case 'list_submodules':
+        return scene === 'submodules' && args?.path === FIXTURE_PATH ? [submodule, uninitialized] : [];
+      case 'git_submodule_sync':
+        if (scene === 'submodules' && args?.path === FIXTURE_PATH &&
+            (args.submodulePath === null || args.submodulePath === SUBMODULE_PATH)) return '';
+        throw Error('Unexpected submodule sync');
+      case 'get_submodule_commits': return [];
+      case 'open_submodule_repo':
+        if (scene === 'submodules' && args?.path === FIXTURE_PATH && args?.submodulePath === SUBMODULE_PATH) {
+          return { ...info(CHILD_REPO_PATH), branch: 'HEAD' };
+        }
+        throw Error('Unexpected submodule selection');
+      case 'git_submodule_pin_diff':
+        if (scene !== 'submodule-pin-diff' || args?.path !== FIXTURE_PATH) throw Error('Unexpected comparison');
+        if (args.submodulePath === 'vendor/dirty' && args.before === PIN_INDEX && args.after === PIN_INDEX) return { status: 'samePin' };
+        if (args.submodulePath === SUBMODULE_PATH && (
+          (args.before === PIN_BEFORE && args.after === PIN_INDEX) ||
+          (args.before === PIN_INDEX && args.after === PIN_CHECKOUT)
+        )) return { status: 'diff', patch: PATCH, truncated: false };
+        throw Error('Unexpected pin pair');
       case 'repo_log_page': return commits.slice(Number(args?.skip ?? 0), Number(args?.skip ?? 0) + Number(args?.limit ?? 80));
       case 'repo_history_page': {
         const filter = args?.filter as HistoryFilter;
@@ -142,6 +288,15 @@ export function seedAuditFixture(scene: string) {
         if (hunkFixture) return { staged: hunkDiff(stagedHunks), unstaged: hunkDiff(unstagedHunks()), untracked_plain: null,
           is_binary: false, fingerprint: args?.includeFingerprint ? await fileFingerprint(String(args?.file)) : null };
         const entry = entries.find(entry => entry.path === args?.file) ?? entries[0];
+        if (scene === 'submodule-pin-diff' && args?.file === SUBMODULE_PATH) return {
+          staged: pinPatch(SUBMODULE_PATH, PIN_BEFORE, PIN_INDEX),
+          unstaged: pinPatch(SUBMODULE_PATH, PIN_INDEX, PIN_CHECKOUT, true),
+          untracked_plain: null, is_binary: false,
+        };
+        if (scene === 'submodule-pin-diff' && args?.file === 'vendor/dirty') return {
+          staged: null, unstaged: pinPatch('vendor/dirty', PIN_INDEX, PIN_INDEX, true),
+          untracked_plain: null, is_binary: false,
+        };
         return { staged: entry?.staged ? PATCH : null, unstaged: entry?.unstaged ? PATCH : null, untracked_plain: null, is_binary: false, fingerprint: args?.includeFingerprint ? await fileFingerprint(String(args?.file)) : null };
       }
       case 'git_apply_reviewed_hunks': {
@@ -191,15 +346,27 @@ export function seedAuditFixture(scene: string) {
       case 'repo_compare_commits': return {
         base: String(args?.base), head: String(args?.head), mode: args?.mode ?? 'direct', base_hash: base.hash, head_hash: 'd'.repeat(40),
         merge_base: args?.mode === 'merge-base' ? 'e'.repeat(40) : null, ahead: 3, behind: 1,
-        files: [
+        files: scene === 'compare-rewrite' ? [
+          { path: 'docs/old name.txt', previous_path: null, status: 'D', additions: 0, deletions: 1, binary: false },
+          { path: 'docs/new name.txt', previous_path: null, status: 'A', additions: 1, deletions: 0, binary: false },
+        ] : [
           { path: 'docs/new name.txt', previous_path: 'docs/old name.txt', status: 'R', additions: 0, deletions: 0, binary: false },
           { path: 'src/example.txt', previous_path: null, status: 'M', additions: 1, deletions: 1, binary: false },
         ], additions: 1, deletions: 1, total_files: 2, truncated: false,
       };
-      case 'repo_compare_file_diff': return {
-        patch: args?.file === 'docs/new name.txt' ? 'diff --git a/docs/old name.txt b/docs/new name.txt\nsimilarity index 100%\nrename from docs/old name.txt\nrename to docs/new name.txt\n' : PATCH,
-        truncated: false, binary: false,
-      };
+      case 'repo_compare_file_diff': {
+        const file = String(args?.file);
+        if (scene === 'compare-rewrite') {
+          const patch = file === 'docs/old name.txt'
+            ? `diff --git a/${file} b/${file}\ndeleted file mode 100644\n--- a/${file}\n+++ /dev/null\n@@ -1 +0,0 @@\n-Original fixture document\n`
+            : `diff --git a/${file} b/${file}\nnew file mode 100644\n--- /dev/null\n+++ b/${file}\n@@ -0,0 +1 @@\n+Rewritten fixture document\n`;
+          return { patch, truncated: false, binary: false };
+        }
+        return {
+          patch: file === 'docs/new name.txt' ? 'diff --git a/docs/old name.txt b/docs/new name.txt\nsimilarity index 100%\nrename from docs/old name.txt\nrename to docs/new name.txt\n' : PATCH,
+          truncated: false, binary: false,
+        };
+      }
       case 'stage_files': entries = entries.map(e => (args?.files as string[] | undefined)?.some(file => file === '.' || file === e.path) ? ({ ...e, staged: true, unstaged: false, index_status: 'M', worktree_status: ' ', additions_staged: 1, deletions_staged: 1 }) : e); return null;
       case 'unstage_files': entries = entries.map(e => (args?.files as string[] | undefined)?.some(file => file === '.' || file === e.path) ? ({ ...e, staged: false, unstaged: true, index_status: ' ', worktree_status: 'M', additions_staged: 0, deletions_staged: 0, additions_unstaged: 1, deletions_unstaged: 1 }) : e); return null;
       case 'git_discard_files': { const files = await checkFiles(args); entries = entries.filter(entry => !files.includes(entry.path)); return null; }
@@ -208,8 +375,15 @@ export function seedAuditFixture(scene: string) {
         entries = entries.flatMap(entry => !files.includes(entry.path) ? [entry] : entry.staged ? [{ ...entry, unstaged: false, untracked: false, worktree_status: ' ', additions_unstaged: 0, deletions_unstaged: 0 }] : []);
         return null;
       }
+      case 'commit_identity_preview':
+        if (scene !== 'commit-identity' || args?.path !== FIXTURE_PATH) throw Error('Unexpected identity preview');
+        return identity;
+      case 'commit_changes_with_identity':
       case 'commit_changes':
+        if (command === 'commit_changes_with_identity' && (scene !== 'commit-identity' || args?.path !== FIXTURE_PATH ||
+            JSON.stringify(args.expectedIdentity) !== JSON.stringify(identity))) throw Error('__COMMIT_IDENTITY_CHANGED__');
         if (!entries.some(e => e.staged)) throw Error('Nothing staged');
+        if (scene === 'unborn-open') firstCommit = true;
         commits = [{ ...base, hash: 'b'.repeat(40), short_hash: 'bbbbbbb', subject: String(args?.message), parents: [base.hash] }, base]; entries = []; return null;
       case 'agent_review_commit_checked':
         if (args?.expectedBaseBranch !== 'main' || args?.expectedSessionBranch !== 'agents/fixture' ||
@@ -245,19 +419,96 @@ export function seedAuditFixture(scene: string) {
         if (!reviewRemoved || !reviewMerged || args?.branch !== 'agents/fixture' ||
             args?.expectedBaseBranch !== 'main' || args?.expectedHead !== commits[0].hash) throw Error('agentReviewFinish.errors.reviewChanged');
         reviewBranchDeleted = true; return null;
-      case 'list_worktrees': return scene === 'review' ? [
-        { path: reviewBasePath, branch: 'main', head: reviewBaseHead.hash, is_main: true, is_locked: false, is_prunable: false },
-        ...(!reviewRemoved ? [{ path: FIXTURE_PATH, branch: 'agents/fixture', head: commits[0].hash, is_main: false, is_locked: false, is_prunable: false }] : []),
-      ] : [];
+      case 'list_worktrees': {
+        if (scene === 'worktree-catalog') {
+          const path = String(args?.path);
+          const paths = path === FIXTURE_PATH ? [`${FIXTURE_PATH}-main`, path] : [path];
+          return paths.map((path, i) => ({ path, branch: i === 0 ? 'main' : 'fixture-linked',
+            head: base.hash, is_main: i === 0, is_locked: false, is_prunable: false }));
+        }
+        return scene === 'review' ? [
+          { path: reviewBasePath, branch: 'main', head: reviewBaseHead.hash, is_main: true, is_locked: false, is_prunable: false },
+          ...(!reviewRemoved ? [{ path: FIXTURE_PATH, branch: 'agents/fixture', head: commits[0].hash, is_main: false, is_locked: false, is_prunable: false }] : []),
+        ] : scene === 'worktree-cleanup' ? [
+          { path: FIXTURE_PATH, branch: 'main', head: base.hash, is_main: true, is_locked: false, is_prunable: false },
+          { path: `${FIXTURE_PATH}-linked`, branch: 'fixture-linked', head: base.hash, is_main: false, is_locked: false, is_prunable: false },
+        ] : [];
+      }
       case 'stack_list': return { stacks: [], branches: [] };
-      case 'list_stashes': case 'list_remotes': case 'resolve_repo_commit_avatars': case 'git_command_log': return [];
+      case 'list_stashes': return scene === 'stash-help' && !stashPopped ? [{
+        index: 0, refname: 'stash@{0}', branch: 'main', subject: 'Staging fixture',
+        date: base.date, hash: '9'.repeat(40), message: 'On main: Staging fixture',
+      }] : [];
+      case 'git_stash_apply': if (scene === 'stash-help') return ''; throw Error('Unexpected stash apply');
+      case 'git_stash_pop': if (scene === 'stash-help') { stashPopped = true; return ''; } throw Error('Unexpected stash pop');
+      case 'list_remotes': case 'resolve_repo_commit_avatars': case 'git_command_log': return [];
       case 'read_repo_favicon': case 'git_credential_helper': return null;
       default: throw Error(`Unimplemented fixture command: ${command}`);
     }
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
-  useUiStore.getState().setSidebarTab(scene === 'performance-history' || perfInspect ? 'history' : scene === 'lfs' ? 'tools' : 'commit');
+  if (scene === 'worktree-catalog' || scene === 'compare-qualified') {
+    const secondary = scene === 'compare-qualified' ? '/tmp/l8git-compare-other' : '/tmp/l8git-catalog-other';
+    const paths = [FIXTURE_PATH, secondary];
+    useRepoStore.setState(state => ({ paths, repos: { ...state.repos, [secondary]: info(secondary) } }));
+    useWorkspaceStore.getState().initDefaultWorkspace(paths);
+  }
+  if (scene === 'unborn-open') {
+    const paths = [FIXTURE_PATH, detachedPath];
+    useRepoStore.setState({ paths, repos: {} });
+    useWorkspaceStore.getState().initDefaultWorkspace(paths);
+    window.addEventListener('hold-unborn-open', () => {
+      const refresh = ++unbornRefreshes;
+      holdUnbornOpen = true;
+      void useRepoStore.getState().reload(FIXTURE_PATH).then(() => {
+        document.documentElement.dataset.unbornCompleted = String(refresh);
+      });
+    });
+  }
+  if (scene === 'shallow-history') {
+    const paths = [FIXTURE_PATH, '/tmp/l8git-shallow-full', '/tmp/l8git-shallow-legacy'];
+    useRepoStore.setState({ paths, repos: {} });
+    useWorkspaceStore.getState().initDefaultWorkspace(paths);
+  }
+  if (scene === 'bare-open') {
+    const legacy = '/tmp/l8git-bare-legacy';
+    useRepoStore.setState({ paths: [FIXTURE_PATH, legacy], repos: {} });
+    useWorkspaceStore.getState().initDefaultWorkspace([legacy]);
+  }
+  if (scene === 'upstream-missing') {
+    const secondary = '/tmp/l8git-upstream-legacy';
+    useRepoStore.setState(state => ({
+      paths: [FIXTURE_PATH, secondary],
+      repos: { ...state.repos, [secondary]: info(secondary) },
+    }));
+    useWorkspaceStore.getState().initDefaultWorkspace([secondary]);
+  }
+  if (scene === 'workspace-fetch-preview') {
+    const scoped = [`${FIXTURE_PATH}/primary`, `${FIXTURE_PATH}/alias`, `${FIXTURE_PATH}/broken`];
+    const outsider = `${FIXTURE_PATH}/outsider`;
+    useRepoStore.setState({ paths: [FIXTURE_PATH, ...scoped, outsider] });
+    useWorkspaceStore.setState({
+      activeWorkspaceId: 'preview',
+      workspaces: [
+        { id: 'preview', name: 'Preview workspace', repoPaths: [FIXTURE_PATH, ...scoped, '/tmp/not-open'] },
+        { id: 'other', name: 'Other workspace', repoPaths: [outsider] },
+      ],
+    });
+    window.addEventListener('remove-fetch-preview-member', () => {
+      useWorkspaceStore.getState().removeRepoFromAllWorkspaces(scoped[0]);
+    });
+    window.addEventListener('reattach-fetch-preview-member', () => {
+      const original = useWorkspaceStore.getState().workspaces;
+      useWorkspaceStore.getState().removeRepoFromAllWorkspaces(scoped[0]);
+      useWorkspaceStore.setState({ workspaces: original });
+    });
+    useRemoteOps.getState().recordResult({
+      opId: 'fixture-previous-fetch', op: 'fetch', repoPath: scoped[0],
+      status: 'success', message: '', finishedAt: Date.parse('2026-09-05T12:00:00Z'),
+    });
+  }
+  useUiStore.getState().setSidebarTab(scene === 'performance-history' || scene === 'shallow-history' || perfInspect ? 'history' : scene === 'lfs' ? 'tools' : 'commit');
 }
 
 /** Real split UI and AI SDK, with deterministic repository RPCs confined to the audit scene. */

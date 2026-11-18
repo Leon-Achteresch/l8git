@@ -17,6 +17,11 @@ export function RepoDetails() {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
         <RepoRemoteToolbar path={repo.path} />
+        {repo.is_shallow === true && (
+          <p role="status" className="mx-4 shrink-0 rounded-lg border border-border/60 px-3 py-2 text-xs text-muted-foreground">
+            {t("repoDetails.shallowHistoryNotice")}
+          </p>
+        )}
         <div className="mx-4 mb-3 min-h-0 flex-1 overflow-hidden rounded-2xl bg-card ring-1 ring-border/50">
           <CommitHistoryPanel key={repo.path} path={repo.path} commits={repo.commits} />
         </div>

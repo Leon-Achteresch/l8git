@@ -3,7 +3,17 @@ use super::{
     validate_branch_name, WorktreePathGuard,
 };
 use serde::Serialize;
-use std::{collections::BTreeMap, path::PathBuf};
+use crate::cmd::local_git_command;
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::ErrorKind,
+    path::{Path, PathBuf},
+};
+
+fn local_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
+    super::run_git_command(local_git_command(), repo, args)
+}
 
 #[derive(Serialize, Clone)]
 pub struct SubmoduleEntry {
@@ -214,24 +224,197 @@ struct SubmoduleExtra {
     description: Option<String>,
 }
 
+fn canonical_git_path(repo: &PathBuf, args: &[&str]) -> Result<PathBuf, String> {
+    let path = local_git(repo, args)?;
+    let path = path.strip_suffix('\n').unwrap_or(&path);
+    #[cfg(windows)]
+    let path = path.strip_suffix('\r').unwrap_or(path);
+    let path = Path::new(path);
+    if !path.is_absolute() {
+        return Err("Git returned a relative repository path".into());
+    }
+    path.canonicalize().map_err(|error| error.to_string())
+}
+
 fn submodule_is_initialized(sub_dir: &PathBuf) -> Result<bool, String> {
-    match std::fs::symlink_metadata(sub_dir.join(".git")) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+    match fs::symlink_metadata(sub_dir.join(".git")) {
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(error.to_string()),
         _ => {}
     }
-    let root = run_git(sub_dir, &["rev-parse", "--show-toplevel"])?;
-    let root = root.strip_suffix('\n').unwrap_or(&root);
-    #[cfg(windows)]
-    let root = root.strip_suffix('\r').unwrap_or(root);
-    let root = PathBuf::from(root)
-        .canonicalize()
-        .map_err(|error| error.to_string())?;
+    let root = canonical_git_path(sub_dir, &["rev-parse", "--show-toplevel"])?;
     let expected = sub_dir.canonicalize().map_err(|error| error.to_string())?;
     if root != expected {
         return Err(format!("__INVALID_WORKTREE_PATH__|{}", sub_dir.display()));
     }
     Ok(true)
+}
+
+/// Resolve one exact index gitlink to its own local checkout.
+pub(super) fn submodule_repo_path(repo: &PathBuf, selected: &str) -> Result<PathBuf, String> {
+    let invalid = || crate::coded!(SubmoduleUnsafePath);
+    let uninitialized = || crate::coded!(SubmoduleNotInitialized);
+    let guard = WorktreePathGuard::new(repo)?;
+    if guard.cwd != guard.root || super::file_reads::file_path(selected).as_deref() != Ok(selected)
+    {
+        return Err(invalid());
+    }
+    // Pathspecs can match descendants. Require the exact path and gitlink mode.
+    let entries = local_git(
+        &guard.root,
+        &[
+            "--literal-pathspecs",
+            "ls-files",
+            "--stage",
+            "-z",
+            "--",
+            selected,
+        ],
+    )?;
+    if !entries.split_terminator('\0').any(|record| {
+        record
+            .split_once('\t')
+            .is_some_and(|(header, path)| path == selected && header.starts_with("160000 "))
+    }) {
+        return Err(crate::coded!(SubmoduleNotRegistered));
+    }
+
+    // Reject links along the selected route, including redirects within the parent.
+    let mut component_path = guard.root.clone();
+    for component in Path::new(selected).components() {
+        component_path.push(component);
+        match fs::symlink_metadata(&component_path) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+            Ok(_) => return Err(invalid()),
+            Err(error) if error.kind() == ErrorKind::NotFound => return Err(uninitialized()),
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    let child = component_path
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    if child.strip_prefix(&guard.root).ok() != Some(Path::new(selected)) || child.to_str().is_none()
+    {
+        return Err(invalid());
+    }
+    match fs::symlink_metadata(child.join(".git")) {
+        Ok(metadata) if metadata.is_file() || metadata.is_dir() => {}
+        Ok(_) => return Err(invalid()),
+        Err(error) if error.kind() == ErrorKind::NotFound => return Err(uninitialized()),
+        Err(error) => return Err(error.to_string()),
+    }
+    if canonical_git_path(&child, &["rev-parse", "--show-toplevel"])? != child {
+        return Err(invalid());
+    }
+    // A gitfile can point at another worktree of the parent repository.
+    let common_dir_args = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
+    if canonical_git_path(&child, &common_dir_args)?
+        == canonical_git_path(&guard.root, &common_dir_args)?
+    {
+        return Err(invalid());
+    }
+    Ok(child)
+}
+
+#[derive(Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum SubmodulePinDiff {
+    SamePin,
+    Diff { patch: String, truncated: bool },
+}
+
+fn local_object_error(error: String) -> String {
+    if error.is_empty() {
+        return crate::coded!(GitCommandFailed);
+    }
+    if error.lines().any(|line| {
+        line.contains("could not get object info")
+            || line.contains("unable to read ")
+            || line.contains("Could not read ")
+            || line.contains("bad tree object")
+            || line.contains("from promisor remote")
+            || line.contains("lazy fetching disabled")
+    }) {
+        crate::coded!(SubmoduleObjectsUnavailable, error = error)
+    } else {
+        error
+    }
+}
+
+#[tauri::command]
+pub async fn git_submodule_pin_diff(
+    path: String,
+    submodule_path: String,
+    before: String,
+    after: String,
+) -> Result<SubmodulePinDiff, String> {
+    spawn_git(move || {
+        let is_oid = |pin: &str| {
+            matches!(pin.len(), 40 | 64) && pin.bytes().all(|byte| byte.is_ascii_hexdigit())
+        };
+        if !is_oid(&before) || !is_oid(&after) {
+            return Err(crate::coded!(SubmoduleInvalidPin));
+        }
+        let child = submodule_repo_path(&PathBuf::from(path), &submodule_path)?;
+        let format = local_git(&child, &["rev-parse", "--show-object-format"])?;
+        let oid_len = match format.trim() {
+            "sha1" => 40,
+            "sha256" => 64,
+            _ => return Err(crate::coded!(SubmoduleInvalidPin)),
+        };
+        if before.len() != oid_len || after.len() != oid_len {
+            return Err(crate::coded!(SubmoduleInvalidPin));
+        }
+        if before.eq_ignore_ascii_case(&after) {
+            return Ok(SubmodulePinDiff::SamePin);
+        }
+        let before = before.to_ascii_lowercase();
+        let after = after.to_ascii_lowercase();
+        for pin in [&before, &after] {
+            let kind = local_git(&child, &["cat-file", "-t", pin]).map_err(local_object_error)?;
+            if kind.trim() != "commit" {
+                return Err(crate::coded!(SubmoduleInvalidPin));
+            }
+        }
+        let mut command = local_git_command();
+        // An empty index path prevents diff-tree from substituting the
+        // checked-out copy for a blob that should come from the object store.
+        command.env("GIT_INDEX_FILE", "");
+        let output = crate::diff_preview::read_diff_output(
+            command,
+            &child,
+            &[
+                "diff-tree",
+                "-r",
+                "-p",
+                "--no-commit-id",
+                "--no-color",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--no-renames",
+                "--submodule=short",
+                "--src-prefix=a/",
+                "--dst-prefix=b/",
+                &before,
+                &after,
+                "--",
+            ],
+        )
+        .map_err(local_object_error)?;
+        // Check diagnostics as well as the exit status before displaying a patch.
+        if output.stderr.lines().any(|line| {
+            line.starts_with("error: ")
+                || line.starts_with("fatal: ")
+                || line.contains("lazy fetching disabled")
+        }) {
+            return Err(local_object_error(output.stderr));
+        }
+        Ok(SubmodulePinDiff::Diff {
+            patch: output.patch,
+            truncated: output.truncated,
+        })
+    })
+    .await
 }
 
 fn get_submodule_extra(sub_dir: &PathBuf) -> Result<Option<SubmoduleExtra>, String> {

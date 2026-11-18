@@ -37,6 +37,17 @@ pub struct Branch {
     is_remote: bool,
     tip: String,
     behind: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    upstream_status: Option<BranchUpstreamStatus>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+enum BranchUpstreamStatus {
+    Gone,
+    Unconfigured,
+    Resolved,
+    Unknown,
 }
 
 #[derive(Serialize)]
@@ -51,6 +62,10 @@ pub struct TagRef {
 #[derive(Serialize)]
 pub struct RepoInfo {
     path: String,
+    is_bare: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_shallow: Option<bool>,
+    is_unborn: bool,
     branch: String,
     commits: Vec<Commit>,
     branches: Vec<Branch>,
@@ -76,9 +91,37 @@ pub struct GitRemote {
     pub url: String,
 }
 
+// Opt in for log/show reads that return commit messages to UTF-8 clients.
+const COMMIT_TEXT_ENCODING: &str = "--encoding=UTF-8";
+
 pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
+    run_git_command(git_command(), repo, args)
+}
+
+pub(crate) fn run_git_command(
+    command: std::process::Command,
+    repo: &PathBuf,
+    args: &[&str],
+) -> Result<String, String> {
+    run_git_command_bytes(command, repo, args)
+        .map(|stdout| String::from_utf8_lossy(&stdout).into_owned())
+}
+
+fn run_git_command_bytes(
+    command: std::process::Command,
+    repo: &PathBuf,
+    args: &[&str],
+) -> Result<Vec<u8>, String> {
+    run_git_command_output(command, repo, args).map(|output| output.stdout)
+}
+
+fn run_git_command_output(
+    mut command: std::process::Command,
+    repo: &PathBuf,
+    args: &[&str],
+) -> Result<std::process::Output, String> {
     let span = cmdlog::start(&repo.to_string_lossy(), args);
-    let output = match git_command().arg("-C").arg(repo).args(args).output() {
+    let output = match command.arg("-C").arg(repo).args(args).output() {
         Ok(output) => output,
         Err(e) => {
             span.finish(false);
@@ -93,7 +136,7 @@ pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
             &String::from_utf8_lossy(&output.stderr),
         ));
     }
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    Ok(output)
 }
 
 fn merged_failure_message(stdout: &str, stderr: &str) -> String {
@@ -131,22 +174,40 @@ fn merged_ok_message(stdout: &str, stderr: &str) -> String {
     ok.trim().to_string()
 }
 
-fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<String, String> {
+fn run_git_merged_output_at(
+    cwd: Option<&PathBuf>,
+    args: &[&str],
+    lock: Option<&coordination::RemoteProcessLock>,
+    spawn_guard: impl Sized,
+) -> Result<String, String> {
     let mut cmd = git_command();
     if let Some(dir) = cwd {
         cmd.arg("-C").arg(dir);
+    }
+    if let Some(lock) = lock {
+        lock.inherit(&mut cmd);
     }
     let log_path = cwd
         .map(|d| d.to_string_lossy().to_string())
         .unwrap_or_default();
     let span = cmdlog::start(&log_path, args);
-    let output = match cmd.args(args).output() {
+    let child = cmd
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
+    drop(spawn_guard);
+    let output = match child.and_then(std::process::Child::wait_with_output) {
         Ok(output) => output,
         Err(e) => {
             span.finish(false);
             return Err(format!("failed to run git: {e}"));
         }
     };
+    if let Some(lock) = lock {
+        lock.finish(output.status);
+    }
     span.finish(output.status.success());
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -160,7 +221,7 @@ fn run_git_merged_output_at(cwd: Option<&PathBuf>, args: &[&str]) -> Result<Stri
 }
 
 pub(crate) fn run_git_merged_output(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
-    run_git_merged_output_at(Some(repo), args)
+    run_git_merged_output_at(Some(repo), args, None, ())
 }
 
 async fn spawn_git<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
@@ -175,7 +236,7 @@ pub use search::*;
 mod history;
 pub use history::*;
 mod coordination;
-pub(crate) use coordination::repo_coordination_mutex;
+pub(crate) use coordination::{repo_common_dir, repo_coordination_mutex};
 mod commit_split;
 pub use commit_split::*;
 
@@ -192,11 +253,16 @@ fn reject_dash_arg(value: &str, label: Label) -> Result<(), String> {
 }
 
 pub(crate) fn resolve_git_commit(repo: &PathBuf, rev: &str) -> Result<String, String> {
+    resolve_git_commit_with(git_command(), repo, rev)
+}
+
+pub(crate) fn resolve_git_commit_with(command: std::process::Command, repo: &PathBuf, rev: &str) -> Result<String, String> {
     let rev = rev.trim();
     if rev.is_empty() || rev.starts_with('-') || rev.chars().any(char::is_control) {
         return Err(format!("Invalid commit revision: {rev}"));
     }
-    run_git(
+    run_git_command(
+        command,
         repo,
         &[
             "rev-parse",
@@ -305,12 +371,16 @@ mod merge;
 pub use merge::*;
 mod staging;
 pub use staging::*;
+mod ignore;
+pub use ignore::*;
 mod status;
 pub use status::*;
 mod commit;
 pub use commit::*;
 mod diff;
 pub use diff::*;
+mod notes;
+pub use notes::*;
 mod blame;
 pub use blame::*;
 mod stats;

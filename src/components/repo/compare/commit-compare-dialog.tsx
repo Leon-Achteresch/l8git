@@ -1,5 +1,5 @@
 import { formatBackendError } from '@/lib/backend-error';
-import { ArrowDown, ArrowLeftRight, ArrowUp, Check, Copy, Download, FileCode2, GitCompareArrows, LoaderCircle, RefreshCw, X } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, Check, ChevronDown, Cloud, Copy, Download, FileCode2, GitBranch, GitCompareArrows, LoaderCircle, RefreshCw, Tag, X } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -7,12 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { FileFilterInput } from '@/components/repo/file-filter-input';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useRepoStore } from '@/lib/repo-store';
 import { toastError } from '@/lib/error-toast';
 import {
   COMPARE_FILE_STATUS_KEYS,
+  compareBranchRef,
   comparisonErrorKey,
   comparisonSnapshotKey,
   filterCompareFiles,
@@ -25,6 +28,7 @@ import {
   type CommitCompareFileStatus,
   type CommitCompareRefs,
   type CommitComparison,
+  type CompareRefSuggestion,
 } from '@/lib/commit-compare';
 import { CommitCompareFiles } from './commit-compare-files';
 import { DiffProfileBar } from './diff-profile-bar';
@@ -40,6 +44,57 @@ const SELECT_CLASS = 'h-7 min-w-0 rounded-md border border-border bg-background 
 
 type ComparisonState = { key: string; data: CommitComparison | null; loading: boolean; error: string; cancelled: boolean };
 type DiffState = { key: string; data: CommitCompareDiff | null; loading: boolean; error: string };
+type RefInput = string | CompareRefSuggestion;
+type CompareDraft = { base: RefInput; head: RefInput; mode: CommitCompareRefs['mode'] };
+
+function draftRefs(draft: CompareDraft): CommitCompareRefs {
+  const ref = (value: RefInput) => typeof value === 'string' ? value.trim() : value.ref;
+  return { base: ref(draft.base), head: ref(draft.head), mode: draft.mode };
+}
+
+function CompareRefInput({ label, value, onChange, suggestions, list, invalid, placeholder }: {
+  label: string; value: RefInput; onChange: (value: RefInput) => void;
+  suggestions: CompareRefSuggestion[]; list: string; invalid: boolean; placeholder: string;
+}) {
+  const { t } = useTranslation();
+  const id = useId();
+  const selected = typeof value === 'string' ? null : value;
+  const Icon = selected?.kind === 'tag' ? Tag : selected?.kind === 'remoteBranch' ? Cloud : selected ? GitBranch : ChevronDown;
+  return (
+    <div className="min-w-0">
+      <label htmlFor={id} className="text-xs font-medium">{label}</label>
+      <div className="mt-1 flex min-w-0 items-center gap-1">
+        <Input id={id} className="min-w-0 font-mono text-xs" value={typeof value === 'string' ? value : value.name}
+          list={list} aria-invalid={invalid} title={selected?.ref} placeholder={placeholder}
+          onChange={event => onChange(event.target.value)} />
+        {suggestions.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="icon" className="shrink-0"
+                aria-label={t('compare.pickRef', { side: label })}
+                title={selected ? `${t(`compare.${selected.kind}`)} · ${selected.ref}` : t('compare.pickRef', { side: label })}>
+                <Icon aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-64 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto">
+              <DropdownMenuRadioGroup value={selected?.ref ?? ''} onValueChange={ref => {
+                const suggestion = suggestions.find(item => item.ref === ref);
+                if (suggestion) onChange(suggestion);
+              }}>
+                {suggestions.map(item => (
+                  <DropdownMenuRadioItem key={item.ref} value={item.ref} textValue={item.name} title={item.ref} className="gap-2">
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs">{item.name}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">{t(`compare.${item.kind}`)}</span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type Props = {
   open: boolean;
@@ -49,7 +104,7 @@ type Props = {
   initialHead?: string;
 };
 
-export function CommitCompareDialog({ open, onClose, path, initialBase = 'HEAD~1', initialHead = 'HEAD' }: Props) {
+export function CommitCompareDialog({ open, onClose, path, initialBase, initialHead = 'HEAD' }: Props) {
   const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }}>
@@ -69,15 +124,21 @@ export function CommitCompareDialog({ open, onClose, path, initialBase = 'HEAD~1
   );
 }
 
-function CommitCompareContent({ path, initialBase, initialHead }: { path: string; initialBase: string; initialHead: string }) {
+function CommitCompareContent({ path, initialBase, initialHead }: { path: string; initialBase?: string; initialHead: string }) {
   const { t } = useTranslation();
   const refsId = useId();
   const hideReviewedId = useId();
   const modeId = useId();
   const repo = useRepoStore(state => state.repos[path]);
-  const [draft, setDraft] = useState<CommitCompareRefs>({ base: initialBase, head: initialHead, mode: 'direct' });
+  const [draft, setDraft] = useState<CompareDraft>(() => {
+    const origin = repo?.branches.find(branch => branch.is_remote && branch.name === `origin/${repo.branch}`);
+    return { base: initialBase ?? (origin ? compareBranchRef(origin) : 'HEAD~1'), head: initialHead, mode: 'direct' };
+  });
   const [exporting, setExporting] = useState(false);
-  const [request, setRequest] = useState<CommitCompareRefs | null>(() => validateCompareRefs({ base: initialBase, head: initialHead }) ? null : { base: initialBase.trim(), head: initialHead.trim(), mode: 'direct' });
+  const [request, setRequest] = useState<CommitCompareRefs | null>(() => {
+    const refs = draftRefs(draft);
+    return validateCompareRefs(refs) ? null : refs;
+  });
   const requestKey = JSON.stringify([path, request]);
   const comparisonEpoch = useRef(0);
   const diffEpoch = useRef(0);
@@ -104,10 +165,18 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
   const diffLoading = !!comparison && !!selectedPath && (!currentDiff || diffState.loading);
   const diffError = currentDiff ? diffState.error : '';
   const diffErrorKey = comparisonErrorKey(diffError);
-  const refError = validateCompareRefs(draft);
-  const draftDirty = !!request && (draft.base.trim() !== request.base || draft.head.trim() !== request.head || draft.mode !== request.mode);
-  const suggestions = useMemo(() => [...new Set(['HEAD', 'HEAD~1', ...(repo?.branches.map(branch => branch.name) ?? []), ...(repo?.tags.map(tag => `refs/tags/${tag.name}`) ?? [])])].slice(0, 200), [repo?.branches, repo?.tags]);
+  const refs = draftRefs(draft);
+  const refError = validateCompareRefs(refs);
+  const draftDirty = !!request && (refs.base !== request.base || refs.head !== request.head || refs.mode !== request.mode);
+  const suggestions = useMemo<CompareRefSuggestion[]>(() => [
+    ...(repo?.branches.map(compareBranchRef) ?? []),
+    ...(repo?.tags.map(tag => ({ name: tag.name, ref: `refs/tags/${tag.name}`, kind: 'tag' as const })) ?? []),
+  ], [repo?.branches, repo?.tags]);
   const filteredFiles = useMemo(() => filterCompareFiles(comparison?.files ?? EMPTY_FILES, query, status, sort, reviewed, hideReviewed), [comparison?.files, query, status, sort, reviewed, hideReviewed]);
+  const showRenameHelp = comparison && (
+    comparison.files.some(file => file.status === 'R' && file.previous_path) ||
+    (comparison.files.some(file => file.status === 'A') && comparison.files.some(file => file.status === 'D'))
+  );
   const profileId = useDiffProfiles((s) => s.active);
   const customProfiles = useDiffProfiles((s) => s.custom);
   const [showHidden, setShowHidden] = useState(false);
@@ -202,23 +271,25 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
   };
   const apply = () => {
     if (refError) return;
-    setRequest({ base: draft.base.trim(), head: draft.head.trim(), mode: draft.mode });
+    setRequest(refs);
   };
 
   return (
     <>
       <form className="shrink-0 space-y-2 border-b border-border bg-muted/10 px-4 py-3" onSubmit={event => { event.preventDefault(); apply(); }}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto]">
-          <label className="min-w-0 text-xs font-medium">{t('compare.base')}<Input className="mt-1 font-mono text-xs" value={draft.base} list={refsId} aria-invalid={!!refError} placeholder="main, v1.0, HEAD~1" onChange={event => setDraft(current => ({ ...current, base: event.target.value }))} /></label>
+          <CompareRefInput label={t('compare.base')} value={draft.base} suggestions={suggestions}
+            list={refsId} invalid={!!refError} placeholder="main, v1.0, HEAD~1" onChange={base => setDraft(current => ({ ...current, base }))} />
           <Button type="button" variant="ghost" size="icon" disabled={!!refError} aria-label={t('compare.swap')} title={t('compare.swap')} onClick={() => {
             const swapped = { ...draft, base: draft.head, head: draft.base };
             setDraft(swapped);
-            setRequest({ ...swapped, base: swapped.base.trim(), head: swapped.head.trim() });
+            setRequest(draftRefs(swapped));
           }}><ArrowLeftRight aria-hidden="true" /></Button>
-          <label className="min-w-0 text-xs font-medium">{t('compare.head')}<Input className="mt-1 font-mono text-xs" value={draft.head} list={refsId} aria-invalid={!!refError} placeholder="HEAD, feature, origin/main" onChange={event => setDraft(current => ({ ...current, head: event.target.value }))} /></label>
+          <CompareRefInput label={t('compare.head')} value={draft.head} suggestions={suggestions}
+            list={refsId} invalid={!!refError} placeholder="HEAD, feature, origin/main" onChange={head => setDraft(current => ({ ...current, head }))} />
           <Button type="submit" disabled={!!refError} className="col-span-3 sm:col-span-1"><GitCompareArrows aria-hidden="true" />{t('compare.compare')}</Button>
         </div>
-        <datalist id={refsId}>{suggestions.map(ref => <option key={ref} value={ref} />)}</datalist>
+        <datalist id={refsId}><option value="HEAD" /><option value="HEAD~1" /></datalist>
         <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <legend className="sr-only">{t('compare.mode')}</legend>
           {(['direct', 'merge-base'] as const).map(mode => <label key={mode} className="flex cursor-pointer items-center gap-1.5"><input type="radio" name={modeId} checked={draft.mode === mode} onChange={() => setDraft(current => ({ ...current, mode }))} className="accent-primary" />{t(mode === 'direct' ? 'compare.direct' : 'compare.mergeBase')}</label>)}
@@ -260,7 +331,24 @@ function CommitCompareContent({ path, initialBase, initialHead }: { path: string
             <ResizablePanelGroup key={narrow ? 'compare-vertical' : 'compare-horizontal'} orientation={narrow ? 'vertical' : 'horizontal'} className="min-h-0 flex-1">
               <ResizablePanel id="compare-files" defaultSize={narrow ? '36%' : '29%'} minSize={narrow ? '22%' : '18%'} maxSize={narrow ? '65%' : '60%'} className="flex min-h-0 flex-col">
                 <div className="shrink-0 space-y-2 border-b border-border px-3 py-2">
-                  <FileFilterInput value={query} onChange={setQuery} />
+                  <div className="flex min-w-0 items-center gap-1">
+                    <div className="min-w-0 flex-1">
+                      <FileFilterInput value={query} onChange={setQuery} />
+                    </div>
+                    {showRenameHelp && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button type="button" size="xs" variant="ghost" className="max-w-40 min-w-0">
+                            <span className="truncate">{t('compare.renameHelp')}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="text-xs" aria-label={t('compare.renameHelp')}>
+                          <p>{t('compare.renameHelpExplanation')}</p>
+                          <p>{t('compare.renameHelpDiff')}</p>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <select aria-label={t('compare.fileStatus')} className={`${SELECT_CLASS} flex-1`} value={status} onChange={event => setStatus(event.target.value as typeof status)}><option value="all">{t('compare.allStatuses')}</option>{Object.entries(COMPARE_FILE_STATUS_KEYS).map(([key, label]) => <option key={key} value={key}>{t(`compare.${label}`)}</option>)}</select>
                     <select aria-label={t('compare.sortFiles')} className={`${SELECT_CLASS} flex-1`} value={sort} onChange={event => setSort(event.target.value as CommitCompareFileSort)}><option value="path">{t('compare.sortPath')}</option><option value="changes">{t('compare.sortChanges')}</option><option value="status">{t('compare.sortStatus')}</option></select>

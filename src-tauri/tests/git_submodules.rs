@@ -3,6 +3,200 @@ mod common;
 use common::TestRepo;
 use l8git_lib::git;
 
+const PIN_DIFF_PATH: &str = "vendor/space [lib]";
+
+#[tokio::test]
+async fn pin_diff_reads_two_local_commits_and_preserves_both_checkouts() {
+    let (host, _, child) = fixture("sub-pin-diff", PIN_DIFF_PATH, "library");
+    let before = child.head();
+    child.write(".gitattributes", "lib.txt diff=f20\n");
+    child.git(&["add", "--", ".gitattributes"]);
+    let after = child.commit("lib.txt", "new library\n", "second pin");
+    host.git(&["add", "--", PIN_DIFF_PATH]);
+    let latest = child.commit("lib.txt", "current HEAD only\n", "third pin");
+    child.write("lib.txt", "unsaved edit\n");
+    child.git(&["config", "diff.external", "l8git-f20-must-not-execute"]);
+    child.git(&["config", "diff.f20.textconv", "l8git-f20-must-not-execute"]);
+    child.git(&["config", "diff.f20.command", "l8git-f20-must-not-execute"]);
+    host.git(&["config", "diff.submodule", "diff"]);
+
+    let pin_patches = common::json(
+        &git::repo_file_diff(host.s(), PIN_DIFF_PATH.into(), false, None)
+            .await
+            .unwrap(),
+    );
+    for (sector, old, new) in [("staged", &before, &after), ("unstaged", &after, &latest)] {
+        let patch = pin_patches[sector].as_str().unwrap();
+        assert!(patch.contains(" 160000\n"), "{patch}");
+        assert!(
+            patch.contains(&format!("-Subproject commit {old}\n")),
+            "{patch}"
+        );
+        assert!(
+            patch.contains(&format!("+Subproject commit {new}")),
+            "{patch}"
+        );
+    }
+
+    let snapshot = || {
+        let mut bytes = Vec::new();
+        for repo in [&host, &child] {
+            let gitdir = std::path::PathBuf::from(repo.git(&["rev-parse", "--absolute-git-dir"]));
+            for file in ["HEAD", "index", "config"] {
+                bytes.push(std::fs::read(gitdir.join(file)).unwrap());
+            }
+            bytes.push(repo.git(&["show-ref", "--head"]).into_bytes());
+        }
+        bytes.push(std::fs::read(child.path.join("lib.txt")).unwrap());
+        bytes
+    };
+    let original = snapshot();
+    let compare = |old: &str, new: &str| {
+        git::git_submodule_pin_diff(host.s(), PIN_DIFF_PATH.into(), old.into(), new.into())
+    };
+    let result = common::json(&compare(&before, &after).await.unwrap());
+    let patch = result["patch"].as_str().unwrap();
+    assert_eq!(result["status"], "diff");
+    assert_eq!(result["truncated"], false);
+    assert!(patch.contains("diff --git a/lib.txt b/lib.txt"));
+    assert!(patch.contains("-library\n+new library\n"), "{patch}");
+    assert!(!patch.contains("current HEAD only") && !patch.contains("unsaved edit"));
+    let reverse = common::json(&compare(&after, &before).await.unwrap());
+    assert!(reverse["patch"]
+        .as_str()
+        .unwrap()
+        .contains("-new library\n+library\n"));
+    assert_eq!(
+        common::json(&compare(&after, &after.to_uppercase()).await.unwrap())["status"],
+        "samePin"
+    );
+    assert_eq!(original, snapshot());
+
+    child.git(&["commit", "--allow-empty", "-m", "same tree"]);
+    let empty = common::json(&compare(&latest, &child.head()).await.unwrap());
+    assert_eq!(empty["status"], "diff");
+    assert_eq!(empty["patch"], "");
+
+    host.git(&["add", "--", PIN_DIFF_PATH]);
+    let dirty_pair = common::json(
+        &git::repo_file_diff(host.s(), PIN_DIFF_PATH.into(), false, None)
+            .await
+            .unwrap(),
+    );
+    let head = child.head();
+    let dirty_patch = dirty_pair["unstaged"].as_str().unwrap();
+    assert!(
+        dirty_patch.contains(&format!(
+            "-Subproject commit {head}\n+Subproject commit {head}-dirty\n"
+        )),
+        "{dirty_patch}"
+    );
+}
+
+#[tokio::test]
+async fn pin_diff_rejects_bad_paths_and_never_fetches_missing_promisor_objects() {
+    let (host, source, child) = fixture("sub-pin-offline", PIN_DIFF_PATH, "library");
+    let before = child.head();
+    let missing = source.commit("lib.txt", "not in checkout\n", "remote-only pin");
+    child.git(&["config", "remote.origin.promisor", "true"]);
+    child.git(&["config", "remote.origin.partialclonefilter", "blob:none"]);
+    let compare = |path: &str, old: &str, new: &str| {
+        git::git_submodule_pin_diff(host.s(), path.into(), old.into(), new.into())
+    };
+    for path in [
+        "",
+        "vendor",
+        "vendor/../vendor/space [lib]",
+        ".git/modules/library",
+    ] {
+        assert!(compare(path, &before, &missing).await.is_err());
+    }
+    for pin in ["HEAD", &before[..12], "--output=/tmp/ignored"] {
+        let error = compare(PIN_DIFF_PATH, &before, pin).await.err().unwrap();
+        assert!(error.contains("submodule.invalidPin"), "{error}");
+    }
+    let tree = child.git(&["rev-parse", "HEAD^{tree}"]);
+    let error = compare(PIN_DIFF_PATH, &before, &tree).await.err().unwrap();
+    assert!(error.contains("submodule.invalidPin"), "{error}");
+    let error = compare(PIN_DIFF_PATH, &before, &missing)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.objectsUnavailable"), "{error}");
+    assert!(!child.git(&["rev-list", "--all"]).contains(&missing));
+
+    let after = child.commit("lib.txt", "missing blob\n", "local pin");
+    let blob = child.git(&["rev-parse", "HEAD:lib.txt"]);
+    let dir = std::path::PathBuf::from(child.git(&["rev-parse", "--absolute-git-dir"]));
+    std::fs::remove_file(dir.join("objects").join(&blob[..2]).join(&blob[2..])).unwrap();
+    let error = compare(PIN_DIFF_PATH, &before, &after).await.err().unwrap();
+    assert!(error.contains("submodule.objectsUnavailable"), "{error}");
+    assert!(!dir
+        .join("objects")
+        .join(&blob[..2])
+        .join(&blob[2..])
+        .exists());
+
+    std::fs::remove_file(child.path.join(".git")).unwrap();
+    let error = compare(PIN_DIFF_PATH, &before, &after).await.err().unwrap();
+    assert!(error.contains("submodule.notInitialized"), "{error}");
+    assert!(!child.path.join(".git").exists());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn pin_diff_shares_the_submodule_checkout_boundary() {
+    use std::os::unix::fs::symlink;
+    let (host, source, child) = fixture("sub-pin-boundary", PIN_DIFF_PATH, "library");
+    let before = child.head();
+    let after = source.commit("lib.txt", "other checkout\n", "outside");
+    std::fs::remove_dir_all(&child.path).unwrap();
+    symlink(&source.path, &child.path).unwrap();
+    let error = git::git_submodule_pin_diff(host.s(), PIN_DIFF_PATH.into(), before, after)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.unsafePath"), "{error}");
+    std::fs::remove_file(&child.path).unwrap();
+}
+
+#[cfg(feature = "headless")]
+#[tokio::test]
+async fn pin_diff_dispatch_requires_both_pins_and_a_shared_parent() {
+    use l8git_lib::server::{
+        dispatch,
+        state::{ConnectionHandle, DispatchCtx, ServerState, OUTBOX_CAPACITY},
+    };
+    use serde_json::json;
+    use std::sync::Arc;
+
+    let (host, source, child) = fixture("sub-pin-ipc", PIN_DIFF_PATH, "library");
+    let before = child.head();
+    let after = child.commit("lib.txt", "from child\n", "pin");
+    let command = "git_submodule_pin_diff";
+    let state = ServerState::new("test".into(), [0; 32], vec![host.path.clone()]);
+    let (tx, _rx) = tokio::sync::mpsc::channel(OUTBOX_CAPACITY);
+    let ctx = DispatchCtx::new(
+        state.clone(),
+        Arc::new(ConnectionHandle::new(1, tx)),
+        1,
+        command,
+    );
+    let args = json!({ "path": host.s(), "submodulePath": PIN_DIFF_PATH, "before": before, "after": after });
+    state.ensure_command_allowed(command, &args).unwrap();
+    let response = dispatch::dispatch(command, args.clone(), &ctx)
+        .await
+        .unwrap();
+    assert_eq!(response["status"], "diff");
+    assert!(response["patch"].as_str().unwrap().contains("+from child"));
+    let mut missing = args.clone();
+    missing.as_object_mut().unwrap().remove("before");
+    assert!(dispatch::dispatch(command, missing, &ctx).await.is_err());
+    let mut outside = args;
+    outside["path"] = json!(source.s());
+    assert!(state.ensure_command_allowed(command, &outside).is_err());
+}
+
 fn fixture(tag: &str, path: &str, name: &str) -> (TestRepo, TestRepo, TestRepo) {
     let source = TestRepo::new(&format!("{tag}-source"));
     // Submodule clones read the global config, where Windows runners enable
@@ -69,6 +263,8 @@ async fn paths_with_spaces_tabs_newlines_and_trailing_space_are_exact() {
         .unwrap();
     assert_eq!(history.len(), 1);
     assert!(history[0].is_pinned);
+    let opened = common::json(&git::open_submodule_repo(host.s(), path.into(), None).await.unwrap());
+    assert_eq!(opened["path"], sub.path.canonicalize().unwrap().to_str().unwrap());
     git::git_submodule_sync(host.s(), Some(path.into()))
         .await
         .unwrap();
@@ -510,4 +706,198 @@ async fn conflict_gitlinks_use_ours_and_preserve_conflict_status() {
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].commit, ours);
     assert_eq!(entries[0].status, "conflict");
+}
+
+#[tokio::test]
+async fn opening_the_selected_checkout_returns_its_own_head_and_preserves_git_state() {
+    let selected = "vendor/space [lib]";
+    let (host, _source, child) = fixture("sub-open", selected, "library");
+    let head = child.commit("lib.txt", "local commit\n", "child commit");
+    child.git(&["checkout", "--detach", &head]);
+    child.write("lib.txt", "unsaved child edit\n");
+    let head_path = |repo: &TestRepo, name: &str| {
+        std::path::PathBuf::from(repo.git(&["rev-parse", "--absolute-git-dir"])).join(name)
+    };
+    let files = [
+        host.path.join(".gitmodules"),
+        host.path.join("app.txt"),
+        child.path.join(".git"),
+        child.path.join("lib.txt"),
+        head_path(&host, "config"),
+        head_path(&child, "config"),
+        head_path(&host, "index"),
+        head_path(&child, "index"),
+        head_path(&host, "HEAD"),
+        head_path(&child, "HEAD"),
+    ];
+    let read = || files.each_ref().map(|path| std::fs::read(path).unwrap());
+    let before = read();
+    let refs = |repo: &TestRepo| repo.git(&["show-ref", "--head"]);
+    let before_refs = [refs(&host), refs(&child)];
+
+    let opened = common::json(
+        &git::open_submodule_repo(host.s(), selected.into(), None)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        opened["path"],
+        child.path.canonicalize().unwrap().to_str().unwrap()
+    );
+    assert_eq!(opened["branch"], "HEAD");
+    assert_eq!(opened["commits"][0]["hash"], head);
+    assert_eq!(before, read());
+    assert_eq!(before_refs, [refs(&host), refs(&child)]);
+}
+
+#[tokio::test]
+async fn opening_requires_an_exact_registered_and_initialized_checkout() {
+    let selected = "vendor/lib";
+    let (host, _source, child) = fixture("sub-open-invalid", selected, "library");
+    let other = TestRepo::new("sub-open-unregistered");
+    other.commit("other.txt", "other\n", "other");
+    host.git(&["clone", "-q", "--", &other.file_url(), "embedded"]);
+    for path in [
+        "",
+        ".",
+        "../outside",
+        "/outside",
+        "vendor",
+        "vendor/./lib",
+        "vendor/lib/",
+        "vendor/lib/lib.txt",
+        "embedded",
+        ".git/modules/library",
+    ] {
+        assert!(
+            git::open_submodule_repo(host.s(), path.into(), None)
+                .await
+                .is_err(),
+            "{path:?}"
+        );
+    }
+    assert!(git::open_submodule_repo(
+        host.path.join("vendor").to_string_lossy().into(),
+        "lib".into(),
+        None
+    )
+    .await
+    .is_err());
+
+    let gitfile = child.path.join(".git");
+    let initialized = std::fs::read(&gitfile).unwrap();
+    std::fs::write(&gitfile, "gitdir: /missing/submodule-metadata\n").unwrap();
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(
+        error.contains("git repository") || error.contains("does not point to a valid repository"),
+        "{error}"
+    );
+    std::fs::write(&gitfile, "gitdir: ../../.git\n").unwrap();
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.unsafePath"), "{error}");
+    std::fs::write(&gitfile, initialized).unwrap();
+    child.git(&["config", "core.worktree", &other.s()]);
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.unsafePath"), "{error}");
+
+    std::fs::remove_file(&gitfile).unwrap();
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.notInitialized"), "{error}");
+    assert!(!gitfile.exists());
+    assert_eq!(child.read("lib.txt"), "library\n");
+    std::fs::remove_dir_all(&child.path).unwrap();
+    let error = git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(error.contains("submodule.notInitialized"), "{error}");
+    assert!(!child.path.exists());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn opening_rejects_symlinks_within_and_outside_the_parent_checkout() {
+    use std::os::unix::fs::symlink;
+    let selected = "vendor/lib";
+    let (host, outside, child) = fixture("sub-open-links", selected, "library");
+    let relocated = host.path.join("relocated");
+    std::fs::rename(&child.path, &relocated).unwrap();
+    for target in [&outside.path, &relocated] {
+        symlink(target, &child.path).unwrap();
+        assert!(git::open_submodule_repo(host.s(), selected.into(), None)
+            .await
+            .is_err());
+        std::fs::remove_file(&child.path).unwrap();
+    }
+    let vendor = child.path.parent().unwrap();
+    std::fs::remove_dir(vendor).unwrap();
+    std::fs::create_dir(host.path.join("alias-target")).unwrap();
+    std::fs::rename(relocated, host.path.join("alias-target/lib")).unwrap();
+    symlink(host.path.join("alias-target"), vendor).unwrap();
+    assert!(git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .is_err());
+    std::fs::remove_file(vendor).unwrap();
+    symlink(outside.path.parent().unwrap(), vendor).unwrap();
+    assert!(git::open_submodule_repo(host.s(), selected.into(), None)
+        .await
+        .is_err());
+}
+
+#[cfg(feature = "headless")]
+#[tokio::test]
+async fn open_submodule_ipc_requires_an_explicit_path_and_a_shared_parent() {
+    use l8git_lib::server::{
+        dispatch,
+        state::{ConnectionHandle, DispatchCtx, ServerState, OUTBOX_CAPACITY},
+    };
+    use serde_json::json;
+    use std::sync::Arc;
+
+    let (host, outside, child) = fixture("sub-open-ipc", "vendor/lib", "library");
+    let state = ServerState::new("test".into(), [0; 32], vec![host.path.clone()]);
+    let (tx, _rx) = tokio::sync::mpsc::channel(OUTBOX_CAPACITY);
+    let command = "open_submodule_repo";
+    let ctx = DispatchCtx::new(
+        state.clone(),
+        Arc::new(ConnectionHandle::new(1, tx)),
+        1,
+        command,
+    );
+    let args =
+        json!({ "path": host.s(), "submodulePath": "vendor/lib", "hideT3Checkpoints": false });
+    state.ensure_command_allowed(command, &args).unwrap();
+    let opened = dispatch::dispatch(command, args, &ctx).await.unwrap();
+    assert_eq!(
+        opened["path"],
+        child.path.canonicalize().unwrap().to_str().unwrap()
+    );
+    assert_eq!(opened["commits"][0]["hash"], child.head());
+    for args in [
+        json!({ "path": host.s() }),
+        json!({ "path": host.s(), "submodulePath": null }),
+        json!({ "path": host.s(), "submodulePath": ["vendor/lib"] }),
+        json!({ "path": host.s(), "submodulePath": outside.s() }),
+        json!({ "path": host.s(), "submodulePath": "../outside" }),
+    ] {
+        assert!(dispatch::dispatch(command, args, &ctx).await.is_err());
+    }
+    assert!(state
+        .ensure_command_allowed(
+            command,
+            &json!({ "path": outside.s(), "submodulePath": "vendor/lib" })
+        )
+        .is_err());
 }

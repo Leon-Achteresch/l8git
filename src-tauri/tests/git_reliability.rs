@@ -537,6 +537,7 @@ async fn guarded_merge_rejects_changed_branch_target_or_source_without_mutation(
 #[tokio::test]
 async fn checked_worktree_cleanup_requires_clean_merged_snapshot_and_keeps_the_branch() {
     let repo = TestRepo::new("checked-cleanup");
+    repo.commit(".gitignore", "generated.txt\n", "ignore generated output");
     repo.commit("base.txt", "base", "base");
     let worktree_path = scratch_path("agent-cleanup");
     repo.git(&[
@@ -594,6 +595,10 @@ async fn checked_worktree_cleanup_requires_clean_merged_snapshot_and_keeps_the_b
     assert_eq!(dirty, "__WORKTREE_DIRTY__");
     assert_eq!(worktree.read("untracked.txt"), "keep my unreviewed output");
     std::fs::remove_file(worktree.path.join("untracked.txt")).unwrap();
+    worktree.write("generated.txt", "ignored output");
+    assert!(worktree
+        .git(&["status", "--porcelain", "--untracked-files=all"])
+        .is_empty());
     git::git_worktree_remove_checked(
         repo.s(),
         worktree.s(),

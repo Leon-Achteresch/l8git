@@ -1,8 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Commit } from './repo-store';
+import type { Branch, Commit } from './repo-store';
 
 export type CommitCompareMode = 'direct' | 'merge-base';
 export type CommitCompareRefs = { base: string; head: string; mode: CommitCompareMode };
+export type CompareRefSuggestion = { name: string; ref: string; kind: 'localBranch' | 'remoteBranch' | 'tag' };
+
+export function compareBranchRef(branch: Pick<Branch, 'name' | 'is_remote'>): CompareRefSuggestion {
+  return {
+    name: branch.name,
+    ref: `refs/${branch.is_remote ? 'remotes' : 'heads'}/${branch.name}`,
+    kind: branch.is_remote ? 'remoteBranch' : 'localBranch',
+  };
+}
 export type CommitCompareFileStatus = 'A' | 'M' | 'D' | 'R' | 'C' | 'T';
 export type CommitCompareFile = {
   path: string;

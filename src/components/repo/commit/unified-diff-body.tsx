@@ -12,6 +12,7 @@ import {
   buildPatchesForSelection,
   buildPatchesForDiscard,
   flattenParsedDiff,
+  isModeOnlyDiff,
   linesFromUntracked,
   parseUnifiedDiff,
   parseDiffWithHunks,
@@ -987,6 +988,20 @@ export function UnifiedDiffBody({
         onDiscardHunk={onDiscardHunk ? stableOnDiscardHunk : undefined}
         filePath={filePath}
       />
+    );
+  }
+
+  if (interactive && resolvedParsedDiff && untrackedPlain == null && isModeOnlyDiff(resolvedParsedDiff)) {
+    const lines: DiffLine[] = resolvedParsedDiff.metaLines.map((text) => ({ kind: "meta", text }));
+    return (
+      <div className="flex h-full flex-col">
+        <p className="shrink-0 px-4 pb-1 pt-3 text-xs font-medium text-muted-foreground">
+          {t("diff.fileModeChanged")}
+        </p>
+        <div className="min-h-0 flex-1">
+          <VirtualDiffList lines={lines} />
+        </div>
+      </div>
     );
   }
 

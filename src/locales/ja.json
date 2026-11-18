@@ -1163,6 +1163,9 @@
     "providerSelfHostedExample": "セルフホストの Git"
   },
   "repoDetails": {
+    "shallowHistoryNotice": "浅い履歴です。Git はローカルの履歴境界で止まるため、それより古いコミットはこのビューに表示されない場合があります。",
+    "bareNotice": "このベアリポジトリには作業コピーがありません。履歴と参照は確認できます。",
+    "bareOpenHistory": "履歴を開く",
     "loading": "読み込み中…"
   },
   "updates": {
@@ -1366,6 +1369,16 @@
     "confirmTitle": "「{{label}}」を実行しますか？",
     "confirmDesc": "次を実行します: {{run}}",
     "gitSection": "Git ツール"
+  },
+  "commitIdentity": {
+    "title": "コミットの識別情報が異なります",
+    "description": "Git が解決した識別情報は、割り当てられたプロファイルと異なります。コミットする前に値を確認してください。",
+    "profile": "プロファイル: {{label}}",
+    "author": "Git の作者",
+    "committer": "Git のコミッター",
+    "continue": "この識別情報でコミット",
+    "changed": "Git の識別情報が変更されました。コミットを再開して現在の値を確認してください。",
+    "operation": "この Git 操作中は識別情報を確認できません。操作を続行するための専用アクションを使用してください。"
   },
   "commitPanel": {
     "explainDiff": "差分を説明",
@@ -1667,6 +1680,8 @@
     "baseOptionHead": "— HEAD から (既定) —"
   },
   "worktree": {
+    "catalogCheckedAt": "ワークツリーの最終確認は {{time}}",
+    "catalogRefreshFailed": "ワークツリーを更新できませんでした。表示中の項目は古い可能性があります。",
     "none": "ワークツリーがありません",
     "noneShort": "エントリがありません",
     "remove": "削除",
@@ -1690,8 +1705,9 @@
     "whatAreWorktrees": "ワークツリーとは？",
     "noneInRepoTitle": "ワークツリーがありません",
     "noneInRepoBody": "このリポジトリにはリンクされたワークツリーがありません。上の + ボタンから追加してください。",
-    "cardConfirmRemove": "ワークツリー「{{name}}」を削除しますか？\n\n{{path}}",
-    "cardConfirmForceRemove": "このワークツリーにはローカルの変更があります。それでも削除しますか (強制)？",
+    "cardConfirmRemove": "ワークツリー「{{name}}」を削除しますか？\n\n{{path}}\n\n$t(worktree.cleanupIgnoredFiles)",
+    "cardConfirmForceRemove": "このワークツリーにはローカルの変更があります。それでも削除しますか (強制)？\n\n$t(worktree.cleanupIgnoredFiles)",
+    "cleanupIgnoredFiles": "Git が作業ツリーに変更なしと表示していても、削除すると無視されたファイルが失われることがあります。スナップショットには追跡済みファイルの変更と、無視されていない未追跡ファイルが含まれます。未追跡ファイルを含める設定の stash も両方を対象とします。無視された未追跡ファイルは対象外です。残す場合はキャンセルし、先に作業ツリーの外に保存してください。",
     "cardToastRemoved": "ワークツリーを削除しました。",
     "cardToastRemovedForce": "ワークツリーを削除しました (強制)。",
     "cardConfirmUnlock": "ワークツリー「{{name}}」のロックを解除しますか？",
@@ -1722,6 +1738,9 @@
     "detailActionsHeading": "操作"
   },
   "submodule": {
+    "comparePins": "サブモジュールの固定コミットを比較",
+    "samePin": "両方が同じサブモジュールコミットを指しています。",
+    "sameContents": "これらのコミットのファイル内容は同じです。",
     "none": "サブモジュールがありません",
     "noCommits": "利用できるコミットがありません",
     "lastCommits": "サブモジュールの最新コミット",
@@ -1747,6 +1766,8 @@
     "detailPinnedSuperRepo": "親リポジトリで固定",
     "detailRemoteHead": "リモートの HEAD",
     "commitsBehindShort": "↓{{count}} コミット",
+    "detailOpenRepo": "リポジトリを開く",
+    "detailOpeningRepo": "リポジトリを開いています…",
     "detailPull": "プル",
     "detailTerminal": "ターミナル",
     "detailGitmodules": ".Gitmodules",
@@ -1969,6 +1990,21 @@
     "modeTwoWayTitle": "自分側 (ours) を相手側 (theirs) と直接比較"
   },
   "mergeEditor": {
+    "rebase": {
+      "oursHead": "リベースの現在の状態（HEAD）",
+      "theirsIncoming": "再適用中のコミット",
+      "theirsCommit": "再適用中のコミット: {{commit}}",
+      "ours": "リベースの状態",
+      "theirs": "再適用コミット",
+      "takeOursHint": "リベースの状態を採用（1）",
+      "takeTheirsHint": "再適用中のコミットを採用（2）",
+      "allOurs": "すべてリベースの状態を採用",
+      "allTheirs": "すべて再適用コミットを採用",
+      "acceptAllOursHint": "すべての競合をリベースの現在の状態で解決",
+      "acceptAllTheirsHint": "すべての競合を再適用中のコミットで解決",
+      "explanation": "リベース中、左側（ours/HEAD）はすでに再適用されたコミットを含む適用先の現在の状態です。右側（theirs）は今まさに再適用しているコミットです。",
+      "targetBase": "適用先のベース: {{target}}。"
+    },
     "oursHead": "自分側 (HEAD)",
     "theirsIncoming": "相手側 (取り込み)",
     "vs": "対",
@@ -2204,6 +2240,15 @@
     "stackBadgeTitle": "{{name}} · スタック {{root}} · レベル {{level}}"
   },
   "commitInspect": {
+    "localNote": {
+      "title": "ローカル Git ノート",
+      "missing": "この ref には、このコミットのローカルノートがありません。",
+      "failed": "ローカル Git ノートを読み込めませんでした。",
+      "unsupported": "この Git ノートには対応する UTF-8 テキストが含まれていません。",
+      "tooLarge": "この Git ノートは表示上限の 64 KiB を超えています。",
+      "empty": "この Git ノートは空です。"
+    },
+    "authorDate": "作成日時",
     "metadata": "メタデータを表示",
     "explainCommit": "説明",
     "changedFiles": "変更されたファイル",
@@ -2259,6 +2304,12 @@
     "linesCount_other": "{{count}} 行"
   },
   "blamePage": {
+    "openPrevious": "前のリビジョンを開く",
+    "backToOriginal": "元の Blame に戻る",
+    "previousRevision": "前のリビジョン · {{commit}}",
+    "noLineMapping": "対応する行位置を指定せずに開きます。",
+    "noPrevious": "Git はこの行に対応する前のファイル版を特定できませんでした。",
+    "previousUnavailable": "前のファイル版をローカルで読み込めませんでした。",
     "title": "Git Blame",
     "closeAria": "Git Blame を閉じる",
     "gutterLabel": "Blame",
@@ -2276,6 +2327,7 @@
     "noRemotes": "リモートが設定されていません。"
   },
   "branch": {
+    "upstreamMissingLocally": "上流がローカルにありません",
     "menuExplainBranch": "このブランチを説明",
     "defaultEmpty": "ブランチがありません",
     "delete": "削除",
@@ -2552,6 +2604,7 @@
     "submitBusy": "…"
   },
   "diff": {
+    "fileModeChanged": "ファイルモードが変更されました",
     "cancel": "キャンセル",
     "lineDeselectTitle": "行の選択を解除",
     "lineSelectTitle": "行を選択",
@@ -2809,6 +2862,8 @@
     "createdPushFailed": "{{name}} を作成しましたが、プッシュに失敗しました: {{error}}"
   },
   "branchMenu": {
+    "noFirstCommit": "コミットなし",
+    "unbornLabel": "{{branch}} · コミットなし",
     "switchTitle": "ブランチを切り替え",
     "pickAria": "ブランチを選択",
     "sectionLocal": "ローカル",
@@ -3510,6 +3565,27 @@
     "exitFail": "エラーで終了",
     "noRepo": "リポジトリなし"
   },
+  "workspaceFetchPreview": {
+    "target": "フェッチ先: {{remote}}",
+    "noTarget": "フェッチ先が一意に設定されていません。",
+    "confirm": "フェッチ先を確認",
+    "retryValidation": "フェッチ先を再確認",
+    "repoChanged": "リポジトリが変わりました。選択内容を確認し直してください。",
+    "targetChanged": "フェッチ先が変わりました。選択内容を確認し直してください。",
+    "unavailable": "リポジトリを再確認できませんでした。",
+    "matched": "フェッチ先はプレビューと一致しています。ワークスペースの一括フェッチはまだ利用できません。",
+    "title": "ワークスペースのフェッチプレビュー",
+    "hint": "{{workspace}} で選択したリポジトリを確認します。プレビューではフェッチを実行しません。",
+    "empty": "このワークスペースに開いているリポジトリはありません。",
+    "lastFetch": "このセッションで最後に成功したフェッチ：{{time}}",
+    "noFetch": "このセッションで成功したフェッチは記録されていません。",
+    "active": "リモート操作を実行中です。",
+    "remotes": "設定済みのリモート：{{names}}",
+    "noRemotes": "リモートが設定されていません。",
+    "shared": "選択した別のリポジトリと Git ディレクトリを共有しています。",
+    "inspect": "選択したリポジトリを確認",
+    "canceled": "プレビューをキャンセルしました。"
+  },
   "remoteProgress": {
     "op_fetch": "フェッチ",
     "op_pull": "プル",
@@ -3676,6 +3752,7 @@
     "filteredHistory_other": "{{count}} 件のコミットを読み込み済み"
   },
   "historyFilters": {
+    "pathMergeHelp": "Git はパスの履歴を簡略化します。選んだパスが親コミットの一つと同じ場合、マージやその系統が省略されることがあります。このパスの制限なしでグラフを見るには、パスフィルターを解除してください。他のフィルターは有効なままです。",
     "renamedFrom": "{{path}} から名前変更",
     "searchPlaceholder": "コミットメッセージを検索…",
     "apply": "適用",
@@ -3712,6 +3789,26 @@
     "hashesCopied": "{{count}}件のコミットハッシュをコピーしました。"
   },
   "commitGuidance": {
+    "cleanup": {
+      "title": "Git のメッセージ整形",
+      "input": "コミットと Amend は、前後の空白を除いた下書きを -m で渡し、Git のエディターは開きません。l8git のテンプレートは下書きを埋めます。Git の commit.template は Git のエディターの初期テキストで、-m では無視されます。",
+      "default": "コミットパネルは整形を Git に任せます。commit.cleanup が設定されていれば Git はその設定を使います。既定では、エディターで編集する場合は strip、テキストを直接渡す場合は whitespace です。",
+      "strip": "whitespace に加え、Git のコメント記号で始まる行を削除します。通常の # が使われる場合、#123 で始まる行は消えることがあります。その場合でも Refs: #123 の行は残ります。",
+      "whitespace": "行末の空白と先頭・末尾の空行を取り除き、連続する空行を 1 行にまとめます。コメント行は残します。",
+      "verbatim": "Git が受け取ったメッセージを整形しません。",
+      "scissors": "whitespace と同様ですが、Git のエディターで編集する場合は切り取り線以降も削除します。",
+      "limits": "有効な設定とコメント記号はここでは確認しません。Git フックがメッセージを変更したり拒否したりすることもあります。"
+    },
+    "coAuthor": {
+      "title": "共同著者トレーラーのプレビュー",
+      "subject": "件名",
+      "bodyLine": "説明の {{line}} 行目",
+      "edit": "行を編集",
+      "editAt": "{{location}}を編集",
+      "placement": "説明の後に空行を入れ、末尾のトレーラーブロックに共同著者の行を置きます。",
+      "format": "共同著者ごとに Co-authored-by: 名前 <メールアドレス> を1行ずつ記入します。",
+      "attribution": "アカウントへの帰属は、ホストとアカウントに紐づくメールアドレスによって決まります。"
+    },
     "typeLabel": "Conventional Commit の種類を選択",
     "type": "種類",
     "conventionalTitle": "Conventional Commit の種類",
@@ -3750,6 +3847,8 @@
     "goodMessage": "件名は読みやすくなっています。必要に応じて本文で理由と検証を説明してください。",
     "startHint": "具体的な一文で変更を説明してください。任意の本文で理由や検証方法を説明できます。",
     "trailerType": "コミットのトレーラー種類",
+    "refsIntent": "Issue を参照します。",
+    "closesIntent": "Issue の自動クローズを要求します。クローズされるかどうかは、ホスト、対象ブランチ、リポジトリの設定によって異なります。",
     "trailerValue": "課題の参照または移行の説明",
     "migrationPlaceholder": "影響と移行方法を説明…",
     "issuePlaceholder": "#123 または PROJ-42",
@@ -3785,6 +3884,10 @@
     }
   },
   "compare": {
+    "pickRef": "{{side}}の参照を選択",
+    "localBranch": "ローカルブランチ",
+    "remoteBranch": "リモートブランチ",
+    "tag": "タグ",
     "title": "コミットとブランチを比較",
     "description": "ブランチ、タグ、コミットを比較し、変更されたファイルを確認します。",
     "base": "基準",
@@ -3837,6 +3940,9 @@
     "added": "追加",
     "modified": "変更",
     "deleted": "削除",
+    "renameHelp": "名前変更の検出",
+    "renameHelpExplanation": "Git はこの比較で、削除されたファイルと追加されたファイルの内容の類似度を調べます。比較する版の内容が大きく異なる場合、同じ移動が削除と追加として表示されることがあります。",
+    "renameHelpDiff": "名前変更を検出すると以前のパスが表示されます。ファイルを選択すると内容の差分を確認できます。",
     "renamed": "名前変更",
     "copied": "コピー",
     "typeChanged": "種類変更",
@@ -4029,7 +4135,7 @@
       "summary": "記録された依存関係のバージョンと、その作業ツリーを理解します。",
       "steps": [
         "サブモジュールを開き、記録されたコミット、現在のチェックアウト、ローカルの変更を確認します。",
-        "未初期化のサブモジュールを初期化するか、親リポジトリに記録されたバージョンへチェックアウトを更新します。",
+        "未初期化のサブモジュールを初期化するか、親リポジトリに記録されたバージョンへチェックアウトを更新します。「同期」は、.gitmodules でバージョン管理されている URL を初期化済みサブモジュールのローカル設定に反映します。意図的に上書きしたローカル URL も置き換わることがあります。",
         "依存関係を開発する場合は、そのリポジトリを開いてブランチを作成し、変更をそこでコミットします。",
         "親リポジトリで更新した gitlink をステージしてコミットする前に、サブモジュールのコミットをチームから取得できるようにします。"
       ],
@@ -4105,10 +4211,10 @@
       "title": "作業を一時保存して再開する",
       "summary": "一時的に変更のない作業ツリーが必要な場合はスタッシュを使います。",
       "steps": [
-        "スタッシュを開き、内容が分かる名前で作成します。",
+        "スタッシュを開き、内容が分かる名前で作成します。作成時に「インデックスを保持」を選ぶと、ステージ済みの変更がインデックスに残ります。",
         "新しいファイルが作業に含まれる場合は、未追跡ファイルも保存します。",
         "ブランチを切り替えるか、必要な操作を行います。",
-        "保存したコピーを残すには Apply を、正常に適用できた後に削除するには Pop を使います。競合があれば確認して解決します。"
+        "保存したコピーを残すには Apply を、正常に適用できた後に削除するには Pop を使います。競合があれば確認して解決します。Git 2.52 以降で Git の設定を stash.index=true にすると、Apply と Pop は保存時のステージ済みと未ステージの区分の復元を試みます。"
       ],
       "caution": "通常の未追跡ファイルを含めるオプションでは、無視されたファイルは保存されません。Pop が競合した場合はスタッシュが残ります。再適用する前に作業ツリーを確認してください。"
     },
@@ -4799,15 +4905,19 @@
     "removeWorktree": "Remove worktree",
     "rerere": "Rerere",
     "rerereAutoupdate": "auto-staging on",
+    "rerereAutoupdateOff": "自動ステージングはオフ",
     "rerereDisable": "Disable rerere",
     "rerereEnable": "Enable rerere",
     "rerereForgetConfirm": "Forget the recorded resolution for {{file}}?",
-    "rerereHint": "Recorded conflict resolutions: see what Git reused and control it explicitly.",
+    "rerereHint": "rerere が把握している競合パスを確認し、続行する前に解決内容を見直します。",
     "rerereOff": "rerere is disabled",
     "rerereOn": "rerere is enabled",
-    "rerereRemaining": "Still unresolved: {{files}}",
-    "rerereReused": "Resolutions reused in the current conflict",
-    "rerereUnset": "rerere is not configured (off)",
+    "rerereRemaining": "rerere が自動解決していない競合",
+    "rererePendingRecording": "解決内容の記録待ちの競合",
+    "rerereUnset": "rerere は Git の既定動作に従い、ローカルキャッシュがある場合に有効になります。",
+    "rerereAutoupdateHint": "自動ステージングがオンの場合、Git は再利用した解決内容をステージできます。オフの場合は確認してから手動でステージしてください。",
+    "rerereReview": "続行する前に「コミット」で作業ツリーの差分とインデックスにステージされた変更を確認してください。",
+    "rerereNoPaths": "Git はこれらの rerere リストにパスを報告していません。",
     "rescue": "Rescue",
     "rescueBranch": "new branch name",
     "rescued": "Branch {{branch}} created at {{head}}",
@@ -5650,12 +5760,20 @@
       "writeFailed": "設定を書き込めませんでした: {{error}}",
       "homeMissing": "ホームフォルダーが見つかりません。"
     },
+    "submodule": {
+      "invalidPin": "サブモジュールの両方の固定コミットに完全なコミット ID が必要です。",
+      "objectsUnavailable": "ローカルのサブモジュールに必要なオブジェクトがないか、読み取れません。{{error}}",
+      "notInitialized": "リポジトリを開く前にこのサブモジュールを初期化してください。",
+      "notRegistered": "このパスはサブモジュールとして登録されていません。",
+      "unsafePath": "選択したパスは安全なサブモジュールの作業ツリーを指していません。"
+    },
     "git": {
       "startFailed": "Git を起動できませんでした: {{error}}",
       "patchWriteFailed": "パッチを書き込めませんでした: {{error}}",
       "waitFailed": "Git の待機中にエラーが発生しました: {{error}}",
       "applyFailed": "git apply に失敗しました。",
       "unknownRemote": "不明なリモート: {{remote}}",
+      "remoteBusy": "このリポジトリではすでにリモート操作が実行されています。完了後に再試行してください。",
       "headNotOnBranch": "HEAD がブランチを指していません。",
       "unknownMergeStrategy": "不明なマージ戦略: {{strategy}}",
       "mainlineParent": "メインライン親は 1 以上である必要があります。",
@@ -5668,6 +5786,7 @@
       "unknownCommit": "不明なコミット: {{commit}}",
       "branchExists": "{{branch}} という名前のブランチは既に存在します。",
       "runFailed": "Git を実行できませんでした: {{error}}",
+      "missingLocalCommitFile": "この部分クローンにはコミットがありますが、差分の表示に必要なファイル内容の一部がローカルにありません。",
       "commandFailed": "Git コマンドが失敗しました。"
     },
     "hooks": {
@@ -5995,7 +6114,24 @@
     "changed": "変更",
     "files_one": "{{count}} ファイル",
     "files_other": "{{count}} ファイル",
+    "committerDate": "コミット日時",
     "committed": "コミット日時",
     "branch": "ブランチ"
+  },
+  "ignoreExplanation": {
+    "title": "無視ルールを確認…",
+    "description": "パスを入力して無視ルールを確認します。現在の Git ルールとインデックスの読み取りのみを行います。",
+    "path": "リポジトリ相対パス",
+    "pathHint": "リポジトリのルートからの相対パスです。空白は保持され、存在しないパスも確認できます。",
+    "check": "パスを確認",
+    "checking": "確認中…",
+    "ignored": "Git はこのパスを無視しています。",
+    "negated": "否定ルールによりこのパスは許可されており、無視されていません。",
+    "noMatch": "このパスに一致する無視ルールはありません。",
+    "noMatchHint": "一覧にファイルがない理由が必ずしも判明するわけではありません。追跡済みファイルは無視ルールの確認対象外です。",
+    "source": "ルールファイル",
+    "line": "行",
+    "pattern": "パターン",
+    "invalidPath": "リポジトリのルートからの相対パスを入力してください。「..」や .git ディレクトリは使えません。親ディレクトリはリポジトリ内にある必要があります。"
   }
 }

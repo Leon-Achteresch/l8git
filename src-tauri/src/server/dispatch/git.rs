@@ -71,6 +71,10 @@ pub async fn dispatch(
             crate::git::branch_push_remote(path).await
         }
 
+        "repo_fetch_scope" (path: String) => {
+            crate::git::repo_fetch_scope(path).await
+        }
+
         "git_fetch" (
             path: String,
             prune_branches: Option<bool>,
@@ -312,6 +316,14 @@ pub async fn dispatch(
             crate::git::commit_changes(path, message, sign).await
         }
 
+        "commit_identity_preview" (path: String) => {
+            crate::git::commit_identity_preview(path).await
+        }
+
+        "commit_changes_with_identity" (path: String, message: String, expected_identity: crate::git::CommitIdentity) => {
+            crate::git::commit_changes_with_identity(path, message, expected_identity).await
+        }
+
         "commit_amend" (path: String, message: String, expected_head: Option<String>) => {
             crate::git::commit_amend(path, message, expected_head).await
         }
@@ -380,6 +392,10 @@ pub async fn dispatch(
 
         "add_to_gitignore" (path: String, patterns: Vec<String>) => {
             crate::git::add_to_gitignore(path, patterns).await
+        }
+
+        "git_check_ignore" (path: String, file: String) => {
+            crate::git::git_check_ignore(path, file).await
         }
 
         "list_stashes" (path: String) => {
@@ -480,6 +496,14 @@ pub async fn dispatch(
 
         "list_submodules" (path: String) => {
             crate::git::list_submodules(path).await
+        }
+
+        "open_submodule_repo" (path: String, submodule_path: String, hide_t3_checkpoints: Option<bool>) => {
+            crate::git::open_submodule_repo(path, submodule_path, hide_t3_checkpoints).await
+        }
+
+        "git_submodule_pin_diff" (path: String, submodule_path: String, before: String, after: String) => {
+            crate::git::git_submodule_pin_diff(path, submodule_path, before, after).await
         }
 
         "get_submodule_commits" (path: String, submodule_path: String, pinned_commit: String) => {

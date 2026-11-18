@@ -138,8 +138,13 @@ fn parse_behind_from_track(track: &str) -> Option<u32> {
 
 pub(super) fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
     let sep = "\x1f";
-    let format = format!("%(HEAD){sep}%(refname){sep}%(objectname){sep}%(upstream:track)");
-    let out = run_git(
+    let format = format!("%(HEAD){sep}%(refname){sep}%(objectname){sep}%(upstream:track){sep}%(upstream:trackshort){sep}%(upstream)");
+    let mut command = git_command();
+    command
+        .env("GIT_NO_LAZY_FETCH", "1")
+        .env("GIT_ALLOW_PROTOCOL", "");
+    let out = run_git_command(
+        command,
         repo,
         &[
             "for-each-ref",
@@ -149,11 +154,19 @@ pub(super) fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
             "refs/remotes",
         ],
     )?;
+    // Git can leave every upstream atom empty when a configured merge ref
+    // has no local mapping. Only absence of the merge key proves no setup.
+    let config = run_git(repo, &["config", "--null", "--name-only", "--list"]).ok();
+    let configured = config.as_ref().map(|keys| {
+        keys.split('\0')
+            .filter_map(|key| key.strip_prefix("branch.")?.strip_suffix(".merge"))
+            .collect::<std::collections::HashSet<_>>()
+    });
 
     let branches = out
         .lines()
         .filter_map(|line| {
-            let mut parts = line.splitn(4, sep);
+            let mut parts = line.splitn(6, sep);
             let head = parts.next()?;
             let refname = parts.next()?;
             let tip = parts.next()?.trim().to_string();
@@ -161,6 +174,8 @@ pub(super) fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
                 return None;
             }
             let track = parts.next().unwrap_or("").trim();
+            let track_short = parts.next();
+            let upstream = parts.next();
             let behind = parse_behind_from_track(track);
             let is_current = head.trim() == "*";
 
@@ -175,12 +190,29 @@ pub(super) fn list_branches(repo: &PathBuf) -> Result<Vec<Branch>, String> {
                 return None;
             };
 
+            let upstream_status = (!is_remote).then(|| match (track, track_short, upstream) {
+                ("[gone]", Some(""), Some(refname)) if !refname.is_empty() => {
+                    BranchUpstreamStatus::Gone
+                }
+                (_, Some("=" | "<" | ">" | "<>"), Some(refname)) if !refname.is_empty() => {
+                    BranchUpstreamStatus::Resolved
+                }
+                ("", Some(""), Some(""))
+                    if configured
+                        .as_ref()
+                        .is_some_and(|names| !names.contains(name.as_str())) =>
+                {
+                    BranchUpstreamStatus::Unconfigured
+                }
+                _ => BranchUpstreamStatus::Unknown,
+            });
             Some(Branch {
                 name,
                 is_current,
                 is_remote,
                 tip,
                 behind,
+                upstream_status,
             })
         })
         .collect();

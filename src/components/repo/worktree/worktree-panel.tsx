@@ -1,3 +1,5 @@
+import { listen } from "@tauri-apps/api/event";
+import { createCoalescedRefresh } from "@/lib/coalesced-refresh";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -5,7 +7,7 @@ import {
 } from "@/components/ui/resizable";
 import { useRepoStore, type Branch, type WorktreeEntry } from "@/lib/repo-store";
 import { writeLocalStorageDebounced } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { WorktreeAddDialog } from "./worktree-add-dialog";
 import { WorktreeDetail } from "./worktree-detail";
 import { WorktreeList } from "./worktree-list";
@@ -17,6 +19,7 @@ const EMPTY_BRANCHES: Branch[] = [];
 
 export function WorktreePanel({ path }: { path: string }) {
   const reloadWorktrees = useRepoStore((s) => s.reloadWorktrees);
+  const requestRefresh = useRef<() => Promise<void>>(() => Promise.resolve());
   const worktrees = useRepoStore((s) => s.worktrees[path]);
   const branches = useRepoStore((s) => s.repos[path]?.branches ?? EMPTY_BRANCHES);
 
@@ -36,7 +39,29 @@ export function WorktreePanel({ path }: { path: string }) {
   });
 
   useEffect(() => {
-    void reloadWorktrees(path);
+    const controller = new AbortController();
+    const refresh = createCoalescedRefresh(() => reloadWorktrees(path, controller.signal));
+    requestRefresh.current = refresh.request;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh.request();
+    };
+    let unlisten: (() => void) | undefined;
+    void listen<string>("repo-worktrees-changed", ({ payload }) => {
+      if (payload === path && useRepoStore.getState().activePath === path) onVisible();
+    }).then(stop => {
+      if (controller.signal.aborted) stop();
+      else unlisten = stop;
+    }).catch(() => {
+      // Initial, manual and visibility refreshes still work without events.
+    }).finally(() => void refresh.request());
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      refresh.dispose();
+      controller.abort();
+      document.removeEventListener("visibilitychange", onVisible);
+      unlisten?.();
+    };
   }, [path, reloadWorktrees]);
 
   useEffect(() => {
@@ -82,6 +107,7 @@ export function WorktreePanel({ path }: { path: string }) {
               selectedPath={selectedPath}
               onSelectPath={setSelectedPath}
               onOpenAdd={() => setAddOpen(true)}
+              onRefresh={() => void requestRefresh.current()}
               onPrune={() => setSelectedPath(null)}
               onRequestMove={(e) => setMoveEntry(e)}
               onRequestLock={(e) => setLockEntry(e)}
@@ -113,6 +139,7 @@ export function WorktreePanel({ path }: { path: string }) {
             selectedPath={selectedPath}
             onSelectPath={setSelectedPath}
             onOpenAdd={() => setAddOpen(true)}
+            onRefresh={() => void requestRefresh.current()}
             onPrune={() => {}}
             onRequestMove={(e) => setMoveEntry(e)}
             onRequestLock={(e) => setLockEntry(e)}

@@ -1,4 +1,4 @@
-use super::{resolve_git_commit, run_git, WorktreePathGuard};
+use super::{resolve_git_commit_with, run_git, run_git_command, WorktreePathGuard};
 use std::fs::File;
 use std::path::{Component, Path, PathBuf};
 
@@ -35,12 +35,20 @@ pub(crate) fn file_path(file: &str) -> Result<String, String> {
 }
 
 pub(super) fn commit_revision(repo: &PathBuf, revision: &str) -> Result<String, String> {
+    commit_revision_with(crate::cmd::git_command(), repo, revision)
+}
+
+pub(super) fn commit_revision_with(
+    command: std::process::Command,
+    repo: &PathBuf,
+    revision: &str,
+) -> Result<String, String> {
     // Reject controls before the shared resolver trims input. A trailing LF is
     // invalid revision data rather than an invitation to select another source.
     if revision.chars().any(char::is_control) {
         return Err("Invalid commit revision".into());
     }
-    resolve_git_commit(repo, revision)
+    resolve_git_commit_with(command, repo, revision)
 }
 
 #[cfg(unix)]
@@ -274,7 +282,7 @@ pub(super) fn git_with_input(
     use std::io::Write;
     use std::process::Stdio;
     let span = crate::cmdlog::start(&repo.to_string_lossy(), args);
-    let mut child = match crate::cmd::git_command()
+    let mut child = match crate::cmd::local_git_command()
         .arg("-C")
         .arg(repo)
         .args(args)
@@ -320,26 +328,33 @@ pub(crate) fn git_file_blob_oid(
     file: &str,
 ) -> Result<Option<String>, String> {
     let file = file_path(file)?;
-    let raw = match revision {
-        Some(revision) => {
-            let commit = commit_revision(repo, revision)?;
-            run_git(
-                repo,
-                &["--literal-pathspecs", "ls-tree", "-z", &commit, "--", &file],
-            )?
-        }
-        None => run_git(
-            repo,
-            &[
-                "--literal-pathspecs",
-                "ls-files",
-                "--stage",
-                "-z",
-                "--",
-                &file,
-            ],
-        )?,
-    };
+    if let Some(revision) = revision {
+        let commit = commit_revision(repo, revision)?;
+        return commit_tree_blob_oid(crate::cmd::git_command(), repo, &commit, &file);
+    }
+    let raw = run_git(
+        repo,
+        &["--literal-pathspecs", "ls-files", "--stage", "-z", "--", &file],
+    )?;
+    parse_file_blob_oid(&raw, &file, false)
+}
+
+/// Read the tree entry for an already resolved commit and validated literal path.
+pub(super) fn commit_tree_blob_oid(
+    command: std::process::Command,
+    repo: &PathBuf,
+    commit: &str,
+    file: &str,
+) -> Result<Option<String>, String> {
+    let raw = run_git_command(
+        command,
+        repo,
+        &["--literal-pathspecs", "ls-tree", "-z", commit, "--", file],
+    )?;
+    parse_file_blob_oid(&raw, file, true)
+}
+
+fn parse_file_blob_oid(raw: &str, file: &str, from_tree: bool) -> Result<Option<String>, String> {
     let mut oid = None;
     let mut unmerged = false;
     for record in raw.split_terminator('\0') {
@@ -351,12 +366,12 @@ pub(crate) fn git_file_blob_oid(
         if fields.len() != 3 {
             return Err("Invalid Git file record".into());
         }
-        let hash = match revision {
-            Some(_) if fields[1] == "blob" => fields[2],
-            Some(_) => return Err(format!("Not a file: {file}")),
-            None if fields[2] == "0" && fields[0] != "160000" => fields[1],
-            None if fields[2] == "0" => return Err(format!("Not a file: {file}")),
-            None => {
+        let hash = match from_tree {
+            true if fields[1] == "blob" => fields[2],
+            true => return Err(format!("Not a file: {file}")),
+            false if fields[2] == "0" && fields[0] != "160000" => fields[1],
+            false if fields[2] == "0" => return Err(format!("Not a file: {file}")),
+            false => {
                 unmerged = true;
                 continue;
             }
