@@ -3899,6 +3899,8 @@
     "goodMessage": "Der Betreff ist lesbar. Erkläre in der Beschreibung bei Bedarf den Grund und die Prüfung.",
     "startHint": "Beschreibe die Änderung in einem konkreten Satz. Die optionale Beschreibung erklärt den Grund und deine Prüfung.",
     "trailerType": "Commit-Trailer-Typ",
+    "refsIntent": "Auf ein Issue verweisen.",
+    "closesIntent": "Automatisches Schließen eines Issues anfordern. Ob es geschlossen wird, hängt vom Host, vom Zielbranch und von den Repository-Einstellungen ab.",
     "trailerValue": "Issue-Referenz oder Migrationserklärung",
     "migrationPlaceholder": "Auswirkungen und Migration erklären…",
     "issuePlaceholder": "#123 oder PROJ-42",

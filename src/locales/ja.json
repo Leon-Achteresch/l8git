@@ -3815,6 +3815,8 @@
     "goodMessage": "件名は読みやすくなっています。必要に応じて本文で理由と検証を説明してください。",
     "startHint": "具体的な一文で変更を説明してください。任意の本文で理由や検証方法を説明できます。",
     "trailerType": "コミットのトレーラー種類",
+    "refsIntent": "Issue を参照します。",
+    "closesIntent": "Issue の自動クローズを要求します。クローズされるかどうかは、ホスト、対象ブランチ、リポジトリの設定によって異なります。",
     "trailerValue": "課題の参照または移行の説明",
     "migrationPlaceholder": "影響と移行方法を説明…",
     "issuePlaceholder": "#123 または PROJ-42",

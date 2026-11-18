@@ -148,10 +148,27 @@ export function CommitMessageGuidance({ subject, body, onSubjectChange, onBodyCh
                     {trailerKey}<ChevronDown className="size-3" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="top">
-                  {(["Refs", "Closes", "BREAKING CHANGE"] as const).map((key) => (
-                    <DropdownMenuItem key={key} onClick={() => setTrailerKey(key)}>{key}</DropdownMenuItem>
-                  ))}
+                <DropdownMenuContent align="start" side="top" className="w-72">
+                  {(["Refs", "Closes", "BREAKING CHANGE"] as const).map((key) => {
+                    const hintId = key !== "BREAKING CHANGE" ? `${id}-${key}` : undefined;
+                    return (
+                      <DropdownMenuItem
+                        key={key}
+                        className="flex-col items-start gap-0.5 px-2 py-1.5"
+                        textValue={key}
+                        aria-label={key}
+                        aria-describedby={hintId}
+                        onClick={() => setTrailerKey(key)}
+                      >
+                        <span>{key}</span>
+                        {hintId && (
+                          <span id={hintId} className="text-xs text-muted-foreground">
+                            {t(key === "Refs" ? "commitGuidance.refsIntent" : "commitGuidance.closesIntent")}
+                          </span>
+                        )}
+                      </DropdownMenuItem>
+                    );
+                  })}
                 </DropdownMenuContent>
               </DropdownMenu>
               <Input

@@ -3899,6 +3899,8 @@
     "goodMessage": "The subject is readable. Use the description to explain the reason and validation when helpful.",
     "startHint": "Describe what changed in one specific sentence. The optional body explains why and how you checked it.",
     "trailerType": "Commit trailer type",
+    "refsIntent": "Reference an issue.",
+    "closesIntent": "Request automatic issue closure. Whether the issue closes depends on the host, target branch and repository settings.",
     "trailerValue": "Issue reference or migration explanation",
     "migrationPlaceholder": "Explain the impact and migration…",
     "issuePlaceholder": "#123 or PROJ-42",

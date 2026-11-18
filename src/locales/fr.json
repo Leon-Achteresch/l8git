@@ -3815,6 +3815,8 @@
     "goodMessage": "Le sujet est lisible. La description peut expliquer la raison et les vérifications.",
     "startHint": "Décrivez la modification en une phrase précise. Le corps facultatif explique pourquoi et comment elle a été vérifiée.",
     "trailerType": "Type de pied de commit",
+    "refsIntent": "Faire référence à un ticket.",
+    "closesIntent": "Demander la fermeture automatique d’un ticket. La fermeture dépend de l’hébergeur, de la branche cible et des paramètres du dépôt.",
     "trailerValue": "Référence de ticket ou explication de migration",
     "migrationPlaceholder": "Expliquer l’impact et la migration…",
     "issuePlaceholder": "#123 ou PROJ-42",

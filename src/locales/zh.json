@@ -3815,6 +3815,8 @@
     "goodMessage": "标题清晰。可在正文中说明修改原因和验证方式。",
     "startHint": "用一句具体的话说明修改内容。可选正文用于解释原因和验证方式。",
     "trailerType": "提交页脚类型",
+    "refsIntent": "引用一个议题。",
+    "closesIntent": "请求自动关闭议题。议题是否会关闭取决于托管平台、目标分支和仓库设置。",
     "trailerValue": "问题引用或迁移说明",
     "migrationPlaceholder": "说明影响和迁移方法…",
     "issuePlaceholder": "#123 或 PROJ-42",

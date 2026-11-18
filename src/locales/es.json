@@ -3815,6 +3815,8 @@
     "goodMessage": "El asunto es legible. La descripción puede explicar el motivo y las comprobaciones.",
     "startHint": "Describe el cambio en una frase concreta. El cuerpo opcional explica por qué y cómo lo comprobaste.",
     "trailerType": "Tipo de pie del commit",
+    "refsIntent": "Hacer referencia a una incidencia.",
+    "closesIntent": "Solicitar el cierre automático de una incidencia. El cierre depende del servicio de alojamiento, la rama de destino y la configuración del repositorio.",
     "trailerValue": "Referencia de incidencia o explicación de migración",
     "migrationPlaceholder": "Explica el impacto y la migración…",
     "issuePlaceholder": "#123 o PROJ-42",

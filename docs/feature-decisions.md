@@ -72,7 +72,7 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 | F61 | Bare-Repository beim Öffnen klar einordnen. | Der reguläre Öffnungspfad kennzeichnet bestätigte Bare-Repositories. Im Commit-Tab erklärt der Hinweis die fehlende Arbeitskopie und führt zur vorhandenen Historie. Historie und Referenzen bleiben im selben Repository erreichbar. |
 | F63 | Vorgesehenen Branch vor dem ersten Commit zeigen. | Der normale Repository-Einstieg zeigt den Namen aus einem gültigen symbolischen HEAD mit fehlender Branch-Ref. Die Branchanzeige erklärt den fehlenden ersten Commit. Bare-Repositories, detached HEAD und Lesefehler behalten ihre eigenen Zustände. |
 | F62 | Ausgelassene Mergewege am Pfadfilter erklären (F62, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
-| F64 | Verweis und Schließabsicht bei Issues erklären (F64, bedingt). | Zurückgestellt: vorhandene Git-/Review-/Terminalwege bleiben nutzbar; weitergehende Komfort-, Remote- oder Historienänderungen brauchen einen eigenen konsistenten Sicherheits-/Datenvertrag. Keine Automatik aus bedingter Evidenz. |
+| F64 | Verweis und Schließabsicht bei Issues erklären. | Die Commitnachrichtenhilfe erklärt Refs und Closes direkt bei der Auswahl. Ob der Host ein Issue automatisch schließt, hängt vom Host, vom Zielbranch und von den Repository-Einstellungen ab. Die Aktionen fügen editierbare Trailer ein. |
 
 ## Prüfung und Abbildungen
 
