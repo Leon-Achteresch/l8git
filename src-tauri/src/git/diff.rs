@@ -276,6 +276,7 @@ pub async fn repo_commit_inspect(
             &[
                 "show",
                 "--no-color",
+                "--no-notes",
                 "--no-patch",
                 "--stat=200",
                 "--format=fuller",

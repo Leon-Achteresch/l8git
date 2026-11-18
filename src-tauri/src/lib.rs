@@ -296,6 +296,7 @@ pub fn run() {
             git::repo_write_file,
             git::repo_file_content_at,
             git::repo_commit_inspect,
+            git::repo_commit_note,
             git::repo_commit_file_diff,
             git::stage_files,
             git::add_to_gitignore,

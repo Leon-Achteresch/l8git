@@ -2240,6 +2240,14 @@
     "stackBadgeTitle": "{{name}} · 堆栈 {{root}} · 层级 {{level}}"
   },
   "commitInspect": {
+    "localNote": {
+      "title": "本地 Git 注记",
+      "missing": "此引用下没有该提交的本地注记。",
+      "failed": "无法读取本地 Git 注记。",
+      "unsupported": "此 Git 注记不包含受支持的 UTF-8 文本。",
+      "tooLarge": "此 Git 注记超出了 64 KiB 的显示上限。",
+      "empty": "此 Git 注记为空。"
+    },
     "metadata": "显示元数据",
     "explainCommit": "解释",
     "changedFiles": "更改的文件",

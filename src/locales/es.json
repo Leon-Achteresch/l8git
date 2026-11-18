@@ -2240,6 +2240,14 @@
     "stackBadgeTitle": "{{name}} · pila {{root}} · nivel {{level}}"
   },
   "commitInspect": {
+    "localNote": {
+      "title": "Nota local de Git",
+      "missing": "Esta referencia no contiene una nota local para este commit.",
+      "failed": "No se pudo leer la nota local de Git.",
+      "unsupported": "Esta nota de Git no contiene texto UTF-8 compatible.",
+      "tooLarge": "Esta nota de Git supera el límite de visualización de 64 KiB.",
+      "empty": "Esta nota de Git está vacía."
+    },
     "metadata": "Mostrar metadatos",
     "explainCommit": "Explicar",
     "changedFiles": "Archivos modificados",

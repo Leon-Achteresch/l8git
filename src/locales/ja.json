@@ -2240,6 +2240,14 @@
     "stackBadgeTitle": "{{name}} · スタック {{root}} · レベル {{level}}"
   },
   "commitInspect": {
+    "localNote": {
+      "title": "ローカル Git ノート",
+      "missing": "この ref には、このコミットのローカルノートがありません。",
+      "failed": "ローカル Git ノートを読み込めませんでした。",
+      "unsupported": "この Git ノートには対応する UTF-8 テキストが含まれていません。",
+      "tooLarge": "この Git ノートは表示上限の 64 KiB を超えています。",
+      "empty": "この Git ノートは空です。"
+    },
     "metadata": "メタデータを表示",
     "explainCommit": "説明",
     "changedFiles": "変更されたファイル",

@@ -2240,6 +2240,14 @@
     "stackBadgeTitle": "{{name}} · Stack {{root}} · Ebene {{level}}"
   },
   "commitInspect": {
+    "localNote": {
+      "title": "Lokale Git-Note",
+      "missing": "An diesem Commit ist unter dieser Ref keine lokale Note vorhanden.",
+      "failed": "Die lokale Git-Note konnte nicht gelesen werden.",
+      "unsupported": "Diese Git-Note enthält keinen unterstützten UTF-8-Text.",
+      "tooLarge": "Diese Git-Note überschreitet die Anzeigegrenze von 64 KiB.",
+      "empty": "Diese Git-Note ist leer."
+    },
     "metadata": "Metadaten anzeigen",
     "explainCommit": "Erklären",
     "changedFiles": "Geänderte Dateien",

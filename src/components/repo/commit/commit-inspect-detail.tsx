@@ -13,6 +13,7 @@ import { GitBlameSheet } from "@/components/repo/blame/git-blame-sheet";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/error-toast";
 import { externalToolsSupported, openExternalDiff } from "@/lib/external-tools";
+import { isHubPath } from "@/lib/hub/store";
 import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2, Sparkles } from "lucide-react";
@@ -21,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { CommitInspectHeader } from "./commit-inspect-header";
 import { CommitSignatureBadge } from "./commit-signature-badge";
 import { CommitInspectMessage } from "./commit-inspect-message";
+import { CommitInspectNote } from "./commit-inspect-note";
 import { CommitDecisionTrail } from "../github/commit-decision-trail";
 import { CommitInspectFileTabs } from "./commit-inspect-file-tabs";
 import { CommitInspectDiff, FileDiffPayload } from "./commit-inspect-diff";
@@ -219,6 +221,9 @@ export function CommitInspectDetail({
             {payload?.header ? (
               <CommitInspectMessage message={payload.header} />
             ) : null}
+            {payload && !isHubPath(path) && (
+              <CommitInspectNote key={inspectKey} path={path} commit={commitHash} />
+            )}
             {commitHash && <CommitDecisionTrail path={path} sha={commitHash} />}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/5">
               <CommitInspectFileTabs

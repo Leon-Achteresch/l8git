@@ -360,6 +360,8 @@ mod commit;
 pub use commit::*;
 mod diff;
 pub use diff::*;
+mod notes;
+pub use notes::*;
 mod blame;
 pub use blame::*;
 mod stats;
