@@ -44,7 +44,14 @@ export type SnapshotSummary = { id: string; label: string; createdAt: number; he
 export type WorktreeDetails = { path: string; head: string; branch: string | null; isMain: boolean; locked: boolean; prunable: boolean; status: string | null; sizeBytes: number | null; sizeTruncated: boolean; lastModified: number | null; error: string | null };
 export type SparseStatus = { enabled: boolean; cone: boolean; directories: string[]; omittedTrackedFiles: number; head: string };
 export type ProfilesResult = { profiles: WorktreeProfile[]; fingerprint: string };
-export type RerereStatus = { enabled: boolean | null; autoupdate: boolean | null; recorded: string[]; remaining: string[]; diff: string };
+export type RerereStatus = {
+  enabled: boolean | null;
+  autoupdate: boolean | null;
+  /** Wire name for paths that Git reports as pending recording in rerere status. */
+  recorded: string[];
+  remaining: string[];
+  diff: string;
+};
 export type ArtifactEvidence = { path: string; size: number; sha256: string; text: string | null; base64: string | null };
 export type BehaviorSide = { head: string; run: RunResult; artifacts: ArtifactEvidence[]; missingArtifacts: string[] };
 export type OverlapResult = { base: string; branches: { revision: string; head: string; files: string[] }[]; overlaps: { file: string; heads: string[] }[]; worktrees: { path: string; head: string; branch: string | null; files: string[]; pendingFiles: string[] }[]; worktreeOverlaps: { file: string; worktreePaths: string[] }[]; worktreeErrors: { path: string; error: string }[] };

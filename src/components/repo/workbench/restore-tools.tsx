@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { RerereStatus, RestorePreview, SnapshotSummary } from "@/lib/git-expansion";
 import { formatRelative } from "@/lib/format";
+import { useRepoStore } from "@/lib/repo-store";
 import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -161,7 +162,7 @@ export function RerereTool({ path }: { path: string }) {
   const [s, setS] = useState<RerereStatus | null>(null);
   async function forget(file: string) {
     const h = await head(path).catch(() => null);
-    if (h && window.confirm(t("wb.rerereForgetConfirm", { file }))) {
+    if (h && useRepoStore.getState().activePath === path && window.confirm(t("wb.rerereForgetConfirm", { file }))) {
       const r = await gx.call({ op: "rerere_forget", file, expectedHead: h });
       if (r) setS(r);
     }
@@ -173,7 +174,7 @@ export function RerereTool({ path }: { path: string }) {
         <div className="space-y-1.5 text-xs">
           <p>
             {s.enabled === null ? t("wb.rerereUnset") : s.enabled ? t("wb.rerereOn") : t("wb.rerereOff")}
-            {s.autoupdate && ` · ${t("wb.rerereAutoupdate")}`}
+            {" · "}{s.autoupdate ? t("wb.rerereAutoupdate") : t("wb.rerereAutoupdateOff")}
           </p>
           <Button variant="outline" size="sm" className="h-6 text-[0.6875rem]" disabled={gx.busy}
             onClick={() => void gx.call({ op: "rerere_configure", enabled: !s.enabled, expectedEnabled: s.enabled }).then((r) => r && setS(r))}>
@@ -181,16 +182,26 @@ export function RerereTool({ path }: { path: string }) {
           </Button>
           {s.recorded.length > 0 && (
             <div>
-              <p className="font-semibold">{t("wb.rerereReused")}</p>
-              <ul>{s.recorded.map((f) => (
+              <p className="font-semibold">{t("wb.rererePendingRecording")}</p>
+              <ul aria-label={t("wb.rererePendingRecording")}>{s.recorded.map((f) => (
                 <li key={f} className="flex items-center gap-2 font-mono text-[0.6875rem]">
-                  {f}
-                  <Button variant="ghost" size="sm" className="ml-auto h-5 text-[0.625rem]" onClick={() => void forget(f)}>{t("wb.forget")}</Button>
+                  <span className="min-w-0 break-all">{f}</span>
+                  <Button variant="ghost" size="sm" className="ml-auto h-5 shrink-0 text-[0.625rem]" disabled={gx.busy} onClick={() => void forget(f)}>{t("wb.forget")}</Button>
                 </li>
               ))}</ul>
             </div>
           )}
-          {s.remaining.length > 0 && <p>{t("wb.rerereRemaining", { files: s.remaining.join(", ") })}</p>}
+          {s.remaining.length > 0 && (
+            <div>
+              <p className="font-semibold">{t("wb.rerereRemaining")}</p>
+              <ul aria-label={t("wb.rerereRemaining")}>{s.remaining.map((f) => (
+                <li key={f} className="break-all font-mono text-[0.6875rem]">{f}</li>
+              ))}</ul>
+            </div>
+          )}
+          {s.recorded.length === 0 && s.remaining.length === 0 && <p>{t("wb.rerereNoPaths")}</p>}
+          <p className="text-muted-foreground">{t("wb.rerereReview")}</p>
+          <p className="text-muted-foreground">{t("wb.rerereAutoupdateHint")}</p>
           {s.diff && <Pre text={s.diff} />}
         </div>
       )}

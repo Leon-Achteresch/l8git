@@ -223,6 +223,121 @@ fn rerere_configuration_uses_compare_and_swap() {
     .is_err());
 }
 
+fn rerere_fixture_files(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
+    let mut files = BTreeMap::new();
+    let mut directories = vec![root.to_path_buf()];
+    while let Some(directory) = directories.pop() {
+        for entry in fs::read_dir(directory).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if entry.file_type().unwrap().is_dir() {
+                files.insert(path.clone(), None);
+                directories.push(path);
+            } else {
+                files.insert(path.clone(), Some(fs::read(path).unwrap()));
+            }
+        }
+    }
+    files
+}
+
+#[test]
+fn rerere_status_does_not_initialize_workbench_or_git_metadata() {
+    let fixture = Fixture::new();
+    let git_dir = common_dir(&fixture.root).unwrap();
+    fs::remove_dir_all(git_dir.join("l8git-expansion")).unwrap();
+    assert!(!git_dir.join("rr-cache").exists());
+    for enabled in [None, Some(true), Some(false)] {
+        if let Some(enabled) = enabled {
+            run_git(
+                &fixture.root,
+                &[
+                    "config",
+                    "rerere.enabled",
+                    if enabled { "true" } else { "false" },
+                ],
+            )
+            .unwrap();
+        }
+        let before = rerere_fixture_files(&fixture.root);
+        let status = fixture.request(GitExpansionRequest::RerereStatus);
+        assert_eq!(
+            status,
+            json!({"enabled": enabled, "autoupdate": null, "recorded": [],
+                                  "remaining": [], "diff": ""})
+        );
+        assert_eq!(rerere_fixture_files(&fixture.root), before);
+    }
+    let nested = fixture.root.join("nested");
+    fs::create_dir(&nested).unwrap();
+    assert!(execute_request(&nested, GitExpansionRequest::RerereStatus).is_err());
+    assert!(!git_dir.join("l8git-expansion").exists());
+}
+
+#[test]
+fn rerere_reports_recording_and_remaining_separately_from_worktree_and_index() {
+    let fixture = Fixture::new();
+    let raw = |args: &[&str]| run_git(&fixture.root, args).unwrap();
+    raw(&["branch", "topic"]);
+    fixture.write("f.txt", "ours\n");
+    fixture.commit("ours");
+    raw(&["switch", "topic"]);
+    fixture.write("f.txt", "theirs\n");
+    fixture.commit("theirs");
+    raw(&["switch", "main"]);
+    raw(&["config", "rerere.enabled", "true"]);
+    raw(&["config", "rerere.autoupdate", "false"]);
+    let merge = || {
+        let mut command = git_command();
+        command
+            .arg("-C")
+            .arg(&fixture.root)
+            .args(["merge", "topic"]);
+        let result = execute(command, 30, None).unwrap();
+        assert_eq!(result.exit_code, Some(1), "{}", result.stderr);
+        result.stderr
+    };
+    let inspect = |recorded: Value, remaining: Value, autoupdate| {
+        let before = rerere_fixture_files(&fixture.root);
+        let status = fixture.request(GitExpansionRequest::RerereStatus);
+        assert_eq!(status["recorded"], recorded);
+        assert_eq!(status["remaining"], remaining);
+        assert_eq!(status["autoupdate"], autoupdate);
+        assert_eq!(rerere_fixture_files(&fixture.root), before);
+        status
+    };
+    let working = || fs::read_to_string(fixture.root.join("f.txt")).unwrap();
+    let unmerged = || !raw(&["ls-files", "-u"]).is_empty();
+
+    assert!(merge().contains("Recorded preimage"));
+    assert!(working().contains("<<<<<<<"));
+    assert!(unmerged());
+    inspect(json!(["f.txt"]), json!(["f.txt"]), false);
+    fixture.write("f.txt", "manual resolution\n");
+    assert!(inspect(json!(["f.txt"]), json!(["f.txt"]), false)["diff"]
+        .as_str()
+        .unwrap()
+        .contains("+manual resolution"));
+    raw(&["add", "f.txt"]);
+    inspect(json!(["f.txt"]), json!([]), false);
+    raw(&["rerere"]);
+    inspect(json!([]), json!([]), false);
+
+    raw(&["merge", "--abort"]);
+    assert!(merge().contains("using previous resolution"));
+    inspect(json!([]), json!([]), false);
+    assert_eq!(working(), "manual resolution\n");
+    assert!(unmerged());
+
+    raw(&["merge", "--abort"]);
+    raw(&["config", "rerere.autoupdate", "true"]);
+    assert!(merge().contains("Staged 'f.txt' using previous resolution"));
+    inspect(json!([]), json!([]), true);
+    assert_eq!(working(), "manual resolution\n");
+    assert!(!unmerged());
+    assert_eq!(raw(&["show", ":f.txt"]), "manual resolution\n");
+}
+
 #[test]
 fn worktree_profiles_require_confirmation_registered_target_and_no_overwrite() {
     let fixture = Fixture::new();

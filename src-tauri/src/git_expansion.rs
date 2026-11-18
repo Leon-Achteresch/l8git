@@ -1,5 +1,5 @@
 //! Pinned history inspection and isolated Git workflow experiments.
-use crate::cmd::{cli_command, git_command};
+use crate::cmd::{cli_command, git_command, local_git_command};
 use crate::git::{
     repo_coordination_mutex, repo_mutation_mutex, resolve_git_commit, run_git, WorktreePathGuard,
 };
@@ -779,11 +779,23 @@ fn config_bool(repo: &PathBuf, key: &str) -> Result<Option<bool>, String> {
         _ => Err(result.stderr),
     }
 }
+fn rerere_read(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
+    let span = crate::cmdlog::start(&repo.to_string_lossy(), args);
+    let mut command = local_git_command();
+    command.arg("-C").arg(repo).arg("--no-pager").args(args);
+    let result = execute(command, 30, None).and_then(success);
+    span.finish(result.is_ok());
+    result
+}
+
 fn rerere_status(repo: &PathBuf) -> Result<Value, String> {
     let enabled = config_bool(repo, "rerere.enabled")?;
     let autoupdate = config_bool(repo, "rerere.autoupdate")?;
-    let inspect = |verb| {
-        git(
+    // Even Git's read-only rerere subcommands initialize a missing rr-cache
+    // when enabled. Inspect existing data only, including when disabled.
+    let cache = crate::git::repo_common_dir(repo)?.join("rr-cache");
+    let inspect = |verb| match fs::metadata(&cache) {
+        Ok(metadata) if metadata.is_dir() => rerere_read(
             repo,
             &[
                 "-c",
@@ -793,7 +805,10 @@ fn rerere_status(repo: &PathBuf) -> Result<Value, String> {
                 "rerere",
                 verb,
             ],
-        )
+        ),
+        Ok(_) => Err("Git rerere cache is not a directory".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(error) => Err(error.to_string()),
     };
     let list = |out: String| {
         out.lines()
@@ -2057,7 +2072,12 @@ fn evidence_run(
 fn execute_request(repo: &PathBuf, request: GitExpansionRequest) -> Result<Value, String> {
     // All operations are worktree-scoped. Never silently reinterpret a path inside
     // a subdirectory, where relative files and profile ownership would differ.
-    let top = git(repo, &["rev-parse", "--show-toplevel"])?;
+    let root_args = ["rev-parse", "--show-toplevel"];
+    let top = if matches!(&request, GitExpansionRequest::RerereStatus) {
+        rerere_read(repo, &root_args)?
+    } else {
+        git(repo, &root_args)?
+    };
     if repo.canonicalize().map_err(|e| e.to_string())?
         != PathBuf::from(top.trim_end_matches(['\r', '\n']))
             .canonicalize()
