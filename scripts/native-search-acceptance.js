@@ -225,6 +225,35 @@
     }
   };
 
+  const partialClone = async () => {
+    const file = name => document.querySelector(`[data-file-path="${CSS.escape(name)}"]`);
+    const missingText = 'This partial clone has the commit, but some file content needed for the diff is missing locally.';
+    const missing = () => named('[role="status"]', missingText);
+    const open = async sha => {
+      const commit = await wait(`loaded commit ${sha}`, () => visible(row(sha)) && row(sha));
+      commit.firstElementChild.click();
+    };
+    operation = 'partial clone inspector and unavailable parent blob';
+    await open(cases.partial);
+    await wait('missing content from proven promisor blob', missing);
+    if (file('missing.txt')?.getAttribute('aria-pressed') !== 'true') {
+      throw new Error('The missing-content hint appeared for the wrong file');
+    }
+    (await wait('readable file in the same commit', () => file('present.txt'))).click();
+    await wait('readable patch and cleared unavailable hint', () =>
+      file('present.txt')?.getAttribute('aria-pressed') === 'true' && !missing() &&
+      document.body.innerText.split('\n').some(line => line.trim() === 'readable fixture line'));
+    steps.push('Selected commit lists both files. Missing parent blob shows the partial-clone hint; the other file shows its patch.');
+
+    operation = 'ordinary read failure in a different fixture repo';
+    (await wait('ordinary fixture tab', () => tab(fixture.child))).click();
+    await wait('ordinary fixture active', () => tab(fixture.child)?.dataset.active === 'true');
+    await open(cases.ordinary);
+    await wait('generic diff error', () => file('ordinary.txt')?.getAttribute('aria-pressed') === 'true' &&
+      named('div', 'Could not load diff.') && !missing());
+    steps.push('The ordinary missing object shows the generic diff failure after switching repositories.');
+  };
+
   const run = async () => {
     if (localStorage.length !== 0) throw new Error('WebKit storage was not empty at startup');
     const seed = (key, state) => localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
@@ -233,7 +262,7 @@
     seed('l8git-repo', { paths: [fixture.parent, fixture.child], activePath: fixture.parent, customFavicons: {} });
     seed('l8git-ui', { sidebarTab: 'history' });
     const denied = await Promise.allSettled([
-      ipc('repo_search_commits', { path: fixture.outside, query: cases.loaded?.sha ?? cases.merge ?? cases.different?.sha ?? cases.primary[0].sha, skip: 0, limit: 80 }),
+      ipc('repo_search_commits', { path: fixture.outside, query: cases.partial ?? cases.loaded?.sha ?? cases.merge ?? cases.different?.sha ?? cases.primary[0].sha, skip: 0, limit: 80 }),
       ipc('git_fetch', { path: fixture.parent }),
     ]);
     if (denied.some(result => result.status !== 'rejected')) throw new Error('Unexpected fixture permissions');
@@ -241,6 +270,11 @@
     operation = 'regular History panel and an unloaded SHA-256 match';
     const sidebar = await wait('repository sidebar', () => document.querySelector('[data-testid="repository-sidebar"]'));
     (await wait('History tab', () => named('[role="tab"]', 'History', sidebar))).click();
+    if (fixture.partialClone) {
+      await partialClone();
+      await ipc('native_acceptance_result', { ok: true, steps });
+      return;
+    }
     if (fixture.historyDates) {
       await historyDates();
       await ipc('native_acceptance_result', { ok: true, steps });

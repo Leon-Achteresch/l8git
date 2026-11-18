@@ -682,6 +682,85 @@ def verify_history_dates_trace(trace, output, spec):
     print(f"NATIVE_HISTORY_DATES_GIT verified {len(reads)} local Git reads and {len(actual)} native fuller IPC calls.")
 
 
+def partial_clone_fixture(root, env):
+    source, partial = root / "repos/source", root / "repos/partial"
+    source.mkdir(parents=True)
+    git(source, env, "init", "--quiet", "--initial-branch=main")
+    git(source, env, "config", "uploadpack.allowFilter", "true")
+
+    def commit(subject, **files):
+        for name, content in files.items():
+            (source / name).write_text(content)
+        git(source, env, "add", "--", *files)
+        git(source, env, "commit", "--quiet", "-m", subject)
+        return git(source, env, "rev-parse", "HEAD")
+
+    base = commit("Large parent content", **{
+        "missing.txt": "large parent content\n" * 64, "present.txt": "old fixture line\n",
+    })
+    tip = commit("Partial clone tip", **{
+        "missing.txt": "small current content\n", "present.txt": "readable fixture line\n",
+    })
+    git(source, {**env, "GIT_ALLOW_PROTOCOL": "file"}, "clone", "--quiet",
+        "--no-local", "--no-checkout", "--filter=blob:limit=100", "--", source.as_uri(), str(partial))
+    git(partial, env, "reset", "--hard", tip)
+    ordinary_base = commit("Locally authored content", **{"ordinary.txt": "unpromised old content\n"})
+    ordinary = commit("Ordinary read error tip", **{"ordinary.txt": "ordinary new content\n"})
+    ordinary_oid = git(source, env, "rev-parse", f"{ordinary_base}:ordinary.txt")
+    (source / ".git/objects" / ordinary_oid[:2] / ordinary_oid[2:]).unlink()
+    # Configuration alone must not cause the missing-content explanation.
+    git(source, env, "config", "remote.origin.promisor", "true")
+    git(source, env, "config", "--unset", "uploadpack.allowFilter")
+    local_url = git(partial, env, "remote", "get-url", "origin")
+    if local_url != source.as_uri():
+        raise RuntimeError("Partial clone remote is outside the fixture")
+
+    def missing_oid(repo, commit_oid, name):
+        oid = git(repo, env, "rev-parse", f"{commit_oid}:{name}")
+        marker = git(repo, env, "rev-list", "--objects", "--no-object-names", "--missing=print", oid)
+        if marker != f"?{oid}":
+            raise RuntimeError("Fixture blob unexpectedly present")
+        return oid
+
+    missing_oid(partial, base, "missing.txt")
+    missing_oid(source, ordinary_base, "ordinary.txt")
+    return {"kind": "search", "partialClone": True, "parent": str(partial), "child": str(source),
+            "outside": str(root), "cases": {"partial": tip, "ordinary": ordinary}}
+
+
+def verify_partial_clone_trace(trace, spec):
+    events = [json.loads(line) for line in trace.read_text().splitlines()]
+    exits = {event["sid"]: event["code"] for event in events if event["event"] == "exit"}
+    reads = []
+    for event in events:
+        if event["event"] != "start":
+            continue
+        argv = event["argv"]
+        if "fetch" in argv or "git-upload-pack" in argv:
+            raise RuntimeError("Acceptance attempted to fetch from its file remote")
+        if "-C" not in argv:
+            raise RuntimeError("Git process without a fixture checkout")
+        index = argv.index("-C")
+        path, args = argv[index + 1], argv[index + 2:]
+        if path not in (spec["parent"], spec["child"]):
+            raise RuntimeError("Git process outside the two fixture checkouts")
+        reads.append((path, args, exits.get(event["sid"])))
+
+    for repo, file, missing, expected_exit in (
+        ("parent", "missing.txt", True, 0),
+        ("parent", "present.txt", False, None),
+        ("child", "ordinary.txt", True, 128),
+    ):
+        local = [(args, code) for path, args, code in reads if path == spec[repo]]
+        if not any("diff-tree" in args and "-p" in args and args[-1] == file for args, _ in local):
+            raise RuntimeError(f"No real file patch process for {file}")
+        if missing:
+            for mode, exit_code in (("--missing=print", 0), ("--missing=allow-promisor", expected_exit)):
+                if not any(mode in args and args[-1] == file and code == exit_code for args, code in local):
+                    raise RuntimeError(f"Missing object-proof probe for {file} with {mode}")
+    print(f"Verified {len(reads)} fixture Git processes, zero fetch and upload-pack starts.", flush=True)
+
+
 def snapshot(root, allowed_changes=()):
     return {
         str(path.relative_to(root)): (path.stat().st_mode, hashlib.sha256(path.read_bytes()).hexdigest())
@@ -702,7 +781,11 @@ def main():
     modes.add_argument("--history-text", action="store_true", help="run the F40 UTF-8 history text fixture")
     modes.add_argument("--history-path", action="store_true", help="run the F62 native path history fixture")
     modes.add_argument("--history-dates", action="store_true", help="run the F54 native author and committer dates fixture")
+    modes.add_argument("--partial-clone", action="store_true", help="run the F59 native commit-file fixture")
+    parser.add_argument("--headless", action="store_true", help="run F59 production Rust commands without WKWebView")
     args = parser.parse_args()
+    if args.headless and not args.partial_clone:
+        parser.error("--headless requires --partial-clone")
     staging, worktree = args.staging_metadata, args.worktree_catalog
     if sys.platform != "darwin" or not Path(SANDBOX).is_file():
         raise SystemExit("The runner requires macOS sandbox-exec and WKWebView.")
@@ -710,8 +793,8 @@ def main():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
     notes = args.commit_notes
     compare = args.qualified_compare or args.compare_rename
-    search = args.commit_search or args.history_text or args.history_path or args.history_dates
-    mode = ("history-dates" if args.history_dates else "history-path" if args.history_path else "history-text" if args.history_text else
+    search = args.commit_search or args.history_text or args.history_path or args.history_dates or args.partial_clone
+    mode = ("partial-clone" if args.partial_clone else "history-dates" if args.history_dates else "history-path" if args.history_path else "history-text" if args.history_text else
             "search" if search else "compare-rename" if args.compare_rename else "compare" if compare else "notes" if notes else
             "worktrees" if worktree else "staging" if staging else "submodules")
     verify_repo_state = notes or compare or search
@@ -732,7 +815,7 @@ def main():
                           "staging": staging_fixture, "submodules": submodule_fixture,
                           "compare": compare_fixture, "compare-rename": compare_rename_fixture, "search": search_fixture,
                           "history-text": history_text_fixture, "history-path": history_path_fixture,
-                          "history-dates": history_dates_fixture}[mode]
+                          "history-dates": history_dates_fixture, "partial-clone": partial_clone_fixture}[mode]
         if verify_repo_state:
             env["GIT_ALLOW_PROTOCOL"] = ""
             env["GIT_NO_LAZY_FETCH"] = "1"
@@ -748,8 +831,11 @@ def main():
                          git(path, env, "remote")) for path in (spec["parent"], spec["child"])]
 
             initial_repo_state = repo_state()
-            if any(dirty or remotes for _, dirty, remotes in initial_repo_state):
-                raise RuntimeError("Read-only fixtures require clean repos without remotes")
+            expected_remotes = ["origin", "origin"] if args.partial_clone else ["", ""]
+            if any(dirty for _, dirty, _ in initial_repo_state) or [
+                remotes for _, _, remotes in initial_repo_state
+            ] != expected_remotes:
+                raise RuntimeError("Read-only fixture status or remote set is unexpected")
         if worktree:
             allowed_changes = ("catalog-main/.git/worktrees", "catalog-external-1")
         elif args.qualified_compare:
@@ -805,7 +891,10 @@ if sys.argv[1]:
     probe.unlink()
 """
         writable_probe = str(repo / ".git/acceptance-probe") if staging else ""
-        if args.compare_rename:
+        if args.partial_clone:
+            protected = [str(Path(path) / file) for path in (spec["parent"], spec["child"])
+                         for file in (".git/config", ".git/index", ".git/HEAD", ".git/refs/heads/main", "present.txt")]
+        elif args.compare_rename:
             protected = [str(repo / file) for file in ("new.txt", ".git/config", ".git/refs/heads/main")]
             protected += [str(Path(spec["child"]) / ".git/index")]
         elif compare:
@@ -831,7 +920,12 @@ if sys.argv[1]:
 
         trace = scratch / "git-trace.jsonl"
         app_env = {**env, "GIT_TRACE2_EVENT": str(trace)} if verify_repo_state else env
-        process = subprocess.Popen([*command, BIN], cwd=root, env=app_env, text=True,
+        if args.headless:
+            command.append(BIN)
+            command.append("--partial-clone-headless")
+        else:
+            command.append(BIN)
+        process = subprocess.Popen(command, cwd=root, env=app_env, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             if worktree:
@@ -858,7 +952,7 @@ if sys.argv[1]:
         if worktree:
             print("Owned native process exited and temporary profile and fixtures will be removed.", flush=True)
             return
-        result_prefix = ("NATIVE_SEARCH_RESULT " if search else
+        result_prefix = ("F59_HEADLESS_RESULT " if args.headless else "NATIVE_SEARCH_RESULT " if search else
                          "NATIVE_COMPARE_RESULT " if compare else "NATIVE_NOTES_RESULT " if notes else
                          "NATIVE_STAGING_RESULT " if staging else "NATIVE_SUBMODULE_RESULT ")
         results = [json.loads(line.removeprefix(result_prefix))
@@ -887,7 +981,23 @@ if sys.argv[1]:
                 raise RuntimeError("Compare fixture changed beyond the one external ref deletion")
             verify_compare_trace(trace, output, spec)
             print("Remaining refs, HEAD, clean status and absence of remotes verified with local Git.")
-        if search:
+        if args.partial_clone:
+            verify_partial_clone_trace(trace, spec)
+            if not args.headless:
+                prefix = "NATIVE_SEARCH_IPC "
+                calls = [json.loads(line.removeprefix(prefix)) for line in output.splitlines()
+                         if line.startswith(prefix)]
+                diffs = {(call["path"], call["commit"], call["file"]) for call in calls
+                         if call["command"] == "repo_commit_file_diff"}
+                cases = spec["cases"]
+                if diffs != {(spec["parent"], cases["partial"], "missing.txt"),
+                             (spec["parent"], cases["partial"], "present.txt"),
+                             (spec["child"], cases["ordinary"], "ordinary.txt")}:
+                    raise RuntimeError("Unexpected native F59 file diff IPC")
+            if repo_state() != initial_repo_state:
+                raise RuntimeError("Fixture refs, status or remotes changed during F59 acceptance")
+            print("Fixture refs, HEAD, clean status and synthetic remote set verified with local Git.")
+        elif search:
             if args.history_path:
                 verify_history_path_trace(trace, output, spec)
             elif args.history_dates:
@@ -911,7 +1021,8 @@ if sys.argv[1]:
     if search or args.compare_rename:
         if process.poll() is None or root.exists():
             raise RuntimeError("Native process or temporary fixture still exists after cleanup")
-        tag = "NATIVE_COMPARE_RENAME_CLEANUP" if args.compare_rename else "NATIVE_SEARCH_CLEANUP"
+        tag = ("F59_CLEANUP" if args.partial_clone else
+               "NATIVE_COMPARE_RENAME_CLEANUP" if args.compare_rename else "NATIVE_SEARCH_CLEANUP")
         print(f"{tag} process {process.pid} exited and private fixture directory was removed.")
     else:
         print("Owned native process exited and temporary profile and fixtures were removed.")

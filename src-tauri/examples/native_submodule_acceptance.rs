@@ -137,6 +137,35 @@ mod macos {
         }
     }
 
+    async fn verify_partial_clone_headless(
+        spec: &Value,
+        parent: String,
+        child: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use l8git_lib::error::{coded, ErrorCode};
+        let partial = spec["cases"]["partial"].as_str().ok_or("Missing partial tip")?;
+        let ordinary = spec["cases"]["ordinary"].as_str().ok_or("Missing ordinary tip")?;
+        let detail = git::repo_commit_inspect(parent.clone(), partial.into()).await?;
+        let missing_code = coded(ErrorCode::GitMissingLocalCommitFile, &[]);
+        let present = git::repo_commit_file_diff(parent.clone(), partial.into(), "present.txt".into())
+            .await?
+            .diff;
+        let missing = git::repo_commit_file_diff(parent, partial.into(), "missing.txt".into()).await;
+        let ordinary_detail = git::repo_commit_inspect(child.clone(), ordinary.into()).await?;
+        let ordinary = git::repo_commit_file_diff(child, ordinary.into(), "ordinary.txt".into()).await;
+        if !ordinary_detail.files.iter().any(|file| file.path == "ordinary.txt")
+            || !detail.file_stats_unavailable
+            || !detail.header.contains("Partial clone tip")
+            || !present.is_some_and(|patch| patch.contains("+readable fixture line"))
+            || missing.err().as_deref() != Some(&missing_code)
+            || !ordinary.err().is_some_and(|error| error != missing_code)
+        {
+            return Err("F59 headless fixture outcomes did not match".into());
+        }
+        println!("F59_HEADLESS_RESULT {{\"ok\":true}}");
+        Ok(())
+    }
+
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let home = PathBuf::from(std::env::var("HOME")?);
         let fixture = home.parent().ok_or("Missing isolated home parent")?;
@@ -172,6 +201,14 @@ mod macos {
             if !canonical.starts_with(fixture.join("repos")) || canonical.to_str() != Some(path) {
                 return Err("Repository must be a canonical fixture path".into());
             }
+        }
+        if std::env::args().nth(1).as_deref() == Some("--partial-clone-headless") {
+            if spec["partialClone"] != true {
+                return Err("Headless command requires the partial clone fixture".into());
+            }
+            return tauri::async_runtime::block_on(verify_partial_clone_headless(
+                &spec, parent, child.ok_or("Missing ordinary repo")?,
+            ));
         }
         let assets = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../dist")
@@ -373,6 +410,7 @@ mod macos {
                             command,
                             "repo_search_commits"
                                 | "repo_commit_inspect"
+                                | "repo_commit_file_diff"
                                 | "repo_log_page"
                                 | "repo_history_page"
                         ) {
