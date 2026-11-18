@@ -350,7 +350,54 @@ async fn workspace_fetch_ipc_over_the_paired_socket_uses_server_membership() {
     assert!(rejected["error"].as_str().unwrap().contains("active, open membership"));
     assert!(!repo.exists(".git/FETCH_HEAD"));
 
-    assert_eq!(client.call(3, command, args.clone()).await["ok"], true);
+    let nested = repo.path.join("nested");
+    let nested_path = nested.to_str().unwrap();
+    repo.git(&["init", "-q", "-b", "main", nested_path]);
+    repo.git(&["-C", nested_path, "remote", "add", "origin", &source.file_url()]);
+    assert_eq!(client.call(9, "repo_fetch_scope", json!({ "path": nested_path })).await["ok"], true);
+    let mut nested_args = args.clone();
+    nested_args["path"] = json!(nested_path);
+    let has_nested_fetch = || crate::cmdlog::git_command_log(None).iter().any(|entry| {
+        entry.repo_path == nested_path && entry.args.first().is_some_and(|arg| arg == "fetch")
+    });
+    for op_id in [Value::Null, json!("nested-retry")] {
+        nested_args["opId"] = op_id;
+        let result = client.call(10, command, nested_args.clone()).await;
+        assert_eq!(result["ok"], false);
+        assert!(result["error"].as_str().unwrap().contains("active, open membership"));
+        assert!(!has_nested_fetch());
+        assert!(!nested.join(".git/FETCH_HEAD").exists());
+        assert!(!nested.join(".git/refs/remotes").exists());
+    }
+
+    let mut waiting = args.clone();
+    waiting["opId"] = json!("owner-private-operation");
+    let (arrived, resume) = authority.pause_before_spawn();
+    client.send(json!({ "type": "req", "id": 11, "cmd": command, "args": waiting })).await;
+    tokio::task::spawn_blocking(move || arrived.recv_timeout(TIMEOUT))
+        .await.unwrap().expect("owner reached the last pre-spawn boundary");
+    let cross_cancel = other.call(12, "git_remote_cancel", json!({ "opId": "owner-private-operation" })).await;
+    assert_eq!(cross_cancel["data"], false);
+    other.send(json!({ "type": "cancel", "id": 11 })).await;
+    client.send(json!({ "type": "cancel", "id": 11 })).await;
+    let canceled = client.recv().await.unwrap();
+    assert_eq!(canceled["id"], 11);
+    assert_eq!(canceled["error"], "__REMOTE_CANCELED__");
+    resume.send(()).unwrap();
+    tokio::time::timeout(TIMEOUT, async {
+        loop {
+            let result = client.call(3, command, args.clone()).await;
+            if result["ok"] == true {
+                break;
+            }
+            assert!(result["error"].as_str().unwrap().contains("git.remoteBusy"), "{result}");
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.expect("retry succeeds after canceled request releases its reservation");
+    let canceled_fetch = crate::cmdlog::git_command_log(None).iter().filter(|entry| {
+        entry.repo_path == path && entry.args.first().is_some_and(|arg| arg == "fetch")
+    }).count();
+    assert_eq!(canceled_fetch, 1, "only the retry may reach the fetch runner");
     assert_eq!(repo.rev("refs/remotes/origin/main"), source.head());
 
     authority.revoke(1).unwrap();

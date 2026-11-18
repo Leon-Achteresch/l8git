@@ -43,6 +43,31 @@ struct RemoteOp {
     job: std::sync::Arc<std::sync::Mutex<Option<crate::pty::job::PtyJob>>>,
 }
 
+/// A caller-owned cancellation handle for one scoped request. The public
+/// operation-ID registry never sees these requests.
+#[derive(Default)]
+pub(crate) struct ScopedRemoteCancellation {
+    state: std::sync::Mutex<ScopedRemoteState>,
+}
+
+#[derive(Default)]
+struct ScopedRemoteState {
+    canceled: bool,
+    running: Option<RemoteOp>,
+}
+
+impl ScopedRemoteCancellation {
+    #[cfg(all(test, feature = "headless", any(target_os = "macos", target_os = "linux")))]
+    pub(crate) fn cancel(&self) {
+        let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        state.canceled = true;
+        if let Some(op) = state.running.as_ref() {
+            op.canceled.store(true, std::sync::atomic::Ordering::Relaxed);
+            kill_remote_op(op);
+        }
+    }
+}
+
 struct StreamOutcome {
     success: bool,
     stdout: String,
@@ -176,8 +201,10 @@ fn create_remote_job(
 fn run_git_streamed(
     cwd: Option<&PathBuf>,
     args: &[String],
-    op_id: &str,
+    op_id: Option<&str>,
     lock: Option<&RemoteProcessLock>,
+    scope: Option<&ScopedRemoteCancellation>,
+    mut scoped: Option<std::sync::MutexGuard<'_, ScopedRemoteState>>,
     spawn_guard: impl Sized,
     on_progress: impl FnMut(ProgressLine),
 ) -> Result<StreamOutcome, String> {
@@ -212,18 +239,19 @@ fn run_git_streamed(
     let shared = Arc::new(Mutex::new(child));
     let canceled = Arc::new(AtomicBool::new(false));
 
-    if let Ok(mut reg) = remote_ops().lock() {
-        reg.insert(
-            op_id.to_string(),
-            RemoteOp {
-                child: shared.clone(),
-                canceled: canceled.clone(),
-                pid,
-                #[cfg(windows)]
-                job,
-            },
-        );
+    let operation = RemoteOp {
+        child: shared.clone(),
+        canceled: canceled.clone(),
+        pid,
+        #[cfg(windows)]
+        job,
+    };
+    if let Some(state) = scoped.as_mut() {
+        state.running = Some(operation);
+    } else if let (Some(op_id), Ok(mut reg)) = (op_id, remote_ops().lock()) {
+        reg.insert(op_id.to_owned(), operation);
     }
+    drop(scoped);
 
     let stdout_thread = std::thread::spawn(move || {
         let mut raw: Vec<u8> = Vec::new();
@@ -244,7 +272,9 @@ fn run_git_streamed(
         .map_err(|e| e.to_string())
         .and_then(|mut child| child.wait().map_err(|e| e.to_string()));
 
-    if let Ok(mut reg) = remote_ops().lock() {
+    if let Some(scope) = scope {
+        scope.state.lock().unwrap_or_else(|err| err.into_inner()).running = None;
+    } else if let (Some(op_id), Ok(mut reg)) = (op_id, remote_ops().lock()) {
         reg.remove(op_id);
     }
 
@@ -278,7 +308,7 @@ pub(super) fn run_remote_op(
     op_id: Option<String>,
     lock: Option<&RemoteProcessLock>,
 ) -> Result<String, String> {
-    run_remote_op_with_spawn_guard(op, repo_path, cwd, args, op_id, lock, ())
+    run_remote_op_with_spawn_guard(op, repo_path, cwd, args, op_id, lock, None, ())
 }
 
 /// Hold the caller's authorization lock until the start attempt finishes.
@@ -289,21 +319,29 @@ pub(super) fn run_remote_op_with_spawn_guard(
     args: Vec<String>,
     op_id: Option<String>,
     lock: Option<&RemoteProcessLock>,
+    scope: Option<&ScopedRemoteCancellation>,
     spawn_guard: impl Sized,
 ) -> Result<String, String> {
     let op_id = op_id
         .map(|id| id.trim().to_string())
         .filter(|id| !id.is_empty());
-    let Some(op_id) = op_id else {
+    if op_id.is_none() && scope.is_none() {
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         return run_git_merged_output_at(cwd, &refs, lock, spawn_guard);
-    };
+    }
 
     let mut args = args;
-    args.insert(1, "--progress".to_string());
+    if op_id.is_some() {
+        args.insert(1, "--progress".to_string());
+    }
 
+    let scoped = scope.map(|scope| scope.state.lock().unwrap_or_else(|err| err.into_inner()));
+    if scoped.as_ref().is_some_and(|state| state.canceled) {
+        return Err(REMOTE_CANCELED.into());
+    }
     let span = cmdlog::start(repo_path, &args);
-    let outcome = run_git_streamed(cwd, &args, &op_id, lock, spawn_guard, |line| {
+    let outcome = run_git_streamed(cwd, &args, op_id.as_deref(), lock, scope, scoped, spawn_guard, |line| {
+        let Some(op_id) = op_id.as_ref().filter(|_| scope.is_none()) else { return };
         emit_progress(&GitProgressEvent {
             op_id: op_id.clone(),
             repo_path: repo_path.to_string(),
@@ -315,6 +353,7 @@ pub(super) fn run_remote_op_with_spawn_guard(
     });
 
     let done = |ok: bool, canceled: bool, message: &str| {
+        let Some(op_id) = op_id.as_ref().filter(|_| scope.is_none()) else { return };
         emit_progress_done(&GitProgressDone {
             op_id: op_id.clone(),
             repo_path: repo_path.to_string(),
@@ -438,7 +477,7 @@ mod remote_progress_tests {
     ) -> (StreamOutcome, Vec<ProgressLine>) {
         let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
         let mut lines: Vec<ProgressLine> = Vec::new();
-        let outcome = run_git_streamed(cwd, &owned, op_id, None, (), |line| lines.push(line)).unwrap();
+        let outcome = run_git_streamed(cwd, &owned, Some(op_id), None, None, None, (), |line| lines.push(line)).unwrap();
         (outcome, lines)
     }
 
@@ -623,4 +662,42 @@ mod remote_progress_tests {
         );
         assert!(!remote_ops().lock().unwrap().contains_key("test-cancel"));
     }
+    #[cfg(all(feature = "headless", any(target_os = "macos", target_os = "linux")))]
+    #[tokio::test]
+    async fn scoped_cancellation_only_stops_the_owned_child_with_the_same_operation_id() {
+        use std::sync::Arc;
+        use std::time::Duration;
+
+        // An alias gives the actual process runner a bounded synthetic child
+        // without changing the fetch contract or hitting an external transport.
+        let first = Arc::new(ScopedRemoteCancellation::default());
+        let second = Arc::new(ScopedRemoteCancellation::default());
+        let launch = |scope: Arc<ScopedRemoteCancellation>| {
+            tokio::task::spawn_blocking(move || {
+                let args = ["-c", "alias.scopedfixture=!sleep 10", "scopedfixture"].map(str::to_owned);
+                let state = scope.state.lock().unwrap();
+                run_git_streamed(None, &args, Some("same-id"), None, Some(&scope), Some(state), (), |_| {}).unwrap()
+            })
+        };
+        let owner = launch(first.clone());
+        let competitor = launch(second.clone());
+        tokio::time::timeout(Duration::from_secs(4), async {
+            while first.state.lock().unwrap().running.is_none()
+                || second.state.lock().unwrap().running.is_none()
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }).await.unwrap();
+        assert!(!git_remote_cancel("same-id".into()).await.unwrap());
+        first.cancel();
+        let result = tokio::time::timeout(Duration::from_secs(4), owner).await.unwrap().unwrap();
+        assert!(result.canceled);
+        assert!(first.state.lock().unwrap().running.is_none());
+        assert!(second.state.lock().unwrap().running.is_some());
+        second.cancel();
+        let result = tokio::time::timeout(Duration::from_secs(4), competitor).await.unwrap().unwrap();
+        assert!(result.canceled);
+        assert!(second.state.lock().unwrap().running.is_none());
+    }
+
 }

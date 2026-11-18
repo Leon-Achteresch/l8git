@@ -308,6 +308,8 @@ pub struct DispatchCtx {
     pub conn: Arc<ConnectionHandle>,
     pub req_id: i64,
     pub cmd: String,
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    pub(crate) workspace_cancel: Option<Arc<crate::git::ScopedRemoteCancellation>>,
 }
 
 impl DispatchCtx {
@@ -317,6 +319,8 @@ impl DispatchCtx {
             conn,
             req_id,
             cmd: cmd.to_string(),
+            #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+            workspace_cancel: (cmd == "__test_workspace_fetch").then(Arc::default),
         }
     }
 

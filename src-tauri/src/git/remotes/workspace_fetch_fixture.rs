@@ -9,6 +9,33 @@ use std::sync::{Arc, RwLock};
 #[derive(Default)]
 pub(crate) struct WorkspaceFetchAuthority {
     state: RwLock<WorkspaceFetchState>,
+    before_spawn: FixtureBarrier,
+    before_publish: FixtureBarrier,
+}
+
+#[derive(Default)]
+struct FixtureBarrier(
+    std::sync::Mutex<Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>>,
+);
+
+impl FixtureBarrier {
+    fn pause(&self) -> Result<(), String> {
+        let barrier = self.0.lock().map_err(|error| error.to_string())?.take();
+        if let Some((arrived, release)) = barrier {
+            arrived.send(()).map_err(|error| error.to_string())?;
+            release
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }
+
+    fn arm(&self) -> (std::sync::mpsc::Receiver<()>, std::sync::mpsc::Sender<()>) {
+        let (arrived, arrival) = std::sync::mpsc::channel();
+        let (resume, release) = std::sync::mpsc::channel();
+        assert!(self.0.lock().unwrap().replace((arrived, release)).is_none());
+        (arrival, resume)
+    }
 }
 
 #[derive(Default)]
@@ -62,6 +89,12 @@ impl WorkspaceFetchAuthority {
         self.state.read().unwrap().sessions.contains_key(&id)
     }
 
+    pub(crate) fn pause_before_spawn(
+        &self,
+    ) -> (std::sync::mpsc::Receiver<()>, std::sync::mpsc::Sender<()>) {
+        self.before_spawn.arm()
+    }
+
     // Only the native host calls these methods. IPC receives the revision of
     // a host decision, never a membership list or permission to modify it.
     pub(crate) fn replace_membership(
@@ -82,6 +115,7 @@ impl WorkspaceFetchAuthority {
             }
             approvals.push(Arc::new(approval));
         }
+        self.before_publish.pause()?;
         let mut state = self.state.write().map_err(|err| err.to_string())?;
         let session = state
             .sessions
@@ -223,6 +257,7 @@ pub(crate) async fn workspace_fetch_fixture(
     workspace_id: String,
     revision: u64,
     op_id: Option<String>,
+    cancellation: Arc<ScopedRemoteCancellation>,
 ) -> Result<String, String> {
     let approval = {
         let state = authority.state.read().map_err(|err| err.to_string())?;
@@ -281,6 +316,7 @@ pub(crate) async fn workspace_fetch_fixture(
         // An update or disconnect during local Git validation invalidates the
         // earlier approval. Serialize the last check with actual child spawn,
         // releasing the session guard before waiting for the child.
+        authority.before_spawn.pause()?;
         let state = authority.state.read().map_err(|err| err.to_string())?;
         state
             .sessions
@@ -294,6 +330,7 @@ pub(crate) async fn workspace_fetch_fixture(
             args,
             op_id,
             Some(lock),
+            Some(&cancellation),
             state,
         )
     })
@@ -606,5 +643,85 @@ mod tests {
             .reject(updated, Some("retry-disconnected"), "session is closed")
             .await;
         assert!(authority.revoke(fixture.ctx.conn.id).is_err());
+    }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn workspace_fetch_rechecks_native_lifecycle_at_the_spawn_boundary() {
+        use std::time::Duration;
+        let fixture = Arc::new(Fixture::new());
+        let authority = &fixture.ctx.state.workspace_fetch_authority;
+        let id = fixture.ctx.conn.id;
+        let mut session = Some(authority.register(id).unwrap());
+        for change in ["switch", "close", "disconnect"] {
+            let revision = fixture.approve();
+            let (arrived, resume) = authority.pause_before_spawn();
+            let queued = {
+                let fixture = fixture.clone();
+                tokio::spawn(async move { fixture.fetch(revision, Some("delayed")).await })
+            };
+            arrived.recv_timeout(Duration::from_secs(5)).unwrap();
+            match change {
+                "switch" => {
+                    authority.replace_membership(id, "other", vec![]).unwrap();
+                }
+                "close" => {
+                    authority.replace_membership(id, WORKSPACE, vec![]).unwrap();
+                }
+                "disconnect" => {
+                    drop(session.take());
+                }
+                _ => unreachable!(),
+            }
+            resume.send(()).unwrap();
+            assert!(queued.await.unwrap().is_err());
+            assert!(fixture.fetch_commands().is_empty());
+            assert!(!fixture.repo.exists(".git/FETCH_HEAD"));
+        }
+        let _reconnected = authority.register(id + 1).unwrap();
+        let revision = authority
+            .replace_membership(id + 1, WORKSPACE, vec![fixture.repo.path.clone()])
+            .unwrap();
+        let (tx, _rx) = tokio::sync::mpsc::channel(1);
+        let ctx = DispatchCtx::new(
+            fixture.ctx.state.clone(),
+            Arc::new(ConnectionHandle::new(id + 1, tx)),
+            1,
+            COMMAND,
+        );
+        dispatch(
+            COMMAND,
+            json!({
+                "path": fixture.repo.s(), "workspaceId": WORKSPACE, "workspaceRevision": revision,
+            }),
+            &ctx,
+        )
+        .await
+        .unwrap();
+        assert_eq!(fixture.fetch_commands().len(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn workspace_fetch_overlapping_native_updates_keep_only_the_latest() {
+        use std::time::Duration;
+        let fixture = Fixture::new();
+        let authority = fixture.ctx.state.workspace_fetch_authority.clone();
+        let id = fixture.ctx.conn.id;
+        let _session = authority.register(id).unwrap();
+        let old = fixture.approve();
+        let (arrived, resume) = authority.before_publish.arm();
+        let delayed = {
+            let authority = authority.clone();
+            let repo = fixture.repo.path.clone();
+            tokio::task::spawn_blocking(move || {
+                authority.replace_membership(id, "older", vec![repo])
+            })
+        };
+        arrived.recv_timeout(Duration::from_secs(5)).unwrap();
+        fixture.reject(old, None, "active, open membership").await;
+        let latest = fixture.approve();
+        resume.send(()).unwrap();
+        assert!(delayed.await.unwrap().unwrap_err().contains("superseded"));
+        fixture.reject(old, Some("old-retry"), "stale").await;
+        fixture.fetch(latest, None).await.unwrap();
+        assert_eq!(fixture.fetch_commands().len(), 1);
     }
 }

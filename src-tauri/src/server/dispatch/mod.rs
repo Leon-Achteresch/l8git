@@ -42,6 +42,7 @@ pub async fn dispatch(cmd: &str, args: Value, ctx: &DispatchCtx) -> Result<Value
                 arg(&args, "workspace_id")?,
                 arg(&args, "workspace_revision")?,
                 arg(&args, "op_id")?,
+                ctx.workspace_cancel.clone().ok_or("Missing workspace request context")?,
             )
             .await,
         );

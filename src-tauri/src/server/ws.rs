@@ -211,6 +211,8 @@ async fn event_loop(state: Arc<ServerState>, conn: Arc<ConnectionHandle>) {
 struct PendingRequest {
     abort: AbortHandle,
     op_id: Option<String>,
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    workspace_cancel: Option<Arc<crate::git::ScopedRemoteCancellation>>,
 }
 
 type Pending = Arc<Mutex<HashMap<i64, PendingRequest>>>;
@@ -258,6 +260,13 @@ async fn read_loop(
 
 impl PendingRequest {
     fn cancel(&self) {
+        #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+        if let Some(cancel) = self.workspace_cancel.clone() {
+            // Mark synchronously so a queued validation cannot outrun cancel.
+            cancel.cancel();
+            self.abort.abort();
+            return;
+        }
         if let Some(op_id) = self.op_id.clone() {
             tokio::task::spawn_blocking(move || crate::git::cancel_remote_op(&op_id));
         }
@@ -321,6 +330,8 @@ fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending
         .and_then(Value::as_str)
         .map(str::to_string);
     let ctx = DispatchCtx::new(state.clone(), conn.clone(), id, &cmd);
+    #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+    let workspace_cancel = ctx.workspace_cancel.clone();
     let conn_for_task = conn.clone();
     let pending_for_task = pending.clone();
     let (cancel, canceled) = tokio::sync::oneshot::channel::<()>();
@@ -346,6 +357,8 @@ fn spawn_request(state: &Arc<ServerState>, conn: &Arc<ConnectionHandle>, pending
         PendingRequest {
             abort: task.abort_handle(),
             op_id,
+            #[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+            workspace_cancel,
         },
     );
 }
@@ -458,6 +471,8 @@ mod tests {
             PendingRequest {
                 abort: task.abort_handle(),
                 op_id: None,
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
+                workspace_cancel: None,
             },
         );
         handle_frame(&state, &conn, &pending, json!({ "type": "cancel", "id": 11 }));
@@ -511,6 +526,8 @@ mod tests {
             PendingRequest {
                 abort: task.abort_handle(),
                 op_id: Some("ws-cancel".to_string()),
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
+                workspace_cancel: None,
             },
         );
 
