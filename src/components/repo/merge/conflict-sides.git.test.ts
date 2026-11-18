@@ -24,7 +24,7 @@ vi.mock("./conflict-ai-panel", () => ({ ConflictAiPreview: () => null, ConflictA
 vi.mock("@/components/ui/button", () => ({
   Button: (props: { title?: string; onClick?: () => void }) => {
     rendered.buttons.push(props);
-    return createElement("button", props);
+    return createElement("button", { type: "button", ...props });
   },
 }));
 
@@ -32,7 +32,7 @@ import { MergeEditor2Way } from "./merge-editor-2way";
 import { MergeEditor3Way } from "./merge-editor-3way";
 
 const scratch: string[] = [];
-afterAll(() => scratch.forEach(path => rmSync(path, { recursive: true, force: true })));
+afterAll(() => { for (const path of scratch) rmSync(path, { recursive: true, force: true }); });
 
 // Repositories live only in OS temp directories, never in the user's checkout.
 function conflict(mode: "merge" | "rebase") {

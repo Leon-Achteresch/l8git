@@ -90,7 +90,7 @@
       }
       for (const entry of entries) await checkRow(entry);
       const opened = await ipc('open_repo', { path });
-      entries.forEach((entry, index) => checkCommit(opened.commits[index], entry));
+      entries.forEach((entry, index) => { checkCommit(opened.commits[index], entry); });
       steps.push(`Exact initial history subjects and bodies for ${entries[0].sha.length}-character IDs`);
 
       if (path === fixture.parent) {

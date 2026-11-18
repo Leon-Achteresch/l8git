@@ -379,10 +379,9 @@ export function seedAuditFixture(scene: string) {
         if (scene !== 'commit-identity' || args?.path !== FIXTURE_PATH) throw Error('Unexpected identity preview');
         return identity;
       case 'commit_changes_with_identity':
-        if (scene !== 'commit-identity' || args?.path !== FIXTURE_PATH ||
-            JSON.stringify(args.expectedIdentity) !== JSON.stringify(identity)) throw Error('__COMMIT_IDENTITY_CHANGED__');
-        // Fall through to the ordinary synthetic commit.
       case 'commit_changes':
+        if (command === 'commit_changes_with_identity' && (scene !== 'commit-identity' || args?.path !== FIXTURE_PATH ||
+            JSON.stringify(args.expectedIdentity) !== JSON.stringify(identity))) throw Error('__COMMIT_IDENTITY_CHANGED__');
         if (!entries.some(e => e.staged)) throw Error('Nothing staged');
         if (scene === 'unborn-open') firstCommit = true;
         commits = [{ ...base, hash: 'b'.repeat(40), short_hash: 'bbbbbbb', subject: String(args?.message), parents: [base.hash] }, base]; entries = []; return null;
