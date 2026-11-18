@@ -3872,6 +3872,10 @@
     }
   },
   "compare": {
+    "pickRef": "{{side}}の参照を選択",
+    "localBranch": "ローカルブランチ",
+    "remoteBranch": "リモートブランチ",
+    "tag": "タグ",
     "title": "コミットとブランチを比較",
     "description": "ブランチ、タグ、コミットを比較し、変更されたファイルを確認します。",
     "base": "基準",

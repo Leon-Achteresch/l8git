@@ -3872,6 +3872,10 @@
     }
   },
   "compare": {
+    "pickRef": "为{{side}}选择引用",
+    "localBranch": "本地分支",
+    "remoteBranch": "远程分支",
+    "tag": "标签",
     "title": "比较提交和分支",
     "description": "比较分支、标签或提交并审阅文件变更。",
     "base": "基准",

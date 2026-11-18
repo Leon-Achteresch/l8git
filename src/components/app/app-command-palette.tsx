@@ -1265,7 +1265,7 @@ export function AppCommandPalette({ open, setOpen }: {
       <Suspense fallback={null}>
         {activePath ? (
           <>
-            {compareUsed && <CommitCompareDialog open={compareOpen} onClose={() => setCompareOpen(false)} path={activePath} initialBase={branches.find(branch => branch.is_remote && branch.name === `origin/${currentBranch}`)?.name ?? "HEAD~1"} initialHead="HEAD" />}
+            {compareUsed && <CommitCompareDialog open={compareOpen} onClose={() => setCompareOpen(false)} path={activePath} />}
             {rebaseUsed ? (
               <RebaseDialog
                 open={rebaseOpen}

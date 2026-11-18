@@ -95,7 +95,7 @@ pub(crate) fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
     run_git_command(git_command(), repo, args)
 }
 
-fn run_git_command(
+pub(crate) fn run_git_command(
     command: std::process::Command,
     repo: &PathBuf,
     args: &[&str],
@@ -237,7 +237,7 @@ pub(crate) fn resolve_git_commit(repo: &PathBuf, rev: &str) -> Result<String, St
     resolve_git_commit_with(git_command(), repo, rev)
 }
 
-fn resolve_git_commit_with(command: std::process::Command, repo: &PathBuf, rev: &str) -> Result<String, String> {
+pub(crate) fn resolve_git_commit_with(command: std::process::Command, repo: &PathBuf, rev: &str) -> Result<String, String> {
     let rev = rev.trim();
     if rev.is_empty() || rev.starts_with('-') || rev.chars().any(char::is_control) {
         return Err(format!("Invalid commit revision: {rev}"));

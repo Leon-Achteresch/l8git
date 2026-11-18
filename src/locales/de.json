@@ -3942,6 +3942,10 @@
     }
   },
   "compare": {
+    "pickRef": "Referenz für {{side}} wählen",
+    "localBranch": "Lokaler Branch",
+    "remoteBranch": "Remote-Branch",
+    "tag": "Tag",
     "title": "Commits und Branches vergleichen",
     "description": "Vergleiche Branches, Tags oder Commits und prüfe die geänderten Dateien.",
     "base": "Basis",

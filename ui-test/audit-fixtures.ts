@@ -164,6 +164,11 @@ export function seedAuditFixture(scene: string) {
       commits: reviewing && path === reviewBasePath ? [head] : commits, branches: [
       { name: 'main', tip: reviewing ? reviewBaseHead.hash : commits[0].hash, is_current: branch === 'main', is_remote: false,
         ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? { upstream_status: 'gone' as const } : {}) },
+      ...(scene === 'compare-qualified' && path === FIXTURE_PATH ? [
+        { name: 'release', tip: base.hash, is_current: false, is_remote: false },
+        { name: 'origin/release', tip: 'd'.repeat(40), is_current: false, is_remote: true },
+        { name: 'origin/main', tip: base.hash, is_current: false, is_remote: true },
+      ] : []),
       ...(scene === 'upstream-missing' && path === FIXTURE_PATH ? [
         { name: 'resolved', tip: head.hash, is_current: false, is_remote: false, upstream_status: 'resolved' as const, behind: 2 },
         { name: 'unconfigured', tip: head.hash, is_current: false, is_remote: false, upstream_status: 'unconfigured' as const },
@@ -171,7 +176,9 @@ export function seedAuditFixture(scene: string) {
       ] : []),
       ...(reviewing && !reviewBranchDeleted ? [{ name: 'agents/fixture', tip: commits[0].hash, is_current: branch === 'agents/fixture', is_remote: false }] : []),
       ...restoredBranches,
-    ], tags: [] };
+    ], tags: scene === 'compare-qualified' && path === FIXTURE_PATH
+      ? [{ name: 'release', commit: 'd'.repeat(40), kind: 'annotated' as const, message: 'Fixture release', tagger: null }]
+      : [] };
   };
   window.__L8GIT_TEST_CALLS__ = [];
   window.__L8GIT_TEST_INVOKE__ = async (command, args) => {
@@ -417,8 +424,8 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
-  if (scene === 'worktree-catalog') {
-    const secondary = '/tmp/l8git-catalog-other';
+  if (scene === 'worktree-catalog' || scene === 'compare-qualified') {
+    const secondary = scene === 'compare-qualified' ? '/tmp/l8git-compare-other' : '/tmp/l8git-catalog-other';
     const paths = [FIXTURE_PATH, secondary];
     useRepoStore.setState(state => ({ paths, repos: { ...state.repos, [secondary]: info(secondary) } }));
     useWorkspaceStore.getState().initDefaultWorkspace(paths);

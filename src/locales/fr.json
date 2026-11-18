@@ -3872,6 +3872,10 @@
     }
   },
   "compare": {
+    "pickRef": "Choisir une référence pour {{side}}",
+    "localBranch": "Branche locale",
+    "remoteBranch": "Branche distante",
+    "tag": "Tag",
     "title": "Comparer les commits et branches",
     "description": "Comparez des branches, tags ou commits et examinez les fichiers modifiés.",
     "base": "Base",

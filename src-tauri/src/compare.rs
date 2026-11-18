@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 
 use serde::Serialize;
 
-use crate::git::{resolve_git_commit, run_git};
+use crate::cmd::git_command;
+use crate::git::{resolve_git_commit_with, run_git_command};
 
 const MAX_FILES: usize = 5_000;
 const MAX_PATCH_BYTES: usize = 1_048_576;
@@ -52,10 +53,39 @@ fn validate_mode(mode: &str) -> Result<(), String> {
     }
 }
 
+fn compare_git_command() -> Command {
+    let mut command = git_command();
+    command
+        .env("GIT_NO_LAZY_FETCH", "1")
+        .env("GIT_ALLOW_PROTOCOL", "")
+        .env("GIT_OPTIONAL_LOCKS", "0");
+    command
+}
+
+fn run_git(repo: &PathBuf, args: &[&str]) -> Result<String, String> {
+    run_git_command(compare_git_command(), repo, args)
+}
+
+fn resolve_compare_commit(repo: &PathBuf, revision: &str) -> Result<String, String> {
+    let revision = revision.trim();
+    if ["refs/heads/", "refs/remotes/", "refs/tags/"]
+        .iter()
+        .any(|prefix| revision.starts_with(prefix))
+        && !revision.contains(['~', '^', ':'])
+        && !revision.contains("@{")
+    {
+        // rev-parse can fall back to e.g. refs/tags/refs/heads/main when
+        // an explicitly named ref vanishes. Look up the exact ref first.
+        let object = run_git(repo, &["show-ref", "--verify", "--hash", "--", revision])?;
+        return resolve_git_commit_with(compare_git_command(), repo, object.trim());
+    }
+    resolve_git_commit_with(compare_git_command(), repo, revision)
+}
+
 fn comparison_refs(repo: &PathBuf, base: &str, head: &str, mode: &str) -> Result<(String, String, Option<String>), String> {
     validate_mode(mode)?;
-    let base = resolve_git_commit(repo, base)?;
-    let head = resolve_git_commit(repo, head)?;
+    let base = resolve_compare_commit(repo, base)?;
+    let head = resolve_compare_commit(repo, head)?;
     let merge_base = run_git(repo, &["merge-base", &base, &head]).ok().map(|hash| hash.trim().to_string()).filter(|hash| !hash.is_empty());
     if mode == "merge-base" && merge_base.is_none() {
         return Err("__COMPARE_NO_COMMON_ANCESTOR__".into());
@@ -142,7 +172,7 @@ fn file_patch(repo: PathBuf, base: String, head: String, mode: String, file: Str
     let mut args = vec!["--literal-pathspecs", "diff", "--no-ext-diff", "--no-textconv", "--no-color", "--find-renames", "-l1000", "--unified=3", diff_base, &head_hash, "--", &file];
     if let Some(previous) = &previous_file { args.push(previous); }
     let span = crate::cmdlog::start(&repo.to_string_lossy(), &args);
-    let mut child = crate::cmd::git_command().arg("-C").arg(&repo).args(&args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|error| format!("Failed to run git: {error}"))?;
+    let mut child = compare_git_command().arg("-C").arg(&repo).args(&args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|error| format!("Failed to run git: {error}"))?;
     let mut stdout = child.stdout.take().ok_or("Missing git output")?;
     let mut stderr = child.stderr.take().ok_or("Missing git error output")?;
     let errors = std::thread::spawn(move || {

@@ -3872,6 +3872,10 @@
     }
   },
   "compare": {
+    "pickRef": "Elegir referencia para {{side}}",
+    "localBranch": "Rama local",
+    "remoteBranch": "Rama remota",
+    "tag": "Etiqueta",
     "title": "Comparar commits y ramas",
     "description": "Compara ramas, etiquetas o commits y revisa los archivos cambiados.",
     "base": "Base",
