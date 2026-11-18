@@ -1680,6 +1680,8 @@
     "baseOptionHead": "— A partir do HEAD (padrão) —"
   },
   "worktree": {
+    "catalogCheckedAt": "Árvores de trabalho verificadas às {{time}}",
+    "catalogRefreshFailed": "Não foi possível atualizar as árvores de trabalho. Os itens exibidos podem estar desatualizados.",
     "none": "Nenhum worktree",
     "noneShort": "Nenhuma entrada",
     "remove": "Remover",

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
-pub(super) fn repo_common_dir(repo: &PathBuf) -> Result<PathBuf, String> {
+pub(crate) fn repo_common_dir(repo: &PathBuf) -> Result<PathBuf, String> {
     let directory = run_git_command_bytes(
         git_command(),
         repo,

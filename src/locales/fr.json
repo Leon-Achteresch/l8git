@@ -1680,6 +1680,8 @@
     "baseOptionHead": "— Depuis HEAD (par défaut) —"
   },
   "worktree": {
+    "catalogCheckedAt": "Arbres de travail vérifiés à {{time}}",
+    "catalogRefreshFailed": "Impossible d’actualiser les arbres de travail. Les entrées affichées peuvent être obsolètes.",
     "none": "Aucun worktree",
     "noneShort": "Aucune entrée",
     "remove": "Supprimer",

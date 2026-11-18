@@ -1680,6 +1680,8 @@
     "baseOptionHead": "— 基于 HEAD（默认）—"
   },
   "worktree": {
+    "catalogCheckedAt": "工作树检查时间：{{time}}",
+    "catalogRefreshFailed": "无法刷新工作树。显示的条目可能已过时。",
     "none": "没有工作树",
     "noneShort": "没有条目",
     "remove": "移除",

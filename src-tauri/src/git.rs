@@ -217,7 +217,7 @@ pub use search::*;
 mod history;
 pub use history::*;
 mod coordination;
-pub(crate) use coordination::repo_coordination_mutex;
+pub(crate) use coordination::{repo_common_dir, repo_coordination_mutex};
 mod commit_split;
 pub use commit_split::*;
 

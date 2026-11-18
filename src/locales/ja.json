@@ -1680,6 +1680,8 @@
     "baseOptionHead": "— HEAD から (既定) —"
   },
   "worktree": {
+    "catalogCheckedAt": "ワークツリーの最終確認は {{time}}",
+    "catalogRefreshFailed": "ワークツリーを更新できませんでした。表示中の項目は古い可能性があります。",
     "none": "ワークツリーがありません",
     "noneShort": "エントリがありません",
     "remove": "削除",

@@ -388,13 +388,21 @@ export function seedAuditFixture(scene: string) {
         if (!reviewRemoved || !reviewMerged || args?.branch !== 'agents/fixture' ||
             args?.expectedBaseBranch !== 'main' || args?.expectedHead !== commits[0].hash) throw Error('agentReviewFinish.errors.reviewChanged');
         reviewBranchDeleted = true; return null;
-      case 'list_worktrees': return scene === 'review' ? [
-        { path: reviewBasePath, branch: 'main', head: reviewBaseHead.hash, is_main: true, is_locked: false, is_prunable: false },
-        ...(!reviewRemoved ? [{ path: FIXTURE_PATH, branch: 'agents/fixture', head: commits[0].hash, is_main: false, is_locked: false, is_prunable: false }] : []),
-      ] : scene === 'worktree-cleanup' ? [
-        { path: FIXTURE_PATH, branch: 'main', head: base.hash, is_main: true, is_locked: false, is_prunable: false },
-        { path: `${FIXTURE_PATH}-linked`, branch: 'fixture-linked', head: base.hash, is_main: false, is_locked: false, is_prunable: false },
-      ] : [];
+      case 'list_worktrees': {
+        if (scene === 'worktree-catalog') {
+          const path = String(args?.path);
+          const paths = path === FIXTURE_PATH ? [`${FIXTURE_PATH}-main`, path] : [path];
+          return paths.map((path, i) => ({ path, branch: i === 0 ? 'main' : 'fixture-linked',
+            head: base.hash, is_main: i === 0, is_locked: false, is_prunable: false }));
+        }
+        return scene === 'review' ? [
+          { path: reviewBasePath, branch: 'main', head: reviewBaseHead.hash, is_main: true, is_locked: false, is_prunable: false },
+          ...(!reviewRemoved ? [{ path: FIXTURE_PATH, branch: 'agents/fixture', head: commits[0].hash, is_main: false, is_locked: false, is_prunable: false }] : []),
+        ] : scene === 'worktree-cleanup' ? [
+          { path: FIXTURE_PATH, branch: 'main', head: base.hash, is_main: true, is_locked: false, is_prunable: false },
+          { path: `${FIXTURE_PATH}-linked`, branch: 'fixture-linked', head: base.hash, is_main: false, is_locked: false, is_prunable: false },
+        ] : [];
+      }
       case 'stack_list': return { stacks: [], branches: [] };
       case 'list_stashes': return scene === 'stash-help' && !stashPopped ? [{
         index: 0, refname: 'stash@{0}', branch: 'main', subject: 'Staging fixture',
@@ -409,6 +417,12 @@ export function seedAuditFixture(scene: string) {
   };
   useRepoStore.setState({ paths: [FIXTURE_PATH], activePath: FIXTURE_PATH, repos: { [FIXTURE_PATH]: info() }, status: scene === 'health' ? {} : { [FIXTURE_PATH]: entries }, stashes: scene === 'health' ? {} : { [FIXTURE_PATH]: [] }, favicons: { [FIXTURE_PATH]: null } });
   useWorkspaceStore.getState().initDefaultWorkspace([FIXTURE_PATH]);
+  if (scene === 'worktree-catalog') {
+    const secondary = '/tmp/l8git-catalog-other';
+    const paths = [FIXTURE_PATH, secondary];
+    useRepoStore.setState(state => ({ paths, repos: { ...state.repos, [secondary]: info(secondary) } }));
+    useWorkspaceStore.getState().initDefaultWorkspace(paths);
+  }
   if (scene === 'unborn-open') {
     const paths = [FIXTURE_PATH, detachedPath];
     useRepoStore.setState({ paths, repos: {} });

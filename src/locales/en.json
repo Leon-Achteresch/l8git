@@ -1680,6 +1680,8 @@
     "baseOptionHead": "— From HEAD (default) —"
   },
   "worktree": {
+    "catalogCheckedAt": "Worktrees checked at {{time}}",
+    "catalogRefreshFailed": "Could not refresh worktrees. Any displayed entries may be out of date.",
     "none": "No worktrees",
     "noneShort": "No entries",
     "remove": "Remove",

@@ -11,6 +11,10 @@ pub struct BroadcastSink {
 
 impl crate::sink::EventSink for BroadcastSink {
     fn emit(&self, name: &str, payload: Value) {
+        // Catalog notifications drive the local worktree panel.
+        if name == crate::watcher::WORKTREE_CATALOG_EVENT {
+            return;
+        }
         let _ = self.events.send(BroadcastEvent {
             name: name.to_string(),
             payload,

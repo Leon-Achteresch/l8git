@@ -1680,6 +1680,8 @@
     "baseOptionHead": "— Von HEAD (Standard) —"
   },
   "worktree": {
+    "catalogCheckedAt": "Worktrees zuletzt geprüft um {{time}}",
+    "catalogRefreshFailed": "Worktrees konnten nicht aktualisiert werden. Angezeigte Einträge können veraltet sein.",
     "none": "Keine Worktrees",
     "noneShort": "Keine Einträge",
     "remove": "Entfernen",

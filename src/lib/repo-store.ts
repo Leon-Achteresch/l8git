@@ -19,6 +19,7 @@ import { useWorkspaceStore, workspaceRepo } from '@/lib/workspace-store';
 // same in-flight request instead of triggering N identical 200-commit
 // round-trips. A small trailing debounce swallows rapid follow-ups.
 const reloadInFlight = new Map<string, Promise<void>>();
+const worktreeRequests = new Map<string, symbol>();
 const statusInFlight = new Map<string, Promise<void>>();
 const statusPending = new Map<string, number>();
 const localStatusInFlight = new Map<string, Promise<void>>();
@@ -361,6 +362,7 @@ type RepoState = {
   submodulesLoading: Record<string, boolean>;
   worktrees: Record<string, WorktreeEntry[]>;
   worktreesLoading: Record<string, boolean>;
+  worktreeChecks: Record<string, { checkedAt?: number; failed: boolean }>;
   gitHooks: Record<string, GitHookEntry[]>;
   gitHooksLoading: Record<string, boolean>;
   reloadGitHooks: (path: string) => Promise<void>;
@@ -516,7 +518,7 @@ type RepoState = {
     submodulePath: string,
     pinnedCommit: string
   ) => Promise<SubmoduleCommit[]>;
-  reloadWorktrees: (path: string) => Promise<void>;
+  reloadWorktrees: (path: string, signal?: AbortSignal) => Promise<void>;
   worktreeAdd: (
     path: string,
     worktreePath: string,
@@ -629,6 +631,7 @@ export const useRepoStore = create<RepoState>()(
       submodulesLoading: {},
       worktrees: {},
       worktreesLoading: {},
+      worktreeChecks: {},
       gitHooks: {},
       gitHooksLoading: {},
       bisect: {},
@@ -1697,21 +1700,35 @@ export const useRepoStore = create<RepoState>()(
         });
       },
 
-      async reloadWorktrees(path) {
-        set(s => ({
-          worktreesLoading: { ...s.worktreesLoading, [path]: true },
-        }));
+      async reloadWorktrees(path, signal) {
+        const active = () => !signal || get().activePath === path;
+        if (signal?.aborted || !active()) return;
+        const request = Symbol();
+        worktreeRequests.set(path, request);
+        const current = () => worktreeRequests.get(path) === request;
+        const abort = () => {
+          if (!current()) return;
+          worktreeRequests.delete(path);
+          set(s => ({ worktreesLoading: { ...s.worktreesLoading, [path]: false } }));
+        };
+        signal?.addEventListener('abort', abort, { once: true });
+        set(s => ({ worktreesLoading: { ...s.worktreesLoading, [path]: true } }));
         try {
           const list = await invoke<WorktreeEntry[]>('list_worktrees', { path });
+          if (!current() || !active()) return;
           set(s => ({
             worktrees: { ...s.worktrees, [path]: list },
-            worktreesLoading: { ...s.worktreesLoading, [path]: false },
+            worktreeChecks: { ...s.worktreeChecks, [path]: { checkedAt: Date.now(), failed: false } },
           }));
         } catch (e) {
-          toastError(String(e));
+          if (!current() || !active()) return;
+          if (!signal) toastError(String(e));
           set(s => ({
-            worktreesLoading: { ...s.worktreesLoading, [path]: false },
+            worktreeChecks: { ...s.worktreeChecks, [path]: { checkedAt: s.worktreeChecks[path]?.checkedAt, failed: true } },
           }));
+        } finally {
+          signal?.removeEventListener('abort', abort);
+          if (current()) abort();
         }
       },
 
