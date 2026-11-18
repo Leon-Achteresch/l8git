@@ -156,6 +156,7 @@ mod macos {
         let worktree = spec["kind"] == "worktree";
         let notes = spec["kind"] == "notes";
         let compare = spec["kind"] == "compare";
+        let compare_rename = spec["compareRename"] == true;
         let search = spec["kind"] == "search";
         let history_path = spec["historyPath"] == true;
         let history_dates = spec["historyDates"] == true;
@@ -320,6 +321,7 @@ mod macos {
         ];
         let trace = Arc::new(WorktreeTrace::default());
         let invoke_trace = trace.clone();
+        let compare_invocations = Mutex::new(Vec::<String>::new());
         let app = tauri::Builder::default()
             .invoke_handler(move |invoke: Invoke<Wry>| {
                 let InvokeBody::Json(body) = invoke.message.payload() else {
@@ -335,14 +337,18 @@ mod macos {
                     return true;
                 }
                 let path = body["path"].as_str();
-                if (history_path || history_dates)
-                    && invoke.message.command() == "native_history_key"
+                let compare_key =
+                    compare_rename && invoke.message.command() == "native_compare_key";
+                if compare_key
+                    || ((history_path || history_dates)
+                        && invoke.message.command() == "native_history_key")
                 {
                     let key = match body["key"].as_str() {
                         Some("Enter") => 36,
                         Some("Space") => 49,
+                        Some("Escape") if compare_key => 53,
                         _ => {
-                            invoke.resolver.reject("Only Enter and Space are allowed");
+                            invoke.resolver.reject("Key outside the fixture scope");
                             return true;
                         }
                     };
@@ -351,6 +357,14 @@ mod macos {
                         Err(error) => invoke.resolver.reject(error),
                     }
                     return true;
+                }
+                if compare_rename {
+                    let mut calls = compare_invocations.lock().unwrap();
+                    if invoke.message.command() == "native_compare_ipc_calls" {
+                        invoke.resolver.resolve(calls.clone());
+                        return true;
+                    }
+                    calls.push(invoke.message.command().into());
                 }
                 if search {
                     if path == Some(parent.as_str()) || path == child.as_deref() {
@@ -370,12 +384,12 @@ mod macos {
                     }
                 } else if compare {
                     let command = invoke.message.command();
-                    if command == "native_compare_delete" {
+                    if !compare_rename && command == "native_compare_delete" {
                         println!("NATIVE_COMPARE_PHASE delete");
                         invoke.resolver.resolve(());
                         return true;
                     }
-                    if command == "native_compare_deleted" {
+                    if !compare_rename && command == "native_compare_deleted" {
                         let exists = PathBuf::from(&parent)
                             .join(".git/refs/heads/release")
                             .exists();
@@ -455,7 +469,16 @@ mod macos {
                 }
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                     .title(title)
-                    .inner_size(if history_dates { 1680.0 } else { 1180.0 }, 760.0)
+                    .inner_size(
+                        if history_dates {
+                            1680.0
+                        } else if compare_rename {
+                            760.0
+                        } else {
+                            1180.0
+                        },
+                        if compare_rename { 800.0 } else { 760.0 },
+                    )
                     .incognito(true)
                     .on_navigation(|url| {
                         url.scheme() == "tauri" && url.host_str() == Some("localhost")

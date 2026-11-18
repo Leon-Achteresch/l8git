@@ -226,6 +226,35 @@ def compare_fixture(root, env):
             "cases": cases, "tagObject": git(primary, env, "rev-parse", "refs/tags/release")}
 
 
+def compare_rename_fixture(root, env):
+    primary, other = (root / "repos" / name for name in ("rename-main", "rename-other"))
+    for path in (primary, other):
+        path.mkdir(parents=True)
+        git(path, env, "init", "--quiet", "--initial-branch=main")
+        (path / "old.txt").write_text("Original fixture document\n", encoding="utf-8")
+        git(path, env, "add", "old.txt")
+        git(path, env, "commit", "--quiet", "-m", "Original document")
+    base = git(primary, env, "rev-parse", "HEAD")
+    git(primary, env, "mv", "old.txt", "new.txt")
+    git(primary, env, "commit", "--quiet", "-m", "Move document")
+    moved = git(primary, env, "rev-parse", "HEAD")
+    git(primary, env, "checkout", "-b", "rewrite")
+    (primary / "new.txt").write_text("Unrelated replacement material\n", encoding="utf-8")
+    git(primary, env, "add", "new.txt")
+    git(primary, env, "commit", "--quiet", "-m", "Rewrite moved document")
+    rewritten = git(primary, env, "rev-parse", "HEAD")
+    git(primary, env, "checkout", "main")
+    for head, expected in [
+        (moved, {"R100\told.txt\tnew.txt"}),
+        (rewritten, {"A\tnew.txt", "D\told.txt"}),
+    ]:
+        actual = set(git(primary, env, "diff", "--name-status", "--find-renames", "-l1000", base, head, "--").splitlines())
+        if actual != expected:
+            raise RuntimeError(f"Unexpected Git rename oracle for {head}: {actual}")
+    return {"kind": "compare", "compareRename": True, "parent": str(primary), "child": str(other),
+            "outside": str(root), "cases": {"base": base, "moved": moved, "rewritten": rewritten}}
+
+
 def search_fixture(root, env):
     primary, other = (root / "repos" / name for name in ("search-sha256", "search-sha1"))
     for path, object_format in ((primary, "sha256"), (other, "sha1")):
@@ -444,9 +473,13 @@ def run_compare_phases(process, env, spec):
     return output
 
 
+def compare_ipc_calls(output):
+    return [json.loads(line.removeprefix("NATIVE_COMPARE_IPC ")) for line in output.splitlines()
+            if line.startswith("NATIVE_COMPARE_IPC ")]
+
+
 def verify_compare_trace(trace, output, spec):
-    calls = [json.loads(line.removeprefix("NATIVE_COMPARE_IPC ")) for line in output.splitlines()
-             if line.startswith("NATIVE_COMPARE_IPC ")]
+    calls = compare_ipc_calls(output)
     cases = spec["cases"]
     base = cases["base"]["sha"]
     expected = [("refs/remotes/origin/main", "HEAD"), (base, "refs/heads/release"),
@@ -468,9 +501,22 @@ def verify_compare_trace(trace, output, spec):
     if diffs != expected_diffs:
         raise RuntimeError(f"Unexpected pinned diff IPC: {diffs}")
 
+    reads = list(compare_git_reads(trace, spec))
+    for ref in ("refs/heads/release", "refs/tags/release", "refs/remotes/origin/release"):
+        args = ["show-ref", "--verify", "--hash", "--", ref]
+        if (args, 0) not in reads:
+            raise RuntimeError(f"Missing exact Git lookup: {ref}")
+    if (["rev-parse", "--verify", "--end-of-options", f"{spec['tagObject']}^{{commit}}"], 0) not in reads:
+        raise RuntimeError("Missing annotated tag object peeling")
+    if not any(args == ["show-ref", "--verify", "--hash", "--", "refs/heads/release"] and code
+               for args, code in reads):
+        raise RuntimeError("Missing failed exact lookup after external deletion")
+    print(f"NATIVE_COMPARE_GIT verified {len(reads)} processes, {len(summaries)} summary and {len(diffs)} pinned diff IPC.")
+
+
+def compare_git_reads(trace, spec):
     events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
     exits = {event["sid"]: event["code"] for event in events if event["event"] == "exit"}
-    reads = []
     for event in events:
         if event["event"] != "start":
             continue
@@ -486,17 +532,31 @@ def verify_compare_trace(trace, output, spec):
                 or (args[0] == "config" and any(arg in ("--get", "--get-regexp") for arg in args)))
         if path not in (spec["parent"], spec["child"]) or not read:
             raise RuntimeError(f"Unexpected Git process in compare fixture: {argv}")
-        reads.append((args, exits.get(event["sid"])))
-    for ref in ("refs/heads/release", "refs/tags/release", "refs/remotes/origin/release"):
-        args = ["show-ref", "--verify", "--hash", "--", ref]
-        if (args, 0) not in reads:
-            raise RuntimeError(f"Missing exact Git lookup: {ref}")
-    if (["rev-parse", "--verify", "--end-of-options", f"{spec['tagObject']}^{{commit}}"], 0) not in reads:
-        raise RuntimeError("Missing annotated tag object peeling")
-    if not any(args == ["show-ref", "--verify", "--hash", "--", "refs/heads/release"] and code
-               for args, code in reads):
-        raise RuntimeError("Missing failed exact lookup after external deletion")
-    print(f"NATIVE_COMPARE_GIT verified {len(reads)} processes, {len(summaries)} summary and {len(diffs)} pinned diff IPC.")
+        yield args, exits.get(event["sid"])
+
+
+def verify_compare_rename_trace(trace, output, spec):
+    calls = compare_ipc_calls(output)
+    base, moved, rewritten = (spec["cases"][key] for key in ("base", "moved", "rewritten"))
+    summaries = [(call["base"], call["head"]) for call in calls if call["command"] == "repo_compare_commits"]
+    diffs = [(call["base"], call["head"], call["file"], call["previousFile"])
+             for call in calls if call["command"] == "repo_compare_file_diff"]
+    if (summaries != [("HEAD~1", "HEAD"), (base, rewritten)] or
+            diffs != [(base, moved, "new.txt", "old.txt"),
+                      (base, rewritten, "new.txt", None), (base, rewritten, "old.txt", None)] or
+            any(call["path"] != spec["parent"] for call in calls)):
+        raise RuntimeError(f"Unexpected rename comparison IPC: {calls}")
+    reads = list(compare_git_reads(trace, spec))
+    for head in (moved, rewritten):
+        for flag in ("--name-status", "--numstat"):
+            if not any(code == 0 and args[0] == "diff" and flag in args and "--find-renames" in args and
+                       "-l1000" in args and args[-3:] == [base, head, "--"] for args, code in reads):
+                raise RuntimeError(f"Missing Git summary with {flag} for {head}")
+    patches = [args[args.index("--") + 1:] for args, code in reads
+               if code == 0 and args[:2] == ["--literal-pathspecs", "diff"] and "--find-renames" in args]
+    if patches != [["new.txt", "old.txt"], ["new.txt"], ["old.txt"]]:
+        raise RuntimeError(f"Unexpected Git pathname selection for file patches: {patches}")
+    print(f"NATIVE_COMPARE_RENAME_GIT verified {len(reads)} Git reads, {len(summaries)} summaries and {len(diffs)} file diffs.")
 
 
 def search_ipc_calls(output):
@@ -637,6 +697,7 @@ def main():
     modes.add_argument("--worktree-catalog", action="store_true", help="run the F05 worktree fixture")
     modes.add_argument("--commit-notes", action="store_true", help="run the F42 local commit notes fixture")
     modes.add_argument("--qualified-compare", action="store_true", help="run the F46 qualified compare fixture")
+    modes.add_argument("--compare-rename", action="store_true", help="run the F58 native rename explanation fixture")
     modes.add_argument("--commit-search", action="store_true", help="run the F51 full commit ID search fixture")
     modes.add_argument("--history-text", action="store_true", help="run the F40 UTF-8 history text fixture")
     modes.add_argument("--history-path", action="store_true", help="run the F62 native path history fixture")
@@ -648,10 +709,10 @@ def main():
     if not BIN.is_file() or not (ROOT / "dist/index.html").is_file():
         raise SystemExit("Build the production frontend and the native_submodule_acceptance example first.")
     notes = args.commit_notes
-    compare = args.qualified_compare
+    compare = args.qualified_compare or args.compare_rename
     search = args.commit_search or args.history_text or args.history_path or args.history_dates
     mode = ("history-dates" if args.history_dates else "history-path" if args.history_path else "history-text" if args.history_text else
-            "search" if search else "compare" if compare else "notes" if notes else
+            "search" if search else "compare-rename" if args.compare_rename else "compare" if compare else "notes" if notes else
             "worktrees" if worktree else "staging" if staging else "submodules")
     verify_repo_state = notes or compare or search
     with tempfile.TemporaryDirectory(prefix=f"l8git-native-{mode}-") as temp:
@@ -669,7 +730,7 @@ def main():
         }
         create_fixture = {"notes": notes_fixture, "worktrees": worktree_fixture,
                           "staging": staging_fixture, "submodules": submodule_fixture,
-                          "compare": compare_fixture, "search": search_fixture,
+                          "compare": compare_fixture, "compare-rename": compare_rename_fixture, "search": search_fixture,
                           "history-text": history_text_fixture, "history-path": history_path_fixture,
                           "history-dates": history_dates_fixture}[mode]
         if verify_repo_state:
@@ -691,7 +752,7 @@ def main():
                 raise RuntimeError("Read-only fixtures require clean repos without remotes")
         if worktree:
             allowed_changes = ("catalog-main/.git/worktrees", "catalog-external-1")
-        elif compare:
+        elif args.qualified_compare:
             allowed_changes = ("compare-primary/.git/refs/heads/release",)
         else:
             allowed_changes = ("staging/.git/index", "staging/.git/objects") if staging else ()
@@ -744,7 +805,10 @@ if sys.argv[1]:
     probe.unlink()
 """
         writable_probe = str(repo / ".git/acceptance-probe") if staging else ""
-        if compare:
+        if args.compare_rename:
+            protected = [str(repo / file) for file in ("new.txt", ".git/config", ".git/refs/heads/main")]
+            protected += [str(Path(spec["child"]) / ".git/index")]
+        elif compare:
             protected = [str(repo / "fixture.txt"), str(repo / ".git/HEAD"),
                          str(repo / ".git/refs/heads/release"), str(Path(spec["child"]) / ".git/index")]
         elif search:
@@ -773,7 +837,7 @@ if sys.argv[1]:
             if worktree:
                 run_worktree_phases(process, root, env, spec)
                 output = ""
-            elif compare:
+            elif args.qualified_compare:
                 output = run_compare_phases(process, env, spec)
             else:
                 output, _ = process.communicate(timeout=100)
@@ -788,7 +852,7 @@ if sys.argv[1]:
         finally:
             if before != snapshot(repos, allowed_changes):
                 raise RuntimeError("Protected fixture files changed during native acceptance")
-        if not compare:
+        if not args.qualified_compare:
             print(output, end="", flush=True)
         print(f"Protected fixture snapshot unchanged ({len(before)} files).", flush=True)
         if worktree:
@@ -811,7 +875,12 @@ if sys.argv[1]:
             if repo_state() != initial_repo_state:
                 raise RuntimeError("Fixture refs, status or remotes changed during Notes acceptance")
             print("Fixture refs, clean status and absence of remotes independently verified with local Git.")
-        if compare:
+        if args.compare_rename:
+            verify_compare_rename_trace(trace, output, spec)
+            if repo_state() != initial_repo_state:
+                raise RuntimeError("Fixture refs, status or remotes changed during rename acceptance")
+            print("Fixture refs, HEAD, clean status and absence of remotes verified with local Git.")
+        elif compare:
             refs, dirty, remotes = initial_repo_state[0]
             expected_refs = "\n".join(line for line in refs.splitlines() if not line.endswith(" refs/heads/release"))
             if repo_state() != [(expected_refs, dirty, remotes), initial_repo_state[1]]:
@@ -839,10 +908,11 @@ if sys.argv[1]:
                     or git(repo, env, "diff", "--no-color", "--no-ext-diff", "--no-textconv") != original_diff):
                 raise RuntimeError("Fixture must finish with a clean index and the original working-tree patch")
             print("Mutation sequence, final index and working-tree diff independently verified with local Git.")
-    if search:
+    if search or args.compare_rename:
         if process.poll() is None or root.exists():
-            raise RuntimeError("Search process or temporary fixture still exists after cleanup")
-        print(f"NATIVE_SEARCH_CLEANUP process {process.pid} exited and private fixture directory was removed.")
+            raise RuntimeError("Native process or temporary fixture still exists after cleanup")
+        tag = "NATIVE_COMPARE_RENAME_CLEANUP" if args.compare_rename else "NATIVE_SEARCH_CLEANUP"
+        print(f"{tag} process {process.pid} exited and private fixture directory was removed.")
     else:
         print("Owned native process exited and temporary profile and fixtures were removed.")
 

@@ -55,6 +55,63 @@
     });
   };
 
+  const renameHelp = async () => {
+    const button = await wait('rename explanation trigger', () => named('button', 'Rename detection', compare()));
+    const help = () => find('[role="dialog"]', element => element.getAttribute('aria-label') === 'Rename detection');
+    const key = async name => {
+      let trusted = false;
+      document.addEventListener('keydown', event => {
+        trusted = event.isTrusted && event.key === name;
+      }, { capture: true, once: true });
+      await ipc('native_compare_key', { key: name });
+      await wait(`trusted ${name}`, () => trusted);
+    };
+    button.focus();
+    await wait('focus on rename explanation', () => document.activeElement === button);
+    const before = await ipc('native_compare_ipc_calls');
+    await key('Enter');
+    await wait('named rename explanation dialog', () => {
+      const text = help()?.innerText ?? '';
+      return text.includes('content similarity in this comparison') &&
+        text.includes('deletion and an addition') && text.includes('shows the previous path') &&
+        text.includes('Select a file to review its content diff');
+    });
+    await key('Escape');
+    await wait('closed explanation and restored focus', () => !help() && document.activeElement === button);
+    const additional = (await ipc('native_compare_ipc_calls')).slice(before.length);
+    if (additional.length) {
+      throw new Error(`Opening or closing rename help invoked additional application IPC: ${additional.join(', ')}`);
+    }
+  };
+
+  const compareRename = async () => {
+    const compareTitle = head => compare()?.querySelector(`[title="${cases.base} → ${head}"]`);
+    const file = (title, status) => find('button', element =>
+      element.title === title && element.innerText.includes(status), compare());
+    operation = 'regular Compare view of a detected rename';
+    await open();
+    await wait('pinned rename, previous path and native patch', () =>
+      compareTitle(cases.moved) && file('old.txt → new.txt', 'Renamed')?.innerText.includes('← old.txt') &&
+      compare().innerText.includes('rename from old.txt') && compare().innerText.includes('rename to new.txt'));
+    await renameHelp();
+    steps.push('Rename and previous path rendered with a native rename patch; keyboard help used zero application IPC');
+
+    operation = 'comparison of the same move with rewritten contents';
+    fill(input('Base'), cases.base);
+    fill(input('Head'), cases.rewritten);
+    submit();
+    await wait('separate add and delete with native added content', () =>
+      compareTitle(cases.rewritten) && file('new.txt', 'Added') && file('old.txt', 'Deleted') &&
+      compare().innerText.includes('Unrelated replacement material'));
+    if (file('new.txt', 'Added').innerText.includes('← old.txt')) throw new Error('Unexpected paired old path');
+    await renameHelp();
+    file('old.txt', 'Deleted').click();
+    await wait('native deleted content', () =>
+      file('old.txt', 'Deleted')?.getAttribute('aria-pressed') === 'true' &&
+      compare().innerText.includes('Original fixture document'));
+    steps.push('Separate add/delete and content diffs rendered; keyboard help retained focus and used zero application IPC');
+  };
+
   const run = async () => {
     if (localStorage.length !== 0) throw new Error('WebKit storage was not empty at startup');
     const seed = (key, state) => localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
@@ -66,6 +123,12 @@
       ipc('git_fetch', { path: fixture.parent }),
     ]);
     if (denied.some(item => item.status !== 'rejected')) throw new Error('Unexpected fixture permissions');
+
+    if (fixture.compareRename) {
+      await compareRename();
+      await ipc('native_acceptance_result', { ok: true, steps });
+      return;
+    }
 
     operation = 'regular palette and automatic tracked base';
     await open();

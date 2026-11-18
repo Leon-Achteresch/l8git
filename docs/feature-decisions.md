@@ -79,7 +79,7 @@ Zusätzlich umgesetzt: F11 ordnet im bestehenden Zwei- und Dreiwege-Konfliktedit
 
 Der native Vergleich verwendet `--find-renames -l1000` für Status, Statistik und Patch. Die gewählte Basis und der Kopf bestimmen, welche Inhalte Git vergleicht. Ein echter Test mit demselben Dateiumzug ergibt bei identischem Inhalt einen Rename mit Altpfad und nach einer vollständigen Neufassung zwei getrennte Einträge. Der Inhaltsdiff verwendet bei einem Rename beide Pfade, bei getrennten Einträgen jeweils den gewählten Pfad.
 
-Die Erklärung öffnet sich aus den geladenen Status- und Altpfadangaben. Sie führt keinen weiteren Git-Aufruf aus und leitet aus einer Löschung und Hinzufügung keine Paarung ab. Die Auswertung bleibt abhängig von Vergleichsbasis, Ähnlichkeit und Gits Kandidatenlimit.
+Die Erklärung öffnet sich aus den geladenen Status- und Altpfadangaben. Sie führt keinen weiteren Git-Aufruf aus und leitet aus einer Löschung und Hinzufügung keine Paarung ab. Die Auswertung bleibt abhängig von Vergleichsbasis, Ähnlichkeit und Gits Kandidatenlimit. Die [native macOS-Abnahme](audits/native-compare-rename-acceptance.md) prüft beide Darstellungen über den regulären Vergleich mit echtem Git-IPC.
 
 ### F62 · Mergewege im Pfadverlauf
 
