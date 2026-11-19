@@ -72,7 +72,7 @@ hkdf = { version = "0.13", optional = true }
 hmac = { version = "0.13", optional = true }
 sha2 = "0.11"
 subtle = { version = "2", optional = true }
-rand = { version = "0.8", optional = true }
+rand = { version = "0.10", optional = true }
 qrcode = { version = "0.14", default-features = false, optional = true }
 clap = { version = "4", features = ["derive"], optional = true }
 futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
