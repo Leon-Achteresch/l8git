@@ -79,7 +79,7 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"],
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util"] }
-tokio-tungstenite = "0.29"
+tokio-tungstenite = "0.30"
 
 [profile.release]
 opt-level = 3
