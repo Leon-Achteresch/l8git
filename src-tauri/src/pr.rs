@@ -83,6 +83,8 @@ pub struct CommitAvatarEntry {
 
 #[derive(Serialize)]
 pub struct PrFile {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    raw_url: Option<String>,
     path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_path: Option<String>,
@@ -791,7 +793,8 @@ pub async fn pr_create(
     draft: bool,
 ) -> Result<PullRequest, String> {
     let p = repo_path(&path);
-    if !p.is_dir() {
+    let hosted = is_hub_path(&path);
+    if !hosted && !p.is_dir() {
         return Err(coded!(PathNotFolder));
     }
     let title = title.trim().to_string();
@@ -799,16 +802,18 @@ pub async fn pr_create(
         return Err(required(Label::Title));
     }
     let h = parse_origin_url(&p)?;
-    let head_source = if head.trim().is_empty() {
-        current_branch(&p)?
-    } else {
+    let head = if hosted {
         head.trim().to_string()
+    } else {
+        let source = if head.trim().is_empty() { current_branch(&p)? } else { head };
+        strip_remote_prefix(&p, &source)?
     };
-    let head = strip_remote_prefix(&p, &head_source)?;
     if head.is_empty() {
         return Err(required(Label::HeadBranch));
     }
-    let base = if base.trim().is_empty() {
+    let base = if hosted {
+        base.trim().to_string()
+    } else if base.trim().is_empty() {
         origin_default_branch(&p)?
     } else {
         strip_remote_prefix(&p, &base)?

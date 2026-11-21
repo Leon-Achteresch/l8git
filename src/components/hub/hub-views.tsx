@@ -125,11 +125,14 @@ export function PullsView({ account, initial }: { account: HubAccount; initial: 
   const { t } = useTranslation();
   const [kind, setKind] = useState<PullKind | "saved">(initial);
   const q = useHubQuery(account, `pulls:${kind}`, (ad, a) => (kind === "saved" ? Promise.resolve([]) : ad.pulls(a, kind)));
+  const [filter, setFilter] = useState("");
+  const query = filter.trim().toLowerCase();
+  const results = q.data?.filter(p => [p.title, p.repo, "#" + p.number, p.author?.login].some(v => v?.toLowerCase().includes(query)));
   const kinds: (PullKind | "saved")[] = ["authored", "review", "assigned", "mentioned", ...(account.provider === "github" ? (["saved"] as const) : [])];
   return (
     <div>
       <PageHead title={initial === "review" ? t("hub.nav.reviews") : t("hub.nav.pulls")} sub={t("hub.pulls.sub")} />
-      <div className="flex gap-1 border-b border-border/60 px-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-border/60 px-5">
         {kinds.map((k) => (
           <button
             key={k}
@@ -144,7 +147,13 @@ export function PullsView({ account, initial }: { account: HubAccount; initial: 
           </button>
         ))}
       </div>
-      {kind === "saved" ? <HubSavedSearches account={account} /> : <PrList q={q} />}
+      {kind === "saved" ? <HubSavedSearches account={account} /> : <>
+        <label className="mx-5 my-3 flex max-w-lg items-center gap-2 rounded-lg border px-3 text-muted-foreground focus-within:border-primary/60">
+          <Search className="size-3.5 shrink-0" />
+          <Input type="search" variant="bare" value={filter} onChange={e => setFilter(e.target.value)} aria-label={t("pr.searchPulls")} placeholder={t("pr.searchPulls")} />
+        </label>
+        {query && !!q.data?.length && !results?.length && !q.error ? <EmptyRow>{t("pr.noneFound")}</EmptyRow> : <PrList q={{ ...q, data: results ?? q.data }} />}
+      </>}
     </div>
   );
 }

@@ -308,6 +308,7 @@ pub fn gl_diff_patch(v: &Value) -> String {
 pub fn gl_map_file(v: &Value) -> PrFile {
     let (additions, deletions) = gl_diff_counts(v["diff"].as_str().unwrap_or(""));
     PrFile {
+        raw_url: None,
         path: gl_diff_path(v),
         previous_path: v["old_path"].as_str().filter(|previous| !previous.is_empty() && *previous != gl_diff_path(v)).map(str::to_string),
         status: gl_diff_status(v),

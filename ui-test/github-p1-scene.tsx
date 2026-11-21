@@ -1,3 +1,4 @@
+import { HubCreatePr } from "@/components/hub/hub-create-pr";
 import { Profiler, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
@@ -44,12 +45,23 @@ function provider(cmd: string, args: Record<string, unknown>, data: Record<strin
     return {
       number: n, title: `PR ${n} in ${String(args.path)} (${repo})`, state: "open", is_draft: (n === 2) !== (repo === "o/b"), author: "leon", author_avatar: null,
       source_branch: `f${n}`, target_branch: "main", html_url: "", created_at: "2026-11-01T10:00:00Z", updated_at: "2026-11-01T10:00:00Z",
-      labels: [], reviewers: [], provider: "github", body_markdown: `Body of ${repo}#${n}`, mergeable: true, merge_commit_sha: null, head_sha: "a".repeat(40),
+      labels: [], reviewers: [], provider: "github", body_markdown: data.description ?? `Body of ${repo}#${n}`, mergeable: true, merge_commit_sha: null, head_sha: "a".repeat(40),
     };
   }
+  if (cmd === "pr_files") return data.files ?? [];
+  if (cmd === "pr_create") return { number: 3 };
+  if (cmd === "pr_add_comment") {
+    data.postedBody = args.body;
+    return null;
+  }
+  if (cmd === "pr_conversation") return {
+    comments: data.postedBody ? [{ id: "posted", author: "leon", created_at: "2026-11-01T10:00:00Z", body: data.postedBody }] : [],
+    reviews: [],
+  };
   if (cmd !== "hub_api") return null;
   const p = String(args.path);
   const login = String(args.login);
+  if (args.method === "PUT" && p.includes("/contents/screenshots/")) return ok({ commit: { sha: "a".repeat(40) } });
   if (p === "/graphql") {
     const body = args.body as { query: string; variables: { owner?: string; name?: string; number?: number; id?: string } };
     const v = body.variables;
@@ -149,13 +161,16 @@ function MentionScene() {
 
 export default function GithubP1Scene({ scene }: { scene: string }) {
   useState(() => { install(); return true; });
-  const [path, setPath] = useState(P1_REPO);
+  const [path, setPath] = useState(window.__ghp1.data.hub ? "hub:leon@github.com/o/a" : P1_REPO);
   const [number, setNumber] = useState(1);
   const [remoteOpen, setRemoteOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   if (scene === "ghp1-mention") return <MentionScene />;
   return (
     <div className="flex h-screen flex-col gap-2 p-4">
       <div className="flex gap-2">
+        {window.__ghp1.data.hub === true && <Button onClick={() => setCreating(true)}>New pull request</Button>}
+        {creating && <HubCreatePr account={useHubStore.getState().accounts[0]} repo={{ fullName: "o/a", defaultBranch: "main" }} onClose={() => setCreating(false)} onCreated={n => { setCreating(false); setNumber(n); }} />}
         <Button onClick={() => setNumber(1)}>PR 1</Button>
         <Button onClick={() => setNumber(2)}>PR 2</Button>
         <Button onClick={() => setPath(path === P1_REPO ? P1_REPO2 : P1_REPO)}>Switch repo</Button>

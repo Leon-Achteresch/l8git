@@ -327,7 +327,7 @@ export function PullRequestInspectDetail({
         )}
 
         <LayoutGroup id="pr-detail-tabs">
-          <nav className="mt-3.5 flex items-center gap-1 border-t border-border/40 pt-2">
+          <nav className="mt-3.5 flex items-center gap-1 overflow-x-auto border-t border-border/40 pt-2">
             {TABS.map(({ id, label, icon: Icon }) => {
               const active = tab === id;
               return (
@@ -439,7 +439,7 @@ export function PullRequestInspectDetail({
                   path={path}
                   number={number}
                   detail={detail}
-                  onCommented={() => void load()}
+                  onCommented={() => { onMutated(); void load(); }}
                 />
               )}
               {tab === "commits" && (
@@ -449,6 +449,7 @@ export function PullRequestInspectDetail({
                 <PullRequestFilesTab
                   path={path}
                   number={number}
+                  prUrl={detail.html_url}
                   baseRef={detail.target_branch}
                   headRef={detail.source_branch}
                   headSha={detail.head_sha}

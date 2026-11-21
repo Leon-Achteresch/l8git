@@ -62,6 +62,7 @@ import {
   UserAvatar,
   useHubNav,
 } from "./hub-bits";
+import { HubCreatePr } from "./hub-create-pr";
 import { HubContributorsTab } from "./hub-contributors";
 import { IssueCreateDialog } from "@/components/repo/github/issue-create-dialog";
 import { HubIssueSheet } from "@/components/hub/hub-issue-sheet";
@@ -544,6 +545,8 @@ function PullsTab({ account, repo }: { account: HubAccount; repo: HubRepoDetail 
   const { t } = useTranslation();
   const [state, setState] = useState<"open" | "closed">("open");
   const refresh = useHubStore((s) => s.refresh);
+  const [creating, setCreating] = useState(false);
+  const nav = useHubNav();
   const q = useHubQuery(account, `repoPulls:${repo.fullName}:${state}`, (ad, a) => ad.repoPulls(a, repo.fullName, state));
   const [merge, setMerge] = useState<HubPr | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -567,17 +570,21 @@ function PullsTab({ account, repo }: { account: HubAccount; repo: HubRepoDetail 
     <Panel
       title={t("hub.repo.pulls")}
       action={
-        <StateToggle
-          value={state}
-          onChange={setState}
-          options={[
-            { id: "open", label: t("hub.state.open") },
-            { id: "closed", label: t("hub.state.closed") },
-          ]}
-        />
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setCreating(true)}><Plus />{t("pr.createTitle")}</Button>
+          <StateToggle
+            value={state}
+            onChange={setState}
+            options={[
+              { id: "open", label: t("hub.state.open") },
+              { id: "closed", label: t("hub.state.closed") },
+            ]}
+          />
+        </div>
       }
       className="border-t border-border/60"
     >
+      {creating && <HubCreatePr account={account} repo={repo} onClose={() => setCreating(false)} onCreated={number => { setCreating(false); nav("pr", repo.fullName, number); }} />}
       {q.error ? (
         <ErrorRow error={q.error} onRetry={refresh} />
       ) : !q.data ? (
