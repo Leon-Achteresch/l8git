@@ -17,8 +17,7 @@ import {
 import { m } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { PrReviewMarkdown } from "./pr-screenshot";
 import { PrT3Menu } from "./pr-t3-menu";
 
 type PrComment = {
@@ -53,10 +52,15 @@ type Entry =
 export function PullRequestConversationTab({
   path,
   number,
+  prUrl, headSha,
+  revision = 0,
   onCommented,
 }: {
   path: string;
   number: number;
+  prUrl?: string;
+  headSha?: string;
+  revision?: number;
   onCommented: () => void;
 }) {
   const { t } = useTranslation();
@@ -93,10 +97,15 @@ export function PullRequestConversationTab({
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revision]);
+
+  function annotationPosted() {
+    void load();
+    onCommented();
+  }
 
   async function send() {
-    if (!body.trim()) return;
+    if (sending || !body.trim()) return;
     setSending(true);
     try {
       await invoke("pr_add_comment", {
@@ -192,9 +201,7 @@ export function PullRequestConversationTab({
                     </div>
                     {e.data.body.trim() ? (
                       <div className="mt-2 text-[0.8125rem] leading-relaxed text-foreground [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/80 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em]">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {e.data.body}
-                        </ReactMarkdown>
+                        <PrReviewMarkdown prUrl={prUrl} headSha={headSha} path={path} number={number} body={e.data.body} onPosted={annotationPosted} />
                       </div>
                     ) : null}
                   </m.div>
@@ -232,9 +239,7 @@ export function PullRequestConversationTab({
                     <PrT3Menu comment={{ author: c.author, body: c.body, path: c.file_path, line: c.line }} />
                   </div>
                   <div className="mt-2 text-[0.8125rem] leading-relaxed text-foreground [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted/80 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.85em]">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {c.body}
-                    </ReactMarkdown>
+                    <PrReviewMarkdown prUrl={prUrl} headSha={headSha} path={path} number={number} body={c.body} onPosted={annotationPosted} />
                   </div>
                 </m.div>
               );

@@ -245,3 +245,76 @@ test("P1-3 remote A→B→A: PR detail, editor and draft action follow the live 
   await expect.poll(async () => (await draftOps(page)).at(-1)).toEqual({ op: "convertPullRequestToDraft", id: "PR_leon_o/a_1" });
   expect(loopErrors(errors)).toEqual([]);
 });
+
+test("draw on an HTML attachment and read the posted annotation in the conversation", async ({ page }) => {
+  const src = "https://example.test/screen.svg";
+  await page.route(src, route => route.fulfill({
+    contentType: "image/svg+xml",
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="silver"/></svg>',
+  }));
+  await open(page, "ghp1-pr", { data: { hub: true, description: '<img alt="Settings" src="' + src + '">' } });
+  await page.getByRole("button", { name: "Annotate screenshot" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Rectangle" }).click();
+  const paper = dialog.locator("svg[viewBox='0 0 1000 1000']");
+  await expect(paper).toBeVisible();
+  const rect = (await paper.boundingBox())!;
+  await page.mouse.move(rect.x + 30, rect.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(rect.x + 60, rect.y + 60, { steps: 4 });
+  await page.mouse.up();
+  await expect(paper.locator("polyline").last()).toHaveAttribute("points", /^([^ ]+)( [^ ]+){5}$/);
+  await dialog.getByRole("textbox").fill("Align this control.");
+  await dialog.getByRole("button", { name: "Comment", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("Align this control.", { exact: true })).toBeVisible();
+  await expect(page.locator('svg[aria-hidden="true"] polyline[stroke="#d92c53"]')).toHaveCount(1);
+  const writes = (await calls(page)).filter(c => c.cmd === "pr_add_comment");
+  expect(writes).toHaveLength(1);
+  expect(writes[0].args).toMatchObject({ number: 1, path: "hub:leon@github.com/o/a" });
+});
+
+test("publish a flattened screenshot to the selected GitHub repository", async ({ page }) => {
+  const src = "https://example.test/visual.svg";
+  await page.route(src, route => route.fulfill({
+    headers: { "access-control-allow-origin": "*" }, contentType: "image/svg+xml",
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="white"/></svg>',
+  }));
+  await open(page, "ghp1-pr", { data: { hub: true, description: "![Toolbar](" + src + ")" } });
+  await page.getByRole("button", { name: "Annotate screenshot" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.locator("svg[viewBox='0 0 1000 1000']").click();
+  await dialog.getByRole("textbox").fill("Move this button.");
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Comment", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const history = await calls(page);
+  const upload = history.find(c => c.cmd === "hub_api" && c.args.method === "PUT")!;
+  expect(upload.args).toMatchObject({ path: expect.stringMatching(/^\/repos\/o\/a\/contents\/screenshots\/pr-1\//), body: { branch: "l8git-review-assets", content: expect.stringMatching(/^iVBOR/) } });
+  expect(history.find(c => c.cmd === "pr_add_comment")?.args.body).toContain("https://github.com/o/a/raw/" + "a".repeat(40));
+});
+
+test("create a draft from remote branches without a local checkout", async ({ page }) => {
+  await open(page, "ghp1-pr", { data: { hub: true } });
+  await page.getByRole("button", { name: "New pull request" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Base (target)")).toHaveValue("main");
+  await dialog.getByLabel("Compare (head)").fill("feature/toolbar");
+  await dialog.getByLabel("Title", { exact: true }).fill("Review the toolbar");
+  await dialog.getByLabel("Create as draft").check();
+  await dialog.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect((await calls(page)).find(c => c.cmd === "pr_create")?.args).toMatchObject({
+    path: "hub:leon@github.com/o/a", title: "Review the toolbar", head: "feature/toolbar", base: "main", draft: true,
+  });
+});
+
+test("review a changed image in the Hub files tab without loading a local patch", async ({ page }) => {
+  const src = "https://example.test/reviewed.png";
+  await page.route(src, route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="250" height="100"/>' }));
+  await open(page, "ghp1-pr", { data: { hub: true, files: [{ path: "ui/settings.png", raw_url: src, status: "added", additions: 0, deletions: 0 }] } });
+  await page.getByRole("button", { name: "Files", exact: true }).click();
+  await page.getByRole("button", { name: "Annotate screenshot" }).click();
+  await expect(page.getByRole("dialog").getByRole("img", { name: "ui/settings.png" })).toBeVisible();
+  expect((await calls(page)).some(c => c.cmd === "pr_file_patch")).toBe(false);
+});

@@ -210,6 +210,7 @@ pub(super) async fn bb_files(
         let deletions = s["lines_removed"].as_u64().unwrap_or(0);
         let previous_path = s["old"]["path"].as_str().filter(|previous| !previous.is_empty() && *previous != path).map(str::to_string);
         out.push(PrFile {
+            raw_url: s["new"]["links"]["self"]["href"].as_str().or_else(|| s["old"]["links"]["self"]["href"].as_str()).map(str::to_owned),
             path,
             previous_path,
             status,

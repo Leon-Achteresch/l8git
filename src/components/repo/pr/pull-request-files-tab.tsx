@@ -1,3 +1,6 @@
+import { Screenshot } from "./pr-screenshot";
+import { resolveReviewImage } from "@/lib/pr-screenshot";
+import { isHubPath } from "@/lib/hub/store";
 import { SpinIcon } from "@/components/motion/kit";
 import { UnifiedDiffBody } from "@/components/repo/commit/unified-diff-body";
 import { MediaDiffPanel } from "@/components/repo/media/media-diff-panel";
@@ -55,6 +58,7 @@ type GhReviewThread = {
 };
 
 type PrFile = {
+  raw_url?: string;
   path: string;
   /** Rename source from `pr_files`; part of the review fingerprint (ID 1). */
   previous_path?: string | null;
@@ -84,6 +88,7 @@ function refCandidates(
 export function PullRequestFilesTab({
   path,
   number,
+  prUrl,
   baseRef,
   headRef,
   headSha,
@@ -91,6 +96,7 @@ export function PullRequestFilesTab({
 }: {
   path: string;
   number: number;
+  prUrl?: string;
   baseRef?: string;
   headRef?: string;
   /** Pinned head commit; enables persistent review memory and permalinks. */
@@ -221,8 +227,15 @@ export function PullRequestFilesTab({
     };
   }, [path, number]);
 
+  const current = files?.find((f) => f.path === selected) ?? files?.[0];
+  const hostedImage = current && isHubPath(path) && isImagePath(current.path) && resolveReviewImage(
+    current.raw_url || "./" + current.path.split("/").map(encodeURIComponent).join("/"),
+    prUrl, current.status === "removed" ? baseSha : headSha,
+  );
+
   useEffect(() => {
-    if (!selected) {
+    if (!selected || hostedImage) {
+      setPatchLoading(false);
       setPatch(null);
       setPatchFailed(false);
       return;
@@ -265,7 +278,7 @@ export function PullRequestFilesTab({
     return () => {
       cancelled = true;
     };
-  }, [path, number, selected, files]);
+  }, [path, number, selected, files, hostedImage]);
 
   // Batch suggestions read expected lines only from the pinned base→head patch (never the cached unpinned one).
   const loadPinnedPatch = useCallback(
@@ -461,7 +474,7 @@ export function PullRequestFilesTab({
       </div>
     );
   }
-  if (!files || files.length === 0) {
+  if (!files || !current) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
         <FileCode2 className="h-8 w-8 text-muted-foreground/40" />
@@ -470,7 +483,6 @@ export function PullRequestFilesTab({
     );
   }
 
-  const current = files.find((f) => f.path === selected) ?? files[0];
   const isLfsPatch = looksLikeLfsPointerText(patch);
   const showMedia =
     !patchLoading &&
@@ -592,7 +604,9 @@ export function PullRequestFilesTab({
             />
           </div>
         )}
-        {showMedia && current ? (
+        {hostedImage ? (
+          <div className="overflow-auto p-4"><Screenshot key={hostedImage} src={hostedImage} alt={current.path} target={{ path, number, onPosted: loadComments }} /></div>
+        ) : showMedia && current ? (
           <MediaDiffPanel
             key={current.path}
             repoPath={path}

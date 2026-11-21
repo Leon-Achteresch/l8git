@@ -476,11 +476,34 @@ pub async fn hub_download(
     kind: String,
     id: u64,
 ) -> Result<HubDownload, String> {
-    use base64::Engine;
-    use std::time::Duration;
-    const LIMIT: usize = 64 * 1024 * 1024;
     let host = norm_host(&host)?;
     let (path, file_name) = download_path(&full_name, &kind, id)?;
+    let url = api_url(&host, Provider::GitHub, &path)?;
+    download_github_bytes(host, login, url, file_name, 64).await
+}
+
+#[tauri::command]
+pub async fn hub_screenshot_attachment(
+    host: String,
+    login: String,
+    asset_id: String,
+) -> Result<HubDownload, String> {
+    let host = norm_host(&host)?;
+    if asset_id.len() != 36 || !asset_id.bytes().enumerate().all(|(i, b)| {
+        if matches!(i, 8 | 13 | 18 | 23) { b == b'-' } else { b.is_ascii_hexdigit() }
+    }) {
+        return Err("Invalid screenshot attachment ID".into());
+    }
+    let url = format!("https://{host}/user-attachments/assets/{asset_id}");
+    download_github_bytes(host, login, url, asset_id, 12).await
+}
+
+async fn download_github_bytes(
+    host: String, login: String, url: String, file_name: String, limit_mib: usize,
+) -> Result<HubDownload, String> {
+    use base64::Engine;
+    use std::time::Duration;
+    let limit = limit_mib * 1024 * 1024;
     let (h, l) = (host.clone(), login);
     let secret = tokio::task::spawn_blocking(move || load_secret(&h, &l))
         .await
@@ -494,7 +517,6 @@ pub async fn hub_download(
         .timeout(Duration::from_secs(90))
         .build()
         .map_err(|e| e.to_string())?;
-    let url = api_url(&host, provider, &path)?;
     let mut response = authed(client.get(&url), provider, &secret)
         .send()
         .await
@@ -547,9 +569,9 @@ pub async fn hub_download(
     }
     if response
         .content_length()
-        .is_some_and(|size| size > LIMIT as u64)
+        .is_some_and(|size| size > limit as u64)
     {
-        return Err("Download exceeds the 64 MiB in-app limit; open GitHub to download it".into());
+        return Err(format!("Download exceeds the {limit_mib} MiB in-app limit; open GitHub to download it"));
     }
     let content_type = response
         .headers()
@@ -563,9 +585,9 @@ pub async fn hub_download(
         .await
         .map_err(|_| "Download interrupted".to_string())?
     {
-        if bytes.len().saturating_add(chunk.len()) > LIMIT {
+        if bytes.len().saturating_add(chunk.len()) > limit {
             return Err(
-                "Download exceeds the 64 MiB in-app limit; open GitHub to download it".into(),
+                format!("Download exceeds the {limit_mib} MiB in-app limit; open GitHub to download it"),
             );
         }
         bytes.extend_from_slice(&chunk);

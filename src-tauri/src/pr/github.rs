@@ -199,6 +199,7 @@ pub(super) async fn gh_files(
             for f in arr {
                 // Patch payload intentionally omitted — fetched on demand.
                 out.push(PrFile {
+                    raw_url: f["raw_url"].as_str().map(str::to_owned),
                     path: str_or_empty(&f["filename"]),
                     previous_path: f["previous_filename"].as_str().filter(|previous| !previous.is_empty() && Some(*previous) != f["filename"].as_str()).map(str::to_string),
                     status: str_or_empty(&f["status"]),

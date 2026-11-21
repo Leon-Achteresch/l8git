@@ -360,6 +360,7 @@ pub fn run() {
             hub::hub_use_for_git,
             hub::hub_api,
             hub::hub_download,
+            hub::hub_screenshot_attachment,
             hub::hub_task_worktree,
             hub::hub_apply_suggestions,
             hub::hub_identity_profile,
