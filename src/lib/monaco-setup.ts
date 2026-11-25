@@ -7,3 +7,16 @@ import { loader } from "@monaco-editor/react";
 // component that renders an <Editor>/<DiffEditor> (they are all lazy chunks,
 // so Monaco stays out of the startup path).
 loader.config({ monaco });
+
+monaco.editor.defineTheme("l8-light", {
+  base: "vs",
+  inherit: true,
+  rules: [],
+  colors: { "editor.background": "#fcfbf8", "editorGutter.background": "#fcfbf8" },
+});
+monaco.editor.defineTheme("l8-dark", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [],
+  colors: { "editor.background": "#15151b", "editorGutter.background": "#15151b" },
+});

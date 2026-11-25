@@ -26,7 +26,7 @@ export function applyTheme(theme: Theme) {
   void syncWindowBackground(resolved).catch(() => {});
 }
 
-const WINDOW_BG = { light: [250, 250, 250, 255], dark: [17, 17, 20, 255] } as const;
+const WINDOW_BG = { light: [245, 243, 238, 255], dark: [14, 14, 18, 255] } as const;
 
 async function syncWindowBackground(resolved: "light" | "dark") {
   if (!("__TAURI_INTERNALS__" in window)) return;

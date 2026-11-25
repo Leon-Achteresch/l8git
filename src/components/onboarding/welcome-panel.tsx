@@ -46,7 +46,7 @@ export function WelcomePanel({ onOpenRepo }: { onOpenRepo: () => void }) {
       <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
         {HIGHLIGHTS.map(({ key, icon: Icon }) => (
           <li key={key} className="flex items-start gap-2.5">
-            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/70 text-muted-foreground ring-1 ring-border/40">
+            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
               <Icon className="size-3.5" aria-hidden />
             </span>
             <span className="min-w-0">

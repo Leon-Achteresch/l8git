@@ -1,6 +1,7 @@
-import { GitPullRequest } from "lucide-react";
 import { m } from "motion/react";
 import type { ReactNode } from "react";
+
+import { Illustration } from "@/components/ui/illustration";
 
 export function PrEmptyState({ children }: { children?: ReactNode }) {
   return (
@@ -11,9 +12,7 @@ export function PrEmptyState({ children }: { children?: ReactNode }) {
       role="status"
       className="flex flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground"
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-muted/50 shadow-xs">
-        <GitPullRequest className="h-6 w-6 text-muted-foreground/60" aria-hidden />
-      </div>
+      <Illustration name="no-pull-requests" />
       <div className="max-w-[280px] leading-relaxed text-pretty">
         {children}
       </div>

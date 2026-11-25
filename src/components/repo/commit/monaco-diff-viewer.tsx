@@ -177,7 +177,7 @@ export function MonacoDiffViewer({ unifiedText, filename }: MonacoDiffViewerProp
     return () => observer.disconnect();
   }, []);
 
-  const monacoTheme = isDark ? "vs-dark" : "vs";
+  const monacoTheme = isDark ? "l8-dark" : "l8-light";
 
   const lines = useMemo(() => parseUnifiedDiff(unifiedText), [unifiedText]);
   const { original, modified } = useMemo(() => buildDiffContent(lines), [lines]);

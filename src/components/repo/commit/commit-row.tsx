@@ -190,7 +190,7 @@ function CommitRowInner({
               </span>
             ) : null}
             <span
-              className="min-w-0 flex-1 truncate text-[13px] leading-5 text-zinc-900 dark:text-zinc-100"
+              className="min-w-0 flex-1 truncate text-[13px] leading-5 text-foreground"
               title={commit.subject}
             >
               {subjectParts ? (

@@ -3,6 +3,7 @@ import { ChunkedList } from "@/components/ui/chunked-list";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { StashEntry } from "@/lib/repo-store";
 import { Archive, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Illustration } from "@/components/ui/illustration";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { StashRow } from "./stash-row";
@@ -98,7 +99,7 @@ export function StashList({
             </div>
           ) : stashes.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
-              <Archive className="h-10 w-10 opacity-20" />
+              <Illustration name="no-stash" />
               <span className="text-sm font-medium">{t("stash.none")}</span>
               <span className="max-w-[240px] text-xs opacity-80">
                 {t("stash.emptyHint")}

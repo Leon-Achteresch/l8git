@@ -88,7 +88,7 @@ export function BisectStatusBanner({ path }: { path: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900/50">
+    <div className="flex items-center gap-2 border-b border-border bg-muted/60 px-3 py-2 text-xs">
       {hasPendingBad ? (
         <XCircle className="h-3.5 w-3.5 shrink-0 text-git-removed" />
       ) : (

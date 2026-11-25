@@ -45,6 +45,7 @@ import { FolderRow } from "./commit-panel-folder-row";
 import { changeTreeItems, type ChangeTreeItem } from "@/lib/change-tree";
 import { useCommitPrefs } from "@/lib/commit-prefs";
 import type { ChangeRow, CheckState } from "./commit-panel-types";
+import { Illustration } from "@/components/ui/illustration";
 import { ChevronDown as ChevronDownData, ChevronRight as ChevronRightData } from "lucide";
 import { MorphIcon } from "@/components/ui/morph-icon";
 
@@ -456,8 +457,8 @@ function VirtualFileListInner({
       {isEmpty ? (
         <Empty className="m-2 border-0 bg-transparent">
           <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <CheckSquare className="size-5" aria-hidden />
+            <EmptyMedia>
+              <Illustration name="clean-tree" />
             </EmptyMedia>
             <EmptyTitle>{t("commitPanel.cleanTitle", { defaultValue: "Working tree clean" })}</EmptyTitle>
             <EmptyDescription>{t("commitPanel.noChangesBrief")}</EmptyDescription>

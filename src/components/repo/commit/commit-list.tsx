@@ -598,7 +598,7 @@ export function CommitList({
   return (
     <div
       ref={scrollerRef}
-      className="relative isolate h-full min-h-0 overflow-y-auto overflow-x-hidden bg-white dark:bg-zinc-950"
+      className="relative isolate h-full min-h-0 overflow-y-auto overflow-x-hidden bg-card"
       style={{ contain: "strict", overflowAnchor: "none" }}
       onFocusCapture={(event) => {
         const element = event.target;

@@ -126,7 +126,7 @@ function BranchRowInner({
       className={cn(
         'group/row relative flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-xl py-1.5 pl-2 pr-1.5 text-[0.8125rem] outline-none transition-[background-color,box-shadow,color,transform] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:ring-1 focus-visible:ring-ring',
         branch.is_current
-          ? 'bg-background font-medium text-foreground shadow-[0_1px_2px_rgb(24_24_27/0.08),0_0_0_1px_rgb(24_24_27/0.05)] dark:bg-white/10 dark:shadow-none'
+          ? 'bg-background font-medium text-foreground shadow-[0_1px_2px_rgb(54_44_24/0.08),0_0_0_1px_rgb(54_44_24/0.05)] dark:bg-white/10 dark:shadow-none'
           : 'text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground'
       )}
     >
