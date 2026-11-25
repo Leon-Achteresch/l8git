@@ -1,12 +1,12 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { m } from "motion/react";
 import {
-  BellOff,
   CheckCheck,
   ExternalLink,
   RefreshCw,
   type LucideIcon,
 } from "lucide-react";
+import { Illustration } from "@/components/ui/illustration";
 import type { ComponentType, ReactNode } from "react";
 
 import { StaggerItem, SpinIcon } from "@/components/motion/kit";
@@ -337,9 +337,7 @@ export function NotificationCenter({
         >
           {visibleCount === 0 ? (
             <div className="flex min-h-56 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-              <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <BellOff className="size-4" aria-hidden />
-              </span>
+              <Illustration name="inbox-zero" className="size-28" />
               <p className="text-sm font-medium">{emptyTitle}</p>
               <p className="max-w-72 text-xs leading-relaxed text-muted-foreground">{emptyHint}</p>
             </div>

@@ -113,7 +113,7 @@ export function RepoWorkspaceSwitch() {
                   top: (box?.bottom ?? 0) + 6,
                   left: box?.left ?? 0,
                 }}
-                className="fixed z-[80] w-[210px] overflow-hidden rounded-xl border border-border/70 bg-popover shadow-[0_10px_28px_rgba(0,0,0,0.13),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.45),0_2px_8px_rgba(0,0,0,0.3)]"
+                className="fixed z-[80] w-[210px] overflow-hidden rounded-xl border border-border/70 bg-popover shadow-[0_10px_28px_rgba(54,44,24,0.13),0_2px_8px_rgba(54,44,24,0.08)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.45),0_2px_8px_rgba(0,0,0,0.3)]"
               >
                 <p className="px-3 pb-1 pt-2.5 text-[0.625rem] font-semibold uppercase tracking-widest text-muted-foreground/60">
                   {t("repoWorkspaceSwitch.menuTitle")}

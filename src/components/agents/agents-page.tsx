@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { AgentsSidebar, type SidebarThread } from "@/components/agents/sidebar/agents-sidebar";
 import { AgentsEnter } from "@/components/agents/ui/agents-enter";
+import { Illustration } from "@/components/ui/illustration";
 import { AgentComposer, DEFAULT_PERMISSIONS, type ComposerModel } from "@/components/agents/composer";
 import { AgentContextUsage, CONTEXT_SEGMENT_COLORS } from "@/components/agents/ui/agent-context-usage";
 import { AgentStepsCard } from "@/components/agents/ui/agent-steps-card";
@@ -374,9 +375,12 @@ export function AgentsPage() {
             />
           ))}
           {!conversation && entries.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              {rows.length === 0 ? "No agent threads yet — send a message to start one." : "Select a thread or start a new one."}
-            </p>
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <Illustration name="agents-idle" className="size-36" />
+              <p className="text-sm text-muted-foreground">
+                {rows.length === 0 ? "No agent threads yet — send a message to start one." : "Select a thread or start a new one."}
+              </p>
+            </div>
           )}
           {usage && (
             <AgentContextUsage

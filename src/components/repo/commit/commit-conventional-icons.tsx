@@ -78,11 +78,11 @@ function CommitConventionalIconsInner({
     return (
       <span
         className={cn(
-          "inline-flex h-5 w-5 shrink-0 items-center justify-center self-center rounded border text-zinc-600 dark:text-zinc-300",
+          "inline-flex h-5 w-5 shrink-0 items-center justify-center self-center rounded border text-muted-foreground",
           CELL_DEFAULT,
         )}
       >
-        <GitCommit className="size-3 text-zinc-400" strokeWidth={2} />
+        <GitCommit className="size-3 text-muted-foreground/70" strokeWidth={2} />
       </span>
     );
   }
@@ -117,13 +117,13 @@ function CommitConventionalIconsInner({
         )}
       </span>
     ) : (
-      <GitCommit className="size-3 text-zinc-400" strokeWidth={2} />
+      <GitCommit className="size-3 text-muted-foreground/70" strokeWidth={2} />
     );
 
   return (
     <span
       className={cn(
-        "inline-flex h-5 w-5 shrink-0 items-center justify-center self-center rounded border text-zinc-600 dark:text-zinc-300",
+        "inline-flex h-5 w-5 shrink-0 items-center justify-center self-center rounded border text-muted-foreground",
         CELL_DEFAULT,
         typeKey && isRecognizedType && TYPE_CELL[typeKey],
       )}

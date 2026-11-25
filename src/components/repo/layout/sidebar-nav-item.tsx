@@ -73,14 +73,14 @@ export function SidebarNavItem({
         className={cn(
           "group flex-col justify-center gap-0.5 overflow-hidden px-1 active:scale-[0.97]",
           gridHeightClass,
-          "rounded-xl text-[0.6875rem] font-medium hover:bg-foreground/[0.04] data-[active=true]:bg-background data-[active=true]:font-medium data-[active=true]:text-foreground data-[active=true]:shadow-[0_1px_2px_rgb(24_24_27/0.08),0_0_0_1px_rgb(24_24_27/0.05)] dark:data-[active=true]:bg-white/10 dark:data-[active=true]:shadow-none",
+          "rounded-xl text-[0.6875rem] font-medium hover:bg-foreground/[0.04] data-[active=true]:bg-primary data-[active=true]:font-medium data-[active=true]:text-primary-foreground data-[active=true]:hover:bg-primary data-[active=true]:hover:text-primary-foreground",
         )}
       >
         {showIcon ? (
           <span
             className={cn(
               "relative shrink-0 transition-colors",
-              isActive ? "text-foreground" : "text-muted-foreground",
+              isActive ? "text-primary-foreground" : "text-muted-foreground",
             )}
           >
             {icon}
@@ -122,7 +122,7 @@ export function SidebarNavItem({
         displayMode === "icons_only"
           ? "justify-center px-1"
           : "gap-2.5 pl-2.5 pr-2 text-[0.8125rem] font-medium",
-        "rounded-xl hover:bg-foreground/[0.04] hover:text-foreground data-[active=true]:bg-background data-[active=true]:font-medium data-[active=true]:text-foreground data-[active=true]:shadow-[0_1px_2px_rgb(24_24_27/0.08),0_0_0_1px_rgb(24_24_27/0.05)] dark:data-[active=true]:bg-white/10 dark:data-[active=true]:shadow-none",
+        "rounded-xl hover:bg-foreground/[0.04] hover:text-foreground data-[active=true]:bg-primary data-[active=true]:font-medium data-[active=true]:text-primary-foreground data-[active=true]:hover:bg-primary data-[active=true]:hover:text-primary-foreground",
       )}
     >
 
@@ -130,7 +130,7 @@ export function SidebarNavItem({
         <span
           className={cn(
             "relative shrink-0 transition-colors",
-            isActive ? "text-foreground" : "text-muted-foreground",
+            isActive ? "text-primary-foreground" : "text-muted-foreground",
           )}
         >
           {icon}
@@ -146,10 +146,10 @@ export function SidebarNavItem({
           <span
             className={cn(
               "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[0.625rem] font-semibold tabular-nums",
-              emphasis
-                ? "bg-primary text-primary-foreground"
-                : isActive
-                  ? "bg-foreground/8 text-foreground"
+              isActive
+                ? "bg-foreground text-background"
+                : emphasis
+                  ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground",
             )}
           >

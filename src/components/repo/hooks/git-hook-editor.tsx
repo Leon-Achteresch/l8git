@@ -39,7 +39,7 @@ function useMonacoTheme() {
     });
     return () => observer.disconnect();
   }, []);
-  return isDark ? "vs-dark" : "vs";
+  return isDark ? "l8-dark" : "l8-light";
 }
 
 export function GitHookEditor({

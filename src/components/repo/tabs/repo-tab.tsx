@@ -182,7 +182,9 @@ export const RepoTab = memo(function RepoTab({
           isRail
             ? cn(
                 "size-9 text-sm transition-[border-radius,opacity] duration-200",
-                active ? "rounded-xl" : "rounded-[18px] opacity-85 group-hover:rounded-xl group-hover:opacity-100",
+                active
+                  ? "rounded-[18px] rounded-tr-md rounded-bl-md"
+                  : "rounded-[18px] opacity-85 group-hover:rounded-tr-md group-hover:rounded-bl-md group-hover:opacity-100",
               )
             : "size-[18px] rounded text-[0.5625rem]",
         )}

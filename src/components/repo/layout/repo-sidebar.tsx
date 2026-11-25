@@ -440,7 +440,7 @@ export function RepoSidebar() {
                   className={cn(
                     "relative w-full rounded-xl hover:bg-foreground/[0.04]",
                     branchPopoverOpen &&
-                      "bg-background text-foreground shadow-[0_1px_2px_rgb(24_24_27/0.08),0_0_0_1px_rgb(24_24_27/0.05)] dark:bg-white/10 dark:shadow-none",
+                      "bg-background text-foreground shadow-[0_1px_2px_rgb(54_44_24/0.08),0_0_0_1px_rgb(54_44_24/0.05)] dark:bg-white/10 dark:shadow-none",
                   )}
                 >
                   <GitBranch className="h-4 w-4" />

@@ -162,9 +162,9 @@ pub fn run() {
                 if let Some(window) = app.get_webview_window("main") {
                     let dark = matches!(window.theme(), Ok(tauri::Theme::Dark));
                     let color = if dark {
-                        tauri::webview::Color(10, 10, 10, 255)
+                        tauri::webview::Color(14, 14, 18, 255)
                     } else {
-                        tauri::webview::Color(250, 250, 250, 255)
+                        tauri::webview::Color(245, 243, 238, 255)
                     };
                     let _ = window.set_background_color(Some(color));
                 }

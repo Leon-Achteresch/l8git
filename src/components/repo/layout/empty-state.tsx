@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Illustration } from '@/components/ui/illustration';
 import { usePickRepo } from '@/lib/use-pick-repo';
 import { Download, FolderGit2, Plus, ArrowUpRight } from 'lucide-react';
 import { useState } from 'react';
@@ -15,11 +16,9 @@ export function EmptyState() {
   const recent = useRecentRepos(s => s.paths);
   const addRepo = useRepoStore(s => s.addRepo);
   return <div className="flex min-h-full w-full flex-col items-center justify-center overflow-y-auto bg-background px-6 py-10">
-    <div className="empty-state-grid w-full max-w-2xl rounded-3xl border border-border/70 bg-card/80 p-6 shadow-lg shadow-black/[0.04] backdrop-blur-sm sm:p-8">
-      <div className="mb-7 flex items-start justify-between gap-6">
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
-          <FolderGit2 className="size-6" strokeWidth={1.6} />
-        </div>
+    <div className="w-full max-w-2xl rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
+      <div className="mb-4 flex items-start justify-between gap-6">
+        <Illustration name="welcome" className="-mt-2 -ml-2 size-36" />
         <span className="rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-[0.6875rem] font-medium text-muted-foreground">l8git</span>
       </div>
       <h1 className="max-w-xl text-3xl font-semibold tracking-[-0.03em] text-foreground text-balance sm:text-4xl">{t('audit.welcome')}</h1>

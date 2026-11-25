@@ -46,7 +46,7 @@ function brandFor(account: GitAccount) {
   const brand = BRAND[account.host];
   return {
     label: brand?.label ?? account.name,
-    gradient: brand?.gradient ?? "from-slate-500 to-slate-700",
+    gradient: brand?.gradient ?? "from-muted-foreground to-foreground",
   };
 }
 

@@ -1,6 +1,6 @@
 import type { ITheme } from "@xterm/xterm";
 
-const DARK_BG = "#111114";
+const DARK_BG = "#121217";
 const LIGHT_BG = "#faf8f4";
 
 const DARK_THEME: ITheme = {

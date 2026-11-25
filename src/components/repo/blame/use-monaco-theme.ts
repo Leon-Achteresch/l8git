@@ -14,5 +14,5 @@ export function useMonacoTheme() {
     });
     return () => obs.disconnect();
   }, []);
-  return isDark ? "vs-dark" : "vs";
+  return isDark ? "l8-dark" : "l8-light";
 }
