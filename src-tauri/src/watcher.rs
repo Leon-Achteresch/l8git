@@ -2,7 +2,6 @@ use crate::coded;
 use crate::error::{required, Label};
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
@@ -11,18 +10,14 @@ use notify::event::{AccessKind, AccessMode, ModifyKind};
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_full::{new_debouncer_opt, Debouncer, FileIdCache, NoCache};
 
-struct Entry {
-    stop: Arc<AtomicBool>,
+#[derive(Default)]
+struct Registration {
+    started: OnceLock<Result<(), String>>,
+    stopped: Mutex<bool>,
 }
 
-impl Drop for Entry {
-    fn drop(&mut self) {
-        self.stop.store(true, Ordering::Relaxed);
-    }
-}
-
-fn registry() -> &'static Mutex<HashMap<String, Entry>> {
-    static REG: OnceLock<Mutex<HashMap<String, Entry>>> = OnceLock::new();
+fn registry() -> &'static Mutex<HashMap<String, Arc<Registration>>> {
+    static REG: OnceLock<Mutex<HashMap<String, Arc<Registration>>>> = OnceLock::new();
     REG.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -131,7 +126,7 @@ fn read_only_event(kind: EventKind) -> bool {
     )
 }
 
-// Membership changes live under the common directory, even for a .git file.
+// The common directory holds linked checkout paths and lock state.
 fn is_catalog_change(catalog: &Path, path: &Path, kind: EventKind) -> bool {
     if matches!(kind, EventKind::Access(_)) {
         return false;
@@ -141,7 +136,7 @@ fn is_catalog_change(catalog: &Path, path: &Path, kind: EventKind) -> bool {
     };
     match relative.components().count() {
         0 | 1 => true,
-        2 => relative.file_name().is_some_and(|name| name == "gitdir"),
+        2 => relative.file_name().is_some_and(|name| name == "gitdir" || name == "locked"),
         _ => false,
     }
 }
@@ -154,8 +149,32 @@ fn catalog_stamp(catalog: &Path) -> Result<Option<SystemTime>, std::io::ErrorKin
     }
 }
 
-fn catalog_members(catalog: &Path) -> std::io::Result<HashSet<std::ffi::OsString>> {
-    let mut members = HashSet::new();
+#[derive(PartialEq, Eq)]
+struct CatalogFile {
+    modified: SystemTime,
+    length: u64,
+}
+
+fn catalog_file(path: &Path) -> std::io::Result<Option<CatalogFile>> {
+    match std::fs::metadata(path) {
+        Ok(file) => Ok(Some(CatalogFile { modified: file.modified()?, length: file.len() })),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+type RegistrationFiles = (CatalogFile, Option<CatalogFile>);
+type CatalogMember = (std::ffi::OsString, RegistrationFiles);
+
+fn registration_files(path: &Path) -> std::io::Result<Option<RegistrationFiles>> {
+    let Some(gitdir) = catalog_file(&path.join("gitdir"))? else {
+        return Ok(None);
+    };
+    Ok(Some((gitdir, catalog_file(&path.join("locked"))?)))
+}
+
+fn catalog_snapshot(catalog: &Path) -> std::io::Result<Vec<CatalogMember>> {
+    let mut members = Vec::new();
     let entries = match std::fs::read_dir(catalog) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(members),
@@ -163,11 +182,29 @@ fn catalog_members(catalog: &Path) -> std::io::Result<HashSet<std::ffi::OsString
     };
     for entry in entries {
         let entry = entry?;
-        if entry.file_type()?.is_dir() && entry.path().join("gitdir").try_exists()? {
-            members.insert(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            if let Some(files) = registration_files(&entry.path())? {
+                members.push((entry.file_name(), files));
+            }
         }
     }
+    members.sort_unstable_by(|a, b| a.0.cmp(&b.0));
     Ok(members)
+}
+
+// A move or lock can leave the catalog directory's own mtime unchanged.
+// Bound the fallback I/O independently of how many linked checkouts exist.
+fn registrations_changed(catalog: &Path, members: &[CatalogMember], cursor: &mut usize) -> bool {
+    for _ in 0..members.len().min(16) {
+        let index = *cursor % members.len();
+        *cursor = index + 1;
+        let (name, previous) = &members[index];
+        match registration_files(&catalog.join(name)) {
+            Ok(Some(current)) if current == *previous => {}
+            _ => return true,
+        }
+    }
+    false
 }
 
 #[cfg_attr(target_os = "macos", allow(dead_code))]
@@ -237,23 +274,25 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
     if path.trim().is_empty() {
         return Err(required(Label::Path));
     }
-    let key = path;
-
-    {
-        let reg = registry().lock().map_err(|e| e.to_string())?;
-        if reg.contains_key(&key) {
-            return Ok(());
+    let registration = registry().lock().map_err(|err| err.to_string())?
+        .entry(path.clone()).or_default().clone();
+    let result = registration.started.get_or_init(|| start_watcher(&path, registration.clone()));
+    if result.is_err() {
+        let mut registrations = registry().lock().map_err(|err| err.to_string())?;
+        if registrations.get(&path).is_some_and(|entry| Arc::ptr_eq(entry, &registration)) {
+            registrations.remove(&path);
         }
     }
+    result.clone()
+}
 
-    let repo_path = PathBuf::from(&key);
+fn start_watcher(key: &str, registration: Arc<Registration>) -> Result<(), String> {
+    let repo_path = PathBuf::from(key);
     if !repo_path.exists() {
         return Err(coded!(PathNotFound, path = key));
     }
 
-    let emit_key = key.clone();
-    let stop = Arc::new(AtomicBool::new(false));
-    let thread_stop = stop.clone();
+    let emit_key = key.to_owned();
     let mut roots: Vec<PathBuf> = vec![repo_path.clone()];
     if let Ok(canonical) = repo_path.canonicalize() {
         if canonical != repo_path {
@@ -296,7 +335,7 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
     let stamp = catalog_path.as_deref().map(catalog_stamp);
     let members = catalog_path
         .as_deref()
-        .and_then(|path| catalog_members(path).ok());
+        .and_then(|path| catalog_snapshot(path).ok());
     let catalog = catalog_path.map(|catalog| {
         let common = catalog.parent().expect("catalog has a common directory");
         let inside_root = roots.iter().any(|root| common.starts_with(root));
@@ -323,16 +362,17 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
         let mut shallow = shallow;
         let mut members = members;
         let mut stamp = stamp;
+        let mut probe_cursor = 0;
         let mut next_probe = Instant::now() + CATALOG_PROBE_INTERVAL;
         loop {
-            if thread_stop.load(Ordering::Relaxed) {
-                break;
-            }
             let events = match rx.recv_timeout(POLL_INTERVAL) {
                 Ok(Ok(events)) => events,
                 Ok(Err(_)) | Err(RecvTimeoutError::Timeout) => Vec::new(),
                 Err(RecvTimeoutError::Disconnected) => break,
             };
+            if *registration.stopped.lock().unwrap_or_else(|err| err.into_inner()) {
+                break;
+            }
             let mut meaningful = false;
             let mut git_meta = false;
             let mut catalog_changed = false;
@@ -377,9 +417,8 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
                     attach_dir(&mut debouncer, &roots, p, depth, &mut shallow);
                 }
             }
-            // Cover catalog membership updates that the filesystem watcher
-            // coalesced away. In steady state this is at most one directory
-            // stat per active watcher each interval and no renderer request.
+            // Recover coalesced events without spawning Git or notifying the
+            // renderer until the catalog actually changes.
             if let Some((path, attach_catalog)) = &catalog {
                 let now = Instant::now();
                 if now >= next_probe {
@@ -391,17 +430,35 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
                             let _ = debouncer.watch(path, RecursiveMode::Recursive);
                         }
                     }
+                    if !catalog_changed {
+                        catalog_changed = members.as_ref().is_none_or(|known| {
+                            registrations_changed(path, known, &mut probe_cursor)
+                        });
+                    }
                     stamp = next;
                 }
             }
-            if let Some((path, _)) = catalog.as_ref().filter(|_| catalog_changed) {
+            let notify_catalog = if let Some((path, _)) = catalog.as_ref().filter(|_| catalog_changed) {
                 // One filesystem burst can arrive as multiple debounced batches.
-                // Read only after a relevant event and emit when membership changes.
-                let current = catalog_members(path).ok();
-                if current.is_none() || current != members {
-                    crate::sink::emit(WORKTREE_CATALOG_EVENT, &emit_key);
-                }
+                // Check membership, moves and lock changes once per relevant batch.
+                let current = catalog_snapshot(path).ok();
+                let changed = current != members;
                 members = current;
+                changed
+            } else {
+                false
+            };
+            if !notify_catalog && !meaningful && !git_meta {
+                continue;
+            }
+            // Stop and publish are ordered for this registration only. A
+            // replaced watcher cannot emit into a later visit to the same path.
+            let stopped = registration.stopped.lock().unwrap_or_else(|err| err.into_inner());
+            if *stopped {
+                break;
+            }
+            if notify_catalog {
+                crate::sink::emit(WORKTREE_CATALOG_EVENT, &emit_key);
             }
             if meaningful {
                 crate::sink::emit("repo-changed", &emit_key);
@@ -412,11 +469,6 @@ pub(crate) fn watch_repo_inner(path: String) -> Result<(), String> {
         }
     });
 
-    registry()
-        .lock()
-        .map_err(|e| e.to_string())?
-        .insert(key, Entry { stop });
-
     Ok(())
 }
 
@@ -426,9 +478,9 @@ pub fn unwatch_repo(path: String) -> Result<(), String> {
 }
 
 pub(crate) fn unwatch_repo_inner(path: String) -> Result<(), String> {
-    let key = path;
-    if let Ok(mut reg) = registry().lock() {
-        reg.remove(&key);
+    let registration = registry().lock().map_err(|err| err.to_string())?.remove(&path);
+    if let Some(registration) = registration {
+        *registration.stopped.lock().unwrap_or_else(|err| err.into_inner()) = true;
     }
     Ok(())
 }
@@ -436,6 +488,34 @@ pub(crate) fn unwatch_repo_inner(path: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn catalog_probe_checks_later_registrations_without_a_directory_change() {
+        let root = std::env::temp_dir().join(format!("l8git-catalog-probe-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(root.clone());
+        for index in 0..20 {
+            let entry = root.join(format!("tree-{index:02}"));
+            std::fs::create_dir(&entry).unwrap();
+            std::fs::write(entry.join("gitdir"), "first location").unwrap();
+        }
+        let members = catalog_snapshot(&root).unwrap();
+        let stamp = catalog_stamp(&root);
+        std::fs::write(root.join("tree-19/gitdir"), "a different location").unwrap();
+        assert_eq!(catalog_stamp(&root), stamp);
+        let mut cursor = 0;
+        assert!(!registrations_changed(&root, &members, &mut cursor));
+        assert!(registrations_changed(&root, &members, &mut cursor));
+        let refreshed = catalog_snapshot(&root).unwrap();
+        assert!(!registrations_changed(&root, &refreshed, &mut cursor));
+        assert!(!registrations_changed(&root, &[], &mut cursor));
+    }
 
     #[test]
     fn native_reads_do_not_queue_refreshes_but_saves_do() {

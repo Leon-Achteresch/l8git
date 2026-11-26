@@ -72,7 +72,7 @@ async fn linked_worktree_reports_external_catalog_changes_but_stays_quiet_otherw
             let _ = self.0.unwatch(1, &self.1);
         }
     }
-    let _watch = Watch(state, path.clone());
+    let watch = Watch(state, path.clone());
 
     let quiet = |phase: &str, millis: u64| {
         assert!(
@@ -99,6 +99,25 @@ async fn linked_worktree_reports_external_catalog_changes_but_stays_quiet_otherw
     assert_eq!(list.as_array().unwrap().len(), 5);
     quiet("add burst", 950);
 
+    let original = &extras.0[0];
+    let relocated = Cleanup(vec![common::scratch_path("watch-relocated")]);
+    let moved = &relocated.0[0];
+    parent.git(&["worktree", "move", original.to_str().unwrap(), moved.to_str().unwrap()]);
+    changed("move with the same registration name");
+    let list = git::list_worktrees(path.clone()).await.unwrap();
+    let resolved = moved.canonicalize().unwrap();
+    assert!(list.iter().any(|entry| PathBuf::from(&entry.path) == resolved));
+    parent.git(&["worktree", "lock", "--reason", "Testing release", moved.to_str().unwrap()]);
+    changed("lock");
+    let list = git::list_worktrees(path.clone()).await.unwrap();
+    assert!(list.iter().any(|entry| entry.is_locked && entry.lock_reason.as_deref() == Some("Testing release")));
+    parent.git(&["worktree", "unlock", moved.to_str().unwrap()]);
+    changed("unlock");
+    let list = git::list_worktrees(path.clone()).await.unwrap();
+    assert!(list.iter().all(|entry| !entry.is_locked));
+    parent.git(&["worktree", "move", moved.to_str().unwrap(), original.to_str().unwrap()]);
+    changed("move back");
+
     for extra in &extras.0 {
         parent.git(&["worktree", "remove", extra.to_str().unwrap()]);
     }
@@ -106,4 +125,12 @@ async fn linked_worktree_reports_external_catalog_changes_but_stays_quiet_otherw
     let list = json(&git::list_worktrees(path.clone()).await.unwrap());
     assert_eq!(list.as_array().unwrap().len(), 2);
     quiet("remove burst and following stat probe", 3350);
+
+    watch.0.unwatch(1, &path).unwrap();
+    parent.git(&["worktree", "add", "--detach", extras.0[0].to_str().unwrap()]);
+    quiet("an inactive checkout must not emit a pending catalog update", 3350);
+    watch.0.watch(1, &path).unwrap();
+    assert_eq!(git::list_worktrees(path.clone()).await.unwrap().len(), 3);
+    parent.git(&["worktree", "remove", extras.0[0].to_str().unwrap()]);
+    changed("fresh registration after returning");
 }
